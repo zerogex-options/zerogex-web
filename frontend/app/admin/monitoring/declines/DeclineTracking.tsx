@@ -232,7 +232,15 @@ const NUM = 'py-1.5 px-2 text-right tabular-nums align-top whitespace-nowrap';
 // Panel
 // ---------------------------------------------------------------------------
 
-export default function DeclineTracking({ mutedText, axisStroke }: { mutedText: string; axisStroke: string }) {
+export default function DeclineTracking({
+  mutedText,
+  axisStroke,
+  borderColor,
+}: {
+  mutedText: string;
+  axisStroke: string;
+  borderColor: string;
+}) {
   const [windowDays, setWindowDays] = useState<WindowDays>(90);
   const [report, setReport] = useState<DeclinePayload | null>(null);
   const [failure, setFailure] = useState<{ windowDays: WindowDays; message: string } | null>(null);
@@ -293,6 +301,7 @@ export default function DeclineTracking({ mutedText, axisStroke }: { mutedText: 
           windowLabel={windowLabel}
           mutedText={mutedText}
           axisStroke={axisStroke}
+          borderColor={borderColor}
         />
       )}
     </div>
@@ -304,11 +313,13 @@ function DeclineReportView({
   windowLabel,
   mutedText,
   axisStroke,
+  borderColor,
 }: {
   report: DeclinePayload;
   windowLabel: string;
   mutedText: string;
   axisStroke: string;
+  borderColor: string;
 }) {
   const { totals, previous, currency } = report;
   const nowMs = useMemo(() => {
@@ -417,7 +428,7 @@ function DeclineReportView({
       {/* 2 ─ Conversions or renewals? ------------------------------------ */}
       <Panel
         title="Conversions lost vs. customers lost"
-        subtitle="Each kind of charge against its own attempt volume. A declined first charge is a sale that never closed; a declined renewal is a paying customer on the way out. They are different failures, they recover at different rates, and averaging them hides both."
+        subtitle="Each kind of charge against its own attempt volume. A charge that would have been a member's FIRST payment is a sale that never closed; a declined renewal is a paying customer on the way out. They are different failures, they recover at different rates, and averaging them hides both."
       >
         <div className="overflow-x-auto -mx-2">
           <table className="w-full text-sm min-w-[860px]">
@@ -466,6 +477,39 @@ function DeclineReportView({
                 </tr>
               ))}
             </tbody>
+            {report.firstPayment && report.firstPayment.kinds.length > 1 && (
+              <tfoot>
+                <tr style={{ borderTop: `2px solid ${borderColor}` }}>
+                  <td className={TD}>
+                    <div className="font-semibold">First payment — never paid before</div>
+                    <div className="text-xs mt-0.5" style={{ color: mutedText }}>
+                      Trial conversions and no-trial first charges together. One loss either way; they are
+                      kept apart above only because the card behind a trial conversion has been on file since
+                      the trial started, and a newer card declines differently.
+                    </div>
+                  </td>
+                  <td className={NUM}>{fmtInt(report.firstPayment.attemptedInvoices)}</td>
+                  <td className={NUM}>{fmtInt(report.firstPayment.invoices)}</td>
+                  <td className={NUM}>{fmtPct(report.firstPayment.declineRate)}</td>
+                  <td className={TD} style={{ minWidth: 90 }}>
+                    <OutcomeMiniBar totals={report.firstPayment} />
+                  </td>
+                  <td className={NUM} style={{ color: RECOVERED_COLOR }}>
+                    {fmtInt(report.firstPayment.recoveredInvoices)}
+                    <div className="text-xs" style={{ color: mutedText }}>
+                      {fmtMoney(report.firstPayment.recoveredAmount, currency)}
+                    </div>
+                  </td>
+                  <td className={NUM} style={{ color: LOST_COLOR }}>
+                    {fmtInt(report.firstPayment.lostInvoices)}
+                    <div className="text-xs" style={{ color: mutedText }}>
+                      {fmtMoney(report.firstPayment.lostAmount, currency)}
+                    </div>
+                  </td>
+                  <td className={NUM}>{fmtPct(report.firstPayment.lossRate)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
         <p className="mt-3 text-xs" style={{ color: mutedText }}>

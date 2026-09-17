@@ -120,6 +120,7 @@ const CATEGORIES = new Set<string>([
   'card_problem',
   'authentication_required',
   'try_again',
+  'blocked_by_risk',
   'unknown',
 ]);
 const OUTCOMES = new Set<string>(['open', 'recovered', 'lost']);
@@ -1057,6 +1058,78 @@ function insertBackfillRow(input: {
   } catch {
     return false;
   }
+}
+
+/**
+ * Re-decide the CHARGE KIND of rows still sitting on 'unknown', using evidence
+ * that has arrived since they were written.
+ *
+ * Why they are unknown in the first place: a row reconstructed from the audit
+ * log has no billing reason — the audit message never carried one — so
+ * classification falls back to needing the $0 trial-opening invoice as proof
+ * that the subscription had a trial. And `make backfill-stripe-invoices`
+ * deliberately skips zero-amount invoices, because they are not payments. Both
+ * decisions are individually right and together they leave every reconstructed
+ * decline unclassifiable: the marker that says "this was a trial" is the one
+ * record nobody imports.
+ *
+ * What rescues them is the Stripe enrichment pass, which fetches each real
+ * invoice and stamps its actual `billing_reason`. With that on the row, the
+ * ordinary rule applies and needs no trial marker at all: a `subscription_cycle`
+ * invoice on a subscription that has never collected money IS the first charge
+ * at the end of a trial. This pass simply re-runs the classifier now that the
+ * input exists.
+ *
+ * Only ever moves a row OFF 'unknown'. It never revises a kind that was decided
+ * with better evidence — least of all one the webhook set from the
+ * subscription's own trial_end.
+ */
+export function reclassifyUnknownKinds(): { examined: number; reclassified: number } {
+  const result = { examined: 0, reclassified: 0 };
+  try {
+    const db = getDb();
+    // Grouped by invoice so every attempt on it gets the same answer: they are
+    // retries of one charge, and `hadPriorPaidCharge` is judged at the moment
+    // the invoice FIRST failed rather than per attempt.
+    const invoices = db
+      .prepare(
+        `SELECT invoice_id, subscription_id, billing_reason, MIN(failed_at) AS first_failed_at
+           FROM payment_declines
+          WHERE kind = 'unknown' AND billing_reason IS NOT NULL
+          GROUP BY invoice_id, subscription_id, billing_reason`,
+      )
+      .all() as Array<{
+      invoice_id: string;
+      subscription_id: string | null;
+      billing_reason: string;
+      first_failed_at: string;
+    }>;
+    const update = db.prepare(`UPDATE payment_declines SET kind = ? WHERE invoice_id = ? AND kind = 'unknown'`);
+    for (const row of invoices) {
+      result.examined += 1;
+      const history = row.subscription_id ? loadPaidInvoicesForSubscription(row.subscription_id) : [];
+      const hadTrialOpener = history.some(
+        (invoice) => invoice.amountPaid === 0 && invoice.billingReason?.toLowerCase() === 'subscription_create',
+      );
+      const hadPriorPaidCharge = history.some(
+        (invoice) =>
+          invoice.amountPaid > 0 &&
+          invoice.invoiceId !== row.invoice_id &&
+          invoice.paidAt < row.first_failed_at,
+      );
+      const kind = classifyAttemptKind({
+        billingReason: row.billing_reason,
+        hadPriorPaidCharge,
+        hadTrialOpener,
+      });
+      if (kind === 'unknown') continue;
+      const changed = update.run(kind, row.invoice_id) as { changes: number | bigint };
+      if (Number(changed.changes) > 0) result.reclassified += 1;
+    }
+  } catch {
+    // A classification that cannot run leaves the rows honest at 'unknown'.
+  }
+  return result;
 }
 
 /**

@@ -84,6 +84,7 @@ const {
   enrichDeclineWithReason,
   listDeclinesMissingReason,
   markDeclineReasonUnavailable,
+  reclassifyUnknownKinds,
 } = await import('../core/paymentDeclinesServer.ts');
 const { lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
 const { classifyDecline, describeDecline } = await import('../core/declineReason.ts');
@@ -143,6 +144,11 @@ if (!secretKey) {
 const pending = listDeclinesMissingReason(limit);
 if (pending.length === 0) {
   console.log('\nPass 2 — every decline on record already carries a reason. Nothing to do.');
+  console.log('\nPass 3 — classifying declines the billing reason can now place…');
+  const settled = reclassifyUnknownKinds();
+  console.log(
+    `  ${settled.examined} invoice(s) examined · ${settled.reclassified} moved off "unclassified"`,
+  );
   process.exit(0);
 }
 
@@ -202,4 +208,14 @@ for (const [category, count] of [...byCategory.entries()].sort((a, b) => b[1] - 
 }
 if (pending.length === limit) {
   console.log(`\nStopped at LIMIT=${limit}. Re-run to continue.`);
+}
+
+if (!dryRun) {
+  // Pass 3 consumes what pass 2 wrote: the real billing reason is what lets a
+  // reconstructed decline be told apart as a conversion or a renewal.
+  console.log('\nPass 3 — classifying declines the billing reason can now place…');
+  const classified = reclassifyUnknownKinds();
+  console.log(
+    `  ${classified.examined} invoice(s) examined · ${classified.reclassified} moved off "unclassified"`,
+  );
 }
