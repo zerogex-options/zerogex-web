@@ -22,6 +22,7 @@ import { type ReplayCandle } from "@/hooks/usePairReplay";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import { omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
+import { wheelAction } from "@/core/wheelZoom";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
@@ -431,13 +432,17 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     if (!node) return;
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0) return;
+      // Bare wheel → the page scrolls. Ctrl/Cmd (or pinch) → time zoom,
+      // Shift → price zoom. See core/wheelZoom.
+      const action = wheelAction({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey });
+      if (action === "page-scroll") return;
       e.preventDefault();
       const c = ctxRef.current;
       const rect = node.getBoundingClientRect();
       const px = ((e.clientX - rect.left) / Math.max(1, rect.width)) * c.width;
       const py = ((e.clientY - rect.top) / Math.max(1, rect.height)) * c.height;
       const zoomIn = e.deltaY < 0;
-      if (e.shiftKey) {
+      if (action === "zoom-price") {
         setView((prev) => {
           const factor = zoomIn ? 0.85 : 1 / 0.85;
           const newYZoom = clamp(prev.yZoom * factor, 0.05, 5);

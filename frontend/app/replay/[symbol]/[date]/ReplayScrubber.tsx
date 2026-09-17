@@ -21,6 +21,7 @@ import {
   type ExpirationSegment,
 } from '@/core/expirationGradient';
 import { pinLineLabel, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
+import { isZoomGesture } from '@/core/wheelZoom';
 import {
   replayScopeHref,
   replayScopeLabel,
@@ -1198,14 +1199,16 @@ function ReplayOverlayChart({
     return { effLo: priceCenter - half, effHi: priceCenter + half };
   }, [yLo, yHi, yZoom, priceCenter]);
 
-  // Mouse-wheel vertical zoom. Attached imperatively with { passive: false }
-  // so preventDefault suppresses page scroll while the cursor is over the
-  // chart — same pattern as the GEX Strike Profile chart.
+  // Mouse-wheel vertical zoom, on a deliberate gesture only (see
+  // core/wheelZoom) — a bare wheel scrolls the page. Attached imperatively
+  // with { passive: false } so preventDefault can suppress page scroll on the
+  // gestures we do claim; same pattern as the GEX Strike Profile chart.
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0) return;
+      if (!isZoomGesture({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })) return;
       e.preventDefault();
       const factor = e.deltaY > 0 ? Y_ZOOM_STEP : 1 / Y_ZOOM_STEP;
       setYZoom((v) => clampZoom(v * factor));

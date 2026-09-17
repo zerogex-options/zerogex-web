@@ -36,6 +36,7 @@ import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import { seriesRollNote, summarizeSeriesContracts } from '@/core/futuresContract';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
+import { isZoomGesture } from '@/core/wheelZoom';
 import ChartCaption from './ChartCaption';
 import FuturesContractBadge from './FuturesContractBadge';
 
@@ -1732,6 +1733,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (!svg) return;
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0) return;
+      // A bare wheel scrolls the page; zoom needs a deliberate gesture. The
+      // zoom buttons above the chart are the discoverable route.
+      if (!isZoomGesture({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })) return;
       e.preventDefault();
       const factor = e.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
       setZoomMul((v) => clamp(v * factor, ZOOM_MIN, ZOOM_MAX));

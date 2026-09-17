@@ -32,6 +32,7 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
+import { wheelAction } from "@/core/wheelZoom";
 import {
   cumulativeNetVolume,
   lastSessionStartIndex,
@@ -1897,19 +1898,31 @@ export default function GammaTerminalChart({
     zoomPriceRef.current = zoomPrice;
   });
 
-  // Wheel: over the candles → time zoom (anchored on the bar under the cursor);
-  // over the price axis / rail, or with Shift held → vertical price zoom.
-  // Attached natively with { passive: false } so preventDefault actually stops
-  // the page from scrolling (React's synthetic onWheel can be passive).
+  // Wheel. A bare wheel is left alone so the page scrolls — see core/wheelZoom
+  // for why. Ctrl/Cmd (or trackpad pinch) → time zoom, anchored on the bar
+  // under the cursor; Shift, or the cursor over the price axis / rail →
+  // vertical price zoom. Attached natively with { passive: false } so that
+  // preventDefault actually stops the page on the gestures we DO claim
+  // (React's synthetic onWheel can be passive).
   useEffect(() => {
     const el = svgRef.current;
     if (!el || total <= 1) return;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
+      // A horizontal trackpad swipe carries no deltaY; zooming on it would
+      // pick a direction out of thin air.
+      if (e.deltaY === 0) return;
       const rect = el.getBoundingClientRect();
       const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
+      const action = wheelAction({
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        overPriceAxis: vx > plotRight,
+      });
+      if (action === "page-scroll") return;
+      e.preventDefault();
       const factor = e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
-      if (e.shiftKey || vx > plotRight) {
+      if (action === "zoom-price") {
         zoomPriceRef.current(factor);
         return;
       }
@@ -3388,8 +3401,8 @@ export default function GammaTerminalChart({
               <ChevronsRight size={17} />
             </button>
           )}
-          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
-          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
+          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} hint="Ctrl + scroll" />
+          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} hint="Shift + scroll" />
         </div>
       </div>
 
@@ -3754,7 +3767,10 @@ const zoomBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-function ZoomCluster({ label, onIn, onOut }: { label: string; onIn: () => void; onOut: () => void }) {
+function ZoomCluster({ label, onIn, onOut, hint }: { label: string; onIn: () => void; onOut: () => void; hint?: string }) {
+  // A bare wheel scrolls the page now, so the modifier gesture only exists if
+  // something tells the reader about it. These buttons are that something.
+  const suffix = hint ? ` — or ${hint}` : "";
   return (
     <div
       className="flex items-center gap-1"
@@ -3769,10 +3785,10 @@ function ZoomCluster({ label, onIn, onOut }: { label: string; onIn: () => void; 
       <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: 34, textAlign: "right", paddingRight: 2 }}>
         {label}
       </span>
-      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})`} style={zoomBtnStyle}>
+      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})${suffix}`} style={zoomBtnStyle}>
         −
       </button>
-      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})`} style={zoomBtnStyle}>
+      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})${suffix}`} style={zoomBtnStyle}>
         +
       </button>
     </div>
