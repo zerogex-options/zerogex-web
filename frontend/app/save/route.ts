@@ -174,12 +174,16 @@ export async function POST(request: NextRequest) {
 
   // A price that doesn't map to a known SKU (a misconfigured STRIPE_PRICE_* env)
   // leaves us unable to pick a coupon cadence — don't silently un-cancel at full
-  // price; fall back to the reply-'discount' path the email already offers.
+  // price. This is the one place a human fallback is still right: the member
+  // already took the offer and our automation is what failed, so they are owed
+  // it. It no longer asks them to reply with the word "discount" — the email
+  // stopped advertising that keyword, so quoting it here would send them looking
+  // for an instruction they never received.
   if (!sku) {
     return htmlResponse(
       shell(
         'Reply and I&rsquo;ll set it up',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply <strong>&ldquo;discount&rdquo;</strong> to your cancellation email and I&rsquo;ll set up 25% off for a year by hand — no re-subscribe needed.</p>`,
+        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your cancellation email and I&rsquo;ll set up 25% off for a year by hand &mdash; no re-subscribe needed.</p>`,
       ),
       200,
     );

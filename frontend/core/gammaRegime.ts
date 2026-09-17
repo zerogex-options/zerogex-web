@@ -56,6 +56,51 @@ export function longGammaAtSpot(
 }
 
 /**
+ * The at-spot dealer gamma a surface may read, given the scope of the levels it
+ * is currently drawing. The canonical rule — every surface that can draw a
+ * non-whole-chain flip goes through this.
+ *
+ * `net_gex_at_spot` is served for the WHOLE chain, read off the spot-shift
+ * profile that also produces the canonical flip. The two are sign-consistent BY
+ * CONSTRUCTION (the engine's `_resolve_gamma_flip` returns both off the same
+ * curve), and that guarantee is what lets the badge, the flip line and the
+ * shaded bands tell one story.
+ *
+ * The guarantee holds only while the flip on screen IS that whole-chain flip.
+ * Two paths replace it with a differently-scoped level:
+ *
+ *   * an expiration filter — flip and walls are recomputed from the selected
+ *     expirations alone (the strike-profile timeseries' cumulative-net-GEX
+ *     crossing, since the spot-shift profile can't be rebuilt for a subset), so
+ *     they describe a strictly smaller book;
+ *   * rewind — flip and walls come from a historical bucket, describing an
+ *     earlier moment.
+ *
+ * Pairing either with the live whole-chain at-spot value puts two different
+ * books on the same chart: the badge can read SHORT while price sits above the
+ * flip drawn beside it. Because the shaded bands take their orientation from
+ * the badge (see {@link aboveFlipBandIsLong}), that contradiction does not stay
+ * in the badge — the regime zones paint INVERTED, short above the flip and long
+ * below, which is the one reading the chart must never show.
+ *
+ * Scoped levels therefore get `null`, which sends {@link longGammaAtSpot} to
+ * its geometric spot-vs-DRAWN-flip fallback: no dollar figure, but a badge and
+ * bands that agree with the level on screen.
+ *
+ * @param netGexAtSpot whole-chain at-spot dealer gamma, or null
+ * @param scopedLevels true when the flip/walls on screen are not the whole-chain live ones
+ */
+export function atSpotGammaForScope(
+  netGexAtSpot: number | null,
+  scopedLevels: boolean,
+): number | null {
+  if (scopedLevels) return null;
+  return typeof netGexAtSpot === "number" && Number.isFinite(netGexAtSpot)
+    ? netGexAtSpot
+    : null;
+}
+
+/**
  * Orientation of the chart's shaded regime bands.
  *
  * Returns whether the band ABOVE the flip represents the long-gamma

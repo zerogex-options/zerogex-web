@@ -58,6 +58,8 @@ import {
   isTrialConversionInvoice,
   isWithinTrialConversionWindow,
 } from '@/core/trialDunning';
+import { subscriptionPaidAt } from '@/core/subscriberBucket';
+import { acceptsSubscriptionPaymentStamp } from '@/core/subscriptionPayments';
 import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
@@ -923,7 +925,16 @@ async function syncSubscriptionToUser(
     conversionChargePending: hasConversionChargeInFlight({
       status: subscription.status,
       trialEndUnix: typeof subscription.trial_end === 'number' ? subscription.trial_end : null,
-      firstPaymentAtIso: user.first_payment_at,
+      // Per-SUBSCRIPTION, asked about the subscription being canceled. Reading
+      // the account-scoped first_payment_at here silently disarmed this for
+      // every returning member: they carry a non-null value in from an earlier
+      // subscription, so a reactivated member canceling inside the conversion
+      // hour was told "nothing changes yet on your end" and then charged.
+      subscriptionPaidAtIso: subscriptionPaidAt({
+        stripeSubscriptionId: subscription.id,
+        lastPaidSubscriptionId: user.last_paid_subscription_id,
+        lastPaidInvoiceAt: user.last_paid_invoice_at,
+      }),
       nowMs: Date.now(),
     }),
     // Stripe attaches the portal cancellation survey (feedback + free-text
@@ -985,7 +996,10 @@ async function maybeHandleCancelAckTransition(
     try {
       // One-click self-serve save link (25% off + un-cancel via app/save).
       // Best-effort: if the token secret is unset, buildSaveUrl throws and the
-      // email degrades to the evergreen reply-'discount' offer only.
+      // email goes out with NO discount offer at all — there is no manual
+      // fallback any more (see buildCancellationEmail). The acknowledgment and
+      // the cancellation survey still send, which is the part that must not be
+      // lost to a config problem.
       let saveUrl: string | null = null;
       try {
         saveUrl = buildSaveUrl(getAppUrl(), user.id);
@@ -1275,6 +1289,45 @@ async function maybeSendPaidWelcomeEmail(
   }
 }
 
+// Point users.last_paid_subscription_id at the subscription this invoice was
+// paid on. Unlike first_payment_at there is no at-most-once gate: every paid
+// invoice re-points it, so a member moving to a new subscription is carried
+// across by their first payment on it rather than by a separate clearing step.
+//
+// Not clearing is the whole design. `invoice.paid` and
+// `customer.subscription.created` arrive in no guaranteed order, so a scheme
+// that cleared the stamp whenever stripe_subscription_id changed would drop it
+// whenever the payment landed first — routine for a no-trial signup, and it
+// would park a brand-new paying member on Converting indefinitely. Comparing
+// two columns at read time is order-independent instead.
+//
+// Which writes are accepted, and why, is acceptsSubscriptionPaymentStamp in
+// core/subscriptionPayments.ts — kept there, and decided here in JS off the
+// pre-UPDATE row rather than encoded in the WHERE clause, so the rule is
+// unit-tested instead of resting on a SQL expression nothing can exercise.
+// Webhook events are processed serially inside a PM2 process, so the row read
+// above is still current; and unlike the account stamp this write is naturally
+// idempotent, so it needs no exactly-once CAS.
+function stampSubscriptionPayment(user: UserRow, subId: string): void {
+  if (
+    !acceptsSubscriptionPaymentStamp({
+      lastPaidSubscriptionId: user.last_paid_subscription_id,
+      currentSubscriptionId: user.stripe_subscription_id,
+      invoiceSubscriptionId: subId,
+    })
+  ) {
+    return;
+  }
+  const stamp = nowIso();
+  getDb()
+    .prepare(
+      `UPDATE users
+          SET last_paid_subscription_id = ?, last_paid_invoice_at = ?, updated_at = ?
+        WHERE id = ?`,
+    )
+    .run(subId, stamp, stamp, user.id);
+}
+
 // Stamp the instant this member's FIRST subscription invoice was actually paid,
 // and report the conversion to the funnel from there.
 //
@@ -1308,6 +1361,15 @@ async function maybeStampFirstPayment(invoice: Stripe.Invoice): Promise<void> {
 
   const user = findUserByCustomerId(customerId);
   if (!user) return;
+
+  // Per-SUBSCRIPTION record, written FIRST and deliberately above the
+  // once-per-account short-circuit below — a returning member's second
+  // subscription never reaches that line, which is exactly the case this
+  // exists for. Same invoice, same trial-opening exclusion, different question:
+  // "has THIS subscription been charged", which decides Full Subscriber vs
+  // Converting on the admin chart.
+  stampSubscriptionPayment(user, subId);
+
   // Cheap short-circuit — every renewal after the first exits here. The CAS
   // below is what actually makes the stamp at-most-once.
   if (user.first_payment_at != null) return;
@@ -1802,6 +1864,8 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          tier = 'public',
          stripe_subscription_id = NULL,
          stripe_price_id = NULL,
+         last_paid_subscription_id = NULL,
+         last_paid_invoice_at = NULL,
          subscription_status = ?,
          current_period_end = NULL,
          cancel_at_period_end = 0,

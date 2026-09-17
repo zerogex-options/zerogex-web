@@ -11,6 +11,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import MetricCard from '@/components/MetricCard';
 import HedgingFlowChart from '@/components/HedgingFlowChart';
 import GammaRegimeChart from '@/components/GammaRegimeChart';
+import GammaWeatherStrip from '@/components/GammaWeatherStrip';
 import { useTimeframe } from '@/core/TimeframeContext';
 import {
   latestRateFlip,
@@ -22,6 +23,7 @@ import {
   regimeLabel,
   useGammaRegimeSeries,
 } from '@/hooks/useGammaRegimeSeries';
+import { useGammaWeather } from '@/hooks/useGammaWeather';
 import { etTodayDateKey } from '@/core/utils';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 
@@ -80,6 +82,10 @@ export default function HedgingFlowPage() {
   // property of the whole book, and scoping it to 0DTE would answer a
   // different question than the flow panel above it appears to be asking.
   const { data: regime, loading: regimeLoading } = useGammaRegimeSeries(symbol);
+  // Unfiltered by the 0DTE toggle, same as the structure series: the weather
+  // read describes the whole book, and scoping it would answer a different
+  // question than the panel above it appears to be asking.
+  const { data: weather, notReady: weatherNotReady } = useGammaWeather(symbol);
 
   const latest = latestRealBar(data);
   const flip = latestRateFlip(data);
@@ -120,6 +126,22 @@ export default function HedgingFlowPage() {
 
       {data && (
         <>
+          {weather && (
+            <div className="mt-6">
+              <GammaWeatherStrip payload={weather} />
+            </div>
+          )}
+
+          {!weather && weatherNotReady && (
+            <p
+              className="mt-6 text-sm italic"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Gamma Weather needs one bar carrying both hedging flow and gamma structure.
+              It appears once the session has produced one.
+            </p>
+          )}
+
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               title="Session pressure"

@@ -44,7 +44,7 @@ const COHORTS = [
     id: 'churned',
     label: 'Churned',
     hint:
-      'subscription_lapsed=1. Automated ~1-month-after-churn win-back email owns this cohort (scripts/send-winback.mts): "what\'s new since you left" + a discount (live PROMO_END_AT promo, else reply-\'discount\'-for-25%-off). Latched via users.winback_email_sent_at.',
+      'subscription_lapsed=1. TWO sweeps own this cohort. (1) The ~1-month-after-churn win-back (scripts/send-winback.mts): "what\'s new since you left" + a discount (live PROMO_END_AT promo, else reply-\'discount\'-for-25%-off), latched once via users.winback_email_sent_at. (2) The return-intent reply (scripts/send-return-intent.mts), which fires on BEHAVIOUR instead of a calendar: a churned member with a login_success AFTER their churn gets one no-discount note answering the reason they gave on the way out. Throttled by a 90d COOLDOWN (users.return_intent_email_sent_at), not a latch, so it re-arms for every future return — the warm count below is its addressable pool.',
   },
   {
     id: 'verified-never-paid',

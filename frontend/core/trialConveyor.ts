@@ -158,9 +158,10 @@ export type ConveyorDeleteEvent = {
   day: string | null;
 };
 
-// A subscription invoice that actually got PAID (the `stripe_first_payment`
-// audit stream). Only the first one per subscription is written, so its presence
-// is proof the trial's conversion charge cleared.
+// A subscription invoice that actually got PAID. Any paid invoice on the sub
+// qualifies, renewals included — only membership is read below — and the
+// trial-OPENING $0 invoice is excluded upstream (core/subscriptionPayments.ts),
+// so a subscription appearing here is proof its conversion charge cleared.
 export type ConveyorPaymentEvent = {
   subId: string;
   day: string | null;
@@ -230,10 +231,10 @@ function dayDistance(earlier: string | null, later: string | null): number | nul
 // CONVERSION_CONFIRM_DAYS of that day revokes it and books the real outcome.
 //
 // `payments` settles that provisional booking positively instead of waiting the
-// window out: a subscription in the `stripe_first_payment` stream has had a real
-// charge clear, so its conversion is CONFIRMED and can never be revoked. That
-// stream only exists going forward, so a subscription without one still falls
-// back to the time-based rule and historical windows keep reading the same.
+// window out: a subscription in the payment stream has had a real charge clear,
+// so its conversion is CONFIRMED and can never be revoked. Those audit events
+// only exist going forward, so a subscription without one still falls back to
+// the time-based rule and historical windows keep reading the same.
 export function accumulateTrialOutcomes(
   syncs: ConveyorSyncEvent[],
   deletes: ConveyorDeleteEvent[],

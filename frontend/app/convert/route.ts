@@ -6,13 +6,30 @@ import { verifyConvertToken } from '@/core/retentionToken';
 import { resolveSaveCoupon, stackCoupon, subscriptionCouponIds, SAVE_PERCENT } from '@/core/retentionOffer';
 import { canClaimTrialConversionOffer, shouldStackTrialDiscount } from '@/core/trialOffer';
 
-// Pre-trial-end CONVERSION offer — the sibling of /save. The ~48h trial-reminder
-// email carries a one-click "lock in {SAVE_PERCENT}% off and keep going" link;
-// this route honors it by stacking the standing retention coupon onto the
+// Pre-trial-end CONVERSION offer.
+//
+// RETIRED: nothing mints links to this route any more. The ~48h trial reminder
+// used to carry a signed one-click "take {SAVE_PERCENT}% off" link, which handed
+// a discount to the highest-intent cohort there is — a trialer with a card on
+// file, about to be charged automatically — without them asking. It also spent
+// the once-per-account retention latch below, so a member who took it here and
+// later cancelled found the cancellation email's save button already claimed.
+// The 25% is a win-back lever now (/save, and the ~1-month win-back email).
+//
+// The route is kept alive rather than deleted so the last reminders sent before
+// the change don't 404 on anyone who clicks. It expires on its own: claiming
+// requires subscription_status === 'trialing', so every outstanding link goes
+// inert once that trial converts — within ~48h of the mail that carried it.
+// Safe to delete once none are outstanding.
+//
+// It honors a valid link by stacking the standing retention coupon onto the
 // member's TRIALING subscription so the trial-end charge (and the following
 // year) is discounted, without an operator. Latched one claim per account via
-// the SAME users.retention_offer_claimed_at as /save, so a member gets at most
-// one retention/conversion discount ever.
+// the SAME users.retention_offer_claimed_at as /save.
+//
+// Unlike /save, nothing here gates access: the trial converts on its own whether
+// or not this is claimed, so the copy must never imply the member is clicking to
+// stay subscribed. Claiming moves the PRICE, nothing else.
 //
 // GET renders a confirmation page with NO side effect (email link-prefetchers
 // like Outlook SafeLinks must not silently claim). The visible button POSTs here
@@ -82,7 +99,7 @@ function shell(heading: string, bodyHtml: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZeroGEX — Keep your access</title></head>
+<title>ZeroGEX — Your subscription</title></head>
 <body style="margin:0; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
     <div style="font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#12283c;">zerogex<span style="color:#f45854;">.io</span></div>
@@ -113,7 +130,7 @@ const NOT_TRIALING_PAGE = shell(
 );
 const ALREADY_DISCOUNTED_PAGE = shell(
   'Your rate is already locked in',
-  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You already have an introductory rate on your account, so you&rsquo;re getting the deal — no need to stack another. Just keep going and that&rsquo;s what you&rsquo;ll be charged when your trial ends.</p>`,
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You already have an introductory rate on your account, so you&rsquo;re getting the deal — no need to stack another. Your trial converts automatically at that rate, so there&rsquo;s nothing for you to do.</p>`,
 );
 
 export async function GET(request: NextRequest) {
@@ -130,19 +147,20 @@ export async function GET(request: NextRequest) {
   const action = `/convert?u=${encodeURIComponent(u!)}&t=${encodeURIComponent(t!)}`;
   const body = `
     <p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0 0 18px;">
-      Enjoying ZeroGEX? Lock in <strong>${SAVE_PERCENT}% off for a full year</strong> before your trial ends and
-      keep your access going — no re-entering a card, nothing else to do. You&rsquo;ll simply be charged the
-      discounted rate when your trial converts.
+      Your trial turns into a paid subscription automatically, so your access continues either way.
+      This offer changes the <strong>price</strong> only: take <strong>${SAVE_PERCENT}% off for a full year</strong>,
+      and that&rsquo;s the rate you&rsquo;ll be charged when your trial converts. No re-entering a card.
     </p>
     <form method="POST" action="${escapeHtml(action)}" style="margin:0;">
       <button type="submit" style="display:inline-block; padding:13px 22px; background:#f5b400; color:#000; font-weight:700; font-size:15px; border:none; border-radius:8px; cursor:pointer;">
-        Lock in ${SAVE_PERCENT}% off &amp; keep my access
+        Take ${SAVE_PERCENT}% off
       </button>
     </form>
     <p style="font-size:13px; line-height:1.5; color:#8a97a3; margin:16px 0 0;">
-      Not ready? Just ignore this — nothing changes, and you can still cancel anytime before your trial ends.
+      Not interested? Just ignore this — your subscription starts as normal at the standard rate, and you
+      can still cancel anytime before your trial ends.
     </p>`;
-  return htmlResponse(shell(`Lock in ${SAVE_PERCENT}% off to keep going`, body), 200);
+  return htmlResponse(shell(`Take ${SAVE_PERCENT}% off your subscription`, body), 200);
 }
 
 export async function POST(request: NextRequest) {
@@ -170,7 +188,10 @@ export async function POST(request: NextRequest) {
     return htmlResponse(
       shell(
         'Reply and I&rsquo;ll set it up',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply <strong>&ldquo;discount&rdquo;</strong> to your trial-reminder email and I&rsquo;ll set up ${SAVE_PERCENT}% off for a year by hand.</p>`,
+        // The member already took the offer and our automation is what failed,
+        // so a human fallback is right here. No magic keyword: the emails never
+        // taught one, so asking for it would send them hunting for nothing.
+        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your trial-reminder email and I&rsquo;ll set up ${SAVE_PERCENT}% off for a year by hand.</p>`,
       ),
       200,
     );

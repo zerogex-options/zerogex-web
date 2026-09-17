@@ -31,6 +31,12 @@ export const TelemetryEvent = {
   ForecastShareClicked: 'forecast_share_clicked',
   /** GEX Replay snapshot share button clicked (client, /replay/[date]). */
   ReplayShareClicked: 'replay_share_clicked',
+  /** Daily Replay expiration scope toggled (client, /replay/[symbol]/[date]).
+   *  The `scope` property records which book was asked for: all | 0dte. This
+   *  is the read we cannot infer from pageviews — the 0DTE scope is a
+   *  same-URL toggle, so how often people actually reach for the same-day
+   *  book only shows up here. */
+  ReplayExpirationScopeChanged: 'replay_expiration_scope_changed',
   /** Free gamma-levels daily snapshot share/copy button clicked (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). The `channel`
    *  property records the surface: copy | x | reddit | stocktwits | native. */
@@ -38,6 +44,27 @@ export const TelemetryEvent = {
   /** Free TradingView Pine indicator copied / downloaded / opened (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). */
   TradingViewIndicatorClicked: 'tradingview_indicator_clicked',
+  /** Something copied from the /embed builder (client). The `symbol`, `theme`
+   *  and `host` properties record what was configured, `action` records
+   *  copy | copy_failed, and `format` records WHICH artifact was taken:
+   *  iframe (the embeddable widget) | image (the PNG card URL).
+   *
+   *  This is the top of the distribution funnel the widget exists for: a copy
+   *  here should later show up as referral sessions carrying
+   *  `utm_source=embed`, and the gap between the two counts is how many
+   *  snippets were taken but never published.
+   *
+   *  The `format` split is the one that decides what to build next. The image
+   *  exists because Substack, Medium, Discord and email refuse iframes; if it
+   *  turns out to be what most people take, that is the larger audience
+   *  saying so.
+   *
+   *  `surface` records where the copy happened: builder (the /embed page) |
+   *  levels_page (the block on each free /<ticker>-gamma-levels page). The
+   *  levels pages carry almost all of the organic traffic, so that split
+   *  answers whether the widget needs its own destination at all or simply
+   *  needed to be where the readers already were. */
+  EmbedSnippetCopied: 'embed_snippet_copied',
   /** NinjaTrader 8 NinjaScript indicator downloaded, or its "get your API key"
    *  CTA clicked (client, the four gamma-levels pages). The `action` property
    *  records which: download (.cs source) | download_package (NT8 .zip) |

@@ -2,6 +2,16 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
+import {
+  PALETTE_COOKIE,
+  THEME_COOKIE,
+  normalizePalette,
+  normalizeTheme,
+} from '@/core/appearance';
+
+// Appearance cookies outlive a session on purpose: they are a preference, and
+// the point is that the look survives signing out and back in.
+const APPEARANCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
@@ -1482,6 +1492,72 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
 // modal, so it never greets them again (across devices — the flag lives on the
 // user row, not just sessionStorage). Idempotent: writing the same latch twice
 // is harmless; the first non-null value is what "seen" means.
+/**
+ * Appearance saved against the account. The browser cookie is still what the
+ * server paints from — this is the copy that survives a new device, a cleared
+ * cookie jar, or a browser that expires script-written cookies early (Safari's
+ * ITP and Brave's shields both do), and that seeds the cookie again at login.
+ */
+export function readAccountAppearance(userId: string): { theme: string | null; palette: string | null } {
+  const row = getDb()
+    .prepare('SELECT ui_theme, ui_palette FROM users WHERE id = ?')
+    .get(userId) as { ui_theme?: string | null; ui_palette?: string | null } | undefined;
+  return { theme: row?.ui_theme ?? null, palette: row?.ui_palette ?? null };
+}
+
+/**
+ * Persist the member's appearance. Values are normalized before they land, so
+ * a retired palette id is stored as its successor and anything unrecognized
+ * becomes the default rather than being written through.
+ */
+export async function saveAppearanceForRequest(
+  request: NextRequest,
+  input: { theme?: unknown; palette?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const theme = normalizeTheme(typeof input.theme === 'string' ? input.theme : null);
+  const palette = normalizePalette(typeof input.palette === 'string' ? input.palette : null);
+  const now = nowIso();
+  getDb()
+    .prepare('UPDATE users SET ui_theme = ?, ui_palette = ?, updated_at = ? WHERE id = ?')
+    .run(theme, palette, now, data.user.id);
+
+  return {
+    theme,
+    palette,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/**
+ * Seed the appearance cookies from the account. Called where a session is
+ * established — login, register, OAuth — so a member signing in on a new
+ * browser gets their own theme on the very first render rather than the site
+ * default followed by a repaint. Deliberately NOT called on ordinary session
+ * validation: doing so on every request would overwrite a change made in this
+ * browser before it had a chance to save.
+ */
+export function applyAppearanceCookies(response: NextResponse, userId: string) {
+  const stored = readAccountAppearance(userId);
+  if (!stored.theme && !stored.palette) return;
+  const common = {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: APPEARANCE_COOKIE_MAX_AGE,
+  };
+  if (stored.theme) {
+    response.cookies.set({ name: THEME_COOKIE, value: normalizeTheme(stored.theme), ...common });
+  }
+  if (stored.palette) {
+    response.cookies.set({ name: PALETTE_COOKIE, value: normalizePalette(stored.palette), ...common });
+  }
+}
+
 export async function markProWelcomeSeenForRequest(request: NextRequest) {
   const data = await getSessionFromRequest(request);
   if (!data) return null;
