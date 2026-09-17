@@ -39,6 +39,7 @@ import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import { UI_COOKIE } from "@/core/uiCookies";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
+import PageSnapshotButton from "./PageSnapshotButton";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -409,6 +410,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                   {theme === "dark" ? <Moon size={isCollapsed ? 16 : 18} /> : <Sun size={isCollapsed ? 16 : 18} />}
                 </button>
                 <ThemeDropdown />
+                {isCollapsed && <PageSnapshotButton compact />}
                 {isCollapsed && <LanguageDropdown compact />}
                 {isCollapsed && <AccountMenu align="start" compact />}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
@@ -557,6 +559,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
+                <PageSnapshotButton />
                 <Link href="/search" aria-label="Search" className="zg-icon-btn">
                   <Search size={18} />
                 </Link>
@@ -601,6 +604,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <PageSnapshotButton compact />
               <Link href="/search" aria-label="Search" className="zg-icon-btn zg-icon-btn--sm">
                 <Search size={16} />
               </Link>
