@@ -8,7 +8,8 @@ import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
+import DataUnavailable from '@/components/DataUnavailable';
 
 // Public permalink for one trading day's Gamma Forecast Card.
 //
@@ -147,9 +148,12 @@ function fmtRatioOfNormal(ratio: number | null): string {
   return `${ratio.toFixed(2)}× normal`;
 }
 
-async function loadForecast(day: string, symbol: string): Promise<ForecastPayload | null> {
+// Returns the RESULT, not the payload: this page's caller has to tell a date
+// the API has no forecast for (a real 404) apart from the API not answering
+// (a 200 that says so). See components/DataUnavailable.
+async function loadForecast(day: string, symbol: string) {
   const qs = new URLSearchParams({ symbol }).toString();
-  return serverApiGet<ForecastPayload>(`/api/forecast/${day}?${qs}`, REVALIDATE_SECONDS);
+  return serverApiGetResult<ForecastPayload>(`/api/forecast/${day}?${qs}`, REVALIDATE_SECONDS);
 }
 
 async function loadStats(symbol: string): Promise<RollingStats | null> {
@@ -169,7 +173,12 @@ export async function generateMetadata({
   if (!isValidDate(date)) {
     return { title: 'Forecast not found — ZeroGEX', robots: { index: false, follow: false } };
   }
-  const data = await loadForecast(date, sym);
+  // Metadata does not need the missing/unavailable distinction: both fall back
+  // to the generic copy below, which is correct either way. Unwrap to the
+  // nullable shape. The request is deduped against the page component's by the
+  // Next fetch cache, so this costs nothing.
+  const forecast = await loadForecast(date, sym);
+  const data = forecast.ok ? forecast.data : null;
   const human = formatHumanDate(date);
   const url = `${SITE_URL}/forecast/${sym}/${date}`;
   const hasReceipt = data?.receipt != null;
@@ -211,8 +220,21 @@ export default async function ForecastPage({
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
-  const [data, stats] = await Promise.all([loadForecast(date, sym), loadStats(sym)]);
-  if (!data) notFound();
+  const [result, stats] = await Promise.all([loadForecast(date, sym), loadStats(sym)]);
+  // A date with no forecast is genuinely gone and says so with a 404. A
+  // backend that did not answer is not evidence of that, and 404ing on it
+  // would de-index this permalink the next time a crawl caught an outage.
+  if (!result.ok && result.reason === 'missing') notFound();
+  if (!result.ok) {
+    return (
+      <DataUnavailable
+        what={`${sym} forecast for ${formatHumanDate(date)}`}
+        backHref={sym === 'SPY' ? '/forecast' : `/forecast?symbol=${sym}`}
+        backLabel="Forecasts"
+      />
+    );
+  }
+  const data = result.data;
 
   const morning = data.morning;
   const receipt = data.receipt;

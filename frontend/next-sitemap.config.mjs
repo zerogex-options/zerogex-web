@@ -144,6 +144,13 @@ const config = {
     // crawler's GET with 405. It is dynamic so it is not auto-discovered today,
     // but listing it keeps that true if the route config ever changes.
     '/mcp',
+    // The per-symbol widget frames. Route handlers rather than pages, so they
+    // are not auto-discovered today; listed for the same defensive reason as
+    // /mcp. They serve X-Robots-Tag: noindex because they are thin by design
+    // and repeat across every host that embeds one — they must never compete
+    // with the /<ticker>-gamma-levels page each of them advertises. The
+    // /embed builder page itself IS indexable and is listed below.
+    '/embed/*',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',
@@ -177,6 +184,7 @@ const config = {
       '/chart',
       '/collective2-strategy-data',
       '/education',
+      '/embed',
       '/forecast',
       '/giving',
       '/guides',

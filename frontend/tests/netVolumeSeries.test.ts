@@ -4,9 +4,10 @@
 // selected.
 //
 // What these pin down is the arithmetic a trader reads off the pane: the total
-// runs from the day's first bar (not from the left edge of the viewport), it
-// restarts on each ET trading date, and the area changes color exactly where
-// the curve crosses zero rather than at the next bar.
+// covers the most recent session only — it starts at that session's first bar
+// (not at the left edge of the viewport) and every earlier bar is exactly zero
+// — and the area changes color exactly where the curve crosses zero rather
+// than at the next bar.
 //
 // The module is pure (no window / React), so it imports directly with no stub.
 import test from 'node:test';
@@ -17,8 +18,9 @@ const {
   netVolumeAreaPaths,
   netVolumeDomain,
   netVolumeScale,
-  sessionStartIndices,
+  lastSessionStartIndex,
   signedAreaSegments,
+  tradingSessionKeyFor,
   VOLUME_MODE_LABELS,
 } = await import('../core/netVolumeSeries.ts');
 
@@ -44,23 +46,43 @@ test('the total is a running up-minus-down sum through each bar', () => {
   assert.deepEqual(values, [600, -100, -100, 300]);
 });
 
-test('the total restarts at zero on each ET trading date', () => {
+test('only the most recent session accumulates; every earlier bar is zero', () => {
   // 1_440 minutes on is the next calendar day in ET as well as UTC.
   const values = cumulativeNetVolume([
-    bar(0, 1_000, 0),
-    bar(5, 500, 0), // day one ends at +1_500
-    bar(1_440, 100, 400), // day two opens on its own: −300
+    bar(0, 1_000, 0), // a settled session: contributes nothing
+    bar(5, 500, 0),
+    bar(1_440, 100, 400), // the latest session opens on its own: −300
     bar(1_445, 50, 0), // −250
   ]);
-  assert.deepEqual(values, [1_000, 1_500, -300, -250]);
+  assert.deepEqual(values, [0, 0, -300, -250]);
 });
 
-test('resetPerDay off accumulates across the whole window (daily candles)', () => {
+test('a series inside one session accumulates from its first bar', () => {
+  const values = cumulativeNetVolume([bar(0, 1_000, 0), bar(5, 0, 400)]);
+  assert.deepEqual(values, [1_000, 600]);
+});
+
+test('the window scope accumulates across every bar (daily candles)', () => {
   const values = cumulativeNetVolume(
     [bar(0, 1_000, 0), bar(1_440, 100, 400), bar(2_880, 0, 200)],
-    { resetPerDay: false },
+    { scope: 'window' },
   );
   assert.deepEqual(values, [1_000, 700, 500]);
+});
+
+test('a futures session runs from the 18:00 ET open, not from midnight', () => {
+  // Bars are offsets from 09:30 ET, so +7h30 is 17:00 ET (the CME maintenance
+  // break, still the prior session), +9h30 is 19:00 ET (the session that
+  // settles the NEXT day), and +15h30 is 01:00 ET — the same futures session,
+  // carried across midnight.
+  const overnight = [
+    bar(7 * 60 + 30, 900, 0), // 17:00 ET — prior session
+    bar(9 * 60 + 30, 100, 0), // 19:00 ET — the new session opens
+    bar(15 * 60 + 30, 0, 400), // 01:00 ET the next day — same session
+  ];
+  assert.deepEqual(cumulativeNetVolume(overnight, { symbol: 'ES' }), [0, 100, -300]);
+  // A cash symbol keys on the calendar date, so midnight does start a session.
+  assert.deepEqual(cumulativeNetVolume(overnight, { symbol: 'SPY' }), [0, 0, -400]);
 });
 
 test('a bar with a non-finite volume counts as zero rather than poisoning the total', () => {
@@ -78,10 +100,38 @@ test('an empty series has no points', () => {
 
 // ── Session boundaries ───────────────────────────────────────────────────────
 
-test('session starts mark the first bar of each ET trading date', () => {
-  const starts = sessionStartIndices([bar(0, 0, 0), bar(5, 0, 0), bar(1_440, 0, 0), bar(1_445, 0, 0)]);
-  assert.deepEqual(starts, [0, 2]);
-  assert.deepEqual(sessionStartIndices([]), []);
+test('the session start is the first bar of the last ET trading date', () => {
+  const bars = [bar(0, 0, 0), bar(5, 0, 0), bar(1_440, 0, 0), bar(1_445, 0, 0)];
+  assert.equal(lastSessionStartIndex(bars), 2);
+  // Nothing but one session (or nothing at all) starts at the first bar.
+  assert.equal(lastSessionStartIndex(bars.slice(0, 2)), 0);
+  assert.equal(lastSessionStartIndex([]), 0);
+});
+
+test('the session start follows the right edge, not the wall clock', () => {
+  // Handed only the bars through an edge inside the FIRST day, the session
+  // resolved is that day's — which is what a panned-back view has to measure.
+  const bars = [bar(0, 0, 0), bar(5, 0, 0), bar(1_440, 0, 0)];
+  assert.equal(lastSessionStartIndex(bars.slice(0, 2)), 0);
+  assert.equal(lastSessionStartIndex(bars), 2);
+});
+
+test('the session key is the ET date for cash and the settle date for futures', () => {
+  // Morning bars key the same either way: 09:30 ET is before any 18:00 open.
+  assert.equal(tradingSessionKeyFor(BAR(0), 'SPY'), '2026-08-17');
+  assert.equal(tradingSessionKeyFor(BAR(0), 'ES'), '2026-08-17');
+  // 19:00 ET is the next futures session; the calendar date still reads today.
+  assert.equal(tradingSessionKeyFor(BAR(9 * 60 + 30), 'ES'), '2026-08-18');
+  assert.equal(tradingSessionKeyFor(BAR(9 * 60 + 30), 'SPY'), '2026-08-17');
+  // 01:00 ET the next morning: one session for both, by two different routes.
+  assert.equal(tradingSessionKeyFor(BAR(15 * 60 + 30), 'ES'), '2026-08-18');
+  assert.equal(tradingSessionKeyFor(BAR(15 * 60 + 30), 'SPY'), '2026-08-18');
+  // 22:00Z on Aug 31 is 18:00 ET — the session that settles on Sep 1, rolling
+  // the month. 04:00Z on Sep 1 is midnight ET, which must NOT roll: en-US
+  // formats it as hour "24" unless the formatter pins hourCycle h23.
+  assert.equal(tradingSessionKeyFor('2026-08-31T22:00:00Z', 'ES'), '2026-09-01');
+  assert.equal(tradingSessionKeyFor('2026-09-01T04:00:00Z', 'ES'), '2026-09-01');
+  assert.equal(tradingSessionKeyFor('not a date', 'ES'), '');
 });
 
 // ── Sign-split areas ─────────────────────────────────────────────────────────

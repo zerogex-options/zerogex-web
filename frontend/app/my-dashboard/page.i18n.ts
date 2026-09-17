@@ -3,6 +3,8 @@ import type { PageDictionary } from '@/core/LanguageContext';
 export const dict: PageDictionary = {
   en: {
     yourBoard: 'Your board',
+    hideControls: 'Hide board controls',
+    showControls: 'Show board controls',
     myDashboard: 'My Dashboard',
     heroSubtitle: 'Build a personal command center from the pieces of ZeroGEX you use most.',
     resetBoardTitle: 'Reset board',
@@ -36,6 +38,8 @@ export const dict: PageDictionary = {
   },
   it: {
     yourBoard: 'La tua bacheca',
+    hideControls: 'Nascondi i controlli della bacheca',
+    showControls: 'Mostra i controlli della bacheca',
     myDashboard: 'La mia Dashboard',
     heroSubtitle: 'Crea un centro di comando personale con gli elementi di ZeroGEX che usi di più.',
     resetBoardTitle: 'Ripristina bacheca',
@@ -69,6 +73,8 @@ export const dict: PageDictionary = {
   },
   de: {
     yourBoard: 'Dein Board',
+    hideControls: 'Board-Steuerung ausblenden',
+    showControls: 'Board-Steuerung einblenden',
     myDashboard: 'Mein Dashboard',
     heroSubtitle: 'Baue dir eine persönliche Kommandozentrale aus den ZeroGEX-Bausteinen, die du am meisten nutzt.',
     resetBoardTitle: 'Board zurücksetzen',
@@ -102,6 +108,8 @@ export const dict: PageDictionary = {
   },
   es: {
     yourBoard: 'Tu tablero',
+    hideControls: 'Ocultar los controles del tablero',
+    showControls: 'Mostrar los controles del tablero',
     myDashboard: 'Mi Dashboard',
     heroSubtitle: 'Crea un centro de mando personal con las piezas de ZeroGEX que más usas.',
     resetBoardTitle: 'Restablecer tablero',
@@ -135,6 +143,8 @@ export const dict: PageDictionary = {
   },
   fr: {
     yourBoard: 'Votre tableau',
+    hideControls: 'Masquer les commandes du tableau',
+    showControls: 'Afficher les commandes du tableau',
     myDashboard: 'Mon Dashboard',
     heroSubtitle: 'Créez un centre de commande personnel avec les éléments de ZeroGEX que vous utilisez le plus.',
     resetBoardTitle: 'Réinitialiser le tableau',

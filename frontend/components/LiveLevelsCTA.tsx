@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, BarChart2 } from 'lucide-react';
+import { ArrowRight, BarChart2, Code2 } from 'lucide-react';
 
 type Props = {
   /**
@@ -73,6 +73,35 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
           </Link>
         ))}
       </div>
+      {/* The publisher's exit, for the one reader in this audience who is not
+          here to trade. These pages rank for the definitional queries
+          ("what is a gamma wall", "gex tools") that anyone WRITING about
+          market structure searches first, which makes them the second-best
+          place on the site to hand someone the widget — and /embed is
+          otherwise reachable only from the footer and the levels pages.
+
+          A link rather than the copy-buttons block those pages carry. That
+          block earns its size by being pre-filled with the page's own symbol,
+          and an article about gamma walls has no symbol: a copy button here
+          would have to pick SPX arbitrarily, which is exactly the "what you
+          copy is what you are looking at" property that justified it. One
+          line, and the builder does the rest. */}
+      <p className="mt-5 text-sm leading-7 text-[var(--color-text-secondary)]">
+        {/* Inline, not a flex child: Tailwind's preflight makes svg display:block,
+            and in a flex row this icon wrapped onto a line of its own above the
+            sentence it belongs to. */}
+        <Code2
+          size={15}
+          className="mr-1.5 inline align-[-2px] text-[var(--color-warning)]"
+          aria-hidden="true"
+        />
+        Writing about this? Put the same levels on your own site with a{' '}
+        <Link href="/embed" className={linkClass}>
+          free embeddable card
+        </Link>{' '}
+        &mdash; one line of HTML, or a PNG for Substack and Discord. No account, no key.
+      </p>
+
       <p className="mt-5 text-sm leading-7 text-[var(--color-text-secondary)]">
         Or open the live{' '}
         <Link href="/real-time-gex-0dte" className={linkClass}>

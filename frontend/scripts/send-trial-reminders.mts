@@ -42,7 +42,6 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 import { buildTrialReminderEmail, sendTrialReminderEmail } from '../core/mailer.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
-import { buildConvertUrl } from '../core/retentionToken.ts';
 import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 import {
   classifyTrialEngagement,
@@ -384,10 +383,6 @@ const NEXT_PUBLIC_APP_URL =
 // Optional: used only to enrich the reminder with the exact post-trial charge
 // and the card on file. Absent key => reminders still send, minus that line.
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || envLocal.STRIPE_SECRET_KEY;
-// Optional: signs the one-click /convert offer link the reminder carries. Absent
-// => the reminder still sends, just without the "lock in a discount" incentive.
-const ZEROGEX_END_USER_TOKEN_SECRET =
-  process.env.ZEROGEX_END_USER_TOKEN_SECRET || envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
 
 if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
@@ -399,21 +394,12 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
-if (ZEROGEX_END_USER_TOKEN_SECRET) {
-  process.env.ZEROGEX_END_USER_TOKEN_SECRET = ZEROGEX_END_USER_TOKEN_SECRET;
-}
-
-// Best-effort signed /convert offer link for the reminder's conversion incentive.
-// Returns null (no incentive shown) when the app URL or token secret is unset, or
-// on any signing error — the reminder still sends as the plain courtesy nudge.
-function convertUrlFor(userId: string): string | null {
-  if (!NEXT_PUBLIC_APP_URL || !ZEROGEX_END_USER_TOKEN_SECRET) return null;
-  try {
-    return buildConvertUrl(NEXT_PUBLIC_APP_URL, userId);
-  } catch {
-    return null;
-  }
-}
+// This reminder carries NO discount. It used to mint a signed one-click
+// /convert link offering 25% off for a year — handed unprompted to a trialer
+// with a card on file who was about to be charged anyway, and spending the
+// once-per-account retention latch (users.retention_offer_claimed_at) that the
+// cancellation save needs. The 25% is a win-back lever now; see the note on
+// TrialReminderEmailOptions in core/mailer.ts.
 
 if (cliArgs.previewTo) {
   const sample = new Date(Date.now() + TARGET_HOURS * 3600_000).toISOString();
@@ -424,7 +410,6 @@ if (cliArgs.previewTo) {
   await sendTrialReminderEmail(cliArgs.previewTo, {
     trialEndIso: sample,
     billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' },
-    convertOfferUrl: convertUrlFor('preview_user'),
   });
   console.log('Preview sent.');
   process.exit(0);
@@ -494,7 +479,6 @@ if (cliArgs.render) {
   const { subject, html, text } = buildTrialReminderEmail({
     trialEndIso: user.current_period_end,
     billing,
-    convertOfferUrl: convertUrlFor(user.id),
     dormant: shouldSendDormantTrialCopy(renderEngagement),
   });
 
@@ -663,7 +647,6 @@ for (const user of eligible) {
     await sendTrialReminderEmail(user.email, {
       trialEndIso: user.current_period_end,
       billing,
-      convertOfferUrl: convertUrlFor(user.id),
       dormant: shouldSendDormantTrialCopy(engagementFor(user)),
     });
     const nowIso = new Date().toISOString();

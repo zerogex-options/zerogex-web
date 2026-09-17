@@ -21,7 +21,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
-import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
+import { classifySubscriberBucket, subscriptionPaidAt } from '../core/subscriberBucket.ts';
 import { previewNextInvoice, isNoUpcomingInvoiceError } from '../core/stripeInvoicePreview.ts';
 import {
   classifyDecline,
@@ -194,6 +194,8 @@ type UserRow = {
   payment_grace_started_at: string | null;
   payment_grace_reason: string | null;
   first_payment_at: string | null;
+  last_paid_subscription_id: string | null;
+  last_paid_invoice_at: string | null;
   trial_reminder_email_sent_at: string | null;
   referred_by_code: string | null;
   referral_credit_months: number | null;
@@ -232,6 +234,8 @@ const rows = querySqlite<UserRow>(
           payment_grace_started_at, payment_grace_reason, first_payment_at,
           trial_reminder_email_sent_at,
           referred_by_code, referral_credit_months,
+          ${col('last_paid_subscription_id')},
+          ${col('last_paid_invoice_at')},
           ${col('signup_utm_source')},
           ${col('marketing_unsubscribed_at')},
           ${col('verified_never_paid_email_sent_at')},
@@ -330,6 +334,18 @@ kv('Cancel at period end', yesNo(user.cancel_at_period_end));
 kv('Payment grace started', orDash(user.payment_grace_started_at));
 kv('Payment grace reason', orDash(user.payment_grace_reason));
 kv('First payment cleared', orDash(user.first_payment_at));
+const paidOnCurrentSub = subscriptionPaidAt({
+  stripeSubscriptionId: user.stripe_subscription_id,
+  lastPaidSubscriptionId: user.last_paid_subscription_id,
+  lastPaidInvoiceAt: user.last_paid_invoice_at,
+});
+// Per-SUBSCRIPTION, and the line that answers "why is this person on Converting
+// / Full Subscriber" outright. `first_payment_at` above is account-scoped, so
+// for anyone on their second subscription the two disagree by design.
+kv('Paid on THIS subscription', paidOnCurrentSub === null ? '— (no invoice cleared on this sub yet)' : paidOnCurrentSub);
+if (user.last_paid_subscription_id && user.last_paid_subscription_id !== user.stripe_subscription_id) {
+  kv('  last paid sub', `${user.last_paid_subscription_id} (a PREVIOUS subscription)`);
+}
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
@@ -383,7 +399,9 @@ header('Admin monitoring bucket');
     tier: user.tier,
     paymentGraceReason: user.payment_grace_reason,
     cancelAtPeriodEnd: Number(user.cancel_at_period_end) === 1,
-    firstPaymentAt: user.first_payment_at,
+    stripeSubscriptionId: user.stripe_subscription_id,
+    lastPaidSubscriptionId: user.last_paid_subscription_id,
+    lastPaidInvoiceAt: user.last_paid_invoice_at,
   });
   kv('Counted as', verdict.label);
   kv('Because', verdict.why);

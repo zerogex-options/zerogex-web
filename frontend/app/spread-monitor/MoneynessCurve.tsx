@@ -14,6 +14,8 @@ import {
 
 import { moneynessAxisLabel, type MoneynessBucket } from '@/core/spreadMonitor';
 
+import { legendProps } from './chartLegend';
+
 /**
  * Quoted width across strike distance — where in the chain the market thins.
  *
@@ -150,7 +152,12 @@ export default function MoneynessCurve({
             return [`${n.toFixed(2)}%`, name];
           }}
         />
-        <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />
+        <Legend
+          {...legendProps([
+            { value: 'Put spread (% of mid)', color: PUT_COLOR },
+            { value: 'Call spread (% of mid)', color: CALL_COLOR },
+          ])}
+        />
 
         {/* Spot. The whole shape is read relative to it, so the ATM bucket is
             marked by name — a category axis has no numeric zero to sit at. */}

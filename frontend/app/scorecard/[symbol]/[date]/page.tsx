@@ -6,7 +6,8 @@ import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
+import DataUnavailable from '@/components/DataUnavailable';
 
 // Public permalink for one trading day's Scorecard recap. Server-rendered,
 // ISR-cached for one hour after the close (the underlying scorecard is
@@ -88,9 +89,11 @@ function formatPct(value: number | null | undefined): string {
   return `${sign}${Math.abs(pct).toFixed(2)}%`;
 }
 
-async function loadScorecard(day: string, symbol: string): Promise<ScorecardPayload | null> {
+// Returns the RESULT, not the payload — same reason as /forecast: a date with
+// no scorecard and a backend that did not answer are different HTTP statuses.
+async function loadScorecard(day: string, symbol: string) {
   const qs = new URLSearchParams({ date: day, symbol }).toString();
-  return serverApiGet<ScorecardPayload>(`/api/scorecard/daily?${qs}`, REVALIDATE_SECONDS);
+  return serverApiGetResult<ScorecardPayload>(`/api/scorecard/daily?${qs}`, REVALIDATE_SECONDS);
 }
 
 export async function generateMetadata({
@@ -103,7 +106,12 @@ export async function generateMetadata({
   if (!isValidDate(date)) {
     return { title: 'Scorecard not found — ZeroGEX', robots: { index: false, follow: false } };
   }
-  const data = await loadScorecard(date, sym);
+  // Metadata does not need the missing/unavailable distinction: both fall back
+  // to the generic copy below, which is correct either way. Unwrap to the
+  // nullable shape. The request is deduped against the page component's by the
+  // Next fetch cache, so this costs nothing.
+  const scorecard = await loadScorecard(date, sym);
+  const data = scorecard.ok ? scorecard.data : null;
   const human = formatHumanDate(date);
   const title = data && !data.is_empty
     ? `${sym} · ${human} Recap — ZeroGEX Scorecard`
@@ -141,8 +149,18 @@ export default async function ScorecardPage({
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
-  const data = await loadScorecard(date, sym);
-  if (!data) notFound();
+  const result = await loadScorecard(date, sym);
+  if (!result.ok && result.reason === 'missing') notFound();
+  if (!result.ok) {
+    return (
+      <DataUnavailable
+        what={`${sym} scorecard for ${formatHumanDate(date)}`}
+        backHref={sym === 'SPY' ? '/scorecard' : `/scorecard?symbol=${sym}`}
+        backLabel="Daily Scorecard"
+      />
+    );
+  }
+  const data = result.data;
 
   const human = formatHumanDate(date);
   const regimeLabel = data.regime?.label || 'unknown';
@@ -158,10 +176,10 @@ export default async function ScorecardPage({
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/trading-signals"
+          href={sym === 'SPY' ? '/scorecard' : `/scorecard?symbol=${sym}`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> Trading Signals
+          <ChevronLeft size={14} /> Daily Scorecard
         </Link>
         <ShareCardButton
           cardId={`${sym}:${date}`}

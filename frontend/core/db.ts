@@ -186,6 +186,11 @@ function initDb(): DatabaseSync {
   // not falsified. Read them as "no recorded acceptance" and fall back to the
   // footer-linked published terms.
   ensureColumn('users', 'terms_accepted_at', 'TEXT');
+  // Appearance, stored against the account so it follows the member to a new
+  // browser or device instead of living only in that browser's cookie. Null
+  // means "never chosen" — the site default applies.
+  ensureColumn('users', 'ui_theme', 'TEXT');
+  ensureColumn('users', 'ui_palette', 'TEXT');
   ensureColumn('users', 'terms_version_accepted', 'TEXT');
 
   // Last authenticated request, throttled to one write per
@@ -473,6 +478,20 @@ function initDb(): DatabaseSync {
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
 
+  // COOLDOWN anchor — deliberately NOT a latch — for the return-intent email
+  // sent by scripts/send-return-intent.mts: the reply to a churned member who
+  // logged back in on their own. Stores the ISO timestamp of the last such send.
+  //
+  // Every other nudge column in this file is a one-shot that is never cleared,
+  // which is right for a milestone (you only abandon your first checkout once)
+  // and wrong for a recurring signal. A member can come back, decide not to
+  // resubscribe, and come back again eight months later; latching would spend
+  // the entire churned book on one sweep and leave nothing for any future
+  // churn. core/returnIntent.ts therefore reads this as "how long since we last
+  // answered them" and additionally requires the visit to be NEWER than this
+  // timestamp, so an expiring cooldown can never re-fire on a stale login.
+  ensureColumn('users', 'return_intent_email_sent_at', 'TEXT');
+
   // One-shot latch for the self-serve retention SAVE (app/save/route.ts): the
   // automated "keep my access + claim the discount" one-click flow linked from
   // the cancellation email. NULL = never claimed; set to the ISO timestamp when
@@ -581,6 +600,68 @@ function initDb(): DatabaseSync {
           SET first_payment_at = updated_at
         WHERE first_payment_at IS NULL
           AND subscription_status = 'active'`,
+    ).run();
+  }
+
+  // The SAME question as first_payment_at, asked about the SUBSCRIPTION rather
+  // than the account: has an invoice been paid on the subscription this member
+  // is on RIGHT NOW? first_payment_at cannot answer it. It is stamped at most
+  // once per account, so a member who paid on an earlier subscription carries a
+  // non-null value into every subsequent one — and the Total Subscribers chart,
+  // reading it, counted a returning member as a Full Subscriber for the hour
+  // between Stripe raising their post-trial invoice and actually charging it.
+  // That is exactly the sawtooth the Converting line exists to prevent; it just
+  // never protected anyone on their second subscription.
+  //
+  // Stored as a POINTER (which subscription) plus a date, rather than a single
+  // "paid on the current sub" stamp that would have to be cleared whenever the
+  // subscription changes. Clearing is what makes it fragile: `invoice.paid` and
+  // `customer.subscription.created` have no delivery order, so a clear-on-change
+  // scheme drops the stamp whenever the payment lands first — which is routine
+  // for a no-trial signup. Comparing two columns is order-independent: whichever
+  // event arrives first, the pair reads correctly once both have.
+  //
+  // Read ONLY as "does this name the current subscription" (see
+  // subscriptionPaidAt in core/subscriberBucket.ts); the date is for humans
+  // reading `make diagnose-user`.
+  const addedPaidSubId = ensureColumn('users', 'last_paid_subscription_id', 'TEXT');
+  ensureColumn('users', 'last_paid_invoice_at', 'TEXT');
+  // Backfill, gated on the "column was just added" return so it runs EXACTLY
+  // ONCE — same load-bearing reason as first_payment_at above.
+  //
+  // This is written to preserve the chart's census EXACTLY, row for row, rather
+  // than to be maximally accurate. Only the `active` branch of the classifier
+  // reads these columns, so the census is unchanged if and only if every active
+  // row ends up stamped precisely when first_payment_at was non-null — which is
+  // the first arm below. An active row that was ALREADY on Converting (no
+  // payment on record) is deliberately left NULL so it stays there.
+  //
+  //   • past_due is stamped too, though no bucket reads it there: an established
+  //     payer in renewal dunning whose retry succeeds returns to `active`, and
+  //     an unstamped row would land on Converting instead of the Full Subscriber
+  //     line it never left. The old rule treats reaching a renewal as proof of
+  //     payment, so this carries that forward.
+  //   • past_due inside TRIAL grace is the one past_due deliberately excluded:
+  //     that member has never completed a payment on this subscription, so the
+  //     real stamp must come from their retry actually clearing.
+  //   • `trialing` is excluded for the same reason — their conversion charge has
+  //     not been attempted yet. This is what puts the 33 trials now running onto
+  //     Converting for the hour after their trial ends, which is the point.
+  //
+  // Verify before deploying with `make verify-bucket-migration`, which reports
+  // any row whose bucket would move. It should report none.
+  if (addedPaidSubId) {
+    db.prepare(
+      `UPDATE users
+          SET last_paid_subscription_id = stripe_subscription_id,
+              last_paid_invoice_at = COALESCE(first_payment_at, updated_at)
+        WHERE last_paid_subscription_id IS NULL
+          AND stripe_subscription_id IS NOT NULL
+          AND (
+                (subscription_status = 'active' AND first_payment_at IS NOT NULL)
+             OR (subscription_status = 'past_due'
+                 AND (payment_grace_reason IS NULL OR payment_grace_reason <> 'trial'))
+          )`,
     ).run();
   }
 

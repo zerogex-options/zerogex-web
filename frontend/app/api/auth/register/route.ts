@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  applyAppearanceCookies,
   attachSessionCookie,
   enforceSignupRateLimit,
   getClientIp,
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
     response.headers.set('Cache-Control', 'no-store, private');
     attachSessionCookie(response, session.token);
     issueCsrfCookie(response, session.csrfToken);
+    applyAppearanceCookies(response, session.user.id);
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Registration failed';

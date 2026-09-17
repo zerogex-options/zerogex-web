@@ -114,12 +114,31 @@ const isUnmappedPrice = (priceId) =>
 
 const db = new DatabaseSync(dbPath, { readOnly: true });
 
+// The chart's rule reads the per-SUBSCRIPTION payment pointer. Against a DB the
+// migration has not reached yet those columns do not exist, and the SELECT below
+// would fail with a bare SQL error. Refuse clearly instead — and do NOT fall
+// back to treating them as NULL, which would report every paying member as
+// Converting and look exactly like the catastrophe this tool exists to rule out.
+const userCols = new Set(
+  db.prepare(`PRAGMA table_info(users)`).all().map((c) => String(c.name)),
+);
+if (!userCols.has('last_paid_subscription_id')) {
+  console.error('This database predates the per-subscription Total Subscribers migration');
+  console.error(`  (users.last_paid_subscription_id is missing from ${dbPath})`);
+  console.error('');
+  console.error('Use `make verify-bucket-migration` instead — it reads both schemas and');
+  console.error('reports the census before and after. This tool works once the app has');
+  console.error('booted on the new code and applied the migration.');
+  process.exit(1);
+}
+
 // Every account carrying subscription state at all — a deliberately wider net
 // than the chart's own WHERE, so the rows it drops can be accounted for rather
 // than silently vanishing.
 const rows = db
   .prepare(
     `SELECT email, tier, subscription_status, payment_grace_reason, first_payment_at,
+            stripe_subscription_id, last_paid_subscription_id, last_paid_invoice_at,
             cancel_at_period_end, stripe_price_id, paused_until
        FROM users
       WHERE subscription_status IS NOT NULL
@@ -136,7 +155,9 @@ for (const r of rows) {
     tier: r.tier,
     paymentGraceReason: r.payment_grace_reason,
     cancelAtPeriodEnd: Number(r.cancel_at_period_end) === 1,
-    firstPaymentAt: r.first_payment_at,
+    stripeSubscriptionId: r.stripe_subscription_id,
+    lastPaidSubscriptionId: r.last_paid_subscription_id,
+    lastPaidInvoiceAt: r.last_paid_invoice_at,
   });
   if (verdict.bucket !== 'notCounted') {
     buckets[verdict.bucket].push(r);

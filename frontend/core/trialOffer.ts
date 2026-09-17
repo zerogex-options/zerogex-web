@@ -1,7 +1,9 @@
 // Pure decision logic for the pre-trial-end CONVERSION offer — the one-click
 // discount the ~48h trial-reminder email carries (app/convert/route.ts). It lets
-// a trialing member lock in a discount and keep going instead of lapsing at
-// trial end.
+// a trialing member take a discount on the rate their trial is about to convert
+// at. Note what it is NOT: a trial does not lapse at the end, it converts, so
+// claiming this changes the PRICE and never the access. Any copy on this path
+// that implies otherwise is a bug — see the CTA notes in core/mailer.ts.
 //
 // Kept PURE (no imports) so it's unit-tested without Stripe/DB — same discipline
 // as core/paymentGrace.ts and core/cancelRetention.ts. Locked down in

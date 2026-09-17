@@ -1,6 +1,16 @@
 @import "tailwindcss";
 
 :root {
+  /* Width the sidebar reserves in the page. Navigation only assigns this from
+     an effect, so before hydration the var was undefined and the consuming
+     `md:pl-[var(--zgx-nav-width,0px)]` fell back to 0 — every desktop visitor
+     had page content render underneath the sidebar for the first few hundred
+     milliseconds and then jump 272px right. Declaring the default here means
+     the first paint already reserves the gutter. Keep in sync with
+     SIDEBAR_WIDTH in components/Navigation.tsx. Only ever consumed behind a
+     `md:` prefix, so it needs no narrow-viewport variant. */
+  --zgx-nav-width: 272px;
+
   /* Font families — resolved via Next font optimization in app/layout.tsx.
      Fallbacks so unstyled server-rendered content still looks reasonable. */
   --font-display: var(--font-space-grotesk), 'Neue Haas Grotesk', 'Inter', system-ui, sans-serif;
