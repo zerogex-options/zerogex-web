@@ -1,11 +1,11 @@
 # Payment-failure follow-ups — 2026-09-17
 
-Five members are `past_due` inside an open payment-recovery grace window. Four
+Six members are `past_due` inside an open payment-recovery grace window. Five
 are trial conversions whose first charge was declined; one is a renewal on a
-paying member. All five still have full access **right now**. Four lose it on
-**Saturday, September 19**; hollandsp, whose trial converted overnight and who
-was added to this document after the first four, loses it **early Sunday the
-20th** and is on a different send day accordingly.
+paying member. All six still have full access **right now**. Four lose it on
+**Saturday, September 19**; hollandsp and arnab, whose trials converted after
+the first four and who were added to this document later, lose it **Sunday the
+20th** and are on a different send day accordingly.
 
 These are **1:1 founder emails, sent from your own inbox** — not `mailer.ts`
 sends. That is the point: every one of these people already got the automated
@@ -22,7 +22,7 @@ wrapping, so it pastes straight into a mail client.
 
 ---
 
-## The five, and where each one sits
+## The six, and where each one sits
 
 | Member | Failure | Stripe's reason | On file | Amount | Access ends (ET) |
 |---|---|---|---|---|---|
@@ -31,6 +31,7 @@ wrapping, so it pastes straight into a mail client.
 | lmckaiden@gmail.com | Trial conversion | none usable, 3 attempts spent | Link (no card) | $59.00 | Sat Sep 19, 1:50 AM |
 | sebastienmyrthil227@gmail.com | Trial conversion | `invalid_account` — card is dead | Visa ····7014 | $59.00 | Sat Sep 19, 4:54 PM |
 | hollandsp@ymail.com | Trial conversion | none usable, attempt 1 only | Link (no card) | $59.00 | **Sun** Sep 20, 12:51 AM |
+| arnab.kumar.roy@icloud.com | Trial conversion | issuer block (`do_not_honor`) | Visa ····1546 | **$299.00/yr** | **Sun** Sep 20, 11:23 AM |
 
 Deadlines are `payment_grace_started_at` + `BILLING_PAYMENT_GRACE_DAYS` (3, the
 default — `core/stripe.ts`), converted to Eastern. The automated emails quote
@@ -55,15 +56,16 @@ For the first four, whose charges failed on the 16th:
 4. **Sep 19 — access drops** to the free Public tier on the next subscription
    sync after the window elapses.
 
-**hollandsp is the same sequence shifted exactly one day later.** Their charge
-failed at 11:50 PM ET on the 16th and the day-0 email went out at 12:51 AM ET on
-the **17th**, so: automated warning on the **19th**, access drops early on the
-**20th**.
+**hollandsp and arnab are the same sequence shifted a day later.** hollandsp's
+charge failed at 11:50 PM ET on the 16th and their day-0 email went out at 12:51
+AM ET on the 17th; arnab's failed at 10:22 AM ET on the 17th with the day-0 email
+an hour behind it. Both get their automated warning on the **19th** and lose
+access on the **20th**.
 
-**Send the first four today, and hollandsp tomorrow.** For the four, tomorrow
+**Send the first four today, and hollandsp and arnab tomorrow.** For the four, tomorrow
 the automation sends the deadline email, and a founder note arriving *after* it
 is the third email in three days saying the same thing — today it is the one in
-the middle that says something new. For hollandsp, today would put your note
+the middle that says something new. For the other two, today would put your note
 within hours of an automated email they have barely read; the 18th gives it a
 day of air on both sides and still lands a full day before their warning.
 
@@ -86,7 +88,7 @@ day of air on both sides and still lands a full day before their warning.
 
 ## Verify before any of them go out
 
-- **Re-run `make diagnose-user` on all five.** A charge that clears between now
+- **Re-run `make diagnose-user` on all six.** A charge that clears between now
   and sending fires the payment-recovered email and makes the matching draft
   wrong in every paragraph. This is the check that matters.
 - lmckaiden is at **attempt 3** as of 01:50 UTC today. If a fourth has landed,
@@ -427,6 +429,180 @@ Founder, ZeroGEX
 
 ---
 
+## Priority 6 — arnab.kumar.roy@icloud.com
+
+**Trial conversion declined** 2026-09-17 · **$299.00 / year** · Visa ····1546 ·
+access through **Sun Sep 20, 11:23 AM ET**
+
+*Deliberately the shortest draft in this document — written plain and simple on
+request. Send it on the 18th, with hollandsp.*
+
+### The read
+
+Three things set this one apart, and only the first changes the copy.
+
+**The decline is an issuer block**, `do_not_honor` [59] — the same class as
+gsavinova's, a bank refusing an otherwise-valid card. The card is fine: Visa
+····1546, good through 2030, correct details. So there is a real, specific ask
+here, and it is not "update your card": get the bank to allow the charge, or
+pay the invoice with a different one. The invoice is still `open`, so both work.
+
+**It is the largest amount in the batch by five times** — $299 annual, not $59
+monthly, and the only annual plan of the six. Worth knowing when you decide how
+much of your day this one gets. It is also a plausible reason a bank balked,
+though the draft does not say so, because a guess about why is exactly what
+`core/declineReason.ts` tells you not to put in customer mail.
+
+**They were in the app twenty minutes before the charge ran** — last seen 10:00
+AM ET today, the trial converted at 10:22. Nobody here is drifting away; they
+were using it this morning and the bank said no this morning.
+
+### ⚠ Verify first
+
+- `in_1UGgCy4AOiqteMYYAga8XS9Q` must still be `open` — the draft links its
+  hosted invoice page as the pay-now path.
+- Say "your bank declined it," never `do_not_honor`. The code reads as an
+  accusation and means nothing to a member.
+- The draft offers to re-run the charge once the bank clears it. That is the
+  Stripe dashboard retry on the open invoice; fine to promise, just know you are
+  promising it.
+- $299 is annual. Quoting $59 here would be wrong twice over.
+
+### Draft
+
+**Subject:** Your bank declined the ZeroGEX charge
+
+Hi,
+
+A quick note from me, not an automated one.
+
+Your free trial ended this morning, and the $299 annual charge did not go through. The problem is not your card details. Your Visa ending in 1546 is valid and on file. Your bank turned down this particular charge.
+
+There are two easy ways to fix it.
+
+The first is to call your bank, or approve the charge in their app, and ask them to allow it. It shows up as ZeroGEX, billed through Stripe. Once you have done that, reply to this email and I will run the charge again from my end.
+
+The second is to pay the invoice right now with a different card: https://invoice.stripe.com/i/acct_1TOi5O4AOiqteMYY/live_YWNjdF8xVE9pNU80QU9pcXRlTVlZLF9WSEVnY2haVUQ2UVNPT3pvTmUwbENSUTZhR285b3UxLDE4MDE5OTUzOA02004RK7FaDH?s=ap
+
+Either one works. Your Pro access stays on through Sunday, September 20. If nothing has gone through by then, your account moves to the free Public plan. Nothing is deleted, and full access comes back as soon as a payment succeeds.
+
+If you get stuck, reply and tell me what your bank said. Happy to help.
+
+Michael
+Founder, ZeroGEX
+
+---
+
+## The declines-panel check for 9/16–9/17
+
+Two things to know before reading any number off it.
+
+**The panel cannot slice two days.** `app/api/admin/monitoring/declines/route.ts`
+accepts only `days` of 7, 30, 90, 180, 365 or `all`, and silently falls back to
+90 on anything else. Use **`days=7`** and read its `daily` series, which carries
+one row per day with `trialConversion`, `renewal`, `paidInvoices` (the
+denominator) and `declineRate`.
+
+**Its days are Eastern, not UTC** (`etDayKey`, `core/paymentDeclines.ts`), and
+each decline buckets on the attempt's own `failedAt`, not on when the invoice
+was created. That matters here: Stripe charges these invoices about an hour
+after finalizing them, so hollandsp's invoice was created at 11:50 PM ET on the
+16th but its decline landed at 12:51 AM ET on the **17th**.
+
+So the six members in this document should appear as **four declined invoices on
+9/16 and two on 9/17**:
+
+| ET day | Declined invoices | Attempts | Who |
+|---|---|---|---|
+| 2026-09-16 | 4 | 6 | lmckaiden 1:50 AM (+ retries 10:50 AM and 9:50 PM), gsavinova 2:48 PM, sanba 3:38 PM, sebastien 4:54 PM |
+| 2026-09-17 | 2 | 2 | hollandsp 12:51 AM, arnab 11:23 AM |
+
+**Treat that as a known-answer test.** These counts are hand-derived from the
+`stripe_payment_failed` audit rows in six `diagnose-user` outputs. If the panel
+reports the same shape, the tracker is capturing live declines correctly on its
+first week. If it reports fewer, something in the capture path is dropping rows
+and every number on the panel is soft until that is explained. Either way you
+learn something worth more than the two counts.
+
+The question the counts are *for* is the denominator: `paidInvoices` on those
+two days, and `byKind` for `trial_conversion`. Five consecutive trial
+conversions declining is either a bad run of cards or a real problem, and only
+the successes tell you which.
+
+To print exactly those rows, from `~/zerogex-web/frontend`:
+
+```bash
+cat > /tmp/decline-days.mts <<'SCRIPT'
+import fs from 'node:fs';
+import path from 'node:path';
+
+// core/db.ts reads AUTH_DB_PATH at MODULE scope, so .env.local has to be loaded
+// before the report module is imported — hence the dynamic import below.
+const envPath = path.join(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+  for (const raw of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
+const { getPaymentDeclineReport } = await import(
+  path.join(process.cwd(), 'core', 'paymentDeclinesServer.ts')
+);
+
+const WANT = new Set(['2026-09-16', '2026-09-17']);
+const pct = (v) => (v === null ? 'n/a' : `${(v * 100).toFixed(1)}%`);
+
+// reconcile:false keeps this a pure read — no write pass.
+const report = getPaymentDeclineReport({ windowDays: 7, reconcile: false });
+
+console.log('Days bucket in America/New_York, same as the panel.\n');
+for (const d of report.daily) {
+  if (!WANT.has(d.day)) continue;
+  console.log(
+    `${d.day}  declined_invoices=${d.invoices}  attempts=${d.attempts}  ` +
+      `trial_conv=${d.trialConversion}  renewal=${d.renewal}  ` +
+      `paid_that_day=${d.paidInvoices}  decline_rate=${pct(d.declineRate)}  ` +
+      `recovered=${d.recoveredInvoices}  open=${d.openInvoices}  lost=${d.lostInvoices}`,
+  );
+}
+
+console.log('\nBy kind, 7-day window:');
+for (const k of report.byKind) {
+  console.log(
+    `  ${k.label}: invoices=${k.invoices}  recovered=${k.recoveredInvoices}  ` +
+      `open=${k.openInvoices}  lost=${k.lostInvoices}`,
+  );
+}
+
+console.log(
+  `\nReason coverage: withCodes=${report.coverage.withCodes} ` +
+    `withoutCodes=${report.coverage.withoutCodes}`,
+);
+SCRIPT
+
+node --experimental-strip-types --no-warnings /tmp/decline-days.mts
+```
+
+Read-only: `reconcile: false` skips the report's write pass, and nothing else in
+it writes. If the daily rows come back empty, the capture path has no history
+yet — run `make backfill-payment-declines SKIP_STRIPE=1 DRY_RUN=1` first and see
+what it says it would reconstruct.
+
+---
+
 ## Ops asides — not customer-facing
 
 - **sanba1608's subscription metadata says `tier=basic`** while the price is the
@@ -439,12 +615,12 @@ Founder, ZeroGEX
   to close. This case is a clean illustration that the second touch is doing real
   work: without it, a member three failed attempts deep would have heard nothing
   for three days and then silently lost access.
-- **Four consecutive trial conversions were declined**: three from the September
-  9 signups (converting on the 16th within fifteen hours of each other) and
-  hollandsp from the 10th (converting on the 17th). Four different decline
-  codes — `invalid_account`, `transaction_not_allowed`, and two distinct
-  no-detail failures — argue for coincidence rather than anything systemic, and
-  a two-day cohort is small. But four for four is worth ten minutes, and there
+- **Five consecutive trial conversions were declined**: three from the September
+  9 signups, converting on the 16th within fifteen hours of each other, and both
+  of the September 10 signups, converting on the 17th. Five different decline
+  codes — `invalid_account`, `transaction_not_allowed`, `do_not_honor` and two
+  distinct no-detail failures — argue for coincidence rather than anything
+  systemic, and a two-day cohort is small. But four for four is worth ten minutes, and there
   is now a purpose-built place to spend them: **Admin → Monitoring → Stripe →
   Payment Declines**, which landed on `release` today. It classifies
   `trial_conversion` as its own kind and answers "do trial conversions recover
@@ -453,7 +629,7 @@ Founder, ZeroGEX
   first if the history behind the panel is thin. If some conversions cleared this
   week, this is a bad run of cards. If none did, it is a different conversation,
   and these emails are the wrong response to it.
-- **Three of the five pay through Link, and all three failed** — two of them
+- **Three of the six pay through Link, and all three failed** — two of them
   reporting `partner_insufficient_funds`. Tempting to read as a Link problem,
   and worth holding at arm's length: sanba's Link method has successfully
   collected on this deploy before — their August trial conversion, which cleared
@@ -469,6 +645,12 @@ Founder, ZeroGEX
   on the same payment path, and it is part of why "add a card directly" is the
   right lever to offer them rather than "wait and see."
 - Four grace windows close across a fifteen-hour span on Saturday (1:50 AM to
-  4:54 PM ET) and hollandsp's just after midnight on Sunday, so the warning
+  4:54 PM ET) and two more on Sunday (12:51 AM and 11:23 AM), so the warning
   sweep has to run at least once inside each. The timer is every 4h, so it
   will.
+- **Every one of these invoices was charged about an hour after it was
+  created** — 03:50 → 04:51 for hollandsp, 19:53 → 20:54 for sebastien, the same
+  gap in all six. That is Stripe's finalize-then-charge delay, not a fault, but
+  it is why the decline's own timestamp and the invoice's creation time fall on
+  different ET days for hollandsp, and it is worth knowing before reconciling
+  any of this against the tracker.
