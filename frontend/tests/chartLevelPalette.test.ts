@@ -53,6 +53,14 @@ function resolve(palette: string, dark: boolean): Record<string, string> {
 }
 
 // ── CIEDE2000 ────────────────────────────────────────────────────────────────
+const blend = (fg: string, bg: string): [number, number, number] | null => {
+  const m = fg?.trim().match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*[,/]\s*([\d.]+)\s*\)$/i);
+  const under = m ? parse(bg) : null;
+  if (!m || !under) return null;
+  const a = Number(m[4]);
+  return [1, 2, 3].map((i) => Number(m[i]) * a + under[i - 1] * (1 - a)) as [number, number, number];
+};
+
 const parse = (c: string): [number, number, number] | null => {
   const h = c?.trim().match(/^#([0-9a-f]{6})$/i);
   if (!h) return null;
@@ -153,4 +161,59 @@ test('a palette that pins a level marker pins it in both modes', () => {
       }
     }
   }
+});
+
+// ── price-tag ink ────────────────────────────────────────────────────────────
+// The tag's price is drawn on the level's own colour, so its contrast is against
+// that chip, not the page. useChipInk picks black or white by the chip's
+// luminance; that pair is optimal, guaranteeing at least 4.58:1 for any colour.
+// Softening either ink breaks the guarantee (#0B0E12/#FFFFFF already drops two
+// of this app's chips below 4.5:1), which is what this pins down.
+const hook = readFileSync(new URL('../hooks/useChartTheme.ts', import.meta.url), 'utf8');
+const inkConst = (name: string) => {
+  const m = hook.match(new RegExp(`const ${name} = '(#[0-9A-Fa-f]{3,6})'`));
+  assert.ok(m, `${name} should be a hex literal in useChartTheme.ts`);
+  return m[1];
+};
+
+function contrast(a: [number, number, number], b: [number, number, number]) {
+  const lum = ([r, g, bl]: [number, number, number]) => {
+    const f = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl);
+  };
+  const [x, y] = [lum(a), lum(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+// Every colour GammaTerminalChart passes to PriceTag as `bg`.
+const CHIPS = [...LEVELS.map(([, tok]) => tok), '--color-accent-hot', '--text-secondary'];
+
+test('the price on a tag is readable against every chip, in every theme', () => {
+  const dark = parse(inkConst('INK_DARK'));
+  const light = parse(inkConst('INK_LIGHT'));
+  assert.ok(dark && light, 'both inks should parse');
+  const unreadable: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      for (const tok of CHIPS) {
+        // --text-secondary is translucent, so judge the blend over the card.
+        const chip = parse(pal[tok]) ?? blend(pal[tok], pal['--bg-card']);
+        assert.ok(chip, `${p}/${isDark ? 'dark' : 'light'} ${tok} should resolve to a colour`);
+        const best = Math.max(contrast(dark, chip), contrast(light, chip));
+        if (best < 4.5) {
+          unreadable.push(`${p}/${isDark ? 'dark' : 'light'} ${tok} ${pal[tok]} — best ${best.toFixed(2)}:1`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(unreadable, [], `tag text falls below 4.5:1:\n  ${unreadable.join('\n  ')}`);
+});
+
+test('the ink pivot matches the luminance where black and white are equally readable', () => {
+  // (Y + 0.05)^2 = 1.05 * 0.05  →  Y = sqrt(0.0525) - 0.05
+  const m = hook.match(/const INK_PIVOT = ([\d.]+)/);
+  assert.ok(m, 'INK_PIVOT should be a numeric literal in useChartTheme.ts');
+  assert.ok(Math.abs(Number(m[1]) - (Math.sqrt(0.0525) - 0.05)) < 0.0005,
+    `INK_PIVOT ${m[1]} should be ${(Math.sqrt(0.0525) - 0.05).toFixed(4)}`);
 });

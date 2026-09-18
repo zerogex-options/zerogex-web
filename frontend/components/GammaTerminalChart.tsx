@@ -52,6 +52,7 @@ import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
 import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
+import { useChipInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
@@ -500,6 +501,9 @@ export default function GammaTerminalChart({
   // is the only one on its symbol (nothing to reconcile with).
   const linkedBase = priceLink ? priceLink.domains.get(symbol) ?? null : null;
   const isMobile = useIsMobile();
+  // Price tags are filled with a level's own colour, so their text is picked
+  // per chip rather than from the theme's inverse ink.
+  const chipInk = useChipInk();
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
@@ -3087,7 +3091,7 @@ export default function GammaTerminalChart({
               return (
                 <>
                   {tags.map((t) => (
-                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
                   ))}
                   {liveBarClock && lastTagY != null && (
                     <BarCountdownTag
@@ -3205,7 +3209,7 @@ export default function GammaTerminalChart({
                 <g pointerEvents="none">
                   <line x1={xForIndex(activeIdx)} x2={xForIndex(activeIdx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
                   <line x1={PLOT_LEFT} x2={plotRight} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
-                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" />
+                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" ink={chipInk("var(--text-secondary)")} />
                 </g>
               );
             })()}
@@ -3668,13 +3672,16 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
   );
 }
 
-function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; strong?: boolean; arrow?: "up" | "down" | null }) {
+// `ink` is the price's colour. It has to be judged against this tag's own fill
+// rather than against the page, because a level's colour does not follow the
+// theme — see useChipInk. Callers pass chipInk(bg).
+function PriceTag({ x, y, value, bg, ink, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; ink: string; strong?: boolean; arrow?: "up" | "down" | null }) {
   const w = 8 + value.length * 6.6 + (arrow ? 8 : 0);
   const h = strong ? 18 : 15;
   return (
     <g transform={`translate(${x - w}, ${y})`}>
       <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill={bg} />
-      <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill="var(--text-inverse)" style={{ fontVariantNumeric: "tabular-nums" }}>
+      <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill={ink} style={{ fontVariantNumeric: "tabular-nums" }}>
         {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
         {value}
       </text>
