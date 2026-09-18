@@ -490,14 +490,31 @@ export default function Navigation({
                         const subgroupId = subgroup.id;
                         const subgroupLock = lockedTier(subgroup);
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
+                        const toggleSubgroup = () =>
+                          setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
+                        const subgroupLabel = (
+                          <>
+                            <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
+                            {subgroupLock && <TierBadge tier={subgroupLock} />}
+                          </>
+                        );
+                        const subgroupChevron = (
+                          <ChevronDown
+                            size={13}
+                            style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                          />
+                        );
                         return (
                           <div key={subKey} className="mt-1">
-                            <div
-                              className="zg-nav-row"
-                              data-active={subgroupActive ? "true" : undefined}
-                              style={{ padding: 0, gap: 0 }}
-                            >
-                              {subgroupId ? (
+                            {subgroupId ? (
+                              // A subgroup that is also a page has two
+                              // destinations, so the row splits: the label
+                              // navigates, the chevron expands.
+                              <div
+                                className="zg-nav-row"
+                                data-active={subgroupActive ? "true" : undefined}
+                                style={{ padding: 0, gap: 0 }}
+                              >
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -508,32 +525,42 @@ export default function Navigation({
                                   style={{ color: "inherit", font: "inherit", border: 0, cursor: "pointer" }}
                                   aria-current={subgroupActive ? "page" : undefined}
                                 >
-                                  <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
-                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
+                                  {subgroupLabel}
                                 </button>
-                              ) : (
-                                <span className="flex-1 min-w-0 px-3 py-2 flex items-center gap-2" style={{ color: "inherit" }}>
-                                  <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
-                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
-                                </span>
-                              )}
+                                <button
+                                  type="button"
+                                  aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                  aria-expanded={isSubExpanded}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleSubgroup();
+                                  }}
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent"
+                                  style={{ color: "inherit", border: 0, cursor: "pointer", borderRadius: "var(--radius-control)" }}
+                                >
+                                  {subgroupChevron}
+                                </button>
+                              </div>
+                            ) : (
+                              // Nothing to navigate to, so expanding is the
+                              // row's only job and the whole row is the
+                              // control. Splitting it here left the label
+                              // inert and the 32px chevron the sole target.
                               <button
                                 type="button"
-                                aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                onClick={toggleSubgroup}
                                 aria-expanded={isSubExpanded}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
-                                }}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent"
-                                style={{ color: "inherit", border: 0, cursor: "pointer", borderRadius: "var(--radius-control)" }}
+                                className="zg-nav-row"
+                                style={{ padding: 0, gap: 0 }}
                               >
-                                <ChevronDown
-                                  size={13}
-                                  style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
-                                />
+                                <span className="flex-1 min-w-0 px-3 py-2 flex items-center gap-2">
+                                  {subgroupLabel}
+                                </span>
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                                  {subgroupChevron}
+                                </span>
                               </button>
-                            </div>
+                            )}
                             {/* Children indent off a hairline, so depth reads
                                 structurally rather than from a second tint. */}
                             {isSubExpanded ? (

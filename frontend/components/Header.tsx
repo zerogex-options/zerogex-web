@@ -720,10 +720,17 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                                 : "var(--text-primary)",
                               opacity: subgroupActive ? 1 : 0.8,
                             };
+                            const toggleSubgroup = () =>
+                              setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
+                            const subgroupChevron = (
+                              <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                            );
                             return (
                               <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${'var(--color-brand-primary)'}33` }}>
-                                <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
-                                  {subgroupId ? (
+                                {subgroupId ? (
+                                  // Two destinations, so the row splits: the
+                                  // label navigates, the chevron expands.
+                                  <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -736,25 +743,43 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                                       {navLabel(subgroup)}
                                       {subgroupLock && <TierBadge tier={subgroupLock} />}
                                     </button>
-                                  ) : (
-                                    <span className="flex-1 flex items-center gap-1.5" style={subgroupLabelStyle}>
+                                    <button
+                                      type="button"
+                                      aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                      aria-expanded={isSubExpanded}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        toggleSubgroup();
+                                      }}
+                                      className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
+                                      style={{ color: 'var(--text-primary)', opacity: 0.8 }}
+                                    >
+                                      {subgroupChevron}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  // Nothing to navigate to, so expanding is the
+                                  // row's only job and the whole row is the
+                                  // control — the label used to be inert, which
+                                  // left the 28px chevron the sole target.
+                                  <button
+                                    type="button"
+                                    onClick={toggleSubgroup}
+                                    aria-expanded={isSubExpanded}
+                                    className="mb-1 flex w-full items-center bg-transparent text-[10px] font-semibold uppercase tracking-[0.16em]"
+                                  >
+                                    <span className="flex-1 text-left flex items-center gap-1.5" style={subgroupLabelStyle}>
                                       {navLabel(subgroup)}
                                       {subgroupLock && <TierBadge tier={subgroupLock} />}
                                     </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
-                                    }}
-                                    className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
-                                    style={{ color: 'var(--text-primary)', opacity: 0.8 }}
-                                  >
-                                    <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                                    <span
+                                      className="flex h-7 w-7 items-center justify-center rounded-md"
+                                      style={{ color: 'var(--text-primary)', opacity: 0.8 }}
+                                    >
+                                      {subgroupChevron}
+                                    </span>
                                   </button>
-                                </div>
+                                )}
                                 {isSubExpanded ? (
                                   <div className="grid grid-cols-1 gap-2">
                                     {subgroup.items.map(renderItem)}
