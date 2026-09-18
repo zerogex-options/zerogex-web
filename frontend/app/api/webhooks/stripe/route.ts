@@ -41,24 +41,41 @@ import {
 } from '@/core/billingUser';
 import {
   buildRecoverySubscriptionParams,
+  couldBeOrphaned,
   decideDiscountCarryOver,
   decideOrphanPayment,
   readSubscriptionDiscounts,
   RECOVERED_FROM_INVOICE_KEY,
 } from '@/core/orphanPayment';
 import {
+  decideLateDiscountFix,
+  readInvoiceChargeId,
+  readInvoiceCouponIds,
+  readInvoicePaidAtUnix,
+  readInvoicePaymentIntentId,
   readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
+  readInvoiceRefundedAmount,
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
+import { classifyDecline, type DeclineCategory } from '@/core/declineReason';
+import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
+import {
+  markDeclinesLostForInvoice,
+  markDeclinesLostForSubscription,
+  recordPaymentDecline,
+  resolveDeclinesForInvoice,
+} from '@/core/paymentDeclinesServer';
 import {
   hasConversionChargeInFlight,
   isTrialConversionFailure,
   isTrialConversionInvoice,
   isWithinTrialConversionWindow,
 } from '@/core/trialDunning';
+import { subscriptionPaidAt } from '@/core/subscriberBucket';
+import { acceptsSubscriptionPaymentStamp } from '@/core/subscriptionPayments';
 import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
@@ -217,6 +234,87 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
       input.message,
       nowIso(),
     );
+}
+
+// Write down WHY a charge was declined, while the reason still exists.
+//
+// Stripe hands the decline code to the webhook exactly once, on the charge the
+// attempt produced — it is not on the invoice, not on the subscription, and not
+// replayable in bulk afterwards. Miss it here and the only way to answer "how
+// much revenue am I losing to insufficient funds versus to issuer blocks" is to
+// open Stripe invoice by invoice.
+//
+// Everything about this is best-effort on purpose: the lookup swallows its own
+// Stripe errors (core/stripeDeclineLookup.ts) and the write swallows its own DB
+// errors (core/paymentDeclinesServer.ts). Reporting must never be able to fail
+// the webhook — a 500 here makes Stripe retry the event, which re-sends the
+// member's dunning email.
+async function recordInvoiceDecline(input: {
+  invoice: Stripe.Invoice;
+  invoiceSub: string | null;
+  user: UserRow | null;
+  customerId: string | null;
+  // Order-independent trial-conversion answer from the subscription's trial_end,
+  // or null when it could not be resolved. Decides whether this counts as a lost
+  // CONVERSION or a lost RENEWAL, which are different failures.
+  trialConversion: boolean | null;
+  graceUntilIso: string | null;
+  // What core/declineReason.ts made of the issuer's answer, returned so the
+  // dunning email can say something TRUE about why the charge failed rather
+  // than telling every member to update a card that may be perfectly fine.
+}): Promise<DeclineCategory | null> {
+  const { invoice } = input;
+  if (!invoice.id) return null;
+  try {
+    const lookup = await lookupInvoiceDecline(getStripe(), invoice);
+    recordPaymentDecline({
+      invoiceId: invoice.id,
+      attemptCount: typeof invoice.attempt_count === 'number' ? invoice.attempt_count : 1,
+      chargeId: lookup.chargeId,
+      userId: input.user?.id ?? null,
+      email: input.user?.email ?? null,
+      customerId: input.customerId,
+      subscriptionId: input.invoiceSub,
+      priceId: readInvoicePriceId(invoice) ?? input.user?.stripe_price_id ?? null,
+      billingReason: invoice.billing_reason ?? null,
+      // What Stripe was trying to collect — the money actually at risk.
+      amountDue: typeof invoice.amount_due === 'number' ? invoice.amount_due : 0,
+      currency: invoice.currency ?? null,
+      decline: lookup.decline,
+      // The card that was ACTUALLY charged, off the charge itself, rather than
+      // the subscription's current default: on a retry after a card swap those
+      // are different cards, and the one that declined is the one to report.
+      methodType: lookup.card?.type ?? null,
+      cardBrand: lookup.card?.brand ?? null,
+      cardLast4: lookup.card?.last4 ?? null,
+      cardFunding: lookup.card?.funding ?? null,
+      cardCountry: lookup.card?.country ?? null,
+      nextAttemptAt:
+        typeof invoice.next_payment_attempt === 'number'
+          ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+          : null,
+      graceUntil: input.graceUntilIso,
+      // Where the invoice actually stands, straight from Stripe. Without these
+      // an unpaid invoice can only be reported as "still open", which reads as
+      // "Stripe is still trying" whether or not it is.
+      collectionMethod: invoice.collection_method ?? null,
+      invoiceStatus: invoice.status ?? null,
+      trialConversion: input.trialConversion,
+      source: 'webhook',
+    });
+    return lookup.decline ? classifyDecline(lookup.decline) : null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'decline capture failed';
+    logAudit({
+      type: 'payment_decline_record_error',
+      userId: input.user?.id,
+      email: input.user?.email,
+      message: `Could not record the decline on invoice ${invoice.id}: ${message}`,
+    });
+    // Capture is best-effort and must never fail the webhook; with no
+    // classification the email falls back to its neutral wording.
+    return null;
+  }
 }
 
 // Money arrived against an account the person asked us to delete. Every branch
@@ -467,6 +565,9 @@ async function maybeReconcileDiscountOnPlanSwitch(
         `Reconciled discounts on sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} ` +
         `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied [${[...correctSet].join(', ') || 'none'}]`,
     });
+    // The SUBSCRIPTION now carries the right coupons. When the switch took
+    // effect at a period boundary, that is one invoice too late — see below.
+    await reconcileDiscountOnOpenInvoice(subscription, user, keep, [...managed]);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'reconcile discount failed';
     logAudit({
@@ -476,6 +577,117 @@ async function maybeReconcileDiscountOnPlanSwitch(
       message: `Reconcile discount on sub ${subscription.id} after switch failed: ${message}`,
     });
     // Swallow — the tier sync already succeeded; a later sub event can retry.
+  }
+}
+
+// Apply the reconciled coupon set to the invoice the switch landed on.
+//
+// `subscriptions.update({discounts})` binds the NEXT cycle. That is fine for a
+// switch made mid-trial — the in-app upgrade path keeps the subscription
+// `trialing` on purpose, so its coupon is in place long before the trial-end
+// invoice is drawn. It is NOT fine for a switch that takes effect at the period
+// boundary itself:
+//
+//   • The billing portal schedules every downgrade at period end
+//     (schedule_at_period_end, conditions decreasing_item_amount /
+//     shortening_interval — see scripts/setup-billing-portal.mts), and for a
+//     trialing member period end IS trial end.
+//   • Stripe flips the subscription to `active` when the post-trial invoice is
+//     CREATED, about an hour before it attempts the charge. syncSubscriptionToUser
+//     already depends on that fact for the conversion event.
+//
+// So this handler runs with the first invoice at the new price ALREADY drawn,
+// carrying whatever discounts existed a moment earlier. Reconciling the
+// subscription alone leaves the member charged the wrong amount for one cycle:
+// too much when the incoming plan's promo never lands, too little when the
+// outgoing plan's promo rides along. This is the ordinary path for a trial
+// downgrade, not a rare race.
+//
+// Stripe holds that invoice in `draft` for roughly an hour, which is the window
+// in which the amount can still be changed. Past it the money has moved and the
+// correction is a credit note, so that case is recorded as an audit row support
+// can find instead of being silently dropped.
+async function reconcileDiscountOnOpenInvoice(
+  subscription: Stripe.Subscription,
+  user: UserRow,
+  keep: string[],
+  managed: string[],
+): Promise<void> {
+  // A switch applied while still `trialing` lands before the boundary invoice
+  // exists — nothing drawn yet, so nothing to correct.
+  if (subscription.status !== 'active') return;
+
+  // Its own try/catch, not the caller's: the subscription update has already
+  // succeeded and written its audit row by this point, so letting a failure here
+  // land in that catch would file an "after switch failed" error directly under a
+  // "reconciled" success and leave support unable to tell which half went wrong.
+  try {
+    const stripe = getStripe();
+    const list = await stripe.invoices.list({
+      subscription: subscription.id,
+      limit: 1,
+      expand: ['data.discounts'],
+    });
+    const invoice = list.data[0];
+    if (!invoice?.id) return;
+
+    // Only the invoice this switch actually raced. `limit: 1` is the newest
+    // invoice, which at a period boundary is the one drawn seconds ago — but for
+    // a MID-CYCLE switch (a paid member upgrading with proration) it is the
+    // previous cycle's invoice, long finalized and correctly priced for the plan
+    // in force when it was drawn. Without this guard that invoice matches the
+    // newly-intended coupons badly and gets filed as needing a credit it does
+    // not need. Two hours is far wider than the seconds this path really takes,
+    // and still excludes every prior cycle.
+    const drawnAgoSec = Math.floor(Date.now() / 1000) - invoice.created;
+    if (drawnAgoSec > 2 * 60 * 60) return;
+
+    const decision = decideLateDiscountFix({
+      invoiceStatus: invoice.status,
+      invoiceCouponIds: readInvoiceCouponIds(invoice),
+      intendedCouponIds: keep,
+      managedCouponIds: managed,
+    });
+    if (decision.action === 'none') return;
+
+    const amount = `${(invoice.total / 100).toFixed(2)} ${(invoice.currency || '').toUpperCase()}`.trim();
+    const delta =
+      `missing [${decision.missing.join(', ') || 'none'}], stale [${decision.stale.join(', ') || 'none'}]`;
+
+    if (decision.action === 'too_late') {
+      logAudit({
+        type: 'billing_discount_reconcile_too_late',
+        userId: user.id,
+        email: user.email,
+        message:
+          `Invoice ${invoice.id} on sub ${subscription.id} was already ${invoice.status} when the plan ` +
+          `switch reconciled (${decision.reason}): ${delta}. Charged ${amount}. Needs a manual credit — ` +
+          `list the cohort with scripts/scan-late-discount-reconcile.mts.`,
+      });
+      return;
+    }
+
+    await stripe.invoices.update(invoice.id, {
+      discounts: keep.map((coupon) => ({ coupon })),
+    });
+    logAudit({
+      type: 'billing_discount_applied_to_open_invoice',
+      userId: user.id,
+      email: user.email,
+      message:
+        `Rewrote draft invoice ${invoice.id} on sub ${subscription.id} to the reconciled discount set ` +
+        `[${keep.join(', ') || 'none'}] (was ${amount} before the rewrite): ${delta}`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'open-invoice discount fix failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message:
+        `Applying the reconciled discount set to the open invoice on sub ${subscription.id} failed: ` +
+        `${message}. The subscription itself reconciled; the current invoice may be mispriced.`,
+    });
   }
 }
 
@@ -924,7 +1136,16 @@ async function syncSubscriptionToUser(
     conversionChargePending: hasConversionChargeInFlight({
       status: subscription.status,
       trialEndUnix: typeof subscription.trial_end === 'number' ? subscription.trial_end : null,
-      firstPaymentAtIso: user.first_payment_at,
+      // Per-SUBSCRIPTION, asked about the subscription being canceled. Reading
+      // the account-scoped first_payment_at here silently disarmed this for
+      // every returning member: they carry a non-null value in from an earlier
+      // subscription, so a reactivated member canceling inside the conversion
+      // hour was told "nothing changes yet on your end" and then charged.
+      subscriptionPaidAtIso: subscriptionPaidAt({
+        stripeSubscriptionId: subscription.id,
+        lastPaidSubscriptionId: user.last_paid_subscription_id,
+        lastPaidInvoiceAt: user.last_paid_invoice_at,
+      }),
       nowMs: Date.now(),
     }),
     // Stripe attaches the portal cancellation survey (feedback + free-text
@@ -986,7 +1207,10 @@ async function maybeHandleCancelAckTransition(
     try {
       // One-click self-serve save link (25% off + un-cancel via app/save).
       // Best-effort: if the token secret is unset, buildSaveUrl throws and the
-      // email degrades to the evergreen reply-'discount' offer only.
+      // email goes out with NO discount offer at all — there is no manual
+      // fallback any more (see buildCancellationEmail). The acknowledgment and
+      // the cancellation survey still send, which is the part that must not be
+      // lost to a config problem.
       let saveUrl: string | null = null;
       try {
         saveUrl = buildSaveUrl(getAppUrl(), user.id);
@@ -1276,6 +1500,55 @@ async function maybeSendPaidWelcomeEmail(
   }
 }
 
+// Point users.last_paid_subscription_id at the subscription this invoice was
+// paid on. Unlike first_payment_at there is no at-most-once gate: every paid
+// invoice re-points it, so a member moving to a new subscription is carried
+// across by their first payment on it rather than by a separate clearing step.
+//
+// Not clearing is the whole design. `invoice.paid` and
+// `customer.subscription.created` arrive in no guaranteed order, so a scheme
+// that cleared the stamp whenever stripe_subscription_id changed would drop it
+// whenever the payment landed first — routine for a no-trial signup, and it
+// would park a brand-new paying member on Converting indefinitely. Comparing
+// two columns at read time is order-independent instead.
+//
+// Which writes are accepted, and why, is acceptsSubscriptionPaymentStamp in
+// core/subscriptionPayments.ts — kept there, and decided here in JS off the
+// pre-UPDATE row rather than encoded in the WHERE clause, so the rule is
+// unit-tested instead of resting on a SQL expression nothing can exercise.
+// Webhook events are processed serially inside a PM2 process, so the row read
+// above is still current; and unlike the account stamp this write is naturally
+// idempotent, so it needs no exactly-once CAS.
+//
+// `paidAtIso` overrides the recorded date for the case where the payment did not
+// just happen: an orphan recovery honors an invoice paid days or weeks earlier,
+// and dating that stamp "now" would tell whoever reads `make diagnose-user` the
+// money arrived today. Defaults to the wall clock, which is right for the
+// ordinary invoice.paid caller.
+function stampSubscriptionPayment(
+  user: UserRow,
+  subId: string,
+  paidAtIso?: string | null,
+): void {
+  if (
+    !acceptsSubscriptionPaymentStamp({
+      lastPaidSubscriptionId: user.last_paid_subscription_id,
+      currentSubscriptionId: user.stripe_subscription_id,
+      invoiceSubscriptionId: subId,
+    })
+  ) {
+    return;
+  }
+  const now = nowIso();
+  getDb()
+    .prepare(
+      `UPDATE users
+          SET last_paid_subscription_id = ?, last_paid_invoice_at = ?, updated_at = ?
+        WHERE id = ?`,
+    )
+    .run(subId, paidAtIso || now, now, user.id);
+}
+
 // Stamp the instant this member's FIRST subscription invoice was actually paid,
 // and report the conversion to the funnel from there.
 //
@@ -1309,6 +1582,15 @@ async function maybeStampFirstPayment(invoice: Stripe.Invoice): Promise<void> {
 
   const user = findUserByCustomerId(customerId);
   if (!user) return;
+
+  // Per-SUBSCRIPTION record, written FIRST and deliberately above the
+  // once-per-account short-circuit below — a returning member's second
+  // subscription never reaches that line, which is exactly the case this
+  // exists for. Same invoice, same trial-opening exclusion, different question:
+  // "has THIS subscription been charged", which decides Full Subscriber vs
+  // Converting on the admin chart.
+  stampSubscriptionPayment(user, subId);
+
   // Cheap short-circuit — every renewal after the first exits here. The CAS
   // below is what actually makes the stamp at-most-once.
   if (user.first_payment_at != null) return;
@@ -1513,6 +1795,80 @@ async function createRecoverySubscription(
   }
 }
 
+// How much of this invoice has been refunded, in the smallest currency unit —
+// read LIVE, and null when that cannot be established.
+//
+// Live is the whole point. A refund is issued AFTER the payment, so the
+// invoice.paid body was rendered before it existed and can never show one. The
+// case that matters is a redelivered or late-processed invoice.paid for a
+// payment that has since been handed back, and only a fresh read sees that.
+//
+// Three reads, narrowing: the invoice with its charge expanded, then the charge
+// by id (valid in every API version, unlike the expand path), then the payment
+// intent's latest charge. Null is returned when all of them fail, and
+// decideOrphanPayment then refuses to act rather than assuming nothing was
+// refunded. An invoice carrying no payment object at all is a real zero rather
+// than unknown — readInvoiceRefundedAmount draws that line, so this and
+// scripts/recover-orphan-payment.mts reach the same verdict.
+//
+// Reached only for invoices that passed couldBeOrphaned, so these calls stay off
+// the ordinary renewal path.
+async function resolveRefundedAmount(invoice: Stripe.Invoice): Promise<number | null> {
+  const invoiceId = invoice.id;
+  if (!invoiceId) return null;
+
+  // The expansion is an optimization, not a requirement: `charge` is expandable
+  // on the acacia version core/stripe.ts pins, but basil moved the field, and a
+  // rejected expand param throws. Falling back to a plain retrieve keeps this
+  // working across that change instead of quietly reporting every orphan as
+  // unreadable and stalling automatic recovery.
+  const retrieve = async (): Promise<Stripe.Invoice | null> => {
+    for (const params of [{ expand: ['charge', 'payment_intent'] }, undefined]) {
+      try {
+        return await getStripe().invoices.retrieve(invoiceId, params);
+      } catch {
+        // Try the next, plainer shape.
+      }
+    }
+    return null;
+  };
+
+  const fresh = await retrieve();
+  // Read the freshest object available, but never fall back to the event body
+  // for the ANSWER — it predates any refund, so it can only say "not refunded".
+  if (!fresh) return null;
+
+  const fromInvoice = readInvoiceRefundedAmount(fresh);
+  if (fromInvoice != null) return fromInvoice;
+
+  // No charge object came back expanded. Retrieving the charge by id works in
+  // every API version, so this is the version-proof path.
+  try {
+    const chargeId = readInvoiceChargeId(fresh) ?? readInvoiceChargeId(invoice);
+    if (chargeId) {
+      const charge = await getStripe().charges.retrieve(chargeId);
+      return typeof charge.amount_refunded === 'number' ? charge.amount_refunded : null;
+    }
+    const intentId = readInvoicePaymentIntentId(fresh) ?? readInvoicePaymentIntentId(invoice);
+    if (intentId) {
+      const intent = await getStripe().paymentIntents.retrieve(intentId, {
+        expand: ['latest_charge'],
+      });
+      const latest = intent.latest_charge;
+      if (latest && typeof latest !== 'string' && typeof latest.amount_refunded === 'number') {
+        return latest.amount_refunded;
+      }
+    }
+  } catch {
+    return null;
+  }
+  // A payment intent whose charge could not be read. Something settled this
+  // invoice and we cannot see whether it was reversed, so this is unknown —
+  // NOT zero. (An invoice with no payment object at all never reaches here:
+  // readInvoiceRefundedAmount answers that case with a real zero.)
+  return null;
+}
+
 // Restores a member whose payment was ORPHANED: Stripe canceled their
 // subscription for nonpayment, they then paid the still-open invoice from one of
 // Stripe's dunning emails, and — because Stripe never resurrects a canceled
@@ -1533,6 +1889,21 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
   if (!invoiceId || !customerId) return;
   const user = findUserByCustomerId(customerId);
   if (!user) return;
+
+  // Cheap local gate first. decideOrphanPayment would answer 'none' for every
+  // one of these anyway, and stopping here keeps the two live Stripe reads below
+  // — the subscription status and the refund state — off the ordinary renewal
+  // path, which is nearly all of this stream.
+  if (
+    !couldBeOrphaned({
+      invoiceStatus: invoice.status ?? null,
+      amountPaid: invoice.amount_paid ?? 0,
+      localTier: normalizeTier(user.tier),
+      localSubscriptionId: user.stripe_subscription_id,
+    })
+  ) {
+    return;
+  }
 
   const subscriptionId = readInvoiceSubscriptionId(invoice);
 
@@ -1576,6 +1947,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
   const periodEndUnix = readInvoicePeriodEndUnix(invoice);
   const decision = decideOrphanPayment({
     amountPaid: invoice.amount_paid ?? 0,
+    amountRefunded: await resolveRefundedAmount(invoice),
     invoiceStatus: invoice.status ?? null,
     billingReason: invoice.billing_reason ?? null,
     subscriptionId,
@@ -1776,6 +2148,34 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       message: `Invoice ${invoiceId}: recovery sub ${created.id} created but immediate sync failed (${message}); the subscription.created event should reconcile it`,
     });
   }
+
+  // Point users.last_paid_subscription_id at the RECOVERY subscription, dated
+  // with the day the recovered invoice actually cleared.
+  //
+  // Without this the member sits on the admin Converting line — "an invoice
+  // exists and the charge is still in flight" — until their first renewal,
+  // because that is how classifySubscriberBucket reads an `active` subscription
+  // no invoice has cleared on (core/subscriberBucket.ts). For a recovery that is
+  // never a few minutes: the whole design is to create the subscription with NO
+  // invoice, billing anchored at the end of the period already paid for, so
+  // there is nothing to clear on it until the renewal weeks later.
+  //
+  // Stamping it is the honest reading, not a workaround. The recovery
+  // subscription IS the continuation of the period that invoice bought — that
+  // premise is what sets its billing anchor — so "has this subscription been
+  // paid for" is genuinely yes. The invoice itself belongs to the predecessor
+  // subscription, which is exactly why the date recorded is its original
+  // paid-at rather than today's.
+  //
+  // Re-read the row: the sync above has just rewritten stripe_subscription_id,
+  // and acceptsSubscriptionPaymentStamp compares against it.
+  const recoveredUser = findUserByCustomerId(customerId) ?? user;
+  const paidAtUnix = readInvoicePaidAtUnix(invoice);
+  stampSubscriptionPayment(
+    recoveredUser,
+    created.id,
+    paidAtUnix != null ? new Date(paidAtUnix * 1000).toISOString() : null,
+  );
 }
 
 // The final invoice of a subscription Stripe just killed for nonpayment stays
@@ -1887,6 +2287,8 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          tier = 'public',
          stripe_subscription_id = NULL,
          stripe_price_id = NULL,
+         last_paid_subscription_id = NULL,
+         last_paid_invoice_at = NULL,
          subscription_status = ?,
          current_period_end = NULL,
          cancel_at_period_end = 0,
@@ -2125,7 +2527,19 @@ export async function POST(request: NextRequest) {
         break;
       }
       case 'customer.subscription.deleted': {
-        await clearSubscriptionFromUser(event.data.object as Stripe.Subscription);
+        const deleted = event.data.object as Stripe.Subscription;
+        await clearSubscriptionFromUser(deleted);
+        // Whatever was still being retried on this subscription is not coming
+        // back. This is the event that turns "Stripe is still trying" into
+        // revenue actually lost, and without it every open decline on a
+        // cancelled subscription would sit in the report as recoverable forever.
+        const lostToCancel = markDeclinesLostForSubscription(deleted.id, 'canceled');
+        if (lostToCancel > 0) {
+          logAudit({
+            type: 'payment_decline_lost',
+            message: `Subscription ${deleted.id} ended with ${lostToCancel} declined attempt(s) unpaid`,
+          });
+        }
         break;
       }
       case 'invoice.paid': {
@@ -2148,6 +2562,24 @@ export async function POST(request: NextRequest) {
             email: paidUser.email,
             message: `Invoice ${invoice.id} paid for sub ${paidSubId} amount=${invoice.amount_paid} billing_reason=${invoice.billing_reason ?? 'unknown'} period_end=${periodEnd ?? 'unknown'} price=${paidUser.stripe_price_id ?? 'unknown'}`,
           });
+        }
+        // The money arrived after all: close out every declined attempt on this
+        // invoice. Runs for EVERY paid invoice and is a no-op for the
+        // overwhelming majority, which never declined — that is cheaper than
+        // trying to guess which ones did, and it is the only thing that
+        // distinguishes revenue recovered from revenue lost.
+        if (invoice.id) {
+          const closedDeclines = resolveDeclinesForInvoice(invoice.id, {
+            recoveredAmount: typeof invoice.amount_paid === 'number' ? invoice.amount_paid : null,
+          });
+          if (closedDeclines > 0) {
+            logAudit({
+              type: 'payment_decline_recovered',
+              userId: paidUser?.id,
+              email: paidUser?.email,
+              message: `Invoice ${invoice.id} paid after ${closedDeclines} declined attempt(s)`,
+            });
+          }
         }
         // Flag a payment on a deleted account before anything else runs. The
         // branches below all no-op for one; this is what stops that no-op from
@@ -2268,12 +2700,60 @@ export async function POST(request: NextRequest) {
         const customerId =
           typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         const user = customerId ? findUserByCustomerId(customerId) : null;
+        // Version-tolerant read — see core/stripeInvoice.ts. Getting this
+        // wrong is not cosmetic: a null here silently skipped the
+        // trial-conversion branch below, so every trialer whose first charge
+        // declined got the renewal-framed dunning email.
+        const invoiceSub = readInvoiceSubscriptionId(invoice);
+
+        // Trial-conversion failures need different copy than renewal failures: a
+        // trialer never "subscribed", so the renewal-framed nudge confuses (and
+        // can alarm) them. Detected order-independently from the sub's trial_end
+        // vs this invoice (core/trialDunning). Resolved ONCE here rather than
+        // inside the email branch because the decline record below needs the same
+        // answer — a declined first charge is a lost CONVERSION, a declined
+        // renewal is a customer walking out, and the report keeps them apart.
+        // Best-effort: null means "could not tell", and both consumers degrade
+        // to the renewal reading rather than guessing.
+        let trialConversion: boolean | null = null;
+        try {
+          if (invoiceSub) {
+            const sub = await getStripe().subscriptions.retrieve(invoiceSub);
+            trialConversion = isTrialConversionFailure({
+              trialEndUnix: typeof sub.trial_end === 'number' ? sub.trial_end : null,
+              invoiceCreatedUnix: typeof invoice.created === 'number' ? invoice.created : null,
+              billingReason: invoice.billing_reason ?? null,
+            });
+          }
+        } catch {
+          // Non-fatal — the email falls back to the renewal frame, the decline
+          // record falls back to inferring the kind from invoice history.
+        }
+
+        // If a payment-recovery grace window is currently open for this account
+        // (set by the past_due subscription sync for an established renewal
+        // failure), tell the member their access is retained until it ends rather
+        // than implying an immediate downgrade. Null when no window is open —
+        // including the race where the subscription.updated sync hasn't landed
+        // yet, in which case the email falls back to tense-neutral wording (never
+        // a false downgrade claim).
+        const graceUntilIso = user
+          ? graceWindowEndIso(user.payment_grace_started_at, getPaymentGraceDays(), Date.now())
+          : null;
+
+        // Capture the reason BEFORE anything that can fail, and regardless of
+        // whether the customer maps to a live account: an unattributed decline is
+        // still money that did not arrive.
+        const declineCategory = await recordInvoiceDecline({
+          invoice,
+          invoiceSub,
+          user,
+          customerId: customerId ?? null,
+          trialConversion,
+          graceUntilIso,
+        });
+
         if (user) {
-          // Version-tolerant read — see core/stripeInvoice.ts. Getting this
-          // wrong is not cosmetic: a null here silently skipped the
-          // trial-conversion branch below, so every trialer whose first charge
-          // declined got the renewal-framed dunning email.
-          const invoiceSub = readInvoiceSubscriptionId(invoice);
           logAudit({
             type: 'stripe_payment_failed',
             userId: user.id,
@@ -2302,36 +2782,9 @@ export async function POST(request: NextRequest) {
               typeof invoice.next_payment_attempt === 'number'
                 ? new Date(invoice.next_payment_attempt * 1000).toISOString()
                 : null;
-            // If a payment-recovery grace window is currently open for this
-            // account (set by the past_due subscription sync for an established
-            // renewal failure), tell the member their access is retained until it
-            // ends rather than implying an immediate downgrade. Null when no
-            // window is open — including the race where the subscription.updated
-            // sync hasn't landed yet, in which case the email falls back to
-            // tense-neutral wording (never a false downgrade claim).
-            const graceUntilIso = graceWindowEndIso(
-              user.payment_grace_started_at,
-              getPaymentGraceDays(),
-              Date.now(),
-            );
-            // Trial-conversion failures need different copy than renewal
-            // failures: a trialer never "subscribed", so the renewal-framed nudge
-            // confuses (and can alarm) them. Detect it order-independently from
-            // the sub's trial_end vs this invoice (core/trialDunning). Best-effort
-            // — any lookup failure falls back to the renewal email.
-            let trialConversion = false;
-            try {
-              if (invoiceSub) {
-                const sub = await getStripe().subscriptions.retrieve(invoiceSub);
-                trialConversion = isTrialConversionFailure({
-                  trialEndUnix: typeof sub.trial_end === 'number' ? sub.trial_end : null,
-                  invoiceCreatedUnix: typeof invoice.created === 'number' ? invoice.created : null,
-                  billingReason: invoice.billing_reason ?? null,
-                });
-              }
-            } catch {
-              // Non-fatal — default to the renewal-framed email.
-            }
+            // An unresolved trial check (null) sends the renewal-framed email —
+            // the same fallback this branch had before the check was hoisted.
+            const trialConversionEmail = trialConversion === true;
 
             const failedEmailArgs = {
               amountFormatted,
@@ -2339,9 +2792,16 @@ export async function POST(request: NextRequest) {
               cardLast4: card?.last4 ?? null,
               nextAttemptIso,
               graceUntilIso,
+              // Both were already in scope and neither was being passed. The
+              // category is what stops us telling a member with an empty
+              // account to fix a card that works; the hosted invoice page is
+              // the only link in the email that can actually collect the money,
+              // from any card, the moment they have it.
+              declineCategory,
+              hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
             };
             try {
-              if (trialConversion) {
+              if (trialConversionEmail) {
                 await sendTrialConversionFailedEmail(user.email, failedEmailArgs);
               } else {
                 await sendPaymentFailedEmail(user.email, failedEmailArgs);
@@ -2350,7 +2810,7 @@ export async function POST(request: NextRequest) {
                 type: 'payment_failed_email_sent',
                 userId: user.id,
                 email: user.email,
-                message: `Sent ${trialConversion ? 'trial-conversion ' : ''}payment-failed email for invoice ${invoice.id}`,
+                message: `Sent ${trialConversionEmail ? 'trial-conversion ' : ''}payment-failed email for invoice ${invoice.id}`,
               });
             } catch (err) {
               const message = err instanceof Error ? err.message : 'payment-failed email send failed';
@@ -2365,6 +2825,27 @@ export async function POST(request: NextRequest) {
               // emails, so a transient Resend error must not 500 the webhook
               // (which would make Stripe retry and double-log).
             }
+          }
+        }
+        break;
+      }
+      case 'invoice.marked_uncollectible':
+      case 'invoice.voided': {
+        // The invoice itself died. Observability only — nothing is granted or
+        // revoked here (the subscription events do that) — but it is the moment
+        // a declined charge stops being recoverable, and the decline report
+        // would otherwise carry it as still in flight.
+        const dead = event.data.object as Stripe.Invoice;
+        if (dead.id) {
+          const closed = markDeclinesLostForInvoice(
+            dead.id,
+            event.type === 'invoice.voided' ? 'voided' : 'uncollectible',
+          );
+          if (closed > 0) {
+            logAudit({
+              type: 'payment_decline_lost',
+              message: `Invoice ${dead.id} ${event.type === 'invoice.voided' ? 'voided' : 'written off'} with ${closed} declined attempt(s) unpaid`,
+            });
           }
         }
         break;

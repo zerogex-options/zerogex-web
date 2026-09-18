@@ -64,9 +64,13 @@ The signal card on the page will explain the current trigger state in plain Engl
 
 The Live Bulletin is the **system of record** for triggers. If you went to lunch, you don't open every page to see what fired — you open the bulletin, filter by symbol and signal family, and read the day's events in chronological order.
 
-## What's coming
+## Outbound alerts
 
-We don't currently send alerts by email, SMS, push notification, or webhook. If demand justifies it, those channels can be added — email [support@zerogex.io](mailto:support@zerogex.io) to vote.
+Alert delivery is **in-app only**: the Live Bulletin, the signal cards, and the composite panel. Signal Alerts are not sent by email, SMS, push notification, or webhook.
+
+If you've seen channel toggles under [Account → Notifications](/account/notifications), those belong to the **Bot Trading** page, which is in beta. Don't build against them yet — the webhook channel stores your preference but doesn't deliver anything. To automate today, poll the [API](/help/platform/api-access) rather than wait on a push that won't arrive.
+
+Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want — specifics move it up.
 
 ## See also
 

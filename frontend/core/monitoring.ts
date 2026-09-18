@@ -40,9 +40,14 @@ import {
   summarizeLedger,
   type LedgerDeleteEvent,
   type LedgerPaymentEvent,
+  type LedgerRecoveryEvent,
   type LedgerRow,
   type LedgerSyncEvent,
 } from '@/core/subscriberBucket';
+import {
+  isSubscriptionPaymentEvidence,
+  SUBSCRIPTION_PAYMENT_AUDIT_TYPES,
+} from '@/core/subscriptionPayments';
 import {
   accumulateTrialOutcomes,
   buildUpcomingSteps,
@@ -298,6 +303,11 @@ export type SubscriberLedgerSnapshot = {
   // Net movement of each chart line across the window, which the rows account for.
   net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
+  // Why this ledger is empty, when it is empty because the build FAILED rather
+  // than because nothing happened. Null on a healthy build, including a healthy
+  // build with no rows. The UI must not report "nothing has changed" without
+  // checking it — see noteSnapshotFailure.
+  error: string | null;
 };
 
 // Dashed continuation of the Full Subscriber line: what the count becomes over
@@ -668,7 +678,8 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 
 // Headcount split by subscription state, for the Total Subscribers chart:
 //   active     — fully paying subscribers: a live subscription on which at least
-//                one invoice has actually been PAID (users.first_payment_at).
+//                one invoice has actually been PAID (users.last_paid_subscription_id
+//                names THIS subscription).
 //                Includes members in a RENEWAL-failure payment-recovery grace
 //                window (subscription `past_due` but tier still pro/basic: a
 //                failed renewal Stripe is still retrying, with access retained —
@@ -678,9 +689,15 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 //                loss only at the real downgrade (tier -> public), not at
 //                past_due entry.
 //   converting — the trial ended, Stripe raised the first invoice and flipped
-//                the subscription to `active`, but no payment of theirs has ever
-//                cleared. Stripe does that about an hour BEFORE it attempts the
-//                charge, so this is a charge in flight, not a customer. Broken
+//                the subscription to `active`, but no invoice has cleared on
+//                THIS subscription. Stripe does that about an hour BEFORE it
+//                attempts the charge, so this is a charge in flight, not a
+//                customer. Keyed on the subscription rather than the account
+//                because a returning member carries the account-scoped
+//                users.first_payment_at in from an earlier subscription, which
+//                used to promote them here before their card was charged at
+//                all — the same sawtooth, invisible because it only ever hit
+//                second subscriptions. Broken
 //                out because folding it into `active` made the Full Subscriber
 //                line tick up at every trial end and back down an hour later on
 //                each decline — a real subscriber and a card about to be refused
@@ -707,7 +724,7 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 // A past_due row with no recorded reason (a window opened before the reason
 // column existed) counts as `active`, exactly as every past_due grace row did
 // before the split, so no history is retroactively re-attributed. So does a
-// past_due row with no first_payment_at: reaching a renewal means they paid.
+// past_due row with no payment on record: reaching a renewal means they paid.
 function currentPayingCounts(): {
   active: number;
   converting: number;
@@ -721,7 +738,11 @@ function currentPayingCounts(): {
            CASE
              WHEN subscription_status = 'trialing' THEN 'trialing'
              WHEN subscription_status = 'past_due' AND payment_grace_reason = 'trial' THEN 'graceTrial'
-             WHEN subscription_status = 'active' AND first_payment_at IS NULL THEN 'converting'
+             WHEN subscription_status = 'active'
+                  AND (last_paid_subscription_id IS NULL
+                       OR stripe_subscription_id IS NULL
+                       OR last_paid_subscription_id <> stripe_subscription_id
+                       OR last_paid_invoice_at IS NULL) THEN 'converting'
              ELSE 'active'
            END AS bucket,
            COUNT(*) AS c
@@ -743,7 +764,8 @@ function currentPayingCounts(): {
       else if (row.bucket === 'graceTrial') graceTrial = c;
     }
     return { active, converting, trialing, graceTrial };
-  } catch {
+  } catch (err) {
+    noteSnapshotFailure('subscriber headcount', err);
     return { active: 0, converting: 0, trialing: 0, graceTrial: 0 };
   }
 }
@@ -1070,6 +1092,24 @@ function parseSyncStatus(message: string): string | null {
   return m ? m[1] : null;
 }
 
+// `billing_orphan_payment_recovered` messages open
+// "Invoice <in_...> recovered as subscription <sub_...> on price ...", written
+// identically by the webhook and scripts/recover-orphan-payment.mts.
+//
+// Anchored on that phrase rather than reusing parseSubIdFromMessage, which takes
+// the first sub_ token it finds: these messages go on to name carried coupons and
+// rejected params, and a format change that moved another id earlier in the
+// string would otherwise silently mark the WRONG subscription as paid for.
+function parseRecoveredSubId(message: string): string | null {
+  const m = message.match(/\brecovered as subscription (sub_[A-Za-z0-9]+)/);
+  return m ? m[1] : null;
+}
+
+function parseRecoveredInvoiceId(message: string): string | null {
+  const m = message.match(/\bInvoice (in_[A-Za-z0-9]+)\b/);
+  return m ? m[1] : null;
+}
+
 // How far back the flow / registration charts DISPLAY. Unlike the traffic
 // buckets (pruned at 90 days), these recompute from the retained, append-only
 // audit_events + users logs every request, so they can show far more history.
@@ -1393,7 +1433,8 @@ function buildCancellationReasons(): CancellationReasonsSummary {
       byFeedback,
       recentComments,
     };
-  } catch {
+  } catch (err) {
+    noteSnapshotFailure('cancellation reasons', err);
     return empty;
   }
 }
@@ -1499,24 +1540,88 @@ function buildUpcomingChanges(now: Date, conveyor: ConveyorParts): UpcomingChang
   };
 }
 
+// A monitoring section that failed to build, turned into something an operator
+// can actually see.
+//
+// Every builder here degrades to an empty result rather than 500-ing the admin
+// page, which is the right call — one broken query must not take the whole
+// dashboard down. What was wrong was doing it in SILENCE: an empty Subscriber
+// Ledger renders as "Nothing has changed in the last 30 days", which is a
+// confident factual claim, and indistinguishable from a thrown query. Somebody
+// chasing a member who is missing from it has no way to tell that the ledger
+// simply did not run.
+//
+// So a failure is logged with a consistent prefix (it lands in the PM2 log next
+// to the request that caused it) and the message is returned for the snapshot to
+// carry to the UI where one can.
+function noteSnapshotFailure(section: string, err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[monitoring] ${section} failed to build: ${message}`);
+  return message;
+}
+
 // ── Subscriber ledger ──────────────────────────────────────────────────────
 const LEDGER_WINDOW_DAYS = 30;
 // Cap on rows serialized to the client. Well above a normal window's traffic;
 // the net totals are computed over every row, so only the list is trimmed.
 const LEDGER_MAX_ROWS = 200;
 
+// Rows proving a payment cleared on a SUBSCRIPTION, oldest-first, for the two
+// views that must see money move: the Subscriber Ledger's Converting -> Full
+// Subscriber step and the Conversion Conveyor's conversion confirmation. Which
+// audit types count — and why the $0 trial-opening invoice does not — is
+// core/subscriptionPayments.ts.
+//
+// Every paid invoice on a subscription is returned, renewals included. Both
+// consumers already reduce to the first one per subscription themselves (the
+// ledger ignores payments after a sub's first; the conveyor only asks whether
+// the sub appears at all), so narrowing it here would just duplicate that.
+type SubscriptionPaymentRow = {
+  subId: string;
+  userId: string | null;
+  email: string | null;
+  createdAt: string;
+};
+
+function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
+  const types = SUBSCRIPTION_PAYMENT_AUDIT_TYPES.map((type) => `'${type}'`).join(', ');
+  const rows = getDb()
+    .prepare(
+      `SELECT created_at, user_id, email, type, message FROM audit_events
+        WHERE type IN (${types})
+          AND created_at > datetime('now', '-${sinceDays} days')
+        ORDER BY created_at ASC`,
+    )
+    .all() as Array<{
+      created_at: string;
+      user_id: string | null;
+      email: string | null;
+      type: string;
+      message: string;
+    }>;
+  const out: SubscriptionPaymentRow[] = [];
+  for (const row of rows) {
+    if (!isSubscriptionPaymentEvidence(row.type, row.message)) continue;
+    const subId = parseSubIdFromMessage(row.message);
+    if (!subId) continue;
+    out.push({ subId, userId: row.user_id, email: row.email, createdAt: row.created_at });
+  }
+  return out;
+}
+
 // Reconstruct the headcount's recent history from the same audit streams the
 // flow charts read. Named with a trailing underscore because the pure builder it
 // delegates to owns the plain name. Any failure yields an empty ledger rather
 // than 500-ing the admin page.
 function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
-  const empty: SubscriberLedgerSnapshot = {
+  const empty = (error: string | null): SubscriberLedgerSnapshot => ({
     windowDays: LEDGER_WINDOW_DAYS,
     rows: [],
     truncated: 0,
     net: { fullSubscriber: 0, converting: 0, freeTrial: 0, trialGrace: 0 },
     generatedAt: now.toISOString(),
-  };
+    error,
+  });
   try {
     const db = getDb();
     // Scanned oldest-first so each subscription's prior state is known before
@@ -1566,28 +1671,51 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
     // The Converting -> Full Subscriber step. Nothing about the SUBSCRIPTION
     // changes when its invoice is paid, so the sync stream above cannot see it;
     // this is the only record that money moved.
-    const paidRows = db
+    const payments: LedgerPaymentEvent[] = readSubscriptionPayments(since).map((row) => ({
+      subId: row.subId,
+      userId: row.userId,
+      email: row.email,
+      at: toIsoInstant(row.createdAt),
+    }));
+
+    // Subscriptions an orphan recovery created to carry an already-paid period.
+    // They never raise an invoice of their own before their first renewal, so
+    // neither stream above can show that they are paid for — this audit row is
+    // the only record, and without it a recovered member reads as a conversion
+    // charge stuck in flight for the whole honored period.
+    // Both audit types write "Invoice <in_…> recovered as subscription <sub_…>",
+    // so one parser serves both; only what the period MEANS differs, which the
+    // kind carries.
+    const recoveredRows = db
       .prepare(
-        `SELECT created_at, user_id, email, message FROM audit_events
-         WHERE type = 'stripe_first_payment'
+        `SELECT created_at, user_id, email, message, type FROM audit_events
+         WHERE type IN ('billing_orphan_payment_recovered', 'billing_paid_period_reinstated')
            AND created_at > datetime('now', '-${since} days')
          ORDER BY created_at ASC`,
       )
-      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
-    const payments: LedgerPaymentEvent[] = [];
-    for (const row of paidRows) {
-      const subId = parseSubIdFromMessage(row.message);
+      .all() as Array<{
+        created_at: string;
+        user_id: string | null;
+        email: string | null;
+        message: string;
+        type: string;
+      }>;
+    const recoveries: LedgerRecoveryEvent[] = [];
+    for (const row of recoveredRows) {
+      const subId = parseRecoveredSubId(row.message);
       if (!subId) continue;
-      payments.push({
+      recoveries.push({
         subId,
         userId: row.user_id,
         email: row.email,
         at: toIsoInstant(row.created_at),
+        invoiceId: parseRecoveredInvoiceId(row.message),
+        kind: row.type === 'billing_paid_period_reinstated' ? 'comped' : 'recovered',
       });
     }
 
     const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
-    const all = buildSubscriberLedger(syncs, deletes, payments, now.getTime()).filter(
+    const all = buildSubscriberLedger(syncs, deletes, payments, recoveries, now.getTime()).filter(
       (r) => Date.parse(r.at) >= cutoffMs,
     );
     return {
@@ -1596,9 +1724,10 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
       net: summarizeLedger(all),
       generatedAt: now.toISOString(),
+      error: null,
     };
-  } catch {
-    return empty;
+  } catch (err) {
+    return empty(noteSnapshotFailure('subscriber ledger', err));
   }
 }
 
@@ -1643,7 +1772,8 @@ type ConveyorUserRow = {
   priceId: string | null;
   status: string | null;
   tier: string | null;
-  firstPaymentAt: string | null;
+  lastPaidSubscriptionId: string | null;
+  lastPaidInvoiceAt: string | null;
   periodEnd: string | null;
   cancelAtPeriodEnd: number;
   graceStartedAt: string | null;
@@ -1698,7 +1828,8 @@ function readConveyorParts(now: Date): ConveyorParts {
                 stripe_price_id AS priceId,
                 subscription_status AS status,
                 tier,
-                first_payment_at AS firstPaymentAt,
+                last_paid_subscription_id AS lastPaidSubscriptionId,
+                last_paid_invoice_at AS lastPaidInvoiceAt,
                 current_period_end AS periodEnd,
                 cancel_at_period_end AS cancelAtPeriodEnd,
                 payment_grace_started_at AS graceStartedAt,
@@ -1751,18 +1882,9 @@ function readConveyorParts(now: Date): ConveyorParts {
     // Proof that a conversion charge actually cleared, which settles the
     // provisional `active` booking positively instead of waiting out the
     // confirmation window. See accumulateTrialOutcomes.
-    const paidRows = db
-      .prepare(
-        `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_first_payment'
-           AND created_at > datetime('now', '-${CONVEYOR_SYNC_WINDOW_DAYS} days')`,
-      )
-      .all() as Array<{ created_at: string; message: string }>;
-    const paymentEvents: ConveyorPaymentEvent[] = [];
-    for (const row of paidRows) {
-      const subId = parseSubIdFromMessage(row.message);
-      if (subId) paymentEvents.push({ subId, day: etDayKey(row.created_at) });
-    }
+    const paymentEvents: ConveyorPaymentEvent[] = readSubscriptionPayments(
+      CONVEYOR_SYNC_WINDOW_DAYS,
+    ).map((row) => ({ subId: row.subId, day: etDayKey(row.createdAt) }));
 
     const riders: ConveyorRider[] = [];
     const departures: ConveyorRider[] = [];
@@ -1793,7 +1915,9 @@ function readConveyorParts(now: Date): ConveyorParts {
           tier: row.tier,
           paymentGraceReason: row.graceReason,
           cancelAtPeriodEnd: cancelScheduled,
-          firstPaymentAt: row.firstPaymentAt,
+          stripeSubscriptionId: row.subId,
+          lastPaidSubscriptionId: row.lastPaidSubscriptionId,
+          lastPaidInvoiceAt: row.lastPaidInvoiceAt,
         }).bucket === 'fullSubscriber';
       if (!state && !isScheduledDeparture) continue;
 
@@ -1853,8 +1977,10 @@ function readConveyorParts(now: Date): ConveyorParts {
       ),
       graceDays,
     };
-  } catch {
-    // Query/parse failure: render an empty belt rather than 500-ing the page.
+  } catch (err) {
+    // Query/parse failure: render an empty belt rather than 500-ing the page —
+    // logged, because an empty belt is otherwise a confident "no trials running".
+    noteSnapshotFailure('conversion conveyor', err);
     return empty;
   }
 }

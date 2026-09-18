@@ -5,8 +5,10 @@ import {
   classifySubscriberBucket,
   ledgerKindLabel,
   normalizeBucketTier,
+  subscriptionPaidAt,
   summarizeLedger,
   type LedgerPaymentEvent,
+  type LedgerRecoveryEvent,
   type LedgerSyncEvent,
   type SubscriberBucketInput,
 } from '../core/subscriberBucket.ts';
@@ -22,7 +24,10 @@ import {
 //        WHEN subscription_status = 'past_due'
 //             AND payment_grace_reason = 'trial'                THEN 'graceTrial'
 //        WHEN subscription_status = 'active'
-//             AND first_payment_at IS NULL                      THEN 'converting'
+//             AND (last_paid_subscription_id IS NULL
+//                  OR stripe_subscription_id IS NULL
+//                  OR last_paid_subscription_id <> stripe_subscription_id
+//                  OR last_paid_invoice_at IS NULL)             THEN 'converting'
 //        ELSE                                                        'active'
 function sqlOracle(row: SubscriberBucketInput): string {
   const tier = normalizeBucketTier(row.tier);
@@ -34,30 +39,99 @@ function sqlOracle(row: SubscriberBucketInput): string {
   if (!inWhere) return 'notCounted';
   if (row.subscriptionStatus === 'trialing') return 'freeTrial';
   if (row.subscriptionStatus === 'past_due' && row.paymentGraceReason === 'trial') return 'trialGrace';
-  if (row.subscriptionStatus === 'active' && !row.firstPaymentAt) return 'converting';
+  if (
+    row.subscriptionStatus === 'active' &&
+    (row.lastPaidSubscriptionId == null ||
+      row.stripeSubscriptionId == null ||
+      row.lastPaidSubscriptionId !== row.stripeSubscriptionId ||
+      row.lastPaidInvoiceAt == null)
+  ) {
+    return 'converting';
+  }
   return 'fullSubscriber';
 }
+
+// The three states of the per-subscription payment pointer, named rather than
+// spelled as three opaque nulls at each call site. PAID_ON_A_PREVIOUS_SUB is the
+// one that used to be indistinguishable from PAID_ON_THIS_SUB, because the old
+// account-scoped column could not tell them apart.
+const PAID_ON_THIS_SUB = {
+  stripeSubscriptionId: 'sub_current',
+  lastPaidSubscriptionId: 'sub_current',
+  lastPaidInvoiceAt: '2026-08-28T00:45:00Z',
+};
+const NEVER_PAID = {
+  stripeSubscriptionId: 'sub_current',
+  lastPaidSubscriptionId: null,
+  lastPaidInvoiceAt: null,
+};
+const PAID_ON_A_PREVIOUS_SUB = {
+  stripeSubscriptionId: 'sub_current',
+  lastPaidSubscriptionId: 'sub_previous',
+  lastPaidInvoiceAt: '2026-08-03T03:42:56.466Z',
+};
 
 const STATUSES = ['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'paused', null];
 const TIERS = ['pro', 'basic', 'public', 'starter', 'elite', 'admin', null];
 const REASONS = ['trial', 'renewal', null];
-const PAID = ['2026-08-01T00:00:00Z', null];
+const CURRENT_SUBS = ['sub_current', null];
+const PAID_SUBS = ['sub_current', 'sub_previous', null];
+const PAID_ATS = ['2026-08-01T00:00:00Z', null];
 
 test('classifier agrees with the chart SQL across every state combination', () => {
   for (const subscriptionStatus of STATUSES) {
     for (const tier of TIERS) {
       for (const paymentGraceReason of REASONS) {
-        for (const firstPaymentAt of PAID) {
-          const row = { subscriptionStatus, tier, paymentGraceReason, firstPaymentAt };
-          assert.equal(
-            classifySubscriberBucket(row).bucket,
-            sqlOracle(row),
-            `status=${subscriptionStatus} tier=${tier} reason=${paymentGraceReason} paid=${firstPaymentAt}`,
-          );
+        for (const stripeSubscriptionId of CURRENT_SUBS) {
+          for (const lastPaidSubscriptionId of PAID_SUBS) {
+            for (const lastPaidInvoiceAt of PAID_ATS) {
+              const row = {
+                subscriptionStatus,
+                tier,
+                paymentGraceReason,
+                stripeSubscriptionId,
+                lastPaidSubscriptionId,
+                lastPaidInvoiceAt,
+              };
+              assert.equal(
+                classifySubscriberBucket(row).bucket,
+                sqlOracle(row),
+                `status=${subscriptionStatus} tier=${tier} reason=${paymentGraceReason} `
+                  + `sub=${stripeSubscriptionId} paidSub=${lastPaidSubscriptionId} paidAt=${lastPaidInvoiceAt}`,
+              );
+            }
+          }
         }
       }
     }
   }
+});
+
+// ── The pointer rule ───────────────────────────────────────────────────────
+
+test('subscriptionPaidAt only answers for the CURRENT subscription', () => {
+  assert.equal(subscriptionPaidAt(PAID_ON_THIS_SUB), '2026-08-28T00:45:00Z');
+  assert.equal(subscriptionPaidAt(NEVER_PAID), null);
+  assert.equal(subscriptionPaidAt(PAID_ON_A_PREVIOUS_SUB), null);
+  // A half-written row (pointer set, date missing) must read as unpaid — the
+  // only direction that cannot promote someone who has not been charged.
+  assert.equal(
+    subscriptionPaidAt({
+      stripeSubscriptionId: 'sub_current',
+      lastPaidSubscriptionId: 'sub_current',
+      lastPaidInvoiceAt: null,
+    }),
+    null,
+  );
+  // No subscription on the row at all.
+  assert.equal(
+    subscriptionPaidAt({
+      stripeSubscriptionId: null,
+      lastPaidSubscriptionId: 'sub_previous',
+      lastPaidInvoiceAt: '2026-08-03T00:00:00Z',
+    }),
+    null,
+  );
 });
 
 // ── The access gate ────────────────────────────────────────────────────────
@@ -72,7 +146,7 @@ test('a PAUSED subscription is not a Full Subscriber', () => {
     subscriptionStatus: 'active',
     tier: 'public',
     paymentGraceReason: null,
-    firstPaymentAt: '2026-01-01T00:00:00Z',
+    ...PAID_ON_THIS_SUB,
   });
   assert.equal(v.bucket, 'notCounted');
   assert.match(v.why, /paused/);
@@ -86,6 +160,7 @@ test('a trial held at the payment-setup gate is not a Free Trial', () => {
     subscriptionStatus: 'trialing',
     tier: 'public',
     paymentGraceReason: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'notCounted');
   assert.match(v.why, /payment setup/);
@@ -100,11 +175,11 @@ test('active with no payment on file is Converting, not a Full Subscriber', () =
     subscriptionStatus: 'active',
     tier: 'pro',
     paymentGraceReason: null,
-    firstPaymentAt: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'converting');
   assert.equal(v.label, 'Converting');
-  assert.match(v.why, /no payment has ever cleared/);
+  assert.match(v.why, /no invoice has ever cleared/);
 });
 
 test('the same member becomes a Full Subscriber once a payment clears', () => {
@@ -112,19 +187,53 @@ test('the same member becomes a Full Subscriber once a payment clears', () => {
     subscriptionStatus: 'active',
     tier: 'pro',
     paymentGraceReason: null,
-    firstPaymentAt: '2026-08-28T00:45:00Z',
+    ...PAID_ON_THIS_SUB,
   });
   assert.equal(v.bucket, 'fullSubscriber');
 });
 
+test('a RETURNING member is Converting until THIS subscription is charged', () => {
+  // lukaszrymarczyk79's production state at 11:44 on 2026-09-15: reactivated
+  // onto a new subscription, an earlier one paid back in August, the post-trial
+  // invoice raised but not yet charged. The account-scoped column said "has
+  // paid" and put him on the Full Subscriber line an hour before his card was
+  // touched — if it had then declined, the line would have ticked up and back
+  // down, the exact sawtooth the Converting band exists to prevent.
+  const v = classifySubscriberBucket({
+    subscriptionStatus: 'active',
+    tier: 'pro',
+    paymentGraceReason: null,
+    ...PAID_ON_A_PREVIOUS_SUB,
+  });
+  assert.equal(v.bucket, 'converting');
+  // The verdict has to name the stale pointer: "never paid" would send whoever
+  // is debugging this off after a brand-new member.
+  assert.match(v.why, /sub_previous/);
+  assert.match(v.why, /PREVIOUS|not the current/i);
+});
+
+test('and becomes a Full Subscriber when that subscription is charged', () => {
+  // 12:44 the same day: the $19 cleared, so the pointer now names this sub.
+  const v = classifySubscriberBucket({
+    subscriptionStatus: 'active',
+    tier: 'pro',
+    paymentGraceReason: null,
+    stripeSubscriptionId: 'sub_current',
+    lastPaidSubscriptionId: 'sub_current',
+    lastPaidInvoiceAt: '2026-09-15T12:44:36.348Z',
+  });
+  assert.equal(v.bucket, 'fullSubscriber');
+  assert.match(v.why, /2026-09-15T12:44:36/);
+});
+
 test('a renewal-grace member counts as paying even with no stamp', () => {
-  // Rows predating the column have no first_payment_at, and reaching a renewal
-  // is itself proof they paid — so history is never re-attributed downward.
+  // Rows predating the columns have no pointer, and reaching a renewal is
+  // itself proof they paid — so history is never re-attributed downward.
   const v = classifySubscriberBucket({
     subscriptionStatus: 'past_due',
     tier: 'pro',
     paymentGraceReason: 'renewal',
-    firstPaymentAt: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'fullSubscriber');
 });
@@ -134,9 +243,23 @@ test('a trial-conversion failure inside the window reads Trial Grace', () => {
     subscriptionStatus: 'past_due',
     tier: 'pro',
     paymentGraceReason: 'trial',
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'trialGrace');
   assert.equal(v.label, 'Trial Grace');
+});
+
+test('a returning member whose conversion charge fails still reads Trial Grace', () => {
+  // Grace attribution comes from trial_end (decidePaymentGrace), not from any
+  // payment column, so it was already correct for returning members. Pinned so
+  // the per-subscription change cannot quietly move them to the paying line.
+  const v = classifySubscriberBucket({
+    subscriptionStatus: 'past_due',
+    tier: 'pro',
+    paymentGraceReason: 'trial',
+    ...PAID_ON_A_PREVIOUS_SUB,
+  });
+  assert.equal(v.bucket, 'trialGrace');
 });
 
 test('the same failure MISLABELED renewal hides in Full Subscriber', () => {
@@ -146,6 +269,7 @@ test('the same failure MISLABELED renewal hides in Full Subscriber', () => {
     subscriptionStatus: 'past_due',
     tier: 'pro',
     paymentGraceReason: 'renewal',
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'fullSubscriber');
 });
@@ -158,6 +282,7 @@ test('once the tier drops to public the member leaves the chart entirely', () =>
       subscriptionStatus: 'past_due',
       tier: 'public',
       paymentGraceReason,
+      ...NEVER_PAID,
     });
     assert.equal(v.bucket, 'notCounted', `reason=${paymentGraceReason}`);
     assert.match(v.why, /dropped to public/);
@@ -170,6 +295,7 @@ test('a trialer who has clicked Cancel still counts as Free Trial', () => {
     tier: 'pro',
     paymentGraceReason: null,
     cancelAtPeriodEnd: true,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'freeTrial');
   assert.match(v.why, /cancel already scheduled/);
@@ -180,6 +306,7 @@ test('an unattributed legacy grace window still reads Full Subscriber', () => {
     subscriptionStatus: 'past_due',
     tier: 'basic',
     paymentGraceReason: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'fullSubscriber');
   assert.match(v.why, /unattributed/);
@@ -196,6 +323,7 @@ test('legacy tier ids fold like currentTierCounts', () => {
       subscriptionStatus: 'past_due',
       tier: 'elite',
       paymentGraceReason: 'trial',
+      ...NEVER_PAID,
     }).bucket,
     'trialGrace',
   );
@@ -222,6 +350,186 @@ function sync(over: Partial<LedgerSyncEvent> & { at: string }): LedgerSyncEvent 
 function payment(over: Partial<LedgerPaymentEvent> & { at: string }): LedgerPaymentEvent {
   return { subId: 'sub_1', userId: 'u1', email: 'a@example.com', ...over };
 }
+
+function recovery(over: Partial<LedgerRecoveryEvent> & { at: string }): LedgerRecoveryEvent {
+  return {
+    subId: 'sub_1',
+    userId: 'u1',
+    email: 'a@example.com',
+    invoiceId: 'in_old',
+    kind: 'recovered',
+    ...over,
+  };
+}
+
+// ── Orphan recovery ────────────────────────────────────────────────────────
+// A recovery subscription is created with NO invoice of its own — billing is
+// anchored at the end of the period the recovered invoice already paid for — so
+// nothing can clear on it until its first renewal. On the sync stream alone it
+// is indistinguishable from a conversion charge in flight.
+
+test('a recovery subscription is paid for from its first sync', () => {
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-09-18T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+  // Never the Converting band: no charge is in flight, the period is bought.
+  assert.equal(rows[0].convertingDelta, 0);
+  assert.match(rows[0].detail, /in_old/);
+  assert.match(rows[0].detail, /not a new charge/);
+});
+
+test('a recovery never reaches the fallback confirmation window', () => {
+  // Left to the sync stream this booked conversionPending, then two days later a
+  // synthetic "the conversion charge was never reported as failed" promotion —
+  // a wrong explanation for a payment that had already cleared weeks earlier.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-09-30T12:00:00Z'), // well past CONVERSION_CONFIRM_DAYS
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(summarizeLedger(rows).converting, 0);
+  assert.equal(summarizeLedger(rows).fullSubscriber, 1);
+});
+
+test('the recovery verdict does not depend on which row landed first', () => {
+  // The audit row and the subscription sync are written within the same second,
+  // in whichever order the webhook delivers, so the result must not turn on it.
+  for (const recoveryAt of ['2026-09-17T16:58:05.000Z', '2026-09-17T16:58:09.000Z']) {
+    const rows = buildSubscriberLedger(
+      [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+      [],
+      [],
+      [recovery({ at: recoveryAt })],
+      Date.parse('2026-09-30T12:00:00Z'),
+    );
+    assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered'], `recovery at ${recoveryAt}`);
+  }
+});
+
+test('a COMPED period says so rather than reading as a new sale', () => {
+  // The refunded case: the period is reinstated as goodwill, so no money is held
+  // against it at all. It still belongs on the paying line — nothing is in
+  // flight — but calling it a "new paying subscriber" would be the same class of
+  // lie the Converting band exists to prevent.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-18T04:00:00Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-18T03:59:00Z', kind: 'comped', invoiceId: 'in_refunded' })],
+    Date.parse('2026-09-30T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+  assert.equal(rows[0].convertingDelta, 0);
+  assert.match(rows[0].detail, /reinstated as a comp/);
+  assert.match(rows[0].detail, /refunded/);
+  assert.match(rows[0].detail, /in_refunded/);
+});
+
+test('a recovery with no invoice id still reads as a restored period', () => {
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z', invoiceId: null })],
+    Date.parse('2026-09-18T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.match(rows[0].detail, /already paid for/);
+});
+
+test('cancelling a recovered subscription is a PAID cancellation', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' }),
+      sync({ at: '2026-09-20T10:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-09-21T12:00:00Z'),
+  );
+  // Not cancelScheduledTrial: they hold a period they actually paid for.
+  assert.ok(rows.some((r) => r.kind === 'cancelScheduledPaid'));
+});
+
+test('a renewal on a recovered subscription moves nothing', () => {
+  // The first real money on that subscription arrives at its renewal. The
+  // member is already counted, so it must not book a second conversion.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' }),
+      sync({ at: '2026-10-03T12:20:23Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-10-03T12:21:00Z' })],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-10-04T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(summarizeLedger(rows).fullSubscriber, 1);
+});
+
+test('an UNrecovered subscription is unaffected by the recovery stream', () => {
+  // A recovery naming a different subscription must not leak across.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-27T12:20:23Z', status: 'trialing' }),
+      sync({ at: '2026-09-03T12:20:53Z', status: 'active' }),
+    ],
+    [],
+    [],
+    [recovery({ subId: 'sub_someone_else', at: '2026-09-03T12:20:00Z' })],
+    Date.parse('2026-09-03T13:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['conversionPending', 'trialStarted']);
+});
+
+test("prestonking0214's full production timeline reads correctly end to end", () => {
+  // Trial -> converted -> refunded -> canceled immediately -> and a fortnight
+  // later an orphan recovery re-homed that (refunded) invoice onto a new
+  // subscription. The recovery itself should never have happened, but the
+  // ledger's job is to SAY what happened rather than leave the account sitting
+  // on Converting with no row explaining it.
+  const OLD = 'sub_1U92I74AOiqteMYYOjBQATQc';
+  const NEW = 'sub_1UGidN4AOiqteMYYVFYeHOJ6';
+  const rows = buildSubscriberLedger(
+    [
+      sync({ subId: OLD, at: '2026-08-27T12:20:27.790Z', status: 'trialing' }),
+      sync({ subId: OLD, at: '2026-09-03T12:20:53.608Z', status: 'active' }),
+      sync({ subId: OLD, at: '2026-09-03T14:09:05.102Z', status: 'active', cancelAtPeriodEnd: true }),
+      sync({ subId: NEW, at: '2026-09-17T16:58:06.558Z', status: 'active' }),
+    ],
+    [{ subId: OLD, userId: 'u1', email: 'a@example.com', at: '2026-09-03T15:31:34.376Z' }],
+    [payment({ subId: OLD, at: '2026-09-03T13:22:05.045Z' })],
+    [recovery({ subId: NEW, at: '2026-09-17T16:58:06.226Z', invoiceId: 'in_1UBZdN4AOiqteMYYUOVhxBth' })],
+    Date.parse('2026-09-30T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), [
+    'orphanRecovered',
+    'accessEnded',
+    'cancelScheduledPaid',
+    'converted',
+    'conversionPending',
+    'trialStarted',
+  ]);
+  // The two real conversions net out across the window, and the Converting band
+  // opens and closes rather than being left holding this member.
+  const net = summarizeLedger(rows);
+  assert.equal(net.converting, 0);
+  assert.equal(net.freeTrial, 0);
+  // Paid once (the real conversion), lost once (the cancel), restored once.
+  assert.equal(net.fullSubscriber, 1);
+});
 
 test('a trial that converts then fails never touches Full Subscribers', () => {
   // jordanjosh7718's real production sequence, verbatim. This USED to book +1
@@ -300,6 +608,7 @@ test('history with no payment stream still settles, after the fallback window', 
     ],
     [],
     [],
+    [],
     Date.parse('2026-08-20T00:00:00Z'),
   );
   const settled = rows.find((r) => r.kind === 'converted');
@@ -316,6 +625,7 @@ test('the fallback never settles a conversion the clock has not reached', () => 
       sync({ at: '2026-08-01T00:00:00Z', status: 'trialing' }),
       sync({ at: '2026-08-08T00:00:00Z', status: 'active' }),
     ],
+    [],
     [],
     [],
     Date.parse('2026-08-08T06:00:00Z'),
@@ -413,6 +723,7 @@ test('a cancel clicked while the conversion charge is in flight is still a trial
     ],
     [],
     [],
+    [],
     Date.parse('2026-07-08T01:00:00Z'),
   );
   assert.equal(rows.find((r) => r.kind.startsWith('cancelScheduled'))!.kind, 'cancelScheduledTrial');
@@ -442,6 +753,7 @@ test('an established payer whose trial predates the scan is not mislabeled as a 
       sync({ at: '2026-07-01T00:00:00Z', status: 'active' }),
       sync({ at: '2026-07-01T06:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
     ],
+    [],
     [],
     [],
     Date.parse('2026-07-01T12:00:00Z'),

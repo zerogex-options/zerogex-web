@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { NAV_GROUPS } from "../core/navigation.ts";
 import { requiredTierForRoute } from "../core/auth.ts";
-import { LIKE_PAIR, SYMBOLS, likePairFor } from "../core/symbols.ts";
+import { LIKE_PAIR, SAME_INDEX_PAIR, SYMBOLS, likePairFor, sameIndexPairFor } from "../core/symbols.ts";
 
 process.env.NEXT_PUBLIC_AUTH_ENABLED = "1";
 
@@ -58,19 +58,46 @@ test("chart + first ladder follow the app symbol; the second ladder excludes it"
   assert.match(client, /if \(sym2Pref === sym1\) setSym2Pref\(prevSym1\);/);
 });
 
-// The like-pair default is shared with Pair Comparison so both surfaces open
-// on the same comparison, and it is total over the picker symbols.
+// Pair Comparison's default is the cross-index like-pair, and it is total over
+// the picker symbols.
 test("likePairFor is total, symmetric and never returns its input", () => {
   for (const s of SYMBOLS) {
-    const pair = likePairFor(s);
-    assert.notEqual(pair, s, `${s} must not pair with itself`);
-    assert.ok((SYMBOLS as readonly string[]).includes(pair), `${s} -> ${pair} is a picker symbol`);
-    assert.equal(LIKE_PAIR[pair], s, `${s} <-> ${pair} is symmetric`);
+    const partner = likePairFor(s);
+    assert.notEqual(partner, s, `${s} must not pair with itself`);
+    assert.ok((SYMBOLS as readonly string[]).includes(partner), `${s} -> ${partner} is a picker symbol`);
+    assert.equal(LIKE_PAIR[partner], s, `${s} <-> ${partner} is symmetric`);
   }
   assert.equal(likePairFor("spy"), "QQQ");
   assert.equal(likePairFor("unknown"), "QQQ");
   assert.match(pair, /likePairFor\(headerSymbol\)/);
-  assert.match(client, /likePairFor\(sym1\)/);
+});
+
+// The Gamma Terminal opens its second ladder on the SAME index's other book
+// (the ETF against its cash index, a future against the index whose chain
+// supplies its levels) rather than on Pair Comparison's cross-index like-pair,
+// so the page starts on one underlying read through two books.
+test("the terminal's second ladder defaults to the same-index counterpart", () => {
+  assert.deepEqual(SAME_INDEX_PAIR, {
+    SPY: "SPX",
+    SPX: "SPY",
+    ES: "SPX",
+    QQQ: "NDX",
+    NDX: "QQQ",
+    NQ: "NDX",
+  });
+  for (const s of SYMBOLS) {
+    const partner = sameIndexPairFor(s);
+    assert.notEqual(partner, s, `${s} must not pair with itself`);
+    assert.ok((SYMBOLS as readonly string[]).includes(partner), `${s} -> ${partner} is a picker symbol`);
+  }
+  assert.equal(sameIndexPairFor("spy"), "SPX");
+  assert.equal(sameIndexPairFor("unknown"), "QQQ", "falls back to the like-pair default");
+  // Both the opening default and the collision fallback use it — and Pair
+  // Comparison keeps its own like-pair default.
+  assert.match(client, /useState<UnderlyingSymbol>\(\(\) => sameIndexPairFor\(sym1\)\)/);
+  assert.match(client, /sym2Pref === sym1 \? sameIndexPairFor\(sym1\) : sym2Pref/);
+  assert.doesNotMatch(client, /likePairFor/);
+  assert.doesNotMatch(pair, /sameIndexPairFor/);
 });
 
 // Both pages render the identical symbol dropdown.
@@ -125,9 +152,21 @@ test("the volume pane offers both views, persisted per surface", () => {
 test("the net cumulative is accumulated through the right edge, not from the viewport", () => {
   const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
   assert.match(chart, /const throughEdge = allBars\.slice\(0, viewEnd\);/);
-  assert.match(chart, /cumulativeNetVolume\(throughEdge, \{ resetPerDay: perDay \}\)\.slice\(viewStart, viewEnd\)/);
-  // Daily candles are one bar per session already, so they don't reset.
-  assert.match(chart, /const perDay = timeframe !== "1day";/);
+  assert.match(chart, /cumulativeNetVolume\(throughEdge, \{ scope, symbol \}\)\.slice\(viewStart, viewEnd\)/);
+  // Daily candles are one bar per session already, so they never reset.
+  assert.match(chart, /const scope = timeframe === "1day" \? "window" : "session";/);
   // The replay's growing edge candle is substituted the way `bars` does it.
   assert.match(chart, /if \(partialCurrentBar && throughEdge\.length > 0\) throughEdge\[throughEdge\.length - 1\] = partialCurrentBar;/);
+});
+
+// Intraday, the pane measures ONE session: the total starts at the most recent
+// session's open (resolved through the right edge, so a panned-back or rewound
+// view reads the session it is showing) and every bar before it is flat zero.
+test("the net cumulative covers the most recent session only", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const sessionStart = scope === "session" \? lastSessionStartIndex\(bars, symbol\) : 0;/);
+  // The area breaks at that open rather than drawing a cliff off the flat run.
+  assert.match(chart, /segments: signedAreaSegments\(values, \[sessionStart\]\)/);
+  // A bar before the open has no total to report, so the readout dashes it.
+  assert.match(chart, /activeIdx < netVolume\.sessionStart \? \(/);
 });

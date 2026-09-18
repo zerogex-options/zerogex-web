@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import {
@@ -76,7 +76,26 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-export default function HeadlinesWire({ theme }: { theme: Theme }) {
+// Banner height: the control strip plus roughly two headline rows. Enough to
+// read the latest one or two at a glance and wheel through the rest.
+const BANNER_HEIGHT = 128;
+
+export default function HeadlinesWire({
+  theme,
+  compact = false,
+  onToggleCompact,
+}: {
+  theme: Theme;
+  /**
+   * Banner mode: a frame only a couple of rows tall. The auto-crawl is off
+   * here and the wire scrolls natively instead — in a two-row window a crawl
+   * and the wheel fight each other, and being able to wheel through the tape
+   * is the point of the short form.
+   */
+  compact?: boolean;
+  /** Supply to render the height toggle in the control strip. */
+  onToggleCompact?: () => void;
+}) {
   // theme is accepted for parity with the other dashboard panels; the wire
   // paints entirely from CSS custom properties so it needs no branch on it.
   void theme;
@@ -140,7 +159,7 @@ export default function HeadlinesWire({ theme }: { theme: Theme }) {
   }, [filterMode, headlines, highSignal]);
   const isFallback = filterMode === "high" && highSignal.length === 0 && headlines.length > 0;
 
-  const crawl = !reducedMotion && visible.length >= MIN_ITEMS_TO_CRAWL;
+  const crawl = !compact && !reducedMotion && visible.length >= MIN_ITEMS_TO_CRAWL;
   const crawlSeconds = Math.max(MIN_CRAWL_SECONDS, visible.length * SECONDS_PER_ITEM);
 
   // Mark the LIVE dot as genuinely live once at least one successful load has
@@ -246,7 +265,15 @@ export default function HeadlinesWire({ theme }: { theme: Theme }) {
   const listClone = visible.map((h, i) => row(h, `b:${h.id}:${i}`));
 
   return (
-    <div className="flex h-full flex-col">
+    // Banner mode needs a DEFINITE height, not a max: the frame below sizes
+    // with flex-1 and the list scrolls inside it, and percentage/flex heights
+    // only resolve against a parent whose own height is definite. With just a
+    // ceiling the list overflows and gets clipped instead of becoming
+    // scrollable, which would cost the wheel scrolling the short form is for.
+    <div
+      className={compact ? "flex flex-col" : "flex h-full flex-col"}
+      style={compact ? { height: BANNER_HEIGHT } : undefined}
+    >
       {/* Keyframes are scoped to this component; identical duplicates across
           multiple mounted wires are harmless. */}
       <style>{`
@@ -312,6 +339,29 @@ export default function HeadlinesWire({ theme }: { theme: Theme }) {
           >
             {visible.length}
           </span>
+          {onToggleCompact && (
+            // Deliberately the last item in a strip pinned to the top of the
+            // panel: the frame grows and shrinks downward, so this button stays
+            // under the pointer and the height can be flicked back and forth
+            // without moving the mouse.
+            <button
+              type="button"
+              onClick={onToggleCompact}
+              aria-expanded={!compact}
+              title={compact ? "Expand the wire" : "Shrink to a banner"}
+              aria-label={compact ? "Expand the wire" : "Shrink to a banner"}
+              className="inline-flex items-center justify-center rounded border transition-opacity opacity-60 hover:opacity-100"
+              style={{
+                borderColor: "var(--color-border)",
+                color: "var(--text-primary)",
+                width: 20,
+                height: 18,
+                cursor: "pointer",
+              }}
+            >
+              {compact ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+            </button>
+          )}
         </div>
       </div>
 

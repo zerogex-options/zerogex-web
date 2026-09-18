@@ -58,6 +58,12 @@ There is no universal "wide" for a quoted spread. SPX puts are structurally wide
 
 So this page never calls a reading wide in the abstract. It ranks today against the same symbol's own trailing sessions — "wider than 96% of the last 60 sessions" — and when it doesn't have that history yet, it shows the measurement and says **no baseline yet** rather than inventing a verdict.
 
+**The ranking is scope-bound, and the filters at the top of the page are not.** The daily record is written at one fixed scope — through 7DTE, ±5% of spot — so that every session in the window measures the same population. Move the expiry or strike-band pills off that scope and this tile stops giving a verdict and says **no baseline at this scope** instead, naming the scope the history is in.
+
+That is deliberate, and it matters most on the pill you are most likely to reach for. Selecting *0DTE only* reduces today's chain to the front expiry, which is structurally the widest book of the year — ranked against a through-7DTE window it would sit at the top of the distribution every session, and the tile would report "widest 5% of sessions" on an ordinary Tuesday. For a ranked 0DTE reading, use **Spread surface vs history** below: its rollup is stored per scope and per half-hour of the session, so 0DTE is ranked against 0DTE at the same time of day.
+
+The same applies to the **vs its own history** column in the cross-symbol table, which carries its own expiry pills for the same reason and empties out the same way.
+
 ### Since the open
 
 A different question from the one above, and both matter. A chain can be wide all day (bad percentile, flat drift) or start orderly and deteriorate into the close (ordinary percentile, drift of 3×). Neither reading substitutes for the other.
@@ -77,6 +83,34 @@ That orientation is the point. Bucketing by unsigned distance from the money wou
 ### By expiration
 
 Per-expiration rather than in DTE ranges. "2–7 DTE" is not something anyone trades: it blends Wednesday's expiry with Friday's, and those routinely differ by more than the change worth noticing. "Today's puts are 8% wide and Friday's are 3%" is a sentence you can act on.
+
+### Spread surface vs history
+
+The only part of the page that ranks rather than measures. Everything above tells you how wide the market is; this tells you whether that width is unusual for this symbol, and where across the strikes it is unusual.
+
+Today's curve is drawn on top of two things: the median of the symbol's own comparable prior sessions, and the middle half of that distribution shaded behind it. When the current line sits inside the shading, this is an ordinary day for this chain, whatever the absolute number happens to be. When it lifts clear of the shading in one region and not another, that region is the finding.
+
+**Puts and calls are a toggle, not an overlay.** Two ranked curves on one plot is four lines plus two envelopes, and the reading it exists to support — the puts widened and the calls did not — is easier to see by flipping between two clean charts.
+
+**Coverage is ranked too, and read the other way round.** The two-sided figure is the share of contracts in range carrying a real market, so a *high* percentile is the good outcome — the opposite of every width on this page. It gets its own baseline because it is the number that matches the complaint: "untradeable" usually means a contract with no bid rather than a wide one, and a contract with no bid has no width, so it leaves every median by construction. A chain can read *tighter* as more of it becomes impossible to sell, and this is the only figure that says so.
+
+It also needs a baseline to be readable at all. A 0DTE book at 51% two-sided into the close sounds alarming and is an ordinary afternoon; without the comparison there is no way to tell those apart from the number alone.
+
+**Compared at the same time of day.** Spreads have a shape through the session: the open and the close are structurally wider than midday. Ranking a 3:40pm reading against whole prior sessions would make every late-afternoon reading look like a deterioration and every lunchtime one look calm. So history is stored in half-hour buckets and matched to the current one, and the panel names the bucket it matched. Outside market hours the comparison falls back to the session's last bucket and says that it did.
+
+**The scope choices are limited on purpose.** The expiry and strike-band pills here offer fewer options than the ones at the top of the page, because a percentile is only meaningful inside a scope that history was actually stored for. Ranking a ±3% reading against ±5% history would call it extreme for no reason other than that ±5% reaches further into the wings.
+
+#### Where current spreads rank by expiry
+
+Each bar is that expiry bucket's own percentile, not its width. Plotted as widths, 0DTE wins every day of the year and the chart says nothing. Plotted as ranks, a single tall bar beside four ordinary ones is the thing worth knowing: the chain is broadly normal and the front expiry is not. Buckets with too little stored history say "insufficient history" rather than drawing a bar at some default height — on a percentile axis the shortest bar is the strong claim that an expiry is unusually *tight*.
+
+#### What it refuses to say
+
+The panel prints how many comparable sessions are behind the comparison, over what dates, and at what time of day — and prints zero when that is the honest answer. Those numbers describe the same days the comparison actually used, so a scope with nothing stored shows no date range rather than a months-long one it never looked at.
+
+Below eight comparable sessions no percentile is shown at all. "The widest of the four days we have" is not a distribution, and rendering it as a percentile would be the most misleading thing on the page. A strike band with a current reading but no stored history draws its current point and simply has no shading under it — a gap, never a zero and never a line ruled straight across it.
+
+Today's own reading is excluded from the history it is ranked against. Including it would drag the baseline toward the current value on exactly the day that matters most.
 
 ### Daily record
 

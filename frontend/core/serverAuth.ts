@@ -2,6 +2,22 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
+import {
+  MAX_LAYOUT_BYTES,
+  MAX_LAYOUT_NAME_LENGTH,
+  MAX_SAVED_LAYOUTS,
+  normalizeLayoutName,
+} from '@/core/savedBoards';
+import {
+  PALETTE_COOKIE,
+  THEME_COOKIE,
+  normalizePalette,
+  normalizeTheme,
+} from '@/core/appearance';
+
+// Appearance cookies outlive a session on purpose: they are a preference, and
+// the point is that the look survives signing out and back in.
+const APPEARANCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
@@ -1482,6 +1498,200 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
 // modal, so it never greets them again (across devices — the flag lives on the
 // user row, not just sessionStorage). Idempotent: writing the same latch twice
 // is harmless; the first non-null value is what "seen" means.
+// ── Saved dashboard boards ───────────────────────────────────────────────────
+
+export type SavedLayoutRow = {
+  id: string;
+  name: string;
+  layout: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function rowToSavedLayout(row: {
+  id: string; name: string; layout_json: string; created_at: string; updated_at: string;
+}): SavedLayoutRow {
+  let layout: unknown = null;
+  try {
+    layout = JSON.parse(row.layout_json);
+  } catch {
+    // A row that will not parse is returned with a null layout rather than
+    // throwing the whole list away; the client sanitizes anyway and simply
+    // treats it as an empty board.
+    layout = null;
+  }
+  return { id: row.id, name: row.name, layout, createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+export function listSavedLayouts(userId: string): SavedLayoutRow[] {
+  const rows = getDb()
+    .prepare(
+      'SELECT id, name, layout_json, created_at, updated_at FROM dashboard_layouts WHERE user_id = ? ORDER BY updated_at DESC'
+    )
+    .all(userId) as Array<{ id: string; name: string; layout_json: string; created_at: string; updated_at: string }>;
+  return rows.map(rowToSavedLayout);
+}
+
+export async function listSavedLayoutsForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+  return { layouts: listSavedLayouts(data.user.id), rotatedToken: data.rotatedToken, csrfToken: data.csrfToken };
+}
+
+/**
+ * Create or overwrite a board by name. Saving over an existing name is the
+ * expected way to update a board you have just rearranged, so it replaces
+ * rather than erroring — the client confirms first.
+ */
+export async function saveLayoutForRequest(
+  request: NextRequest,
+  input: { name?: unknown; layout?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const name = normalizeLayoutName(input.name);
+  if (!name) return { error: 'A board name is required' as const };
+  if (name.length > MAX_LAYOUT_NAME_LENGTH) return { error: 'That board name is too long' as const };
+  if (input.layout == null || typeof input.layout !== 'object') {
+    return { error: 'A board layout is required' as const };
+  }
+
+  const layoutJson = JSON.stringify(input.layout);
+  if (Buffer.byteLength(layoutJson, 'utf8') > MAX_LAYOUT_BYTES) {
+    return { error: 'That board is too large to save' as const };
+  }
+
+  const db = getDb();
+  const now = nowIso();
+  const existing = db
+    .prepare('SELECT id FROM dashboard_layouts WHERE user_id = ? AND name = ?')
+    .get(data.user.id, name) as { id: string } | undefined;
+
+  if (existing) {
+    db.prepare('UPDATE dashboard_layouts SET layout_json = ?, updated_at = ? WHERE id = ?')
+      .run(layoutJson, now, existing.id);
+  } else {
+    const count = db
+      .prepare('SELECT COUNT(*) AS n FROM dashboard_layouts WHERE user_id = ?')
+      .get(data.user.id) as { n: number };
+    if (count.n >= MAX_SAVED_LAYOUTS) {
+      return { error: `You can keep up to ${MAX_SAVED_LAYOUTS} saved boards` as const };
+    }
+    db.prepare(
+      'INSERT INTO dashboard_layouts (id, user_id, name, layout_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(createId('board'), data.user.id, name, layoutJson, now, now);
+  }
+
+  return {
+    layouts: listSavedLayouts(data.user.id),
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/** Rename or delete one board. Scoped by user_id so an id alone is not enough. */
+export async function mutateSavedLayoutForRequest(
+  request: NextRequest,
+  layoutId: string,
+  input: { name?: unknown; deleted?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const owned = db
+    .prepare('SELECT id FROM dashboard_layouts WHERE id = ? AND user_id = ?')
+    .get(layoutId, data.user.id) as { id: string } | undefined;
+  if (!owned) return { error: 'No such board' as const };
+
+  if (input.deleted === true) {
+    db.prepare('DELETE FROM dashboard_layouts WHERE id = ?').run(layoutId);
+  } else {
+    const name = normalizeLayoutName(input.name);
+    if (!name) return { error: 'A board name is required' as const };
+    if (name.length > MAX_LAYOUT_NAME_LENGTH) return { error: 'That board name is too long' as const };
+    const clash = db
+      .prepare('SELECT id FROM dashboard_layouts WHERE user_id = ? AND name = ? AND id != ?')
+      .get(data.user.id, name, layoutId) as { id: string } | undefined;
+    if (clash) return { error: 'You already have a board with that name' as const };
+    db.prepare('UPDATE dashboard_layouts SET name = ?, updated_at = ? WHERE id = ?')
+      .run(name, nowIso(), layoutId);
+  }
+
+  return {
+    layouts: listSavedLayouts(data.user.id),
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/**
+ * Appearance saved against the account. The browser cookie is still what the
+ * server paints from — this is the copy that survives a new device, a cleared
+ * cookie jar, or a browser that expires script-written cookies early (Safari's
+ * ITP and Brave's shields both do), and that seeds the cookie again at login.
+ */
+export function readAccountAppearance(userId: string): { theme: string | null; palette: string | null } {
+  const row = getDb()
+    .prepare('SELECT ui_theme, ui_palette FROM users WHERE id = ?')
+    .get(userId) as { ui_theme?: string | null; ui_palette?: string | null } | undefined;
+  return { theme: row?.ui_theme ?? null, palette: row?.ui_palette ?? null };
+}
+
+/**
+ * Persist the member's appearance. Values are normalized before they land, so
+ * a retired palette id is stored as its successor and anything unrecognized
+ * becomes the default rather than being written through.
+ */
+export async function saveAppearanceForRequest(
+  request: NextRequest,
+  input: { theme?: unknown; palette?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const theme = normalizeTheme(typeof input.theme === 'string' ? input.theme : null);
+  const palette = normalizePalette(typeof input.palette === 'string' ? input.palette : null);
+  const now = nowIso();
+  getDb()
+    .prepare('UPDATE users SET ui_theme = ?, ui_palette = ?, updated_at = ? WHERE id = ?')
+    .run(theme, palette, now, data.user.id);
+
+  return {
+    theme,
+    palette,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/**
+ * Seed the appearance cookies from the account. Called where a session is
+ * established — login, register, OAuth — so a member signing in on a new
+ * browser gets their own theme on the very first render rather than the site
+ * default followed by a repaint. Deliberately NOT called on ordinary session
+ * validation: doing so on every request would overwrite a change made in this
+ * browser before it had a chance to save.
+ */
+export function applyAppearanceCookies(response: NextResponse, userId: string) {
+  const stored = readAccountAppearance(userId);
+  if (!stored.theme && !stored.palette) return;
+  const common = {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: APPEARANCE_COOKIE_MAX_AGE,
+  };
+  if (stored.theme) {
+    response.cookies.set({ name: THEME_COOKIE, value: normalizeTheme(stored.theme), ...common });
+  }
+  if (stored.palette) {
+    response.cookies.set({ name: PALETTE_COOKIE, value: normalizePalette(stored.palette), ...common });
+  }
+}
+
 export async function markProWelcomeSeenForRequest(request: NextRequest) {
   const data = await getSessionFromRequest(request);
   if (!data) return null;
@@ -1497,7 +1707,7 @@ export async function markProWelcomeSeenForRequest(request: NextRequest) {
     userId: data.user.id,
     email: data.user.email,
     ip: getClientIp(request),
-    message: 'User acknowledged the Pro welcome / API-key onboarding modal',
+    message: 'User acknowledged the Pro welcome / first-run modal',
   });
 
   return {

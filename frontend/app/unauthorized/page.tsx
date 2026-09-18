@@ -1,10 +1,21 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, BarChart2, BookOpen, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart2, BookOpen, RotateCcw, Sparkles } from 'lucide-react';
+
+import { navItemLabel } from '@/core/navigation';
+import { requireSession } from '@/core/serverAuth';
+import { pricingHrefFor, resolveWall } from '@/core/returningMember';
+import { getChurnContext } from '@/core/returningMemberServer';
+import { selectHighlightsSince } from '@/core/winbackHighlights';
+import { loadWinbackHighlights } from '@/core/winbackHighlightsServer';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
+
+// Reads the session cookie to tell a returning member from a newcomer, so it can
+// never be statically rendered or cached across visitors.
+export const dynamic = 'force-dynamic';
 
 type UnauthorizedPageProps = {
   searchParams: Promise<{
@@ -17,48 +28,155 @@ type UnauthorizedPageProps = {
 export default async function UnauthorizedPage({ searchParams }: UnauthorizedPageProps) {
   const params = await searchParams;
 
-  const current = params.current ?? 'public';
+  // The session — not `?current=` — decides what this visitor is shown. The
+  // querystring is set by proxy.ts but is trivially editable by the visitor, and
+  // the whole point of this page is to make an honest promise about what
+  // checkout will do next. That answer has to come from the same place checkout
+  // reads it. `?required=` is still taken at face value: it only picks which
+  // plan the copy names, and the middleware is what actually enforces access.
+  const actor = await requireSession();
   const required = params.required ?? 'basic';
-  // Logged-in Public users hitting a paid page are the conversion-funnel case
-  // we land here for most often: the obvious next step is /pricing, not the
-  // login form they're already authenticated to.
-  const needsSubscription = current === 'public' && (required === 'basic' || required === 'pro');
-  // Basic subscriber hitting a Pro-only page: route them to /pricing for an
-  // upgrade rather than the generic "access denied" with no next step.
-  const needsUpgrade = current === 'basic' && required === 'pro';
-  const tierLabel = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const wall = resolveWall({
+    sessionTier: actor?.user.tier ?? null,
+    requiredTier: required,
+    hasPriorPaid: actor ? actor.user.hasPriorPaid : null,
+    foundingMember: actor?.user.foundingMember ?? false,
+  });
 
-  // Logged-in, no subscription: the post-registration "account exists but no
-  // trial started" case — the biggest funnel leak. Show a dedicated trial-start
-  // unlock screen rather than the generic access-denied layout, and never bounce
-  // to the free levels page.
-  if (needsSubscription) {
+  const current = actor?.user.tier ?? params.current ?? 'public';
+  const tierLabel = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const requiredLabel = required === 'pro' ? 'Pro' : 'Basic';
+  // Name the page they were actually reaching for, straight from the menu, so
+  // renaming a feature renames this sentence too. Undefined for anything not in
+  // the menu — we then say nothing rather than printing a raw path at them.
+  const wantedLabel = navItemLabel(params.path);
+
+  // ---------------------------------------------------------------------------
+  // Returning member: they have paid before, so checkout will NOT give them a
+  // trial. This screen exists because the newcomer screen below promised them
+  // one anyway — "7-day free trial, no charge until day 7" — and then handed
+  // them to a checkout that charges immediately.
+  // ---------------------------------------------------------------------------
+  // `actor` is necessarily non-null here — resolveWall only returns 'returning'
+  // for hasPriorPaid === true, which we pass as null without a session — but the
+  // compiler can't see through that, and a guard beats a non-null assertion.
+  if (wall.audience === 'returning' && actor) {
+    const churn = getChurnContext(actor.user.id);
+    const all = loadWinbackHighlights();
+    // Only what shipped after they left, newest first. freshCount is what keeps
+    // the heading honest: a member who left last week is not told a lot has
+    // changed, because for them it hasn't.
+    const selection = all ? selectHighlightsSince(all, churn.churnedAt, { minItems: 3 }) : null;
+    const hasFresh = (selection?.freshCount ?? 0) > 0;
+
+    return (
+      <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
+        <div className="w-full max-w-xl space-y-6">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
+              <RotateCcw size={13} /> Welcome back
+            </div>
+            <h1 className="text-3xl font-bold">Your account is still here</h1>
+            <p className="mt-3 text-[var(--color-text-secondary)]">
+              {wantedLabel
+                ? `You were reaching for ${wantedLabel}, which is included with ${requiredLabel}.`
+                : `That page is included with ${requiredLabel}.`}{' '}
+              Everything you had is exactly where you left it — your layouts, symbols and settings
+              are all still on your account.
+            </p>
+
+            {wall.showFoundingRestore && (
+              <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
+                You&rsquo;re a Founding Member. That rate is still yours and applies automatically
+                when you resubscribe — founding pricing closed to new members, but never to you.
+              </p>
+            )}
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                href={pricingHrefFor(wall, required === 'pro' ? 'pro' : 'basic')}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--text-inverse)]"
+              >
+                Resubscribe to {requiredLabel} <ArrowRight size={16} />
+              </Link>
+              <Link
+                href={pricingHrefFor(wall)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
+              >
+                Compare plans <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <p className="mt-5">
+              <Link
+                href="/spx-gamma-levels"
+                className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-brand-primary)] hover:underline"
+              >
+                Or keep using the free delayed levels
+              </Link>
+            </p>
+          </section>
+
+          {selection && selection.items.length > 0 && (
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
+              <h2 className="text-lg font-semibold">
+                {hasFresh ? 'Shipped since you left' : 'Recently shipped'}
+              </h2>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--color-text-secondary)]">
+                {selection.items.map((h) => (
+                  <li key={h.title}>
+                    <strong className="text-[var(--color-text-primary)]">{h.title}</strong> &mdash;{' '}
+                    {h.body}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Newcomer: logged in, never paid, hitting a paid page — the post-registration
+  // "account exists but no trial started" case, and the biggest funnel leak.
+  // The trial line renders only when we POSITIVELY know they're eligible
+  // (wall.promiseTrial); an unresolved session gets the same screen with neutral
+  // copy rather than a promise we can't stand behind.
+  // ---------------------------------------------------------------------------
+  if (wall.audience === 'newcomer') {
     return (
       <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         <div className="w-full max-w-xl">
           <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
-              <Sparkles size={13} /> Start your trial
+              <Sparkles size={13} /> {wall.promiseTrial ? 'Start your trial' : 'Choose a plan'}
             </div>
-            <h1 className="text-3xl font-bold">Start your ZeroGEX trial</h1>
+            <h1 className="text-3xl font-bold">
+              {wall.promiseTrial ? 'Start your ZeroGEX trial' : 'Unlock ZeroGEX'}
+            </h1>
             <p className="mt-3 text-[var(--color-text-secondary)]">
-              Your account is ready. Choose a plan to unlock the live dashboard.
+              {wantedLabel
+                ? `Your account is ready. ${wantedLabel} is included with ${requiredLabel} — choose a plan to unlock it and the live dashboard.`
+                : 'Your account is ready. Choose a plan to unlock the live dashboard.'}
             </p>
-            <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
-              7-day free trial. No charge until day 7. Cancel anytime.
-            </p>
+            {wall.promiseTrial && (
+              <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
+                7-day free trial. No charge until day 7. Cancel anytime.
+              </p>
+            )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
-                href="/pricing?trial=1&plan=basic"
+                href={pricingHrefFor(wall, 'basic')}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--text-inverse)]"
               >
-                Start Basic Trial <ArrowRight size={16} />
+                {wall.promiseTrial ? 'Start Basic Trial' : 'Get Basic'} <ArrowRight size={16} />
               </Link>
               <Link
-                href="/pricing?trial=1&plan=pro"
+                href={pricingHrefFor(wall, 'pro')}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
               >
-                Start Pro Trial <ArrowRight size={16} />
+                {wall.promiseTrial ? 'Start Pro Trial' : 'Get Pro'} <ArrowRight size={16} />
               </Link>
             </div>
             <p className="mt-5">
@@ -75,20 +193,18 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
     );
   }
 
+  const needsUpgrade = wall.audience === 'upgrade';
   let heading: string;
   let message: string;
-  if (needsSubscription) {
-    heading = 'Subscribe to unlock';
-    message = `This page is included with the ${required === 'pro' ? 'Pro' : 'Basic'} plan. Pick a plan to unlock it and the rest of the paid features.`;
-  } else if (needsUpgrade) {
+  if (needsUpgrade) {
     heading = 'Upgrade to unlock';
-    message = `Your current ${tierLabel(current)} plan does not include this page. Upgrade to ${tierLabel(required)} to unlock it.`;
+    message = wantedLabel
+      ? `${wantedLabel} is not included with your ${tierLabel(current)} plan. Upgrade to ${tierLabel(required)} to unlock it.`
+      : `Your current ${tierLabel(current)} plan does not include this page. Upgrade to ${tierLabel(required)} to unlock it.`;
   } else {
     heading = 'Access denied';
     message = 'Your current tier does not grant permission for this page.';
   }
-
-  const showPricingCta = needsSubscription || needsUpgrade;
 
   return (
     <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
@@ -113,10 +229,10 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
           </dl>
 
           <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
-            {showPricingCta ? (
+            {needsUpgrade ? (
               <>
                 <Link href="/pricing" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
-                  {needsUpgrade ? 'Upgrade your plan' : 'See pricing'}
+                  Upgrade your plan
                 </Link>
                 <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
                   Sign in as a different user

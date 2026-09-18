@@ -11,6 +11,7 @@ import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
 import PlotOnThinkorswim from '@/components/PlotOnThinkorswim';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
 import ReadInAssistant from '@/components/ReadInAssistant';
+import PutOnYourSite from '@/components/PutOnYourSite';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
@@ -981,6 +982,15 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             chart platform, so it is not in the integrations registry and does
             not appear in the strip. */}
         <ReadInAssistant symbol={primary} />
+
+        {/* The same funnel step aimed at a different person. Everything above
+            hands a TRADER today's numbers where they already work; this hands
+            them to someone who WRITES about the session, whose take-up is a
+            link and a daily billboard rather than a possible subscription.
+            Last in the cluster because it is the only one that is not about
+            trading, and because the page's own symbol is what makes it a
+            one-click grab instead of a trip to /embed. */}
+        <PutOnYourSite symbol={primary} />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

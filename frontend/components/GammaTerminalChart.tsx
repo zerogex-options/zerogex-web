@@ -32,11 +32,12 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
+import { wheelAction } from "@/core/wheelZoom";
 import {
   cumulativeNetVolume,
+  lastSessionStartIndex,
   netVolumeAreaPaths,
   netVolumeScale,
-  sessionStartIndices,
   signedAreaSegments,
   VOLUME_MODE_LABELS,
   type VolumeMode,
@@ -51,9 +52,10 @@ import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
 import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
+import { useChipInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
-import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
+import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
 import { pinLineLabel } from "@/core/pinStrike";
@@ -499,6 +501,9 @@ export default function GammaTerminalChart({
   // is the only one on its symbol (nothing to reconcile with).
   const linkedBase = priceLink ? priceLink.domains.get(symbol) ?? null : null;
   const isMobile = useIsMobile();
+  // Price tags are filled with a level's own colour, so their text is picked
+  // per chip rather than from the theme's inverse ink.
+  const chipInk = useChipInk();
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
@@ -1015,33 +1020,45 @@ export default function GammaTerminalChart({
 
   // ── Net cumulative volume (the volume pane's second view) ────────────────
   // A running session total of uptick MINUS downtick volume, drawn as an area
-  // off a zero line — green while buyers have led the day's tape, red once
+  // off a zero line — green while buyers have led the session's tape, red once
   // sellers have taken it back. Same instrument, and the same read, as the
   // Options Flow chart's Directional net volume.
   //
-  // The total is accumulated over every bar up to the right edge, not just the
-  // bars on screen: a cumulative that restarted at the left edge of the
-  // viewport would print a different number for the same bar at every zoom.
-  // Panning back into the session therefore shows exactly the curve the live
-  // view showed. The replay's growing edge candle is substituted the same way
-  // `bars` substitutes it, so the total fills in with the replay instead of
-  // snapping. Intraday bars restart the total each ET trading date (the day
-  // separators the chart already draws); daily candles are one bar per session
-  // already, so their total runs across the window.
+  // It measures ONE session: the total starts at zero on the most recent
+  // session's opening bar and every bar before that open reads flat zero, so
+  // the pane is "where this session's tape has got to" rather than a hump per
+  // day, and the pane's scale belongs to the session on screen instead of being
+  // squashed by a busier day beside it.
+  //
+  // "Most recent" is resolved through the RIGHT EDGE, not the wall clock: the
+  // total is accumulated over every bar up to the edge, so a rewound or
+  // panned-back view measures the session that edge sits in (the live view's
+  // own curve, at the zoom that shows it) instead of blanking out because the
+  // live session is off screen. That is also why a cumulative may never be
+  // accumulated from the left edge of the viewport: it would print a different
+  // number for the same bar at every zoom. The replay's growing edge candle is
+  // substituted the same way `bars` substitutes it, so the total fills in with
+  // the replay instead of snapping. Daily candles are one bar per session
+  // already, so they accumulate across the whole window instead.
   const netVolume = useMemo(() => {
     if (volumeMode !== "net" || bars.length === 0) return null;
     const throughEdge = allBars.slice(0, viewEnd);
     if (partialCurrentBar && throughEdge.length > 0) throughEdge[throughEdge.length - 1] = partialCurrentBar;
-    const perDay = timeframe !== "1day";
-    const values = cumulativeNetVolume(throughEdge, { resetPerDay: perDay }).slice(viewStart, viewEnd);
+    const scope = timeframe === "1day" ? "window" : "session";
+    const values = cumulativeNetVolume(throughEdge, { scope, symbol }).slice(viewStart, viewEnd);
     if (values.length === 0) return null;
+    // Viewport-relative index of the session's first bar — 0 when the open is
+    // already off to the left. `bars` ends on the same edge bar `throughEdge`
+    // does, so the two agree on which session is the last one.
+    const sessionStart = scope === "session" ? lastSessionStartIndex(bars, symbol) : 0;
     return {
       values,
-      segments: signedAreaSegments(values, perDay ? sessionStartIndices(bars) : []),
+      sessionStart,
+      segments: signedAreaSegments(values, [sessionStart]),
       scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
       last: values[values.length - 1],
     };
-  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe]);
+  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol]);
 
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
@@ -1105,7 +1122,7 @@ export default function GammaTerminalChart({
   // ── Gamma levels ── Rewind takes flip/walls/pin from the historical bucket,
   // Max Pain from the bucket's per-strike OI and VWAP from the bars;
   // net-GEX-at-spot isn't recoverable from the timeseries, so it's hidden
-  // while rewinding (it's the only level still withheld there). When
+  // whenever the levels come from a bucket (see netGexAtSpot below). When
   // an expiration filter is active the LIVE flip/walls also come from the
   // filtered timeseries bucket (the endpoint aggregates to the selected
   // expirations), so the level lines track the filtered bars — not the
@@ -1137,7 +1154,21 @@ export default function GammaTerminalChart({
   // the opposite sign and would let the badge contradict the gamma flip. When
   // the point value is absent the badge falls back to the geometric
   // spot-vs-flip read (see longGammaNow), not an opposite-signed total.
-  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot);
+  //
+  // Withheld whenever `flip` above did NOT come from the live whole-chain
+  // spot-shift profile — i.e. while rewinding, and while an expiration filter
+  // has the flip coming off `levelBucket`. net_gex_at_spot is always served
+  // whole-chain, so pairing it with a subset's (or an earlier moment's) flip
+  // reads two different books at once: the badge could say SHORT with price
+  // sitting above the flip drawn beside it, and because the bands take their
+  // orientation from the badge that inverts the whole regime shading. The
+  // Playbook below the chart already applies this rule to the same levels
+  // (atSpotGammaForPlaybook); atSpotGammaForScope is the shared statement of
+  // it, so the two surfaces can't drift apart again.
+  const netGexAtSpot = atSpotGammaForScope(
+    snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot),
+    rewindActive || levelBucket != null,
+  );
   // Pin Strike — reachable 0DTE positive-gamma pin, drawn during rewind from
   // the bucket's stored value (the server ships the same per-cycle pin the
   // Daily Replay reads, as of the bucket's close).
@@ -1871,19 +1902,31 @@ export default function GammaTerminalChart({
     zoomPriceRef.current = zoomPrice;
   });
 
-  // Wheel: over the candles → time zoom (anchored on the bar under the cursor);
-  // over the price axis / rail, or with Shift held → vertical price zoom.
-  // Attached natively with { passive: false } so preventDefault actually stops
-  // the page from scrolling (React's synthetic onWheel can be passive).
+  // Wheel. A bare wheel is left alone so the page scrolls — see core/wheelZoom
+  // for why. Ctrl/Cmd (or trackpad pinch) → time zoom, anchored on the bar
+  // under the cursor; Shift, or the cursor over the price axis / rail →
+  // vertical price zoom. Attached natively with { passive: false } so that
+  // preventDefault actually stops the page on the gestures we DO claim
+  // (React's synthetic onWheel can be passive).
   useEffect(() => {
     const el = svgRef.current;
     if (!el || total <= 1) return;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
+      // A horizontal trackpad swipe carries no deltaY; zooming on it would
+      // pick a direction out of thin air.
+      if (e.deltaY === 0) return;
       const rect = el.getBoundingClientRect();
       const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
+      const action = wheelAction({
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        overPriceAxis: vx > plotRight,
+      });
+      if (action === "page-scroll") return;
+      e.preventDefault();
       const factor = e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
-      if (e.shiftKey || vx > plotRight) {
+      if (action === "zoom-price") {
         zoomPriceRef.current(factor);
         return;
       }
@@ -2539,7 +2582,7 @@ export default function GammaTerminalChart({
                   title={
                     m === "updown"
                       ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running session total of uptick minus downtick volume, from the day's first bar. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                      : "Running total of uptick minus downtick volume for the current session only — it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
                   }
                 >
                   {VOLUME_MODE_LABELS[m]}
@@ -3048,7 +3091,7 @@ export default function GammaTerminalChart({
               return (
                 <>
                   {tags.map((t) => (
-                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
                   ))}
                   {liveBarClock && lastTagY != null && (
                     <BarCountdownTag
@@ -3166,7 +3209,7 @@ export default function GammaTerminalChart({
                 <g pointerEvents="none">
                   <line x1={xForIndex(activeIdx)} x2={xForIndex(activeIdx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
                   <line x1={PLOT_LEFT} x2={plotRight} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
-                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" />
+                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" ink={chipInk("var(--text-secondary)")} />
                 </g>
               );
             })()}
@@ -3246,11 +3289,17 @@ export default function GammaTerminalChart({
                 <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
                 <Row k="Vol" v={fmtVol(activeBar.volume)} />
                 {netVolume && (
-                  <Row
-                    k="Net"
-                    v={fmtVolSigned(netVolume.values[activeIdx] ?? 0)}
-                    color={(netVolume.values[activeIdx] ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
-                  />
+                  /* Before the session opened there is no running total to
+                     report — a dash, not a "+0" that reads like a measurement. */
+                  activeIdx < netVolume.sessionStart ? (
+                    <Row k="Net" v="—" color="var(--text-muted)" />
+                  ) : (
+                    <Row
+                      k="Net"
+                      v={fmtVolSigned(netVolume.values[activeIdx] ?? 0)}
+                      color={(netVolume.values[activeIdx] ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+                    />
+                  )
                 )}
               </div>
               {liveBarClock && activeBar.timestamp === liveBarTimestamp && (
@@ -3356,8 +3405,8 @@ export default function GammaTerminalChart({
               <ChevronsRight size={17} />
             </button>
           )}
-          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
-          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
+          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} hint="Ctrl + scroll" />
+          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} hint="Shift + scroll" />
         </div>
       </div>
 
@@ -3623,13 +3672,16 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
   );
 }
 
-function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; strong?: boolean; arrow?: "up" | "down" | null }) {
+// `ink` is the price's colour. It has to be judged against this tag's own fill
+// rather than against the page, because a level's colour does not follow the
+// theme — see useChipInk. Callers pass chipInk(bg).
+function PriceTag({ x, y, value, bg, ink, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; ink: string; strong?: boolean; arrow?: "up" | "down" | null }) {
   const w = 8 + value.length * 6.6 + (arrow ? 8 : 0);
   const h = strong ? 18 : 15;
   return (
     <g transform={`translate(${x - w}, ${y})`}>
       <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill={bg} />
-      <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill="var(--text-inverse)" style={{ fontVariantNumeric: "tabular-nums" }}>
+      <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill={ink} style={{ fontVariantNumeric: "tabular-nums" }}>
         {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
         {value}
       </text>
@@ -3722,7 +3774,10 @@ const zoomBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-function ZoomCluster({ label, onIn, onOut }: { label: string; onIn: () => void; onOut: () => void }) {
+function ZoomCluster({ label, onIn, onOut, hint }: { label: string; onIn: () => void; onOut: () => void; hint?: string }) {
+  // A bare wheel scrolls the page now, so the modifier gesture only exists if
+  // something tells the reader about it. These buttons are that something.
+  const suffix = hint ? ` — or ${hint}` : "";
   return (
     <div
       className="flex items-center gap-1"
@@ -3737,10 +3792,10 @@ function ZoomCluster({ label, onIn, onOut }: { label: string; onIn: () => void; 
       <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: 34, textAlign: "right", paddingRight: 2 }}>
         {label}
       </span>
-      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})`} style={zoomBtnStyle}>
+      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})${suffix}`} style={zoomBtnStyle}>
         −
       </button>
-      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})`} style={zoomBtnStyle}>
+      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})${suffix}`} style={zoomBtnStyle}>
         +
       </button>
     </div>

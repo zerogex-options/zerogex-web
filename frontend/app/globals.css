@@ -1,6 +1,16 @@
 @import "tailwindcss";
 
 :root {
+  /* Width the sidebar reserves in the page. Navigation only assigns this from
+     an effect, so before hydration the var was undefined and the consuming
+     `md:pl-[var(--zgx-nav-width,0px)]` fell back to 0 — every desktop visitor
+     had page content render underneath the sidebar for the first few hundred
+     milliseconds and then jump 272px right. Declaring the default here means
+     the first paint already reserves the gutter. Keep in sync with
+     SIDEBAR_WIDTH in components/Navigation.tsx. Only ever consumed behind a
+     `md:` prefix, so it needs no narrow-viewport variant. */
+  --zgx-nav-width: 272px;
+
   /* Font families — resolved via Next font optimization in app/layout.tsx.
      Fallbacks so unstyled server-rendered content still looks reasonable. */
   --font-display: var(--font-space-grotesk), 'Neue Haas Grotesk', 'Inter', system-ui, sans-serif;
@@ -63,8 +73,9 @@
      either, and it must never be confused with the --color-accent-hot
      last-price line, which every palette tunes warm. Blue also matches the
      flip line already drawn on the Gamma Heatmap (--accent-2), so the level
-     keeps one identity across charts. Defined once here; every named palette
-     inherits it, so the flip stays consistently azure across themes. */
+     keeps one identity across charts. This is the base value; a palette
+     overrides it ONLY where its own colours crowd the azure, and then only far
+     enough to separate — the flip stays recognisably azure in every theme. */
   --color-flip: #3B9EFF;
   --color-flip-soft: rgba(59, 158, 255, 0.16);
 
@@ -74,17 +85,21 @@
      that aren't the Gamma Chart spend --color-gold on other things entirely
      (the spot line on the walls chart, the profile curve on the GEX profile).
      Its own token, a saturated gold that stays clear of the muted golds those
-     palettes use for their hot accent. Defined once here; every named palette
-     inherits it. */
+     palettes use for their hot accent. This is the base value; the light cards
+     could not carry it (1.6:1) and the gold-accent palettes still collided with
+     it, so those palettes override it with a deeper ochre. Keep any override
+     clear of that palette's --color-accent-hot as well as of the other levels —
+     both share the price-tag column. */
   --color-maxpain: #F0B429;
   --color-maxpain-soft: rgba(240, 180, 41, 0.16);
 
   /* Pin Strike — the reachable 0DTE strike with the strongest modeled
      positive (restoring) dealer-gamma pin. A teal placed deliberately outside
      the green/red walls, the azure gamma-flip, the gold Max-Pain and the
-     violet King so the pin reads as its own distinct level. Defined once here;
-     every named palette inherits it, so the pin stays consistently teal across
-     themes. */
+     violet King so the pin reads as its own distinct level. This is the base
+     value; a palette overrides it ONLY where its own teals and greens crowd it,
+     and then only far enough to separate — the pin stays recognisably teal in
+     every theme. */
   --color-pin: #14B8A6;
   --color-pin-soft: rgba(20, 184, 166, 0.16);
 
@@ -278,7 +293,7 @@
   --accent-3: #B98A3E;
   --accent-4: #E1554F;
   --color-accent: #E1554F;
-  --color-accent-hot: #E1554F;
+  --color-accent-hot: #E54C72;
   --color-accent-soft: rgba(225,85,79,0.16);
   --color-gold: #B98A3E;
   --color-gold-soft: rgba(185,138,62,0.20);
@@ -294,8 +309,15 @@
   --color-navy: #2F5D82;
   --color-emerald: #0E9E6E;
   --color-emerald-soft: rgba(14,158,110,0.20);
-  --color-hazy: #2F5D82;
-  --color-hazy-soft: rgba(47,93,130,0.14);
+  --color-hazy: #677E97;
+  --color-hazy-soft: rgba(103,126,151,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #3B9EFF;
+  --color-pin: #00B3A1;
+  --color-maxpain: #CD9500;
   --color-bull: #10985A;
   --color-bull-soft: rgba(16,152,90,0.20);
   --color-bear: #D93A34;
@@ -344,7 +366,7 @@
   --accent-3: #D8B27A;
   --accent-4: #F4645F;
   --color-accent: #F4645F;
-  --color-accent-hot: #FF7B6E;
+  --color-accent-hot: #F38557;
   --color-accent-soft: rgba(244,100,95,0.22);
   --color-gold: #D8B27A;
   --color-gold-soft: rgba(216,178,122,0.24);
@@ -360,8 +382,11 @@
   --color-navy: #5B8DB8;
   --color-emerald: #22C98A;
   --color-emerald-soft: rgba(34,201,138,0.26);
-  --color-hazy: #5B8DB8;
-  --color-hazy-soft: rgba(91,141,184,0.16);
+  --color-hazy: #A3B2C2;
+  --color-hazy-soft: rgba(163,178,194,0.16);
+  --color-flip: #6AB9FF;
+  --color-pin: #14B8A6;
+  --color-maxpain: #F0B429;
   --color-bull: #22D982;
   --color-bull-soft: rgba(34,217,130,0.26);
   --color-bear: #FF4D4A;
@@ -416,7 +441,7 @@
   --accent-3: #B57E2A;
   --accent-4: #C4491E;
   --color-accent: #C4491E;
-  --color-accent-hot: #C4491E;
+  --color-accent-hot: #AE5900;
   --color-accent-soft: rgba(196,73,30,0.16);
   --color-gold: #B57E2A;
   --color-gold-soft: rgba(181,126,42,0.20);
@@ -432,8 +457,15 @@
   --color-navy: #4E6E86;
   --color-emerald: #4E8C2E;
   --color-emerald-soft: rgba(78,140,46,0.20);
-  --color-hazy: #4E6E86;
-  --color-hazy-soft: rgba(78,110,134,0.14);
+  --color-hazy: #22465C;
+  --color-hazy-soft: rgba(34,70,92,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #2E9CFF;
+  --color-pin: #11AB9A;
+  --color-maxpain: #C39000;
   --color-bull: #6E8C2A;
   --color-bull-soft: rgba(110,140,42,0.20);
   --color-bear: #B53A1E;
@@ -498,8 +530,11 @@
   --color-navy: #6E8CA0;
   --color-emerald: #8CB33F;
   --color-emerald-soft: rgba(140,179,63,0.26);
-  --color-hazy: #6E8CA0;
-  --color-hazy-soft: rgba(110,140,160,0.16);
+  --color-hazy: #9DBACD;
+  --color-hazy-soft: rgba(157,186,205,0.16);
+  --color-flip: #43A3FF;
+  --color-pin: #14B8A6;
+  --color-maxpain: #F0B429;
   --color-bull: #8CB33F;
   --color-bull-soft: rgba(140,179,63,0.26);
   --color-bear: #D6402B;
@@ -552,7 +587,7 @@
   --accent-3: #B08D57;
   --accent-4: #7A1E2C;
   --color-accent: #0E3A53;
-  --color-accent-hot: #C7213D;
+  --color-accent-hot: #7A1E2C;
   --color-accent-soft: rgba(14,58,83,0.20);
   --color-gold: #B08D57;
   --color-gold-soft: rgba(176,141,87,0.22);
@@ -570,14 +605,21 @@
   --color-canary: #B08D57;
   --color-emerald: #1FA65E;
   --color-emerald-soft: rgba(31,166,94,0.22);
-  --color-hazy: #0E3A53;
-  --color-hazy-soft: rgba(14,58,83,0.14);
+  --color-hazy: #2A6487;
+  --color-hazy-soft: rgba(42,100,135,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #3B9EFF;
+  --color-pin: #00B2A1;
+  --color-maxpain: #CD9500;
   --color-bull: #10B85E;
   --color-bull-soft: rgba(16,184,94,0.22);
   --color-bear: #E7213D;
   --color-bear-soft: rgba(231,33,61,0.22);
-  --color-warning: #C7213D;
-  --color-warning-soft: rgba(199,33,61,0.20);
+  --color-warning: #B08D57;
+  --color-warning-soft: rgba(176,141,87,0.20);
   --color-info: #0E3A53;
   --color-info-soft: rgba(14,58,83,0.10);
   --color-brand-primary: #0E3A53;
@@ -620,7 +662,7 @@
   --accent-3: #C5A05A;
   --accent-4: #E93D5A;
   --color-accent: #4A9BD1;
-  --color-accent-hot: #E93D5A;
+  --color-accent-hot: #EE7B9E;
   --color-accent-soft: rgba(74,155,209,0.24);
   --color-gold: #C5A05A;
   --color-gold-soft: rgba(197,160,90,0.26);
@@ -638,14 +680,17 @@
   --color-canary: #C5A05A;
   --color-emerald: #35C979;
   --color-emerald-soft: rgba(53,201,121,0.26);
-  --color-hazy: #4A9BD1;
-  --color-hazy-soft: rgba(74,155,209,0.18);
+  --color-hazy: #597892;
+  --color-hazy-soft: rgba(89,120,146,0.18);
+  --color-flip: #96BBFF;
+  --color-pin: #14B8A6;
+  --color-maxpain: #F0B429;
   --color-bull: #22D982;
   --color-bull-soft: rgba(34,217,130,0.26);
   --color-bear: #FF3855;
   --color-bear-soft: rgba(255,56,85,0.26);
-  --color-warning: #E93D5A;
-  --color-warning-soft: rgba(233,61,90,0.26);
+  --color-warning: #C5A05A;
+  --color-warning-soft: rgba(197,160,90,0.26);
   --color-info: #4A9BD1;
   --color-info-soft: rgba(74,155,209,0.20);
   --color-brand-primary: #4A9BD1;
@@ -706,8 +751,15 @@
   --color-navy: #4F8C8B;
   --color-emerald: #1FA88A;
   --color-emerald-soft: rgba(31,168,138,0.22);
-  --color-hazy: #4F8C8B;
-  --color-hazy-soft: rgba(79,140,139,0.14);
+  --color-hazy: #246867;
+  --color-hazy-soft: rgba(36,104,103,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #379DFF;
+  --color-pin: #00906B;
+  --color-maxpain: #905900;
   --color-bull: #22B563;
   --color-bull-soft: rgba(34,181,99,0.22);
   --color-bear: #E63822;
@@ -770,8 +822,11 @@
   --color-navy: #3E9C9B;
   --color-emerald: #4FCFC0;
   --color-emerald-soft: rgba(79,207,192,0.26);
-  --color-hazy: #3E9C9B;
-  --color-hazy-soft: rgba(62,156,155,0.16);
+  --color-hazy: #95B7B6;
+  --color-hazy-soft: rgba(149,183,182,0.16);
+  --color-flip: #3B9EFF;
+  --color-pin: #00C4AA;
+  --color-maxpain: #FE9000;
   --color-bull: #35E082;
   --color-bull-soft: rgba(53,224,130,0.28);
   --color-bear: #FF4A2E;
@@ -824,7 +879,7 @@
   --accent-3: #B5483A;
   --accent-4: #6F8F8A;
   --color-accent: #8A9A5B;
-  --color-accent-hot: #B5483A;
+  --color-accent-hot: #A95226;
   --color-accent-soft: rgba(138,154,91,0.22);
   --color-gold: #D8A7A1;
   --color-gold-soft: rgba(216,167,161,0.24);
@@ -840,8 +895,15 @@
   --color-navy: #6F8F8A;
   --color-emerald: #6B9A3E;
   --color-emerald-soft: rgba(107,154,62,0.22);
-  --color-hazy: #6F8F8A;
-  --color-hazy-soft: rgba(111,143,138,0.14);
+  --color-hazy: #3B716A;
+  --color-hazy-soft: rgba(59,113,106,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #389CFF;
+  --color-pin: #00AC9B;
+  --color-maxpain: #C39100;
   --color-bull: #2AB554;
   --color-bull-soft: rgba(42,181,84,0.22);
   --color-bear: #E22D2D;
@@ -890,7 +952,7 @@
   --accent-3: #C94B3F;
   --accent-4: #7CA5A0;
   --color-accent: #A5B875;
-  --color-accent-hot: #C94B3F;
+  --color-accent-hot: #C0582D;
   --color-accent-soft: rgba(165,184,117,0.24);
   --color-gold: #E0A7A0;
   --color-gold-soft: rgba(224,167,160,0.26);
@@ -906,8 +968,11 @@
   --color-navy: #7CA5A0;
   --color-emerald: #B5D060;
   --color-emerald-soft: rgba(181,208,96,0.28);
-  --color-hazy: #7CA5A0;
-  --color-hazy-soft: rgba(124,165,160,0.16);
+  --color-hazy: #288A81;
+  --color-hazy-soft: rgba(40,138,129,0.16);
+  --color-flip: #3B9EFF;
+  --color-pin: #00C0A9;
+  --color-maxpain: #F0B429;
   --color-bull: #3FE072;
   --color-bull-soft: rgba(63,224,114,0.28);
   --color-bear: #FF3F3F;
@@ -956,7 +1021,12 @@
   --color-gold: #B58A3E; --color-gold-soft: rgba(181,138,62,0.22);
   --color-maroon: #9C3A34; --color-navy: #3A5568;
   --color-emerald: #2E7D5E; --color-emerald-soft: rgba(46,125,94,0.22);
-  --color-hazy: #6E8496; --color-hazy-soft: rgba(110,132,150,0.14);
+  --color-hazy: #7A8B99; --color-hazy-soft: rgba(122,139,153,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #3B9EFF; --color-pin: #00AF9C; --color-maxpain: #9D5300;
   --color-bull: #2E7D5E; --color-bull-soft: rgba(46,125,94,0.22);
   --color-bear: #B23A34; --color-bear-soft: rgba(178,58,52,0.22);
   --color-warning: #B58A3E; --color-warning-soft: rgba(181,138,62,0.22);
@@ -983,7 +1053,8 @@
   --color-gold: #D6A94E; --color-gold-soft: rgba(214,169,78,0.26);
   --color-maroon: #D66A5E; --color-navy: #6E90AC;
   --color-emerald: #4FB588; --color-emerald-soft: rgba(79,181,136,0.26);
-  --color-hazy: #8FA6B8; --color-hazy-soft: rgba(143,166,184,0.18);
+  --color-hazy: #A9BBCA; --color-hazy-soft: rgba(169,187,202,0.18);
+  --color-flip: #5BB5FF; --color-pin: #00BCB7; --color-maxpain: #FF9305;
   --color-bull: #4FB588; --color-bull-soft: rgba(79,181,136,0.26);
   --color-bear: #E0685E; --color-bear-soft: rgba(224,104,94,0.26);
   --color-warning: #D6A94E; --color-warning-soft: rgba(214,169,78,0.26);
@@ -1016,7 +1087,12 @@
   --color-gold: #BFA24E; --color-gold-soft: rgba(191,162,78,0.22);
   --color-maroon: #C0392B; --color-navy: #33506E;
   --color-emerald: #2E7D5E; --color-emerald-soft: rgba(46,125,94,0.22);
-  --color-hazy: #6E8496; --color-hazy-soft: rgba(110,132,150,0.14);
+  --color-hazy: #7A8B99; --color-hazy-soft: rgba(122,139,153,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #3B9EFF; --color-pin: #00B3A1; --color-maxpain: #965E00;
   --color-bull: #2E7D5E; --color-bull-soft: rgba(46,125,94,0.22);
   --color-bear: #C0392B; --color-bear-soft: rgba(192,57,43,0.22);
   --color-warning: #BFA24E; --color-warning-soft: rgba(191,162,78,0.22);
@@ -1043,7 +1119,8 @@
   --color-gold: #DCC066; --color-gold-soft: rgba(220,192,102,0.26);
   --color-maroon: #D6564A; --color-navy: #6E90AC;
   --color-emerald: #4FB588; --color-emerald-soft: rgba(79,181,136,0.26);
-  --color-hazy: #9AA8B4; --color-hazy-soft: rgba(154,168,180,0.18);
+  --color-hazy: #A9BBCA; --color-hazy-soft: rgba(169,187,202,0.18);
+  --color-flip: #5BB5FF; --color-pin: #00BCB7; --color-maxpain: #F7A600;
   --color-bull: #4FB588; --color-bull-soft: rgba(79,181,136,0.26);
   --color-bear: #E0574C; --color-bear-soft: rgba(224,87,76,0.26);
   --color-warning: #DCC066; --color-warning-soft: rgba(220,192,102,0.26);
@@ -1071,12 +1148,17 @@
   --border-subtle: rgba(20,48,56,0.1); --border-default: rgba(20,48,56,0.22); --border-strong: rgba(20,48,56,0.4);
   --accent-1: #C15A5A; --accent-2: #1E7EA0; --accent-3: #E0B05A; --accent-4: #E8846E;
   --color-accent: #1BA6B0;
-  --color-accent-hot: #E8846E;
+  --color-accent-hot: #CB7C4F;
   --color-accent-soft: rgba(232,132,110,0.2);
   --color-gold: #E0B05A; --color-gold-soft: rgba(224,176,90,0.22);
   --color-maroon: #C15A5A; --color-navy: #1E7EA0;
   --color-emerald: #2E9E7A; --color-emerald-soft: rgba(46,158,122,0.22);
-  --color-hazy: #6FC0C4; --color-hazy-soft: rgba(111,192,196,0.14);
+  --color-hazy: #7D9899; --color-hazy-soft: rgba(125,152,153,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #3B9EFF; --color-pin: #00B1B0; --color-maxpain: #CD9500;
   --color-bull: #2E9E7A; --color-bull-soft: rgba(46,158,122,0.22);
   --color-bear: #D6564E; --color-bear-soft: rgba(214,86,78,0.22);
   --color-warning: #E0B05A; --color-warning-soft: rgba(224,176,90,0.22);
@@ -1098,12 +1180,13 @@
   --border-subtle: rgba(230,240,239,0.09); --border-default: rgba(230,240,239,0.22); --border-strong: rgba(230,240,239,0.34);
   --accent-1: #E86E6E; --accent-2: #3FB0D8; --accent-3: #F0C46A; --accent-4: #F0987A;
   --color-accent: #2FD0D0;
-  --color-accent-hot: #F0987A;
+  --color-accent-hot: #ED9A77;
   --color-accent-soft: rgba(240,152,122,0.24);
   --color-gold: #F0C46A; --color-gold-soft: rgba(240,196,106,0.26);
   --color-maroon: #E86E6E; --color-navy: #3FB0D8;
   --color-emerald: #3FD0A8; --color-emerald-soft: rgba(63,208,168,0.26);
   --color-hazy: #7FD8DC; --color-hazy-soft: rgba(127,216,220,0.18);
+  --color-flip: #3B9BFF; --color-pin: #00A9A1; --color-maxpain: #F0B429;
   --color-bull: #3FD0A8; --color-bull-soft: rgba(63,208,168,0.26);
   --color-bear: #F0685E; --color-bear-soft: rgba(240,104,94,0.26);
   --color-warning: #F0C46A; --color-warning-soft: rgba(240,196,106,0.26);
@@ -1136,7 +1219,12 @@
   --color-gold: #C9A24B; --color-gold-soft: rgba(201,162,75,0.22);
   --color-maroon: #A84A3E; --color-navy: #2E7E8E;
   --color-emerald: #2E9E6E; --color-emerald-soft: rgba(46,158,110,0.22);
-  --color-hazy: #6FB0A6; --color-hazy-soft: rgba(111,176,166,0.14);
+  --color-hazy: #73928C; --color-hazy-soft: rgba(115,146,140,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #389EFF; --color-pin: #00ACA4; --color-maxpain: #C69000;
   --color-bull: #2E9E6E; --color-bull-soft: rgba(46,158,110,0.22);
   --color-bear: #C0503A; --color-bear-soft: rgba(192,80,58,0.22);
   --color-warning: #C9A24B; --color-warning-soft: rgba(201,162,75,0.22);
@@ -1163,7 +1251,8 @@
   --color-gold: #E0B85A; --color-gold-soft: rgba(224,184,90,0.26);
   --color-maroon: #D66A52; --color-navy: #4FB0C0;
   --color-emerald: #3FD098; --color-emerald-soft: rgba(63,208,152,0.26);
-  --color-hazy: #7FCAB8; --color-hazy-soft: rgba(127,202,184,0.18);
+  --color-hazy: #9ACEC0; --color-hazy-soft: rgba(154,206,192,0.18);
+  --color-flip: #3B9EFF; --color-pin: #00AA98; --color-maxpain: #F0B429;
   --color-bull: #3FD098; --color-bull-soft: rgba(63,208,152,0.26);
   --color-bear: #E0685A; --color-bear-soft: rgba(224,104,90,0.26);
   --color-warning: #E0B85A; --color-warning-soft: rgba(224,184,90,0.26);
@@ -1193,12 +1282,17 @@
   --border-subtle: rgba(58,36,22,0.10); --border-default: rgba(58,36,22,0.20); --border-strong: rgba(200,84,43,0.42);
   --accent-1: #4A2F1C; --accent-2: #6B7A2E; --accent-3: #D99A2B; --accent-4: #C8542B;
   --color-accent: #C8542B;
-  --color-accent-hot: #C8542B;
+  --color-accent-hot: #B56308;
   --color-accent-soft: rgba(200,84,43,0.16);
   --color-gold: #C99A2E; --color-gold-soft: rgba(201,154,46,0.20);
   --color-maroon: #7A2E1C; --color-navy: #2E6E6B;
   --color-emerald: #4E7A2E; --color-emerald-soft: rgba(78,122,46,0.20);
-  --color-hazy: #2E6E6B; --color-hazy-soft: rgba(46,110,107,0.14);
+  --color-hazy: #6A8A87; --color-hazy-soft: rgba(106,138,135,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #339BFF; --color-pin: #00AB9A; --color-maxpain: #C09100;
   --color-bull: #5F7D22; --color-bull-soft: rgba(95,125,34,0.20);
   --color-bear: #C0421F; --color-bear-soft: rgba(192,66,31,0.20);
   --color-warning: #D99A2B; --color-warning-soft: rgba(217,154,43,0.20);
@@ -1220,12 +1314,13 @@
   --border-subtle: rgba(243,228,199,0.08); --border-default: rgba(216,178,122,0.20); --border-strong: rgba(232,106,52,0.40);
   --accent-1: #4A2F1C; --accent-2: #9CB84A; --accent-3: #E0A93B; --accent-4: #E86A34;
   --color-accent: #E86A34;
-  --color-accent-hot: #FF7E3E;
+  --color-accent-hot: #F88331;
   --color-accent-soft: rgba(232,106,52,0.22);
   --color-gold: #E0A93B; --color-gold-soft: rgba(224,169,59,0.24);
   --color-maroon: #7A2E1C; --color-navy: #3FA095;
   --color-emerald: #9CB84A; --color-emerald-soft: rgba(156,184,74,0.26);
-  --color-hazy: #3FA095; --color-hazy-soft: rgba(63,160,149,0.16);
+  --color-hazy: #91ABA7; --color-hazy-soft: rgba(145,171,167,0.16);
+  --color-flip: #3B9EFF; --color-pin: #00D2BA; --color-maxpain: #F0B429;
   --color-bull: #9CB84A; --color-bull-soft: rgba(156,184,74,0.26);
   --color-bear: #E8552E; --color-bear-soft: rgba(232,85,46,0.26);
   --color-warning: #E0A93B; --color-warning-soft: rgba(224,169,59,0.22);
@@ -1255,12 +1350,17 @@
   --border-subtle: rgba(20,22,26,0.10); --border-default: rgba(20,22,26,0.20); --border-strong: rgba(62,90,130,0.42);
   --accent-1: #14161A; --accent-2: #4E6486; --accent-3: #8A929C; --accent-4: #3E5A82;
   --color-accent: #3E5A82;
-  --color-accent-hot: #3E5A82;
+  --color-accent-hot: #062F54;
   --color-accent-soft: rgba(62,90,130,0.16);
   --color-gold: #8A929C; --color-gold-soft: rgba(138,146,156,0.20);
   --color-maroon: #7A2A26; --color-navy: #3E5A82;
   --color-emerald: #5E7A6E; --color-emerald-soft: rgba(94,122,110,0.20);
-  --color-hazy: #4E6486; --color-hazy-soft: rgba(78,100,134,0.14);
+  --color-hazy: #7587A5; --color-hazy-soft: rgba(117,135,165,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-flip: #3B9EFF; --color-pin: #00B2A1; --color-maxpain: #CD9500;
   --color-bull: #5E7A6E; --color-bull-soft: rgba(94,122,110,0.20);
   --color-bear: #B23A34; --color-bear-soft: rgba(178,58,52,0.20);
   --color-warning: #9A8A5E; --color-warning-soft: rgba(154,138,94,0.20);
@@ -1282,12 +1382,13 @@
   --border-subtle: rgba(242,243,245,0.08); --border-default: rgba(154,160,168,0.22); --border-strong: rgba(180,196,214,0.34);
   --accent-1: #2A2E36; --accent-2: #8FA6C0; --accent-3: #C2C8D0; --accent-4: #9FB8D8;
   --color-accent: #9FB8D8;
-  --color-accent-hot: #B9D0EE;
+  --color-accent-hot: #C2DCFB;
   --color-accent-soft: rgba(159,184,216,0.18);
   --color-gold: #C2C8D0; --color-gold-soft: rgba(194,200,208,0.20);
   --color-maroon: #7A2E2A; --color-navy: #8FA6C0;
   --color-emerald: #86A79A; --color-emerald-soft: rgba(134,167,154,0.26);
-  --color-hazy: #8FA6C0; --color-hazy-soft: rgba(143,166,192,0.16);
+  --color-hazy: #686C7D; --color-hazy-soft: rgba(104,108,125,0.16);
+  --color-flip: #0097FA; --color-pin: #00BCA8; --color-maxpain: #F0B429;
   --color-bull: #86A79A; --color-bull-soft: rgba(134,167,154,0.24);
   --color-bear: #C6403A; --color-bear-soft: rgba(198,64,58,0.26);
   --color-warning: #C8B98F; --color-warning-soft: rgba(200,185,143,0.22);
@@ -1317,12 +1418,17 @@
   --border-subtle: rgba(46,58,56,0.10); --border-default: rgba(46,58,56,0.20); --border-strong: rgba(224,110,90,0.42);
   --accent-1: #2E5A52; --accent-2: #2FA39C; --accent-3: #D9A85E; --accent-4: #E0745A;
   --color-accent: #E0745A;
-  --color-accent-hot: #E0745A;
+  --color-accent-hot: #CD7D41;
   --color-accent-soft: rgba(224,116,90,0.16);
   --color-gold: #D2A24E; --color-gold-soft: rgba(210,162,78,0.20);
   --color-maroon: #B0503A; --color-navy: #24605A;
   --color-emerald: #3E9A6E; --color-emerald-soft: rgba(62,154,110,0.20);
-  --color-hazy: #2FA39C; --color-hazy-soft: rgba(47,163,156,0.14);
+  --color-hazy: #437B76; --color-hazy-soft: rgba(67,123,118,0.14);
+  /* FLIP / PIN / MAX PAIN are declared in BOTH modes on purpose. :root.dark and
+     :root.palette-* have equal specificity, and the palette blocks come later in
+     this file, so a marker set only here would also win in dark mode. Each block
+     therefore pins its own value, canonical or not. */
+  --color-pin: #00AECE; --color-maxpain: #CD9500;
   --color-bull: #3E9A6E; --color-bull-soft: rgba(62,154,110,0.20);
   --color-bear: #D65A42; --color-bear-soft: rgba(214,90,66,0.20);
   --color-warning: #D2A24E; --color-warning-soft: rgba(210,162,78,0.20);
@@ -1344,12 +1450,13 @@
   --border-subtle: rgba(242,233,220,0.08); --border-default: rgba(120,180,168,0.20); --border-strong: rgba(240,130,104,0.38);
   --accent-1: #28403B; --accent-2: #35C0B0; --accent-3: #E0B36A; --accent-4: #F0846A;
   --color-accent: #F0846A;
-  --color-accent-hot: #FF9678;
+  --color-accent-hot: #FF9E7F;
   --color-accent-soft: rgba(240,132,106,0.22);
   --color-gold: #E0B36A; --color-gold-soft: rgba(224,179,106,0.24);
   --color-maroon: #C05A40; --color-navy: #2A7A70;
   --color-emerald: #4FC48A; --color-emerald-soft: rgba(79,196,138,0.26);
-  --color-hazy: #35C0B0; --color-hazy-soft: rgba(53,192,176,0.16);
+  --color-hazy: #A8CEC7; --color-hazy-soft: rgba(168,206,199,0.16);
+  --color-pin: #00957A; --color-maxpain: #F0B429;
   --color-bull: #4FC48A; --color-bull-soft: rgba(79,196,138,0.24);
   --color-bear: #F0604A; --color-bear-soft: rgba(240,96,74,0.26);
   --color-warning: #E0B36A; --color-warning-soft: rgba(224,179,106,0.22);

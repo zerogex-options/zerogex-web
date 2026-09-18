@@ -244,3 +244,35 @@ export function navSubcategoryLabel(pathname: string | null | undefined): string
   }
   return undefined;
 }
+
+/**
+ * The menu label for a route, e.g. '/gex-heatmap' → 'GEX Heatmap'.
+ *
+ * The counterpart to navSubcategoryLabel above, and it exists for the same
+ * reason: when a page needs to NAME another page in prose — "you were reaching
+ * for the GEX Heatmap" — the string should come from the menu rather than be
+ * retyped at the call site, so renaming a feature renames every reference to
+ * it. Searches top-level items, subgroup headers, and subgroup items in that
+ * order. Returns undefined for a route that isn't in the menu at all, which
+ * callers should treat as "don't name it" rather than substituting the raw
+ * path: the raw path is developer-facing and reads as a leak in body copy.
+ *
+ * Deliberately returns the stable ENGLISH `label`, never the `labelKey`
+ * translation. Callers are server components rendering prose that is already
+ * English, and a half-translated sentence is worse than a consistent one.
+ */
+export function navItemLabel(pathname: string | null | undefined): string | undefined {
+  if (!pathname) return undefined;
+  for (const group of NAV_GROUPS) {
+    for (const item of group.items ?? []) {
+      if (item.id === pathname) return item.label;
+    }
+    for (const subgroup of group.subgroups ?? []) {
+      if (subgroup.id === pathname) return subgroup.label;
+      for (const item of subgroup.items) {
+        if (item.id === pathname) return item.label;
+      }
+    }
+  }
+  return undefined;
+}

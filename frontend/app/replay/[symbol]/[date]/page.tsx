@@ -7,6 +7,14 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import {
+  parseReplayMinute,
+  parseReplayScope,
+  replayRangeQuery,
+  REPLAY_MINUTE_PARAM,
+  REPLAY_SCOPE_PARAM,
+  type ReplayScope,
+} from '@/core/replayScope';
 import ReplayScrubber from './ReplayScrubber';
 
 const REVALIDATE_SECONDS = 1800;
@@ -65,7 +73,12 @@ interface ReplayRangePayload {
   // Nearest-first expiration legend the per-strike share arrays index into; the
   // trailing entry may be the literal "far" (a catch-all for everything past
   // the API's expiration cap). Absent unless include_expirations was requested.
+  // Under an expiration scope it is the scope itself — every bar is already
+  // made of exactly those expirations, so there is no mix left to grade.
   expirations?: string[];
+  // The scope the API resolved, echoed back: null is the whole chain, a list is
+  // exactly what the bars and the re-derived levels were built from.
+  expiration_filter?: string[] | null;
 }
 
 function isValidDate(raw: string): boolean {
@@ -88,35 +101,55 @@ function formatHumanDate(raw: string): string {
   }
 }
 
-async function loadRange(date: string, symbol: string): Promise<ReplayRangePayload | null> {
+async function loadRange(
+  date: string,
+  symbol: string,
+  scope: ReplayScope,
+): Promise<ReplayRangePayload | null> {
   // include_expirations attaches the per-strike expiration mix that color-
   // grades each gamma bar by time-to-expiry (nearest boldest → furthest
   // faintest). It costs a second session-wide scan server-side, which is why
   // it's opt-in — this page draws the gradient, so it opts in; the pair-
   // comparison scrubber reads the same endpoint without it.
+  //
+  // Under a 0DTE scope the API answers with the scope as the legend and no
+  // per-strike mix (one expiration has no gradient), so the same request shape
+  // serves both scopes.
   return serverApiGet<ReplayRangePayload>(
-    `/api/replay/range?symbol=${symbol}&date=${date}&timeframe=1min&include_expirations=true`,
+    `/api/replay/range?${replayRangeQuery({ symbol, date, scope, includeExpirations: true })}`,
     REVALIDATE_SECONDS,
   );
 }
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ symbol: string; date: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
+  const scope = parseReplayScope((await searchParams)?.[REPLAY_SCOPE_PARAM]);
   const human = formatHumanDate(date);
+  // Canonical is the BARE dated URL in both scopes. `?exp=0dte` is a view of
+  // the same session, not a second page — pointing it at itself would enter
+  // two URLs per session into the index competing for the same query.
   const url = `${SITE_URL}/replay/${sym}/${date}`;
+  const scoped = scope === '0dte';
+  const title = scoped
+    ? `${sym} 0DTE GEX Replay · ${human} — ZeroGEX`
+    : `${sym} GEX Replay · ${human} — ZeroGEX`;
   return {
-    title: `${sym} GEX Replay · ${human} — ZeroGEX`,
-    description: `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`,
+    title,
+    description: scoped
+      ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human} — walls, flip and max pain from the contracts that settled that afternoon.`
+      : `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`,
     alternates: { canonical: url },
     openGraph: {
       type: 'article',
       url,
-      title: `${sym} GEX Replay · ${human}`,
+      title: scoped ? `${sym} 0DTE GEX Replay · ${human}` : `${sym} GEX Replay · ${human}`,
       description: 'Per-minute scrubber over the day’s dealer gamma surface.',
       siteName: 'ZeroGEX',
     },
@@ -125,13 +158,26 @@ export async function generateMetadata({
 
 export default async function ReplayDatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ symbol: string; date: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
-  const data = await loadRange(date, sym);
+  // The scope is server-rendered, not toggled in the browser: /replay/* is
+  // public while /api/replay/* is Basic-gated at the BFF (core/api/
+  // apiTierGate), so a client-side scope fetch would 401 for exactly the
+  // anonymous visitors these pages exist for. Both scopes come from
+  // serverApiGet, which talks to the API directly and never traverses that
+  // gate — the same path the unscoped page has always used.
+  const query = await searchParams;
+  const scope = parseReplayScope(query?.[REPLAY_SCOPE_PARAM]);
+  // The playhead the scope toggle was on, carried across the navigation that
+  // remounts the scrubber (see core/replayScope's REPLAY_MINUTE_PARAM).
+  const initialMinute = parseReplayMinute(query?.[REPLAY_MINUTE_PARAM]);
+  const data = await loadRange(date, sym, scope);
   // Two different things, and they used to print the same sentence.
   //
   // `data === null` is `serverApiGet` reporting that the CALL failed — the
@@ -232,11 +278,17 @@ export default async function ReplayDatePage({
         initialCandles={data.candles ?? []}
         siteUrl={SITE_URL}
         expirations={data.expirations ?? []}
+        scope={scope}
+        initialMinute={initialMinute}
       />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
+        Switch the strike profile between <em>All exps</em> and <em>0DTE</em> — 0DTE replays only
+        the contracts that settled that afternoon, and the call wall, put wall, gamma flip and max
+        pain are re-derived from that book rather than the whole chain (the pin strike and GEX King
+        stay whole-chain in both, exactly as they do on the live charts) ·
+        drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
         the call wall (resistance), put wall (support), gamma flip, max pain and pin strike draw

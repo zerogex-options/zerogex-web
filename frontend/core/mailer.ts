@@ -1,5 +1,9 @@
 import { Resend } from 'resend';
+import { buildDeclineEmailCopy } from './declineEmailCopy.ts';
+import { groupByBucket, type OrphanAlert } from './orphanAlert.ts';
+import type { DeclineCategory } from './declineReason.ts';
 import type { ChurnAlert } from './cancellationAlert.ts';
+import type { ReturnAngle } from './returnIntent.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -686,16 +690,43 @@ export type TrialReminderEmailOptions = {
     // of naming a card, so the price is never dropped just because the method
     // isn't a card.
     cardLast4?: string | null;
+    // 'credit' | 'debit' | 'prepaid', from the card on file. A live audit of the
+    // trial-to-paid step put debit at a 77% decline rate against credit's 33%,
+    // for one structural reason: an off-session charge on a debit card needs the
+    // money to actually BE in the account at that moment, and a card on file for
+    // seven days lands wherever it lands in somebody's month. So a debit member
+    // gets one extra sentence telling them the date to have it covered by.
+    // Absent or null drops the line entirely — it is only useful when true.
+    cardFunding?: string | null;
+    // What the charge will read as on their statement, e.g. "ZEROGEX". Resolved
+    // from the Stripe account by the caller so it cannot drift from reality.
+    //
+    // This is the single cheapest thing that makes a bank approve a charge: the
+    // most common reason an issuer blocks a recurring payment is that neither
+    // the bank nor the customer recognises the merchant. Naming it BEFORE the
+    // charge means the customer can recognise it — and, if their bank does query
+    // it, confirm it rather than dispute it. Null omits the line.
+    statementDescriptor?: string | null;
   } | null;
-  // A signed one-click "lock in <pct>% off and keep going" link (buildConvertUrl),
-  // when the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it
-  // and the reminder becomes a conversion push with the incentive CTA; omit/null
-  // and it's the plain courtesy reminder, unchanged.
-  convertOfferUrl?: string | null;
+  // NOTE: this email carries no discount, by design. It used to offer 25% off
+  // for a year via a signed one-click /convert link. That was a discount handed
+  // to the highest-intent cohort in the book — a trialer with a card on file
+  // who is about to be charged automatically — without them ever asking for it,
+  // and it cost twice over: the margin, and the retention lever itself. The 25%
+  // save is latched once per account (users.retention_offer_claimed_at, shared
+  // by /save and /convert), so a trialer who took it at conversion had already
+  // spent it. If they later cancelled, the cancellation email's save button
+  // found them claimed and showed "you're all set" instead of making a real
+  // attempt to keep them. The discount is a win-back lever: it belongs where
+  // someone is actually leaving.
+  //
+  // This is the same reasoning core/returnIntent.ts already applies to a
+  // churned member who came back on their own — paying someone to do what they
+  // are already doing erodes margin on the likeliest conversion in the book.
+  //
   // True when this member never came back after signing up, so the trial is
   // about to convert on someone who has not used the product. Swaps in copy
-  // that leads with the charge and states the cancel option outright, and
-  // suppresses the annual lock-in offer.
+  // that leads with the charge and states the cancel option outright.
   //
   // A resolved boolean rather than the engagement enum, so this presenter
   // stays free of any dependency on core/trialEngagement — the same reason
@@ -728,9 +759,11 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // The dormant subject names the charge instead of the trial ending. A member
   // who never came back has no mental model of "my trial" to attach a reminder
   // to; what they will recognize later is the line on their statement, so the
-  // subject is written to be recognized now rather than then.
+  // subject is written to be recognized now rather than then. It says outright
+  // that no action is needed — "a quick check" implied one was, which for a
+  // member who has not used the product reads as a prompt to cancel.
   const subject = dormant
-    ? 'Before your ZeroGEX trial converts — a quick check'
+    ? 'Before your ZeroGEX trial converts — nothing you need to do'
     : 'Your ZeroGEX free trial ends in 2 days';
 
   const accountUrl = `${getAppUrl()}/account`;
@@ -782,62 +815,116 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       }`
     : null;
 
-  // Pre-trial-end CONVERSION incentive — present only when the cron minted a
-  // signed /convert link. Mirrors SAVE_PERCENT in core/retentionOffer.ts (kept
-  // local so this presenter stays free of the Stripe-importing module).
-  const CONVERT_OFFER_PERCENT = 25;
-  // Never offered to a dormant member. The pitch reads "by now you've had the
-  // full board", which is false for someone who never came back, and locking
-  // an unused account into a discounted year is how a chargeback becomes a
-  // twelve-month chargeback. They get the plain reminder and a clear exit.
-  const showConvertOffer = !!opts.convertOfferUrl && !dormant;
-  const convertOfferText = showConvertOffer
-    ? [
-        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can lock in ${CONVERT_OFFER_PERCENT}% off for a full year before your trial ends:`,
-        opts.convertOfferUrl,
-        '',
-      ]
-    : [];
-  // Re-tests opts.convertOfferUrl rather than relying on showConvertOffer alone
-  // so the url stays narrowed to a string for escapeHtml below.
-  const convertOfferHtml = showConvertOffer && opts.convertOfferUrl
-    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can <strong>lock in ${CONVERT_OFFER_PERCENT}% off for a full year</strong> before your trial ends.</p>
-      <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Lock in ${CONVERT_OFFER_PERCENT}% off &amp; keep my access</a>
-      </p>`
-    : '';
+  // WHAT THE BANK WILL SEE, and what to do if it says no.
+  //
+  // The most common reason an issuer blocks a recurring charge is that neither
+  // the bank nor the customer recognises the merchant, and the cheapest fix for
+  // that is to name the merchant BEFORE the charge rather than after. A member
+  // who has read the word once can recognise it on a statement, and can confirm
+  // it to their bank instead of disputing it.
+  //
+  // The debit sentence exists because an off-session charge on a debit card
+  // needs the money to actually be in the account at that moment — a structural
+  // property of the instrument, not a judgement about the member — and a card
+  // captured seven days earlier lands wherever it lands in their month. Saying
+  // the date plainly is the whole intervention.
+  //
+  // Both are omitted from the dormant variant, whose entire premise is that
+  // nothing is being asked of the reader.
+  const descriptor = billing?.statementDescriptor ?? null;
+  const needsFunds = billing?.cardFunding === 'debit' || billing?.cardFunding === 'prepaid';
+  const bankLineText =
+    dormant || (!descriptor && !needsFunds)
+      ? null
+      : [
+          descriptor
+            ? `On your statement it will read ${descriptor}. If your bank queries it, that is us — confirming it rather than declining it keeps your access uninterrupted.`
+            : null,
+          needsFunds
+            ? 'One practical note: your card on file is a debit card, so the funds need to be available on the day the charge runs. Banks decline these for timing far more often than for anything else.'
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
+  const bankLineHtml =
+    dormant || (!descriptor && !needsFunds)
+      ? null
+      : [
+          descriptor
+            ? `On your statement it will read <strong>${escapeHtml(descriptor)}</strong>. If your bank queries it, that's us &mdash; confirming it rather than declining it keeps your access uninterrupted.`
+            : null,
+          needsFunds
+            ? 'One practical note: your card on file is a debit card, so the funds need to be available on the day the charge runs. Banks decline these for timing far more often than for anything else.'
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
 
-  // Openers. The ordinary one assumes the member knows what their trial is.
-  // The dormant one cannot: it names the date, the charge and the exit in the
-  // first two sentences, on the assumption this email is the only thing
-  // standing between them and an unrecognized line on a statement.
+  // Openers. Both name the auto-conversion outright: the trial BECOMES a paid
+  // subscription by itself. Leaving that implicit is what lets a reader further
+  // down mistake the discount CTA for the thing that keeps their access, and
+  // the same sentence is what makes the charge fair notice.
+  //
+  // The dormant opener carries its own "nothing you need to do" rather than
+  // taking the shared one below, so a member who reads one paragraph and stops
+  // has already read it. What it no longer does is open by telling them they
+  // never came back: true, but it primes exactly the conclusion this email
+  // should not be arguing for. The offer of help further down says the same
+  // thing usefully instead.
+  //
+  // The charge, the date and the amount stay in the first two paragraphs in
+  // both variants. That is the part that makes an unrecognized statement line
+  // impossible, and it is not the part that was reading as a cancel prompt.
   const openerText = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate}, and your first payment goes through then.`
-    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`;
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically. There's nothing you need to do — your access simply carries on.`
+    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically — your first payment will be charged then unless you cancel before that.`;
   const openerHtml = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment goes through then.`
-    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.`;
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>. There's nothing you need to do &mdash; your access simply carries on.`
+    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
 
-  // Closing pair. For a dormant member the exit comes first and unhedged —
-  // burying it under a pitch is what turns an unwanted charge into a dispute.
-  // The offer of help is second and genuine: most of this cohort signed up
-  // meaning to use it and never found their way in.
+  // The "you don't have to do anything" line. It sits directly under the price
+  // so the two facts a member needs — what you'll be charged, and that you need
+  // do nothing about it — arrive together.
+  //
+  // Dormant members don't take it here: their opener already carries the same
+  // sentence, which is where it has to be for someone likely to read one
+  // paragraph and stop.
+  const continuationText = dormant
+    ? []
+    : [
+        "If ZeroGEX is working for you, there's nothing you need to do — your access carries straight on and the subscription renews by itself.",
+        '',
+      ];
+  const continuationHtml = dormant
+    ? ''
+    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; your access carries straight on and the subscription renews by itself.</p>`;
+
+  // Closing. For a dormant member the offer of help comes first and the exit
+  // last, which is the reverse of how this used to read.
+  //
+  // The old order put the exit immediately after the price, sold as "one click,
+  // no email or support request needed" — friction-free, ahead of any reason to
+  // stay. For someone who has not used the product that is not neutral
+  // disclosure, it is a recommendation. The cancel route is still stated
+  // plainly, still names the deadline, and is still the last thing before the
+  // sign-off, so anyone looking for it finds it; it just is not the loudest
+  // thing in the email any more.
+  //
+  // The offer of help is genuine, not a delaying tactic: most of this cohort
+  // signed up meaning to use it and never found their way in.
   const closingText = dormant
     ? [
-        `If you'd rather not be charged, cancel from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't pay anything. One click, no email or support request needed.`,
+        "If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
         '',
-        "And if you did mean to give it a proper look, reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
+        `And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't be charged.`,
       ]
     : [
-        "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
-        '',
-        `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
+        `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
-    ? `<p>If you'd rather not be charged, <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">cancel from the billing portal</a> before ${escapeHtml(trialEndDate)} and you won't pay anything. One click, no email or support request needed.</p>
-      <p>And if you did mean to give it a proper look, reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>`
-    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
-      <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
+    ? `<p>If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>
+      <p>And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> before ${escapeHtml(trialEndDate)} and you won't be charged.</p>`
+    : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
   const text = [
     'Hello,',
@@ -845,8 +932,9 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     openerText,
     '',
     ...(billingLineText ? [billingLineText, ''] : []),
+    ...(bankLineText ? [bankLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
-    ...convertOfferText,
+    ...continuationText,
     ...closingText,
     '',
     "Either way, thanks for giving ZeroGEX a try — if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
@@ -861,12 +949,20 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       <p>Hello,</p>
       <p>${openerHtml}</p>
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
+      ${bankLineHtml ? `<p>${bankLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
-      ${convertOfferHtml}
+      ${continuationHtml}
       ${closingHtml}
-      <p style="margin: 24px 0;">
+      ${dormant
+        // No button at all for a dormant member. It landed directly under the
+        // cancel sentence, where the loudest element on the page pointed at the
+        // billing portal — an email whose whole claim is "nothing you need to
+        // do" should not end in a call to action. The cancel route is linked
+        // inline in the sentence above for anyone who wants it.
+        ? ''
+        : `<p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Manage subscription</a>
-      </p>
+      </p>`}
       <p>Either way, thanks for giving ZeroGEX a try &mdash; if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
@@ -1423,27 +1519,48 @@ export async function sendCardExpiringEmail(to: string, opts: CardExpiringEmailO
   }
 }
 
-export async function sendPaymentFailedEmail(
-  to: string,
-  opts?: {
-    amountFormatted?: string | null;
-    // The card Stripe just tried and failed to charge, so the nudge can name it.
-    // Resolved from Stripe by the caller; brand is display-ready (or null for a
-    // wallet/Link/unmapped method → neutral phrasing), last4 like "6284".
-    cardBrand?: string | null;
-    cardLast4?: string | null;
-    // Stripe's next automatic retry (invoice.next_payment_attempt), ISO, so the
-    // email can give a concrete "we'll try again on …" date. Null when Stripe has
-    // exhausted its automatic retries (this was the final attempt).
-    nextAttemptIso?: string | null;
-    // When an ACTIVE payment-recovery grace window is open for this account (an
-    // established renewal failure — see BILLING_PAYMENT_GRACE_DAYS), the ISO
-    // instant it runs through. Lets the email say access is retained until then
-    // instead of implying an immediate downgrade. Null/omitted when no window is
-    // open, its state isn't known yet, or grace is disabled.
-    graceUntilIso?: string | null;
-  },
-) {
+/**
+ * The two dunning emails share one problem and now one fix: what they say about
+ * WHY the charge failed, and where they send the member as a result. See
+ * core/declineEmailCopy.ts — 60 first payments were told to update a card that
+ * had nothing wrong with it.
+ */
+type DeclineEmailExtras = {
+  /** What core/declineReason.ts made of the issuer's answer. Null when unknown. */
+  declineCategory?: DeclineCategory | null;
+  /**
+   * Stripe's hosted payment page for the unpaid invoice. It takes ANY card and
+   * settles the debt in one step, which is the right destination for every
+   * decline except a genuine card fault. Null when Stripe did not publish one.
+   */
+  hostedInvoiceUrl?: string | null;
+};
+
+export type PaymentFailedEmailOptions = {
+  amountFormatted?: string | null;
+  // The card Stripe just tried and failed to charge, so the nudge can name it.
+  // Resolved from Stripe by the caller; brand is display-ready (or null for a
+  // wallet/Link/unmapped method → neutral phrasing), last4 like "6284".
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  // Stripe's next automatic retry (invoice.next_payment_attempt), ISO, so the
+  // email can give a concrete "we'll try again on …" date. Null when Stripe has
+  // exhausted its automatic retries (this was the final attempt).
+  nextAttemptIso?: string | null;
+  // When an ACTIVE payment-recovery grace window is open for this account (an
+  // established renewal failure — see BILLING_PAYMENT_GRACE_DAYS), the ISO
+  // instant it runs through. Lets the email say access is retained until then
+  // instead of implying an immediate downgrade. Null/omitted when no window is
+  // open, its state isn't known yet, or grace is disabled.
+  graceUntilIso?: string | null;
+} & DeclineEmailExtras;
+
+/** Split from its sender for the same reason as its trial-side twin above. */
+export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const subject = "We couldn't process your ZeroGEX payment";
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
@@ -1455,13 +1572,22 @@ export async function sendPaymentFailedEmail(
       : `the payment method ending in ${opts.cardLast4}`
     : null;
 
+  // The reason now comes from what the issuer actually said. The old line
+  // asserted "declined by your card issuer" for every failure, which is simply
+  // false when our own Radar check stopped it — see core/declineEmailCopy.ts.
+  const copy = buildDeclineEmailCopy({
+    category: opts?.declineCategory ?? null,
+    cardPhrase,
+    nextAttemptLabel: opts?.nextAttemptIso ? formatTrialEndDate(opts.nextAttemptIso) : null,
+    hasInvoiceUrl: Boolean(opts?.hostedInvoiceUrl),
+    trialConversion: false,
+  });
   const amountSentence = opts?.amountFormatted
-    ? cardPhrase
-      ? `Your subscription payment of ${opts.amountFormatted} was declined — ${cardPhrase} didn't go through.`
-      : `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
-    : cardPhrase
-      ? `Your subscription payment was declined — ${cardPhrase} didn't go through.`
-      : 'Your subscription payment was declined by your card issuer.';
+    ? `Your subscription payment of ${opts.amountFormatted} did not go through. ${copy.reason}`
+    : copy.reason;
+  const actionUrl = copy.preferInvoice && opts?.hostedInvoiceUrl ? opts.hostedInvoiceUrl : accountUrl;
+  const safeActionUrl = escapeHtml(actionUrl);
+  const actionIsInvoice = actionUrl !== accountUrl;
 
   // Access-state wording. An established (previously active) subscription that
   // fails a renewal now keeps Pro through a short grace window (see
@@ -1474,13 +1600,16 @@ export async function sendPaymentFailedEmail(
   // trial-conversion case). Retry timing is covered separately by retrySentence.
   const accessSentence = opts?.graceUntilIso
     ? `Your Pro access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. If the payment still can't be collected by then, your account moves to the free Public tier — and full Pro switches back on automatically the moment a charge succeeds.`
-    : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
+    : copy.preferInvoice
+      ? 'If the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.'
+      : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
 
   // Concrete next-retry date when Stripe still has attempts left; a firmer note
   // when this was the final automatic attempt and cancellation is imminent.
-  const retrySentence = opts?.nextAttemptIso
-    ? `Stripe will automatically try again on ${formatTrialEndDate(opts.nextAttemptIso)}. If the retries don't succeed, the subscription will be canceled and you'd need to resubscribe to get Pro back.`
-    : 'Stripe has made its final automatic attempt, so the subscription will be canceled shortly unless you update your payment method now.';
+  const consequence = opts?.nextAttemptIso
+    ? " If the retries don't succeed, the subscription will be canceled and you'd need to resubscribe to get Pro back."
+    : ' Unless it is settled, the subscription will be canceled shortly.';
+  const retrySentence = `${copy.remedy}${consequence}`;
 
   const text = [
     'Hello,',
@@ -1489,10 +1618,10 @@ export async function sendPaymentFailedEmail(
     '',
     retrySentence,
     '',
-    "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
-    accountUrl,
-    '',
-    'If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.',
+    actionIsInvoice
+      ? "If you'd rather settle it now, that page takes any card:"
+      : "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
+    actionUrl,
     '',
     "And if you have any questions, just reply to this email — I'm happy to help.",
     '',
@@ -1506,16 +1635,24 @@ export async function sendPaymentFailedEmail(
       <p>Hello,</p>
       <p>${escapeHtml(amountSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
-      <p>If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p>${
+        actionIsInvoice
+          ? `If you'd rather settle it now, <a href="${safeActionUrl}" style="color: #f5b400; font-weight: 600;">this page</a> takes any card.`
+          : `If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
+      }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update payment method</a>
+        <a href="${safeActionUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
-      <p>If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.</p>
       <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
+  return { subject, html, text };
+}
+
+export async function sendPaymentFailedEmail(to: string, opts?: PaymentFailedEmailOptions) {
+  const { subject, html, text } = buildPaymentFailedEmail(opts);
   const client = getClient();
   const result = await client.emails.send({
     from: getFromAddress(),
@@ -1538,46 +1675,72 @@ export async function sendPaymentFailedEmail(
 // enrichments (named card, grace deadline, next retry) but welcoming, not lapse-
 // framed. No FOH footer: urgent/transactional like its renewal sibling. The
 // webhook chooses between the two via core/trialDunning isTrialConversionFailure.
-export async function sendTrialConversionFailedEmail(
-  to: string,
-  opts?: {
-    amountFormatted?: string | null;
-    cardBrand?: string | null;
-    cardLast4?: string | null;
-    nextAttemptIso?: string | null;
-    graceUntilIso?: string | null;
-  },
-) {
-  const subject = 'Your ZeroGEX trial ended — a quick card fix to keep your access';
-  const accountUrl = `${getAppUrl()}/account`;
-  const safeAccountUrl = escapeHtml(accountUrl);
+export type TrialConversionFailedEmailOptions = {
+  amountFormatted?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  nextAttemptIso?: string | null;
+  graceUntilIso?: string | null;
+} & DeclineEmailExtras;
 
+/**
+ * Split from its sender so the copy can be rendered and reviewed without
+ * emailing anybody — the same shape buildTrialReminderEmail and
+ * buildOpenInvoiceRecoveryEmail already use. Customer-facing wording that
+ * cannot be read before it ships is wording nobody checks.
+ */
+export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const cardPhrase = opts?.cardLast4
     ? opts.cardBrand
       ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
       : `the card ending in ${opts.cardLast4}`
     : null;
 
+  const copy = buildDeclineEmailCopy({
+    category: opts?.declineCategory ?? null,
+    cardPhrase,
+    nextAttemptLabel: opts?.nextAttemptIso ? formatTrialEndDate(opts.nextAttemptIso) : null,
+    hasInvoiceUrl: Boolean(opts?.hostedInvoiceUrl),
+    trialConversion: true,
+  });
+  // The subject promised a card fix to everybody. For an empty account that is
+  // the wrong instruction in the one line a member is guaranteed to read.
+  const subject = copy.preferInvoice
+    ? 'Your ZeroGEX trial ended — the first payment did not go through'
+    : 'Your ZeroGEX trial ended — a quick card fix to keep your access';
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
   // Trial-framed opener: they were on a free trial, so this is the FIRST charge —
-  // not a renewal of something they already pay for.
+  // not a renewal of something they already pay for. The REASON now comes from
+  // what the issuer actually said rather than one sentence for every decline.
   const declineSentence = opts?.amountFormatted
-    ? cardPhrase
-      ? `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but ${cardPhrase} was declined, so the first charge didn't go through.`
-      : `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but your card was declined, so the first charge didn't go through.`
-    : cardPhrase
-      ? `Your free trial just wrapped up and I went to start your subscription — but ${cardPhrase} was declined, so the first charge didn't go through.`
-      : `Your free trial just wrapped up and I went to start your subscription — but your card was declined, so the first charge didn't go through.`;
+    ? `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}). ${copy.reason}`
+    : `Your free trial just wrapped up and I went to start your subscription. ${copy.reason}`;
 
   // Access wording: if a trial-grace window is open (BILLING_TRIAL_GRACE_ENABLED),
   // access is held through it; otherwise stay tense-neutral (the account may have
   // dropped to Public, and re-grants automatically the moment a charge clears).
   const accessSentence = opts?.graceUntilIso
-    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. Update your card before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
-    : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
+    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. ${copy.preferInvoice ? 'Settle it' : 'Update your card'} before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
+    : copy.preferInvoice
+      // Saying "updating your card is the fastest way" immediately after "there
+      // is nothing to fix or re-enter" is the same self-contradiction the
+      // worklist had: two sentences in a row telling the reader opposite things.
+      ? `If the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`
+      : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
 
-  const retrySentence = opts?.nextAttemptIso
-    ? `Stripe will automatically try the card again on ${formatTrialEndDate(opts.nextAttemptIso)}, so an expired-or-replaced card or a momentary insufficient-funds hold may simply clear on its own.`
-    : `Stripe has made its final automatic attempt, so updating your card now is the way to pick your subscription back up.`;
+  const retrySentence = copy.remedy;
+  // Where the button goes. Stripe's hosted invoice page takes any card and
+  // settles the debt in one step; the account page only re-saves a card, which
+  // helps solely when the card is the thing at fault.
+  const actionUrl = copy.preferInvoice && opts?.hostedInvoiceUrl ? opts.hostedInvoiceUrl : accountUrl;
+  const safeActionUrl = escapeHtml(actionUrl);
+  const actionIsInvoice = actionUrl !== accountUrl;
 
   const text = [
     'Hello,',
@@ -1586,8 +1749,10 @@ export async function sendTrialConversionFailedEmail(
     '',
     retrySentence,
     '',
-    'You can update your card in about a minute from your account page:',
-    accountUrl,
+    actionIsInvoice
+      ? 'You can complete it here:'
+      : 'You can update your card in about a minute from your account page:',
+    actionUrl,
     '',
     "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
     '',
@@ -1601,15 +1766,24 @@ export async function sendTrialConversionFailedEmail(
       <p>Hello,</p>
       <p>${escapeHtml(declineSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
-      <p>You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p>${
+        actionIsInvoice
+          ? `You can <a href="${safeActionUrl}" style="color: #f5b400; font-weight: 600;">complete it here</a> &mdash; that page takes any card.`
+          : `You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
+      }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+        <a href="${safeActionUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
       <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
+  return { subject, html, text };
+}
+
+export async function sendTrialConversionFailedEmail(to: string, opts?: TrialConversionFailedEmailOptions) {
+  const { subject, html, text } = buildTrialConversionFailedEmail(opts);
   const client = getClient();
   const result = await client.emails.send({
     from: getFromAddress(),
@@ -1960,6 +2134,99 @@ export async function sendTrialConvertedEmail(to: string, opts?: TrialConvertedE
 // carries the FOH footer like the other positive subscriber touchpoints.
 // Latched in the webhook (payment_recovery_pending) so it only fires after a
 // real failure, never on an ordinary renewal.
+export type OpenInvoiceRecoveryEmailOptions = {
+  /** Formatted amount still owed on the invoice, e.g. "$29.00". */
+  amountFormatted: string;
+  /** Stripe's hosted invoice page — the thing that makes this email useful. */
+  hostedInvoiceUrl: string;
+  /** "Pro monthly", when the plan is resolvable. Null keeps the copy generic. */
+  planLabel: string | null;
+  /** How long ago the invoice was raised, e.g. "in July". Null omits it. */
+  raisedLabel: string | null;
+};
+
+/**
+ * Pure builder for the open-invoice recovery nudge: a member whose subscription
+ * lapsed because a payment never completed, whose invoice Stripe has STOPPED
+ * retrying but has not voided — so it is still sitting there, payable, on a
+ * hosted page that stays live indefinitely.
+ *
+ * COPY RULES, because this email is about somebody's money and a failure they
+ * may not know happened:
+ *
+ *   • It never says why the payment failed. We frequently do not know, and a
+ *     wrong guess ("your bank declined it") sends someone to argue with a bank
+ *     that did nothing wrong. It says only that it did not complete.
+ *   • It never implies they did something wrong, and never manufactures
+ *     urgency. The invoice has been sitting there for weeks; pretending it
+ *     expires tonight would be a lie.
+ *   • It leads with the ONE thing that makes it actionable — the link — and
+ *     mentions that a different card can be used there, which is the actual
+ *     remedy for most of these without asserting that their card is the problem.
+ *   • It offers a way out. Somebody who does not want the product back should
+ *     not have to pay to make the email stop.
+ */
+export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = 'Your ZeroGEX invoice is still open';
+  const plan = opts.planLabel ? `your ${opts.planLabel} subscription` : 'your subscription';
+  const raised = opts.raisedLabel ? ` ${opts.raisedLabel}` : '';
+  const safeUrl = escapeHtml(opts.hostedInvoiceUrl);
+  const safeAmount = escapeHtml(opts.amountFormatted);
+
+  const text = [
+    'Hello,',
+    '',
+    `A payment for ${plan} did not complete${raised}, so your access lapsed. I am not writing to chase you — ` +
+      'I am writing because that invoice is still open, and most people in this position never found out it happened.',
+    '',
+    `The invoice is for ${opts.amountFormatted}. If you want to pick your subscription back up, you can settle it here:`,
+    '',
+    opts.hostedInvoiceUrl,
+    '',
+    'That page takes any card — if the one on file has changed, or you would rather use a different one, ' +
+      'you can enter it there. Access comes back as soon as the payment clears.',
+    '',
+    'If you would rather leave it, that is completely fine and you do not need to do anything at all. ' +
+      'Nothing further will be charged and this is the only email you will get about it.',
+    '',
+    'If something about the product was the reason, I would genuinely like to know — just reply.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>A payment for ${escapeHtml(plan)} did not complete${escapeHtml(raised)}, so your access lapsed. I'm not writing to chase you &mdash; I'm writing because that invoice is still open, and most people in this position never found out it happened.</p>
+      <p>The invoice is for <strong>${safeAmount}</strong>. If you'd like to pick your subscription back up:</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Settle the invoice</a>
+      </p>
+      <p>That page takes any card &mdash; if the one on file has changed, or you'd rather use a different one, you can enter it there. Access comes back as soon as the payment clears.</p>
+      <p>If you'd rather leave it, that's completely fine and you don't need to do anything at all. Nothing further will be charged, and this is the only email you'll get about it.</p>
+      <p>If something about the product was the reason, I'd genuinely like to know &mdash; just reply.</p>
+      <p style="margin-top: 24px;">Best,<br />Michael<br />Founder, ZeroGEX</p>
+    </div>
+  `;
+
+  return { subject, html, text };
+}
+
+export async function sendOpenInvoiceRecoveryEmail(to: string, opts: OpenInvoiceRecoveryEmailOptions) {
+  const { subject, html, text } = buildOpenInvoiceRecoveryEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPaymentRecoveredEmail(to: string) {
   const subject = "You're all set — your ZeroGEX payment went through";
   const dashboardUrl = `${getAppUrl()}/dashboard`;
@@ -2012,9 +2279,21 @@ export async function sendPaymentRecoveredEmail(to: string) {
 
 // Sent when a customer clicks Cancel and Stripe flips cancel_at_period_end
 // from false → true. They still have full access until periodEndIso — this
-// is the retention window, not a farewell. Manual discount fulfillment
-// (customer replies "discount", Michael sets it up) is intentional: reading
-// the reply is worth more than automating the coupon.
+// is the retention window, not a farewell.
+//
+// The 25% save is offered exactly once, by the one-click /save button, and
+// there is no second route. The email used to carry a manual one as well
+// ("reply 'discount' and I'll set it up"), which read as a different deal on
+// different terms and, worse, invited a member who had already clicked the
+// button to ask again — at which point the shared one-shot latch in
+// core/retentionOffer refuses them and the reply goes unanswered.
+//
+// So a null saveUrl now means NO discount offer, not a manual one. That only
+// happens when ZEROGEX_END_USER_TOKEN_SECRET is unset, which is a broken
+// deployment rather than a mode worth writing copy for: the same missing secret
+// already disables the trial-conversion offer and every unsubscribe link. Fix
+// the secret, not the email. The cancellation survey still goes out either way,
+// so the reply that actually matters is never the one being dropped here.
 export type CancellationEmailOptions = {
   // End of the period the member keeps access through (ISO), or null when the
   // subscription did not expose one.
@@ -2084,8 +2363,6 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     '',
     "Whatever the reason, I'd genuinely like to hear it.",
     '',
-    'And if it\'s a matter of cost: I can offer you 25% off for a full year if you\'d like to stay. Just reply with "discount" and I\'ll set it up on your account — no need to re-subscribe or re-enter a card.',
-    '',
     'Either way — thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
     '',
     'Best,',
@@ -2113,9 +2390,6 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         <li>Just trying it out for a stretch</li>
       </ul>
       <p>Whatever the reason, I'd genuinely like to hear it.</p>
-      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">
-        <strong>And if it's a matter of cost:</strong> I can offer you 25% off for a full year if you'd like to stay. Just reply with <strong>"discount"</strong> and I'll set it up on your account &mdash; no need to re-subscribe or re-enter a card.
-      </p>
       <p>Either way &mdash; thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
@@ -2152,19 +2426,23 @@ export async function sendCancellationEmail(to: string, opts: CancellationEmailO
 // users.winback_email_sent_at (cleared on re-subscribe so a future re-churn can
 // re-fire, mirroring cancel_ack_email_sent_at).
 //
-// Three discount variants, resolved by the caller and ranked auto > promo >
-// manual so the email always carries the best redeemable offer:
+// Two discount variants, resolved by the caller and ranked auto > promo. Both
+// redeem themselves at checkout; an offer this email cannot honor on its own is
+// not offered at all:
 //   - winbackAutoApply → the fully-automated one-click coupon. The CTA links to
 //     /pricing?winback=1 and the checkout route attaches STRIPE_COUPON_WINBACK_*
 //     for this eligible churner (verified server-side). No code, no reply.
 //   - promoDeadlineLabel → the live limited-time public promo (auto-applies at
 //     /pricing) with a time-boxed deadline. Fallback when no win-back coupon is
 //     configured but a public promo happens to be running.
-//   - neither → the evergreen manual offer: reply "discount" and it's set up by
-//     hand. Last-resort fallback so the email still makes a concrete offer even
-//     with no coupon plumbing configured at all.
-// discountLabel (e.g. "25% off your first year") is shown in the auto + manual
-// copy and MUST match the actual STRIPE_COUPON_WINBACK_* value.
+//   - neither → NO discount paragraph. There used to be a manual third variant
+//     here ("reply 'discount' and I'll set it up by hand"), which put the member
+//     on different terms from everyone else and made a promise no system could
+//     keep — the coupon plumbing it was standing in for is exactly what wasn't
+//     configured. The email still has plenty to say: what shipped since they
+//     left, and an open door. It just stops pricing a deal it can't apply.
+// discountLabel (e.g. "25% off your first year") is shown in the auto copy and
+// MUST match the actual STRIPE_COUPON_WINBACK_* value.
 //
 // Every send carries a plain-language opt-out footer ("you're receiving this
 // because you created a ZeroGEX account… delete your account here"), where the
@@ -2238,17 +2516,19 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       ? `Your ZeroGEX intro rate is open again — through ${promo}`
       : 'A lot has changed at ZeroGEX since you left';
 
+  // Null when neither coupon is configured — see the variant note above. Both
+  // surviving variants describe a discount that applies itself at checkout.
   const discountLineText = auto
     ? `And to make coming back easy, I've set aside ${label} for you — it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
       ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
-      : `And if price was part of why you left, that offer still stands: just reply with the word "discount" and I'll get you set up with ${label}. I'll take care of the coupon on my end — you won't have to sort out anything fiddly.`;
+      : null;
 
   const discountLineHtml = auto
     ? `And to make coming back easy, I've set aside <strong>${escapeHtml(label)}</strong> for you &mdash; it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
       ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
-      : `And if price was part of why you left, that offer still stands: just reply with the word <strong>&ldquo;discount&rdquo;</strong> and I'll get you set up with <strong>${escapeHtml(label)}</strong>. I'll take care of the coupon on my end &mdash; you won't have to sort out anything fiddly.`;
+      : null;
 
   const ctaLabel = auto
     ? 'Come back at a discount'
@@ -2270,8 +2550,7 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
     '',
     "I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.",
     '',
-    discountLineText,
-    '',
+    ...(discountLineText ? [discountLineText, ''] : []),
     "No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.",
     '',
     'If anything specific pushed you away — a missing feature, a bug, a pricing thing — just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
@@ -2301,7 +2580,9 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       <p>A fair amount has changed since you left. A few of the bigger ones:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
       <p>I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.</p>
-      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>
+      ${discountLineHtml
+        ? `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>`
+        : ''}
       <p style="margin: 24px 0;">
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
       </p>
@@ -2347,6 +2628,86 @@ export async function sendWinbackEmail(to: string, opts?: WinbackEmailOptions) {
 //
 // Deliberately no Folds of Honor footer and no unsubscribe: this is internal
 // operational mail, not a subscriber touchpoint.
+/**
+ * Operator alert: members who paid and were left with nothing.
+ *
+ * Deliberately plain and command-first. This is not a marketing email; it is a
+ * work order that lands in an inbox, and the only thing it has to do is make
+ * the next action copy-pasteable. Every command it prints is a DRY RUN — the
+ * alert cannot itself change anybody's tier, and neither can acting on it
+ * without adding YES=1.
+ */
+export function buildOrphanPaymentAlertEmail(alert: OrphanAlert): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const groups = groupByBucket(alert.findings);
+  const total = alert.findings.length;
+  const lead =
+    `${total} paid invoice${total === 1 ? '' : 's'} left the member with no access. `
+    + 'Stripe took the money; the account did not get what it bought.';
+
+  const textLines: string[] = [lead, ''];
+  for (const group of groups) {
+    textLines.push(group.headline.toUpperCase(), '');
+    for (const f of group.findings) {
+      textLines.push(`  ${f.email}`);
+      textLines.push(`    ${f.invoiceId}  ${f.amount}  paid ${f.paidAt}  covers through ${f.coveredThrough}`);
+      if (f.detail) textLines.push(`    ${f.detail}`);
+      textLines.push(`    ${f.command}`);
+      textLines.push('');
+    }
+  }
+  textLines.push(
+    'Every command above is a dry run — it prints the plan and writes nothing. Add YES=1 to apply.',
+    '',
+    'Restoring access for a period that has already elapsed is a pricing decision, not a',
+    'mechanical one, and nothing here makes it for you.',
+    '',
+    `Admin: ${getAppUrl()}/admin/monitoring`,
+  );
+
+  const htmlGroups = groups
+    .map(
+      (group) => `
+      <h3 style="font-size:14px;margin:20px 0 6px;">${escapeHtml(group.headline)}</h3>
+      ${group.findings
+        .map(
+          (f) => `
+        <div style="margin:0 0 14px;padding:10px 12px;background:#f6f7f9;border-radius:6px;">
+          <div style="font-weight:600;">${escapeHtml(f.email)}</div>
+          <div style="font-size:13px;color:#555;">${escapeHtml(f.invoiceId)} &middot; ${escapeHtml(f.amount)} &middot; paid ${escapeHtml(f.paidAt)} &middot; covers through ${escapeHtml(f.coveredThrough)}</div>
+          ${f.detail ? `<div style="font-size:13px;color:#555;">${escapeHtml(f.detail)}</div>` : ''}
+          <code style="display:block;margin-top:6px;font-size:12px;">${escapeHtml(f.command)}</code>
+        </div>`,
+        )
+        .join('')}`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#1a1a1a; max-width:640px; margin:0 auto; padding:24px; line-height:1.5;">
+      <p>${escapeHtml(lead)}</p>
+      ${htmlGroups}
+      <p style="font-size:13px;color:#555;">Every command above is a dry run &mdash; it prints the plan and writes nothing. Add <code>YES=1</code> to apply.</p>
+      <p style="font-size:13px;color:#555;">Restoring access for a period that has already elapsed is a pricing decision, not a mechanical one, and nothing here makes it for you.</p>
+      <p style="font-size:13px;"><a href="${escapeHtml(getAppUrl())}/admin/monitoring">Admin dashboard</a></p>
+    </div>
+  `.trim();
+
+  return { subject: alert.subject, html, text: textLines.join('\n') };
+}
+
+export async function sendOrphanPaymentAlertEmail(to: string, alert: OrphanAlert) {
+  const { subject, html, text } = buildOrphanPaymentAlertEmail(alert);
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendCancellationAlertEmail(to: string, alert: ChurnAlert) {
   const pending = alert.kind === 'pending';
   const appUrl = getAppUrl();
@@ -3056,6 +3417,272 @@ export async function sendTradeworkzNotification(
     text: textLines.join('\n'),
     html,
   });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Return-intent — the reply to a churned member who came back to the site on
+// their own. Sent by scripts/send-return-intent.mts; see core/returnIntent.ts
+// for the eligibility matrix and for why this one throttles on a COOLDOWN
+// rather than latching once per account like every other nudge.
+//
+// Two deliberate omissions, both of which would be easy points to add and both
+// of which would make this worse:
+//
+//   NO DISCOUNT. This member walked back to the site unprompted. Paying someone
+//   to do a thing they are already doing erodes margin on the most likely
+//   conversion in the book — the same reasoning core/trialOffer.ts uses to
+//   refuse stacking a second coupon on a member who already has an intro rate.
+//   The 25% save (core/retentionOffer.ts) stays available for a later touch if
+//   this one doesn't land.
+//
+//   NO CLAIM ABOUT WHAT THEY LOOKED AT. The sweep knows they logged in; it does
+//   not know which page they wanted, because proxy.ts redirects at the edge
+//   before any page renders. The returning-member wall names it (it has the
+//   ?path= param); this email doesn't, and says nothing it can't stand behind.
+// ---------------------------------------------------------------------------
+
+export type ReturnIntentEmailOptions = {
+  // Which objection to answer, derived from the member's own cancellation
+  // survey by core/returnIntent.ts returnIntentAngle(). 'neutral' addresses
+  // none, which is correct when they never told us.
+  angle: ReturnAngle;
+  // Already filtered to what shipped after THIS member left, newest first, by
+  // core/winbackHighlights.ts. The mailer does no date logic of its own.
+  highlights: WinbackHighlight[];
+  // How many of the above are genuinely new to them. Governs the subject line
+  // and the framing: claiming "here's what's changed" to someone who left last
+  // week is a promise the bullets underneath immediately break.
+  freshCount: number;
+  // A redeemed founding rate survives a lapse and is re-applied at checkout
+  // (core/foundingRestore.ts). Most lapsed founders have no idea.
+  foundingMember: boolean;
+  // Signed per-user opt-out link from core/unsubToken.ts buildUnsubUrl().
+  unsubUrl: string;
+};
+
+// The one paragraph that answers the reason they gave on the way out. Returns
+// null for 'neutral' — an email that invents an objection tells the reader it
+// is automated and wrong, which is worse than one that addresses none.
+function returnAngleParagraph(angle: ReturnAngle): { text: string; html: string } | null {
+  switch (angle) {
+    case 'price':
+      return {
+        text:
+          "You said the price was the problem, so I'll be straight about it: the monthly rate is what it is, but annual billing brings the effective monthly cost down a long way, and the side-by-side is right there on the pricing page. I'd rather have you on the plan that actually fits than not have you here at all.",
+        html:
+          "You said the price was the problem, so I'll be straight about it: the monthly rate is what it is, but <strong>annual billing</strong> brings the effective monthly cost down a long way, and the side-by-side is right there on the pricing page. I'd rather have you on the plan that actually fits than not have you here at all.",
+      };
+    case 'features':
+      return {
+        text:
+          "You left because something you needed wasn't there. Some of it may be now — the list below is what's shipped since. If the specific thing you wanted still isn't on it, hit reply and tell me what it is. That's not a courtesy line; it is genuinely how I pick what to build next.",
+        html:
+          "You left because something you needed wasn't there. Some of it may be now &mdash; the list below is what's shipped since. If the specific thing you wanted still isn't on it, <strong>hit reply and tell me what it is</strong>. That's not a courtesy line; it is genuinely how I pick what to build next.",
+      };
+    case 'complexity':
+      return {
+        text:
+          "You said it was more than you needed, and that's fair — there is a lot on the screen. If you do come back, start with Today's Read on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
+        html:
+          "You said it was more than you needed, and that's fair &mdash; there is a lot on the screen. If you do come back, start with <strong>Today's Read</strong> on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
+      };
+    case 'unused':
+      return {
+        text:
+          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the Daily Gamma Forecast — it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
+        html:
+          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the <strong>Daily Gamma Forecast</strong> &mdash; it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
+      };
+    case 'switched':
+      return {
+        text:
+          "You moved to something else. If it's working, genuinely — stay. I'd rather you had the right tool than the loyal one. If it's only mostly working, here's what's changed on our side since you left.",
+        html:
+          "You moved to something else. If it's working, genuinely &mdash; stay. I'd rather you had the right tool than the loyal one. If it's only <em>mostly</em> working, here's what's changed on our side since you left.",
+      };
+    default:
+      return null;
+  }
+}
+
+// Pure render — no network. Returns subject + text + html so the same content
+// can go to a member (sendReturnIntentEmail) or be embedded in the founder's
+// pre-send review digest (sendReturnIntentDigestEmail) without drift. Mirrors
+// renderWinbackEmail / renderReactivationEmail.
+export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const hasFresh = opts.freshCount > 0;
+  const ctaHref = `${getAppUrl()}/pricing`;
+  const safeCtaHref = escapeHtml(ctaHref);
+  const safeUnsubUrl = escapeHtml(opts.unsubUrl);
+
+  const subject = hasFresh
+    ? "What's changed at ZeroGEX since you left"
+    : 'Your ZeroGEX account is still here';
+
+  const angle = returnAngleParagraph(opts.angle);
+
+  const foundingText = opts.foundingMember
+    ? "One thing you may not know: you're a Founding Member, and that rate is still yours. It re-applies automatically if you resubscribe — founding pricing closed to new members, but it never closed to the people who took it."
+    : null;
+  const foundingHtml = opts.foundingMember
+    ? "One thing you may not know: <strong>you're a Founding Member, and that rate is still yours.</strong> It re-applies automatically if you resubscribe &mdash; founding pricing closed to new members, but it never closed to the people who took it."
+    : null;
+
+  const listHeadingText = hasFresh
+    ? "Here's what's shipped since you left:"
+    : "In case it's useful, here's what we've been building:";
+
+  const text = [
+    'Hello,',
+    '',
+    "I noticed your ZeroGEX account was active again recently, and I'd rather reach out myself than let you bump into a paywall and quietly leave.",
+    '',
+    "Your account is exactly as you left it — the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.",
+    ...(angle ? ['', angle.text] : []),
+    ...(foundingText ? ['', foundingText] : []),
+    '',
+    listHeadingText,
+    '',
+    ...opts.highlights.map((h) => `  • ${h.title} — ${h.body}`),
+    '',
+    `Pick up where you left off: ${ctaHref}`,
+    '',
+    "And if the answer is no, that's completely fine — no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    '—',
+    "You're receiving this because you have a ZeroGEX account. Unsubscribe from emails like this:",
+    opts.unsubUrl,
+  ].join('\n');
+
+  const highlightsHtml = opts.highlights
+    .map(
+      (h) =>
+        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong> &mdash; ${escapeHtml(h.body)}</li>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      <p>I noticed your ZeroGEX account was active again recently, and I'd rather reach out myself than let you bump into a paywall and quietly leave.</p>
+      <p>Your account is exactly as you left it &mdash; the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.</p>
+      ${angle ? `<p>${angle.html}</p>` : ''}
+      ${foundingHtml ? `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${foundingHtml}</p>` : ''}
+      <p>${escapeHtml(listHeadingText)}</p>
+      <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
+      <p style="margin: 24px 0;">
+        <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Pick up where you left off</a>
+      </p>
+      <p>And if the answer is no, that's completely fine &mdash; no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
+        You're receiving this because you have a ZeroGEX account.
+        <a href="${safeUnsubUrl}" style="color: #999; text-decoration: underline;">Unsubscribe from emails like this</a>.
+      </p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendReturnIntentEmail(to: string, opts: ReturnIntentEmailOptions) {
+  const { subject, text, html } = renderReturnIntentEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    // One-click unsubscribe (RFC 8058), same as the reactivation send: this is
+    // re-engagement mail, so opting out must be one tap for the recipient and
+    // machine-readable for the mailbox provider.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Pre-send review digest to the founder (scripts/send-return-intent.mts
+// --digest). Lists exactly who would be mailed this run, with the reason each
+// member gave when they left, and embeds one rendered draft. Sends nothing to
+// those members — the real send is a separate, deliberate `make return-intent YES=1`.
+// Mirrors sendWinbackDigestEmail / sendReactivationDigestEmail.
+export async function sendReturnIntentDigestEmail(
+  to: string,
+  opts: {
+    recipients: Array<{ email: string; angle: string; lastLoginAt: string; churnedAt: string }>;
+    sendCommand: string;
+    draft: { subject: string; text: string; html: string };
+  },
+) {
+  const { recipients, sendCommand, draft } = opts;
+  const count = recipients.length;
+  const subject = `[ZeroGEX] Return-intent review — ${count} returning member${count === 1 ? '' : 's'} ready`;
+
+  const describe = (r: (typeof recipients)[number]) =>
+    `${r.email} — left ${r.churnedAt.slice(0, 10)}, back ${r.lastLoginAt.slice(0, 10)}, angle: ${r.angle}`;
+  const listText = count > 0 ? recipients.map((r) => `  - ${describe(r)}`).join('\n') : '  (none)';
+
+  const text = [
+    `${count} churned member${count === 1 ? ' has' : 's have'} logged back in and not been answered.`,
+    '',
+    'Nothing has been sent yet. To send to everyone below, run:',
+    `  ${sendCommand}`,
+    '',
+    `Recipients (${count}):`,
+    listText,
+    '',
+    '======================================================',
+    'DRAFT that will be sent (subject + body shown for the first recipient;',
+    'the angle paragraph and the highlight list vary per member):',
+    `Subject: ${draft.subject}`,
+    '======================================================',
+    '',
+    draft.text,
+  ].join('\n');
+
+  const safeList =
+    count > 0
+      ? recipients.map((r) => `<li style="margin:2px 0;">${escapeHtml(describe(r))}</li>`).join('')
+      : '<li style="margin:2px 0; color:#999;">(none)</li>';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 18px; margin: 0 0 6px;">Return-intent review &mdash; ${count} eligible</h1>
+      <p style="margin: 0 0 16px; color: #444;">These members churned, came back to the site, and have not been answered. Nothing has been sent yet. To send to everyone listed, run:<br>
+        <code style="display:inline-block; margin-top:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; font-size:13px;">${escapeHtml(sendCommand)}</code>
+      </p>
+      <h2 style="font-size: 14px; margin: 18px 0 6px;">Recipients (${count})</h2>
+      <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${safeList}</ul>
+      <div style="border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;">
+        <div style="background: #f5b400; color: #000; font-weight: 700; font-size: 13px; padding: 8px 12px;">
+          DRAFT PREVIEW &mdash; Subject: ${escapeHtml(draft.subject)}
+        </div>
+        <div style="padding: 4px 8px;">${draft.html}</div>
+      </div>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
   if (result.error) {
     throw new Error(`Resend error: ${result.error.message}`);
   }

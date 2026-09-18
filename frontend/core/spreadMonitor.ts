@@ -370,10 +370,381 @@ export function widestBucket(
   return worst;
 }
 
+/**
+ * The expiration whose puts are quoted widest, for the panel's standfirst.
+ *
+ * Puts specifically, not the blended chain: the question the page is here to
+ * answer is where the DOWNSIDE is expensive, and a blend would let orderly
+ * calls mask a wide put wing on the same expiry.
+ *
+ * Expirations with no put market are skipped rather than treated as zero —
+ * "no market" is not "free to cross".
+ */
+export function widestExpiration(
+  slices: readonly ExpirationSlice[] | null | undefined,
+): { dte: number; pct: number } | null {
+  if (!slices) return null;
+  let worst: { dte: number; pct: number } | null = null;
+  for (const slice of slices) {
+    const pct = slice.puts.median_relative_spread_pct;
+    if (pct == null || !Number.isFinite(pct)) continue;
+    if (worst == null || pct > worst.pct) worst = { dte: slice.dte, pct };
+  }
+  return worst;
+}
+
+/** `0` → `0DTE`; anything else → `4d`. The label traders actually use. */
+export function dteLabel(dte: number): string {
+  return dte === 0 ? '0DTE' : `${dte}d`;
+}
+
+/**
+ * The CHIP label for a cumulative expiry scope — `Through 7DTE`.
+ *
+ * Distinct from `dteLabel`, which names a single expiry on a chart axis.
+ * Canonical here rather than local to each panel because the scope note
+ * below has to name a scope the reader can match against a pill they can
+ * see, and two spellings of the same scope would defeat that.
+ */
+export function scopeLabel(dte: number): string {
+  if (dte === 0) return '0DTE only';
+  if (dte === 1) return 'Through 1DTE';
+  return `Through ${dte}DTE`;
+}
+
+/**
+ * Why the header verdict is missing when the page filters have been moved.
+ *
+ * The daily rollup writes ONE scope per session, so a percentile only
+ * exists inside that scope. The API withholds the ranking at any other one
+ * rather than scoring a 0DTE reading against a through-7DTE window — which
+ * is correct, and which on its own renders as "no baseline yet": a sentence
+ * that reads as "this deployment has no history", contradicted by the
+ * surface panel two scrolls further down showing sixty sessions.
+ *
+ * So the state gets its own explanation naming both scopes. Returns null
+ * when they agree, and when the rollup has not been read yet — an unknown
+ * scope is not a mismatch worth announcing.
+ */
+export function baselineScopeNote(
+  dteMax: number,
+  bandPct: number,
+  stored: { dte_max: number; moneyness_band_pct: number } | null | undefined,
+): string | null {
+  if (!stored) return null;
+  if (dteMax === stored.dte_max && bandPct === stored.moneyness_band_pct) return null;
+  const storedScope = `${scopeLabel(stored.dte_max)}, ±${stored.moneyness_band_pct}% of spot`;
+  const pageScope = `${scopeLabel(dteMax)}, ±${bandPct}%`;
+  return (
+    `Ranked readings come from the daily record, which is measured at ${storedScope}. ` +
+    `These filters measure ${pageScope} — a different population, and a percentile ` +
+    `across two populations ranks the populations rather than the sessions. Move the ` +
+    `filters back, or read the spread surface panel below, which stores its history ` +
+    `per scope and ranks 0DTE against 0DTE.`
+  );
+}
+
 /** `-5.0% to -3.0%` → `5.0–3.0% below spot`; reads better in a chart axis. */
 export function moneynessAxisLabel(bucket: MoneynessBucket): string {
   const { moneyness_low_pct: low, moneyness_high_pct: high } = bucket;
   if (high <= 0) return `${Math.abs(high).toFixed(1)}–${Math.abs(low).toFixed(1)}% below`;
   if (low >= 0) return `${low.toFixed(1)}–${high.toFixed(1)}% above`;
   return 'At the money';
+}
+
+// ---------------------------------------------------------------------------
+// Spread Surface vs History
+// ---------------------------------------------------------------------------
+//
+// The rest of this file describes how wide the chain is. This part describes
+// whether that width is UNUSUAL, and where across the strikes it is unusual —
+// which needs a second thing the snapshot does not carry: the same measurement
+// on the same symbol, in the same strike band, at the same time of day, on
+// prior sessions.
+//
+// Every refusal in here exists because the honest answer is sometimes "we
+// cannot say". A percentile computed from four days is not a percentile, a
+// bucket with no stored history is a gap rather than a zero, and a session
+// count has to describe the same days as the date range printed beside it.
+
+/** One moneyness slice of the strike curve, current against its own history. */
+export interface SurfacePoint {
+  money_bucket: string;
+  label: string;
+  moneyness_low_pct: number;
+  moneyness_high_pct: number;
+  /** Bucket midpoint — the curve's x position. */
+  center_pct: number;
+  current_pct: number | null;
+  historical_median_pct: number | null;
+  historical_p25_pct: number | null;
+  historical_p75_pct: number | null;
+  /** Where today sits in this slice's own history, 0-100. */
+  percentile: number | null;
+  vs_normal: number | null;
+  contract_count: number;
+  two_sided_pct: number | null;
+  /** Comparable prior sessions behind this slice, after every filter. */
+  sessions: number;
+}
+
+/** One expiry bucket in the "where does it rank" view. */
+export interface SurfaceDteRank {
+  dte_scope: string;
+  label: string;
+  percentile: number | null;
+  current_pct: number | null;
+  historical_median_pct: number | null;
+  sessions: number;
+  /** True when there is not enough history to rank. Say so; draw nothing. */
+  insufficient_history: boolean;
+}
+
+/** Exactly what the comparison was made against. Rendered, never buried. */
+export interface SurfaceBaseline {
+  sessions: number;
+  earliest_date: string | null;
+  latest_date: string | null;
+  time_matched: boolean;
+  /** e.g. `15:30-16:00 ET`. */
+  time_bucket_label: string;
+  fell_back_to_last_bucket: boolean;
+  min_sessions: number;
+}
+
+export interface SurfaceSummary {
+  current_pct: number | null;
+  normal_pct: number | null;
+  vs_normal: number | null;
+  percentile: number | null;
+  two_sided_pct: number | null;
+  /** Coverage against the same window. HIGH is GOOD — see `coverageVerdict`. */
+  two_sided_normal_pct: number | null;
+  two_sided_percentile: number | null;
+  contract_count: number;
+  sessions: number;
+}
+
+export interface SpreadSurface {
+  symbol: string;
+  option_type: 'C' | 'P';
+  spot_price: number;
+  timestamp: string;
+  session_date: string;
+  dte_max: number;
+  dte_scope: string;
+  moneyness_band_pct: number;
+  basis: string;
+  disclosure: string;
+  baseline: SurfaceBaseline;
+  summary: SurfaceSummary;
+  curve: SurfacePoint[];
+  by_dte: SurfaceDteRank[];
+}
+
+/**
+ * The baseline sentence — how many sessions, over what dates, at what clock.
+ *
+ * Built from the response rather than from the request, which is the whole
+ * point: the page asked for 60 days, and what came back is however many of
+ * those sessions had enough of this exact scope quoted to measure. Printing
+ * the request would claim history the comparison does not have.
+ */
+export function baselineSummary(baseline: SurfaceBaseline | null | undefined): string {
+  if (!baseline || baseline.sessions === 0) {
+    return 'No comparable sessions stored for this scope yet.';
+  }
+  const plural = baseline.sessions === 1 ? 'session' : 'sessions';
+  const range =
+    baseline.earliest_date && baseline.latest_date
+      ? ` (${baseline.earliest_date} to ${baseline.latest_date})`
+      : '';
+  const clock = baseline.time_matched
+    ? ` · time-matched history: ${baseline.time_bucket_label}`
+    : '';
+  return `${baseline.sessions} comparable ${plural}${range}${clock}`;
+}
+
+/**
+ * Is the baseline thick enough to rank against?
+ *
+ * The API already withholds the percentile below its own floor, so this is
+ * only for the page's copy — it needs to say WHY a rank is missing, and
+ * "not enough history yet" is a different sentence from "this scope has no
+ * rows at all".
+ */
+export function hasUsableBaseline(baseline: SurfaceBaseline | null | undefined): boolean {
+  return !!baseline && baseline.sessions >= baseline.min_sessions;
+}
+
+/**
+ * Where the deterioration is, as a sentence — the page's one interpretation.
+ *
+ * Rules, not prose generation: the thresholds are the same ones
+ * `percentileVerdict` already uses for the rest of the page (95 / 80 / 20),
+ * so the strike curve and the header cards cannot disagree about what
+ * "wider than usual" means. Nothing here invents a number; it names the
+ * slices the response already ranked.
+ *
+ * Returns null when there is no baseline. A view whose entire job is "is
+ * this unusual" must be able to say nothing.
+ */
+export function surfaceReadout(
+  surface: SpreadSurface | null | undefined,
+): Verdict | null {
+  if (!surface) return null;
+  const { summary, baseline, curve } = surface;
+  const verdict = percentileVerdict(summary.percentile, baseline.sessions);
+  if (!verdict) return null;
+
+  const side = surface.option_type === 'P' ? 'put' : 'call';
+  const elevated = curve
+    .filter((point) => point.percentile != null && point.percentile >= 80)
+    .sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0));
+  const ranked = curve.filter((point) => point.percentile != null);
+
+  let where: string;
+  if (ranked.length === 0) {
+    where = `No ${side} strike band in this scope has enough stored history to place today within it.`;
+  } else if (elevated.length === 0) {
+    where = `No individual strike band is above its own 80th percentile, so the ${side} reading is broad rather than concentrated in one part of the chain.`;
+  } else if (elevated.length === ranked.length && ranked.length >= 3) {
+    // "The whole book" is only sayable with enough bands ranked to mean it.
+    // Claiming it off one or two would describe the chain from the only
+    // corner of it that happens to have a baseline.
+    where = `All ${ranked.length} ranked strike bands are elevated — the whole ${side} book in this scope, not one part of it.`;
+  } else {
+    const names = elevated.slice(0, 3).map((point) => point.label);
+    const more = elevated.length > names.length ? ` and ${elevated.length - names.length} more` : '';
+    where = `Concentrated in ${names.join(', ')}${more} — ${elevated.length} of ${ranked.length} ranked bands.`;
+  }
+
+  // The shared sentence is carried VERBATIM rather than spliced into a new
+  // one. Reusing the thresholds but rewording the result is how two panels
+  // end up saying different things about the same number — and lowercasing
+  // someone else's sentence to graft it onto a clause produced "Put markets
+  // in this scope are quotes are wider than...".
+  return {
+    label: verdict.label,
+    tone: verdict.tone,
+    meaning: `${verdict.meaning} ${where}`,
+  };
+}
+
+/**
+ * The expiry whose current reading ranks highest against its own history.
+ *
+ * Ranks, not widths. The widest bucket is almost always the nearest expiry
+ * and says nothing — 0DTE is structurally wider than 30DTE every day of the
+ * year. "Which expiry is furthest from its own normal" is the finding.
+ */
+export interface UnrankedNote {
+  /** Short enough to sit on the axis where the bar is not. */
+  label: string;
+  /** The full reason, for the tooltip. */
+  meaning: string;
+}
+
+/**
+ * Why an expiry bucket has no bar — and the two reasons are not the same.
+ *
+ * A null percentile arrives from the API in two states that were rendering
+ * identically as "Insufficient history":
+ *
+ *   no current reading   nothing expires in this bucket today. 2-3 DTE from
+ *                        a Thursday or Friday lands on the weekend; 1DTE
+ *                        from a Friday does too. Structural, not a data
+ *                        problem, and it recurs on roughly two sessions in
+ *                        five.
+ *   no baseline          there IS a reading today, but fewer than
+ *                        SPREAD_SURFACE_MIN_SESSIONS stored sessions to rank
+ *                        it against.
+ *
+ * Calling the first one "Insufficient history" is wrong twice over: it names
+ * a data shortage that does not exist, and the tooltip then printed "only 24
+ * comparable sessions stored — not enough to rank" beside a floor of eight.
+ * `current_pct` already separates them, so nothing new is needed from the
+ * API to say which is which.
+ */
+/**
+ * Where coverage sits in its own history — the SAME rank, read backwards.
+ *
+ * `percentileVerdict` cannot be reused here, and the reason is not style.
+ * For a width, a high percentile is the bad end: today is wider than most
+ * sessions. For coverage it is the good end: more of the chain has a real
+ * two-sided market than usual. Passing this through the width verdict would
+ * paint the best-covered session of the quarter bearish red, which is the
+ * one rendering mistake that would make the new number worse than no number.
+ *
+ * Coverage is also the figure that matches the complaint. "Untradeable"
+ * usually means a contract with NO bid rather than a wide one, and a no-bid
+ * contract has no width — it leaves every median by construction. So a chain
+ * can read tighter as its wings die, and only this says so.
+ *
+ * Thresholds mirror `percentileVerdict` at 5 / 20 / 80 so the two readouts
+ * cannot disagree about what "unusual" means.
+ */
+export function coverageVerdict(
+  percentile: number | null | undefined,
+  sessions: number,
+): Verdict | null {
+  if (percentile == null || !Number.isFinite(percentile) || sessions <= 0) return null;
+  const window = `${sessions} session${sessions === 1 ? '' : 's'}`;
+
+  if (percentile <= 5) {
+    return {
+      label: 'Thinnest 5% of sessions',
+      tone: 'bearish',
+      meaning: `Less of the chain carries a two-sided market than on 95% of the last ${window}. The contracts that dropped out have no width to report, so no spread figure on this page will show this.`,
+    };
+  }
+  if (percentile <= 20) {
+    return {
+      label: 'Thinner than usual',
+      tone: 'bearish',
+      meaning: `Fewer contracts are quoted two-sided than on roughly ${100 - Math.round(percentile)}% of the last ${window}. Check the strike you want has a bid before planning around it.`,
+    };
+  }
+  if (percentile < 80) {
+    return {
+      label: 'Normal coverage',
+      tone: 'neutral',
+      meaning: `In line with the last ${window}. A 0DTE book thins out into the close on every session; this one is thinning on schedule.`,
+    };
+  }
+  return {
+    label: 'Better covered than usual',
+    tone: 'bullish',
+    meaning: `More of the chain carries a two-sided market than on roughly ${Math.round(percentile)}% of the last ${window}.`,
+  };
+}
+
+export function unrankedExpiry(rank: SurfaceDteRank): UnrankedNote | null {
+  if (rank.percentile != null) return null;
+  if (rank.current_pct == null) {
+    return {
+      label: 'No expiry here today',
+      meaning:
+        'Nothing expires in this bucket today, so there is no reading to rank. ' +
+        'The near buckets empty out on a schedule — 2-3 DTE covers the weekend ' +
+        'from Thursday and Friday — and that is the calendar, not a gap in the data.',
+    };
+  }
+  const plural = rank.sessions === 1 ? '' : 's';
+  return {
+    label: 'Insufficient history',
+    meaning: `Only ${rank.sessions} comparable session${plural} stored — not enough to rank.`,
+  };
+}
+
+export function mostElevatedExpiry(
+  ranks: readonly SurfaceDteRank[] | null | undefined,
+): SurfaceDteRank | null {
+  if (!ranks) return null;
+  let worst: SurfaceDteRank | null = null;
+  for (const rank of ranks) {
+    if (rank.percentile == null) continue;
+    if (worst == null || rank.percentile > (worst.percentile ?? -Infinity)) worst = rank;
+  }
+  return worst;
 }

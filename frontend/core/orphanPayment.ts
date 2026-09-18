@@ -24,6 +24,15 @@
 // charged twice, and renew normally afterward. That re-created subscription
 // emits customer.subscription.created, and the ordinary sync grants the tier.
 //
+// What it must NOT do is re-grant a payment that was given back. A refund leaves
+// the invoice reading `status=paid` with `amount_paid` untouched, and a refunded
+// member is normally canceled in the same breath — which clears their local
+// subscription id and drops them to 'public'. Every signal above is then
+// identical for a refunded close-out and a genuine orphaned payment, so the
+// decision takes the refunded amount as a required input and stops on it. In
+// production this handed a member a free month plus a repeating coupon whose
+// clock had restarted, a fortnight after they were refunded in full.
+//
 // This module holds only the decision (unit-tested in tests/orphanPayment.test.ts);
 // app/api/webhooks/stripe/route.ts performs the Stripe + DB writes, and
 // scripts/recover-orphan-payment.mts is the manual twin for payments that were
@@ -58,6 +67,18 @@ const SUBSCRIPTION_BILLING_REASONS = new Set([
 export type OrphanPaymentInput = {
   // invoice.amount_paid, in the smallest currency unit.
   amountPaid: number;
+  // How much of that payment has since been REFUNDED (readInvoiceRefundedAmount
+  // in core/stripeInvoice.ts), in the same unit — or null when it could not be
+  // determined from the invoice in hand.
+  //
+  // REQUIRED, with no default, and nullable on purpose. A refund leaves the
+  // invoice reading `status=paid` with `amount_paid` unchanged, so every other
+  // field here is identical for a member who kept their money and one who was
+  // given it back. An optional field defaulting to 0 would silently mean "not
+  // refunded" for any caller that had not been taught about it — which is
+  // exactly the hole this closes, so the type refuses to let a caller stay
+  // ignorant of it.
+  amountRefunded: number | null;
   // invoice.status — only a settled 'paid' invoice buys anything.
   invoiceStatus: string | null;
   // invoice.billing_reason. null/unknown is tolerated (treated as allowed) so a
@@ -91,7 +112,9 @@ export type OrphanPaymentDecision =
   // Not an orphaned payment at all — the normal flow covers this invoice.
   | { kind: 'none'; reason: string }
   // Money collected with no entitlement, but we must not act automatically.
-  // The caller logs it loudly for an operator instead of guessing.
+  // The caller logs it loudly for an operator instead of guessing. Also covers
+  // the two refund cases we refuse to decide alone: a partial refund, and a
+  // refund state we could not read.
   | { kind: 'detected'; recoverable: false; reason: string }
   // Money collected with no entitlement, and we know exactly which plan to
   // restore and until when. `billingCycleAnchorUnix` is the instant the paid
@@ -106,9 +129,36 @@ export type OrphanPaymentDecision =
       billingCycleAnchorUnix: number;
     };
 
+/**
+ * Cheap, PURELY LOCAL pre-check: could anything be orphaned for this member at
+ * all?
+ *
+ * False means decideOrphanPayment would answer 'none' from the four gates that
+ * need no Stripe read — which is every ordinary renewal, the bulk of the
+ * invoice.paid stream. Callers use it to skip the live subscription and refund
+ * reads entirely on that path, so the refund guard above costs a Stripe call
+ * only for the handful of invoices that could actually be orphaned.
+ *
+ * Deliberately mirrors those four gates rather than sharing code with them:
+ * each reports its own distinct reason, which this has no use for. Held in
+ * lockstep by tests/orphanPayment.test.ts, which asserts the two agree.
+ */
+export function couldBeOrphaned(input: {
+  invoiceStatus: string | null;
+  amountPaid: number;
+  localTier: string;
+  localSubscriptionId: string | null;
+}): boolean {
+  if (input.invoiceStatus !== 'paid') return false;
+  if (!(input.amountPaid > 0)) return false;
+  if (input.localSubscriptionId) return false;
+  return input.localTier === 'public';
+}
+
 export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDecision {
   const {
     amountPaid,
+    amountRefunded,
     invoiceStatus,
     billingReason,
     subscriptionId,
@@ -136,9 +186,36 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
     return { kind: 'none', reason: 'subscription_live' };
   }
 
-  // Past here: a paid, non-zero invoice, and the payer holds no entitlement.
-  // That is money in with nothing granted — always worth a record, even when we
-  // decline to act on it.
+  // --- Was the money actually KEPT? --------------------------------------
+  //
+  // Everything above is equally true of a payment that was refunded: Stripe
+  // leaves the invoice `status=paid` and never reduces `amount_paid`, and a
+  // member who is refunded is normally canceled in the same breath, which
+  // clears their local subscription id and drops them to 'public'. So a
+  // refunded-and-closed account is byte-identical to a genuine orphaned
+  // payment, and without this gate it re-grants the very period that was given
+  // back — the access free, and any repeating coupon re-applied with its clock
+  // restarted. That happened in production; this is the guard.
+  if (amountRefunded == null) {
+    // Refund state unreadable (an unexpanded charge, a failed live read).
+    // Never guessed: the wrong guess hands out a paid period for free.
+    return { kind: 'detected', recoverable: false, reason: 'refund_state_unknown' };
+  }
+  if (amountRefunded >= amountPaid) {
+    // Fully refunded. The money is back with the member, so nothing is owed and
+    // nothing is orphaned — this is the ordinary refund-then-cancel close-out.
+    return { kind: 'none', reason: 'refunded' };
+  }
+  if (amountRefunded > 0) {
+    // Partly refunded. Some of the payment was kept, so something may well be
+    // owed — but how much access that buys is a judgment call, and re-creating
+    // the full plan would grant a period only partly paid for.
+    return { kind: 'detected', recoverable: false, reason: 'partially_refunded' };
+  }
+
+  // Past here: a paid, non-zero, un-refunded invoice, and the payer holds no
+  // entitlement. That is money in with nothing granted — always worth a record,
+  // even when we decline to act on it.
 
   // --- Can we act on it automatically? -----------------------------------
   if (!subscriptionId) {

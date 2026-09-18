@@ -50,6 +50,18 @@ import { isFoundingLockinOpen } from '../core/foundingLockin.ts';
 // lookback bounds the mass-email risk on first deploy (only accounts
 // signed up in the last week ever qualify), and >> the 2h cron cadence
 // so nobody slips through a tick.
+// Both default to OFF so the every-2h systemd unit behaves exactly as before.
+// They exist for draining a BACKLOG by hand: the lookback window means anyone
+// who verified longer ago than it never became eligible and, because the latch
+// is one-shot, never will. Re-running with a wide --lookback-hours reaches them,
+// but that turns a trickle into hundreds of emails at once, to addresses months
+// old, from a domain that normally sends a handful an hour. Spam complaints
+// there cost deliverability on the mail that actually must arrive — receipts,
+// trial reminders, payment failures. So a backlog drain goes out in bounded,
+// spaced batches.
+const DEFAULT_LIMIT: number | null = null;
+const DEFAULT_THROTTLE_MS = 0;
+
 const DEFAULT_LAG_HOURS = 2;
 const DEFAULT_LOOKBACK_HOURS = 24 * 7;
 
@@ -60,6 +72,8 @@ type Args = {
   lagHours: number;
   lookbackHours: number;
   previewTo: string | null;
+  limit: number | null;
+  throttleMs: number;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -91,6 +105,8 @@ function parseArgs(argv: string[]): Args {
     help: false,
     lagHours: DEFAULT_LAG_HOURS,
     lookbackHours: DEFAULT_LOOKBACK_HOURS,
+    limit: DEFAULT_LIMIT,
+    throttleMs: DEFAULT_THROTTLE_MS,
     previewTo: null,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -111,6 +127,20 @@ function parseArgs(argv: string[]): Args {
         process.exit(1);
       }
       args.lookbackHours = value;
+    } else if (arg === '--limit') {
+      const value = Number(argv[++i] ?? '');
+      if (!Number.isInteger(value) || value < 1) {
+        console.error(`Error: --limit expects a positive integer, got "${argv[i]}".`);
+        process.exit(1);
+      }
+      args.limit = value;
+    } else if (arg === '--throttle-ms') {
+      const value = Number(argv[++i] ?? '');
+      if (!Number.isFinite(value) || value < 0) {
+        console.error(`Error: --throttle-ms expects a non-negative number, got "${argv[i]}".`);
+        process.exit(1);
+      }
+      args.throttleMs = value;
     } else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
     else if (arg === '--help' || arg === '-h') args.help = true;
   }
@@ -146,6 +176,10 @@ Options:
       --lag-hours N          Hours to wait after signup before we'll email
                              (default ${DEFAULT_LAG_HOURS}).
       --lookback-hours N     Oldest signup we'll act on (default ${DEFAULT_LOOKBACK_HOURS}).
+      --limit N              Send to at most N users this run, then stop and report the
+                             remainder. For draining a backlog in bounded batches.
+      --throttle-ms N        Pause N ms between sends, so a large batch does not arrive
+                             as one burst.
       --preview-to <email>   Render the email and send ONE copy to <email>.
                              No DB writes.
   -h, --help                 Show this help.
@@ -297,12 +331,22 @@ if (eligible.length === 0) {
   process.exit(0);
 }
 
-const sample = eligible.slice(0, 10);
+const batch = cliArgs.limit ? eligible.slice(0, cliArgs.limit) : eligible;
+if (batch.length < eligible.length) {
+  console.log(
+    `This batch:       ${batch.length} (--limit); ${eligible.length - batch.length} left for the next run`,
+  );
+}
+if (cliArgs.throttleMs > 0) {
+  console.log(`Throttle:         ${cliArgs.throttleMs}ms between sends`);
+}
+
+const sample = batch.slice(0, 10);
 for (const u of sample) {
   console.log(`  - ${u.email}: signed up ${u.created_at}`);
 }
-if (eligible.length > sample.length) {
-  console.log(`  ... and ${eligible.length - sample.length} more`);
+if (batch.length > sample.length) {
+  console.log(`  ... and ${batch.length - sample.length} more`);
 }
 
 if (cliArgs.dryRun) {
@@ -320,8 +364,16 @@ if (!cliArgs.yes) {
 let successCount = 0;
 let failCount = 0;
 
-for (const user of eligible) {
+let sentInRun = 0;
+for (const user of batch) {
   try {
+    // Space the sends out. Deliberately BEFORE the send rather than after, and
+    // skipped for the first, so the pause always separates two emails instead of
+    // trailing uselessly after the last one.
+    if (cliArgs.throttleMs > 0 && sentInRun > 0) {
+      await new Promise((resolve) => setTimeout(resolve, cliArgs.throttleMs));
+    }
+    sentInRun += 1;
     await sendVerifiedNeverPaidEmail(user.email);
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
@@ -359,4 +411,11 @@ for (const user of eligible) {
 }
 
 console.log(`\nDone. ${successCount} sent, ${failCount} failed.`);
+if (batch.length < eligible.length) {
+  // Say what is left and how to get it, so a drain does not depend on whoever
+  // ran it remembering the invocation.
+  console.log(
+    `${eligible.length - batch.length} still eligible. Re-run the same command to send the next batch.`,
+  );
+}
 process.exit(failCount > 0 ? 1 : 0);

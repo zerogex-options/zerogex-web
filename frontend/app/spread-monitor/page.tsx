@@ -15,6 +15,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { isFuturesSymbol } from '@/core/symbols';
 import {
   EMPTY,
+  baselineScopeNote,
   coverageReadout,
   formatBps,
   formatCrossCost,
@@ -22,8 +23,11 @@ import {
   formatPct,
   percentileVerdict,
   putCallReadout,
+  scopeLabel,
   sessionDrift,
   widestBucket,
+  widestExpiration,
+  dteLabel,
   SPREAD_SYMBOLS,
   type Verdict,
 } from '@/core/spreadMonitor';
@@ -35,9 +39,11 @@ import {
 } from '@/hooks/useSpreadMonitor';
 
 import CrossSymbolTable from './CrossSymbolTable';
+import ExpirationCurve from './ExpirationCurve';
 import MoneynessCurve from './MoneynessCurve';
 import SpreadHistoryChart from './SpreadHistoryChart';
 import SpreadSessionChart from './SpreadSessionChart';
+import SurfaceSection from './SurfaceSection';
 
 /**
  * Spread Monitor — can you actually get filled in this chain?
@@ -53,8 +59,9 @@ import SpreadSessionChart from './SpreadSessionChart';
  *   1. How wide is it right now, and which side is worse?
  *   2. Has it got worse THROUGH today?          (session chart)
  *   3. WHERE in the chain?                      (moneyness curve, expiries)
- *   4. Is today unusual for this symbol?        (daily record)
- *   5. Is another index any better?             (cross-symbol table)
+ *   4. Is today unusual for this symbol?        (surface vs history)
+ *   5. And how has that run over time?          (daily record)
+ *   6. Is another index any better?             (cross-symbol table)
  *
  * The one rule the whole page follows: no invented thresholds. Quoted
  * width has no universal "wide" line — SPX puts are structurally wider
@@ -71,12 +78,6 @@ const HISTORY_DAYS = 60;
 const BAND_CHOICES = [2, 5, 10] as const;
 /** Days to expiration included. 0 isolates the 0DTE book. */
 const DTE_CHOICES = [0, 1, 7, 30] as const;
-
-function dteLabel(dte: number): string {
-  if (dte === 0) return '0DTE only';
-  if (dte === 1) return 'Through 1DTE';
-  return `Through ${dte}DTE`;
-}
 
 function Readout({ verdict }: { verdict: Verdict | null }) {
   if (!verdict) return null;
@@ -100,6 +101,12 @@ export default function SpreadMonitorPage() {
   const { symbol, setSymbol } = useTimeframe();
   const [dteMax, setDteMax] = useState<number>(7);
   const [bandPct, setBandPct] = useState<number>(5);
+  // The comparison table gets its own expiry scope. Which expiries you are
+  // comparing changes the answer completely — SPX and NDX can rank one way
+  // on 0DTE and the other way across a month — so "is NDX any better?" is
+  // not a question with a single answer, and the panel should not make the
+  // reader scroll back to the page header to find out which one it gave.
+  const [compareDteMax, setCompareDteMax] = useState<number>(7);
 
   // ES / NQ carry no option chain here, so the API answers 400. That is a
   // state the page can recognise before asking, so it does not ask: every
@@ -113,17 +120,32 @@ export default function SpreadMonitorPage() {
 
   const { data, loading, error, refetch } = useSpreadSnapshot(symbol, scope);
   const { data: series } = useSpreadSeries(symbol, { ...scope, bucketMinutes: 15 });
+  // Both sides of the book, so the daily record can show the put/call cut
+  // rather than the puts alone. Separate requests because the rollup stores
+  // one row per option type — medians do not combine.
   const { data: history } = useSpreadHistory(symbol, 'P', HISTORY_DAYS, !futures);
-  const { data: compare } = useSpreadCompare(SPREAD_SYMBOLS, scope);
+  const { data: callHistory } = useSpreadHistory(symbol, 'C', HISTORY_DAYS, !futures);
+  const compareScope = useMemo(
+    () => ({ dteMax: compareDteMax, moneynessBandPct: bandPct, enabled: !futures }),
+    [compareDteMax, bandPct, futures],
+  );
+  const { data: compare } = useSpreadCompare(SPREAD_SYMBOLS, compareScope);
 
   const putVerdict = percentileVerdict(
     data?.history?.puts_percentile,
     data?.history?.sessions ?? 0,
   );
+  // Why the verdict is missing, when the reason is the filters rather than a
+  // deployment with no history. The API withholds a ranking outside the scope
+  // the rollup stored — correctly, since a 0DTE reading scored against a
+  // through-7DTE window reports the widest 5% of sessions on an ordinary day
+  // — and this is the sentence that keeps that from reading as missing data.
+  const scopeNote = baselineScopeNote(dteMax, bandPct, history);
   const sideVerdict = putCallReadout(data?.put_call_width_ratio);
   const coverage = coverageReadout(data?.all);
   const drift = sessionDrift(series?.bars, 'puts');
   const worstPutBucket = widestBucket(data?.puts_by_moneyness);
+  const worstExpiry = widestExpiration(data?.by_expiration);
 
   if (futures) {
     return (
@@ -154,7 +176,7 @@ export default function SpreadMonitorPage() {
           <FilterBar>
             {DTE_CHOICES.map((choice) => (
               <FilterChip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
-                {dteLabel(choice)}
+                {scopeLabel(choice)}
               </FilterChip>
             ))}
             <FilterDivider />
@@ -216,7 +238,13 @@ export default function SpreadMonitorPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ReadoutTile
               title={<>Against this symbol&rsquo;s own history</>}
-              value={putVerdict ? putVerdict.label : 'No baseline yet'}
+              value={
+                putVerdict
+                  ? putVerdict.label
+                  : scopeNote
+                    ? 'No baseline at this scope'
+                    : 'No baseline yet'
+              }
               tone={putVerdict ? putVerdict.tone : 'muted'}
             >
               {putVerdict ? (
@@ -231,6 +259,8 @@ export default function SpreadMonitorPage() {
                     </>
                   )}
                 </>
+              ) : scopeNote ? (
+                scopeNote
               ) : (
                 <>
                   There is no universal &ldquo;wide&rdquo; for a quoted spread — an SPX put is
@@ -299,9 +329,26 @@ export default function SpreadMonitorPage() {
           <ChartPanel
             title="By expiration"
             tooltip="Per-expiration rather than per-DTE-bucket. A range like '2-7 DTE' blends Wednesday's expiry with Friday's, and those routinely differ by more than the change worth noticing."
-            sub="Nearest expiry first — quotes go first where time does."
+            sub={
+              worstExpiry ? (
+                <>
+                  Widest puts are <strong>{dteLabel(worstExpiry.dte)}</strong> at{' '}
+                  {formatPct(worstExpiry.pct)} of premium. Nearest expiry first —
+                  quotes go first where time does.
+                </>
+              ) : (
+                'Nearest expiry first — quotes go first where time does.'
+              )
+            }
           >
-            <div className="overflow-x-auto">
+            <ExpirationCurve slices={data.by_expiration} />
+            {/* The table is not redundant with the chart above it. The chart
+                carries the shape — which expiry is worst, and by how much
+                against the other side of the book. The table carries the
+                exact values and the two columns the chart deliberately does
+                not put on a second y-scale: width against the index, and
+                what share has no bid at all. */}
+            <div className="mt-4 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr
@@ -355,6 +402,15 @@ export default function SpreadMonitorPage() {
             </div>
           </ChartPanel>
 
+          {/* The readout at the top ranks the chain as one number; this ranks
+              it strike by strike and expiry by expiry, which is the cut that
+              separates "everything is wide" from "the front-month put wing
+              is wide". It carries its own scope pills because a percentile is
+              only meaningful inside a scope history was stored for, and the
+              page filters above are free to take values the rollup never
+              wrote. */}
+          <SurfaceSection symbol={symbol} enabled={!futures} historyDays={HISTORY_DAYS} />
+
           <ChartPanel
             title={`Daily record — last ${HISTORY_DAYS} sessions`}
             tooltip="One row per trading day, written from the same reduction as the live reading above so the two are directly comparable. The band is the gap between the typical contract and the worst tenth."
@@ -362,7 +418,10 @@ export default function SpreadMonitorPage() {
           >
             {history ? (
               <>
-                <SpreadHistoryChart rows={history.rows} />
+                <SpreadHistoryChart
+                  putRows={history.rows}
+                  callRows={callHistory?.rows ?? []}
+                />
                 {(history.excluded_thin_sessions ?? 0) > 0 && (
                   <p
                     className="mt-2 text-[11px] leading-relaxed"
@@ -384,14 +443,34 @@ export default function SpreadMonitorPage() {
 
           <ChartPanel
             title="Across symbols"
-            tooltip="The same reading on every index with an option chain of its own. ES and NQ are absent because they have none here — their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
-            sub="Click a row to switch the page to that symbol."
+            tooltip="The same reading on every index with an option chain of its own. Read it on the 'put width vs index' column: SPX near 6,800 and NDX near 25,000 are not on one dollar scale. ES and NQ are absent because they carry no option chain here — their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
+            sub={
+              <>
+                Puts and calls within ±{bandPct}% of spot,{' '}
+                {compareDteMax === 0 ? '0DTE only' : `expiries through ${compareDteMax}DTE`}.
+                Click a row to switch the page to that symbol.
+              </>
+            }
+            actions={
+              <FilterBar>
+                {DTE_CHOICES.map((choice) => (
+                  <FilterChip
+                    key={choice}
+                    active={compareDteMax === choice}
+                    onClick={() => setCompareDteMax(choice)}
+                  >
+                    {scopeLabel(choice)}
+                  </FilterChip>
+                ))}
+              </FilterBar>
+            }
           >
             {compare ? (
               <CrossSymbolTable
                 rows={compare.rows}
                 activeSymbol={symbol}
                 onSelect={(next) => setSymbol(next as typeof symbol)}
+                scopeNote={baselineScopeNote(compareDteMax, bandPct, history)}
               />
             ) : (
               <LoadingSpinner size="sm" />

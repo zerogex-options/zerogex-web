@@ -52,6 +52,12 @@ export type DeclineCategory =
   | 'authentication_required'
   // Transient on Stripe's or the issuer's side. Very likely to clear by itself.
   | 'try_again'
+  // WE refused it — Stripe Radar scored the payment as too risky and blocked it
+  // before any bank saw it. Kept apart from issuer_block because the remedy is
+  // the opposite one: nothing the member does with their bank can help, and the
+  // decision is ours to review. Folding it into issuer_block would have us
+  // telling a customer to call their bank about a charge we declined.
+  | 'blocked_by_risk'
   // No decline data, or a code we do not map. Never guess here: the neutral
   // copy is correct for every case, a wrong guess is wrong in public.
   | 'unknown';
@@ -151,6 +157,10 @@ function normalizeNetworkCode(raw: string | null): string | null {
 // forced into the nearest bucket.
 const BY_DECLINE_CODE: Record<string, DeclineCategory> = {
   insufficient_funds: 'insufficient_funds',
+  // Reported by card programs that settle through a banking partner rather than
+  // the issuer directly. Different plumbing, identical conversation with the
+  // member — and on this product it is the single most common decline there is.
+  partner_insufficient_funds: 'insufficient_funds',
   // A spending/withdrawal cap is the same conversation as an empty account:
   // wait, use another card, or spend less.
   withdrawal_count_limit_exceeded: 'insufficient_funds',
@@ -189,7 +199,28 @@ const BY_DECLINE_CODE: Record<string, DeclineCategory> = {
 
   authentication_required: 'authentication_required',
 
+  // The network is explicitly telling us not to try this card again. Whatever
+  // the original reason was, a retry is not the answer — which is exactly the
+  // issuer_block conversation: a different card, or the member sorting it out
+  // with their bank.
+  previously_declined_do_not_retry: 'issuer_block',
+
+  // Stripe Radar, not a bank. See 'blocked_by_risk'.
+  highest_risk_level: 'blocked_by_risk',
+  elevated_risk_level: 'blocked_by_risk',
+  // `requested_block_*` is a Radar RULE firing — our own rule, on a postcode or
+  // CVC mismatch. The bank never refused these; we did. They look like a card
+  // problem and are not one: the member cannot fix a rule they cannot see.
+  requested_block_on_incorrect_zip: 'blocked_by_risk',
+  requested_block_on_incorrect_cvc: 'blocked_by_risk',
+  requested_block: 'blocked_by_risk',
+
   processing_error: 'try_again',
+  // A dropped wallet connection is transient by definition.
+  link_connection_closed: 'try_again',
+  // India e-mandate: the pre-debit notification did not reach the customer, so
+  // the debit cannot be presented yet. The mandate is intact and it re-presents.
+  debit_notification_undelivered: 'try_again',
   issuer_not_available: 'try_again',
   try_again_later: 'try_again',
   approve_with_id: 'try_again',
@@ -227,9 +258,48 @@ export function classifyDecline(decline: ChargeDecline | null): DeclineCategory 
   return byCode ?? 'unknown';
 }
 
+/**
+ * Attempts after which a code that CALLS itself transient has demonstrably
+ * stopped being one.
+ *
+ * Stripe's Smart Retries make roughly four tries. By the third recorded failure,
+ * "the next retry will clear it" is no longer a claim the evidence supports — and
+ * a live check put it past doubt: six `try_again` invoices, 27 attempts between
+ * them, zero recovered. Four of the six were `try_again_later`, which reads like
+ * a glitch and behaves, on repetition, like an issuer refusing persistently.
+ */
+export const TRANSIENT_ATTEMPT_LIMIT = 3;
+
+/** What we know about how far this invoice's retries have got. */
+export type DeclineContext = {
+  /** Failures recorded on this invoice so far. */
+  attempts?: number;
+  /** Stripe is not going to try again — from the invoice's own retry state. */
+  retriesExhausted?: boolean;
+};
+
+/**
+ * Has a self-described transient failure outlived its own premise?
+ *
+ * Either signal is enough, because they cover different eras of the data: the
+ * retry state is authoritative but NULL on rows backfilled before those columns
+ * existed, where the attempt count is all there is.
+ */
+export function transientClaimExpired(context?: DeclineContext): boolean {
+  if (!context) return false;
+  if (context.retriesExhausted) return true;
+  return (context.attempts ?? 0) >= TRANSIENT_ATTEMPT_LIMIT;
+}
+
 // What to actually do about each category, phrased for the operator reading
 // `make diagnose-user` and deciding which follow-up to send.
-export function declineGuidance(category: DeclineCategory): string {
+//
+// `context` is optional and only `try_again` consults it. That category is the
+// only one whose advice rests on a PREDICTION — that the next retry will work —
+// rather than on what the issuer said, so it is the only one an attempt count
+// can falsify. The others describe a standing condition and read the same on
+// attempt one and attempt five.
+export function declineGuidance(category: DeclineCategory, context?: DeclineContext): string {
   switch (category) {
     case 'insufficient_funds':
       return 'Account was short. Retries often clear on their own (payday); offer a cheaper plan or a pause rather than pressing. Do NOT tell them to call their bank.';
@@ -240,7 +310,11 @@ export function declineGuidance(category: DeclineCategory): string {
     case 'authentication_required':
       return '3DS/SCA was not completed. Paying the hosted invoice link walks them through the step-up.';
     case 'try_again':
-      return 'Transient on Stripe or the issuer. Very likely to clear on the next automatic retry; no action needed yet.';
+      return transientClaimExpired(context)
+        ? 'It called itself transient and it was not: the retries have run and every one failed. A try_again code that outlives its own retries is an issuer refusing persistently, not a glitch — read it as an issuer block. The member needs to approve it with their bank or use a different card, and nothing will happen until somebody tells them so.'
+        : 'Transient on Stripe or the issuer, and the retries have not run out yet. Likely to clear on its own; check back rather than acting now — but if it is still failing after several attempts it is not transient, whatever the code is called.';
+    case 'blocked_by_risk':
+      return 'WE declined this, not a bank — Stripe Radar scored it too risky. No retry and nothing the member does will clear it. Review the payment in Radar: if it is a false positive, that is revenue being turned away by our own rules. Never tell the member their bank refused it.';
     case 'unknown':
       return 'No usable decline code. Use the neutral copy — never guess a reason in customer-facing mail.';
   }

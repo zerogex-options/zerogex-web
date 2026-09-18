@@ -52,6 +52,21 @@ export function isFuturesSymbol(symbol: string | null | undefined): boolean {
 }
 
 /**
+ * The symbols a PER-CONTRACT option-flow surface can actually answer for.
+ *
+ * ES / NQ are served everywhere else by running the SPX / NDX handler and
+ * projecting onto the futures price axis, but the backend's futures middleware
+ * REFUSES the per-contract flow endpoints outright (400): an SPX contract with
+ * its strike scaled by the basis is not a contract anyone can trade, and there
+ * is no ES chain to substitute. `/api/flow/hedging` is one of those.
+ *
+ * So a picker on one of those surfaces should not offer them. Offering a
+ * choice that resolves to an error is worse than not offering it — the reader
+ * cannot tell a refused symbol from a broken page.
+ */
+export const CASH_SYMBOLS = SYMBOLS.filter((s) => !isFuturesSymbol(s)) as readonly PickerSymbol[];
+
+/**
  * The symbol whose OPTION CHAIN answers for this one: the backing cash index
  * for a future, the symbol itself for everything else.
  *
@@ -106,4 +121,37 @@ export function likePairFor(symbol: string): PickerSymbol {
   const pair = LIKE_PAIR[upper];
   if (pair) return pair;
   return upper === 'QQQ' ? 'SPY' : 'QQQ';
+}
+
+/**
+ * The counterpart instrument on the SAME index — the other book on the same
+ * underlying rather than the cross-index like-pair: the ETF against its cash
+ * index (SPY↔SPX, QQQ↔NDX) and a future against the cash index whose chain
+ * supplies its levels (ES→SPX, NQ→NDX).
+ *
+ * This is deliberately not an involution. A future's counterpart is its backing
+ * index, but an index's counterpart is its ETF, because the two ETF/index books
+ * are separately ingested and genuinely differ (strike spacing, contract size,
+ * who trades them), while a future's levels are the index's own projected onto
+ * the futures price axis — pairing SPX back to ES would put the same book in
+ * both columns.
+ *
+ * Used by the Gamma Terminal, whose second ladder opens on this counterpart so
+ * the page starts on one underlying seen through two books.
+ */
+export const SAME_INDEX_PAIR: Readonly<Record<PickerSymbol, PickerSymbol>> = {
+  SPY: 'SPX',
+  SPX: 'SPY',
+  ES: 'SPX',
+  QQQ: 'NDX',
+  NDX: 'QQQ',
+  NQ: 'NDX',
+};
+
+/** The same-index counterpart of `symbol`, falling back to its like-pair. */
+export function sameIndexPairFor(symbol: string): PickerSymbol {
+  const upper = (symbol || '').toUpperCase() as PickerSymbol;
+  const pair = SAME_INDEX_PAIR[upper];
+  if (pair) return pair;
+  return likePairFor(upper);
 }

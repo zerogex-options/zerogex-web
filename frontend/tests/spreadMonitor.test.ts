@@ -13,7 +13,9 @@ import assert from 'node:assert/strict';
 
 import {
   EMPTY,
+  baselineScopeNote,
   coverageReadout,
+  dteLabel,
   formatBps,
   formatCrossCost,
   formatMultiple,
@@ -22,8 +24,11 @@ import {
   moneynessAxisLabel,
   percentileVerdict,
   putCallReadout,
+  scopeLabel,
   sessionDrift,
   widestBucket,
+  widestExpiration,
+  type ExpirationSlice,
   type MoneynessBucket,
   type SpreadAggregate,
   type SpreadSeriesBar,
@@ -252,6 +257,40 @@ test('widest bucket is null when nothing qualifies', () => {
   );
 });
 
+function slice(dte: number, puts: number | null, calls: number | null = 2): ExpirationSlice {
+  return {
+    expiration: `2026-09-${11 + dte}`,
+    dte,
+    puts: aggregate({ median_relative_spread_pct: puts }),
+    calls: aggregate({ median_relative_spread_pct: calls }),
+    all: aggregate(),
+  };
+}
+
+test('the widest expiration is read off the puts, not the blended chain', () => {
+  // Orderly calls on the same expiry must not mask a wide put wing.
+  const out = widestExpiration([slice(0, 8.4, 2.9), slice(1, 6.2, 30)]);
+  assert.equal(out?.dte, 0);
+  assert.equal(out?.pct, 8.4);
+});
+
+test('an expiration with no put market is skipped, not treated as zero', () => {
+  const out = widestExpiration([slice(0, null), slice(4, 3.1)]);
+  assert.equal(out?.dte, 4);
+});
+
+test('widest expiration is null when nothing is quoted', () => {
+  assert.equal(widestExpiration([]), null);
+  assert.equal(widestExpiration(null), null);
+  assert.equal(widestExpiration([slice(0, null), slice(1, null)]), null);
+});
+
+test('dteLabel names an expiry the way a trader says it', () => {
+  assert.equal(dteLabel(0), '0DTE');
+  assert.equal(dteLabel(1), '1d');
+  assert.equal(dteLabel(7), '7d');
+});
+
 test('moneyness labels read as a distance from spot, with a side', () => {
   assert.equal(
     moneynessAxisLabel(bucket({ moneyness_low_pct: -5, moneyness_high_pct: -3 })),
@@ -265,4 +304,51 @@ test('moneyness labels read as a distance from spot, with a side', () => {
     moneynessAxisLabel(bucket({ moneyness_low_pct: -0.5, moneyness_high_pct: 0.5 })),
     'At the money',
   );
+});
+
+// ---------------------------------------------------------------------------
+// Baseline scope
+// ---------------------------------------------------------------------------
+//
+// The daily rollup stores one scope per session, so a percentile exists only
+// inside it. The API withholds the ranking anywhere else — and these guard
+// the sentence that keeps the resulting empty state from reading as a
+// deployment with no history at all, which is what a bare "no baseline yet"
+// says two scrolls above a surface panel showing sixty sessions.
+
+test('scopeLabel names the cumulative expiry scope, not a single expiry', () => {
+  assert.equal(scopeLabel(0), '0DTE only');
+  assert.equal(scopeLabel(1), 'Through 1DTE');
+  assert.equal(scopeLabel(7), 'Through 7DTE');
+  // The distinction from dteLabel, which names one expiry on a chart axis.
+  assert.equal(dteLabel(7), '7d');
+});
+
+test('a scope matching the rollup produces no note', () => {
+  assert.equal(
+    baselineScopeNote(7, 5, { dte_max: 7, moneyness_band_pct: 5 }),
+    null,
+  );
+});
+
+test('the 0DTE filter is explained rather than left as missing data', () => {
+  const note = baselineScopeNote(0, 5, { dte_max: 7, moneyness_band_pct: 5 });
+  assert.ok(note);
+  // Both scopes are named: the reader has to be able to match them against
+  // the pills they can see, and to know where the history actually is.
+  assert.match(note, /Through 7DTE/);
+  assert.match(note, /0DTE only/);
+});
+
+test('a narrower band is a mismatch too', () => {
+  const note = baselineScopeNote(7, 2, { dte_max: 7, moneyness_band_pct: 5 });
+  assert.ok(note);
+  assert.match(note, /±2%/);
+});
+
+test('an unread rollup is not announced as a mismatch', () => {
+  // Null while the history request is in flight. "Unknown" and "different"
+  // must not render identically, or the note flashes on every page load.
+  assert.equal(baselineScopeNote(0, 5, null), null);
+  assert.equal(baselineScopeNote(0, 5, undefined), null);
 });

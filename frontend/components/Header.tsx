@@ -35,8 +35,11 @@ import SessionBadge from "./SessionBadge";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
+import { UI_COOKIE } from "@/core/uiCookies";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
+import PageSnapshotButton from "./PageSnapshotButton";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -44,23 +47,26 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
+  /** Server's read of the headerCollapsed cookie — see app/layout.tsx. */
+  initialCollapsed?: boolean;
 }
 
-export default function Header({ theme, onToggleTheme }: HeaderProps) {
+export default function Header({ theme, onToggleTheme, initialCollapsed = false }: HeaderProps) {
   const { t } = useLanguage();
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("headerCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Cookie-backed, with the server's read of the same cookie as the initial
+  // value: the server emits the collapsed chrome directly, so there is no
+  // hydration mismatch and — unlike a localStorage seed — nothing to visibly
+  // correct afterwards.
+  const [isCollapsed, toggleCollapsed] = usePersistedFlag(
+    UI_COOKIE.headerCollapsed,
+    initialCollapsed,
+    "cookie",
+  );
   const headerRef = useRef<HTMLElement | null>(null);
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -179,16 +185,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
-
-  // Save collapsed state to localStorage
-  const toggleCollapsed = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem("headerCollapsed", String(newState));
-    window.dispatchEvent(
-      new CustomEvent("header:collapse-changed", { detail: newState }),
-    );
-  };
 
 
   useEffect(() => {
@@ -383,8 +379,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       style={{
         backgroundColor: "transparent",
         borderColor: isCollapsed ? "transparent" : border,
-        backdropFilter: isCollapsed ? "none" : "blur(20px)",
-        WebkitBackdropFilter: isCollapsed ? "none" : "blur(20px)",
+        // The header is sticky and its background is transparent, so this blur
+        // is the only thing separating it from the page scrolling underneath.
+        // It used to be switched off while collapsed, which left the page
+        // legible straight through the collapsed controls — worst on a narrow
+        // or portrait viewport, where there is the least room between them.
+        // The collapsed bar keeps its borderless look; only the backdrop stays.
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div
@@ -408,6 +410,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   {theme === "dark" ? <Moon size={isCollapsed ? 16 : 18} /> : <Sun size={isCollapsed ? 16 : 18} />}
                 </button>
                 <ThemeDropdown />
+                {isCollapsed && <PageSnapshotButton compact />}
                 {isCollapsed && <LanguageDropdown compact />}
                 {isCollapsed && <AccountMenu align="start" compact />}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
@@ -556,6 +559,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
+                <PageSnapshotButton />
                 <Link href="/search" aria-label="Search" className="zg-icon-btn">
                   <Search size={18} />
                 </Link>
@@ -600,6 +604,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <PageSnapshotButton compact />
               <Link href="/search" aria-label="Search" className="zg-icon-btn zg-icon-btn--sm">
                 <Search size={16} />
               </Link>

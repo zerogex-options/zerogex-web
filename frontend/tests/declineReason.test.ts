@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   classifyDecline,
   declineGuidance,
+  transientClaimExpired,
+  TRANSIENT_ATTEMPT_LIMIT,
   describeDecline,
   readChargeDecline,
   readPaymentIntentDecline,
@@ -210,4 +212,106 @@ test('describeDecline names the category, the text and the codes', () => {
 
 test('describeDecline degrades when there is no message', () => {
   assert.equal(describeDecline(decline({ declineCode: 'do_not_honor' })), 'issuer_block [do_not_honor]');
+});
+
+// ---------------------------------------------------------------------------
+// Codes seen on real production declines that previously fell through to
+// 'unknown'. Each was left unmapped until it actually turned up; the ones still
+// absent below are absent on purpose.
+// ---------------------------------------------------------------------------
+
+test('a banking-partner shortfall is still a shortfall', () => {
+  // The single most common decline on a live product, and it was reading as
+  // "no usable decline code" — the one bucket nobody can act on.
+  assert.equal(classifyDecline(decline({ declineCode: 'partner_insufficient_funds' })), 'insufficient_funds');
+});
+
+test('"do not retry" is the issuer conversation, not a retry', () => {
+  assert.equal(
+    classifyDecline(decline({ declineCode: 'previously_declined_do_not_retry' })),
+    'issuer_block',
+  );
+});
+
+test('a Radar block is OURS, and never reported as the bank refusing', () => {
+  // Telling a member to call their bank about a charge our own fraud rules
+  // refused sends them somewhere that cannot help and makes us look broken.
+  assert.equal(classifyDecline(decline({ declineCode: 'highest_risk_level' })), 'blocked_by_risk');
+  const guidance = declineGuidance('blocked_by_risk');
+  assert.match(guidance, /Radar/);
+  // It must say WHOSE decision this was, and forbid the bank framing outright —
+  // the issuer_block advice would send the member somewhere that cannot help.
+  assert.match(guidance, /never tell the member their bank/i);
+  assert.notEqual(guidance, declineGuidance('issuer_block'));
+});
+
+test('dropped connections and undelivered mandate notices are transient', () => {
+  assert.equal(classifyDecline(decline({ declineCode: 'link_connection_closed' })), 'try_again');
+  assert.equal(classifyDecline(decline({ declineCode: 'debit_notification_undelivered' })), 'try_again');
+});
+
+test('a generic payment failure is still not guessed at', () => {
+  // Same rule as `card_declined`: it names the outcome, not the cause. Mapping
+  // it would turn every unexplained decline into a confident wrong answer.
+  assert.equal(classifyDecline(decline({ declineCode: 'payment_intent_generic_payment_failed' })), 'unknown');
+});
+
+test('a Radar rule firing on a postcode or CVC mismatch is OUR block, not the card being broken', () => {
+  // These look like a card problem and are not one: the member cannot fix a rule
+  // they cannot see, and "update your card" is the wrong ask.
+  for (const code of ['requested_block_on_incorrect_zip', 'requested_block_on_incorrect_cvc', 'requested_block']) {
+    assert.equal(classifyDecline(decline({ declineCode: code })), 'blocked_by_risk', code);
+  }
+  assert.notEqual(classifyDecline(decline({ declineCode: 'requested_block_on_incorrect_zip' })), 'card_problem');
+});
+
+// ---------------------------------------------------------------------------
+// A transient code that outlived its own premise
+//
+// Found in production, not in review: six try_again invoices, 27 attempts
+// between them, zero recovered. The category's whole claim is that the next
+// retry will fix it, and here it never did — while the panel went on telling
+// the operator "no action needed yet" beside a column reading "recovery
+// exhausted".
+// ---------------------------------------------------------------------------
+
+test('try_again advice holds while the retries are still running', () => {
+  const early = declineGuidance('try_again', { attempts: 1, retriesExhausted: false });
+  assert.match(early, /clear on its own|check back/i);
+  // It must not promise, even early: the old copy said "very likely to clear",
+  // which is the sentence the data falsified.
+  assert.doesNotMatch(early, /very likely/i);
+});
+
+test('try_again advice escalates once the retries have failed', () => {
+  const spent = declineGuidance('try_again', { attempts: 5, retriesExhausted: true });
+  assert.match(spent, /issuer block|refusing persistently/i);
+  assert.match(spent, /bank|different card/i);
+  assert.notEqual(spent, declineGuidance('try_again', { attempts: 1 }));
+  // Silence is the failure mode being fixed — the row has to ask for a human.
+  assert.doesNotMatch(spent, /no action needed/i);
+});
+
+test('either signal alone expires the transient claim', () => {
+  // Authoritative, and present on rows written since the Stripe columns landed.
+  assert.equal(transientClaimExpired({ attempts: 1, retriesExhausted: true }), true);
+  // The fallback, for backfilled rows whose retry state reads 'unknown'.
+  assert.equal(transientClaimExpired({ attempts: TRANSIENT_ATTEMPT_LIMIT }), true);
+  assert.equal(transientClaimExpired({ attempts: TRANSIENT_ATTEMPT_LIMIT - 1 }), false);
+  // No context at all is not evidence of exhaustion.
+  assert.equal(transientClaimExpired(undefined), false);
+  assert.equal(transientClaimExpired({}), false);
+});
+
+test('only try_again reads the attempt count', () => {
+  // Every other category describes a standing fact about the card or the issuer,
+  // which five attempts neither confirm nor refute. If they started varying,
+  // the advice would drift with volume rather than with evidence.
+  for (const category of ['insufficient_funds', 'issuer_block', 'card_problem', 'blocked_by_risk', 'unknown'] as const) {
+    assert.equal(
+      declineGuidance(category, { attempts: 9, retriesExhausted: true }),
+      declineGuidance(category),
+      `${category} guidance must not depend on attempts`,
+    );
+  }
 });

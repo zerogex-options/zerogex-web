@@ -8,6 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import GrowthClient from './growth/GrowthClient';
+import DeclineTracking from './declines/DeclineTracking';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
   buildSignupImpliedMrrProjection,
@@ -233,6 +234,10 @@ type SubscriberLedger = {
   truncated: number;
   net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
+  // Non-null when the ledger is empty because it FAILED to build. Rendered
+  // instead of "nothing has changed", which is otherwise a confident claim the
+  // page has no grounds for.
+  error: string | null;
 };
 
 // Mirrors SubscriberProjection in core/monitoring.ts (hand-synced — that module
@@ -405,8 +410,8 @@ export default function MonitoringClient() {
         />
       )}
       {tab === 'backend' && <BackendMonitoring />}
-      {tab === 'stripe' && data && !loading && !error && (
-        <StripeTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      {tab === 'stripe' && (
+        <StripeTab data={data} loading={loading} error={error} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
       {tab === 'revenue' && data && !loading && !error && (
         <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
@@ -417,8 +422,8 @@ export default function MonitoringClient() {
       {tab === 'growth' && (
         <GrowthClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab !== 'backend' && tab !== 'growth' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && tab !== 'growth' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
@@ -565,6 +570,16 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 // "Twitter/X" since they're the same channel. `(direct / none)` is the
 // DIRECT_SOURCE_LABEL bucket from core/pageAnalytics.ts. Any source not listed
 // here falls through to its raw key so nothing is silently dropped.
+//
+// `twitter` is now folded into `x` by sanitizeUtmSource itself, so it should no
+// longer reach this map. The entry stays as a backstop for any row written
+// before that landed and not yet caught by `make normalize-utm-sources`.
+//
+// This display-time merge is also why the split went unnoticed for so long: this
+// view showed one combined row while the channel really was stored as two keys,
+// and it took a report that does NOT use this map (the decline-by-source cut) to
+// make the split visible. A merge in the presentation layer hides a data problem
+// that a different report will eventually trip over.
 const CONVERSION_SOURCE_LABELS: Record<string, string> = {
   '(direct / none)': 'Direct/none',
   twitter: 'Twitter/X',
@@ -719,16 +734,36 @@ function ConversionBySourceSection({
 
 type DataTabProps = Omit<FrontendTabProps, 'loading' | 'error'> & { data: Snapshot };
 
-function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+// The billing tab, in the order the money matters: what is being lost without
+// anyone choosing it, then what is being lost because someone did, then whether
+// the pipe carrying either of them is healthy.
+//
+// Payment Declines owns its own fetch (its window is caller-chosen and its read
+// runs a reconcile pass, neither of which belongs on the shared 60-second
+// snapshot poll), so it renders immediately rather than waiting on `data`.
+function StripeTab({ data, loading, error, cardBg, borderColor, axisStroke, mutedText, textColor }: FrontendTabProps) {
   return <div>
     <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
-      <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Payment Declines</h2>
+        <span className="text-xs" style={{ color: mutedText }}>Revenue that did not arrive because a card said no — how much is gone, how much is still coming back, and why.</span>
+      </div>
+      <DeclineTracking mutedText={mutedText} axisStroke={axisStroke} borderColor={borderColor} />
     </section>
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
-      <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-    </section>
+    {loading && !data && <LoadingSpinner size="lg" />}
+    {error && <ErrorMessage message={error} />}
+    {data && (
+      <>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
+          <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+        </section>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
+          <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+        </section>
+      </>
+    )}
   </div>;
 }
 
@@ -1080,6 +1115,7 @@ const LEDGER_TONE: Record<LedgerEventKind, string> = {
   trialStarted: ROW_COLORS.signups,
   conversionPending: CONVERTING_COLOR,
   converted: CONVEYOR_COLORS.running,
+  orphanRecovered: CONVEYOR_COLORS.running,
   recovered: CONVEYOR_COLORS.running,
   trialChargeDeclined: CONVEYOR_COLORS.stalled,
   renewalFailed: CONVEYOR_COLORS.stalled,
@@ -1173,7 +1209,22 @@ function SubscriberLedgerCard({
         </button>
       </div>
 
-      {rows.length === 0 ? (
+      {ledger.error ? (
+        // A failed build must never read as a quiet window. Chasing a member who
+        // is missing from this list is a very different job depending on which
+        // of the two it is, and the page is the only thing that knows.
+        <div className="text-sm py-6 px-3 text-center" style={{ color: CONVEYOR_COLORS.stalled }}>
+          <div className="font-semibold">The ledger could not be built.</div>
+          <div className="text-xs mt-1" style={{ color: mutedText }}>
+            This is NOT &ldquo;nothing happened&rdquo; — the query failed, so the last{' '}
+            {ledger.windowDays} days are unknown. Check the server log for
+            <code className="mx-1">[monitoring] subscriber ledger</code>.
+          </div>
+          <div className="text-[11px] mt-2 font-mono break-words" style={{ color: mutedText }}>
+            {ledger.error}
+          </div>
+        </div>
+      ) : rows.length === 0 ? (
         <p className="text-sm py-6 text-center" style={{ color: mutedText }}>
           Nothing has changed in the last {ledger.windowDays} days.
         </p>
