@@ -45,9 +45,18 @@ export interface GammaWeatherPayload {
   lean_side: string | null;
   /** A modifier on the state, never a competing state. */
   cushion: string;
-  /** PULSE | DEVELOPING | ESTABLISHED — how settled the pressure direction is. */
+  /** PULSE | BUILDING | PERSISTENT — how settled the pressure direction is. */
   persistence: string;
-  /** DEVELOPING | ESTABLISHED | CONFIRMED | DURABLE, with the clock alongside. */
+  /** NEW | ESTABLISHED | CONFIRMED | MATURE — how long the state has held. */
+  age: string | null;
+  /**
+   * Display wording for the two ladders, served alongside the codes exactly
+   * as `label` is served alongside `state`. Render these rather than mapping
+   * the codes here: this panel used to keep its own copy of both maps, and a
+   * rename on the server left the copy matching nothing and printed the raw
+   * code at the user.
+   */
+  persistence_label: string;
   age_label: string | null;
   age_minutes: number | null;
   age_bars: number;
