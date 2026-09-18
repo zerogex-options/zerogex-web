@@ -73,8 +73,9 @@
      either, and it must never be confused with the --color-accent-hot
      last-price line, which every palette tunes warm. Blue also matches the
      flip line already drawn on the Gamma Heatmap (--accent-2), so the level
-     keeps one identity across charts. Defined once here; every named palette
-     inherits it, so the flip stays consistently azure across themes. */
+     keeps one identity across charts. This is the base value; a palette
+     overrides it ONLY where its own colours crowd the azure, and then only far
+     enough to separate — the flip stays recognisably azure in every theme. */
   --color-flip: #3B9EFF;
   --color-flip-soft: rgba(59, 158, 255, 0.16);
 
@@ -84,17 +85,21 @@
      that aren't the Gamma Chart spend --color-gold on other things entirely
      (the spot line on the walls chart, the profile curve on the GEX profile).
      Its own token, a saturated gold that stays clear of the muted golds those
-     palettes use for their hot accent. Defined once here; every named palette
-     inherits it. */
+     palettes use for their hot accent. This is the base value; the light cards
+     could not carry it (1.6:1) and the gold-accent palettes still collided with
+     it, so those palettes override it with a deeper ochre. Keep any override
+     clear of that palette's --color-accent-hot as well as of the other levels —
+     both share the price-tag column. */
   --color-maxpain: #F0B429;
   --color-maxpain-soft: rgba(240, 180, 41, 0.16);
 
   /* Pin Strike — the reachable 0DTE strike with the strongest modeled
      positive (restoring) dealer-gamma pin. A teal placed deliberately outside
      the green/red walls, the azure gamma-flip, the gold Max-Pain and the
-     violet King so the pin reads as its own distinct level. Defined once here;
-     every named palette inherits it, so the pin stays consistently teal across
-     themes. */
+     violet King so the pin reads as its own distinct level. This is the base
+     value; a palette overrides it ONLY where its own teals and greens crowd it,
+     and then only far enough to separate — the pin stays recognisably teal in
+     every theme. */
   --color-pin: #14B8A6;
   --color-pin-soft: rgba(20, 184, 166, 0.16);
 
@@ -582,7 +587,7 @@
   --accent-3: #B08D57;
   --accent-4: #7A1E2C;
   --color-accent: #0E3A53;
-  --color-accent-hot: #C7213D;
+  --color-accent-hot: #7A1E2C;
   --color-accent-soft: rgba(14,58,83,0.20);
   --color-gold: #B08D57;
   --color-gold-soft: rgba(176,141,87,0.22);
@@ -657,7 +662,7 @@
   --accent-3: #C5A05A;
   --accent-4: #E93D5A;
   --color-accent: #4A9BD1;
-  --color-accent-hot: #E93D5A;
+  --color-accent-hot: #EE7B9E;
   --color-accent-soft: rgba(74,155,209,0.24);
   --color-gold: #C5A05A;
   --color-gold-soft: rgba(197,160,90,0.26);
@@ -754,7 +759,7 @@
      therefore pins its own value, canonical or not. */
   --color-flip: #379DFF;
   --color-pin: #00906B;
-  --color-maxpain: #C69000;
+  --color-maxpain: #905900;
   --color-bull: #22B563;
   --color-bull-soft: rgba(34,181,99,0.22);
   --color-bear: #E63822;
@@ -1021,7 +1026,7 @@
      :root.palette-* have equal specificity, and the palette blocks come later in
      this file, so a marker set only here would also win in dark mode. Each block
      therefore pins its own value, canonical or not. */
-  --color-flip: #3B9EFF; --color-pin: #00AF9C; --color-maxpain: #C79300;
+  --color-flip: #3B9EFF; --color-pin: #00AF9C; --color-maxpain: #9D5300;
   --color-bull: #2E7D5E; --color-bull-soft: rgba(46,125,94,0.22);
   --color-bear: #B23A34; --color-bear-soft: rgba(178,58,52,0.22);
   --color-warning: #B58A3E; --color-warning-soft: rgba(181,138,62,0.22);
@@ -1087,7 +1092,7 @@
      :root.palette-* have equal specificity, and the palette blocks come later in
      this file, so a marker set only here would also win in dark mode. Each block
      therefore pins its own value, canonical or not. */
-  --color-flip: #3B9EFF; --color-pin: #00B3A1; --color-maxpain: #CD9500;
+  --color-flip: #3B9EFF; --color-pin: #00B3A1; --color-maxpain: #965E00;
   --color-bull: #2E7D5E; --color-bull-soft: rgba(46,125,94,0.22);
   --color-bear: #C0392B; --color-bear-soft: rgba(192,57,43,0.22);
   --color-warning: #BFA24E; --color-warning-soft: rgba(191,162,78,0.22);
@@ -1382,7 +1387,7 @@
   --color-gold: #C2C8D0; --color-gold-soft: rgba(194,200,208,0.20);
   --color-maroon: #7A2E2A; --color-navy: #8FA6C0;
   --color-emerald: #86A79A; --color-emerald-soft: rgba(134,167,154,0.26);
-  --color-hazy: #B1DBFF; --color-hazy-soft: rgba(177,219,255,0.16);
+  --color-hazy: #686C7D; --color-hazy-soft: rgba(104,108,125,0.16);
   --color-flip: #0097FA; --color-pin: #00BCA8; --color-maxpain: #F0B429;
   --color-bull: #86A79A; --color-bull-soft: rgba(134,167,154,0.24);
   --color-bear: #C6403A; --color-bear-soft: rgba(198,64,58,0.26);

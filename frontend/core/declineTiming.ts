@@ -284,3 +284,80 @@ export function byPaydayCrossing(invoices: readonly DeclinedInvoice[]): TimingBu
     bucketOf('missed', 'Retries never reached one', missed),
   ].filter((bucket) => bucket.invoices > 0);
 }
+
+// ---------------------------------------------------------------------------
+// Invoices Stripe appears never to have retried
+// ---------------------------------------------------------------------------
+
+/**
+ * Why an invoice shows only one recorded failure.
+ *
+ * "Never retried" is a conclusion, not an observation. What we actually see is
+ * ONE ROW, and there are several ways to get one row, only one of which means
+ * Stripe declined to try again. Distinguishing them matters because they lead
+ * opposite places: a capture gap is a bug in our own recording and the money may
+ * well have been retried, while a genuine single attempt is revenue that never
+ * got the automatic second chance everything downstream assumes it had.
+ */
+export type NoRetryReason =
+  | 'capture_gap'
+  | 'retry_was_scheduled'
+  | 'manual_collection'
+  | 'closed_early'
+  | 'genuinely_single';
+
+export const NO_RETRY_REASON_LABEL: Record<NoRetryReason, string> = {
+  capture_gap: 'We missed attempts — Stripe counted more than we recorded',
+  retry_was_scheduled: 'A retry was scheduled and we never recorded its failure',
+  manual_collection: 'Manual collection — Stripe never auto-charges these',
+  closed_early: 'Invoice voided or written off before a retry could run',
+  genuinely_single: 'One attempt, and nothing says another was coming',
+};
+
+export type NoRetryRow = {
+  invoiceId: string;
+  reason: NoRetryReason;
+  kind: string;
+  amount: number;
+  outcome: string;
+  /** What STRIPE called this attempt. Above 1 with one row means we lost some. */
+  stripeAttemptCount: number;
+  source: string;
+  failedAt: string;
+};
+
+/**
+ * Diagnose every invoice that carries exactly one decline row.
+ *
+ * The order of the checks is the order of certainty. `stripeAttemptCount > 1` is
+ * decisive on its own — Stripe numbered this attempt third, so two earlier ones
+ * happened and we do not have them — and it is checked first for that reason.
+ */
+export function diagnoseNoRetry(invoices: readonly DeclinedInvoice[]): NoRetryRow[] {
+  return invoices
+    .filter((invoice) => invoice.attempts.length === 1)
+    .map((invoice) => {
+      const only = invoice.attempts[0];
+      const reason: NoRetryReason =
+        only.attemptCount > 1
+          ? 'capture_gap'
+          : only.collectionMethod === 'send_invoice'
+            ? 'manual_collection'
+            : only.nextAttemptAt != null
+              ? 'retry_was_scheduled'
+              : only.invoiceStatus === 'void' || only.invoiceStatus === 'uncollectible'
+                ? 'closed_early'
+                : 'genuinely_single';
+      return {
+        invoiceId: invoice.invoiceId,
+        reason,
+        kind: only.kind,
+        amount: invoice.amount,
+        outcome: invoice.outcome,
+        stripeAttemptCount: only.attemptCount,
+        source: only.source,
+        failedAt: only.failedAt,
+      };
+    })
+    .sort((a, b) => a.reason.localeCompare(b.reason) || a.failedAt.localeCompare(b.failedAt));
+}

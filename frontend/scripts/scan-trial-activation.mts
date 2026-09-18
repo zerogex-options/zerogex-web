@@ -195,6 +195,8 @@ type UserRow = {
   cancel_at_period_end: number;
   subscription_lapsed: number;
   stripe_subscription_id: string | null;
+  email_verified_at: string | null;
+  signup_utm_source: string | null;
 };
 
 const users = db
@@ -202,6 +204,7 @@ const users = db
     `SELECT u.id, u.email, u.created_at, u.tier, u.partner_tier,
             u.partner_pro_grant_expires_at, u.first_payment_at, u.subscription_status,
             u.cancel_at_period_end, u.subscription_lapsed, u.stripe_subscription_id,
+            u.email_verified_at, u.signup_utm_source,
             EXISTS(SELECT 1 FROM audit_events a
                     WHERE a.user_id = u.id AND a.type = 'billing_member_comped') AS comped
        FROM users u
@@ -232,6 +235,8 @@ type Member = {
   minutes: number;
   /** Signup time, for the settled-outcome share below. */
   createdMs: number;
+  verified: boolean;
+  source: string;
 };
 
 const members: Member[] = [];
@@ -257,7 +262,14 @@ for (const u of users) {
     paths.add(v.path);
     ms += v.duration_ms ?? 0;
   }
-  members.push({ cohort: cohortOf(u), paths, minutes: ms / 60000, createdMs: start });
+  members.push({
+    cohort: cohortOf(u),
+    paths,
+    minutes: ms / 60000,
+    createdMs: start,
+    verified: u.email_verified_at != null,
+    source: u.signup_utm_source || '(direct)',
+  });
 }
 
 db.close();
@@ -328,6 +340,42 @@ for (const c of [
       pad(median(group.map((m) => m.minutes)).toFixed(1), 14) +
       `${withExplainer}/${group.length} (${pct}%)`,
   );
+}
+
+// The largest cohort deserves a second look before anyone spends a week on it.
+// "Registered and never reached checkout" reads as a funnel leak, but at a median
+// of one page and half a minute it could as easily be addresses that were never
+// confirmed — an incomplete or junk registration is not a prospect who bounced,
+// and the two want opposite responses. Verification status and signup source
+// separate them.
+const neverStarted = byCohort('never_started');
+if (neverStarted.length > 0) {
+  const verified = neverStarted.filter((m) => m.verified).length;
+  const oneAndDone = neverStarted.filter((m) => m.paths.size <= 1).length;
+  const verifiedOneAndDone = neverStarted.filter((m) => m.verified && m.paths.size <= 1).length;
+  const bySource = new Map<string, number>();
+  for (const m of neverStarted) bySource.set(m.source, (bySource.get(m.source) ?? 0) + 1);
+  const topSources = [...bySource.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([src, n]) => `${src} ${n}`)
+    .join('  ·  ');
+  const share = (n: number) => `${n}/${neverStarted.length} (${Math.round((n / neverStarted.length) * 100)}%)`;
+
+  console.log(`\n\nNEVER STARTED A TRIAL — who are these ${neverStarted.length}?`);
+  console.log('-'.repeat(84));
+  console.log(`${pad('Confirmed their email address', 38)}${share(verified)}`);
+  console.log(`${pad('Never confirmed it', 38)}${share(neverStarted.length - verified)}`);
+  console.log(`${pad('Opened one page or none', 38)}${share(oneAndDone)}`);
+  console.log(`${pad('Confirmed AND still one-page', 38)}${share(verifiedOneAndDone)}`);
+  console.log(`${pad('Signup source', 38)}${topSources}`);
+  console.log(
+    `\n  Confirmed an address and then stopped anyway is the real leak — those people meant it.`,
+  );
+  console.log(
+    `  Never-confirmed is a registration that did not finish, which is a different problem and`,
+  );
+  console.log(`  sometimes not a problem at all.\n`);
 }
 
 if (converted.length < cliArgs.minSupport || lost.length < cliArgs.minSupport) {
