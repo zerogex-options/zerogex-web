@@ -100,6 +100,17 @@ on — and the "Dealer Gamma @ Spot" badge shows a plain `—`. Nothing is drawn
 rather than a level we don't trust; it normally resolves again on a later
 snapshot.
 
+A blank flip means something different when the **Expiry** filter holds a subset
+of the chain. The chart then draws the levels for the expirations you picked,
+and their flip is rebuilt from those strikes alone — but a subset is often
+one-signed (an afternoon 0DTE book that is negative-gamma at every strike never
+crosses zero), so there is no crossing to draw. The chip says so directly:
+`NO FLIP IN SELECTED EXPIRIES`. Unlike the case above, that one will *not*
+resolve on a later snapshot, because nothing is missing. Set **Expiry** back to
+**All** to see the whole-chain flip — the same level the Dealer Positioning page
+reports, which reads the full chain and so keeps showing a number while the
+chart is scoped.
+
 ## Hover behavior
 
 Most charts show a tooltip on hover with the precise values at the cursor's x-coordinate. The tooltip respects the chart's color language — the value chip color matches the series.

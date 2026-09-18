@@ -21,9 +21,11 @@ import {
   keyLevelDistance,
   keyLevelsRegime,
   levelSourceChain,
+  noFlipInScopeTooltip,
   unresolvedLevelTooltip,
   KEY_LEVEL_EMPTY,
   LEVEL_AWAITING_PRICE_NOTE,
+  LEVEL_NO_FLIP_IN_SCOPE_NOTE,
   LEVEL_UNRESOLVED_NOTE,
   type KeyLevel,
 } from '../core/keyLevels.ts';
@@ -482,4 +484,60 @@ test('a level waiting on a PRICE is not marked unresolved', () => {
   for (const level of noSpot) {
     assert.equal(level.unresolved, false, `${level.id} is waiting on a price, not declined`);
   }
+});
+
+// ── The Expiry filter's blank flip ──────────────────────────────────────────
+//
+// The chart and this strip both resolve their flip from the filtered bucket,
+// so both go blank together when a subset has no crossing. What that blank
+// MEANS is different from a declined publish, and saying "Unresolved this
+// snapshot" sends the reader to wait for a snapshot that cannot fix it.
+
+test('a blank flip under an Expiry filter reports the scope, not a failed publish', () => {
+  const flip = byId(buildKeyLevels({ ...RESOLVED, flip: null, filtered: true }), 'flip');
+  assert.equal(flip.value, null);
+  assert.equal(flip.valueLabel, KEY_LEVEL_EMPTY, 'still the em-dash, never $0.00');
+  assert.equal(flip.emptyNote, LEVEL_NO_FLIP_IN_SCOPE_NOTE);
+  assert.equal(flip.emptyNote, 'No flip in selected expiries');
+  assert.notEqual(flip.emptyNote, LEVEL_UNRESOLVED_NOTE);
+  // Byte-identical to the chart's chip below it: one story per cause.
+  assert.equal(flip.tooltip, noFlipInScopeTooltip('Gamma Flip'));
+  assert.notEqual(flip.tooltip, unresolvedLevelTooltip('Gamma Flip', undefined, 'flip'));
+  // The "?" affordance stays, or the card falls back to the DEFINITION of a
+  // gamma flip — the one thing someone staring at an empty card already knows.
+  assert.equal(flip.unresolved, true);
+});
+
+test('the filter changes nothing about a flip that resolved', () => {
+  const unfiltered = byId(buildKeyLevels(RESOLVED), 'flip');
+  const filtered = byId(buildKeyLevels({ ...RESOLVED, filtered: true }), 'flip');
+  assert.deepEqual(filtered, unfiltered, 'a resolved level is scope-independent');
+});
+
+test('only the FLIP takes the scoped wording — the walls and Max Pain do not', () => {
+  // A filtered book still has a heaviest strike, so a blank wall there is a
+  // genuinely unresolved one and keeps the existing explainer.
+  const levels = buildKeyLevels({
+    ...RESOLVED, flip: null, callWall: null, putWall: null, maxPain: null, filtered: true,
+  });
+  assert.equal(byId(levels, 'flip').emptyNote, LEVEL_NO_FLIP_IN_SCOPE_NOTE);
+  for (const id of ['callWall', 'putWall', 'maxPain'] as const) {
+    assert.equal(byId(levels, id).emptyNote, LEVEL_UNRESOLVED_NOTE, `${id} keeps the unresolved note`);
+  }
+});
+
+test('a missing PRICE outranks the scoped wording, filtered or not', () => {
+  // Same precedence the unfiltered path uses: with no spot to measure against,
+  // the honest report is the missing price — the level may be perfectly fine.
+  const flip = byId(buildKeyLevels({ ...RESOLVED, spot: null, flip: null, filtered: true }), 'flip');
+  assert.equal(flip.emptyNote, LEVEL_AWAITING_PRICE_NOTE);
+  assert.equal(flip.unresolved, false, 'nothing to explain until there is a price');
+});
+
+test('omitting `filtered` keeps the whole-chain wording for every caller', () => {
+  // The My Dashboard tile and the Dealer Positioning header read the
+  // unfiltered summary and must not be opted in by accident.
+  const flip = byId(buildKeyLevels({ ...RESOLVED, flip: null }), 'flip');
+  assert.equal(flip.emptyNote, LEVEL_UNRESOLVED_NOTE);
+  assert.equal(flip.tooltip, unresolvedLevelTooltip('Gamma Flip', undefined, 'flip'));
 });

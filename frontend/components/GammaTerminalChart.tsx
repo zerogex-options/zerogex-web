@@ -56,6 +56,7 @@ import { useChipInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
+import { firstLevel, levelOrNull } from "@/core/levelValue";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
 import { pinLineLabel } from "@/core/pinStrike";
@@ -1114,7 +1115,7 @@ export default function GammaTerminalChart({
   const liveGexBucket = useMemo(() => {
     for (let i = gexBuckets.length - 1; i >= 0; i--) {
       const b = gexBuckets[i];
-      if (Array.isArray(b.strikes) && b.strikes.some((s) => coerceNum(s.net_gamma))) return b;
+      if (Array.isArray(b.strikes) && b.strikes.some((s) => levelOrNull(s.net_gamma))) return b;
     }
     return null;
   }, [gexBuckets]);
@@ -1127,16 +1128,26 @@ export default function GammaTerminalChart({
   // filtered timeseries bucket (the endpoint aggregates to the selected
   // expirations), so the level lines track the filtered bars — not the
   // all-expiration summary.
+  //
+  // The whole-chain branch reads the profile first and the summary second
+  // through `firstLevel`, which coerces EACH source before falling through.
+  // Written as `coerce(profile ?? summary)` the `??` sits inside the coercion and
+  // only fires on a null/undefined profile value, so any other unusable answer
+  // consumed the fallback and blanked the level while the summary beside it
+  // was serving a perfectly good one (see core/levelValue). That branch is
+  // load-bearing here: /api/gex/profile LEFT JOINs gex_summary on an exact
+  // timestamp match, so it returns a null flip on any write skew between the
+  // two tables and the fallback is taken routinely.
   const levelBucket = rewindBucket ?? (filteredExp && live ? liveGexBucket : null);
   const flip = levelBucket
-    ? coerceNum(levelBucket.gamma_flip)
-    : snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
+    ? levelOrNull(levelBucket.gamma_flip)
+    : snapshot ? snapshot.gamma.flip : firstLevel(gexProfile?.gamma_flip, gexSummary?.gamma_flip);
   const callWall = levelBucket
-    ? coerceNum(levelBucket.call_wall)
-    : snapshot ? snapshot.gamma.callWall : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
+    ? levelOrNull(levelBucket.call_wall)
+    : snapshot ? snapshot.gamma.callWall : firstLevel(gexProfile?.call_wall, gexSummary?.call_wall);
   const putWall = levelBucket
-    ? coerceNum(levelBucket.put_wall)
-    : snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+    ? levelOrNull(levelBucket.put_wall)
+    : snapshot ? snapshot.gamma.putWall : firstLevel(gexProfile?.put_wall, gexSummary?.put_wall);
   // Max Pain isn't a stored field on the timeseries buckets, but their
   // per-strike open interest is — so during rewind we recover the historical
   // Max Pain from that OI (textbook min-writer-payout strike) instead of
@@ -1147,7 +1158,7 @@ export default function GammaTerminalChart({
       : null
     : filteredExp && live && liveGexBucket
       ? computeMaxPainFromStrikes(liveGexBucket.strikes)
-      : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
+      : snapshot ? snapshot.gamma.maxPain : levelOrNull(gexSummary?.max_pain);
   // Sign-consistent at-spot dealer gamma (drives the LONG/SHORT badge). Only
   // the spot-shift profile's net_gex_at_spot is used; we deliberately DON'T
   // fall back to gexSummary.net_gex (the whole-chain total), which can carry
@@ -1183,15 +1194,15 @@ export default function GammaTerminalChart({
   // Null (no active pin, or a session predating the pin) draws NO LINE —
   // every levelDefs consumer skips a null value. Never a 0 on the axis.
   const pinStrike = rewindBucket
-    ? coerceNum(rewindBucket.pin_strike)
-    : num(gexSummary?.pin_strike);
+    ? levelOrNull(rewindBucket.pin_strike)
+    : levelOrNull(gexSummary?.pin_strike);
   // Confidence rides the SAME source as the pin itself, so the strength shown
   // on the line can never describe a different moment than the line it
   // annotates: the rewound bucket's stored value while rewinding, the live
   // summary otherwise.
   const pinConfidence = rewindBucket
-    ? coerceNum(rewindBucket.pin_confidence)
-    : num(gexSummary?.pin_confidence);
+    ? levelOrNull(rewindBucket.pin_confidence)
+    : levelOrNull(gexSummary?.pin_confidence);
   // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
   // onto the chart, so the conviction travels with the level instead of living
   // only in the tile strip. The wording is core/pinStrike's, shared with the
@@ -1212,11 +1223,11 @@ export default function GammaTerminalChart({
   // Still null on the delayed public snapshot, which carries no King at all.
   // Null draws no line — never a 0 on the axis.
   const gexKing = rewindBucket
-    ? coerceNum(rewindBucket.max_gamma_strike)
+    ? levelOrNull(rewindBucket.max_gamma_strike)
     : snapshot
       ? null
-      : num(gexSummary?.max_gamma_strike);
-  const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
+      : levelOrNull(gexSummary?.max_gamma_strike);
+  const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : levelOrNull(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
     // The rail is a Gaussian-smoothed net-gamma-by-strike density (two lobes at
@@ -1560,10 +1571,10 @@ export default function GammaTerminalChart({
     if (!Array.isArray(src)) return [];
     return src
       .map((s) => ({
-        price: coerceNum(s.strike) ?? NaN,
-        callGex: coerceNum(s.call_gamma) ?? 0,
-        putGex: coerceNum(s.put_gamma) ?? 0,
-        netGex: coerceNum(s.net_gamma) ?? 0,
+        price: levelOrNull(s.strike) ?? NaN,
+        callGex: levelOrNull(s.call_gamma) ?? 0,
+        putGex: levelOrNull(s.put_gamma) ?? 0,
+        netGex: levelOrNull(s.net_gamma) ?? 0,
       }))
       .filter((s) => Number.isFinite(s.price))
       .sort((a, b) => a.price - b.price);
@@ -2258,34 +2269,51 @@ export default function GammaTerminalChart({
   // or simply wasn't resolved. The arrowed axis tag (off-scale) and the "—" in
   // the regime badge (unresolved) both answer it, but neither sits where the
   // user is looking. This says it in place.
-  //   * off scale  → flip color, arrow toward it, price included so the chip
-  //                  is self-sufficient
-  //   * unresolved → muted, no price, and the same amber "?" the dashboard
-  //                  card and the Key Levels strip put beside an empty level,
-  //                  carrying the same explainer (core/keyLevels): the resolver
-  //                  DECLINED to publish, and on ES / NQ which chain missed.
+  //   * off scale   → flip color, arrow toward it, price included so the chip
+  //                   is self-sufficient
+  //   * no crossing → muted, and names the SCOPE: an Expiry filter is active
+  //                   and the selected expirations have no crossing of their
+  //                   own. Handed `filteredExp` because that is exactly the
+  //                   condition under which `flip` above came off a filtered
+  //                   bucket, whose level the backend rebuilt from the subset's
+  //                   strikes alone. Not a miss, and not fixed by waiting.
+  //   * unresolved  → muted, no price, and the same amber "?" the dashboard
+  //                   card and the Key Levels strip put beside an empty level,
+  //                   carrying the same explainer (core/keyLevels): the resolver
+  //                   DECLINED to publish, and on ES / NQ which chain missed.
   // Label and copy are pure (core/flipStatusChip); only the placement is the
   // chart's. Pinned to the edge the flip lies beyond, so the chip points at the
   // off-screen level rather than floating mid-plot. Two things already own the
   // top-left of the plot: the OHLC readout (an absolutely-positioned div
   // painted OVER the svg — a chip up there is invisible, not just crowded) and
   // the centered off-scale regime caption. So the top slot sits below both, and
-  // the unresolved case — which has no direction to point in, and no caption
-  // since the regime band needs a flip — is parked at the bottom edge, the one
-  // corner nothing else claims. De-collided against the level chips the same
+  // either blank-flip case — neither has a direction to point in, and neither
+  // gets a caption since the regime band needs a flip — is parked at the bottom
+  // edge, the one corner nothing else claims. De-collided against the level chips the same
   // way they de-collide against each other: shifted right past any chip whose
   // row this one would land in.
   const flipChip = (() => {
     if (!overlays.levels) return null;
     const aboveView = flip != null && flip > layout.dMax;
-    const chip = flipStatusChip({ flip, onScreen: inDomain(flip), aboveView, formatPrice: fmtPrice, symbol });
+    const chip = flipStatusChip({
+      flip,
+      onScreen: inDomain(flip),
+      aboveView,
+      formatPrice: fmtPrice,
+      symbol,
+      filtered: filteredExp,
+    });
     if (!chip) return null;
     const y = chip.kind === "off-scale" && aboveView ? PAD_TOP + 46 : PRICE_BOTTOM - 10;
     const x = chipPlacements.reduce(
       (acc, c) => (Math.abs(c.y - y) < 16 ? Math.max(acc, c.x + c.w + 5) : acc),
       PLOT_LEFT + 6,
     );
-    return { ...chip, x, y, w: labelWidth(chip.label), color: chip.kind === "unresolved" ? "var(--text-muted)" : "var(--color-flip)" };
+    // Keyed off off-scale rather than off a single blank kind: both blank-flip
+    // chips are muted and dashed, because neither has a line on the plot to
+    // match a color to.
+    const drawn = chip.kind === "off-scale";
+    return { ...chip, x, y, w: labelWidth(chip.label), drawn, color: drawn ? "var(--color-flip)" : "var(--text-muted)" };
   })();
 
   // Line/area path for the close series (used by line + area styles).
@@ -2313,8 +2341,8 @@ export default function GammaTerminalChart({
     const halfLane = (ribbonLayer.strikeStep ?? 1) / 2;
     let best: { strike: number; net: number } | null = null;
     for (const row of bucket.strikes) {
-      const strike = coerceNum(row.strike);
-      const net = coerceNum(row.net_gamma);
+      const strike = levelOrNull(row.strike);
+      const net = levelOrNull(row.net_gamma);
       if (strike == null || net == null || net === 0) continue;
       const dist = Math.abs(strike - hover.price);
       if (dist > halfLane) continue;
@@ -3032,7 +3060,7 @@ export default function GammaTerminalChart({
                  (a PNG export, a still). */}
             {flipChip && (
               <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
-                <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.kind === "unresolved" ? "2 2" : undefined} opacity={0.95} />
+                <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.drawn ? undefined : "2 2"} opacity={0.95} />
                 <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.color} fontWeight={600}>
                   {flipChip.label}
                 </text>
@@ -3549,18 +3577,6 @@ export default function GammaTerminalChart({
 }
 
 // ── Small presentational helpers ─────────────────────────────────────────────
-function num(v: number | null | undefined): number | null {
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
-}
-
-// Like num() but coerces the number-or-string values the timeseries buckets
-// carry (keeps null/empty as null rather than Number('') === 0).
-function coerceNum(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  const n = typeof v === "string" ? Number(v) : (v as number);
-  return typeof n === "number" && Number.isFinite(n) ? n : null;
-}
-
 // Rebuild the gamma rail for a rewound moment from a bucket's per-strike net
 // gamma. The live rail draws a smooth net-gamma-by-price density (two lobes
 // peaking at the put-side / call-side walls); the raw bucket strikes are the
@@ -3571,7 +3587,7 @@ function coerceNum(v: unknown): number | null {
 // (positive net gamma → long-Γ lobe, green/right — same as the live rail).
 function rewindRailCurve(strikes: StrikeProfileStrike[] | undefined): ProfilePoint[] {
   const rows = (strikes ?? [])
-    .map((s) => ({ price: coerceNum(s.strike), ng: coerceNum(s.net_gamma) }))
+    .map((s) => ({ price: levelOrNull(s.strike), ng: levelOrNull(s.net_gamma) }))
     .filter((s): s is { price: number; ng: number } => s.price != null && s.ng != null)
     .sort((a, b) => a.price - b.price);
   if (rows.length < 2) return [];
