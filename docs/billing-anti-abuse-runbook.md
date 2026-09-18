@@ -147,7 +147,57 @@ different responses:
   starts — so only a deletion of the subscription the invoice actually paid for
   counts.
 - **Needs a look** — money with no entitlement where the plan to restore was not
-  unambiguous (a retired price, an unreadable period).
+  unambiguous (a retired price, an unreadable period), a **partial refund**, or a
+  refund state Stripe would not report.
+
+**Refunded payments are never recovered.** A refund leaves the invoice reading
+`status=paid` with `amount_paid` untouched, and a refunded member is normally
+canceled in the same breath — which clears their local subscription id and drops
+them to `public`. That made a refunded close-out indistinguishable from an
+orphaned payment, and one member was handed a free month plus a repeating coupon
+with its clock restarted, a fortnight after being refunded in full.
+`decideOrphanPayment` now takes the refunded amount as a required input: fully
+refunded is not an orphaned payment, and a partial or unreadable refund is
+reported for a human rather than guessed.
+
+**A recovery marks its own subscription as paid for.** A recovery is created with
+no invoice of its own — billing is anchored at the end of the period already paid
+for — so nothing can clear on it until the first renewal. Both recovery paths
+therefore stamp `users.last_paid_subscription_id` / `last_paid_invoice_at`
+themselves, and the Subscriber Ledger reads the
+`billing_orphan_payment_recovered` audit row so the member shows as **Paid period
+restored** instead of a conversion charge stuck in flight.
+
+Recoveries performed *before* that shipped still have a NULL pointer, so they sit
+on the admin Converting line until their first renewal. One idempotent statement
+fixes them, and only them — it requires the recovery audit row to name the
+subscription the member is on right now, so a healthy payer, a member who has
+since moved to another subscription, and an ordinary trial mid-conversion are all
+left alone:
+
+```sql
+UPDATE users
+   SET last_paid_subscription_id = stripe_subscription_id,
+       last_paid_invoice_at = COALESCE(last_paid_invoice_at, (
+         SELECT MIN(a.created_at) FROM audit_events a
+          WHERE a.type = 'billing_orphan_payment_recovered'
+            AND a.user_id = users.id
+            AND a.message LIKE '%recovered as subscription ' || users.stripe_subscription_id || ' %'
+       ))
+ WHERE subscription_status = 'active'
+   AND stripe_subscription_id IS NOT NULL
+   AND last_paid_subscription_id IS NULL
+   AND EXISTS (
+     SELECT 1 FROM audit_events a
+      WHERE a.type = 'billing_orphan_payment_recovered'
+        AND a.user_id = users.id
+        AND a.message LIKE '%recovered as subscription ' || users.stripe_subscription_id || ' %'
+   );
+```
+
+Swap `UPDATE users SET` for `SELECT id, email, stripe_subscription_id FROM users`
+with the same `WHERE` to see who it would touch first. Re-running it changes
+nothing.
 
 Do not hunt for these in SQL alone. `tier='public' AND subscription_status='canceled'`
 is every trial that ended without converting — ~195 rows on this deploy, almost

@@ -1111,6 +1111,7 @@ const LEDGER_TONE: Record<LedgerEventKind, string> = {
   trialStarted: ROW_COLORS.signups,
   conversionPending: CONVERTING_COLOR,
   converted: CONVEYOR_COLORS.running,
+  orphanRecovered: CONVEYOR_COLORS.running,
   recovered: CONVEYOR_COLORS.running,
   trialChargeDeclined: CONVEYOR_COLORS.stalled,
   renewalFailed: CONVEYOR_COLORS.stalled,

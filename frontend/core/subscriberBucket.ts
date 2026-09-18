@@ -232,6 +232,7 @@ export type LedgerEventKind =
   | 'trialStarted'
   | 'conversionPending'
   | 'converted'
+  | 'orphanRecovered'
   | 'trialChargeDeclined'
   | 'renewalFailed'
   | 'recovered'
@@ -279,6 +280,28 @@ export type LedgerPaymentEvent = {
   at: string;
 };
 
+// A subscription created by ORPHAN RECOVERY to honor an invoice that was paid
+// after Stripe had already canceled the subscription it belonged to
+// (core/orphanPayment.ts). The `billing_orphan_payment_recovered` audit row.
+//
+// The ledger needs this because such a subscription is, by design, created with
+// NO invoice of its own: billing is anchored at the end of the period the
+// recovered invoice already paid for. So no payment can ever clear on it before
+// its first renewal, and on the sync stream alone it is indistinguishable from a
+// trial whose conversion charge is still in flight — which is how a member who
+// had already paid came to sit on Converting for a fortnight, then get promoted
+// by the fallback window under the explanation "the conversion charge was never
+// reported as failed".
+export type LedgerRecoveryEvent = {
+  subId: string;
+  userId: string | null;
+  email: string | null;
+  at: string;
+  // The invoice whose payment this subscription re-homes, when the audit row
+  // named one. Reported in the ledger row so the money is traceable.
+  invoiceId: string | null;
+};
+
 export type LedgerDeleteEvent = {
   subId: string | null;
   userId: string | null;
@@ -292,6 +315,7 @@ const KIND_LABELS: Record<LedgerEventKind, string> = {
   trialStarted: 'Trial started',
   conversionPending: 'Conversion charge pending',
   converted: 'Converted to paying',
+  orphanRecovered: 'Paid period restored',
   trialChargeDeclined: 'First charge declined',
   renewalFailed: 'Renewal payment failed',
   recovered: 'Payment recovered',
@@ -343,9 +367,18 @@ type SubState = {
   // Timestamp (ms) of the first `active` sync, used to tell a trial still at its
   // first charge from an established payer whose renewal failed.
   firstActiveMs: number | null;
-  // Set once a payment of theirs has cleared (a real event, or the fallback
-  // window below elapsing). Feeds classifySubscriberBucket's firstPaymentAt.
+  // Set once a payment of theirs has cleared (a real event, the fallback window
+  // below elapsing, or an orphan recovery having already honored a paid period
+  // onto this subscription). Feeds classifySubscriberBucket's paid-subscription
+  // pointer.
   paidAt: string | null;
+  // The invoice an orphan recovery re-homed onto this subscription, when it is
+  // one. Non-null marks the subscription as recovered, which decides both its
+  // bucket (paid from the first sync) and how its row reads.
+  recoveredFromInvoice: string | null;
+  // A recovery was recorded for this subscription at all, even with no invoice
+  // id parsed out of the audit row.
+  recovered: boolean;
   // Currently dropped out of the chart by a pause rather than a lapse, so the
   // return trip can be reported as a resume instead of a new subscription.
   paused: boolean;
@@ -382,32 +415,56 @@ function isPaidSubscription(s: SubState): boolean {
 }
 
 /**
- * Build the ledger from the audit streams. All three are merged into one
- * chronological walk, so none of them needs to arrive pre-sorted; the returned
- * rows are newest-first, ready to render. `nowMs` closes out the fallback
- * confirmation window for any conversion still pending at the end of the scan.
+ * Build the ledger from the audit streams. The timed ones are merged into a
+ * single chronological walk, so none of them needs to arrive pre-sorted; the
+ * returned rows are newest-first, ready to render. `nowMs` closes out the
+ * fallback confirmation window for any conversion still pending at the end of
+ * the scan.
+ *
+ * `recoveries` is deliberately NOT part of that walk. A recovery is a standing
+ * fact about a subscription — that it was created to carry an already-paid
+ * period — not a transition the headcount passes through, and the audit row and
+ * the subscription sync it describes are written within the same second in
+ * whichever order the webhook happens to deliver. Reading it as set membership
+ * is what makes the result independent of that order, the same reasoning
+ * stampSubscriptionPayment relies on for its two columns.
  */
 export function buildSubscriberLedger(
   syncs: LedgerSyncEvent[],
   deletes: LedgerDeleteEvent[],
   payments: LedgerPaymentEvent[] = [],
+  recoveries: LedgerRecoveryEvent[] = [],
   nowMs: number = Date.now(),
 ): LedgerRow[] {
   const rows: LedgerRow[] = [];
   const subs = new Map<string, SubState>();
 
+  const recoveredSubs = new Map<string, LedgerRecoveryEvent>();
+  for (const ev of recoveries) {
+    // First recovery per subscription wins; a subscription is only ever created
+    // by one, and a re-run is refused by the recovered_from_invoice stamp.
+    if (ev.subId && !recoveredSubs.has(ev.subId)) recoveredSubs.set(ev.subId, ev);
+  }
+
   const stateFor = (subId: string): SubState => {
     let s = subs.get(subId);
     if (!s) {
+      const recovery = recoveredSubs.get(subId);
       s = {
         bucket: null,
-        email: null,
-        userId: null,
+        email: recovery?.email ?? null,
+        userId: recovery?.userId ?? null,
         cancelAtPeriodEnd: false,
         dunning: false,
         sawTrial: false,
         firstActiveMs: null,
-        paidAt: null,
+        // A recovered subscription arrives already paid for. Seeding this from
+        // the outset — rather than on reaching the recovery's own timestamp — is
+        // what keeps the verdict the same whichever of the two rows lands first,
+        // and it stops the fallback window ever firing on it.
+        paidAt: recovery ? recovery.at : null,
+        recoveredFromInvoice: recovery?.invoiceId ?? null,
+        recovered: recovery != null,
         paused: false,
         ended: false,
       };
@@ -584,7 +641,24 @@ export function buildSubscriberLedger(
           'The first charge after the trial was declined — Stripe is retrying, access retained for now',
         );
       } else if (next === 'fullSubscriber') {
-        if (s.bucket === 'trialGrace') {
+        if (s.recovered) {
+          // Checked before the others because a recovery explains the arrival
+          // whatever bucket preceded it: this member's access ended when Stripe
+          // canceled the subscription their payment belonged to, so they reach
+          // here from notCounted and would otherwise read as an ordinary
+          // resubscribe — a new sale, which it is not. No money moved today.
+          push(
+            ev,
+            s,
+            'orphanRecovered',
+            next,
+            s.recoveredFromInvoice
+              ? `A payment stranded by a canceled subscription was re-homed onto this one — ` +
+                `the period already paid for on invoice ${s.recoveredFromInvoice}, not a new charge`
+              : 'A payment stranded by a canceled subscription was re-homed onto this one — ' +
+                'the period was already paid for, not a new charge',
+          );
+        } else if (s.bucket === 'trialGrace') {
           push(ev, s, 'recovered', next, 'The retry went through — now a paying subscriber');
         } else if (s.paused) {
           s.paused = false;

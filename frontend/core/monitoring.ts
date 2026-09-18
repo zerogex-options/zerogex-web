@@ -40,6 +40,7 @@ import {
   summarizeLedger,
   type LedgerDeleteEvent,
   type LedgerPaymentEvent,
+  type LedgerRecoveryEvent,
   type LedgerRow,
   type LedgerSyncEvent,
 } from '@/core/subscriberBucket';
@@ -1085,6 +1086,24 @@ function parseSyncStatus(message: string): string | null {
   return m ? m[1] : null;
 }
 
+// `billing_orphan_payment_recovered` messages open
+// "Invoice <in_...> recovered as subscription <sub_...> on price ...", written
+// identically by the webhook and scripts/recover-orphan-payment.mts.
+//
+// Anchored on that phrase rather than reusing parseSubIdFromMessage, which takes
+// the first sub_ token it finds: these messages go on to name carried coupons and
+// rejected params, and a format change that moved another id earlier in the
+// string would otherwise silently mark the WRONG subscription as paid for.
+function parseRecoveredSubId(message: string): string | null {
+  const m = message.match(/\brecovered as subscription (sub_[A-Za-z0-9]+)/);
+  return m ? m[1] : null;
+}
+
+function parseRecoveredInvoiceId(message: string): string | null {
+  const m = message.match(/\bInvoice (in_[A-Za-z0-9]+)\b/);
+  return m ? m[1] : null;
+}
+
 // How far back the flow / registration charts DISPLAY. Unlike the traffic
 // buckets (pruned at 90 days), these recompute from the retained, append-only
 // audit_events + users logs every request, so they can show far more history.
@@ -1631,8 +1650,34 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       at: toIsoInstant(row.createdAt),
     }));
 
+    // Subscriptions an orphan recovery created to carry an already-paid period.
+    // They never raise an invoice of their own before their first renewal, so
+    // neither stream above can show that they are paid for — this audit row is
+    // the only record, and without it a recovered member reads as a conversion
+    // charge stuck in flight for the whole honored period.
+    const recoveredRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message FROM audit_events
+         WHERE type = 'billing_orphan_payment_recovered'
+           AND created_at > datetime('now', '-${since} days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+    const recoveries: LedgerRecoveryEvent[] = [];
+    for (const row of recoveredRows) {
+      const subId = parseRecoveredSubId(row.message);
+      if (!subId) continue;
+      recoveries.push({
+        subId,
+        userId: row.user_id,
+        email: row.email,
+        at: toIsoInstant(row.created_at),
+        invoiceId: parseRecoveredInvoiceId(row.message),
+      });
+    }
+
     const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
-    const all = buildSubscriberLedger(syncs, deletes, payments, now.getTime()).filter(
+    const all = buildSubscriberLedger(syncs, deletes, payments, recoveries, now.getTime()).filter(
       (r) => Date.parse(r.at) >= cutoffMs,
     );
     return {
