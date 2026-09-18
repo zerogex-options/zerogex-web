@@ -307,10 +307,55 @@ above stands, with a fourth branch now written into it:
   instrument before believing the finding, and check whether the variable can
   be moved by the thing it claims to predict.
 
-**Also noticed, not yet chased.** The observed retry window has a median of 3
-days and **9 of 62 invoices show a single failure with nothing after it**. Either
-Stripe is not retrying those, or the capture missed the retries. Worth a query
-before it is worth a theory.
+#### The clean test, read (2026-09-18): NOT SUPPORTED — leave retry policy alone
+
+The exogenous measure also points backwards. Invoices whose payday arrived
+within three days of the failure recovered **0% (0–17%)**; those waiting eight
+days or more recovered **26% (15–43%)**. Fisher's exact on 0/19 against 9/35 is
+**p = 0.019**.
+
+Nominally significant, and it is still not a finding, for three reasons that
+have to be applied together:
+
+1. **Eighteen buckets were inspected** across the four tables. At eighteen
+   looks, the chance of turning up at least one p < 0.05 by luck alone is 60%.
+   A Bonferroni threshold here is 0.0028, and 0.019 is nowhere near it.
+2. **The same standard was already applied against a result.** Sunday against
+   Friday in the weekday table is p = 0.037, and it was dismissed as chance
+   because seven buckets will throw up an extreme one. Believing p = 0.019
+   while dismissing p = 0.037 would mean believing the one that came with a
+   story, which is how this goes wrong.
+3. **The direction has no mechanism.** "Money arriving sooner makes recovery
+   worse" is not a thing. Every causal story runs the other way, and the effect
+   is concentrated entirely in invoices that first failed between the 16th and
+   the 25th — a region with nothing special about it.
+
+**Decision: do not change retry timing.** This lands on the second branch of the
+tree above — the lever is not there, and lengthening the window would be motion
+without effect. The remedy for `insufficient_funds` remains the dunning email,
+already changed on 2026-09-17.
+
+#### The 9 single-failure invoices, chased
+
+"Never retried" was a conclusion, not an observation. There are five ways to end
+up with one decline row and only one of them means Stripe declined to try again,
+so `make decline-timing` now separates them:
+
+    capture_gap          Stripe numbered the attempt above 1 — earlier attempts
+                         happened and we do not hold them. OURS to fix, and it
+                         means every window figure in this report understates.
+    retry_was_scheduled  next_payment_attempt was set and we never recorded the
+                         failure that followed. Also a capture gap.
+    manual_collection    collection_method send_invoice — Stripe never
+                         auto-charges these, so no retry was ever coming.
+    closed_early         voided or written off before a retry could run.
+    genuinely_single     one attempt, and nothing claims another was due. The
+                         only category that means what "never retried" implies.
+
+The distinction decides who owns the problem. A capture gap is a defect in our
+recording and the money may well have been retried normally; a genuine single
+attempt is revenue that never got the automatic second chance everything
+downstream assumes it had.
 
 ## What none of this addresses
 
