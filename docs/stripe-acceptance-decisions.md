@@ -421,3 +421,23 @@ The third row is the one to watch. It is the only change of the three aimed at
 volume behind it to show a result inside a month. The number to compare is the
 recovery rate on that category, not the decline rate — the change cannot stop a
 charge failing, only make the follow-up useful.
+
+### What to run on 2026-10-17
+
+A review nobody knows how to perform does not happen, so:
+
+    make backfill-payment-declines   # settle anything that resolved since
+    make decline-by-source           # first-payment decline rate, all channels
+
+Then the category query at the top of this file. Compare against the baselines
+above:
+
+| Watch | Was | Means |
+|---|---|---|
+| `insufficient_funds` recovery rate | 10/63 (15.9%) | The dunning-email change. The one with real expected value. |
+| `issuer_block` invoices | 29 / $649.00 | Authorization Boost. Expect little; the bucket is small. |
+| First-payment decline rate | 45.3% | Everything together. |
+| Trial STARTS, from the daily metrics rollup | — | Link. A conversion gain that costs more trials than it wins is a loss, and this is the only number that would show it. |
+
+One month is short and these volumes are small. Read a move of a few points as
+noise unless the counts moved with it.
