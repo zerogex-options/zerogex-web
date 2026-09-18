@@ -133,6 +133,22 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
             {payload.age_minutes != null && ` ${Math.round(payload.age_minutes)}m`}
           </span>
         )}
+        {/* The candidate, shown while it waits. Confirmation exists to stop
+            the header chasing one-bar noise; showing what is forming anyway
+            is what keeps the early read from being thrown away with it. */}
+        {payload.pending_label && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              color: 'var(--color-text-secondary)',
+              border: '1px dashed var(--color-border)',
+            }}
+            title={`${payload.pending_label} is forming. The header changes once a new state holds ${payload.confirm_bars} completed bars, so it does not chase a single noisy bar.`}
+          >
+            {payload.pending_label} forming · {payload.pending_bars}/{payload.confirm_bars}
+          </span>
+        )}
         {transitionRisk && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"

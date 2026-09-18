@@ -58,6 +58,16 @@ export interface GammaWeatherPayload {
    */
   persistence_label: string;
   age_label: string | null;
+  /**
+   * The state this bar would read without confirmation, when it differs from
+   * the one holding the header. The header waits for a new state to repeat
+   * `confirm_bars` times; this is the early read that waiting would otherwise
+   * hide, and `pending_bars` is how far through that wait it is.
+   */
+  pending_state: string | null;
+  pending_label: string | null;
+  pending_bars: number;
+  confirm_bars: number;
   age_minutes: number | null;
   age_bars: number;
   cushion_summary: string | null;
