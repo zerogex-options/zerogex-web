@@ -157,9 +157,14 @@ export function quoteSearchValue(value: string): string {
 export type ChargeSearchQuery = {
   // What this query proves if it hits, for the report.
   label: string;
-  // How much weight a hit carries. 'card' is the strong one: same physical
-  // card, so the money is this person's however it reached us.
-  strength: 'card' | 'identity' | 'circumstantial';
+  // How much weight a hit carries, and it is the difference between an answer
+  // and a guess. 'card' means the same physical card, so the money is this
+  // person's however it reached us. 'circumstantial' means only the amount, the
+  // date or the last four lined up — which every other member paying the same
+  // rate also does. A circumstantial hit is a LEAD. It is never evidence that
+  // we hold THIS person's money, and decidePaymentClaim will not let it become
+  // one.
+  strength: 'card' | 'circumstantial';
   query: string;
 };
 
@@ -173,7 +178,6 @@ export type ChargeSearchQuery = {
  */
 export function buildChargeSearchQueries(input: {
   fingerprints: string[];
-  emails: string[];
   claim: StatementClaim;
   window: { fromUnix: number; toUnix: number } | null;
 }): ChargeSearchQuery[] {
@@ -192,15 +196,12 @@ export function buildChargeSearchQueries(input: {
     });
   }
 
-  // 2. Billing email on the charge itself — catches a second customer, and a
-  //    guest charge that never had a customer at all.
-  for (const email of input.emails) {
-    queries.push({
-      label: `billing email ${email}`,
-      strength: 'identity',
-      query: `billing_details.email:${quoteSearchValue(email.toLowerCase())}`,
-    });
-  }
+  // NOTE: there is deliberately no billing-email query. Stripe's charge search
+  // does not support `billing_details.email` — it rejects the query outright —
+  // so a second account under a different email cannot be found charge-side at
+  // all. It is found customer-side instead (the caller searches customers by
+  // email and by cardholder name) and then through the fingerprints of whatever
+  // cards those customers hold.
 
   // 3. Amount + date window. The weakest — it will collect unrelated members
   //    who pay the same rate — but it is the only query that can run when we
@@ -252,46 +253,97 @@ export type ChargeEvidence = {
   localUserId: string | null;
   // True when the charge belongs to the very customer we looked up by email.
   onClaimedCustomer: boolean;
+  // WHY this charge is in the report, and the only thing that decides whether
+  // it can support a verdict:
+  //
+  //   'card'           the same physical card (fingerprint). Theirs.
+  //   'account'        a charge on a Stripe customer we resolved from their own
+  //                    email. Theirs.
+  //   'circumstantial' the amount, the date or the last four lined up, and
+  //                    nothing else did. NOT theirs — or at least not shown to
+  //                    be. Every other member on the same rate matches this.
+  //
+  // The first live run of this tool matched seven charges at the claimed amount
+  // inside the claimed window. Five were one unrelated member's dunning
+  // retries; two were two more members' successful renewals. Folding those into
+  // the total produced "WE HAVE THEIR MONEY — $59.00" about a member whose card
+  // had never successfully paid us once. Hence this field.
+  matchStrength: ChargeMatchStrength;
+  // Card brand/last4 as it appears on the charge, so an operator can hold a
+  // lead up against what the member says they paid with.
+  cardLabel: string | null;
   disputed: boolean;
   description: string | null;
   invoiceId: string | null;
 };
 
+export type ChargeMatchStrength = 'card' | 'account' | 'circumstantial';
+
+export function isAttributable(charge: ChargeEvidence): boolean {
+  return charge.matchStrength !== 'circumstantial';
+}
+
+function isSettled(charge: ChargeEvidence): boolean {
+  // 'pending' counts: it is on their statement and the money is on its way to
+  // us. Calling that "not a charge" is the error this module exists to prevent.
+  return charge.status === 'succeeded' || charge.status === 'pending';
+}
+
 export type PaymentClaimVerdict =
-  // Money was collected and is still ours. The member is right.
-  | { kind: 'collected'; netMinor: number; charges: ChargeEvidence[]; unlinked: ChargeEvidence[] }
-  // Collected and given back. The member is right about the charge and may not
-  // have noticed the credit.
-  | { kind: 'refunded'; netMinor: number; charges: ChargeEvidence[]; unlinked: ChargeEvidence[] }
-  // Attempts exist but none succeeded. The statement entries they are reading
-  // are declines or dropped authorizations.
-  | { kind: 'attempted_only'; charges: ChargeEvidence[] }
-  // Nothing at all matched, on any query.
+  // Money was collected from THIS person and is still ours. They are right.
+  | { kind: 'collected'; netMinor: number; charges: ChargeEvidence[]; unlinked: ChargeEvidence[]; leads: ChargeEvidence[] }
+  // Collected from them and given back.
+  | { kind: 'refunded'; netMinor: number; charges: ChargeEvidence[]; unlinked: ChargeEvidence[]; leads: ChargeEvidence[] }
+  // Their card/accounts show attempts, none of which settled.
+  | { kind: 'attempted_only'; charges: ChargeEvidence[]; leads: ChargeEvidence[] }
+  // Nothing attributable to them, but charges matched the amount or date. These
+  // belong to somebody; whether that somebody is them is not established here.
+  | { kind: 'leads_only'; leads: ChargeEvidence[] }
+  // A query failed, so "nothing" cannot honestly be claimed.
+  | { kind: 'inconclusive'; failedQueries: string[]; leads: ChargeEvidence[] }
+  // Nothing matched, on any query, and every query ran.
   | { kind: 'none' };
 
 /**
  * Turn the merged evidence into the one sentence the operator has to be able to
  * say out loud.
  *
- * The bar for "we never charged you" is deliberately absolute: it requires that
- * NOTHING matched — no succeeded charge, no partial refund, no pending, nothing
- * on any query. A single succeeded charge anywhere in the account, however it
- * got there, outranks every local record saying the member is unpaid, because
- * the local record is the thing under suspicion.
+ * Two rules do all the work, and they cut in opposite directions on purpose:
+ *
+ *   1. Only ATTRIBUTABLE charges — same card, or a customer resolved from their
+ *      own email — can support "we have your money". A charge that merely
+ *      shares an amount and a week with the claim is a lead to run down, and
+ *      saying otherwise invents money the member never sent us.
+ *
+ *   2. "We have no charge from you" requires that NOTHING matched and that
+ *      every query actually ran. One settled charge on their card outranks
+ *      every local record saying they are unpaid, because the local record is
+ *      the thing under suspicion; and a query that errored means the sweep has
+ *      a hole in it, which is not the same as a clean sweep.
+ *
+ * Between those two sits `leads_only`, which is the honest answer far more
+ * often than either confident one.
  */
-export function decidePaymentClaim(charges: ChargeEvidence[]): PaymentClaimVerdict {
-  if (charges.length === 0) return { kind: 'none' };
+export function decidePaymentClaim(input: {
+  charges: ChargeEvidence[];
+  // Labels of searches that errored. A hole in the sweep, not an empty result.
+  failedQueries?: string[];
+}): PaymentClaimVerdict {
+  const failedQueries = input.failedQueries ?? [];
+  const attributable = input.charges.filter(isAttributable);
+  const leads = input.charges.filter((c) => !isAttributable(c) && isSettled(c));
 
-  // 'pending' counts as collected: the member's statement shows it, the money
-  // is on its way to us, and calling that "not a charge" is the exact error
-  // this module exists to prevent.
-  const settled = charges.filter((c) => c.status === 'succeeded' || c.status === 'pending');
-  if (settled.length === 0) return { kind: 'attempted_only', charges };
+  const settled = attributable.filter(isSettled);
+  if (settled.length > 0) {
+    const netMinor = settled.reduce((sum, c) => sum + c.amountMinor - c.amountRefundedMinor, 0);
+    const unlinked = settled.filter((c) => c.localUserId === null || !c.onClaimedCustomer);
+    return netMinor > 0
+      ? { kind: 'collected', netMinor, charges: settled, unlinked, leads }
+      : { kind: 'refunded', netMinor, charges: settled, unlinked, leads };
+  }
 
-  const netMinor = settled.reduce((sum, c) => sum + c.amountMinor - c.amountRefundedMinor, 0);
-  const unlinked = settled.filter((c) => c.localUserId === null || !c.onClaimedCustomer);
-
-  return netMinor > 0
-    ? { kind: 'collected', netMinor, charges: settled, unlinked }
-    : { kind: 'refunded', netMinor, charges: settled, unlinked };
+  if (attributable.length > 0) return { kind: 'attempted_only', charges: attributable, leads };
+  if (leads.length > 0) return { kind: 'leads_only', leads };
+  if (failedQueries.length > 0) return { kind: 'inconclusive', failedQueries, leads };
+  return { kind: 'none' };
 }

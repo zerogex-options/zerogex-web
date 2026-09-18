@@ -47,9 +47,11 @@ import {
   DEFAULT_LAG_DAYS,
   DEFAULT_LEAD_DAYS,
   formatMinor,
+  isAttributable,
   parseStatementAmount,
   statementSearchWindow,
   type ChargeEvidence,
+  type ChargeMatchStrength,
   type ChargeSearchQuery,
 } from '../core/paymentClaim.ts';
 
@@ -329,10 +331,14 @@ for (const customer of customers) {
     );
   }
 }
-// Cards that only ever appeared on a charge (a Checkout that saved nothing)
-// still carry a fingerprint, so sweep the customers' charge history for more.
+// Their own customers' charge history, walked for two reasons: cards that only
+// ever appeared on a charge (a Checkout that saved nothing) still carry a
+// fingerprint, and every charge on a customer resolved from their own email is
+// evidence in its own right.
+const accountCharges = new Map<string, Stripe.Charge>();
 for (const customerId of claimedCustomerIds) {
   for await (const charge of stripe.charges.list({ customer: customerId, limit: 100 })) {
+    accountCharges.set(charge.id, charge);
     const card = charge.payment_method_details?.card;
     if (!card?.fingerprint || fingerprints.has(card.fingerprint)) continue;
     fingerprints.add(card.fingerprint);
@@ -343,16 +349,48 @@ for (const customerId of claimedCustomerIds) {
   }
 }
 
+// A second account under a different email and a different card is invisible to
+// every charge-side query there is — Stripe's charge search has no email field,
+// and a different card has a different fingerprint. The one thread left is the
+// CARDHOLDER NAME, which Checkout collects and customer search can query.
+//
+// This is a pointer, not evidence: two people share a name often enough that a
+// hit here proves nothing on its own. It is reported so an operator can go and
+// look, and it is deliberately kept out of the fingerprint set so a stranger's
+// card can never be promoted to "theirs".
+const relatedByName: Stripe.Customer[] = [];
+const claimedNames = [...new Set(customers.map((c) => c.name).filter((n): n is string => !!n))];
+for (const name of claimedNames) {
+  try {
+    const found = await stripe.customers.search({
+      query: `name:${quoteSearchValue(name)}`,
+      limit: 100,
+    });
+    for (const customer of found.data) {
+      if (claimedCustomerIds.has(customer.id)) continue;
+      relatedByName.push(customer);
+    }
+  } catch (err) {
+    console.log(`  ! customer name search failed for ${name}: ${(err as Error).message}`);
+  }
+}
+
 console.log(`  Distinct cards known         ${fingerprints.size}`);
 for (const fingerprint of fingerprints) {
   console.log(`    ${cardLabels.get(fingerprint)}  fp=${fingerprint}`);
+}
+if (relatedByName.length > 0) {
+  console.log(`  Same cardholder name         ${relatedByName.length} OTHER customer(s)`);
+  for (const customer of relatedByName) {
+    console.log(`    ${customer.id}  ${customer.email ?? '—'}  "${customer.name ?? ''}"  created=${isoOf(customer.created)}`);
+  }
+  console.log('    ↑ a pointer, not proof — names collide. Check these before concluding.');
 }
 
 // --- The sweep ---------------------------------------------------------------
 
 const queries: ChargeSearchQuery[] = buildChargeSearchQueries({
   fingerprints: [...fingerprints],
-  emails: cliArgs.email ? [cliArgs.email] : [],
   claim: { amountMinor, postedDateIso: cliArgs.date, last4: cliArgs.last4 },
   window,
 });
@@ -363,8 +401,17 @@ if (queries.length === 0) {
   process.exit(1);
 }
 
-const seen = new Map<string, { charge: Stripe.Charge; via: Set<string> }>();
+type Seen = { charge: Stripe.Charge; via: Set<string>; strengths: Set<ChargeSearchQuery['strength']> };
+const seen = new Map<string, Seen>();
+const failedQueries: string[] = [];
 let capped = false;
+
+// Their own accounts' charges first, so the evidence is complete whether or not
+// a search happens to return them.
+for (const [id, charge] of accountCharges) {
+  seen.set(id, { charge, via: new Set(['their own Stripe customer']), strengths: new Set() });
+}
+
 for (const q of queries) {
   let count = 0;
   try {
@@ -374,18 +421,27 @@ for (const q of queries) {
         capped = true;
         break;
       }
-      const entry = seen.get(charge.id) ?? { charge, via: new Set<string>() };
+      const entry = seen.get(charge.id) ?? {
+        charge,
+        via: new Set<string>(),
+        strengths: new Set<ChargeSearchQuery['strength']>(),
+      };
       entry.via.add(q.label);
+      entry.strengths.add(q.strength);
       seen.set(charge.id, entry);
     }
-    console.log(`  ${count} hit(s) — ${q.label}`);
+    console.log(`  ${count} hit(s) — ${q.label}${q.strength === 'circumstantial' ? '  [leads only]' : ''}`);
     if (cliArgs.verbose) console.log(`      query: ${q.query}`);
   } catch (err) {
-    // A rejected query must not silently become "no charges found".
+    // A rejected query must not silently become "no charges found". It is
+    // recorded so the verdict downgrades "nothing" to "inconclusive".
     const message = err instanceof Error ? err.message : String(err);
+    failedQueries.push(`${q.label}: ${message}`);
     console.log(`  ERROR  — ${q.label}: ${message}`);
-    console.log('      Treat this run as INCONCLUSIVE, not as a clean sweep.');
   }
+}
+if (failedQueries.length > 0) {
+  console.log('  ⚠ A query did not run. A negative result from this sweep is INCONCLUSIVE.');
 }
 if (capped) {
   console.log(`  ⚠ A query hit the ${MAX_PER_QUERY}-result cap; narrow it with --date or --amount.`);
@@ -411,8 +467,17 @@ function customerIdOf(charge: Stripe.Charge): string | null {
   return typeof charge.customer === 'string' ? charge.customer : charge.customer?.id ?? null;
 }
 
-const evidence: ChargeEvidence[] = [...seen.values()].map(({ charge }) => {
+const evidence: ChargeEvidence[] = [...seen.values()].map(({ charge, strengths }) => {
   const customerId = customerIdOf(charge);
+  const onClaimedCustomer = customerId != null && claimedCustomerIds.has(customerId);
+  const card = charge.payment_method_details?.card;
+  // Precedence: the same physical card outranks everything; then a charge on a
+  // customer resolved from their own email; anything else only looked similar.
+  const matchStrength: ChargeMatchStrength = strengths.has('card')
+    ? 'card'
+    : onClaimedCustomer
+      ? 'account'
+      : 'circumstantial';
   return {
     id: charge.id,
     amountMinor: charge.amount ?? 0,
@@ -422,7 +487,9 @@ const evidence: ChargeEvidence[] = [...seen.values()].map(({ charge }) => {
     createdUnix: charge.created ?? 0,
     customerId,
     localUserId: customerId ? localByCustomer.get(customerId) ?? null : null,
-    onClaimedCustomer: customerId != null && claimedCustomerIds.has(customerId),
+    onClaimedCustomer,
+    matchStrength,
+    cardLabel: card ? `${card.brand ?? 'card'} ····${card.last4 ?? '????'}` : null,
     disputed: charge.disputed === true,
     description: charge.description ?? null,
     invoiceId: typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null,
@@ -430,11 +497,7 @@ const evidence: ChargeEvidence[] = [...seen.values()].map(({ charge }) => {
 });
 evidence.sort((a, b) => b.createdUnix - a.createdUnix);
 
-console.log('\n=== Every matching charge ===');
-if (evidence.length === 0) {
-  console.log('  none');
-}
-for (const item of evidence) {
+function printCharge(item: ChargeEvidence) {
   const refunded = item.amountRefundedMinor > 0 ? ` refunded=${formatMinor(item.amountRefundedMinor, item.currency)}` : '';
   const owner = item.localUserId
     ? `user=${item.localUserId}`
@@ -447,10 +510,30 @@ for (const item of evidence) {
   );
   console.log(
     `      customer=${item.customerId ?? '—'}  invoice=${item.invoiceId ?? '—'}  ` +
-      `${item.onClaimedCustomer ? 'on the claimed customer' : 'NOT on the claimed customer'}`,
+      `card=${item.cardLabel ?? '—'}  ${item.onClaimedCustomer ? 'on the claimed customer' : 'NOT on the claimed customer'}`,
   );
   if (item.description) console.log(`      "${item.description}"`);
   if (cliArgs.verbose) console.log(`      matched by: ${[...(seen.get(item.id)?.via ?? [])].join(', ')}`);
+}
+
+// THEIRS and MAYBE-ANYONE'S are printed apart, because the first live run of
+// this tool printed them in one list and the reader — and the verdict — read
+// five strangers' charges as the member's money.
+const theirs = evidence.filter(isAttributable);
+const leadCharges = evidence.filter((c) => !isAttributable(c));
+
+console.log('\n=== Charges that are THEIRS (same card, or their own customer) ===');
+if (theirs.length === 0) console.log('  none');
+for (const item of theirs) printCharge(item);
+
+console.log('\n=== Leads: matched the amount/date only, owner NOT established ===');
+if (leadCharges.length === 0) {
+  console.log('  none');
+} else {
+  console.log('  Every member on the same rate matches this. None of it is counted as');
+  console.log('  theirs. Compare the card and the local time against what they told you.');
+  console.log('');
+  for (const item of leadCharges) printCharge(item);
 }
 
 // --- Things the Payments list hides ------------------------------------------
@@ -475,7 +558,7 @@ if (incomplete === 0) console.log('  none');
 
 // --- The verdict -------------------------------------------------------------
 
-const verdict = decidePaymentClaim(evidence);
+const verdict = decidePaymentClaim({ charges: evidence, failedQueries });
 console.log('\n=== Verdict ===');
 switch (verdict.kind) {
   case 'collected':
@@ -495,9 +578,16 @@ switch (verdict.kind) {
     console.log('  The charge they are looking at was real. Point them at the credit.');
     break;
   case 'attempted_only':
-    console.log(`  ATTEMPTS ONLY — ${verdict.charges.length} charge(s), none of which settled.`);
-    console.log('  Their statement is showing declines or dropped authorizations. Say that');
-    console.log('  plainly, and ask for the exact posted line before asserting anything more.');
+    console.log(`  NOTHING SETTLED ON THEIR CARD — ${verdict.charges.length} attempt(s), all declined.`);
+    console.log('  On the evidence that is actually theirs, we have collected nothing.');
+    break;
+  case 'leads_only':
+    console.log('  NOTHING ATTRIBUTABLE TO THEM, but the sweep found matching charges.');
+    break;
+  case 'inconclusive':
+    console.log('  INCONCLUSIVE — nothing matched, but a query did not run:');
+    for (const failure of verdict.failedQueries) console.log(`    ${failure}`);
+    console.log('  Do not report this as "no charge". Fix the query and re-run.');
     break;
   case 'none':
     console.log('  NO MATCH on any query.');
@@ -508,5 +598,31 @@ switch (verdict.kind) {
     console.log('    - if they hold the card, re-run with --last4;');
     console.log('    - confirm this is the only Stripe account we bill on.');
     break;
+}
+
+// Leads outlive the verdict: "we took nothing from this card" and "somebody
+// paid us that exact amount that day" are both true here, and the second is the
+// thread worth pulling. A settled lead means the money is SOMEBODY'S — and if
+// the member is holding a statement, the question is whether one of these is a
+// second account of theirs.
+const settledLeads = 'leads' in verdict ? verdict.leads : [];
+if (settledLeads.length > 0) {
+  console.log('');
+  console.log(`  ${settledLeads.length} settled charge(s) matched the amount/date but NOT their card:`);
+  for (const item of settledLeads) {
+    console.log(
+      `    ${isoOf(item.createdUnix)}  ${formatMinor(item.amountMinor, item.currency)}  ` +
+        `card=${item.cardLabel ?? '—'}  ${item.localUserId ? `user=${item.localUserId}` : 'no local user'}  ${item.id}`,
+    );
+  }
+  console.log('  These are other members until shown otherwise. To settle it, check each');
+  console.log("  against the member's own statement — the card, and the date — then:");
+  console.log('    make diagnose-user EMAIL=<the account that charge belongs to>');
+  console.log('');
+  console.log('  Times above are UTC; a statement date is the CARDHOLDER\'s local date. A');
+  console.log('  charge late in the UTC day belongs to the previous day in the Americas, so');
+  console.log('  convert before you rule one in or out — 00:10Z is 20:10 the evening before');
+  console.log('  in US Eastern, and that one hour is the whole difference between the charge');
+  console.log('  a member is describing and somebody else\'s.');
 }
 console.log('');

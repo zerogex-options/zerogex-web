@@ -4,6 +4,7 @@ import {
   buildChargeSearchQueries,
   decidePaymentClaim,
   formatMinor,
+  isAttributable,
   parseStatementAmount,
   quoteSearchValue,
   statementSearchWindow,
@@ -26,11 +27,17 @@ function charge(over: Partial<ChargeEvidence> = {}): ChargeEvidence {
     customerId: 'cus_A',
     localUserId: 'user_a',
     onClaimedCustomer: true,
+    matchStrength: 'card',
+    cardLabel: 'mastercard ····3392',
     disputed: false,
     description: null,
     invoiceId: null,
     ...over,
   };
+}
+
+function verdict(charges: ChargeEvidence[], failedQueries: string[] = []) {
+  return decidePaymentClaim({ charges, failedQueries });
 }
 
 // --- parseStatementAmount ---------------------------------------------------
@@ -101,7 +108,6 @@ test('the fingerprint query carries no date window', () => {
   // history with us is the point.
   const [q] = buildChargeSearchQueries({
     fingerprints: ['fp_abc'],
-    emails: [],
     claim: { amountMinor: 2950, postedDateIso: '2026-09-14', last4: null },
     window: statementSearchWindow({ postedDateIso: '2026-09-14' }),
   });
@@ -114,7 +120,6 @@ test('an amount-only claim still produces a runnable query', () => {
   // The case this tool exists for: we hold no card, no customer, nothing.
   const queries = buildChargeSearchQueries({
     fingerprints: [],
-    emails: [],
     claim: { amountMinor: 2950, postedDateIso: '2026-09-14', last4: '3392' },
     window: statementSearchWindow({ postedDateIso: '2026-09-14' }),
   });
@@ -128,7 +133,6 @@ test('last4 is skipped when we already hold the card', () => {
   // The fingerprint supersedes it, and last4 collides across members.
   const queries = buildChargeSearchQueries({
     fingerprints: ['fp_abc'],
-    emails: [],
     claim: { amountMinor: null, postedDateIso: null, last4: '3392' },
     window: null,
   });
@@ -137,60 +141,132 @@ test('last4 is skipped when we already hold the card', () => {
 
 // --- the verdict ------------------------------------------------------------
 
-test('nothing matched is the only route to "we never charged you"', () => {
-  assert.deepEqual(decidePaymentClaim([]), { kind: 'none' });
+test('nothing matched, every query ran, is the only route to "we never charged you"', () => {
+  assert.deepEqual(verdict([]), { kind: 'none' });
 });
 
-test('failed attempts alone do not clear us', () => {
-  const v = decidePaymentClaim([charge({ status: 'failed' }), charge({ status: 'failed' })]);
+test('a query that errored makes "nothing" inconclusive, not clean', () => {
+  // A hole in the sweep is not an empty result. The first live run hit this:
+  // Stripe rejected billing_details.email as an unsupported search field.
+  const v = verdict([], ['billing email them@example.com']);
+  assert.equal(v.kind, 'inconclusive');
+});
+
+test('failed attempts on their own card do not clear us', () => {
+  const v = verdict([charge({ status: 'failed' }), charge({ status: 'failed' })]);
   assert.equal(v.kind, 'attempted_only');
 });
 
-test('a succeeded charge on a DIFFERENT customer still means we have their money', () => {
-  // The whole point: the member's own customer record is empty, and the money
-  // is sitting on a second customer nothing local owns.
-  const v = decidePaymentClaim([
+test('a succeeded charge on a DIFFERENT customer, same card, is still their money', () => {
+  // Their own customer record is empty and the money sits on a second customer
+  // nothing local owns. Same physical card, so it is theirs.
+  const v = verdict([
     charge({ status: 'failed', onClaimedCustomer: true }),
     charge({
       id: 'ch_other',
       customerId: 'cus_B',
       localUserId: null,
       onClaimedCustomer: false,
+      matchStrength: 'card',
     }),
   ]);
   assert.equal(v.kind, 'collected');
   if (v.kind !== 'collected') return;
   assert.equal(v.netMinor, 2950);
   assert.equal(v.unlinked.length, 1);
-  assert.equal(v.unlinked[0].id, 'ch_other');
 });
 
-test('a pending charge counts as collected', () => {
-  // It is on their statement and the money is on its way to us. Calling that
-  // "not a charge" is exactly the error this module prevents.
-  const v = decidePaymentClaim([charge({ status: 'pending' })]);
+test("another member's charge at the same amount is NEVER this member's money", () => {
+  // THE REGRESSION. Live run, 2026-09-18: the amount+window query returned
+  // seven charges at $29.50 — five were one unrelated member's dunning retries,
+  // two were two other members' successful renewals. Counting them produced
+  // "WE HAVE THEIR MONEY — $59.00 net" about a member whose card had never
+  // successfully paid us once. Their own card showed five declines and nothing
+  // else, which is `attempted_only`.
+  const v = verdict([
+    charge({ id: 'ch_theirs_1', status: 'failed', amountMinor: 2900, matchStrength: 'card' }),
+    charge({ id: 'ch_theirs_2', status: 'failed', amountMinor: 2900, matchStrength: 'account' }),
+    charge({
+      id: 'ch_stranger_a',
+      status: 'succeeded',
+      customerId: 'cus_STRANGER_A',
+      localUserId: 'user_stranger_a',
+      onClaimedCustomer: false,
+      matchStrength: 'circumstantial',
+    }),
+    charge({
+      id: 'ch_stranger_b',
+      status: 'succeeded',
+      customerId: 'cus_STRANGER_B',
+      localUserId: 'user_stranger_b',
+      onClaimedCustomer: false,
+      matchStrength: 'circumstantial',
+    }),
+  ]);
+  assert.equal(v.kind, 'attempted_only');
+  if (v.kind !== 'attempted_only') return;
+  // The strangers are surfaced as leads — they are the reason to keep looking —
+  // but they are not in the charge total and there is no net.
+  assert.equal(v.charges.length, 2);
+  assert.equal(v.leads.length, 2);
+  assert.ok(!('netMinor' in v));
+});
+
+test('circumstantial matches alone are leads, not an answer either way', () => {
+  const v = verdict([
+    charge({ id: 'ch_maybe', matchStrength: 'circumstantial', onClaimedCustomer: false }),
+  ]);
+  assert.equal(v.kind, 'leads_only');
+  if (v.kind !== 'leads_only') return;
+  assert.equal(v.leads.length, 1);
+});
+
+test('a failed lead is not even a lead', () => {
+  // A decline at the same amount tells the operator nothing to chase.
+  const v = verdict([charge({ matchStrength: 'circumstantial', status: 'failed' })]);
+  assert.equal(v.kind, 'none');
+});
+
+test('a pending charge on their card counts as collected', () => {
+  const v = verdict([charge({ status: 'pending' })]);
   assert.equal(v.kind, 'collected');
 });
 
 test('a fully refunded charge reads as refunded, not as never charged', () => {
-  const v = decidePaymentClaim([charge({ amountRefundedMinor: 2950 })]);
+  const v = verdict([charge({ amountRefundedMinor: 2950 })]);
   assert.equal(v.kind, 'refunded');
   if (v.kind !== 'refunded') return;
   assert.equal(v.netMinor, 0);
 });
 
 test('a partial refund leaves us still holding money', () => {
-  const v = decidePaymentClaim([charge({ amountRefundedMinor: 1000 })]);
+  const v = verdict([charge({ amountRefundedMinor: 1000 })]);
   assert.equal(v.kind, 'collected');
   if (v.kind !== 'collected') return;
   assert.equal(v.netMinor, 1950);
 });
 
-test('a charge linked to the claimed customer is not reported as unlinked', () => {
-  const v = decidePaymentClaim([charge()]);
+test('a failed query cannot downgrade money we have actually found', () => {
+  // The hole only invalidates the NEGATIVE claim.
+  const v = verdict([charge()], ['billing email them@example.com']);
+  assert.equal(v.kind, 'collected');
+});
+
+test('leads ride along with a positive verdict too', () => {
+  const v = verdict([
+    charge(),
+    charge({ id: 'ch_lead', matchStrength: 'circumstantial', onClaimedCustomer: false }),
+  ]);
   assert.equal(v.kind, 'collected');
   if (v.kind !== 'collected') return;
-  assert.equal(v.unlinked.length, 0);
+  assert.equal(v.netMinor, 2950);
+  assert.equal(v.leads.length, 1);
+});
+
+test('isAttributable is the whole rule, in one place', () => {
+  assert.equal(isAttributable(charge({ matchStrength: 'card' })), true);
+  assert.equal(isAttributable(charge({ matchStrength: 'account' })), true);
+  assert.equal(isAttributable(charge({ matchStrength: 'circumstantial' })), false);
 });
 
 test('formatMinor renders the amount a member would recognise', () => {
