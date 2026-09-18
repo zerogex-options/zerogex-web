@@ -170,13 +170,17 @@ const sinceIso = cliArgs.since
   : new Date(Date.now() - cliArgs.days * 24 * 60 * 60 * 1000).toISOString();
 const untilIso = cliArgs.until ? new Date(cliArgs.until).toISOString() : null;
 
-// A trial runs 7 days, and leaving or converting takes longer still. A cohort
-// whose newest members signed up days ago has barely any settled outcomes in it,
-// so comparing it against a mature one reads as collapsed conversion when the
-// real difference is that the clock has not run yet.
+// A trial runs 7 days, and converting or leaving takes longer still, so a member
+// who signed up in the last few weeks has no settled outcome yet.
+//
+// Judge that per MEMBER, not from the window's end date. A 60-day cohort whose
+// window ends today is overwhelmingly mature — only its newest slice is
+// undecided — but an end-date test sees "ends today", calls the whole thing
+// unsettled and warns on exactly the baseline run the flag exists to produce.
+// What actually matters is what SHARE of the cohort is still inside the settling
+// period, so that is what gets measured and reported.
 const SETTLE_DAYS = 21;
-const windowEndMs = untilIso ? new Date(untilIso).getTime() : Date.now();
-const windowEndAgeDays = (Date.now() - windowEndMs) / (24 * 60 * 60 * 1000);
+const settleCutoffMs = Date.now() - SETTLE_DAYS * 24 * 60 * 60 * 1000;
 
 type UserRow = {
   id: string;
@@ -226,6 +230,8 @@ type Member = {
   cohort: Cohort;
   paths: Set<string>;
   minutes: number;
+  /** Signup time, for the settled-outcome share below. */
+  createdMs: number;
 };
 
 const members: Member[] = [];
@@ -251,7 +257,7 @@ for (const u of users) {
     paths.add(v.path);
     ms += v.duration_ms ?? 0;
   }
-  members.push({ cohort: cohortOf(u), paths, minutes: ms / 60000 });
+  members.push({ cohort: cohortOf(u), paths, minutes: ms / 60000, createdMs: start });
 }
 
 db.close();
@@ -271,25 +277,32 @@ const converted = byCohort('converted');
 const lost = byCohort('lost_in_trial');
 
 console.log(`Auth DB: ${dbPath}`);
+// Name the bounds actually in force. `--until` on its own does NOT lift the
+// lower bound — `--days` still applies — so calling that "the beginning" claimed
+// a full-history cohort while quietly reporting a 60-day one.
+const day = (iso: string) => iso.slice(0, 10);
 const windowLabel =
   cliArgs.since || cliArgs.until
-    ? `${cliArgs.since ?? 'the beginning'} to ${cliArgs.until ?? 'now'}`
+    ? `${day(sinceIso)} to ${untilIso ? day(untilIso) : 'now'}` +
+      (cliArgs.since ? '' : ` (lower bound from --days ${cliArgs.days})`)
     : `the last ${cliArgs.days} days`;
 console.log(
   `Cohort:  ${members.length} signups, ${windowLabel} (${excluded} admin/partner/comped held out)`,
 );
 console.log(`Window:  first ${cliArgs.hours}h after each signup\n`);
-if (windowEndAgeDays < SETTLE_DAYS) {
+const unsettled = members.filter((m) => m.createdMs >= settleCutoffMs).length;
+const unsettledShare = members.length ? unsettled / members.length : 0;
+if (unsettledShare > 0.2) {
   console.log(
-    `NOTE: this cohort's newest signups are only ${Math.max(0, Math.round(windowEndAgeDays))} days old. A 7-day trial plus`,
+    `NOTE: ${unsettled} of ${members.length} members (${Math.round(unsettledShare * 100)}%) signed up within the last`,
   );
   console.log(
-    `      the time it takes to convert or leave means outcomes need about ${SETTLE_DAYS} days to settle,`,
+    `      ${SETTLE_DAYS} days, so their outcome has not settled — a 7-day trial plus the time it takes`,
   );
   console.log(
-    `      so CONVERTED and LEFT are both understated here and IN TRIAL RIGHT NOW is inflated.`,
+    `      to convert or leave. CONVERTED and LEFT are understated here, IN TRIAL RIGHT NOW inflated.`,
   );
-  console.log(`      Comparing this against a mature cohort will mislead you.\n`);
+  console.log(`      Wait, or compare only against a cohort of similar maturity.\n`);
 }
 
 const pad = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s.padEnd(n));
