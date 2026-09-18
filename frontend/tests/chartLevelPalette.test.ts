@@ -222,34 +222,15 @@ test('the ink pivot matches the luminance where black and white are equally read
 // The last-traded price gets a tag in the same axis column as the levels, filled
 // with --color-accent-hot, and its line and dot use that token too. So the hot
 // accent is a tenth member of this set, not something separate -- Wall Street had
-// it at #C7213D against a #E7213D call wall, two reds in one column.
+// it at #C7213D against a #E7213D call wall, two reds in one column, and eleven
+// other palettes had the same shape because they tune the accent warm and their
+// call wall is red.
 //
-// Most palettes tune the hot accent warm and their call wall is red, so a batch
-// of these still collide. They are listed rather than fixed because moving a
-// palette's hot accent recolours the live-price marker app-wide, which is a
-// design call. The list exists so a NEW collision fails: darkening MAX PAIN for
-// the light cards once pushed it onto the muted-gold hot accent of london,
-// california and zurich, and nothing caught it.
-const LAST_PRICE_PENDING = new Set([
-  'monochrome-madison/light|ER HIGH/LOW',
-  'vinyl-topanga/light|CALL WALL',
-  'mars/light|CALL WALL',
-  'zerogex-og/light|CALL WALL',
-  'california/dark|MAX PAIN',
-  'london/dark|MAX PAIN',
-  'palm-springs/light|CALL WALL',
-  'kyoto/light|CALL WALL',
-  'zerogex-og/dark|CALL WALL',
-  'zurich/dark|MAX PAIN',
-  'kyoto/dark|CALL WALL',
-  'vinyl-topanga/dark|CALL WALL',
-  'monochrome-madison/dark|ER HIGH/LOW',
-  'maldives/light|CALL WALL',
-]);
-
+// This one is worth guarding hard: darkening MAX PAIN for the light cards once
+// pushed it onto the muted-gold hot accent of london, california and zurich, and
+// nothing caught it, because the hot accent was not part of the set being checked.
 test('the live-price tag is distinguishable from the levels beside it', () => {
-  const fresh: string[] = [];
-  const fixed: string[] = [];
+  const clashes: string[] = [];
   for (const p of PALETTES) {
     for (const isDark of [false, true]) {
       const pal = resolve(p, isDark);
@@ -258,18 +239,15 @@ test('the live-price tag is distinguishable from the levels beside it', () => {
       for (const [name, tok] of LEVELS) {
         const other = parse(pal[tok]);
         assert.ok(other, `${p} ${tok} should resolve to a hex colour`);
-        const key = `${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}|${name}`;
-        const clashes = deltaE(hot, other) < MIN_DELTA_E;
-        if (clashes && !LAST_PRICE_PENDING.has(key)) {
-          fresh.push(`${key} — LAST ${pal['--color-accent-hot']} vs ${name} ${pal[tok]}, ΔE ${deltaE(hot, other).toFixed(1)}`);
+        const d = deltaE(hot, other);
+        if (d < MIN_DELTA_E) {
+          clashes.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}: `
+            + `LAST ${pal['--color-accent-hot']} vs ${name} ${pal[tok]} — ΔE ${d.toFixed(1)}`);
         }
-        if (!clashes && LAST_PRICE_PENDING.has(key)) fixed.push(key);
       }
     }
   }
-  assert.deepEqual(fresh, [], `new live-price collisions:\n  ${fresh.join('\n  ')}`);
-  assert.deepEqual(fixed, [],
-    `these no longer collide — drop them from LAST_PRICE_PENDING:\n  ${fixed.join('\n  ')}`);
+  assert.deepEqual(clashes, [], `live-price collisions:\n  ${clashes.join('\n  ')}`);
 });
 
 test('Wall Street keeps the live price off its call wall', () => {

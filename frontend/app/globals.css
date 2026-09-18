@@ -293,7 +293,7 @@
   --accent-3: #B98A3E;
   --accent-4: #E1554F;
   --color-accent: #E1554F;
-  --color-accent-hot: #E1554F;
+  --color-accent-hot: #E54C72;
   --color-accent-soft: rgba(225,85,79,0.16);
   --color-gold: #B98A3E;
   --color-gold-soft: rgba(185,138,62,0.20);
@@ -366,7 +366,7 @@
   --accent-3: #D8B27A;
   --accent-4: #F4645F;
   --color-accent: #F4645F;
-  --color-accent-hot: #FF7B6E;
+  --color-accent-hot: #F38557;
   --color-accent-soft: rgba(244,100,95,0.22);
   --color-gold: #D8B27A;
   --color-gold-soft: rgba(216,178,122,0.24);
@@ -441,7 +441,7 @@
   --accent-3: #B57E2A;
   --accent-4: #C4491E;
   --color-accent: #C4491E;
-  --color-accent-hot: #C4491E;
+  --color-accent-hot: #AE5900;
   --color-accent-soft: rgba(196,73,30,0.16);
   --color-gold: #B57E2A;
   --color-gold-soft: rgba(181,126,42,0.20);
@@ -826,7 +826,7 @@
   --color-hazy-soft: rgba(149,183,182,0.16);
   --color-flip: #3B9EFF;
   --color-pin: #00C4AA;
-  --color-maxpain: #F0B429;
+  --color-maxpain: #FE9000;
   --color-bull: #35E082;
   --color-bull-soft: rgba(53,224,130,0.28);
   --color-bear: #FF4A2E;
@@ -879,7 +879,7 @@
   --accent-3: #B5483A;
   --accent-4: #6F8F8A;
   --color-accent: #8A9A5B;
-  --color-accent-hot: #B5483A;
+  --color-accent-hot: #A95226;
   --color-accent-soft: rgba(138,154,91,0.22);
   --color-gold: #D8A7A1;
   --color-gold-soft: rgba(216,167,161,0.24);
@@ -952,7 +952,7 @@
   --accent-3: #C94B3F;
   --accent-4: #7CA5A0;
   --color-accent: #A5B875;
-  --color-accent-hot: #C94B3F;
+  --color-accent-hot: #C0582D;
   --color-accent-soft: rgba(165,184,117,0.24);
   --color-gold: #E0A7A0;
   --color-gold-soft: rgba(224,167,160,0.26);
@@ -1054,7 +1054,7 @@
   --color-maroon: #D66A5E; --color-navy: #6E90AC;
   --color-emerald: #4FB588; --color-emerald-soft: rgba(79,181,136,0.26);
   --color-hazy: #A9BBCA; --color-hazy-soft: rgba(169,187,202,0.18);
-  --color-flip: #5BB5FF; --color-pin: #00BCB7; --color-maxpain: #F0B429;
+  --color-flip: #5BB5FF; --color-pin: #00BCB7; --color-maxpain: #FF9305;
   --color-bull: #4FB588; --color-bull-soft: rgba(79,181,136,0.26);
   --color-bear: #E0685E; --color-bear-soft: rgba(224,104,94,0.26);
   --color-warning: #D6A94E; --color-warning-soft: rgba(214,169,78,0.26);
@@ -1120,7 +1120,7 @@
   --color-maroon: #D6564A; --color-navy: #6E90AC;
   --color-emerald: #4FB588; --color-emerald-soft: rgba(79,181,136,0.26);
   --color-hazy: #A9BBCA; --color-hazy-soft: rgba(169,187,202,0.18);
-  --color-flip: #5BB5FF; --color-pin: #00BCB7; --color-maxpain: #F0B429;
+  --color-flip: #5BB5FF; --color-pin: #00BCB7; --color-maxpain: #F7A600;
   --color-bull: #4FB588; --color-bull-soft: rgba(79,181,136,0.26);
   --color-bear: #E0574C; --color-bear-soft: rgba(224,87,76,0.26);
   --color-warning: #DCC066; --color-warning-soft: rgba(220,192,102,0.26);
@@ -1148,7 +1148,7 @@
   --border-subtle: rgba(20,48,56,0.1); --border-default: rgba(20,48,56,0.22); --border-strong: rgba(20,48,56,0.4);
   --accent-1: #C15A5A; --accent-2: #1E7EA0; --accent-3: #E0B05A; --accent-4: #E8846E;
   --color-accent: #1BA6B0;
-  --color-accent-hot: #E8846E;
+  --color-accent-hot: #CB7C4F;
   --color-accent-soft: rgba(232,132,110,0.2);
   --color-gold: #E0B05A; --color-gold-soft: rgba(224,176,90,0.22);
   --color-maroon: #C15A5A; --color-navy: #1E7EA0;
@@ -1180,7 +1180,7 @@
   --border-subtle: rgba(230,240,239,0.09); --border-default: rgba(230,240,239,0.22); --border-strong: rgba(230,240,239,0.34);
   --accent-1: #E86E6E; --accent-2: #3FB0D8; --accent-3: #F0C46A; --accent-4: #F0987A;
   --color-accent: #2FD0D0;
-  --color-accent-hot: #F0987A;
+  --color-accent-hot: #ED9A77;
   --color-accent-soft: rgba(240,152,122,0.24);
   --color-gold: #F0C46A; --color-gold-soft: rgba(240,196,106,0.26);
   --color-maroon: #E86E6E; --color-navy: #3FB0D8;
@@ -1282,7 +1282,7 @@
   --border-subtle: rgba(58,36,22,0.10); --border-default: rgba(58,36,22,0.20); --border-strong: rgba(200,84,43,0.42);
   --accent-1: #4A2F1C; --accent-2: #6B7A2E; --accent-3: #D99A2B; --accent-4: #C8542B;
   --color-accent: #C8542B;
-  --color-accent-hot: #C8542B;
+  --color-accent-hot: #B56308;
   --color-accent-soft: rgba(200,84,43,0.16);
   --color-gold: #C99A2E; --color-gold-soft: rgba(201,154,46,0.20);
   --color-maroon: #7A2E1C; --color-navy: #2E6E6B;
@@ -1314,7 +1314,7 @@
   --border-subtle: rgba(243,228,199,0.08); --border-default: rgba(216,178,122,0.20); --border-strong: rgba(232,106,52,0.40);
   --accent-1: #4A2F1C; --accent-2: #9CB84A; --accent-3: #E0A93B; --accent-4: #E86A34;
   --color-accent: #E86A34;
-  --color-accent-hot: #FF7E3E;
+  --color-accent-hot: #F88331;
   --color-accent-soft: rgba(232,106,52,0.22);
   --color-gold: #E0A93B; --color-gold-soft: rgba(224,169,59,0.24);
   --color-maroon: #7A2E1C; --color-navy: #3FA095;
@@ -1350,7 +1350,7 @@
   --border-subtle: rgba(20,22,26,0.10); --border-default: rgba(20,22,26,0.20); --border-strong: rgba(62,90,130,0.42);
   --accent-1: #14161A; --accent-2: #4E6486; --accent-3: #8A929C; --accent-4: #3E5A82;
   --color-accent: #3E5A82;
-  --color-accent-hot: #3E5A82;
+  --color-accent-hot: #062F54;
   --color-accent-soft: rgba(62,90,130,0.16);
   --color-gold: #8A929C; --color-gold-soft: rgba(138,146,156,0.20);
   --color-maroon: #7A2A26; --color-navy: #3E5A82;
@@ -1382,7 +1382,7 @@
   --border-subtle: rgba(242,243,245,0.08); --border-default: rgba(154,160,168,0.22); --border-strong: rgba(180,196,214,0.34);
   --accent-1: #2A2E36; --accent-2: #8FA6C0; --accent-3: #C2C8D0; --accent-4: #9FB8D8;
   --color-accent: #9FB8D8;
-  --color-accent-hot: #B9D0EE;
+  --color-accent-hot: #C2DCFB;
   --color-accent-soft: rgba(159,184,216,0.18);
   --color-gold: #C2C8D0; --color-gold-soft: rgba(194,200,208,0.20);
   --color-maroon: #7A2E2A; --color-navy: #8FA6C0;
@@ -1418,7 +1418,7 @@
   --border-subtle: rgba(46,58,56,0.10); --border-default: rgba(46,58,56,0.20); --border-strong: rgba(224,110,90,0.42);
   --accent-1: #2E5A52; --accent-2: #2FA39C; --accent-3: #D9A85E; --accent-4: #E0745A;
   --color-accent: #E0745A;
-  --color-accent-hot: #E0745A;
+  --color-accent-hot: #CD7D41;
   --color-accent-soft: rgba(224,116,90,0.16);
   --color-gold: #D2A24E; --color-gold-soft: rgba(210,162,78,0.20);
   --color-maroon: #B0503A; --color-navy: #24605A;
@@ -1450,7 +1450,7 @@
   --border-subtle: rgba(242,233,220,0.08); --border-default: rgba(120,180,168,0.20); --border-strong: rgba(240,130,104,0.38);
   --accent-1: #28403B; --accent-2: #35C0B0; --accent-3: #E0B36A; --accent-4: #F0846A;
   --color-accent: #F0846A;
-  --color-accent-hot: #FF9678;
+  --color-accent-hot: #FF9E7F;
   --color-accent-soft: rgba(240,132,106,0.22);
   --color-gold: #E0B36A; --color-gold-soft: rgba(224,179,106,0.24);
   --color-maroon: #C05A40; --color-navy: #2A7A70;
