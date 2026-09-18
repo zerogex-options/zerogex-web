@@ -1,0 +1,23 @@
+{
+  // Typecheck the bare-Node scripts, which the main config does NOT see.
+  //
+  // tsconfig.json includes "**/*.ts" — and every script under scripts/ is a
+  // .mts, which that glob does not match. So `tsc --noEmit` has always reported
+  // a clean tree while the scripts went unchecked, and a core signature change
+  // could land without a single caller being flagged. That is not theoretical:
+  // making decideOrphanPayment's refunded amount a required field updated the
+  // webhook and the recovery script (both checked, or edited by hand) but left
+  // scan-orphan-payments.mts passing nothing — which at runtime read as "refund
+  // state unknown" and turned every finding in the daily sweep into "needs a
+  // human", silently.
+  //
+  //   npm run typecheck:scripts
+  //
+  // NOT wired into anything yet, because it currently reports ~80 pre-existing
+  // errors, ~64 of them in two files (subscriber-headcount.mts and
+  // verify-bucket-migration.mts, which read untyped sqlite3 -json rows). Clearing
+  // those is its own piece of work. Until then this is the tool you run after
+  // changing a core signature, to see who you just broke.
+  "extends": "./tsconfig.json",
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts", ".next/types/**/*.ts"]
+}

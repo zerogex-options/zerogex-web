@@ -462,6 +462,8 @@ const PAID_SUB = 'sub_paid_for_this_period';
 
 function classifyFixture(over: Partial<Parameters<typeof classifyElapsedPaidPeriod>[0]> = {}) {
   return classifyElapsedPaidPeriod({
+    amountPaid: 22900,
+    amountRefunded: 0,
     periodStartUnix: ELAPSED_START,
     periodEndUnix: ELAPSED_END,
     invoiceSubscriptionId: PAID_SUB,
@@ -480,6 +482,48 @@ function classifyFixture(over: Partial<Parameters<typeof classifyElapsedPaidPeri
 function del(atUnix: number, subscriptionId: string | null = PAID_SUB) {
   return { atUnix, subscriptionId };
 }
+
+test('a REFUNDED member never reads as having lost paid time', () => {
+  // This bucket's whole output is "a refund or a credit is the remedy". For a
+  // member already refunded in full that prompt means paying them twice — and a
+  // refunded, cut-off member is otherwise the same row as a genuine loss,
+  // because the invoice still reads status=paid with amount_paid untouched.
+  const lost = classifyFixture({
+    cancellationReason: 'payment_failed',
+    deletions: [{ atUnix: ELAPSED_START + 10 * ONE_DAY, subscriptionId: PAID_SUB }],
+  });
+  assert.equal(lost.kind, 'lost', 'unrefunded, cut off mid-period: a real loss');
+
+  const refunded = classifyFixture({
+    amountRefunded: 22900,
+    cancellationReason: 'payment_failed',
+    deletions: [{ atUnix: ELAPSED_START + 10 * ONE_DAY, subscriptionId: PAID_SUB }],
+  });
+  assert.equal(refunded.kind, 'consumed');
+  assert.equal(refunded.kind === 'consumed' && refunded.reason, 'refunded');
+});
+
+test('a PARTLY refunded member can still have lost paid time', () => {
+  // They kept some of the money, so some of that period was paid for and never
+  // delivered. Suppressing it would write off a real debt.
+  const verdict = classifyFixture({
+    amountRefunded: 10000,
+    cancellationReason: 'payment_failed',
+    deletions: [{ atUnix: ELAPSED_START + 10 * ONE_DAY, subscriptionId: PAID_SUB }],
+  });
+  assert.equal(verdict.kind, 'lost');
+});
+
+test('an unreadable refund state does not suppress a loss', () => {
+  // Unknown must not silently write off a debt; the loss is still reported and a
+  // human looks at it.
+  const verdict = classifyFixture({
+    amountRefunded: null,
+    cancellationReason: 'payment_failed',
+    deletions: [{ atUnix: ELAPSED_START + 10 * ONE_DAY, subscriptionId: PAID_SUB }],
+  });
+  assert.equal(verdict.kind, 'lost');
+});
 
 test('access that ran to the period end is ordinary churn', () => {
   const verdict = classifyFixture({ deletions: [del(ELAPSED_END)] });

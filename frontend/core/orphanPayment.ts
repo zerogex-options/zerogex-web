@@ -492,6 +492,15 @@ export type ElapsedPeriodVerdict =
 export const VOLUNTARY_CANCEL_WINDOW_SECONDS = 7 * 24 * 60 * 60;
 
 export function classifyElapsedPaidPeriod(input: {
+  // What this invoice collected, and how much of it has since been given back
+  // (readInvoiceRefundedAmount). Required and nullable for the same reason
+  // decideOrphanPayment takes them: a refund leaves the invoice reading
+  // status=paid with amount_paid untouched, so "lost paid time" and "refunded
+  // and closed" are otherwise the same row — and the remedy this bucket
+  // proposes is a refund, which for an already-refunded member means paying
+  // them twice.
+  amountPaid: number;
+  amountRefunded: number | null;
   periodStartUnix: number | null;
   periodEndUnix: number | null;
   // The subscription the paid invoice belongs to. Without it a deletion cannot
@@ -509,6 +518,8 @@ export function classifyElapsedPaidPeriod(input: {
   voluntaryWindowSeconds?: number;
 }): ElapsedPeriodVerdict {
   const {
+    amountPaid,
+    amountRefunded,
     periodStartUnix,
     periodEndUnix,
     invoiceSubscriptionId,
@@ -517,6 +528,14 @@ export function classifyElapsedPaidPeriod(input: {
     cancelRequestUnixes,
   } = input;
   const voluntaryWindow = input.voluntaryWindowSeconds ?? VOLUNTARY_CANCEL_WINDOW_SECONDS;
+
+  // Money already handed back first. Whatever days they lost, they were repaid
+  // in full for them — there is nothing owed, and this bucket's whole output is
+  // a prompt to refund or credit. A partial refund is NOT excluded: some of that
+  // period was genuinely paid for and never delivered.
+  if (amountRefunded != null && amountPaid > 0 && amountRefunded >= amountPaid) {
+    return { kind: 'consumed', reason: 'refunded' };
+  }
 
   // Without both edges of the paid window there is nothing to compare against;
   // claiming a loss on a guess would send a refund to someone owed nothing.

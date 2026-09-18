@@ -42,9 +42,11 @@ import {
   type OrphanFinding,
 } from '../core/orphanAlert.ts';
 import {
+  readInvoiceChargeId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
+  readInvoiceRefundedAmount,
   readInvoiceSubscriptionId,
 } from '../core/stripeInvoice.ts';
 
@@ -298,6 +300,10 @@ type Hit = {
   email: string;
   invoiceId: string;
   amount: string;
+  // Raw minor units, kept alongside the formatted `amount` so the elapsed-period
+  // pass can tell a refunded close-out from paid time actually lost.
+  amountPaidMinor: number;
+  amountRefundedMinor: number | null;
   paidAt: string;
   coveredThrough: string;
   reason: string | null;
@@ -350,6 +356,32 @@ async function retrieveSubscription(id: string): Promise<Stripe.Subscription | n
   return result;
 }
 
+// How much of this invoice has been refunded, or null when it cannot be read.
+//
+// The expansion above answers this for nearly every invoice. The fallback is for
+// the shapes it does not reach (an API version that moves `charge`, an invoice
+// whose payment hangs off a payment intent): retrieving the charge by id works
+// in every version. Only reached for invoices that already look orphaned, so the
+// extra call is rare.
+const refundCache = new Map<string, number | null>();
+async function resolveRefunded(invoice: Stripe.Invoice): Promise<number | null> {
+  const fromInvoice = readInvoiceRefundedAmount(invoice);
+  if (fromInvoice != null) return fromInvoice;
+  const chargeId = readInvoiceChargeId(invoice);
+  if (!chargeId) return null;
+  const cached = refundCache.get(chargeId);
+  if (cached !== undefined) return cached;
+  let result: number | null = null;
+  try {
+    const charge = await stripe.charges.retrieve(chargeId);
+    result = typeof charge.amount_refunded === 'number' ? charge.amount_refunded : null;
+  } catch {
+    result = null;
+  }
+  refundCache.set(chargeId, result);
+  return result;
+}
+
 let scanned = 0;
 let paidNonZero = 0;
 let hitCap = false;
@@ -359,6 +391,12 @@ try {
     status: 'paid',
     created: { gte: sinceUnix },
     limit: 100,
+    // The refund total lives on the CHARGE, and a refunded invoice still reads
+    // status=paid with amount_paid untouched — so without this every candidate
+    // reaches decideOrphanPayment with an unreadable refund state and is
+    // reported as "needs a look" instead of being decided. Expansion on a list
+    // costs no extra round trips.
+    expand: ['data.charge'],
   })) {
     scanned += 1;
     if (scanned % 100 === 0) process.stdout.write('.');
@@ -390,8 +428,10 @@ try {
     const subscription = subscriptionId ? await retrieveSubscription(subscriptionId) : null;
     const priceId = readInvoicePriceId(invoice);
 
+    const amountRefunded = await resolveRefunded(invoice);
     const decision = decideOrphanPayment({
       amountPaid,
+      amountRefunded,
       invoiceStatus: invoice.status ?? null,
       billingReason: invoice.billing_reason ?? null,
       subscriptionId,
@@ -409,6 +449,8 @@ try {
       email: user.email,
       invoiceId: invoice.id ?? '—',
       amount: fmtAmount(amountPaid, invoice.currency ?? 'usd'),
+      amountPaidMinor: amountPaid,
+      amountRefundedMinor: amountRefunded,
       paidAt: fmtDateUnix(invoice.status_transitions?.paid_at ?? invoice.created ?? null),
       coveredThrough: fmtDateUnix(readInvoicePeriodEndUnix(invoice)),
       reason: recoverable ? null : decision.reason,
@@ -506,6 +548,8 @@ function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
   for (const candidate of candidates) {
     const email = candidate.email.toLowerCase();
     const verdict = classifyElapsedPaidPeriod({
+      amountPaid: candidate.amountPaidMinor,
+      amountRefunded: candidate.amountRefundedMinor,
       periodStartUnix: candidate.periodStartUnix,
       periodEndUnix: candidate.periodEndUnix,
       invoiceSubscriptionId: candidate.subscriptionId,

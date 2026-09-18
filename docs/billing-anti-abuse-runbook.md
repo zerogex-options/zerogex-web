@@ -150,6 +150,20 @@ different responses:
   unambiguous (a retired price, an unreadable period), a **partial refund**, or a
   refund state Stripe would not report.
 
+Both the sweep and the daily alert read refunds the same way the webhook does: a
+fully refunded invoice is not a finding at all, and **Lost paid time** excludes a
+member refunded in full — that bucket's output is "a refund or a credit is the
+remedy", which for someone already repaid means paying them twice. A partial
+refund still reports, because some of that period was paid for and never
+delivered.
+
+One caveat worth knowing when you change any of this: `tsc --noEmit` does **not**
+see the scripts. `tsconfig.json` includes `**/*.ts` and every script is a `.mts`,
+so a core signature change can land with the webhook updated and a script left
+silently passing nothing. After changing a shared decision signature, run
+`npm run typecheck:scripts` to see who you broke. It reports ~79 pre-existing
+errors today (two files account for most), so it is a tool to read, not a gate.
+
 **Refunded payments are never recovered.** A refund leaves the invoice reading
 `status=paid` with `amount_paid` untouched, and a refunded member is normally
 canceled in the same breath — which clears their local subscription id and drops
