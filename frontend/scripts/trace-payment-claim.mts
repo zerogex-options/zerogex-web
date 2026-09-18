@@ -320,10 +320,19 @@ if (customers.length > 1) {
 // the sweep account-wide rather than customer-scoped.
 const fingerprints = new Set<string>();
 const cardLabels = new Map<string, string>();
+// Payment methods that carry no card object — Stripe Link, a wallet, a bank
+// debit. They have NO fingerprint, so the card sweep is blind to them, and a
+// member paying this way cannot be linked to another account by card at all.
+// Recorded so the report can say that out loud instead of returning a confident
+// "nothing on their card" that was never capable of finding anything.
+const unfingerprintable: string[] = [];
 for (const customer of customers) {
   for await (const pm of stripe.paymentMethods.list({ customer: customer.id, limit: 100 })) {
     const card = pm.card;
-    if (!card?.fingerprint) continue;
+    if (!card?.fingerprint) {
+      unfingerprintable.push(`${pm.type} ${pm.id}`);
+      continue;
+    }
     fingerprints.add(card.fingerprint);
     cardLabels.set(
       card.fingerprint,
@@ -379,12 +388,85 @@ console.log(`  Distinct cards known         ${fingerprints.size}`);
 for (const fingerprint of fingerprints) {
   console.log(`    ${cardLabels.get(fingerprint)}  fp=${fingerprint}`);
 }
+if (unfingerprintable.length > 0) {
+  console.log(`  Not fingerprintable          ${unfingerprintable.length}`);
+  for (const pm of unfingerprintable) console.log(`    ${pm}`);
+  console.log('    ↑ Link/wallet/bank methods carry no card fingerprint. The card sweep');
+  console.log('      CANNOT see payments made this way, here or on any other account.');
+}
+if (fingerprints.size === 0) {
+  console.log('  ⚠ No card fingerprint available for this person. The strongest query in');
+  console.log('    this tool cannot run; everything below is circumstantial.');
+}
 if (relatedByName.length > 0) {
   console.log(`  Same cardholder name         ${relatedByName.length} OTHER customer(s)`);
   for (const customer of relatedByName) {
     console.log(`    ${customer.id}  ${customer.email ?? '—'}  "${customer.name ?? ''}"  created=${isoOf(customer.created)}`);
   }
   console.log('    ↑ a pointer, not proof — names collide. Check these before concluding.');
+}
+
+// --- Other accounts seen from the same IP ------------------------------------
+// The card sweep answers "did this CARD pay us". It cannot answer "does this
+// PERSON hold another account", and those come apart exactly when it matters:
+// a second account, a second email, and a payment method with no fingerprint at
+// all (Link, a wallet) is invisible to every query above.
+//
+// Our own audit log has the one signal that survives all of that. Every
+// checkout, login and logout is stamped with an IP, so an account operated from
+// the same address as this member's is a candidate for being theirs.
+//
+// A pointer, not proof — CGNAT, offices, households and VPNs share addresses —
+// so it is reported with the overlap and left for a human to judge. An IP with
+// a crowd behind it is dropped rather than shown, because that is a network,
+// not a person.
+const MAX_USERS_PER_IP = 20;
+type IpNeighbour = { user_id: string; email: string; ip: string; hits: number; last_seen: string };
+const neighbours: IpNeighbour[] = [];
+if (haveDb && localUsers.length > 0) {
+  const ownIds = localUsers.map((u) => `'${escapeSqlLiteral(u.id)}'`).join(', ');
+  const ownIps = querySqlite<{ ip: string }>(
+    dbPath,
+    `SELECT DISTINCT ip FROM audit_events
+      WHERE user_id IN (${ownIds}) AND ip IS NOT NULL AND ip != '';`,
+  ).map((row) => row.ip);
+
+  if (ownIps.length > 0) {
+    const ipList = ownIps.map((ip) => `'${escapeSqlLiteral(ip)}'`).join(', ');
+    const crowded = new Set(
+      querySqlite<{ ip: string; users: number }>(
+        dbPath,
+        `SELECT ip, COUNT(DISTINCT user_id) AS users FROM audit_events
+          WHERE ip IN (${ipList}) AND user_id IS NOT NULL
+          GROUP BY ip HAVING users > ${MAX_USERS_PER_IP};`,
+      ).map((row) => row.ip),
+    );
+    neighbours.push(
+      ...querySqlite<IpNeighbour>(
+        dbPath,
+        `SELECT a.user_id AS user_id, u.email AS email, a.ip AS ip,
+                COUNT(*) AS hits, MAX(a.created_at) AS last_seen
+           FROM audit_events a JOIN users u ON u.id = a.user_id
+          WHERE a.ip IN (${ipList}) AND a.user_id IS NOT NULL
+            AND a.user_id NOT IN (${ownIds})
+          GROUP BY a.user_id, a.ip
+          ORDER BY hits DESC;`,
+      ).filter((row) => !crowded.has(row.ip)),
+    );
+  }
+}
+
+console.log('\n=== Other accounts seen from the same IP ===');
+if (neighbours.length === 0) {
+  console.log('  none');
+} else {
+  for (const n of neighbours) {
+    console.log(`  ${n.email.padEnd(34)} ${n.ip.padEnd(16)} ${String(n.hits).padStart(4)} event(s)  last ${n.last_seen}`);
+    console.log(`      ${n.user_id}`);
+  }
+  console.log('  ↑ a pointer, not proof — addresses are shared. But a member telling you');
+  console.log('    they paid, whose own card shows nothing, very often paid from here.');
+  console.log('    Check with:  make diagnose-user EMAIL=<one of the above>');
 }
 
 // --- The sweep ---------------------------------------------------------------
