@@ -43,6 +43,8 @@ const {
   byDaysToPayday,
   windowByOutcome,
   retryWindowStats,
+  diagnoseNoRetry,
+  NO_RETRY_REASON_LABEL,
 } = await import('../core/declineTiming.ts');
 
 const daysRaw = process.env.DAYS;
@@ -126,6 +128,38 @@ table(
   'BIASED: the window ends at the last failure, so recovering shortens it. Shown to expose the trap, never to act on.',
   byPaydayCrossing(invoices),
 );
+
+const noRetry = diagnoseNoRetry(invoices);
+if (noRetry.length > 0) {
+  console.log('INVOICES WITH ONLY ONE RECORDED FAILURE');
+  console.log('  "Never retried" is a conclusion, not an observation — there are several ways to');
+  console.log('  get one row and only one of them means Stripe declined to try again.');
+  const byReason = new Map<string, typeof noRetry>();
+  for (const row of noRetry) {
+    const list = byReason.get(row.reason) ?? [];
+    list.push(row);
+    byReason.set(row.reason, list);
+  }
+  for (const [reason, rows] of byReason) {
+    const lost = rows.filter((r) => r.outcome === 'lost');
+    console.log('');
+    console.log(
+      `  ${rows.length} × ${NO_RETRY_REASON_LABEL[reason as keyof typeof NO_RETRY_REASON_LABEL]}` +
+        `   (${money(lost.reduce((sum, r) => sum + r.amount, 0))} lost)`,
+    );
+    for (const row of rows) {
+      console.log(
+        `      ${pad(row.invoiceId.slice(0, 22), 24)}${pad(row.kind, 18)}${padL(money(row.amount), 10)}` +
+          `   stripe attempt #${row.stripeAttemptCount}   ${pad(row.source, 16)}${row.failedAt.slice(0, 10)}   ${row.outcome}`,
+      );
+    }
+  }
+  console.log('');
+  console.log('  capture_gap is OURS to fix: Stripe numbered the attempt above 1, so earlier ones');
+  console.log('  happened and we do not have them. Every window figure above understates by that');
+  console.log('  much. genuinely_single is the only row that means what "never retried" implies.');
+  console.log('');
+}
 
 table('WHEN THE FIRST ATTEMPT LANDED — day of month', '', byDayOfMonth(invoices));
 table('WHEN THE FIRST ATTEMPT LANDED — weekday', '', byWeekday(invoices));

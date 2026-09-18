@@ -7,6 +7,7 @@ import {
   byDaysToPayday,
   daysToNextPayday,
   windowByOutcome,
+  diagnoseNoRetry,
   ordinal,
   byPaydayCrossing,
   retryWindowDays,
@@ -228,4 +229,43 @@ test('the exogenous split is immune to the bias that broke the window one', () =
   assert.equal(rows[0].key, '0-3');
   assert.equal(rows[0].invoices, 2);
   assert.equal(rows[0].recoveryRate, 0.5);
+});
+
+// ---------------------------------------------------------------------------
+// "Never retried" is a conclusion, not an observation.
+// ---------------------------------------------------------------------------
+
+test('an attempt Stripe numbered above 1 proves we lost the earlier ones', () => {
+  // The decisive case, and the reason it is checked first. Stripe called this
+  // attempt four, so three happened and we hold one — the invoice was retried
+  // and our own capture is what is missing.
+  const invoice = foldDeclinesToInvoices([
+    attempt({ invoiceId: 'in_gap', attemptCount: 4, source: 'audit_backfill' }),
+  ])[0];
+  const [row] = diagnoseNoRetry([invoice]);
+  assert.equal(row.reason, 'capture_gap');
+  assert.equal(row.stripeAttemptCount, 4);
+});
+
+test('the other ways to get one row are told apart', () => {
+  const one = (overrides: Partial<DeclineRecord>) =>
+    foldDeclinesToInvoices([attempt({ invoiceId: `in_${Math.random()}`, ...overrides })])[0];
+
+  assert.equal(diagnoseNoRetry([one({ collectionMethod: 'send_invoice' })])[0].reason, 'manual_collection');
+  assert.equal(
+    diagnoseNoRetry([one({ nextAttemptAt: '2026-04-01T00:00:00.000Z' })])[0].reason,
+    'retry_was_scheduled',
+  );
+  assert.equal(diagnoseNoRetry([one({ invoiceStatus: 'void' })])[0].reason, 'closed_early');
+  assert.equal(diagnoseNoRetry([one({ invoiceStatus: 'uncollectible' })])[0].reason, 'closed_early');
+  // Nothing on the row claims another attempt was coming.
+  assert.equal(diagnoseNoRetry([one({})])[0].reason, 'genuinely_single');
+});
+
+test('an invoice that really was retried is not diagnosed at all', () => {
+  const healthy = foldDeclinesToInvoices([
+    attempt({ invoiceId: 'in_ok', attemptCount: 1, failedAt: '2026-03-01T12:00:00.000Z' }),
+    attempt({ invoiceId: 'in_ok', attemptCount: 2, failedAt: '2026-03-04T12:00:00.000Z' }),
+  ]);
+  assert.deepEqual(diagnoseNoRetry(healthy), []);
 });
