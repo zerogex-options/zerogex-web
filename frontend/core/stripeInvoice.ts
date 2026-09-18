@@ -34,6 +34,10 @@ function obj(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 }
 
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 // The subscription this invoice bills for, or null when it has no subscription
 // parent (a one-off / manual invoice).
 export function readInvoiceSubscriptionId(invoice: unknown): string | null {
@@ -289,6 +293,86 @@ export function readInvoiceCouponIds(invoice: unknown): string[] | null {
   if (inv.discount) push(inv.discount);
 
   return unresolved ? null : out;
+}
+
+// The CHARGE object behind this invoice's payment, when the invoice was
+// rendered with it expanded. Distinct from readInvoiceChargeId, which is happy
+// with a bare id: the refund fields live ON the charge, so only an expanded one
+// answers "was this refunded". Version split as everywhere else — acacia hangs
+// the charge off the invoice, basil off the settled payment intent.
+function readExpandedCharge(inv: Record<string, unknown>): Record<string, unknown> | null {
+  const hasRefundField = (candidate: Record<string, unknown> | null) =>
+    candidate && num(candidate.amount_refunded) != null ? candidate : null;
+
+  const flat = hasRefundField(obj(inv.charge));
+  if (flat) return flat;
+
+  const payments = obj(inv.payments);
+  const paymentsData = payments ? payments.data : null;
+  if (Array.isArray(paymentsData)) {
+    for (const entry of paymentsData) {
+      const payment = obj(obj(entry)?.payment);
+      const pi = obj(payment?.payment_intent);
+      const latest = hasRefundField(pi ? obj(pi.latest_charge) : null);
+      if (latest) return latest;
+    }
+  }
+
+  const intent = obj(inv.payment_intent);
+  return hasRefundField(intent ? obj(intent.latest_charge) : null);
+}
+
+// How much of this invoice's payment has been GIVEN BACK, in the smallest
+// currency unit — or null when that genuinely cannot be determined from the
+// object in hand.
+//
+// The null is load-bearing, and it is why this does not simply return 0. Stripe
+// leaves a refunded invoice reading `status=paid` with `amount_paid` untouched,
+// so an invoice's own fields never say "this was refunded" — the evidence is on
+// the charge (`amount_refunded`) or in a credit note
+// (`post_payment_credit_notes_amount`). A caller that cannot see the charge
+// therefore knows nothing about direct refunds, and reporting that as "not
+// refunded" is what let a fully refunded payment be re-granted as an orphaned
+// one (see decideOrphanPayment in core/orphanPayment.ts). Unknown has to be
+// distinguishable from zero so the caller can decline to act.
+//
+// Credit notes alone are enough to return a number: they are read straight off
+// the invoice, so a refund issued that way is visible even unexpanded.
+//
+// "No charge expanded" and "no charge at all" are answered differently, and the
+// difference matters. A bare charge id means a refund we cannot see, so the
+// answer is unknown. An invoice with no charge REFERENCE anywhere has nothing
+// that could carry a direct refund — it was settled from credit balance or
+// marked paid out of band — so its credit-note total is the complete answer,
+// and returning unknown there would strand a genuinely recoverable payment.
+export function readInvoiceRefundedAmount(invoice: unknown): number | null {
+  const inv = obj(invoice);
+  if (!inv) return null;
+
+  const creditNotes = num(inv.post_payment_credit_notes_amount) ?? 0;
+  const charge = readExpandedCharge(inv);
+  if (charge) return creditNotes + (num(charge.amount_refunded) ?? 0);
+
+  // A credit note already proves a reversal, whatever the charge shape.
+  if (creditNotes > 0) return creditNotes;
+
+  // Is there a payment object we simply could not see into?
+  const unexpanded =
+    readInvoiceChargeId(inv) != null || readInvoicePaymentIntentId(inv) != null;
+  return unexpanded ? null : creditNotes;
+}
+
+// When this invoice was actually PAID (Unix seconds), falling back to its
+// creation instant. Used to date a recovery's paid-subscription stamp with the
+// day the money really moved rather than the day the recovery ran, which may be
+// weeks later.
+export function readInvoicePaidAtUnix(invoice: unknown): number | null {
+  const inv = obj(invoice);
+  if (!inv) return null;
+  const transitions = obj(inv.status_transitions);
+  const paidAt = transitions ? num(transitions.paid_at) : null;
+  if (paidAt != null) return paidAt;
+  return num(inv.created);
 }
 
 export type LateDiscountFix =
