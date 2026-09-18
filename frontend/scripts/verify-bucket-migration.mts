@@ -24,9 +24,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-function parseEnvFile(filePath) {
+function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
-  const env = {};
+  const env: Record<string, string> = {};
   for (const raw of fs.readFileSync(filePath, 'utf8').split('\n')) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
@@ -77,9 +77,30 @@ if (!fs.existsSync(dbPath)) {
 const db = new DatabaseSync(dbPath, { readOnly: true });
 
 const cols = new Set(
-  (db.prepare(`PRAGMA table_info(users)`).all()).map((c) => String(c.name)),
+  (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>).map((c) =>
+    String(c.name),
+  ),
 );
 const alreadyMigrated = cols.has('last_paid_subscription_id');
+
+// The four lines of the Total Subscribers chart, named as the two rules below
+// return them.
+type Line = 'active' | 'converting' | 'trialing' | 'graceTrial';
+
+// The columns the SELECT asks for. The two paid-pointer columns are optional
+// because the whole point of this tool is to run against a database that may
+// predate them — `alreadyMigrated` decides whether the query even names them.
+type MigrationRow = {
+  id: string;
+  email: string | null;
+  tier: string | null;
+  subscription_status: string | null;
+  payment_grace_reason: string | null;
+  stripe_subscription_id: string | null;
+  first_payment_at: string | null;
+  last_paid_subscription_id?: string | null;
+  last_paid_invoice_at?: string | null;
+};
 
 // Everything the two rules read, for every row the chart's WHERE selects.
 const rows = db
@@ -92,10 +113,10 @@ const rows = db
       WHERE tier IN ('pro', 'basic', 'elite', 'starter')
         AND subscription_status IN ('active', 'trialing', 'past_due')`,
   )
-  .all();
+  .all() as MigrationRow[];
 
 // The OLD chart rule, verbatim.
-function oldBucket(r) {
+function oldBucket(r: MigrationRow): Line {
   if (r.subscription_status === 'trialing') return 'trialing';
   if (r.subscription_status === 'past_due' && r.payment_grace_reason === 'trial') return 'graceTrial';
   if (r.subscription_status === 'active' && r.first_payment_at == null) return 'converting';
@@ -104,9 +125,11 @@ function oldBucket(r) {
 
 // What core/db.ts's backfill will write for this row, computed rather than
 // applied. Mirrors that UPDATE's WHERE exactly — change one, change the other.
-function backfilled(r) {
+function backfilled(r: MigrationRow): { sub: string | null; at: string | null } {
   if (alreadyMigrated && r.last_paid_subscription_id != null) {
-    return { sub: r.last_paid_subscription_id, at: r.last_paid_invoice_at };
+    // `?? null` only normalizes the absent-column case; every consumer tests
+    // `== null`, which already treats undefined and null alike.
+    return { sub: r.last_paid_subscription_id, at: r.last_paid_invoice_at ?? null };
   }
   if (r.stripe_subscription_id == null) return { sub: null, at: null };
   const stamp =
@@ -117,7 +140,7 @@ function backfilled(r) {
 }
 
 // The NEW chart rule, verbatim.
-function newBucket(r) {
+function newBucket(r: MigrationRow): Line {
   if (r.subscription_status === 'trialing') return 'trialing';
   if (r.subscription_status === 'past_due' && r.payment_grace_reason === 'trial') return 'graceTrial';
   const paid = backfilled(r);
@@ -130,20 +153,20 @@ function newBucket(r) {
   return 'active';
 }
 
-const LINES = ['active', 'converting', 'trialing', 'graceTrial'];
-const LABEL = {
+const LINES: readonly Line[] = ['active', 'converting', 'trialing', 'graceTrial'];
+const LABEL: Record<Line, string> = {
   active: 'Full Subscriber',
   converting: 'Converting',
   trialing: 'Free Trial',
   graceTrial: 'Trial Grace',
 };
-const before = {};
-const after = {};
+const before = {} as Record<Line, number>;
+const after = {} as Record<Line, number>;
 for (const line of LINES) {
   before[line] = 0;
   after[line] = 0;
 }
-const moved = [];
+const moved: Array<{ email: string | null; from: Line; to: Line }> = [];
 for (const r of rows) {
   const a = oldBucket(r);
   const b = newBucket(r);
@@ -152,7 +175,7 @@ for (const r of rows) {
   if (a !== b) moved.push({ email: r.email, from: a, to: b });
 }
 
-const pad = (n) => String(n).padStart(5);
+const pad = (n: number) => String(n).padStart(5);
 console.log(`Auth DB:   ${dbPath}`);
 console.log(`Schema:    ${alreadyMigrated ? 'ALREADY MIGRATED (columns present)' : 'pre-migration'}`);
 console.log('');
@@ -170,7 +193,7 @@ if (moved.length === 0) {
 }
 
 console.log(`${moved.length} member(s) WOULD MOVE. Do not deploy until this reads zero:`);
-const byTransition = new Map();
+const byTransition = new Map<string, number>();
 for (const m of moved) {
   const key = `${LABEL[m.from]} -> ${LABEL[m.to]}`;
   byTransition.set(key, (byTransition.get(key) ?? 0) + 1);

@@ -301,7 +301,9 @@ async function resolveCard(
     limit: 1,
   });
   const card = cards.data[0]?.card;
-  if (card?.last4) return { brand: card.brand ?? null, last4: card.last4 };
+  if (card?.last4) {
+    return { brand: card.brand ?? null, last4: card.last4, funding: card.funding ?? null };
+  }
   return null;
 }
 

@@ -2812,7 +2812,9 @@ export async function sendWinbackDigestEmail(
   to: string,
   opts: {
     recipients: string[];
-    mode: 'auto' | 'promo' | 'manual';
+    // 'none' is scripts/send-winback.mts's ranking when neither the automated
+    // coupon nor a live public promo is configured. Rendered as a label only.
+    mode: 'auto' | 'promo' | 'manual' | 'none';
     sendCommand: string;
     draft: { subject: string; text: string; html: string };
   },

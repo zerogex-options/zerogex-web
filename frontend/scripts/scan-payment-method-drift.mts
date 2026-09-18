@@ -399,7 +399,8 @@ try {
       // the report is not blank on whichever version this account is pinned to.
       const periodEndUnix =
         (sub as unknown as { current_period_end?: number }).current_period_end ??
-        sub.items?.data?.[0]?.current_period_end ??
+        (sub.items?.data?.[0] as unknown as { current_period_end?: number } | undefined)
+          ?.current_period_end ??
         null;
 
       const base = {

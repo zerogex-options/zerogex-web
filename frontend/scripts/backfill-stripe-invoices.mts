@@ -169,7 +169,10 @@ for await (const invoice of stripe.invoices.list({
   // null price and cadence falls back to the period length, which never needed
   // the price id in the first place.
   const legacyLine = line as unknown as { price?: { id?: string }; plan?: { id?: string } } | undefined;
-  const priceId = line?.pricing?.price_details?.price
+  const basilLine = line as unknown as
+    | { pricing?: { price_details?: { price?: string } } }
+    | undefined;
+  const priceId = basilLine?.pricing?.price_details?.price
     ?? legacyLine?.price?.id
     ?? legacyLine?.plan?.id
     ?? null;

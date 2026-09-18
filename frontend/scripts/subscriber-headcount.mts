@@ -44,9 +44,9 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
 
-function parseEnvFile(filePath) {
+function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
-  const env = {};
+  const env: Record<string, string> = {};
   for (const raw of fs.readFileSync(filePath, 'utf8').split('\n')) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
@@ -109,7 +109,7 @@ const configuredPriceIds = new Set(
 );
 const priceTableKnown = configuredPriceIds.size > 0;
 // Only meaningful when the table is known; otherwise nothing is "unmapped".
-const isUnmappedPrice = (priceId) =>
+const isUnmappedPrice = (priceId: string | null | undefined) =>
   priceTableKnown && (!priceId || !configuredPriceIds.has(priceId));
 
 const db = new DatabaseSync(dbPath, { readOnly: true });
@@ -120,7 +120,9 @@ const db = new DatabaseSync(dbPath, { readOnly: true });
 // back to treating them as NULL, which would report every paying member as
 // Converting and look exactly like the catastrophe this tool exists to rule out.
 const userCols = new Set(
-  db.prepare(`PRAGMA table_info(users)`).all().map((c) => String(c.name)),
+  (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>).map((c) =>
+    String(c.name),
+  ),
 );
 if (!userCols.has('last_paid_subscription_id')) {
   console.error('This database predates the per-subscription Total Subscribers migration');
@@ -131,6 +133,26 @@ if (!userCols.has('last_paid_subscription_id')) {
   console.error('booted on the new code and applied the migration.');
   process.exit(1);
 }
+
+// The columns the SELECT below asks for. Stated rather than inferred because
+// node:sqlite hands back `unknown` — which is the point: rename a column in the
+// query and this stops compiling, instead of quietly reporting every member as
+// unclassified.
+type HeadcountRow = {
+  email: string | null;
+  tier: string | null;
+  subscription_status: string | null;
+  payment_grace_reason: string | null;
+  first_payment_at: string | null;
+  stripe_subscription_id: string | null;
+  last_paid_subscription_id: string | null;
+  last_paid_invoice_at: string | null;
+  cancel_at_period_end: number | null;
+  stripe_price_id: string | null;
+  paused_until: string | null;
+};
+
+type CountedBucket = 'fullSubscriber' | 'converting' | 'freeTrial' | 'trialGrace';
 
 // Every account carrying subscription state at all — a deliberately wider net
 // than the chart's own WHERE, so the rows it drops can be accounted for rather
@@ -144,10 +166,20 @@ const rows = db
       WHERE subscription_status IS NOT NULL
         AND subscription_status IN ('active','trialing','past_due')`,
   )
-  .all();
+  .all() as HeadcountRow[];
 
-const buckets = { fullSubscriber: [], converting: [], freeTrial: [], trialGrace: [] };
-const notCounted = { paused: [], unmappedPrice: [], setupWithheld: [], other: [] };
+const buckets: Record<CountedBucket, HeadcountRow[]> = {
+  fullSubscriber: [],
+  converting: [],
+  freeTrial: [],
+  trialGrace: [],
+};
+const notCounted: {
+  paused: HeadcountRow[];
+  unmappedPrice: HeadcountRow[];
+  setupWithheld: HeadcountRow[];
+  other: Array<HeadcountRow & { why: string }>;
+} = { paused: [], unmappedPrice: [], setupWithheld: [], other: [] };
 
 for (const r of rows) {
   const verdict = classifySubscriberBucket({
@@ -182,7 +214,7 @@ for (const r of rows) {
   } else notCounted.other.push({ ...r, why: verdict.why });
 }
 
-const n = (a) => String(a.length).padStart(4);
+const n = (a: readonly unknown[]) => String(a.length).padStart(4);
 const total =
   buckets.fullSubscriber.length +
   buckets.converting.length +
@@ -268,7 +300,11 @@ if (unpriced.length > 0) {
 }
 
 if (showNames) {
-  const list = (label, arr, extra = () => '') => {
+  const list = <T extends HeadcountRow>(
+    label: string,
+    arr: T[],
+    extra: (r: T) => string = () => '',
+  ) => {
     if (arr.length === 0) return;
     console.log('');
     console.log(`${label}:`);

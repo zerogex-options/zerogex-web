@@ -49,6 +49,7 @@ import {
   formatMinor,
   isAttributable,
   parseStatementAmount,
+  quoteSearchValue,
   statementSearchWindow,
   type ChargeEvidence,
   type ChargeMatchStrength,
