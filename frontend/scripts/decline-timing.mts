@@ -155,9 +155,10 @@ if (noRetry.length > 0) {
     }
   }
   console.log('');
-  console.log('  capture_gap is OURS to fix: Stripe numbered the attempt above 1, so earlier ones');
-  console.log('  happened and we do not have them. Every window figure above understates by that');
-  console.log('  much. genuinely_single is the only row that means what "never retried" implies.');
+  console.log('  Only genuinely_single means Stripe declined to try again. paid_after_one_failure');
+  console.log('  is a healthy recovery. retry_state_unrecorded and capture_gap are gaps in OUR');
+  console.log('  records, not in Stripe’s behaviour — and every window figure above understates');
+  console.log('  by whatever those rows are missing.');
   console.log('');
 }
 

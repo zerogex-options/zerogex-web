@@ -301,17 +301,21 @@ export function byPaydayCrossing(invoices: readonly DeclinedInvoice[]): TimingBu
  */
 export type NoRetryReason =
   | 'capture_gap'
+  | 'paid_after_one_failure'
   | 'retry_was_scheduled'
   | 'manual_collection'
   | 'closed_early'
+  | 'retry_state_unrecorded'
   | 'genuinely_single';
 
 export const NO_RETRY_REASON_LABEL: Record<NoRetryReason, string> = {
   capture_gap: 'We missed attempts — Stripe counted more than we recorded',
+  paid_after_one_failure: 'Paid after one failure — no retry was ever owed',
   retry_was_scheduled: 'A retry was scheduled and we never recorded its failure',
   manual_collection: 'Manual collection — Stripe never auto-charges these',
   closed_early: 'Invoice voided or written off before a retry could run',
-  genuinely_single: 'One attempt, and nothing says another was coming',
+  retry_state_unrecorded: 'Backfilled row — the fields that say whether a retry was due were never captured',
+  genuinely_single: 'One attempt, and Stripe’s own fields say none was due',
 };
 
 export type NoRetryRow = {
@@ -341,13 +345,27 @@ export function diagnoseNoRetry(invoices: readonly DeclinedInvoice[]): NoRetryRo
       const reason: NoRetryReason =
         only.attemptCount > 1
           ? 'capture_gap'
-          : only.collectionMethod === 'send_invoice'
-            ? 'manual_collection'
-            : only.nextAttemptAt != null
-              ? 'retry_was_scheduled'
-              : only.invoiceStatus === 'void' || only.invoiceStatus === 'uncollectible'
-                ? 'closed_early'
-                : 'genuinely_single';
+          // An invoice that FAILED once and was then paid has one row because
+          // the money arrived, not because anything was withheld. Nothing was
+          // owed a second attempt, and counting these as "never retried" is how
+          // the first version of this diagnosis reported five healthy recoveries
+          // as a problem.
+          : invoice.outcome === 'recovered'
+            ? 'paid_after_one_failure'
+            : only.collectionMethod === 'send_invoice'
+              ? 'manual_collection'
+              : only.nextAttemptAt != null
+                ? 'retry_was_scheduled'
+                : only.invoiceStatus === 'void' || only.invoiceStatus === 'uncollectible'
+                  ? 'closed_early'
+                  // NULL on both retry-state columns means the row predates their
+                  // capture — the audit backfill never had them — so their absence
+                  // says we did not ask, NEVER that no retry was coming. This is
+                  // the same rule deriveRetryState already applies, and skipping it
+                  // here turned "we have no idea" into a confident "never retried".
+                  : only.collectionMethod == null && only.invoiceStatus == null
+                    ? 'retry_state_unrecorded'
+                    : 'genuinely_single';
       return {
         invoiceId: invoice.invoiceId,
         reason,

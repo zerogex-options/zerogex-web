@@ -258,8 +258,40 @@ test('the other ways to get one row are told apart', () => {
   );
   assert.equal(diagnoseNoRetry([one({ invoiceStatus: 'void' })])[0].reason, 'closed_early');
   assert.equal(diagnoseNoRetry([one({ invoiceStatus: 'uncollectible' })])[0].reason, 'closed_early');
-  // Nothing on the row claims another attempt was coming.
-  assert.equal(diagnoseNoRetry([one({})])[0].reason, 'genuinely_single');
+  // Stripe's own fields present and saying nothing more was due.
+  assert.equal(
+    diagnoseNoRetry([one({ collectionMethod: 'charge_automatically', invoiceStatus: 'open' })])[0].reason,
+    'genuinely_single',
+  );
+});
+
+test('an invoice that failed once and was then PAID is not a missing retry', () => {
+  // Five of the nine invoices this diagnosis first flagged on production had
+  // simply been paid. They recovered at 56% against a 16% base rate, which is
+  // what gave the misclassification away: an invoice stops failing when the
+  // money arrives, so one row is the expected shape of a healthy recovery.
+  const invoice = foldDeclinesToInvoices([
+    attempt({ invoiceId: 'in_paid', outcome: 'recovered', resolvedAt: '2026-03-12T00:00:00.000Z' }),
+  ])[0];
+  assert.equal(diagnoseNoRetry([invoice])[0].reason, 'paid_after_one_failure');
+});
+
+test('a backfilled row cannot be called "never retried"', () => {
+  // collection_method and invoice_status are NULL on every row written before
+  // those columns existed. Their absence means we did not ask — never that no
+  // retry was coming — and the rest of this codebase already reads them that
+  // way. Reading them as proof produced nine confident false positives.
+  const invoice = foldDeclinesToInvoices([
+    attempt({
+      invoiceId: 'in_backfilled',
+      source: 'stripe_backfill',
+      collectionMethod: null,
+      invoiceStatus: null,
+      nextAttemptAt: null,
+      outcome: 'lost',
+    }),
+  ])[0];
+  assert.equal(diagnoseNoRetry([invoice])[0].reason, 'retry_state_unrecorded');
 });
 
 test('an invoice that really was retried is not diagnosed at all', () => {

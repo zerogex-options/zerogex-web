@@ -357,6 +357,31 @@ recording and the money may well have been retried normally; a genuine single
 attempt is revenue that never got the automatic second chance everything
 downstream assumes it had.
 
+**Run against production it returned nine, all in the one category that would
+have been a finding — and the classification was wrong.** Two flaws, both
+visible in the output rather than in the code:
+
+* **Five of the nine had RECOVERED.** They recovered at 56% against a 16% base
+  rate, which is what gave it away. An invoice stops failing when the money
+  arrives, so a single row is the expected shape of a healthy recovery, not a
+  withheld retry. Nothing was owed a second attempt.
+* **All nine were backfilled rows**, whose `collection_method` and
+  `invoice_status` are NULL because those columns did not exist when the audit
+  backfill wrote them. Reading that absence as "no retry was scheduled" is
+  exactly the mistake `deriveRetryState` is documented to avoid: NULL means we
+  did not ask, never that retries are not running.
+
+Corrected, the nine are five healthy recoveries, one invoice still open from
+yesterday, and three lost invoices ($347) about which the honest answer is that
+we cannot tell whether Stripe retried them. **Zero confirmed cases of Stripe
+declining to retry.** The diagnosis now carries `paid_after_one_failure` and
+`retry_state_unrecorded` so neither mistake can recur silently.
+
+The general lesson, since it has now happened twice in this section: a measure
+built on the ABSENCE of a signal needs to distinguish "we looked and it was not
+there" from "nobody ever looked". Both times the second case was silently read
+as the first, and both times it produced a confident answer that was wrong.
+
 ## What none of this addresses
 
 $2,177.50 — 62% of everything lost — is `insufficient_funds` on a first payment,
