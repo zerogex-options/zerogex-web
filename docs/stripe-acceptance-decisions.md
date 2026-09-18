@@ -263,6 +263,55 @@ taste:**
 before the evidence deliberately, so the reading of the evidence is not
 retrofitted to a change somebody already wanted.
 
+#### What happened when it ran (2026-09-18): the instrument was wrong
+
+None of the three pre-registered outcomes. The test returned a large, confident
+result pointing the OPPOSITE way to the hypothesis: invoices whose retry window
+crossed a payday recovered **0% (0–15%)**, against **26% (15–41%)** for those
+whose window never reached one. Non-overlapping intervals, 62 invoices.
+
+That is not a finding about paydays. It is the measure selecting on the outcome.
+
+`windowCrossedPayday` spans the first failure to the **last failure** — and an
+invoice that recovers *stops failing*, so recovering shortens its window by
+construction. Crossing a payday needs a long window (the observed median is 3
+days), so "crossed" largely encodes "kept failing", which is nearly the
+definition of "never recovered". Regressing recovery on it is circular, and the
+0% is close to guaranteed before any member is involved.
+
+The exogenous table beside it corroborates the diagnosis: day-of-month of the
+first failure — which no outcome can move — shows **no pattern at all**, every
+interval overlapping every other. The clean variable says nothing; the
+contaminated one says something enormous. That is the signature of the bias, not
+of an effect.
+
+**Why the calibration missed it.** Both synthetic replicas assigned outcomes
+independently of window length; I set the windows per group and the recoveries
+per group. Real data does not work that way — there the window is *caused* by
+the outcome. A control built without the confound cannot detect the confound,
+and mine was built that way twice.
+
+**The replacement.** `daysToNextPayday` asks the same question from the first
+failure date alone: when the charge failed, how long would the member have had
+to wait for money? For a trial conversion that date is `trial_end`, seven days
+after a signup that predates all of this, so nothing downstream can reach it.
+The script now leads with that table, prints the window medians split by outcome
+so the contamination is visible, and keeps the old cut underneath labelled as
+the trap it is — deleting a measure because it gave an awkward answer would be
+worse than showing why it is wrong.
+
+**Still undecided.** The clean test has not been read yet. The decision tree
+above stands, with a fourth branch now written into it:
+
+* **A large result in the direction nobody predicted** → suspect the
+  instrument before believing the finding, and check whether the variable can
+  be moved by the thing it claims to predict.
+
+**Also noticed, not yet chased.** The observed retry window has a median of 3
+days and **9 of 62 invoices show a single failure with nothing after it**. Either
+Stripe is not retrying those, or the capture missed the retries. Worth a query
+before it is worth a theory.
+
 ## What none of this addresses
 
 $2,177.50 — 62% of everything lost — is `insufficient_funds` on a first payment,

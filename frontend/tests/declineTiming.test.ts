@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import { foldDeclinesToInvoices, type DeclineRecord } from '../core/paymentDeclines.ts';
 import {
   byDayOfMonth,
+  byDaysToPayday,
+  daysToNextPayday,
+  windowByOutcome,
   ordinal,
   byPaydayCrossing,
   retryWindowDays,
@@ -157,4 +160,72 @@ test('ordinals read as dates, not as bare numbers', () => {
   assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 15, 21, 22, 23, 31].map(ordinal), [
     '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '15th', '21st', '22nd', '23rd', '31st',
   ]);
+});
+
+// ---------------------------------------------------------------------------
+// The confound that broke the first version of this cut.
+//
+// windowCrossedPayday measures first failure -> LAST failure. An invoice that
+// recovers stops failing, so recovering shortens its window, so "crossed a
+// payday" partly encodes "kept failing" which is nearly "never recovered". On
+// live data that produced 0% against 26% — a large, confident result pointing
+// the opposite way to the hypothesis it was built to test.
+// ---------------------------------------------------------------------------
+
+test('the window measure really is contaminated by the outcome', () => {
+  // Recovered invoices stop early; lost ones run the full schedule. This is the
+  // shape of real data, and it is what the synthetic calibration did not have.
+  const invoices = [
+    invoiceOf('in_r1', ['2026-03-05T12:00:00.000Z', '2026-03-06T12:00:00.000Z'], 'recovered'),
+    invoiceOf('in_r2', ['2026-03-05T12:00:00.000Z', '2026-03-06T12:00:00.000Z'], 'recovered'),
+    invoiceOf('in_l1', ['2026-03-05T12:00:00.000Z', '2026-03-19T12:00:00.000Z'], 'lost'),
+    invoiceOf('in_l2', ['2026-03-05T12:00:00.000Z', '2026-03-19T12:00:00.000Z'], 'lost'),
+  ];
+  const rows = windowByOutcome(invoices);
+  const recovered = rows.find((r) => r.outcome === 'recovered');
+  const lost = rows.find((r) => r.outcome === 'lost');
+  assert.ok(recovered && lost);
+  assert.ok(
+    recovered.medianDays! < lost.medianDays!,
+    'recovered invoices must show shorter windows — that IS the contamination',
+  );
+});
+
+test('the exogenous measure depends only on the first failure', () => {
+  // Same first failure, wildly different histories and outcomes. The clean
+  // measure must not budge; the contaminated one does.
+  const short = invoiceOf('in_s', ['2026-03-05T12:00:00.000Z'], 'recovered');
+  const long = invoiceOf('in_l', [
+    '2026-03-05T12:00:00.000Z',
+    '2026-03-12T12:00:00.000Z',
+    '2026-03-19T12:00:00.000Z',
+  ], 'lost');
+  assert.equal(daysToNextPayday(short), daysToNextPayday(long));
+  assert.equal(daysToNextPayday(short), 10); // 5th -> 15th
+});
+
+test('the wait to payday is counted across the month boundary', () => {
+  assert.equal(daysToNextPayday(invoiceOf('in_a', ['2026-03-01T12:00:00.000Z'])), 0);
+  assert.equal(daysToNextPayday(invoiceOf('in_b', ['2026-03-15T12:00:00.000Z'])), 0);
+  assert.equal(daysToNextPayday(invoiceOf('in_c', ['2026-03-14T12:00:00.000Z'])), 1);
+  // 31-day March: the 20th waits 11 days for the 1st of April.
+  assert.equal(daysToNextPayday(invoiceOf('in_d', ['2026-03-20T12:00:00.000Z'])), 12);
+  // 28-day February 2026: the 20th waits 9 days.
+  assert.equal(daysToNextPayday(invoiceOf('in_e', ['2026-02-20T12:00:00.000Z'])), 9);
+  assert.equal(daysToNextPayday(invoiceOf('in_f', ['2026-03-31T12:00:00.000Z'])), 1);
+});
+
+test('the exogenous split is immune to the bias that broke the window one', () => {
+  // Recovered invoices given SHORT histories and lost ones long ones — exactly
+  // the pattern that fooled the window cut. Both groups failed on the same day,
+  // so the clean cut must put them in one bucket and report the true rate.
+  const invoices = [
+    invoiceOf('in_p1', ['2026-03-14T12:00:00.000Z'], 'recovered'),
+    invoiceOf('in_p2', ['2026-03-14T12:00:00.000Z', '2026-03-28T12:00:00.000Z'], 'lost'),
+  ];
+  const rows = byDaysToPayday(invoices);
+  assert.equal(rows.length, 1, 'same first-failure date must mean one bucket');
+  assert.equal(rows[0].key, '0-3');
+  assert.equal(rows[0].invoices, 2);
+  assert.equal(rows[0].recoveryRate, 0.5);
 });
