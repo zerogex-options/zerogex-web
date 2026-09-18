@@ -230,14 +230,27 @@ for await (const invoice of stripe.invoices.list({
 candidates.sort((a, b) => b.amountDue - a.amountDue);
 
 const total = candidates.reduce((sum, c) => sum + c.amountDue, 0);
+// `autoRestores` is a SEND gate, not just a column. The Candidate doc above
+// states the rule — "emailing somebody to settle an invoice that will silently
+// grant them nothing is worse than not emailing them at all" — and until this
+// filter existed the report said so while the send loop went ahead anyway. The
+// email promises "access comes back as soon as the payment clears"; for an
+// invoice whose period has elapsed that sentence is false, and the member pays
+// in full for nothing and waits on a human to notice.
+//
+// Those invoices do not want an email. They want voiding:
+//   make void-stale-invoices EMAIL=<them>
 const sendable = candidates.filter(
-  (c) => !c.alreadyEmailed && c.verified && (ignoreOptOut || !c.optedOut),
+  (c) => !c.alreadyEmailed && c.verified && c.autoRestores && (ignoreOptOut || !c.optedOut),
 );
 const unverified = candidates.filter((c) => !c.verified);
 const sendableTotal = sendable.reduce((sum, c) => sum + c.amountDue, 0);
 
 const autoRestoring = candidates.filter((c) => c.autoRestores);
 const needsHuman = candidates.filter((c) => !c.autoRestores);
+const heldBackStale = needsHuman.filter(
+  (c) => !c.alreadyEmailed && c.verified && (ignoreOptOut || !c.optedOut),
+);
 
 console.log('── Still payable right now ──');
 console.log(`  ${candidates.length} open invoice(s) Stripe has stopped retrying, on lapsed accounts`);
@@ -261,6 +274,11 @@ if (needsHuman.length > 0) {
   console.log('    The payment is collected and audited, but the member stays on the free tier until');
   console.log('    you run:  make recover-orphan-payment EMAIL=<them> YES=1');
   console.log('    Watch for them with:  make scan-orphan-payments   (read-only)');
+  console.log(
+    `    ${heldBackStale.length} of them would otherwise have been emailed — NOT SENT, because the email`,
+  );
+  console.log('    promises access back and could not deliver it. Retire them instead with:');
+  console.log('      make void-stale-invoices            (read-only; YES=1 to void)');
 }
 console.log('');
 console.log('── Held back ──');
@@ -271,7 +289,7 @@ console.log(`  ${noAccount} with no live local account`);
 console.log('\n── The invoices ──');
 for (const c of candidates.slice(0, 200)) {
   const flags = [
-    c.autoRestores ? null : 'needs manual restore if paid',
+    c.autoRestores ? null : 'PERIOD ELAPSED — not emailed, void it instead',
     c.alreadyEmailed ? 'already emailed' : null,
     c.optedOut ? 'opted out' : null,
     c.verified ? null : 'UNVERIFIED — not emailed',
