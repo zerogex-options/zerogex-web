@@ -102,6 +102,10 @@ It also needs a baseline to be readable at all. A 0DTE book at 51% two-sided int
 
 #### Where current spreads rank by expiry
 
+**These buckets count trading sessions, not calendar days.** From a Friday, 1DTE is the Monday expiry — which is also what a trader means by it. Counting calendar days instead puts Monday three days out, in the 2–3 DTE bucket, ranked against contracts that had two or three real sessions of life left. That is a comparison between populations rather than between days, and on the 2026-09-18 expiry it reported SPX and NDX at *exactly* the 100th percentile of that bucket — two independent symbols landing on the same extreme, which is the signature of a definition mismatch rather than a market event.
+
+The distortion was never confined to Fridays. Counting forward from each weekday, the 4–7 calendar-day bucket held contracts 4–5 sessions out from a Monday, 3–5 from a Wednesday and 2–5 from a Thursday: three sessions in five measuring something different from the other two, with no way for the baseline to tell which it was looking at.
+
 Each bar is that expiry bucket's own percentile, not its width. Plotted as widths, 0DTE wins every day of the year and the chart says nothing. Plotted as ranks, a single tall bar beside four ordinary ones is the thing worth knowing: the chain is broadly normal and the front expiry is not. Buckets with too little stored history say "insufficient history" rather than drawing a bar at some default height — on a percentile axis the shortest bar is the strong claim that an expiry is unusually *tight*.
 
 #### What it refuses to say
