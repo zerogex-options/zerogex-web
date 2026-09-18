@@ -320,6 +320,13 @@ export function KeyLevelsBoard({
     spotChange: read.spotChange,
     spotChangePercent: read.spotChangePercent,
     flip: read.flip,
+    // The strip sits directly under the chart and resolves its flip through the
+    // same filtered bucket, so it has to tell the same story about a blank one:
+    // with an Expiry subset selected that blank is the subset having no
+    // crossing, not a declined publish. Without this the chip below would read
+    // "no flip in the selected expiries" while the card above it still said
+    // "Unresolved this snapshot" — the drift this strip exists to prevent.
+    filtered: read.filtered,
     pin: {
       strike: read.pinStrike,
       // The percent, not just the bucket — `pinStrikeSubtitle`, the same copy
