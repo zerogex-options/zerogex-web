@@ -1683,14 +1683,23 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
     // neither stream above can show that they are paid for — this audit row is
     // the only record, and without it a recovered member reads as a conversion
     // charge stuck in flight for the whole honored period.
+    // Both audit types write "Invoice <in_…> recovered as subscription <sub_…>",
+    // so one parser serves both; only what the period MEANS differs, which the
+    // kind carries.
     const recoveredRows = db
       .prepare(
-        `SELECT created_at, user_id, email, message FROM audit_events
-         WHERE type = 'billing_orphan_payment_recovered'
+        `SELECT created_at, user_id, email, message, type FROM audit_events
+         WHERE type IN ('billing_orphan_payment_recovered', 'billing_paid_period_reinstated')
            AND created_at > datetime('now', '-${since} days')
          ORDER BY created_at ASC`,
       )
-      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+      .all() as Array<{
+        created_at: string;
+        user_id: string | null;
+        email: string | null;
+        message: string;
+        type: string;
+      }>;
     const recoveries: LedgerRecoveryEvent[] = [];
     for (const row of recoveredRows) {
       const subId = parseRecoveredSubId(row.message);
@@ -1701,6 +1710,7 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
         email: row.email,
         at: toIsoInstant(row.created_at),
         invoiceId: parseRecoveredInvoiceId(row.message),
+        kind: row.type === 'billing_paid_period_reinstated' ? 'comped' : 'recovered',
       });
     }
 

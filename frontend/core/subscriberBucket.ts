@@ -300,6 +300,17 @@ export type LedgerRecoveryEvent = {
   // The invoice whose payment this subscription re-homes, when the audit row
   // named one. Reported in the ledger row so the money is traceable.
   invoiceId: string | null;
+  // Why this subscription already covers a paid period:
+  //   recovered — orphan recovery re-homed a payment we had collected and kept
+  //               (billing_orphan_payment_recovered).
+  //   comped    — the payment was REFUNDED and the period reinstated as
+  //               goodwill, so no money is held against it at all
+  //               (billing_paid_period_reinstated).
+  // Both belong on the paying line rather than on Converting — no charge is in
+  // flight on either — but they are different facts, and a ledger that called a
+  // refunded comp a "new paying subscriber" would be the same class of lie the
+  // Converting band exists to prevent.
+  kind: 'recovered' | 'comped';
 };
 
 export type LedgerDeleteEvent = {
@@ -372,10 +383,11 @@ type SubState = {
   // onto this subscription). Feeds classifySubscriberBucket's paid-subscription
   // pointer.
   paidAt: string | null;
-  // The invoice an orphan recovery re-homed onto this subscription, when it is
-  // one. Non-null marks the subscription as recovered, which decides both its
-  // bucket (paid from the first sync) and how its row reads.
+  // The invoice whose paid period this subscription carries, when it carries
+  // one. Reported in the row so the money stays traceable.
   recoveredFromInvoice: string | null;
+  // Whether that period was recovered (payment kept) or comped (refunded).
+  recoveredKind: 'recovered' | 'comped' | null;
   // A recovery was recorded for this subscription at all, even with no invoice
   // id parsed out of the audit row.
   recovered: boolean;
@@ -464,6 +476,7 @@ export function buildSubscriberLedger(
         // and it stops the fallback window ever firing on it.
         paidAt: recovery ? recovery.at : null,
         recoveredFromInvoice: recovery?.invoiceId ?? null,
+        recoveredKind: recovery?.kind ?? null,
         recovered: recovery != null,
         paused: false,
         ended: false,
@@ -647,16 +660,17 @@ export function buildSubscriberLedger(
           // canceled the subscription their payment belonged to, so they reach
           // here from notCounted and would otherwise read as an ordinary
           // resubscribe — a new sale, which it is not. No money moved today.
+          const onInvoice = s.recoveredFromInvoice ? ` on invoice ${s.recoveredFromInvoice}` : '';
           push(
             ev,
             s,
             'orphanRecovered',
             next,
-            s.recoveredFromInvoice
-              ? `A payment stranded by a canceled subscription was re-homed onto this one — ` +
-                `the period already paid for on invoice ${s.recoveredFromInvoice}, not a new charge`
-              : 'A payment stranded by a canceled subscription was re-homed onto this one — ' +
-                'the period was already paid for, not a new charge',
+            s.recoveredKind === 'comped'
+              ? `A period already paid for${onInvoice} was reinstated as a comp after the ` +
+                `payment was refunded — nothing is charged on this subscription`
+              : `A payment stranded by a canceled subscription was re-homed onto this one — ` +
+                `the period already paid for${onInvoice}, not a new charge`,
           );
         } else if (s.bucket === 'trialGrace') {
           push(ev, s, 'recovered', next, 'The retry went through — now a paying subscriber');

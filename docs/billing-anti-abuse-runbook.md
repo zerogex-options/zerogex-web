@@ -202,6 +202,34 @@ because real money would mean a refund decision comes first, and that is yours.
 survey, so the churn row is silent and `send-cancellation-alerts` suppresses it
 by default; it is not a new churn.
 
+**Refunding but letting them keep the period.** Refunding someone who forgot to
+cancel has two kind endings, and they are not the same: end the access with the
+refund (`make cancel-subscription`), or refund the money and let them ride out
+the period they had bought. The second had no path — Stripe cannot un-cancel a
+subscription — so:
+
+```
+make reinstate-paid-period EMAIL=<addr>                  # dry run
+make reinstate-paid-period EMAIL=<addr> YES=1
+```
+
+It re-creates the plan for the remainder of that period with
+`cancel_at_period_end` set, so Stripe holds it open to the end and then drops it
+**without raising a renewal invoice**. It carries no coupons (a re-applied coupon
+restarts its clock — the incident above), stamps the paid-subscription pointer so
+the member reads as a Full Subscriber with a dated departure rather than as a
+charge in flight, and suppresses the welcome-back email by clearing
+`subscription_lapsed` before the create — somebody just told this member their
+subscription was closed, and congratulating them on its return is how you end up
+with three contradictory emails in one thread.
+
+Two things to know before you run it. They **do** count in the paying headcount
+until the period ends, while the money for it was refunded; the audit row and the
+ledger both say so (the Subscriber Ledger reads
+`billing_paid_period_reinstated` and reports **Paid period restored** with "no
+charge on this subscription"). And it refuses if the period has already elapsed —
+past that point what is owed is a credit, not access.
+
 Do not hunt for these in SQL alone. `tier='public' AND subscription_status='canceled'`
 is every trial that ended without converting — ~195 rows on this deploy, almost
 all ordinary churn. The signal that separates a stranded payer from a lapsed

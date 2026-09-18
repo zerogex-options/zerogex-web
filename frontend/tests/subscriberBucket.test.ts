@@ -357,6 +357,7 @@ function recovery(over: Partial<LedgerRecoveryEvent> & { at: string }): LedgerRe
     userId: 'u1',
     email: 'a@example.com',
     invoiceId: 'in_old',
+    kind: 'recovered',
     ...over,
   };
 }
@@ -412,6 +413,26 @@ test('the recovery verdict does not depend on which row landed first', () => {
     );
     assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered'], `recovery at ${recoveryAt}`);
   }
+});
+
+test('a COMPED period says so rather than reading as a new sale', () => {
+  // The refunded case: the period is reinstated as goodwill, so no money is held
+  // against it at all. It still belongs on the paying line — nothing is in
+  // flight — but calling it a "new paying subscriber" would be the same class of
+  // lie the Converting band exists to prevent.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-18T04:00:00Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-18T03:59:00Z', kind: 'comped', invoiceId: 'in_refunded' })],
+    Date.parse('2026-09-30T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+  assert.equal(rows[0].convertingDelta, 0);
+  assert.match(rows[0].detail, /reinstated as a comp/);
+  assert.match(rows[0].detail, /refunded/);
+  assert.match(rows[0].detail, /in_refunded/);
 });
 
 test('a recovery with no invoice id still reads as a restored period', () => {
