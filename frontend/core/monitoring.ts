@@ -303,6 +303,11 @@ export type SubscriberLedgerSnapshot = {
   // Net movement of each chart line across the window, which the rows account for.
   net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
+  // Why this ledger is empty, when it is empty because the build FAILED rather
+  // than because nothing happened. Null on a healthy build, including a healthy
+  // build with no rows. The UI must not report "nothing has changed" without
+  // checking it — see noteSnapshotFailure.
+  error: string | null;
 };
 
 // Dashed continuation of the Full Subscriber line: what the count becomes over
@@ -759,7 +764,8 @@ function currentPayingCounts(): {
       else if (row.bucket === 'graceTrial') graceTrial = c;
     }
     return { active, converting, trialing, graceTrial };
-  } catch {
+  } catch (err) {
+    noteSnapshotFailure('subscriber headcount', err);
     return { active: 0, converting: 0, trialing: 0, graceTrial: 0 };
   }
 }
@@ -1427,7 +1433,8 @@ function buildCancellationReasons(): CancellationReasonsSummary {
       byFeedback,
       recentComments,
     };
-  } catch {
+  } catch (err) {
+    noteSnapshotFailure('cancellation reasons', err);
     return empty;
   }
 }
@@ -1533,6 +1540,26 @@ function buildUpcomingChanges(now: Date, conveyor: ConveyorParts): UpcomingChang
   };
 }
 
+// A monitoring section that failed to build, turned into something an operator
+// can actually see.
+//
+// Every builder here degrades to an empty result rather than 500-ing the admin
+// page, which is the right call — one broken query must not take the whole
+// dashboard down. What was wrong was doing it in SILENCE: an empty Subscriber
+// Ledger renders as "Nothing has changed in the last 30 days", which is a
+// confident factual claim, and indistinguishable from a thrown query. Somebody
+// chasing a member who is missing from it has no way to tell that the ledger
+// simply did not run.
+//
+// So a failure is logged with a consistent prefix (it lands in the PM2 log next
+// to the request that caused it) and the message is returned for the snapshot to
+// carry to the UI where one can.
+function noteSnapshotFailure(section: string, err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[monitoring] ${section} failed to build: ${message}`);
+  return message;
+}
+
 // ── Subscriber ledger ──────────────────────────────────────────────────────
 const LEDGER_WINDOW_DAYS = 30;
 // Cap on rows serialized to the client. Well above a normal window's traffic;
@@ -1587,13 +1614,14 @@ function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
 // delegates to owns the plain name. Any failure yields an empty ledger rather
 // than 500-ing the admin page.
 function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
-  const empty: SubscriberLedgerSnapshot = {
+  const empty = (error: string | null): SubscriberLedgerSnapshot => ({
     windowDays: LEDGER_WINDOW_DAYS,
     rows: [],
     truncated: 0,
     net: { fullSubscriber: 0, converting: 0, freeTrial: 0, trialGrace: 0 },
     generatedAt: now.toISOString(),
-  };
+    error,
+  });
   try {
     const db = getDb();
     // Scanned oldest-first so each subscription's prior state is known before
@@ -1686,9 +1714,10 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
       net: summarizeLedger(all),
       generatedAt: now.toISOString(),
+      error: null,
     };
-  } catch {
-    return empty;
+  } catch (err) {
+    return empty(noteSnapshotFailure('subscriber ledger', err));
   }
 }
 
@@ -1938,8 +1967,10 @@ function readConveyorParts(now: Date): ConveyorParts {
       ),
       graceDays,
     };
-  } catch {
-    // Query/parse failure: render an empty belt rather than 500-ing the page.
+  } catch (err) {
+    // Query/parse failure: render an empty belt rather than 500-ing the page —
+    // logged, because an empty belt is otherwise a confident "no trials running".
+    noteSnapshotFailure('conversion conveyor', err);
     return empty;
   }
 }

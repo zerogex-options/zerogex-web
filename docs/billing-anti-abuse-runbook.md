@@ -169,35 +169,38 @@ themselves, and the Subscriber Ledger reads the
 restored** instead of a conversion charge stuck in flight.
 
 Recoveries performed *before* that shipped still have a NULL pointer, so they sit
-on the admin Converting line until their first renewal. One idempotent statement
-fixes them, and only them — it requires the recovery audit row to name the
-subscription the member is on right now, so a healthy payer, a member who has
+on the admin Converting line until their first renewal. One target fixes them,
+and only them — it requires a `billing_orphan_payment_recovered` audit row naming
+the subscription the member is on right now, so a healthy payer, a member who has
 since moved to another subscription, and an ordinary trial mid-conversion are all
 left alone:
 
-```sql
-UPDATE users
-   SET last_paid_subscription_id = stripe_subscription_id,
-       last_paid_invoice_at = COALESCE(last_paid_invoice_at, (
-         SELECT MIN(a.created_at) FROM audit_events a
-          WHERE a.type = 'billing_orphan_payment_recovered'
-            AND a.user_id = users.id
-            AND a.message LIKE '%recovered as subscription ' || users.stripe_subscription_id || ' %'
-       ))
- WHERE subscription_status = 'active'
-   AND stripe_subscription_id IS NOT NULL
-   AND last_paid_subscription_id IS NULL
-   AND EXISTS (
-     SELECT 1 FROM audit_events a
-      WHERE a.type = 'billing_orphan_payment_recovered'
-        AND a.user_id = users.id
-        AND a.message LIKE '%recovered as subscription ' || users.stripe_subscription_id || ' %'
-   );
+```
+make backfill-recovery-pointers            # read-only: lists who it would stamp
+make backfill-recovery-pointers APPLY=1
 ```
 
-Swap `UPDATE users SET` for `SELECT id, email, stripe_subscription_id FROM users`
-with the same `WHERE` to see who it would touch first. Re-running it changes
-nothing.
+Idempotent — it writes only where the pointer is NULL, so a second run reports
+nothing to do.
+
+**Reversing a recovery that should not have happened.** For the refunded case the
+guard now blocks, the recovery already made is undone with:
+
+```
+make unwind-orphan-recovery EMAIL=<addr>             # dry run
+make unwind-orphan-recovery EMAIL=<addr> YES=1
+```
+
+It cancels the recovery subscription immediately (nothing was ever charged on it,
+so there is nothing to refund or collect, and any coupon carried onto it dies
+with the subscription), returns the row to the state it held before the recovery,
+and audits it. It refuses unless the subscription carries the
+`recovered_from_invoice` stamp, the recovered invoice was refunded **in full**,
+and no invoice has ever been paid on the recovery subscription — that last one
+because real money would mean a refund decision comes first, and that is yours.
+`FORCE=1` skips only the refund check. Cancelling through the API records no
+survey, so the churn row is silent and `send-cancellation-alerts` suppresses it
+by default; it is not a new churn.
 
 Do not hunt for these in SQL alone. `tier='public' AND subscription_status='canceled'`
 is every trial that ended without converting — ~195 rows on this deploy, almost
