@@ -189,6 +189,21 @@ test('the session index is listed in the sitemap, the live tool is not', () => {
   assert.match(excludeBlock, /'\/hedging-flow',/);
 });
 
+test('the pickers offer only symbols this endpoint can answer for', () => {
+  // The backend's futures middleware refuses the per-contract flow endpoints
+  // for ES / NQ outright (400): an SPX contract with its strike scaled by the
+  // basis is not a contract anyone can trade. A picker that listed them would
+  // be offering an error, and a reader cannot tell a refused symbol from a
+  // broken page.
+  for (const file of [
+    'app/hedging-flow/sessions/page.tsx',
+    'app/hedging-flow/[symbol]/[date]/DatedHedgingFlow.tsx',
+    'app/hedging-flow/[symbol]/[date]/page.tsx',
+  ]) {
+    assert.match(read(file), /symbols=\{CASH_SYMBOLS\}/, `${file} must restrict the picker`);
+  }
+});
+
 test('every dated OG image awaits its params', () => {
   // `params` is a Promise in this Next version. Destructured synchronously it
   // yields undefined, so the preview renders with no date and skips its fetch

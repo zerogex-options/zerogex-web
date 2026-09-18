@@ -285,9 +285,28 @@ In this order. Step 2 is the one with a clock on it.
 | # | Step | Where |
 | --- | --- | --- |
 | 1 | `make schema-apply` — creates `hedging_flow_5min` | zerogex-oa |
-| 2 | **`make hedging-flow-backfill`** — seeds history from retained facts | zerogex-oa |
+| 2 | **`make hedging-flow-backfill FLOW_SERIES_SYMBOLS=SPY,QQQ,SPX,NDX DAYS=0`** | zerogex-oa |
 | 3 | Deploy the engine + API | zerogex-oa |
 | 4 | Deploy the web app | zerogex-web |
+
+Two arguments on step 2 are easy to leave off and both cost history:
+
+* **`FLOW_SERIES_SYMBOLS`** defaults to `SPY` alone. The session list and the
+  permalinks offer SPY, QQQ, SPX and NDX, so the other three come up empty
+  until they are named. (ES and NQ are not on this list and never will be: the
+  futures middleware refuses the per-contract flow endpoints outright, because
+  an SPX contract with its strike scaled by the basis is not a contract anyone
+  can trade. The pickers hide them.)
+* **`DAYS`** defaults to `DATA_RETENTION_DAYS`, which is an *env var* and may
+  be lower than 90 on a given deployment. If `flow_contract_facts` happens to
+  hold more than that — `db-prune` runs on a timer, not continuously — the
+  default silently leaves the extra days behind. `DAYS=0` means no lower bound
+  and takes everything that is there. Check what is actually reachable first:
+
+  ```sql
+  SELECT symbol, MIN(timestamp)::date AS oldest, MAX(timestamp)::date AS newest
+  FROM flow_contract_facts GROUP BY symbol ORDER BY symbol;
+  ```
 
 **Step 2 is a one-way door with a clock on it.** The engine writes only the
 current session each cycle, so on the day this ships the table holds one day.
@@ -298,14 +317,17 @@ exists permanently; don't, and it ages out a day at a time while nobody
 notices. It is idempotent, commits per session, and takes `DRY_RUN=1` and
 `DAYS=<n>`.
 
-Verification, against a scratch database with the schema applied:
+Verification. Note this harness SEEDS data, so unlike `flow-series-parity` it
+refuses to run without an explicit DSN rather than inheriting the one in
+`.env` — point it at a scratch database with the schema applied:
 
 ```
 make hedging-flow-parity HEDGING_FLOW_PARITY_DSN=postgres://...
 ```
 
-That seeds its own synthetic sessions under a sentinel symbol and asserts the
-three properties the feature rests on: a stored bar equals what the live CTE
+It seeds its own synthetic sessions under a sentinel symbol, removes every row
+it created afterwards (including the `symbols` row), and asserts the three
+properties the feature rests on: a stored bar equals what the live CTE
 computes for the same window, re-running the writer over a closed session
 writes zero rows, and a non-expiry session materialises no `0dte` scope.
 

@@ -8,7 +8,7 @@ import SectionHead from '@/components/layout/SectionHead';
 import BetaBadge from '@/components/BetaBadge';
 import SymbolPicker from '@/components/SymbolPicker';
 import DataUnavailable from '@/components/DataUnavailable';
-import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { CASH_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
 import { normalizeGammaRegime, normalizeHedgingFlow } from '@/core/hedgingFlowSeries';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
@@ -212,7 +212,7 @@ export default async function HedgingFlowSessionPage({
           {sym} · {human}.
         </>
       }
-      actions={<SymbolPicker current={sym} hrefs={pickerHrefs} />}
+      actions={<SymbolPicker current={sym} hrefs={pickerHrefs} symbols={CASH_SYMBOLS} />}
     />
   );
 
