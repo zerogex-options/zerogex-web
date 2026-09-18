@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
 import SymbolPicker from '@/components/SymbolPicker';
-import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { CASH_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 import SessionCard from './SessionCard';
 
@@ -132,7 +132,10 @@ export default async function HedgingFlowSessionsPage({
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">Past sessions</h1>
           </div>
-          <SymbolPicker current={symbol} hrefs={pickerHrefs} />
+          {/* Cash only: the backend's futures middleware refuses the
+              per-contract flow endpoints for ES / NQ, so offering them here
+              would be offering an error. */}
+          <SymbolPicker current={symbol} hrefs={pickerHrefs} symbols={CASH_SYMBOLS} />
         </div>
         <p
           className="mt-2 max-w-2xl text-sm leading-relaxed"

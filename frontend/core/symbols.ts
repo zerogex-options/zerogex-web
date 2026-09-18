@@ -52,6 +52,21 @@ export function isFuturesSymbol(symbol: string | null | undefined): boolean {
 }
 
 /**
+ * The symbols a PER-CONTRACT option-flow surface can actually answer for.
+ *
+ * ES / NQ are served everywhere else by running the SPX / NDX handler and
+ * projecting onto the futures price axis, but the backend's futures middleware
+ * REFUSES the per-contract flow endpoints outright (400): an SPX contract with
+ * its strike scaled by the basis is not a contract anyone can trade, and there
+ * is no ES chain to substitute. `/api/flow/hedging` is one of those.
+ *
+ * So a picker on one of those surfaces should not offer them. Offering a
+ * choice that resolves to an error is worse than not offering it — the reader
+ * cannot tell a refused symbol from a broken page.
+ */
+export const CASH_SYMBOLS = SYMBOLS.filter((s) => !isFuturesSymbol(s)) as readonly PickerSymbol[];
+
+/**
  * The symbol whose OPTION CHAIN answers for this one: the backing cash index
  * for a future, the symbol itself for everything else.
  *

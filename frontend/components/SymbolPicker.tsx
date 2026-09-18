@@ -13,9 +13,15 @@ interface PickerProps {
    *  path segment swap (/forecast/QQQ/2026-07-01) or a query change
    *  (/forecast?symbol=QQQ) depending on the surface. */
   hrefs: Record<PickerSymbol, string>;
+  /**
+   * The symbols to offer. Defaults to all of them; pass a narrower list on a
+   * surface the backend cannot answer for every symbol, so the picker never
+   * shows a choice that resolves to an error.
+   */
+  symbols?: readonly PickerSymbol[];
 }
 
-export default function SymbolPicker({ current, hrefs }: PickerProps) {
+export default function SymbolPicker({ current, hrefs, symbols = SYMBOLS }: PickerProps) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -26,7 +32,7 @@ export default function SymbolPicker({ current, hrefs }: PickerProps) {
 
   return (
     <div className="flex items-center gap-2" aria-label="Symbol">
-      {SYMBOLS.map((s) => {
+      {symbols.map((s) => {
         const active = s === current;
         return (
           <button
