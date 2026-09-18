@@ -59,6 +59,7 @@ import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleB
 import { firstLevel, levelOrNull } from "@/core/levelValue";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
+import { resolveRewindBucket } from "@/core/rewindBucket";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
@@ -1064,27 +1065,21 @@ export default function GammaTerminalChart({
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
 
-  // The gamma structure at the rewound moment: the exact bucket for the anchor
-  // bar if one exists (aligned timeframes), else the nearest bucket in time.
-  // Keyed off the CLAMPED anchor, so it tracks the bar actually on the right
-  // edge — that's why the walls / flip now move as you scrub.
-  const rewindBucket = useMemo(() => {
-    if (!rewindActive || rewindTime == null || gexBuckets.length === 0) return null;
-    const exact = gexByTs.get(rewindTime);
-    if (exact) return exact;
-    let best: (typeof gexBuckets)[number] | null = null;
-    let bestDist = Infinity;
-    for (const b of gexBuckets) {
-      const t = new Date(b.timestamp).getTime();
-      if (!Number.isFinite(t)) continue;
-      const d = Math.abs(t - rewindTime);
-      if (d < bestDist) {
-        bestDist = d;
-        best = b;
-      }
-    }
-    return best;
-  }, [rewindActive, rewindTime, gexBuckets, gexByTs]);
+  // The gamma structure at the rewound moment: the newest bucket at or before
+  // the anchor, within the anchor's own session. Keyed off the CLAMPED anchor,
+  // so it tracks the bar actually on the right edge — that's why the walls /
+  // flip move as you scrub.
+  //
+  // This used to take the NEAREST bucket in either direction, which on a
+  // five-minute grid and a continuous replay clock meant an anchor at 10:03
+  // read 10:05: the levels moved before the tape that moved them. The rule is
+  // core/rewindBucket's now, and strictly backward-looking — see its header.
+  // `null` when the anchor sits before its session's first bucket, and the
+  // levels below draw nothing rather than borrowing a settled session's.
+  const rewindBucket = useMemo(
+    () => (rewindActive ? resolveRewindBucket(gexBuckets, rewindTime, symbol) : null),
+    [rewindActive, rewindTime, gexBuckets, symbol],
+  );
 
   // Session-anchored VWAP for the rewound moment, computed from the pool bars
   // (Σ typical-price × volume ÷ Σ volume over the anchor bar's regular session,
@@ -1138,7 +1133,14 @@ export default function GammaTerminalChart({
   // load-bearing here: /api/gex/profile LEFT JOINs gex_summary on an exact
   // timestamp match, so it returns a null flip on any write skew between the
   // two tables and the fallback is taken routinely.
-  const levelBucket = rewindBucket ?? (filteredExp && live ? liveGexBucket : null);
+  //
+  // `rewindActive` decides the branch rather than `rewindBucket ?? …`: a
+  // rewound anchor with no bucket behind it must draw NOTHING, never fall
+  // through to the live tip's levels. That fall-through was unreachable while
+  // the nearest-match always returned something; strict backward resolution
+  // makes it reachable, and a live flip on a rewound bar is exactly the
+  // cross-scope contradiction the rest of this block is built to avoid.
+  const levelBucket = rewindActive ? rewindBucket : (filteredExp && live ? liveGexBucket : null);
   const flip = levelBucket
     ? levelOrNull(levelBucket.gamma_flip)
     : snapshot ? snapshot.gamma.flip : firstLevel(gexProfile?.gamma_flip, gexSummary?.gamma_flip);
@@ -1193,15 +1195,15 @@ export default function GammaTerminalChart({
   //
   // Null (no active pin, or a session predating the pin) draws NO LINE —
   // every levelDefs consumer skips a null value. Never a 0 on the axis.
-  const pinStrike = rewindBucket
-    ? levelOrNull(rewindBucket.pin_strike)
+  const pinStrike = rewindActive
+    ? rewindBucket ? levelOrNull(rewindBucket.pin_strike) : null
     : levelOrNull(gexSummary?.pin_strike);
   // Confidence rides the SAME source as the pin itself, so the strength shown
   // on the line can never describe a different moment than the line it
   // annotates: the rewound bucket's stored value while rewinding, the live
   // summary otherwise.
-  const pinConfidence = rewindBucket
-    ? levelOrNull(rewindBucket.pin_confidence)
+  const pinConfidence = rewindActive
+    ? rewindBucket ? levelOrNull(rewindBucket.pin_confidence) : null
     : levelOrNull(gexSummary?.pin_confidence);
   // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
   // onto the chart, so the conviction travels with the level instead of living
@@ -1222,8 +1224,8 @@ export default function GammaTerminalChart({
   //
   // Still null on the delayed public snapshot, which carries no King at all.
   // Null draws no line — never a 0 on the axis.
-  const gexKing = rewindBucket
-    ? levelOrNull(rewindBucket.max_gamma_strike)
+  const gexKing = rewindActive
+    ? rewindBucket ? levelOrNull(rewindBucket.max_gamma_strike) : null
     : snapshot
       ? null
       : levelOrNull(gexSummary?.max_gamma_strike);
@@ -1236,8 +1238,13 @@ export default function GammaTerminalChart({
     // identically — only the bucket differs (the rewound moment vs the live
     // tip). Raw per-strike values are discrete and sign-alternating between
     // neighbors, so rewindRailCurve smooths them into the clean silhouette.
-    const strikeBucket = rewindBucket ?? (live ? liveGexBucket : null);
+    // Same rewind guard the levels above use: while rewinding, the rail is the
+    // rewound bucket's or nothing. Falling through to the live tip would draw
+    // today's gamma surface beside a rewound candle — and unlike a missing
+    // level, a wrong rail is not visibly missing.
+    const strikeBucket = rewindActive ? rewindBucket : (live ? liveGexBucket : null);
     if (strikeBucket) return rewindRailCurve(strikeBucket.strikes);
+    if (rewindActive) return [];
     // Delayed snapshot: per-strike if present, else the served cumulative curve.
     if (snapshot) return snapshot.strikes ? rewindRailCurve(snapshot.strikes) : snapshot.profile;
     // Fallback while the timeseries seeds: the cumulative GEX-profile curve.
@@ -1247,7 +1254,7 @@ export default function GammaTerminalChart({
       .map((p) => ({ price: Number(p.price), gex: Number(p.gex) }))
       .filter((p) => Number.isFinite(p.price) && Number.isFinite(p.gex))
       .sort((a, b) => a.price - b.price);
-  }, [gexProfile, snapshot, rewindBucket, liveGexBucket, live]);
+  }, [gexProfile, snapshot, rewindActive, rewindBucket, liveGexBucket, live]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
   // Three readings, TradingView-style (see priceChange.ts):
@@ -1566,7 +1573,7 @@ export default function GammaTerminalChart({
   // net = call + put). Live/rewind only; the delayed snapshot ships net but no
   // per-strike call/put split, so effectiveRailMode is pinned to silhouette there.
   const railStrikes = useMemo<RailStrike[]>(() => {
-    const bucket = rewindBucket ?? (live ? liveGexBucket : null);
+    const bucket = rewindActive ? rewindBucket : (live ? liveGexBucket : null);
     const src = bucket?.strikes ?? null;
     if (!Array.isArray(src)) return [];
     return src
@@ -1578,7 +1585,7 @@ export default function GammaTerminalChart({
       }))
       .filter((s) => Number.isFinite(s.price))
       .sort((a, b) => a.price - b.price);
-  }, [rewindBucket, liveGexBucket, live]);
+  }, [rewindActive, rewindBucket, liveGexBucket, live]);
 
   // ── Per-expiration gradient for the rail bars ──
   // The strike-profile timeseries sums gamma server-side across the selected

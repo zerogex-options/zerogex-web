@@ -16,6 +16,7 @@ import {
 import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useGEXProfile } from '@/hooks/useApiData';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
+import { LEVEL_NO_FLIP_IN_SCOPE_NOTE, noFlipInScopeTooltip } from '@/core/keyLevels';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
@@ -962,6 +963,33 @@ export default function GexProfileChart({
               <span className="inline-block h-0.5 w-4" style={{ backgroundColor: PROFILE_LINE_COLOR }} />
               GEX Profile
             </div>
+            {/* Why there is no Flip reference line. Only under a subset, and
+                only when the scoped curve has no crossing: a filtered book is
+                often one-signed, and an absent line with nothing beside it
+                reads as a broken chart rather than as the finding it is. The
+                copy is core/keyLevels', the same sentence the Gamma Chart's
+                chip and the Key Levels strip carry, so the three surfaces
+                cannot explain one blank three ways. With "All" selected a
+                missing flip is a different story and is left to the surfaces
+                that tell it. `hasData` gates it because an empty `merged` also
+                yields no crossing, and a chart still waiting on its first
+                strikes has found nothing rather than found nothing there. */}
+            {isSubsetSelection && hasData && effectiveGammaFlip == null && (
+              <div
+                className="flex items-center gap-1.5"
+                style={{ color: 'var(--color-warning)' }}
+                title={noFlipInScopeTooltip('Gamma Flip')}
+              >
+                <span
+                  className="inline-block h-0.5 w-4"
+                  style={{
+                    backgroundImage:
+                      'repeating-linear-gradient(90deg, var(--color-warning) 0 4px, transparent 4px 8px)',
+                  }}
+                />
+                {LEVEL_NO_FLIP_IN_SCOPE_NOTE}
+              </div>
+            )}
           </div>
         </div>
 
