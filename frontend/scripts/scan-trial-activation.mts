@@ -391,11 +391,37 @@ if (neverStarted.length > 0) {
   );
   console.log(`  sometimes not a problem at all.`);
   console.log(
-    `  Of those who meant it, the ones ALREADY NUDGED are the verdict on the email: they got it`,
+    `  Of those who meant it, the ones ALREADY NUDGED did get the email and are still here.\n`,
   );
-  console.log(
-    `  and are still here. A large number there means sending it to more people will not help.\n`,
-  );
+
+  // The count above is half a fraction. "302 were nudged and never started" only
+  // condemns the email if few of the people it reached ever started — and anyone
+  // it DID move has left this cohort for another one, so they are invisible from
+  // here. The denominator is every member in the window carrying the latch,
+  // whatever cohort they now sit in, and the rate below is the actual verdict.
+  const allNudged = members.filter((m) => m.nudged);
+  if (allNudged.length > 0) {
+    const moved = allNudged.filter((m) => m.cohort !== 'never_started');
+    const paid = moved.filter((m) => m.cohort === 'converted' || m.cohort === 'paid_then_left');
+    const pct = (n: number) => `${n}/${allNudged.length} (${Math.round((n / allNudged.length) * 100)}%)`;
+    console.log(`NUDGE EMAIL — did it move anyone?`);
+    console.log('-'.repeat(84));
+    console.log(`${pad('Sent in this window', 38)}${allNudged.length}`);
+    console.log(`${pad('Went on to start a trial', 38)}${pct(moved.length)}`);
+    console.log(`${pad('Went on to pay', 38)}${pct(paid.length)}`);
+    console.log(
+      `\n  A low start rate is the email failing, and sending it to more people repeats that at`,
+    );
+    console.log(
+      `  the cost of the domain reputation your receipts and payment-failure notices ride on.`,
+    );
+    console.log(
+      `  A healthy one means the email works and the unsent remainder is worth draining.`,
+    );
+    console.log(
+      `  Neither is causal — nobody held out a control group — but a floor near zero is decisive.\n`,
+    );
+  }
 }
 
 if (converted.length < cliArgs.minSupport || lost.length < cliArgs.minSupport) {
