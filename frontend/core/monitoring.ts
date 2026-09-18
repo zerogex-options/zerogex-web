@@ -40,6 +40,7 @@ import {
   summarizeLedger,
   type LedgerDeleteEvent,
   type LedgerPaymentEvent,
+  type LedgerRecoveryEvent,
   type LedgerRow,
   type LedgerSyncEvent,
 } from '@/core/subscriberBucket';
@@ -302,6 +303,11 @@ export type SubscriberLedgerSnapshot = {
   // Net movement of each chart line across the window, which the rows account for.
   net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
+  // Why this ledger is empty, when it is empty because the build FAILED rather
+  // than because nothing happened. Null on a healthy build, including a healthy
+  // build with no rows. The UI must not report "nothing has changed" without
+  // checking it — see noteSnapshotFailure.
+  error: string | null;
 };
 
 // Dashed continuation of the Full Subscriber line: what the count becomes over
@@ -758,7 +764,8 @@ function currentPayingCounts(): {
       else if (row.bucket === 'graceTrial') graceTrial = c;
     }
     return { active, converting, trialing, graceTrial };
-  } catch {
+  } catch (err) {
+    noteSnapshotFailure('subscriber headcount', err);
     return { active: 0, converting: 0, trialing: 0, graceTrial: 0 };
   }
 }
@@ -1085,6 +1092,24 @@ function parseSyncStatus(message: string): string | null {
   return m ? m[1] : null;
 }
 
+// `billing_orphan_payment_recovered` messages open
+// "Invoice <in_...> recovered as subscription <sub_...> on price ...", written
+// identically by the webhook and scripts/recover-orphan-payment.mts.
+//
+// Anchored on that phrase rather than reusing parseSubIdFromMessage, which takes
+// the first sub_ token it finds: these messages go on to name carried coupons and
+// rejected params, and a format change that moved another id earlier in the
+// string would otherwise silently mark the WRONG subscription as paid for.
+function parseRecoveredSubId(message: string): string | null {
+  const m = message.match(/\brecovered as subscription (sub_[A-Za-z0-9]+)/);
+  return m ? m[1] : null;
+}
+
+function parseRecoveredInvoiceId(message: string): string | null {
+  const m = message.match(/\bInvoice (in_[A-Za-z0-9]+)\b/);
+  return m ? m[1] : null;
+}
+
 // How far back the flow / registration charts DISPLAY. Unlike the traffic
 // buckets (pruned at 90 days), these recompute from the retained, append-only
 // audit_events + users logs every request, so they can show far more history.
@@ -1408,7 +1433,8 @@ function buildCancellationReasons(): CancellationReasonsSummary {
       byFeedback,
       recentComments,
     };
-  } catch {
+  } catch (err) {
+    noteSnapshotFailure('cancellation reasons', err);
     return empty;
   }
 }
@@ -1514,6 +1540,26 @@ function buildUpcomingChanges(now: Date, conveyor: ConveyorParts): UpcomingChang
   };
 }
 
+// A monitoring section that failed to build, turned into something an operator
+// can actually see.
+//
+// Every builder here degrades to an empty result rather than 500-ing the admin
+// page, which is the right call — one broken query must not take the whole
+// dashboard down. What was wrong was doing it in SILENCE: an empty Subscriber
+// Ledger renders as "Nothing has changed in the last 30 days", which is a
+// confident factual claim, and indistinguishable from a thrown query. Somebody
+// chasing a member who is missing from it has no way to tell that the ledger
+// simply did not run.
+//
+// So a failure is logged with a consistent prefix (it lands in the PM2 log next
+// to the request that caused it) and the message is returned for the snapshot to
+// carry to the UI where one can.
+function noteSnapshotFailure(section: string, err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[monitoring] ${section} failed to build: ${message}`);
+  return message;
+}
+
 // ── Subscriber ledger ──────────────────────────────────────────────────────
 const LEDGER_WINDOW_DAYS = 30;
 // Cap on rows serialized to the client. Well above a normal window's traffic;
@@ -1568,13 +1614,14 @@ function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
 // delegates to owns the plain name. Any failure yields an empty ledger rather
 // than 500-ing the admin page.
 function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
-  const empty: SubscriberLedgerSnapshot = {
+  const empty = (error: string | null): SubscriberLedgerSnapshot => ({
     windowDays: LEDGER_WINDOW_DAYS,
     rows: [],
     truncated: 0,
     net: { fullSubscriber: 0, converting: 0, freeTrial: 0, trialGrace: 0 },
     generatedAt: now.toISOString(),
-  };
+    error,
+  });
   try {
     const db = getDb();
     // Scanned oldest-first so each subscription's prior state is known before
@@ -1631,8 +1678,44 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       at: toIsoInstant(row.createdAt),
     }));
 
+    // Subscriptions an orphan recovery created to carry an already-paid period.
+    // They never raise an invoice of their own before their first renewal, so
+    // neither stream above can show that they are paid for — this audit row is
+    // the only record, and without it a recovered member reads as a conversion
+    // charge stuck in flight for the whole honored period.
+    // Both audit types write "Invoice <in_…> recovered as subscription <sub_…>",
+    // so one parser serves both; only what the period MEANS differs, which the
+    // kind carries.
+    const recoveredRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message, type FROM audit_events
+         WHERE type IN ('billing_orphan_payment_recovered', 'billing_paid_period_reinstated')
+           AND created_at > datetime('now', '-${since} days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{
+        created_at: string;
+        user_id: string | null;
+        email: string | null;
+        message: string;
+        type: string;
+      }>;
+    const recoveries: LedgerRecoveryEvent[] = [];
+    for (const row of recoveredRows) {
+      const subId = parseRecoveredSubId(row.message);
+      if (!subId) continue;
+      recoveries.push({
+        subId,
+        userId: row.user_id,
+        email: row.email,
+        at: toIsoInstant(row.created_at),
+        invoiceId: parseRecoveredInvoiceId(row.message),
+        kind: row.type === 'billing_paid_period_reinstated' ? 'comped' : 'recovered',
+      });
+    }
+
     const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
-    const all = buildSubscriberLedger(syncs, deletes, payments, now.getTime()).filter(
+    const all = buildSubscriberLedger(syncs, deletes, payments, recoveries, now.getTime()).filter(
       (r) => Date.parse(r.at) >= cutoffMs,
     );
     return {
@@ -1641,9 +1724,10 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
       net: summarizeLedger(all),
       generatedAt: now.toISOString(),
+      error: null,
     };
-  } catch {
-    return empty;
+  } catch (err) {
+    return empty(noteSnapshotFailure('subscriber ledger', err));
   }
 }
 
@@ -1893,8 +1977,10 @@ function readConveyorParts(now: Date): ConveyorParts {
       ),
       graceDays,
     };
-  } catch {
-    // Query/parse failure: render an empty belt rather than 500-ing the page.
+  } catch (err) {
+    // Query/parse failure: render an empty belt rather than 500-ing the page —
+    // logged, because an empty belt is otherwise a confident "no trials running".
+    noteSnapshotFailure('conversion conveyor', err);
     return empty;
   }
 }

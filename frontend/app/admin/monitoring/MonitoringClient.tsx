@@ -234,6 +234,10 @@ type SubscriberLedger = {
   truncated: number;
   net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
+  // Non-null when the ledger is empty because it FAILED to build. Rendered
+  // instead of "nothing has changed", which is otherwise a confident claim the
+  // page has no grounds for.
+  error: string | null;
 };
 
 // Mirrors SubscriberProjection in core/monitoring.ts (hand-synced — that module
@@ -1111,6 +1115,7 @@ const LEDGER_TONE: Record<LedgerEventKind, string> = {
   trialStarted: ROW_COLORS.signups,
   conversionPending: CONVERTING_COLOR,
   converted: CONVEYOR_COLORS.running,
+  orphanRecovered: CONVEYOR_COLORS.running,
   recovered: CONVEYOR_COLORS.running,
   trialChargeDeclined: CONVEYOR_COLORS.stalled,
   renewalFailed: CONVEYOR_COLORS.stalled,
@@ -1204,7 +1209,22 @@ function SubscriberLedgerCard({
         </button>
       </div>
 
-      {rows.length === 0 ? (
+      {ledger.error ? (
+        // A failed build must never read as a quiet window. Chasing a member who
+        // is missing from this list is a very different job depending on which
+        // of the two it is, and the page is the only thing that knows.
+        <div className="text-sm py-6 px-3 text-center" style={{ color: CONVEYOR_COLORS.stalled }}>
+          <div className="font-semibold">The ledger could not be built.</div>
+          <div className="text-xs mt-1" style={{ color: mutedText }}>
+            This is NOT &ldquo;nothing happened&rdquo; — the query failed, so the last{' '}
+            {ledger.windowDays} days are unknown. Check the server log for
+            <code className="mx-1">[monitoring] subscriber ledger</code>.
+          </div>
+          <div className="text-[11px] mt-2 font-mono break-words" style={{ color: mutedText }}>
+            {ledger.error}
+          </div>
+        </div>
+      ) : rows.length === 0 ? (
         <p className="text-sm py-6 text-center" style={{ color: mutedText }}>
           Nothing has changed in the last {ledger.windowDays} days.
         </p>

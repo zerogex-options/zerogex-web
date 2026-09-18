@@ -40,6 +40,7 @@ import {
 } from '@/core/billingUser';
 import {
   buildRecoverySubscriptionParams,
+  couldBeOrphaned,
   decideDiscountCarryOver,
   decideOrphanPayment,
   readSubscriptionDiscounts,
@@ -47,11 +48,15 @@ import {
 } from '@/core/orphanPayment';
 import {
   decideLateDiscountFix,
+  readInvoiceChargeId,
   readInvoiceCouponIds,
+  readInvoicePaidAtUnix,
+  readInvoicePaymentIntentId,
   readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
+  readInvoiceRefundedAmount,
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
 import { classifyDecline, type DeclineCategory } from '@/core/declineReason';
@@ -1513,7 +1518,17 @@ async function maybeSendPaidWelcomeEmail(
 // Webhook events are processed serially inside a PM2 process, so the row read
 // above is still current; and unlike the account stamp this write is naturally
 // idempotent, so it needs no exactly-once CAS.
-function stampSubscriptionPayment(user: UserRow, subId: string): void {
+//
+// `paidAtIso` overrides the recorded date for the case where the payment did not
+// just happen: an orphan recovery honors an invoice paid days or weeks earlier,
+// and dating that stamp "now" would tell whoever reads `make diagnose-user` the
+// money arrived today. Defaults to the wall clock, which is right for the
+// ordinary invoice.paid caller.
+function stampSubscriptionPayment(
+  user: UserRow,
+  subId: string,
+  paidAtIso?: string | null,
+): void {
   if (
     !acceptsSubscriptionPaymentStamp({
       lastPaidSubscriptionId: user.last_paid_subscription_id,
@@ -1523,14 +1538,14 @@ function stampSubscriptionPayment(user: UserRow, subId: string): void {
   ) {
     return;
   }
-  const stamp = nowIso();
+  const now = nowIso();
   getDb()
     .prepare(
       `UPDATE users
           SET last_paid_subscription_id = ?, last_paid_invoice_at = ?, updated_at = ?
         WHERE id = ?`,
     )
-    .run(subId, stamp, stamp, user.id);
+    .run(subId, paidAtIso || now, now, user.id);
 }
 
 // Stamp the instant this member's FIRST subscription invoice was actually paid,
@@ -1779,6 +1794,80 @@ async function createRecoverySubscription(
   }
 }
 
+// How much of this invoice has been refunded, in the smallest currency unit —
+// read LIVE, and null when that cannot be established.
+//
+// Live is the whole point. A refund is issued AFTER the payment, so the
+// invoice.paid body was rendered before it existed and can never show one. The
+// case that matters is a redelivered or late-processed invoice.paid for a
+// payment that has since been handed back, and only a fresh read sees that.
+//
+// Three reads, narrowing: the invoice with its charge expanded, then the charge
+// by id (valid in every API version, unlike the expand path), then the payment
+// intent's latest charge. Null is returned when all of them fail, and
+// decideOrphanPayment then refuses to act rather than assuming nothing was
+// refunded. An invoice carrying no payment object at all is a real zero rather
+// than unknown — readInvoiceRefundedAmount draws that line, so this and
+// scripts/recover-orphan-payment.mts reach the same verdict.
+//
+// Reached only for invoices that passed couldBeOrphaned, so these calls stay off
+// the ordinary renewal path.
+async function resolveRefundedAmount(invoice: Stripe.Invoice): Promise<number | null> {
+  const invoiceId = invoice.id;
+  if (!invoiceId) return null;
+
+  // The expansion is an optimization, not a requirement: `charge` is expandable
+  // on the acacia version core/stripe.ts pins, but basil moved the field, and a
+  // rejected expand param throws. Falling back to a plain retrieve keeps this
+  // working across that change instead of quietly reporting every orphan as
+  // unreadable and stalling automatic recovery.
+  const retrieve = async (): Promise<Stripe.Invoice | null> => {
+    for (const params of [{ expand: ['charge', 'payment_intent'] }, undefined]) {
+      try {
+        return await getStripe().invoices.retrieve(invoiceId, params);
+      } catch {
+        // Try the next, plainer shape.
+      }
+    }
+    return null;
+  };
+
+  const fresh = await retrieve();
+  // Read the freshest object available, but never fall back to the event body
+  // for the ANSWER — it predates any refund, so it can only say "not refunded".
+  if (!fresh) return null;
+
+  const fromInvoice = readInvoiceRefundedAmount(fresh);
+  if (fromInvoice != null) return fromInvoice;
+
+  // No charge object came back expanded. Retrieving the charge by id works in
+  // every API version, so this is the version-proof path.
+  try {
+    const chargeId = readInvoiceChargeId(fresh) ?? readInvoiceChargeId(invoice);
+    if (chargeId) {
+      const charge = await getStripe().charges.retrieve(chargeId);
+      return typeof charge.amount_refunded === 'number' ? charge.amount_refunded : null;
+    }
+    const intentId = readInvoicePaymentIntentId(fresh) ?? readInvoicePaymentIntentId(invoice);
+    if (intentId) {
+      const intent = await getStripe().paymentIntents.retrieve(intentId, {
+        expand: ['latest_charge'],
+      });
+      const latest = intent.latest_charge;
+      if (latest && typeof latest !== 'string' && typeof latest.amount_refunded === 'number') {
+        return latest.amount_refunded;
+      }
+    }
+  } catch {
+    return null;
+  }
+  // A payment intent whose charge could not be read. Something settled this
+  // invoice and we cannot see whether it was reversed, so this is unknown —
+  // NOT zero. (An invoice with no payment object at all never reaches here:
+  // readInvoiceRefundedAmount answers that case with a real zero.)
+  return null;
+}
+
 // Restores a member whose payment was ORPHANED: Stripe canceled their
 // subscription for nonpayment, they then paid the still-open invoice from one of
 // Stripe's dunning emails, and — because Stripe never resurrects a canceled
@@ -1799,6 +1888,21 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
   if (!invoiceId || !customerId) return;
   const user = findUserByCustomerId(customerId);
   if (!user) return;
+
+  // Cheap local gate first. decideOrphanPayment would answer 'none' for every
+  // one of these anyway, and stopping here keeps the two live Stripe reads below
+  // — the subscription status and the refund state — off the ordinary renewal
+  // path, which is nearly all of this stream.
+  if (
+    !couldBeOrphaned({
+      invoiceStatus: invoice.status ?? null,
+      amountPaid: invoice.amount_paid ?? 0,
+      localTier: normalizeTier(user.tier),
+      localSubscriptionId: user.stripe_subscription_id,
+    })
+  ) {
+    return;
+  }
 
   const subscriptionId = readInvoiceSubscriptionId(invoice);
 
@@ -1842,6 +1946,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
   const periodEndUnix = readInvoicePeriodEndUnix(invoice);
   const decision = decideOrphanPayment({
     amountPaid: invoice.amount_paid ?? 0,
+    amountRefunded: await resolveRefundedAmount(invoice),
     invoiceStatus: invoice.status ?? null,
     billingReason: invoice.billing_reason ?? null,
     subscriptionId,
@@ -2042,6 +2147,34 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       message: `Invoice ${invoiceId}: recovery sub ${created.id} created but immediate sync failed (${message}); the subscription.created event should reconcile it`,
     });
   }
+
+  // Point users.last_paid_subscription_id at the RECOVERY subscription, dated
+  // with the day the recovered invoice actually cleared.
+  //
+  // Without this the member sits on the admin Converting line — "an invoice
+  // exists and the charge is still in flight" — until their first renewal,
+  // because that is how classifySubscriberBucket reads an `active` subscription
+  // no invoice has cleared on (core/subscriberBucket.ts). For a recovery that is
+  // never a few minutes: the whole design is to create the subscription with NO
+  // invoice, billing anchored at the end of the period already paid for, so
+  // there is nothing to clear on it until the renewal weeks later.
+  //
+  // Stamping it is the honest reading, not a workaround. The recovery
+  // subscription IS the continuation of the period that invoice bought — that
+  // premise is what sets its billing anchor — so "has this subscription been
+  // paid for" is genuinely yes. The invoice itself belongs to the predecessor
+  // subscription, which is exactly why the date recorded is its original
+  // paid-at rather than today's.
+  //
+  // Re-read the row: the sync above has just rewritten stripe_subscription_id,
+  // and acceptsSubscriptionPaymentStamp compares against it.
+  const recoveredUser = findUserByCustomerId(customerId) ?? user;
+  const paidAtUnix = readInvoicePaidAtUnix(invoice);
+  stampSubscriptionPayment(
+    recoveredUser,
+    created.id,
+    paidAtUnix != null ? new Date(paidAtUnix * 1000).toISOString() : null,
+  );
 }
 
 async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {

@@ -123,6 +123,7 @@
     "test:trial-welcome": "node --experimental-strip-types --test tests/trialWelcome.test.ts",
     "test:trial-banner": "node --experimental-strip-types --test tests/trialStartedBanner.test.ts",
     "test:chart-hero": "node --experimental-strip-types --test tests/chartHeroDisclosure.test.ts",
+    "test:chart-level-palette": "node --experimental-strip-types --test tests/chartLevelPalette.test.ts",
     "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
     "test:gex-ribbons": "node --experimental-strip-types --test tests/gexRibbons.test.ts",
     "test:strike-history": "node --experimental-strip-types --test tests/strikeHistory.test.ts",

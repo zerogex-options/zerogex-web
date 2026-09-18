@@ -5,7 +5,7 @@ import { useState } from 'react';
 import SectionHead from '@/components/layout/SectionHead';
 import BetaBadge from '@/components/BetaBadge';
 import SymbolPicker from '@/components/SymbolPicker';
-import type { PickerSymbol } from '@/core/symbols';
+import { CASH_SYMBOLS, type PickerSymbol } from '@/core/symbols';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
 import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
@@ -80,7 +80,7 @@ export default function DatedHedgingFlow({
               onChange={setZeroDteOnly}
               disabled={!hasZeroDte}
             />
-            <SymbolPicker current={symbol} hrefs={pickerHrefs} />
+            <SymbolPicker current={symbol} hrefs={pickerHrefs} symbols={CASH_SYMBOLS} />
           </div>
         }
       />

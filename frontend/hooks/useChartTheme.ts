@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 
 /**
@@ -145,4 +145,103 @@ export function useChartTheme(): ChartTheme {
   }, [theme, palette, refresh]);
 
   return chart;
+}
+
+/* ── Ink for a filled chip ────────────────────────────────────────────────────
+ *
+ * GammaTerminalChart's right-axis price tags are rects filled with a level's
+ * own colour, with the price painted on top. That text used to be a flat
+ * --text-inverse, which assumes the chip is dark. Half the level colours are
+ * not: MAX PAIN's amber against a light theme's near-white --text-inverse came
+ * out at 1.44:1, effectively unreadable.
+ *
+ * Contrast has to be measured against the CHIP, not the page, and the chip's
+ * colour does not track the theme. Black and white are the optimal pair here:
+ * whichever of the two a colour is further from is always at least 4.58:1 away,
+ * so every chip clears AA for normal text. Softening either ink breaks that --
+ * #0B0E12/#FFFFFF already drops two of this app's chips below 4.5:1 -- so these
+ * are deliberately the pure values.
+ */
+const INK_DARK = '#000000';
+const INK_LIGHT = '#FFFFFF';
+/** Pre-hydration and whenever a colour cannot be parsed: the historical behaviour. */
+const INK_FALLBACK = 'var(--text-inverse)';
+/** Luminance where black and white are equally readable: (Y+0.05)^2 = 1.05*0.05. */
+const INK_PIVOT = 0.1791;
+
+type Rgba = [number, number, number, number];
+
+function parseColor(raw: string): Rgba | null {
+  const c = raw?.trim();
+  if (!c) return null;
+  const six = c.match(/^#([0-9a-f]{6})$/i);
+  if (six) {
+    const n = parseInt(six[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
+  }
+  const three = c.match(/^#([0-9a-f]{3})$/i);
+  if (three) {
+    const [r, g, b] = three[1].split('');
+    return [parseInt(r + r, 16), parseInt(g + g, 16), parseInt(b + b, 16), 1];
+  }
+  const fn = c.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*(?:[,/]\s*([\d.]+))?\s*\)$/i);
+  if (fn) return [+fn[1], +fn[2], +fn[3], fn[4] === undefined ? 1 : +fn[4]];
+  return null;
+}
+
+function relativeLuminance([r, g, b]: Rgba): number {
+  const f = (v: number) => (v /= 255, v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+function resolveInk(chip: string): string {
+  if (typeof window === 'undefined') return INK_FALLBACK;
+  const root = getComputedStyle(document.documentElement);
+  // Custom properties resolve to their authored token text, so a value may
+  // itself be another var() -- --color-positive: var(--color-bull), say.
+  const deref = (v: string, depth = 0): string => {
+    const m = v?.trim().match(/^var\(\s*(--[a-z0-9-]+)\s*\)$/i);
+    return m && depth < 8 ? deref(root.getPropertyValue(m[1]), depth + 1) : (v ?? '').trim();
+  };
+  const colour = parseColor(deref(chip));
+  if (!colour) return INK_FALLBACK;
+  let solid = colour;
+  if (colour[3] < 1) {
+    // A translucent chip sits on the card, so judge the blend, not the swatch.
+    const bg = parseColor(deref('var(--bg-card)'));
+    if (!bg) return INK_FALLBACK;
+    const a = colour[3];
+    solid = [0, 1, 2].map((i) => colour[i] * a + bg[i] * (1 - a)).concat(1) as Rgba;
+  }
+  return relativeLuminance(solid) > INK_PIVOT ? INK_DARK : INK_LIGHT;
+}
+
+/**
+ * Returns a function giving readable ink for text drawn on a filled chip of
+ * the given colour, which may be a hex/rgba literal or a `var(--token)`.
+ *
+ * Resolution needs the live CSS variables, so it only starts after mount: the
+ * server render and the hydrating render both get INK_FALLBACK and therefore
+ * agree. Results are cached per palette/mode.
+ */
+export function useChipInk(): (chipColor: string) => string {
+  const { theme, palette } = useTheme();
+  const [generation, setGeneration] = useState(0); // 0 = not yet read from the DOM
+  useEffect(() => {
+    // One frame, so the root element's variables have actually flipped.
+    const raf = requestAnimationFrame(() => setGeneration((g: number) => g + 1));
+    return () => cancelAnimationFrame(raf);
+  }, [theme, palette]);
+
+  return useMemo(() => {
+    if (generation === 0) return () => INK_FALLBACK;
+    const cache = new Map<string, string>();
+    return (chipColor: string) => {
+      const hit = cache.get(chipColor);
+      if (hit !== undefined) return hit;
+      const ink = resolveInk(chipColor);
+      cache.set(chipColor, ink);
+      return ink;
+    };
+  }, [generation]);
 }

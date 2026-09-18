@@ -8,6 +8,7 @@ import {
   subscriptionPaidAt,
   summarizeLedger,
   type LedgerPaymentEvent,
+  type LedgerRecoveryEvent,
   type LedgerSyncEvent,
   type SubscriberBucketInput,
 } from '../core/subscriberBucket.ts';
@@ -350,6 +351,186 @@ function payment(over: Partial<LedgerPaymentEvent> & { at: string }): LedgerPaym
   return { subId: 'sub_1', userId: 'u1', email: 'a@example.com', ...over };
 }
 
+function recovery(over: Partial<LedgerRecoveryEvent> & { at: string }): LedgerRecoveryEvent {
+  return {
+    subId: 'sub_1',
+    userId: 'u1',
+    email: 'a@example.com',
+    invoiceId: 'in_old',
+    kind: 'recovered',
+    ...over,
+  };
+}
+
+// ── Orphan recovery ────────────────────────────────────────────────────────
+// A recovery subscription is created with NO invoice of its own — billing is
+// anchored at the end of the period the recovered invoice already paid for — so
+// nothing can clear on it until its first renewal. On the sync stream alone it
+// is indistinguishable from a conversion charge in flight.
+
+test('a recovery subscription is paid for from its first sync', () => {
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-09-18T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+  // Never the Converting band: no charge is in flight, the period is bought.
+  assert.equal(rows[0].convertingDelta, 0);
+  assert.match(rows[0].detail, /in_old/);
+  assert.match(rows[0].detail, /not a new charge/);
+});
+
+test('a recovery never reaches the fallback confirmation window', () => {
+  // Left to the sync stream this booked conversionPending, then two days later a
+  // synthetic "the conversion charge was never reported as failed" promotion —
+  // a wrong explanation for a payment that had already cleared weeks earlier.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-09-30T12:00:00Z'), // well past CONVERSION_CONFIRM_DAYS
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(summarizeLedger(rows).converting, 0);
+  assert.equal(summarizeLedger(rows).fullSubscriber, 1);
+});
+
+test('the recovery verdict does not depend on which row landed first', () => {
+  // The audit row and the subscription sync are written within the same second,
+  // in whichever order the webhook delivers, so the result must not turn on it.
+  for (const recoveryAt of ['2026-09-17T16:58:05.000Z', '2026-09-17T16:58:09.000Z']) {
+    const rows = buildSubscriberLedger(
+      [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+      [],
+      [],
+      [recovery({ at: recoveryAt })],
+      Date.parse('2026-09-30T12:00:00Z'),
+    );
+    assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered'], `recovery at ${recoveryAt}`);
+  }
+});
+
+test('a COMPED period says so rather than reading as a new sale', () => {
+  // The refunded case: the period is reinstated as goodwill, so no money is held
+  // against it at all. It still belongs on the paying line — nothing is in
+  // flight — but calling it a "new paying subscriber" would be the same class of
+  // lie the Converting band exists to prevent.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-18T04:00:00Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-18T03:59:00Z', kind: 'comped', invoiceId: 'in_refunded' })],
+    Date.parse('2026-09-30T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+  assert.equal(rows[0].convertingDelta, 0);
+  assert.match(rows[0].detail, /reinstated as a comp/);
+  assert.match(rows[0].detail, /refunded/);
+  assert.match(rows[0].detail, /in_refunded/);
+});
+
+test('a recovery with no invoice id still reads as a restored period', () => {
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' })],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z', invoiceId: null })],
+    Date.parse('2026-09-18T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.match(rows[0].detail, /already paid for/);
+});
+
+test('cancelling a recovered subscription is a PAID cancellation', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' }),
+      sync({ at: '2026-09-20T10:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-09-21T12:00:00Z'),
+  );
+  // Not cancelScheduledTrial: they hold a period they actually paid for.
+  assert.ok(rows.some((r) => r.kind === 'cancelScheduledPaid'));
+});
+
+test('a renewal on a recovered subscription moves nothing', () => {
+  // The first real money on that subscription arrives at its renewal. The
+  // member is already counted, so it must not book a second conversion.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-17T16:58:06.558Z', status: 'active' }),
+      sync({ at: '2026-10-03T12:20:23Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-10-03T12:21:00Z' })],
+    [recovery({ at: '2026-09-17T16:58:06.226Z' })],
+    Date.parse('2026-10-04T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['orphanRecovered']);
+  assert.equal(summarizeLedger(rows).fullSubscriber, 1);
+});
+
+test('an UNrecovered subscription is unaffected by the recovery stream', () => {
+  // A recovery naming a different subscription must not leak across.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-27T12:20:23Z', status: 'trialing' }),
+      sync({ at: '2026-09-03T12:20:53Z', status: 'active' }),
+    ],
+    [],
+    [],
+    [recovery({ subId: 'sub_someone_else', at: '2026-09-03T12:20:00Z' })],
+    Date.parse('2026-09-03T13:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['conversionPending', 'trialStarted']);
+});
+
+test("prestonking0214's full production timeline reads correctly end to end", () => {
+  // Trial -> converted -> refunded -> canceled immediately -> and a fortnight
+  // later an orphan recovery re-homed that (refunded) invoice onto a new
+  // subscription. The recovery itself should never have happened, but the
+  // ledger's job is to SAY what happened rather than leave the account sitting
+  // on Converting with no row explaining it.
+  const OLD = 'sub_1U92I74AOiqteMYYOjBQATQc';
+  const NEW = 'sub_1UGidN4AOiqteMYYVFYeHOJ6';
+  const rows = buildSubscriberLedger(
+    [
+      sync({ subId: OLD, at: '2026-08-27T12:20:27.790Z', status: 'trialing' }),
+      sync({ subId: OLD, at: '2026-09-03T12:20:53.608Z', status: 'active' }),
+      sync({ subId: OLD, at: '2026-09-03T14:09:05.102Z', status: 'active', cancelAtPeriodEnd: true }),
+      sync({ subId: NEW, at: '2026-09-17T16:58:06.558Z', status: 'active' }),
+    ],
+    [{ subId: OLD, userId: 'u1', email: 'a@example.com', at: '2026-09-03T15:31:34.376Z' }],
+    [payment({ subId: OLD, at: '2026-09-03T13:22:05.045Z' })],
+    [recovery({ subId: NEW, at: '2026-09-17T16:58:06.226Z', invoiceId: 'in_1UBZdN4AOiqteMYYUOVhxBth' })],
+    Date.parse('2026-09-30T12:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), [
+    'orphanRecovered',
+    'accessEnded',
+    'cancelScheduledPaid',
+    'converted',
+    'conversionPending',
+    'trialStarted',
+  ]);
+  // The two real conversions net out across the window, and the Converting band
+  // opens and closes rather than being left holding this member.
+  const net = summarizeLedger(rows);
+  assert.equal(net.converting, 0);
+  assert.equal(net.freeTrial, 0);
+  // Paid once (the real conversion), lost once (the cancel), restored once.
+  assert.equal(net.fullSubscriber, 1);
+});
+
 test('a trial that converts then fails never touches Full Subscribers', () => {
   // jordanjosh7718's real production sequence, verbatim. This USED to book +1
   // Full Subscriber at 23:45 and -1 an hour later — the 106 -> 105 blip. The
@@ -427,6 +608,7 @@ test('history with no payment stream still settles, after the fallback window', 
     ],
     [],
     [],
+    [],
     Date.parse('2026-08-20T00:00:00Z'),
   );
   const settled = rows.find((r) => r.kind === 'converted');
@@ -443,6 +625,7 @@ test('the fallback never settles a conversion the clock has not reached', () => 
       sync({ at: '2026-08-01T00:00:00Z', status: 'trialing' }),
       sync({ at: '2026-08-08T00:00:00Z', status: 'active' }),
     ],
+    [],
     [],
     [],
     Date.parse('2026-08-08T06:00:00Z'),
@@ -540,6 +723,7 @@ test('a cancel clicked while the conversion charge is in flight is still a trial
     ],
     [],
     [],
+    [],
     Date.parse('2026-07-08T01:00:00Z'),
   );
   assert.equal(rows.find((r) => r.kind.startsWith('cancelScheduled'))!.kind, 'cancelScheduledTrial');
@@ -569,6 +753,7 @@ test('an established payer whose trial predates the scan is not mislabeled as a 
       sync({ at: '2026-07-01T00:00:00Z', status: 'active' }),
       sync({ at: '2026-07-01T06:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
     ],
+    [],
     [],
     [],
     Date.parse('2026-07-01T12:00:00Z'),

@@ -139,6 +139,7 @@ test('a RETURNING payer leaves Converting when their invoice clears', () => {
         }),
       },
     ]),
+    [],
     Date.parse('2026-09-15T14:44:00.000Z'),
   );
 
@@ -172,6 +173,7 @@ test('the trial-opening invoice does not collapse the Converting band', () => {
         }),
       },
     ]),
+    [],
     Date.parse('2026-09-15T14:44:00.000Z'),
   );
 
@@ -205,6 +207,7 @@ test('a renewal after the first payment adds no second row', () => {
         message: invoicePaid({ id: 'in_next', sub: 'sub_1UDNQu4AOiqteMYYHThhMgaZ' }),
       },
     ]),
+    [],
     Date.parse('2026-10-16T00:00:00.000Z'),
   );
 

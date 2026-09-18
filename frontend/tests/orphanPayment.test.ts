@@ -4,11 +4,17 @@ import {
   RECOVERED_FROM_INVOICE_KEY,
   buildRecoverySubscriptionParams,
   classifyElapsedPaidPeriod,
+  couldBeOrphaned,
   decideDiscountCarryOver,
   decideOrphanPayment,
   readSubscriptionDiscounts,
   type OrphanPaymentInput,
 } from '../core/orphanPayment.ts';
+import {
+  readInvoicePaidAtUnix,
+  readInvoiceRefundedAmount,
+} from '../core/stripeInvoice.ts';
+import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
 
 // The production case this locks down: a trial's conversion charge failed,
 // Stripe exhausted its retries and canceled the subscription, the member was
@@ -22,6 +28,7 @@ const PERIOD_END = Date.UTC(2027, 7, 15, 15, 32, 0) / 1000; // annual period the
 function input(over: Partial<OrphanPaymentInput> = {}): OrphanPaymentInput {
   return {
     amountPaid: 22900,
+    amountRefunded: 0,
     invoiceStatus: 'paid',
     billingReason: 'subscription_cycle',
     subscriptionId: 'sub_live',
@@ -46,6 +53,195 @@ test('paid invoice on a canceled sub, member on public → recoverable', () => {
     // charge twice for the same period.
     assert.equal(decision.billingCycleAnchorUnix, PERIOD_END);
   }
+});
+
+// ── The refund guard ───────────────────────────────────────────────────────
+// The production incident: a member converted, was refunded in full 2h later
+// and canceled immediately, and a fortnight afterwards the recovery path read
+// their refunded invoice as an orphaned payment — re-granting the month they
+// had been reimbursed for, plus a repeating coupon with its clock restarted.
+// Every field below except amountRefunded is identical to the recoverable case
+// above, which is precisely why the guard has to exist.
+
+test('a FULLY refunded invoice is not an orphaned payment', () => {
+  const decision = decideOrphanPayment(input({ amountRefunded: 22900 }));
+  assert.equal(decision.kind, 'none');
+  assert.equal(decision.kind === 'none' && decision.reason, 'refunded');
+});
+
+test('over-refunded (a refund plus a credit note) still reads as refunded', () => {
+  const decision = decideOrphanPayment(input({ amountRefunded: 23900 }));
+  assert.equal(decision.kind, 'none');
+  assert.equal(decision.kind === 'none' && decision.reason, 'refunded');
+});
+
+test('a PARTLY refunded invoice is never recovered automatically', () => {
+  const decision = decideOrphanPayment(input({ amountRefunded: 10000 }));
+  assert.equal(decision.kind, 'detected');
+  assert.equal(decision.kind === 'detected' && decision.recoverable, false);
+  assert.equal(decision.reason, 'partially_refunded');
+});
+
+test('unreadable refund state is refused, never assumed unrefunded', () => {
+  const decision = decideOrphanPayment(input({ amountRefunded: null }));
+  assert.equal(decision.kind, 'detected');
+  assert.equal(decision.kind === 'detected' && decision.recoverable, false);
+  assert.equal(decision.reason, 'refund_state_unknown');
+});
+
+test('the refund gate does not fire before the cheaper reasons', () => {
+  // A refunded invoice on a member who still holds a subscription must report
+  // the local reason, so the caller never needs a refund read to get there.
+  for (const over of [
+    { localSubscriptionId: 'sub_live', reason: 'local_subscription_present' },
+    { localTier: 'pro', reason: 'already_entitled' },
+    { subscriptionStatus: 'active', reason: 'subscription_live' },
+    { amountPaid: 0, reason: 'zero_amount' },
+    { invoiceStatus: 'open', reason: 'invoice_not_paid' },
+  ]) {
+    const { reason, ...fields } = over;
+    const decision = decideOrphanPayment(input({ ...fields, amountRefunded: null }));
+    assert.equal(decision.kind, 'none', `${reason} should short-circuit`);
+    assert.equal(decision.kind === 'none' && decision.reason, reason);
+  }
+});
+
+// couldBeOrphaned exists so a caller can skip the live subscription and refund
+// reads. If it ever disagrees with the gates it mirrors, the webhook starts
+// skipping real orphans — so hold the two in lockstep here.
+test('couldBeOrphaned agrees with the local gates of decideOrphanPayment', () => {
+  const LOCAL_REASONS = new Set([
+    'invoice_not_paid',
+    'zero_amount',
+    'local_subscription_present',
+    'already_entitled',
+  ]);
+  for (const invoiceStatus of ['paid', 'open', null]) {
+    for (const amountPaid of [0, 22900]) {
+      for (const localTier of ['public', 'pro']) {
+        for (const localSubscriptionId of [null, 'sub_x']) {
+          const fields = { invoiceStatus, amountPaid, localTier, localSubscriptionId };
+          // Decided with a subscription that is GONE and nothing refunded, so
+          // only the local gates can produce a 'none'.
+          const decision = decideOrphanPayment(
+            input({ ...fields, subscriptionStatus: 'canceled', amountRefunded: 0 }),
+          );
+          const blockedLocally =
+            decision.kind === 'none' && LOCAL_REASONS.has(decision.reason);
+          assert.equal(
+            couldBeOrphaned(fields),
+            !blockedLocally,
+            `disagreement on ${JSON.stringify(fields)}`,
+          );
+        }
+      }
+    }
+  }
+});
+
+// ── What a recovery has to leave behind ────────────────────────────────────
+// A recovery creates the subscription with NO invoice of its own (billing
+// anchored at the end of the period already paid for), so nothing can ever
+// clear on it before the first renewal. If the recovery does not stamp the
+// paid-subscription pointer itself, the member sits on the admin Converting
+// line — "the charge is still in flight" — for the whole honored period.
+
+test('a recovery that stamps its pointer counts as a Full Subscriber', () => {
+  const recoverySub = 'sub_recovered';
+  const stamped = classifySubscriberBucket({
+    subscriptionStatus: 'active',
+    tier: 'pro',
+    paymentGraceReason: null,
+    cancelAtPeriodEnd: false,
+    stripeSubscriptionId: recoverySub,
+    lastPaidSubscriptionId: recoverySub,
+    lastPaidInvoiceAt: '2026-09-03T13:22:05.041Z',
+  });
+  assert.equal(stamped.bucket, 'fullSubscriber');
+
+  // Left unstamped — the pre-fix behavior — it reads as a charge in flight.
+  const unstamped = classifySubscriberBucket({
+    subscriptionStatus: 'active',
+    tier: 'pro',
+    paymentGraceReason: null,
+    cancelAtPeriodEnd: false,
+    stripeSubscriptionId: recoverySub,
+    lastPaidSubscriptionId: null,
+    lastPaidInvoiceAt: null,
+  });
+  assert.equal(unstamped.bucket, 'converting');
+});
+
+// ── Reading the refund off an invoice ──────────────────────────────────────
+// The reader has to answer "unknown" rather than "zero": an invoice whose charge
+// is a bare id says nothing about direct refunds, and calling that unrefunded is
+// the bug above.
+
+test('readInvoiceRefundedAmount: expanded charge, not refunded', () => {
+  assert.equal(readInvoiceRefundedAmount({ charge: { amount_refunded: 0 } }), 0);
+});
+
+test('readInvoiceRefundedAmount: expanded charge, fully refunded', () => {
+  assert.equal(readInvoiceRefundedAmount({ charge: { amount_refunded: 2900 } }), 2900);
+});
+
+test('readInvoiceRefundedAmount: basil payments shape', () => {
+  const invoice = {
+    payments: {
+      data: [
+        { payment: { payment_intent: { latest_charge: { amount_refunded: 2900 } } } },
+      ],
+    },
+  };
+  assert.equal(readInvoiceRefundedAmount(invoice), 2900);
+});
+
+test('readInvoiceRefundedAmount: payment_intent.latest_charge shape', () => {
+  const invoice = { payment_intent: { latest_charge: { amount_refunded: 1500 } } };
+  assert.equal(readInvoiceRefundedAmount(invoice), 1500);
+});
+
+test('readInvoiceRefundedAmount: credit notes count, and add to charge refunds', () => {
+  // A credit note is readable straight off the invoice, so it answers even with
+  // no charge expanded.
+  assert.equal(readInvoiceRefundedAmount({ post_payment_credit_notes_amount: 2900 }), 2900);
+  assert.equal(
+    readInvoiceRefundedAmount({
+      post_payment_credit_notes_amount: 1000,
+      charge: { amount_refunded: 1900 },
+    }),
+    2900,
+  );
+});
+
+test('readInvoiceRefundedAmount: a bare charge id is UNKNOWN, not zero', () => {
+  assert.equal(readInvoiceRefundedAmount({ charge: 'ch_123' }), null);
+  assert.equal(readInvoiceRefundedAmount({ payment_intent: 'pi_123' }), null);
+  assert.equal(readInvoiceRefundedAmount(null), null);
+  // Credit-note field present but zero still leaves direct refunds unknown.
+  assert.equal(
+    readInvoiceRefundedAmount({ post_payment_credit_notes_amount: 0, charge: 'ch_123' }),
+    null,
+  );
+});
+
+test('readInvoiceRefundedAmount: no charge REFERENCE at all is a real zero', () => {
+  // Settled from credit balance / marked paid out of band: there is no charge
+  // that could carry a refund, so this must not read as unknown — that would
+  // strand a recoverable payment on "needs a human". Keeps the webhook and
+  // scripts/recover-orphan-payment.mts agreeing on what is recoverable.
+  assert.equal(readInvoiceRefundedAmount({}), 0);
+  assert.equal(readInvoiceRefundedAmount({ post_payment_credit_notes_amount: 0 }), 0);
+  assert.equal(readInvoiceRefundedAmount({ charge: null, payment_intent: null }), 0);
+});
+
+test('readInvoicePaidAtUnix: prefers the paid transition, falls back to created', () => {
+  assert.equal(
+    readInvoicePaidAtUnix({ status_transitions: { paid_at: 1000 }, created: 500 }),
+    1000,
+  );
+  assert.equal(readInvoicePaidAtUnix({ created: 500 }), 500);
+  assert.equal(readInvoicePaidAtUnix({}), null);
 });
 
 test('the subscription is still alive → the ordinary sync owns it', () => {

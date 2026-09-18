@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -80,6 +80,9 @@ help:
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make subscriber-headcount [NAMES=1] - Decompose the admin Total Subscribers chart (Full Subscriber / Converting / Free Trial / Trial Grace) and account for every subscription-carrying account it does not count — paused, setup-withheld, lapsed. Answers 'why did the headcount move' (read-only)"
 	@echo "  make recover-orphan-payment EMAIL=<email> - Restore a member who PAID an invoice after Stripe had already canceled their subscription for nonpayment (money collected, still on Public). Re-creates the plan with billing anchored at the end of the period they paid for, so they are never charged twice. DRY by default, YES=1 to apply, INVOICE=in_... to pick the invoice"
+	@echo "  make unwind-orphan-recovery EMAIL=<email> - Reverse an orphan recovery that granted a period the member had been REFUNDED for: cancels the recovery subscription (nothing was ever charged on it), returns the row to public, audits it. Refuses unless the recovered invoice was refunded IN FULL and no money has cleared on that subscription. DRY by default, YES=1 to apply, FORCE=1 to skip only the refund check"
+	@echo "  make reinstate-paid-period EMAIL=<email> - Hand a member back the rest of a period they already PAID for, as a comp that never bills: re-creates the canceled plan with cancel_at_period_end set so Stripe drops it at period end without invoicing. For when you refunded someone but want them to keep the access they bought. No coupons carried, no email. DRY by default, YES=1 to apply, UNTIL=<ISO> to override the period end"
+	@echo "  make backfill-recovery-pointers - One-shot: stamp users.last_paid_subscription_id for members whose orphan recovery predates that stamp being written at recovery time (they otherwise sit on the admin Converting line until their first renewal). Read-only by default, APPLY=1 to write"
 	@echo "  make save-url EMAIL=<email> - Print the signed one-click self-serve SAVE url (app/save) for a member + their eligibility, to test the retention flow without a real cancellation email (read-only)"
 	@echo "  make reset-save-latch EMAIL=<email> - TESTING: clear a member's one-shot save latch (retention_offer_claimed_at) so the /save flow can be claimed again"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
@@ -638,7 +641,7 @@ grace-expiry-warnings:
 # to override the "wait N hours after signup" gate; LOOKBACK_HOURS=<n> to
 # override the "no older than N hours" upper bound.
 verified-never-paid:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),)'
 
 # Send the founder-voice "finish verifying to unlock the free trial" nudge to
 # every user who registered but never confirmed their email (public tier,
@@ -799,6 +802,27 @@ orphan-payment-alerts:
 recover-orphan-payment:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make recover-orphan-payment EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/recover-orphan-payment.mts --email $(EMAIL) $(if $(INVOICE),--invoice $(INVOICE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Reverse an orphan recovery that granted a period the member had been REFUNDED
+# for — the inverse of the target above. Refuses unless the recovered invoice was
+# refunded in full and no money has since cleared on the recovery subscription.
+unwind-orphan-recovery:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make unwind-orphan-recovery EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/unwind-orphan-recovery.mts --email $(EMAIL) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Hand a member back the REST OF A PERIOD THEY ALREADY PAID FOR, as a comp that
+# ends on its own and never bills: re-creates the canceled plan with
+# cancel_at_period_end set. For when you refunded someone but want them to keep
+# the access they had bought. Carries no coupons and sends no email.
+reinstate-paid-period:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make reinstate-paid-period EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/reinstate-paid-period.mts --email $(EMAIL) $(if $(UNTIL),--until $(UNTIL),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# One-shot: stamp the paid-subscription pointer for members whose orphan recovery
+# ran BEFORE the recovery paths started doing it themselves, which left them on
+# the admin Converting line for their whole honored period. Read-only by default.
+backfill-recovery-pointers:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-recovery-pointers.mts $(if $(APPLY),--yes,)'
 
 # Print the signed one-click self-serve SAVE url (app/save/route.ts) for a member
 # plus their current eligibility, so you can test the retention flow in a browser
