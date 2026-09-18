@@ -36,8 +36,14 @@ const { getPaymentDeclineReport, loadDeclinesForTiming } = await import(
   '../core/paymentDeclinesServer.ts'
 );
 const { foldDeclinesToInvoices } = await import('../core/paymentDeclines.ts');
-const { byDayOfMonth, byWeekday, byPaydayCrossing, retryWindowStats, ordinal, PAYDAY_PROXY_DAYS } =
-  await import('../core/declineTiming.ts');
+const {
+  byDayOfMonth,
+  byWeekday,
+  byPaydayCrossing,
+  byDaysToPayday,
+  windowByOutcome,
+  retryWindowStats,
+} = await import('../core/declineTiming.ts');
 
 const daysRaw = process.env.DAYS;
 const windowDays = daysRaw === undefined || Number(daysRaw) <= 0 ? null : Number(daysRaw);
@@ -96,9 +102,28 @@ function table(title: string, note: string, rows: ReturnType<typeof byDayOfMonth
   console.log('');
 }
 
+// The window is measured to the LAST FAILURE, so a recovered invoice has a short
+// one for that reason alone. Printing this split first is what stops a reader
+// taking the crossing table below at face value.
+console.log('IS THE WINDOW MEASURE CONTAMINATED BY THE OUTCOME?');
+for (const row of windowByOutcome(invoices)) {
+  console.log(
+    `  ${pad(row.outcome, 12)}${padL(String(row.invoices), 4)} invoices    median ${row.medianDays ?? '—'} days    longest ${row.maxDays ?? '—'} days`,
+  );
+}
+console.log('  A shorter median for recovered invoices means yes: an invoice that recovers stops');
+console.log('  failing, so anything derived from window length partly measures the outcome.');
+console.log('');
+
 table(
-  'THE TEST — did the retries ever reach a payday?',
-  `proxy: the window covered the ${PAYDAY_PROXY_DAYS.map(ordinal).join(' or the ')} of a month. Overlapping ranges mean no difference was shown.`,
+  'THE TEST — how long after the failure did a payday arrive?',
+  'Depends only on the FIRST failure date, so no outcome can move it. This is the one to read.',
+  byDaysToPayday(invoices),
+);
+
+table(
+  'THE SAME QUESTION ASKED BADLY — did the retry window cross a payday?',
+  'BIASED: the window ends at the last failure, so recovering shortens it. Shown to expose the trap, never to act on.',
   byPaydayCrossing(invoices),
 );
 
@@ -106,12 +131,18 @@ table('WHEN THE FIRST ATTEMPT LANDED — day of month', '', byDayOfMonth(invoice
 table('WHEN THE FIRST ATTEMPT LANDED — weekday', '', byWeekday(invoices));
 
 console.log('HOW TO READ THIS');
-console.log('  The payday split is the only row that tests anything. If the two ranges overlap,');
-console.log('  the retries reaching a payday made no observable difference — and lengthening the');
-console.log('  retry window would be motion without effect. The day-of-month and weekday tables');
-console.log('  are context: a trial converts seven days after signup, so the charge date is close');
-console.log('  to random and a flat distribution there is the expected result, not a finding.');
+console.log('  Read "how long after the failure did a payday arrive" and nothing else. It depends');
+console.log('  only on when the charge first failed — for a trial conversion, seven days after a');
+console.log('  signup that happened long before any of this — so no outcome can reach back and');
+console.log('  change it. Overlapping ranges there mean no difference was shown, and lengthening');
+console.log('  the retry window would be motion without effect.');
 console.log('');
-console.log('  We do not know when any member is actually paid. This is a proxy and cannot');
-console.log('  become proof, however the numbers come out.');
+console.log('  The crossing table beneath it is a warning, not evidence. It looks like the same');
+console.log('  question and is not: its window ends at the last failure, so an invoice that');
+console.log('  recovered has a short window for that reason alone and lands on the other side of');
+console.log('  the split. It returns a large, confident, entirely spurious answer.');
+console.log('');
+console.log('  Day-of-month and weekday are context, and seven weekday buckets will throw up an');
+console.log('  extreme one by chance. We do not know when any member is actually paid: this is a');
+console.log('  proxy and cannot become proof, however the numbers come out.');
 console.log('');
