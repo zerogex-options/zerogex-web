@@ -12,6 +12,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import { robustDomain } from '@/core/regimeDomain';
+
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
@@ -75,53 +77,6 @@ function alignToTimeline(bars: GammaRegimeBar[], mode: RegimeMode): ChartRow[] {
   });
 }
 
-/**
- * A y-domain that survives the close.
- *
- * Dealer gamma explodes as 0DTE time-to-expiry goes to zero, so the last
- * twenty minutes of a session routinely carry readings an order of magnitude
- * above everything before them. That spike is real, but on a linear axis it
- * sets the scale for the whole chart and flattens the other six hours into a
- * line sitting on zero — the session becomes unreadable in exchange for one
- * feature the reader can already see coming.
- *
- * So the default domain is built from a high quantile of |value| rather than
- * the maximum, and the outliers are allowed to run off the top. Nothing is
- * hidden: the caller renders a count of what is off scale and a control to
- * switch to the full range, because silently clipping a $3B print would be
- * its own kind of lie.
- */
-const DOMAIN_QUANTILE = 0.95;
-const DOMAIN_HEADROOM = 1.15;
-
-function quantile(sorted: number[], q: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)));
-  return sorted[idx];
-}
-
-function robustDomain(rows: ChartRow[]): { domain: [number, number]; clipped: number } {
-  const values = rows
-    .flatMap((r) => [r.stability, r.lean])
-    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
-  if (values.length === 0) return { domain: [-1, 1], clipped: 0 };
-
-  const magnitudes = values.map(Math.abs).sort((a, b) => a - b);
-  const cap = quantile(magnitudes, DOMAIN_QUANTILE) * DOMAIN_HEADROOM;
-  const max = magnitudes[magnitudes.length - 1];
-
-  // A session with no outliers should not be zoomed into: when the cap is
-  // already close to the true max, just use the max and clip nothing.
-  if (cap <= 0 || max <= cap * 1.05) {
-    const bound = Math.max(max * DOMAIN_HEADROOM, 1);
-    return { domain: [-bound, bound], clipped: 0 };
-  }
-
-  const clipped = values.filter((v) => Math.abs(v) > cap).length;
-  return { domain: [-cap, cap], clipped };
-}
-
-
 export interface GammaRegimeChartProps {
   payload: GammaRegimeSeriesPayload;
   mode: RegimeMode;
@@ -138,7 +93,7 @@ export default function GammaRegimeChart({
   payload,
   mode,
   syncId,
-  height = 200,
+  height = 250,
   showLegend = true,
   hoveredLabel: controlledHover,
   onHoverChange,
