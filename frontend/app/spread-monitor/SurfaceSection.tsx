@@ -317,6 +317,10 @@ export default function SurfaceSection({
               would say nothing. A single tall bar beside four ordinary ones is the
               finding: the chain is broadly normal and one expiry is not. Buckets are
               ranked inside the ±{data.moneyness_band_pct}% band and change with it.
+              DTE here counts <strong>trading sessions</strong>, not calendar days: from
+              a Friday, 1DTE is the Monday expiry. Counting days instead would put
+              Monday in the 2&ndash;3 DTE bucket and rank it against contracts with two
+              or three real sessions of life left.
             </p>
           </div>
         </>
