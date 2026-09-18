@@ -197,6 +197,7 @@ type UserRow = {
   stripe_subscription_id: string | null;
   email_verified_at: string | null;
   signup_utm_source: string | null;
+  verified_never_paid_email_sent_at: string | null;
 };
 
 const users = db
@@ -204,7 +205,7 @@ const users = db
     `SELECT u.id, u.email, u.created_at, u.tier, u.partner_tier,
             u.partner_pro_grant_expires_at, u.first_payment_at, u.subscription_status,
             u.cancel_at_period_end, u.subscription_lapsed, u.stripe_subscription_id,
-            u.email_verified_at, u.signup_utm_source,
+            u.email_verified_at, u.signup_utm_source, u.verified_never_paid_email_sent_at,
             EXISTS(SELECT 1 FROM audit_events a
                     WHERE a.user_id = u.id AND a.type = 'billing_member_comped') AS comped
        FROM users u
@@ -237,6 +238,7 @@ type Member = {
   createdMs: number;
   verified: boolean;
   source: string;
+  nudged: boolean;
 };
 
 const members: Member[] = [];
@@ -269,6 +271,7 @@ for (const u of users) {
     createdMs: start,
     verified: u.email_verified_at != null,
     source: u.signup_utm_source || '(direct)',
+    nudged: u.verified_never_paid_email_sent_at != null,
   });
 }
 
@@ -369,13 +372,30 @@ if (neverStarted.length > 0) {
   console.log(`${pad('Opened one page or none', 38)}${share(oneAndDone)}`);
   console.log(`${pad('Confirmed AND still one-page', 38)}${share(verifiedOneAndDone)}`);
   console.log(`${pad('Signup source', 38)}${topSources}`);
+
+  // Did they already hear from us? send-verified-never-paid.mts targets exactly
+  // this cohort, auto-sends every 2 hours, and latches once per user — so anyone
+  // still sitting here WITH the latch set received the nudge and did not act on
+  // it. That is the difference between a cohort nobody has spoken to (send the
+  // email) and a cohort the email does not move (writing a better one, or fixing
+  // what they land on, is the work). Counting it stops the backlog being blamed
+  // for a conversion problem.
+  const nudged = neverStarted.filter((m) => m.nudged).length;
+  console.log(`${pad('Already sent the nudge email', 38)}${share(nudged)}`);
+  console.log(`${pad('Verified, never nudged', 38)}${share(neverStarted.filter((m) => m.verified && !m.nudged).length)}`);
   console.log(
     `\n  Confirmed an address and then stopped anyway is the real leak — those people meant it.`,
   );
   console.log(
     `  Never-confirmed is a registration that did not finish, which is a different problem and`,
   );
-  console.log(`  sometimes not a problem at all.\n`);
+  console.log(`  sometimes not a problem at all.`);
+  console.log(
+    `  Of those who meant it, the ones ALREADY NUDGED are the verdict on the email: they got it`,
+  );
+  console.log(
+    `  and are still here. A large number there means sending it to more people will not help.\n`,
+  );
 }
 
 if (converted.length < cliArgs.minSupport || lost.length < cliArgs.minSupport) {
