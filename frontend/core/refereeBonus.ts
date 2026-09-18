@@ -34,10 +34,17 @@ export type RefereeBonusInput = {
   referredByCode: string | null;
   // isReferralProgramEnabled() — the REFERRAL_PROGRAM_ENABLED master switch.
   programEnabled: boolean;
-  // True when this account has held a paid subscription before. The bonus is a
-  // NEW-customer incentive, so a returning customer doesn't get it. Because only
-  // first-time customers get a trial, this gate also guarantees the webhook's
-  // stacking step always has its pre-first-invoice (trialing) window.
+  // True when this account has held a subscription before — INCLUDING a trial
+  // that never converted, which is what the caller actually passes
+  // (hasHeldSubscriptionBefore). The name predates that distinction and claims
+  // more than the value knows; it is NOT evidence that money ever cleared, for
+  // which see core/paidHistory.ts.
+  //
+  // That is the correct input here regardless: the bonus is a NEW-customer
+  // incentive, and someone on their second subscription is not a new customer
+  // whether or not the first one ever charged. Because only first-time accounts
+  // get a trial, this gate also guarantees the webhook's stacking step always
+  // has its pre-first-invoice (trialing) window.
   hasPriorPaid: boolean;
   // getRefereeCouponId(cadence) — the bonus coupon for the cadence being bought.
   // Null when that cadence isn't configured, in which case checkout simply

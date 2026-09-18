@@ -330,6 +330,28 @@ kv('Cancel at period end', yesNo(user.cancel_at_period_end));
 kv('Payment grace started', orDash(user.payment_grace_started_at));
 kv('Payment grace reason', orDash(user.payment_grace_reason));
 kv('First payment cleared', orDash(user.first_payment_at));
+{
+  // The bottom line on money, stated before any flag that could be mistaken for
+  // it. `first_payment_at` is the webhook's real-time stamp;
+  // stripe_invoice_history is Stripe's own record, refreshed on a timer. Either
+  // one is enough — see core/paidHistory.ts for why neither may veto the other.
+  const cleared = querySqlite<{ c: number; total: number | null }>(
+    dbPath,
+    `SELECT COUNT(*) AS c, SUM(amount_paid) AS total FROM stripe_invoice_history
+      WHERE user_id = '${escapeSqlLiteral(user.id)}' AND status = 'paid' AND amount_paid > 0;`,
+  )[0] ?? { c: 0, total: 0 };
+  const everPaid = user.first_payment_at != null || Number(cleared.c) > 0;
+  kv(
+    'MONEY EVER COLLECTED',
+    everPaid
+      ? `YES — ${cleared.c} cleared invoice(s)${cleared.total ? `, ${formatMoney(Number(cleared.total), 'usd')} total` : ''}`
+      : 'NO — nothing has ever cleared on this account',
+  );
+  if (!everPaid) {
+    console.log('                               (a $0.00 trial invoice is not a payment, and an');
+    console.log('                               open invoice is a bill, not money)');
+  }
+}
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
@@ -346,8 +368,10 @@ kv('Onboarding nudge sent', orDash(user.verified_never_paid_email_sent_at));
 kv('Reactivation email sent', orDash(user.reactivation_email_sent_at));
 kv('Win-back email sent', orDash(user.winback_email_sent_at));
 {
-  // Mirrors hasPriorPaidSubscription in app/api/billing/checkout/route.ts.
-  const hasPriorPaid =
+  // Mirrors hasHeldSubscriptionBefore in app/api/billing/checkout/route.ts.
+  // NOT a statement about money: both stamps land on a trial that never
+  // converted. See core/paidHistory.ts.
+  const hasHeldSubscriptionBefore =
     user.paid_welcome_email_sent_at != null || Number(user.subscription_lapsed) === 1;
   // Mirrors getReactivationTrialDays() in the same file, clamp included, so the
   // number printed is the number checkout would actually grant.
@@ -357,8 +381,8 @@ kv('Win-back email sent', orDash(user.winback_email_sent_at));
     : REACTIVATION_TRIAL_DAYS_DEFAULT;
   kv(
     'Trial checkout would grant',
-    hasPriorPaid
-      ? 'none — prior paid subscription on this account'
+    hasHeldSubscriptionBefore
+      ? 'none — this account has already held a subscription (trial or paid)'
       : user.reactivation_email_sent_at != null
         ? `${reactivationDays}d via /pricing?trial=1&reactivate=1 (${TRIAL_PERIOD_DAYS}d without it)`
         : `${TRIAL_PERIOD_DAYS}d — NOT entitled to the extended trial ` +
@@ -393,9 +417,12 @@ header('Admin monitoring bucket');
 // time of subscription. Surfaces the exact reason a founder might NOT have
 // gotten the July-1 deferral.
 header('Deferral analysis');
-const hasPriorPaidSub =
+// Same expression as the checkout route's trial gate. It is true of a trial
+// that lapsed without ever paying, which is why it is no longer named for
+// money — see core/paidHistory.ts and the MONEY EVER COLLECTED line above.
+const heldSubscriptionBefore =
   !!user.paid_welcome_email_sent_at || Number(user.subscription_lapsed) === 1;
-kv('hasPriorPaidSubscription', yesNo(hasPriorPaidSub ? 1 : 0));
+kv('hasHeldSubscriptionBefore', yesNo(heldSubscriptionBefore ? 1 : 0));
 kv('Founding deadline', FOUNDING_DEADLINE_ISO);
 kv('Deferral deployed at', FOUNDING_DEFERRAL_DEPLOY_ISO);
 
@@ -421,17 +448,20 @@ if (startedAt == null) {
   if (user.subscription_status === 'trialing') {
     console.log('        Status is trialing — deferral most likely applied correctly.');
   } else if (user.subscription_status === 'active') {
-    if (hasPriorPaidSub) {
+    if (heldSubscriptionBefore) {
       console.log(
-        '        Status is active and hasPriorPaidSubscription is true → deferral was',
+        '        Status is active and hasHeldSubscriptionBefore is true → deferral was',
       );
-      console.log('        intentionally skipped (route.ts:139-146 requires no prior paid sub).');
+      console.log(
+        '        intentionally skipped (the route grants no trial to an account that',
+      );
+      console.log('        has already held a subscription).');
       console.log(
         '        Check the billing_checkout_started audit row below: trial=0 confirms this.',
       );
     } else {
       console.log(
-        '        BUG SUSPECTED: status is active and no prior paid sub, yet not trialing.',
+        '        BUG SUSPECTED: status is active and no prior subscription, yet not trialing.',
       );
       console.log(
         '        Check the billing_checkout_started audit row below for the trial= value:',

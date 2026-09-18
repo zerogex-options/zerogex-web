@@ -20,6 +20,7 @@ import {
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
 import { resolveRefereeBonusCoupon, splitRefereeBonus } from '@/core/refereeBonus';
 import { shouldRestoreFoundingRate } from '@/core/foundingRestore';
+import { hasEverPaid } from '@/core/paidHistory';
 import {
   findCreatorByReferralCode,
   getPartnerAudienceCouponId,
@@ -94,6 +95,7 @@ type UserBillingRow = {
   subscription_lapsed: number;
   winback_email_sent_at: string | null;
   reactivation_email_sent_at: string | null;
+  first_payment_at: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -152,7 +154,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, founding_member_started_at, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, founding_member_started_at, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at, first_payment_at FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -191,14 +193,27 @@ export async function POST(request: NextRequest) {
     (row?.subscription_lapsed ?? 0) === 1 &&
     row?.winback_email_sent_at != null;
 
-  // Whether this account has ever held a paid subscription (stamped welcome
-  // email or the churn flag). Drives BOTH the trial gate further down AND the
-  // referee-coupon gate: the referral bonus is a NEW-customer incentive, so a
-  // returning customer doesn't get it. Because only first-time users get a
-  // trial, gating the referee coupon this way also guarantees the stack-coupon
-  // webhook step always has its pre-first-invoice (trialing) window.
-  const hasPriorPaidSubscription =
+  // Whether this account has ever held a subscription of ANY kind — including a
+  // trial that never converted. The welcome stamp lands on `trialing` and the
+  // churn flag lands when Stripe cancels for nonpayment, so both are true of a
+  // member who paid nothing. That is the right test for what it gates, and the
+  // wrong thing to call "paid": see core/paidHistory.ts.
+  //
+  // Drives BOTH the trial gate further down AND the referee-coupon gate: the
+  // referral bonus is a NEW-customer incentive, so a returning account doesn't
+  // get it. Because only first-time users get a trial, gating the referee
+  // coupon this way also guarantees the stack-coupon webhook step always has
+  // its pre-first-invoice (trialing) window.
+  const hasHeldSubscriptionBefore =
     row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
+
+  // Whether money has ever actually cleared. NOT interchangeable with the flag
+  // above and never used to gate the trial — loosening that gate to "has paid"
+  // would hand a fresh free week to every trialer who lets one lapse. It exists
+  // so the audit trail, and the operator tooling reading it, can tell a
+  // never-converted trialer apart from a returning payer instead of calling
+  // both "prior paid subscription".
+  const everPaid = hasEverPaid(db, actor.user.id, row?.first_payment_at ?? null);
 
   // Founding-rate restoration for a member who redeemed the founding offer and
   // later lapsed — typically involuntarily, when a stolen or expired card ran out
@@ -222,7 +237,7 @@ export async function POST(request: NextRequest) {
     foundingRestore,
     referredByCode: row?.referred_by_code ?? null,
     winbackEligible,
-    hasPriorPaid: hasPriorPaidSubscription,
+    hasPriorPaid: hasHeldSubscriptionBefore,
   });
   if (!discountResult.ok) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
@@ -234,18 +249,21 @@ export async function POST(request: NextRequest) {
   // scripts/send-reactivation.mts) AND that is still trial-eligible (no prior
   // paid sub). Both together mean this is a genuine invited-back inactive
   // signup — not someone who appended ?reactivate=1 to farm a longer trial. A
-  // returning ex-subscriber (hasPriorPaidSubscription) gets no trial at all, so
+  // returning ex-subscriber (hasHeldSubscriptionBefore) gets no trial at all, so
   // the flag is inert for them.
   const reactivationEligible =
     reactivationRequested &&
-    !hasPriorPaidSubscription &&
+    !hasHeldSubscriptionBefore &&
     row?.reactivation_email_sent_at != null;
 
-  // Once-per-account trial gate. Anyone who has previously held a paid
-  // sub on this account (computed above as hasPriorPaidSubscription) is
-  // ineligible for any trial. First-timers get the standard 7-day trial —
-  // or, when they arrived through the reactivation offer, the extended one.
-  const trialDays = hasPriorPaidSubscription
+  // Once-per-account trial gate. Anyone who has previously held a subscription
+  // on this account — paid OR a trial that lapsed (computed above as
+  // hasHeldSubscriptionBefore) — is ineligible for any trial. Deliberately NOT
+  // gated on whether money cleared: a trialer who lets one lapse would
+  // otherwise farm a fresh free week every cycle. First-timers get the standard
+  // 7-day trial — or, when they arrived through the reactivation offer, the
+  // extended one.
+  const trialDays = hasHeldSubscriptionBefore
     ? null
     : reactivationEligible
       ? getReactivationTrialDays()
@@ -254,7 +272,7 @@ export async function POST(request: NextRequest) {
   // Founding members get the deferral-to-July-1 trial instead of the 7-day
   // one. Absolute trial_end (not a day count) so every founding member
   // converges on the same first-charge date regardless of when they
-  // activate. Intentionally NOT gated by hasPriorPaidSubscription: the
+  // activate. Intentionally NOT gated by hasHeldSubscriptionBefore: the
   // deferral is a fixed-deadline founder offer (no recurring-trial-farming
   // risk) and the founding cohort is small and vetted, so a returning
   // founder gets the deferral too. Falls back to trialDays above if the
@@ -465,7 +483,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -505,8 +523,12 @@ function resolveDiscount(input: {
   foundingRestore: boolean;
   referredByCode: string | null;
   winbackEligible: boolean;
-  // True when the account has held a paid sub before. The standard referee
-  // bonus (a new-customer incentive) is withheld from returning customers.
+  // True when the account has held a subscription before — INCLUDING a trial
+  // that never converted. The name is legacy (it is `hasPriorPaid` in
+  // core/refereeBonus.ts too) and says more than the value knows: it is fed
+  // hasHeldSubscriptionBefore, which is not a claim about money. See
+  // core/paidHistory.ts. The standard referee bonus (a new-customer incentive)
+  // is withheld from any returning account, so this is the right input for it.
   hasPriorPaid: boolean;
 }): DiscountResolution {
   // The refer-a-friend bonus, resolved FIRST and independently of every other
@@ -536,8 +558,8 @@ function resolveDiscount(input: {
   // Exclusive, like the acquisition branch it mirrors: the founding rate is the
   // best offer on the board, so no win-back, partner, campaign or public promo
   // stacks on top of it. No refer-a-friend bonus rides along either — a
-  // restoring founder necessarily has hasPriorPaid true, which already made
-  // refereeCouponId null above.
+  // restoring founder necessarily has hasPriorPaid (i.e. has held a
+  // subscription) true, which already made refereeCouponId null above.
   //
   // Attaching this coupon is only half the job: the session's
   // subscription_data.metadata.founding='1' below (stamped whenever

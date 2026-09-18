@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments trace-payment-claim void-stale-invoices clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -40,6 +40,8 @@ help:
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: apply a percent-off-for-one-year coupon alongside any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. Defaults to the standing STRIPE_COUPON_WINBACK_* coupon for the member's plan, i.e. the rate WINBACK_DISCOUNT_LABEL advertises. COUPON=<id> pins an exact coupon; PERCENT=N makes that rate BINDING (refuses rather than granting a different one); CREATE_COUPON=1 mints/reuses a coupon at PERCENT and is picked over the standing one; an EARLIER win-back coupon on the sub is superseded rather than stacked (STACK=1 keeps it, other discount families are always preserved); KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
+	@echo "  make trace-payment-claim [EMAIL=<email>] [AMOUNT=29.50] [DATE=2026-09-13] [LAST4=3392] - Answer 'you charged me' with evidence. Sweeps the WHOLE Stripe account by CARD FINGERPRINT, not by customer, so a charge on a second customer, a guest charge with no customer, or an incomplete PaymentIntent cannot hide. Read-only. Run this BEFORE telling anyone they were not charged"
+	@echo "  make void-stale-invoices [SINCE_DAYS=365] [EMAIL=<email>] [VERBOSE=1] - Void open invoices that can no longer buy the access they bill for (subscription gone, period already elapsed) — paying one takes money and grants nothing. Dry-run by default, YES=1 to apply; voiding is final"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
@@ -663,6 +665,47 @@ subscriber-headcount:
 #   make scan-orphan-payments SINCE_DAYS=365 VERBOSE=1
 scan-orphan-payments:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-orphan-payments.mts $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(VERBOSE),--verbose,)'
+
+# Answer a member's "you charged me" with evidence, across the WHOLE Stripe
+# account rather than the one customer their email resolves to.
+#
+# The Dashboard's email search answers "did this CUSTOMER RECORD pay us", which
+# is a narrower question than the one being asked. It cannot see a charge on a
+# second customer, a guest charge with no customer at all, or an incomplete
+# PaymentIntent (hidden from the Payments list by default) that still left a
+# real authorization on their statement. In each of those the search says "no
+# payments" while we are holding their money.
+#
+# So this sweeps on the card fingerprint — the same physical card under any
+# customer, any email — plus the amount and date off their statement. Run it
+# BEFORE telling anyone they were never charged.
+#
+# Read-only: creates nothing, writes nothing, sends nothing.
+# Examples:
+#   make trace-payment-claim EMAIL=foo@example.com AMOUNT=29.50 DATE=2026-09-13
+#   make trace-payment-claim AMOUNT=29.50 DATE=2026-09-13 LAST4=3392
+trace-payment-claim:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/trace-payment-claim.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(AMOUNT),--amount $(AMOUNT),) $(if $(DATE),--date $(DATE),) $(if $(LAST4),--last4 $(LAST4),) $(if $(LEAD_DAYS),--lead-days $(LEAD_DAYS),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(VERBOSE),--verbose,)'
+
+# Void the open invoices that can no longer buy the access they bill for.
+#
+# Stripe leaves the final invoice of a nonpayment-cancelled subscription OPEN
+# and payable forever. Inside the period it covers that is right: paying it buys
+# back real access and the orphan-payment path grants it. Past that period it
+# inverts — Stripe rejects a billing anchor in the past, so the money lands with
+# no entitlement and waits for a human to notice and refund it, while the
+# payment link sits in the member's inbox in every dunning email Stripe sent.
+#
+# The webhook voids one already stale at cancellation; this catches the common
+# case, which goes stale weeks later with nothing watching.
+#
+# Dry-run by default. Voiding is FINAL.
+#   make void-stale-invoices                       # report only
+#   make void-stale-invoices VERBOSE=1             # + why each was left alone
+#   make void-stale-invoices EMAIL=foo@example.com # one member
+#   make void-stale-invoices YES=1                 # apply
+void-stale-invoices:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/void-stale-invoices.mts $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(EMAIL),--email $(EMAIL),) $(if $(YES),--yes,) $(if $(DRY_RUN),--dry-run,) $(if $(VERBOSE),--verbose,)'
 
 recover-orphan-payment:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make recover-orphan-payment EMAIL=foo@example.com)"; exit 1; fi

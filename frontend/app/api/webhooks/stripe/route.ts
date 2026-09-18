@@ -31,6 +31,7 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+import { decideStaleInvoice, hoursOfValueRemaining } from '@/core/staleInvoice';
 // The customer lookup and its soft-delete guard live in core/ so the guard is
 // unit-testable against a real schema — see tests/billingUser.test.ts.
 import {
@@ -1777,6 +1778,90 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
   }
 }
 
+// The final invoice of a subscription Stripe just killed for nonpayment stays
+// OPEN and payable forever, with a live hosted payment page. That is deliberate
+// on Stripe's part and mostly right: for the rest of the period the invoice
+// covers, paying it buys back real access and core/orphanPayment.ts re-creates
+// the plan to grant it.
+//
+// Past the end of that period it inverts. Stripe will not accept a billing
+// anchor in the past, so decideOrphanPayment returns `period_already_elapsed`,
+// the money lands with no entitlement, and it sits until a human notices. The
+// invoice has become a way to take a member's money for nothing.
+//
+// So at cancellation we do the two things nothing was doing: void any open
+// invoice that is ALREADY past its period (a subscription cancelled long after
+// its period ended), and — for the far more common case, one still inside its
+// period — write down the exact moment it stops being worth paying, so no
+// campaign has to re-derive that cliff and no operator has to guess it.
+//
+// Best-effort throughout: a Stripe failure here must never 500 the webhook,
+// because that would trigger redelivery of the whole deletion event.
+async function reconcileOpenInvoicesOnCancel(
+  subscription: Stripe.Subscription,
+  user: { id: string; email: string },
+): Promise<void> {
+  try {
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const list = await getStripe().invoices.list({
+      subscription: subscription.id,
+      status: 'open',
+      limit: 100,
+    });
+
+    for (const invoice of list.data) {
+      const periodEndUnix = readInvoicePeriodEndUnix(invoice);
+      const decision = decideStaleInvoice({
+        invoiceStatus: invoice.status ?? null,
+        amountDue: invoice.amount_due ?? 0,
+        periodEndUnix,
+        // The subscription is being deleted; by definition nothing live remains.
+        subscriptionStatus: null,
+        // Only a nonpayment kill leaves a period the member never got. A
+        // voluntary cancel's unpaid invoice is a debt, and not ours to forgive
+        // automatically — see core/staleInvoice.ts.
+        cancellationReason: subscription.cancellation_details?.reason ?? null,
+        nowUnix,
+      });
+
+      if (decision.kind === 'void') {
+        if (!invoice.id) continue;
+        await getStripe().invoices.voidInvoice(invoice.id);
+        logAudit({
+          type: 'billing_stale_invoice_voided',
+          userId: user.id,
+          email: user.email,
+          message:
+            `Voided open invoice ${invoice.id} (${invoice.amount_due ?? 0} ${invoice.currency}) on ` +
+            `deleted sub ${subscription.id}: ${decision.reason}. It could no longer buy access.`,
+        });
+        continue;
+      }
+
+      const hours = hoursOfValueRemaining({ periodEndUnix, nowUnix });
+      logAudit({
+        type: 'billing_open_invoice_left_payable',
+        userId: user.id,
+        email: user.email,
+        message:
+          `Invoice ${invoice.id ?? 'unknown'} (${invoice.amount_due ?? 0} ${invoice.currency}) left OPEN on ` +
+          `deleted sub ${subscription.id} (${decision.reason}); buys access until ` +
+          `${periodEndUnix == null ? 'unknown' : new Date(periodEndUnix * 1000).toISOString()}` +
+          `${hours == null ? '' : ` (~${hours}h)`}. After that, paying it grants NOTHING — ` +
+          'void it rather than soliciting payment.',
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'invoice reconciliation failed';
+    logAudit({
+      type: 'billing_stale_invoice_check_error',
+      userId: user.id,
+      email: user.email,
+      message: `Could not reconcile open invoices for deleted sub ${subscription.id}: ${message}`,
+    });
+  }
+}
+
 async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
@@ -1823,6 +1908,9 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} ended; tier reset to public${reasonSuffix}`,
   });
+
+  // Deal with whatever Stripe left payable behind it.
+  await reconcileOpenInvoicesOnCancel(subscription, user);
 
   // The member just churned to public — deprovision any personal API keys.
   await maybeRevokeApiKeysOnTierDrop(user, normalizeTier(user.tier), 'public');
