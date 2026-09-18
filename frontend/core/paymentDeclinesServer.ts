@@ -989,6 +989,26 @@ export function attributeSignupSources(
   };
 }
 
+/**
+ * The window's decline rows, for an analysis that wants the raw records rather
+ * than the assembled report — scripts/decline-timing.mts is the caller.
+ *
+ * Applies the SAME account exclusions the report does (the operator's own
+ * account, comped members, creator partners on a granted tier). Without that a
+ * timing cut and the panel beside it would disagree about how many invoices
+ * exist, and the discrepancy would look like a bug in whichever one was read
+ * second.
+ */
+export function loadDeclinesForTiming(sinceIso: string | null): DeclineRecord[] {
+  let excluded: ReturnType<typeof loadExcludedAccounts> = [];
+  try {
+    excluded = loadExcludedAccounts();
+  } catch {
+    excluded = [];
+  }
+  return loadDeclineRecords(sinceIso, new Set(excluded.map((account) => account.id)));
+}
+
 function loadDeclineRecords(sinceIso: string | null, excludedUserIds: ReadonlySet<string>): DeclineRecord[] {
   try {
     const sql = sinceIso

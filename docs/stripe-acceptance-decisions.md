@@ -216,6 +216,53 @@ metrics rollup, and the payment-method split in the decline report. Change it,
 record the date below, compare 30 days on **both** — a conversion gain that costs
 more trials than it wins is a loss.
 
+### 4. Retry timing — UNDECIDED, gated on evidence that does not exist yet
+
+This is the one aimed at the 62%, and it is the one with no data behind it. So
+it is not a proposal yet; it is a test, and the test comes first.
+
+**The hypothesis.** An off-session charge needs the balance to be there at that
+moment. If that is why these fail, then a retry landing before payday fails for
+the same reason the original did, and a retry window that closes before payday
+never gets a chance at all. The lever would be the length and spacing of the
+retry schedule.
+
+**The test.** `make decline-timing`. It reports how long Stripe actually kept
+trying, and whether invoices whose retry window crossed the 1st or the 15th
+recovered any better than the ones that missed both.
+
+**The proxy, and its limit.** We do not know when any member is paid. We know
+when the charge landed and which dates Stripe tried on. Straddling the days
+payroll clusters around is the closest observable thing, and it cannot become
+proof however the numbers come out. Both rows carry a 95% interval; overlapping
+intervals mean no difference was shown, not that a small one is absent.
+
+**The instrument was calibrated before it was believed.** Run against a replica
+built with no effect present it reported 17% against 17%, identical intervals,
+inventing nothing. Run against one built with a large effect it reported 60%
+(42–75%) against 7% (2–21%). It can say yes and it can say no.
+
+**What each outcome means, decided in advance so the result cannot be read to
+taste:**
+
+* **Intervals separate, crossing a payday recovers better.** Timing is real.
+  The change to propose is a longer retry window — in Stripe, Settings →
+  Billing → Subscriptions, the failed-payment retry schedule — so that every
+  invoice gets at least one attempt after a payday. Risks: a longer window
+  keeps a member in limbo longer, delays the cancellation that ends the
+  relationship cleanly, and on a trial conversion holds entitlement decisions
+  open. None is severe; all need saying before it moves.
+* **Intervals overlap.** Timing is not the lever, and lengthening the retry
+  window is motion without effect. The remedy is the dunning email — already
+  changed today — and the decision here is to do nothing and say so.
+* **Too few resolved invoices to tell.** The likeliest outcome at 63 invoices
+  with 10 recoveries. Then the honest answer is to leave retry policy alone and
+  re-run when the counts support it.
+
+**Nothing changes in Stripe on the strength of this section.** It is written
+before the evidence deliberately, so the reading of the evidence is not
+retrofitted to a change somebody already wanted.
+
 ## What none of this addresses
 
 $2,177.50 — 62% of everything lost — is `insufficient_funds` on a first payment,
@@ -228,10 +275,8 @@ What plausibly moves it:
   card on file is debit or prepaid are told the date the funds need to be
   available. Debit declined at 77% against credit's 33% in the audit, and that
   gap has a mechanism rather than a correlation.
-- **Retry timing relative to payday.** Smart Retries chooses when to retry, but
-  the window and attempt count are configurable. The audit found 53 of 80
-  invoices reaching five attempts, so retries are running; whether they land on
-  useful days of the month is a separate question nobody has asked.
+- **Retry timing relative to payday.** Now has a test rather than a hunch —
+  see decision 4 above and `make decline-timing`.
 - **Recovery on the bucket, rather than acceptance.** Each 10 points of recovery
   on `insufficient_funds` is roughly $340 — more than every decision above
   combined, twice over.
