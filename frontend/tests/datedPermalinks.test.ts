@@ -30,6 +30,7 @@ const read = (p: string) => readFileSync(path.join(ROOT, p), 'utf8');
 const DATED_PAGES = [
   { name: 'forecast', file: 'app/forecast/[symbol]/[date]/page.tsx' },
   { name: 'scorecard', file: 'app/scorecard/[symbol]/[date]/page.tsx' },
+  { name: 'hedging-flow', file: 'app/hedging-flow/[symbol]/[date]/page.tsx' },
 ] as const;
 
 test('serverApiGetResult separates "no such row" from "no answer"', () => {

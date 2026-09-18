@@ -8,6 +8,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowSessionSurface } from '@/hooks/useApiData';
 import { computeForcedFlowSessionRead } from '@/core/forcedFlowSessionRead';
+import { isZoomGesture } from '@/core/wheelZoom';
 import ChartCaption from './ChartCaption';
 
 interface ForcedFlowSurfaceChartProps {
@@ -960,16 +961,22 @@ export default function ForcedFlowSurfaceChart({
 
   const handleWheel = useCallback((e: WheelEvent) => {
     if (!hasData) return;
-    e.preventDefault();
+    if (e.deltaY === 0) return;
+    // Bare wheel scrolls the page (see core/wheelZoom); zoom wants Ctrl/Cmd,
+    // Shift, or a pinch. Drag-to-zoom on the axes is the pointer alternative.
+    if (!isZoomGesture({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })) return;
     const { x, y } = xy(e);
     const region = regionOf(x, y);
+    // Off the plot entirely: claim nothing, so the page still scrolls.
     if (region === 'out') return;
+    e.preventDefault();
     const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1; // scroll up = zoom in
     const axis = region === 'x' ? 'x' : region === 'y' ? 'y' : 'both';
     applyZoom(x, y, factor, axis);
   }, [hasData, regionOf, applyZoom]);
 
-  // Wheel must be a non-passive native listener to preventDefault the page scroll.
+  // Wheel must be a non-passive native listener so preventDefault can stop the
+  // page scroll on the gestures the handler claims.
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv || !containerMounted) return;

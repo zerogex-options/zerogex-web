@@ -46,6 +46,8 @@ import {
   RECOVERED_FROM_INVOICE_KEY,
 } from '@/core/orphanPayment';
 import {
+  decideLateDiscountFix,
+  readInvoiceCouponIds,
   readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
@@ -557,6 +559,9 @@ async function maybeReconcileDiscountOnPlanSwitch(
         `Reconciled discounts on sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} ` +
         `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied [${[...correctSet].join(', ') || 'none'}]`,
     });
+    // The SUBSCRIPTION now carries the right coupons. When the switch took
+    // effect at a period boundary, that is one invoice too late — see below.
+    await reconcileDiscountOnOpenInvoice(subscription, user, keep, [...managed]);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'reconcile discount failed';
     logAudit({
@@ -566,6 +571,117 @@ async function maybeReconcileDiscountOnPlanSwitch(
       message: `Reconcile discount on sub ${subscription.id} after switch failed: ${message}`,
     });
     // Swallow — the tier sync already succeeded; a later sub event can retry.
+  }
+}
+
+// Apply the reconciled coupon set to the invoice the switch landed on.
+//
+// `subscriptions.update({discounts})` binds the NEXT cycle. That is fine for a
+// switch made mid-trial — the in-app upgrade path keeps the subscription
+// `trialing` on purpose, so its coupon is in place long before the trial-end
+// invoice is drawn. It is NOT fine for a switch that takes effect at the period
+// boundary itself:
+//
+//   • The billing portal schedules every downgrade at period end
+//     (schedule_at_period_end, conditions decreasing_item_amount /
+//     shortening_interval — see scripts/setup-billing-portal.mts), and for a
+//     trialing member period end IS trial end.
+//   • Stripe flips the subscription to `active` when the post-trial invoice is
+//     CREATED, about an hour before it attempts the charge. syncSubscriptionToUser
+//     already depends on that fact for the conversion event.
+//
+// So this handler runs with the first invoice at the new price ALREADY drawn,
+// carrying whatever discounts existed a moment earlier. Reconciling the
+// subscription alone leaves the member charged the wrong amount for one cycle:
+// too much when the incoming plan's promo never lands, too little when the
+// outgoing plan's promo rides along. This is the ordinary path for a trial
+// downgrade, not a rare race.
+//
+// Stripe holds that invoice in `draft` for roughly an hour, which is the window
+// in which the amount can still be changed. Past it the money has moved and the
+// correction is a credit note, so that case is recorded as an audit row support
+// can find instead of being silently dropped.
+async function reconcileDiscountOnOpenInvoice(
+  subscription: Stripe.Subscription,
+  user: UserRow,
+  keep: string[],
+  managed: string[],
+): Promise<void> {
+  // A switch applied while still `trialing` lands before the boundary invoice
+  // exists — nothing drawn yet, so nothing to correct.
+  if (subscription.status !== 'active') return;
+
+  // Its own try/catch, not the caller's: the subscription update has already
+  // succeeded and written its audit row by this point, so letting a failure here
+  // land in that catch would file an "after switch failed" error directly under a
+  // "reconciled" success and leave support unable to tell which half went wrong.
+  try {
+    const stripe = getStripe();
+    const list = await stripe.invoices.list({
+      subscription: subscription.id,
+      limit: 1,
+      expand: ['data.discounts'],
+    });
+    const invoice = list.data[0];
+    if (!invoice?.id) return;
+
+    // Only the invoice this switch actually raced. `limit: 1` is the newest
+    // invoice, which at a period boundary is the one drawn seconds ago — but for
+    // a MID-CYCLE switch (a paid member upgrading with proration) it is the
+    // previous cycle's invoice, long finalized and correctly priced for the plan
+    // in force when it was drawn. Without this guard that invoice matches the
+    // newly-intended coupons badly and gets filed as needing a credit it does
+    // not need. Two hours is far wider than the seconds this path really takes,
+    // and still excludes every prior cycle.
+    const drawnAgoSec = Math.floor(Date.now() / 1000) - invoice.created;
+    if (drawnAgoSec > 2 * 60 * 60) return;
+
+    const decision = decideLateDiscountFix({
+      invoiceStatus: invoice.status,
+      invoiceCouponIds: readInvoiceCouponIds(invoice),
+      intendedCouponIds: keep,
+      managedCouponIds: managed,
+    });
+    if (decision.action === 'none') return;
+
+    const amount = `${(invoice.total / 100).toFixed(2)} ${(invoice.currency || '').toUpperCase()}`.trim();
+    const delta =
+      `missing [${decision.missing.join(', ') || 'none'}], stale [${decision.stale.join(', ') || 'none'}]`;
+
+    if (decision.action === 'too_late') {
+      logAudit({
+        type: 'billing_discount_reconcile_too_late',
+        userId: user.id,
+        email: user.email,
+        message:
+          `Invoice ${invoice.id} on sub ${subscription.id} was already ${invoice.status} when the plan ` +
+          `switch reconciled (${decision.reason}): ${delta}. Charged ${amount}. Needs a manual credit — ` +
+          `list the cohort with scripts/scan-late-discount-reconcile.mts.`,
+      });
+      return;
+    }
+
+    await stripe.invoices.update(invoice.id, {
+      discounts: keep.map((coupon) => ({ coupon })),
+    });
+    logAudit({
+      type: 'billing_discount_applied_to_open_invoice',
+      userId: user.id,
+      email: user.email,
+      message:
+        `Rewrote draft invoice ${invoice.id} on sub ${subscription.id} to the reconciled discount set ` +
+        `[${keep.join(', ') || 'none'}] (was ${amount} before the rewrite): ${delta}`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'open-invoice discount fix failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message:
+        `Applying the reconciled discount set to the open invoice on sub ${subscription.id} failed: ` +
+        `${message}. The subscription itself reconciled; the current invoice may be mispriced.`,
+    });
   }
 }
 

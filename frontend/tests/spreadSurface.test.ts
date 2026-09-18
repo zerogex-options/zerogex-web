@@ -21,7 +21,9 @@ import {
   hasUsableBaseline,
   mostElevatedExpiry,
   percentileVerdict,
+  coverageVerdict,
   surfaceReadout,
+  unrankedExpiry,
   type SpreadSurface,
   type SurfaceBaseline,
   type SurfaceDteRank,
@@ -93,6 +95,8 @@ function surface(overrides: Partial<SpreadSurface> = {}): SpreadSurface {
       vs_normal: 1,
       percentile: 50,
       two_sided_pct: 98,
+      two_sided_normal_pct: 97,
+      two_sided_percentile: 60,
       contract_count: 120,
       sessions: 30,
     },
@@ -260,4 +264,89 @@ test('an unrankable expiry never wins and never blocks the others', () => {
   assert.equal(mostElevatedExpiry([rank({ percentile: null })]), null);
   assert.equal(mostElevatedExpiry([]), null);
   assert.equal(mostElevatedExpiry(null), null);
+});
+
+// ---------------------------------------------------------------------------
+// Why a bar is missing
+// ---------------------------------------------------------------------------
+//
+// A null percentile arrives in two states that used to render identically.
+// One of them recurs on a calendar: 2-3 DTE covers the weekend from Thursday
+// and Friday, 1DTE does from Friday, so on roughly two sessions in five the
+// chart was reporting a data shortage where the real answer is that nothing
+// expires then.
+
+test('an empty expiry bucket is the calendar, not a data shortage', () => {
+  // A reading cannot exist, but the history behind the bucket is plentiful.
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: null, sessions: 24 }));
+  assert.ok(note);
+  assert.match(note.label, /No expiry/);
+  assert.doesNotMatch(note.meaning, /Insufficient|not enough/);
+});
+
+test('a real baseline shortage still says so', () => {
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: 4.2, sessions: 3 }));
+  assert.ok(note);
+  assert.equal(note.label, 'Insufficient history');
+  assert.match(note.meaning, /3 comparable sessions/);
+});
+
+test('the shortage message is not self-contradicting', () => {
+  // The bug: 24 stored sessions against a floor of 8, reported as "only 24
+  // comparable sessions stored — not enough to rank".
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: null, sessions: 24 }));
+  assert.ok(note);
+  assert.doesNotMatch(note.meaning, /24/);
+});
+
+test('a ranked bucket has no note at all', () => {
+  assert.equal(unrankedExpiry(rank({ percentile: 94, current_pct: 5.0 })), null);
+});
+
+test('one stored session reads as singular', () => {
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: 4.2, sessions: 1 }));
+  assert.match(note!.meaning, /1 comparable session stored/);
+});
+
+// ---------------------------------------------------------------------------
+// Coverage, read the other way round
+// ---------------------------------------------------------------------------
+//
+// Coverage is the only figure on this panel where a HIGH percentile is the
+// good outcome. Running it through the width verdict would paint the
+// best-covered session of the quarter bearish red — the one rendering
+// mistake that makes a new number worse than no number at all.
+
+test('a well covered chain is bullish, not bearish', () => {
+  const verdict = coverageVerdict(96, 32);
+  assert.ok(verdict);
+  assert.equal(verdict.tone, 'bullish');
+  // The width verdict would call the same percentile the widest 5%.
+  assert.equal(percentileVerdict(96, 32)?.tone, 'bearish');
+});
+
+test('a chain going no-bid is the bearish end', () => {
+  const verdict = coverageVerdict(3, 32);
+  assert.ok(verdict);
+  assert.equal(verdict.tone, 'bearish');
+  assert.match(verdict.label, /Thinnest/);
+  // And it says why no spread figure will corroborate it.
+  assert.match(verdict.meaning, /no width to report/);
+});
+
+test('ordinary coverage is neutral at both ends of the normal band', () => {
+  assert.equal(coverageVerdict(21, 32)?.tone, 'neutral');
+  assert.equal(coverageVerdict(79, 32)?.tone, 'neutral');
+});
+
+test('the thresholds match the width verdict so the two cannot disagree', () => {
+  // 20 and 80 are the boundaries on both, just mirrored.
+  assert.equal(coverageVerdict(20, 32)?.tone, 'bearish');
+  assert.equal(coverageVerdict(80, 32)?.tone, 'bullish');
+});
+
+test('no rank and no sessions produce no verdict', () => {
+  assert.equal(coverageVerdict(null, 32), null);
+  assert.equal(coverageVerdict(50, 0), null);
+  assert.equal(coverageVerdict(undefined, 32), null);
 });

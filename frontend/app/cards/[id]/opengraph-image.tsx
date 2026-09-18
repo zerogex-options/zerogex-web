@@ -37,8 +37,14 @@ function fmtPrice(value: number | undefined | null): string {
   return `$${Number(value).toFixed(2)}`;
 }
 
-export default async function Image({ params }: { params: { id: string } }) {
-  const cardId = /^\d+$/.test(params.id) ? Number.parseInt(params.id, 10) : NaN;
+// `params` is a PROMISE here, not an object. Every dated OG image on the site
+// destructured it synchronously, so `params.date` was undefined: the previews
+// rendered with the date missing and the payload fetch skipped, which is why
+// a shared permalink card said "SPY ·" and then nothing. Awaiting it is the
+// whole fix; the type below is what makes it impossible to forget again.
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const cardId = /^\d+$/.test(resolvedParams.id) ? Number.parseInt(resolvedParams.id, 10) : NaN;
   const card = Number.isFinite(cardId) && cardId > 0
     ? await serverApiGet<CardPayload>(`/api/signals/action/${cardId}`, revalidate)
     : null;

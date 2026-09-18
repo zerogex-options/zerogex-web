@@ -97,9 +97,19 @@ function hhmmToIsoUtc(date: string, hhmm: string): string | null {
   }
 }
 
-export default async function Image({ params }: { params: { symbol: string; date: string; time: string } }) {
-  const symbol = resolveSymbol(params.symbol);
-  const iso = hhmmToIsoUtc(params.date, params.time);
+// `params` is a PROMISE here, not an object. Every dated OG image on the site
+// destructured it synchronously, so `params.date` was undefined: the previews
+// rendered with the date missing and the payload fetch skipped, which is why
+// a shared permalink card said "SPY ·" and then nothing. Awaiting it is the
+// whole fix; the type below is what makes it impossible to forget again.
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ symbol: string; date: string; time: string }>;
+}) {
+  const resolvedParams = await params;
+  const symbol = resolveSymbol(resolvedParams.symbol);
+  const iso = hhmmToIsoUtc(resolvedParams.date, resolvedParams.time);
   const payload = iso
     ? await serverApiGet<FramePayload>(
         `/api/replay/frame?symbol=${symbol}&ts=${encodeURIComponent(iso)}`,
@@ -107,9 +117,9 @@ export default async function Image({ params }: { params: { symbol: string; date
       )
     : null;
 
-  const human = formatHumanDate(params.date);
-  const minute = HHMM.test(params.time)
-    ? `${params.time.slice(0, 2)}:${params.time.slice(2, 4)} ET`
+  const human = formatHumanDate(resolvedParams.date);
+  const minute = HHMM.test(resolvedParams.time)
+    ? `${resolvedParams.time.slice(0, 2)}:${resolvedParams.time.slice(2, 4)} ET`
     : '—';
   const summary = payload?.summary;
 
@@ -130,10 +140,10 @@ export default async function Image({ params }: { params: { symbol: string; date
   const profilePeak =
     profile.reduce((acc, c) => Math.max(acc, Math.abs(c.net)), 0) || 1;
 
-  await captureServer(`og:replay:${params.date}:${params.time}`, TelemetryEvent.OgPreviewed, {
+  await captureServer(`og:replay:${resolvedParams.date}:${resolvedParams.time}`, TelemetryEvent.OgPreviewed, {
     surface: 'replay_snapshot',
-    date: params.date,
-    time_hhmm: params.time,
+    date: resolvedParams.date,
+    time_hhmm: resolvedParams.time,
     symbol,
     resolved: Boolean(payload),
   });
@@ -402,7 +412,7 @@ export default async function Image({ params }: { params: { symbol: string; date
               display: 'flex',
             }}
           >
-            zerogex.io/replay/{symbol}/{params.date}
+            zerogex.io/replay/{symbol}/{resolvedParams.date}
           </div>
         </div>
       </div>

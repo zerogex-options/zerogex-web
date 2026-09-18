@@ -70,9 +70,19 @@ function formatHumanDate(raw: string): string {
   }
 }
 
-export default async function Image({ params }: { params: { symbol: string; date: string } }) {
-  const symbol = resolveSymbol(params.symbol);
-  const date = params.date;
+// `params` is a PROMISE here, not an object. Every dated OG image on the site
+// destructured it synchronously, so `params.date` was undefined: the previews
+// rendered with the date missing and the payload fetch skipped, which is why
+// a shared permalink card said "SPY ·" and then nothing. Awaiting it is the
+// whole fix; the type below is what makes it impossible to forget again.
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ symbol: string; date: string }>;
+}) {
+  const resolvedParams = await params;
+  const symbol = resolveSymbol(resolvedParams.symbol);
+  const date = resolvedParams.date;
   const payload = ISO_DATE.test(date)
     ? await serverApiGet<ForecastPayload>(
         `/api/forecast/${date}?symbol=${symbol}`,

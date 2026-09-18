@@ -61,11 +61,17 @@ const PAINTED_PROPERTIES = [
   'visibility',
 ] as const;
 
-function loadImage(url: string): Promise<HTMLImageElement> {
+/**
+ * Load a URL into an <img>, resolving once it has decoded.
+ *
+ * Shared with core/pageSnapshot.ts, which rasterizes the same way from an
+ * HTML subtree rather than a chart's <svg>.
+ */
+export function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Failed to rasterize chart SVG'));
+    img.onerror = () => reject(new Error('Failed to rasterize SVG'));
     img.src = url;
   });
 }
@@ -102,7 +108,7 @@ function inlineComputedStyles(source: SVGSVGElement, clone: SVGSVGElement): Set<
 }
 
 /** "A, 'B C', monospace" → ['A', 'B C', 'monospace'] (quotes stripped). */
-function splitFontStack(stack: string): string[] {
+export function splitFontStack(stack: string): string[] {
   return stack
     .split(',')
     .map((part) => part.trim().replace(/^['"]|['"]$/g, ''))
@@ -130,64 +136,95 @@ async function fetchAsDataUri(url: string): Promise<string | null> {
   }
 }
 
+/** Every @font-face rule in the document, including ones nested in @layer/@media. */
+function allFontFaceRules(): CSSStyleRule[] {
+  const found: CSSStyleRule[] = [];
+  const walk = (rules: CSSRuleList) => {
+    for (const rule of Array.from(rules)) {
+      if (rule.cssText.trimStart().startsWith('@font-face')) {
+        found.push(rule as CSSStyleRule);
+        continue;
+      }
+      // @layer / @media / @supports expose their children the same way. Tailwind
+      // v4 puts everything it emits inside @layer, so a top-level-only scan
+      // misses any face declared through the framework rather than next/font.
+      const nested = (rule as CSSGroupingRule).cssRules;
+      if (nested) walk(nested);
+    }
+  };
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      walk(sheet.cssRules);
+    } catch {
+      // A cross-origin stylesheet throws on access. Nothing to do but skip it.
+    }
+  }
+  return found;
+}
+
 /**
  * Build a <style> block of @font-face rules, with the font binaries inlined as
- * data URIs, for exactly the families the chart uses.
+ * data URIs, for exactly the families the caller uses.
  *
  * next/font emits two faces per family: a real one with a url() src, and a
  * `…_Fallback` face whose src is local() with size-adjust metrics. Only the
  * former can be embedded; the latter is skipped, which is harmless — it exists
  * to stop layout shift during load, and there is no load in a raster.
+ *
+ * Shared with core/pageSnapshot.ts: a page capture needs the same faces the
+ * charts do, plus whatever the surrounding copy is set in.
  */
-async function embeddedFontCss(families: Set<string>): Promise<string> {
+export async function embeddedFontCss(families: Set<string>): Promise<string> {
   if (families.size === 0) return '';
   const wanted = new Set(Array.from(families, (f) => f.toLowerCase()));
   const rules: string[] = [];
   const seenUrls = new Map<string, string>();
   let budget = MAX_EMBEDDED_FONT_BYTES;
 
-  for (const sheet of Array.from(document.styleSheets)) {
-    let cssRules: CSSRuleList;
+  for (const rule of allFontFaceRules()) {
+    const style = rule.style;
+    if (!style) continue;
+    const family = splitFontStack(style.getPropertyValue('font-family'))[0];
+    if (!family || !wanted.has(family.toLowerCase())) continue;
+
+    const src = style.getPropertyValue('src');
+    const url = /url\(["']?([^"')]+)["']?\)/.exec(src)?.[1];
+    if (!url) continue; // a local()-only fallback face
+
+    // Resolve against the STYLESHEET, not the document. next/font writes its
+    // src as `url(../media/x.woff2)`, which is relative to the emitted CSS file
+    // under /_next/static/css/ — against the document it resolves to /media/…,
+    // 404s, and the export silently lands on the generic fallback. That is what
+    // it did until this line said `sheet` instead of `document`.
+    let absolute: string;
     try {
-      cssRules = sheet.cssRules;
+      absolute = new URL(url, rule.parentStyleSheet?.href ?? document.baseURI).href;
     } catch {
-      // A cross-origin stylesheet throws on access. Nothing to do but skip it.
       continue;
     }
-    for (const rule of Array.from(cssRules)) {
-      if (!rule.cssText.trimStart().startsWith('@font-face')) continue;
-      const style = (rule as CSSStyleRule).style;
-      if (!style) continue;
-      const family = splitFontStack(style.getPropertyValue('font-family'))[0];
-      if (!family || !wanted.has(family.toLowerCase())) continue;
 
-      const src = style.getPropertyValue('src');
-      const url = /url\(["']?([^"')]+)["']?\)/.exec(src)?.[1];
-      if (!url) continue; // a local()-only fallback face
-
-      let dataUri = seenUrls.get(url);
-      if (dataUri === undefined) {
-        const fetched = await fetchAsDataUri(new URL(url, document.baseURI).href);
-        if (!fetched) continue;
-        if (fetched.length > budget) continue;
-        budget -= fetched.length;
-        dataUri = fetched;
-        seenUrls.set(url, dataUri);
-      }
-
-      const descriptor = (name: string) => {
-        const value = style.getPropertyValue(name);
-        return value ? `${name}:${value};` : '';
-      };
-      rules.push(
-        `@font-face{font-family:'${family}';src:url(${dataUri}) format('woff2');` +
-          descriptor('font-weight') +
-          descriptor('font-style') +
-          descriptor('font-display') +
-          descriptor('unicode-range') +
-          '}',
-      );
+    let dataUri = seenUrls.get(absolute);
+    if (dataUri === undefined) {
+      const fetched = await fetchAsDataUri(absolute);
+      if (!fetched) continue;
+      if (fetched.length > budget) continue;
+      budget -= fetched.length;
+      dataUri = fetched;
+      seenUrls.set(absolute, dataUri);
     }
+
+    const descriptor = (name: string) => {
+      const value = style.getPropertyValue(name);
+      return value ? `${name}:${value};` : '';
+    };
+    rules.push(
+      `@font-face{font-family:'${family}';src:url(${dataUri}) format('woff2');` +
+        descriptor('font-weight') +
+        descriptor('font-style') +
+        descriptor('font-display') +
+        descriptor('unicode-range') +
+        '}',
+    );
   }
   return rules.join('');
 }

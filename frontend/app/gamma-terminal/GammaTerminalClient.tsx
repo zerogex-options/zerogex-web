@@ -23,8 +23,10 @@
  * and the FIRST ladder always agree — pick it from the ladder's dropdown, the
  * chart's own switcher, or the header, they are all the same state. The SECOND
  * ladder is free-select from every OTHER symbol; it opens on the primary's
- * like-pair (SPY↔QQQ, SPX↔NDX, ES↔NQ) and swaps rather than ever comparing a
- * symbol against itself.
+ * same-index counterpart (SPY↔SPX, ES→SPX, QQQ↔NDX, NQ→NDX — `sameIndexPairFor`,
+ * NOT the cross-index like-pair Pair Comparison opens on), so the terminal
+ * starts on one underlying read through two books, and swaps rather than ever
+ * comparing a symbol against itself.
  *
  * The chart's Expiry filter is tab-shared (useSharedExpirations), so it scopes
  * the ladders too — each column reconciles the selection to its own chain
@@ -52,7 +54,7 @@ import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
-import { SYMBOLS, likePairFor } from "@/core/symbols";
+import { SYMBOLS, sameIndexPairFor } from "@/core/symbols";
 
 const INFO_TEXT =
   "The Gamma Chart with two gamma ladders beside it. The chart is the same instrument as the Gamma Chart page — " +
@@ -68,7 +70,8 @@ const INFO_TEXT =
   "row to the same height, so the three instruments line up. The chart keeps " +
   "its own toolbar for symbol, timeframe, price style, overlays, Expiry filter and Rewind. The underlying you " +
   "pick (from the first ladder's dropdown, the chart's switcher or the header) drives the chart AND the first ladder; " +
-  "the second ladder compares any other symbol and opens on the natural pair (SPY↔QQQ, SPX↔NDX, ES↔NQ). " +
+  "the second ladder compares any other symbol and opens on the same index's other book " +
+  "(SPY↔SPX, ES→SPX, QQQ↔NDX, NQ→NDX). " +
   "Both ladders stay centered on spot and strike-aligned, with the Gamma Flip, Call/Put Walls and Max Pain marked " +
   "and the heaviest strike in view crowned. After the options close, an ETF's latest analytics buckets can carry no " +
   "positioning; the ladder then shows the newest bucket that did and marks the rows 'as of' that time, while the " +
@@ -128,19 +131,22 @@ export default function GammaTerminalClient() {
   const { activeOnly } = useStrikeFilter();
   const { showSessionDelta } = useSessionDelta();
 
-  // The comparison ladder's symbol — free-select, never the primary. Kept as a
-  // preference: when the primary moves onto it through a control this page
-  // does not own (the chart's own switcher, the header picker), the two swap so
-  // the comparison ladder shows the PREVIOUS primary rather than a duplicate.
-  // Render-time state adjustment (the same pattern the chart uses for its view
-  // key), not an effect, so the swapped ladder is what actually paints.
-  const [sym2Pref, setSym2Pref] = useState<UnderlyingSymbol>(() => likePairFor(sym1));
+  // The comparison ladder's symbol — free-select, never the primary. Defaults to
+  // the primary's same-index counterpart (SPY↔SPX, ES→SPX, QQQ↔NDX, NQ→NDX), so
+  // the terminal opens on one underlying seen through two books rather than on
+  // the cross-index like-pair. Kept as a preference: when the primary moves onto
+  // it through a control this page does not own (the chart's own switcher, the
+  // header picker), the two swap so the comparison ladder shows the PREVIOUS
+  // primary rather than a duplicate. Render-time state adjustment (the same
+  // pattern the chart uses for its view key), not an effect, so the swapped
+  // ladder is what actually paints.
+  const [sym2Pref, setSym2Pref] = useState<UnderlyingSymbol>(() => sameIndexPairFor(sym1));
   const [prevSym1, setPrevSym1] = useState<UnderlyingSymbol>(sym1);
   if (prevSym1 !== sym1) {
     setPrevSym1(sym1);
     if (sym2Pref === sym1) setSym2Pref(prevSym1);
   }
-  const sym2: UnderlyingSymbol = sym2Pref === sym1 ? likePairFor(sym1) : sym2Pref;
+  const sym2: UnderlyingSymbol = sym2Pref === sym1 ? sameIndexPairFor(sym1) : sym2Pref;
 
   // Picking the comparison symbol as the primary swaps them (Pair Comparison
   // semantics); the primary itself is the app-wide symbol, so the chart and the

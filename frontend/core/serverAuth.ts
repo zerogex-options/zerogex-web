@@ -1707,7 +1707,7 @@ export async function markProWelcomeSeenForRequest(request: NextRequest) {
     userId: data.user.id,
     email: data.user.email,
     ip: getClientIp(request),
-    message: 'User acknowledged the Pro welcome / API-key onboarding modal',
+    message: 'User acknowledged the Pro welcome / first-run modal',
   });
 
   return {

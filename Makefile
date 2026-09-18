@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -1206,6 +1206,39 @@ churn-breakdown:
 #   make backfill-refund-audit DRY_RUN=1
 #   make backfill-refund-audit YES=1
 #   make backfill-refund-audit DRY_RUN=1 SINCE=2026-06-01
+# Find everyone charged the wrong amount for one cycle because a plan switch
+# reconciled its coupons a moment too late. The portal schedules downgrades at
+# period end; for a trialing member that IS trial end, and Stripe draws the first
+# invoice in the same instant it flips the sub to active — so the webhook's
+# coupon swap (subscriptions.update) binds the NEXT cycle and the invoice already
+# drawn is billed at the wrong rate. Fixed forward in the webhook
+# (reconcileDiscountOnOpenInvoice); this names the members hit before that.
+# Read-only: no writes, no emails, Stripe reads only.
+#   make scan-late-discount-reconcile
+#   make scan-late-discount-reconcile SINCE=2026-06-01
+#   make scan-late-discount-reconcile CSV=1 > mispriced.csv
+# What did the people who CONVERTED look at in their first hours that the people
+# who left during the trial never found? churn-breakdown says 68% of cancels land
+# inside 14 days and the survey clusters on "wasn't using it" / "too complex" —
+# but there are 37 education pages, a Platform Guide, FAQs and Quick Starts all
+# in the nav, so the gap is routing, not content. This compares the two outcomes
+# page by page and prints the shortlist a first-run path should route to.
+# Correlation on a small book — read the raw counts, not the percentages.
+# Read-only.
+# Use SINCE/UNTIL to compare signup cohorts either side of a change:
+#   make scan-trial-activation UNTIL=2026-09-18   (signed up before it)
+#   make scan-trial-activation SINCE=2026-09-18   (signed up after it)
+# A 7-day trial plus the time it takes to convert or leave means an "after"
+# cohort needs ~21 days before it can be compared with a mature one; the script
+# says so itself when the window is too recent.
+#   make scan-trial-activation
+#   make scan-trial-activation DAYS=90 HOURS=24
+scan-trial-activation:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-trial-activation.mts $(if $(DAYS),--days $(DAYS),) $(if $(HOURS),--hours $(HOURS),) $(if $(MIN_SUPPORT),--min-support $(MIN_SUPPORT),) $(if $(TOP),--top $(TOP),) $(if $(SINCE),--since $(SINCE),) $(if $(UNTIL),--until $(UNTIL),)'
+
+scan-late-discount-reconcile:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-late-discount-reconcile.mts $(if $(SINCE),--since $(SINCE),) $(if $(WINDOW_MINUTES),--window-minutes $(WINDOW_MINUTES),) $(if $(CSV),--csv,)'
+
 backfill-refund-audit:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-refund-audit.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(SINCE),--since $(SINCE),) $(if $(LIMIT),--limit $(LIMIT),)'
 
