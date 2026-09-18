@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -49,6 +49,7 @@ help:
 	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
 	@echo "  make trace-payment-claim [EMAIL=<email>] [AMOUNT=29.50] [DATE=2026-09-13] [LAST4=3392] - Answer 'you charged me' with evidence. Sweeps the WHOLE Stripe account by CARD FINGERPRINT, not by customer, so a charge on a second customer, a guest charge with no customer, or an incomplete PaymentIntent cannot hide. Read-only. Run this BEFORE telling anyone they were not charged"
 	@echo "  make void-stale-invoices [SINCE_DAYS=365] [EMAIL=<email>] [VERBOSE=1] - Void open invoices that can no longer buy the access they bill for (subscription gone, period already elapsed) — paying one takes money and grants nothing. Dry-run by default, YES=1 to apply; voiding is final"
+	@echo "  make duplicate-accounts [MAX_PER_IP=20] [SHAPE=trial_recycled] [EXCLUDE_IP=<ip>] [SINCE_DAYS=N] [VERBOSE=1] - Find members holding more than one account, grouped by shared IP from the audit log. Ranks clusters by what they would cost if real (two paying accounts first, then a recycled trial) and prints the HANDOFF: how long after one account went quiet the next was created. Read-only; a shared address is a pointer, not proof"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
@@ -815,6 +816,31 @@ scan-orphan-payments:
 #   make trace-payment-claim AMOUNT=29.50 DATE=2026-09-13 LAST4=3392
 trace-payment-claim:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/trace-payment-claim.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(AMOUNT),--amount $(AMOUNT),) $(if $(DATE),--date $(DATE),) $(if $(LAST4),--last4 $(LAST4),) $(if $(LEAD_DAYS),--lead-days $(LEAD_DAYS),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(VERBOSE),--verbose,)'
+
+# Find the people who hold more than one account.
+#
+# Grew out of a member who wrote in certain we had charged him while his account
+# said we had collected nothing. Both were true: he had bounced off a
+# full-price, no-trial checkout and opened a second account under a second email
+# three hours later, which took a trial, a campaign code, and has been paying
+# since. Different email, different Stripe customer, and a Link payment method
+# with no card fingerprint — so nothing in Stripe could join them. Our own audit
+# log could: both accounts were driven from the same IP.
+#
+# Clusters are grouped transitively (home IP and phone IP joined through a
+# shared account), ranked by what they would cost if real, and each one prints
+# the HANDOFF — how long after one account last did anything the next was
+# created. That number, not the gap between signups, is what says "one person
+# going around a wall".
+#
+# An address with more than MAX_PER_IP accounts behind it is infrastructure, not
+# a person, and is dropped rather than reported. Use EXCLUDE_IP for your own
+# office. Read-only.
+#   make duplicate-accounts
+#   make duplicate-accounts SHAPE=trial_recycled
+#   make duplicate-accounts EXCLUDE_IP=203.0.113.7 VERBOSE=1
+duplicate-accounts:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-duplicate-accounts.mts $(if $(MAX_PER_IP),--max-per-ip $(MAX_PER_IP),) $(if $(MIN_ACCOUNTS),--min-accounts $(MIN_ACCOUNTS),) $(if $(SHAPE),--shape $(SHAPE),) $(if $(EXCLUDE_IP),--exclude-ip $(EXCLUDE_IP),) $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(VERBOSE),--verbose,)'
 
 # Void the open invoices that can no longer buy the access they bill for.
 #

@@ -62,6 +62,7 @@
     "test:payment-claim": "node --experimental-strip-types --test tests/paymentClaim.test.ts",
     "test:paid-history": "node --experimental-strip-types --test tests/paidHistory.test.ts",
     "test:stale-invoice": "node --experimental-strip-types --test tests/staleInvoice.test.ts",
+    "test:duplicate-accounts": "node --experimental-strip-types --test tests/duplicateAccounts.test.ts",
     "test:grace-expiry-warning": "node --experimental-strip-types --test tests/graceExpiryWarning.test.ts",
     "test:payment-method-drift": "node --experimental-strip-types --test tests/paymentMethodDrift.test.ts",
     "test:subscriber-bucket": "node --experimental-strip-types --test tests/subscriberBucket.test.ts",

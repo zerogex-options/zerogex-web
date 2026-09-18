@@ -52,6 +52,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 
+import { decideStaleInvoice } from '../core/staleInvoice.ts';
+import { readInvoicePeriodEndUnix } from '../core/stripeInvoice.ts';
+
 const AUDIT_TYPE = 'billing_subscription_canceled';
 
 type Args = {
@@ -261,17 +264,126 @@ if (!user) {
   console.error(`Error: no user found with email ${cliArgs.email}.`);
   process.exit(1);
 }
-if (!user.stripe_subscription_id) {
-  console.error(
-    `Error: ${user.email} has no Stripe subscription (status=${user.subscription_status ?? 'none'}). Nothing to cancel.`,
-  );
-  console.error('If you want to remove the account itself, use: make delete-user EMAIL=' + user.email);
-  process.exit(1);
-}
-
 // Live Stripe read is the source of truth for the current status; the DB mirror
 // can lag a webhook.
 const stripe = new Stripe(STRIPE_SECRET_KEY);
+
+// --- The mirror is already cleared -------------------------------------------
+// clearSubscriptionFromUser NULLs stripe_subscription_id the moment Stripe kills
+// a subscription for nonpayment, so by the time anyone reaches for this script
+// the id is gone. That made the `alreadyTerminal` branch below — "nothing left
+// to cancel, but we may still void a stray open invoice" — unreachable in the
+// exact situation it was written for: a dunning-cancelled member with a $29
+// invoice still open and still payable, which is the whole reason --void-invoice
+// exists.
+//
+// So handle that case here, off the subscription entirely, and leave the cancel
+// machinery below untouched. Invoices are found by CUSTOMER, because there is no
+// local subscription id left to find them by.
+if (!user.stripe_subscription_id) {
+  if (!user.stripe_customer_id) {
+    console.error(
+      `Error: ${user.email} has no Stripe subscription (status=${user.subscription_status ?? 'none'}) and no Stripe customer. Nothing to do.`,
+    );
+    console.error('If you want to remove the account itself, use: make delete-user EMAIL=' + user.email);
+    process.exit(1);
+  }
+
+  let strays: Stripe.Invoice[] = [];
+  try {
+    const list = await stripe.invoices.list({
+      customer: user.stripe_customer_id,
+      status: 'open',
+      limit: 100,
+    });
+    strays = list.data;
+  } catch (err) {
+    console.error(`Error: could not list open invoices: ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  console.log(`Auth DB:            ${dbPath}`);
+  console.log(`User:               ${user.email} (${user.id})`);
+  console.log(`Subscription:       none on file (status=${user.subscription_status ?? 'none'})`);
+  console.log(`Stripe customer:    ${user.stripe_customer_id}`);
+  console.log(`Open invoices:      ${strays.length}`);
+
+  if (strays.length === 0) {
+    console.log('\nNothing to cancel and no open invoice to void.');
+    console.log('If you want to remove the account itself, use: make delete-user EMAIL=' + user.email);
+    process.exit(0);
+  }
+
+  const nowUnix = Math.floor(Date.now() / 1000);
+  for (const inv of strays) {
+    const periodEndUnix = readInvoicePeriodEndUnix(inv);
+    const decision = decideStaleInvoice({
+      invoiceStatus: inv.status ?? null,
+      amountDue: inv.amount_due ?? 0,
+      periodEndUnix,
+      subscriptionStatus: null,
+      cancellationReason: 'payment_failed',
+      nowUnix,
+    });
+    const buys =
+      decision.kind === 'keep' && decision.reason === 'still_buys_access'
+        ? `STILL BUYS ACCESS until ${new Date((periodEndUnix ?? 0) * 1000).toISOString()}`
+        : 'can no longer buy access';
+    console.log(
+      `  ${inv.id}  ${formatAmount(inv.amount_due, inv.currency)}  ${buys}` +
+        `${cliArgs.voidInvoice ? '  → VOID' : '  (left as-is; pass --void-invoice)'}`,
+    );
+  }
+
+  if (!cliArgs.voidInvoice) {
+    console.log('\nNothing to cancel — the subscription is already gone.');
+    console.log('To retire the open invoice(s) above so nobody can pay for nothing:');
+    console.log(`  make cancel-subscription EMAIL=${user.email} VOID_INVOICE=1 YES=1`);
+    process.exit(0);
+  }
+
+  if (!cliArgs.yes) {
+    console.log('\nDRY RUN — nothing was changed. Re-run with YES=1 to void. Voiding is final.');
+    process.exit(0);
+  }
+
+  const strayVoided: string[] = [];
+  const strayFailed: string[] = [];
+  for (const inv of strays) {
+    if (!inv.id) continue;
+    try {
+      await stripe.invoices.voidInvoice(inv.id);
+      strayVoided.push(inv.id);
+      console.log(`  VOIDED ${inv.id}`);
+    } catch (err) {
+      strayFailed.push(inv.id);
+      console.error(`  FAILED ${inv.id}: ${(err as Error).message}`);
+    }
+  }
+
+  if (strayVoided.length > 0) {
+    const strayAuditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+    execSqlite(
+      dbPath,
+      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       VALUES (
+         '${escapeSqlLiteral(strayAuditId)}',
+         '${escapeSqlLiteral('billing_stale_invoice_voided')}',
+         '${escapeSqlLiteral(user.id)}',
+         NULL,
+         '${escapeSqlLiteral(user.email)}',
+         'manual-script',
+         '${escapeSqlLiteral(`Voided stray open invoice(s) ${strayVoided.join(', ')} on customer ${user.stripe_customer_id}; no subscription on file`)}',
+         '${escapeSqlLiteral(new Date().toISOString())}'
+       );`,
+    );
+  }
+
+  console.log(
+    `\nDone. Voided ${strayVoided.length} invoice(s)${strayFailed.length ? `, ${strayFailed.length} failed` : ''}.`,
+  );
+  process.exit(strayFailed.length > 0 ? 1 : 0);
+}
 
 let subscription: Stripe.Subscription;
 try {
