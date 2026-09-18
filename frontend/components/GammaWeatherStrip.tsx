@@ -61,20 +61,6 @@ const LEAN_LABEL: Record<string, string> = {
   CAPPING: 'Capping',
 };
 
-/** Title-case for display; the codes stay uppercase everywhere else. */
-const AGE_LABEL: Record<string, string> = {
-  DEVELOPING: 'Developing',
-  ESTABLISHED: 'Established',
-  CONFIRMED: 'Confirmed',
-  DURABLE: 'Durable',
-};
-
-const PERSISTENCE_LABEL: Record<string, string> = {
-  PULSE: 'pulse',
-  DEVELOPING: 'developing',
-  ESTABLISHED: 'established',
-};
-
 const CUSHION_LABEL: Record<string, string> = {
   TRANSITION_RISK: 'Thin and closing',
   NARROWING: 'Narrowing',
@@ -140,8 +126,27 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
             style={{ color: 'var(--color-text-secondary)' }}
             title="How long this state has held. The question is not whether gamma calls direction, but whether a condition that exists is healthy enough to persist."
           >
-            {AGE_LABEL[payload.age_label] ?? payload.age_label}
+            {/* Falls back to the raw code only for a deploy skew: this panel
+                can ship before the API that serves the wording, and a blank
+                or `undefined` in the header is worse than NEW. */}
+            {payload.age_label ?? payload.age}
             {payload.age_minutes != null && ` ${Math.round(payload.age_minutes)}m`}
+          </span>
+        )}
+        {/* The candidate, shown while it waits. Confirmation exists to stop
+            the header chasing one-bar noise; showing what is forming anyway
+            is what keeps the early read from being thrown away with it. */}
+        {payload.pending_label && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              color: 'var(--color-text-secondary)',
+              border: '1px dashed var(--color-border)',
+            }}
+            title={`${payload.pending_label} is forming. The header changes once a new state holds ${payload.confirm_bars} completed bars, so it does not chase a single noisy bar.`}
+          >
+            {payload.pending_label} forming · {payload.pending_bars}/{payload.confirm_bars}
           </span>
         )}
         {transitionRisk && (
@@ -174,7 +179,7 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
             payload.pressure === 'MIXED'
               ? PRESSURE_LABEL.MIXED
               : `${PRESSURE_LABEL[payload.pressure] ?? payload.pressure} · ${
-                  PERSISTENCE_LABEL[payload.persistence] ?? payload.persistence
+                  payload.persistence_label ?? payload.persistence
                 }`
           }
         />
