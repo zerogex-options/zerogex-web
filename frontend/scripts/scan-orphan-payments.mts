@@ -36,6 +36,12 @@ import Stripe from 'stripe';
 
 import { classifyElapsedPaidPeriod, decideOrphanPayment } from '../core/orphanPayment.ts';
 import {
+  buildOrphanAlert,
+  orphanLatchMessage,
+  ORPHAN_LATCH_AUDIT_TYPE,
+  type OrphanFinding,
+} from '../core/orphanAlert.ts';
+import {
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
@@ -49,6 +55,10 @@ type Args = {
   sinceDays: number;
   verbose: boolean;
   help: boolean;
+  alert: boolean;
+  dryRun: boolean;
+  previewTo: string | null;
+  to: string | null;
 };
 
 // A runaway guard, not a business rule: if a sweep ever walks past this many
@@ -65,21 +75,49 @@ Usage:
 Options:
   --since-days <n>   How far back to walk paid invoices (default 120).
   --verbose          Also list the near misses and why each was ruled out.
+  --alert            Email the operator about anything NEW (see the latch below).
+                     Without this the script only prints, exactly as before.
+  --dry-run          With --alert: print the email instead of sending, and latch
+                     nothing. Safe to run any number of times.
+  --preview <addr>   Send one sample alert to this address whatever the latch
+                     says, so the layout can be checked.
+  --to <addr>        Override the alert recipient.
   --help             Show this help.
 
-Read-only. Fix anything it finds with:
+Alerting is OFF by default and idempotent when on: each invoice is latched by an
+'orphan_payment_alert_sent' audit row and never alerted twice. A tick with
+nothing new sends nothing at all.
+
+Read-only about members, always. The only thing it ever writes is that latch,
+and only after an alert has actually been sent. Fix anything it finds with:
   make recover-orphan-payment EMAIL=<addr>          # dry run
   make recover-orphan-payment EMAIL=<addr> YES=1    # apply
 `);
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { sinceDays: 120, verbose: false, help: false };
+  const args: Args = {
+    sinceDays: 120,
+    verbose: false,
+    help: false,
+    alert: false,
+    dryRun: false,
+    previewTo: null,
+    to: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--help' || arg === '-h') args.help = true;
     else if (arg === '--verbose') args.verbose = true;
-    else if (arg === '--since-days') {
+    else if (arg === '--alert') args.alert = true;
+    else if (arg === '--dry-run') args.dryRun = true;
+    else if (arg === '--preview') {
+      args.previewTo = argv[i + 1] ?? null;
+      i += 1;
+    } else if (arg === '--to') {
+      args.to = argv[i + 1] ?? null;
+      i += 1;
+    } else if (arg === '--since-days') {
       const raw = argv[i + 1];
       i += 1;
       const parsed = Number.parseInt(raw ?? '', 10);
@@ -129,6 +167,25 @@ function ensureSqlite3Cli() {
 
 function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
+}
+
+/**
+ * A write against the same sqlite3 CLI the reads go through.
+ *
+ * Used for exactly one thing: the alert latch. Going through the CLI rather
+ * than node:sqlite keeps this script's whole DB story in one place, and the
+ * latch is the only reason this otherwise read-only sweep touches the file at
+ * all — which is why the systemd unit has to grant it a writable DB directory.
+ */
+function execSqlite(dbPath: string, sql: string): void {
+  try {
+    execFileSync('sqlite3', [dbPath, sql], { stdio: ['ignore', 'ignore', 'pipe'] });
+  } catch (err) {
+    const stderr = (err as { stderr?: Buffer | string }).stderr;
+    const message =
+      typeof stderr === 'string' ? stderr : stderr?.toString?.() ?? (err as Error).message;
+    throw new Error(message.trim() || (err as Error).message);
+  }
 }
 
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
@@ -553,4 +610,120 @@ if (cliArgs.verbose && ruledOut.length > 0) {
 } else if (ruledOut.length > 0) {
   console.log('');
   console.log(`(${ruledOut.length} paid invoice(s) on free-tier members were ruled out — --verbose to see why.)`);
+}
+
+// ---------------------------------------------------------------------------
+// Alerting
+//
+// Printing a finding to a terminal nobody is watching is the same as not
+// finding it. This is the half that makes the sweep worth scheduling — and it
+// became necessary the moment the dunning emails started carrying Stripe's
+// hosted invoice link, which makes it far easier to pay an invoice whose period
+// has already elapsed: exactly the payment that lands with no entitlement.
+//
+// OFF unless --alert. Idempotent when on: each invoice is latched by an audit
+// row and never alerted twice, so a daily timer on a standing problem sends one
+// email, not thirty.
+// ---------------------------------------------------------------------------
+
+if (cliArgs.alert || cliArgs.previewTo) {
+  const findings: OrphanFinding[] = [
+    ...hits.map((h) => ({
+      bucket: 'recoverable' as const,
+      email: h.email,
+      invoiceId: h.invoiceId,
+      amount: h.amount,
+      paidAt: h.paidAt,
+      coveredThrough: h.coveredThrough,
+      detail: null,
+      command: `make recover-orphan-payment EMAIL=${h.email}`,
+    })),
+    ...lostPaidTime.map((h) => ({
+      bucket: 'lost_paid_time' as const,
+      email: h.email,
+      invoiceId: h.invoiceId,
+      amount: h.amount,
+      paidAt: h.paidAt,
+      coveredThrough: h.coveredThrough,
+      detail: `access ended ${h.lostFrom} — roughly ${h.lostDays} paid day(s) lost; a refund or credit is the remedy and that is your call`,
+      command: `make diagnose-user EMAIL=${h.email}`,
+    })),
+    ...needsReview.map((h) => ({
+      bucket: 'needs_review' as const,
+      email: h.email,
+      invoiceId: h.invoiceId,
+      amount: h.amount,
+      paidAt: h.paidAt,
+      coveredThrough: h.coveredThrough,
+      detail: h.reason,
+      command: `make diagnose-user EMAIL=${h.email}`,
+    })),
+  ];
+
+  // Already-alerted invoices, so a standing problem is reported once. A preview
+  // deliberately ignores the latch — its whole job is to render the layout.
+  const alerted = new Set(
+    querySqlite<{ message: string }>(
+      dbPath,
+      `SELECT message FROM audit_events WHERE type = '${escapeSqlLiteral(ORPHAN_LATCH_AUDIT_TYPE)}';`,
+    )
+      .map((row) => row.message.match(/invoice (\S+)/)?.[1])
+      .filter((id): id is string => Boolean(id)),
+  );
+  const fresh = cliArgs.previewTo ? findings : findings.filter((f) => !alerted.has(f.invoiceId));
+  const alert = buildOrphanAlert(fresh);
+
+  console.log('');
+  if (!alert) {
+    console.log(
+      findings.length === 0
+        ? 'Alerting: nothing found, nothing to send.'
+        : `Alerting: all ${findings.length} finding(s) were alerted previously — nothing new.`,
+    );
+  } else {
+    const { buildOrphanPaymentAlertEmail, sendOrphanPaymentAlertEmail } = await import(
+      '../core/mailer.ts'
+    );
+    const recipient =
+      cliArgs.previewTo
+      ?? cliArgs.to
+      ?? process.env.ORPHAN_ALERT_EMAIL
+      ?? envLocal.ORPHAN_ALERT_EMAIL
+      ?? process.env.CANCELLATION_ALERT_EMAIL
+      ?? envLocal.CANCELLATION_ALERT_EMAIL
+      ?? process.env.SIGNUP_ALARM_EMAIL
+      ?? envLocal.SIGNUP_ALARM_EMAIL
+      ?? envLocal.FOH_REMINDER_EMAIL;
+
+    if (!recipient) {
+      console.error('Alerting: no recipient. Set ORPHAN_ALERT_EMAIL in frontend/.env.local.');
+      process.exit(1);
+    }
+
+    if (cliArgs.dryRun) {
+      const mail = buildOrphanPaymentAlertEmail(alert);
+      console.log(`Alerting (DRY RUN): would send to ${recipient}, latching nothing.`);
+      console.log('');
+      console.log(`Subject: ${mail.subject}`);
+      console.log('');
+      console.log(mail.text);
+    } else {
+      await sendOrphanPaymentAlertEmail(recipient, alert);
+      console.log(`Alerting: sent ${alert.findings.length} finding(s) to ${recipient}.`);
+      // Latch only AFTER a successful send, so a Resend failure retries next
+      // tick instead of silently swallowing the one alert that mattered.
+      if (!cliArgs.previewTo) {
+        const nowIso = new Date().toISOString();
+        for (const invoiceId of alert.invoiceIds) {
+          execSqlite(
+            dbPath,
+            `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+             VALUES ('orph_${Math.random().toString(36).slice(2, 12)}_${Date.now().toString(36)}',
+                     '${escapeSqlLiteral(ORPHAN_LATCH_AUDIT_TYPE)}', NULL, NULL, NULL, 'timer',
+                     '${escapeSqlLiteral(orphanLatchMessage(invoiceId))}', '${escapeSqlLiteral(nowIso)}');`,
+          );
+        }
+      }
+    }
+  }
 }

@@ -404,6 +404,32 @@ Retry policy is explicitly behind approval under the audit brief and is NOT one
 of the items decided here. Recorded because, on the evidence, it is worth more
 than all three decisions above.
 
+## The hole the dunning change opened, and how it is watched
+
+Adding Stripe's hosted invoice link to the dunning emails was right — it is the
+only way a member can settle on any card the moment they have the money. It also
+made it materially easier to pay an invoice whose period has ALREADY ELAPSED,
+which is exactly the payment that lands with no entitlement: `decideOrphanPayment`
+returns `period_already_elapsed`, the tier is not restored, and the log says
+"needs a human". On the last recovery sweep that was 41 of 68 invoices.
+
+The only thing that found those was `make scan-orphan-payments`, which was
+manual-only and printed to a terminal. A member could pay from the new email and
+silently get nothing until somebody happened to run it.
+
+So the sweep is now scheduled: `deploy/steps/099.orphan-payments` installs a
+daily 06:40 timer running `make orphan-payment-alerts`, which emails ONE message
+covering everything new, grouped by what to do about it. A tick with nothing new
+sends nothing at all, and each invoice is latched by an
+`orphan_payment_alert_sent` audit row so a standing problem is reported once
+rather than every morning.
+
+**Detection only.** It cannot change a tier, issue a refund, or decide whether an
+elapsed period should be granted afresh. Every command in the email is a dry run
+until `YES=1` is added, and a test asserts that. The elapsed-period question is a
+pricing decision and is still open, still yours — the alert just guarantees a
+human finds out within a day instead of never.
+
 ## Change log
 
 Fill a row in when a setting actually changes. The date is the point of this

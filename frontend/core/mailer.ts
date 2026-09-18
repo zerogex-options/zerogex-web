@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { buildDeclineEmailCopy } from './declineEmailCopy.ts';
+import { groupByBucket, type OrphanAlert } from './orphanAlert.ts';
 import type { DeclineCategory } from './declineReason.ts';
 import type { ChurnAlert } from './cancellationAlert.ts';
 import type { ReturnAngle } from './returnIntent.ts';
@@ -2627,6 +2628,86 @@ export async function sendWinbackEmail(to: string, opts?: WinbackEmailOptions) {
 //
 // Deliberately no Folds of Honor footer and no unsubscribe: this is internal
 // operational mail, not a subscriber touchpoint.
+/**
+ * Operator alert: members who paid and were left with nothing.
+ *
+ * Deliberately plain and command-first. This is not a marketing email; it is a
+ * work order that lands in an inbox, and the only thing it has to do is make
+ * the next action copy-pasteable. Every command it prints is a DRY RUN — the
+ * alert cannot itself change anybody's tier, and neither can acting on it
+ * without adding YES=1.
+ */
+export function buildOrphanPaymentAlertEmail(alert: OrphanAlert): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const groups = groupByBucket(alert.findings);
+  const total = alert.findings.length;
+  const lead =
+    `${total} paid invoice${total === 1 ? '' : 's'} left the member with no access. `
+    + 'Stripe took the money; the account did not get what it bought.';
+
+  const textLines: string[] = [lead, ''];
+  for (const group of groups) {
+    textLines.push(group.headline.toUpperCase(), '');
+    for (const f of group.findings) {
+      textLines.push(`  ${f.email}`);
+      textLines.push(`    ${f.invoiceId}  ${f.amount}  paid ${f.paidAt}  covers through ${f.coveredThrough}`);
+      if (f.detail) textLines.push(`    ${f.detail}`);
+      textLines.push(`    ${f.command}`);
+      textLines.push('');
+    }
+  }
+  textLines.push(
+    'Every command above is a dry run — it prints the plan and writes nothing. Add YES=1 to apply.',
+    '',
+    'Restoring access for a period that has already elapsed is a pricing decision, not a',
+    'mechanical one, and nothing here makes it for you.',
+    '',
+    `Admin: ${getAppUrl()}/admin/monitoring`,
+  );
+
+  const htmlGroups = groups
+    .map(
+      (group) => `
+      <h3 style="font-size:14px;margin:20px 0 6px;">${escapeHtml(group.headline)}</h3>
+      ${group.findings
+        .map(
+          (f) => `
+        <div style="margin:0 0 14px;padding:10px 12px;background:#f6f7f9;border-radius:6px;">
+          <div style="font-weight:600;">${escapeHtml(f.email)}</div>
+          <div style="font-size:13px;color:#555;">${escapeHtml(f.invoiceId)} &middot; ${escapeHtml(f.amount)} &middot; paid ${escapeHtml(f.paidAt)} &middot; covers through ${escapeHtml(f.coveredThrough)}</div>
+          ${f.detail ? `<div style="font-size:13px;color:#555;">${escapeHtml(f.detail)}</div>` : ''}
+          <code style="display:block;margin-top:6px;font-size:12px;">${escapeHtml(f.command)}</code>
+        </div>`,
+        )
+        .join('')}`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#1a1a1a; max-width:640px; margin:0 auto; padding:24px; line-height:1.5;">
+      <p>${escapeHtml(lead)}</p>
+      ${htmlGroups}
+      <p style="font-size:13px;color:#555;">Every command above is a dry run &mdash; it prints the plan and writes nothing. Add <code>YES=1</code> to apply.</p>
+      <p style="font-size:13px;color:#555;">Restoring access for a period that has already elapsed is a pricing decision, not a mechanical one, and nothing here makes it for you.</p>
+      <p style="font-size:13px;"><a href="${escapeHtml(getAppUrl())}/admin/monitoring">Admin dashboard</a></p>
+    </div>
+  `.trim();
+
+  return { subject: alert.subject, html, text: textLines.join('\n') };
+}
+
+export async function sendOrphanPaymentAlertEmail(to: string, alert: OrphanAlert) {
+  const { subject, html, text } = buildOrphanPaymentAlertEmail(alert);
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendCancellationAlertEmail(to: string, alert: ChurnAlert) {
   const pending = alert.kind === 'pending';
   const appUrl = getAppUrl();
