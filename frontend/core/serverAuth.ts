@@ -535,10 +535,16 @@ export async function registerUser(
     throw new Error('This account has been deleted. Contact support if you want it restored.');
   }
 
+  // Bound here rather than read back off `user` below. AuthUser.passwordHash is
+  // OPTIONAL — an OAuth account has none — so reading it back widens to
+  // `string | undefined`, and node:sqlite THROWS on an undefined parameter
+  // rather than binding NULL. On this path it is always a real hash; keeping the
+  // local is how that stays true to the compiler as well as at runtime.
+  const passwordHash = hashPassword(password);
   const user: AuthUser = {
     id: createId('user'),
     email: normalizedEmail,
-    passwordHash: hashPassword(password),
+    passwordHash,
     tier: normalizeTier(tier),
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -554,7 +560,7 @@ export async function registerUser(
   ).run(
     user.id,
     user.email,
-    user.passwordHash,
+    passwordHash,
     user.tier,
     user.createdAt,
     user.updatedAt,
