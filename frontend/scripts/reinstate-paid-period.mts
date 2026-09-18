@@ -113,6 +113,7 @@ warnIfPricesUnconfigured();
 const { getDb } = await import('../core/db.ts');
 const { priceIdToSku } = await import('../core/stripe.ts');
 const {
+  readInvoicePaidAtUnix,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
@@ -353,6 +354,13 @@ try {
 
 const stamp = new Date().toISOString();
 const periodEndIso = new Date(untilUnix * 1000).toISOString();
+// last_paid_invoice_at records WHEN THE MONEY MOVED, which is the original
+// invoice's paid-at — not the period end, and not now. Only the pointer's
+// identity decides the bucket, so this date is purely for whoever reads
+// `make diagnose-user`; dating it the period end told them an invoice had
+// cleared on a date still in the future. Same source the recovery paths use.
+const invoicePaidAtUnix = readInvoicePaidAtUnix(invoice);
+const paidAtIso = invoicePaidAtUnix != null ? new Date(invoicePaidAtUnix * 1000).toISOString() : stamp;
 db.exec('BEGIN');
 try {
   mirrorRow.run(
@@ -362,7 +370,7 @@ try {
     created.status,
     periodEndIso,
     created.id,
-    periodEndIso,
+    paidAtIso,
     stamp,
     user.id,
   );
