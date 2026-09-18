@@ -217,3 +217,28 @@ test('activity AFTER the sibling was created is not a handoff', () => {
 test('no events at all means no handoff to report', () => {
   assert.equal(handoffGapHours([account(), account({ userId: 'b' })], new Map()), null);
 });
+
+test('money taken from a since-deleted account is still reported', () => {
+  // Live run, cluster 81: the only account that ever paid had been deleted, and
+  // the cluster read "no money on any account here" while we had taken $19.00.
+  // Excluding it from the SHAPE is right — it cannot be double-billed and
+  // cannot take another trial — but the money happened.
+  const v = classifyCluster([
+    account({ userId: 'user_live' }),
+    account({
+      userId: 'user_gone',
+      everPaid: true,
+      lifetimeCollectedMinor: 1900,
+      deletedAt: '2026-08-25T00:00:00Z',
+    }),
+  ]);
+  assert.equal(v.shape, 'all_free');
+  assert.equal(v.collectedMinor, 0, 'a deleted account contributes no live money');
+  assert.match(v.why, /19\.00/);
+  assert.match(v.why, /live/);
+});
+
+test('with no deleted payer the wording stays plain', () => {
+  const v = classifyCluster([account(), account({ userId: 'b' })]);
+  assert.equal(v.why, 'no money on any account here');
+});

@@ -96,29 +96,47 @@ export function classifyCluster(accounts: ClusterAccount[]): ClusterVerdict {
   const paying = live.filter((a) => a.everPaid);
   const trialed = live.filter((a) => a.tookTrial);
   const collectedMinor = live.reduce((sum, a) => sum + a.lifetimeCollectedMinor, 0);
+  // Money collected from accounts that have since been deleted. It does not
+  // change the shape — a deleted account cannot be double-billed and cannot
+  // take another trial — but it must not be reported as though it never
+  // happened. "No money on any account here" is false when we took $19.00 from
+  // one of them.
+  const deletedPaidMinor = accounts
+    .filter((a) => a.deletedAt != null)
+    .reduce((sum, a) => sum + a.lifetimeCollectedMinor, 0);
+  const deletedNote =
+    deletedPaidMinor > 0
+      ? ` (plus $${(deletedPaidMinor / 100).toFixed(2)} from a since-deleted account)`
+      : '';
 
   if (paying.length >= 2) {
     return {
       shape: 'multiple_paying',
-      why: `${paying.length} accounts here have paid us — check for one person billed twice`,
+      why: `${paying.length} accounts here have paid us — check for one person billed twice${deletedNote}`,
       collectedMinor,
     };
   }
   if (trialed.length >= 2) {
     return {
       shape: 'trial_recycled',
-      why: `${trialed.length} accounts here were granted a free trial — the once-per-account gate was bypassed`,
+      why: `${trialed.length} accounts here were granted a free trial — the once-per-account gate was bypassed${deletedNote}`,
       collectedMinor,
     };
   }
   if (paying.length === 1) {
     return {
       shape: 'paid_and_dormant',
-      why: 'one account pays, the rest are dormant — likely a restart the member could not do on the old address',
+      why: `one account pays, the rest are dormant — likely a restart the member could not do on the old address${deletedNote}`,
       collectedMinor,
     };
   }
-  return { shape: 'all_free', why: 'no money on any account here', collectedMinor };
+  return {
+    shape: 'all_free',
+    why: deletedNote
+      ? `no money on any live account here${deletedNote}`
+      : 'no money on any account here',
+    collectedMinor,
+  };
 }
 
 // Ranking: what an operator should read first. Shape dominates, then money, then
