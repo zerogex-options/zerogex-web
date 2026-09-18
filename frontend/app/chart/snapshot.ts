@@ -4,6 +4,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { firstLevel, levelOrNull } from '@/core/levelValue';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -20,11 +21,6 @@ const WINDOW_UNITS = 180;
 type ChartTimeframe = ChartSnapshot['timeframe'];
 
 const symbolQ = (s: string) => `symbol=${encodeURIComponent(s)}&underlying=${encodeURIComponent(s)}`;
-
-function num(v: unknown): number | null {
-  const n = typeof v === 'string' ? Number(v) : (v as number);
-  return typeof n === 'number' && Number.isFinite(n) ? n : null;
-}
 
 interface RawBar {
   timestamp?: string;
@@ -87,12 +83,12 @@ function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfi
   if (!Array.isArray(buckets)) return null;
   for (let i = buckets.length - 1; i >= 0; i -= 1) {
     const s = buckets[i]?.strikes;
-    if (Array.isArray(s) && s.some((r) => { const g = num(r?.net_gamma); return g != null && g !== 0; })) {
+    if (Array.isArray(s) && s.some((r) => { const g = levelOrNull(r?.net_gamma); return g != null && g !== 0; })) {
       return s.map((r) => ({
-        strike: num(r?.strike) ?? undefined,
-        net_gamma: num(r?.net_gamma),
-        call_oi: num(r?.call_oi),
-        put_oi: num(r?.put_oi),
+        strike: levelOrNull(r?.strike) ?? undefined,
+        net_gamma: levelOrNull(r?.net_gamma),
+        call_oi: levelOrNull(r?.call_oi),
+        put_oi: levelOrNull(r?.put_oi),
       }));
     }
   }
@@ -130,14 +126,14 @@ export async function loadChartSnapshot(
     .filter((b): b is RawBar & { timestamp: string } => !!b && typeof b.timestamp === 'string')
     .map((b) => ({
       timestamp: b.timestamp,
-      open: num(b.open) ?? undefined,
-      high: num(b.high) ?? undefined,
-      low: num(b.low) ?? undefined,
-      close: num(b.close) ?? undefined,
-      price: num(b.price) ?? undefined,
-      volume: num(b.volume) ?? undefined,
-      up_volume: num(b.up_volume),
-      down_volume: num(b.down_volume),
+      open: levelOrNull(b.open) ?? undefined,
+      high: levelOrNull(b.high) ?? undefined,
+      low: levelOrNull(b.low) ?? undefined,
+      close: levelOrNull(b.close) ?? undefined,
+      price: levelOrNull(b.price) ?? undefined,
+      volume: levelOrNull(b.volume) ?? undefined,
+      up_volume: levelOrNull(b.up_volume),
+      down_volume: levelOrNull(b.down_volume),
       // Per-bar: a delayed range spanning a quarterly roll carries the old
       // contract before it and the new one after, and the chart's chip says so.
       data_contract: b.data_contract ?? null,
@@ -162,18 +158,18 @@ export async function loadChartSnapshot(
   const lastBar = bars[bars.length - 1];
   const vwapBars = technicals?.bars;
   const vwap =
-    Array.isArray(vwapBars) && vwapBars.length > 0 ? num(vwapBars[vwapBars.length - 1]?.vwap_deviation?.vwap) : null;
+    Array.isArray(vwapBars) && vwapBars.length > 0 ? levelOrNull(vwapBars[vwapBars.length - 1]?.vwap_deviation?.vwap) : null;
 
   // Repair a stale cached quote so the public headline can't freeze on the prior
   // session's 4 PM close while the delayed candles show today's tape. During the
   // cash session this anchors price + "as of" to the freshest delayed bar; nights
   // / weekends / the futures swap keep the served quote (see resolveDelayedQuote).
   const repairedQuote = resolveDelayedQuote({
-    quoteClose: num(quote?.close),
+    quoteClose: levelOrNull(quote?.close),
     quoteSession: quote?.session ?? null,
     quoteTimestamp: typeof quote?.timestamp === 'string' ? quote.timestamp : null,
     displaySource: quote?.display_source ?? null,
-    lastBarClose: num(lastBar?.close) ?? num(lastBar?.price),
+    lastBarClose: firstLevel(lastBar?.close, lastBar?.price),
     lastBarTimestamp: lastBar?.timestamp ?? null,
     marketNow: getMarketSession(),
   });
@@ -189,17 +185,17 @@ export async function loadChartSnapshot(
       timestamp: repairedQuote.timestamp,
       display_source: quote?.display_source ?? null,
       data_symbol: quote?.data_symbol ?? null,
-      futures_close: num(quote?.futures_close),
-      futures_reference_close: num(quote?.futures_reference_close),
+      futures_close: levelOrNull(quote?.futures_close),
+      futures_reference_close: levelOrNull(quote?.futures_reference_close),
       data_contract: quote?.data_contract ?? null,
       data_contract_expiry: quote?.data_contract_expiry ?? null,
     },
     sessionCloses: closes ?? null,
     gamma: {
-      flip: num(profile?.gamma_flip) ?? num(summary?.gamma_flip),
-      callWall: num(profile?.call_wall) ?? num(summary?.call_wall),
-      putWall: num(profile?.put_wall) ?? num(summary?.put_wall),
-      maxPain: num(summary?.max_pain),
+      flip: firstLevel(profile?.gamma_flip, summary?.gamma_flip),
+      callWall: firstLevel(profile?.call_wall, summary?.call_wall),
+      putWall: firstLevel(profile?.put_wall, summary?.put_wall),
+      maxPain: levelOrNull(summary?.max_pain),
       // Sign-consistent with the flip: the spot-shift profile's value AT spot
       // only. Never the summary's net_gex (the whole-chain total), which can
       // carry the opposite sign and would desync the badge from the flip.

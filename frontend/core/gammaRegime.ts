@@ -7,6 +7,7 @@
  * *sign-consistent*: the badge, the flip line, and the band the price sits in
  * must never tell three different stories.
  */
+import { levelOrNull } from './levelValue.ts';
 
 /**
  * Sign-consistent dealer gamma at spot for the regime badge.
@@ -23,8 +24,7 @@
  * opposite-signed chain total.
  */
 export function netGexAtSpotOrNull(value: unknown): number | null {
-  const n = typeof value === "string" ? Number(value) : (value as number);
-  return typeof n === "number" && Number.isFinite(n) ? n : null;
+  return levelOrNull(value);
 }
 
 /**

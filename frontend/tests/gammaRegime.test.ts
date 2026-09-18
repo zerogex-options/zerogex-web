@@ -34,6 +34,10 @@ test('netGexAtSpotOrNull returns null when the point value is absent', () => {
   assert.equal(netGexAtSpotOrNull(NaN), null);
   assert.equal(netGexAtSpotOrNull('not-a-number'), null);
   assert.equal(netGexAtSpotOrNull(Infinity), null);
+  // An empty column is absent data, not a zero reading. Number('') === 0 would
+  // have the badge assert LONG (>= 0) off a blank; null degrades it to the
+  // geometric spot-vs-flip read instead, which is what the doc promises.
+  assert.equal(netGexAtSpotOrNull(''), null);
 });
 
 test('aboveFlipBandIsLong: monotonic book reduces to "long above / short below"', () => {
