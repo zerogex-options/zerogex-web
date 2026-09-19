@@ -1010,6 +1010,72 @@ function initDb(): DatabaseSync {
     ORDER BY day;
   `);
 
+  // ── Free daily levels email ───────────────────────────────────────────────
+  // Subscribers to the pre-open levels digest, captured from the public
+  // /<ticker>-gamma-levels pages.
+  //
+  // DELIBERATELY NOT A `users` ROW, AND NO FOREIGN KEY. A levels subscriber has
+  // no account, no password and no tier. About twenty sites across billing and
+  // lifecycle email treat the literal string tier='public' as "not a paying
+  // customer", five of them cohort queries that would silently stop matching if
+  // signups landed anywhere else. And a `users` row created by this form would
+  // fall straight into the verify-reminder, verified-never-paid and
+  // reactivation cohorts — so somebody who asked for a levels email would begin
+  // receiving "finish verifying your account" and "try the trial". They never
+  // asked for an account. A separate table means this feature cannot reach that
+  // machinery by construction, and can be dropped without touching any of it.
+  //
+  // `id` is opaque and is what the confirm / unsubscribe links are signed over
+  // (core/levelsEmail.ts), so the address never travels in a URL and therefore
+  // never lands in an access log, browser history or Referer header.
+  //
+  // CONSENT RECORD. confirmed_at plus the two IP columns are the proof that a
+  // double opt-in actually happened, which is the evidence a complaint or an
+  // audit asks for. Both IPs are personal data and belong in the privacy
+  // policy's disclosure alongside the rest of what this app records.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS levels_subscribers (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      confirmed_at TEXT,
+      confirm_sent_at TEXT,
+      unsubscribed_at TEXT,
+      source TEXT,
+      signup_ip TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_sent_at TEXT
+    );
+  `);
+
+  // Convergence, not decoration. CREATE TABLE IF NOT EXISTS silently accepts a
+  // table that already exists in ANY shape — including one created by hand at a
+  // sqlite3 prompt, which is how this one first reached production. Without the
+  // calls below such a table would simply be left as it was found and the
+  // divergence would surface later as a runtime error on a column that exists
+  // everywhere except the one database that matters. Each ensureColumn is a
+  // no-op on a table this file created.
+  ensureColumn('levels_subscribers', 'confirmed_at', 'TEXT');
+  ensureColumn('levels_subscribers', 'confirm_sent_at', 'TEXT');
+  ensureColumn('levels_subscribers', 'unsubscribed_at', 'TEXT');
+  ensureColumn('levels_subscribers', 'source', 'TEXT');
+  ensureColumn('levels_subscribers', 'signup_ip', 'TEXT');
+  ensureColumn('levels_subscribers', 'last_sent_at', 'TEXT');
+  // Second half of the consent record: where the confirmation click came from.
+  // Added after the table shipped, which is exactly the case ensureColumn is
+  // for — and the reason a hand-created table has to be reconciled rather than
+  // trusted.
+  ensureColumn('levels_subscribers', 'confirm_ip', 'TEXT');
+
+  // The daily send reads exactly one predicate: confirmed and not opted out.
+  // Partial index so it covers only the rows the send can actually mail, and
+  // stays small as unsubscribes accumulate.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_levels_subscribers_sendable
+      ON levels_subscribers(confirmed_at)
+      WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL;
+  `);
+
   return db;
 }
 

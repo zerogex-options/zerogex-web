@@ -147,7 +147,8 @@
     "verify:mcp": "bash scripts/verify-mcp.sh",
     "test:appearance": "node --experimental-strip-types --test tests/appearance.test.ts",
     "test:saved-boards": "node --experimental-strip-types --test tests/savedBoards.test.ts",
-    "test:levels-email": "node --experimental-strip-types --test tests/levelsEmail.test.ts"
+    "test:levels-email": "node --experimental-strip-types --test tests/levelsEmail.test.ts",
+    "test:levels-subscribers": "node --experimental-strip-types --test tests/levelsSubscribers.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
