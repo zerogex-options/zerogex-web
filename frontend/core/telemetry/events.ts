@@ -37,6 +37,23 @@ export const TelemetryEvent = {
    *  same-URL toggle, so how often people actually reach for the same-day
    *  book only shows up here. */
   ReplayExpirationScopeChanged: 'replay_expiration_scope_changed',
+  /** Free daily levels email: the form was submitted (client, the six
+   *  /<ticker>-gamma-levels pages). `symbol` records which page it came from,
+   *  so the split answers which ticker's readers actually want the email —
+   *  the same question the share-click split answers for distribution.
+   *
+   *  This fires on SUBMIT, not on confirmation. The endpoint deliberately
+   *  answers identically whether the address was new, already subscribed,
+   *  previously opted out or malformed (it must not become an oracle for who
+   *  reads this site), so the browser cannot know which happened and this
+   *  event must not pretend to. Confirmed-subscriber counts come from the
+   *  database, never from here. The gap between the two is the double opt-in
+   *  drop-off, which is the number worth watching. */
+  LevelsEmailSubmitted: 'levels_email_submitted',
+  /** The signup form was rejected before it reached the server — an address
+   *  that cannot be one, or a rate limit. Split by `reason` so a sudden spike
+   *  in 'invalid' means the field is confusing rather than that demand fell. */
+  LevelsEmailRejected: 'levels_email_rejected',
   /** Free gamma-levels daily snapshot share/copy button clicked (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). The `channel`
    *  property records the surface: copy | x | reddit | stocktwits | native. */
