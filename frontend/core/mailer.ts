@@ -3188,6 +3188,42 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
 }
 
 /**
+ * The free pre-open levels digest.
+ *
+ * A thin wrapper: everything about what the email SAYS is decided by
+ * core/dailyLevelsDigest.ts, which is pure and unit-tested. This adds only the
+ * transport and the one-click unsubscribe headers.
+ *
+ * List-Unsubscribe is NOT optional here, unlike on the confirmation. This is a
+ * recurring bulk send to an audience with no account, which is exactly the
+ * traffic Gmail and Apple Mail expect those headers on; without them the
+ * native "Unsubscribe" button does not appear and a reader who wants out
+ * reaches for "report spam" instead. A complaint costs the sending domain's
+ * reputation, and that domain also carries the receipts, trial reminders and
+ * payment-failure mail this business depends on.
+ */
+export async function sendDailyLevelsEmail(
+  to: string,
+  opts: { subject: string; text: string; html: string; unsubUrl: string },
+) {
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject: opts.subject,
+    text: opts.text,
+    html: opts.html,
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+/**
  * Double opt-in confirmation for the free daily levels email.
  *
  * TRANSACTIONAL IN TONE AND CONTENT. No Folds of Honor footer, no trial pitch,
