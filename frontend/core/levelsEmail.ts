@@ -317,62 +317,128 @@ export function checkSendWindow(input: SendWindowInput): SendWindowVerdict {
   return { ok: true, sessionDate: et.date };
 }
 
+// ── Previous trading session ────────────────────────────────────────────────
+
+/**
+ * The NYSE session immediately before `isoDate`, or null when none can be
+ * found. Holiday-aware, so the Friday after Thanksgiving resolves back to the
+ * Wednesday rather than the closed Thursday.
+ *
+ * optionsCalendar.ts has an equivalent internal helper, but does not export
+ * it; reimplemented here rather than widening that module's public surface
+ * for one caller. Pure UTC arithmetic anchored at noon, so no DST transition
+ * can shift a subtraction onto the wrong calendar day.
+ */
+export function previousTradingDay(
+  isoDate: string,
+  holidays?: NyseHolidayCalendar,
+): string | null {
+  const start = new Date(`${isoDate}T12:00:00Z`);
+  if (Number.isNaN(start.getTime())) return null;
+  const calendar = holidays ?? defaultHolidayCalendar();
+  // Ten days bounds the loop. The longest ordinary US market closure is a
+  // holiday adjoining a weekend (four days), so ten never truncates a real
+  // gap while still terminating on a pathological holiday list.
+  for (let i = 1; i <= 10; i += 1) {
+    const day = new Date(start.getTime() - i * 86_400_000);
+    const iso = day.toISOString().slice(0, 10);
+    const weekday = day.getUTCDay();
+    if (weekday !== 0 && weekday !== 6 && !calendar.has(iso)) return iso;
+  }
+  return null;
+}
+
 // ── Staleness guard ─────────────────────────────────────────────────────────
+
+/** Which session the snapshot the digest is built on actually came from. */
+export type FreshnessBasis = 'current-session' | 'prior-session';
 
 export type FreshnessInput = {
   /** GexSummary.timestamp for the symbol, as the API returned it. */
   snapshotTimestamp: string | null | undefined;
-  /** ET session date the send is claiming to be about (from checkSendWindow). */
+  /** ET session the digest is about — the one checkSendWindow resolved. */
   sessionDate: string;
   /** Evaluation time, for the age calculation. */
   now: Date;
-  /** Reject a snapshot older than this many hours even when the date matches. */
+  holidays?: NyseHolidayCalendar;
+  /**
+   * Optional extra ceiling on snapshot age, in hours. OFF by default, and
+   * almost certainly not what you want — see the note on the ceiling below.
+   */
   maxAgeHours?: number;
 };
 
 export type FreshnessVerdict =
-  | { fresh: true; ageMinutes: number }
-  | { fresh: false; reason: 'missing' | 'unparseable' | 'stale-date' | 'too-old'; ageMinutes: number | null };
+  | { fresh: true; basis: FreshnessBasis; snapshotDate: string; ageMinutes: number }
+  | {
+      fresh: false;
+      reason: 'missing' | 'unparseable' | 'stale-date' | 'too-old' | 'future';
+      snapshotDate: string | null;
+      ageMinutes: number | null;
+    };
 
 /**
- * Default age ceiling. Generous on purpose: the exact pre-open update cadence
- * of the ingestion backend is not knowable from this repo, so this is a
- * backstop against a frozen feed, not a precision instrument. The date check
- * below is the primary guard; calibrate this against real --dry-run output
- * before relying on the number.
- */
-export const DEFAULT_MAX_SNAPSHOT_AGE_HOURS = 20;
-
-/**
- * Is this snapshot actually about the session we are claiming?
+ * Is this snapshot the one the digest is entitled to send?
  *
- * serverApiGet serves a last-good cached value when the backend is unreachable,
- * and the levels pages hold a last-good snapshot in process memory on purpose —
- * both correct for a web page, both catastrophic for an email. A page showing a
- * slightly stale number is a page; an email asserting yesterday's flip as
- * "today's", every morning, silently, destroys the only thing this channel has.
+ * WHY THIS IS NOT "IS IT FROM TODAY". Measured against the live API, the GEX
+ * summary tracks regular trading hours: the last stamp of a session lands
+ * around 15:59 ET and does not move again until the next session. So before
+ * the open there IS no snapshot from the current date, and demanding one
+ * would abort every single send — safe, and useless.
  *
- * So the test is not "did we get data" but "is this data FROM the session we
- * are naming". A failure here aborts the whole send rather than mailing a
- * partial or hedged digest.
+ * That is also the correct product rather than a compromise. A pre-open
+ * positioning map is computed from the prior close's chain, because until the
+ * new session trades there is no newer chain to compute from.
+ *
+ * So the question is whether the snapshot is one of the two sessions it is
+ * allowed to be — the current one, or the one immediately before it — and
+ * never anything older. A feed frozen since Thursday fails on a Monday,
+ * because Monday's permitted prior session is Friday.
+ *
+ * The verdict reports WHICH session it matched, because the caller must label
+ * the email with the snapshot's real timestamp. The levels pages set that
+ * convention (gammaLevels.tsx renders "As of <fmtTimestampET>") and the email
+ * must not contradict the page a reader can go and check.
+ *
+ * ON THE AGE CEILING. There is deliberately no default. Friday 15:59 ET to
+ * Monday 08:45 ET is ~65 hours, and ~89 across a holiday long weekend, so any
+ * ceiling tight enough to catch a stale feed would reject correct sends every
+ * Monday. The session-date anchor above is strictly stronger and already
+ * holiday-aware; maxAgeHours remains only for a caller that wants an explicit
+ * extra bound on the current-session case.
  */
 export function checkFreshness(input: FreshnessInput): FreshnessVerdict {
-  if (!input.snapshotTimestamp) return { fresh: false, reason: 'missing', ageMinutes: null };
+  if (!input.snapshotTimestamp) {
+    return { fresh: false, reason: 'missing', snapshotDate: null, ageMinutes: null };
+  }
   const ms = Date.parse(input.snapshotTimestamp);
-  if (!Number.isFinite(ms)) return { fresh: false, reason: 'unparseable', ageMinutes: null };
+  if (!Number.isFinite(ms)) {
+    return { fresh: false, reason: 'unparseable', snapshotDate: null, ageMinutes: null };
+  }
 
   const ageMinutes = Math.round((input.now.getTime() - ms) / 60_000);
-  // The snapshot's own ET calendar date must be the session we are naming.
-  // Compared in ET rather than UTC because a 20:00 ET timestamp is already
-  // "tomorrow" in UTC, and would otherwise read as a day ahead.
-  const snapshotEtDate = etParts(new Date(ms)).date;
-  if (snapshotEtDate !== input.sessionDate) {
-    return { fresh: false, reason: 'stale-date', ageMinutes };
+  // Compared on the ET calendar, not UTC: a 20:00 ET stamp is already the next
+  // day in UTC and would otherwise read as a session ahead of itself.
+  const snapshotDate = etParts(new Date(ms)).date;
+
+  // A snapshot from the future is a clock fault somewhere. Five minutes
+  // absorbs ordinary skew between the API host and this one.
+  if (ageMinutes < -5) {
+    return { fresh: false, reason: 'future', snapshotDate, ageMinutes };
   }
-  const maxAge = (input.maxAgeHours ?? DEFAULT_MAX_SNAPSHOT_AGE_HOURS) * 60;
-  if (ageMinutes > maxAge) return { fresh: false, reason: 'too-old', ageMinutes };
-  // A snapshot from the future is a clock problem somewhere; -5 minutes of
-  // tolerance absorbs ordinary skew without accepting a genuinely wrong stamp.
-  if (ageMinutes < -5) return { fresh: false, reason: 'unparseable', ageMinutes };
-  return { fresh: true, ageMinutes };
+
+  const prior = previousTradingDay(input.sessionDate, input.holidays);
+  let basis: FreshnessBasis | null = null;
+  if (snapshotDate === input.sessionDate) basis = 'current-session';
+  else if (prior && snapshotDate === prior) basis = 'prior-session';
+
+  if (!basis) {
+    return { fresh: false, reason: 'stale-date', snapshotDate, ageMinutes };
+  }
+
+  if (input.maxAgeHours != null && ageMinutes > input.maxAgeHours * 60) {
+    return { fresh: false, reason: 'too-old', snapshotDate, ageMinutes };
+  }
+
+  return { fresh: true, basis, snapshotDate, ageMinutes };
 }

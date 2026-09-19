@@ -33,6 +33,7 @@ import {
   isTradingDay,
   levelsToken,
   normalizeEmail,
+  previousTradingDay,
   shouldSendConfirmation,
   verifyLevelsToken,
 } from '../core/levelsEmail.ts';
@@ -274,66 +275,116 @@ test('no send on weekends or holidays even inside the clock window', () => {
   assert.equal(!xmas.ok && xmas.reason, 'not-a-trading-day');
 });
 
-// ── Freshness ───────────────────────────────────────────────────────────────
+// ── Previous trading session ────────────────────────────────────────────────
 
-const SEND_AT = new Date('2026-07-15T12:45:00Z'); // 08:45 EDT
-const fresh = (ts: string | null, maxAgeHours?: number) =>
+test('previousTradingDay steps back over weekends and holidays', () => {
+  assert.equal(previousTradingDay('2026-09-21', HOLIDAYS), '2026-09-18'); // Mon -> Fri
+  assert.equal(previousTradingDay('2026-09-18', HOLIDAYS), '2026-09-17'); // Fri -> Thu
+  // 2026-11-26 is Thanksgiving, so the Friday after resolves to the Wednesday.
+  assert.equal(previousTradingDay('2026-11-27', HOLIDAYS), '2026-11-25');
+  // Christmas 2026 falls on a Friday; the next session back from Mon 12-28.
+  assert.equal(previousTradingDay('2026-12-28', HOLIDAYS), '2026-12-24');
+});
+
+test('previousTradingDay refuses a malformed date', () => {
+  assert.equal(previousTradingDay('nope', HOLIDAYS), null);
+});
+
+// ── Freshness ───────────────────────────────────────────────────────────────
+//
+// The scenario these are written against is the real one, measured on the
+// live API: the GEX summary tracks regular hours, its last stamp of a session
+// lands ~15:59 ET, and it does not move again before the next open. So a
+// pre-open send on Monday is legitimately built on Friday's close, and the
+// guard's job is to tell that apart from a feed that has actually frozen.
+
+// Monday 2026-09-21, 08:45 EDT — a real pre-open send.
+const MON_SEND = new Date('2026-09-21T12:45:00Z');
+const monday = (ts: string | null, maxAgeHours?: number) =>
   checkFreshness({
     snapshotTimestamp: ts,
-    sessionDate: '2026-07-15',
-    now: SEND_AT,
+    sessionDate: '2026-09-21',
+    now: MON_SEND,
+    holidays: HOLIDAYS,
     maxAgeHours,
   });
 
-test("a snapshot stamped with today's ET session is fresh", () => {
-  const v = fresh('2026-07-15T12:30:00Z'); // 08:30 EDT, same session
+test("Friday's close is valid input for Monday's pre-open digest", () => {
+  // The exact shape the live API returned: Fri 2026-09-18 15:59 ET.
+  const v = monday('2026-09-18T19:59:00+00:00');
   assert.equal(v.fresh, true);
+  assert.equal(v.fresh && v.basis, 'prior-session');
+  assert.equal(v.fresh && v.snapshotDate, '2026-09-18');
+  // ~65 hours across the weekend — which is why there is no default ceiling.
+  assert.ok(v.fresh && v.ageMinutes > 60 * 60);
+});
+
+test('a same-morning snapshot is accepted and reported as current-session', () => {
+  // The other possible world: the backend does refresh pre-market.
+  const v = monday('2026-09-21T12:30:00Z'); // 08:30 EDT Monday
+  assert.equal(v.fresh, true);
+  assert.equal(v.fresh && v.basis, 'current-session');
   assert.equal(v.fresh && v.ageMinutes, 15);
 });
 
-test("yesterday's snapshot is refused — this is the guard that protects the channel", () => {
-  // The exact silent failure being prevented: serverApiGet hands back a
-  // last-good cached value when the backend is down, and without this the
-  // digest would assert yesterday's flip as today's, every morning.
-  const v = fresh('2026-07-14T20:00:00Z');
+test('a feed frozen a session too far back is refused', () => {
+  // Thursday's close, read on Monday: Monday's permitted prior session is
+  // Friday, so this is a genuinely stale feed and the send must abort.
+  const v = monday('2026-09-17T19:59:00+00:00');
   assert.equal(v.fresh, false);
   assert.equal(!v.fresh && v.reason, 'stale-date');
+  assert.equal(!v.fresh && v.snapshotDate, '2026-09-17');
+});
+
+test('the prior session is holiday-aware, not merely yesterday', () => {
+  // Friday 2026-11-27, the day after Thanksgiving. Wednesday's close is the
+  // correct input; Thursday does not exist as a session.
+  const v = checkFreshness({
+    snapshotTimestamp: '2026-11-25T20:59:00Z', // Wed 15:59 ET
+    sessionDate: '2026-11-27',
+    now: new Date('2026-11-27T13:45:00Z'), // Fri 08:45 EST
+    holidays: HOLIDAYS,
+  });
+  assert.equal(v.fresh, true);
+  assert.equal(v.fresh && v.basis, 'prior-session');
 });
 
 test('a missing or unparseable timestamp is refused, not assumed good', () => {
-  assert.equal(fresh(null).fresh, false);
-  assert.equal(!fresh(null).fresh && (fresh(null) as { reason: string }).reason, 'missing');
-  const bad = fresh('whenever');
+  const missing = monday(null);
+  assert.equal(missing.fresh, false);
+  assert.equal(!missing.fresh && missing.reason, 'missing');
+  const bad = monday('whenever');
   assert.equal(bad.fresh, false);
   assert.equal(!bad.fresh && bad.reason, 'unparseable');
 });
 
-test('the age ceiling rejects a frozen feed even when the calendar date matches', () => {
-  // 00:10 ET the same session date, read at 08:45 ET => ~8h35m old.
-  const v = fresh('2026-07-15T04:10:00Z', 4);
+test('a future snapshot is a clock fault, with skew tolerance', () => {
+  // Two minutes ahead: ordinary skew between hosts, accepted.
+  assert.equal(monday('2026-09-21T12:47:00Z').fresh, true);
+  const v = monday('2026-09-21T13:45:00Z'); // an hour ahead
   assert.equal(v.fresh, false);
-  assert.equal(!v.fresh && v.reason, 'too-old');
-  // Same stamp passes under a ceiling that allows it.
-  assert.equal(fresh('2026-07-15T04:10:00Z', 12).fresh, true);
+  assert.equal(!v.fresh && v.reason, 'future');
 });
 
-test('a snapshot from the future is treated as a clock fault, with skew tolerance', () => {
-  // Two minutes ahead: ordinary skew, accepted.
-  assert.equal(fresh('2026-07-15T12:47:00Z').fresh, true);
-  // An hour ahead on the same ET date: not skew.
-  const v = fresh('2026-07-15T13:45:00Z');
+test('the optional age ceiling is off by default and enforced when asked for', () => {
+  // Friday's close is ~65h old on Monday; with no ceiling that is fine.
+  assert.equal(monday('2026-09-18T19:59:00+00:00').fresh, true);
+  // An explicit 24h ceiling rejects it. This is why there is no default: a
+  // ceiling tight enough to catch a stale feed rejects every Monday.
+  const v = monday('2026-09-18T19:59:00+00:00', 24);
   assert.equal(v.fresh, false);
-  assert.equal(!v.fresh && v.reason, 'unparseable');
+  assert.equal(!v.fresh && v.reason, 'too-old');
 });
 
 test('ET-date comparison, not UTC — a late-session stamp is not tomorrow', () => {
-  // 20:00 ET on the 15th is 2026-07-16T00:00Z. Compared in UTC this would
-  // read as the next day and be wrongly rejected.
+  // 20:00 ET on the 18th is 2026-09-19T00:00Z. Compared in UTC this reads as
+  // the 19th and would be wrongly rejected as a session ahead of itself.
   const v = checkFreshness({
-    snapshotTimestamp: '2026-07-16T00:00:00Z',
-    sessionDate: '2026-07-15',
-    now: new Date('2026-07-16T00:30:00Z'),
-    maxAgeHours: 24,
+    snapshotTimestamp: '2026-09-19T00:00:00Z',
+    sessionDate: '2026-09-21',
+    now: MON_SEND,
+    holidays: HOLIDAYS,
   });
   assert.equal(v.fresh, true);
+  assert.equal(v.fresh && v.snapshotDate, '2026-09-18');
 });
