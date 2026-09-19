@@ -3187,6 +3187,64 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
   }
 }
 
+/**
+ * Double opt-in confirmation for the free daily levels email.
+ *
+ * TRANSACTIONAL IN TONE AND CONTENT. No Folds of Honor footer, no trial pitch,
+ * no product tour — this is the one message we are allowed to send an address
+ * that has not yet consented, so it does exactly one job and asks for exactly
+ * one click. Anything else in here would be marketing sent without permission,
+ * which is the thing double opt-in exists to avoid.
+ *
+ * Also deliberately absent: any statement of who subscribed or from where. The
+ * address may have been typed by someone else, and this mail is what lets the
+ * real owner refuse. Telling them what was submitted on their behalf is the
+ * only useful thing it can say; naming an IP or a name would just be leaking
+ * whatever the submitter typed.
+ *
+ * No List-Unsubscribe header. There is nothing to unsubscribe from yet — the
+ * subscription does not exist until the link below is clicked, and ignoring
+ * this email IS the opt-out. The digest itself carries the header.
+ */
+export async function sendLevelsConfirmationEmail(to: string, confirmUrl: string) {
+  const safeLink = escapeHtml(confirmUrl);
+  const subject = 'Confirm your free ZeroGEX daily levels email';
+
+  const text = [
+    'Someone asked for the free ZeroGEX daily levels email to be sent to this address.',
+    '',
+    'If that was you, confirm with this link:',
+    confirmUrl,
+    '',
+    'What you get: one email each trading morning before the open, with the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ. Free, and you can unsubscribe from the bottom of any one of them.',
+    '',
+    "If this wasn't you, ignore this email. Nothing was subscribed and nothing further will be sent — the address is only added once the link above is clicked.",
+    '',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Someone asked for the free ZeroGEX daily levels email to be sent to this address.</p>
+      <p>If that was you, confirm below:</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm and start receiving it</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
+      <p><strong>What you get:</strong> one email each trading morning before the open, with the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ. Free, and you can unsubscribe from the bottom of any one of them.</p>
+      <p style="font-size: 13px; color: #555;">If this wasn't you, ignore this email. Nothing was subscribed and nothing further will be sent &mdash; the address is only added once the link above is clicked.</p>
+      <p>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPasswordResetEmail(to: string, link: string) {
   const safeLink = escapeHtml(link);
   const subject = 'Reset your ZeroGEX password';

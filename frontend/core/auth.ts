@@ -107,6 +107,19 @@ const PUBLIC_ROUTE_PATTERNS = [
   // link is the receipt (net-of-cost result + equity curve), not a paywall,
   // while the rest of /backtesting/* stays Pro-gated (public check wins first).
   '/backtesting/shared/*',
+  // The free daily levels email's click-through pages: the double opt-in
+  // confirmation (/levels-email/confirm) and the opt-out
+  // (/levels-email/unsubscribe). These MUST be anonymous-accessible — the
+  // entire premise is that a levels subscriber has no account, so a /login
+  // bounce would make it impossible to either confirm or, worse, unsubscribe.
+  // An unsubscribe link that demands a login is not an unsubscribe link.
+  //
+  // They carry no member data: both take an opaque row id plus an HMAC over
+  // it, verify the signature inside core/levelsSubscribers.ts, and render one
+  // sentence. Both also serve noindex as a header and a meta tag, and are
+  // excluded from the sitemap — crawlable so the directive is visible, which
+  // is the same reasoning robots.ts records for the tier-gated tools.
+  '/levels-email/*',
   // Shareable Live Bulletin snapshot cards (/live-bulletin/snapshot/{symbol})
   // are the public artifact for a streamed signal event — anonymous-accessible
   // for the same crawler + non-member reasons, while the live /live-bulletin

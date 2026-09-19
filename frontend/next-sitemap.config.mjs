@@ -163,6 +163,12 @@ const config = {
     // with the /<ticker>-gamma-levels page each of them advertises. The
     // /embed builder page itself IS indexable and is listed below.
     '/embed/*',
+    // The daily levels email's click-through pages. Route handlers rather
+    // than pages, so they are not auto-discovered today; listed for the same
+    // defensive reason as /mcp. They serve noindex both as an X-Robots-Tag
+    // header and as a meta tag — a one-line confirmation receipt reached only
+    // from a link in an email is not a search result.
+    '/levels-email/*',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',
