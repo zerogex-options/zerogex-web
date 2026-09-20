@@ -78,10 +78,13 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/spy-gamma-levels',
   '/qqq-gamma-levels',
   '/ndx-gamma-levels',
-  // /chart is a dual-mode page: anonymous visitors get the same ~15-min-delayed
-  // snapshot the gamma-levels pages serve (rendered as the full interactive
-  // chart), while logged-in subscribers get the live, real-time version. The
-  // page itself branches on the session, so the route stays public here.
+  // /chart is the Gamma Terminal, and a dual-mode page: anonymous visitors get
+  // the same ~15-min-delayed snapshot the gamma-levels pages serve (rendered as
+  // the full interactive terminal — chart AND both gamma ladders), while
+  // logged-in subscribers get the live, real-time version. The page itself
+  // branches on the session, so the route stays public here. The members-only
+  // /gamma-terminal beta was folded into it and 301s here (next.config.ts), so
+  // it needs no rule of its own.
   '/chart',
   '/trading-mistakes',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
@@ -153,9 +156,6 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // member); the page itself further gates individual Pro-only widgets and
   // shows Basic members an upgrade prompt in their place.
   { pattern: '/my-dashboard', minimumTier: 'basic' },
-  // Gamma Terminal (beta) — the live Gamma Chart beside two gamma ladders.
-  // Live-only (no delayed public snapshot), so it is gated at Basic unlike /chart.
-  { pattern: '/gamma-terminal', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },

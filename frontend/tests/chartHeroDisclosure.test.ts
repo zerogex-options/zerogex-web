@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-// The Gamma Chart hero folds its own pitch for people who already pay for it.
+// The Gamma Terminal hero folds its own pitch for people who already pay for it.
 //
 // /chart is two pages wearing one component: an indexable lead magnet for the
 // public and the working instrument for members. The lead paragraph and the
@@ -65,10 +65,10 @@ test('the fold is a real, operable disclosure in both states', () => {
 
 test('"member" here means a paying tier, not merely signed in', () => {
   // The fold rides on `delayed`, so what that resolves from is part of this
-  // behavior: basic+ gets the live chart and the folded hero, everyone else —
-  // signed out or signed in on the free tier — gets the delayed chart and the
+  // behavior: basic+ gets the live terminal and the folded hero, everyone else —
+  // signed out or signed in on the free tier — gets the delayed terminal and the
   // full pitch.
   assert.match(page, /hasTierAccess\(session\.user\.tier, 'basic'\)/);
-  assert.match(page, /<ChartClient snapshot=\{null\} delayed=\{false\} \/>/);
-  assert.match(page, /<ChartClient snapshot=\{snapshot\} delayed \/>/);
+  assert.match(page, /<ChartClient snapshot=\{null\} delayed=\{false\} ladders=\{null\} \/>/);
+  assert.match(page, /<ChartClient snapshot=\{snapshot\} delayed ladders=\{\{ primary, compare \}\} \/>/);
 });
