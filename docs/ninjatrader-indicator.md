@@ -305,6 +305,20 @@ frozen at the 16:00 close while the future keeps trading.
   dealer positioning agree on this strike. Walls are added before ranks, so the
   merged entry keeps the wall's color and stays solid unless every part is
   dashed.
+- **A level is a strike, so price often stops short of it.** Two testers have
+  now read a near miss as a data fault: one put a limit on a folded
+  `Call Wall · Pin Strike · GEX 1` and price topped under a point below it,
+  and asked whether polling was to blame. It was not, and polling cannot be —
+  it moves a level, it cannot stop price reaching one. These are strikes from
+  the option chain, carried onto the futures axis on ES/NQ, so they do not sit
+  where a chart-derived line would; and a heavy wall is where hedging
+  concentrates, so the last ticks into it are the ones that do not print. The
+  customer-facing answer is the `levels-not-touched` FAQ entry
+  (`frontend/app/help/faqs/Client.tsx`); this note exists so the next person
+  fielding the question does not re-derive it. What a genuine staleness fault
+  looks like instead: the panel's `⚠ not updating` line, or an `updated` age
+  climbing past a couple of minutes intraday.
+
 - **Labels keep clear of the info panel.** Both are right-aligned into the
   same margin and neither knew about the other, so a level near the top of the
   chart printed straight through the panel's text and took out both. A
