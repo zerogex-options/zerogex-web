@@ -61,11 +61,14 @@ const INFO_TEXT =
   "and strike-aligned, with the Gamma Flip, Call/Put Walls and Max Pain marked and the heaviest strike in view " +
   "crowned. After the options close, an ETF's latest analytics buckets can carry no positioning; the ladder then " +
   "shows the newest bucket that did and marks the rows 'as of' that time, while the header levels stay live. " +
-  "STRIKE PANEL instead gives the chart its gamma-structure rail back, in the column beside the price axis: net " +
-  "dealer gamma by price as a smoothed silhouette, or per-strike bars in Net, Split (calls and puts apart) or " +
-  "Combined, with optional on-bar $ labels. The ladders and the rail answer the same question, so the page shows " +
-  "one at a time and gives the width to whichever you picked; the choice is remembered, and so is each view's " +
-  "own chart toolbar. " +
+  "STRIKE PANEL puts the gamma-structure rail there instead: net dealer gamma by price, drawn across the tape's " +
+  "own price band so a strike's bar sits level with that price on the candles. It is the same rail the chart used " +
+  "to carry in a narrow column inside itself, with the same four views — a smoothed silhouette, or per-strike bars " +
+  "in Net, Split (calls and puts apart) or Combined — and the same optional on-bar $ labels, which move onto the " +
+  "panel with it. The ladders and the rail answer the same question about the same book, so the panel shows one " +
+  "at a time and your choice is remembered. " +
+  "The chart itself is identical under either: same width, same toolbar, same overlays — the GEX ribbons included, " +
+  "since those read the tape rather than the panel. " +
   "The chart keeps its own toolbar for symbol, timeframe, price style, overlays, Expiry filter and Rewind. The " +
   "Expiry filter scopes the ladders too (Max Pain reads NA while filtered, as it has no per-expiry-set " +
   "equivalent). In Rewind, both ladders follow the chart's clock and show the book, spot and levels as of that " +
@@ -98,7 +101,7 @@ const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; 
     icon: <Waves size={18} />,
     accent: 'var(--color-navy)',
     title: 'Gamma Structure Rail',
-    body: 'The other way to read the same book: a silhouette of net dealer gamma at every price, aligned to the y-axis, or per-strike Net / Split / Combined bars. The walls literally bulge out beside the candles.',
+    body: 'The other way to read the same book, in the same panel: net dealer gamma at every price, drawn across the tape\u2019s own price band as a silhouette or as per-strike Net / Split / Combined bars. The walls literally bulge out level with the candles they act on.',
   },
   {
     icon: <Sparkles size={18} />,
@@ -191,9 +194,9 @@ export default function ChartClient({
         <div id="chart-hero-intro" hidden={!introOpen}>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>
             Price and modeled dealer gamma on one surface. See where hedging pressure is modeled to
-            concentrate — the Gamma Flip, the Call and Put Walls, and the per-strike book itself, as two
-            Net-GEX ladders beside the tape or a silhouette of modeled dealer positioning drawn inline on a
-            fast, precise candle chart. Nothing else shows you this.
+            concentrate — the Gamma Flip, the Call and Put Walls drawn inline on a fast, precise candle
+            chart, and the per-strike book itself in a panel beside the tape: two Net-GEX ladders, or a
+            silhouette of modeled dealer positioning at every price. Nothing else shows you this.
             {delayed && (
               <>
                 {' '}

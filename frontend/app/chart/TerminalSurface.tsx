@@ -1,28 +1,32 @@
 "use client";
 
 /**
- * The Gamma Terminal's instrument block: the Gamma Chart, plus ONE of two
- * price-aligned readings of dealer gamma beside it.
+ * The Gamma Terminal's instrument block: the Gamma Chart, with the per-strike
+ * dealer-gamma book in a panel beside it.
  *
- *   • LADDERS — two strike-aligned Net-GEX ladders (`PairGammaHeatmap`, the
- *     same element Pair Comparison and the My Dashboard "Gamma Ladder" tile
- *     mount) pinned to the tape. The chart drops its own gamma rail
- *     (`hideRail`) and gives that column's width to the candles, holds spot at
- *     the vertical center of the tape (`centerPriceOnSpot`) and reports where
- *     that is (`onGeometry`); the ladders clip their rows to the card and
- *     slide the spot row onto the same y. The first ladder follows the chart's
- *     underlying; the second compares any OTHER symbol and opens on the same
- *     index's other book (SPY↔SPX, ES→SPX, QQQ↔NDX, NQ→NDX).
- *   • STRIKE PANEL — the chart's own gamma-structure rail, drawn in its column
- *     beside the y-axis with the four views it has always had (Silhouette /
- *     Net / Split / Combined) and the on-bar $ labels toggle. This is what the
- *     page rendered before the Gamma Chart and the Gamma Terminal were folded
- *     into one surface, and no reader lost it in the fold.
+ * The layout is fixed — tape on the left, panel on the right, the panel as tall
+ * as the chart and pinned to its price band. What changes is what the panel
+ * holds:
  *
- * The two are alternatives, not a stack: both answer "where is dealer gamma
- * concentrated relative to price", one as a pair of books beside the tape and
- * one as a silhouette inside it, and running both at once would spend the
- * width twice on the same question.
+ *   • GAMMA LADDERS — two strike-aligned Net-GEX ladders (`PairGammaHeatmap`,
+ *     the same element Pair Comparison and the My Dashboard "Gamma Ladder" tile
+ *     mount). The chart holds spot at the vertical center of its tape
+ *     (`centerPriceOnSpot`) and reports where that is (`onGeometry`); the
+ *     ladders clip their rows to the card and slide the spot row onto the same
+ *     y. The first ladder follows the chart's underlying; the second compares
+ *     any OTHER symbol and opens on the same index's other book (SPY↔SPX,
+ *     ES→SPX, QQQ↔NDX, NQ→NDX).
+ *   • STRIKE PANEL — the chart's own gamma-structure rail, with the four views
+ *     it has always had (Silhouette / Net / Split / Combined) and the on-bar $
+ *     labels. The chart draws it, portalled into this panel
+ *     (`strikePanelTarget`), across the tape's exact price band — so a strike's
+ *     bar sits level with that price on the candles, which the rail never
+ *     managed from inside its own narrow column.
+ *
+ * The chart itself does not change between the two. It is always in terminal
+ * mode (`hideRail`), always the same width, always keeps its whole toolbar —
+ * the GEX ribbons included, which are a reading of the tape rather than of the
+ * panel and so belong to the chart under either view. Only the panel switches.
  *
  * ── Modes ──
  * `delayed` is the public, ~15-minute-delayed view. Everything on screen then
@@ -31,15 +35,9 @@
  * false`, the expiration hooks likewise, and the symbol dropdowns are frozen
  * at the pair the snapshot covers. That is what lets this page stay a public,
  * indexable lead magnet without leaking real-time data or Basic-gated
- * endpoints to an anonymous browser.
- *
- * ── Preferences ──
- * The chosen view persists. So do the chart's own view preferences, under a
- * per-view storage scope: the strike panel keeps the keys /chart has always
- * written and the ladders keep the Gamma Terminal's, so a reader of either
- * former page finds their saved chart exactly as they left it. The chart is
- * keyed on the view so switching remounts it against the right scope rather
- * than letting one view's toolbar state bleed into the other's keys.
+ * endpoints to an anonymous browser. The panel's four views are live-only for
+ * the same reason they always were: the snapshot ships net gamma by strike but
+ * no call/put split, so the delayed panel is the silhouette.
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -74,8 +72,8 @@ export interface LadderSnapshots {
 const VIEW_STORAGE_KEY = "zg.gammaTerminal.view.v1";
 const isView = (v: unknown): v is TerminalView => v === "ladders" || v === "panel";
 
-// The side-by-side layout (chart | ladders) engages at Tailwind's xl breakpoint;
-// below it the ladders stack under the chart and keep their natural height.
+// The side-by-side layout (chart | panel) engages at Tailwind's xl breakpoint;
+// below it the panel stacks under the chart and keeps its natural height.
 const WIDE_QUERY = "(min-width: 1280px)";
 const subscribeWide = (onChange: () => void) => {
   const mq = window.matchMedia(WIDE_QUERY);
@@ -84,6 +82,10 @@ const subscribeWide = (onChange: () => void) => {
 };
 const readWide = () => window.matchMedia(WIDE_QUERY).matches;
 const readWideServer = () => false;
+
+// Stacked (below xl) the panel has no chart band to align to, so the strike
+// panel just takes a readable height of its own.
+const STACKED_PANEL_H = 420;
 
 const FROZEN_SYMBOL_TITLE =
   "The free preview is a frozen ~15-minute-delayed snapshot of this pair. Members pick any underlying, live.";
@@ -155,36 +157,55 @@ export default function TerminalSurface({
   const laddersView = view === "ladders";
 
   // Alignment: the chart reports its tape geometry (CSS px from its card's top
-  // edge); the ladder card is given the chart's height, and the ladders' own
-  // wrapper is measured so the fit can be expressed from the ladder's top.
+  // edge); the panel card is given the chart's height, and the panel body is
+  // measured so a fit can be expressed from the body's own top.
   const [geometry, setGeometry] = useState<ChartGeometry | null>(null);
   const onGeometry = useCallback((g: ChartGeometry) => setGeometry(g), []);
   // The chart's replay clock: while rewinding, both ladders show the book as
-  // of this moment instead of the live tip.
+  // of this moment instead of the live tip. (The strike panel is drawn by the
+  // chart itself, so it follows the replay without being told.)
   const [rewind, setRewind] = useState<RewindState>({ active: false, time: null });
   const onRewind = useCallback((state: RewindState) => setRewind(state), []);
   const rewindTime = rewind.active ? rewind.time : null;
-  const laddersRef = useRef<HTMLDivElement | null>(null);
-  const [ladderBox, setLadderBox] = useState<{ top: number; height: number } | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [bodyBox, setBodyBox] = useState<{ top: number; height: number } | null>(null);
   useEffect(() => {
-    const el = laddersRef.current;
-    if (!el || !wide || !laddersView) return;
-    const ro = new ResizeObserver(() => setLadderBox({ top: el.offsetTop, height: el.getBoundingClientRect().height }));
+    const el = bodyRef.current;
+    if (!el || !wide) return;
+    const ro = new ResizeObserver(() => setBodyBox({ top: el.offsetTop, height: el.getBoundingClientRect().height }));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [wide, laddersView, geometry?.height]);
+  }, [wide, view, geometry?.height]);
   // Both cards share a top edge (same flex row), so a y from the chart card's
-  // top is a y from the ladder card's top; subtract the ladders' own offset.
+  // top is a y from the panel card's top; subtract the body's own offset.
   const fit: LadderFit | null =
-    wide && laddersView && geometry && geometry.spotY != null && ladderBox
-      ? { spotY: geometry.spotY - ladderBox.top, bottom: ladderBox.height }
+    wide && laddersView && geometry && geometry.spotY != null && bodyBox
+      ? { spotY: geometry.spotY - bodyBox.top, bottom: bodyBox.height }
       : null;
   // Enough strikes each side to fill the band from any anchor.
   const maxSide = fit ? Math.max(20, Math.ceil(fit.bottom / ROW_H) + 1) : 20;
+
+  // Where the chart's price band falls inside the panel body. The panel FILLS
+  // the body — it is a card, not a floating strip — and this is what keeps it
+  // honest while it does: the chart derives one price-per-pixel scale from this
+  // band and holds it across the whole panel, so a strike is level with its
+  // price on the candles, and the room left over above and below the tape is
+  // spent drawing the strikes just off the top and bottom of the chart.
+  // Stacked, there is no band beside it to match.
+  const panelBand =
+    wide && !laddersView && geometry && bodyBox
+      ? { top: Math.max(0, geometry.plotTop - bodyBox.top), height: Math.max(40, geometry.plotBottom - geometry.plotTop) }
+      : null;
+
+  // Portal hosts for the chart's rail. State, not refs, so the chart re-renders
+  // into them the moment they mount.
+  const [panelHost, setPanelHost] = useState<HTMLDivElement | null>(null);
+  const [panelControlsHost, setPanelControlsHost] = useState<HTMLDivElement | null>(null);
+
   const { gexUnit } = useGexUnit();
   // Ladder settings — shared, persisted preferences (StrikeFilterContext,
   // SessionDeltaContext) so they stay in sync with Pair Comparison and the
-  // dashboard ladder tile. The toggle UIs live on the ladder card below.
+  // dashboard ladder tile. The toggle UIs live on the panel card below.
   const { activeOnly } = useStrikeFilter();
   const { showSessionDelta } = useSessionDelta();
 
@@ -234,8 +255,8 @@ export default function TerminalSurface({
   const exp2 = useChartExpirations(sym2, live);
 
   // Polled only while the ladders are the view being shown AND the page is
-  // live: the strike panel answers the same question from the chart's own
-  // data, so leaving two ladder columns polling behind it would be pure load.
+  // live: the strike panel is drawn from the chart's own data, so leaving two
+  // ladder columns polling behind it would be pure load.
   const laddersEnabled = live && laddersView;
   const leftLive = useGammaLadderColumn(sym1, laddersEnabled, {
     expirations: exp1.selection,
@@ -279,13 +300,14 @@ export default function TerminalSurface({
   return (
     <div className="mb-8">
       {/* View switch. Sits above the instrument rather than inside the chart's
-          own toolbar because it decides the page's layout, not a chart overlay. */}
+          own toolbar because it decides what the panel holds, not how the chart
+          draws — the chart is identical under either. */}
       <div className="flex items-center gap-2 mb-3">
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Beside the tape</span>
         <div className="zg-gc-seg" role="tablist" aria-label="Dealer-gamma view beside the chart">
           {([
             ["ladders", "Gamma Ladders", "Two strike-aligned Net-GEX ladders pinned to the tape: the chart's underlying and any other symbol, both centered on spot with the Gamma Flip, Call/Put Walls and Max Pain marked."],
-            ["panel", "Strike Panel", "The chart's own gamma-structure rail in the column beside the price axis — net dealer gamma by price, as a smoothed silhouette or per-strike Net / Split / Combined bars."],
+            ["panel", "Strike Panel", "Net dealer gamma by price, drawn across the tape's own price band — a smoothed silhouette, or per-strike Net / Split / Combined bars."],
           ] as Array<[TerminalView, string, string]>).map(([v, label, title]) => (
             <button
               key={v}
@@ -302,77 +324,104 @@ export default function TerminalSurface({
         </div>
       </div>
 
-      {/* Terminal layout: the chart takes the width, the two ladders sit beside
-          it on a wide screen (≥ xl) and stack under it below that — the chart
-          keeps its own aspect ratio, so anything narrower would squeeze the
-          candles into a strip. Top-aligned: the ladder card is as tall as its
-          strike window, the chart as tall as its aspect ratio; neither is
-          stretched to the other. In Strike Panel view the chart is alone and
-          takes the full width with its rail column back. */}
+      {/* Terminal layout: the chart takes the width, the panel sits beside it on
+          a wide screen (≥ xl) and stacks under it below that — the chart keeps
+          its own aspect ratio, so anything narrower would squeeze the candles
+          into a strip. Top-aligned: neither card is stretched to the other. */}
       <div className="flex flex-col xl:flex-row xl:items-start gap-4">
         <div className="flex-1 min-w-0">
-          {/* Keyed on the view: each view persists the chart's toolbar under its
-              own storage scope, and a remount is what makes the chart re-read
-              the right one instead of writing this view's state to the other
-              view's keys. */}
+          {/* One configuration under both views: terminal mode, spot held at the
+              tape's center, ribbons on by default, its own storage scope. The
+              only thing the view changes is whether the chart is also asked to
+              draw its rail into the panel beside it. */}
           <GammaTerminalChart
-            key={view}
             snapshot={snapshot}
             delayed={delayed}
-            hideRail={laddersView}
-            centerPriceOnSpot={laddersView}
-            storageScope={laddersView ? "terminal" : undefined}
-            overlayDefaults={laddersView ? { ribbons: true } : undefined}
-            onGeometry={laddersView ? onGeometry : undefined}
-            onRewind={laddersView ? onRewind : undefined}
+            hideRail
+            centerPriceOnSpot
+            storageScope="terminal"
+            overlayDefaults={{ ribbons: true }}
+            onGeometry={onGeometry}
+            onRewind={onRewind}
+            strikePanelTarget={laddersView ? null : panelHost}
+            strikePanelBand={panelBand}
+            railControlsTarget={laddersView ? null : panelControlsHost}
           />
         </div>
 
-        {/* 372px on a wide screen — a little over the two columns' 175px floors,
-            so the header legend, strike tags and the value column fit while
-            the tape keeps as much width as possible. The card takes the
-            chart's exact height once the chart has reported it; the ladders
-            fill the space between the controls and the caption and clip. */}
-        {laddersView && (
-          <aside
-            className="relative w-full xl:w-[372px] xl:flex-none zg-feature-shell zg-gc-rise flex flex-col"
-            style={{ overflow: "hidden", height: wide && geometry ? geometry.height : undefined }}
-            aria-label="Gamma ladders"
-          >
-            <div className="flex flex-col min-h-0 flex-1">
-              {/* Ladder settings — the same three toggles the dashboard ladder
-                  tile and Pair Comparison expose; symbol, timeframe and Expiry
-                  belong to the chart's toolbar. */}
-              <div
-                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2"
-                style={{ borderBottom: "1px solid var(--border-subtle)" }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
-                  <StrikeFilterToggle showHint={false} />
-                </div>
-                {/* Session Δ needs a per-symbol session-open frame the delayed
-                    snapshot does not carry, so the toggle is simply not offered
-                    on the public view rather than shown doing nothing. */}
-                {live && (
+        {/* 372px on a wide screen — a little over the two ladder columns' 175px
+            floors, so the header legend, strike tags and the value column fit
+            while the tape keeps as much width as possible. The card takes the
+            chart's exact height once the chart has reported it. */}
+        <aside
+          className="relative w-full xl:w-[372px] xl:flex-none zg-feature-shell zg-gc-rise flex flex-col"
+          style={{ overflow: "hidden", height: wide && geometry ? geometry.height : undefined }}
+          aria-label={laddersView ? "Gamma ladders" : "Dealer gamma by strike"}
+        >
+          <div className="flex flex-col min-h-0 flex-1">
+            {/* Controls for whatever the panel is showing. Ladders: the same
+                three toggles the dashboard ladder tile and Pair Comparison
+                expose. Strike panel: the rail's own four views and its labels
+                pill, portalled in by the chart that draws them. Symbol,
+                timeframe and Expiry belong to the chart's toolbar either way. */}
+            <div
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2"
+              style={{ borderBottom: "1px solid var(--border-subtle)" }}
+            >
+              {laddersView ? (
+                <>
                   <div className="flex items-center gap-2">
-                    <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
-                    <SessionDeltaToggle showHint={false} />
+                    <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
+                    <StrikeFilterToggle showHint={false} />
                   </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className="zg-eyebrow" style={{ fontSize: 10 }}>Unit</span>
-                  <GexUnitToggle showHint={false} />
-                </div>
-              </div>
-
-              <div ref={laddersRef} className="flex-1 min-h-0" style={{ overflow: "hidden" }}>
-                <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} fit={fit} maxSide={maxSide} />
-              </div>
-              <ChartCaption variant="strip" right={delayed ? "Terminal / Ladders · ~15-min delayed" : "Terminal / Ladders"} />
+                  {/* Session Δ needs a per-symbol session-open frame the delayed
+                      snapshot does not carry, so the toggle is simply not
+                      offered on the public view rather than shown doing nothing. */}
+                  {live && (
+                    <div className="flex items-center gap-2">
+                      <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
+                      <SessionDeltaToggle showHint={false} />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="zg-eyebrow" style={{ fontSize: 10 }}>Unit</span>
+                    <GexUnitToggle showHint={false} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="zg-eyebrow" style={{ fontSize: 10 }}>Dealer gamma by strike</span>
+                  {/* The chart portals its rail-view controls here. Empty on the
+                      delayed view, where the panel is the silhouette. */}
+                  <div ref={setPanelControlsHost} className="flex flex-wrap items-center gap-2" />
+                </>
+              )}
             </div>
-          </aside>
-        )}
+
+            <div
+              ref={bodyRef}
+              className="relative flex-1 min-h-0"
+              style={{ overflow: "hidden", minHeight: !laddersView && !panelBand ? STACKED_PANEL_H : undefined }}
+            >
+              {laddersView ? (
+                <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} fit={fit} maxSide={maxSide} />
+              ) : (
+                /* The chart draws into this box. The insets ARE the drawing
+                   area — the chart sizes its viewBox from this element, so
+                   padding here would make it think it is wider than it draws. */
+                <div
+                  ref={setPanelHost}
+                  className="absolute"
+                  style={{ left: 8, right: 8, top: 0, bottom: 0 }}
+                />
+              )}
+            </div>
+            <ChartCaption
+              variant="strip"
+              right={`${laddersView ? "Terminal / Ladders" : "Terminal / Strike Panel"}${delayed ? " · ~15-min delayed" : ""}`}
+            />
+          </div>
+        </aside>
       </div>
     </div>
   );

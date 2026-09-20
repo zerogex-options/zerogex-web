@@ -61,51 +61,111 @@ test("the page reuses GammaTerminalChart, PairGammaHeatmap and the chart page's 
 });
 
 // ── The view switch ─────────────────────────────────────────────────────────
-// The ladders and the rail answer the same question in the same column, so the
-// page shows one at a time. Terminal mode (hideRail + centerPriceOnSpot) is
-// exactly what the ladders need and exactly what the strike panel must not get.
-test("the two views are alternatives, and each configures the chart for itself", () => {
+// One layout under both views: tape on the left, panel on the right, the chart
+// configured identically either way. The switch decides what the PANEL holds,
+// not how the chart draws — so nothing about the chart may key off it except
+// whether it is also asked to draw its rail into the panel.
+test("the switch changes the panel, not the chart", () => {
   assert.match(surface, /export type TerminalView = "ladders" \| "panel";/);
   assert.match(surface, /const laddersView = view === "ladders";/);
-  assert.match(surface, /hideRail=\{laddersView\}/);
-  assert.match(surface, /centerPriceOnSpot=\{laddersView\}/);
-  assert.match(surface, /onGeometry=\{laddersView \? onGeometry : undefined\}/);
-  assert.match(surface, /onRewind=\{laddersView \? onRewind : undefined\}/);
-  // The ladder card renders only in its own view, so the strike panel gets the
-  // full width back rather than sitting beside an empty aside.
-  assert.match(surface, /\{laddersView && \(\s*<aside/);
-  // ...and the columns stop polling behind the panel entirely.
-  assert.match(surface, /const laddersEnabled = live && laddersView;/);
-  assert.match(surface, /useGammaLadderColumn\(sym1, laddersEnabled/);
-  assert.match(surface, /useGammaLadderColumn\(sym2, laddersEnabled/);
+  // Terminal mode, spot centering, storage scope and overlay defaults are
+  // unconditional — no `laddersView ?` anywhere in the chart's props.
+  const mount = surface.slice(surface.indexOf("<GammaTerminalChart"), surface.indexOf("/>", surface.indexOf("<GammaTerminalChart")));
+  assert.match(mount, /\n\s+hideRail\n/);
+  assert.match(mount, /\n\s+centerPriceOnSpot\n/);
+  assert.match(mount, /storageScope="terminal"/);
+  assert.match(mount, /overlayDefaults=\{\{ ribbons: true \}\}/);
+  assert.match(mount, /onGeometry=\{onGeometry\}/);
+  assert.match(mount, /onRewind=\{onRewind\}/);
+  // The only view-dependent props are the two portal targets.
+  assert.match(mount, /strikePanelTarget=\{laddersView \? null : panelHost\}/);
+  assert.match(mount, /railControlsTarget=\{laddersView \? null : panelControlsHost\}/);
+  assert.equal((mount.match(/laddersView/g) ?? []).length, 2, "nothing else about the chart keys off the view");
+  // A remount per view would throw away the chart's zoom, pan and rewind on
+  // every switch; there is one configuration now, so there is nothing to remount.
+  assert.doesNotMatch(mount, /key=\{view\}/);
 });
 
-// The strike panel is the Gamma Chart's rail with ALL FOUR of its views, not a
-// reduced version of it — that rail is the one thing the terminal never had.
-test("the strike panel keeps the rail's four views and its labels toggle", () => {
-  assert.match(chart, /type RailMode = "silhouette" \| "net" \| "split" \| "combined";/);
-  assert.match(chart, /aria-label="Gamma rail view"/);
+// The GEX ribbons read the TAPE, not the panel, so they are the chart's under
+// either view — available, and on by default, in both.
+test("the ribbons are available under both views", () => {
+  // One storage scope means one saved overlay set, so the default applies to
+  // both views rather than only to the one that happened to ask for it.
+  assert.equal((surface.match(/storageScope=/g) ?? []).length, 1);
+  assert.equal((surface.match(/overlayDefaults=/g) ?? []).length, 1);
+  // The pill itself is gated on `live` only — never on the rail or the view.
+  assert.match(chart, /\{live && \(\s*<OverlayPill label="Ribbons"/);
+  assert.match(chart, /\{live && overlays\.ribbons && \(\s*<RibbonOpacityControl/);
+});
+
+// The strike panel is the Gamma Chart's own rail, moved — not a second
+// component re-deriving the same numbers beside the tape.
+test("the strike panel is the chart's rail, portalled into the panel", () => {
+  assert.match(chart, /import \{ createPortal \} from "react-dom";/);
+  assert.match(chart, /const inPanel = !!strikePanelTarget;/);
+  // One node, two mounts: inline in the chart's SVG, or portalled out.
+  assert.match(chart, /const railGroup =/);
+  assert.match(chart, /\{!inPanel && railGroup\}/);
+  assert.match(chart, /createPortal\(\s*<svg/);
+  assert.match(chart, /strikePanelTarget,\s*\)/);
+  // The panel's viewBox is expressed in the CHART's own y units, which is the
+  // whole trick: `yPrice` is then already correct inside the panel, so a
+  // strike's bar lands level with that price on the candles.
+  assert.match(chart, /const PANEL_VB_H = PRICE_BOTTOM - PAD_TOP;/);
+  assert.match(chart, /viewBox=\{`\$\{railLeft\} \$\{panelVb\.y\} \$\{railRight - railLeft\} \$\{panelVb\.h\}`\}/);
+  // One px→y scale for the whole element, taken from the band the page reports.
+  // Width and height convert through the SAME number, so the viewBox always
+  // carries the element's aspect and nothing is ever stretched.
+  assert.match(chart, /const u = PANEL_VB_H \/ strikePanelBand\.height;/);
+  assert.match(chart, /y: PAD_TOP - strikePanelBand\.top \* u, h: panelBox\.height \* u, w: Math\.max\(60, panelBox\.width \* u\)/);
+  // The page reports where the chart's band falls inside the panel.
+  assert.match(surface, /strikePanelBand=\{panelBand\}/);
+  assert.match(surface, /geometry\.plotTop - bodyBox\.top/);
+  assert.match(surface, /geometry\.plotBottom - geometry\.plotTop/);
+});
+
+// The panel FILLS its card rather than floating as a strip across the tape's
+// band — and the room left over is not padding: the same scale runs through it,
+// so the strikes just above and below the visible tape get drawn.
+test("the panel fills its card and draws past the tape at the same scale", () => {
+  assert.match(surface, /style=\{\{ left: 8, right: 8, top: 0, bottom: 0 \}\}/);
+  assert.match(chart, /const railDomain = useMemo\(/);
+  assert.match(chart, /if \(!inPanel\) return \{ min: layout\.dMin, max: layout\.dMax \};/);
+  assert.match(chart, /return \{ max: layout\.priceForY\(panelVb\.y\), min: layout\.priceForY\(panelVb\.y \+ panelVb\.h\) \};/);
+  // Both the silhouette and the per-strike bars clip to that range, not to the
+  // tape's — otherwise the extra room would just be blank.
+  assert.match(chart, /profilePoints\.filter\(\(p\) => p\.price >= railDomain\.min && p\.price <= railDomain\.max\)/);
+  assert.match(chart, /railStrikes\.filter\(\(s\) => s\.price >= railDomain\.min && s\.price <= railDomain\.max\)/);
+});
+
+// The rail's x geometry is per-instance: its own column inline, the whole
+// element in a panel. Nothing may still be pinned to the old constants.
+test("the rail's geometry follows it out of the chart's column", () => {
+  assert.match(chart, /const railLeft = inPanel \? 0 : RAIL_LEFT;/);
+  assert.match(chart, /const railRight = inPanel \? panelVb\.w : RAIL_RIGHT;/);
+  assert.match(chart, /const railCenter = \(railLeft \+ railRight\) \/ 2;/);
+  assert.match(chart, /const railHalf = \(railRight - railLeft\) \/ 2 - 10;/);
+  // The drawing code reads the per-instance values only.
+  const railSrc = chart.slice(chart.indexOf("const railGroup ="), chart.indexOf("</g>", chart.indexOf("const railGroup =")));
+  assert.doesNotMatch(railSrc, /RAIL_CENTER|RAIL_HALF/);
+  // Inline, the rail is still an overlay the reader can switch off; panelled,
+  // the page's view switch already put it there.
+  assert.match(chart, /const railOn = inPanel \|\| \(overlays\.rail && !hideRail\);/);
+});
+
+// The rail's four views and its labels pill are controls over the rail, so they
+// go wherever the rail is — the panel here, the chart's toolbar on the pages
+// that still draw it inline (/dashboard, /my-dashboard, the levels pages).
+test("the rail's view controls follow it, and the inline rail keeps them", () => {
+  assert.match(chart, /const railViewControls = live \? \(/);
   for (const mode of ["silhouette", "net", "split", "combined"]) {
-    assert.match(chart, new RegExp(`\\["${mode}", "`), `${mode} is offered on the rail toolbar`);
+    assert.match(chart, new RegExp(`\\["${mode}", "`), `${mode} is offered on the rail's controls`);
   }
   assert.match(chart, /railMode !== "silhouette" && \(\s*<OverlayPill label="Labels"/);
-  // The rail column exists only when the chart is NOT in terminal mode, which
-  // is what makes the two views mutually exclusive at the geometry level.
-  assert.match(chart, /const railOn = overlays\.rail && !hideRail;/);
-});
-
-// Each view keeps its own chart toolbar, so a reader of either former page
-// finds the chart as they left it. The remount is what makes that safe: the
-// persist effects are gated on `hydrated`, so a live scope swap would write
-// this view's state into the other view's keys.
-test("each view persists the chart under its own storage scope, via a remount", () => {
-  assert.match(surface, /storageScope=\{laddersView \? "terminal" : undefined\}/);
-  assert.match(surface, /overlayDefaults=\{laddersView \? \{ ribbons: true \} : undefined\}/);
-  assert.match(surface, /<GammaTerminalChart\s+key=\{view\}/);
-  assert.match(chart, /const railKey = storageScope \? `\$\{RAIL_STORAGE_KEY\}\.\$\{storageScope\}` : RAIL_STORAGE_KEY;/);
-  // The chosen view is itself a remembered preference.
-  assert.match(surface, /const VIEW_STORAGE_KEY = "zg\.gammaTerminal\.view\.v1";/);
-  assert.match(surface, /localStorage\.setItem\(VIEW_STORAGE_KEY, view\)/);
+  assert.match(chart, /\{railOn && !inPanel && railViewControls\}/);
+  assert.match(chart, /inPanel && railControlsTarget \? createPortal\(railViewControls, railControlsTarget\) : null/);
+  // The page gives them a home on the panel's control row.
+  assert.match(surface, /ref=\{setPanelControlsHost\}/);
 });
 
 // ── The public, delayed view ────────────────────────────────────────────────

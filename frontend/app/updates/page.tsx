@@ -26,14 +26,19 @@ const UPDATES: Update[] = [
       'These were never really two products. The Gamma Terminal was the Gamma Chart with two strike ladders beside it instead of the gamma rail \u2014 same instrument, same levels, same engine, different thing in the right-hand column. Keeping them apart meant you had to pick a page before you knew which reading you wanted, and it meant the ladders were locked behind a members-only beta while the chart was the free front door. So they are folded: one flagship page at /chart, a switch for what sits beside the tape, and the whole thing \u2014 ladders included \u2014 free on a ~15-minute delay.',
     whatsNew: [
       {
-        title: 'One page, two readings of the book',
+        title: 'One layout, two readings of the book',
         href: '/chart',
-        body: 'A "Beside the tape" switch above the chart chooses between Gamma Ladders \u2014 two strike-aligned Net GEX books pinned to the same spot row as the candles \u2014 and the Strike Panel, the gamma-structure rail in the column beside the price axis with all four of its views (Silhouette, Net, Split, Combined) and the on-bar labels. They answer the same question in the same column, so you get one at a time and the width goes to whichever you picked. Your choice is remembered.',
+        body: 'The page is the terminal layout throughout: tape on the left, a panel beside it, the panel as tall as the chart. A "Beside the tape" switch chooses what the panel holds \u2014 Gamma Ladders, two strike-aligned Net GEX books pinned to the same spot row as the candles, or the Strike Panel, net dealer gamma by price with all four of its views (Silhouette, Net, Split, Combined) and the on-bar labels. The chart does not change between them: same width, same toolbar, same overlays. Only the panel switches, and your choice is remembered.',
+      },
+      {
+        title: 'The gamma rail left its cramped column',
+        href: '/chart',
+        body: 'It used to be a narrow strip inside the chart, squeezed between the candles and the price axis. Now it is the panel \u2014 roughly twice the width, the full height of the card \u2014 and it is drawn against the tape\u2019s own price scale, so a strike\u2019s bar sits exactly level with that price on the candles. It also reaches past the top and bottom of the visible tape at the same scale, which is usually where the wall you are about to run into lives. Its four views moved onto the panel with it.',
       },
       {
         title: 'Nothing was dropped in the fold',
         href: '/chart',
-        body: 'Each view keeps its own chart toolbar, saved separately \u2014 so if you lived on the old Gamma Chart, the Strike Panel opens with your overlays, price style, volume pane and rail mode exactly as you left them, and if you lived on the Terminal, the Ladders view opens with yours. Key Levels, the Playbook, the GEX ribbons, the Expiry filter, Rewind, Session \u0394 and the symbol swap all came across.',
+        body: 'Key Levels, the Playbook, the GEX ribbons (available under either view, since they read the tape rather than the panel), the Expiry filter, Rewind, Session \u0394 and the symbol swap all came across. The chart keeps one saved toolbar now rather than one per view, because there is one chart to save.',
       },
       {
         title: 'The ladders are free now, 15 minutes behind',
