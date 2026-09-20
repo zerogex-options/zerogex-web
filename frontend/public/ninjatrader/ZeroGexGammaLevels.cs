@@ -70,6 +70,19 @@ namespace NinjaTrader.NinjaScript.Indicators
     public sealed class ZeroGexLevelsSnapshot
     {
         public double? GammaFlip;
+
+        /// <summary>What to draw on the Flip line when GammaFlip is null, e.g.
+        /// "Flip &gt;8%↓". Empty when a flip was published.
+        ///
+        /// The server decides the wording AND the 8%, and this draws it without
+        /// interpreting it. That split is deliberate: a null flip has five
+        /// distinct causes and three of them are the engine reading the chain
+        /// correctly and declining to invent a level, but an em dash says the
+        /// same thing for all five and for a dead feed. Putting the sentence
+        /// here in C# would freeze it, because this file is compiled by hand on
+        /// a tester's own machine from an emailed copy.</summary>
+        public string FlipLabel;
+
         public double? CallWall;
         public double? PutWall;
         public double? MaxPain;
@@ -453,13 +466,15 @@ namespace NinjaTrader.NinjaScript.Indicators
         // Dependency-free JSON extraction.
         //
         // The /api/v1/levels contract is a small, fixed shape and every key we
-        // read (gamma_flip, call_wall, put_wall, max_pain, pin_strike, spot,
-        // age_seconds, as_of) is globally unique in the payload, so a flat key
-        // search over the whole body is safe and avoids pulling in a JSON
-        // dependency the NinjaScript compiler wouldn't reference by default.
+        // read (gamma_flip, gamma_flip_label, call_wall, put_wall, max_pain,
+        // pin_strike, spot, age_seconds, as_of) is globally unique in the
+        // payload, so a flat key search over the whole body is safe and avoids
+        // pulling in a JSON dependency the NinjaScript compiler wouldn't
+        // reference by default.
         //
         // Needles are quote-delimited ("key"), so a key that merely *prefixes*
-        // another — "pin_strike" vs the sibling "pin_strike_reason", "spot" vs
+        // another — "pin_strike" vs the sibling "pin_strike_reason", "gamma_flip"
+        // vs its siblings "gamma_flip_label" and "gamma_flip_reason", "spot" vs
         // "net_gex_at_spot" — cannot false-match.
         // ------------------------------------------------------------------
         private ZeroGexLevelsSnapshot Parse(string json)
@@ -470,6 +485,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             var snap = new ZeroGexLevelsSnapshot
             {
                 GammaFlip = ExtractNumber(json, "gamma_flip"),
+                FlipLabel = ExtractString(json, "gamma_flip_label"),
                 CallWall = ExtractNumber(json, "call_wall"),
                 PutWall = ExtractNumber(json, "put_wall"),
                 MaxPain = ExtractNumber(json, "max_pain"),
@@ -1152,7 +1168,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// again, so a report naming it can only mean the old pair, and a
         /// report naming 2.0 can only mean this. Anyone bumping from here
         /// should check what release already says first.</summary>
-        private const string BuildVersion = "v2.2";
+        private const string BuildVersion = "v2.3";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
@@ -1180,7 +1196,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 health = "\n" + mismatch + health;
 
             return "ZeroGEX Gamma Levels — " + sym + "\n" +
-                   "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
+                   "Flip "  + FlipText(s) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
                    "Pin "   + Fmt(s.PinStrike) + "   " + VwapLabel() + " " + Fmt(s.Vwap) + "\n" +
                    "updated " + age + "  ·  zerogex.io " + BuildVersion + health;
@@ -1264,6 +1280,27 @@ namespace NinjaTrader.NinjaScript.Indicators
         private static string Fmt(double? v)
         {
             return v.HasValue ? v.Value.ToString("0.##", CultureInfo.InvariantCulture) : "—";
+        }
+
+        /// <summary>The Flip cell: the price when there is one, otherwise the
+        /// server's short explanation of why there isn't.
+        ///
+        /// An em dash is what this used to show, and it cost weeks. It reads
+        /// identically whether the flip sits ten percent below spot (real,
+        /// correct, and simply off the chart), the book is one-signed so there
+        /// is no crossing to find, or the feed is dead. A tester watched it
+        /// across several sessions and neither he nor we could say which.
+        ///
+        /// Falls back to the dash when the label is missing, which is what an
+        /// older API build returns, so a new indicator against an old server
+        /// degrades to the previous behaviour rather than to a blank cell.</summary>
+        private static string FlipText(ZeroGexLevelsSnapshot s)
+        {
+            if (s != null && s.GammaFlip.HasValue)
+                return Fmt(s.GammaFlip);
+            if (s != null && !string.IsNullOrEmpty(s.FlipLabel))
+                return s.FlipLabel;
+            return "—";
         }
 
         // ------------------------------------------------------------------
