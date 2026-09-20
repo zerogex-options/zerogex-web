@@ -166,21 +166,17 @@ English one. Ask and I'll write a proper version.
 
 Hi Matheus,
 
-You got an automated note from us on Saturday saying the first charge after your trial was declined. I went and looked at the actual decline, and I need to correct something in that email before it costs you your access.
+Saturday's automated email said your first charge was declined. I looked at the actual decline, and it needs correcting.
 
-Your bank returned the code "incorrect card number." That is almost certainly not what happened. You never typed a card number for this charge — the card you added on the 12th was stored with Stripe, it cleared the trial invoice, and it carried you through the week, including when you moved yourself from Basic up to Pro. A stored card doesn't develop a typo.
+Your bank returned "incorrect card number." That isn't what happened — you never typed a number for this charge. The card you added on the 12th was stored with Stripe and worked all week, including when you moved yourself from Basic up to Pro. A stored card doesn't develop a typo. With Nubank this code almost always means the number is no longer live at the bank: a virtual card deleted or regenerated, or a physical card replaced.
 
-What that code usually means with Nubank is that the number is no longer live at the bank. The two common ways that happens: the card was a virtual number and it got deleted or regenerated in the app, or the physical card was replaced and the old number retired. Either way the bank is being handed a number it no longer recognizes.
+That matters because the first email told you a retry might clear it on its own. Here it won't — Stripe keeps presenting the same number and the bank keeps not finding it. Nothing has retried yet, and when it does it will fail the same way.
 
-Here's why I'm writing rather than leaving it to the automatic retries. That first email says a retry may clear it on its own. For an insufficient-funds hold, that's true. For this, it isn't — Stripe will keep presenting the same number and the bank will keep not finding it. Nothing has retried yet, and when it does, it will fail the same way. Waiting doesn't fix this one.
+The fix takes thirty seconds: add a different card. If you used a virtual number, generate a fresh one in the Nubank app. Sign in at https://zerogex.io/account and hit Manage Subscription.
 
-What does fix it takes about thirty seconds: add a different card. If you were using a virtual card, generate a fresh one in the Nubank app, or use the physical card number instead. Sign in at https://zerogex.io/account and hit Manage Subscription — that opens Stripe's billing portal, where the payment method lives.
+Your Pro access stays on through Tuesday the 22nd. After that the account moves to the free tier — nothing is deleted, and Pro comes back automatically the moment a charge clears.
 
-One thing worth checking while you're in the app: make sure international purchases are enabled on whichever card you use. We bill in US dollars, so even though you were charged in reais, the payment still crosses the border.
-
-The deadline, so it isn't a surprise. Your full Pro access stays on through Tuesday the 22nd. If nothing clears by then the account simply moves to the free tier — nothing is deleted, your settings and history stay exactly as they are, and Pro switches back on by itself the moment a charge goes through, whether that's this week or next month.
-
-And if the timing is just bad, or you've decided ZeroGEX isn't for you, reply and tell me straight. You upgraded yourself to Pro three days into a trial you hadn't paid for yet, so I'd rather hear it from you than guess it from a card decline.
+If you'd rather not, reply and say so. You upgraded yourself to Pro three days into an unpaid trial, so I'd rather hear it from you than guess it from a card decline.
 
 Michael
 Founder, ZeroGEX
@@ -283,23 +279,19 @@ bank suspecting him of anything.
 
 Hi Sami,
 
-You had an automated note from us on Saturday about the first charge after your trial being declined. I looked at it properly, and I'd rather send you this than the follow-up that was queued up.
+Saturday's automated email said the first charge after your trial was declined. Here's the fuller version.
 
-First, what happened, because the automated email couldn't tell you. Your bank — BNP Paribas — refused the charge and sent back no reason at all. Not insufficient funds, not an expired card, nothing. So there's no evidence anything is wrong with your card, and nothing went wrong on our end either. It's a $299 international charge on a debit card with no cardholder present, which is the exact shape banks in Europe apply the tightest rules to.
+Your bank — BNP Paribas — refused the $299 and gave no reason at all. So there's no sign anything is wrong with your card, and nothing went wrong on our end either.
 
-Now the part I think matters more. Before you go and fix anything, I looked at your account, and you haven't been back since the day you signed up. So that failed charge was about to buy you a full year of something you've never actually opened. I don't want your $299 on those terms.
+Before you fix anything, though: I looked, and you haven't been back since the day you signed up. That charge was about to buy you a year of something you've never opened, and I don't want your $299 on those terms.
 
-Here's what I'd suggest instead.
+Your Pro access is still on until Tuesday the 22nd. Use it this week. If you do one thing, open the Daily Replay, pick a recent session and scrub through it — it draws the gamma levels exactly as they stood at each minute, so you can watch how price actually behaved around them: https://zerogex.io/replay?symbol=SPX
 
-Your Pro access is still switched on until Tuesday the 22nd. Use it this week — that's what it's for. If you only do one thing, open the Daily Replay at https://zerogex.io/replay?symbol=SPX, pick a recent session and scrub through it. It draws the gamma levels exactly as they stood at each minute of that day, so you can watch how price actually behaved around the flip and the walls rather than take my word for it. Ten minutes of that will tell you more than anything I could write here. Everything else is at https://zerogex.io/dashboard, live right now, nothing to pay and nothing to fix.
+If it earns a place in how you trade, reply "monthly" and I'll move you to $59/month instead of the annual. You shouldn't have to commit to a year to find out, and I'll handle the switch — nothing for you to do.
 
-If it earns a place in how you trade, tell me and I'll move you to the monthly plan at $59 instead of the annual. Five times smaller, far less likely to be refused by your bank, and you don't have to commit to a year to find out whether this is for you. Just reply with "monthly" and I'll take care of it — you won't need to do anything.
+If it doesn't, do nothing at all. The account moves to the free tier on Tuesday and you're never charged. Nothing gets deleted, and it's all still here if you come back.
 
-And if it isn't for you, do nothing at all. The card will keep being declined, the account moves to the free tier on Tuesday, and you will never be charged. Nothing gets deleted — your account and settings stay exactly as they are, and if you come back in six months it's all still here.
-
-If you did want the annual plan and the card is the only thing in the way, that's easy too: reply and I'll send you a direct payment link you can settle with any card, or check your BNP app for a blocked payment and for your online and international payment ceiling — a single $299 charge often sits above a limit you've never had reason to notice. Worth knowing that Apple Pay hands the bank a separate device number rather than your card number, so adding the same card the ordinary way, by typing it in, really is a different attempt.
-
-Either way, no rush and no hard feelings. Reply if you want the monthly switch or the payment link, and ignore this if you'd rather let it go.
+And if you did want the annual and the card is the only thing in the way, reply and I'll send you a payment link you can settle with any card.
 
 Michael
 Founder, ZeroGEX
