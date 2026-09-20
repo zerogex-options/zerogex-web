@@ -77,21 +77,17 @@ export default function GammaVwapConfluencePage() {
     };
   }, [payload, gexSummary]);
 
-  // cluster_gap_pct is the distance between the two CORE members -- the gamma
-  // flip and VWAP -- normalized by price. It is NOT the span of all five
-  // reference levels: max pain, max gamma and the call wall are optional, and
-  // any of them can sit far outside the cluster without widening it. The old
-  // fallback took the full min/max span, so on the ordinary day where one
-  // optional level is nowhere near the others it reported a gap several times
-  // too wide -- in the one field a reader uses to judge whether the cluster is
-  // tight, and beside a quality number computed from the real gap.
-  const clusterGapPct = useMemo(() => {
-    const raw = getNumber(payload.cluster_gap_pct);
-    if (raw != null) return raw;
-    const { gammaFlip, vwap, close: spot } = ctx;
-    if (gammaFlip == null || vwap == null || spot == null || spot === 0) return null;
-    return Math.abs(gammaFlip - vwap) / spot;
-  }, [payload.cluster_gap_pct, ctx]);
+  // cluster_gap_pct is |flip - VWAP| / price: the distance between the two
+  // PERMANENT cluster members, never the span of all five reference levels.
+  // The backend always emits the key and sends null only from its
+  // `missing_levels` short-circuit -- the same branch that omits
+  // confluence_level, cluster_quality and cluster_members and scores 0. There
+  // is no cluster in that state, so there is no gap to reconstruct: a
+  // back-computed number would be the only populated field in the box, and
+  // would have to borrow a gamma flip from gex-summary that the signal itself
+  // treated as unavailable. Read the field and let it render as "--" with its
+  // neighbours, which is what /advanced-signals already does.
+  const clusterGapPct = getNumber(payload.cluster_gap_pct);
 
   const trend = toTrend(payload.direction);
   const color = trendColor(trend);
