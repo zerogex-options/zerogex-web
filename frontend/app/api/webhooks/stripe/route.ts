@@ -1031,14 +1031,21 @@ async function syncSubscriptionToUser(
 
   // Observability for the grace window: distinguishes "held through a recoverable
   // decline" from "downgraded" so the involuntary-churn saves are auditable.
+  //
+  // Both branches name WHICH failure they are describing, because the two are
+  // read side by side in `make diagnose-user` and the reason is the first thing
+  // you need. Hardcoding "Renewal" here predated trial grace and mislabeled every
+  // trial-conversion hold as a renewal — including in the audit trail of a member
+  // whose users.payment_grace_reason plainly read 'trial'.
   if (subscription.status === 'past_due') {
+    const failureLabel = graceReason === 'trial' ? 'Trial-conversion' : 'Renewal';
     logAudit({
       type: inGrace ? 'billing_payment_grace_active' : 'billing_payment_grace_ended',
       userId: user.id,
       email: user.email,
       message: inGrace
-        ? `Renewal past_due on sub ${subscription.id}; holding tier=${nextTier} through grace (opened ${graceStartedAt}, ${graceDays}d window)`
-        : `past_due on sub ${subscription.id}; ${graceDays > 0 ? 'no grace window (trial-conversion failure or window elapsed)' : 'grace disabled'} → tier=${nextTier}`,
+        ? `${failureLabel} past_due on sub ${subscription.id}; holding tier=${nextTier} through grace (reason=${graceReason}, opened ${graceStartedAt}, ${graceDays}d window)`
+        : `past_due on sub ${subscription.id}; ${graceDays > 0 ? 'no grace window (ineligible failure — withheld-card trial, or trial grace off — or window elapsed)' : 'grace disabled'} → tier=${nextTier}`,
     });
   }
 
