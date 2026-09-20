@@ -273,8 +273,9 @@ bank suspecting him of anything.
 - His subscription metadata is correct (`tier=pro, cadence=annual`).
 - The site has a French locale if he replies in French. A BNP card is not evidence
   of language, so the draft doesn't presume.
-- Confirm the two product links before sending, and replace the bracketed line
-  with the one thing you'd actually put in front of a new Pro user.
+- Links in the draft are verified against the routes: `app/replay/page.tsx` takes
+  `?symbol=`, and `/dashboard` and `/account` exist. Swap the Replay pick if
+  there's something you'd rather put in front of a new Pro user.
 
 ### Draft
 
@@ -290,7 +291,7 @@ Now the part I think matters more. Before you go and fix anything, I looked at y
 
 Here's what I'd suggest instead.
 
-Your Pro access is still switched on until Tuesday the 22nd. Use it this week — that's what it's for. [ONE CONCRETE THING TO LOOK AT FIRST.] Sign in at https://zerogex.io and it's all live right now, with nothing to pay and nothing to fix.
+Your Pro access is still switched on until Tuesday the 22nd. Use it this week — that's what it's for. If you only do one thing, open the Daily Replay at https://zerogex.io/replay?symbol=SPX, pick a recent session and scrub through it. It draws the gamma levels exactly as they stood at each minute of that day, so you can watch how price actually behaved around the flip and the walls rather than take my word for it. Ten minutes of that will tell you more than anything I could write here. Everything else is at https://zerogex.io/dashboard, live right now, nothing to pay and nothing to fix.
 
 If it earns a place in how you trade, tell me and I'll move you to the monthly plan at $59 instead of the annual. Five times smaller, far less likely to be refused by your bank, and you don't have to commit to a year to find out whether this is for you. Just reply with "monthly" and I'll take care of it — you won't need to do anything.
 
