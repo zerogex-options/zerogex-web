@@ -130,6 +130,13 @@ const DEFAULT_OVERLAYS: OverlayState = {
   // Off by default: a new overlay shouldn't reshape every existing user's chart
   // unasked. The stored-prefs merge leaves them false for returning users too.
   king: false,
+  // That reasoning still holds for Expected Range, and this stays false. What it
+  // does not cover is discoverability: off-by-default made the band hard to FIND
+  // rather than merely quiet, and a daily user asked for an IV expected-range
+  // high/low by name without knowing the pill was already on their toolbar. That
+  // is answered by the title on the pill below, which costs a returning user
+  // nothing; flipping this to true would redraw every existing chart to answer
+  // one person's question.
   expectedRange: false,
   barTimer: false,
   ribbons: false,
@@ -2652,7 +2659,7 @@ export default function GammaTerminalChart({
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} />
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range — the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only — the delayed snapshot carries no vol index." />
           )}
           {live && overlays.expectedRange && (
             <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
