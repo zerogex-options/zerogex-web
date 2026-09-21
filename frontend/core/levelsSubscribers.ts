@@ -14,6 +14,7 @@
 import { randomBytes } from 'crypto';
 
 import { getDb } from './db.ts';
+import { SYMBOLS } from './symbols.ts';
 import {
   normalizeEmail,
   shouldSendConfirmation,
@@ -29,13 +30,15 @@ export type LevelsSubscriber = {
   source: string | null;
   signup_ip: string | null;
   confirm_ip: string | null;
+  /** Chosen ticker. Leads their digest's subject, table and paste block. */
+  symbol: string;
   created_at: string;
   updated_at: string;
   last_sent_at: string | null;
 };
 
 const COLUMNS = `id, email, confirmed_at, confirm_sent_at, unsubscribed_at,
-                 source, signup_ip, confirm_ip, created_at, updated_at, last_sent_at`;
+                 source, signup_ip, confirm_ip, symbol, created_at, updated_at, last_sent_at`;
 
 /**
  * Opaque row id. Random rather than sequential because it is what the confirm
@@ -45,6 +48,24 @@ const COLUMNS = `id, email, confirmed_at, confirm_sent_at, unsubscribed_at,
  */
 function mintId(): string {
   return `lvl_${randomBytes(16).toString('hex')}`;
+}
+
+/**
+ * Ticker a subscriber's digest is built around.
+ *
+ * Validated against the shared SYMBOLS registry rather than a second list, so
+ * a ticker added there is immediately choosable here. Falls back to SPX, NOT
+ * to core/symbols' DEFAULT_SYMBOL (SPY): that default is "what a signed-in
+ * member lands on", which is a different question from "what does an
+ * anonymous reader of these SEO pages care about" — and the answer to the
+ * second is overwhelmingly SPX.
+ */
+export const DEFAULT_LEVELS_SYMBOL = 'SPX';
+
+export function normalizeLevelsSymbol(raw: string | null | undefined): string {
+  if (typeof raw !== 'string') return DEFAULT_LEVELS_SYMBOL;
+  const upper = raw.trim().toUpperCase();
+  return (SYMBOLS as readonly string[]).includes(upper) ? upper : DEFAULT_LEVELS_SYMBOL;
 }
 
 /** Longest `source` we will store — a route path, not free text. */
@@ -101,6 +122,8 @@ export type SubscribeResult = {
 
 export type SubscribeInput = {
   email: string;
+  /** Chosen ticker; anything unrecognized falls back to SPX. */
+  symbol?: string | null;
   source?: string | null;
   ip?: string | null;
   /** Injected for tests; defaults to now. */
@@ -130,6 +153,7 @@ export function recordLevelsSubscription(input: SubscribeInput): SubscribeResult
   const now = input.now ?? new Date();
   const nowIso = now.toISOString();
   const source = cleanSource(input.source);
+  const symbol = normalizeLevelsSymbol(input.symbol);
   const ip = input.ip ?? null;
 
   // Insert-or-ignore then read back, rather than SELECT-then-INSERT: two
@@ -137,10 +161,10 @@ export function recordLevelsSubscription(input: SubscribeInput): SubscribeResult
   // row" and the second would hit the UNIQUE index. DO NOTHING makes the
   // loser a no-op and the read below returns whichever row won.
   db.prepare(
-    `INSERT INTO levels_subscribers (id, email, source, signup_ip, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO levels_subscribers (id, email, symbol, source, signup_ip, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(email) DO NOTHING`,
-  ).run(mintId(), email, source, ip, nowIso, nowIso);
+  ).run(mintId(), email, symbol, source, ip, nowIso, nowIso);
 
   const existing = db
     .prepare(`SELECT ${COLUMNS} FROM levels_subscribers WHERE email = ?`)

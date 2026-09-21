@@ -16,11 +16,14 @@
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from './gexSummary.ts';
 import { netGexAtSpotOrNull } from './gammaRegime.ts';
 import { etParts, type FreshnessBasis } from './levelsEmail.ts';
+import { SYMBOLS } from './symbols.ts';
 
 export type SymbolSnapshot = { symbol: string; data: GexSummary | null };
 
 export type DigestRow = {
   symbol: string;
+  /** The subscriber's chosen ticker: leads the table and the paste block. */
+  isPrimary: boolean;
   spot: string;
   flip: string;
   callWall: string;
@@ -46,8 +49,29 @@ export type DigestModel = {
   subject: string;
 };
 
-/** Reading order. SPX leads: it is what the search demand is about. */
-export const DIGEST_SYMBOL_ORDER = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
+// Fallback reading order, used when a subscriber expressed no preference.
+// SPX leads because that is what the search demand behind these pages is
+// about. Derived from SYMBOLS rather than rewritten, the same way
+// core/llmsTxt.ts does it, so a seventh ingested ticker appears here without
+// an edit instead of being silently dropped from every digest.
+const PREFERRED_ORDER = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
+export const DIGEST_SYMBOL_ORDER: readonly string[] = [
+  ...PREFERRED_ORDER.filter((s) => (SYMBOLS as readonly string[]).includes(s)),
+  ...SYMBOLS.filter((s) => !(PREFERRED_ORDER as readonly string[]).includes(s)),
+];
+
+/**
+ * The reading order for one subscriber: their symbol first, then the rest in
+ * the canonical order.
+ *
+ * Mirrors what gammaLevels.tsx already does for the ticker pages ("Primary
+ * symbol first, then the remaining three in their canonical order") so the
+ * email a QQQ reader gets is laid out like the QQQ page they subscribed from.
+ */
+export function digestOrderFor(primary: string): readonly string[] {
+  if (!DIGEST_SYMBOL_ORDER.includes(primary)) return DIGEST_SYMBOL_ORDER;
+  return [primary, ...DIGEST_SYMBOL_ORDER.filter((s) => s !== primary)];
+}
 
 function weekdayName(isoDate: string): string {
   const dt = new Date(`${isoDate}T12:00:00Z`);
@@ -55,9 +79,10 @@ function weekdayName(isoDate: string): string {
   return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(dt);
 }
 
-function toRow(symbol: string, d: GexSummary): DigestRow {
+function toRow(symbol: string, d: GexSummary, isPrimary: boolean): DigestRow {
   return {
     symbol,
+    isPrimary,
     spot: fmtPrice(d.spot_price),
     flip: fmtPrice(d.gamma_flip),
     callWall: fmtPrice(d.call_wall),
@@ -103,7 +128,7 @@ export function buildDigestModel(input: BuildDigestInput): DigestModel | null {
 
   const rows: DigestRow[] = [];
   const omitted: string[] = [];
-  for (const symbol of DIGEST_SYMBOL_ORDER) {
+  for (const symbol of digestOrderFor(primary)) {
     const data = bySymbol.get(symbol);
     if (!data?.timestamp) {
       if (symbol !== primary) omitted.push(symbol);
@@ -113,7 +138,7 @@ export function buildDigestModel(input: BuildDigestInput): DigestModel | null {
       omitted.push(symbol);
       continue;
     }
-    rows.push(toRow(symbol, data));
+    rows.push(toRow(symbol, data, symbol === primary));
   }
 
   if (rows.length === 0) return null;
@@ -165,9 +190,35 @@ function provenance(model: DigestModel): string {
     : `As of ${model.asOf} · delayed ~15 minutes.`;
 }
 
-function pasteLine(row: DigestRow): string {
-  return `${row.symbol}: flip ${row.flip} / call wall ${row.callWall} / put wall ${row.putWall} / max pain ${row.maxPain}`;
+// The em dash fmtPrice returns for a missing level is right for the human
+// table and WRONG here. This block exists to be typed into the free
+// TradingView script's four numeric inputs, and "flip —" is not a number.
+// The script's own convention for an absent level is 0 ("Set any level to 0
+// to hide it" — docs/tradingview-indicator.md), so that is what a missing
+// level becomes. Found against live data: NDX and NQ published no gamma flip
+// on 2026-09-21 and the block shipped an em dash into a numeric field.
+const PASTE_MISSING = '0';
+
+function pasteValue(formatted: string): string {
+  return formatted === '—' ? PASTE_MISSING : formatted;
 }
+
+function pasteLine(row: DigestRow): string {
+  return (
+    `${row.symbol}: flip ${pasteValue(row.flip)}` +
+    ` / call wall ${pasteValue(row.callWall)}` +
+    ` / put wall ${pasteValue(row.putWall)}` +
+    ` / max pain ${pasteValue(row.maxPain)}`
+  );
+}
+
+/** True when any pasted level fell back to 0, so the note can explain it. */
+function hasMissingPasteLevel(rows: DigestRow[]): boolean {
+  return rows.some((r) => [r.flip, r.callWall, r.putWall, r.maxPain].includes('—'));
+}
+
+const PASTE_ZERO_NOTE =
+  'A 0 means no level was published for that ticker today — the script hides any level set to 0.';
 
 export type RenderedEmail = { subject: string; text: string; html: string };
 
@@ -180,6 +231,8 @@ export function renderDailyLevelsEmail(
     ? `Not included this morning (no matching snapshot): ${model.omitted.join(', ')}.`
     : '';
 
+  const zeroNote = hasMissingPasteLevel(model.rows) ? PASTE_ZERO_NOTE : null;
+
   const text = [
     `Dealer positioning for ${model.sessionLabel}'s session.`,
     provenance(model),
@@ -189,9 +242,12 @@ export function renderDailyLevelsEmail(
         `${r.symbol.padEnd(4)} spot ${r.spot}  flip ${r.flip}  call wall ${r.callWall}  put wall ${r.putWall}  max pain ${r.maxPain}  net GEX ${r.netGex}`,
     ),
     '',
-    omittedNote,
+    // Both entries drop out when nothing was omitted, rather than leaving the
+    // empty string behind as a second blank line.
+    omittedNote || null,
     omittedNote ? '' : null,
     'Paste order for the free TradingView script (Gamma Flip / Call Wall / Put Wall / Max Pain):',
+    zeroNote,
     ...model.rows.map(pasteLine),
     '',
     `Full page, charts and the other tickers: ${site}/spx-gamma-levels`,
@@ -204,11 +260,15 @@ export function renderDailyLevelsEmail(
     .filter((line) => line !== null)
     .join('\n');
 
+  // The subscriber's own ticker is tinted and left-ruled rather than merely
+  // bolded: every symbol cell is already bold, so weight alone would not
+  // distinguish it. Inline styles only — Gmail strips <style> blocks, so a
+  // class-based highlight would simply not appear.
   const rowsHtml = model.rows
     .map(
       (r) => `
-        <tr>
-          <td style="padding:7px 10px 7px 0; font-weight:700; color:#12283c; white-space:nowrap;">${escapeHtml(r.symbol)}</td>
+        <tr${r.isPrimary ? ' style="background:#f3f8fb;"' : ''}>
+          <td style="padding:7px 10px 7px 0; font-weight:700; color:#12283c; white-space:nowrap;${r.isPrimary ? ' border-left:3px solid #f5b400; padding-left:9px;' : ''}">${escapeHtml(r.symbol)}</td>
           <td style="padding:7px 10px; color:#3a4650; white-space:nowrap;">${escapeHtml(r.spot)}</td>
           <td style="padding:7px 10px; color:#3a4650; white-space:nowrap;">${escapeHtml(r.flip)}</td>
           <td style="padding:7px 10px; color:#3a4650; white-space:nowrap;">${escapeHtml(r.callWall)}</td>
@@ -222,7 +282,30 @@ export function renderDailyLevelsEmail(
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#1a1a1a; max-width:640px; margin:0 auto; padding:24px; line-height:1.5;">
       <p style="margin:0 0 4px; font-size:17px; font-weight:700; color:#12283c;">Dealer positioning for ${escapeHtml(model.sessionLabel)}&rsquo;s session</p>
-      <p style="margin:0 0 20px; font-size:12px; color:#6b7680;">${escapeHtml(provenance(model))}</p>
+      <p style="margin:0 0 18px; font-size:12px; color:#6b7680;">${escapeHtml(provenance(model))}</p>
+
+      ${
+        /*
+         * Today's levels card for the subscriber's own ticker.
+         *
+         * /embed/image/<SYMBOL>.png is the PUBLIC, free-tier card the widget
+         * already serves — a Next ImageResponse route, no auth, no token, no
+         * headless browser in the send path. Deliberately NOT the Live
+         * Bulletin snapshot: that screenshots the same GammaReportCard the
+         * Basic-gated /live-bulletin page renders, so mailing it would give
+         * away every morning exactly what the last line of this email is
+         * asking the reader to buy.
+         *
+         * Everything the image shows is repeated as text below it, because
+         * most clients block images by default and Gmail proxies the rest.
+         * The digest must read correctly with the picture missing.
+         */ ''
+      }
+      <a href="${escapeHtml(`${site}/${model.primary.toLowerCase()}-gamma-levels`)}" style="display:block; margin:0 0 20px;">
+        <img src="${escapeHtml(`${site}/embed/image/${model.primary}.png`)}"
+             alt="${escapeHtml(`${model.primary} gamma levels — gamma flip, call wall, put wall`)}"
+             width="600" style="width:100%; max-width:600px; height:auto; border:1px solid #e2e6ea; border-radius:8px; display:block;" />
+      </a>
 
       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
         <thead>
@@ -243,7 +326,7 @@ export function renderDailyLevelsEmail(
       ${omittedNote ? `<p style="margin:14px 0 0; font-size:12px; color:#6b7680;">${escapeHtml(omittedNote)}</p>` : ''}
 
       <p style="margin:24px 0 6px; font-size:13px; font-weight:700; color:#12283c;">Paste order for the free TradingView script</p>
-      <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Gamma Flip / Call Wall / Put Wall / Max Pain</p>
+      <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Gamma Flip / Call Wall / Put Wall / Max Pain${zeroNote ? ` &middot; ${escapeHtml(zeroNote)}` : ''}</p>
       <pre style="margin:0; padding:14px 16px; background:#f5f7f9; border:1px solid #e2e6ea; border-radius:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; line-height:1.7; color:#12283c; white-space:pre-wrap; word-break:break-word;">${escapeHtml(model.rows.map(pasteLine).join('\n'))}</pre>
 
       <p style="margin:22px 0 0; font-size:14px;">

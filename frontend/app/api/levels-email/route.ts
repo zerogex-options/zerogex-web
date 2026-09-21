@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as {
     email?: unknown;
+    symbol?: unknown;
     source?: unknown;
     // Honeypot. A real form leaves it empty because it is hidden from people;
     // most naive bots fill every input they find.
@@ -75,10 +76,14 @@ export async function POST(request: NextRequest) {
 
   const email = typeof body.email === 'string' ? body.email : '';
   const source = typeof body.source === 'string' ? body.source : null;
+  // Not validated here: normalizeLevelsSymbol() checks it against the shared
+  // SYMBOLS registry and falls back to SPX, so a junk value costs the caller
+  // nothing and still cannot reach the database.
+  const symbol = typeof body.symbol === 'string' ? body.symbol : null;
 
   let result: ReturnType<typeof recordLevelsSubscription> = null;
   try {
-    result = recordLevelsSubscription({ email, source, ip: ip === 'unknown' ? null : ip });
+    result = recordLevelsSubscription({ email, symbol, source, ip: ip === 'unknown' ? null : ip });
   } catch {
     // A storage failure must not hand the caller a different answer from a
     // success — see the oracle note above. It is logged and swallowed.
