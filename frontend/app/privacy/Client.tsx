@@ -109,6 +109,19 @@ export default function PrivacyPage() {
               <li>
                 <strong>{t('s2Item4Label')}</strong> {t('s2Item4Text')}
               </li>
+              {/* The free daily levels email. Its subscribers are deliberately
+                  NOT accounts — no users row, no password, no tier — so the
+                  "Account information" item above does not describe them, and
+                  the double opt-in consent record (the two IP addresses and
+                  their timestamps) is worth naming for what it is rather than
+                  leaving it to the general usage-data clause. Present only in
+                  the en dictionary for now; usePageT falls back to English
+                  per key, so the other locales render this clause in English
+                  until it is translated, which is better than omitting a
+                  disclosure. */}
+              <li>
+                <strong>{t('s2Item5Label')}</strong> {t('s2Item5Text')}
+              </li>
             </ul>
           </Section>
 
