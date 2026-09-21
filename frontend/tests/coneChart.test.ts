@@ -24,6 +24,8 @@ import {
   buildConePoints,
   buildSpotPath,
   coneDomain,
+  conePriceDecimals,
+  conePriceDomain,
   horizonVerdict,
   mergeConeSeries,
 } from "../core/coneChart.ts";
@@ -170,6 +172,86 @@ test("the domain spans the cone, which runs past the last price print", () => {
 
 test("an empty series has no domain rather than a degenerate one", () => {
   assert.equal(coneDomain([]), null);
+});
+
+test("the price axis does not anchor at zero", () => {
+  // The bug this exists for. The band is two STACKED areas, and a stack's
+  // implied baseline is zero, so recharts derived a 0-800 domain and drew a
+  // $2 cone as a flat line at the top of an empty rectangle.
+  // The fixture is a $600 underlying with a 597.4-602.6 cone.
+  const rows = mergeConeSeries(buildConePoints(fire()), buildSpotPath([fire()]));
+  const d = conePriceDomain(rows);
+  assert.ok(d);
+  assert.ok(d[0] > 500, `axis must not reach toward zero, got ${d[0]}`);
+  assert.ok(d[0] <= 597.4, "and must contain the lowest band edge");
+  assert.ok(d[1] >= 602.6, "and the highest");
+});
+
+test("the domain contains every band edge and the anchor", () => {
+  const rows = mergeConeSeries(buildConePoints(fire()), buildSpotPath([fire()]));
+  const [lo, hi] = conePriceDomain(rows)!;
+  for (const p of rows) {
+    if (p.spot !== null) {
+      assert.ok(p.spot >= lo && p.spot <= hi);
+    }
+    if (p.bandBase !== null) {
+      assert.ok(p.bandBase >= lo, "band floor inside the axis");
+      assert.ok((p.bandBase + (p.bandSpan ?? 0)) <= hi, "band ceiling inside");
+    }
+  }
+});
+
+test("a nearby level joins the axis and a distant one does not", () => {
+  const rows = mergeConeSeries(buildConePoints(fire()), buildSpotPath([fire()]));
+  const bare = conePriceDomain(rows)!;
+
+  // A wall just outside the band should widen the axis to show it.
+  const near = conePriceDomain(rows, [603.5])!;
+  assert.ok(near[1] >= 603.5, "a wall near the cone must be visible");
+
+  // One 5% away must not flatten the band into a line to display it.
+  const far = conePriceDomain(rows, [640])!;
+  assert.ok(far[1] < 640, "a distant wall must not stretch the axis");
+  assert.deepEqual(far, bare, "and must leave the axis untouched");
+});
+
+test("the axis snaps to round numbers", () => {
+  // allowDataOverflow makes recharts use the bounds verbatim as the outer
+  // ticks, so unrounded bounds read as 765.40 ... 771.60 — three even gaps
+  // and a short one, which looks like a rounding bug.
+  const rows = mergeConeSeries(buildConePoints(fire()), buildSpotPath([fire()]));
+  const [lo, hi] = conePriceDomain(rows)!;
+  const step = (hi - lo) / 4;
+  assert.ok(Number.isFinite(step) && step > 0);
+  for (const bound of [lo, hi]) {
+    const k = bound / step;
+    assert.ok(Math.abs(k - Math.round(k)) < 1e-9,
+      `${bound} should be a whole number of ${step} steps`);
+  }
+});
+
+test("a single anchor still yields a usable axis", () => {
+  // The session's first fire has one price and a zero-width band at t0; a
+  // naive pad of 0 would collapse the axis to a point.
+  const one = { forecast_ts: ANCHOR, anchor_spot: 600, horizons: [] };
+  const rows = mergeConeSeries(buildConePoints(one), buildSpotPath([one]));
+  const d = conePriceDomain(rows);
+  assert.ok(d);
+  assert.ok(d[1] > d[0], "the axis must have width");
+  assert.ok(d[0] <= 600 && d[1] >= 600, "and contain the price");
+});
+
+test("nothing to draw yields no axis rather than a bogus one", () => {
+  assert.equal(conePriceDomain([]), null);
+  assert.equal(conePriceDomain([{ t: 1, bandBase: null, bandSpan: null, spot: null }]), null);
+});
+
+test("tick precision follows the price scale", () => {
+  // Cents matter on SPY. On NDX at 30,000 they are four columns of noise.
+  assert.equal(conePriceDecimals(768.98), 1);
+  assert.equal(conePriceDecimals(30220.12), 0);
+  assert.equal(conePriceDecimals(7720.07), 0);
+  assert.equal(conePriceDecimals(42.5), 2);
 });
 
 test("a matured claim with no bars stays its own outcome", () => {

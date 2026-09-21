@@ -45,6 +45,8 @@ import {
   buildConePoints,
   buildSpotPath,
   coneDomain,
+  conePriceDecimals,
+  conePriceDomain,
   horizonVerdict,
   mergeConeSeries,
 } from '@/core/coneChart';
@@ -114,10 +116,26 @@ export default function IntradayConeChart({
   const index = selected === null ? fires.length - 1 : Math.min(selected, fires.length - 1);
   const fire = index >= 0 ? fires[index] : null;
 
-  const { rows, domain } = useMemo(() => {
-    if (!fire) return { rows: [], domain: null };
-    const merged = mergeConeSeries(buildConePoints(fire), buildSpotPath(fires));
-    return { rows: merged, domain: coneDomain(merged) };
+  const { rows, domain, priceDomain, spotPoints, priceDecimals } = useMemo(() => {
+    if (!fire) {
+      return {
+        rows: [], domain: null, priceDomain: null,
+        spotPoints: 0, priceDecimals: 2,
+      };
+    }
+    const path = buildSpotPath(fires);
+    const merged = mergeConeSeries(buildConePoints(fire), path);
+    return {
+      rows: merged,
+      domain: coneDomain(merged),
+      priceDecimals: conePriceDecimals(fire.anchor_spot ?? 0),
+      priceDomain: conePriceDomain(merged, [
+        fire.call_wall,
+        fire.put_wall,
+        fire.gamma_flip,
+      ]),
+      spotPoints: path.length,
+    };
   }, [fire, fires]);
 
 
@@ -163,11 +181,16 @@ export default function IntradayConeChart({
               stroke={theme.border}
             />
             <YAxis
-              domain={['auto', 'auto']}
+              // Explicit domain AND allowDataOverflow: see conePriceDomain.
+              // The band is two stacked areas, whose baseline is zero, so
+              // 'auto' anchors the axis at 0 and recharts would expand an
+              // explicit domain back to it without the overflow flag.
+              domain={priceDomain ?? ['auto', 'auto']}
+              allowDataOverflow={priceDomain !== null}
               tick={{ fontSize: 11, fill: theme.textMuted }}
               stroke={theme.border}
-              width={58}
-              tickFormatter={(v: number) => v.toFixed(0)}
+              width={64}
+              tickFormatter={(v: number) => v.toFixed(priceDecimals)}
             />
             <Tooltip
               contentStyle={{
@@ -208,7 +231,10 @@ export default function IntradayConeChart({
               dataKey="spot"
               stroke={theme.text}
               strokeWidth={1.5}
-              dot={false}
+              // A line through one point draws nothing, so the session's
+              // first fire would show a cone with no price on it at all.
+              // Dots carry the early session until there is a path to draw.
+              dot={spotPoints <= 3 ? { r: 2.5, fill: theme.text } : false}
               isAnimationActive={false}
               connectNulls
               name="spot"

@@ -149,6 +149,94 @@ export function coneDomain(rows: readonly ConePathPoint[]): [number, number] | n
   return [Math.min(...ts), Math.max(...ts)];
 }
 
+/**
+ * Price range for the y axis: the cone, the realized path, and any reference
+ * level close enough to be worth showing.
+ *
+ * This exists because the band is drawn as two STACKED areas, and a stack's
+ * implied baseline is zero — so recharts derives a domain starting at 0 and
+ * `domain={['auto','auto']}` cannot override it. The first version of this
+ * chart rendered a $2-wide cone inside a 0–800 axis: a flat line at the top
+ * of an empty rectangle.
+ *
+ * The caller must also pass `allowDataOverflow`, because recharts EXPANDS an
+ * explicit domain to fit stray data unless told not to — and the stray datum
+ * here is that invisible zero baseline. Domain alone is not enough.
+ *
+ * Reference levels are included only when they sit within roughly one band
+ * width of the cone. A wall 5% away would flatten the band back into a line
+ * to show a level nobody is trading against on a two-hour horizon; it is
+ * better for that line to fall off the chart than to take the cone with it.
+ */
+export function conePriceDomain(
+  rows: readonly ConePathPoint[],
+  refs: readonly (number | null | undefined)[] = [],
+  padFraction = 0.12,
+): [number, number] | null {
+  const values: number[] = [];
+  for (const r of rows) {
+    if (r.spot !== null && r.spot !== undefined) values.push(r.spot);
+    if (r.bandBase !== null && r.bandBase !== undefined) {
+      values.push(r.bandBase);
+      if (r.bandSpan !== null && r.bandSpan !== undefined) {
+        values.push(r.bandBase + r.bandSpan);
+      }
+    }
+  }
+  const usable = values.filter((v) => Number.isFinite(v));
+  if (!usable.length) return null;
+
+  let lo = Math.min(...usable);
+  let hi = Math.max(...usable);
+  // A single anchor has zero width, so fall back to a fraction of the price
+  // rather than a zero tolerance that admits nothing.
+  const reach = hi - lo || Math.abs(hi) * 0.002 || 1;
+
+  for (const ref of refs) {
+    if (ref === null || ref === undefined || !Number.isFinite(ref)) continue;
+    if (ref >= lo - reach && ref <= hi + reach) {
+      lo = Math.min(lo, ref);
+      hi = Math.max(hi, ref);
+    }
+  }
+
+  const pad = (hi - lo) * padFraction || Math.abs(hi) * 0.002 || 1;
+  return niceBounds(lo - pad, hi + pad);
+}
+
+/**
+ * Round a range outward to a readable step.
+ *
+ * Needed because `allowDataOverflow` makes recharts use the domain bounds
+ * verbatim as the outermost ticks. Without this the axis reads 765.40,
+ * 767.40, 769.40, 771.60 — three even gaps and then a short one, which looks
+ * like a rounding bug on a chart whose whole job is to be believed about
+ * numbers.
+ */
+function niceBounds(lo: number, hi: number): [number, number] {
+  const range = hi - lo;
+  if (!(range > 0) || !Number.isFinite(range)) return [lo, hi];
+  // Aim for ~4 intervals, then snap the step to 1, 2 or 5 times a power of 10.
+  const raw = range / 4;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  return [Math.floor(lo / step) * step, Math.ceil(hi / step) * step];
+}
+
+/**
+ * Decimal places for a price axis, by magnitude.
+ *
+ * SPY needs cents; NDX at 30,000 does not, and printing "30220.12" four
+ * times down an axis is noise that crowds out the band.
+ */
+export function conePriceDecimals(reference: number): number {
+  const v = Math.abs(reference);
+  if (v >= 5000) return 0;
+  if (v >= 500) return 1;
+  return 2;
+}
+
 export type ConeVerdict = 'held' | 'broke' | 'not scored' | 'pending';
 
 /**
