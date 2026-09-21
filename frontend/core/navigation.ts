@@ -45,15 +45,14 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/dashboard', label: 'Main Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
       { id: '/my-dashboard', label: 'My Dashboard', labelKey: 'nav.myDashboard', requiredTier: 'basic' },
-      // /chart is a public dual-mode route (delayed snapshot for anonymous
-      // visitors, live for subscribers), so it carries no requiredTier — the
-      // route table in core/auth.ts keeps it public and the page branches on
-      // the session. Marking it 'basic' here would wrongly hide it from guests.
-      { id: '/chart', label: 'Gamma Chart' },
-      // Gamma Terminal (beta): the Gamma Chart's price chart with two gamma
-      // ladders beside it. Live-only (no delayed public snapshot), so unlike
-      // /chart it is a member page and carries the Basic tier.
-      { id: '/gamma-terminal', label: 'Gamma Terminal', requiredTier: 'basic', beta: true },
+      // The Gamma Terminal — the flagship surface, and the fold of what used to
+      // be two nav entries: the public Gamma Chart and the members-only
+      // /gamma-terminal beta (now 301'd to /chart). It is a public dual-mode
+      // route (delayed snapshot for anonymous visitors, live for subscribers),
+      // so it carries no requiredTier — the route table in core/auth.ts keeps
+      // it public and the page branches on the session. Marking it 'basic'
+      // here would wrongly hide it from guests.
+      { id: '/chart', label: 'Gamma Terminal' },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },

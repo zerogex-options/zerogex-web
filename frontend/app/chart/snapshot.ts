@@ -5,6 +5,9 @@ import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { firstLevel, levelOrNull } from '@/core/levelValue';
+import { getSpotPriorCloseChange } from '@/core/priceChange';
+import { resolvePriceSession } from '@/core/sessionCloses';
+import type { HeatmapCell } from '@/components/PairGammaHeatmap';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -48,6 +51,10 @@ interface RawSummary {
   gamma_flip?: unknown;
   call_wall?: unknown;
   put_wall?: unknown;
+  // The ladder's spot marker and header readout. The chart takes its price
+  // from the quote/tape; a ladder centers on the ANALYTICS spot, the same
+  // field useGammaLadderColumn reads, so the centered row matches the book.
+  spot_price?: unknown;
 }
 interface RawQuote {
   close?: unknown;
@@ -77,22 +84,30 @@ interface RawBucket {
 }
 
 // Most-recent bucket that actually carries per-strike gamma (walk back so an
-// empty after-hours tip doesn't blank the public rail). Mirrors the live
-// chart's liveGexBucket selection.
-function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfileStrike[] | null {
+// empty after-hours tip doesn't blank the public rail or ladder). Mirrors the
+// live chart's liveGexBucket and the ladder hook's latestLiveBucket, which is
+// why both delayed surfaces below resolve their surface through this one
+// function rather than each applying its own freshness rule.
+function latestPositionedBucket(buckets: RawBucket[] | null | undefined): RawBucket | null {
   if (!Array.isArray(buckets)) return null;
   for (let i = buckets.length - 1; i >= 0; i -= 1) {
     const s = buckets[i]?.strikes;
     if (Array.isArray(s) && s.some((r) => { const g = levelOrNull(r?.net_gamma); return g != null && g !== 0; })) {
-      return s.map((r) => ({
-        strike: levelOrNull(r?.strike) ?? undefined,
-        net_gamma: levelOrNull(r?.net_gamma),
-        call_oi: levelOrNull(r?.call_oi),
-        put_oi: levelOrNull(r?.put_oi),
-      }));
+      return buckets[i];
     }
   }
   return null;
+}
+
+function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfileStrike[] | null {
+  const rows = latestPositionedBucket(buckets)?.strikes;
+  if (!Array.isArray(rows)) return null;
+  return rows.map((r) => ({
+    strike: levelOrNull(r?.strike) ?? undefined,
+    net_gamma: levelOrNull(r?.net_gamma),
+    call_oi: levelOrNull(r?.call_oi),
+    put_oi: levelOrNull(r?.put_oi),
+  }));
 }
 
 /**
@@ -204,5 +219,87 @@ export async function loadChartSnapshot(
     profile: profilePoints,
     strikes: pickStrikeSurface(buckets),
     vwap,
+  };
+}
+
+/**
+ * One gamma ladder column, frozen at the same ~15-minute delay as the chart.
+ *
+ * The live page builds a column with `useGammaLadderColumn`, which polls
+ * /api/gex/strike-profile-timeseries + /api/gex/summary from the browser —
+ * both Basic-gated by core/api/apiTierGate, so an anonymous visitor cannot
+ * have them. This is the server-rendered counterpart: the same four feeds read
+ * through `serverApiGet` with the same 900s ISR cache the chart snapshot uses,
+ * shaped into exactly what `PairGammaHeatmap` takes for a column. The public
+ * terminal therefore renders real ladders and issues zero client requests.
+ *
+ * Deliberately NOT carried: the Session Δ baseline (a second /api/replay/frame
+ * fetch per symbol for a decoration) and any expiration scope — the delayed
+ * view has no Expiry control, so every column is whole-chain, which is also
+ * why Max Pain is the summary's value here rather than NA.
+ */
+export interface LadderSnapshot {
+  symbol: string;
+  cells: HeatmapCell[];
+  spot: number | null;
+  gammaFlip: number | null;
+  callWall: number | null;
+  putWall: number | null;
+  maxPain: number | null;
+  changePercent: number | null;
+  isPositive: boolean;
+  /** Set only when the newest bucket in the window carried no positioning and
+   *  this is the reach-back — the same signal the live column renders an
+   *  "as of HH:MM ET" note from. */
+  positioningAsOf: string | null;
+}
+
+export async function loadLadderSnapshot(symbol: string): Promise<LadderSnapshot | null> {
+  const q = symbolQ(symbol);
+  // The timeseries URL is byte-identical to the one loadChartSnapshot issues
+  // for the same symbol, so the two share ONE Next fetch-cache entry rather
+  // than doubling a query that JOINs hundreds of thousands of rows.
+  const [buckets, summary, quote, closes] = await Promise.all([
+    serverApiGet<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`, DELAY_SECONDS),
+    serverApiGet<RawSummary>(`/api/gex/summary?${q}`, DELAY_SECONDS),
+    serverApiGet<RawQuote>(`/api/market/quote?${q}`, DELAY_SECONDS),
+    serverApiGet<SessionClosesData>(`/api/market/session-closes?${q}`, DELAY_SECONDS),
+  ]);
+
+  const bucket = latestPositionedBucket(buckets);
+  const cells: HeatmapCell[] = [];
+  for (const row of bucket?.strikes ?? []) {
+    const strike = levelOrNull(row?.strike);
+    if (strike == null || strike <= 0) continue;
+    cells.push({ strike, net_gex: levelOrNull(row?.net_gamma) ?? 0 });
+  }
+  // Nothing to draw and no level to center on: let the caller fall back to the
+  // column's own empty state rather than render an empty grid.
+  const spot = levelOrNull(summary?.spot_price);
+  if (cells.length === 0 && spot == null) return null;
+
+  // Same basis as the live column's header badge: the displayed spot against
+  // the most recent completed regular-session close.
+  const change = getSpotPriorCloseChange(
+    spot,
+    resolvePriceSession(quote?.session ?? null, closes ?? null, quote?.timestamp ?? null),
+    closes ?? null,
+  );
+
+  // A reach-back only if we actually walked back past the newest bucket.
+  const newest = Array.isArray(buckets) && buckets.length > 0 ? buckets[buckets.length - 1] : null;
+  const reachedBack = !!bucket && !!newest && bucket !== newest;
+
+  return {
+    symbol,
+    cells,
+    spot,
+    gammaFlip: levelOrNull(summary?.gamma_flip),
+    callWall: levelOrNull(summary?.call_wall),
+    putWall: levelOrNull(summary?.put_wall),
+    maxPain: levelOrNull(summary?.max_pain),
+    changePercent: change.changePercent,
+    isPositive: change.isPositive,
+    positioningAsOf: reachedBack ? bucket?.timestamp ?? null : null,
   };
 }

@@ -137,11 +137,19 @@ const RULES: readonly Rule[] = [
   //                    /gex-heatmap + /gamma-exposure + /my-dashboard
   //                    (GammaHeatmapCanvas), /my-dashboard +
   //                    /gex-strike-profile (MarketMakerExposures,
-  //                    UnderlyingCandlesChart), /dashboard + /gamma-terminal
+  //                    UnderlyingCandlesChart), /dashboard
   //                    (GammaTerminalChart).
   //                    The PUBLIC GammaTerminalChart mounts (/chart,
   //                    /spx-gamma-levels) pass `delayed`/`snapshot`, which sets
   //                    `live = false` and disables the poll entirely.
+  //
+  // The same rule is what lets the Gamma Terminal at /chart be public. Its two
+  // gamma ladders read /api/gex/strike-profile-timeseries + /api/gex/summary,
+  // both Basic-gated here, so the anonymous view does NOT mount the live
+  // columns at all: app/chart/page.tsx server-renders them through
+  // loadLadderSnapshot (serverApiGet, 900s ISR) and TerminalSurface hands the
+  // hooks `enabled: false`. A visitor who is not entitled to the live feeds
+  // never asks for them, rather than asking and being refused.
   //   open-interest  — /my-dashboard and /gamma-exposure only.
   //   session-levels — useSessionLevels has exactly one caller,
   //                    MarketMakerExposures, which renders only on

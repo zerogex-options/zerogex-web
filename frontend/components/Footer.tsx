@@ -65,7 +65,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'footer.platform',
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
-      { href: '/chart', label: 'Gamma Chart' },
+      { href: '/chart', label: 'Gamma Terminal' },
       // The free widget's storefront. Site-wide rather than buried on the
       // levels pages: it is the only page on the site whose whole job is to be
       // found by someone who publishes elsewhere, and /scorecard already
