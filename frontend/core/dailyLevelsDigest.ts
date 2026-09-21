@@ -165,9 +165,35 @@ function provenance(model: DigestModel): string {
     : `As of ${model.asOf} · delayed ~15 minutes.`;
 }
 
-function pasteLine(row: DigestRow): string {
-  return `${row.symbol}: flip ${row.flip} / call wall ${row.callWall} / put wall ${row.putWall} / max pain ${row.maxPain}`;
+// The em dash fmtPrice returns for a missing level is right for the human
+// table and WRONG here. This block exists to be typed into the free
+// TradingView script's four numeric inputs, and "flip —" is not a number.
+// The script's own convention for an absent level is 0 ("Set any level to 0
+// to hide it" — docs/tradingview-indicator.md), so that is what a missing
+// level becomes. Found against live data: NDX and NQ published no gamma flip
+// on 2026-09-21 and the block shipped an em dash into a numeric field.
+const PASTE_MISSING = '0';
+
+function pasteValue(formatted: string): string {
+  return formatted === '—' ? PASTE_MISSING : formatted;
 }
+
+function pasteLine(row: DigestRow): string {
+  return (
+    `${row.symbol}: flip ${pasteValue(row.flip)}` +
+    ` / call wall ${pasteValue(row.callWall)}` +
+    ` / put wall ${pasteValue(row.putWall)}` +
+    ` / max pain ${pasteValue(row.maxPain)}`
+  );
+}
+
+/** True when any pasted level fell back to 0, so the note can explain it. */
+function hasMissingPasteLevel(rows: DigestRow[]): boolean {
+  return rows.some((r) => [r.flip, r.callWall, r.putWall, r.maxPain].includes('—'));
+}
+
+const PASTE_ZERO_NOTE =
+  'A 0 means no level was published for that ticker today — the script hides any level set to 0.';
 
 export type RenderedEmail = { subject: string; text: string; html: string };
 
@@ -180,6 +206,8 @@ export function renderDailyLevelsEmail(
     ? `Not included this morning (no matching snapshot): ${model.omitted.join(', ')}.`
     : '';
 
+  const zeroNote = hasMissingPasteLevel(model.rows) ? PASTE_ZERO_NOTE : null;
+
   const text = [
     `Dealer positioning for ${model.sessionLabel}'s session.`,
     provenance(model),
@@ -189,9 +217,12 @@ export function renderDailyLevelsEmail(
         `${r.symbol.padEnd(4)} spot ${r.spot}  flip ${r.flip}  call wall ${r.callWall}  put wall ${r.putWall}  max pain ${r.maxPain}  net GEX ${r.netGex}`,
     ),
     '',
-    omittedNote,
+    // Both entries drop out when nothing was omitted, rather than leaving the
+    // empty string behind as a second blank line.
+    omittedNote || null,
     omittedNote ? '' : null,
     'Paste order for the free TradingView script (Gamma Flip / Call Wall / Put Wall / Max Pain):',
+    zeroNote,
     ...model.rows.map(pasteLine),
     '',
     `Full page, charts and the other tickers: ${site}/spx-gamma-levels`,
@@ -243,7 +274,7 @@ export function renderDailyLevelsEmail(
       ${omittedNote ? `<p style="margin:14px 0 0; font-size:12px; color:#6b7680;">${escapeHtml(omittedNote)}</p>` : ''}
 
       <p style="margin:24px 0 6px; font-size:13px; font-weight:700; color:#12283c;">Paste order for the free TradingView script</p>
-      <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Gamma Flip / Call Wall / Put Wall / Max Pain</p>
+      <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Gamma Flip / Call Wall / Put Wall / Max Pain${zeroNote ? ` &middot; ${escapeHtml(zeroNote)}` : ''}</p>
       <pre style="margin:0; padding:14px 16px; background:#f5f7f9; border:1px solid #e2e6ea; border-radius:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; line-height:1.7; color:#12283c; white-space:pre-wrap; word-break:break-word;">${escapeHtml(model.rows.map(pasteLine).join('\n'))}</pre>
 
       <p style="margin:22px 0 0; font-size:14px;">

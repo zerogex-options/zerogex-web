@@ -176,6 +176,45 @@ test('the TradingView paste block is present in the order the script asks for', 
   }
 });
 
+test('a missing level pastes as 0, never as an em dash — regression, live data', () => {
+  // 2026-09-21: NDX and NQ published no gamma flip, and the paste block
+  // shipped "flip —" into a field the TradingView script reads as a number.
+  // The script's own convention for an absent level is 0 ("Set any level to 0
+  // to hide it"), so that is what a missing level becomes. The human table
+  // above it keeps the em dash, which is right there.
+  const m = buildDigestModel({
+    snapshots: [snap('SPX', FRI_CLOSE), snap('NDX', FRI_CLOSE, { gamma_flip: null })],
+    sessionDate: SESSION,
+    basis: 'prior-session',
+  })!;
+  const { text, html } = render(m);
+  for (const body of [text, html]) {
+    assert.match(body, /NDX: flip 0 \/ call wall/);
+    assert.ok(!/NDX: flip —/.test(body), 'paste block must not carry an em dash');
+  }
+  // The readable table still reports the level as absent rather than as zero:
+  // "flip 0" would be a false statement about the market.
+  assert.match(text, /NDX {2}spot .* flip —/);
+});
+
+test('the zero note appears only when a level actually fell back to 0', () => {
+  const complete = buildDigestModel({
+    snapshots: [snap('SPX', FRI_CLOSE)], sessionDate: SESSION, basis: 'prior-session',
+  })!;
+  assert.ok(!render(complete).text.includes('A 0 means'));
+
+  const partial = buildDigestModel({
+    snapshots: [snap('SPX', FRI_CLOSE, { max_pain: null })], sessionDate: SESSION, basis: 'prior-session',
+  })!;
+  const { text, html } = render(partial);
+  for (const body of [text, html]) assert.match(body, /A 0 means no level was published/);
+});
+
+test('no stray blank run where the omitted-symbols note would go', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  assert.ok(!render(m).text.includes('\n\n\n'), 'text body should not contain a double blank line');
+});
+
 test('the unsubscribe link is in both bodies — it is the thing that must never be missing', () => {
   const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
   const { text, html } = render(m);
