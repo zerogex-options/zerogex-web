@@ -5,7 +5,7 @@ import { MarketSession, Theme } from "@/core/types";
 import { brandLogo } from "@/core/brand";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
-import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import { NAV_GROUPS, NAV_ITEM_IDS, type NavGroup, type NavItem } from "@/core/navigation";
 import { INTEGRATIONS_HUB } from "@/core/integrations";
 import Image from "next/image";
 import Link from "next/link";
@@ -40,10 +40,18 @@ const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
 // /scorecard/SPY/2026-09-11) also match their descendants, so the sidebar
 // still shows where the reader is. The "/" guard keeps /scorecard from
 // claiming a sibling like /scorecard-archive.
+//
+// A prefix match YIELDS to a descendant that has its own nav entry. /forecast
+// needs prefix matching for its dated permalinks, but /forecast/cone is a real
+// destination in the sidebar, and without this both would light up at once —
+// which tells the reader they are in two places and highlights a parent they
+// did not choose.
 function isNavItemActive(pathname: string | null, item: { id: string; matchPrefix?: boolean }): boolean {
   if (!pathname) return false;
   if (pathname === item.id) return true;
-  return item.matchPrefix === true && pathname.startsWith(`${item.id}/`);
+  if (item.matchPrefix !== true) return false;
+  if (!pathname.startsWith(`${item.id}/`)) return false;
+  return !NAV_ITEM_IDS.has(pathname);
 }
 
 

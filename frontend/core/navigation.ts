@@ -167,6 +167,11 @@ export const NAV_GROUPS: NavGroup[] = [
       // permalinks, so each matches its own subtree for active-state.
       { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay', matchPrefix: true },
       { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true, matchPrefix: true },
+      // The intraday counterpart to Daily Forecast: a cone re-anchored every
+      // 15 minutes, and the reliability table that grades it. It lives UNDER
+      // /forecast, which is prefix-matched — see NAV_ITEM_IDS below for why
+      // that does not leave both entries lit at once.
+      { id: '/forecast/cone', label: 'Intraday Cone', beta: true },
       // Public per-session receipt: every signal's flips, what was scorable,
       // and how it resolved. It existed for months reachable only from the
       // 4:15 PM ET post that links one date — no sidebar entry, no inbound
@@ -235,6 +240,25 @@ export const NAV_GROUPS: NavGroup[] = [
  * it and the two can never drift. Returns undefined for routes that sit
  * directly in a group (no subcategory to name) or are not in the menu at all.
  */
+/**
+ * Every nav entry's id, flattened across groups and subgroups.
+ *
+ * Exists so a `matchPrefix` entry can yield to a more specific one. `/forecast`
+ * must prefix-match, because its real content lives at dated permalinks like
+ * `/forecast/SPY/2026-09-21` that have no entry of their own — but it must NOT
+ * stay lit when the reader is on `/forecast/cone`, which does. Membership here
+ * is the difference between those two cases.
+ */
+export const NAV_ITEM_IDS: ReadonlySet<string> = new Set(
+  NAV_GROUPS.flatMap((group) => [
+    ...(group.items ?? []).map((item) => item.id),
+    ...(group.subgroups ?? []).flatMap((sub) => [
+      sub.id,
+      ...sub.items.map((item) => item.id),
+    ]),
+  ]).filter((id): id is string => typeof id === 'string' && id.startsWith('/')),
+);
+
 export function navSubcategoryLabel(pathname: string | null | undefined): string | undefined {
   if (!pathname) return undefined;
   for (const group of NAV_GROUPS) {
