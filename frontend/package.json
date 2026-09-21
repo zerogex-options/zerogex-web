@@ -22,6 +22,7 @@
     "test:end-user-token": "node --experimental-strip-types --test tests/endUserToken.test.ts",
     "test:smart-money": "node --experimental-strip-types --test tests/smartMoneyFilters.test.ts",
     "test:gamma-trend": "node --experimental-strip-types --test tests/gammaTrend.test.ts",
+    "test:cone-chart": "node --experimental-strip-types --test tests/coneChart.test.ts",
     "test:wheel-zoom": "node --experimental-strip-types --test tests/wheelZoom.test.ts",
     "test:options-calendar": "node --experimental-strip-types --test tests/optionsCalendar.test.ts",
     "test:news-headlines": "node --experimental-strip-types --test tests/newsHeadlines.test.ts",
