@@ -20,7 +20,7 @@ import ConeReliabilityPanel from '@/components/ConeReliabilityPanel';
 import IntradayConeChart from '@/components/IntradayConeChart';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useConeFires } from '@/hooks/useIntradayCone';
-import { DEFAULT_SYMBOL, SYMBOLS, type PickerSymbol } from '@/core/symbols';
+import { CONE_SYMBOLS, type ConeSymbol } from '@/core/coneChart';
 
 /** Today in ET, which is the session the cone writer is firing against. */
 function todayET(): string {
@@ -36,7 +36,7 @@ const WINDOWS = [5, 10, 30] as const;
 
 export default function ConePage() {
   const theme = useChartTheme();
-  const [symbol, setSymbol] = useState<PickerSymbol>(DEFAULT_SYMBOL);
+  const [symbol, setSymbol] = useState<ConeSymbol>('SPY');
   const [window, setWindow] = useState<number>(30);
   const sessionDate = useMemo(() => todayET(), []);
 
@@ -70,7 +70,7 @@ export default function ConePage() {
 
       <div className="mb-5 flex flex-wrap items-center gap-4">
         <div className="flex flex-wrap gap-1.5">
-          {SYMBOLS.map((s) => {
+          {CONE_SYMBOLS.map((s) => {
             const active = s === symbol;
             return (
               <button

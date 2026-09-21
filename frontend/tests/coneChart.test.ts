@@ -20,6 +20,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  CONE_SYMBOLS,
   buildConePoints,
   buildSpotPath,
   coneDomain,
@@ -42,6 +43,22 @@ function fire(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+test("the picker offers only the symbols the cone is modelled for", () => {
+  // The cone hardcodes a 390-minute cash session and a diurnal curve shaped
+  // around an opening auction and a closing ramp. Futures trade ~23 hours, so
+  // pointing this model at them would anchor every fire to 09:30 and ignore
+  // the session where they are most distinctive. Listing them would render
+  // "no cone committed" forever, which reads as a broken page rather than a
+  // scoping decision.
+  assert.deepEqual([...CONE_SYMBOLS], ["SPY", "SPX", "QQQ", "NDX"]);
+  for (const future of ["ES", "NQ"]) {
+    assert.ok(
+      !(CONE_SYMBOLS as readonly string[]).includes(future),
+      `${future} trades outside the cash session this model assumes`,
+    );
+  }
+});
 
 test("the cone starts as a point at the anchor, then widens", () => {
   const points = buildConePoints(fire());
