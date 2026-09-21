@@ -1,6 +1,13 @@
 'use client';
 
+import { useState } from 'react';
+
+import WeatherFieldDrawer from '@/components/WeatherFieldDrawer';
+import type { WeatherFieldKey } from '@/core/weatherFields';
 import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
+import { useGammaWeatherSeries } from '@/hooks/useGammaWeatherSeries';
+import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
+import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 
 /**
  * Gamma Weather: the combined read, as a compact strip above the charts.
@@ -69,9 +76,23 @@ const CUSHION_LABEL: Record<string, string> = {
   NONE: 'No flip',
 };
 
-function Chip({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
-  return (
-    <div className="flex flex-col gap-0.5">
+function Chip({
+  label,
+  value,
+  alert,
+  field,
+  open,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  alert?: boolean;
+  field?: WeatherFieldKey;
+  open?: boolean;
+  onToggle?: (field: WeatherFieldKey) => void;
+}) {
+  const body = (
+    <>
       <span
         className="text-[10px] uppercase tracking-wide"
         style={{ color: 'var(--color-text-secondary)' }}
@@ -84,15 +105,63 @@ function Chip({ label, value, alert }: { label: string; value: string; alert?: b
       >
         {value}
       </span>
-    </div>
+    </>
+  );
+
+  if (!field || !onToggle) {
+    return <div className="flex flex-col gap-0.5">{body}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(field)}
+      aria-expanded={open}
+      title={`${open ? 'Hide' : 'Show'} this session's ${label.toLowerCase()} chart`}
+      className="flex flex-col gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors"
+      style={{
+        marginLeft: '-0.375rem',
+        backgroundColor: open ? 'var(--color-surface-subtle)' : 'transparent',
+        boxShadow: open ? 'inset 0 -2px 0 0 var(--color-king)' : undefined,
+      }}
+    >
+      {body}
+    </button>
   );
 }
 
 export interface GammaWeatherStripProps {
   payload: GammaWeatherPayload;
+  /**
+   * The two payloads already loaded for the charts below the header. The
+   * drawer charts one field from these rather than fetching the same numbers
+   * again, so it cannot disagree with the chart further down the page.
+   */
+  flow?: HedgingFlowPayload | null;
+  regime?: GammaRegimeSeriesPayload | null;
+  symbol?: string;
 }
 
-export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
+export default function GammaWeatherStrip({
+  payload,
+  flow = null,
+  regime = null,
+  symbol,
+}: GammaWeatherStripProps) {
+  // One field at a time, per the spec: opening another swaps the drawer,
+  // clicking the open one closes it. Five charts at once is the wall of
+  // numbers this is meant to replace.
+  const [openField, setOpenField] = useState<WeatherFieldKey | null>(null);
+  const toggleField = (field: WeatherFieldKey) =>
+    setOpenField((current) => (current === field ? null : field));
+
+  // Only while a drawer is open. Most visits never open one, and the header
+  // does not need a session of sentences to say what the read is now.
+  const { data: series, loading: seriesLoading } = useGammaWeatherSeries(
+    symbol ?? payload.symbol,
+    openField != null,
+  );
+
   const tone = STATE_TONE[payload.state] ?? 'neutral';
   const color = TONE_COLOR[tone];
   const transitionRisk = payload.cushion === 'TRANSITION_RISK';
@@ -174,6 +243,9 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
             two legitimately disagree: a session can be cumulatively buying
             while this bar sells. Without the qualifier that looks like a bug. */}
         <Chip
+          field="pressure"
+          open={openField === 'pressure'}
+          onToggle={toggleField}
           label="Pressure now"
           value={
             payload.pressure === 'MIXED'
@@ -183,16 +255,54 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
                 }`
           }
         />
-        <Chip label="Lean" value={payload.lean_side ? LEAN_LABEL[payload.lean_side] : '—'} />
-        <Chip label="Stability" value={STRUCTURE_LABEL[payload.structure] ?? payload.structure} />
-        <Chip label="Gamma trend" value={TREND_LABEL[payload.gamma_trend] ?? payload.gamma_trend} />
-        <Chip label="Flip cushion" value={cushionValue} alert={transitionRisk} />
+        <Chip
+          field="lean"
+          open={openField === 'lean'}
+          onToggle={toggleField}
+          label="Lean"
+          value={payload.lean_side ? LEAN_LABEL[payload.lean_side] : '—'}
+        />
+        <Chip
+          field="stability"
+          open={openField === 'stability'}
+          onToggle={toggleField}
+          label="Stability"
+          value={STRUCTURE_LABEL[payload.structure] ?? payload.structure}
+        />
+        <Chip
+          field="gamma_trend"
+          open={openField === 'gamma_trend'}
+          onToggle={toggleField}
+          label="Gamma trend"
+          value={TREND_LABEL[payload.gamma_trend] ?? payload.gamma_trend}
+        />
+        <Chip
+          field="cushion"
+          open={openField === 'cushion'}
+          onToggle={toggleField}
+          label="Flip cushion"
+          value={cushionValue}
+          alert={transitionRisk}
+        />
       </div>
 
       {payload.cushion_summary && (
         <p className="mt-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
           {payload.cushion_summary}
         </p>
+      )}
+
+      {/* Under the header, not a jump to another page. The header above stays
+          the live read; this is the audit trail and never changes a state. */}
+      {openField && (
+        <WeatherFieldDrawer
+          field={openField}
+          flow={flow}
+          regime={regime}
+          series={series}
+          loading={seriesLoading}
+          onClose={() => setOpenField(null)}
+        />
       )}
     </section>
   );

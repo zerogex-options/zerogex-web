@@ -130,7 +130,12 @@ export default function HedgingFlowPage() {
         <>
           {weather && (
             <div className="mt-6">
-              <GammaWeatherStrip payload={weather} />
+              <GammaWeatherStrip
+                payload={weather}
+                flow={data}
+                regime={regime}
+                symbol={symbol}
+              />
             </div>
           )}
 
