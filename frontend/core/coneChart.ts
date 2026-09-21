@@ -12,6 +12,26 @@
  * committed to and then report a verdict against a different one.
  */
 
+/**
+ * The symbols the cone is actually modelled for.
+ *
+ * Deliberately NOT the global SYMBOLS list, which includes ES and NQ. The
+ * cone hardcodes a cash session — 390 minutes from 09:30 ET, with a diurnal
+ * variance profile shaped around an opening auction, a midday trough and a
+ * closing ramp. Futures trade roughly 23 hours (see market_calendar's
+ * 18:00 reopen / 17:00 close), so pointing this model at ES would anchor
+ * every fire to 09:30, treat the day as 390 minutes, and ignore the session
+ * where those instruments are most distinctive.
+ *
+ * Offering them in the picker would render "no cone committed" forever,
+ * which reads as a broken page rather than a scoping decision. Futures need
+ * a per-symbol session and their own fitted diurnal curve; until that exists
+ * they are not listed.
+ */
+export const CONE_SYMBOLS = ['SPY', 'SPX', 'QQQ', 'NDX'] as const;
+
+export type ConeSymbol = (typeof CONE_SYMBOLS)[number];
+
 export interface ConePathPoint {
   /** Epoch ms. Numeric so the cone (which runs into the future) and the
    *  realized path share one x scale. */
