@@ -1,0 +1,45 @@
+[Unit]
+Description=ZeroGEX free daily levels email timer (weekdays 08:47 ET, pre-open)
+
+[Timer]
+# 08:47 Eastern, Monday to Friday.
+#
+# TIMEZONE IS EXPLICIT, not a UTC hour. Every timer in this directory that
+# hardcodes UTC drifts by an hour twice a year — see the "~12:40 PM ET in
+# summer / 11:40 AM ET in winter" comments on the reactivation and winback
+# units. That is harmless for a digest and fatal here: an hour late is after
+# the open, and this email's entire premise is that it arrives before it.
+#
+# WHY :47 AND NOT :45. 08:45 ET is 12:45 UTC in summer, which is exactly when
+# checkout-recovery AND trial-value-nudge both fire (00/6:45:00). Three Node
+# oneshots on one box at the same minute, for the one job that must not fail.
+# :47 is clear of that, of the hourly auth backup (:00) and signup alarm
+# (:35), of verify-reminders (:20), verified-never-paid (:30) and
+# cancellation-alerts (:07/:22/:37/:52), in both halves of the year.
+#
+# Mon..Fri covers weekends. NYSE holidays cannot be expressed here and are
+# enforced in the script against NEXT_PUBLIC_NYSE_HOLIDAYS.
+OnCalendar=Mon..Fri 08:47:00 America/New_York
+
+# Small. The window closes at 09:25 ET so there is slack, but this is a
+# pre-open email and drifting it for no reason helps nobody.
+RandomizedDelaySec=2m
+
+# PERSISTENT=FALSE, DELIBERATELY, AND UNLIKE EVERY OTHER TIMER HERE.
+#
+# Persistent=true replays a missed run as soon as the machine is back. For a
+# win-back digest that is the right call. For this it is the worst possible
+# one: a host down at 08:47 and booting at 14:00 would fire a "pre-open
+# levels" email into the middle of the session.
+#
+# A missed morning is a missed morning. The digest is only ever about the
+# session that is about to start, so there is nothing to catch up on — the
+# next weekday tick is the correct recovery.
+#
+# The script's own 08:30-09:25 ET guard is the second lock, because this line
+# is one edit away from being "fixed" by someone tidying the units for
+# consistency.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

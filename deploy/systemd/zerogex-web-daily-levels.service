@@ -1,0 +1,45 @@
+[Unit]
+Description=ZeroGEX free daily levels email (pre-open digest)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make daily-levels` shells through nvm for Node 22 (the script is a .mts
+# needing --experimental-strip-types), so HOME is all this needs; node lands
+# on PATH via nvm.sh at runtime.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web daily-levels YES=1
+
+# The send is a fetch of six symbols plus one Resend call per subscriber. The
+# ceiling is deliberately below the 38 minutes remaining in the 08:30-09:25 ET
+# window after the 08:47 start: a run that overruns it would be trying to
+# deliver a pre-open email after the open, and the script's own window guard
+# is checked once at startup, not per recipient. Better killed than late.
+TimeoutStartSec=900
+
+# Security hardening (mirrors the other send units).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir. The run writes levels_subscribers.last_sent_at
+# and one audit_events row, into the same SQLite file as the live PM2 writer.
+# Deploy step 099.daily-levels also writes a drop-in mirroring ReadWritePaths
+# onto whatever AUTH_DB_PATH the operator sets in frontend/.env.local — on this
+# host that is /var/lib/zerogex, which is OUTSIDE this default and would
+# otherwise fail the write as read-only while the mail went out regardless.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-daily-levels
