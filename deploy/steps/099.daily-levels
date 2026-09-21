@@ -71,11 +71,33 @@ warn_missing_env() {
         log "  ✓ $key is set"
     fi
 }
+# Some keys have an accepted alias. Warn only when EVERY spelling is absent,
+# otherwise the step reports a missing token that the script is reading
+# perfectly well — and an operator who believes it may "fix" it by adding a
+# second, wrong value alongside the working one.
+warn_missing_env_any() {
+    local key
+    for key in "$@"; do
+        local value
+        value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+        if [ -n "$value" ]; then
+            log "  ✓ $key is set"
+            return 0
+        fi
+    done
+    log "  ⚠ none of [$*] are set in $ENV_FILE — timer will install but sends will error until one is"
+}
+
 if [ -f "$ENV_FILE" ]; then
     warn_missing_env RESEND_API_KEY
     warn_missing_env RESEND_FROM_EMAIL
     warn_missing_env NEXT_PUBLIC_APP_URL
-    warn_missing_env ZEROGEX_API_TOKEN
+    # ZEROGEX_API_KEY is the legacy spelling, documented in .env.example and
+    # still read as a fallback by the script (and by core/api/serverFetch).
+    # This host uses it, and checking only the new name reported a false
+    # missing-token warning on a deploy whose very next command fetched all
+    # six symbols successfully.
+    warn_missing_env_any ZEROGEX_API_TOKEN ZEROGEX_API_KEY
     # Every digest carries a signed unsubscribe link. The script hard-refuses
     # to start without this, rather than mailing something nobody can opt out
     # of, so an unset value means the timer ticks and sends nothing.
