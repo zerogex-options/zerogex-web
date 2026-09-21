@@ -1066,6 +1066,13 @@ function initDb(): DatabaseSync {
   // for — and the reason a hand-created table has to be reconciled rather than
   // trusted.
   ensureColumn('levels_subscribers', 'confirm_ip', 'TEXT');
+  // The subscriber's chosen ticker: it leads their digest's subject, table and
+  // TradingView paste block. NOT NULL with a default because SQLite requires a
+  // default to add a NOT NULL column to a table that already has rows, and
+  // because a subscriber without a symbol has no sensible digest — SPX is the
+  // ticker the search demand behind these pages is about, so it is the safe
+  // value for a row that predates this column.
+  ensureColumn('levels_subscribers', 'symbol', "TEXT NOT NULL DEFAULT 'SPX'");
 
   // The daily send reads exactly one predicate: confirmed and not opted out.
   // Partial index so it covers only the rows the send can actually mail, and

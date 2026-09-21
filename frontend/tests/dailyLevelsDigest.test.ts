@@ -18,6 +18,7 @@ process.env.ZEROGEX_END_USER_TOKEN_SECRET =
 
 import {
   buildDigestModel,
+  digestOrderFor,
   renderDailyLevelsEmail,
   type SymbolSnapshot,
 } from '../core/dailyLevelsDigest.ts';
@@ -250,4 +251,82 @@ test('a trailing slash on the site URL does not produce a double slash', () => {
     siteUrl: 'https://zerogex.io/',
   });
   for (const body of [text, html]) assert.ok(!body.includes('zerogex.io//'));
+});
+
+// ── Preferred symbol ────────────────────────────────────────────────────────
+//
+// A subscriber picks the ticker their digest is built around. It leads the
+// subject, heads the table (highlighted), and is the first line of the
+// TradingView paste block — the three places a reader looks first.
+
+test('the chosen symbol leads the reading order, the rest keep canonical order', () => {
+  assert.deepEqual(digestOrderFor('QQQ'), ['QQQ', 'SPX', 'SPY', 'NDX', 'ES', 'NQ']);
+  assert.deepEqual(digestOrderFor('SPX'), ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ']);
+  // An unknown ticker must not drop every row; fall back to canonical order.
+  assert.deepEqual(digestOrderFor('DOGE'), ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ']);
+});
+
+test("a QQQ subscriber's digest leads with QQQ everywhere it matters", () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', primary: 'QQQ' })!;
+  assert.equal(m.rows[0].symbol, 'QQQ');
+  assert.equal(m.rows[0].isPrimary, true);
+  assert.equal(m.rows.filter((r) => r.isPrimary).length, 1);
+  assert.match(m.subject, /^QQQ gamma map for Monday/);
+
+  const { text, html } = render(m);
+  // First data row of the table, and first line of the paste block.
+  assert.match(text, /\nQQQ {2}spot/);
+  assert.match(text, /Gamma Flip \/ Call Wall \/ Put Wall \/ Max Pain\):\nQQQ: flip/);
+  // The other five are still there — the choice reorders, it does not filter.
+  for (const s of ['SPX', 'SPY', 'NDX', 'ES', 'NQ']) assert.match(text, new RegExp(`${s}: flip`));
+  assert.equal(html.indexOf('>QQQ<'), html.search(/>(SPX|SPY|QQQ|NDX|ES|NQ)</));
+});
+
+test('only the chosen row is highlighted, with inline styles Gmail will keep', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', primary: 'NDX' })!;
+  const { html } = render(m);
+  // Gmail strips <style> blocks, so a class-based highlight would vanish.
+  assert.equal((html.match(/<tr style="background:#f3f8fb;">/g) ?? []).length, 1);
+  assert.match(html, /border-left:3px solid #f5b400/);
+});
+
+test('the levels card image is the free embed route for the chosen symbol', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', primary: 'SPY' })!;
+  const { html } = render(m);
+  assert.match(html, /<img src="https:\/\/zerogex\.io\/embed\/image\/SPY\.png"/);
+  // Never the Basic-gated Live Bulletin: mailing that would give away free,
+  // every morning, exactly what the last line of this email asks them to buy.
+  assert.ok(!html.includes('live-bulletin'));
+});
+
+test('the digest still reads correctly with images blocked', () => {
+  // Most clients block images by default. Every number in the card must also
+  // exist as text, so the plain-text part is the real test.
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', primary: 'SPY' })!;
+  const { text } = render(m);
+  assert.ok(!text.includes('<img'));
+  assert.match(text, /SPY {2}spot .* flip .* call wall .* put wall/);
+  assert.match(text, /SPY: flip/);
+});
+
+test('a chosen symbol with no snapshot yields no model — the caller substitutes', () => {
+  // The "named after a ticker it cannot show" rule is per-subscriber, not
+  // just for SPX: an email whose subject reads "NQ gamma map" and whose table
+  // has no NQ row is wrong, so the model refuses to build.
+  //
+  // The subscriber is NOT dropped. send-daily-levels.mts falls back to the
+  // SPX-led model for anyone whose preference is unavailable that morning
+  // (`modelFor(subscriber.symbol) ?? model`), so they receive a correct
+  // digest led by a different ticker rather than nothing at all. Keeping the
+  // refusal here and the substitution there means the model can never emit a
+  // mislabelled email, and the script can never silently skip a recipient.
+  const withoutNq = [...['SPX', 'SPY', 'QQQ', 'NDX', 'ES'].map((s) => snap(s, FRI_CLOSE)), { symbol: 'NQ', data: null }];
+  assert.equal(
+    buildDigestModel({ snapshots: withoutNq, sessionDate: SESSION, basis: 'prior-session', primary: 'NQ' }),
+    null,
+  );
+  // And the fallback the script reaches for is itself sound.
+  const fallback = buildDigestModel({ snapshots: withoutNq, sessionDate: SESSION, basis: 'prior-session', primary: 'SPX' })!;
+  assert.equal(fallback.rows[0].symbol, 'SPX');
+  assert.deepEqual(fallback.omitted, ['NQ']);
 });

@@ -16,11 +16,14 @@
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from './gexSummary.ts';
 import { netGexAtSpotOrNull } from './gammaRegime.ts';
 import { etParts, type FreshnessBasis } from './levelsEmail.ts';
+import { SYMBOLS } from './symbols.ts';
 
 export type SymbolSnapshot = { symbol: string; data: GexSummary | null };
 
 export type DigestRow = {
   symbol: string;
+  /** The subscriber's chosen ticker: leads the table and the paste block. */
+  isPrimary: boolean;
   spot: string;
   flip: string;
   callWall: string;
@@ -46,8 +49,29 @@ export type DigestModel = {
   subject: string;
 };
 
-/** Reading order. SPX leads: it is what the search demand is about. */
-export const DIGEST_SYMBOL_ORDER = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
+// Fallback reading order, used when a subscriber expressed no preference.
+// SPX leads because that is what the search demand behind these pages is
+// about. Derived from SYMBOLS rather than rewritten, the same way
+// core/llmsTxt.ts does it, so a seventh ingested ticker appears here without
+// an edit instead of being silently dropped from every digest.
+const PREFERRED_ORDER = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
+export const DIGEST_SYMBOL_ORDER: readonly string[] = [
+  ...PREFERRED_ORDER.filter((s) => (SYMBOLS as readonly string[]).includes(s)),
+  ...SYMBOLS.filter((s) => !(PREFERRED_ORDER as readonly string[]).includes(s)),
+];
+
+/**
+ * The reading order for one subscriber: their symbol first, then the rest in
+ * the canonical order.
+ *
+ * Mirrors what gammaLevels.tsx already does for the ticker pages ("Primary
+ * symbol first, then the remaining three in their canonical order") so the
+ * email a QQQ reader gets is laid out like the QQQ page they subscribed from.
+ */
+export function digestOrderFor(primary: string): readonly string[] {
+  if (!DIGEST_SYMBOL_ORDER.includes(primary)) return DIGEST_SYMBOL_ORDER;
+  return [primary, ...DIGEST_SYMBOL_ORDER.filter((s) => s !== primary)];
+}
 
 function weekdayName(isoDate: string): string {
   const dt = new Date(`${isoDate}T12:00:00Z`);
@@ -55,9 +79,10 @@ function weekdayName(isoDate: string): string {
   return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' }).format(dt);
 }
 
-function toRow(symbol: string, d: GexSummary): DigestRow {
+function toRow(symbol: string, d: GexSummary, isPrimary: boolean): DigestRow {
   return {
     symbol,
+    isPrimary,
     spot: fmtPrice(d.spot_price),
     flip: fmtPrice(d.gamma_flip),
     callWall: fmtPrice(d.call_wall),
@@ -103,7 +128,7 @@ export function buildDigestModel(input: BuildDigestInput): DigestModel | null {
 
   const rows: DigestRow[] = [];
   const omitted: string[] = [];
-  for (const symbol of DIGEST_SYMBOL_ORDER) {
+  for (const symbol of digestOrderFor(primary)) {
     const data = bySymbol.get(symbol);
     if (!data?.timestamp) {
       if (symbol !== primary) omitted.push(symbol);
@@ -113,7 +138,7 @@ export function buildDigestModel(input: BuildDigestInput): DigestModel | null {
       omitted.push(symbol);
       continue;
     }
-    rows.push(toRow(symbol, data));
+    rows.push(toRow(symbol, data, symbol === primary));
   }
 
   if (rows.length === 0) return null;
@@ -235,11 +260,15 @@ export function renderDailyLevelsEmail(
     .filter((line) => line !== null)
     .join('\n');
 
+  // The subscriber's own ticker is tinted and left-ruled rather than merely
+  // bolded: every symbol cell is already bold, so weight alone would not
+  // distinguish it. Inline styles only — Gmail strips <style> blocks, so a
+  // class-based highlight would simply not appear.
   const rowsHtml = model.rows
     .map(
       (r) => `
-        <tr>
-          <td style="padding:7px 10px 7px 0; font-weight:700; color:#12283c; white-space:nowrap;">${escapeHtml(r.symbol)}</td>
+        <tr${r.isPrimary ? ' style="background:#f3f8fb;"' : ''}>
+          <td style="padding:7px 10px 7px 0; font-weight:700; color:#12283c; white-space:nowrap;${r.isPrimary ? ' border-left:3px solid #f5b400; padding-left:9px;' : ''}">${escapeHtml(r.symbol)}</td>
           <td style="padding:7px 10px; color:#3a4650; white-space:nowrap;">${escapeHtml(r.spot)}</td>
           <td style="padding:7px 10px; color:#3a4650; white-space:nowrap;">${escapeHtml(r.flip)}</td>
           <td style="padding:7px 10px; color:#3a4650; white-space:nowrap;">${escapeHtml(r.callWall)}</td>
@@ -253,7 +282,30 @@ export function renderDailyLevelsEmail(
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#1a1a1a; max-width:640px; margin:0 auto; padding:24px; line-height:1.5;">
       <p style="margin:0 0 4px; font-size:17px; font-weight:700; color:#12283c;">Dealer positioning for ${escapeHtml(model.sessionLabel)}&rsquo;s session</p>
-      <p style="margin:0 0 20px; font-size:12px; color:#6b7680;">${escapeHtml(provenance(model))}</p>
+      <p style="margin:0 0 18px; font-size:12px; color:#6b7680;">${escapeHtml(provenance(model))}</p>
+
+      ${
+        /*
+         * Today's levels card for the subscriber's own ticker.
+         *
+         * /embed/image/<SYMBOL>.png is the PUBLIC, free-tier card the widget
+         * already serves — a Next ImageResponse route, no auth, no token, no
+         * headless browser in the send path. Deliberately NOT the Live
+         * Bulletin snapshot: that screenshots the same GammaReportCard the
+         * Basic-gated /live-bulletin page renders, so mailing it would give
+         * away every morning exactly what the last line of this email is
+         * asking the reader to buy.
+         *
+         * Everything the image shows is repeated as text below it, because
+         * most clients block images by default and Gmail proxies the rest.
+         * The digest must read correctly with the picture missing.
+         */ ''
+      }
+      <a href="${escapeHtml(`${site}/${model.primary.toLowerCase()}-gamma-levels`)}" style="display:block; margin:0 0 20px;">
+        <img src="${escapeHtml(`${site}/embed/image/${model.primary}.png`)}"
+             alt="${escapeHtml(`${model.primary} gamma levels — gamma flip, call wall, put wall`)}"
+             width="600" style="width:100%; max-width:600px; height:auto; border:1px solid #e2e6ea; border-radius:8px; display:block;" />
+      </a>
 
       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%; border-collapse:collapse; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
         <thead>
