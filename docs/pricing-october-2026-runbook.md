@@ -49,6 +49,7 @@ make setup-pricing VERIFY=1          # must end "no problems"
 | `STRIPE_COUPON_PROMO_BASIC_MONTHLY` / `STRIPE_COUPON_PROMO_PRO_MONTHLY` | `ZGX_MONTHLY_10_OFF_12M` (one coupon serves both) |
 | `PROMO_END_AT` | `2026-10-02T03:59:59Z`, the end of October 1 in New York. The page shows "Offer ends October 1, 2026". |
 | `STRIPE_COUPON_PROMO_*_ANNUAL` | blank. The promo is monthly-only, and checkout ignores these. |
+| `STRIPE_COUPON_PROMO_RETIRED` | printed by setup when it replaces an older promo coupon. A member still holding an old coupon has it swapped out on a plan switch, instead of getting it on top of the new promo. |
 | `BILLING_TRIAL_PLANS` | blank means Basic monthly only (see levers) |
 | `REFUND_ALERT_EMAIL` | who is emailed about each refund (falls back to `CANCELLATION_ALERT_EMAIL`) |
 
@@ -59,6 +60,8 @@ The coupon deliberately has **no redeem-by date**: `PROMO_END_AT` is the only cl
 - **Self-serve:** the Account page shows the guarantee panel while the member is eligible. One click refunds the covered payment in full, cancels the subscription immediately, removes paid access and API keys, emails a confirmation, and emails you an alert.
 - **Request by email:** `make money-back-refund EMAIL=<address>` runs the same path. It is a dry run by default. `YES=1` applies, `REASON=` and `COMMENT="..."` are optional, and `FORCE=1` makes a goodwill exception to the window or the one-refund limit.
 - **Something failed part-way:** you get an alert with ACTION NEEDED in the subject. Re-run the same command. It resumes and never refunds twice. Every step is recorded in the `money_back_refunds` table, which survives account deletion so the one-refund rule does too.
+- **The app died mid-request** (for example a restart between the refund and the cancel): the hourly `money-back-sweep` timer (deploy step 099) reports any request still pending 30 minutes after its last activity. `make money-back-sweep` lists them.
+- **Goodwill refunds:** `FORCE=1` gives back what the guarantee covered (the first payment and any upgrade inside the window), never later renewals. The dry run lists exactly which payments it would refund.
 - **What is not covered:** renewals, trial conversions and Basic monthly. The panel does not appear for them.
 
 ## 5. Levers

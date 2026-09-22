@@ -490,7 +490,9 @@ if (!cliArgs.yes) {
 
 try {
   await stripe.subscriptions.update(subscription.id, {
-    discounts: keep.map((coupon) => ({ coupon })),
+    // '' clears: stripe-node drops an empty array from the request, which would
+    // leave the stale coupon in place (core/subscriptionDiscounts.ts).
+    discounts: keep.length ? keep.map((coupon) => ({ coupon })) : '',
     // No invoice exists during a trial; pin this so the edit can't prorate or
     // charge anything as a side effect.
     proration_behavior: 'none',

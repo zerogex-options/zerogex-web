@@ -20,7 +20,7 @@ export const dict: PageDictionary = {
     working: 'Processing…',
     done: 'Refunded {amount}. Your subscription has been canceled — a confirmation email is on its way.',
     doneFollowUp:
-      "Refunded {amount}. We're finishing the cancellation on our side; you won't be charged again, and we'll email you when it's done.",
+      "Refunded {amount} so far. We're finishing the rest on our side — you won't be charged again, and we'll email you when it's done.",
     unfinishedBody:
       "Your earlier refund request didn't finish. You can pick it up where it left off — you'll never be refunded or charged twice.",
     retry: 'Finish my refund',
@@ -41,7 +41,7 @@ export const dict: PageDictionary = {
     working: 'Elaborazione…',
     done: "Rimborsati {amount}. L'abbonamento è stato annullato: ti stiamo inviando un'email di conferma.",
     doneFollowUp:
-      "Rimborsati {amount}. Stiamo completando l'annullamento: non ti verrà addebitato altro e ti avviseremo via email quando avremo finito.",
+      "Rimborsati finora {amount}. Stiamo completando il resto da parte nostra: non ti verrà addebitato altro e ti invieremo un'email quando sarà tutto fatto.",
     unfinishedBody:
       'La tua precedente richiesta di rimborso non è stata completata. Puoi riprenderla da dove si era fermata: non verrai mai rimborsato o addebitato due volte.',
     retry: 'Completa il rimborso',
@@ -62,7 +62,7 @@ export const dict: PageDictionary = {
     working: 'Wird bearbeitet…',
     done: '{amount} erstattet. Dein Abonnement wurde gekündigt — eine Bestätigung per E-Mail ist unterwegs.',
     doneFollowUp:
-      '{amount} erstattet. Wir schließen die Kündigung auf unserer Seite ab; es wird nichts mehr abgebucht, und wir melden uns per E-Mail, sobald sie erledigt ist.',
+      "Bisher {amount} erstattet. Den Rest erledigen wir auf unserer Seite – dir wird nichts mehr berechnet, und wir schicken dir eine E-Mail, sobald alles erledigt ist.",
     unfinishedBody:
       'Deine frühere Erstattungsanfrage wurde nicht abgeschlossen. Du kannst sie dort fortsetzen, wo sie stehen geblieben ist — es wird nie doppelt erstattet oder abgebucht.',
     retry: 'Erstattung abschließen',
@@ -83,7 +83,7 @@ export const dict: PageDictionary = {
     working: 'Procesando…',
     done: 'Reembolsados {amount}. Tu suscripción ha sido cancelada; te enviamos un correo de confirmación.',
     doneFollowUp:
-      'Reembolsados {amount}. Estamos terminando la cancelación; no se te cobrará nada más y te avisaremos por correo cuando esté lista.',
+      "Reembolsados {amount} hasta ahora. Estamos terminando el resto por nuestra parte: no se te volverá a cobrar y te enviaremos un correo cuando esté listo.",
     unfinishedBody:
       'Tu solicitud de reembolso anterior no terminó. Puedes retomarla donde quedó: nunca se te reembolsará ni cobrará dos veces.',
     retry: 'Terminar mi reembolso',
@@ -104,7 +104,7 @@ export const dict: PageDictionary = {
     working: 'Traitement…',
     done: 'Remboursement de {amount} effectué. Votre abonnement a été annulé — un e-mail de confirmation est en route.',
     doneFollowUp:
-      "Remboursement de {amount} effectué. Nous finalisons l'annulation de notre côté ; rien ne vous sera plus prélevé et nous vous préviendrons par e-mail une fois terminé.",
+      "{amount} remboursés pour l'instant. Nous finalisons le reste de notre côté : vous ne serez plus débité, et nous vous enverrons un e-mail une fois terminé.",
     unfinishedBody:
       "Votre précédente demande de remboursement n'a pas abouti. Vous pouvez la reprendre là où elle s'est arrêtée — vous ne serez jamais remboursé ni débité deux fois.",
     retry: 'Finaliser mon remboursement',

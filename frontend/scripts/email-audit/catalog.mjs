@@ -327,12 +327,12 @@ export const CATALOG = {
   'money-back-alert': {
     group: 'operator', title: 'Money-back refund alert', channel: 'operator', autoSends: true,
     trigger: 'App action', triggerDetail: 'core/moneyBackServer.ts, after every money-back refund',
-    when: 'Immediately after each refund; subject "ACTION NEEDED" when a step could not finish.',
-    cadence: 'Once per refund request that moved money or needs a human',
+    when: 'Immediately after each refund; subject "ACTION NEEDED" when a step could not finish. Also from the hourly zerogex-web-money-back-sweep timer (make money-back-sweep YES=1) for a request still pending 30 minutes after its last activity.',
+    cadence: 'Once per refund request that moved money or needs a human; the sweep once per stall',
     cohort: 'Operator inbox: REFUND_ALERT_EMAIL, else CANCELLATION_ALERT_EMAIL, SIGNUP_ALARM_EMAIL, FOH_REMINDER_EMAIL',
-    latch: 'None',
+    latch: 'None inline; the sweep latches on money_back_refunds.stale_alert_for',
     optOut: 'n/a — internal', foh: false,
-    source: 'core/mailer.ts buildMoneyBackOperatorAlertEmail · core/moneyBackServer.ts',
+    source: 'core/mailer.ts buildMoneyBackOperatorAlertEmail · core/moneyBackServer.ts (requestMoneyBackRefund, sweepStalledMoneyBackRequests)',
     notes: 'The ACTION NEEDED variant matters most: a subscription refunded but still live in Stripe bills the member again at renewal unless someone cancels it. Also flags a referrer already rewarded for the refunded signup.',
   },
   'winback-digest': {

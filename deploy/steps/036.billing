@@ -76,6 +76,9 @@ ensure_env_key "STRIPE_PRICE_BASIC_QUARTERLY" ""
 ensure_env_key "STRIPE_PRICE_PRO_QUARTERLY" ""
 ensure_env_key "STRIPE_COUPON_PROMO_BASIC_MONTHLY" ""
 ensure_env_key "STRIPE_COUPON_PROMO_PRO_MONTHLY" ""
+# Promo coupon ids replaced by a newer promo but possibly still on live
+# subscriptions (comma-separated); make setup-pricing prints the value.
+ensure_env_key "STRIPE_COUPON_PROMO_RETIRED" ""
 ensure_env_key "STRIPE_COUPON_FOUNDING_BASIC_INTRO" ""
 ensure_env_key "STRIPE_COUPON_FOUNDING_BASIC_INTRO_ANNUAL" ""
 ensure_env_key "STRIPE_COUPON_FOUNDING_PRO_INTRO" ""
@@ -114,6 +117,7 @@ log "  • STRIPE_PRICE_BASIC_QUARTERLY       (\$75 every 3 months; make setup-p
 log "  • STRIPE_PRICE_PRO_QUARTERLY         (\$115 every 3 months; make setup-pricing creates it)"
 log "  • STRIPE_COUPON_PROMO_BASIC_MONTHLY  (\$10 off for 12 months; make setup-pricing creates it)"
 log "  • STRIPE_COUPON_PROMO_PRO_MONTHLY    (the same coupon as Basic monthly)"
+log "  • STRIPE_COUPON_PROMO_RETIRED        (replaced promo coupon ids; make setup-pricing prints it)"
 log "  • STRIPE_COUPON_FOUNDING_BASIC_INTRO        (\$27 off, 12 months, basic monthly)"
 log "  • STRIPE_COUPON_FOUNDING_BASIC_INTRO_ANNUAL (\$79 off, 12 months, basic annual)"
 log "  • STRIPE_COUPON_FOUNDING_PRO_INTRO          (\$40 off, 12 months, pro monthly)"

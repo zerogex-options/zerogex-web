@@ -261,6 +261,25 @@ if (skuByPriceId.size === 0) {
 
 const dbPath =
   process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
+
+// Whether the member asked for this subscription's money back under the 7-day
+// guarantee (core/moneyBackServer.ts ledger). Such a subscription is never
+// "recovered": its leftover payment is a refund to finish, not a plan to
+// restore. A DB the app has not migrated yet has no ledger, so no request.
+function moneyBackRequested(subscriptionId: string | null): boolean {
+  if (!subscriptionId) return false;
+  try {
+    return (
+      querySqlite<{ hit: number }>(
+        dbPath,
+        `SELECT 1 AS hit FROM money_back_refunds WHERE subscription_id = '${escapeSqlLiteral(subscriptionId)}' LIMIT 1`,
+      ).length > 0
+    );
+  } catch (err) {
+    if (/no such table/i.test(err instanceof Error ? err.message : '')) return false;
+    throw err;
+  }
+}
 if (!fs.existsSync(dbPath)) {
   console.error(`Auth DB not found at: ${dbPath}`);
   console.error('Tip: set AUTH_DB_PATH in frontend/.env.local or export it in your shell.');
@@ -443,6 +462,7 @@ try {
       priceId,
       priceMapsToPaidTier: priceId ? skuByPriceId.has(priceId) : false,
       coveredPeriodEndUnix: readInvoicePeriodEndUnix(invoice),
+      moneyBackRequested: moneyBackRequested(subscriptionId),
       nowUnix,
     });
 

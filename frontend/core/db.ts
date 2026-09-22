@@ -1066,6 +1066,10 @@ function initDb(): DatabaseSync {
   db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_user ON money_back_refunds(user_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_email ON money_back_refunds(email_canonical);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_card ON money_back_refunds(card_fingerprint);');
+  // The updated_at a stalled-request alert was sent for
+  // (core/moneyBackServer.ts sweepStalledMoneyBackRequests): one alert per
+  // stall, re-armed whenever the request moves again.
+  ensureColumn('money_back_refunds', 'stale_alert_for', 'TEXT');
 
   // ── Free daily levels email ───────────────────────────────────────────────
   // Subscribers to the pre-open levels digest, captured from the public

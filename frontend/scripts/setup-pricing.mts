@@ -645,12 +645,32 @@ async function runSetup(apply: boolean): Promise<number> {
   lines.push(`PROMO_END_AT=${args.promoEndAt}`);
   const retired = retiredPromoKeysInEnv();
   for (const key of retired) lines.push(`${key}=`);
+  // Every coupon id these lines take off a promo key stays recognized as a
+  // promo (core/stripe.ts getRetiredPromoCouponIds), so a member still holding
+  // one has it stripped on a plan switch rather than stacked with the new promo.
+  const retiredIds = new Set(
+    (env('STRIPE_COUPON_PROMO_RETIRED') ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
+  );
+  for (const [key, id] of Object.entries(couponIdForKeys)) {
+    const previous = env(key);
+    if (previous && previous !== id) retiredIds.add(previous);
+  }
+  for (const key of retired) retiredIds.add(env(key) as string);
+  for (const id of Object.values(couponIdForKeys)) retiredIds.delete(id);
+  if (retiredIds.size > 0) lines.push(`STRIPE_COUPON_PROMO_RETIRED=${[...retiredIds].join(',')}`);
   console.log('');
   for (const line of lines) console.log(`    ${line}`);
   if (retired.length > 0) {
     console.log('');
     note(`The blank ${retired.length === 1 ? 'key clears a' : 'keys clear'} retired promo coupon: the promo is monthly-only now,`);
     note('and checkout already ignores it. Clearing it keeps `make setup-pricing VERIFY=1` clean.');
+  }
+  if (retiredIds.size > 0) {
+    note('STRIPE_COUPON_PROMO_RETIRED keeps the replaced coupons recognized as promo coupons, so a member still');
+    note('holding one has it swapped out on a plan switch instead of getting both. Leave it in place.');
   }
 
   heading('Then, in this order:');
@@ -787,14 +807,29 @@ async function runVerify(): Promise<number> {
     }
   }
   for (const key of retiredPromoKeysInEnv()) {
-    warn(`${key} is set, but the promo is monthly-only now and checkout ignores it. Blank it.`);
+    warn(
+      `${key} is set, but the promo is monthly-only now and checkout ignores it. Blank it, and add its ` +
+        'coupon id to STRIPE_COUPON_PROMO_RETIRED.',
+    );
+  }
+  const retiredIds = (env('STRIPE_COUPON_PROMO_RETIRED') ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (retiredIds.length > 0) {
+    ok(`STRIPE_COUPON_PROMO_RETIRED: ${retiredIds.join(', ')} (stripped on a plan switch, never attached).`);
   }
 
   // 3. Every other configured coupon must at least exist and be redeemable.
   heading('Other coupons in .env.local');
   const otherCouponKeys = Object.keys(process.env)
     .filter((key) => key.startsWith('STRIPE_COUPON_') && env(key) !== null)
-    .filter((key) => !promoSkus.some((sku) => promoEnvKey(sku) === key) && !retiredPromoKeysInEnv().includes(key))
+    .filter(
+      (key) =>
+        !promoSkus.some((sku) => promoEnvKey(sku) === key) &&
+        !retiredPromoKeysInEnv().includes(key) &&
+        key !== 'STRIPE_COUPON_PROMO_RETIRED',
+    )
     .sort();
   if (otherCouponKeys.length === 0) ok('None.');
   for (const key of otherCouponKeys) {

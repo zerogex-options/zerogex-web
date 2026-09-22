@@ -61,8 +61,9 @@ export async function POST(request: NextRequest) {
     ok: true,
     amountFormatted: result.amountFormatted,
     canceled: result.canceled,
-    // The member only needs to know whether anything is still being finished;
-    // the operator alert carries the detail.
-    followUp: !result.canceled,
+    // The member only needs to know whether anything is still being finished
+    // (a cancel, or a payment that could not be refunded yet); the operator
+    // alert carries the detail, and the run that completes it emails them.
+    followUp: !result.complete,
   });
 }

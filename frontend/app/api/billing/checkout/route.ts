@@ -27,6 +27,7 @@ import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
 import { resolveRefereeBonusCoupon, splitRefereeBonus } from '@/core/refereeBonus';
 import { shouldRestoreFoundingRate } from '@/core/foundingRestore';
 import { hasEverPaid } from '@/core/paidHistory';
+import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
 import {
   findCreatorByReferralCode,
   getPartnerAudienceCouponId,
@@ -339,9 +340,19 @@ export async function POST(request: NextRequest) {
   // Paid up front on a plan sold under the money-back guarantee. Never true for
   // a checkout that grants any trial: a plan carries one protection or the
   // other, never both. A returning member buying the trial plan gets neither —
-  // they have had their trial — and is simply billed.
+  // they have had their trial — and is simply billed. Nor for a customer who
+  // has already used their one refund (this account or this email address;
+  // the card is only known once they pay, so that match is made at refund
+  // time): the terms line, the banner and the stamp all leave it out rather
+  // than promise a refund the Account page would then refuse.
+  const guaranteeUsed = hasPriorMoneyBackRefund({
+    userId: actor.user.id,
+    email: actor.user.email,
+    cardFingerprint: null,
+    subscriptionId: '',
+  });
   const moneyBackCovered =
-    !foundingTrialEndUnix && !trialDays && skuHasMoneyBackGuarantee({ tier, cadence });
+    !foundingTrialEndUnix && !trialDays && !guaranteeUsed && skuHasMoneyBackGuarantee({ tier, cadence });
 
   // What the post-checkout banner should say, decided here because this is the
   // only place that knows what was actually granted — the member lands on the
@@ -589,7 +600,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : guaranteeUsed ? 'used' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -676,6 +687,17 @@ function resolveDiscount(input: {
   // by the lapse.
   if (input.foundingRestore) {
     const couponId = getFoundingIntroCouponId(input.tier, input.cadence);
+    if (!couponId && input.cadence === 'quarterly') {
+      // There is no quarterly founding rate (the offer closed before quarterly
+      // billing existed). Point the founder at the periods that keep it rather
+      // than at support.
+      return {
+        ok: false,
+        status: 409,
+        error:
+          'Your founding-member rate applies to monthly and annual billing. Choose Monthly or Annual to keep it — quarterly would be billed at standard pricing.',
+      };
+    }
     if (!couponId) {
       // Refuse rather than fall through. Falling through would silently sell a
       // founder standard pricing — the precise harm this branch exists to

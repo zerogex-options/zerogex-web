@@ -456,6 +456,9 @@ auth/transactional and TradeWorkz alerts.
   `FOH_REMINDER_EMAIL`. Carries the reason, the member's own words, the refund ids,
   and the resume command. Also flags a referrer already rewarded for the refunded
   signup.
+- Also sent, as ACTION NEEDED, by the hourly `money-back-sweep` timer for any request
+  still pending 30 minutes after its last activity (the app died mid-request). Once
+  per stall, latched on `money_back_refunds.stale_alert_for`.
 
 **Cancellation alert (operator)** — `sendCancellationAlertEmail(to, alert)`
 - **Subject:** `[ZeroGEX] <email> canceled — <what they typed>` (falls back to the survey
@@ -529,6 +532,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | `trial-value-nudge` | `00/6:45:00` | every 6h | Mid-trial value nudge | yes |
 | `card-expiry` | `04:20:00` | daily | Card expiring | yes |
 | `renewal-reminders` | `14:20:00` | daily | Renewal reminder (quarterly 7 days / annual 30 days out) | yes |
+| `money-back-sweep` | `*:25:00` | hourly | Money-back refund alert (stalled request) | operator only |
 | `reactivation` | `16:40:00` | daily | Reactivation (extended trial) | **yes** |
 | `return-intent` | `16:50:00` | daily | Return-intent **digest** | **no — operator digest only** |
 | `winback` | `Mon 16:35:00` | weekly | Win-back **digest** | **no — operator digest only** |

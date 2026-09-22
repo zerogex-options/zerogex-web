@@ -254,8 +254,23 @@ export function getFoundingIntroCouponId(
   return process.env[envKey] ?? null;
 }
 
+// Promo coupons no longer configured under a STRIPE_COUPON_PROMO_<TIER>_<CADENCE>
+// key (replaced by a newer promo, or on a cadence the promo stopped covering)
+// that may still sit on live subscriptions: STRIPE_COUPON_PROMO_RETIRED,
+// comma-separated. Never attached at checkout. Listed so they stay MANAGED: a
+// plan switch then strips one like any other stale promo coupon, instead of
+// taking it for someone else's discount and stacking the current promo on top.
+// scripts/setup-pricing.mts prints the value when it replaces a configured coupon.
+export function getRetiredPromoCouponIds(): string[] {
+  return (process.env.STRIPE_COUPON_PROMO_RETIRED ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 // Every cadence-specific "rate" coupon the app manages: the public promo and
-// the founding intro coupons, across all (tier, cadence) combos. Read straight
+// the founding intro coupons, across all (tier, cadence) combos, plus retired
+// promo coupons (getRetiredPromoCouponIds). Read straight
 // from env and deliberately NOT gated by the promo window — a promo coupon left
 // on a subscription after its window closed is still one of ours to reconcile.
 //
@@ -276,6 +291,7 @@ export function getManagedCadenceCouponIds(): string[] {
       if (founding) ids.add(founding);
     }
   }
+  for (const id of getRetiredPromoCouponIds()) ids.add(id);
   return [...ids];
 }
 

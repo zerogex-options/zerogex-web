@@ -16,7 +16,13 @@ import {
 import { decidePlanSwitch } from '@/core/planSwitch';
 import { planSwitchDiscounts } from '@/core/switchDiscounts';
 import { previewNextInvoice } from '@/core/stripeInvoicePreview';
-import { subscriptionCouponIds } from '@/core/retentionOffer';
+import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
+import {
+  attachedCouponIds,
+  describeDiscountsParam,
+  discountsParam,
+  readAttachedDiscounts,
+} from '@/core/subscriptionDiscounts';
 
 // Plan changes for a member who ALREADY has a subscription — the server-side
 // destination of the /pricing "Switch to {tier}" CTA. Per (current plan, target
@@ -27,14 +33,20 @@ import { subscriptionCouponIds } from '@/core/retentionOffer';
 //     core/billingPlans.ts). Two calls:
 //       1. without `confirm`: price it. The response names what will be charged
 //          TODAY (a live Stripe invoice preview, promo included) so the page can
-//          ask the member to confirm. Nothing changes.
-//       2. with `confirm: true`: end the trial and switch the price in ONE
-//          update, with the reconciled coupons on that same update (the first
-//          invoice is drawn and charged by it, so a reconcile that waited for
-//          the webhook would be one invoice late), stamped money_back=1 so the
-//          7-day guarantee covers the payment. payment_behavior
-//          'error_if_incomplete' means a declined card changes NOTHING: the
-//          member stays on their trial, instead of being dropped to past_due.
+//          ask the member to confirm. Nothing changes. No price, no confirm: a
+//          failed preview is an error, never a charge for an unnamed amount.
+//       2. with `confirm: true` and `expectedAmountDue` (the amount the member
+//          was shown): re-price, and refuse with the new quote if it moved (a
+//          promo window closing in between, say). Only then end the trial and
+//          switch the price in ONE update, with the reconciled coupons on that
+//          same update (the first invoice is drawn and charged by it, so a
+//          reconcile that waited for the webhook would be one invoice late),
+//          stamped money_back=1 so the 7-day guarantee covers the payment.
+//          payment_behavior 'error_if_incomplete' means a declined card
+//          changes NOTHING: the member stays on their trial, instead of being
+//          dropped to past_due. A card that needs the bank's confirmation (3-D
+//          Secure) cannot be approved from here, so that member is handed the
+//          billing portal, which can.
 //
 //   • UPGRADES a trialing member in-app to another TRIAL plan (only possible
 //     when BILLING_TRIAL_PLANS names more than one), keeping the trial — the
@@ -69,24 +81,56 @@ function formatAmount(amount: number, currency: string): string {
   }
 }
 
-function stripeErrorMessage(err: unknown): { status: number; error: string } {
-  const e = err as { type?: string; code?: string; decline_code?: string } | undefined;
-  if (e?.type === 'StripeCardError') {
-    return {
-      status: 402,
-      error:
-        "Your card was declined, so nothing changed — you're still on your free trial. Update your card from the Account page and try again.",
-    };
-  }
-  if (e?.code === 'subscription_payment_intent_requires_action' || e?.code === 'authentication_required') {
-    return {
-      status: 402,
-      error:
-        "Your bank needs to confirm this payment, which can't be done from here. Nothing changed — you're still on your free trial. Use Manage billing on the Account page to switch plans.",
-    };
-  }
-  return { status: 502, error: "Couldn't switch plans just now. Nothing changed — please try again in a minute." };
+// Error codes meaning "the bank must confirm this payment" (3-D Secure / SCA).
+// Checked BEFORE the generic card-error branch: authentication_required arrives
+// as a card error, and "declined — update your card" is the wrong advice for a
+// card that is fine but needs approving.
+const AUTHENTICATION_CODES = new Set([
+  'authentication_required',
+  'invoice_payment_intent_requires_action',
+  'payment_intent_action_required',
+  'payment_intent_authentication_failure',
+  'subscription_payment_intent_requires_action',
+]);
+
+type SwitchFailure = 'authentication' | 'card' | 'rejected' | 'unknown';
+
+function classifySwitchFailure(err: unknown): SwitchFailure {
+  const e = err as
+    | { type?: string; code?: string; decline_code?: string; raw?: { code?: string; decline_code?: string } }
+    | undefined;
+  const code = e?.code ?? e?.raw?.code;
+  const decline = e?.decline_code ?? e?.raw?.decline_code;
+  if ((code && AUTHENTICATION_CODES.has(code)) || decline === 'authentication_required') return 'authentication';
+  if (e?.type === 'StripeCardError') return 'card';
+  // Stripe refused the request itself: nothing was applied.
+  if (e?.type === 'StripeInvalidRequestError') return 'rejected';
+  // A timeout, a connection drop or a Stripe-side 5xx: the update may or may
+  // not have gone through, so the member must not be told "nothing changed".
+  return 'unknown';
 }
+
+const SWITCH_FAILURE_COPY: Record<SwitchFailure, { status: number; error: string }> = {
+  authentication: {
+    status: 402,
+    error:
+      "Your bank needs to confirm this payment, which can't be done from this page. Nothing changed — you're still on your free trial. Continue in the billing portal to approve it there.",
+  },
+  card: {
+    status: 402,
+    error:
+      "Your card was declined, so nothing changed — you're still on your free trial. Update your card from the Account page and try again.",
+  },
+  rejected: {
+    status: 502,
+    error: "Couldn't switch plans just now. Nothing changed — please try again in a minute.",
+  },
+  unknown: {
+    status: 502,
+    error:
+      "We couldn't confirm the switch went through. Check your plan on the Account page before trying again — it shows the change if it was made.",
+  },
+};
 
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
@@ -105,6 +149,8 @@ export async function POST(request: NextRequest) {
     tier?: unknown;
     cadence?: unknown;
     confirm?: unknown;
+    // With confirm: the amount (minor units) the member was shown and agreed to.
+    expectedAmountDue?: unknown;
   };
   if (!isBillableTier(body.tier)) {
     return NextResponse.json({ error: 'tier must be one of basic, pro' }, { status: 400 });
@@ -185,43 +231,80 @@ export async function POST(request: NextRequest) {
   // Trial → a plan sold under the money-back guarantee: start paying now.
   // -------------------------------------------------------------------------
   if (decision.kind === 'in_app_start_paid' && item) {
+    // Read with its discounts expanded above, so this is the real set; if it
+    // somehow is not, stop rather than reconcile coupons we cannot see.
+    const attached = readAttachedDiscounts(subscription);
+    if (!attached) {
+      return NextResponse.json(
+        { error: "Couldn't read your current plan just now. Nothing changed — please try again in a minute." },
+        { status: 502 },
+      );
+    }
     const discounts = planSwitchDiscounts({
-      currentCouponIds: subscriptionCouponIds(subscription),
+      currentCouponIds: attachedCouponIds(attached),
       newSku: { tier, cadence },
       foundingMemberStartedAt: row.founding_member_started_at,
       foundingLifetimeAppliedAt: row.founding_lifetime_applied_at,
     });
-    // Null only for a founding member on the lifetime rate: their coupons are
-    // left exactly as they are.
-    const discountParam = discounts?.changed ? { discounts: discounts.keep.map((coupon) => ({ coupon })) } : {};
+    // Only when the set actually changes (null for a founding member on the
+    // lifetime rate, whose coupons are left exactly as they are). Existing
+    // discounts are passed by id so they keep their end dates, and an emptied
+    // set is sent as '' so it really clears (core/subscriptionDiscounts.ts).
+    const discountParam = discounts?.changed ? discountsParam(discounts.keep, attached) : undefined;
+
+    // What switching charges TODAY: a live preview with exactly the items, trial
+    // end and discounts of the update below.
+    let quote: { amountDue: number; currency: string } | null = null;
+    try {
+      const preview = await previewNextInvoice(stripe, {
+        subscription: subscription.id,
+        customer: row.stripe_customer_id,
+        items: [{ id: item.id, price: targetPriceId }],
+        prorationBehavior: 'none',
+        trialEnd: 'now',
+        ...(discountParam !== undefined ? { discounts: discountParam } : {}),
+      });
+      if (typeof preview.amount_due === 'number' && preview.currency) {
+        quote = { amountDue: preview.amount_due, currency: preview.currency };
+      }
+    } catch {
+      quote = null;
+    }
+    if (!quote) {
+      return NextResponse.json(
+        { error: "Couldn't price this switch just now, so nothing changed. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    // One refund per customer: someone who has already used theirs is not
+    // promised (or stamped for) the guarantee again, exactly as at checkout.
+    const guaranteeUsed = hasPriorMoneyBackRefund({
+      userId: actor.user.id,
+      email: actor.user.email,
+      cardFingerprint: null,
+      subscriptionId: subscription.id,
+    });
+    const confirmQuote = {
+      tier,
+      cadence,
+      amountDue: quote.amountDue,
+      currency: quote.currency,
+      amountFormatted: formatAmount(quote.amountDue, quote.currency),
+      guarantee: !guaranteeUsed,
+    };
 
     if (!confirmed) {
-      // Price it. Best-effort: a failed preview still lets the member confirm,
-      // with the page quoting the plan's list price instead of an exact figure.
-      let amountDue: number | null = null;
-      let currency = 'usd';
-      try {
-        const preview = await previewNextInvoice(stripe, {
-          subscription: subscription.id,
-          customer: row.stripe_customer_id,
-          items: [{ id: item.id, price: targetPriceId }],
-          prorationBehavior: 'none',
-          trialEnd: 'now',
-          ...(discounts ? { discounts: discounts.keep.map((coupon) => ({ coupon })) } : {}),
-        });
-        amountDue = typeof preview.amount_due === 'number' ? preview.amount_due : null;
-        currency = preview.currency ?? currency;
-      } catch {
-        amountDue = null;
-      }
-      return NextResponse.json({
-        confirm: {
-          tier,
-          cadence,
-          amountDue,
-          amountFormatted: amountDue == null ? null : formatAmount(amountDue, currency),
+      return NextResponse.json({ confirm: confirmQuote });
+    }
+    // Charge only the amount the member was shown.
+    if (body.expectedAmountDue !== quote.amountDue) {
+      return NextResponse.json(
+        {
+          error: `The price changed since you looked: switching now charges ${confirmQuote.amountFormatted}. Please review it before confirming.`,
+          confirm: confirmQuote,
         },
-      });
+        { status: 409 },
+      );
     }
 
     if (inFlight.has(subscription.id)) {
@@ -241,19 +324,31 @@ export async function POST(request: NextRequest) {
         payment_behavior: 'error_if_incomplete',
         // Starting to pay implies staying — clear any pending cancellation.
         cancel_at_period_end: false,
-        metadata: { money_back: '1' },
-        ...discountParam,
+        ...(guaranteeUsed ? {} : { metadata: { money_back: '1' } }),
+        ...(discountParam !== undefined ? { discounts: discountParam } : {}),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'plan change failed';
+      const failure = classifySwitchFailure(err);
       appendAuditEvent({
         type: 'billing_plan_switch_error',
         userId: actor.user.id,
         email: actor.user.email,
         ip: getClientIp(request),
-        message: `Trial → paid switch ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} failed (trial left as it was): ${message}`,
+        message:
+          `Trial → paid switch ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} failed (${failure}; ` +
+          `${failure === 'unknown' ? 'outcome unknown — check the subscription' : 'trial left as it was'}): ${message}`,
       });
-      const { status, error } = stripeErrorMessage(err);
+      const { status, error } = SWITCH_FAILURE_COPY[failure];
+      if (failure === 'authentication') {
+        // The portal can collect the bank's confirmation; hand the member there.
+        try {
+          const session = await createBillingPortalSession(row.stripe_customer_id, `${appUrl}/account`);
+          return NextResponse.json({ error, portalUrl: session.url }, { status });
+        } catch {
+          return NextResponse.json({ error }, { status });
+        }
+      }
       return NextResponse.json({ error }, { status });
     } finally {
       inFlight.delete(subscription.id);
@@ -266,14 +361,16 @@ export async function POST(request: NextRequest) {
       ip: getClientIp(request),
       message:
         `Trial ended for paid switch ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} ` +
-        `(charged today, money-back guarantee; discounts ${discounts?.changed ? `set to [${discounts.keep.join(', ') || 'none'}]` : 'unchanged'})`,
+        `(charged ${confirmQuote.amountFormatted} today as quoted, ` +
+        `${guaranteeUsed ? 'no guarantee — refund already used' : 'money-back guarantee'}; discounts ` +
+        `${discountParam !== undefined ? `set to [${describeDiscountsParam(discountParam, attached)}]` : 'unchanged'})`,
     });
 
     // Same landing as a paid checkout: the banner restates the guarantee, and
     // trial_started=1 lets the dashboard re-poll the session while the webhook
     // syncs the new tier.
     return NextResponse.json({
-      url: `${appUrl}/dashboard?trial_started=1&trial=money_back&upgraded=${tier}`,
+      url: `${appUrl}/dashboard?trial_started=1&trial=${guaranteeUsed ? 'none' : 'money_back'}&upgraded=${tier}`,
     });
   }
 

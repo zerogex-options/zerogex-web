@@ -765,7 +765,9 @@ if (!repairOnly) {
 //    list price, so this replaces rather than stacks.
 async function applyHoldCoupon(): Promise<void> {
   await stripe.subscriptions.update(subscription.id, {
-    discounts: couponId ? [{ coupon: couponId }] : [],
+    // '' clears: stripe-node drops an empty array from the request, which would
+    // leave the old discounts in place (core/subscriptionDiscounts.ts).
+    discounts: couponId ? [{ coupon: couponId }] : '',
   });
 }
 

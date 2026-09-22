@@ -141,10 +141,26 @@ test('an unstamped purchase is not covered, even on a plan that now carries the 
   assert.equal(!decision.eligible && decision.reason, 'not_covered');
 });
 
-test('a subscription whose first payment is an ordinary renewal is not covered', () => {
-  // First month free (a referral bonus): the first money is month two's renewal.
+test('after a free first month, a guarantee purchase is covered from its first real payment', () => {
+  // A referral month (or a 100%-off code typed at checkout) makes the purchase
+  // invoice $0, so the first money is month two's renewal. The checkout said
+  // "within 7 days of your first payment", so that payment is the covered one.
+  const invoices = [
+    invoice({ id: 'in_0', amountPaid: 0, paidAtUnix: nowUnix - 32 * DAY, createdUnix: nowUnix - 32 * DAY }),
+    invoice({ id: 'in_1', billingReason: 'subscription_cycle', paidAtUnix: nowUnix - 1 * DAY, createdUnix: nowUnix - 1 * DAY }),
+  ];
+  const decision = decideMoneyBack(input({ invoices }));
+  assert.equal(decision.eligible, true);
+  assert.deepEqual(decision.eligible && decision.refunds.map((item) => item.invoiceId), ['in_1']);
+  // ...and the window runs from that payment, not from the free month.
+  const late = decideMoneyBack(input({ invoices, nowMs: NOW + 7 * DAY * 1000 }));
+  assert.equal(late.eligible ? null : late.reason, 'window_elapsed');
+});
+
+test('an unstamped subscription whose first payment is an ordinary renewal is not covered', () => {
   const decision = decideMoneyBack(
     input({
+      subscription: sub({ stampedMoneyBack: false }),
       invoices: [
         invoice({ id: 'in_0', amountPaid: 0, paidAtUnix: nowUnix - 32 * DAY }),
         invoice({ billingReason: 'subscription_cycle', paidAtUnix: nowUnix - 1 * DAY, createdUnix: nowUnix - 1 * DAY }),
@@ -229,4 +245,43 @@ test('canonical email: case, +tags, and Gmail dots are one customer', () => {
   // Dots are only ignored where the mailbox provider ignores them.
   assert.equal(canonicalEmail('j.doe@example.com'), 'j.doe@example.com');
   assert.notEqual(canonicalEmail('j.doe@example.com'), canonicalEmail('jdoe@example.com'));
+});
+
+test('a goodwill (operator) refund gives back what the guarantee covered, never later renewals', () => {
+  // Day 95 of a monthly plan: the purchase plus three renewals are paid. An
+  // operator override (resuming) finishes it anyway — but only the payment the
+  // guarantee covered, not $196.
+  const purchase = nowUnix - 95 * DAY;
+  const invoices = [
+    invoice({ id: 'in_0', paidAtUnix: purchase, createdUnix: purchase }),
+    invoice({ id: 'in_1', billingReason: 'subscription_cycle', paidAtUnix: purchase + 30 * DAY, createdUnix: purchase + 30 * DAY, chargeId: 'ch_2' }),
+    invoice({ id: 'in_2', billingReason: 'subscription_cycle', paidAtUnix: purchase + 60 * DAY, createdUnix: purchase + 60 * DAY, chargeId: 'ch_3' }),
+    invoice({ id: 'in_3', billingReason: 'subscription_cycle', paidAtUnix: purchase + 90 * DAY, createdUnix: purchase + 90 * DAY, chargeId: 'ch_4' }),
+  ];
+  const decision = decideMoneyBack(input({ invoices, resuming: true }));
+  assert.equal(decision.eligible, true);
+  assert.deepEqual(decision.eligible && decision.refunds.map((r) => r.invoiceId), ['in_0']);
+  assert.equal(decision.eligible && decision.totalAmount, 4900);
+});
+
+test('retrying a request that failed is judged by when it was first made — never extended', () => {
+  const invoices = [invoice({ paidAtUnix: nowUnix - 9 * DAY, createdUnix: nowUnix - 9 * DAY })];
+  // First asked on day 6 (in time), retried on day 9: still honored.
+  const inTime = decideMoneyBack(input({ invoices, requestedAtMs: NOW - 3 * DAY * 1000 }));
+  assert.equal(inTime.eligible, true);
+  // First asked on day 8 (too late): retrying does not help.
+  const late = decideMoneyBack(input({ invoices, requestedAtMs: NOW - 1 * DAY * 1000 }));
+  assert.equal(late.eligible ? null : late.reason, 'window_elapsed');
+  // And a retry is still subject to the one-refund limit.
+  const used = decideMoneyBack(
+    input({ invoices, requestedAtMs: NOW - 3 * DAY * 1000, priorRefundElsewhere: true }),
+  );
+  assert.equal(used.eligible ? null : used.reason, 'prior_refund');
+});
+
+test('an invoice carrying a credit note goes to a human, never refunded short or twice', () => {
+  const decision = decideMoneyBack(
+    input({ invoices: [invoice({ creditNotesAmount: 1000, amountRefunded: 1000 })] }),
+  );
+  assert.equal(decision.eligible ? null : decision.reason, 'needs_manual_refund');
 });

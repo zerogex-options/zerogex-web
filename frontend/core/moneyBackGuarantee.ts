@@ -10,25 +10,27 @@
 // (canonicalized, see canonicalEmail) or the card, so a second account on the
 // same card or a +alias of the same inbox is the same customer.
 //
-// WHICH SUBSCRIPTIONS ARE COVERED. The first money-moving invoice on the
-// subscription decides it, read live from Stripe (never from local mirrors, and
-// never from anything the client sends):
+// WHICH SUBSCRIPTIONS ARE COVERED. Read live from Stripe (never from local
+// mirrors, and never from anything the client sends):
 //
-//   • checkout stamps metadata money_back=1 on every guarantee-plan purchase,
-//     and the in-app trial upgrade stamps it when it ends a trial to move the
-//     member onto a guarantee plan. A stamped subscription is covered from the
-//     invoice that started it being paid for — a create/update invoice, or the
-//     one the upgrade itself raised at the moment it ended the trial.
-//   • An unstamped subscription whose first paid invoice is a plan-change
-//     (update) invoice for a guarantee plan is covered: that is a Basic trial
-//     moved to a guarantee plan in the Stripe billing portal, which ends the
-//     trial and bills the new plan without our stamp.
-//   • Never covered: an unstamped purchase (create invoice). Checkout stamps
-//     every purchase it sells under the guarantee, so an unstamped one was sold
-//     without it: before the guarantee existed, or on the trial plan. Also
-//     never covered: a trial that simply ran out and converted (that customer
-//     had the free trial instead), and a subscription whose first paid invoice
-//     is an ordinary renewal (their first period was free — a referral month).
+//   • Sold under the guarantee: checkout stamps metadata money_back=1 on every
+//     guarantee-plan purchase, and the in-app trial upgrade stamps it when it
+//     ends a trial to move the member onto a guarantee plan. A stamped
+//     subscription is covered from its FIRST PAYMENT, whatever Stripe calls
+//     that invoice. Normally that is the purchase itself. After a free first
+//     period (a referral month, a 100%-off promotion code typed on Stripe's
+//     page) it is the first real charge, which is what "within 7 days of your
+//     first payment" promises.
+//   • Unstamped, but the first payment is a plan-change (update) invoice for a
+//     guarantee plan: a Basic trial moved to a guarantee plan in the Stripe
+//     billing portal, which ends the trial and bills the new plan without our
+//     stamp.
+//   • Never covered: an unstamped purchase (checkout stamps everything it sells
+//     under the guarantee, so an unstamped one was sold without it — before the
+//     guarantee existed, on the trial plan, or to a customer who had already
+//     used their refund), a trial that simply ran out and converted (that
+//     customer had the free trial instead), and any renewal after the first
+//     payment.
 //
 // WHAT IS REFUNDED: every payment on the subscription that has not already been
 // given back — normally just the one, plus any proration from an upgrade made
@@ -36,10 +38,8 @@
 // refund is exactly the state core/orphanPayment.ts refuses to reason about
 // alone, so the flow never creates one.
 //
-// Kept PURE (the only import is another pure module) so every branch is
-// unit-tested without Stripe or a database — tests/moneyBackGuarantee.test.ts.
-
-import { isTrialConversionInvoice } from './trialDunning.ts';
+// Kept PURE (no imports) so every branch is unit-tested without Stripe or a
+// database — tests/moneyBackGuarantee.test.ts.
 
 export type GuaranteeInvoice = {
   id: string;
@@ -47,9 +47,14 @@ export type GuaranteeInvoice = {
   billingReason: string | null;
   // Minor units (cents).
   amountPaid: number;
-  // How much of this invoice has already been given back, or null when that
-  // could not be read — which refuses the refund rather than guessing.
+  // How much of this invoice has already been refunded to the card, or null
+  // when that could not be read — which refuses the refund rather than guessing.
   amountRefunded: number | null;
+  // post_payment_credit_notes_amount. A credit note may have refunded to the
+  // card (then it is also in amountRefunded) or credited the customer balance
+  // (then it is not), and the invoice alone cannot say which — so an invoice
+  // carrying one goes to a human rather than being refunded short or twice.
+  creditNotesAmount?: number;
   paidAtUnix: number | null;
   createdUnix: number | null;
   priceId: string | null;
@@ -94,6 +99,9 @@ export type MoneyBackDecision =
       firstPaidInvoiceId: string;
       firstPaidPriceId: string | null;
       firstPaidAtMs: number;
+      // Every paid invoice the guarantee covers (up to the refund cutoff),
+      // refunded already or not.
+      coveredInvoiceIds: string[];
       refunds: RefundItem[];
       totalAmount: number;
       currency: string;
@@ -118,14 +126,22 @@ export type MoneyBackInput = {
   // A COMPLETED or in-flight guarantee refund already exists for this customer
   // on a DIFFERENT subscription (account, canonical email or card match).
   priorRefundElsewhere: boolean;
-  // A guarantee request for THIS subscription was already started (a ledger
-  // row that is pending or failed). It is being resumed, so the window and the
-  // one-refund limit were already satisfied when it was first made.
+  // A guarantee request for THIS subscription already moved money or was
+  // interrupted (a pending ledger row), or an operator is making a goodwill
+  // exception. It is finished regardless of the window and the one-refund
+  // limit, which were satisfied (or waived) when it began.
   resuming: boolean;
+  // The instant the request counts as made, for the window check. "Now" for a
+  // fresh request; for a retry of one that failed before any money moved, the
+  // original request — a failure on our side must not cost the member their
+  // window, but retrying must not extend it either.
+  requestedAtMs?: number;
   // Only payments made at or before this instant are refunded. For a fresh
   // request that is simply "now"; for a resumed one it is when the member first
   // asked, so a request that stalled and is finished later can never sweep up
-  // a renewal they paid after asking.
+  // a renewal they paid after asking. Never later than the guarantee's own
+  // deadline, whoever asks: an operator's goodwill refund on day 95 gives back
+  // what the guarantee covered, not three months of renewals.
   refundCutoffMs?: number;
 };
 
@@ -151,19 +167,8 @@ export function isCoveredStart(
   first: GuaranteeInvoice,
   priceCovered: (priceId: string | null) => boolean,
 ): boolean {
-  if (first.billingReason === 'subscription_create') return subscription.stampedMoneyBack;
-  if (first.billingReason === 'subscription_update') {
-    return subscription.stampedMoneyBack || priceCovered(first.priceId);
-  }
-  // A cycle invoice raised the moment the trial ended. Covered only when we
-  // stamped the subscription — i.e. our own upgrade ended the trial, which
-  // Stripe may bill as a cycle. A trial that simply ran out is not covered.
-  const raisedAtTrialEnd = isTrialConversionInvoice({
-    trialEndUnix: subscription.trialEndUnix,
-    invoiceCreatedUnix: first.createdUnix,
-    billingReason: first.billingReason,
-  });
-  return raisedAtTrialEnd && subscription.stampedMoneyBack;
+  if (subscription.stampedMoneyBack) return true;
+  return first.billingReason === 'subscription_update' && priceCovered(first.priceId);
 }
 
 export function decideMoneyBack(input: MoneyBackInput): MoneyBackDecision {
@@ -187,22 +192,30 @@ export function decideMoneyBack(input: MoneyBackInput): MoneyBackDecision {
   const firstPaidAtMs = paidAtMs(first) as number;
   const deadlineMs = firstPaidAtMs + input.windowDays * DAY_MS;
   if (!input.resuming) {
-    if (input.nowMs > deadlineMs) return { eligible: false, reason: 'window_elapsed', deadlineMs };
+    if ((input.requestedAtMs ?? input.nowMs) > deadlineMs) {
+      return { eligible: false, reason: 'window_elapsed', deadlineMs };
+    }
     if (input.priorRefundElsewhere) return { eligible: false, reason: 'prior_refund', deadlineMs };
   }
 
-  const cutoffMs = input.refundCutoffMs ?? input.nowMs;
+  const cutoffMs = Math.min(input.refundCutoffMs ?? input.nowMs, deadlineMs);
   const refunds: RefundItem[] = [];
+  const coveredInvoiceIds: string[] = [];
   let unknown = false;
   let manual = false;
   for (const invoice of paid) {
     if ((paidAtMs(invoice) ?? 0) > cutoffMs) continue;
+    coveredInvoiceIds.push(invoice.id);
     if (invoice.amountRefunded == null) {
       unknown = true;
       continue;
     }
     const remaining = invoice.amountPaid - invoice.amountRefunded;
     if (remaining <= 0) continue;
+    if ((invoice.creditNotesAmount ?? 0) > 0) {
+      manual = true;
+      continue;
+    }
     if (!invoice.chargeId && !invoice.paymentIntentId) {
       // Paid out of band or with no card charge behind it: nothing the refunds
       // API can reverse. A human has to look.
@@ -232,6 +245,7 @@ export function decideMoneyBack(input: MoneyBackInput): MoneyBackDecision {
     firstPaidInvoiceId: first.id,
     firstPaidPriceId: first.priceId,
     firstPaidAtMs,
+    coveredInvoiceIds,
     refunds,
     totalAmount: refunds.reduce((sum, r) => sum + r.amount, 0),
     currency: refunds[0]?.currency ?? (first.currency ?? 'usd').toLowerCase(),

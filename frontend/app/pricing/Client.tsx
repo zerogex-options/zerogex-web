@@ -86,7 +86,18 @@ type Props = {
   // server-side (campaign codes live in STRIPE_CAMPAIGN_* env). Swaps the
   // referral banner for a neutral discount banner.
   campaignActive: boolean;
+  // The signed-in member's current plan (tier AND billing period), read
+  // server-side from their synced subscription; null when there is none or its
+  // price is not one we sell. A card is "Current plan" only when both match.
+  currentPlan: { tier: BillableTier; cadence: Cadence } | null;
+  // Their subscription's status ('trialing', 'active', ...), or null.
+  subscriptionStatus: string | null;
+  // They have already used their one money-back refund (this account or email).
+  guaranteeUsed: boolean;
 };
+
+// The billing period last picked on this page (a per-browser convenience).
+const CADENCE_STORAGE_KEY = 'zgx_pricing_cadence';
 
 type TierAction =
   | { kind: 'link'; href: string; label: string }
@@ -574,6 +585,9 @@ function PricingClientInner({
   trialPlanKeys,
   referralEnabled,
   campaignActive,
+  currentPlan,
+  subscriptionStatus,
+  guaranteeUsed,
 }: Props) {
   const t = usePageT(dict);
   const { theme } = useTheme();
@@ -587,20 +601,55 @@ function PricingClientInner({
     [sellableCadences],
   );
   // A ?cadence= carried through registration (or linked from elsewhere) opens
-  // the page on that billing period, when it is offered.
-  const [cadence, setCadence] = useState<Cadence>(() => {
+  // the page on that billing period, when it is offered; a subscriber otherwise
+  // opens on their own, so their current plan is the one marked; anyone else
+  // on the period they last picked here (it survives the verify-email link,
+  // which opens a fresh /pricing). This subtree is client-rendered, so reading
+  // localStorage in the initializer is safe; it may be unavailable, hence the
+  // try.
+  const [cadence, setCadenceState] = useState<Cadence>(() => {
     const requested = searchParams.get('cadence');
-    return cadences.find((c) => c === requested) ?? 'monthly';
+    let remembered: string | null = null;
+    try {
+      remembered = window.localStorage.getItem(CADENCE_STORAGE_KEY);
+    } catch {
+      remembered = null;
+    }
+    return (
+      cadences.find((c) => c === requested) ??
+      cadences.find((c) => c === currentPlan?.cadence) ??
+      cadences.find((c) => c === remembered) ??
+      'monthly'
+    );
   });
+  const setCadence = useCallback((next: Cadence) => {
+    setCadenceState(next);
+    try {
+      window.localStorage.setItem(CADENCE_STORAGE_KEY, next);
+    } catch {
+      // Storage blocked: the choice simply isn't remembered.
+    }
+  }, []);
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A trialing member switching onto a plan sold under the guarantee is charged
   // today, so the server prices it first and the page asks before paying.
+  // The member confirms the exact amount the server quoted, and the confirm
+  // sends it back so the server refuses to charge anything else.
   const [confirmSwitch, setConfirmSwitch] = useState<{
     tier: BillableTier;
     cadence: Cadence;
-    amountFormatted: string | null;
+    amountDue: number;
+    amountFormatted: string;
+    // Whether this switch is covered by the money-back guarantee (not for a
+    // customer who has already used their one refund).
+    guarantee: boolean;
+    // Set when a confirm came back because the price moved since the quote.
+    notice?: string;
   } | null>(null);
+  // A switch the bank must approve (3-D Secure) cannot be finished here; the
+  // server hands back a billing-portal link that can.
+  const [errorPortalUrl, setErrorPortalUrl] = useState<string | null>(null);
   const trialPlans = useMemo(() => new Set(trialPlanKeys), [trialPlanKeys]);
   // A referred visitor carries the zgx_ref cookie set when they landed on the
   // ?ref= link; surface a reminder that their discount applies at checkout.
@@ -788,6 +837,7 @@ function PricingClientInner({
         return;
       }
       setError(null);
+      setErrorPortalUrl(null);
       setBusyTier(tier);
       try {
         if (hasActiveSubscription) {
@@ -834,7 +884,7 @@ function PricingClientInner({
   // second call carries confirm: true); anything else comes back as a `url` to
   // follow (the dashboard after an in-app switch, or Stripe's portal).
   const requestPlanChange = useCallback(
-    async (tier: BillableTier, planCadence: Cadence, confirm: boolean) => {
+    async (tier: BillableTier, planCadence: Cadence, confirmAmountDue: number | null) => {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) throw new Error(t('errorCsrfFailed'));
@@ -842,18 +892,37 @@ function PricingClientInner({
         method: 'POST',
         credentials: 'include',
         headers: { 'content-type': 'application/json', 'x-csrf-token': csrf.csrfToken },
-        body: JSON.stringify({ tier, cadence: planCadence, ...(confirm ? { confirm: true } : {}) }),
+        body: JSON.stringify({
+          tier,
+          cadence: planCadence,
+          ...(confirmAmountDue != null ? { confirm: true, expectedAmountDue: confirmAmountDue } : {}),
+        }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
         url?: string;
         error?: string;
-        confirm?: { amountFormatted: string | null };
+        portalUrl?: string;
+        confirm?: { amountDue?: number; amountFormatted?: string; guarantee?: boolean };
       };
-      if (!response.ok) throw new Error(payload.error ?? t('errorBillingFailed'));
-      if (payload.confirm) {
-        setConfirmSwitch({ tier, cadence: planCadence, amountFormatted: payload.confirm.amountFormatted ?? null });
+      // A quote: the first step, or a confirm refused because the price moved
+      // (409, with the new quote). Either way the member confirms this amount.
+      const quote = payload.confirm;
+      if ((response.ok || response.status === 409) && quote && typeof quote.amountDue === 'number' && quote.amountFormatted) {
+        setConfirmSwitch({
+          tier,
+          cadence: planCadence,
+          amountDue: quote.amountDue,
+          amountFormatted: quote.amountFormatted,
+          guarantee: quote.guarantee !== false,
+          ...(response.status === 409 && payload.error ? { notice: payload.error } : {}),
+        });
         setBusyTier(null);
         return;
+      }
+      if (!response.ok) {
+        const thrown = new Error(payload.error ?? t('errorBillingFailed'));
+        if (payload.portalUrl) (thrown as Error & { portalUrl?: string }).portalUrl = payload.portalUrl;
+        throw thrown;
       }
       if (!payload.url) throw new Error(t('errorBillingFailed'));
       window.location.href = payload.url;
@@ -864,9 +933,10 @@ function PricingClientInner({
   const handleChangePlan = useCallback(
     async (tier: BillableTier) => {
       setError(null);
+      setErrorPortalUrl(null);
       setBusyTier(tier);
       try {
-        await requestPlanChange(tier, cadence, false);
+        await requestPlanChange(tier, cadence, null);
       } catch (err) {
         setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
         setBusyTier(null);
@@ -877,14 +947,16 @@ function PricingClientInner({
 
   const handleConfirmSwitch = useCallback(async () => {
     if (!confirmSwitch) return;
-    const { tier, cadence: planCadence } = confirmSwitch;
+    const { tier, cadence: planCadence, amountDue } = confirmSwitch;
     setError(null);
+    setErrorPortalUrl(null);
     setBusyTier(tier);
     setConfirmSwitch(null);
     try {
-      await requestPlanChange(tier, planCadence, true);
+      await requestPlanChange(tier, planCadence, amountDue);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
+      setErrorPortalUrl((err as Error & { portalUrl?: string })?.portalUrl ?? null);
       setBusyTier(null);
     }
   }, [confirmSwitch, requestPlanChange, t]);
@@ -910,13 +982,32 @@ function PricingClientInner({
   //     emailed (checkout honors it on every plan);
   //   • every other plan → guarantee;
   //   • the trial plan for a returning member → neither: they are simply billed.
+  //   • a subscriber never starts a trial from here;
+  //   • the guarantee note appears only where it would actually cover them: a
+  //     purchase, or a trialing member's switch (which ends the trial and is
+  //     charged in-app) — not a paid member's switch (the guarantee covers a
+  //     subscription's first payment only), not the plan they are already on,
+  //     and not for someone who has already used their one refund.
   const cardTerms = useCallback(
     (tier: BillableTier) => {
       const planTrials = planHasFreeTrial({ tier, cadence }, trialPlans);
-      const startsTrial = !isResubscribe && (planTrials || cameFromReactivate);
-      return { startsTrial, hasGuarantee: !startsTrial && !planTrials };
+      const isCurrentPlan =
+        hasActiveSubscription && currentPlan?.tier === tier && currentPlan?.cadence === cadence;
+      const startsTrial = !hasActiveSubscription && !isResubscribe && (planTrials || cameFromReactivate);
+      const guaranteeReachable = !hasActiveSubscription || subscriptionStatus === 'trialing';
+      const hasGuarantee = !startsTrial && !planTrials && guaranteeReachable && !isCurrentPlan && !guaranteeUsed;
+      return { startsTrial, hasGuarantee };
     },
-    [cadence, cameFromReactivate, isResubscribe, trialPlans],
+    [
+      cadence,
+      cameFromReactivate,
+      currentPlan,
+      guaranteeUsed,
+      hasActiveSubscription,
+      isResubscribe,
+      subscriptionStatus,
+      trialPlans,
+    ],
   );
 
   const actionFor = useCallback(
@@ -936,14 +1027,20 @@ function PricingClientInner({
       if (currentTier === 'admin') return { kind: 'current', label: t('adminNoSubscription') };
 
       if (hasActiveSubscription) {
-        // Real subscriber: the tier truly reflects which plan they're on.
-        if (currentTier === tier) return { kind: 'current', label: t('currentPlanLabel') };
-        return { kind: 'portal', tier, label: t('switchToLabel', { label }) };
+        // Current only when tier AND billing period match; with a price we do
+        // not map (currentPlan null), fall back to the tier as before.
+        const onThisPlan = currentPlan
+          ? currentPlan.tier === tier && currentPlan.cadence === cadence
+          : currentTier === tier;
+        if (onThisPlan) return { kind: 'current', label: t('currentPlanLabel') };
+        // Same tier, other billing period: name the period in the button.
+        const switchLabel = currentPlan?.tier === tier ? planName(tier, cadence) : label;
+        return { kind: 'portal', tier, label: t('switchToLabel', { label: switchLabel }) };
       }
 
       return { kind: 'subscribe', tier, label: primaryLabel };
     },
-    [authLoading, cadence, cameFromReactivate, cardTerms, currentTier, hasActiveSubscription, isAuthed, t],
+    [authLoading, cadence, cameFromReactivate, cardTerms, currentPlan, currentTier, hasActiveSubscription, isAuthed, planName, t],
   );
 
   // "Limited Time" pill omitted from the per-card highlights when the global
@@ -1162,6 +1259,14 @@ function PricingClientInner({
               }}
             >
               {error}
+              {errorPortalUrl && (
+                <>
+                  {' '}
+                  <a href={errorPortalUrl} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                    {t('errorOpenPortal')}
+                  </a>
+                </>
+              )}
             </div>
           )}
 
@@ -1298,25 +1403,30 @@ function PricingClientInner({
             <h2 id="zgx-confirm-switch-title" style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.light }}>
               {t('confirmSwitchTitle', { plan: planName(confirmSwitch.tier, confirmSwitch.cadence) })}
             </h2>
+            {confirmSwitch.notice && (
+              <p role="status" style={{ margin: '12px 0 0', color: C.amber, fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
+                {confirmSwitch.notice}
+              </p>
+            )}
             <p style={{ margin: '12px 0 0', color: C.light, fontSize: 15, lineHeight: 1.6 }}>
-              {confirmSwitch.amountFormatted
-                ? t('confirmSwitchBody', { amount: confirmSwitch.amountFormatted })
-                : t('confirmSwitchBodyNoAmount', { plan: planName(confirmSwitch.tier, confirmSwitch.cadence) })}
+              {t('confirmSwitchBody', { amount: confirmSwitch.amountFormatted })}
             </p>
-            <p
-              style={{
-                margin: '10px 0 0',
-                color: C.muted,
-                fontSize: 13,
-                lineHeight: 1.55,
-                display: 'flex',
-                gap: 6,
-                alignItems: 'flex-start',
-              }}
-            >
-              <ShieldCheck size={14} style={{ color: C.amber, marginTop: 2, flexShrink: 0 }} aria-hidden />
-              <span>{t('confirmSwitchGuarantee', { days: MONEY_BACK_GUARANTEE_DAYS })}</span>
-            </p>
+            {confirmSwitch.guarantee && (
+              <p
+                style={{
+                  margin: '10px 0 0',
+                  color: C.muted,
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  display: 'flex',
+                  gap: 6,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <ShieldCheck size={14} style={{ color: C.amber, marginTop: 2, flexShrink: 0 }} aria-hidden />
+                <span>{t('confirmSwitchGuarantee', { days: MONEY_BACK_GUARANTEE_DAYS })}</span>
+              </p>
+            )}
             <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
               <button
                 type="button"

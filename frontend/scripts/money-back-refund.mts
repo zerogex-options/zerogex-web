@@ -81,7 +81,7 @@ warnIfPricesUnconfigured();
 // Imported after the env is loaded: core/stripe.ts builds its price table at
 // module load, and core/db.ts reads AUTH_DB_PATH on first use.
 const { getDb } = await import('../core/db.ts');
-const { getMoneyBackStatus, requestMoneyBackRefund } = await import('../core/moneyBackServer.ts');
+const { getMoneyBackStatus, previewMoneyBackRefund, requestMoneyBackRefund } = await import('../core/moneyBackServer.ts');
 
 const user = getDb()
   .prepare('SELECT id, email, tier, stripe_subscription_id FROM users WHERE email = ? AND deleted_at IS NULL')
@@ -106,6 +106,25 @@ if (status.state === 'eligible') {
   console.log('               --force: honoring it anyway.');
 }
 
+// Exactly what --yes would refund, from the same code path, so the amount is
+// seen before anything moves (a goodwill --force gives back what the guarantee
+// covered — the first payment and any in-window upgrade — never later renewals).
+const preview = await previewMoneyBackRefund({
+  userId: user.id,
+  source: 'operator',
+  feedback: args.reason,
+  comment: args.comment,
+  overrideLimits: args.force,
+});
+if (!preview.ok) {
+  console.log(`\nWould be refused (${preview.reason}): ${preview.message}`);
+  process.exit(args.yes ? 1 : 0);
+}
+console.log(`\nWould refund ${preview.totalFormatted} on ${preview.planLabel} (sub ${preview.subscriptionId})${preview.resuming ? ', finishing an earlier request' : ''}:`);
+for (const item of preview.refunds) console.log(`  • ${item.amountFormatted}  invoice ${item.invoiceId}`);
+if (preview.refunds.length === 0) console.log('  • nothing left to refund — only the cancel remains');
+console.log('Then cancel the subscription now, remove paid access and API keys, and email the member.');
+
 if (!args.yes) {
   console.log('\n[dry run] Nothing refunded or canceled. Re-run with --yes to apply.');
   process.exit(0);
@@ -124,7 +143,8 @@ if (!result.ok) {
   console.error(`\nRefused (${result.reason}): ${result.message}`);
   process.exit(1);
 }
-console.log(`\nRefunded ${result.amountFormatted} [${result.refundIds.join(', ') || 'no new refund'}]`);
+console.log(`\nRefunded ${result.amountFormatted} [${result.refundIds.join(', ') || 'no refund id'}]`);
 console.log(result.canceled ? 'Subscription canceled; access removed.' : 'Subscription NOT canceled — see below.');
 for (const problem of result.problems) console.log(`  ! ${problem}`);
-process.exit(result.canceled ? 0 : 2);
+console.log(result.complete ? 'Complete: the member has been emailed.' : 'NOT complete: fix the above, then re-run this command to finish.');
+process.exit(result.complete ? 0 : 2);

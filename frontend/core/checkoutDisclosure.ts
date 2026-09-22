@@ -43,7 +43,7 @@ const COPY: Record<Locale, Copy> = {
     trial: (days, renewal) =>
       `Free for ${days} days — you won't be charged until the trial ends. Cancel any time before then from your Account page and you pay nothing. After the trial, your plan renews automatically ${renewal} until you cancel.`,
     moneyBack: (days, renewal) =>
-      `${days}-day money-back guarantee: if ZeroGEX isn't for you, request a full refund from your Account page within ${days} days of this payment. Your access ends when the refund is issued. Limit one refund per customer. Your plan renews automatically ${renewal} until you cancel; cancel any time from your Account page.`,
+      `${days}-day money-back guarantee: if ZeroGEX isn't for you, request a full refund from your Account page within ${days} days of your first payment. Your access ends when the refund is issued. Limit one refund per customer. Your plan renews automatically ${renewal} until you cancel; cancel any time from your Account page.`,
     none: (renewal) =>
       `Your plan renews automatically ${renewal} until you cancel. Cancel any time from your Account page.`,
   },
@@ -52,7 +52,7 @@ const COPY: Record<Locale, Copy> = {
     trial: (days, renewal) =>
       `Gratis per ${days} giorni: non ti verrà addebitato nulla fino al termine della prova. Annulla in qualsiasi momento prima di allora dalla pagina Account e non paghi nulla. Dopo la prova, il piano si rinnova automaticamente ${renewal} finché non lo annulli.`,
     moneyBack: (days, renewal) =>
-      `Garanzia soddisfatti o rimborsati di ${days} giorni: se ZeroGEX non fa per te, richiedi il rimborso completo dalla pagina Account entro ${days} giorni da questo pagamento. L'accesso termina quando il rimborso viene emesso. Massimo un rimborso per cliente. Il piano si rinnova automaticamente ${renewal} finché non lo annulli; puoi annullarlo in qualsiasi momento dalla pagina Account.`,
+      `Garanzia soddisfatti o rimborsati di ${days} giorni: se ZeroGEX non fa per te, richiedi il rimborso completo dalla pagina Account entro ${days} giorni dal tuo primo pagamento. L'accesso termina quando il rimborso viene emesso. Massimo un rimborso per cliente. Il piano si rinnova automaticamente ${renewal} finché non lo annulli; puoi annullarlo in qualsiasi momento dalla pagina Account.`,
     none: (renewal) =>
       `Il piano si rinnova automaticamente ${renewal} finché non lo annulli. Puoi annullarlo in qualsiasi momento dalla pagina Account.`,
   },
@@ -61,7 +61,7 @@ const COPY: Record<Locale, Copy> = {
     trial: (days, renewal) =>
       `${days} Tage kostenlos – bis zum Ende der Testphase wird nichts abgebucht. Kündige vorher jederzeit über deine Kontoseite und du zahlst nichts. Nach der Testphase verlängert sich dein Plan automatisch ${renewal}, bis du kündigst.`,
     moneyBack: (days, renewal) =>
-      `${days}-Tage-Geld-zurück-Garantie: Wenn ZeroGEX nichts für dich ist, fordere innerhalb von ${days} Tagen nach dieser Zahlung über deine Kontoseite eine volle Erstattung an. Dein Zugang endet mit der Erstattung. Maximal eine Erstattung pro Kunde. Dein Plan verlängert sich automatisch ${renewal}, bis du kündigst; kündigen kannst du jederzeit über deine Kontoseite.`,
+      `${days}-Tage-Geld-zurück-Garantie: Wenn ZeroGEX nichts für dich ist, fordere innerhalb von ${days} Tagen nach deiner ersten Zahlung über deine Kontoseite eine volle Erstattung an. Dein Zugang endet mit der Erstattung. Maximal eine Erstattung pro Kunde. Dein Plan verlängert sich automatisch ${renewal}, bis du kündigst; kündigen kannst du jederzeit über deine Kontoseite.`,
     none: (renewal) =>
       `Dein Plan verlängert sich automatisch ${renewal}, bis du kündigst. Kündigen kannst du jederzeit über deine Kontoseite.`,
   },
@@ -70,7 +70,7 @@ const COPY: Record<Locale, Copy> = {
     trial: (days, renewal) =>
       `Gratis durante ${days} días: no se te cobrará nada hasta que termine la prueba. Cancela cuando quieras antes de esa fecha desde tu página de Cuenta y no pagarás nada. Después de la prueba, tu plan se renueva automáticamente ${renewal} hasta que lo canceles.`,
     moneyBack: (days, renewal) =>
-      `Garantía de devolución de ${days} días: si ZeroGEX no es para ti, solicita un reembolso completo desde tu página de Cuenta dentro de los ${days} días siguientes a este pago. Tu acceso termina cuando se emite el reembolso. Límite de un reembolso por cliente. Tu plan se renueva automáticamente ${renewal} hasta que lo canceles; puedes cancelarlo cuando quieras desde tu página de Cuenta.`,
+      `Garantía de devolución de ${days} días: si ZeroGEX no es para ti, solicita un reembolso completo desde tu página de Cuenta dentro de los ${days} días siguientes a tu primer pago. Tu acceso termina cuando se emite el reembolso. Límite de un reembolso por cliente. Tu plan se renueva automáticamente ${renewal} hasta que lo canceles; puedes cancelarlo cuando quieras desde tu página de Cuenta.`,
     none: (renewal) =>
       `Tu plan se renueva automáticamente ${renewal} hasta que lo canceles. Puedes cancelarlo cuando quieras desde tu página de Cuenta.`,
   },
@@ -79,7 +79,7 @@ const COPY: Record<Locale, Copy> = {
     trial: (days, renewal) =>
       `Gratuit pendant ${days} jours : rien ne vous sera prélevé avant la fin de l'essai. Annulez à tout moment avant cette date depuis votre page Compte et vous ne payez rien. Après l'essai, votre abonnement se renouvelle automatiquement ${renewal} jusqu'à ce que vous l'annuliez.`,
     moneyBack: (days, renewal) =>
-      `Garantie satisfait ou remboursé de ${days} jours : si ZeroGEX ne vous convient pas, demandez un remboursement intégral depuis votre page Compte dans les ${days} jours suivant ce paiement. Votre accès prend fin à l'émission du remboursement. Limité à un remboursement par client. Votre abonnement se renouvelle automatiquement ${renewal} jusqu'à ce que vous l'annuliez ; vous pouvez l'annuler à tout moment depuis votre page Compte.`,
+      `Garantie satisfait ou remboursé de ${days} jours : si ZeroGEX ne vous convient pas, demandez un remboursement intégral depuis votre page Compte dans les ${days} jours suivant votre premier paiement. Votre accès prend fin à l'émission du remboursement. Limité à un remboursement par client. Votre abonnement se renouvelle automatiquement ${renewal} jusqu'à ce que vous l'annuliez ; vous pouvez l'annuler à tout moment depuis votre page Compte.`,
     none: (renewal) =>
       `Votre abonnement se renouvelle automatiquement ${renewal} jusqu'à ce que vous l'annuliez. Vous pouvez l'annuler à tout moment depuis votre page Compte.`,
   },

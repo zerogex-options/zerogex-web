@@ -6,22 +6,32 @@ import {
   getActivePromoDeadlineLabel,
   getSellableCadences,
   getTrialPlans,
+  priceIdToSku,
   type BillingCadence,
+  type Sku,
 } from '@/core/stripe';
+import { getDb } from '@/core/db';
+import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
 import { isReferralProgramEnabled } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
-import { REFERRAL_COOKIE_NAME } from '@/core/serverAuth';
+import { REFERRAL_COOKIE_NAME, requireSession } from '@/core/serverAuth';
 import PricingClient from './Client';
 
 // /pricing takes ~4,400 search impressions a quarter at position ~3 (it is a
 // brand sitelink) and converts about 1% of them. The snippet names what the
 // plans buy, the trial and the guarantee.
-export const metadata = {
-  title: 'ZeroGEX Pricing: Basic & Pro Plans, 7-Day Free Trial',
-  description:
-    'ZeroGEX pricing: Basic and Pro plans for real-time GEX, dealer positioning and signals on SPX, SPY, QQQ and NDX. 7-day free trial on Basic, 7-day money-back guarantee on every other plan. Monthly, quarterly or annual billing.',
-  alternates: { canonical: '/pricing' },
-};
+// The billing periods named are the ones actually on sale (quarterly appears
+// once its prices are configured).
+export function generateMetadata() {
+  const billing = getSellableCadences().includes('quarterly')
+    ? 'Monthly, quarterly or annual billing.'
+    : 'Monthly or annual billing.';
+  return {
+    title: 'ZeroGEX Pricing: Basic & Pro Plans, 7-Day Free Trial',
+    description: `ZeroGEX pricing: Basic and Pro plans for real-time GEX, dealer positioning and signals on SPX, SPY, QQQ and NDX. 7-day free trial on Basic monthly, 7-day money-back guarantee on every other plan. ${billing}`,
+    alternates: { canonical: '/pricing' },
+  };
+}
 
 // Public pricing page. Reads env state server-side (active promo coupon
 // configuration per cadence, which billing periods have Stripe prices, which
@@ -52,6 +62,32 @@ export default async function PricingPage() {
   const campaignActive =
     normalizeCampaignCode(cookieStore.get(REFERRAL_COOKIE_NAME)?.value ?? null) !== null;
 
+  // The signed-in member's plan and status, so a card is "Current plan" only
+  // when tier AND billing period match, and the guarantee note appears only
+  // where it would actually cover them. Read from the synced users row — the
+  // same one checkout and change-plan act on.
+  let currentPlan: Sku | null = null;
+  let subscriptionStatus: string | null = null;
+  let guaranteeUsed = false;
+  const actor = await requireSession();
+  if (actor) {
+    const row = getDb()
+      .prepare('SELECT stripe_subscription_id, stripe_price_id, subscription_status FROM users WHERE id = ?')
+      .get(actor.user.id) as
+      | { stripe_subscription_id: string | null; stripe_price_id: string | null; subscription_status: string | null }
+      | undefined;
+    if (row?.stripe_subscription_id) {
+      currentPlan = row.stripe_price_id ? priceIdToSku(row.stripe_price_id) : null;
+      subscriptionStatus = row.subscription_status;
+    }
+    guaranteeUsed = hasPriorMoneyBackRefund({
+      userId: actor.user.id,
+      email: actor.user.email,
+      cardFingerprint: null,
+      subscriptionId: '',
+    });
+  }
+
   return (
     <PricingClient
       promoActiveByCadence={promoActiveByCadence}
@@ -60,6 +96,9 @@ export default async function PricingPage() {
       trialPlanKeys={[...getTrialPlans()]}
       referralEnabled={isReferralProgramEnabled()}
       campaignActive={campaignActive}
+      currentPlan={currentPlan}
+      subscriptionStatus={subscriptionStatus}
+      guaranteeUsed={guaranteeUsed}
     />
   );
 }

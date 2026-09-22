@@ -12,7 +12,10 @@
 //   • Founding member: the founding intro rate for the new plan, and an
 //     EXCLUSIVE branch — never the public promo. Once the 25%-forever lifetime
 //     coupon is applied (~month 12) it persists on its own, so the discounts
-//     are left entirely untouched (null is returned).
+//     are left entirely untouched (null is returned). Likewise when the new
+//     billing period has no founding rate at all (quarterly — the offer closed
+//     before it existed): the founder's discounts are left as they are rather
+//     than their intro rate silently stripped.
 //   • Everyone else: a monthly promo the member already holds stays on a move
 //     to the other monthly plan, even after the window has closed (the promise
 //     is their first 12 months). Otherwise the new plan gets the ACTIVE public
@@ -54,6 +57,7 @@ export function planSwitchDiscounts(input: {
     // lifetime coupon is on, it isn't cadence-specific and validly persists.
     if (input.foundingLifetimeAppliedAt) return null;
     correctPrimary = getFoundingIntroCouponId(input.newSku.tier, input.newSku.cadence);
+    if (!correctPrimary) return null;
   } else {
     const advertisedPromoCouponIds = BILLABLE_TIERS.flatMap((tier) =>
       BILLING_CADENCES.filter((cadence) => isPromoAdvertised({ tier, cadence })).map((cadence) =>

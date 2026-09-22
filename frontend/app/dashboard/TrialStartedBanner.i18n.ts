@@ -15,7 +15,7 @@ export const dict: PageDictionary = {
     billingNone: 'Cancel anytime.',
     welcomeMoneyBack: 'Welcome — your subscription is now active.',
     billingMoneyBack:
-      'Covered by our {days}-day money-back guarantee: not for you? Request a full refund from your Account page within {days} days. One refund per customer.',
+      'Covered by our {days}-day money-back guarantee: not for you? Request a full refund from your Account page within {days} days of your first payment. One refund per customer.',
     dismiss: 'Dismiss',
   },
   it: {
@@ -27,7 +27,7 @@ export const dict: PageDictionary = {
     billingNone: 'Annulla in qualsiasi momento.',
     welcomeMoneyBack: 'Benvenuto — il tuo abbonamento è ora attivo.',
     billingMoneyBack:
-      'Coperto dalla nostra garanzia soddisfatti o rimborsati di {days} giorni: non fa per te? Richiedi il rimborso completo dalla pagina Account entro {days} giorni. Un rimborso per cliente.',
+      'Coperto dalla nostra garanzia soddisfatti o rimborsati di {days} giorni: non fa per te? Richiedi il rimborso completo dalla pagina Account entro {days} giorni dal tuo primo pagamento. Un rimborso per cliente.',
     dismiss: 'Chiudi',
   },
   de: {
@@ -39,7 +39,7 @@ export const dict: PageDictionary = {
     billingNone: 'Jederzeit kündbar.',
     welcomeMoneyBack: 'Willkommen — dein Abonnement ist jetzt aktiv.',
     billingMoneyBack:
-      'Mit unserer {days}-Tage-Geld-zurück-Garantie: Nicht das Richtige? Fordere innerhalb von {days} Tagen über deine Kontoseite eine volle Erstattung an. Eine Erstattung pro Kunde.',
+      'Mit unserer {days}-Tage-Geld-zurück-Garantie: Nicht das Richtige? Fordere innerhalb von {days} Tagen nach deiner ersten Zahlung über deine Kontoseite eine volle Erstattung an. Eine Erstattung pro Kunde.',
     dismiss: 'Schließen',
   },
   es: {
@@ -51,7 +51,7 @@ export const dict: PageDictionary = {
     billingNone: 'Cancela cuando quieras.',
     welcomeMoneyBack: 'Bienvenido — tu suscripción ya está activa.',
     billingMoneyBack:
-      'Cubierta por nuestra garantía de devolución de {days} días: ¿no es para ti? Solicita un reembolso completo desde tu página de Cuenta en un plazo de {days} días. Un reembolso por cliente.',
+      'Cubierta por nuestra garantía de devolución de {days} días: ¿no es para ti? Solicita un reembolso completo desde tu página de Cuenta en un plazo de {days} días desde tu primer pago. Un reembolso por cliente.',
     dismiss: 'Cerrar',
   },
   fr: {
@@ -63,7 +63,7 @@ export const dict: PageDictionary = {
     billingNone: 'Annulez à tout moment.',
     welcomeMoneyBack: 'Bienvenue — votre abonnement est maintenant actif.',
     billingMoneyBack:
-      'Couvert par notre garantie satisfait ou remboursé de {days} jours : ça ne vous convient pas ? Demandez un remboursement intégral depuis votre page Compte sous {days} jours. Un remboursement par client.',
+      'Couvert par notre garantie satisfait ou remboursé de {days} jours : ça ne vous convient pas ? Demandez un remboursement intégral depuis votre page Compte sous {days} jours après votre premier paiement. Un remboursement par client.',
     dismiss: 'Fermer',
   },
 };
