@@ -162,8 +162,9 @@ if (submitted === 0) {
   console.log('\nNo subscribers yet. The rate above is undefined, not zero.');
 } else if (submitted < 20) {
   // Said plainly so a 100% or a 33% off four rows is not read as a trend.
-  console.log(`\nNOTE: ${submitted} rows is too few to read a rate from. Treat the`);
-  console.log('percentage as a count until this is comfortably into the dozens.');
+  const noun = submitted === 1 ? '1 row is' : `${submitted} rows are`;
+  console.log(`\nNOTE: ${noun} too few to read a rate from. Treat the percentage`);
+  console.log('as a count until this is comfortably into the dozens.');
 }
 
 if (bySymbol.length) {
