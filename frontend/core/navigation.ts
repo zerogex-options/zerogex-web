@@ -173,6 +173,14 @@ export const NAV_GROUPS: NavGroup[] = [
       // link, absent from the sitemap — so nobody inside the product could
       // find it. Now a landing page of session cards, like Daily Replay.
       { id: '/scorecard', label: 'Daily Scorecard', labelKey: 'nav.dailyScorecard', matchPrefix: true },
+      // The aggregate of what Daily Forecast grades, across every session
+      // rather than one. Sits with the three dated views because it is the
+      // same subject at a different scope, and it is listed AT ALL because
+      // /scorecard already taught us what an unlinked public page is worth:
+      // it sat reachable only from one dated post for months. No labelKey —
+      // untranslated, like Premium Surface, rather than shipping a key with
+      // no strings behind it in five locales.
+      { id: '/track-record', label: 'Track Record' },
     ],
   },
   {

@@ -17,12 +17,18 @@ import {
   MIN_SCORED_FOR_RATES,
   articleForPercent,
   brierVerdict,
+  clusteringNote,
   coverageVerdict,
   coverageVerdictText,
   fmtCi,
   fmtRate,
-  trackRecordHeadline,
+  historyHeadline,
+  missClusters,
+  summarizeForecastHistory,
   trackRecordOneLiner,
+  volVerdict,
+  volVerdictText,
+  type ForecastDateEntry,
   type RollingStats,
 } from '../core/trackRecord.ts';
 
@@ -101,89 +107,6 @@ test('the indefinite article matches how the number is spoken', () => {
   assert.equal(articleForPercent(0.5), 'a');
 });
 
-// ── The headline ────────────────────────────────────────────────────────────
-
-test('on the live data the headline leads with Brier, not with 100% coverage', () => {
-  const h = trackRecordHeadline(LIVE, 'SPX');
-  assert.equal(h.hasNumbers, true);
-  assert.ok(h.numbers!.startsWith('Touch odds'), `led with: ${h.numbers}`);
-  assert.match(h.numbers!, /0\.14 on Brier over 29/);
-  assert.match(h.numbers!, /0\.25 is a coin flip/);
-});
-
-test('the padded band is volunteered in the headline, not omitted', () => {
-  // A reader who works this out for themselves trusts nothing else on the
-  // page. A reader told up front trusts everything else more.
-  const h = trackRecordHeadline(LIVE, 'SPX');
-  assert.match(h.numbers!, /29 of 29 against an 80% target/);
-  assert.match(h.numbers!, /wider than it needs to be/);
-});
-
-test('the headline never claims an accuracy figure off a coverage rate', () => {
-  const h = trackRecordHeadline(LIVE, 'SPX');
-  for (const banned of [/100% accurate/i, /perfect/i, /never missed/i, /flawless/i]) {
-    assert.ok(!banned.test(h.numbers!), `headline must not say ${banned}`);
-  }
-});
-
-test('coverage leads when it is actually on target', () => {
-  const h = trackRecordHeadline(withStats({ range_respected_rate: 0.82, levels_brier_avg: 0.3 }), 'SPX');
-  assert.ok(h.numbers!.startsWith('The projected range held'), h.numbers!);
-  assert.ok(!h.numbers!.includes('wider than it needs to be'));
-});
-
-test('below the minimum sample the numbers are withheld, and the practice still stands', () => {
-  const thin = withStats({ n_scored: MIN_SCORED_FOR_RATES - 1 });
-  const h = trackRecordHeadline(thin, 'SPX');
-  assert.equal(h.hasNumbers, false);
-  assert.equal(h.numbers, null);
-  // The evergreen claim is the real differentiator and survives a thin sample
-  // — and a bad month.
-  assert.match(h.practice, /committed before the open, then graded against the close/);
-});
-
-test('no stats at all still yields the practice line, never an apology', () => {
-  const h = trackRecordHeadline(null, 'QQQ');
-  assert.equal(h.hasNumbers, false);
-  assert.equal(h.nScored, 0);
-  assert.match(h.practice, /^Every morning QQQ/);
-});
-
-// ── The one-liner ───────────────────────────────────────────────────────────
-
-test('the one-liner leads with the practice, never with a bare percentage', () => {
-  // It has no room for a confidence interval, so a bare rate would be the
-  // least defensible sentence on whichever page it lands.
-  const line = trackRecordOneLiner(LIVE, 'SPX');
-  assert.ok(line.startsWith('We commit to a SPX forecast before every open'), line);
-  assert.match(line, /0\.14 on Brier/);
-  assert.ok(!line.includes('100%'));
-});
-
-test('the one-liner degrades to the practice alone on a thin sample', () => {
-  const line = trackRecordOneLiner(withStats({ n_scored: 2 }), 'SPY');
-  assert.match(line, /Every receipt is published/);
-  assert.ok(!/\d+%/.test(line), 'must not print a rate off two sessions');
-});
-
-// ── The full record, not the rolling window ────────────────────────────────
-//
-// The fixture below is the REAL production SPX archive as of 2026-09-22, not
-// an invented one. Seven misses at the dates the range-width script reported,
-// five of them in two back-to-back runs (Jul 6-7-8 and Aug 3-4). If the page
-// is going to publish 48 of 55, the arithmetic that produces "48 of 55" is
-// worth pinning to the data it came from.
-
-import {
-  summarizeForecastHistory,
-  missClusters,
-  historyHeadline,
-  clusteringNote,
-  volVerdict,
-  volVerdictText,
-  type ForecastDateEntry,
-} from '../core/trackRecord.ts';
-
 /** The seven SPX sessions that broke the band, per forecast-range-width. */
 const SPX_MISSES = [
   '2026-07-06', '2026-07-07', '2026-07-08',
@@ -210,6 +133,70 @@ function spxArchive(): ForecastDateEntry[] {
   out.push({ date: '2026-09-22', has_receipt: false, range_respected: null });
   return out;
 }
+
+// ── The one-liner ───────────────────────────────────────────────────────────
+//
+// It now reads the FULL RECORD. The rolling-window headline it used to share
+// a source with is gone: /track-record publishes 48 of 55, and a one-liner
+// sourced from the rolling window would have said 29 of 29 on the six
+// highest-traffic pages on the site. Two numbers for one claim, the bigger
+// one where it gets read. These tests exist to keep that from coming back.
+
+test('the one-liner leads with the practice, never with a bare percentage', () => {
+  // It has no room for a confidence interval, so a bare rate would be the
+  // least defensible sentence on whichever page it lands.
+  const line = trackRecordOneLiner(summarizeForecastHistory(spxArchive(), 'SPX'), 'SPX', LIVE);
+  assert.ok(line.startsWith('We commit to a SPX forecast before every open'), line);
+  assert.match(line, /0\.14 on Brier/);
+});
+
+test('the one-liner NEVER prints the rolling 29 of 29', () => {
+  // The whole reason this module exists: a headline on /spx-gamma-levels may
+  // not say something /track-record would contradict.
+  const line = trackRecordOneLiner(summarizeForecastHistory(spxArchive(), 'SPX'), 'SPX', LIVE);
+  assert.ok(!line.includes('100%'), line);
+  assert.ok(!line.includes('29 of 29'), line);
+});
+
+test('without a Brier score it falls back to the FULL record, not the window', () => {
+  const noBrier = withStats({ levels_brier_avg: null, levels_n_scored: 0 });
+  const line = trackRecordOneLiner(summarizeForecastHistory(spxArchive(), 'SPX'), 'SPX', noBrier);
+  assert.match(line, /48 of 55 graded sessions/);
+  // n_scored on the rolling payload is 29 and must not leak in.
+  assert.ok(!line.includes('of 29'), line);
+});
+
+test('the one-liner works with no rolling payload at all', () => {
+  const line = trackRecordOneLiner(summarizeForecastHistory(spxArchive(), 'SPX'), 'SPX');
+  assert.match(line, /48 of 55 graded sessions/);
+});
+
+test('the one-liner degrades to the practice alone on a thin record', () => {
+  const thin = summarizeForecastHistory(
+    [{ date: '2026-01-05', has_receipt: true, range_respected: true }],
+    'SPY',
+  );
+  const line = trackRecordOneLiner(thin, 'SPY');
+  assert.match(line, /Every receipt is published/);
+  assert.ok(!/\d+%/.test(line), 'must not print a rate off one session');
+  assert.ok(!/\d+ of \d+/.test(line), 'must not print a fraction off one session');
+});
+
+test('the one-liner survives a null record', () => {
+  const line = trackRecordOneLiner(null, 'NDX');
+  assert.match(line, /^We commit to a NDX forecast/);
+  assert.match(line, /Every receipt is published/);
+});
+
+// ── The full record, not the rolling window ────────────────────────────────
+//
+// The fixture below is the REAL production SPX archive as of 2026-09-22, not
+// an invented one. Seven misses at the dates the range-width script reported,
+// five of them in two back-to-back runs (Jul 6-7-8 and Aug 3-4). If the page
+// is going to publish 48 of 55, the arithmetic that produces "48 of 55" is
+// worth pinning to the data it came from.
+
+
 
 test('summarizeForecastHistory reproduces the published 48 of 55', () => {
   const s = summarizeForecastHistory(spxArchive(), 'SPX');

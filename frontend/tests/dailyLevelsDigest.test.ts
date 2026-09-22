@@ -419,3 +419,83 @@ test('the reading list is present in both bodies and every link is public', () =
   assert.match(text, /Worth reading:/);
   assert.match(html, /Worth reading/);
 });
+
+// ── The track-record line ──────────────────────────────────────────────────
+//
+// Optional by design. This runs in a weekday cron that mails real
+// subscribers, and it exists to carry one marketing sentence — so every
+// failure path has to end with the email going out unchanged, never with a
+// send aborting. These tests are mostly about the absence case.
+
+import {
+  summarizeForecastHistory,
+  type ForecastDateEntry,
+} from '../core/trackRecord.ts';
+
+/** 55 graded SPX sessions with the seven real misses, as on 2026-09-22. */
+function spxRecord() {
+  const misses = new Set([
+    '2026-07-06', '2026-07-07', '2026-07-08',
+    '2026-07-15', '2026-07-23', '2026-08-03', '2026-08-04',
+  ]);
+  const out: ForecastDateEntry[] = [];
+  let made = 0;
+  for (let i = 0; made < 55; i++) {
+    const d = new Date(Date.UTC(2026, 6, 6) + i * 86400000);
+    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+    const date = d.toISOString().slice(0, 10);
+    out.push({ date, has_receipt: true, range_respected: !misses.has(date) });
+    made++;
+  }
+  return summarizeForecastHistory(out, 'SPX');
+}
+
+test('with no history passed, the digest is exactly what it was before', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  assert.equal(m.trackRecord, null);
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  assert.ok(!r.text.includes('graded sessions'), 'no track-record line in the text body');
+  assert.ok(!r.html.includes('See the record'), 'no track-record line in the html body');
+});
+
+test('with history, the line carries the FULL record and links the page', () => {
+  const m = buildDigestModel({
+    snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', history: spxRecord(),
+  })!;
+  assert.match(m.trackRecord!, /48 of 55 graded sessions/);
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  assert.match(r.text, /48 of 55 graded sessions/);
+  assert.match(r.text, /https:\/\/zerogex\.io\/track-record/);
+  assert.match(r.html, /48 of 55 graded sessions/);
+  assert.match(r.html, /See the record/);
+});
+
+test('the email never prints the rolling 29 of 29', () => {
+  const m = buildDigestModel({
+    snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', history: spxRecord(),
+  })!;
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  for (const body of [r.text, r.html]) {
+    assert.ok(!body.includes('29 of 29'), 'the rolling window must not reach the email');
+    assert.ok(!/\b100%\b/.test(body), 'no 100% claim anywhere in the email');
+  }
+});
+
+test('a thin record yields no numeric claim rather than a hollow one', () => {
+  const thin = summarizeForecastHistory(
+    [{ date: '2026-09-18', has_receipt: true, range_respected: true }],
+    'SPX',
+  );
+  const m = buildDigestModel({
+    snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', history: thin,
+  })!;
+  assert.ok(!/\d+ of \d+/.test(m.trackRecord!), m.trackRecord!);
+  assert.match(m.trackRecord!, /Every receipt is published/);
+});
+
+test('the reading list always carries the track-record link', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  assert.match(r.text, /zerogex\.io\/track-record/);
+  assert.match(r.html, /zerogex\.io\/track-record/);
+});

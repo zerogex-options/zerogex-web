@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { summarizeForecastHistory, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
+import TrackRecordStrip from '@/components/TrackRecordStrip';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
@@ -613,6 +615,29 @@ function SymbolCard({
   );
 }
 
+/**
+ * The graded forecast record for this page's symbol.
+ *
+ * Same ISR window as everything else here, and only the dated archive: no
+ * rolling-stats call. Two reasons. The extra request would buy a Brier score
+ * that needs a paragraph to explain, where "48 of 55 graded sessions, misses
+ * published" lands on its own. And the rolling window reads 29 of 29 on SPX,
+ * so pulling it onto the six highest-traffic pages on the site is how the
+ * wrong number ends up in front of the most people.
+ *
+ * Failure is not an error state: serverApiGet returns null, the summary comes
+ * back empty, and trackRecordOneLiner falls through to the practice sentence,
+ * which is true whether or not the archive answered.
+ */
+async function loadTrackRecord(symbol: Symbol): Promise<HistorySummary | null> {
+  const list = await serverApiGet<{ dates: ForecastDateEntry[] }>(
+    `/api/forecast/available-dates?symbol=${symbol}&limit=400`,
+    900,
+  );
+  if (!list?.dates?.length) return null;
+  return summarizeForecastHistory(list.dates, symbol);
+}
+
 export default async function GammaLevelsView({ primary }: { primary: Symbol }) {
   const content = SYMBOL_CONTENT[primary];
   const order = symbolOrder(primary);
@@ -620,9 +645,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   // fetched in parallel. Both go through the same ISR-cached serverApiGet at
   // 900s (and the shared /api/gex/summary URL is deduped by the Next fetch
   // cache), so the added chart costs no extra latency on a warm cache.
-  const [{ snapshots, fromCache }, chartSnapshot] = await Promise.all([
+  const [{ snapshots, fromCache }, chartSnapshot, trackRecord] = await Promise.all([
     loadSnapshots(),
     loadChartSnapshot(primary, '5min'),
+    loadTrackRecord(primary),
   ]);
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
@@ -906,6 +932,13 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             />
           ))}
         </section>
+
+        {/* The graded record. Deliberately the LAST thing before the first
+            ask: everything above is free data, everything below is a request,
+            and this is the sentence that earns the request. Reads the full
+            archive rather than the rolling window — see core/trackRecord.ts
+            for why those disagree. */}
+        <TrackRecordStrip history={trackRecord} symbol={primary} />
 
         {/* Conversion block (requirement #1): directly after the free delayed
             levels, before the product preview and educational content. */}

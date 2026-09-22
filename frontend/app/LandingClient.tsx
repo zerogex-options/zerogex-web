@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import GammaProfileHero from '@/components/marketing/GammaProfileHero';
+import TrackRecordStrip from '@/components/TrackRecordStrip';
+import type { HistorySummary } from '@/core/trackRecord';
 import { useTheme } from '@/core/ThemeContext';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -219,7 +221,7 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function LandingPage() {
+export default function LandingPage({ trackRecord }: { trackRecord: HistorySummary | null }) {
   const { theme } = useTheme();
   const t = usePageT(dict);
 
@@ -578,6 +580,15 @@ export default function LandingPage() {
           <StatCard isDark={isDark} label={t('statOptionsGreeks')} value={<AnimatedNumber target={4} />} sub={t('statOptionsGreeksSub')} />
           <StatCard isDark={isDark} label={t('statSupportedSymbols')} value={<AnimatedNumber target={4} suffix="+" />} sub={t('statSupportedSymbolsSub')} />
         </div>
+      </section>
+
+      {/* ── The graded record ────────────────────────────────────────────────── */}
+      {/* Directly under the stats bar on purpose. Everything in that bar is a
+          capability count — how many modules, how fast the refresh — and none
+          of it says whether the output is any good. This is the only number on
+          the homepage that can be checked against something. */}
+      <section style={{ padding: '0 32px 40px', maxWidth: 1200, margin: '0 auto' }}>
+        <TrackRecordStrip history={trackRecord} symbol="SPX" />
       </section>
 
       {/* ── What is ZeroGEX ──────────────────────────────────────────────────── */}

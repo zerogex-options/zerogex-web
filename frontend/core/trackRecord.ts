@@ -156,81 +156,19 @@ export function brierVerdictText(verdict: BrierVerdict): string {
 
 // ── What the high-traffic pages are allowed to say ──────────────────────────
 
-export type TrackRecordHeadline = {
-  /**
-   * The evergreen claim. No numbers, always true, and the actual
-   * differentiator: publishing a dated commitment every morning and grading it
-   * the same afternoon is the thing competitors do not do. A percentage is
-   * supporting evidence for this sentence, not a replacement for it — which is
-   * also why a bad month cannot silence the page.
-   */
-  practice: string;
-  /**
-   * The numeric line, or null when there are too few graded receipts to say
-   * anything honest. Callers render `practice` alone in that case rather than
-   * a hollow rate or an apology.
-   */
-  numbers: string | null;
-  /** True when `numbers` is populated. */
-  hasNumbers: boolean;
-  nScored: number;
-};
-
-export function trackRecordHeadline(
-  stats: RollingStats | null | undefined,
-  symbol: string,
-): TrackRecordHeadline {
-  const practice = `Every morning ${symbol} gets a projected range, an expected-volatility call and touch odds on each level — committed before the open, then graded against the close.`;
-  const nScored = stats?.n_scored ?? 0;
-
-  if (!stats || nScored < MIN_SCORED_FOR_RATES) {
-    return { practice, numbers: null, hasNumbers: false, nScored };
-  }
-
-  // WHICH CLAIM LEADS IS DECIDED BY THE EVIDENCE, NOT BY WHICH NUMBER LOOKS
-  // BEST. Measured on 2026-09-22, SPX coverage was 29 of 29 against an 80%
-  // target. Leading with "100%" would be the single fastest way to lose the
-  // reader this page exists to convince: coverage at 100% against an 80%
-  // target does not mean the forecast is flawless, it means the band is wider
-  // than advertised. The Brier score has no such problem — it is a
-  // calibration measure with a fixed reference point, so a good one is
-  // unambiguously good.
-  const brier = brierVerdict(stats.levels_brier_avg);
-  const coverage = coverageVerdict(stats.range_respected_rate, stats.range_baseline);
-  const parts: string[] = [];
-
-  if (brier === 'better-than-coin-flip' && stats.levels_n_scored >= MIN_SCORED_FOR_RATES) {
-    parts.push(
-      `Touch odds on the dealer levels score ${stats.levels_brier_avg!.toFixed(2)} on Brier over ${stats.levels_n_scored} graded sessions, where 0.25 is a coin flip.`,
-    );
-  }
-
-  if (stats.range_respected_rate != null) {
-    const held = Math.round(stats.range_respected_rate * nScored);
-    const target =
-      stats.range_baseline != null
-        ? ` against ${articleForPercent(stats.range_baseline)} ${fmtRate(stats.range_baseline)} target`
-        : '';
-    if (coverage === 'over') {
-      // Volunteered, not buried. A reader who works it out for themselves
-      // trusts nothing else on the page; a reader told up front trusts
-      // everything else more.
-      parts.push(
-        `The projected range held ${held} of ${nScored}${target} — wider than it needs to be, which we would rather say than dress up.`,
-      );
-    } else {
-      parts.push(`The projected range held ${held} of ${nScored}${target}.`);
-    }
-  }
-
-  if (parts.length === 0) {
-    return { practice, numbers: null, hasNumbers: false, nScored };
-  }
-  return { practice, numbers: parts.join(' '), hasNumbers: true, nScored };
-}
-
 /**
  * The compact form, for a levels page or the daily email.
+ *
+ * READS THE FULL RECORD, not the rolling window. This module exists so "a
+ * headline on /spx-gamma-levels can never say something the receipt page
+ * would contradict", and once /track-record started publishing 48 of 55, a
+ * one-liner sourced from the rolling window would have said 29 of 29 on the
+ * six highest-traffic pages on the site. Same claim, two numbers, the bigger
+ * one on the pages that actually get read.
+ *
+ * `stats` is optional and supplies the one thing the dated archive cannot:
+ * the Brier score on the touch odds. A caller with no rolling payload still
+ * gets a true sentence.
  *
  * Leads with the PRACTICE, not a percentage. Two reasons: a one-liner has no
  * room for a confidence interval, so a bare rate would be the least defensible
@@ -239,24 +177,29 @@ export function trackRecordHeadline(
  * cannot take away.
  */
 export function trackRecordOneLiner(
-  stats: RollingStats | null | undefined,
+  history: HistorySummary | null | undefined,
   symbol: string,
+  stats?: RollingStats | null,
 ): string {
   const lead = `We commit to a ${symbol} forecast before every open and grade it against the close.`;
-  const nScored = stats?.n_scored ?? 0;
-  if (!stats || nScored < MIN_SCORED_FOR_RATES) {
-    return `${lead} Every receipt is published.`;
-  }
+
+  // Brier leads when it is genuinely good: it is a calibration measure with a
+  // fixed reference point, so a good one is unambiguously good. Coverage has
+  // no such property -- above target means the band is too wide -- so it is
+  // never the line we lead with while something better is available.
   if (
-    brierVerdict(stats.levels_brier_avg) === 'better-than-coin-flip' &&
-    stats.levels_n_scored >= MIN_SCORED_FOR_RATES
+    stats
+    && brierVerdict(stats.levels_brier_avg) === 'better-than-coin-flip'
+    && stats.levels_n_scored >= MIN_SCORED_FOR_RATES
   ) {
     return `${lead} Touch odds score ${stats.levels_brier_avg!.toFixed(2)} on Brier across ${stats.levels_n_scored} graded sessions — 0.25 is a coin flip.`;
   }
-  if (stats.range_respected_rate != null) {
-    const held = Math.round(stats.range_respected_rate * nScored);
-    return `${lead} The range held ${held} of the last ${nScored} sessions.`;
+
+  const range = history?.range;
+  if (range && range.graded >= MIN_SCORED_FOR_RATES) {
+    return `${lead} The range has held ${range.held} of ${range.graded} graded sessions, misses published.`;
   }
+
   return `${lead} Every receipt is published.`;
 }
 
