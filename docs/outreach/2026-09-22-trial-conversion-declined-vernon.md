@@ -77,8 +77,9 @@ promising it will work. Same position as the hollandsp draft.
 **monthly**, so paying the open invoice from its hosted page clears September and
 leaves Link pinned to the subscription — October fails the same way, which is the
 Matheus lesson from 2026-09-20. Adding a card gives the next retry a different
-route *and* fixes the recurrence. The invoice link stays in the note as the
-settle-it-now option, second.
+route *and* fixes the recurrence. The short draft therefore carries **no
+invoice link at all** — adding a card is the only action it asks for, which is
+also the one that survives into October.
 
 **The deadline is shorter than the retries.** Grace is 3 days
 (`BILLING_PAYMENT_GRACE_DAYS=3`, trial grace on, anchor confirmed), so access
@@ -133,7 +134,8 @@ sub is `active` again, every row above opens up.
 - **Confirm the name.** `diagnose-user` prints no name and the Stripe Name field
   was cut off in the dashboard view. "Vernon" is inferred from the address alone.
   If Stripe disagrees, open with `Hi —` as the hollandsp draft did.
-- **Confirm the invoice is still `open`** before sending a pay-now link.
+- **Confirm the invoice is still `open`.** It is the premise of the whole note.
+  (The draft sends no pay-now link, so there is nothing else riding on this.)
 - **Do not paste a `hosted_invoice_url` you copied earlier — it rotates.** The
   two `diagnose-user` runs a day apart returned *different* URLs for the same
   unchanged invoice. Base64-decoding the path shows why: the account and the
@@ -141,9 +143,10 @@ sub is `active` again, every row above opens up.
   across both, and only a trailing number moved, `180582741` → `180586178` —
   and **both** invoices on the account, including the settled $0 trial one,
   picked up the *same* new number. So it is minted per fetch, not per invoice,
-  and it carries no information about invoice state. This is the reason the
-  draft says *"reply and I'll send you a payment link"* rather than pasting one:
-  a URL copied today may not be the one Stripe would serve when he clicks it.
+  and it carries no information about invoice state. The short draft sidesteps
+  this entirely by carrying no URL, so it does not bite here — but it bites the
+  moment anyone pastes one, because a URL copied today may not be the one Stripe
+  would serve when he clicks it.
   Worth knowing for the 2026-09-17 batch's practice of pasting the URL straight
   into a draft — pull it fresh at send time, or let Stripe's own dunning mail
   carry it.
@@ -201,23 +204,26 @@ sub is `active` again, every row above opens up.
 
 ## Draft
 
+*Shortened 2026-09-22 at Michael's request — just what happened and what to do.
+Cut from the longer version: the "I can't see behind Link so I won't guess"
+explanation, the offer to send a payment link on reply, and the "if $39 isn't
+right, tell me" close. That last one was the only line inviting a reply, so add
+it back as a sentence if you want the conversation rather than just the fix. The
+reasoning behind every line that stayed is in **The read** above — the
+corrections it encodes (no card, no reason named, no to-the-minute cutoff) are
+load-bearing, not padding, and survived the cut intact.*
+
 **Subject:** Your first ZeroGEX charge didn't go through
 
 Hi Vernon,
 
-This is me directly, not the automated notice that went out on Monday night.
+Your trial ended Monday and the first $39 charge was declined. The automatic email you got asked you to update your card — ignore that, you don't have one saved with us. Your subscription pays through Link.
 
-Your trial ended Monday evening and the first charge of $39 was declined. That automatic email asked you to update your card, and I want to correct it: you don't have a card saved with us. Your subscription pays through Link, so there's nothing on file for you to go and fix.
+Stripe retries automatically over the next couple of weeks, and a first decline often clears on its own. If it does, your access just carries on.
 
-The encouraging part is that this was the first attempt. Stripe retries automatically over the next couple of weeks, and a first-time decline quite often goes through on a later try with nothing needed from you. If one does, your full access switches straight back on by itself — you don't have to redo anything or tell me.
+If you'd rather not leave it to chance, add a card at https://zerogex.io/account. That gives the next attempt a different route, and stops next month going the same way.
 
-If you'd rather not leave it to chance, there's one lever worth knowing about. Because the subscription pays through Link, the funding source behind it isn't something I can see or check from here, so I'm not going to guess at what happened. Adding a card directly at https://zerogex.io/account takes about a minute and gives the next attempt a different route to run against. It's also the thing that stops next month going the same way.
-
-The date that matters: your Basic access is on right now and runs through Thursday the 24th. If nothing has cleared by then the account moves to the free Public tier. Nothing is deleted — your login, your settings and your history all stay exactly as they are, and full access comes back automatically the moment a charge succeeds.
-
-If you'd rather just settle this month now and be done with it, reply and I'll send you a payment link you can pay with any card.
-
-And I'd rather say this than not: if $39 a month isn't the right call right now, or the timing is simply bad, reply and tell me. You were in the app the morning your trial ended, so I'd sooner hear it from you than guess it from a card decline. If ZeroGEX didn't earn its keep during the week, that's the more useful answer for me anyway.
+Your access runs through Thursday the 24th. After that the account drops to the free tier — nothing is deleted, and full access comes back automatically whenever a charge goes through.
 
 Michael
 Founder, ZeroGEX
