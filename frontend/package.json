@@ -154,7 +154,8 @@
     "test:levels-subscribers": "node --experimental-strip-types --test tests/levelsSubscribers.test.ts",
     "test:levels-rate-limit": "node --experimental-strip-types --test tests/levelsRateLimit.test.ts",
     "test:levels-email-routes": "node --experimental-strip-types --test tests/levelsEmailRoutes.test.ts",
-    "test:daily-levels-digest": "node --experimental-strip-types --test tests/dailyLevelsDigest.test.ts"
+    "test:daily-levels-digest": "node --experimental-strip-types --test tests/dailyLevelsDigest.test.ts",
+    "test:rate-limit": "node --experimental-strip-types --test tests/rateLimit.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
