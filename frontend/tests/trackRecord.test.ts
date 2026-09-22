@@ -179,6 +179,8 @@ import {
   missClusters,
   historyHeadline,
   clusteringNote,
+  volVerdict,
+  volVerdictText,
   type ForecastDateEntry,
 } from '../core/trackRecord.ts';
 
@@ -322,4 +324,32 @@ test('an empty archive is survivable, not a crash', () => {
   assert.equal(historyHeadline(s, 0.8), null);
   assert.equal(clusteringNote(s), null);
   assert.equal(summarizeForecastHistory(null, 'SPX').sessions, 0);
+});
+
+// ── The volatility call against its baseline ───────────────────────────────
+
+test('vol call below its baseline is called out as subtracting value', () => {
+  // The real SPX numbers on 2026-09-22: 58.6% against a 69.0% baseline.
+  const v = volVerdict(0.5862, 0.6897);
+  assert.equal(v, 'below-baseline');
+  const text = volVerdictText(v, 'always normal');
+  assert.match(text, /WORSE/);
+  assert.match(text, /always normal/);
+});
+
+test('vol call beating its baseline says so without gloating', () => {
+  const text = volVerdictText(volVerdict(0.78, 0.69), 'always normal');
+  assert.match(text, /better than/);
+  assert.doesNotMatch(text, /WORSE|excellent|outstanding/i);
+});
+
+test('a vol call inside the tolerance band is "no better than" the baseline', () => {
+  assert.equal(volVerdict(0.70, 0.69), 'matches-baseline');
+  assert.match(volVerdictText('matches-baseline', 'always normal'), /not adding anything/);
+});
+
+test('vol verdict is unknown rather than wrong when a baseline is missing', () => {
+  assert.equal(volVerdict(0.7, null), 'unknown');
+  assert.equal(volVerdict(null, 0.7), 'unknown');
+  assert.match(volVerdictText('unknown'), /no baseline/);
 });

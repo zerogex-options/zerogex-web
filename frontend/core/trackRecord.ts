@@ -260,6 +260,49 @@ export function trackRecordOneLiner(
   return `${lead} Every receipt is published.`;
 }
 
+/**
+ * The volatility call against its own baseline.
+ *
+ * Separate from coverageVerdict because the comparison is the opposite shape.
+ * Coverage has a TARGET and beating it is a fault — the band is too wide.
+ * The vol call has a BASELINE, the score you get by answering "normal" every
+ * single day without looking at anything, and beating it is the entire point.
+ * Failing to beat it means the call is adding nothing.
+ *
+ * On the record as of 2026-09-22 the SPX vol call sat at 59% against a 69%
+ * baseline: worse than not making the call at all. That number is on the page
+ * with those words next to it. A page that grades itself and then declines to
+ * say which claim is losing is not grading itself.
+ */
+export type VolVerdict = 'beats-baseline' | 'matches-baseline' | 'below-baseline' | 'unknown';
+
+export function volVerdict(
+  rate: number | null | undefined,
+  baseline: number | null | undefined,
+  tolerance: number = 0.02,
+): VolVerdict {
+  if (rate == null || baseline == null || !Number.isFinite(rate) || !Number.isFinite(baseline)) {
+    return 'unknown';
+  }
+  if (rate > baseline + tolerance) return 'beats-baseline';
+  if (rate < baseline - tolerance) return 'below-baseline';
+  return 'matches-baseline';
+}
+
+export function volVerdictText(verdict: VolVerdict, baselineLabel?: string | null): string {
+  const naive = baselineLabel ? `answering "${baselineLabel}" every day` : 'answering the same thing every day';
+  switch (verdict) {
+    case 'beats-baseline':
+      return `better than ${naive}`;
+    case 'matches-baseline':
+      return `no better than ${naive} — on this sample the call is not adding anything`;
+    case 'below-baseline':
+      return `WORSE than ${naive}. On this sample the volatility call is subtracting value, and we would rather say that than leave you to notice it`;
+    default:
+      return 'no baseline published yet';
+  }
+}
+
 // ── The full record, not the recent window ─────────────────────────────────
 //
 // Everything above reads /api/forecast/stats/rolling, which is a WINDOW. On
