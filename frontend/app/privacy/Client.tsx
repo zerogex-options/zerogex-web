@@ -114,11 +114,10 @@ export default function PrivacyPage() {
                   "Account information" item above does not describe them, and
                   the double opt-in consent record (the two IP addresses and
                   their timestamps) is worth naming for what it is rather than
-                  leaving it to the general usage-data clause. Present only in
-                  the en dictionary for now; usePageT falls back to English
-                  per key, so the other locales render this clause in English
-                  until it is translated, which is better than omitting a
-                  disclosure. */}
+                  leaving it to the general usage-data clause. Translated in
+                  all five locales, matching each one's existing register —
+                  informal in it/de/es, vous in fr. Not lawyer-reviewed in any
+                  of them; worth a pass at the next legal review. */}
               <li>
                 <strong>{t('s2Item5Label')}</strong> {t('s2Item5Text')}
               </li>
