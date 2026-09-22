@@ -43,15 +43,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-type Args = { symbol: string; limit: number; target: number; json: boolean; help: boolean };
+type Args = { symbol: string; limit: number; target: number; model: string | null; json: boolean; help: boolean };
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { symbol: 'SPX', limit: 120, target: 0.8, json: false, help: false };
+  const a: Args = { symbol: 'SPX', limit: 120, target: 0.8, model: null, json: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--symbol') a.symbol = (argv[++i] ?? 'SPX').toUpperCase();
     else if (v === '--limit') a.limit = Number(argv[++i] ?? 120);
     else if (v === '--target') a.target = Number(argv[++i] ?? 0.8);
+    else if (v === '--model') a.model = argv[++i] ?? null;
     else if (v === '--json') a.json = true;
     else if (v === '--help' || v === '-h') a.help = true;
   }
@@ -62,7 +63,7 @@ const args = parseArgs(process.argv.slice(2));
 if (args.help) {
   console.log(`Usage:
   node --experimental-strip-types scripts/forecast-range-width.mts \\
-    [--symbol SPX] [--limit 120] [--target 0.8] [--json]
+    [--symbol SPX] [--limit 120] [--target 0.8] [--model NAME] [--json]
 
 Read-only. Measures how much the morning projected range could be narrowed
 and still hit its coverage target. Writes nothing.
@@ -70,6 +71,10 @@ and still hit its coverage target. Writes nothing.
   --symbol S   ticker to analyse (default SPX)
   --limit  N   how many recent sessions to pull (default 120)
   --target P   coverage target as a fraction (default 0.8)
+  --model  M   only sessions produced by this range model. History spans
+               several model generations and a pooled scale factor describes
+               a blend that no longer runs -- pass the live model to get a
+               number worth acting on.
   --json       machine-readable output`);
   process.exit(0);
 }
@@ -175,6 +180,18 @@ if (rows.length === 0) {
   process.exit(1);
 }
 
+const allRows = rows.slice();
+if (args.model) {
+  const keep = rows.filter((r) => r.model === args.model);
+  if (keep.length === 0) {
+    const seen = [...new Set(allRows.map((r) => r.model ?? '(none)'))].join(', ');
+    console.error(`No sessions with range model "${args.model}". Models present: ${seen}`);
+    process.exit(1);
+  }
+  rows.length = 0;
+  rows.push(...keep);
+}
+
 /** Nearest-rank percentile: with n=29 the answer must be an observed value. */
 function percentile(sorted: number[], p: number): number {
   const rank = Math.max(1, Math.ceil(p * sorted.length));
@@ -194,7 +211,7 @@ const median = (xs: number[]) => percentile([...xs].sort((a, b) => a - b), 0.5);
 
 if (args.json) {
   console.log(JSON.stringify({
-    symbol: args.symbol, n: rows.length, skipped: skipped.length,
+    symbol: args.symbol, model: args.model, n: rows.length, nAll: allRows.length, skipped: skipped.length,
     disagreements: disagreements.map((r) => ({ date: r.date, k: r.k, graded: r.graded })),
     coverageNow, target: args.target, kTarget,
     kPercentiles: Object.fromEntries([10, 25, 50, 75, 80, 90, 95, 100].map((p) => [p, percentile(ks, p / 100)])),
@@ -207,8 +224,9 @@ if (args.json) {
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
-console.log(`Projected-range width — ${args.symbol}\n`);
-console.log(`Graded sessions    ${rows.length}${skipped.length ? `   (${skipped.length} skipped)` : ''}`);
+console.log(`Projected-range width — ${args.symbol}${args.model ? ` · ${args.model}` : ''}\n`);
+console.log(`Graded sessions    ${rows.length}${skipped.length ? `   (${skipped.length} skipped)` : ''}`
+  + (args.model ? `   [filtered from ${allRows.length} by --model]` : ''));
 console.log(`Coverage now       ${pct(coverageNow)}  (${rows.filter((r) => r.contained).length}/${rows.length})`);
 console.log(`Target             ${pct(args.target)}\n`);
 
@@ -240,22 +258,46 @@ for (const k of [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]) {
 console.log('\nWhere the slack sits (median unused share of each side)');
 console.log(`  upside    ${median(rows.map((r) => r.upSlackPct)).toFixed(1)}%`);
 console.log(`  downside  ${median(rows.map((r) => r.downSlackPct)).toFixed(1)}%`);
-const byModel = new Map<string, number[]>();
-for (const r of rows) {
+// Segmented by model, because history spans several generations of the range
+// model and a scale factor pooled across them describes a blend that no longer
+// runs. A retired model that habitually BROKE its band drags the pooled
+// percentile up and makes the live model look less padded than it is.
+const byModel = new Map<string, Row[]>();
+for (const r of allRows) {
   const key = r.model ?? '(none)';
   if (!byModel.has(key)) byModel.set(key, []);
-  byModel.get(key)!.push(r.k);
+  byModel.get(key)!.push(r);
 }
 if (byModel.size > 1) {
-  console.log('\nBy range model');
-  for (const [model, arr] of byModel) {
-    console.log(`  ${model.padEnd(22)} n=${String(arr.length).padStart(3)}  median k = ${median(arr).toFixed(3)}`);
+  console.log('\nBy range model — the pooled number above is a blend of these');
+  console.log('  model                    n   held     p50     p80     p95     max');
+  const ordered = [...byModel.entries()].sort((a, b) => b[1].length - a[1].length);
+  for (const [model, arr] of ordered) {
+    const mk = arr.map((r) => r.k).sort((a, b) => a - b);
+    const held = arr.filter((r) => r.contained).length;
+    const cells = [0.5, 0.8, 0.95, 1].map((q) => percentile(mk, q).toFixed(3).padStart(7)).join(' ');
+    const thin = arr.length < 10 ? '  (too few to read percentiles)' : '';
+    console.log(
+      `  ${model.padEnd(20)} ${String(arr.length).padStart(3)}  ${pct(held / arr.length).padStart(6)} ${cells}${thin}`,
+    );
   }
 }
 
-const worst = [...rows].sort((a, b) => b.k - a.k).slice(0, 3);
-console.log('\nTightest sessions (closest to breaking the band)');
-for (const r of worst) console.log(`  ${r.date}   k = ${r.k.toFixed(3)}`);
+const misses = allRows.filter((r) => !r.contained).sort((a, b) => b.k - a.k);
+if (misses.length) {
+  console.log(`\nSessions that broke the band (${misses.length} of ${allRows.length})`);
+  for (const r of misses) {
+    console.log(`  ${r.date}   k = ${r.k.toFixed(3)}   ${r.model ?? '(none)'}`);
+  }
+  const liveModel = [...byModel.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0];
+  const stale = misses.filter((r) => (r.model ?? '(none)') !== liveModel).length;
+  if (stale) {
+    console.log(`  ${stale} of these came from a retired model, not the one running now.`);
+  }
+} else {
+  console.log('\nNo session broke the band. Coverage is 100% and the band is padded by');
+  console.log('an amount this sample cannot bound from above -- treat the widths as a floor.');
+}
 
 console.log(`\nIN-SAMPLE. k was fitted to the same ${rows.length} sessions it is measured on, so`);
 console.log('this is a starting estimate, not a validated parameter. Narrow toward it and');
