@@ -32,6 +32,13 @@ const PUBLIC_ROUTE_PATTERNS = [
   // they must stay open (and crawlable) for everyone. Listed explicitly so
   // every route has a definitive tier rather than relying on "no rule = open".
   '/giving',
+  // Reachable already, but only by "no rule = open" — which this list exists
+  // to avoid ("Listed explicitly so every route has a definitive tier"). It is
+  // in the sitemap, it is the page the daily levels email links when a gamma
+  // flip comes back unresolved, and it is the site's credibility document.
+  // Left implicit, one added ROUTE_ACCESS_RULES pattern could close it by
+  // accident and nothing would fail.
+  '/methodology',
   '/updates',
   '/search',
   '/real-time-gex-0dte',
