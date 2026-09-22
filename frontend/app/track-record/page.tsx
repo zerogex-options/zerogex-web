@@ -258,7 +258,7 @@ export default async function TrackRecordPage() {
                   {r.history.range.misses.map((d) => (
                     <li key={d}>
                       <Link
-                        href={`/forecast/${d}?symbol=${r.symbol}`}
+                        href={`/forecast/${r.symbol}/${d}`}
                         className="inline-flex items-center gap-1 rounded border border-[var(--color-border)] px-2 py-1 font-mono text-xs hover:border-[var(--color-accent)]"
                       >
                         <Verdict ok={false} />
