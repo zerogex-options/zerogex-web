@@ -20,6 +20,40 @@ export type WeatherFieldKey = 'pressure' | 'lean' | 'stability' | 'gamma_trend' 
 export interface WeatherFieldPoint {
   bar_start: string;
   value: number | null;
+  /**
+   * The 15-minute smoother: a trailing mean over SMOOTHER_BARS bars, which on
+   * the 5-minute grid is fifteen minutes. On Pressure this is the same 3-bar
+   * average the panel has always shown, because at 5m the two are the same
+   * measurement under two names.
+   */
+  smoothed: number | null;
+}
+
+/**
+ * Bars in the background smoother. Three of them on a 5-minute grid is the
+ * 15-minute clock, and on Pressure it is the 3-bar average the classifier
+ * itself reads.
+ */
+export const SMOOTHER_BARS = 3;
+
+/**
+ * Trailing mean, null until the window fills and null through any gap.
+ *
+ * Mirrors src/analytics/hedging_flow.smooth exactly, and for the same reason:
+ * a partial window is the raw value wearing a smoothed label, and a window
+ * containing a hole would average a gap into a number that looks measured.
+ */
+export function trailingMean(
+  values: (number | null)[],
+  window: number = SMOOTHER_BARS,
+): (number | null)[] {
+  if (window <= 1) return [...values];
+  return values.map((_, i) => {
+    if (i + 1 < window) return null;
+    const chunk = values.slice(i + 1 - window, i + 1);
+    if (chunk.some((v) => v == null || !Number.isFinite(v))) return null;
+    return (chunk as number[]).reduce((a, b) => a + b, 0) / window;
+  });
 }
 
 export interface WeatherFieldSpec {
@@ -99,7 +133,15 @@ export function fieldSeries(
 ): WeatherFieldPoint[] {
   if (key === 'pressure') {
     const bars = flow?.bars ?? [];
-    return bars.map((b) => ({ bar_start: b.bar_start, value: b.net_flow_usd ?? null }));
+    // The server's own 3-bar average, not a re-derivation of it. It is the
+    // value the classifier read to decide the pressure direction and the one
+    // the Session Pressure chart below draws, so recomputing it here would be
+    // inviting the drawer to disagree with the chart three inches beneath it.
+    return bars.map((b) => ({
+      bar_start: b.bar_start,
+      value: b.net_flow_usd ?? null,
+      smoothed: b.net_flow_ma_usd ?? null,
+    }));
   }
 
   const bars = regime?.bars ?? [];
@@ -109,7 +151,15 @@ export function fieldSeries(
     if (key === 'gamma_trend') return bar.anchored_stability;
     return bar.cushion_pts ?? null;
   };
-  return bars.map((b) => ({ bar_start: b.bar_start, value: pick(b) }));
+  // No server-side smoother exists for the structure fields, so it is computed
+  // here under the same rule. Display only: nothing classifies off it.
+  const values = bars.map(pick);
+  const smoothed = trailingMean(values);
+  return bars.map((b, i) => ({
+    bar_start: b.bar_start,
+    value: values[i],
+    smoothed: smoothed[i],
+  }));
 }
 
 /**

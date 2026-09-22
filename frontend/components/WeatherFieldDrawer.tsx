@@ -81,11 +81,19 @@ export default function WeatherFieldDrawer({
         bar_start: p.bar_start,
         label: safeTimeLabel(p.bar_start),
         value: p.value,
+        smoothed: p.smoothed,
       })),
     [points],
   );
 
+  // Named for what it is on this field. On Pressure the 3-bar average IS the
+  // 15-minute clock, and calling it by the name the panel has always used
+  // keeps it recognisable as the same line the chart below draws.
+  const smootherName = field === 'pressure' ? '3-bar average' : '15-minute average';
+
   // Reuses the structure panel's rule so one spike cannot flatten the session.
+  // The smoother is inside the raw series' range by construction, so it cannot
+  // widen the domain and does not need to be fed in.
   const { domain } = useMemo(
     () => robustDomain(points.map((p) => ({ stability: p.value, lean: null }))),
     [points],
@@ -135,6 +143,10 @@ export default function WeatherFieldDrawer({
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             {spec.caption}
           </p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-3 text-[10px]">
+            <span style={{ color: 'var(--color-king)' }}>— This bar</span>
+            <span style={{ color: 'var(--color-info)' }}>— {smootherName}</span>
+          </p>
         </div>
         <button
           type="button"
@@ -182,11 +194,27 @@ export default function WeatherFieldDrawer({
             <Line
               type="monotone"
               dataKey="value"
+              name="This bar"
               stroke="var(--color-king)"
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
               connectNulls
+            />
+            {/* The background clock, drawn behind the operating series: thinner
+                and dimmer, because it is context rather than the read. Null
+                until its window fills, and never bridged across a gap, so a
+                hole in the data cannot be smoothed into a line. */}
+            <Line
+              type="monotone"
+              dataKey="smoothed"
+              name={smootherName}
+              stroke="var(--color-info)"
+              strokeWidth={1.5}
+              strokeOpacity={0.75}
+              dot={false}
+              isAnimationActive={false}
+              connectNulls={false}
             />
             {/* Only real changes are marked. A dot on every bar would be the
                 comment spam the spec rules out, and would hide the moments

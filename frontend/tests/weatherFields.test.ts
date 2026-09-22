@@ -8,11 +8,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  SMOOTHER_BARS,
   WEATHER_FIELDS,
   changesForField,
   commentAt,
   fieldSeries,
   fieldSpec,
+  trailingMean,
 } from '../core/weatherFields.ts';
 
 const t = (i: number) => `2026-09-21T13:${String(30 + i * 5).padStart(2, '0')}:00Z`;
@@ -24,9 +26,9 @@ const t = (i: number) => `2026-09-21T13:${String(30 + i * 5).padStart(2, '0')}:0
 // session right to left in the browser.
 const flow = {
   bars: [
-    { bar_start: t(0), net_flow_usd: 100 },
-    { bar_start: t(1), net_flow_usd: 200 },
-    { bar_start: t(2), net_flow_usd: 300 },
+    { bar_start: t(0), net_flow_usd: 100, net_flow_ma_usd: null },
+    { bar_start: t(1), net_flow_usd: 200, net_flow_ma_usd: null },
+    { bar_start: t(2), net_flow_usd: 300, net_flow_ma_usd: 200 },
   ],
 } as never;
 
@@ -141,4 +143,61 @@ test('no hovered time yields nothing rather than guessing', () => {
 
   assert.equal(comment.sentence, null);
   assert.equal(comment.fresh, false);
+});
+
+
+// --------------------------------------------------------------------------
+// The 15-minute smoother.
+// --------------------------------------------------------------------------
+
+test('three bars on a five-minute grid is the fifteen-minute clock', () => {
+  // Not a coincidence to be tidied away later: on Pressure this same line is
+  // the 3-bar average the classifier reads, which is why one smoother serves
+  // both names in the spec.
+  assert.equal(SMOOTHER_BARS * 5, 15);
+});
+
+test('the smoother is null until its window fills', () => {
+  // A partial window is the raw value wearing a smoothed label.
+  assert.deepEqual(trailingMean([1, 2, 3, 4], 3), [null, null, 2, 3]);
+});
+
+test('a gap is never smoothed over', () => {
+  // Averaging across a hole produces a number that looks measured and is not.
+  assert.deepEqual(trailingMean([1, null, 3, 4, 5], 3), [null, null, null, null, 4]);
+});
+
+test('a window of one is the identity', () => {
+  assert.deepEqual(trailingMean([1, 2], 1), [1, 2]);
+});
+
+test('non-finite readings are treated as gaps, not as numbers', () => {
+  const out = trailingMean([1, Number.NaN, 3, 4, 5], 3);
+
+  assert.ok(out.slice(0, 4).every((v) => v === null));
+  assert.equal(out[4], 4);
+});
+
+test('pressure takes the server\'s own average rather than recomputing it', () => {
+  // It is the value the classifier read and the value the Session Pressure
+  // chart draws. Recomputing invites the drawer to disagree with the chart
+  // directly beneath it.
+  const points = fieldSeries('pressure', flow, regime);
+
+  assert.deepEqual(points.map((p) => p.smoothed), [null, null, 200]);
+});
+
+test('the structure fields get a smoother computed under the same rule', () => {
+  // No server-side smoother exists for these, so it is derived here. Display
+  // only: nothing classifies off it.
+  const points = fieldSeries('lean', flow, regime);
+
+  assert.deepEqual(points.map((p) => p.smoothed), [null, null, 20]);
+});
+
+test('every field carries a smoothed series alongside its values', () => {
+  for (const f of WEATHER_FIELDS) {
+    const points = fieldSeries(f.key, flow, regime);
+    assert.ok(points.every((p) => 'smoothed' in p), `${f.key} must carry a smoother`);
+  }
 });
