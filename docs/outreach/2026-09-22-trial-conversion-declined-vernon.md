@@ -105,6 +105,18 @@ sub is `active` again, every row above opens up.
 
 ## ⚠ Verify first
 
+> **Re-verified 2026-09-22 (second `diagnose-user` run). Everything below still
+> holds and the draft is good to send as written.** Status still `past_due`;
+> `MONEY EVER COLLECTED` still **NO**; invoice `in_1UIEbH4AOiqteMYY6ZYg1LbJ`
+> still `status=open` at **attempt=1**, so no retry has fired and the optimistic
+> paragraph stands; grace anchor unchanged; last seen still 2026-09-21 13:30
+> UTC, so he has not been back since; and no new audit rows — in particular no
+> `grace_expiry_warning_email_sent`, which is expected, since it does not become
+> eligible until 2026-09-23 22:19 UTC.
+>
+> **Send today.** That puts a clear day between this note and the automated
+> warning, the same spacing the 2026-09-20 batch used.
+
 - **Attempt count is the load-bearing fact.** The whole optimistic tone rests on
   this still being **attempt 1**. Re-check before sending; if a second attempt
   has failed, cut the "first attempt" paragraph and the optimism with it.
@@ -122,6 +134,19 @@ sub is `active` again, every row above opens up.
   was cut off in the dashboard view. "Vernon" is inferred from the address alone.
   If Stripe disagrees, open with `Hi —` as the hollandsp draft did.
 - **Confirm the invoice is still `open`** before sending a pay-now link.
+- **Do not paste a `hosted_invoice_url` you copied earlier — it rotates.** The
+  two `diagnose-user` runs a day apart returned *different* URLs for the same
+  unchanged invoice. Base64-decoding the path shows why: the account and the
+  invoice's own token (`_VIqHAw4pMldecHmUl9sYN4c1HJD5DV9`) are byte-identical
+  across both, and only a trailing number moved, `180582741` → `180586178` —
+  and **both** invoices on the account, including the settled $0 trial one,
+  picked up the *same* new number. So it is minted per fetch, not per invoice,
+  and it carries no information about invoice state. This is the reason the
+  draft says *"reply and I'll send you a payment link"* rather than pasting one:
+  a URL copied today may not be the one Stripe would serve when he clicks it.
+  Worth knowing for the 2026-09-17 batch's practice of pasting the URL straight
+  into a draft — pull it fresh at send time, or let Stripe's own dunning mail
+  carry it.
 - **No to-the-minute cutoff in the copy.** The drop lands on the next sync after
   the window elapses, not at the instant, so the draft says "Thursday" and not
   "6:19 PM."
