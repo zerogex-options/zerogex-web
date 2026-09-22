@@ -365,3 +365,59 @@ test('pair-view level tag text clears AA on its tinted chip, in every theme', ()
   }
   assert.deepEqual(unreadable, [], `tag text below 4.5:1:\n  ${unreadable.join('\n  ')}`);
 });
+
+// ── gamma-chart on-plot labels ───────────────────────────────────────────────
+// The level name chips, the flip status chip and the rail bar labels all used
+// to paint their text in the level's (or the bar's) own colour, at 9.5px and
+// 8.5px, against --bg-card. That cleared 4.5:1 in 105 of 192 combinations for
+// the level chips, 12 of 24 for the flip chip and 24 of 48 for the rail labels,
+// worst 2.36:1. All three are --text-primary now; the chip borders and, for the
+// rail, the bar the label is drawn against still carry the colour.
+const terminalSrc = readFileSync(new URL('../components/GammaTerminalChart.tsx', import.meta.url), 'utf8');
+
+const between = (src: string, from: string, to: string) => {
+  const i = src.indexOf(from);
+  assert.notEqual(i, -1, `expected to find ${from}`);
+  const j = src.indexOf(to, i);
+  assert.notEqual(j, -1, `expected ${to} after ${from}`);
+  return src.slice(i, j);
+};
+
+test('the gamma chart does not paint on-plot label text in the mark colour', () => {
+  const nameChip = between(terminalSrc, '{chipPlacements.map(', '</text>');
+  assert.match(nameChip, /fill="var\(--text-primary\)"/, 'level name chips should use --text-primary');
+  assert.doesNotMatch(nameChip, /fill=\{c\.color\}/, 'level name chips should not paint text in the level colour');
+
+  const flip = between(terminalSrc, '{flipChip && (', '</text>');
+  assert.doesNotMatch(flip, /fill=\{flipChip\.color\}/, 'the flip chip should not paint text in the level colour');
+  assert.match(flip, /fill=\{flipChip\.drawn \? "var\(--text-primary\)" : "var\(--text-muted\)"\}/,
+    'the flip chip should be readable when drawn and stay muted when unresolved');
+
+  const rail = between(terminalSrc, 'function RailBarLabel(', '</text>');
+  assert.match(rail, /fill="var\(--text-primary\)"/, 'rail bar labels should use --text-primary');
+  assert.doesNotMatch(rail, /\bcolor\b\s*:\s*string/, 'RailBarLabel should no longer take a colour prop');
+});
+
+test('--text-primary is readable on the chip and plot background, in every theme', () => {
+  const weak: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const ink = parse(pal['--text-primary']);
+      for (const surface of ['--bg-card', '--bg-main']) {
+        const bg = parse(pal[surface]);
+        assert.ok(ink && bg, `${p} should define --text-primary and ${surface}`);
+        const lum = ([r, g, b]: [number, number, number]) => {
+          const f = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const [x, y] = [lum(ink), lum(bg)];
+        const cr = (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+        if (cr < 4.5) {
+          weak.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'} on ${surface} — ${cr.toFixed(2)}:1`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(weak, [], `on-plot label text below 4.5:1:\n  ${weak.join('\n  ')}`);
+});

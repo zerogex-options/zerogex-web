@@ -2617,7 +2617,7 @@ export default function GammaTerminalChart({
                 <g key={`bar-${s.price}`}>
                   <rect x={pos ? railCenter : railCenter - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
                   {railBars.showLabels && s.netGex !== 0 && (
-                    <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} color={c} text={fmtGex(s.netGex)} />
+                    <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} text={fmtGex(s.netGex)} />
                   )}
                 </g>
               );
@@ -2652,10 +2652,10 @@ export default function GammaTerminalChart({
                   <rect x={netPos ? railCenter : railCenter - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
                 )}
                 {railBars.showLabels && s.callGex !== 0 && (
-                  <RailBarLabel x={clamp(railCenter + cw + 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="start" color="var(--color-bull)" text={fmtGex(s.callGex)} />
+                  <RailBarLabel x={clamp(railCenter + cw + 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="start" text={fmtGex(s.callGex)} />
                 )}
                 {railBars.showLabels && s.putGex !== 0 && (
-                  <RailBarLabel x={clamp(railCenter - pw - 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="end" color="var(--color-bear)" text={fmtGex(s.putGex)} />
+                  <RailBarLabel x={clamp(railCenter - pw - 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="end" text={fmtGex(s.putGex)} />
                 )}
               </g>
             );
@@ -3205,11 +3205,16 @@ export default function GammaTerminalChart({
               );
             })}
 
-            {/* ── Level name chips, de-collided so they never overlap ────── */}
+            {/* ── Level name chips, de-collided so they never overlap ──────
+                 The label is --text-primary, not the level colour: a 9.5px
+                 glyph in the level's own colour on a --bg-card chip cleared
+                 4.5:1 in only 105 of 192 palette/level combinations, down to
+                 2.36:1. The border keeps the colour, and the chip sits on the
+                 level's own line, so nothing about the association is lost. */}
             {chipPlacements.map((c) => (
               <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
                 <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={c.color} fontWeight={600}>
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill="var(--text-primary)" fontWeight={600}>
                   {c.label}
                 </text>
               </g>
@@ -3222,7 +3227,10 @@ export default function GammaTerminalChart({
             {flipChip && (
               <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
                 <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.drawn ? undefined : "2 2"} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.color} fontWeight={600}>
+                {/* Same as the level chips: the border carries the colour and
+                    the dash carries the drawn/unresolved state, so the label
+                    itself can be legible. Unresolved stays muted on purpose. */}
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.drawn ? "var(--text-primary)" : "var(--text-muted)"} fontWeight={600}>
                   {flipChip.label}
                 </text>
                 <title>{flipChip.tooltip}</title>
@@ -3876,7 +3884,13 @@ function sessionLabel(session: string | null | undefined): { label: string; colo
 
 // On-bar $ gamma label for the per-strike rail bars. A halo (stroke painted
 // under the fill) keeps it legible over the bars and the plot grid alike.
-function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anchor: "start" | "end"; color: string; text: string }) {
+//
+// The text is --text-primary rather than the bar's own bull/bear: at 8.5px on
+// the halo's --bg-card that colour cleared 4.5:1 in only 24 of 48 palette/side
+// combinations, down to 2.36:1. The label is drawn hard against the end of the
+// bar it belongs to, and calls sit right of the rail centre while puts sit
+// left, so which bar a number belongs to was never the colour's job.
+function RailBarLabel({ x, y, anchor, text }: { x: number; y: number; anchor: "start" | "end"; text: string }) {
   return (
     <text
       x={x}
@@ -3885,7 +3899,7 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
       fontFamily="var(--font-mono)"
       fontSize={8.5}
       fontWeight={600}
-      fill={color}
+      fill="var(--text-primary)"
       style={{ paintOrder: "stroke", stroke: "var(--bg-card)", strokeWidth: 2.5, fontVariantNumeric: "tabular-nums" } as CSSProperties}
     >
       {text}
