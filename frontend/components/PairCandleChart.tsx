@@ -692,7 +692,16 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
             {/* Dealer-gamma levels (spot / flip / walls / max pain) on the
                 candles, live and replay — the line spans the candle area; the
                 value tag lives in the right margin (outside the clip) so labels
-                never overlap the candles. */}
+                never overlap the candles.
+
+                The tag's text is --text-primary, not the level colour. A 9px
+                glyph in the level's own colour on a faint wash of that same
+                colour cleared 4.5:1 in only 43 of the 120 palette/level
+                combinations, down to 1.94:1 — the price was the part you could
+                not read. The colour still identifies the level, through the
+                tint, the border and the dashed line the tag sits on, which is
+                the same division PairGammaHeatmap's LevelChip already makes
+                when it pairs a coloured rail tag with a --text-primary value. */}
             {LEVEL_LINES.map(({ key, code, color }) => {
                 const v = replay?.levels?.[key];
                 if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
@@ -702,8 +711,8 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                 return (
                   <g key={`lvl-${key}`}>
                     <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
-                    <rect x={tagX} y={y - 7} width={tagW} height={14} rx={2} fill={`color-mix(in srgb, ${color} 16%, var(--bg-card))`} stroke={color} strokeWidth={0.75} />
-                    <text x={tagX + tagW / 2} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight={700} fontFamily="var(--font-mono)" fill={color}>
+                    <rect x={tagX} y={y - 7} width={tagW} height={14} rx={2} fill={`color-mix(in srgb, ${color} 16%, var(--bg-card))`} stroke={color} strokeWidth={1} />
+                    <text x={tagX + tagW / 2} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight={700} fontFamily="var(--font-mono)" fill="var(--text-primary)">
                       {code} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
                     </text>
                   </g>

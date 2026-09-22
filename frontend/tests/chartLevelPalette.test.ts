@@ -310,3 +310,58 @@ test('the pair-view levels are distinguishable from each other, in every theme',
   }
   assert.deepEqual(clashes, [], `pair-view level collisions:\n  ${clashes.join('\n  ')}`);
 });
+
+// ── pair-view level tags ─────────────────────────────────────────────────────
+// Both pair charts label a level with a small glyph on a faint wash of that
+// level's colour. Painting that glyph IN the level colour is what fails: at 9px
+// and 8px it cleared 4.5:1 in well under half the palette/level combinations and
+// bottomed out near 1.9:1, so the price on the candle chart's tag and the code
+// on the heatmap's rail tag were the parts you could not read. The glyph is
+// --text-primary in both now; the wash and the border still carry the colour.
+const candleSrc = readFileSync(new URL('../components/PairCandleChart.tsx', import.meta.url), 'utf8');
+const heatmapSrc = readFileSync(new URL('../components/PairGammaHeatmap.tsx', import.meta.url), 'utf8');
+
+test('pair-view level tags do not paint their text in the level colour', () => {
+  const candleTag = candleSrc.slice(candleSrc.indexOf('{LEVEL_LINES.map('));
+  const tagText = candleTag.slice(0, candleTag.indexOf('</text>'));
+  assert.match(tagText, /fill="var\(--text-primary\)"/,
+    "PairCandleChart's level tag should paint its value in --text-primary");
+  assert.doesNotMatch(tagText, /fill=\{color\}/,
+    "PairCandleChart's level tag text should not use the level colour");
+
+  const railTag = heatmapSrc.slice(heatmapSrc.indexOf('function RailTag('));
+  assert.match(railTag.slice(0, railTag.indexOf('</span>')), /color:\s*"var\(--text-primary\)"/,
+    "PairGammaHeatmap's RailTag should paint its code in --text-primary");
+});
+
+test('pair-view level tag text clears AA on its tinted chip, in every theme', () => {
+  // The chip is color-mix(in srgb, <level> N%, <card>); the candle tag uses 16%
+  // and the heatmap's rail tag 18%, so 18% is the stronger wash to check.
+  const unreadable: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const card = parse(pal['--bg-card']);
+      const ink = parse(pal['--text-primary']);
+      assert.ok(card && ink, `${p} should define --bg-card and --text-primary`);
+      for (const [, tok] of Object.entries(candleLevels)) {
+        const lvl = parse(pal[tok]);
+        assert.ok(lvl, `${p} ${tok} should resolve`);
+        for (const mix of [0.16, 0.18]) {
+          const chip = [0, 1, 2].map((i) => lvl[i] * mix + card[i] * (1 - mix)) as [number, number, number];
+          const lum = ([r, g, b]: [number, number, number]) => {
+            const f = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+            return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+          };
+          const [x, y] = [lum(ink), lum(chip)];
+          const cr = (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+          if (cr < 4.5) {
+            unreadable.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'} ${tok} `
+              + `at ${Math.round(mix * 100)}% — ${cr.toFixed(2)}:1`);
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(unreadable, [], `tag text below 4.5:1:\n  ${unreadable.join('\n  ')}`);
+});
