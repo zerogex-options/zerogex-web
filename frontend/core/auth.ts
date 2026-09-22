@@ -39,6 +39,13 @@ const PUBLIC_ROUTE_PATTERNS = [
   // Left implicit, one added ROUTE_ACCESS_RULES pattern could close it by
   // accident and nothing would fail.
   '/methodology',
+  // /track-record — the graded forecast history, every symbol, misses named
+  // and dated. Public for the same reason /methodology is: it is a
+  // credibility document, it is the page the levels pages and the daily
+  // email point at, and a /login wall on it would defeat its only purpose.
+  // It reads the same graded receipts that /forecast/* already publishes
+  // anonymously, so it exposes nothing a member has and a visitor does not.
+  '/track-record',
   '/updates',
   '/search',
   '/real-time-gex-0dte',

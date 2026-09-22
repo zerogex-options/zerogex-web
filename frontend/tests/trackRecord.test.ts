@@ -165,3 +165,191 @@ test('the one-liner degrades to the practice alone on a thin sample', () => {
   assert.match(line, /Every receipt is published/);
   assert.ok(!/\d+%/.test(line), 'must not print a rate off two sessions');
 });
+
+// ── The full record, not the rolling window ────────────────────────────────
+//
+// The fixture below is the REAL production SPX archive as of 2026-09-22, not
+// an invented one. Seven misses at the dates the range-width script reported,
+// five of them in two back-to-back runs (Jul 6-7-8 and Aug 3-4). If the page
+// is going to publish 48 of 55, the arithmetic that produces "48 of 55" is
+// worth pinning to the data it came from.
+
+import {
+  summarizeForecastHistory,
+  missClusters,
+  historyHeadline,
+  clusteringNote,
+  volVerdict,
+  volVerdictText,
+  type ForecastDateEntry,
+} from '../core/trackRecord.ts';
+
+/** The seven SPX sessions that broke the band, per forecast-range-width. */
+const SPX_MISSES = [
+  '2026-07-06', '2026-07-07', '2026-07-08',
+  '2026-07-15', '2026-07-23',
+  '2026-08-03', '2026-08-04',
+];
+
+/** 55 graded sessions + 1 ungraded, mirroring the production archive. */
+function spxArchive(): ForecastDateEntry[] {
+  const out: ForecastDateEntry[] = [];
+  // Weekday sequence long enough to cover Jul 6 -> Sep 21 without a calendar:
+  // the dates only need to be ordered and distinct for adjacency to work.
+  const start = Date.UTC(2026, 6, 6); // 2026-07-06
+  let made = 0;
+  for (let i = 0; made < 55; i++) {
+    const d = new Date(start + i * 86400000);
+    const dow = d.getUTCDay();
+    if (dow === 0 || dow === 6) continue; // skip weekends
+    const date = d.toISOString().slice(0, 10);
+    out.push({ date, has_receipt: true, range_respected: !SPX_MISSES.includes(date) });
+    made++;
+  }
+  // One date with no receipt yet — the "1 skipped" the script reported.
+  out.push({ date: '2026-09-22', has_receipt: false, range_respected: null });
+  return out;
+}
+
+test('summarizeForecastHistory reproduces the published 48 of 55', () => {
+  const s = summarizeForecastHistory(spxArchive(), 'SPX');
+  assert.equal(s.sessions, 55);
+  assert.equal(s.range.graded, 55);
+  assert.equal(s.range.held, 48);
+  assert.equal(Math.round(s.range.rate! * 1000) / 10, 87.3);
+});
+
+test('the ungraded session is counted in neither numerator nor denominator', () => {
+  const s = summarizeForecastHistory(spxArchive(), 'SPX');
+  assert.equal(s.range.graded, 55, 'the no-receipt date must not inflate the denominator');
+  assert.ok(!s.range.misses.includes('2026-09-22'), 'ungraded is not a miss');
+});
+
+test('every miss is published, newest first', () => {
+  const s = summarizeForecastHistory(spxArchive(), 'SPX');
+  assert.equal(s.range.misses.length, 7);
+  assert.equal(s.range.misses[0], '2026-08-04');
+  assert.deepEqual([...s.range.misses].sort(), [...SPX_MISSES].sort());
+});
+
+test('the Wilson interval does not collapse and brackets the rate', () => {
+  const s = summarizeForecastHistory(spxArchive(), 'SPX');
+  const [low, high] = s.range.ci!;
+  assert.ok(low < s.range.rate! && s.range.rate! < high, 'rate must sit inside its interval');
+  assert.ok(low > 0.75 && high < 0.95, `interval implausibly wide: ${low}-${high}`);
+});
+
+test('clusters find the two consecutive-session runs and nothing else', () => {
+  const s = summarizeForecastHistory(spxArchive(), 'SPX');
+  assert.equal(s.clusters.length, 2);
+  assert.equal(s.clustered, 5, 'five of the seven misses are in a run');
+  // Newest run first.
+  assert.deepEqual(s.clusters[0], ['2026-08-03', '2026-08-04']);
+  assert.deepEqual(s.clusters[1], ['2026-07-06', '2026-07-07', '2026-07-08']);
+});
+
+test('an isolated miss is not a cluster', () => {
+  const entries: ForecastDateEntry[] = [
+    { date: '2026-01-05', has_receipt: true, range_respected: true },
+    { date: '2026-01-06', has_receipt: true, range_respected: false },
+    { date: '2026-01-07', has_receipt: true, range_respected: true },
+  ];
+  assert.deepEqual(missClusters(entries), []);
+});
+
+test('adjacency is measured in graded sessions, not calendar days', () => {
+  // A holiday sits between two misses. They ARE consecutive graded sessions,
+  // because nothing graded happened in between.
+  const entries: ForecastDateEntry[] = [
+    { date: '2026-01-05', has_receipt: true, range_respected: true },
+    { date: '2026-01-06', has_receipt: true, range_respected: false },
+    { date: '2026-01-07', has_receipt: false, range_respected: null },
+    { date: '2026-01-08', has_receipt: true, range_respected: false },
+  ];
+  assert.deepEqual(missClusters(entries), [['2026-01-06', '2026-01-08']]);
+});
+
+test('out-of-order input still finds the run', () => {
+  const shuffled = spxArchive().reverse();
+  const s = summarizeForecastHistory(shuffled, 'SPX');
+  assert.equal(s.clustered, 5);
+  assert.deepEqual(s.clusters[0], ['2026-08-03', '2026-08-04']);
+});
+
+test('headline states the rate and volunteers that the band is padded', () => {
+  const s = summarizeForecastHistory(spxArchive(), 'SPX');
+  const line = historyHeadline(s, 0.8)!;
+  assert.match(line, /48 of 55/);
+  assert.match(line, /87%/);
+  assert.match(line, /an 80% target/, 'article must be "an", not "a"');
+  assert.match(line, /wider than it needs to be/);
+  assert.doesNotMatch(line, /accura|flawless|perfect/i);
+});
+
+test('headline says so plainly when coverage runs UNDER target', () => {
+  const entries = spxArchive().map((e, i) => ({ ...e, range_respected: e.has_receipt ? i % 3 !== 0 : null }));
+  const line = historyHeadline(summarizeForecastHistory(entries, 'SPX'), 0.8)!;
+  assert.match(line, /too narrow/);
+});
+
+test('headline returns null rather than a rate off too few sessions', () => {
+  const thin: ForecastDateEntry[] = [
+    { date: '2026-01-05', has_receipt: true, range_respected: true },
+    { date: '2026-01-06', has_receipt: true, range_respected: true },
+  ];
+  assert.equal(historyHeadline(summarizeForecastHistory(thin, 'SPX'), 0.8), null);
+});
+
+test('clustering note says the intervals are too confident', () => {
+  const note = clusteringNote(summarizeForecastHistory(spxArchive(), 'SPX'))!;
+  assert.match(note, /5 of those 7 misses/);
+  assert.match(note, /2 runs/);
+  assert.match(note, /narrower than the truth/);
+});
+
+test('no clustering note when misses are genuinely scattered', () => {
+  const entries: ForecastDateEntry[] = [
+    { date: '2026-01-05', has_receipt: true, range_respected: false },
+    { date: '2026-01-06', has_receipt: true, range_respected: true },
+    { date: '2026-01-07', has_receipt: true, range_respected: false },
+  ];
+  assert.equal(clusteringNote(summarizeForecastHistory(entries, 'SPX')), null);
+});
+
+test('an empty archive is survivable, not a crash', () => {
+  const s = summarizeForecastHistory([], 'SPX');
+  assert.equal(s.sessions, 0);
+  assert.equal(s.range.rate, null);
+  assert.equal(s.range.ci, null);
+  assert.equal(historyHeadline(s, 0.8), null);
+  assert.equal(clusteringNote(s), null);
+  assert.equal(summarizeForecastHistory(null, 'SPX').sessions, 0);
+});
+
+// ── The volatility call against its baseline ───────────────────────────────
+
+test('vol call below its baseline is called out as subtracting value', () => {
+  // The real SPX numbers on 2026-09-22: 58.6% against a 69.0% baseline.
+  const v = volVerdict(0.5862, 0.6897);
+  assert.equal(v, 'below-baseline');
+  const text = volVerdictText(v, 'always normal');
+  assert.match(text, /WORSE/);
+  assert.match(text, /always normal/);
+});
+
+test('vol call beating its baseline says so without gloating', () => {
+  const text = volVerdictText(volVerdict(0.78, 0.69), 'always normal');
+  assert.match(text, /better than/);
+  assert.doesNotMatch(text, /WORSE|excellent|outstanding/i);
+});
+
+test('a vol call inside the tolerance band is "no better than" the baseline', () => {
+  assert.equal(volVerdict(0.70, 0.69), 'matches-baseline');
+  assert.match(volVerdictText('matches-baseline', 'always normal'), /not adding anything/);
+});
+
+test('vol verdict is unknown rather than wrong when a baseline is missing', () => {
+  assert.equal(volVerdict(0.7, null), 'unknown');
+  assert.equal(volVerdict(null, 0.7), 'unknown');
+  assert.match(volVerdictText('unknown'), /no baseline/);
+});

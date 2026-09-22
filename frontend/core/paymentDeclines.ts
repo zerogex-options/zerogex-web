@@ -51,6 +51,7 @@ import {
   type DeclineCategory,
   type DeclineContext,
 } from './declineReason.ts';
+import { wilsonInterval } from './wilson.ts';
 
 // Re-exported so a consumer of this module — including the client component,
 // which cannot import the server-side one — gets the category vocabulary and
@@ -666,26 +667,17 @@ export function signupSourceLabel(key: string): string {
 }
 
 /**
- * 95% Wilson score interval for a proportion.
+ * Re-exported from core/wilson.ts, where the interval now lives so the public
+ * track-record pages can reach it without pulling this module in with it.
+ * Every existing import of `wilsonInterval` from here keeps working.
  *
- * The reason every source row carries one: this report's whole job is to answer
- * "does this channel decline more than that one", and at the volumes a single
- * campaign produces, a point estimate cannot answer it. Nine declines out of
- * twenty is 45% and also anywhere from 26% to 66% — which overlaps almost
- * every other row on the page. Wilson rather than the normal approximation
- * because it stays inside [0, 1] and does not collapse at 0 or 100%, which is
- * exactly where the small campaigns sit.
+ * The reason every source row below carries one: this report's whole job is to
+ * answer "does this channel decline more than that one", and at the volumes a
+ * single campaign produces, a point estimate cannot answer it. Nine declines
+ * out of twenty is 45% and also anywhere from 26% to 66% — which overlaps
+ * almost every other row on the page.
  */
-export function wilsonInterval(successes: number, trials: number): { low: number; high: number } | null {
-  if (!Number.isFinite(successes) || !Number.isFinite(trials) || trials <= 0) return null;
-  const z = 1.959964;
-  const p = successes / trials;
-  const z2 = z * z;
-  const denominator = 1 + z2 / trials;
-  const center = (p + z2 / (2 * trials)) / denominator;
-  const half = (z * Math.sqrt((p * (1 - p)) / trials + z2 / (4 * trials * trials))) / denominator;
-  return { low: Math.max(0, center - half), high: Math.min(1, center + half) };
-}
+export { wilsonInterval } from './wilson.ts';
 
 /**
  * Charges below this in a source row cannot support a rate. Chosen from the
