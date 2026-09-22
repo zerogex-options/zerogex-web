@@ -14,18 +14,18 @@ export function isReferralProgramEnabled(): boolean {
 }
 
 // Referee (the newly-referred friend) discount coupon, keyed by the cadence
-// they buy:
-//   monthly -> "first month free"  (a 100%-off, duration:once coupon)
-//   annual  -> "10% off first year" (a 10%-off, duration:once coupon)
+// they buy (STRIPE_COUPON_REFERRAL_REFEREE_<CADENCE>):
+//   monthly   -> "first month free"  (a 100%-off, duration:once coupon)
+//   quarterly -> whatever the operator configures; unset by default
+//   annual    -> "10% off first year" (a 10%-off, duration:once coupon)
 // Returns null when not configured for that cadence, in which case checkout
-// simply proceeds without a referral discount.
+// simply proceeds without a referral discount. Quarterly deliberately has its
+// own key rather than borrowing another cadence's coupon: the monthly one is
+// 100% off (a free QUARTER on a quarterly invoice) and the annual one is named
+// "first year" on the Stripe checkout page.
 export function getRefereeCouponId(cadence: BillingCadence): string | null {
-  const envKey =
-    cadence === 'monthly'
-      ? 'STRIPE_COUPON_REFERRAL_REFEREE_MONTHLY'
-      : 'STRIPE_COUPON_REFERRAL_REFEREE_ANNUAL';
-  const id = process.env[envKey];
-  return id && id.length > 0 ? id : null;
+  const id = process.env[`STRIPE_COUPON_REFERRAL_REFEREE_${cadence.toUpperCase()}`];
+  return id && id.trim().length > 0 ? id.trim() : null;
 }
 
 // Codes are shown to humans and typed into URLs, so drop the visually

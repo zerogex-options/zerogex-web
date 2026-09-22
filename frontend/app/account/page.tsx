@@ -11,6 +11,7 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import AccountApiKeys from '@/components/AccountApiKeys';
 import CancelRetentionModal from '@/components/CancelRetentionModal';
+import MoneyBackGuaranteePanel from '@/components/MoneyBackGuaranteePanel';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 
@@ -95,7 +96,7 @@ function AccountPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = usePageT(dict);
-  const { data: authSession, loading } = useAuthSession();
+  const { data: authSession, loading, refresh: refreshSession } = useAuthSession();
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const appleEnabled = isAppleAuthEnabled();
@@ -810,6 +811,17 @@ function AccountPageContent() {
                 : t('subscriptionScheduledToCancel')}
             </p>
           )}
+
+          {/* The 7-day money-back guarantee. Self-hiding: it asks the server and
+              renders only while this member can actually use it (or has an
+              unfinished request to complete). */}
+          <MoneyBackGuaranteePanel
+            enabled={tier !== 'admin' && (hasActiveSubscription || hasBillingAccount)}
+            onRefunded={() => {
+              void refreshBilling();
+              void refreshSession();
+            }}
+          />
         </section>
 
         <CancelRetentionModal

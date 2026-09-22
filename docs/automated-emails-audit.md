@@ -99,6 +99,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 | `return_intent_email_sent_at` | Return-intent reply to a churned member who logged back in | reply sent | **never cleared — it is a COOLDOWN anchor, not a latch** (see below) |
 | `marketing_unsubscribed_at` | **opt-out** — excludes from marketing sends | user unsubscribes | (opt back in only manually) |
 | `payment_grace_warning_sent_for` | Grace-expiry warning (~24h before the window closes) | warning sent | **never cleared** — it stores the `payment_grace_started_at` anchor it was sent for, so a re-opened window (new anchor) stops matching and re-arms it by itself |
+| `renewal_reminder_sent_for` | Renewal reminder (quarterly / annual) | claimed just before the send, released if the send fails | **never cleared** — it stores the `current_period_end` it was sent for, so the next billing period re-arms it by itself |
 
 Two **flags** (not timestamps) drive the dunning/welcome logic:
 
@@ -306,6 +307,15 @@ auth/transactional and TradeWorkz alerts.
 - **Subject:** `You're all set — your ZeroGEX payment went through`
 - Reassurance bookend to payment-failed. Dashboard CTA. FOH footer.
 
+**Renewal reminder (quarterly / annual)** — `sendRenewalReminderEmail(to, { planLabel, renewalIso, amountFormatted })`
+- **Subject:** `Your ZeroGEX {plan} plan renews on {date}`
+- The auto-renewal notice the pricing page promises: 7 days before a quarterly plan
+  renews, 30 days before an annual one (`core/renewalReminder.ts`); monthly plans are
+  never reminded. Names the plan, the renewal date and the exact amount from Stripe's
+  upcoming-invoice preview (every discount applied). When that read fails it says "at
+  your plan's current rate" rather than guess a figure. Cancel instructions are plain,
+  with no retention pitch. No FOH footer.
+
 **Referral reward** — `sendReferralRewardEmail(to, { kind: 'credited'|'banked', amountFormatted?, accountUrl })`
 - **Subject:** `🎉 You earned a free month on ZeroGEX`
 - `credited` = immediate Stripe balance credit; `banked` = applied next time they
@@ -339,6 +349,14 @@ auth/transactional and TradeWorkz alerts.
   one-click `List-Unsubscribe` / `List-Unsubscribe-Post` headers (RFC 8058).
 
 ### 3.5 Retention / churn
+
+**Money-back refund confirmation** — `sendMoneyBackRefundEmail(to, { amountFormatted, planLabel, cardBrand?, cardLast4? })`
+- **Subject:** `Your ZeroGEX refund is on its way`
+- Sent by `core/moneyBackServer.ts` once a 7-day money-back guarantee refund is
+  issued, whether from the Account page button or `make money-back-refund`. Names the
+  amount and the card, says the plan is canceled and access has ended, and that the
+  guarantee is one refund per customer. Asks what didn't work. No retention pitch:
+  they asked to leave. No FOH footer.
 
 **Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending? })`
 - **Subject:** `Sorry to see you go — mind sharing why?`
@@ -429,6 +447,16 @@ auth/transactional and TradeWorkz alerts.
 - **Subject:** `[ZeroGEX] Reactivation review — N cold signups ready (N-day trial)`
 - Pre-send review digest, mirrors the win-back digest.
 
+**Money-back refund alert (operator)** — `sendMoneyBackOperatorAlertEmail(to, alert)`
+- **Subject:** `[ZeroGEX] Money-back refund issued — {email} ({amount})`, or
+  `[ZeroGEX] ACTION NEEDED — money-back refund for {email}` when a step could not
+  finish (most importantly a subscription refunded but still live in Stripe, which
+  bills again at renewal unless someone cancels it).
+- Goes to `REFUND_ALERT_EMAIL`, else `CANCELLATION_ALERT_EMAIL`, `SIGNUP_ALARM_EMAIL`,
+  `FOH_REMINDER_EMAIL`. Carries the reason, the member's own words, the refund ids,
+  and the resume command. Also flags a referrer already rewarded for the refunded
+  signup.
+
 **Cancellation alert (operator)** — `sendCancellationAlertEmail(to, alert)`
 - **Subject:** `[ZeroGEX] <email> canceled — <what they typed>` (falls back to the survey
   label, then `no reason given`)
@@ -500,6 +528,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | `checkout-recovery` | `00/6:45:00` | every 6h | Abandoned-checkout recovery | yes |
 | `trial-value-nudge` | `00/6:45:00` | every 6h | Mid-trial value nudge | yes |
 | `card-expiry` | `04:20:00` | daily | Card expiring | yes |
+| `renewal-reminders` | `14:20:00` | daily | Renewal reminder (quarterly 7 days / annual 30 days out) | yes |
 | `reactivation` | `16:40:00` | daily | Reactivation (extended trial) | **yes** |
 | `return-intent` | `16:50:00` | daily | Return-intent **digest** | **no — operator digest only** |
 | `winback` | `Mon 16:35:00` | weekly | Win-back **digest** | **no — operator digest only** |
@@ -528,6 +557,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | App (`core/serverAuth.ts`) | registration | Email verification |
 | App (`app/api/auth/password/forgot`) | forgot-password submit | Password reset |
 | App (`core/referrals.ts`) | referral ledger `pending` → `rewarded` | Referral reward |
+| App (`core/moneyBackServer.ts`) | a money-back refund, from the Account page or `make money-back-refund` | Money-back refund confirmation (member) and Money-back refund alert (operator) |
 | systemd `OnFailure=` | any scheduled unit exits non-zero | Scheduled-unit failure alert |
 
 ### 4.3 Cohort windows at a glance
@@ -541,6 +571,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | 48h trial-end reminder | `current_period_end` | 48h before trial end, ±3h |
 | Grace-expiry warning | `payment_grace_started_at` | ≤24h left **and** ≥12h open |
 | Card expiring | card `exp_month`/`exp_year` from Stripe | within 45 days, once per calendar month |
+| Renewal reminder | `current_period_end` | 7 days before (quarterly) or 30 days before (annual), once per period |
 | Reactivation | `created_at` | 21+ days, max 50 per run |
 | Win-back | `stripe_subscription_deleted` audit row | 30+ days after lapse |
 | Return intent | `login_success` after their churn row | 24h–14d after the visit, 90-day cooldown |

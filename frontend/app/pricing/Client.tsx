@@ -16,8 +16,18 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
 import { trackTwitter } from '@/core/telemetry/twitter-client';
 import { TwitterEvent } from '@/core/telemetry/twitter-events';
-import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { usePageT } from '@/core/LanguageContext';
+import {
+  BILLING_CADENCES,
+  formatUsd,
+  maxSavingsPct,
+  MONEY_BACK_GUARANTEE_DAYS,
+  MONTHLY_PROMO,
+  planDisplay,
+  planHasFreeTrial,
+  type BillingCadence,
+} from '@/core/billingPlans';
 import { dict } from './Client.i18n';
 
 const C = {
@@ -28,7 +38,7 @@ const C = {
   border: 'var(--border-default)',
 };
 
-type Cadence = 'monthly' | 'annual';
+type Cadence = BillingCadence;
 type BillableTier = 'basic' | 'pro';
 
 // Display mirror of TRIAL_PERIOD_DAYS in
@@ -49,46 +59,27 @@ const REACTIVATION_TRIAL_DAYS = (() => {
   return Number.isFinite(raw) ? Math.max(TRIAL_DAYS, Math.min(90, Math.floor(raw))) : 30;
 })();
 
-// Display-only pricing. Source of truth for what Stripe actually charges is
-// the price IDs + coupons configured in env; if those drift from these numbers
-// the UI will show stale prices until this constant is updated.
-//
-// Promo durations:
-//   monthly -> first 6 invoices at the promo rate (Stripe coupon duration =
-//              repeating, duration_in_months = 6), then renews at rack.
-//   annual  -> first annual invoice at the promo rate (Stripe coupon duration
-//              = once), then renews at rack.
-const DISPLAY = {
-  basic: {
-    monthly: { rack: 39, promo: 19, founding: 12 },
-    annual: {
-      rack: 199,
-      promo: 150,
-      perMonth: 16.58,
-      promoPerMonth: 12.5,
-      savingsPct: 57,
-    },
-  },
-  pro: {
-    monthly: { rack: 59, promo: 29, founding: 19 },
-    annual: {
-      rack: 299,
-      promo: 229,
-      perMonth: 24.92,
-      promoPerMonth: 19.08,
-      savingsPct: 58,
-    },
-  },
-} as const;
+// Display-only pricing comes from core/billingPlans.ts (planDisplay), the same
+// catalogue checkout and the refund flow read. Stripe remains the source of
+// truth for what is charged; scripts/setup-pricing.mts --verify checks the live
+// prices and the promo coupon against these numbers before launch.
 
 type Props = {
   // Time-boxed promo eligibility per cadence. Server resolves PROMO_END_AT +
-  // coupon configuration; client just AND-gates with the selected cadence.
-  promoMonthlyActive: boolean;
-  promoAnnualActive: boolean;
-  // Formatted promo deadline ("August 15, 2026"), or null when no promo is
+  // coupon configuration (and whether the promo is advertised on that cadence
+  // at all — monthly only); client just picks the selected cadence's flag.
+  promoActiveByCadence: Record<Cadence, boolean>;
+  // Formatted promo deadline ("October 1, 2026"), or null when no promo is
   // active. Used in the banner copy and as a soft urgency cue.
   promoDeadlineLabel: string | null;
+  // Cadences whose Stripe prices exist for both tiers. Quarterly stays hidden
+  // until its price ids are configured, so the page never offers a plan that
+  // cannot check out.
+  sellableCadences: Cadence[];
+  // The tier:cadence plans that start with a free trial (BILLING_TRIAL_PLANS;
+  // Basic monthly by default). Every other plan is sold under the 7-day
+  // money-back guarantee. Resolved server-side so the page and checkout agree.
+  trialPlanKeys: string[];
   referralEnabled: boolean;
   // True when the persisted zgx_ref cookie is a CAMPAIGN code (business-card /
   // offline collateral) rather than a person-to-person referral. Classified
@@ -105,10 +96,6 @@ type TierAction =
   // promo rate) or hand off to the billing portal for paid/downgrade/cadence moves.
   | { kind: 'portal'; tier: BillableTier; label: string }
   | { kind: 'current'; label: string };
-
-function formatMoney(amount: number): string {
-  return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
-}
 
 function CtaButton({
   action,
@@ -183,6 +170,9 @@ function CtaButton({
   );
 }
 
+// Every plan is quoted on one axis — dollars per month — so Monthly, Quarterly
+// and Annual compare apples to apples, with what is actually billed stated right
+// under it ("$75 billed every 3 months").
 function PriceDisplay({
   cadence,
   tier,
@@ -193,58 +183,12 @@ function PriceDisplay({
   promoActive: boolean;
 }) {
   const t = usePageT(dict);
-  if (cadence === 'annual') {
-    const { rack, perMonth, promo, promoPerMonth } = DISPLAY[tier].annual;
-    if (promoActive) {
-      return (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: 22,
-                color: C.muted,
-                textDecoration: 'line-through',
-                fontWeight: 700,
-              }}
-            >
-              {formatMoney(rack)}
-            </span>
-            <span
-              style={{
-                fontSize: 52,
-                fontWeight: 900,
-                letterSpacing: '-1.5px',
-                lineHeight: 1,
-                color: 'var(--color-brand-primary)',
-                textShadow: '0 0 24px var(--color-brand-primary-soft, rgba(245,180,0,0.35))',
-              }}
-            >
-              {formatMoney(promo)}
-            </span>
-            <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>{t('perYearSuffix')}</span>
-          </div>
-          <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
-            {t('annualPromoNote', { promoPerMonth: formatMoney(promoPerMonth), rack: formatMoney(rack) })}
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div style={{ marginTop: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-            {formatMoney(rack)}
-          </span>
-          <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>{t('perYearSuffix')}</span>
-        </div>
-        <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>
-          {t('annualRegularNote', { perMonth: formatMoney(perMonth) })}
-        </div>
-      </div>
-    );
-  }
-  const { rack, promo } = DISPLAY[tier].monthly;
-  if (promoActive) {
+  const display = planDisplay({ tier, cadence });
+  const perMonthSuffix = (
+    <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>{t('perMonthSuffix')}</span>
+  );
+
+  if (cadence === 'monthly' && promoActive && display.promoPrice != null) {
     return (
       <div style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
@@ -258,7 +202,7 @@ function PriceDisplay({
               fontWeight: 700,
             }}
           >
-            {formatMoney(rack)}
+            {formatUsd(display.listPrice)}
           </span>
           <span
             style={{
@@ -270,22 +214,35 @@ function PriceDisplay({
               textShadow: '0 0 24px var(--color-brand-primary-soft, rgba(245,180,0,0.35))',
             }}
           >
-            {formatMoney(promo)}
+            {formatUsd(display.promoPrice)}
           </span>
-          <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>{t('perMonthSuffix')}</span>
+          {perMonthSuffix}
         </div>
         <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
-          {t('monthlyPromoNote', { rack: formatMoney(rack) })}
+          {t('monthlyPromoNote', {
+            months: display.promoPeriods ?? MONTHLY_PROMO.months,
+            rack: formatUsd(display.listPrice),
+          })}
         </div>
       </div>
     );
   }
+
+  const billedNote =
+    cadence === 'quarterly'
+      ? t('billedQuarterlyNote', { price: formatUsd(display.listPrice) })
+      : cadence === 'annual'
+        ? t('billedAnnuallyNote', { price: formatUsd(display.listPrice) })
+        : null;
   return (
-    <div style={{ marginTop: 18, display: 'flex', alignItems: 'baseline', gap: 10 }}>
-      <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-        {formatMoney(rack)}
-      </span>
-      <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>{t('perMonthSuffix')}</span>
+    <div style={{ marginTop: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
+          {formatUsd(display.perMonth)}
+        </span>
+        {perMonthSuffix}
+      </div>
+      {billedNote && <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>{billedNote}</div>}
     </div>
   );
 }
@@ -320,6 +277,7 @@ function TierCard({
   accent,
   highlighted,
   startsTrial,
+  hasGuarantee,
   trialDays,
   action,
   busy,
@@ -334,9 +292,14 @@ function TierCard({
   features: string[];
   accent: string;
   highlighted: boolean;
-  // False for a returning member whose free trial is already spent — the card
-  // then drops the "free trial" / "No charge today" copy (they're billed now).
+  // Whether choosing this card starts a free trial: the trial plan for a
+  // first-timer (or any plan for a ?reactivate=1 invitee). False for a returning
+  // member whose trial is spent, and for every plan sold under the guarantee.
   startsTrial: boolean;
+  // Whether this plan is paid up front under the 7-day money-back guarantee.
+  // Mutually exclusive with startsTrial; a returning member on the trial plan
+  // gets neither and is simply billed.
+  hasGuarantee: boolean;
   // Trial length shown in the card note. Standard TRIAL_DAYS for everyone, the
   // extended REACTIVATION_TRIAL_DAYS for a ?reactivate=1 visitor so the card
   // agrees with the hero and the email.
@@ -361,7 +324,15 @@ function TierCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.light }}>{title}</h3>
         {(highlighted || highlights.length > 0) && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: '4px 10px',
+            }}
+          >
             {highlighted && <Badge accent={accent}>{t('yourPickBadge')}</Badge>}
             {highlights.map((h) => (
               <Badge key={h} accent={accent}>
@@ -377,6 +348,22 @@ function TierCard({
       {startsTrial && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
           {t('trialDaysNote', { days: trialDays })}
+        </p>
+      )}
+      {hasGuarantee && (
+        <p
+          style={{
+            margin: '8px 0 0',
+            fontSize: 12,
+            color: C.muted,
+            lineHeight: 1.55,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'flex-start',
+          }}
+        >
+          <ShieldCheck size={14} style={{ color: accent, marginTop: 2, flexShrink: 0 }} aria-hidden />
+          <span>{t('moneyBackNote', { days: MONEY_BACK_GUARANTEE_DAYS })}</span>
         </p>
       )}
 
@@ -414,21 +401,23 @@ function TierCard({
       </ul>
 
       <CtaButton action={action} busy={busy} tier={tier} onSubscribe={onSubscribe} onChangePlan={onChangePlan} />
-      {startsTrial && (action.kind === 'subscribe' || action.kind === 'link') && (
+      {(action.kind === 'subscribe' || action.kind === 'link') && (startsTrial || hasGuarantee) && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
-          {t('noChargeToday')}
+          {startsTrial ? t('noChargeToday') : t('billedTodayNote')}
         </p>
       )}
     </article>
   );
 }
 
-// Eye-catching banner shown at the top of the pricing section whenever ANY
-// cadence has an active limited-time offer. The shimmer + pulse are
-// CSS-animated (no JS), so they animate even before hydration. Keep the copy
-// short — the cards below carry the per-tier specifics.
+// Eye-catching banner shown at the top of the pricing section whenever the
+// limited-time promo is live. The shimmer + pulse are CSS-animated (no JS), so
+// they animate even before hydration. The figures come from the plan catalogue
+// (core/billingPlans.ts), the same numbers the monthly cards show.
 function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) {
   const t = usePageT(dict);
+  const basic = planDisplay({ tier: 'basic', cadence: 'monthly' }).promoPrice;
+  const pro = planDisplay({ tier: 'pro', cadence: 'monthly' }).promoPrice;
   return (
     <div
       role="status"
@@ -469,11 +458,14 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
           lineHeight: 1.2,
         }}
       >
-        {t('limitedTimeSaveIntro')} <span style={{ textDecoration: 'underline' }}>$19/mo</span>,{' '}
-        {t('limitedTimeProFrom')} <span style={{ textDecoration: 'underline' }}>$29/mo</span>.
+        {t('limitedTimeHeadline', { amount: formatUsd(MONTHLY_PROMO.amountOffUsd), months: MONTHLY_PROMO.months })}
       </div>
       <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, opacity: 0.9 }}>
-        {t('limitedTimeCadenceInfo')}{' '}
+        {basic != null && pro != null && (
+          <>
+            {t('limitedTimePrices', { basic: formatUsd(basic), pro: formatUsd(pro) })} ·{' '}
+          </>
+        )}
         {deadlineLabel ? t('limitedTimeOfferEnds', { deadline: deadlineLabel }) : t('limitedTimeForLimited')}
       </div>
     </div>
@@ -482,9 +474,11 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
 
 function CadenceToggle({
   cadence,
+  cadences,
   setCadence,
 }: {
   cadence: Cadence;
+  cadences: Cadence[];
   setCadence: (c: Cadence) => void;
 }) {
   const t = usePageT(dict);
@@ -505,37 +499,59 @@ function CadenceToggle({
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
+      whiteSpace: 'nowrap',
     }) as const;
+
+  const label: Record<Cadence, string> = {
+    monthly: t('monthlyToggle'),
+    quarterly: t('quarterlyToggle'),
+    annual: t('annualToggle'),
+  };
 
   return (
     <div
+      role="group"
       style={{
         display: 'inline-flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
         gap: 4,
         padding: 4,
         borderRadius: 999,
         background: 'var(--bg-hover)',
         border: `1px solid ${C.border}`,
+        maxWidth: '100%',
       }}
     >
-      <button type="button" style={btn(cadence === 'monthly')} onClick={() => setCadence('monthly')}>
-        {t('monthlyToggle')}
-      </button>
-      <button type="button" style={btn(cadence === 'annual')} onClick={() => setCadence('annual')}>
-        {t('annualToggle')}
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            padding: '2px 6px',
-            borderRadius: 999,
-            background: cadence === 'annual' ? 'rgba(255,255,255,0.22)' : `${C.amber}22`,
-            color: cadence === 'annual' ? 'var(--text-inverse)' : C.amber,
-          }}
-        >
-          {t('save57Badge')}
-        </span>
-      </button>
+      {cadences.map((option) => {
+        const active = cadence === option;
+        const savings = maxSavingsPct(option);
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={active}
+            style={btn(active)}
+            onClick={() => setCadence(option)}
+          >
+            {label[option]}
+            {savings != null && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: '2px 6px',
+                  borderRadius: 999,
+                  background: active ? 'rgba(255,255,255,0.22)' : `${C.amber}22`,
+                  color: active ? 'var(--text-inverse)' : C.amber,
+                }}
+              >
+                {t('saveUpToBadge', { pct: savings })}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -552,9 +568,10 @@ export default function PricingClient(props: Props) {
 }
 
 function PricingClientInner({
-  promoMonthlyActive,
-  promoAnnualActive,
+  promoActiveByCadence,
   promoDeadlineLabel,
+  sellableCadences,
+  trialPlanKeys,
   referralEnabled,
   campaignActive,
 }: Props) {
@@ -563,9 +580,28 @@ function PricingClientInner({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: authSession, loading: authLoading, refresh: refreshSession } = useAuthSession();
-  const [cadence, setCadence] = useState<Cadence>('monthly');
+  // Offered billing periods, in catalogue order. Monthly is always sellable; the
+  // guard keeps the toggle sane even if a misconfiguration left it out.
+  const cadences = useMemo<Cadence[]>(
+    () => BILLING_CADENCES.filter((c) => c === 'monthly' || sellableCadences.includes(c)),
+    [sellableCadences],
+  );
+  // A ?cadence= carried through registration (or linked from elsewhere) opens
+  // the page on that billing period, when it is offered.
+  const [cadence, setCadence] = useState<Cadence>(() => {
+    const requested = searchParams.get('cadence');
+    return cadences.find((c) => c === requested) ?? 'monthly';
+  });
   const [busyTier, setBusyTier] = useState<'basic' | 'pro' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A trialing member switching onto a plan sold under the guarantee is charged
+  // today, so the server prices it first and the page asks before paying.
+  const [confirmSwitch, setConfirmSwitch] = useState<{
+    tier: BillableTier;
+    cadence: Cadence;
+    amountFormatted: string | null;
+  } | null>(null);
+  const trialPlans = useMemo(() => new Set(trialPlanKeys), [trialPlanKeys]);
   // A referred visitor carries the zgx_ref cookie set when they landed on the
   // ?ref= link; surface a reminder that their discount applies at checkout.
   // Lazily derived (no effect) — this subtree is client-rendered (it bails out
@@ -691,11 +727,10 @@ function PricingClientInner({
 
   // Server already gated PROMO_END_AT + coupon configuration per cadence;
   // just pick the flag matching the user's current cadence selection.
-  const promoActive =
-    cadence === 'monthly' ? promoMonthlyActive : promoAnnualActive;
+  const promoActive = promoActiveByCadence[cadence] ?? false;
   // For the global banner, true whenever *any* cadence has a live offer —
   // independent of the current toggle so it doesn't flicker on cadence change.
-  const anyPromoActive = promoMonthlyActive || promoAnnualActive;
+  const anyPromoActive = Object.values(promoActiveByCadence).some(Boolean);
 
   // Preserve the win-back intent across the auth round-trip: a churned member
   // who clicks the email link while logged out would otherwise land back on a
@@ -793,37 +828,110 @@ function PricingClientInner({
     [authSession?.user?.id, callBilling, cadence, cameFromWinback, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, refreshSession, registerHref, router, t],
   );
 
-  // Existing subscriber switching tier from a plan card. The server decides
-  // whether to upgrade a trialing member in-app (at the promo rate, trial
-  // preserved) or hand off to the billing portal; either way it returns a `url`
-  // for us to follow (the app dashboard on an in-app upgrade, or Stripe's portal).
+  // Existing subscriber switching plan from a card. The server decides: a
+  // trialing member moving onto a plan sold under the guarantee is charged
+  // TODAY, so the first call only prices it and we ask before paying (the
+  // second call carries confirm: true); anything else comes back as a `url` to
+  // follow (the dashboard after an in-app switch, or Stripe's portal).
+  const requestPlanChange = useCallback(
+    async (tier: BillableTier, planCadence: Cadence, confirm: boolean) => {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) throw new Error(t('errorCsrfFailed'));
+      const response = await fetch('/api/billing/change-plan', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json', 'x-csrf-token': csrf.csrfToken },
+        body: JSON.stringify({ tier, cadence: planCadence, ...(confirm ? { confirm: true } : {}) }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+        confirm?: { amountFormatted: string | null };
+      };
+      if (!response.ok) throw new Error(payload.error ?? t('errorBillingFailed'));
+      if (payload.confirm) {
+        setConfirmSwitch({ tier, cadence: planCadence, amountFormatted: payload.confirm.amountFormatted ?? null });
+        setBusyTier(null);
+        return;
+      }
+      if (!payload.url) throw new Error(t('errorBillingFailed'));
+      window.location.href = payload.url;
+    },
+    [t],
+  );
+
   const handleChangePlan = useCallback(
     async (tier: BillableTier) => {
       setError(null);
       setBusyTier(tier);
       try {
-        await callBilling('/api/billing/change-plan', { tier, cadence });
+        await requestPlanChange(tier, cadence, false);
       } catch (err) {
         setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
         setBusyTier(null);
       }
     },
-    [callBilling, cadence, t],
+    [cadence, requestPlanChange, t],
+  );
+
+  const handleConfirmSwitch = useCallback(async () => {
+    if (!confirmSwitch) return;
+    const { tier, cadence: planCadence } = confirmSwitch;
+    setError(null);
+    setBusyTier(tier);
+    setConfirmSwitch(null);
+    try {
+      await requestPlanChange(tier, planCadence, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
+      setBusyTier(null);
+    }
+  }, [confirmSwitch, requestPlanChange, t]);
+
+  const planName = useCallback(
+    (tier: BillableTier, planCadence: Cadence) =>
+      t('planNameFormat', {
+        tier: tier === 'basic' ? t('basicTitle') : t('proTitle'),
+        cadence:
+          planCadence === 'monthly'
+            ? t('cadenceMonthly')
+            : planCadence === 'quarterly'
+              ? t('cadenceQuarterly')
+              : t('cadenceAnnual'),
+      }),
+    [t],
+  );
+
+  // Per card: does choosing it start a free trial, or is it paid up front under
+  // the money-back guarantee? Mirrors checkout (the server re-derives both):
+  //   • the trial plan, for a first-timer → trial;
+  //   • any plan, for a ?reactivate=1 invitee → the extended trial they were
+  //     emailed (checkout honors it on every plan);
+  //   • every other plan → guarantee;
+  //   • the trial plan for a returning member → neither: they are simply billed.
+  const cardTerms = useCallback(
+    (tier: BillableTier) => {
+      const planTrials = planHasFreeTrial({ tier, cadence }, trialPlans);
+      const startsTrial = !isResubscribe && (planTrials || cameFromReactivate);
+      return { startsTrial, hasGuarantee: !startsTrial && !planTrials };
+    },
+    [cadence, cameFromReactivate, isResubscribe, trialPlans],
   );
 
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
       const label = tier === 'basic' ? t('basicTitle') : t('proTitle');
-      // Keep the word "trial" the moment they click through from "Start free
-      // trial" — tier-specific so the button reads "Start Basic Trial" /
-      // "Start Pro Trial", never "Subscribe" / "Choose plan".
-      const trialLabel = t('startTrialLabel', { label });
-      // Tier-specific register link so a logged-out plan click returns to the
-      // trial hero with THIS plan preselected (register carries the plan through).
-      const registerTrialHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}${cameFromReactivate ? '&reactivate=1' : ''}`)}`;
-      if (authLoading) return { kind: 'link', href: registerTrialHref, label: trialLabel };
+      // A trial card keeps the word "trial" ("Start Basic Trial"); a card sold
+      // under the guarantee says what it is — a subscription, billed today.
+      const { startsTrial } = cardTerms(tier);
+      const primaryLabel = startsTrial ? t('startTrialLabel', { label }) : t('subscribeToLabel', { label });
+      // Tier- and cadence-specific register link so a logged-out plan click
+      // returns to the pricing page with THIS plan and billing period selected.
+      const registerHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}&cadence=${cadence}${cameFromReactivate ? '&reactivate=1' : ''}`)}`;
+      if (authLoading) return { kind: 'link', href: registerHref, label: primaryLabel };
       if (!isAuthed) {
-        return { kind: 'link', href: registerTrialHref, label: trialLabel };
+        return { kind: 'link', href: registerHref, label: primaryLabel };
       }
       if (currentTier === 'admin') return { kind: 'current', label: t('adminNoSubscription') };
 
@@ -833,23 +941,22 @@ function PricingClientInner({
         return { kind: 'portal', tier, label: t('switchToLabel', { label }) };
       }
 
-      // No active Stripe sub. First-timers get the free trial; a returning
-      // member with prior paid history is charged immediately (checkout
-      // suppresses the trial), so label it a subscribe, not a trial.
-      if (isResubscribe) return { kind: 'subscribe', tier, label: t('subscribeToLabel', { label }) };
-      return { kind: 'subscribe', tier, label: trialLabel };
+      return { kind: 'subscribe', tier, label: primaryLabel };
     },
-    [authLoading, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, isResubscribe, t],
+    [authLoading, cadence, cameFromReactivate, cardTerms, currentTier, hasActiveSubscription, isAuthed, t],
   );
 
   // "Limited Time" pill omitted from the per-card highlights when the global
   // banner is already shown above — the banner carries that callout once
   // instead of repeating it twice per card.
-  const basicHighlights: string[] = [];
-  if (cadence === 'annual') basicHighlights.push(t('save57Highlight'));
-
-  const proHighlights: string[] = [t('mostPopularHighlight')];
-  if (cadence === 'annual') proHighlights.push(t('save58Highlight'));
+  const savingsHighlight = (tier: BillableTier): string[] => {
+    const pct = planDisplay({ tier, cadence }).savingsPct;
+    return pct != null ? [t('saveHighlight', { pct })] : [];
+  };
+  const basicHighlights: string[] = savingsHighlight('basic');
+  const proHighlights: string[] = [t('mostPopularHighlight'), ...savingsHighlight('pro')];
+  const basicTerms = cardTerms('basic');
+  const proTerms = cardTerms('pro');
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -937,7 +1044,7 @@ function PricingClientInner({
           {anyPromoActive && <LimitedTimeBanner deadlineLabel={promoDeadlineLabel} />}
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-            <CadenceToggle cadence={cadence} setCadence={setCadence} />
+            <CadenceToggle cadence={cadence} cadences={cadences} setCadence={setCadence} />
           </div>
 
           {referralPresent && (
@@ -1066,7 +1173,8 @@ function PricingClientInner({
               promoActive={promoActive}
               highlights={basicHighlights}
               highlighted={preselectedPlan === 'basic'}
-              startsTrial={!isResubscribe}
+              startsTrial={basicTerms.startsTrial}
+              hasGuarantee={basicTerms.hasGuarantee}
               trialDays={trialDaysDisplay}
               accent="var(--color-brand-primary)"
               features={[
@@ -1086,7 +1194,8 @@ function PricingClientInner({
               promoActive={promoActive}
               highlights={proHighlights}
               highlighted={preselectedPlan === 'pro'}
-              startsTrial={!isResubscribe}
+              startsTrial={proTerms.startsTrial}
+              hasGuarantee={proTerms.hasGuarantee}
               trialDays={trialDaysDisplay}
               accent="var(--color-brand-accent)"
               features={[
@@ -1135,10 +1244,16 @@ function PricingClientInner({
               </p>
               <ul style={{ paddingLeft: 22, marginTop: 12 }}>
                 <li>
-                  <strong>{t('trialListLabel', { days: trialDaysDisplay })}</strong> {t('trialListBody')}
+                  <strong>{t('trialListLabel', { days: TRIAL_DAYS })}</strong> {t('trialListBody')}
+                </li>
+                <li>
+                  <strong>{t('moneyBackListLabel')}</strong> {t('moneyBackListBody')}
                 </li>
                 <li>
                   <strong>{t('cancelAnytimeLabel')}</strong> {t('cancelAnytimeBody')}
+                </li>
+                <li>
+                  <strong>{t('autoRenewLabel')}</strong> {t('autoRenewBody')}
                 </li>
                 <li>
                   <strong>{t('planSwitchLabel')}</strong> {t('planSwitchBody')}
@@ -1157,6 +1272,72 @@ function PricingClientInner({
           </section>
         </div>
       </section>
+
+      {confirmSwitch && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="zgx-confirm-switch-title"
+          onClick={() => setConfirmSwitch(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            className="zg-panel"
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: 460, width: '100%', padding: 24, background: 'var(--color-surface)' }}
+          >
+            <h2 id="zgx-confirm-switch-title" style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.light }}>
+              {t('confirmSwitchTitle', { plan: planName(confirmSwitch.tier, confirmSwitch.cadence) })}
+            </h2>
+            <p style={{ margin: '12px 0 0', color: C.light, fontSize: 15, lineHeight: 1.6 }}>
+              {confirmSwitch.amountFormatted
+                ? t('confirmSwitchBody', { amount: confirmSwitch.amountFormatted })
+                : t('confirmSwitchBodyNoAmount', { plan: planName(confirmSwitch.tier, confirmSwitch.cadence) })}
+            </p>
+            <p
+              style={{
+                margin: '10px 0 0',
+                color: C.muted,
+                fontSize: 13,
+                lineHeight: 1.55,
+                display: 'flex',
+                gap: 6,
+                alignItems: 'flex-start',
+              }}
+            >
+              <ShieldCheck size={14} style={{ color: C.amber, marginTop: 2, flexShrink: 0 }} aria-hidden />
+              <span>{t('confirmSwitchGuarantee', { days: MONEY_BACK_GUARANTEE_DAYS })}</span>
+            </p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="zg-btn zg-btn--primary"
+                style={{ flex: 1, padding: '12px 18px', fontSize: 14 }}
+                onClick={() => void handleConfirmSwitch()}
+              >
+                {t('confirmSwitchCta')}
+              </button>
+              <button
+                type="button"
+                className="zg-btn zg-btn--secondary"
+                style={{ flex: 1, padding: '12px 18px', fontSize: 14 }}
+                onClick={() => setConfirmSwitch(null)}
+              >
+                {t('confirmSwitchCancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer theme={theme} />
     </div>

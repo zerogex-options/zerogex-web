@@ -49,7 +49,7 @@ export type ConveyorRider = {
   email: string | null;
   state: ConveyorState;
   tier: 'basic' | 'pro' | null;
-  cadence: 'monthly' | 'annual' | null;
+  cadence: 'monthly' | 'quarterly' | 'annual' | null;
   founding: boolean;
   // ISO instants. `boardedAt` is null when the trial started before the
   // retained audit window (belt position then falls back to the nominal span).

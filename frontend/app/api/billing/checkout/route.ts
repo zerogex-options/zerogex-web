@@ -13,10 +13,16 @@ import {
   isBillableTier,
   isBillingCadence,
   isPaidSignupDisabled,
+  isSkuSellable,
+  skuHasFreeTrial,
+  skuHasMoneyBackGuarantee,
   skuToPriceId,
   type BillableTier,
   type BillingCadence,
 } from '@/core/stripe';
+import { MONEY_BACK_GUARANTEE_DAYS } from '@/core/billingPlans';
+import { checkoutSubmitMessage, type CheckoutProtection } from '@/core/checkoutDisclosure';
+import { normalizeLocale } from '@/core/i18n/locales';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
 import { resolveRefereeBonusCoupon, splitRefereeBonus } from '@/core/refereeBonus';
 import { shouldRestoreFoundingRate } from '@/core/foundingRestore';
@@ -53,11 +59,30 @@ function isTosConsentUnsupportedError(err: unknown): boolean {
   return haystack.includes('consent_collection') || haystack.includes('terms of service');
 }
 
+// The same degrade-don't-fail rule for the terms line above the Subscribe
+// button (custom_text.submit, see core/checkoutDisclosure.ts). The disclosure
+// matters, but a checkout that cannot open costs the sale outright, so if
+// Stripe ever refuses the parameter the session is created without it and the
+// log says so loudly. The pricing page and the post-checkout email carry the
+// same terms, so the customer is still told.
+let customTextUnsupported = false;
+
+function isCustomTextUnsupportedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as { type?: string; param?: string; message?: string };
+  if (candidate.type !== 'StripeInvalidRequestError') return false;
+  const haystack = `${candidate.param ?? ''} ${candidate.message ?? ''}`.toLowerCase();
+  return haystack.includes('custom_text');
+}
+
 // Card is collected at checkout (Stripe subscription mode defaults
 // payment_method_collection to 'always'); tier is granted immediately
 // because the webhook treats 'trialing' as active. Once-per-account: a
 // churned member resubscribing has paid_welcome_email_sent_at set, so the
 // trial is suppressed below — no farming a fresh free week on every cycle.
+// Only the plans BILLING_TRIAL_PLANS names (default: Basic monthly) trial at
+// all; every other plan is paid up front under the money-back guarantee — see
+// core/billingPlans.ts.
 const TRIAL_PERIOD_DAYS = 7;
 
 // Extended trial granted to a verified-never-paid signup who returns through the
@@ -131,10 +156,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'tier must be one of basic, pro' }, { status: 400 });
   }
   if (!isBillingCadence(body.cadence)) {
-    return NextResponse.json({ error: 'cadence must be one of monthly, annual' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'cadence must be one of monthly, quarterly, annual' },
+      { status: 400 },
+    );
   }
   const tier: BillableTier = body.tier;
   const cadence = body.cadence;
+  // A cadence whose Stripe prices aren't configured yet (quarterly, before its
+  // STRIPE_PRICE_*_QUARTERLY keys are set) is refused here, before a Stripe
+  // customer is touched, rather than failing deep in the session create.
+  if (!isSkuSellable({ tier, cadence })) {
+    return NextResponse.json(
+      { error: 'That plan is not available right now. Please choose another billing period.' },
+      { status: 400 },
+    );
+  }
   const foundingCode =
     typeof body.foundingCode === 'string' && body.foundingCode.length > 0
       ? body.foundingCode
@@ -260,14 +297,27 @@ export async function POST(request: NextRequest) {
   // on this account — paid OR a trial that lapsed (computed above as
   // hasHeldSubscriptionBefore) — is ineligible for any trial. Deliberately NOT
   // gated on whether money cleared: a trialer who lets one lapse would
-  // otherwise farm a fresh free week every cycle. First-timers get the standard
-  // 7-day trial — or, when they arrived through the reactivation offer, the
-  // extended one.
+  // otherwise farm a fresh free week every cycle.
+  //
+  // First-timers get the standard 7-day trial on a TRIAL plan only (Basic
+  // monthly by default — skuHasFreeTrial); every other plan is paid up front
+  // under the money-back guarantee instead.
+  //
+  // The one exception is the reactivation offer. That email has already told
+  // its recipients, in so many words, "I extended your ZeroGEX free trial" with
+  // full access, before the trial was narrowed to one plan — so an invited,
+  // verified-eligible member gets the extended trial on whichever plan they pick
+  // rather than a promise broken at the checkout page. The cohort is small
+  // (never-paid signups the reactivation drip reached) and the entitlement is
+  // re-derived server-side exactly as before.
+  const planHasTrial = skuHasFreeTrial({ tier, cadence });
   const trialDays = hasHeldSubscriptionBefore
     ? null
     : reactivationEligible
       ? getReactivationTrialDays()
-      : TRIAL_PERIOD_DAYS;
+      : planHasTrial
+        ? TRIAL_PERIOD_DAYS
+        : null;
 
   // Founding members get the deferral-to-July-1 trial instead of the 7-day
   // one. Absolute trial_end (not a day count) so every founding member
@@ -286,13 +336,44 @@ export async function POST(request: NextRequest) {
       ? Math.floor(foundingDeadlineMs / 1000)
       : null;
 
+  // Paid up front on a plan sold under the money-back guarantee. Never true for
+  // a checkout that grants any trial: a plan carries one protection or the
+  // other, never both. A returning member buying the trial plan gets neither —
+  // they have had their trial — and is simply billed.
+  const moneyBackCovered =
+    !foundingTrialEndUnix && !trialDays && skuHasMoneyBackGuarantee({ tier, cadence });
+
   // What the post-checkout banner should say, decided here because this is the
   // only place that knows what was actually granted — the member lands on the
   // dashboard before the webhook has synced anything to read. Mirrors the
   // subscription_data precedence below exactly: founding deferral, else a day
-  // count, else no trial. Consumed by resolveTrialStartedCopy in
-  // app/dashboard/trialStartedCopy.ts.
-  const trialParam = foundingTrialEndUnix ? 'deferred' : trialDays ? String(trialDays) : 'none';
+  // count, else the guarantee, else nothing. Consumed by resolveTrialStartedCopy
+  // in app/dashboard/trialStartedCopy.ts.
+  const trialParam = foundingTrialEndUnix
+    ? 'deferred'
+    : trialDays
+      ? String(trialDays)
+      : moneyBackCovered
+        ? 'money_back'
+        : 'none';
+
+  // The terms line Stripe prints above the Subscribe button, in the language
+  // the member is browsing in (the same `lang` cookie the site renders from).
+  const protection: CheckoutProtection = foundingTrialEndUnix
+    ? {
+        kind: 'trial',
+        days: Math.max(1, Math.ceil((foundingTrialEndUnix * 1000 - Date.now()) / 86_400_000)),
+      }
+    : trialDays
+      ? { kind: 'trial', days: trialDays }
+      : moneyBackCovered
+        ? { kind: 'money_back', days: MONEY_BACK_GUARANTEE_DAYS }
+        : { kind: 'none' };
+  const submitMessage = checkoutSubmitMessage({
+    locale: normalizeLocale(request.cookies.get('lang')?.value ?? null),
+    cadence,
+    protection,
+  });
 
   const stripe = getStripe();
   const appUrl = getAppUrl();
@@ -408,11 +489,16 @@ export async function POST(request: NextRequest) {
     // the Dashboard URL it needs is not set, so a missing setting degrades to
     // the previous behaviour instead of failing checkout.
     ...(tosConsentUnsupported ? {} : { consent_collection: { terms_of_service: 'required' as const } }),
+    ...(customTextUnsupported ? {} : { custom_text: { submit: { message: submitMessage } } }),
     subscription_data: {
       metadata: {
         user_id: actor.user.id,
         tier,
         cadence,
+        // Sold under the 7-day money-back guarantee. The refund flow reads this
+        // (core/moneyBackGuarantee.ts); the payment date is read live from the
+        // subscription's invoices, never from here.
+        ...(moneyBackCovered ? { money_back: '1' } : {}),
         ...(discountResult.foundingApplied ? { founding: '1' } : {}),
         ...(discountResult.partnerApplied ? { partner_referred: '1' } : {}),
         ...(discountResult.winbackApplied ? { winback: '1' } : {}),
@@ -447,28 +533,48 @@ export async function POST(request: NextRequest) {
     sessionParams.allow_promotion_codes = true;
   }
 
-  let session: Stripe.Checkout.Session;
-  try {
-    session = await stripe.checkout.sessions.create(sessionParams);
-  } catch (err) {
-    // Keyed on what THIS request actually sent, not on the module latch: two
-    // checkouts can be in flight when the first one latches, and the second
-    // still carries the parameter Stripe is about to reject. Testing the latch
-    // here would rethrow that one as a 500 instead of retrying it.
-    if (!sessionParams.consent_collection || !isTosConsentUnsupportedError(err)) throw err;
-    // Latch it off so this costs one rejected call per process, not one per
-    // checkout, and say plainly in the log what has to be configured — the
-    // consent box silently not appearing is exactly the failure this whole
-    // change exists to stop.
-    tosConsentUnsupported = true;
-    console.error(
-      '[checkout] Stripe rejected consent_collection[terms_of_service] — set a Terms of service URL in ' +
-        'Dashboard → Settings → Public business information to collect terms acceptance at checkout. ' +
-        'Proceeding without it.',
-      err,
-    );
-    delete sessionParams.consent_collection;
-    session = await stripe.checkout.sessions.create(sessionParams);
+  let session: Stripe.Checkout.Session | null = null;
+  // At most one retry per optional parameter (terms consent, the terms line),
+  // so the loop is bounded at three attempts and anything else Stripe rejects
+  // is rethrown on the first pass exactly as before.
+  for (let attempt = 0; attempt < 3 && !session; attempt++) {
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (err) {
+      // Keyed on what THIS request actually sent, not on the module latch: two
+      // checkouts can be in flight when the first one latches, and the second
+      // still carries the parameter Stripe is about to reject. Testing the latch
+      // here would rethrow that one as a 500 instead of retrying it.
+      if (sessionParams.consent_collection && isTosConsentUnsupportedError(err)) {
+        // Latch it off so this costs one rejected call per process, not one per
+        // checkout, and say plainly in the log what has to be configured — the
+        // consent box silently not appearing is exactly the failure this whole
+        // change exists to stop.
+        tosConsentUnsupported = true;
+        console.error(
+          '[checkout] Stripe rejected consent_collection[terms_of_service] — set a Terms of service URL in ' +
+            'Dashboard → Settings → Public business information to collect terms acceptance at checkout. ' +
+            'Proceeding without it.',
+          err,
+        );
+        delete sessionParams.consent_collection;
+        continue;
+      }
+      if (sessionParams.custom_text && isCustomTextUnsupportedError(err)) {
+        customTextUnsupported = true;
+        console.error(
+          '[checkout] Stripe rejected custom_text[submit] — the trial / money-back terms line will not ' +
+            'show above the Subscribe button. Proceeding without it.',
+          err,
+        );
+        delete sessionParams.custom_text;
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (!session) {
+    return NextResponse.json({ error: 'Stripe did not return a checkout session' }, { status: 502 });
   }
 
   if (!session.url) {
@@ -483,7 +589,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });

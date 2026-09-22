@@ -35,6 +35,9 @@ export type InvoicePreviewOptions = {
   // Discounts to apply for the preview only — modelling a coupon before it is
   // attached. An empty array explicitly previews with NO discount.
   discounts?: Array<{ coupon: string }>;
+  // 'now' previews the invoice that ending a trial immediately would raise —
+  // what the in-app upgrade out of a trial charges on the spot.
+  trialEnd?: 'now';
 };
 
 type InvoicesApi = {
@@ -47,12 +50,13 @@ export async function previewNextInvoice(
   options: InvoicePreviewOptions,
 ): Promise<Stripe.Invoice> {
   const invoices = stripe.invoices as unknown as InvoicesApi;
-  const { subscription, customer, items, prorationBehavior, discounts } = options;
+  const { subscription, customer, items, prorationBehavior, discounts, trialEnd } = options;
 
   if (typeof invoices.createPreview === 'function') {
     const subscriptionDetails: Record<string, unknown> = {};
     if (items) subscriptionDetails.items = items;
     if (prorationBehavior) subscriptionDetails.proration_behavior = prorationBehavior;
+    if (trialEnd) subscriptionDetails.trial_end = trialEnd;
     return invoices.createPreview({
       subscription,
       ...(customer ? { customer } : {}),
@@ -69,6 +73,7 @@ export async function previewNextInvoice(
       ...(customer ? { customer } : {}),
       ...(items ? { subscription_items: items } : {}),
       ...(prorationBehavior ? { subscription_proration_behavior: prorationBehavior } : {}),
+      ...(trialEnd ? { subscription_trial_end: trialEnd } : {}),
       // The legacy endpoint takes a single coupon id, not a discounts array.
       ...(discounts && discounts.length === 1 ? { coupon: discounts[0].coupon } : {}),
     });

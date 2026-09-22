@@ -63,11 +63,11 @@ export function resolveRefereeBonusCoupon(input: RefereeBonusInput): string | nu
   if (!coupon) return null;
 
   // Defense-in-depth: the monthly bonus is a 100%-off coupon (first month
-  // free). On an annual line item that same coupon would make the entire first
-  // YEAR free. The coupon is already keyed to cadence, but guard the env-
-  // misconfig case where the annual var was pointed at the monthly coupon —
-  // drop the bonus rather than give away a free year.
-  if (input.cadence === 'annual' && input.monthlyCoupon && coupon === input.monthlyCoupon) {
+  // free). On an annual or quarterly line item that same coupon would make the
+  // entire first YEAR (or quarter) free. The coupon is already keyed to cadence,
+  // but guard the env-misconfig case where another cadence's var was pointed at
+  // the monthly coupon — drop the bonus rather than give away a free period.
+  if (input.cadence !== 'monthly' && input.monthlyCoupon && coupon === input.monthlyCoupon) {
     return null;
   }
 

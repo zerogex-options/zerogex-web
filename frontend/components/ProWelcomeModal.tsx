@@ -156,7 +156,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
         </div>
 
         <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 14px 0', lineHeight: 1.3 }}>
-          You&apos;re in — your Pro trial is live 🎉
+          You&apos;re in — Pro is live 🎉
         </h2>
 
         <div

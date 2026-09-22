@@ -52,7 +52,9 @@ export default function TrialStartedBanner() {
       ? [t('welcomeDays', { days: copy.days }), t('billingDays', { days: copy.days })]
       : copy.variant === 'deferred'
         ? [t('welcomeDeferred'), t('billingDeferred')]
-        : [t('welcomeNone'), t('billingNone')];
+        : copy.variant === 'money_back'
+          ? [t('welcomeMoneyBack'), t('billingMoneyBack', { days: copy.days })]
+          : [t('welcomeNone'), t('billingNone')];
 
   return (
     <div

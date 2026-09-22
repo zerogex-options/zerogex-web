@@ -51,7 +51,7 @@ import {
 } from '../core/stripeInvoice.ts';
 
 type Tier = 'basic' | 'pro';
-type Cadence = 'monthly' | 'annual';
+type Cadence = 'monthly' | 'quarterly' | 'annual';
 
 type Args = {
   sinceDays: number;
@@ -242,8 +242,10 @@ if (!STRIPE_SECRET_KEY) {
 // alias, so the price map is rebuilt from the same env vars the app reads.
 const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: Cadence }> = [
   { env: 'STRIPE_PRICE_BASIC_MONTHLY', tier: 'basic', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_BASIC_QUARTERLY', tier: 'basic', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_BASIC_ANNUAL', tier: 'basic', cadence: 'annual' },
   { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_PRO_QUARTERLY', tier: 'pro', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_PRO_ANNUAL', tier: 'pro', cadence: 'annual' },
 ];
 const skuByPriceId = new Map<string, { tier: Tier; cadence: Cadence }>();

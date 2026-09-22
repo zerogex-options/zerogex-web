@@ -72,6 +72,21 @@ test('the 100%-off monthly coupon is never applied to an annual purchase', () =>
   assert.equal(resolveRefereeBonusCoupon(input({ cadence: 'monthly' })), MONTHLY_BONUS);
 });
 
+test('the 100%-off monthly coupon is never applied to a quarterly purchase either', () => {
+  // Same hole one cadence over: it would make the whole first QUARTER free.
+  assert.equal(
+    resolveRefereeBonusCoupon(input({ cadence: 'quarterly', couponForCadence: MONTHLY_BONUS })),
+    null,
+  );
+  // A coupon actually configured for quarterly passes through.
+  assert.equal(
+    resolveRefereeBonusCoupon(input({ cadence: 'quarterly', couponForCadence: 'coupon_referee_quarterly' })),
+    'coupon_referee_quarterly',
+  );
+  // And an unconfigured quarterly cadence is simply no bonus.
+  assert.equal(resolveRefereeBonusCoupon(input({ cadence: 'quarterly', couponForCadence: null })), null);
+});
+
 test('bonus + public promo: the promo rides checkout, the bonus is stacked', () => {
   // Stripe Checkout carries one discount, so the customer sees the advertised
   // promo rate on Stripe's page and the webhook adds the bonus to the

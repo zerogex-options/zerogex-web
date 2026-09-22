@@ -73,7 +73,7 @@ import {
 const AUDIT_TYPE = 'billing_orphan_payment_recovered';
 
 type Tier = 'basic' | 'pro';
-type Cadence = 'monthly' | 'annual';
+type Cadence = 'monthly' | 'quarterly' | 'annual';
 
 type Args = {
   email: string | null;
@@ -257,8 +257,10 @@ if (!STRIPE_SECRET_KEY) {
 // Keep in sync with core/stripe.ts if the keys change.
 const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: Cadence }> = [
   { env: 'STRIPE_PRICE_BASIC_MONTHLY', tier: 'basic', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_BASIC_QUARTERLY', tier: 'basic', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_BASIC_ANNUAL', tier: 'basic', cadence: 'annual' },
   { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_PRO_QUARTERLY', tier: 'pro', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_PRO_ANNUAL', tier: 'pro', cadence: 'annual' },
 ];
 const skuByPriceId = new Map<string, { tier: Tier; cadence: Cadence }>();

@@ -123,7 +123,7 @@ type ConversionBySourceSnapshot = {
 // is a client component and can't import the server-only monitoring types).
 type MrrBreakdownRow = {
   tier: 'basic' | 'pro';
-  cadence: 'monthly' | 'annual';
+  cadence: 'monthly' | 'quarterly' | 'annual';
   rate: 'list' | 'founding';
   state: 'active' | 'trialing';
   count: number;
@@ -1983,7 +1983,7 @@ function formatUsd(n: number, opts?: { cents?: boolean }): string {
 }
 
 const TIER_LABEL = { basic: 'Basic', pro: 'Pro' } as const;
-const CADENCE_LABEL = { monthly: 'Monthly', annual: 'Annual' } as const;
+const CADENCE_LABEL = { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual' } as const;
 const RATE_LABEL = { list: 'List', founding: 'Founding' } as const;
 const STATE_LABEL = { active: 'Active', trialing: 'Trial' } as const;
 

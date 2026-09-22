@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders money-back-refund setup-pricing setup-billing-portal
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -56,6 +56,10 @@ help:
 	@echo "  make trial-engagement - Review trials by whether the member has used the product since signup (read-only, DORMANT_ONLY=1 to filter)"
 	@echo "  make renewal-engagement - Review ACTIVE subscribers by whether they have used the product before their renewal (read-only, DORMANT_ONLY=1 to filter)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, RENDER=<email> to dry-run one member's real copy to files without sending)"
+	@echo "  make renewal-reminders - Email members whose QUARTERLY plan renews within 7 days or ANNUAL plan within 30 days (auto-renewal notice; once per renewal via users.renewal_reminder_sent_for). Daily systemd timer (step 099). DRY_RUN=1 lists who is due (the default), YES=1 sends, PREVIEW_TO=<email> sends one sample"
+	@echo "  make money-back-refund EMAIL=<email> - Honor a 7-day money-back guarantee request that came in by email, or finish one the Account page could not: the SAME path as the self-serve button (full refund, immediate cancel, access + API keys removed, confirmation email, counts as their one refund). Dry run by default; YES=1 applies; REASON=<stripe feedback> COMMENT=\"...\" optional; FORCE=1 honors it outside the window / past the one-refund limit (goodwill)"
+	@echo "  make setup-pricing - Create the quarterly Stripe prices (Basic 75 USD / Pro 115 USD every 3 months, on the existing products) and the 10-USD-off-monthly-for-12-months promo coupon, and print the .env.local lines. Dry run by default; YES=1 creates. VERIFY=1 instead checks every configured price and coupon against what the pricing page shows and fails loudly on any mismatch — run it before and after changing billing env"
+	@echo "  make setup-billing-portal - Point the Stripe billing portal at every configured plan (monthly, quarterly, annual; both tiers) and make a plan switch during the free trial end the trial. Dry run by default; YES=1 applies. Run it AFTER make restart when prices change: the webhook maps prices to tiers through the same env"
 	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, WINDOW_HOURS=N to tune the window)"
 	@echo "  make card-expiry-reminders - Email active subscribers whose card on file expires within ~45 days so they update it before a renewal fails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, THRESHOLD_DAYS=N / LIMIT=N to tune)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
@@ -571,6 +575,30 @@ tradeworkz-notify:
 # would receive; OUT=<dir> overrides the output directory.
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(RENDER),--render $(RENDER),) $(if $(OUT),--out $(OUT),)'
+
+# Advance notice before a quarterly/annual plan renews (core/renewalReminder.ts:
+# 7 days for quarterly, 30 for annual). Idempotent per billing period. Driven
+# daily by the zerogex-web-renewal-reminders timer (deploy/steps/099.renewal-reminders).
+renewal-reminders:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-renewal-reminders.mts $(if $(YES),--yes,--dry-run) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Honor a 7-day money-back guarantee request by hand (the same code path as the
+# Account page button — core/moneyBackServer.ts). Dry run unless YES=1.
+money-back-refund:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make money-back-refund EMAIL=foo@example.com YES=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/money-back-refund.mts --email $(EMAIL) $(if $(REASON),--reason $(REASON),) $(if $(COMMENT),--comment "$(COMMENT)",) $(if $(FORCE),--force,) $(if $(YES),--yes,--dry-run)'
+
+# Provision (or verify) the Stripe side of the October 2026 pricing: quarterly
+# prices and the $10-off-monthly promo coupon. Dry run unless YES=1; VERIFY=1
+# checks the live configuration against the pricing page instead.
+setup-pricing:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/setup-pricing.mts $(if $(VERIFY),--verify,$(if $(YES),--yes,--dry-run))'
+
+# Create/update the Stripe billing portal configuration (scripts/setup-billing-portal.mts
+# has the details). Dry run unless YES=1. After a price change, run it only once the
+# app has restarted with the new STRIPE_PRICE_* env.
+setup-billing-portal:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/setup-billing-portal.mts $(if $(YES),--yes,--dry-run)'
 
 # Send the mid-trial value/activation nudge (~day 2 of a 7-day trial) to
 # currently-trialing members, BEFORE the day 3-7 cancel wave and well before the
