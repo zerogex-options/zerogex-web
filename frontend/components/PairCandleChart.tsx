@@ -39,12 +39,21 @@ export interface CandleReplay {
   levels: { spot: number | null; flip: number | null; call: number | null; put: number | null; pain: number | null };
 }
 
+// The same five levels, codes and tokens as PairGammaHeatmap's LEVEL_META: the
+// two charts sit side by side on the pair view, so SP/GF/CW/PW/MP has to mean
+// the same colour in both.
+//
+// The flip used to be drawn from --color-warning and max pain from
+// --color-accent-hot, which predate the dedicated --color-flip and
+// --color-maxpain level tokens. In the palettes whose hot accent IS their old
+// gold — california, london, zurich — that put GF and MP on the very same hex,
+// so the two lines were indistinguishable in both modes.
 const LEVEL_LINES: Array<{ key: "spot" | "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
-  { key: "spot", code: "SP", color: "var(--color-navy)" },
-  { key: "flip", code: "GF", color: "var(--color-warning)" },
+  { key: "spot", code: "SP", color: "var(--color-accent-hot)" },
+  { key: "flip", code: "GF", color: "var(--color-flip)" },
   { key: "call", code: "CW", color: "var(--color-bear)" },
   { key: "put", code: "PW", color: "var(--color-bull)" },
-  { key: "pain", code: "MP", color: "var(--color-accent-hot)" },
+  { key: "pain", code: "MP", color: "var(--color-maxpain)" },
 ];
 
 interface CandleBar {

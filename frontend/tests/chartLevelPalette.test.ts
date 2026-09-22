@@ -263,3 +263,50 @@ test('Wall Street keeps the live price off its call wall', () => {
       + `vs call wall ${pal['--color-bear']} is only ΔE ${d.toFixed(1)}`);
   }
 });
+
+// ── the pair view's two charts ───────────────────────────────────────────────
+// PairCandleChart and PairGammaHeatmap sit side by side and label the same five
+// levels with the same two-letter codes, so SP/GF/CW/PW/MP has to mean the same
+// colour in both. They had drifted: the candle chart still drew the flip from
+// --color-warning and max pain from --color-accent-hot, which predate the
+// dedicated --color-flip and --color-maxpain tokens. In the three palettes whose
+// hot accent IS their old gold that put GF and MP on the same hex.
+const readLevels = (rel: string, re: RegExp) => {
+  const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+  const out: Record<string, string> = {};
+  for (const m of src.matchAll(re)) out[m[1]] = m[2];
+  return out;
+};
+const candleLevels = readLevels('../components/PairCandleChart.tsx',
+  /\{\s*key:\s*"(\w+)",\s*code:\s*"\w+",\s*color:\s*"var\((--[a-z0-9-]+)\)"\s*\}/g);
+const heatmapLevels = readLevels('../components/PairGammaHeatmap.tsx',
+  /^\s{2}(\w+):\s*\{[^}]*?color:\s*"var\((--[a-z0-9-]+)\)"[^}]*?\}/gm);
+
+test('the two pair charts give a level the same colour', () => {
+  assert.equal(Object.keys(candleLevels).length, 5, 'PairCandleChart should define five levels');
+  assert.deepEqual(candleLevels, heatmapLevels,
+    'PairCandleChart and PairGammaHeatmap must map each level to the same token');
+});
+
+test('the pair-view levels are distinguishable from each other, in every theme', () => {
+  const clashes: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const entries = Object.entries(candleLevels);
+      for (let i = 0; i < entries.length; i++) {
+        for (let j = i + 1; j < entries.length; j++) {
+          const a = parse(pal[entries[i][1]]);
+          const b = parse(pal[entries[j][1]]);
+          assert.ok(a && b, `${p}: ${entries[i][1]} / ${entries[j][1]} should resolve`);
+          const d = deltaE(a, b);
+          if (d < MIN_DELTA_E) {
+            clashes.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}: `
+              + `${entries[i][0]} ${pal[entries[i][1]]} vs ${entries[j][0]} ${pal[entries[j][1]]} — ΔE ${d.toFixed(1)}`);
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(clashes, [], `pair-view level collisions:\n  ${clashes.join('\n  ')}`);
+});
