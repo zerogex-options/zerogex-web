@@ -158,9 +158,10 @@ export type ConveyorDeleteEvent = {
   day: string | null;
 };
 
-// A subscription invoice that actually got PAID (the `stripe_first_payment`
-// audit stream). Only the first one per subscription is written, so its presence
-// is proof the trial's conversion charge cleared.
+// A subscription invoice that actually got PAID. Any paid invoice on the sub
+// qualifies, renewals included — only membership is read below — and the
+// trial-OPENING $0 invoice is excluded upstream (core/subscriptionPayments.ts),
+// so a subscription appearing here is proof its conversion charge cleared.
 export type ConveyorPaymentEvent = {
   subId: string;
   day: string | null;
@@ -230,10 +231,10 @@ function dayDistance(earlier: string | null, later: string | null): number | nul
 // CONVERSION_CONFIRM_DAYS of that day revokes it and books the real outcome.
 //
 // `payments` settles that provisional booking positively instead of waiting the
-// window out: a subscription in the `stripe_first_payment` stream has had a real
-// charge clear, so its conversion is CONFIRMED and can never be revoked. That
-// stream only exists going forward, so a subscription without one still falls
-// back to the time-based rule and historical windows keep reading the same.
+// window out: a subscription in the payment stream has had a real charge clear,
+// so its conversion is CONFIRMED and can never be revoked. Those audit events
+// only exist going forward, so a subscription without one still falls back to
+// the time-based rule and historical windows keep reading the same.
 export function accumulateTrialOutcomes(
   syncs: ConveyorSyncEvent[],
   deletes: ConveyorDeleteEvent[],
@@ -511,4 +512,172 @@ export function projectFullSubscribers(input: {
     running = Math.max(0, running + added - lost);
     return { day, projected: running, conversions: added, departures: lost };
   });
+}
+
+// ── What's coming up ───────────────────────────────────────────────────────
+// The same committed events projectFullSubscribers rolls into a running total,
+// kept on a real CLOCK instead: a step that rises +1 at the instant a trial is
+// due to be charged and falls −1 at the instant a cancellation takes effect.
+// The projection answers "where does the line end up"; this answers "what lands,
+// and exactly when" — which is the question an operator has when deciding
+// whether the next few days need attention.
+//
+// A step, not a curve, because a headcount only ever moves in whole subscribers:
+// interpolating between two events would draw fractional members that never
+// exist. The value between two steps is the running net against today's count,
+// which is why the chart is read against zero — above it the week is up, below
+// it the week is down.
+//
+// A trialer clicking Cancel is not a special case here. That trial flips to
+// `rollingOff`, which this never counts, so its +1 is simply absent from the
+// next render — the step disappears on its own.
+
+export type UpcomingChangeKind = 'conversion' | 'departure';
+
+export type UpcomingChange = {
+  kind: UpcomingChangeKind;
+  // The instant it is scheduled for. Nullable because a subscription Stripe has
+  // not reported a period end for has none; those are skipped rather than
+  // guessed onto a time.
+  at: string | null;
+  userId: string;
+  email: string | null;
+  // $/month this change brings in (conversion) or takes away (departure).
+  monthlyValue: number;
+};
+
+// One point on the step. `net` is the running total the line holds FROM this
+// instant until the next step — so the value carried is the one after the
+// events listed here have landed.
+export type UpcomingStep = {
+  // Epoch ms: the x value on a time axis, not a label.
+  t: number;
+  at: string;
+  net: number;
+  // What lands at this instant. Empty on the two anchors that pin the line to
+  // the edges of the window.
+  events: UpcomingChange[];
+};
+
+export type UpcomingChanges = {
+  startsAt: string;
+  endsAt: string;
+  steps: UpcomingStep[];
+  // Window totals. `drops`/`dropValue` are negative, matching how they read on
+  // the chart, so no caller has to remember to flip them.
+  adds: number;
+  drops: number;
+  net: number;
+  addValue: number;
+  dropValue: number;
+};
+
+export function emptyUpcomingChanges(startsAt = '', endsAt = ''): UpcomingChanges {
+  return { startsAt, endsAt, steps: [], adds: 0, drops: 0, net: 0, addValue: 0, dropValue: 0 };
+}
+
+/**
+ * Turn the live conveyor into the list of changes it has already committed to.
+ *
+ * Only `running` trials are conversions: a rolling-off trial never joins the
+ * paid line at all, and a stalled one's first charge has already been declined,
+ * which makes it undecided rather than scheduled. Departures are the paying
+ * members who have clicked Cancel — the caller decides who qualifies as paying.
+ */
+export function upcomingChangesFromConveyor(input: {
+  riders: ConveyorRider[];
+  departures: ConveyorRider[];
+}): UpcomingChange[] {
+  const out: UpcomingChange[] = [];
+  for (const r of input.riders) {
+    if (r.state !== 'running') continue;
+    out.push({
+      kind: 'conversion',
+      at: r.convertsAt,
+      userId: r.userId,
+      email: r.email,
+      monthlyValue: r.monthlyValue,
+    });
+  }
+  for (const d of input.departures) {
+    out.push({
+      kind: 'departure',
+      at: d.convertsAt,
+      userId: d.userId,
+      email: d.email,
+      monthlyValue: d.monthlyValue,
+    });
+  }
+  return out;
+}
+
+/**
+ * Walk committed changes into the step the chart draws, across [startMs, endMs].
+ *
+ * Same window rules as projectFullSubscribers, for the same reasons: anything
+ * already overdue is clamped to the window start (it is imminent, not absent —
+ * Stripe owes us that charge now), anything past the end is outside the window,
+ * and an undated change is skipped rather than guessed onto a time.
+ *
+ * The line is pinned at both edges: it opens at zero — today's count, before
+ * anything lands — and closes at the final net, so the last stretch of the week
+ * is drawn rather than implied. Changes sharing an instant become ONE step, so
+ * two trials converting together move the line by two in a single jump.
+ */
+export function buildUpcomingSteps(
+  changes: UpcomingChange[],
+  window: { startMs: number; endMs: number },
+): UpcomingChanges {
+  const { startMs, endMs } = window;
+  const startsAt = new Date(startMs).toISOString();
+  const endsAt = new Date(endMs).toISOString();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return emptyUpcomingChanges(startsAt, endsAt);
+  }
+
+  const byInstant = new Map<number, UpcomingChange[]>();
+  let adds = 0;
+  let drops = 0;
+  let addValue = 0;
+  let dropValue = 0;
+  for (const change of changes) {
+    const at = change.at ? Date.parse(change.at) : NaN;
+    if (!Number.isFinite(at) || at > endMs) continue;
+    const t = Math.max(startMs, at);
+    const list = byInstant.get(t);
+    if (list) list.push(change);
+    else byInstant.set(t, [change]);
+    if (change.kind === 'conversion') {
+      adds += 1;
+      addValue += change.monthlyValue;
+    } else {
+      drops += 1;
+      dropValue += change.monthlyValue;
+    }
+  }
+
+  // Negation that keeps a zero a zero: -0 is a value a chart library, a JSON
+  // round-trip and an equality check can all disagree about, and "nothing is
+  // leaving" is the most common value in this whole structure.
+  const below = (n: number) => (n === 0 ? 0 : -n);
+
+  let net = 0;
+  const steps: UpcomingStep[] = [{ t: startMs, at: startsAt, net: 0, events: [] }];
+  for (const t of [...byInstant.keys()].sort((a, b) => a - b)) {
+    const events = byInstant.get(t)!;
+    for (const e of events) net += e.kind === 'conversion' ? 1 : -1;
+    steps.push({ t, at: new Date(t).toISOString(), net, events });
+  }
+  steps.push({ t: endMs, at: endsAt, net, events: [] });
+
+  return {
+    startsAt,
+    endsAt,
+    steps,
+    adds,
+    drops: below(drops),
+    net: adds - drops,
+    addValue,
+    dropValue: below(dropValue),
+  };
 }

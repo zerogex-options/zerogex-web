@@ -28,6 +28,7 @@ const {
   optionsFlowSeries,
   roundToStep,
   safeTimeLabel,
+  NET_VOLUME_MODE_LABELS,
 } = await import('../core/flowSeriesCharts.ts');
 
 type SeriesRow = {
@@ -304,4 +305,24 @@ test('the date marker labels only the first slot of each calendar day', () => {
   assert.ok(meta.has(0));
   assert.ok(meta.has(2));
   assert.equal(meta.has(1), false);
+});
+
+// ── Basis copy ───────────────────────────────────────────────────────────────
+
+test('the raw basis is never labelled as a net', () => {
+  assert.equal(NET_VOLUME_MODE_LABELS.directional, 'Directional');
+  assert.equal(NET_VOLUME_MODE_LABELS.raw, 'Total Traded');
+  // raw_volume_cum sums gross contracts traded: it nets nothing, and it cannot
+  // print below zero. Calling it "Raw Net" (as the control once did) told
+  // traders they were looking at a net of something. No label for it may say
+  // "net" again.
+  assert.doesNotMatch(NET_VOLUME_MODE_LABELS.raw, /net/i);
+});
+
+// The two feeds behind the basis prove the point: on the same bar the raw
+// cumulative is the gross contract count, the directional one a signed net.
+test('the two bases plot different quantities from the same bar', () => {
+  const bar = [row(0, { net_volume_cum: -400, raw_volume_cum: 900 })];
+  assert.equal(mapSeriesToFlowTimeseries(bar, 'raw')[0].netVolume, 900);
+  assert.equal(mapSeriesToFlowTimeseries(bar, 'directional')[0].netVolume, -400);
 });

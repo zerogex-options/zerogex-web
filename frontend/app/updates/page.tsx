@@ -20,6 +20,105 @@ type Update = {
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
   {
+    date: 'September 20, 2026',
+    title: 'The Gamma Chart and the Gamma Terminal are one page now',
+    intro:
+      'These were never really two products. The Gamma Terminal was the Gamma Chart with two strike ladders beside it instead of the gamma rail \u2014 same instrument, same levels, same engine, different thing in the right-hand column. Keeping them apart meant you had to pick a page before you knew which reading you wanted, and it meant the ladders were locked behind a members-only beta while the chart was the free front door. So they are folded: one flagship page at /chart, a switch for what sits beside the tape, and the whole thing \u2014 ladders included \u2014 free on a ~15-minute delay.',
+    whatsNew: [
+      {
+        title: 'One layout, two readings of the book',
+        href: '/chart',
+        body: 'The page is the terminal layout throughout: tape on the left, a panel beside it, the panel as tall as the chart. A "Beside the tape" switch chooses what the panel holds \u2014 Gamma Ladders, two strike-aligned Net GEX books pinned to the same spot row as the candles, or the Strike Panel, net dealer gamma by price with all four of its views (Silhouette, Net, Split, Combined) and the on-bar labels. The chart does not change between them: same width, same toolbar, same overlays. Only the panel switches, and your choice is remembered.',
+      },
+      {
+        title: 'The gamma rail left its cramped column',
+        href: '/chart',
+        body: 'It used to be a narrow strip inside the chart, squeezed between the candles and the price axis. Now it is the panel \u2014 roughly twice the width, the full height of the card \u2014 and it is drawn against the tape\u2019s own price scale, so a strike\u2019s bar sits exactly level with that price on the candles. It also reaches past the top and bottom of the visible tape at the same scale, which is usually where the wall you are about to run into lives. Its four views moved onto the panel with it.',
+      },
+      {
+        title: 'Nothing was dropped in the fold',
+        href: '/chart',
+        body: 'Key Levels, the Playbook, the GEX ribbons (available under either view, since they read the tape rather than the panel), the Expiry filter, Rewind, Session \u0394 and the symbol swap all came across. The chart keeps one saved toolbar now rather than one per view, because there is one chart to save.',
+      },
+      {
+        title: 'The ladders are free now, 15 minutes behind',
+        href: '/chart',
+        body: 'The public view used to be the chart alone. It is now the whole terminal: the tape, the levels, and both gamma ladders \u2014 SPY read against SPX \u2014 rendered from a server snapshot on the same ~15-minute delay the free gamma levels have always used. Members get it live, on every symbol, with the Expiry filter and Rewind driving the ladders too.',
+      },
+      {
+        title: 'The Gamma Terminal beta URL now lands here',
+        href: '/chart',
+        body: 'The beta at /gamma-terminal is gone as a separate page and redirects to /chart, which is where the nav entry points too \u2014 now labelled Gamma Terminal, and no longer flagged beta. Old bookmarks and links keep working.',
+      },
+    ],
+  },
+  {
+    date: 'September 16, 2026',
+    title: 'A baseline for spreads, and 0DTE on the replay',
+    intro:
+      'Two things shipped today, and both of them were a question the site could not answer. The Spread Monitor could tell you how wide the market was, but not whether that width was unusual \u2014 and a number with nothing to compare it to is a number you still have to guess about; it has a baseline now, and the baseline knows what time it is. The Daily Replay had the opposite problem: it answered, but only ever about the whole chain. A member cancelled last week and told me so, and he was right. It knows both books now.',
+    whatsNew: [
+      {
+        title: 'Spread surface vs history',
+        href: '/spread-monitor',
+        body: 'A new section that draws today\u2019s quoted width across the strikes on top of what the same symbol normally quotes in the same band \u2014 the median, and the middle half of its own distribution shaded behind it. Puts and calls are a toggle rather than an overlay, because the reading people care about is the one where the puts moved and the calls did not.',
+      },
+      {
+        title: 'Compared at the same time of day',
+        href: '/spread-monitor',
+        body: 'Spreads have a shape through the session: the open and the close are structurally wider than midday. So a 3:40pm reading is ranked against prior sessions at 3:40pm, not against their whole day, and the panel names the half-hour it matched. Without that, every late-afternoon reading looks like a deterioration and every lunchtime one looks calm.',
+      },
+      {
+        title: 'Which expiry is actually unusual',
+        href: '/spread-monitor',
+        body: 'A second chart ranks each expiry bucket against its own history rather than plotting its width. 0DTE is the widest book every day of the year, so a width chart there says the same thing forever; a percentile chart says "the chain is broadly normal and the front expiry is not", which is the thing worth knowing. Buckets without enough stored history say so instead of drawing a bar.',
+      },
+      {
+        title: 'It says when it cannot say',
+        href: '/help/platform/spread-monitor',
+        body: 'The panel prints how many comparable sessions are behind every comparison, over what dates, at what time of day \u2014 and prints zero when that is the answer. Below eight sessions no percentile is shown at all, because "the widest of the four days we have" is not a distribution, and drawing it as one would be the most misleading thing on the page.',
+      },
+      {
+        title: 'All exps / 0DTE on any replayed session',
+        href: '/replay',
+        body: 'Every session page has a switch above the scrubber. 0DTE means the contracts that expired that afternoon \u2014 on a replay of September 15, that is the September 15 expiry, and it stays that expiry however long from now you open the link. The filter and the playhead both live in the address bar, so sending someone the 0DTE surface at 2:47 PM is a copy and a paste. A session whose chain carried no same-day expiration says so, instead of quietly showing you everything.',
+      },
+      {
+        title: 'On the replay, the levels follow the filter \u2014 not just the bars',
+        href: '/replay',
+        body: 'This is the part that matters. On 0DTE the Call Wall, Put Wall, Gamma Flip and Max Pain are rebuilt from that day\u2019s expiry alone, so what you are reading is the book that actually had to be hedged into the bell \u2014 not a whole-chain level drawn over same-day bars. Pin Strike and GEX King stay whole-chain, because both are whole-chain by definition; that is also how they behave under the Expiry selector on the live charts.',
+      },
+      {
+        title: 'And one that was already there: the Gamma Chart rewinds by expiration',
+        href: '/chart',
+        body: 'Worth saying out loud, since it took a cancellation to learn it was not obvious. The Gamma Chart has a Rewind button that replays the session minute by minute, and the Expiry selector beside the gamma rail has its own 0DTE row. Set it, and the rewind, the walls and the flip all follow the same-day book. That has been live for members the whole time. It was just too well hidden \u2014 which is mine to fix, not yours to find.',
+      },
+    ],
+  },
+  {
+    date: 'September 10, 2026',
+    title: 'Spread Monitor: can you actually get filled?',
+    intro:
+      'A question came up on X this week that we could not answer: index put spreads had gone wide enough to be untradeable, and nobody had a number for how wide, or whether it was unusual. The quote data was already in the pipeline — nothing was summarising it. Now something is.',
+    whatsNew: [
+      {
+        title: 'Spread Monitor',
+        href: '/spread-monitor',
+        body: 'A new Metrics page for execution quality. It shows how wide the option market is quoted, which side of the book is the expensive one, where in the chain the market thins out, and how much of the chain has no bid at all — contracts you cannot sell at any price, which no width statistic can express and which a median alone would hide. Puts and calls are always plotted apart, because the days people complain about are days when the puts widened and the calls did not.',
+      },
+      {
+        title: 'A baseline, not a threshold',
+        href: '/help/platform/spread-monitor',
+        body: 'There is no universal "wide" for a quoted spread — an SPX put is structurally wider than an SPY put on the calmest day of the year. So the page never calls a reading wide in the abstract. It ranks today against the same symbol\u2019s own trailing sessions, and when it does not have that history it shows the measurement and withholds the verdict.',
+      },
+      {
+        title: 'Side by side across the indices',
+        href: '/spread-monitor',
+        body: 'A cross-symbol table answers "is NDX any better than SPX today?" on a comparable basis — width in basis points of the index level, since a dollar-wide market means something different on an index near 6,800 than on one near 25,000. ES and NQ are deliberately absent: they carry no option chain of their own here, and scaling an SPX quote by the futures basis would invent a market nobody published.',
+      },
+    ],
+  },
+  {
     date: 'August 30, 2026',
     title: 'Your levels on your own charts, plus futures',
     intro:
@@ -234,7 +333,11 @@ export default function UpdatesPage() {
 
       <div className="space-y-8">
         {UPDATES.map((u) => (
-          <article key={u.date} className="zg-feature-shell p-8">
+          // Keyed on date AND title, not the date alone: two notes shipping on
+          // one day is normal here (it nearly happened the day this was
+          // written), and duplicate keys make React reuse one article's DOM for
+          // the other.
+          <article key={`${u.date} · ${u.title}`} className="zg-feature-shell p-8">
             <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
               {u.date}
             </div>

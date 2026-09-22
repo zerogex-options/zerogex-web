@@ -55,6 +55,18 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/thinkorswim-indicator',
   '/ninjatrader-indicator',
   '/sierra-chart-indicator',
+  // A landing for Collective2 strategy managers — marketing copy for the
+  // Pro API, carrying no member data and nothing gated. It is NOT a chart
+  // integration and is deliberately absent from core/integrations.ts, so it
+  // is listed here on its own rather than with the block above.
+  '/collective2-strategy-data',
+  // The gamma-levels widget: its builder page and the frames themselves.
+  // Both carry only the delayed levels the free /<ticker>-gamma-levels pages
+  // already publish, and the frames must answer an anonymous request from an
+  // arbitrary third-party site — a /login redirect would render as a broken
+  // box on every page that embeds one.
+  '/embed',
+  '/embed/*',
   '/login',
   '/register',
   '/forgot-password',
@@ -66,10 +78,13 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/spy-gamma-levels',
   '/qqq-gamma-levels',
   '/ndx-gamma-levels',
-  // /chart is a dual-mode page: anonymous visitors get the same ~15-min-delayed
-  // snapshot the gamma-levels pages serve (rendered as the full interactive
-  // chart), while logged-in subscribers get the live, real-time version. The
-  // page itself branches on the session, so the route stays public here.
+  // /chart is the Gamma Terminal, and a dual-mode page: anonymous visitors get
+  // the same ~15-min-delayed snapshot the gamma-levels pages serve (rendered as
+  // the full interactive terminal — chart AND both gamma ladders), while
+  // logged-in subscribers get the live, real-time version. The page itself
+  // branches on the session, so the route stays public here. The members-only
+  // /gamma-terminal beta was folded into it and 301s here (next.config.ts), so
+  // it needs no rule of its own.
   '/chart',
   '/trading-mistakes',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
@@ -95,6 +110,19 @@ const PUBLIC_ROUTE_PATTERNS = [
   // link is the receipt (net-of-cost result + equity curve), not a paywall,
   // while the rest of /backtesting/* stays Pro-gated (public check wins first).
   '/backtesting/shared/*',
+  // The free daily levels email's click-through pages: the double opt-in
+  // confirmation (/levels-email/confirm) and the opt-out
+  // (/levels-email/unsubscribe). These MUST be anonymous-accessible — the
+  // entire premise is that a levels subscriber has no account, so a /login
+  // bounce would make it impossible to either confirm or, worse, unsubscribe.
+  // An unsubscribe link that demands a login is not an unsubscribe link.
+  //
+  // They carry no member data: both take an opaque row id plus an HMAC over
+  // it, verify the signature inside core/levelsSubscribers.ts, and render one
+  // sentence. Both also serve noindex as a header and a meta tag, and are
+  // excluded from the sitemap — crawlable so the directive is visible, which
+  // is the same reasoning robots.ts records for the tier-gated tools.
+  '/levels-email/*',
   // Shareable Live Bulletin snapshot cards (/live-bulletin/snapshot/{symbol})
   // are the public artifact for a streamed signal event — anonymous-accessible
   // for the same crawler + non-member reasons, while the live /live-bulletin
@@ -128,9 +156,6 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // member); the page itself further gates individual Pro-only widgets and
   // shows Basic members an upgrade prompt in their place.
   { pattern: '/my-dashboard', minimumTier: 'basic' },
-  // Gamma Terminal (beta) — the live Gamma Chart beside two gamma ladders.
-  // Live-only (no delayed public snapshot), so it is gated at Basic unlike /chart.
-  { pattern: '/gamma-terminal', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },
@@ -155,6 +180,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/max-pain', minimumTier: 'basic' },
   { pattern: '/intraday-tools', minimumTier: 'basic' },
   { pattern: '/volatility', minimumTier: 'basic' },
+  { pattern: '/spread-monitor', minimumTier: 'basic' },
   // Strategy tools — included with Basic.
   { pattern: '/options-calculator', minimumTier: 'basic' },
   { pattern: '/option-contracts', minimumTier: 'basic' },

@@ -41,6 +41,13 @@ export interface PriceBar {
   display_source?: string | null;
   // The future's UI ticker (e.g. 'ES') for the chart badge.
   data_symbol?: string | null;
+  // PER ROW, derived from this bar's own timestamp — a series spanning a roll
+  // returns the old contract on the bars before it and the new one after, which
+  // is honest: the series really does contain two instruments. Nothing may
+  // assume one contract per series, and nothing may key a cache on the value
+  // (see core/futuresContract.ts). Absent on every cash index / ETF bar.
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 
 interface CacheEntry {

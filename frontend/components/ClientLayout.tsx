@@ -6,6 +6,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
+import { needsTermsAcceptance } from '@/core/legalTerms';
 import { integrationRoutes } from '@/core/integrations';
 import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 import { PRO_WELCOME_SESSION_KEY, isProWelcomeEligible } from '@/core/proWelcome';
@@ -13,6 +14,7 @@ import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import DisclaimerModal from './DisclaimerModal';
+import TermsAcceptanceModal from './TermsAcceptanceModal';
 import FoundingLockinModal from './FoundingLockinModal';
 import ProWelcomeModal from './ProWelcomeModal';
 import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
@@ -52,7 +54,7 @@ const getProWelcomeGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', ...integrationRoutes()];
+const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/embed', '/collective2-strategy-data', ...integrationRoutes()];
 
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
@@ -60,6 +62,13 @@ const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/
 // register→pricing/founding redirect doesn't trip the modal before the
 // user has even chosen a plan.
 const DISCLAIMER_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding']);
+
+// Routes where the terms-acceptance gate must not interrupt. Same list as the
+// disclaimer's, and for the same reasons — with one that is load-bearing here
+// rather than merely polite: /terms and /privacy are the documents the gate
+// asks the member to accept, so blocking those two pages would demand
+// agreement to text it was preventing them from reading.
+const TERMS_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding']);
 
 // Don't interrupt the founding-rate reminder where it makes no sense: the
 // auth flow, the legal pages, and the pages the CTA links to (so the user
@@ -72,11 +81,23 @@ const FOUNDING_LOCKIN_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unau
 // non-suppressed page instead (e.g. the /dashboard the checkout returns to).
 const PRO_WELCOME_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding', '/account']);
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({
+  children,
+  // Read from cookies in app/layout.tsx so the server emits the same chrome the
+  // client will settle on. Passed down rather than read here so there is one
+  // read per request and both components agree.
+  initialHeaderCollapsed = false,
+  initialSidebarVisible = true,
+}: {
+  children: React.ReactNode;
+  initialHeaderCollapsed?: boolean;
+  initialSidebarVisible?: boolean;
+}) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
   const [acknowledgedLocally, setAcknowledgedLocally] = useState(false);
+  const [termsAcceptedLocally, setTermsAcceptedLocally] = useState(false);
   const [foundingLockinClosed, setFoundingLockinClosed] = useState(false);
   const [proWelcomeClosed, setProWelcomeClosed] = useState(false);
   // SSR returns false (suppress modal); client snapshot reads sessionStorage
@@ -139,7 +160,33 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return () => window.clearInterval(id);
   }, [pathname, refreshAuth]);
 
+  // The terms-acceptance gate, ahead of every other modal: it is the only one
+  // that asks for agreement to a contract rather than acknowledgement of a
+  // notice, and a member cannot meaningfully answer two legal prompts stacked
+  // on each other.
+  //
+  // Compared by VERSION, not mere presence, for the same reason the column
+  // stores one: a member who accepted superseded text has not agreed to what is
+  // published now. That also gives a terms revision a working answer for the
+  // first time — bump TERMS_VERSION and everyone re-accepts, instead of the
+  // revision landing silently on people who never saw it.
+  const shouldShowTerms =
+    !TERMS_SUPPRESSED_ROUTES.has(pathname) &&
+    authSession?.authenticated === true &&
+    needsTermsAcceptance(authSession.user) &&
+    !termsAcceptedLocally;
+
+  const termsModal = shouldShowTerms ? (
+    <TermsAcceptanceModal
+      onAccepted={() => {
+        setTermsAcceptedLocally(true);
+        void refreshAuth();
+      }}
+    />
+  ) : null;
+
   const shouldShowDisclaimer =
+    !shouldShowTerms &&
     !DISCLAIMER_SUPPRESSED_ROUTES.has(pathname) &&
     authSession?.authenticated === true &&
     authSession.user?.disclaimerVersionAcknowledged !== DISCLAIMER_VERSION &&
@@ -158,6 +205,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // Waits for the disclaimer to clear so the two don't overlap. Deadline and
   // sessionStorage checks come from the useSyncExternalStore snapshot above.
   const shouldShowFoundingLockin =
+    !shouldShowTerms &&
     !shouldShowDisclaimer &&
     foundingLockinGatePassed &&
     !foundingLockinClosed &&
@@ -194,6 +242,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // suppressed on the auth/legal/checkout/account routes. Fires for a freshly
   // subscribed Pro member on their first landing back from Stripe checkout.
   const shouldShowProWelcome =
+    !shouldShowTerms &&
     !shouldShowDisclaimer &&
     !shouldShowFoundingLockin &&
     proWelcomeGatePassed &&
@@ -226,6 +275,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return (
       <>
         {children}
+        {termsModal}
         {disclaimerModal}
         {foundingLockinModal}
         {proWelcomeModal}
@@ -245,8 +295,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     >
       <TechnicalSnapshotPrewarm />
       <OptionChainPrewarm />
-      <Header theme={theme} onToggleTheme={toggleTheme} />
-      <Navigation theme={theme} />
+      <Header theme={theme} onToggleTheme={toggleTheme} initialCollapsed={initialHeaderCollapsed} />
+      <Navigation
+        theme={theme}
+        initialSidebarVisible={initialSidebarVisible}
+        initialHeaderCollapsed={initialHeaderCollapsed}
+      />
       <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>
@@ -259,6 +313,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <div className="md:pl-[var(--zgx-nav-width,0px)]">
         <Footer theme={theme} />
       </div>
+      {termsModal}
       {disclaimerModal}
       {foundingLockinModal}
       {proWelcomeModal}

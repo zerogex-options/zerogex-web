@@ -33,11 +33,16 @@ export function buildSaveUrl(appUrl: string, userId: string): string {
 }
 
 // Signed, stateless retention-CONVERT tokens — the pre-trial-end sibling of the
-// save token. The ~48h trial-reminder email carries a one-click "lock in your
-// discount and keep going" link that the /convert route honors, so a trialing
-// member can claim the offer without a DB lookup and nobody can forge a claim for
-// another account. Namespaced ('convert:v1') so it can't collide with the save or
-// unsubscribe tokens — a valid save token is NOT a valid convert token.
+// save token, now RETIRED on the mint side. The ~48h trial reminder used to
+// carry a one-click discount link that /convert honored; that offer is gone (see
+// the note at the top of app/convert/route.ts — the 25% is a win-back lever, not
+// something to hand an about-to-convert trialer who never asked).
+//
+// verifyConvertToken stays live so links already in the wild still resolve until
+// their trials convert. buildConvertUrl has no automated caller any more; it is
+// kept as the mint side of that verify, and for an operator minting one by hand.
+// Namespaced ('convert:v1') so it can't collide with the save or unsubscribe
+// tokens — a valid save token is NOT a valid convert token.
 export function convertToken(userId: string): string {
   return createHmac('sha256', secret()).update(`convert:v1:${userId}`).digest('base64url');
 }

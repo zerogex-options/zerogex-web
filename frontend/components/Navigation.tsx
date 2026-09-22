@@ -3,9 +3,9 @@
 import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { brandLogo } from "@/core/brand";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
-import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import { NAV_GROUPS, NAV_ITEM_IDS, type NavGroup, type NavItem } from "@/core/navigation";
 import { INTEGRATIONS_HUB } from "@/core/integrations";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,17 +20,46 @@ import BetaBadge from "./BetaBadge";
 import TierBadge from "./TierBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
+import { MENU_TAB_WIDTH, SIDEBAR_WIDTH, UI_COOKIE } from "@/core/uiCookies";
 
 interface NavigationProps {
   theme: Theme;
+  /** Server's reads of the chrome cookies — see app/layout.tsx. */
+  initialSidebarVisible?: boolean;
+  initialHeaderCollapsed?: boolean;
 }
 
-const SIDEBAR_WIDTH = 272;
+
 
 // Per-browser pinned-pages list for the sidebar "Favorites" group.
 const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
 
-export default function Navigation({ theme }: NavigationProps) {
+// Whether `pathname` is "inside" a nav item. Exact match by default; items
+// flagged `matchPrefix` (a section whose real pages are dated permalinks, e.g.
+// /scorecard/SPY/2026-09-11) also match their descendants, so the sidebar
+// still shows where the reader is. The "/" guard keeps /scorecard from
+// claiming a sibling like /scorecard-archive.
+//
+// A prefix match YIELDS to a descendant that has its own nav entry. /forecast
+// needs prefix matching for its dated permalinks, but /forecast/cone is a real
+// destination in the sidebar, and without this both would light up at once —
+// which tells the reader they are in two places and highlights a parent they
+// did not choose.
+function isNavItemActive(pathname: string | null, item: { id: string; matchPrefix?: boolean }): boolean {
+  if (!pathname) return false;
+  if (pathname === item.id) return true;
+  if (item.matchPrefix !== true) return false;
+  if (!pathname.startsWith(`${item.id}/`)) return false;
+  return !NAV_ITEM_IDS.has(pathname);
+}
+
+
+export default function Navigation({
+  theme,
+  initialSidebarVisible = true,
+  initialHeaderCollapsed = false,
+}: NavigationProps) {
   const { symbol } = useTimeframe();
   const { t } = useLanguage();
   // Resolve a nav entry's display text: translated when it carries a labelKey,
@@ -40,22 +69,21 @@ export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState(getMarketSession());
-  const [sidebarVisible, setSidebarVisible] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return localStorage.getItem("sidebarVisible") !== "false";
-    } catch {
-      return true;
-    }
-  });
-  const [headerCollapsed, setHeaderCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("headerCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Both read through usePersistedFlag so the server and the hydrating render
+  // agree; see that hook for why seeding useState from localStorage cannot.
+  // Sharing the "headerCollapsed" key with Header is also what keeps the two
+  // in step — the hook notifies every reader of a key, so this no longer needs
+  // the header to announce itself over a custom event.
+  const [sidebarVisible, toggleSidebarFlag] = usePersistedFlag(
+    UI_COOKIE.sidebarVisible,
+    initialSidebarVisible,
+    "cookie",
+  );
+  const [headerCollapsed] = usePersistedFlag(
+    UI_COOKIE.headerCollapsed,
+    initialHeaderCollapsed,
+    "cookie",
+  );
   const { data: authSession } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isAuthenticated = !!authSession?.authenticated;
@@ -210,14 +238,14 @@ export default function Navigation({ theme }: NavigationProps) {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navGroups.forEach((group) => {
-      const directMatch = (group.items ?? []).some((item) => pathname === item.id);
+      const directMatch = (group.items ?? []).some((item) => isNavItemActive(pathname, item));
       const subMatch = (group.subgroups ?? []).some((sg) =>
-        sg.id === pathname || sg.items.some((item) => pathname === item.id),
+        sg.id === pathname || sg.items.some((item) => isNavItemActive(pathname, item)),
       );
       initial[group.label] = directMatch || subMatch;
       (group.subgroups ?? []).forEach((sg) => {
         initial[`${group.label}::${sg.label}`] =
-          sg.id === pathname || sg.items.some((item) => pathname === item.id);
+          sg.id === pathname || sg.items.some((item) => isNavItemActive(pathname, item));
       });
     });
     return initial;
@@ -249,37 +277,42 @@ export default function Navigation({ theme }: NavigationProps) {
     row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
   const row1Positive = row1Change !== null ? row1Change >= 0 : false;
 
-  useEffect(() => {
-    const syncNavVars = () => {
-      const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
-      const width = sidebarVisible && desktop ? SIDEBAR_WIDTH : 0;
-      document.documentElement.style.setProperty("--zgx-nav-height", "0px");
-      document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);
-    };
+  // Collapsed, the sidebar leaves behind a fixed "Menu" tab at left:0. The
+  // gutter below is what stops the page from running underneath it, so it has
+  // to track the tab's real width: the label is translated, so it is measured
+  // rather than assumed.
+  const menuTabRef = useRef<HTMLButtonElement | null>(null);
 
-    syncNavVars();
-    window.addEventListener("resize", syncNavVars);
-    return () => window.removeEventListener("resize", syncNavVars);
+  const syncNavVars = useCallback(() => {
+    const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
+    let width = 0;
+    if (desktop) {
+      width = sidebarVisible
+        ? SIDEBAR_WIDTH
+        : Math.round(menuTabRef.current?.getBoundingClientRect().width || 0) ||
+          MENU_TAB_WIDTH;
+    }
+    document.documentElement.style.setProperty("--zgx-nav-height", "0px");
+    document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);
   }, [sidebarVisible]);
 
   useEffect(() => {
-    const handleCollapseChanged = (event: Event) => {
-      const detail = (event as CustomEvent<boolean>).detail;
-      setHeaderCollapsed(Boolean(detail));
-    };
+    syncNavVars();
+    window.addEventListener("resize", syncNavVars);
+    return () => window.removeEventListener("resize", syncNavVars);
+  }, [syncNavVars]);
 
-    window.addEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-    return () =>
-      window.removeEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-  }, []);
+  // Re-measure when the tab itself changes width — a late-loading webfont or a
+  // language switch both resize the label after the effect above has run.
+  useEffect(() => {
+    const tab = menuTabRef.current;
+    if (!tab || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => syncNavVars());
+    observer.observe(tab);
+    return () => observer.disconnect();
+  }, [syncNavVars]);
 
-  const toggleSidebar = () => {
-    const next = !sidebarVisible;
-    setSidebarVisible(next);
-    try {
-      localStorage.setItem("sidebarVisible", String(next));
-    } catch {}
-  };
+  const toggleSidebar = toggleSidebarFlag;
 
   const border = "var(--color-border)";
 
@@ -299,7 +332,7 @@ export default function Navigation({ theme }: NavigationProps) {
   // as a button rather than a location.
   const renderItem = (page: NavItem) => {
     const isExternal = page.external === true;
-    const isActive = pathname === page.id;
+    const isActive = isNavItemActive(pathname, page);
     const lock = lockedTier(page);
     const isFav = favorites.includes(page.id);
     const favLabel = isFav
@@ -465,14 +498,31 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subgroupId = subgroup.id;
                         const subgroupLock = lockedTier(subgroup);
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
+                        const toggleSubgroup = () =>
+                          setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
+                        const subgroupLabel = (
+                          <>
+                            <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
+                            {subgroupLock && <TierBadge tier={subgroupLock} />}
+                          </>
+                        );
+                        const subgroupChevron = (
+                          <ChevronDown
+                            size={13}
+                            style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                          />
+                        );
                         return (
                           <div key={subKey} className="mt-1">
-                            <div
-                              className="zg-nav-row"
-                              data-active={subgroupActive ? "true" : undefined}
-                              style={{ padding: 0, gap: 0 }}
-                            >
-                              {subgroupId ? (
+                            {subgroupId ? (
+                              // A subgroup that is also a page has two
+                              // destinations, so the row splits: the label
+                              // navigates, the chevron expands.
+                              <div
+                                className="zg-nav-row"
+                                data-active={subgroupActive ? "true" : undefined}
+                                style={{ padding: 0, gap: 0 }}
+                              >
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -483,32 +533,42 @@ export default function Navigation({ theme }: NavigationProps) {
                                   style={{ color: "inherit", font: "inherit", border: 0, cursor: "pointer" }}
                                   aria-current={subgroupActive ? "page" : undefined}
                                 >
-                                  <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
-                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
+                                  {subgroupLabel}
                                 </button>
-                              ) : (
-                                <span className="flex-1 min-w-0 px-3 py-2 flex items-center gap-2" style={{ color: "inherit" }}>
-                                  <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
-                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
-                                </span>
-                              )}
+                                <button
+                                  type="button"
+                                  aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                  aria-expanded={isSubExpanded}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleSubgroup();
+                                  }}
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent"
+                                  style={{ color: "inherit", border: 0, cursor: "pointer", borderRadius: "var(--radius-control)" }}
+                                >
+                                  {subgroupChevron}
+                                </button>
+                              </div>
+                            ) : (
+                              // Nothing to navigate to, so expanding is the
+                              // row's only job and the whole row is the
+                              // control. Splitting it here left the label
+                              // inert and the 32px chevron the sole target.
                               <button
                                 type="button"
-                                aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                onClick={toggleSubgroup}
                                 aria-expanded={isSubExpanded}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
-                                }}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent"
-                                style={{ color: "inherit", border: 0, cursor: "pointer", borderRadius: "var(--radius-control)" }}
+                                className="zg-nav-row"
+                                style={{ padding: 0, gap: 0 }}
                               >
-                                <ChevronDown
-                                  size={13}
-                                  style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
-                                />
+                                <span className="flex-1 min-w-0 px-3 py-2 flex items-center gap-2">
+                                  {subgroupLabel}
+                                </span>
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                                  {subgroupChevron}
+                                </span>
                               </button>
-                            </div>
+                            )}
                             {/* Children indent off a hairline, so depth reads
                                 structurally rather than from a second tint. */}
                             {isSubExpanded ? (
@@ -544,6 +604,7 @@ export default function Navigation({ theme }: NavigationProps) {
         </nav>
       ) : (
         <button
+          ref={menuTabRef}
           type="button"
           onClick={toggleSidebar}
           className="hidden md:flex fixed z-30 items-center gap-1 border border-l-0 px-2"

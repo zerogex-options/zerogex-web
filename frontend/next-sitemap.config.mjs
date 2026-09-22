@@ -76,8 +76,8 @@ const GAMMA_LEVEL_PATHS = [
 ];
 
 // Public tools whose content changes every trading day: the free delayed
-// chart and the replay / forecast indexes.
-const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast'];
+// chart and the replay / forecast / scorecard indexes.
+const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/scorecard', '/hedging-flow/sessions'];
 
 /** @type {import('next-sitemap').IConfig} */
 const config = {
@@ -128,7 +128,18 @@ const config = {
     '/gex-gradient',
     '/positioning-trap',
     '/live-bulletin',
-    '/gamma-terminal',
+    // /hedging-flow is Basic-gated like the entries around it and was simply
+    // never added here, so Googlebot has been following it into a 307 to
+    // /login. Its PUBLIC half — /hedging-flow/sessions and the dated
+    // permalinks under it — is listed in additionalPaths below instead, which
+    // is the split /replay and /scorecard already have.
+    //
+    // NOTE: ten other Basic/Pro routes have the same omission (/my-dashboard,
+    // /gex-heatmap, /gamma-shift, /pair-comparison, /gex-strike-profile,
+    // /forced-flow, /market-tide, /volatility, /spread-monitor,
+    // /premium-heatmap). They are left alone here deliberately: changing what
+    // Google indexes for ten unrelated tools is not this change's call.
+    '/hedging-flow',
     '/gamma-exposure',
     '/max-pain',
     '/greeks-gex',
@@ -144,6 +155,19 @@ const config = {
     // crawler's GET with 405. It is dynamic so it is not auto-discovered today,
     // but listing it keeps that true if the route config ever changes.
     '/mcp',
+    // The per-symbol widget frames. Route handlers rather than pages, so they
+    // are not auto-discovered today; listed for the same defensive reason as
+    // /mcp. They serve X-Robots-Tag: noindex because they are thin by design
+    // and repeat across every host that embeds one — they must never compete
+    // with the /<ticker>-gamma-levels page each of them advertises. The
+    // /embed builder page itself IS indexable and is listed below.
+    '/embed/*',
+    // The daily levels email's click-through pages. Route handlers rather
+    // than pages, so they are not auto-discovered today; listed for the same
+    // defensive reason as /mcp. They serve noindex both as an X-Robots-Tag
+    // header and as a meta tag — a one-line confirmation receipt reached only
+    // from a link in an email is not a search result.
+    '/levels-email/*',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',
@@ -175,7 +199,9 @@ const config = {
       // into the sitemap. Only their index pages are listed: the dated
       // /replay and /forecast permalinks are discovered from those.
       '/chart',
+      '/collective2-strategy-data',
       '/education',
+      '/embed',
       '/forecast',
       '/giving',
       '/guides',
@@ -196,6 +222,20 @@ const config = {
       '/privacy',
       '/real-time-gex-0dte',
       '/replay',
+      // The per-session public receipt. It was missing from this list
+      // entirely — not excluded, just never added — which together with
+      // having no sidebar entry and no inbound link left it reachable only
+      // from the 4:15 PM ET post that links one specific date. Only the
+      // index is listed; the dated /scorecard/{symbol}/{date} permalinks are
+      // discovered from it, the same way /replay and /forecast work.
+      '/scorecard',
+      // Past Hedging Flow sessions. The index only; the dated
+      // /hedging-flow/{symbol}/{date} permalinks are discovered from it, the
+      // same way /replay, /forecast and /scorecard work. Note the LIVE
+      // /hedging-flow page is deliberately not here — it is Basic-gated, and
+      // the permalinks are public because they are server-rendered from the
+      // stored snapshot rather than from the tier-gated browser API.
+      '/hedging-flow/sessions',
       '/sierra-chart-indicator',
       '/terms',
       '/thinkorswim-indicator',

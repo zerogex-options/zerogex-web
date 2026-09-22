@@ -44,7 +44,9 @@
 //     it for this eligible churner, verified server-side). No code, no reply.
 //   - promo:  no win-back coupon, but PROMO_END_AT is live → the time-boxed
 //     public-promo copy (also auto-applies at /pricing).
-//   - manual: neither → the evergreen "reply 'discount'" offer, set up by hand.
+//   - none:   neither → the email ships with NO discount paragraph. There is no
+//     reply-for-discount fallback: an offer this email can't apply itself is an
+//     offer it doesn't make.
 //
 // Side effects on send:
 //   - Resend email via core/mailer.ts sendWinbackEmail() in the resolved variant.
@@ -95,7 +97,7 @@ const DEFAULT_LAG_DAYS = 30;
 // --lookback-days to narrow it (e.g. bounding a first-run blast).
 const DEFAULT_LOOKBACK_DAYS = 3650;
 
-type WinbackMode = 'auto' | 'promo' | 'manual';
+type WinbackMode = 'auto' | 'promo' | 'none';
 
 type Args = {
   dryRun: boolean;
@@ -166,9 +168,16 @@ function parseArgs(argv: string[]): Args {
       args.lookbackDays = value;
     } else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
     else if (arg === '--preview-mode') {
-      const value = argv[++i] ?? '';
-      if (value !== 'auto' && value !== 'promo' && value !== 'manual') {
-        console.error(`Error: --preview-mode expects auto|promo|manual, got "${value}".`);
+      let value = argv[++i] ?? '';
+      // 'manual' was this mode's name while the email still carried a
+      // reply-for-discount fallback. Kept as an alias so a runbook or shell
+      // history that still says it lands on the right variant.
+      if (value === 'manual') {
+        console.error("Note: --preview-mode manual is now 'none' (the reply-for-discount copy is gone).");
+        value = 'none';
+      }
+      if (value !== 'auto' && value !== 'promo' && value !== 'none') {
+        console.error(`Error: --preview-mode expects auto|promo|none, got "${value}".`);
         process.exit(1);
       }
       args.previewMode = value;
@@ -189,7 +198,7 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-winback.mts \\
     [--dry-run | --yes | --digest [email]] [--lag-days N] [--lookback-days N] \\
-    [--preview-to <email>] [--preview-mode auto|promo|manual]
+    [--preview-to <email>] [--preview-mode auto|promo|none]
 
 Finds churned users (subscription actually lapsed) whose most-recent departure
 was roughly a month ago, and sends a one-shot founder-voice win-back with a
@@ -198,7 +207,7 @@ link back to /pricing. The discount copy is chosen automatically:
            auto-applies at /pricing?winback=1 (no code, no reply).
   promo  - no win-back coupon, but the public promo (PROMO_END_AT) is live →
            the time-boxed promo copy.
-  manual - neither → the evergreen "reply 'discount'" offer, fulfilled by hand.
+  none   - neither → no discount paragraph at all (there is no manual fallback).
 Idempotent via users.winback_email_sent_at (cleared by the Stripe webhook on
 re-subscribe so a future re-churn re-qualifies).
 
@@ -227,7 +236,7 @@ Options:
       --preview-to <email>     Render the email and send ONE copy to <email>.
                                No DB writes. Defaults to the env-resolved mode;
                                override with --preview-mode.
-      --preview-mode <mode>    Force the preview variant: auto | promo | manual.
+      --preview-mode <mode>    Force the preview variant: auto | promo | none.
   -h, --help                   Show this help.
 
 Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL, PROMO_END_AT,
@@ -366,8 +375,8 @@ const winbackHighlights = readHighlights();
 // The automated one-click path is "available" only when ALL FOUR win-back
 // coupons are configured — the churner can pick any (tier, cadence), so the
 // email's "it's already applied" promise must hold whatever they choose. If any
-// is missing we fall back to promo/manual rather than risk promising a coupon
-// the checkout route can't attach for their pick.
+// is missing we fall back to promo, or to no discount at all, rather than risk
+// promising a coupon the checkout route can't attach for their pick.
 const winbackAutoAvailable =
   !!envValue('STRIPE_COUPON_WINBACK_BASIC_MONTHLY') &&
   !!envValue('STRIPE_COUPON_WINBACK_PRO_MONTHLY') &&
@@ -378,16 +387,16 @@ const winbackAutoAvailable =
 // win-back coupon isn't configured.
 const promoDeadlineLabel = getActivePromoDeadlineLabelLocal();
 
-// Ranked auto > promo > manual.
+// Ranked auto > promo > none.
 const resolvedMode: WinbackMode = winbackAutoAvailable
   ? 'auto'
   : promoDeadlineLabel
     ? 'promo'
-    : 'manual';
+    : 'none';
 
 // Map a mode to the sendWinbackEmail opts. Promo mode needs a live deadline
 // label; if it's somehow requested without one (a forced preview), the mailer
-// degrades to the manual copy on its own.
+// drops the discount paragraph on its own.
 function optsForMode(mode: WinbackMode) {
   if (mode === 'auto') {
     return {
@@ -406,7 +415,7 @@ if (cliArgs.previewTo) {
   const mode = cliArgs.previewMode ?? resolvedMode;
   if (mode === 'promo' && !promoDeadlineLabel) {
     console.log(
-      'Note: promo preview requested but PROMO_END_AT is unset or past; the email will render the manual copy.',
+      'Note: promo preview requested but PROMO_END_AT is unset or past; the email will render without a discount paragraph.',
     );
   }
   console.log(`Sending preview to ${cliArgs.previewTo} (variant: ${mode})...`);
@@ -469,7 +478,7 @@ const modeDescription =
     ? `auto (one-click ${WINBACK_DISCOUNT_LABEL} via /pricing?winback=1)`
     : resolvedMode === 'promo'
       ? `promo (public promo open until ${promoDeadlineLabel})`
-      : `manual (evergreen reply-for-discount, ${WINBACK_DISCOUNT_LABEL})`;
+      : 'none (no coupon configured — the email ships without a discount)';
 
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Churn window:     ${lowIso}  →  ${highIso}`);

@@ -6,12 +6,81 @@
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed';
 
-export interface BacktestPattern {
+/** Research stage of a catalog strategy. Describes EVIDENCE, not deployment. */
+export type StrategyStage =
+  | 'research'
+  | 'candidate'
+  | 'validated'
+  | 'superseded'
+  | 'retired';
+
+/** Which execution surface implements a strategy. */
+export type StrategyEngine = 'bot' | 'pattern';
+
+/** How a strategy gets measured over history. */
+export type BacktestRoute = 'pattern' | 'bot_replay';
+
+/** The accumulated research ledger for one strategy. */
+export interface StrategyEvidence {
+  runs: number;
+  deepest_window_days: number;
+  total_screened_trades: number;
+  has_edge: boolean;
+  conclusive_tuning_generations: number;
+  latest: {
+    ran_on: string;
+    window_days: number;
+    trades: number;
+    verdict: 'edge' | 'no_edge' | 'insufficient' | 'underpowered' | 'invalid';
+    profit_factor: number | null;
+    expectancy: number | null;
+    win_rate: number | null;
+    harness: string;
+    notes: string;
+  } | null;
+}
+
+/**
+ * One strategy from the consolidated catalog (`src/strategies` on the engine
+ * server) — the single source of truth shared by Bot Trading, Backtesting and
+ * Pattern Insights.
+ *
+ * `BacktestPattern` is kept as an alias because `BacktestMeta.patterns` still
+ * carries this list for saved configs and share links.
+ */
+export interface CatalogStrategy {
   id: string;
   name: string;
+  family: string;
+  family_label: string;
   tier: string;
+  direction_mode: string;
+  tagline: string;
+  thesis: string;
+  /** Alias of `thesis`, for clients written before the catalog. */
   description: string;
+  stage: StrategyStage;
+  engines: StrategyEngine[];
+  backtestable: boolean;
+  backtest_via: BacktestRoute | null;
+  not_backtestable_reason: string | null;
+  /** Eligible for a live capital sleeve: validated AND has a bot to run it. */
+  provisionable: boolean;
+  bot_id: string | null;
+  pattern_id: string | null;
+  supersedes: string[];
+  superseded_by: string | null;
+  evidence: StrategyEvidence;
+  retirement: {
+    eligible: boolean;
+    blockers: string[];
+    /** Fraction of the required history the deepest screen covers, 0..1. */
+    history_progress: number;
+    required_history_days: number;
+  };
 }
+
+export type BacktestPattern = CatalogStrategy;
 
 export interface BacktestDefaults {
   capital: number;
@@ -60,7 +129,10 @@ export interface BacktestSweepParam {
 
 export interface BacktestMeta {
   underlyings: string[];
-  patterns: BacktestPattern[];
+  /** The strategy catalog. Canonical key. */
+  strategies?: CatalogStrategy[];
+  /** Back-compat alias of `strategies` — same list, same objects. */
+  patterns: CatalogStrategy[];
   strategy_structures?: BacktestStrategyStructure[];
   sweep_params?: BacktestSweepParam[];
   data_window: {
@@ -396,11 +468,30 @@ export interface BacktestSweepCreated {
 //
 // Touch-source rows carry NULL for every economics field (the touch harness
 // is a proxy and has no real P&L).
-export type InsightsSource = 'option_pnl' | 'underlying_touch';
+export type InsightsSource = 'option_pnl' | 'underlying_touch' | 'bot_replay';
 
 export interface PatternInsight {
+  /** Canonical catalog strategy id. Measurements from a strategy's pattern
+   *  binding and from its bot replay both fold onto this one id. */
   pattern: string;
-  underlying: string;
+  /** Catalog identity, so the table can group and badge without a second fetch. */
+  strategy?: string;
+  name?: string;
+  family?: string | null;
+  family_label?: string | null;
+  tier?: string | null;
+  stage?: StrategyStage | null;
+  engines?: StrategyEngine[];
+  /** False when history holds rows for a strategy no longer in the catalog. */
+  in_catalog?: boolean;
+  /** The raw DB id this row was stored under (a legacy pattern or bot id). */
+  measured_as?: string;
+  /** False for a catalog coverage row: the strategy has never been screened
+   *  in this source. Shown explicitly rather than omitted, so an unscreened
+   *  strategy does not read as a measured-and-dull one. */
+  measured?: boolean;
+  /** null on a coverage row — no window has been measured. */
+  underlying: string | null;
   window_start: string | null;
   window_end: string | null;
   n_emitted: number;

@@ -24,6 +24,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Audit events.',
     s2Item4Text:
       'Limited records of authentication and account-management actions (logins, role changes, subscription changes) for security and compliance.',
+    s2Item5Label: 'Email list subscriptions.',
+    s2Item5Text:
+      'If you subscribe to the free daily levels email, we store your email address, the symbol you asked us to lead with, the page you subscribed from, and the IP address and timestamp of both your subscription request and your confirmation click — the record that evidences your opt-in. No account is created and no password is stored. You can unsubscribe from the link at the foot of any one of those emails, which takes effect immediately and without signing in.',
 
     s3Title: '3. How We Use Information',
     s3Item1: 'Provide, maintain, and improve the Services.',

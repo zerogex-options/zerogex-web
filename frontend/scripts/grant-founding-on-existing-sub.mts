@@ -291,6 +291,12 @@ if (!targetPriceId || !foundingCouponId) {
   console.error('       Populate the env(s) in frontend/.env.local, or choose a configured --tier/--cadence.');
   process.exit(1);
 }
+// Past the guard this is present. Bound to a narrowed const for the one reader
+// that is a hoisted function declaration: it sits above this check in the file,
+// so the narrowing cannot reach it. Every other use is plain top-level code
+// after the guard and needs nothing.
+
+const foundingCoupon: string = foundingCouponId;
 
 // Map every configured price id -> its (tier, cadence) so we can name the plan
 // the sub is CURRENTLY on for the operator (mirrors core/stripe.ts SKU map).
@@ -423,7 +429,7 @@ async function previewImmediateCharge(): Promise<string | null> {
       subscription: subscription.id,
       ...(priceChanges ? { items: [{ id: item0.id, price: targetPriceId }] } : {}),
       prorationBehavior: cliArgs.proration,
-      discounts: [{ coupon: foundingCouponId }],
+      discounts: [{ coupon: foundingCoupon }],
     });
     const minor = typeof inv.amount_due === 'number' ? inv.amount_due : inv.total;
     if (typeof minor !== 'number') return null;

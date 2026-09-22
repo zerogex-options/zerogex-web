@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import {
   netGexAtSpotOrNull,
+  atSpotGammaForScope,
   aboveFlipBandIsLong,
   longGammaAtSpot,
   offScaleBandIsLong,
@@ -33,6 +34,10 @@ test('netGexAtSpotOrNull returns null when the point value is absent', () => {
   assert.equal(netGexAtSpotOrNull(NaN), null);
   assert.equal(netGexAtSpotOrNull('not-a-number'), null);
   assert.equal(netGexAtSpotOrNull(Infinity), null);
+  // An empty column is absent data, not a zero reading. Number('') === 0 would
+  // have the badge assert LONG (>= 0) off a blank; null degrades it to the
+  // geometric spot-vs-flip read instead, which is what the doc promises.
+  assert.equal(netGexAtSpotOrNull(''), null);
 });
 
 test('aboveFlipBandIsLong: monotonic book reduces to "long above / short below"', () => {
@@ -140,4 +145,65 @@ test('offScaleBandIsLong: reports the opposite regime when the view is panned of
   const aboveIsLong = aboveFlipBandIsLong(spot, flip, longGammaNow);
   assert.equal(aboveIsLong, true);
   assert.equal(offScaleBandIsLong(flip, domainMin, aboveIsLong), true);
+});
+
+test('atSpotGammaForScope: whole-chain levels keep the at-spot value', () => {
+  // Nothing is scoped: the flip on screen is the live whole-chain spot-shift
+  // flip, so it and net_gex_at_spot came off the same curve and pair correctly.
+  assert.equal(atSpotGammaForScope(5.45e9, false), 5.45e9);
+  assert.equal(atSpotGammaForScope(-2.1e9, false), -2.1e9);
+  assert.equal(atSpotGammaForScope(0, false), 0);
+});
+
+test('atSpotGammaForScope: scoped levels withhold it', () => {
+  // An expiration filter or a rewound bucket puts a differently-scoped flip on
+  // screen; the whole-chain at-spot value no longer describes the same book.
+  assert.equal(atSpotGammaForScope(5.45e9, true), null);
+  assert.equal(atSpotGammaForScope(-2.1e9, true), null);
+  assert.equal(atSpotGammaForScope(0, true), null);
+});
+
+test('atSpotGammaForScope: a missing or non-finite value is null either way', () => {
+  assert.equal(atSpotGammaForScope(null, false), null);
+  assert.equal(atSpotGammaForScope(NaN, false), null);
+  assert.equal(atSpotGammaForScope(Infinity, false), null);
+  assert.equal(atSpotGammaForScope(null, true), null);
+});
+
+test('regression: an expiration-filtered flip must not invert the regime bands', () => {
+  // The reported case, with its real numbers. SPY at 754.12 with the Expiry
+  // selector on a single 0DTE expiration: the flip line is that subset's
+  // 744.00, while net_gex_at_spot is still the WHOLE chain's -$10.26B.
+  const spot = 754.12;
+  const filteredFlip = 744.0;
+  const wholeChainAtSpot = -10.26e9;
+
+  // Before the fix: the chain-wide negative sign drove the badge, and because
+  // the bands take their orientation from the badge the whole plot inverted —
+  // SHORT above the flip, LONG below, with price sitting above the flip.
+  const unscoped = longGammaAtSpot(wholeChainAtSpot, spot, filteredFlip);
+  assert.equal(unscoped, false);
+  assert.equal(aboveFlipBandIsLong(spot, filteredFlip, unscoped!), false);
+
+  // After the fix: the value is withheld because the flip is a subset's, so the
+  // badge reads the FILTERED book geometrically and the bands come back the
+  // right way up — long/pinning above the flip, short/trending below.
+  const scoped = atSpotGammaForScope(wholeChainAtSpot, true);
+  assert.equal(scoped, null);
+  const longNow = longGammaAtSpot(scoped, spot, filteredFlip);
+  assert.equal(longNow, true);
+  assert.equal(aboveFlipBandIsLong(spot, filteredFlip, longNow!), true);
+});
+
+test('regression: a whole-chain book may still disagree with its own flip', () => {
+  // The guarantee is NOT "always long above the flip" — on a lumpy book the
+  // canonical resolver can report a nearest crossing that spot sits the wrong
+  // side of, and the badge is still authoritative there because both readings
+  // come off the SAME spot-shift curve. Unfiltered, unrewound → keep the value
+  // and let the bands follow it.
+  const kept = atSpotGammaForScope(-10.26e9, false);
+  assert.equal(kept, -10.26e9);
+  const longNow = longGammaAtSpot(kept, 754.12, 744.0);
+  assert.equal(longNow, false);
+  assert.equal(aboveFlipBandIsLong(754.12, 744.0, longNow!), false);
 });

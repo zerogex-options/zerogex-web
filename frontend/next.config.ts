@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        // The Gamma Terminal (a members-only beta) and the Gamma Chart were the
+        // same instrument with different things beside it, so they were folded
+        // into one flagship surface with a view switch. /chart is the survivor
+        // because it is the URL with the history: it has always been the public,
+        // indexable lead magnet and it ranks on "gamma chart", the term with the
+        // search volume. The beta URL 301s so its links and bookmarks land on
+        // the page that absorbed it rather than 404ing.
+        source: '/gamma-terminal',
+        destination: '/chart',
+        permanent: true,
+      },
+      {
         // 301 to the pillar guide. /decoding-gamma-exposure overlapped heavily
         // with /gamma-exposure-explained and was sitting at position ~60 while
         // the pillar was at ~33 — consolidating into the pillar concentrates
@@ -74,6 +86,55 @@ const nextConfig: NextConfig = {
         source: '/help/platform/:slug([a-z0-9-]+).:locale(de|es|fr|it)',
         destination: '/help/platform/:slug',
         permanent: true,
+      },
+    ];
+  },
+
+  // Clickjacking defense, with one deliberate hole in it.
+  //
+  // In production this is belt AND braces: deploy/steps/070.ssl already adds
+  // `X-Frame-Options "DENY"` at the nginx server level, so a normal page goes
+  // out carrying both that and the SAMEORIGIN below. nginx `add_header`
+  // appends rather than replaces, and a browser reading a conflicting pair
+  // takes the stricter — DENY — which is the intended production policy. The
+  // app-level header is kept anyway because it is the only framing protection
+  // in any environment that is NOT behind that nginx: local dev, a preview
+  // deploy, a different reverse proxy. It never weakens production and it
+  // stops a new environment shipping with no policy at all.
+  //
+  // nginx carves out the same /embed/ exception with a regex location; see the
+  // comment there for why the prefix form could not be used.
+  //
+  // Nothing set a framing policy before, which meant every page on the site —
+  // /login, /account, the billing screens — could be loaded into a frame on
+  // any origin. Default to SAMEORIGIN everywhere.
+  //
+  // /embed/* is the exception, and it is the whole point of the widget: those
+  // frames exist to be rendered inside other people's pages, so the route
+  // handler sets its own `Content-Security-Policy: frame-ancestors *`. The
+  // negative lookahead below keeps this rule off that path entirely, because
+  // an X-Frame-Options header here would be the stricter of the two and would
+  // silently break every published embed. The embed route carries nothing
+  // private — no cookies, no session, no member data — so there is nothing for
+  // a hostile framer to steal from it.
+  async headers() {
+    return [
+      {
+        // `embed/` with the slash: the per-symbol FRAMES are the exception,
+        // not the /embed builder page, which is an ordinary landing and has
+        // the same reason as every other page to refuse being framed.
+        source: '/((?!embed/).*)',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+      },
+      {
+        // The resizer runs on third-party origins, so it has to be fetchable
+        // from them, and it is safe to hold for a long time: it is versionless
+        // by design and its behavior is fixed.
+        source: '/embed.js',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' },
+        ],
       },
     ];
   },

@@ -12,6 +12,15 @@ export type NavItem = {
   external?: boolean;
   /** Flags an in-development feature; renders a "Beta" pill next to the label. */
   beta?: boolean;
+  /**
+   * Treat `id` as a path PREFIX for active-state, not an exact match. For
+   * sections whose real pages are dated permalinks (`/scorecard/SPY/2026-09-11`)
+   * and whose `id` is only the entry point, exact matching would leave the item
+   * unhighlighted everywhere the reader actually is. Off by default, because
+   * for nested entries like `/backtesting` and `/backtesting/insights` a prefix
+   * would light up both.
+   */
+  matchPrefix?: boolean;
 };
 
 export type NavSubgroup = {
@@ -36,15 +45,14 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/dashboard', label: 'Main Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
       { id: '/my-dashboard', label: 'My Dashboard', labelKey: 'nav.myDashboard', requiredTier: 'basic' },
-      // /chart is a public dual-mode route (delayed snapshot for anonymous
-      // visitors, live for subscribers), so it carries no requiredTier — the
-      // route table in core/auth.ts keeps it public and the page branches on
-      // the session. Marking it 'basic' here would wrongly hide it from guests.
-      { id: '/chart', label: 'Gamma Chart' },
-      // Gamma Terminal (beta): the Gamma Chart's price chart with two gamma
-      // ladders beside it. Live-only (no delayed public snapshot), so unlike
-      // /chart it is a member page and carries the Basic tier.
-      { id: '/gamma-terminal', label: 'Gamma Terminal', requiredTier: 'basic', beta: true },
+      // The Gamma Terminal — the flagship surface, and the fold of what used to
+      // be two nav entries: the public Gamma Chart and the members-only
+      // /gamma-terminal beta (now 301'd to /chart). It is a public dual-mode
+      // route (delayed snapshot for anonymous visitors, live for subscribers),
+      // so it carries no requiredTier — the route table in core/auth.ts keeps
+      // it public and the page branches on the session. Marking it 'basic'
+      // here would wrongly hide it from guests.
+      { id: '/chart', label: 'Gamma Terminal' },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
@@ -100,23 +108,51 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Fifteen flat entries was a wall, not a menu. The three subgroups below
+    // are the three questions the pages actually answer — what the book HOLDS,
+    // what the tape DID to it, and what surrounds both — and each subgroup
+    // label is also the eyebrow its pages print (see `navSubcategoryLabel`), so
+    // a page can never advertise a category the menu does not put it in.
+    //
+    // No labelKey on the subgroups on purpose: every item inside them is an
+    // untranslated trading term ('GEX Summary', 'Max Pain'), and a translated
+    // parent over untranslated children reads worse than leaving both English.
     label: 'Metrics',
     labelKey: 'nav.group.metrics',
-    items: [
-      { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
-      { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
-      { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
-      { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
-      { id: '/gamma-shift', label: 'Gamma Shift', requiredTier: 'basic', beta: true },
-      { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
-      { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
-      { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
-      { id: '/hedging-flow', label: 'Hedging Flow', requiredTier: 'basic', beta: true },
-      { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
-      { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
-      { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
-      { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
-      { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
+    subgroups: [
+      {
+        // Named for the question, not for the page inside it: a subgroup called
+        // "Dealer Positioning" containing a page called "Dealer Positioning"
+        // made that page's header read POSITIONING / Dealer Positioning twice.
+        label: 'Positioning',
+        items: [
+          { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
+          { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
+          { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
+          { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
+          { id: '/gamma-shift', label: 'Gamma Shift', requiredTier: 'basic', beta: true },
+          { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
+          { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
+        ],
+      },
+      {
+        label: 'Options Flow',
+        items: [
+          { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
+          { id: '/hedging-flow', label: 'Hedging Flow', requiredTier: 'basic', beta: true },
+          { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
+          { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
+          { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
+        ],
+      },
+      {
+        label: 'Market Context',
+        items: [
+          { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
+          { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
+          { id: '/spread-monitor', label: 'Spread Monitor', requiredTier: 'basic', beta: true },
+        ],
+      },
     ],
   },
   {
@@ -126,8 +162,21 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/options-calculator', label: 'Strategy Builder', labelKey: 'nav.strategyBuilder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', labelKey: 'nav.liveOptionsQuotes', requiredTier: 'basic' },
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
-      { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay' },
-      { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true },
+      // All three are landing pages whose real content lives at dated
+      // permalinks, so each matches its own subtree for active-state.
+      { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay', matchPrefix: true },
+      { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true, matchPrefix: true },
+      // The intraday counterpart to Daily Forecast: a cone re-anchored every
+      // 15 minutes, and the reliability table that grades it. It lives UNDER
+      // /forecast, which is prefix-matched — see NAV_ITEM_IDS below for why
+      // that does not leave both entries lit at once.
+      { id: '/forecast/cone', label: 'Intraday Cone', beta: true },
+      // Public per-session receipt: every signal's flips, what was scorable,
+      // and how it resolved. It existed for months reachable only from the
+      // 4:15 PM ET post that links one date — no sidebar entry, no inbound
+      // link, absent from the sitemap — so nobody inside the product could
+      // find it. Now a landing page of session cards, like Daily Replay.
+      { id: '/scorecard', label: 'Daily Scorecard', labelKey: 'nav.dailyScorecard', matchPrefix: true },
     ],
   },
   {
@@ -180,3 +229,73 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+/**
+ * The subcategory a route sits under, e.g. '/max-pain' → 'Dealer Positioning'.
+ *
+ * Pages print this as the eyebrow above their title, which is the whole point:
+ * the label a page shows and the label the menu files it under are the same
+ * string from the same array, so reorganising the menu moves the page copy with
+ * it and the two can never drift. Returns undefined for routes that sit
+ * directly in a group (no subcategory to name) or are not in the menu at all.
+ */
+/**
+ * Every nav entry's id, flattened across groups and subgroups.
+ *
+ * Exists so a `matchPrefix` entry can yield to a more specific one. `/forecast`
+ * must prefix-match, because its real content lives at dated permalinks like
+ * `/forecast/SPY/2026-09-21` that have no entry of their own — but it must NOT
+ * stay lit when the reader is on `/forecast/cone`, which does. Membership here
+ * is the difference between those two cases.
+ */
+export const NAV_ITEM_IDS: ReadonlySet<string> = new Set(
+  NAV_GROUPS.flatMap((group) => [
+    ...(group.items ?? []).map((item) => item.id),
+    ...(group.subgroups ?? []).flatMap((sub) => [
+      sub.id,
+      ...sub.items.map((item) => item.id),
+    ]),
+  ]).filter((id): id is string => typeof id === 'string' && id.startsWith('/')),
+);
+
+export function navSubcategoryLabel(pathname: string | null | undefined): string | undefined {
+  if (!pathname) return undefined;
+  for (const group of NAV_GROUPS) {
+    for (const subgroup of group.subgroups ?? []) {
+      if (subgroup.items.some((item) => item.id === pathname)) return subgroup.label;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The menu label for a route, e.g. '/gex-heatmap' → 'GEX Heatmap'.
+ *
+ * The counterpart to navSubcategoryLabel above, and it exists for the same
+ * reason: when a page needs to NAME another page in prose — "you were reaching
+ * for the GEX Heatmap" — the string should come from the menu rather than be
+ * retyped at the call site, so renaming a feature renames every reference to
+ * it. Searches top-level items, subgroup headers, and subgroup items in that
+ * order. Returns undefined for a route that isn't in the menu at all, which
+ * callers should treat as "don't name it" rather than substituting the raw
+ * path: the raw path is developer-facing and reads as a leak in body copy.
+ *
+ * Deliberately returns the stable ENGLISH `label`, never the `labelKey`
+ * translation. Callers are server components rendering prose that is already
+ * English, and a half-translated sentence is worse than a consistent one.
+ */
+export function navItemLabel(pathname: string | null | undefined): string | undefined {
+  if (!pathname) return undefined;
+  for (const group of NAV_GROUPS) {
+    for (const item of group.items ?? []) {
+      if (item.id === pathname) return item.label;
+    }
+    for (const subgroup of group.subgroups ?? []) {
+      if (subgroup.id === pathname) return subgroup.label;
+      for (const item of subgroup.items) {
+        if (item.id === pathname) return item.label;
+      }
+    }
+  }
+  return undefined;
+}

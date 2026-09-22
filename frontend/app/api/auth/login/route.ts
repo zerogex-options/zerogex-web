@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { attachSessionCookie, createSessionForUserCredentials, issueCsrfCookie, validateCsrf } from '@/core/serverAuth';
+import { applyAppearanceCookies, attachSessionCookie, createSessionForUserCredentials, issueCsrfCookie, validateCsrf } from '@/core/serverAuth';
 
 // This response carries Set-Cookie (session + CSRF). nginx's /api/ cache
 // key isn't partitioned by cookie, so a cached login response could leak
@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
     response.headers.set('Cache-Control', 'no-store, private');
     attachSessionCookie(response, session.token);
     issueCsrfCookie(response, session.csrfToken);
+    // Seed the look from the account, so signing in on a new browser paints in
+    // the member's own theme rather than the default followed by a repaint.
+    applyAppearanceCookies(response, session.user.id);
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Login failed';

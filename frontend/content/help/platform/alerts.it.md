@@ -64,9 +64,13 @@ La scheda del segnale sulla pagina spiegherà lo stato attuale del trigger in li
 
 Il Live Bulletin è il **sistema di registrazione** ufficiale per i trigger. Se sei andato a pranzo, non devi aprire ogni pagina per vedere cosa è scattato — apri il bulletin, filtra per simbolo e famiglia di segnali, e leggi gli eventi della giornata in ordine cronologico.
 
-## Cosa arriverà
+## Avvisi in uscita
 
-Al momento non inviamo avvisi via email, SMS, notifica push o webhook. Se la domanda lo giustifica, questi canali potranno essere aggiunti — scrivi a [support@zerogex.io](mailto:support@zerogex.io) per votare.
+Gli avvisi vengono consegnati **solo nell'app**: il Live Bulletin, le schede dei segnali e il pannello composito. Gli avvisi di segnale non vengono inviati via email, SMS, notifica push o webhook.
+
+Se hai visto gli interruttori dei canali in [Account → Notifiche](/account/notifications), appartengono alla pagina **Bot Trading**, che è in beta. Non costruirci sopra per ora — il canale webhook salva la tua preferenza ma non consegna nulla. Per automatizzare oggi, interroga l'[API](/help/platform/api-access) invece di aspettare un push che non arriverà.
+
+La consegna in uscita è in lista, non rilasciata. Se cambierebbe il tuo modo di operare, scrivi a [support@zerogex.io](mailto:support@zerogex.io) indicando canale e segnali che vorresti — i dettagli concreti la fanno salire di priorità.
 
 ## Vedi anche
 

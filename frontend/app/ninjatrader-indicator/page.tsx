@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
+import BrokerConnectionNote from '@/components/BrokerConnectionNote';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
@@ -74,6 +75,8 @@ export default function NinjaTraderIndicatorPage() {
       jsonLd={JSON_LD}
     >
       <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} standalone />
+
+      <BrokerConnectionNote integration="ninjatrader" />
 
       <IntegrationsStrip exclude="ninjatrader" />
 

@@ -120,26 +120,61 @@ if [ -n "$ORIGIN_MTLS" ] && [ "$ORIGIN_MTLS" != "off" ] && [ "$ORIGIN_MTLS" != "
 fi
 
 log "  → Installing hardened HTTPS nginx config..."
+# NOTE: an UNQUOTED heredoc, because the config below interpolates
+# ${DOMAIN_NAME}, ${WEB_PORT}, ${API_UPSTREAM} and ${MTLS_DIRECTIVES}. That
+# means the shell also expands backticks and bare $ IN COMMENTS. A backtick
+# pair anywhere below runs as a command: it prints "command not found" during
+# deploy and silently deletes that text from the written config. Quote things
+# in these comments with "double quotes", never with backticks, and escape any
+# nginx variable as \$foo.
 sudo tee "$SITE_CONF" > /dev/null <<EOF_CONF
 server {
     listen 80;
     listen [::]:80;
     server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
 
-    # ACME challenge path for certbot
+    # ACME challenge path for certbot. A longer prefix than "location /", so
+    # it still wins over the canonical redirect below and both ${DOMAIN_NAME}
+    # and www.${DOMAIN_NAME} keep validating at renewal time.
     location /.well-known/acme-challenge/ {
         root /var/www/html;
     }
 
+    # Redirect to the canonical apex host rather than \$host, so http://www
+    # reaches https://${DOMAIN_NAME} in ONE hop instead of two.
     location / {
-        return 301 https://\$host\$request_uri;
+        return 301 https://${DOMAIN_NAME}\$request_uri;
     }
+}
+
+# Canonical-host redirect. ${DOMAIN_NAME} and www.${DOMAIN_NAME} are separate
+# cookie origins to the browser: a host-only cookie (theme/palette, language,
+# referral) set on one is never sent to the other, so a visitor bouncing
+# between the two silently loses preferences. The apex is canonical
+# (frontend/core/articleRegistry.ts SITE_URL), which also keeps SEO signal on
+# one hostname. The certificate covers both names, so TLS must terminate here
+# before the redirect can be sent.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.${DOMAIN_NAME};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
+${MTLS_DIRECTIVES}
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    server_tokens off;
+
+    return 301 https://${DOMAIN_NAME}\$request_uri;
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+    server_name ${DOMAIN_NAME};
 
     ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
@@ -274,6 +309,69 @@ ${MTLS_DIRECTIVES}
     }
 
     # Frontend reverse proxy
+    # The embeddable gamma-levels widget, and only it.
+    #
+    # The server-level X-Frame-Options DENY above is right for every other
+    # URL on this host and fatal here: these frames exist to be rendered inside
+    # other people's pages, and DENY forbids framing outright — not merely
+    # cross-origin, but same-origin too, which would also break the live
+    # preview on /embed itself. Worse, nginx add_header APPENDS rather than
+    # replaces, so the response would carry both the app's SAMEORIGIN and this
+    # DENY, and a browser resolves a conflicting pair as the stricter one.
+    #
+    # nginx inherits add_header from the enclosing level ONLY when the
+    # current level declares none of its own. So re-stating the three headers
+    # that still apply, and omitting X-Frame-Options, is what drops DENY for
+    # this prefix without weakening anything anywhere else. The route handler
+    # then supplies its own Content-Security-Policy of frame-ancestors *,
+    # which is the modern directive and the one that actually governs here.
+    #
+    # Nothing behind this prefix is private: no cookies, no session, no member
+    # data — every byte is already public on the free /<ticker>-gamma-levels
+    # pages — so there is nothing for a hostile framer to obtain from it.
+    #
+    # ONE LAYER THIS FILE CANNOT REACH. zerogex.io sits behind Cloudflare (see
+    # the AOP block above). A Transform Rule or managed security header there
+    # can ADD X-Frame-Options back onto these responses after nginx is done,
+    # and one currently does: the public URL answers with SAMEORIGIN even
+    # though both the origin and this proxy send none. Verified by curling
+    # 127.0.0.1:3000 (Next) and 127.0.0.1:80 (nginx) on the box - both clean.
+    #
+    # It is not breaking anything. CSP Level 2 says a response carrying both
+    # frame-ancestors and X-Frame-Options must have the X-Frame-Options
+    # ignored, and every current browser does that, so frame-ancestors * still
+    # governs and third-party embeds still render. But it is worth clearing at
+    # the edge rather than leaving two directives that disagree: nothing here
+    # can strip it, and the next person to debug a blocked embed will find
+    # SAMEORIGIN on the response and reasonably suspect this file.
+    #
+    # A REGEX location, not the "^~ /embed/" prefix it looks like it should be.
+    # With the prefix form nginx answers a request for /embed (no slash) with a
+    # 301 to /embed/ — and /embed is the builder page, the canonical URL, and
+    # the one entry for this feature in the sitemap. Redirecting it would spend
+    # crawl budget and split the canonical from the URL actually served. The
+    # regex form matches the same set and issues no such redirect; verified by
+    # running both against nginx 1.24.
+    #
+    # Either way only /embed/<SYMBOL> and /embed/image/<SYMBOL>.png are the
+    # exception. /embed itself, and /embed.js, keep the site-wide DENY.
+    location ~ ^/embed/ {
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+
+        proxy_pass http://127.0.0.1:${WEB_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:${WEB_PORT};
         proxy_http_version 1.1;

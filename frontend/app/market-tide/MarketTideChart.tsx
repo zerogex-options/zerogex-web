@@ -146,7 +146,7 @@ export default function MarketTideChart({
               y1={g.yy}
               x2={VW - R}
               y2={g.yy}
-              stroke={g.zero ? "var(--border-strong)" : "var(--color-border)"}
+              stroke={g.zero ? "var(--border-strong)" : "var(--border-default)"}
               strokeWidth={g.zero ? 1.4 : 1}
               strokeDasharray={g.zero ? undefined : "2 4"}
             />
@@ -204,8 +204,9 @@ export default function MarketTideChart({
 
       {hoverRow && hi != null && (
         <div
-          className="pointer-events-none absolute z-10 rounded-lg border px-2.5 py-2 text-xs font-mono tabular-nums shadow-lg"
+          className="pointer-events-none absolute z-10 border px-2.5 py-2 text-xs font-mono tabular-nums"
           style={{
+            borderRadius: "var(--radius-panel)",
             background: "var(--bg-card)",
             borderColor: "var(--border-strong)",
             left: `${flip ? tipLeftPct - 2 : tipLeftPct + 2}%`,

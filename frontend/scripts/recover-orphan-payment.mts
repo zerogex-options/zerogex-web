@@ -31,13 +31,17 @@
 //      it, and renews normally afterward. The card that settled the invoice is
 //      wired as the subscription default.
 //   3. Mirrors the grant onto the users row (tier, subscription mirror, grace
-//      latches cleared) for immediacy, and writes an audit row. The
-//      customer.subscription.created webhook reconciles to the same values and
-//      sends the welcome-back email.
+//      latches cleared, and the paid-subscription pointer so the admin headcount
+//      counts them as a Full Subscriber rather than a charge in flight) for
+//      immediacy, and writes an audit row. The customer.subscription.created
+//      webhook reconciles to the same values and sends the welcome-back email.
 //
-// SAFETY: refuses to act when the customer already has a live subscription, or
-// when this invoice was already recovered (the recovered_from_invoice metadata
-// stamp), so a double-run can never double-bill. Dry-run by default.
+// SAFETY: refuses to act when the customer already has a live subscription, when
+// this invoice was already recovered (the recovered_from_invoice metadata
+// stamp), or when the invoice was REFUNDED — a refund leaves it reading
+// status=paid with amount_paid untouched, so a refunded-and-canceled member is
+// otherwise indistinguishable from an orphaned payment and gets the period they
+// were reimbursed for handed back for free. Dry-run by default.
 //
 // Reads STRIPE_SECRET_KEY + STRIPE_PRICE_* from env or .env.local. Set
 // AUTH_DB_PATH to override the default DB path (data/auth.db).
@@ -57,10 +61,12 @@ import {
   RECOVERED_FROM_INVOICE_KEY,
 } from '../core/orphanPayment.ts';
 import {
+  readInvoicePaidAtUnix,
   readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
+  readInvoiceRefundedAmount,
   readInvoiceSubscriptionId,
 } from '../core/stripeInvoice.ts';
 
@@ -343,6 +349,12 @@ async function evaluate(invoice: Stripe.Invoice): Promise<Candidate> {
     canceledSubscription,
     decision: decideOrphanPayment({
       amountPaid: invoice.amount_paid ?? 0,
+      // Every invoice reaching here was retrieved with `charge` expanded (both
+      // the --invoice and the auto-select paths ask for it), so the refund total
+      // resolves without another Stripe call — and resolves to the same value
+      // the webhook computes, which is what keeps the two from disagreeing about
+      // what is recoverable.
+      amountRefunded: readInvoiceRefundedAmount(invoice),
       invoiceStatus: invoice.status ?? null,
       billingReason: invoice.billing_reason ?? null,
       subscriptionId,
@@ -358,6 +370,9 @@ async function evaluate(invoice: Stripe.Invoice): Promise<Candidate> {
 }
 
 let candidate: Candidate | null = null;
+// Paid invoices deliberately passed over, for the "no orphaned payment" message
+// below — an operator staring at a real charge in Stripe needs the reason.
+const passedOver: string[] = [];
 
 if (cliArgs.invoice) {
   let invoice: Stripe.Invoice;
@@ -402,6 +417,14 @@ if (cliArgs.invoice) {
       candidate = evaluated;
       break;
     }
+    // A refunded invoice is skipped like any other non-orphan, but silently
+    // skipping it reads as "we found no payment" to an operator looking at a
+    // real $29 charge in the Dashboard. Name it instead.
+    if (evaluated.decision.reason === 'refunded') {
+      passedOver.push(
+        `${invoice.id} ${formatAmount(invoice.amount_paid, invoice.currency)} — refunded in full`,
+      );
+    }
   }
 }
 
@@ -413,8 +436,16 @@ console.log(`Stripe customer:    ${user.stripe_customer_id}`);
 if (!candidate) {
   console.log('');
   console.log('No orphaned payment found: every recent paid invoice on this customer is');
-  console.log('either $0, already reflected in their tier, or still owned by a live');
-  console.log('subscription. Nothing to recover.');
+  console.log('either $0, refunded, already reflected in their tier, or still owned by a');
+  console.log('live subscription. Nothing to recover.');
+  for (const note of passedOver) {
+    console.log(`  passed over: ${note}`);
+  }
+  if (passedOver.length > 0) {
+    console.log('');
+    console.log('A refunded payment is NOT an orphaned one — the member has their money back,');
+    console.log('so the period it paid for is not owed. Granting it would be free access.');
+  }
   process.exit(0);
 }
 
@@ -429,12 +460,29 @@ console.log(`  subscription      ${readInvoiceSubscriptionId(invoice) ?? '—'} 
 console.log('');
 
 if (!(decision.kind === 'detected' && decision.recoverable)) {
-  const reason = decision.kind === 'detected' ? decision.reason : 'not_orphaned';
-  console.log(`This payment left no entitlement, but it cannot be recovered automatically:`);
-  console.log(`  reason: ${reason}`);
+  // Both decision shapes carry a reason; flattening 'none' to "not_orphaned"
+  // used to hide the one an operator most needs to see — that this invoice was
+  // refunded, so there is nothing to restore.
+  console.log(`This payment cannot be recovered automatically:`);
+  console.log(`  reason: ${decision.reason}`);
   console.log('');
-  console.log('Handle it by hand in the Stripe Dashboard — the usual options are a refund');
-  console.log('of the orphaned amount, or a fresh checkout with a credit applied.');
+  if (decision.reason === 'refunded') {
+    console.log('This invoice was REFUNDED IN FULL. The member has their money back, so the');
+    console.log('period it paid for is not owed to them — recovering it would grant that');
+    console.log('access for free. If they are meant to be a subscriber again, they should go');
+    console.log('through checkout; nothing here is broken.');
+  } else if (decision.reason === 'partially_refunded') {
+    console.log('This invoice was PARTLY refunded, so only some of the period it paid for is');
+    console.log('still owed. Re-creating the full plan would grant a period only partly paid');
+    console.log('for — decide what access the retained amount buys and set it up by hand.');
+  } else if (decision.reason === 'refund_state_unknown') {
+    console.log('Whether this invoice was refunded could not be read from Stripe, and that is');
+    console.log('not guessed: assuming "not refunded" is how a refunded payment gets granted');
+    console.log('again for free. Check the charge in the Stripe Dashboard and re-run.');
+  } else {
+    console.log('Handle it by hand in the Stripe Dashboard — the usual options are a refund');
+    console.log('of the orphaned amount, or a fresh checkout with a credit applied.');
+  }
   process.exit(1);
 }
 
@@ -448,8 +496,11 @@ const carryOver = decideDiscountCarryOver(readSubscriptionDiscounts(canceledSubs
 console.log(`Plan to restore:    ${sku.tier} / ${sku.cadence}  (price ${decision.priceId})`);
 console.log(`First renewal:      ${isoOf(decision.billingCycleAnchorUnix)}  ← paid period honored until here`);
 console.log(`Charge now:         $0.00  (proration_behavior=none — they already paid for this period)`);
-if (carryOver.carry.length) {
-  console.log(`Discounts carried:  ${carryOver.carry.join(', ')}  (duration=forever)`);
+for (const c of carryOver.carried) {
+  const note = c.restartsClock
+    ? '  <- clock RESTARTS: months already used are granted again'
+    : '';
+  console.log(`Discounts carried:  ${c.couponId}  (duration=${c.duration})${note}`);
 }
 for (const flagged of carryOver.flagged) {
   console.log(`Discount NOT carried: ${flagged.couponId} (duration=${flagged.duration})`);
@@ -577,6 +628,16 @@ try {
 // which is why that column is deliberately left alone here.
 const stamp = nowIso();
 const createdPeriodEnd = currentPeriodEndUnix(created);
+// Mark the recovery subscription as one an invoice has cleared on, dated when
+// that invoice really cleared. Without it classifySubscriberBucket reads the new
+// `active` subscription as a charge in flight and parks the member on the admin
+// Converting line until their first renewal — a recovery creates NO invoice of
+// its own, so nothing else can ever clear on it before then. The webhook's
+// recovery path stamps the same pair for the same reason.
+const invoicePaidAtUnix = readInvoicePaidAtUnix(invoice);
+const paidAtIso = invoicePaidAtUnix != null
+  ? new Date(invoicePaidAtUnix * 1000).toISOString()
+  : stamp;
 execSqlite(
   dbPath,
   `UPDATE users SET
@@ -589,6 +650,8 @@ execSqlite(
      payment_grace_started_at = NULL,
      payment_grace_reason = NULL,
      payment_recovery_pending = 0,
+     last_paid_subscription_id = '${escapeSqlLiteral(created.id)}',
+     last_paid_invoice_at = '${escapeSqlLiteral(paidAtIso)}',
      updated_at = '${escapeSqlLiteral(stamp)}'
    WHERE id = '${escapeSqlLiteral(user.id)}';`,
 );
@@ -604,7 +667,7 @@ execSqlite(
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honored through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carry.length ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
+     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honored through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carried.length ? `; carried coupon(s) ${carryOver.carried.map((c) => `${c.couponId} (duration=${c.duration}${c.restartsClock ? ', clock restarted' : ''})`).join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`,
 );

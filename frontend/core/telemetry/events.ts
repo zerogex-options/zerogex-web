@@ -31,6 +31,29 @@ export const TelemetryEvent = {
   ForecastShareClicked: 'forecast_share_clicked',
   /** GEX Replay snapshot share button clicked (client, /replay/[date]). */
   ReplayShareClicked: 'replay_share_clicked',
+  /** Daily Replay expiration scope toggled (client, /replay/[symbol]/[date]).
+   *  The `scope` property records which book was asked for: all | 0dte. This
+   *  is the read we cannot infer from pageviews — the 0DTE scope is a
+   *  same-URL toggle, so how often people actually reach for the same-day
+   *  book only shows up here. */
+  ReplayExpirationScopeChanged: 'replay_expiration_scope_changed',
+  /** Free daily levels email: the form was submitted (client, the six
+   *  /<ticker>-gamma-levels pages). `symbol` records which page it came from,
+   *  so the split answers which ticker's readers actually want the email —
+   *  the same question the share-click split answers for distribution.
+   *
+   *  This fires on SUBMIT, not on confirmation. The endpoint deliberately
+   *  answers identically whether the address was new, already subscribed,
+   *  previously opted out or malformed (it must not become an oracle for who
+   *  reads this site), so the browser cannot know which happened and this
+   *  event must not pretend to. Confirmed-subscriber counts come from the
+   *  database, never from here. The gap between the two is the double opt-in
+   *  drop-off, which is the number worth watching. */
+  LevelsEmailSubmitted: 'levels_email_submitted',
+  /** The signup form was rejected before it reached the server — an address
+   *  that cannot be one, or a rate limit. Split by `reason` so a sudden spike
+   *  in 'invalid' means the field is confusing rather than that demand fell. */
+  LevelsEmailRejected: 'levels_email_rejected',
   /** Free gamma-levels daily snapshot share/copy button clicked (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). The `channel`
    *  property records the surface: copy | x | reddit | stocktwits | native. */
@@ -38,6 +61,27 @@ export const TelemetryEvent = {
   /** Free TradingView Pine indicator copied / downloaded / opened (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). */
   TradingViewIndicatorClicked: 'tradingview_indicator_clicked',
+  /** Something copied from the /embed builder (client). The `symbol`, `theme`
+   *  and `host` properties record what was configured, `action` records
+   *  copy | copy_failed, and `format` records WHICH artifact was taken:
+   *  iframe (the embeddable widget) | image (the PNG card URL).
+   *
+   *  This is the top of the distribution funnel the widget exists for: a copy
+   *  here should later show up as referral sessions carrying
+   *  `utm_source=embed`, and the gap between the two counts is how many
+   *  snippets were taken but never published.
+   *
+   *  The `format` split is the one that decides what to build next. The image
+   *  exists because Substack, Medium, Discord and email refuse iframes; if it
+   *  turns out to be what most people take, that is the larger audience
+   *  saying so.
+   *
+   *  `surface` records where the copy happened: builder (the /embed page) |
+   *  levels_page (the block on each free /<ticker>-gamma-levels page). The
+   *  levels pages carry almost all of the organic traffic, so that split
+   *  answers whether the widget needs its own destination at all or simply
+   *  needed to be where the readers already were. */
+  EmbedSnippetCopied: 'embed_snippet_copied',
   /** NinjaTrader 8 NinjaScript indicator downloaded, or its "get your API key"
    *  CTA clicked (client, the four gamma-levels pages). The `action` property
    *  records which: download (.cs source) | download_package (NT8 .zip) |
@@ -68,6 +112,45 @@ export const TelemetryEvent = {
   SierraChartIndicatorClicked: 'sierrachart_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
+  /** A CTA in the "Read these levels inside Claude" block was clicked (client,
+   *  the six gamma-levels pages). `action` records which: setup (→ the help
+   *  page) | learn_more (→ the education article). `symbol` is the page's
+   *  primary ticker, so it is visible whether SPX readers take this up at a
+   *  different rate to NQ readers.
+   *
+   *  This is intent, not conversion — see mcp_client_connected below, which is
+   *  the same funnel's other end. A wide gap between them means the setup page
+   *  is losing people; clicks near zero means the block itself is being
+   *  scrolled past, which is a placement problem rather than a copy one. */
+  McpServerClicked: 'mcp_server_clicked',
+  /** A My Dashboard quick-start preset was applied (client, /my-dashboard).
+   *  `preset` is the preset id, `symbol` the board symbol at the time.
+   *
+   *  Applying a preset is not the same as adopting it. The 0DTE preset was
+   *  built for a specific subscriber who then did not use it, and we only
+   *  found out because he volunteered it weeks later — nothing distinguished
+   *  "applied once" from "still on it a week later". Pair this with
+   *  `dashboard_preset_retained` for that. */
+  DashboardPresetApplied: 'dashboard_preset_applied',
+  /** A board that was created from a preset is still in use on a later day
+   *  (client, /my-dashboard, at most once per preset per UTC day).
+   *
+   *  `preset` is the preset id, `days_since_applied` the whole days since it
+   *  was applied, and `modified` whether the layout has diverged from the
+   *  preset since. Retention, not adoption: `days_since_applied >= 1` is the
+   *  first evidence a preset is actually someone's board. */
+  DashboardPresetRetained: 'dashboard_preset_retained',
+  /** An MCP client completed the `initialize` handshake against /mcp (server,
+   *  once per client session — not per tool call). This is the actual
+   *  conversion for the block above: somebody added the server to an assistant
+   *  and it connected.
+   *
+   *  `client` is the sanitized clientInfo.name the caller sent (claude-ai,
+   *  cursor, claude-code, …), which is software identity rather than anything
+   *  personal — the endpoint is unauthenticated and has no idea who anyone is.
+   *  It is attacker-controlled all the same, so it is normalized to a short
+   *  lowercase slug before it is ever sent anywhere; see clientLabel(). */
+  McpClientConnected: 'mcp_client_connected',
 
   // ── Paid-traffic conversion funnel ────────────────────────────────────────
   // The free gamma-levels pages double as the paid-X landing page. These events

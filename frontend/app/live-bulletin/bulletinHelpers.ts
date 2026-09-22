@@ -52,8 +52,10 @@ export interface ReportInputs {
   /**
    * True when `spot` is a futures-implied projection (a cash index like SPX
    * outside the cash session) rather than a live cash print. Drives the
-   * "futures-implied via ES" indicator on the card so it never reads as a
-   * live SPX quote. `spotSourceLabel` is the future's ticker, e.g. "ES".
+   * "futures-implied via ESZ26" indicator on the card so it never reads as a
+   * live SPX quote. `spotSourceLabel` names the instrument it came from: the
+   * CME contract when the quote carries one ("ESZ26"), the bare ticker
+   * otherwise ("ES").
    */
   spotIsProjected?: boolean;
   spotSourceLabel?: string | null;
@@ -108,7 +110,11 @@ export interface ReportModel {
   expectedRange: ExpectedRange | null;
   /** True when `spot` is a futures-implied projection (see ReportInputs). */
   spotIsProjected: boolean;
-  /** Future ticker the spot was projected from (e.g. "ES"), else null. */
+  /**
+   * The instrument the spot was projected from — the CME contract when the
+   * quote named one ("ESZ26"), otherwise the bare ticker ("ES"). Null when the
+   * spot is a live cash print.
+   */
   spotSourceLabel: string | null;
 }
 
@@ -271,6 +277,7 @@ export interface FuturesSwapFields {
   data_symbol?: string | null;
   futures_close?: number | null; // the future now (e.g. @ES)
   futures_reference_close?: number | null; // the future's own 16:00 print
+  data_contract?: string | null; // the CME contract it resolves to, e.g. "ESZ26"
 }
 
 /**
@@ -292,9 +299,16 @@ export function projectedIndexSpot(
   const ref = quote.futures_reference_close;
   if (now == null || ref == null || cashRefClose == null) return null;
   if (!Number.isFinite(now) || !Number.isFinite(ref) || !Number.isFinite(cashRefClose)) return null;
+  // Name the CONTRACT where the quote gives one. The card is screenshotted into
+  // tweets and support replies, and "via ES" is the same ambiguity that started
+  // the "your futures price is wrong" reports: it does not say which ES, and a
+  // reader comparing against a platform still on the previous contract is a
+  // quarter of cost-of-carry away. Falls back to the bare ticker for a cash
+  // symbol, an older backend, or a cached response, exactly as before.
   return {
     spot: cashRefClose + (now - ref),
-    sourceLabel: (quote.data_symbol ?? '').trim() || 'futures',
+    sourceLabel:
+      (quote.data_contract ?? '').trim() || (quote.data_symbol ?? '').trim() || 'futures',
   };
 }
 

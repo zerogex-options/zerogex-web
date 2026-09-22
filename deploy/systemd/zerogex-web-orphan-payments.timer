@@ -1,0 +1,22 @@
+[Unit]
+Description=ZeroGEX web orphan-payment sweep (daily; alerts when a payment left a member with nothing)
+
+[Timer]
+# Daily at 06:40, clear of every other timer on this box (auth backup :00,
+# cancellation-alerts :07/:22/:37/:52, trial-reminders :15, verify-reminders
+# :20, verified-never-paid :30, signup-alarm :35, checkout-recovery :45).
+#
+# WHY DAILY, when cancellation-alerts runs every 15 minutes: this sweep walks
+# every paid Stripe invoice in the window, which is an API-heavy scan rather
+# than a trailing read of a local table. And the window it is racing is days
+# long, not hours — a stranded member is not about to lose anything else; they
+# are already sitting on a free tier having paid. One day is soon enough, and
+# the cost of running it more often is real.
+OnCalendar=*-*-* 06:40:00
+RandomizedDelaySec=300
+# If the box was down at 06:40, run once as soon as it is back. The per-invoice
+# audit latch means a catch-up run cannot re-alert anything already sent.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -147,7 +147,102 @@ different responses:
   starts — so only a deletion of the subscription the invoice actually paid for
   counts.
 - **Needs a look** — money with no entitlement where the plan to restore was not
-  unambiguous (a retired price, an unreadable period).
+  unambiguous (a retired price, an unreadable period), a **partial refund**, or a
+  refund state Stripe would not report.
+
+Both the sweep and the daily alert read refunds the same way the webhook does: a
+fully refunded invoice is not a finding at all, and **Lost paid time** excludes a
+member refunded in full — that bucket's output is "a refund or a credit is the
+remedy", which for someone already repaid means paying them twice. A partial
+refund still reports, because some of that period was paid for and never
+delivered.
+
+The scripts are typechecked now, which was not true when that guard shipped:
+`tsconfig.json` included only `**/*.ts` and every script is a `.mts`, so a core
+signature change could land with the webhook updated and a script left silently
+passing nothing — which is exactly how the sweep broke. `**/*.mts` is now in the
+include, so `npm run typecheck` and `make rebuild` both fail on a script that has
+drifted out of step with a shared signature.
+
+**Refunded payments are never recovered.** A refund leaves the invoice reading
+`status=paid` with `amount_paid` untouched, and a refunded member is normally
+canceled in the same breath — which clears their local subscription id and drops
+them to `public`. That made a refunded close-out indistinguishable from an
+orphaned payment, and one member was handed a free month plus a repeating coupon
+with its clock restarted, a fortnight after being refunded in full.
+`decideOrphanPayment` now takes the refunded amount as a required input: fully
+refunded is not an orphaned payment, and a partial or unreadable refund is
+reported for a human rather than guessed.
+
+**A recovery marks its own subscription as paid for.** A recovery is created with
+no invoice of its own — billing is anchored at the end of the period already paid
+for — so nothing can clear on it until the first renewal. Both recovery paths
+therefore stamp `users.last_paid_subscription_id` / `last_paid_invoice_at`
+themselves, and the Subscriber Ledger reads the
+`billing_orphan_payment_recovered` audit row so the member shows as **Paid period
+restored** instead of a conversion charge stuck in flight.
+
+Recoveries performed *before* that shipped still have a NULL pointer, so they sit
+on the admin Converting line until their first renewal. One target fixes them,
+and only them — it requires a `billing_orphan_payment_recovered` audit row naming
+the subscription the member is on right now, so a healthy payer, a member who has
+since moved to another subscription, and an ordinary trial mid-conversion are all
+left alone:
+
+```
+make backfill-recovery-pointers            # read-only: lists who it would stamp
+make backfill-recovery-pointers APPLY=1
+```
+
+Idempotent — it writes only where the pointer is NULL, so a second run reports
+nothing to do.
+
+**Reversing a recovery that should not have happened.** For the refunded case the
+guard now blocks, the recovery already made is undone with:
+
+```
+make unwind-orphan-recovery EMAIL=<addr>             # dry run
+make unwind-orphan-recovery EMAIL=<addr> YES=1
+```
+
+It cancels the recovery subscription immediately (nothing was ever charged on it,
+so there is nothing to refund or collect, and any coupon carried onto it dies
+with the subscription), returns the row to the state it held before the recovery,
+and audits it. It refuses unless the subscription carries the
+`recovered_from_invoice` stamp, the recovered invoice was refunded **in full**,
+and no invoice has ever been paid on the recovery subscription — that last one
+because real money would mean a refund decision comes first, and that is yours.
+`FORCE=1` skips only the refund check. Cancelling through the API records no
+survey, so the churn row is silent and `send-cancellation-alerts` suppresses it
+by default; it is not a new churn.
+
+**Refunding but letting them keep the period.** Refunding someone who forgot to
+cancel has two kind endings, and they are not the same: end the access with the
+refund (`make cancel-subscription`), or refund the money and let them ride out
+the period they had bought. The second had no path — Stripe cannot un-cancel a
+subscription — so:
+
+```
+make reinstate-paid-period EMAIL=<addr>                  # dry run
+make reinstate-paid-period EMAIL=<addr> YES=1
+```
+
+It re-creates the plan for the remainder of that period with
+`cancel_at_period_end` set, so Stripe holds it open to the end and then drops it
+**without raising a renewal invoice**. It carries no coupons (a re-applied coupon
+restarts its clock — the incident above), stamps the paid-subscription pointer so
+the member reads as a Full Subscriber with a dated departure rather than as a
+charge in flight, and suppresses the welcome-back email by clearing
+`subscription_lapsed` before the create — somebody just told this member their
+subscription was closed, and congratulating them on its return is how you end up
+with three contradictory emails in one thread.
+
+Two things to know before you run it. They **do** count in the paying headcount
+until the period ends, while the money for it was refunded; the audit row and the
+ledger both say so (the Subscriber Ledger reads
+`billing_paid_period_reinstated` and reports **Paid period restored** with "no
+charge on this subscription"). And it refuses if the period has already elapsed —
+past that point what is owed is a credit, not access.
 
 Do not hunt for these in SQL alone. `tier='public' AND subscription_status='canceled'`
 is every trial that ended without converting — ~195 rows on this deploy, almost
@@ -239,9 +334,20 @@ All of it is exercisable in **Stripe test mode** with test cards
   charge). Confirm the member **keeps** their tier and you see a
   `billing_payment_grace_active` audit row; advance the test clock past
   `BILLING_PAYMENT_GRACE_DAYS` and confirm downgrade.
-- **Trial-conversion failure → no grace:** start a trial with a card that will
-  fail at conversion; confirm **immediate** downgrade (no grace), i.e. the abuse
-  path is unchanged.
+- **Trial-conversion failure → grace (Trial Grace band):** start a trial with a
+  card that *attaches* cleanly but fails on charge (`4000 0000 0000 0341`), so
+  the SetupIntent succeeds and the trial is granted access. At conversion,
+  confirm the member **keeps** their tier, `users.payment_grace_reason` reads
+  `trial`, and a `billing_payment_grace_active` audit row is written; advance the
+  test clock past `BILLING_PAYMENT_GRACE_DAYS` and confirm the downgrade. Set
+  `BILLING_TRIAL_GRACE_ENABLED=0` and re-run to confirm the hard trial-end
+  downgrade is still available.
+- **Withheld trial → no grace:** a trial whose SetupIntent never succeeded is
+  held at `tier=public` by the payment-setup gate (look for the
+  `billing_trial_setup_pending` audit row). Its conversion failure opens **no**
+  window whatever `BILLING_TRIAL_GRACE_ENABLED` is set to — `decidePaymentGrace`
+  requires that the trial had actually been granted access. Confirm **immediate**
+  downgrade: this is the abuse path, and it is unchanged.
 - **Radar rules:** `4000 0000 0000 0101` (CVC check fails),
   `4100 0000 0000 0019` (always-blocked/fraudulent) to confirm your Block rules fire.
 

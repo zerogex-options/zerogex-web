@@ -4,6 +4,10 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { firstLevel, levelOrNull } from '@/core/levelValue';
+import { getSpotPriorCloseChange } from '@/core/priceChange';
+import { resolvePriceSession } from '@/core/sessionCloses';
+import type { HeatmapCell } from '@/components/PairGammaHeatmap';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -21,11 +25,6 @@ type ChartTimeframe = ChartSnapshot['timeframe'];
 
 const symbolQ = (s: string) => `symbol=${encodeURIComponent(s)}&underlying=${encodeURIComponent(s)}`;
 
-function num(v: unknown): number | null {
-  const n = typeof v === 'string' ? Number(v) : (v as number);
-  return typeof n === 'number' && Number.isFinite(n) ? n : null;
-}
-
 interface RawBar {
   timestamp?: string;
   open?: unknown;
@@ -36,6 +35,8 @@ interface RawBar {
   volume?: unknown;
   up_volume?: unknown;
   down_volume?: unknown;
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 interface RawProfile {
   profile?: Array<{ price: unknown; gex: unknown }>;
@@ -50,6 +51,10 @@ interface RawSummary {
   gamma_flip?: unknown;
   call_wall?: unknown;
   put_wall?: unknown;
+  // The ladder's spot marker and header readout. The chart takes its price
+  // from the quote/tape; a ladder centers on the ANALYTICS spot, the same
+  // field useGammaLadderColumn reads, so the centered row matches the book.
+  spot_price?: unknown;
 }
 interface RawQuote {
   close?: unknown;
@@ -59,6 +64,10 @@ interface RawQuote {
   data_symbol?: string | null;
   futures_close?: unknown;
   futures_reference_close?: unknown;
+  // Carried through so the delayed public chart names its contract like the
+  // live terminal does. Absent on every cash symbol.
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 interface RawTechnicals {
   bars?: Array<{ vwap_deviation?: { vwap?: unknown } }>;
@@ -75,22 +84,30 @@ interface RawBucket {
 }
 
 // Most-recent bucket that actually carries per-strike gamma (walk back so an
-// empty after-hours tip doesn't blank the public rail). Mirrors the live
-// chart's liveGexBucket selection.
-function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfileStrike[] | null {
+// empty after-hours tip doesn't blank the public rail or ladder). Mirrors the
+// live chart's liveGexBucket and the ladder hook's latestLiveBucket, which is
+// why both delayed surfaces below resolve their surface through this one
+// function rather than each applying its own freshness rule.
+function latestPositionedBucket(buckets: RawBucket[] | null | undefined): RawBucket | null {
   if (!Array.isArray(buckets)) return null;
   for (let i = buckets.length - 1; i >= 0; i -= 1) {
     const s = buckets[i]?.strikes;
-    if (Array.isArray(s) && s.some((r) => { const g = num(r?.net_gamma); return g != null && g !== 0; })) {
-      return s.map((r) => ({
-        strike: num(r?.strike) ?? undefined,
-        net_gamma: num(r?.net_gamma),
-        call_oi: num(r?.call_oi),
-        put_oi: num(r?.put_oi),
-      }));
+    if (Array.isArray(s) && s.some((r) => { const g = levelOrNull(r?.net_gamma); return g != null && g !== 0; })) {
+      return buckets[i];
     }
   }
   return null;
+}
+
+function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfileStrike[] | null {
+  const rows = latestPositionedBucket(buckets)?.strikes;
+  if (!Array.isArray(rows)) return null;
+  return rows.map((r) => ({
+    strike: levelOrNull(r?.strike) ?? undefined,
+    net_gamma: levelOrNull(r?.net_gamma),
+    call_oi: levelOrNull(r?.call_oi),
+    put_oi: levelOrNull(r?.put_oi),
+  }));
 }
 
 /**
@@ -124,14 +141,18 @@ export async function loadChartSnapshot(
     .filter((b): b is RawBar & { timestamp: string } => !!b && typeof b.timestamp === 'string')
     .map((b) => ({
       timestamp: b.timestamp,
-      open: num(b.open) ?? undefined,
-      high: num(b.high) ?? undefined,
-      low: num(b.low) ?? undefined,
-      close: num(b.close) ?? undefined,
-      price: num(b.price) ?? undefined,
-      volume: num(b.volume) ?? undefined,
-      up_volume: num(b.up_volume),
-      down_volume: num(b.down_volume),
+      open: levelOrNull(b.open) ?? undefined,
+      high: levelOrNull(b.high) ?? undefined,
+      low: levelOrNull(b.low) ?? undefined,
+      close: levelOrNull(b.close) ?? undefined,
+      price: levelOrNull(b.price) ?? undefined,
+      volume: levelOrNull(b.volume) ?? undefined,
+      up_volume: levelOrNull(b.up_volume),
+      down_volume: levelOrNull(b.down_volume),
+      // Per-bar: a delayed range spanning a quarterly roll carries the old
+      // contract before it and the new one after, and the chart's chip says so.
+      data_contract: b.data_contract ?? null,
+      data_contract_expiry: b.data_contract_expiry ?? null,
     }))
     // /api/market/historical does NOT guarantee chronological order (the live
     // hook and the chart's aggregateBars both sort it defensively). Sort here
@@ -152,18 +173,18 @@ export async function loadChartSnapshot(
   const lastBar = bars[bars.length - 1];
   const vwapBars = technicals?.bars;
   const vwap =
-    Array.isArray(vwapBars) && vwapBars.length > 0 ? num(vwapBars[vwapBars.length - 1]?.vwap_deviation?.vwap) : null;
+    Array.isArray(vwapBars) && vwapBars.length > 0 ? levelOrNull(vwapBars[vwapBars.length - 1]?.vwap_deviation?.vwap) : null;
 
   // Repair a stale cached quote so the public headline can't freeze on the prior
   // session's 4 PM close while the delayed candles show today's tape. During the
   // cash session this anchors price + "as of" to the freshest delayed bar; nights
   // / weekends / the futures swap keep the served quote (see resolveDelayedQuote).
   const repairedQuote = resolveDelayedQuote({
-    quoteClose: num(quote?.close),
+    quoteClose: levelOrNull(quote?.close),
     quoteSession: quote?.session ?? null,
     quoteTimestamp: typeof quote?.timestamp === 'string' ? quote.timestamp : null,
     displaySource: quote?.display_source ?? null,
-    lastBarClose: num(lastBar?.close) ?? num(lastBar?.price),
+    lastBarClose: firstLevel(lastBar?.close, lastBar?.price),
     lastBarTimestamp: lastBar?.timestamp ?? null,
     marketNow: getMarketSession(),
   });
@@ -179,15 +200,17 @@ export async function loadChartSnapshot(
       timestamp: repairedQuote.timestamp,
       display_source: quote?.display_source ?? null,
       data_symbol: quote?.data_symbol ?? null,
-      futures_close: num(quote?.futures_close),
-      futures_reference_close: num(quote?.futures_reference_close),
+      futures_close: levelOrNull(quote?.futures_close),
+      futures_reference_close: levelOrNull(quote?.futures_reference_close),
+      data_contract: quote?.data_contract ?? null,
+      data_contract_expiry: quote?.data_contract_expiry ?? null,
     },
     sessionCloses: closes ?? null,
     gamma: {
-      flip: num(profile?.gamma_flip) ?? num(summary?.gamma_flip),
-      callWall: num(profile?.call_wall) ?? num(summary?.call_wall),
-      putWall: num(profile?.put_wall) ?? num(summary?.put_wall),
-      maxPain: num(summary?.max_pain),
+      flip: firstLevel(profile?.gamma_flip, summary?.gamma_flip),
+      callWall: firstLevel(profile?.call_wall, summary?.call_wall),
+      putWall: firstLevel(profile?.put_wall, summary?.put_wall),
+      maxPain: levelOrNull(summary?.max_pain),
       // Sign-consistent with the flip: the spot-shift profile's value AT spot
       // only. Never the summary's net_gex (the whole-chain total), which can
       // carry the opposite sign and would desync the badge from the flip.
@@ -196,5 +219,87 @@ export async function loadChartSnapshot(
     profile: profilePoints,
     strikes: pickStrikeSurface(buckets),
     vwap,
+  };
+}
+
+/**
+ * One gamma ladder column, frozen at the same ~15-minute delay as the chart.
+ *
+ * The live page builds a column with `useGammaLadderColumn`, which polls
+ * /api/gex/strike-profile-timeseries + /api/gex/summary from the browser —
+ * both Basic-gated by core/api/apiTierGate, so an anonymous visitor cannot
+ * have them. This is the server-rendered counterpart: the same four feeds read
+ * through `serverApiGet` with the same 900s ISR cache the chart snapshot uses,
+ * shaped into exactly what `PairGammaHeatmap` takes for a column. The public
+ * terminal therefore renders real ladders and issues zero client requests.
+ *
+ * Deliberately NOT carried: the Session Δ baseline (a second /api/replay/frame
+ * fetch per symbol for a decoration) and any expiration scope — the delayed
+ * view has no Expiry control, so every column is whole-chain, which is also
+ * why Max Pain is the summary's value here rather than NA.
+ */
+export interface LadderSnapshot {
+  symbol: string;
+  cells: HeatmapCell[];
+  spot: number | null;
+  gammaFlip: number | null;
+  callWall: number | null;
+  putWall: number | null;
+  maxPain: number | null;
+  changePercent: number | null;
+  isPositive: boolean;
+  /** Set only when the newest bucket in the window carried no positioning and
+   *  this is the reach-back — the same signal the live column renders an
+   *  "as of HH:MM ET" note from. */
+  positioningAsOf: string | null;
+}
+
+export async function loadLadderSnapshot(symbol: string): Promise<LadderSnapshot | null> {
+  const q = symbolQ(symbol);
+  // The timeseries URL is byte-identical to the one loadChartSnapshot issues
+  // for the same symbol, so the two share ONE Next fetch-cache entry rather
+  // than doubling a query that JOINs hundreds of thousands of rows.
+  const [buckets, summary, quote, closes] = await Promise.all([
+    serverApiGet<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`, DELAY_SECONDS),
+    serverApiGet<RawSummary>(`/api/gex/summary?${q}`, DELAY_SECONDS),
+    serverApiGet<RawQuote>(`/api/market/quote?${q}`, DELAY_SECONDS),
+    serverApiGet<SessionClosesData>(`/api/market/session-closes?${q}`, DELAY_SECONDS),
+  ]);
+
+  const bucket = latestPositionedBucket(buckets);
+  const cells: HeatmapCell[] = [];
+  for (const row of bucket?.strikes ?? []) {
+    const strike = levelOrNull(row?.strike);
+    if (strike == null || strike <= 0) continue;
+    cells.push({ strike, net_gex: levelOrNull(row?.net_gamma) ?? 0 });
+  }
+  // Nothing to draw and no level to center on: let the caller fall back to the
+  // column's own empty state rather than render an empty grid.
+  const spot = levelOrNull(summary?.spot_price);
+  if (cells.length === 0 && spot == null) return null;
+
+  // Same basis as the live column's header badge: the displayed spot against
+  // the most recent completed regular-session close.
+  const change = getSpotPriorCloseChange(
+    spot,
+    resolvePriceSession(quote?.session ?? null, closes ?? null, quote?.timestamp ?? null),
+    closes ?? null,
+  );
+
+  // A reach-back only if we actually walked back past the newest bucket.
+  const newest = Array.isArray(buckets) && buckets.length > 0 ? buckets[buckets.length - 1] : null;
+  const reachedBack = !!bucket && !!newest && bucket !== newest;
+
+  return {
+    symbol,
+    cells,
+    spot,
+    gammaFlip: levelOrNull(summary?.gamma_flip),
+    callWall: levelOrNull(summary?.call_wall),
+    putWall: levelOrNull(summary?.put_wall),
+    maxPain: levelOrNull(summary?.max_pain),
+    changePercent: change.changePercent,
+    isPositive: change.isPositive,
+    positioningAsOf: reachedBack ? bucket?.timestamp ?? null : null,
   };
 }

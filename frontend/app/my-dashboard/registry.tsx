@@ -82,6 +82,22 @@ import {
   VolatilityPanel,
   WorldClocksPanel,
   TopHeadlinesPanel,
+  OrbBreakoutPanel,
+  VwapDeviationPanel,
+  MomentumDivergencePanel,
+  VolumeSpikePanel,
+  SqueezeSetupPanel,
+  TrapDetectionPanel,
+  PositioningTrapPanel,
+  TapeFlowBiasPanel,
+  SkewDeltaPanel,
+  VannaCharmFlowPanel,
+  DealerDeltaPressurePanel,
+  GexGradientPanel,
+  ZeroDteImbalancePanel,
+  RangeBreakImminencePanel,
+  MarketPressurePanel,
+  GammaVwapConfluencePanel,
 } from './panels';
 
 // Every widget can take every footprint. Charts included: a chart at M is half
@@ -92,7 +108,7 @@ const ALL_SIZES: WidgetSize[] = [...WIDGET_SIZES];
 
 export type WidgetTier = 'basic' | 'pro';
 
-export type WidgetCategory = 'overview' | 'gamma' | 'flow' | 'signals' | 'volatility' | 'tools';
+export type WidgetCategory = 'overview' | 'gamma' | 'flow' | 'signals' | 'volatility' | 'technicals' | 'tools';
 
 export type WidgetDef = {
   id: string;
@@ -117,6 +133,7 @@ export const CATEGORY_META: Record<WidgetCategory, { label: string; blurb: strin
   flow: { label: 'Options Flow', blurb: 'Live volume & premium' },
   signals: { label: 'Signals', blurb: 'Proprietary directional reads' },
   volatility: { label: 'Volatility', blurb: 'Implied-vol regime' },
+  technicals: { label: 'Technicals', blurb: 'Intraday price structure' },
   tools: { label: 'Tools', blurb: 'Utilities & context' },
 };
 
@@ -126,6 +143,7 @@ export const CATEGORY_ORDER: WidgetCategory[] = [
   'flow',
   'signals',
   'volatility',
+  'technicals',
   'tools',
 ];
 
@@ -362,7 +380,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'options-flow',
     title: 'Options Flow',
     blurb:
-      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, net-volume basis and strike / expiration filters built in.',
+      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, volume basis and strike / expiration filters built in.',
     category: 'flow',
     tier: 'basic',
     icon: Waves,
@@ -553,6 +571,220 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: ['vol'],
     render: () => <VixTile />,
+  },
+
+  // ── Proprietary signals, one tile each ──
+  {
+    id: 'squeeze-setup',
+    title: 'Squeeze Setup',
+    blurb:
+      'Compression in the dealer-gamma profile that tends to precede an expansion — the setup, before the move.',
+    category: 'signals',
+    tier: 'pro',
+    icon: Radar,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <SqueezeSetupPanel />,
+  },
+  {
+    id: 'trap-detection',
+    title: 'Trap Detection',
+    blurb:
+      'Where price action looks like a breakout but positioning says otherwise. Built to catch the fake before you chase it.',
+    category: 'signals',
+    tier: 'pro',
+    icon: Target,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <TrapDetectionPanel />,
+  },
+  {
+    id: 'positioning-trap',
+    title: 'Positioning Trap',
+    blurb:
+      'Crowded positioning that has to unwind — who is offside, and which way they will have to go.',
+    category: 'signals',
+    tier: 'basic',
+    icon: Target,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <PositioningTrapPanel />,
+  },
+  {
+    id: 'tape-flow-bias',
+    title: 'Tape Flow Bias',
+    blurb:
+      'Which side the tape is leaning on right now, read from executed flow rather than resting size.',
+    category: 'signals',
+    tier: 'basic',
+    icon: Waves,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <TapeFlowBiasPanel />,
+  },
+  {
+    id: 'skew-delta',
+    title: 'Skew Delta',
+    blurb:
+      'How the put/call skew is shifting through the session — the demand for protection, changing in real time.',
+    category: 'signals',
+    tier: 'basic',
+    icon: GitCompare,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <SkewDeltaPanel />,
+  },
+  {
+    id: 'vanna-charm-flow',
+    title: 'Vanna / Charm Flow',
+    blurb:
+      'Second-order hedging pressure: the flows that come from vol moving and from time passing, not from price.',
+    category: 'signals',
+    tier: 'basic',
+    icon: Waves,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <VannaCharmFlowPanel />,
+  },
+  {
+    id: 'dealer-delta-pressure',
+    title: 'Dealer Delta Pressure',
+    blurb:
+      'Net delta dealers are carrying and the direction it pushes them to hedge.',
+    category: 'signals',
+    tier: 'basic',
+    icon: Gauge,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <DealerDeltaPressurePanel />,
+  },
+  {
+    id: 'gex-gradient',
+    title: 'GEX Gradient',
+    blurb:
+      'How sharply gamma exposure changes across strikes — where the profile is steep enough to accelerate a move.',
+    category: 'signals',
+    tier: 'basic',
+    icon: LineChart,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <GexGradientPanel />,
+  },
+  {
+    id: 'zero-dte-imbalance',
+    title: '0DTE Position Imbalance',
+    blurb:
+      'Same-day positioning skewed hard to one side, and the pin or squeeze risk that comes with it.',
+    category: 'signals',
+    tier: 'pro',
+    icon: Flame,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <ZeroDteImbalancePanel />,
+  },
+  {
+    id: 'range-break-imminence',
+    title: 'Range Break Imminence',
+    blurb:
+      'How close the session looks to leaving its range, scored from positioning rather than price alone.',
+    category: 'signals',
+    tier: 'pro',
+    icon: ArrowLeftRight,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <RangeBreakImminencePanel />,
+  },
+  {
+    id: 'market-pressure',
+    title: 'Market Pressure',
+    blurb:
+      'The aggregate push on the tape — flow, positioning and hedging pressure read as one number.',
+    category: 'signals',
+    tier: 'pro',
+    icon: Gauge,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <MarketPressurePanel />,
+  },
+  {
+    id: 'gamma-vwap-confluence',
+    title: 'Gamma / VWAP Confluence',
+    blurb:
+      'Where a dealer-gamma level and session VWAP land on the same price — the levels that tend to hold hardest.',
+    category: 'signals',
+    tier: 'pro',
+    icon: Crosshair,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <GammaVwapConfluencePanel />,
+  },
+
+  // ── Technicals ──
+  // Both read the same /api/technicals payload as /intraday-tools, and
+  // useTechnicals refcounts per symbol, so running both costs one subscription.
+  {
+    id: 'orb-breakout',
+    title: 'ORB Breakout',
+    blurb:
+      'The opening range (09:30–09:59 ET) — its high, low and size — plus where price is trading against it. The level intraday breakout traders work from.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: Crosshair,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OrbBreakoutPanel />,
+  },
+  {
+    id: 'momentum-divergence',
+    title: 'Momentum Divergence',
+    blurb:
+      'Where price made a new extreme that momentum did not confirm — each flagged bar of the session, newest first.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: Activity,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <MomentumDivergencePanel />,
+  },
+  {
+    id: 'volume-spike',
+    title: 'Volume Spike',
+    blurb:
+      'How far the tape is trading above its own recent average, and which side of the book the volume is going off on.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: Waves,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <VolumeSpikePanel />,
+  },
+  {
+    id: 'vwap-deviation',
+    title: 'VWAP Deviation',
+    blurb:
+      'Session VWAP and how far price has strayed from it, with the side it is trading on — the intraday mean the tape keeps reverting to.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: LineChart,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <VwapDeviationPanel />,
   },
 
   // ── Tools ──

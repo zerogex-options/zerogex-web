@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Search as SearchIcon, ArrowRight } from 'lucide-react';
 import { ARTICLE_REGISTRY } from '@/core/articleRegistry';
+import { HELP_ARTICLES } from '@/core/helpRegistry';
 
 type Entry = { title: string; href: string; blurb: string; kind: string };
 
@@ -18,7 +19,7 @@ const PRIMARY_PAGES: Entry[] = [
   { title: 'NDX Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls', href: '/ndx-gamma-levels', kind: 'Live levels', blurb: 'Free daily NDX gamma levels — the gamma flip, call wall, put wall, max pain, and net dealer GEX. Delayed 15 minutes, no signup.' },
   { title: 'ES Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls', href: '/es-gamma-levels', kind: 'Live levels', blurb: 'Free daily ES gamma levels — the gamma flip, call wall, put wall, max pain, and net dealer GEX, derived from the SPX chain on the futures price axis. Delayed, no signup.' },
   { title: 'NQ Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls', href: '/nq-gamma-levels', kind: 'Live levels', blurb: 'Free daily NQ gamma levels — the gamma flip, call wall, put wall, max pain, and net dealer GEX, derived from the NDX chain on the futures price axis. Delayed, no signup.' },
-  { title: 'Free Gamma Chart — SPY Dealer Positioning (15-min delayed)', href: '/chart', kind: 'Tool', blurb: 'A free, ~15-minute-delayed gamma chart: price with the gamma flip, call and put walls, max pain and the dealer-gamma structure rail drawn inline.' },
+  { title: 'Gamma Terminal — SPY Dealer Positioning (free 15-min delayed)', href: '/chart', kind: 'Tool', blurb: 'The flagship gamma chart: price with the gamma flip, call and put walls, max pain and GEX ribbons, beside two Net GEX strike ladders or the dealer-gamma structure rail. Free, ~15-minute delayed; real-time for members.' },
   { title: 'Real-Time 0DTE GEX Dashboard: SPX, SPY, QQQ & NDX Gamma Levels', href: '/real-time-gex-0dte', kind: 'Tool', blurb: 'Live gamma flip, call and put walls, dealer positioning, and composite signals built for SPX/0DTE intraday flow.' },
   { title: 'ZeroGEX Chart Integrations — TradingView, thinkorswim, NinjaTrader & Sierra Chart', href: '/integrations', kind: 'Hub', blurb: 'Every way to plot ZeroGEX gamma levels on your own charts — free manual-entry scripts for TradingView and thinkorswim, auto-updating Pro studies for NinjaTrader 8 and Sierra Chart.' },
   { title: 'ZeroGEX Daily Gamma Levels — Free TradingView Indicator', href: '/tradingview-indicator', kind: 'Indicator', blurb: 'Free TradingView script that plots the gamma flip, call wall, put wall, and max pain as horizontal lines on SPY, SPX, QQQ, NDX, ES or NQ — with optional cross-alerts.' },
@@ -31,7 +32,12 @@ const PRIMARY_PAGES: Entry[] = [
   { title: 'About ZeroGEX', href: '/about', kind: 'Page', blurb: 'The open options analytics platform — what ZeroGEX is and how it is built.' },
 ];
 
-// Full search index: primary pages + every registered education article.
+// Full search index: primary pages, every registered education article, and
+// every Platform Guide help article. The help pages were missing here, so a
+// reader searching the words on the page they were looking at ("futures
+// contract", "billing", "gamma flip") got the education essay and not the help
+// article that answers it. Both registries are spread rather than re-listed, so
+// a new article is searchable the moment it is registered.
 const INDEX: Entry[] = [
   ...PRIMARY_PAGES,
   ...Object.values(ARTICLE_REGISTRY).map((a) => ({
@@ -39,6 +45,12 @@ const INDEX: Entry[] = [
     href: a.href,
     blurb: a.blurb,
     kind: 'Article',
+  })),
+  ...HELP_ARTICLES.map((a) => ({
+    title: a.title,
+    href: `/help/platform/${a.slug}`,
+    blurb: a.description,
+    kind: 'Help',
   })),
 ];
 

@@ -15,6 +15,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import { notePresetApplied, reportPresetRetention } from '@/core/presetAdoption';
+import { usePersistedFlag } from '@/hooks/usePersistedFlag';
+import BoardSwitcher from './BoardSwitcher';
 import {
   LayoutGrid,
   Pencil,
@@ -27,6 +32,8 @@ import {
   RotateCcw,
   Sparkles,
   Lock,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
@@ -206,6 +213,12 @@ export default function MyDashboardPage() {
     [t],
   );
 
+  const handleApplyBoard = useCallback((next: DashboardLayout) => {
+    setLayout(next);
+    setEditing(false);
+    setGalleryPane(null);
+  }, []);
+
   const applyPreset = useCallback(
     (preset: DashboardPreset) => {
       // A preset seeds the first half only; cloning it across is the member's
@@ -233,9 +246,29 @@ export default function MyDashboardPage() {
       setLayout(next);
       setEditing(false);
       setGalleryPane(null);
+      // Adoption, not just the click: `notePresetApplied` stamps the board so
+      // the retention check below can tell "applied once" from "still using
+      // it". Without that pair, a preset built for a named subscriber can go
+      // unused for weeks and the only way we find out is if they mention it.
+      capture(TelemetryEvent.DashboardPresetApplied, { preset: preset.id });
+      notePresetApplied(preset.id, scope);
     },
-    [hasPro],
+    [hasPro, scope],
   );
+
+  // Fires at most once per preset per day, only on a later day than the one the
+  // preset was applied on — so it measures a board someone came back to.
+  //
+  // Gated on `hydrated`: before the saved layout loads, `layout` is the empty
+  // default, and reportPresetRetention reads an empty board as abandonment and
+  // clears the stamp. Running this unguarded would erase the adoption record on
+  // every single page load — the metric would report nothing but churn.
+  useEffect(() => {
+    if (!hydrated) return;
+    const retention = reportPresetRetention(scope, isLayoutEmpty(layout));
+    if (!retention) return;
+    capture(TelemetryEvent.DashboardPresetRetained, { ...retention });
+  }, [scope, layout, hydrated]);
 
   const handleReset = useCallback(() => {
     if (typeof window !== 'undefined' && !window.confirm(t('confirmResetBoard'))) {
@@ -263,6 +296,9 @@ export default function MyDashboardPage() {
         onClone={() => handleClone('a')}
         onOpenGallery={() => setGalleryPane('a')}
         onReset={handleReset}
+        boardSwitcher={
+          <BoardSwitcher layout={layout} validWidgetIds={WIDGET_IDS} onApply={handleApplyBoard} />
+        }
       />
 
       {!hydrated ? (
@@ -355,6 +391,12 @@ function BoardPanes({ linked, children }: { linked: boolean; children: ReactNode
   return <LinkedPriceAxisProvider>{children}</LinkedPriceAxisProvider>;
 }
 
+// Per-browser collapse state for the board's title + management controls. On a
+// short or portrait viewport that block is a large slice of the page, and it is
+// only touched while rearranging the board — so it can be folded away without
+// losing anything you use during a session.
+const CONTROLS_COLLAPSED_KEY = 'zg.mydash.controlsCollapsed';
+
 // ── Header ────────────────────────────────────────────────────────────────────
 
 function Header({
@@ -369,6 +411,7 @@ function Header({
   onClone,
   onOpenGallery,
   onReset,
+  boardSwitcher,
 }: {
   editing: boolean;
   isEmpty: boolean;
@@ -382,8 +425,38 @@ function Header({
   onClone: () => void;
   onOpenGallery: () => void;
   onReset: () => void;
+  /** Named-board menu, passed in so the toolbar stays presentational. */
+  boardSwitcher?: ReactNode;
 }) {
   const t = usePageT(dict);
+  const [collapsed, toggleCollapsed] = usePersistedFlag(CONTROLS_COLLAPSED_KEY);
+
+  // The collapse control itself is never hidden — folding the block away has to
+  // leave something to unfold it with.
+  const collapseToggle = (
+    <button
+      type="button"
+      onClick={toggleCollapsed}
+      aria-expanded={!collapsed}
+      className="zg-btn zg-btn--ghost"
+      title={collapsed ? t('showControls') : t('hideControls')}
+      aria-label={collapsed ? t('showControls') : t('hideControls')}
+    >
+      {collapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+    </button>
+  );
+
+  // Collapsed, the board keeps the one control that gets used while reading it
+  // — the underlying — and drops the title block and the management buttons.
+  if (collapsed) {
+    return (
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <SymbolToggle />
+        {collapseToggle}
+      </div>
+    );
+  }
+
   return (
     <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
@@ -400,7 +473,9 @@ function Header({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {collapseToggle}
         <SymbolToggle />
+        {boardSwitcher}
         {!isEmpty && (
           <>
             {!split && (

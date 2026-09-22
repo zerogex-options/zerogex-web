@@ -40,6 +40,8 @@ claude mcp add --transport http zerogex https://zerogex.io/mcp
 
 **Anything else.** Any client that accepts a remote MCP server URL will work. If yours only supports local `stdio` servers, put a bridge such as `mcp-remote` in front of it.
 
+The server is also listed in the official [Model Context Protocol registry](https://registry.modelcontextprotocol.io) as `io.zerogex/gamma-levels`, so clients that browse the registry can find it by name without the URL.
+
 To check the connection without a client at all:
 
 ```bash

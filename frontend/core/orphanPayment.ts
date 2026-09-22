@@ -24,6 +24,15 @@
 // charged twice, and renew normally afterward. That re-created subscription
 // emits customer.subscription.created, and the ordinary sync grants the tier.
 //
+// What it must NOT do is re-grant a payment that was given back. A refund leaves
+// the invoice reading `status=paid` with `amount_paid` untouched, and a refunded
+// member is normally canceled in the same breath — which clears their local
+// subscription id and drops them to 'public'. Every signal above is then
+// identical for a refunded close-out and a genuine orphaned payment, so the
+// decision takes the refunded amount as a required input and stops on it. In
+// production this handed a member a free month plus a repeating coupon whose
+// clock had restarted, a fortnight after they were refunded in full.
+//
 // This module holds only the decision (unit-tested in tests/orphanPayment.test.ts);
 // app/api/webhooks/stripe/route.ts performs the Stripe + DB writes, and
 // scripts/recover-orphan-payment.mts is the manual twin for payments that were
@@ -58,6 +67,18 @@ const SUBSCRIPTION_BILLING_REASONS = new Set([
 export type OrphanPaymentInput = {
   // invoice.amount_paid, in the smallest currency unit.
   amountPaid: number;
+  // How much of that payment has since been REFUNDED (readInvoiceRefundedAmount
+  // in core/stripeInvoice.ts), in the same unit — or null when it could not be
+  // determined from the invoice in hand.
+  //
+  // REQUIRED, with no default, and nullable on purpose. A refund leaves the
+  // invoice reading `status=paid` with `amount_paid` unchanged, so every other
+  // field here is identical for a member who kept their money and one who was
+  // given it back. An optional field defaulting to 0 would silently mean "not
+  // refunded" for any caller that had not been taught about it — which is
+  // exactly the hole this closes, so the type refuses to let a caller stay
+  // ignorant of it.
+  amountRefunded: number | null;
   // invoice.status — only a settled 'paid' invoice buys anything.
   invoiceStatus: string | null;
   // invoice.billing_reason. null/unknown is tolerated (treated as allowed) so a
@@ -91,7 +112,9 @@ export type OrphanPaymentDecision =
   // Not an orphaned payment at all — the normal flow covers this invoice.
   | { kind: 'none'; reason: string }
   // Money collected with no entitlement, but we must not act automatically.
-  // The caller logs it loudly for an operator instead of guessing.
+  // The caller logs it loudly for an operator instead of guessing. Also covers
+  // the two refund cases we refuse to decide alone: a partial refund, and a
+  // refund state we could not read.
   | { kind: 'detected'; recoverable: false; reason: string }
   // Money collected with no entitlement, and we know exactly which plan to
   // restore and until when. `billingCycleAnchorUnix` is the instant the paid
@@ -106,9 +129,36 @@ export type OrphanPaymentDecision =
       billingCycleAnchorUnix: number;
     };
 
+/**
+ * Cheap, PURELY LOCAL pre-check: could anything be orphaned for this member at
+ * all?
+ *
+ * False means decideOrphanPayment would answer 'none' from the four gates that
+ * need no Stripe read — which is every ordinary renewal, the bulk of the
+ * invoice.paid stream. Callers use it to skip the live subscription and refund
+ * reads entirely on that path, so the refund guard above costs a Stripe call
+ * only for the handful of invoices that could actually be orphaned.
+ *
+ * Deliberately mirrors those four gates rather than sharing code with them:
+ * each reports its own distinct reason, which this has no use for. Held in
+ * lockstep by tests/orphanPayment.test.ts, which asserts the two agree.
+ */
+export function couldBeOrphaned(input: {
+  invoiceStatus: string | null;
+  amountPaid: number;
+  localTier: string;
+  localSubscriptionId: string | null;
+}): boolean {
+  if (input.invoiceStatus !== 'paid') return false;
+  if (!(input.amountPaid > 0)) return false;
+  if (input.localSubscriptionId) return false;
+  return input.localTier === 'public';
+}
+
 export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDecision {
   const {
     amountPaid,
+    amountRefunded,
     invoiceStatus,
     billingReason,
     subscriptionId,
@@ -136,9 +186,36 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
     return { kind: 'none', reason: 'subscription_live' };
   }
 
-  // Past here: a paid, non-zero invoice, and the payer holds no entitlement.
-  // That is money in with nothing granted — always worth a record, even when we
-  // decline to act on it.
+  // --- Was the money actually KEPT? --------------------------------------
+  //
+  // Everything above is equally true of a payment that was refunded: Stripe
+  // leaves the invoice `status=paid` and never reduces `amount_paid`, and a
+  // member who is refunded is normally canceled in the same breath, which
+  // clears their local subscription id and drops them to 'public'. So a
+  // refunded-and-closed account is byte-identical to a genuine orphaned
+  // payment, and without this gate it re-grants the very period that was given
+  // back — the access free, and any repeating coupon re-applied with its clock
+  // restarted. That happened in production; this is the guard.
+  if (amountRefunded == null) {
+    // Refund state unreadable (an unexpanded charge, a failed live read).
+    // Never guessed: the wrong guess hands out a paid period for free.
+    return { kind: 'detected', recoverable: false, reason: 'refund_state_unknown' };
+  }
+  if (amountRefunded >= amountPaid) {
+    // Fully refunded. The money is back with the member, so nothing is owed and
+    // nothing is orphaned — this is the ordinary refund-then-cancel close-out.
+    return { kind: 'none', reason: 'refunded' };
+  }
+  if (amountRefunded > 0) {
+    // Partly refunded. Some of the payment was kept, so something may well be
+    // owed — but how much access that buys is a judgment call, and re-creating
+    // the full plan would grant a period only partly paid for.
+    return { kind: 'detected', recoverable: false, reason: 'partially_refunded' };
+  }
+
+  // Past here: a paid, non-zero, un-refunded invoice, and the payer holds no
+  // entitlement. That is money in with nothing granted — always worth a record,
+  // even when we decline to act on it.
 
   // --- Can we act on it automatically? -----------------------------------
   if (!subscriptionId) {
@@ -186,15 +263,31 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
 //   forever    A permanent entitlement — the founding lifetime 25%, a forever
 //              winback rate. Losing it silently overcharges the member on every
 //              future renewal. Carry it.
-//   once       Fully spent, on the very invoice that was just paid. Re-applying
-//              it would discount the NEXT period too, which the member never
-//              bought. Do not carry — and this needs no review: the intro price
-//              ending is exactly what the pricing page promised ("$229 first
-//              year, then $299"), so the undiscounted renewal is correct.
-//   repeating  Partly spent, by an amount this module cannot see (the count
-//              lives in the old subscription's invoice history). Re-applying
-//              restarts the clock. Do not carry, and DO flag for review — how
-//              much of it the member is still owed is a judgment call.
+//   repeating  A rate the member is still part-way through — the 6-month intro
+//              promo. Carry it. The member lost their subscription to a failed
+//              charge, not to a choice, and coming back to a higher price than
+//              they were promised is the wrong outcome: it reads as a penalty
+//              for a card problem they already apologised for.
+//
+//              The cost of carrying is that Stripe restarts the coupon's clock:
+//              re-applying a 6-month coupon to someone who had used one month
+//              grants seven in total, because a coupon's duration is fixed at
+//              the coupon and "apply this, but only for the five months left"
+//              is not something Stripe expresses. Trimming it would mean
+//              minting a bespoke coupon per recovery. So the over-grant is
+//              accepted deliberately and reported (`restartsClock`) rather than
+//              hidden — it is bounded by the promo length, and cheaper than a
+//              member who feels overcharged on their way back.
+//   once       NOT carried, and this is not the same question. A once-off was
+//              fully spent on the very invoice just paid, and the member's rate
+//              after it was always going to be full price — the pricing page
+//              said so ("$229 first year, then $299"). Re-applying it would not
+//              restore their deal, it would hand them a second discount they
+//              never had. Needs no review: the intro price ending on schedule
+//              is the designed outcome.
+//   unknown    NOT carried. A bare-id payload gives no duration, so we cannot
+//              tell a spent `once` from a live `repeating`. Flagged for review
+//              rather than guessed — this is a safety case, not a policy one.
 //
 // Anything not carried is reported rather than dropped in silence, so the
 // recovery script names every coupon while it is still a dry run. Only the
@@ -209,35 +302,52 @@ export type SubscriptionDiscount = {
 };
 
 export type DiscountCarryOver = {
-  // Coupon ids to re-apply to the re-created subscription.
+  // Coupon ids to re-apply to the re-created subscription. Bare ids because
+  // that is the shape Stripe's subscription-create call takes.
   carry: string[];
+  // The same coupons with the detail needed to describe them honestly.
+  // `restartsClock` marks the ones whose duration begins again on the new
+  // subscription (every `repeating` coupon), so the audit row can say that
+  // rather than implying the member merely resumed where they left off.
+  carried: Array<{ couponId: string; duration: string; restartsClock: boolean }>;
   // Coupons deliberately NOT re-applied, with the duration that decided it.
-  // `needsReview` separates "a human should look at this" (a partly-spent
-  // repeating coupon, a duration we could not read) from "this is the designed
-  // outcome" (a fully-spent `once` intro price).
+  // `needsReview` separates "a human should look at this" (a duration we could
+  // not read) from "this is the designed outcome" (a fully-spent `once`).
   flagged: Array<{ couponId: string; duration: string; needsReview: boolean }>;
 };
 
 export function decideDiscountCarryOver(discounts: SubscriptionDiscount[]): DiscountCarryOver {
   const carry: string[] = [];
+  const carried: DiscountCarryOver['carried'] = [];
   const flagged: DiscountCarryOver['flagged'] = [];
   for (const discount of discounts) {
     const couponId = discount.couponId;
     if (!couponId) continue;
-    if (discount.duration === 'forever') {
-      if (!carry.includes(couponId)) carry.push(couponId);
+    // A rate the member is still owed some of. Carry it — losing it to a failed
+    // charge would price them above what they were promised.
+    if (discount.duration === 'forever' || discount.duration === 'repeating') {
+      if (!carry.includes(couponId)) {
+        carry.push(couponId);
+        carried.push({
+          couponId,
+          duration: discount.duration,
+          // Stripe fixes a coupon's duration at the coupon, so re-applying a
+          // repeating one starts its months over. Accepted, but never silent.
+          restartsClock: discount.duration === 'repeating',
+        });
+      }
       continue;
     }
-    // 'once', 'repeating', and an unresolved duration all land here: never hand
-    // out a discount we cannot show the member is still owed. Only the ones
-    // whose remaining value is genuinely unclear are raised for review.
+    // 'once' was fully spent on the invoice just paid; an unreadable duration
+    // could be that or a live one, and guessing risks handing out a discount
+    // the member is not owed.
     flagged.push({
       couponId,
       duration: discount.duration ?? 'unknown',
       needsReview: discount.duration !== 'once',
     });
   }
-  return { carry, flagged };
+  return { carry, carried, flagged };
 }
 
 // Structural read of a Stripe subscription's discounts, tolerant of the shapes
@@ -382,6 +492,15 @@ export type ElapsedPeriodVerdict =
 export const VOLUNTARY_CANCEL_WINDOW_SECONDS = 7 * 24 * 60 * 60;
 
 export function classifyElapsedPaidPeriod(input: {
+  // What this invoice collected, and how much of it has since been given back
+  // (readInvoiceRefundedAmount). Required and nullable for the same reason
+  // decideOrphanPayment takes them: a refund leaves the invoice reading
+  // status=paid with amount_paid untouched, so "lost paid time" and "refunded
+  // and closed" are otherwise the same row — and the remedy this bucket
+  // proposes is a refund, which for an already-refunded member means paying
+  // them twice.
+  amountPaid: number;
+  amountRefunded: number | null;
   periodStartUnix: number | null;
   periodEndUnix: number | null;
   // The subscription the paid invoice belongs to. Without it a deletion cannot
@@ -399,6 +518,8 @@ export function classifyElapsedPaidPeriod(input: {
   voluntaryWindowSeconds?: number;
 }): ElapsedPeriodVerdict {
   const {
+    amountPaid,
+    amountRefunded,
     periodStartUnix,
     periodEndUnix,
     invoiceSubscriptionId,
@@ -407,6 +528,14 @@ export function classifyElapsedPaidPeriod(input: {
     cancelRequestUnixes,
   } = input;
   const voluntaryWindow = input.voluntaryWindowSeconds ?? VOLUNTARY_CANCEL_WINDOW_SECONDS;
+
+  // Money already handed back first. Whatever days they lost, they were repaid
+  // in full for them — there is nothing owed, and this bucket's whole output is
+  // a prompt to refund or credit. A partial refund is NOT excluded: some of that
+  // period was genuinely paid for and never delivered.
+  if (amountRefunded != null && amountPaid > 0 && amountRefunded >= amountPaid) {
+    return { kind: 'consumed', reason: 'refunded' };
+  }
 
   // Without both edges of the paid window there is nothing to compare against;
   // claiming a loss on a guess would send a refund to someone owed nothing.

@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -19,7 +19,16 @@ help:
 	@echo "  make send-403-notice                     - One-off: notify the 10 API users hit by the 2026-08-31 scope-enforcement 403s (excludes Jim, answered personally). DRY_RUN=1 to preview, ONLY=<addr> to test one, YES=1 to send"
 	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
-	@echo "  make backfill-daily-metrics - Rebuild the one-row-per-day metrics table behind Admin->Monitoring->Daily Signals, and print the relationship tests. DAYS=<n> to limit the window, X_CSV=<path> / GOOGLE_CSV=<path> / COMBINED_CSV=<path> to import an X or Search Console export, REPORT=0 to skip the readout"
+	@echo "  make backfill-daily-metrics - Rebuild the one-row-per-day metrics table behind Admin->Monitoring->Growth, and print the relationship tests. DAYS=<n> to limit the window, X_CSV=<path> / GOOGLE_CSV=<path> / COMBINED_CSV=<path> to import an X or Search Console export, REPORT=0 to skip the readout"
+	@echo "  make audit-customers   - Trace a sample of real customers through the growth dashboard's classification (read-only). EMAIL=<addr> for one customer, EVENTS=0 for a summary"
+	@echo "  make backfill-stripe-invoices - Import real Stripe invoice history into stripe_invoice_history so the renewal metrics on Admin->Monitoring->Growth can see renewals that predate the invoice audit trail. Read-only against Stripe. SINCE=<YYYY-MM-DD> / LIMIT=<n> / DRY_RUN=1"
+	@echo "  make backfill-payment-declines - Rebuild the decline history behind Admin->Monitoring->Stripe->Payment Declines: reconstruct every past failed charge from the audit log, settle each against the invoice ledger, then re-read Stripe for the issuer's actual decline code. Read-only against Stripe. SKIP_STRIPE=1 for pass 1 only, LIMIT=<n>, RECHECK=1 to re-read invoices an earlier run already fetched, DRY_RUN=1"
+	@echo "  make audit-trial-conversions - READ-ONLY forensic audit of why trial conversions fail: payment-method type, SetupIntent completion, attempts actually made, first decline reason off the FAILED charge, and whether each unpaid invoice still has a retry scheduled. Writes nothing anywhere. DAYS=<n>, LIMIT=<n>, JSON=<path>"
+	@echo "  make decline-by-source - READ-ONLY. Decline rate by the acquisition channel that acquired each member, with a real denominator on both sides and a 95% interval on every rate. Answers whether a slice of the lost conversions was ever a billing problem at all. Writes nothing. DAYS=<n> (0 = all time), SCOPE=first|all, JSON=<path>"
+	@echo "  make orphan-payment-alerts - Daily sweep (systemd timer) for members who PAID and were left with nothing, emailing the operator about anything new. Detection only — every command it prints is a dry run. DRY_RUN=1 to print the email instead of sending, PREVIEW_TO=<addr> to check the layout, TO=<addr> to redirect, DAYS=<n> lookback"
+	@echo "  make decline-timing - READ-ONLY. Tests whether insufficient-funds declines persist because the retries land before payday: how long Stripe actually kept trying, and whether invoices whose window crossed the 1st or 15th recovered any better. Designed to be able to come back negative. Writes nothing. DAYS=<n> (0 = all time, the default), CATEGORY=<name|all>"
+	@echo "  make normalize-utm-sources - Rewrite stored acquisition sources (users.signup_utm_source, page_view_events.utm_source) to match what sanitizeUtmSource produces today, so one channel tagged two ways stops reading as two channels. DRY RUN by default; YES=1 to apply. Re-run whenever UTM_SOURCE_ALIASES changes"
+	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, DAYS=<n>, LIMIT=<n>"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -28,13 +37,19 @@ help:
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make grant-founding-on-existing-sub EMAIL=<email> [TIER=pro] [CADENCE=annual] [PRORATION=always_invoice|create_prorations|none] - Convert an EXISTING paying member's live subscription to the founding rate in place (swap plan + founding coupon + metadata.founding=1, so the webhook grants founding + schedules the lifetime 25%-off). The has-a-sub twin of activate-late-founder. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make apply-founding-lifetime - One-time batch: apply the founding lifetime 25%-off coupon to founders past month 11 that the event-driven webhook misses (annual founders emit no mid-year events). Idempotent; run once the cohort's intro year ends (~mid-2027). EMAIL=<addr> for one member, FORCE=1 to ignore the 11-month gate, DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make founding-demote [DRY_RUN=1|YES=1] - Founding-cohort demotion sweep: comped founding-eligible users who never redeemed the rate revert to tier=public AND their API keys are revoked. Driven by the founding-cohort-demotion systemd timer. Needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN for the revocation leg; exits non-zero if keys could not be revoked"
+	@echo "  make founding-cohort-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for accounts the demotion sweep already downgraded but never deprovisioned (the 2026-07-01 batch), and retry any revocation that failed mid-sweep. Skips anyone who has since returned to Pro"
+	@echo "  make unit-failure-alert UNIT=<unit> [DRY_RUN=1] - Email the operator that a scheduled unit failed. Wired into units via OnFailure=zerogex-web-alert@%n.service; you should not need to run it by hand except to test that the recipient resolves"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: STACK a 25%-off-1-year coupon on top of any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. COUPON=<id> pins a coupon; CREATE_COUPON=1 [PERCENT=25] mints one; KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: apply a percent-off-for-one-year coupon alongside any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. Defaults to the standing STRIPE_COUPON_WINBACK_* coupon for the member's plan, i.e. the rate WINBACK_DISCOUNT_LABEL advertises. COUPON=<id> pins an exact coupon; PERCENT=N makes that rate BINDING (refuses rather than granting a different one); CREATE_COUPON=1 mints/reuses a coupon at PERCENT and is picked over the standing one; an EARLIER win-back coupon on the sub is superseded rather than stacked (STACK=1 keeps it, other discount families are always preserved); KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
+	@echo "  make trace-payment-claim [EMAIL=<email>] [AMOUNT=29.50] [DATE=2026-09-13] [LAST4=3392] - Answer 'you charged me' with evidence. Sweeps the WHOLE Stripe account by CARD FINGERPRINT, not by customer, so a charge on a second customer, a guest charge with no customer, or an incomplete PaymentIntent cannot hide. Read-only. Run this BEFORE telling anyone they were not charged"
+	@echo "  make void-stale-invoices [SINCE_DAYS=365] [EMAIL=<email>] [VERBOSE=1] - Void open invoices that can no longer buy the access they bill for (subscription gone, period already elapsed) — paying one takes money and grants nothing. Dry-run by default, YES=1 to apply; voiding is final"
+	@echo "  make duplicate-accounts [MAX_PER_IP=20] [SHAPE=trial_recycled] [EXCLUDE_IP=<ip>] [SINCE_DAYS=N] [VERBOSE=1] - Find members holding more than one account, grouped by shared IP from the audit log. Ranks clusters by what they would cost if real (two paying accounts first, then a recycled trial) and prints the HANDOFF: how long after one account went quiet the next was created. Read-only; a shared address is a pointer, not proof"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
@@ -45,20 +60,23 @@ help:
 	@echo "  make card-expiry-reminders - Email active subscribers whose card on file expires within ~45 days so they update it before a renewal fails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, THRESHOLD_DAYS=N / LIMIT=N to tune)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
+	@echo "  make daily-levels        - Send the free pre-open levels digest to confirmed levels-email subscribers. Sends nothing without YES=1. DRY_RUN=1 prints the per-symbol freshness verdict + the rendered body, PREVIEW_TO=<email> mails one sample, FORCE=1 skips the 08:30-09:25 ET window (not the trading-day or freshness guards), LIMIT=<n> / THROTTLE_MS=<n> bound a run"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
-	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|manual forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
+	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|none forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
+	@echo "  make return-intent - Answer churned members who logged back in on their own (no discount, no trial claim; per-reason copy from their cancel survey). DIGEST=1 [DIGEST_TO=<email>] emails you the list + draft and sends nothing (the daily default); YES=1 delivers; DRY_RUN=1 previews with a per-member skip tally; PREVIEW_TO=<email> sends one sample; COOLDOWN_DAYS/QUIET_HOURS/MAX_LOGIN_AGE_DAYS tune the windows; LIMIT caps a run"
 	@echo "  make reactivation - Send the second-touch reactivation email (extended free trial) to cold verified-never-paid signups who signed up >=21d ago. DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; LAG_DAYS/LOOKBACK_DAYS override the 21d/3650d window; LIMIT=<n> caps the drip (default 50; 0=unlimited)"
 	@echo "  make backfill-reactivation-entitlement - Grant the extended-trial entitlement (users.reactivation_email_sent_at) to accounts a campaign email already promised it to but never stamped, so checkout honors it. CAMPAIGN=<audit key> selects the send (default product_update_2026_08); EMAIL=<addr> does one account; DRY_RUN=1 lists, YES=1 applies"
 	@echo "  make checkout-recovery - Send the one-shot abandoned-checkout recovery nudge to users who started Stripe Checkout but never subscribed (promo copy quotes the live Basic/Pro rates from Stripe). Fired by the checkout-recovery systemd timer. DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample, PREVIEW_FOUNDING=1 for the founding variant, LAG_HOURS/LOOKBACK_HOURS override the window"
 	@echo "  make founding-final-call - Send the one-shot founding final-call urgency email to founding-eligible non-redeemers before the lock-in deadline (quotes live founding rates from Stripe; no-op once the deadline passes). DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] [X_HANDLE=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code, optionally sets the X handle (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make partner-grant-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for partners whose Pro grant already expired but whose keys were never deprovisioned, and retry any revocation that failed mid-sweep. Skips partners who have since started paying for Pro"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
 	@echo "  make partners [EMAIL=<partner>] - Roster of every Creator Partner: X handle, referral + promo codes, commission rate/window, Pro-grant expiry, activation date, disclosure URL. The 'who are my partners' view."
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make cancellations - List customers who canceled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
-	@echo "  make cancellation-alerts - Email yourself one alert per cancellation, carrying the reason the member typed on their way out. Sweeps the audit log (so a failed send retries instead of vanishing) and latches each event once. Driven every 15m by the cancellation-alerts systemd timer. DRY_RUN=1 to preview, SINCE=<YYYY-MM-DD|iso> to backfill history, PREVIEW_TO=<email> for a sample, MARK_ONLY=1 to silence a backlog without emailing (ignores LIMIT — it takes the whole backlog), KIND=pending|lapsed, INCLUDE_SILENT_LAPSES=1 to also see lapses that captured no reason (skipped by default), LIMIT=<n>/LOOKBACK=<hours>/THROTTLE_MS=<ms> to tune, TO=<email> to override the recipient"
+	@echo "  make cancellation-alerts - Email yourself one alert per cancellation that SAID WHY, at the moment the member clicks Cancel and answers the survey. Churn carrying no reason at all is skipped, and so is the terminal 'lapsed' row (it repeats the same survey answer weeks later, after the save window has closed). Sweeps the audit log (so a failed send retries instead of vanishing) and latches each event once. Driven every 15m by the cancellation-alerts systemd timer. DRY_RUN=1 to preview, SINCE=<YYYY-MM-DD|iso> to backfill history, PREVIEW_TO=<email> for a sample, MARK_ONLY=1 to silence a backlog without emailing (ignores LIMIT — it takes the whole backlog), KIND=pending|lapsed|both (default pending), INCLUDE_SILENT=1 to also see churn that captured no reason, LIMIT=<n>/LOOKBACK=<hours>/THROTTLE_MS=<ms> to tune, TO=<email> to override the recipient"
 	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed (and lapses into payment-failed vs voluntary/expired), by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
 	@echo "  make backfill-refund-audit - Write the refund_issued audit rows for refunds issued before the webhook recorded them (idempotent, rows carry the refund's own timestamp). DRY_RUN=1 to preview, YES=1 to write, SINCE=<YYYY-MM-DD>, LIMIT=<n>"
 	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
@@ -66,15 +84,21 @@ help:
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make subscriber-headcount [NAMES=1] - Decompose the admin Total Subscribers chart (Full Subscriber / Converting / Free Trial / Trial Grace) and account for every subscription-carrying account it does not count — paused, setup-withheld, lapsed. Answers 'why did the headcount move' (read-only)"
 	@echo "  make recover-orphan-payment EMAIL=<email> - Restore a member who PAID an invoice after Stripe had already canceled their subscription for nonpayment (money collected, still on Public). Re-creates the plan with billing anchored at the end of the period they paid for, so they are never charged twice. DRY by default, YES=1 to apply, INVOICE=in_... to pick the invoice"
+	@echo "  make unwind-orphan-recovery EMAIL=<email> - Reverse an orphan recovery that granted a period the member had been REFUNDED for: cancels the recovery subscription (nothing was ever charged on it), returns the row to public, audits it. Refuses unless the recovered invoice was refunded IN FULL and no money has cleared on that subscription. DRY by default, YES=1 to apply, FORCE=1 to skip only the refund check"
+	@echo "  make reinstate-paid-period EMAIL=<email> - Hand a member back the rest of a period they already PAID for, as a comp that never bills: re-creates the canceled plan with cancel_at_period_end set so Stripe drops it at period end without invoicing. For when you refunded someone but want them to keep the access they bought. No coupons carried, no email. DRY by default, YES=1 to apply, UNTIL=<ISO> to override the period end"
+	@echo "  make backfill-recovery-pointers - One-shot: stamp users.last_paid_subscription_id for members whose orphan recovery predates that stamp being written at recovery time (they otherwise sit on the admin Converting line until their first renewal). Read-only by default, APPLY=1 to write"
 	@echo "  make save-url EMAIL=<email> - Print the signed one-click self-serve SAVE url (app/save) for a member + their eligibility, to test the retention flow without a real cancellation email (read-only)"
 	@echo "  make reset-save-latch EMAIL=<email> - TESTING: clear a member's one-shot save latch (retention_offer_claimed_at) so the /save flow can be claimed again"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
 	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
+	@echo "  make scan-payment-method-drift [VERBOSE=1] - Sweep every billable subscription for one pinned to a payment method the member has since replaced (the renewal that fails again next month after they rescued the last invoice with a new card). Read-only"
+	@echo "  make verify-bucket-migration - Read-only dry-run: does the per-subscription Total Subscribers migration move anyone between chart lines? Must read zero before deploying (NAMES=1 to list)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make auth-backups-prune - Prune old auth-DB backups: delete auth-*.db.gz* older than AUTH_BACKUP_RETENTION_DAYS (default 30) but ALWAYS keep the newest AUTH_BACKUP_KEEP (default 48; 0 = raw mtime-only). Shared by backup-auth + janitor"
 	@echo "  make janitor     - Nightly cleanup (interactive): prune auth backups (keep-newest floor) + drop frontend/.next/cache + npm cache clean. Prints the plan and asks before acting"
 	@echo "  make janitor-noconfirm - Same as janitor but no prompt (what the zerogex-web-janitor systemd timer runs nightly)"
+	@echo "  make email-audit [OUT=dir] - Render EVERY automated email as the recipient sees it, with its exact trigger + schedule, into one PDF (docs/automated-email-audit.pdf). DEV MACHINE ONLY - needs a Chromium to print; the prod box has none and does not need one. Re-run after any email copy change"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -216,7 +240,7 @@ send-403-notice:
 migrate:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/migrate.mts'
 
-# Rebuild the per-day rollup behind Admin -> Monitoring -> Daily Signals, then
+# Rebuild the per-day rollup behind Admin -> Monitoring -> Growth, then
 # print the four relationship tests it exists to answer.
 #
 # Everything except the X / Google columns is DERIVED from the append-only
@@ -233,6 +257,125 @@ migrate:
 #   REPORT=0             rebuild only, skip the correlation readout
 backfill-daily-metrics:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-daily-metrics.mts'
+
+# Import the real successful-invoice history from Stripe into
+# stripe_invoice_history, which is what the renewal metrics on
+# Admin -> Monitoring -> Growth read.
+#
+# A renewal is money moving a second time and has to be SEEN, not inferred from
+# access having lasted about a month. The app only began writing
+# stripe_invoice_paid audit rows when that event type shipped, so every renewal
+# due before then is invisible without this import and is reported as
+# "unobservable" rather than as churn. This fills in the history Stripe already
+# has.
+#
+# READ-ONLY against Stripe: it lists invoices and writes one analytics table.
+# It touches no user, subscription, tier or access state. Idempotent.
+#
+#   SINCE=<YYYY-MM-DD>   only import invoices created on or after this date
+#   LIMIT=<n>            stop after n invoices (smoke test)
+#   DRY_RUN=1            fetch and report, write nothing
+backfill-stripe-invoices:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-stripe-invoices.mts'
+
+# Rebuild the payment-decline history behind
+# Admin -> Monitoring -> Stripe -> Payment Declines.
+#
+# A decline reason exists for about as long as the webhook's stack frame: Stripe
+# puts it on the charge and never hands it to you again. Anything that failed
+# before that capture shipped left only a `stripe_payment_failed` audit row
+# saying THAT it failed. Pass 1 turns those rows back into declines and settles
+# each one against the invoice ledger (paid later = recovered, nothing after
+# thirty days = unresolved); pass 2 walks back to each charge in Stripe and
+# stamps on the reason that was never written down.
+#
+# READ-ONLY against Stripe: it reads invoices and charges and writes one
+# analytics table. It touches no user, subscription, tier, access or email
+# state, and never overwrites a reason the webhook already captured. Idempotent.
+#
+#   SKIP_STRIPE=1        pass 1 only (no Stripe key needed)
+#   LIMIT=<n>            cap how many invoices pass 2 re-reads (default 500)
+#   RECHECK=1            also re-read invoices a previous run already fetched,
+#                        for when this reader keeps more than the one before it
+#   DRY_RUN=1            report what pass 2 would stamp, write nothing
+backfill-payment-declines:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-payment-declines.mts'
+
+# READ-ONLY forensic audit of the trial-to-paid step, for investigating WHY
+# conversions decline rather than counting that they did.
+#
+# Answers what the local decline table cannot, because it lives in Stripe: which
+# payment method was actually set up and whether its SetupIntent completed, how
+# many attempts each invoice really received, the first decline reason read off
+# the FAILED charge (still visible on invoices that were later paid), and for
+# every still-unpaid invoice whether Stripe has another attempt queued or has
+# stopped.
+#
+# WRITES NOTHING, anywhere. Every Stripe call is a list or a retrieve; the local
+# database is not touched. Safe to run on production as often as you like.
+#
+#   DAYS=<n>             window back from now (default 90)
+#   LIMIT=<n>            cap subscriptions examined (default 400)
+#   JSON=<path>          also dump the per-subscription detail
+audit-trial-conversions:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/audit-trial-conversions.mts'
+
+# Decline rate by acquisition channel. The one cut in the decline report with a
+# real denominator on both sides: a successful charge leaves no card behind, but
+# it does leave a member, and a member carries a first-touch utm_source.
+#
+# READ-ONLY, like the audit above — no Stripe call, no email, no write. It exists
+# so the question "did this campaign send people who were never going to pay"
+# can be asked on production without deploying anything.
+decline-by-source:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/decline-by-source.mts'
+
+# Fold stored acquisition sources onto the spellings the sanitizer produces now.
+# A channel split across two keys ('x' and 'twitter') is worse than an untagged
+# one: it halves the volume on both rows, and volume is the only thing that makes
+# a per-source decline rate readable. DRY RUN unless YES=1.
+# Does the retry SCHEDULE explain the insufficient-funds losses? Read-only, and
+# built to be able to answer no: if invoices whose retry window crossed a payday
+# recover no better than the ones that missed, retry policy is not the lever.
+decline-timing:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/decline-timing.mts'
+
+normalize-utm-sources:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/normalize-utm-sources.mts'
+
+# Revenue that is still collectible and nobody knows about.
+#
+# When a payment fails, Stripe retries on its Smart Retry schedule and then
+# stops. What it does NOT do is void the invoice: it stays `open` on a hosted
+# payment page that stays live indefinitely. So a member whose card was short
+# months ago has, today, an invoice they could still settle in two clicks — and
+# almost certainly does not know their subscription lapsed at all.
+#
+# DRY RUN BY DEFAULT: with no flags it sends nothing and prints what is sitting
+# there — how many invoices, how much money, and who. Deliberately narrow about
+# who it will ever email: never an invoice Stripe is still retrying, never an
+# account that has not actually lost access, never the same invoice twice, and
+# not members who opted out of marketing.
+#
+# It never charges anything, never creates or voids an invoice, and never
+# changes a subscription or anyone's access.
+#
+#   YES=1                actually send (default sends nothing)
+#   PREVIEW_TO=<addr>    render one real email to that address and stop
+#   DAYS=<n>             how far back to look (default 180)
+#   LIMIT=<n>            cap sends in one run (default 50)
+open-invoice-recovery:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-open-invoice-recovery.mts $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Print, for a sample of real customers, every event the growth dashboard reads
+# and every conclusion it draws — so a human can check the classification against
+# Stripe rather than trusting it. Read-only; writes nothing anywhere.
+#
+#   EMAIL=<addr>   trace one customer instead of the sample
+#   LIMIT=<n>      how many customers per shape (default 1)
+#   EVENTS=0       summary only, no event timeline
+audit-customers:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/audit-customer-classification.mts'
 
 # Pull daily clicks + impressions from Google Search Console into the
 # google_clicks / google_impressions columns of the daily metrics rollup, then
@@ -338,6 +481,58 @@ grant-founding-on-existing-sub:
 #   make apply-founding-lifetime EMAIL=foo@example.com FORCE=1 YES=1
 apply-founding-lifetime:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/apply-founding-lifetime.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Run the founding-cohort demotion sweep: founding-eligible users comped onto
+# pro/basic who never redeemed the founding rate (and hold no active/trialing
+# sub) revert to tier='public', AND their API keys are revoked — a key minted
+# while the comp was live keeps authenticating after it ends, because the
+# backend does not re-derive tier per request.
+#
+# deploy/systemd/zerogex-web-founding-cohort-demotion.service has invoked this
+# target name since it was written; the target itself was never committed, so
+# the unit's ExecStart pointed at nothing. Runs under --experimental-strip-types
+# because the script imports core/apiKeyAdmin.ts for the revocation.
+#
+# Revocation needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN (env or
+# frontend/.env.local). Without them the sweep still downgrades, reports that no
+# keys were revoked, and exits non-zero so the timer records a failure.
+# Usage:
+#   make founding-demote DRY_RUN=1
+#   make founding-demote YES=1
+founding-demote:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Email the operator that a scheduled unit failed. Invoked by systemd via
+# OnFailure=zerogex-web-alert@%n.service, not by hand and not on a timer —
+# UNIT is the failed unit's name. Every sweep in deploy/systemd/ exits non-zero
+# on a real failure, and before this that exit reached journald and nothing
+# else; the sweeps exist so nobody has to remember to check, so a failure
+# nobody is told about defeats the point. DRY_RUN=1 prints the mail instead of
+# sending (use it to check the recipient resolves).
+#
+# Recipient: UNIT_ALERT_EMAIL, else SIGNUP_ALARM_EMAIL, else FOH_REMINDER_EMAIL.
+# Usage:
+#   make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1
+unit-failure-alert:
+	@if [ -z "$(UNIT)" ]; then echo "Error: UNIT is required (e.g. make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-unit-failure-alert.mts --unit $(UNIT) $(if $(TO),--to $(TO),) $(if $(LINES),--lines $(LINES),) $(if $(DRY_RUN),--dry-run,)'
+
+# Revoke API keys for accounts the demotion sweep ALREADY downgraded but whose
+# keys were never deprovisioned — the sweep did not revoke anything before the
+# revocation wiring landed, so every account it demoted (the 2026-07-01 batch)
+# kept a working key. Also the retry path when the key service was unreachable
+# during a sweep: those accounts no longer match the downgrade query, so a plain
+# re-run of founding-demote will not pick them up.
+#
+# Selects users with a founding_cohort_expired audit row whose CURRENT tier is
+# still not API-key-eligible, so anyone who later subscribed to Pro is left
+# alone. Exits non-zero if any revocation fails, so re-running is safe and
+# visible.
+# Usage:
+#   make founding-cohort-revoke-backfill DRY_RUN=1
+#   make founding-cohort-revoke-backfill YES=1
+founding-cohort-revoke-backfill:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs --backfill-revocations $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Clear stripe_customer_id on rows that never produced a subscription —
 # pre-cutover beta artifacts that would cause "No such customer" 400s the
@@ -450,7 +645,14 @@ grace-expiry-warnings:
 # to override the "wait N hours after signup" gate; LOOKBACK_HOURS=<n> to
 # override the "no older than N hours" upper bound.
 verified-never-paid:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),)'
+
+# The free pre-open levels digest. --no-warnings suppresses the
+# MODULE_TYPELESS_PACKAGE_JSON notice the .mts loader prints, which otherwise
+# lands in the middle of the per-symbol freshness readout and makes a journal
+# entry harder to read than it needs to be.
+daily-levels:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-daily-levels.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(FORCE),--force,) $(if $(SESSION_DATE),--session-date $(SESSION_DATE),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),)'
 
 # Send the founder-voice "finish verifying to unlock the free trial" nudge to
 # every user who registered but never confirmed their email (public tier,
@@ -473,10 +675,28 @@ verify-reminders:
 # users.winback_email_sent_at (the Stripe webhook clears it on re-subscribe so a
 # future re-churn re-qualifies). Pass DRY_RUN=1 to preview eligible users, YES=1
 # to actually send. PREVIEW_TO=<email> renders one sample (PREVIEW_PROMO=1 for
-# a forced variant via PREVIEW_MODE=auto|promo|manual; no DB writes).
+# a forced variant via PREVIEW_MODE=auto|promo|none; no DB writes).
 # LAG_DAYS=<n>/LOOKBACK_DAYS=<n> override the window.
 winback:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-winback.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(DIGEST),--digest $(DIGEST_TO),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_MODE),--preview-mode $(PREVIEW_MODE),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(LOOKBACK_DAYS),--lookback-days $(LOOKBACK_DAYS),)'
+
+# Answer a churned member who came back to the site on their own — the one
+# churn touch that fires on BEHAVIOUR rather than a calendar. Targets lapsed
+# members with a login_success AFTER their most recent subscription deletion,
+# at least QUIET_HOURS old (default 24, so they get the session to convert by
+# themselves) and at most MAX_LOGIN_AGE_DAYS old (default 14). Throttled by a
+# COOLDOWN (users.return_intent_email_sent_at, default 90d) rather than a
+# permanent latch, and the visit must also postdate the last send — so this
+# re-arms for every future return instead of spending the cohort in one run.
+# No discount and no trial claim; where the member left a cancellation reason
+# the email answers that specific objection. Honors marketing_unsubscribed_at
+# and carries a one-click List-Unsubscribe. DRY_RUN=1 also prints why every
+# skipped member was skipped.
+#   make return-intent DRY_RUN=1
+#   make return-intent DIGEST=1 DIGEST_TO=you@example.com
+#   make return-intent YES=1 LIMIT=25
+return-intent:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-return-intent.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(DIGEST),--digest $(DIGEST_TO),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(COOLDOWN_DAYS),--cooldown-days $(COOLDOWN_DAYS),) $(if $(QUIET_HOURS),--quiet-hours $(QUIET_HOURS),) $(if $(MAX_LOGIN_AGE_DAYS),--max-login-age-days $(MAX_LOGIN_AGE_DAYS),) $(if $(LIMIT),--limit $(LIMIT),)'
 
 # Send the second-touch reactivation email to cold verified-never-paid signups —
 # the inactive-signup analog of the win-back above. Targets public-tier,
@@ -551,6 +771,15 @@ diagnose-user:
 subscriber-headcount:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/subscriber-headcount.mts $(if $(NAMES),--names,)'
 
+# Dry-run for the per-subscription Total Subscribers migration: compares the
+# chart census before and after against the REAL database and names any member
+# whose line would change. Run it BEFORE deploying the change and again after —
+# it must read zero both times. STRICTLY READ-ONLY (opens the DB readOnly), so
+# it is safe to run against production at any time.
+# Usage: make verify-bucket-migration [NAMES=1]
+verify-bucket-migration:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/verify-bucket-migration.mts $(if $(NAMES),--names,)'
+
 # Restore a member whose payment was ORPHANED: Stripe exhausted its retries on a
 # failed charge and canceled the subscription (dropping them to public), and the
 # member then paid the still-open invoice from one of Stripe's dunning emails.
@@ -575,9 +804,102 @@ subscriber-headcount:
 scan-orphan-payments:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-orphan-payments.mts $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(VERBOSE),--verbose,)'
 
+# Answer a member's "you charged me" with evidence, across the WHOLE Stripe
+# account rather than the one customer their email resolves to.
+#
+# The Dashboard's email search answers "did this CUSTOMER RECORD pay us", which
+# is a narrower question than the one being asked. It cannot see a charge on a
+# second customer, a guest charge with no customer at all, or an incomplete
+# PaymentIntent (hidden from the Payments list by default) that still left a
+# real authorization on their statement. In each of those the search says "no
+# payments" while we are holding their money.
+#
+# So this sweeps on the card fingerprint — the same physical card under any
+# customer, any email — plus the amount and date off their statement. Run it
+# BEFORE telling anyone they were never charged.
+#
+# Read-only: creates nothing, writes nothing, sends nothing.
+# Examples:
+#   make trace-payment-claim EMAIL=foo@example.com AMOUNT=29.50 DATE=2026-09-13
+#   make trace-payment-claim AMOUNT=29.50 DATE=2026-09-13 LAST4=3392
+trace-payment-claim:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/trace-payment-claim.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(AMOUNT),--amount $(AMOUNT),) $(if $(DATE),--date $(DATE),) $(if $(LAST4),--last4 $(LAST4),) $(if $(LEAD_DAYS),--lead-days $(LEAD_DAYS),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(VERBOSE),--verbose,)'
+
+# Find the people who hold more than one account.
+#
+# Grew out of a member who wrote in certain we had charged him while his account
+# said we had collected nothing. Both were true: he had bounced off a
+# full-price, no-trial checkout and opened a second account under a second email
+# three hours later, which took a trial, a campaign code, and has been paying
+# since. Different email, different Stripe customer, and a Link payment method
+# with no card fingerprint — so nothing in Stripe could join them. Our own audit
+# log could: both accounts were driven from the same IP.
+#
+# Clusters are grouped transitively (home IP and phone IP joined through a
+# shared account), ranked by what they would cost if real, and each one prints
+# the HANDOFF — how long after one account last did anything the next was
+# created. That number, not the gap between signups, is what says "one person
+# going around a wall".
+#
+# An address with more than MAX_PER_IP accounts behind it is infrastructure, not
+# a person, and is dropped rather than reported. Use EXCLUDE_IP for your own
+# office. Read-only.
+#   make duplicate-accounts
+#   make duplicate-accounts SHAPE=trial_recycled
+#   make duplicate-accounts EXCLUDE_IP=203.0.113.7 VERBOSE=1
+duplicate-accounts:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-duplicate-accounts.mts $(if $(MAX_PER_IP),--max-per-ip $(MAX_PER_IP),) $(if $(MIN_ACCOUNTS),--min-accounts $(MIN_ACCOUNTS),) $(if $(SHAPE),--shape $(SHAPE),) $(if $(EXCLUDE_IP),--exclude-ip $(EXCLUDE_IP),) $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(VERBOSE),--verbose,)'
+
+# Void the open invoices that can no longer buy the access they bill for.
+#
+# Stripe leaves the final invoice of a nonpayment-cancelled subscription OPEN
+# and payable forever. Inside the period it covers that is right: paying it buys
+# back real access and the orphan-payment path grants it. Past that period it
+# inverts — Stripe rejects a billing anchor in the past, so the money lands with
+# no entitlement and waits for a human to notice and refund it, while the
+# payment link sits in the member's inbox in every dunning email Stripe sent.
+#
+# The webhook voids one already stale at cancellation; this catches the common
+# case, which goes stale weeks later with nothing watching.
+#
+# Dry-run by default. Voiding is FINAL.
+#   make void-stale-invoices                       # report only
+#   make void-stale-invoices VERBOSE=1             # + why each was left alone
+#   make void-stale-invoices EMAIL=foo@example.com # one member
+#   make void-stale-invoices YES=1                 # apply
+void-stale-invoices:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/void-stale-invoices.mts $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(EMAIL),--email $(EMAIL),) $(if $(YES),--yes,) $(if $(DRY_RUN),--dry-run,) $(if $(VERBOSE),--verbose,)'
+
+# The scheduled half of scan-orphan-payments: same sweep, but it emails the
+# operator about anything NEW instead of printing to a terminal nobody watches.
+# Idempotent — each invoice is latched by an audit row and alerted once.
+orphan-payment-alerts:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-orphan-payments.mts --alert $(if $(DAYS),--since-days $(DAYS),) $(if $(TO),--to $(TO),) $(if $(PREVIEW_TO),--preview $(PREVIEW_TO),) $(if $(DRY_RUN),--dry-run,)'
+
 recover-orphan-payment:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make recover-orphan-payment EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/recover-orphan-payment.mts --email $(EMAIL) $(if $(INVOICE),--invoice $(INVOICE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Reverse an orphan recovery that granted a period the member had been REFUNDED
+# for — the inverse of the target above. Refuses unless the recovered invoice was
+# refunded in full and no money has since cleared on the recovery subscription.
+unwind-orphan-recovery:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make unwind-orphan-recovery EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/unwind-orphan-recovery.mts --email $(EMAIL) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Hand a member back the REST OF A PERIOD THEY ALREADY PAID FOR, as a comp that
+# ends on its own and never bills: re-creates the canceled plan with
+# cancel_at_period_end set. For when you refunded someone but want them to keep
+# the access they had bought. Carries no coupons and sends no email.
+reinstate-paid-period:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make reinstate-paid-period EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/reinstate-paid-period.mts --email $(EMAIL) $(if $(UNTIL),--until $(UNTIL),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# One-shot: stamp the paid-subscription pointer for members whose orphan recovery
+# ran BEFORE the recovery paths started doing it themselves, which left them on
+# the admin Converting line for their whole honored period. Read-only by default.
+backfill-recovery-pointers:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-recovery-pointers.mts $(if $(APPLY),--yes,)'
 
 # Print the signed one-click self-serve SAVE url (app/save/route.ts) for a member
 # plus their current eligibility, so you can test the retention flow in a browser
@@ -615,6 +937,21 @@ reset-user-for-testing:
 dedupe-payment-methods:
 	@if [ -z "$(EMAIL)" ] && [ -z "$(CUSTOMER)" ] && [ -z "$(ALL)" ]; then echo "Error: provide EMAIL=<addr>, CUSTOMER=cus_..., or ALL=1"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/dedupe-payment-methods.mjs $(if $(CUSTOMER),--customer $(CUSTOMER),$(if $(EMAIL),--email $(EMAIL),--all)) $(if $(INSPECT),--inspect,) $(if $(APPLY),--apply,)'
+
+# Sweep every billable subscription for a PINNED payment method the member has
+# effectively replaced. Stripe charges a subscription's own
+# default_payment_method when one is set and only falls back to the customer
+# default when it is not — so a member who rescues a failed invoice with a new
+# card gets that card marked as the CUSTOMER default while the subscription
+# keeps billing the old one. The invoice clears, the recovered email goes out,
+# and the same dead method fails again next month. `make diagnose-user` shows it
+# per-member as two disagreeing lines (Sub default PM vs Customer default PM);
+# this finds the disagreement across the whole base.
+# Read-only — creates nothing, changes no Stripe object, sends no email.
+#   make scan-payment-method-drift
+#   make scan-payment-method-drift VERBOSE=1
+scan-payment-method-drift:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-payment-method-drift.mts $(if $(VERBOSE),--verbose,)'
 
 # Manually lengthen ONE customer's free trial (e.g. to thank a helpful early
 # user) by pushing out the Stripe subscription's trial_end. Everything else
@@ -754,23 +1091,41 @@ cancel-subscription:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/cancel-subscription.mts --email $(EMAIL) $(if $(VOID_INVOICE),--void-invoice,) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Honor the evergreen win-back "reply 'discount'" offer for ONE member by hand:
-# STACK a "25% off for one year" coupon on top of any discounts already on their
-# subscription (existing coupons are preserved, never stripped), and — unless
-# KEEP_CANCELLATION=1 — clear cancel_at_period_end so a trialing sub converts to
-# paid at trial_end (an active one renews) on the card already on file. No
-# re-subscribe. The manual twin of the automated ?winback=1 checkout path.
+# Apply a "<PERCENT>% off for one year" coupon alongside any discounts already on
+# their subscription, and — unless KEEP_CANCELLATION=1 — clear
+# cancel_at_period_end so a trialing sub
+# converts to paid at trial_end (an active one renews) on the card already on
+# file. No re-subscribe. The manual twin of the automated ?winback=1 path.
+#
+# Other discount families (public promo, referral, founding intro/lifetime,
+# anything hand-applied) are preserved and never stripped. An EARLIER WIN-BACK
+# coupon is the exception: Stripe applies discounts sequentially, so leaving both
+# on would compound them — honoring 30% over an existing 50% bills 65% off, a
+# rate nobody promised. The earlier grant is superseded instead, and the plan
+# prints a "Superseding:" line naming what comes off. STACK=1 keeps the old
+# stack-everything behavior for the deliberate exception.
 # Coupon resolution: COUPON=<id> pins an exact coupon; otherwise the standing
 # STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> env for the member's plan; otherwise
-# CREATE_COUPON=1 mints a deterministic PERCENT%-off (default 25) 1-year coupon
-# (annual: duration=once; monthly: repeating 12 months). Sends NO email — reply
-# to the member yourself. Run `make diagnose-user EMAIL=...` first to confirm
-# status/plan/discounts. Examples:
+# CREATE_COUPON=1 mints a deterministic PERCENT%-off 1-year coupon (annual:
+# duration=once; monthly: repeating 12 months). PERCENT defaults to whatever
+# rate WINBACK_DISCOUNT_LABEL advertises.
+#
+# PERCENT is BINDING when you pass it. The standing env coupon normally wins
+# over CREATE_COUPON, so the rate you type has to be able to override it or it
+# would be decoration: pass PERCENT=N and the run applies that rate or nothing.
+# With the env coupon set and NOT at N%, it refuses and names the two ways out —
+# add CREATE_COUPON=1 to mint/reuse at N% (overriding the standing coupon), or
+# drop PERCENT to take the standing rate. Omit PERCENT for the ordinary case.
+# Sends NO email — reply to the member yourself. Run
+# `make diagnose-user EMAIL=...` first to confirm status/plan/discounts.
+# Examples:
 #   make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1
 #   make honor-winback-discount EMAIL=foo@example.com CREATE_COUPON=1 YES=1
 #   make honor-winback-discount EMAIL=foo@example.com COUPON=winback25 YES=1
+#   make honor-winback-discount EMAIL=foo@example.com PERCENT=50 CREATE_COUPON=1 YES=1
 honor-winback-discount:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(STACK),--stack,) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Activate a Creator Partner end-to-end: flip partner_tier='creator', grant
 # them DAYS days of Pro access (no Stripe sub), pre-mint a referral_code,
@@ -877,7 +1232,23 @@ revoke-partner:
 # this Makefile target is what the timer's service unit invokes, and what
 # operators use to dry-run before the next scheduled tick.
 partner-grant-expiry:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Revoke API keys for partners the expiry sweep ALREADY downgraded but whose
+# keys were never deprovisioned — nothing revoked before the revocation wiring
+# landed, so every partner it demoted kept a working key. Also the retry path
+# when the key service was unreachable during a sweep: those partners no longer
+# match the downgrade query, so a plain re-run will not pick them up.
+#
+# Selects users with a partner_grant_expired audit row whose CURRENT tier is
+# still not API-key-eligible, so a partner who has since started paying for Pro
+# is left alone. Exits non-zero if any revocation fails, so re-running is safe
+# and visible.
+# Usage:
+#   make partner-grant-revoke-backfill DRY_RUN=1
+#   make partner-grant-revoke-backfill YES=1
+partner-grant-revoke-backfill:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-partner-grants.mjs --backfill-revocations $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Roster of every Creator Partner (partner_tier='creator'): X handle,
 # referral + audience promo codes, commission rate/window, Pro-grant expiry,
@@ -917,7 +1288,7 @@ public-cohort:
 # access_ends_at,tier with full ISO timestamps, and SINCE=<YYYY-MM-DD> restricts
 # to cancellations on/after a cutoff.
 cancellation-alerts:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-cancellation-alerts.mts $(if $(TO),--to $(TO),) $(if $(SINCE),--since $(SINCE),) $(if $(LOOKBACK),--lookback $(LOOKBACK),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(KIND),--kind $(KIND),) $(if $(PREVIEW_TO),--preview $(PREVIEW_TO),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),) $(if $(INCLUDE_SILENT_LAPSES),--include-silent-lapses,) $(if $(MARK_ONLY),--mark-only,) $(if $(DRY_RUN),--dry-run,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-cancellation-alerts.mts $(if $(TO),--to $(TO),) $(if $(SINCE),--since $(SINCE),) $(if $(LOOKBACK),--lookback $(LOOKBACK),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(KIND),--kind $(KIND),) $(if $(PREVIEW_TO),--preview $(PREVIEW_TO),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),) $(if $(INCLUDE_SILENT),--include-silent,) $(if $(MARK_ONLY),--mark-only,) $(if $(DRY_RUN),--dry-run,)'
 
 cancellations:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-cancellations.mjs $(if $(STATUS),--status $(STATUS),) $(if $(EMAILS),--emails,) $(if $(CSV),--csv,) $(if $(SINCE),--since $(SINCE),)'
@@ -943,6 +1314,39 @@ churn-breakdown:
 #   make backfill-refund-audit DRY_RUN=1
 #   make backfill-refund-audit YES=1
 #   make backfill-refund-audit DRY_RUN=1 SINCE=2026-06-01
+# Find everyone charged the wrong amount for one cycle because a plan switch
+# reconciled its coupons a moment too late. The portal schedules downgrades at
+# period end; for a trialing member that IS trial end, and Stripe draws the first
+# invoice in the same instant it flips the sub to active — so the webhook's
+# coupon swap (subscriptions.update) binds the NEXT cycle and the invoice already
+# drawn is billed at the wrong rate. Fixed forward in the webhook
+# (reconcileDiscountOnOpenInvoice); this names the members hit before that.
+# Read-only: no writes, no emails, Stripe reads only.
+#   make scan-late-discount-reconcile
+#   make scan-late-discount-reconcile SINCE=2026-06-01
+#   make scan-late-discount-reconcile CSV=1 > mispriced.csv
+# What did the people who CONVERTED look at in their first hours that the people
+# who left during the trial never found? churn-breakdown says 68% of cancels land
+# inside 14 days and the survey clusters on "wasn't using it" / "too complex" —
+# but there are 37 education pages, a Platform Guide, FAQs and Quick Starts all
+# in the nav, so the gap is routing, not content. This compares the two outcomes
+# page by page and prints the shortlist a first-run path should route to.
+# Correlation on a small book — read the raw counts, not the percentages.
+# Read-only.
+# Use SINCE/UNTIL to compare signup cohorts either side of a change:
+#   make scan-trial-activation UNTIL=2026-09-18   (signed up before it)
+#   make scan-trial-activation SINCE=2026-09-18   (signed up after it)
+# A 7-day trial plus the time it takes to convert or leave means an "after"
+# cohort needs ~21 days before it can be compared with a mature one; the script
+# says so itself when the window is too recent.
+#   make scan-trial-activation
+#   make scan-trial-activation DAYS=90 HOURS=24
+scan-trial-activation:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-trial-activation.mts $(if $(DAYS),--days $(DAYS),) $(if $(HOURS),--hours $(HOURS),) $(if $(MIN_SUPPORT),--min-support $(MIN_SUPPORT),) $(if $(TOP),--top $(TOP),) $(if $(SINCE),--since $(SINCE),) $(if $(UNTIL),--until $(UNTIL),)'
+
+scan-late-discount-reconcile:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-late-discount-reconcile.mts $(if $(SINCE),--since $(SINCE),) $(if $(WINDOW_MINUTES),--window-minutes $(WINDOW_MINUTES),) $(if $(CSV),--csv,)'
+
 backfill-refund-audit:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-refund-audit.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(SINCE),--since $(SINCE),) $(if $(LIMIT),--limit $(LIMIT),)'
 
@@ -1095,6 +1499,18 @@ backup-auth:
 # ---------------------------------------------------------------------------
 # Three safe/regenerable jobs: (1) prune old auth-DB backups with the
 # keep-newest-K floor (the shared auth-backups-prune target), (2) delete ONLY
+# Renders EVERY automated email as the recipient sees it, next to its exact
+# trigger and schedule, into one PDF. Run this on a DEV MACHINE: it needs a
+# Chromium to print, which the production box has no reason to carry. The
+# committed docs/automated-email-audit.pdf is the artifact; prod never renders it. The bodies are captured from the live
+# senders (the Resend transport is stubbed), so the audit cannot drift from the
+# shipped copy; the trigger/schedule metadata is hand-maintained in
+# scripts/email-audit/catalog.mjs and must be updated when a unit or cohort
+# query changes. Re-run after any copy change — a stale audit reads as
+# authoritative, which is worse than not having one.
+email-audit:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && OUT=$(OUT) CHROME=$(CHROME) bash scripts/email-audit/run.sh'
+
 # the Next.js build CACHE (frontend/.next/cache — never the built .next output),
 # and (3) clean the npm cache as the app user (never root). `make janitor`
 # prints the plan and waits for a typed 'yes'; `make janitor-noconfirm` is what

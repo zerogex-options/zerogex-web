@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import {
   PROTOCOL_VERSION,
   RPC,
+  clientLabel,
   handleRpcMessage,
   negotiateProtocolVersion,
   isSupportedProtocolVersion,
@@ -106,6 +107,22 @@ test('initialize answers an unknown protocol version with our own', async () => 
   assert.equal(negotiateProtocolVersion(undefined), PROTOCOL_VERSION);
   // The transport spec's default for a request with no version header.
   assert.equal(isSupportedProtocolVersion('2025-03-26'), true);
+});
+
+test('the connecting client is identified by a sanitized slug', () => {
+  // Whatever an anonymous caller puts in clientInfo.name ends up in an
+  // analytics property, so it is normalized rather than trusted.
+  assert.equal(clientLabel({ name: 'Claude-AI', version: '1.0' }), 'claude-ai');
+  assert.equal(clientLabel({ name: '  cursor  ' }), 'cursor');
+  assert.equal(clientLabel({ name: 'my client<script>' }), 'myclientscript');
+  assert.equal(clientLabel({ name: 'x'.repeat(200) }).length, 64);
+  // Anything unusable is a value we can still count, not a throw or an empty
+  // string that would read as a distinct client of its own.
+  assert.equal(clientLabel({ name: '中文' }), 'unknown');
+  assert.equal(clientLabel({ name: 42 }), 'unknown');
+  assert.equal(clientLabel({}), 'unknown');
+  assert.equal(clientLabel(undefined), 'unknown');
+  assert.equal(clientLabel('claude'), 'unknown');
 });
 
 test('initialize declares tools only, and warns about the delay up front', async () => {

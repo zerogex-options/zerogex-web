@@ -1,0 +1,47 @@
+[Unit]
+Description=ZeroGEX web orphan-payment sweep (finds members who paid and got nothing)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# Walks Stripe's paid invoices, keeps the ones whose customer is on a free tier
+# locally, and emails the operator about anything NEW. Finding only: it cannot
+# change a tier, issue a refund, or decide whether an elapsed period should be
+# granted afresh — every command it prints is a dry run.
+#
+# A tick with nothing new sends no email at all, which is what makes a daily
+# timer on a standing problem tolerable.
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web orphan-payment-alerts
+
+# The Stripe invoice walk is the slow leg. Generous, but well under a day so a
+# hung HTTPS connect cannot overlap the next fire.
+TimeoutStartSec=1800
+
+# Security hardening (mirrors the cancellation-alerts unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB directory. This sweep is read-only about members but
+# WRITES one thing — the `orphan_payment_alert_sent` audit row that stops a
+# standing problem being re-alerted every morning. The WAL sidecars need the
+# directory writable too. Both known DB locations are listed with a leading '-'
+# so a missing one is ignored; the deploy step adds a drop-in for a custom
+# AUTH_DB_PATH.
+ReadWritePaths=-/var/lib/zerogex
+ReadWritePaths=-/home/ubuntu/zerogex-web/frontend/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-orphan-payments

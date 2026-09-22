@@ -26,16 +26,20 @@ import { useLanguage } from "@/core/LanguageContext";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
-import { SYMBOLS } from "@/core/symbols";
+import { SYMBOLS, isFuturesSymbol } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { resolvePriceSession, sessionClosesLagBehind } from "@/core/sessionCloses";
 import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
+import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
+import { UI_COOKIE } from "@/core/uiCookies";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
+import PageSnapshotButton from "./PageSnapshotButton";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
@@ -43,23 +47,26 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
+  /** Server's read of the headerCollapsed cookie — see app/layout.tsx. */
+  initialCollapsed?: boolean;
 }
 
-export default function Header({ theme, onToggleTheme }: HeaderProps) {
+export default function Header({ theme, onToggleTheme, initialCollapsed = false }: HeaderProps) {
   const { t } = useLanguage();
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("headerCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Cookie-backed, with the server's read of the same cookie as the initial
+  // value: the server emits the collapsed chrome directly, so there is no
+  // hydration mismatch and — unlike a localStorage seed — nothing to visibly
+  // correct afterwards.
+  const [isCollapsed, toggleCollapsed] = usePersistedFlag(
+    UI_COOKIE.headerCollapsed,
+    initialCollapsed,
+    "cookie",
+  );
   const headerRef = useRef<HTMLElement | null>(null);
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -179,16 +186,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
 
-  // Save collapsed state to localStorage
-  const toggleCollapsed = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem("headerCollapsed", String(newState));
-    window.dispatchEvent(
-      new CustomEvent("header:collapse-changed", { detail: newState }),
-    );
-  };
-
 
   useEffect(() => {
     const syncViewport = () => setIsMobileViewport(window.innerWidth < 768);
@@ -302,6 +299,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const futuresTicker =
     quoteData?.display_source === 'futures' ? quoteData?.data_symbol ?? null : null;
 
+  // Natively-served ES / NQ. The swap badge above covers a cash index showing
+  // its future overnight; this covers the case the complaints actually came
+  // from, where the header reads "NQ 29,302.25" and nothing on screen says
+  // WHICH NQ. The chip renders the contract code itself, so the label gap is
+  // closed on the surface rather than only inside a tooltip. Renders nothing at
+  // all when the quote carries no contract (older backend, cached response).
+  const nativeFuturesQuote = !futuresTicker && isFuturesSymbol(symbol);
+
   // ── Row 2 (pre-market / after-hours only) ────────────────────────────────
   // pre/ah → icon + live quote close  vs  current_session_close
   const showExtendedRow = isExtendedHours && !!quoteData && !!sessionClosesData;
@@ -374,8 +379,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       style={{
         backgroundColor: "transparent",
         borderColor: isCollapsed ? "transparent" : border,
-        backdropFilter: isCollapsed ? "none" : "blur(20px)",
-        WebkitBackdropFilter: isCollapsed ? "none" : "blur(20px)",
+        // The header is sticky and its background is transparent, so this blur
+        // is the only thing separating it from the page scrolling underneath.
+        // It used to be switched off while collapsed, which left the page
+        // legible straight through the collapsed controls — worst on a narrow
+        // or portrait viewport, where there is the least room between them.
+        // The collapsed bar keeps its borderless look; only the backdrop stays.
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div
@@ -399,6 +410,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   {theme === "dark" ? <Moon size={isCollapsed ? 16 : 18} /> : <Sun size={isCollapsed ? 16 : 18} />}
                 </button>
                 <ThemeDropdown />
+                {isCollapsed && <PageSnapshotButton compact />}
                 {isCollapsed && <LanguageDropdown compact />}
                 {isCollapsed && <AccountMenu align="start" compact />}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
@@ -478,13 +490,23 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           pins each glyph to one advance width. */}
                       <span className="zg-metric" style={{ fontSize: "1.5rem" }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {futuresTicker && (
-                        <span
+                        <FuturesContractBadge
+                          contract={quoteData?.data_contract}
+                          expiry={quoteData?.data_contract_expiry}
                           className="zg-chip w-fit"
-                          title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                          fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
                           style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                         >
                           ◆ {futuresTicker} FUT
-                        </span>
+                        </FuturesContractBadge>
+                      )}
+                      {nativeFuturesQuote && (
+                        <FuturesContractBadge
+                          contract={quoteData?.data_contract}
+                          expiry={quoteData?.data_contract_expiry}
+                          className="zg-chip w-fit"
+                          style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+                        />
                       )}
                       <FuturesDelayBadge
                         symbol={symbol}
@@ -537,6 +559,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
+                <PageSnapshotButton />
                 <Link href="/search" aria-label="Search" className="zg-icon-btn">
                   <Search size={18} />
                 </Link>
@@ -581,6 +604,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <PageSnapshotButton compact />
               <Link href="/search" aria-label="Search" className="zg-icon-btn zg-icon-btn--sm">
                 <Search size={16} />
               </Link>
@@ -696,10 +720,17 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                 : "var(--text-primary)",
                               opacity: subgroupActive ? 1 : 0.8,
                             };
+                            const toggleSubgroup = () =>
+                              setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
+                            const subgroupChevron = (
+                              <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                            );
                             return (
                               <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${'var(--color-brand-primary)'}33` }}>
-                                <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
-                                  {subgroupId ? (
+                                {subgroupId ? (
+                                  // Two destinations, so the row splits: the
+                                  // label navigates, the chevron expands.
+                                  <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -712,25 +743,43 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                       {navLabel(subgroup)}
                                       {subgroupLock && <TierBadge tier={subgroupLock} />}
                                     </button>
-                                  ) : (
-                                    <span className="flex-1 flex items-center gap-1.5" style={subgroupLabelStyle}>
+                                    <button
+                                      type="button"
+                                      aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                      aria-expanded={isSubExpanded}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        toggleSubgroup();
+                                      }}
+                                      className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
+                                      style={{ color: 'var(--text-primary)', opacity: 0.8 }}
+                                    >
+                                      {subgroupChevron}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  // Nothing to navigate to, so expanding is the
+                                  // row's only job and the whole row is the
+                                  // control — the label used to be inert, which
+                                  // left the 28px chevron the sole target.
+                                  <button
+                                    type="button"
+                                    onClick={toggleSubgroup}
+                                    aria-expanded={isSubExpanded}
+                                    className="mb-1 flex w-full items-center bg-transparent text-[10px] font-semibold uppercase tracking-[0.16em]"
+                                  >
+                                    <span className="flex-1 text-left flex items-center gap-1.5" style={subgroupLabelStyle}>
                                       {navLabel(subgroup)}
                                       {subgroupLock && <TierBadge tier={subgroupLock} />}
                                     </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
-                                    }}
-                                    className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
-                                    style={{ color: 'var(--text-primary)', opacity: 0.8 }}
-                                  >
-                                    <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                                    <span
+                                      className="flex h-7 w-7 items-center justify-center rounded-md"
+                                      style={{ color: 'var(--text-primary)', opacity: 0.8 }}
+                                    >
+                                      {subgroupChevron}
+                                    </span>
                                   </button>
-                                </div>
+                                )}
                                 {isSubExpanded ? (
                                   <div className="grid grid-cols-1 gap-2">
                                     {subgroup.items.map(renderItem)}
@@ -866,13 +915,23 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     ${row1Price.toFixed(2)}
                   </span>
                   {futuresTicker && (
-                    <span
+                    <FuturesContractBadge
+                      contract={quoteData?.data_contract}
+                      expiry={quoteData?.data_contract_expiry}
                       className="zg-chip w-fit"
-                      title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                      fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
                       style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                     >
                       ◆ {futuresTicker} FUT
-                    </span>
+                    </FuturesContractBadge>
+                  )}
+                  {nativeFuturesQuote && (
+                    <FuturesContractBadge
+                      contract={quoteData?.data_contract}
+                      expiry={quoteData?.data_contract_expiry}
+                      className="zg-chip w-fit"
+                      style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+                    />
                   )}
                   <FuturesDelayBadge
                     symbol={symbol}

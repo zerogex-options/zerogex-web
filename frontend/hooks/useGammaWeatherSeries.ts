@@ -65,17 +65,33 @@ export interface GammaWeatherSeriesPayload {
 /** Bars only move once per five minutes; polling faster re-fetches an identical answer. */
 const DEFAULT_REFRESH_MS = 30_000;
 
+export interface UseGammaWeatherSeriesOptions {
+  /** Fetch only while a drawer is open. */
+  enabled?: boolean;
+  /**
+   * An explicit ET trading day. Mirrors useGammaWeather: a dated page must
+   * ask for its own session, or the drawer would narrate today underneath a
+   * historical chart, which is the kind of wrong that looks completely fine.
+   */
+  date?: string | null;
+  refreshMs?: number;
+}
+
 export function useGammaWeatherSeries(
   symbol: string,
-  enabled: boolean = true,
-  refreshMs: number = DEFAULT_REFRESH_MS,
+  options: UseGammaWeatherSeriesOptions = {},
 ) {
+  const { enabled = true, date = null, refreshMs = DEFAULT_REFRESH_MS } = options;
+  const params = new URLSearchParams({ symbol });
+  if (date) params.set('date', date);
+
   // Fetched only while a drawer is open. The header does not need the history
   // and most visits never open one, so there is no reason to carry a session
-  // of sentences on every poll.
+  // of sentences on every poll. A completed day never changes, so a dated read
+  // does not poll at all.
   const { data, loading, error, errorStatus, refetch } = useApiData<GammaWeatherSeriesPayload>(
-    `/api/gex/weather-series?symbol=${encodeURIComponent(symbol)}`,
-    { refreshInterval: refreshMs, enabled },
+    `/api/gex/weather-series?${params.toString()}`,
+    { refreshInterval: date ? 0 : refreshMs, enabled },
   );
 
   return {

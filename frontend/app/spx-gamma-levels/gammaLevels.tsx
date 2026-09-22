@@ -10,6 +10,8 @@ import PlotOnTradingView from '@/components/PlotOnTradingView';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
 import PlotOnThinkorswim from '@/components/PlotOnThinkorswim';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
+import ReadInAssistant from '@/components/ReadInAssistant';
+import PutOnYourSite from '@/components/PutOnYourSite';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
@@ -24,6 +26,7 @@ import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { volatilityIndexFor } from '@/core/symbols';
 import DelayedLevelsTable from '@/components/DelayedLevelsTable';
+import LevelsEmailSignup from '@/components/LevelsEmailSignup';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
@@ -914,6 +917,16 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         {/* Pricing/trial CTA (requirement #6/#7 copy standard). */}
         <PricingTrialCta symbol={primary} />
 
+        {/* Free daily levels email. Placed AFTER the trial CTA on purpose:
+            the trial is the higher-value conversion and gets asked first, so
+            this does not cannibalize it. It is the second ask, for the large
+            majority of organic readers who scroll past the trial and would
+            otherwise leave with no way for us to reach them again — which was
+            the entire gap this feature exists to close. Above the share block
+            rather than below it, because everything below that point is the
+            evergreen SEO content most visitors never reach. */}
+        <LevelsEmailSignup symbol={primary} />
+
         {/* Share block (requirement #4): moved down here, below the conversion
             path, so it stays useful for organic/social visitors without
             distracting paid visitors from the signup step. */}
@@ -973,6 +986,22 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           exclude={['tradingview', 'ninjatrader', 'thinkorswim']}
           heading="On Sierra Chart instead?"
         />
+
+        {/* The same funnel step for people who work in an assistant rather than
+            on a chart. It belongs with the blocks above — hand the reader a way
+            to use today's numbers where they already are — but it is not a
+            chart platform, so it is not in the integrations registry and does
+            not appear in the strip. */}
+        <ReadInAssistant symbol={primary} />
+
+        {/* The same funnel step aimed at a different person. Everything above
+            hands a TRADER today's numbers where they already work; this hands
+            them to someone who WRITES about the session, whose take-up is a
+            link and a daily billboard rather than a possible subscription.
+            Last in the cluster because it is the only one that is not about
+            trading, and because the page's own symbol is what makes it a
+            one-click grab instead of a trip to /embed. */}
+        <PutOnYourSite symbol={primary} />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

@@ -2,6 +2,22 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
+import {
+  MAX_LAYOUT_BYTES,
+  MAX_LAYOUT_NAME_LENGTH,
+  MAX_SAVED_LAYOUTS,
+  normalizeLayoutName,
+} from '@/core/savedBoards';
+import {
+  PALETTE_COOKIE,
+  THEME_COOKIE,
+  normalizePalette,
+  normalizeTheme,
+} from '@/core/appearance';
+
+// Appearance cookies outlive a session on purpose: they are a preference, and
+// the point is that the look survives signing out and back in.
+const APPEARANCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
@@ -65,6 +81,14 @@ type SessionWithUser = {
     // dismissed. NULL = the member has never seen it, so a new Pro subscriber
     // is greeted once on their first landing back from Stripe checkout.
     proWelcomeSeenAt: string | null;
+    // Affirmative acceptance of the Terms of Service and Privacy Policy.
+    // Served to the browser because it is the gate ClientLayout enforces: a
+    // session whose recorded version isn't the current one is shown the
+    // acceptance modal before it can use the app. NULL means no acceptance
+    // has ever been recorded for this account (a pre-cutover signup, or an
+    // OAuth signup from before the gate existed) — absent, never falsified.
+    termsAcceptedAt: string | null;
+    termsVersionAccepted: string | null;
   };
   session: SessionRecord;
 };
@@ -215,6 +239,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
               u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at,
+              u.terms_accepted_at, u.terms_version_accepted,
               u.last_seen_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
@@ -262,6 +287,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
       emailVerified: !!row.email_verified_at,
       disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
+      termsAcceptedAt: (row.terms_accepted_at as string | null) ?? null,
+      termsVersionAccepted: (row.terms_version_accepted as string | null) ?? null,
       foundingEligible: !!row.founding_eligible,
       foundingLockinDismissedAt: (row.founding_lockin_dismissed_at as string | null) ?? null,
       proWelcomeSeenAt: (row.pro_welcome_seen_at as string | null) ?? null,
@@ -321,7 +348,8 @@ function createSessionForUser(user: AuthUser) {
     .prepare(
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
               stripe_subscription_id, email_verified_at,
-              founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at
+              founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at,
+              terms_accepted_at, terms_version_accepted
        FROM users WHERE id = ?`
     )
     .get(user.id) as
@@ -333,6 +361,8 @@ function createSessionForUser(user: AuthUser) {
         founding_eligible: number | null;
         founding_lockin_dismissed_at: string | null;
         pro_welcome_seen_at: string | null;
+        terms_accepted_at: string | null;
+        terms_version_accepted: string | null;
       }
     | undefined;
 
@@ -351,6 +381,8 @@ function createSessionForUser(user: AuthUser) {
       foundingEligible: !!ackRow?.founding_eligible,
       foundingLockinDismissedAt: ackRow?.founding_lockin_dismissed_at ?? null,
       proWelcomeSeenAt: ackRow?.pro_welcome_seen_at ?? null,
+      termsAcceptedAt: ackRow?.terms_accepted_at ?? null,
+      termsVersionAccepted: ackRow?.terms_version_accepted ?? null,
     },
   };
 }
@@ -503,10 +535,16 @@ export async function registerUser(
     throw new Error('This account has been deleted. Contact support if you want it restored.');
   }
 
+  // Bound here rather than read back off `user` below. AuthUser.passwordHash is
+  // OPTIONAL — an OAuth account has none — so reading it back widens to
+  // `string | undefined`, and node:sqlite THROWS on an undefined parameter
+  // rather than binding NULL. On this path it is always a real hash; keeping the
+  // local is how that stays true to the compiler as well as at runtime.
+  const passwordHash = hashPassword(password);
   const user: AuthUser = {
     id: createId('user'),
     email: normalizedEmail,
-    passwordHash: hashPassword(password),
+    passwordHash,
     tier: normalizeTier(tier),
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -522,7 +560,7 @@ export async function registerUser(
   ).run(
     user.id,
     user.email,
-    user.passwordHash,
+    passwordHash,
     user.tier,
     user.createdAt,
     user.updatedAt,
@@ -1299,7 +1337,7 @@ export async function updateUserTier(actorUserId: string, targetEmail: string, t
   try {
     const { revokeApiKeysIfTierDropped } = await import('@/core/apiKeys');
     const result = await revokeApiKeysIfTierDropped(user.email, previousTier, nextTier);
-    if (result && result.revoked > 0) {
+    if (result.status === 'revoked' && result.revoked > 0) {
       appendAuditEvent({
         type: 'api_key_auto_revoked',
         userId: user.id,
@@ -1307,6 +1345,24 @@ export async function updateUserTier(actorUserId: string, targetEmail: string, t
         email: user.email,
         ip,
         message: `Revoked ${result.revoked} API key(s): tier dropped ${previousTier} → ${nextTier}`,
+      });
+    } else if (result.status === 'unconfigured') {
+      // An admin dropped this user out of Pro and their keys could NOT be
+      // deprovisioned — this deploy has no ZEROGEX_ADMIN_TOKEN. The key stays
+      // live because the backend does not re-derive tier per request. Record
+      // it: a silent skip here is indistinguishable from a clean revocation,
+      // which is how keys survived their subscriptions before this branch
+      // existed.
+      appendAuditEvent({
+        type: 'api_key_revoke_skipped_unconfigured',
+        userId: user.id,
+        actorUserId,
+        email: user.email,
+        ip,
+        message:
+          `API keys NOT revoked on tier drop ${previousTier} → ${nextTier}: key administration ` +
+          `is not configured (ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN). Any key this user ` +
+          `holds is still live — set both, then audit with make api-keys-list.`,
       });
     }
   } catch (err) {
@@ -1359,6 +1415,66 @@ export async function acknowledgeDisclaimerForRequest(request: NextRequest, vers
   };
 }
 
+/**
+ * Record an affirmative acceptance of the Terms of Service and Privacy Policy
+ * for the signed-in member, from the acceptance gate in ClientLayout.
+ *
+ * This exists because registerUser is not the only way an account comes into
+ * being. createOrLoginOAuthUser mints one from a Google or Apple callback with
+ * no acceptance to record, and every account created before the signup
+ * checkbox shipped has both columns NULL. Those rows cannot be repaired by
+ * writing a timestamp into them: the members never saw a checkbox, so an
+ * invented date would assert an act that did not happen, which is worse than
+ * the honest absence in the one situation the column exists for. The only
+ * remedy that yields a record worth holding is to ask, which is what this is.
+ *
+ * The version is re-checked here rather than trusted from the route: the value
+ * arrives from a browser, and a client that posts a superseded version has by
+ * definition not agreed to the text now published.
+ */
+export async function acceptTermsForRequest(request: NextRequest, version: string) {
+  if (!isAcceptedTermsVersionCurrent(version)) return { error: 'stale_version' as const };
+
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  // What this acceptance replaces, read before the write so the audit row can
+  // say it. "No prior acceptance recorded" is the whole point of the exercise
+  // and is worth stating explicitly in the trail, not inferring later from the
+  // absence of an earlier row.
+  const prior = db
+    .prepare('SELECT terms_version_accepted FROM users WHERE id = ?')
+    .get(data.user.id) as { terms_version_accepted: string | null } | undefined;
+
+  const now = nowIso();
+  db.prepare(
+    'UPDATE users SET terms_accepted_at = ?, terms_version_accepted = ?, updated_at = ? WHERE id = ?'
+  ).run(now, version, now, data.user.id);
+
+  appendAuditEvent({
+    type: 'terms_accept',
+    userId: data.user.id,
+    email: data.user.email,
+    ip: getClientIp(request),
+    // Self-contained and quotable, like the register event: the row already
+    // carries the timestamp and IP of the act, so this one line answers "what
+    // did the customer agree to, when, and what did it replace".
+    message:
+      `User accepted Terms of Service and Privacy Policy (effective ${version})` +
+      (prior?.terms_version_accepted
+        ? `, superseding the version effective ${prior.terms_version_accepted}`
+        : '; no prior acceptance was recorded for this account'),
+  });
+
+  return {
+    acceptedAt: now,
+    version,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
 export async function dismissFoundingLockinForRequest(request: NextRequest) {
   const data = await getSessionFromRequest(request);
   if (!data) return null;
@@ -1388,6 +1504,200 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
 // modal, so it never greets them again (across devices — the flag lives on the
 // user row, not just sessionStorage). Idempotent: writing the same latch twice
 // is harmless; the first non-null value is what "seen" means.
+// ── Saved dashboard boards ───────────────────────────────────────────────────
+
+export type SavedLayoutRow = {
+  id: string;
+  name: string;
+  layout: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function rowToSavedLayout(row: {
+  id: string; name: string; layout_json: string; created_at: string; updated_at: string;
+}): SavedLayoutRow {
+  let layout: unknown = null;
+  try {
+    layout = JSON.parse(row.layout_json);
+  } catch {
+    // A row that will not parse is returned with a null layout rather than
+    // throwing the whole list away; the client sanitizes anyway and simply
+    // treats it as an empty board.
+    layout = null;
+  }
+  return { id: row.id, name: row.name, layout, createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+export function listSavedLayouts(userId: string): SavedLayoutRow[] {
+  const rows = getDb()
+    .prepare(
+      'SELECT id, name, layout_json, created_at, updated_at FROM dashboard_layouts WHERE user_id = ? ORDER BY updated_at DESC'
+    )
+    .all(userId) as Array<{ id: string; name: string; layout_json: string; created_at: string; updated_at: string }>;
+  return rows.map(rowToSavedLayout);
+}
+
+export async function listSavedLayoutsForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+  return { layouts: listSavedLayouts(data.user.id), rotatedToken: data.rotatedToken, csrfToken: data.csrfToken };
+}
+
+/**
+ * Create or overwrite a board by name. Saving over an existing name is the
+ * expected way to update a board you have just rearranged, so it replaces
+ * rather than erroring — the client confirms first.
+ */
+export async function saveLayoutForRequest(
+  request: NextRequest,
+  input: { name?: unknown; layout?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const name = normalizeLayoutName(input.name);
+  if (!name) return { error: 'A board name is required' as const };
+  if (name.length > MAX_LAYOUT_NAME_LENGTH) return { error: 'That board name is too long' as const };
+  if (input.layout == null || typeof input.layout !== 'object') {
+    return { error: 'A board layout is required' as const };
+  }
+
+  const layoutJson = JSON.stringify(input.layout);
+  if (Buffer.byteLength(layoutJson, 'utf8') > MAX_LAYOUT_BYTES) {
+    return { error: 'That board is too large to save' as const };
+  }
+
+  const db = getDb();
+  const now = nowIso();
+  const existing = db
+    .prepare('SELECT id FROM dashboard_layouts WHERE user_id = ? AND name = ?')
+    .get(data.user.id, name) as { id: string } | undefined;
+
+  if (existing) {
+    db.prepare('UPDATE dashboard_layouts SET layout_json = ?, updated_at = ? WHERE id = ?')
+      .run(layoutJson, now, existing.id);
+  } else {
+    const count = db
+      .prepare('SELECT COUNT(*) AS n FROM dashboard_layouts WHERE user_id = ?')
+      .get(data.user.id) as { n: number };
+    if (count.n >= MAX_SAVED_LAYOUTS) {
+      return { error: `You can keep up to ${MAX_SAVED_LAYOUTS} saved boards` as const };
+    }
+    db.prepare(
+      'INSERT INTO dashboard_layouts (id, user_id, name, layout_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(createId('board'), data.user.id, name, layoutJson, now, now);
+  }
+
+  return {
+    layouts: listSavedLayouts(data.user.id),
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/** Rename or delete one board. Scoped by user_id so an id alone is not enough. */
+export async function mutateSavedLayoutForRequest(
+  request: NextRequest,
+  layoutId: string,
+  input: { name?: unknown; deleted?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const owned = db
+    .prepare('SELECT id FROM dashboard_layouts WHERE id = ? AND user_id = ?')
+    .get(layoutId, data.user.id) as { id: string } | undefined;
+  if (!owned) return { error: 'No such board' as const };
+
+  if (input.deleted === true) {
+    db.prepare('DELETE FROM dashboard_layouts WHERE id = ?').run(layoutId);
+  } else {
+    const name = normalizeLayoutName(input.name);
+    if (!name) return { error: 'A board name is required' as const };
+    if (name.length > MAX_LAYOUT_NAME_LENGTH) return { error: 'That board name is too long' as const };
+    const clash = db
+      .prepare('SELECT id FROM dashboard_layouts WHERE user_id = ? AND name = ? AND id != ?')
+      .get(data.user.id, name, layoutId) as { id: string } | undefined;
+    if (clash) return { error: 'You already have a board with that name' as const };
+    db.prepare('UPDATE dashboard_layouts SET name = ?, updated_at = ? WHERE id = ?')
+      .run(name, nowIso(), layoutId);
+  }
+
+  return {
+    layouts: listSavedLayouts(data.user.id),
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/**
+ * Appearance saved against the account. The browser cookie is still what the
+ * server paints from — this is the copy that survives a new device, a cleared
+ * cookie jar, or a browser that expires script-written cookies early (Safari's
+ * ITP and Brave's shields both do), and that seeds the cookie again at login.
+ */
+export function readAccountAppearance(userId: string): { theme: string | null; palette: string | null } {
+  const row = getDb()
+    .prepare('SELECT ui_theme, ui_palette FROM users WHERE id = ?')
+    .get(userId) as { ui_theme?: string | null; ui_palette?: string | null } | undefined;
+  return { theme: row?.ui_theme ?? null, palette: row?.ui_palette ?? null };
+}
+
+/**
+ * Persist the member's appearance. Values are normalized before they land, so
+ * a retired palette id is stored as its successor and anything unrecognized
+ * becomes the default rather than being written through.
+ */
+export async function saveAppearanceForRequest(
+  request: NextRequest,
+  input: { theme?: unknown; palette?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const theme = normalizeTheme(typeof input.theme === 'string' ? input.theme : null);
+  const palette = normalizePalette(typeof input.palette === 'string' ? input.palette : null);
+  const now = nowIso();
+  getDb()
+    .prepare('UPDATE users SET ui_theme = ?, ui_palette = ?, updated_at = ? WHERE id = ?')
+    .run(theme, palette, now, data.user.id);
+
+  return {
+    theme,
+    palette,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/**
+ * Seed the appearance cookies from the account. Called where a session is
+ * established — login, register, OAuth — so a member signing in on a new
+ * browser gets their own theme on the very first render rather than the site
+ * default followed by a repaint. Deliberately NOT called on ordinary session
+ * validation: doing so on every request would overwrite a change made in this
+ * browser before it had a chance to save.
+ */
+export function applyAppearanceCookies(response: NextResponse, userId: string) {
+  const stored = readAccountAppearance(userId);
+  if (!stored.theme && !stored.palette) return;
+  const common = {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: APPEARANCE_COOKIE_MAX_AGE,
+  };
+  if (stored.theme) {
+    response.cookies.set({ name: THEME_COOKIE, value: normalizeTheme(stored.theme), ...common });
+  }
+  if (stored.palette) {
+    response.cookies.set({ name: PALETTE_COOKIE, value: normalizePalette(stored.palette), ...common });
+  }
+}
+
 export async function markProWelcomeSeenForRequest(request: NextRequest) {
   const data = await getSessionFromRequest(request);
   if (!data) return null;
@@ -1403,7 +1713,7 @@ export async function markProWelcomeSeenForRequest(request: NextRequest) {
     userId: data.user.id,
     email: data.user.email,
     ip: getClientIp(request),
-    message: 'User acknowledged the Pro welcome / API-key onboarding modal',
+    message: 'User acknowledged the Pro welcome / first-run modal',
   });
 
   return {

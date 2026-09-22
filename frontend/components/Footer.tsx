@@ -65,7 +65,13 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'footer.platform',
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
-      { href: '/chart', label: 'Gamma Chart' },
+      { href: '/chart', label: 'Gamma Terminal' },
+      // The free widget's storefront. Site-wide rather than buried on the
+      // levels pages: it is the only page on the site whose whole job is to be
+      // found by someone who publishes elsewhere, and /scorecard already
+      // demonstrated what happens to a public page with no inbound link — it
+      // sat unreachable except from one dated post.
+      { href: '/embed', label: 'Gamma Levels Widget' },
       // One link, not one per platform — the four landings live under
       // /integrations and the hub is the only entry the menus carry too.
       // See core/integrations.ts.

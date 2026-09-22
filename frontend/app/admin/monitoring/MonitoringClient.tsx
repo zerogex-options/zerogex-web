@@ -1,13 +1,14 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
-import DailySignals from './DailySignals';
+import GrowthClient from './growth/GrowthClient';
+import DeclineTracking from './declines/DeclineTracking';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
   buildSignupImpliedMrrProjection,
@@ -25,6 +26,8 @@ import {
   type ConveyorRider,
   type ConveyorState,
   type ConveyorTotals,
+  type UpcomingChanges,
+  type UpcomingStep,
 } from '@/core/trialConveyor';
 import { ledgerKindLabel, type LedgerEventKind, type LedgerRow } from '@/core/subscriberBucket';
 import type { SubscriberProjectionPoint } from '@/core/trialConveyor';
@@ -210,7 +213,17 @@ type TrialConveyor = {
   outcomes: ConveyorOutcomes;
   trialDays: number;
   graceDays: number;
+  upcoming: UpcomingChangesSnapshot;
   generatedAt: string;
+};
+
+// Mirrors UpcomingChangesSnapshot in core/monitoring.ts. The `drops` count and
+// `dropValue` amount arrive NEGATIVE (pre-negated server-side) so they read the
+// way the chart draws them, with no flipping on this side.
+type UpcomingChangesSnapshot = UpcomingChanges & {
+  horizonDays: number;
+  undecidedStalled: number;
+  dayMarks: Array<{ at: string; day: string }>;
 };
 
 // Mirrors SubscriberLedgerSnapshot in core/monitoring.ts (hand-synced — that
@@ -221,6 +234,10 @@ type SubscriberLedger = {
   truncated: number;
   net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
+  // Non-null when the ledger is empty because it FAILED to build. Rendered
+  // instead of "nothing has changed", which is otherwise a confident claim the
+  // page has no grounds for.
+  error: string | null;
 };
 
 // Mirrors SubscriberProjection in core/monitoring.ts (hand-synced — that module
@@ -231,6 +248,7 @@ type SubscriberProjection = {
   anchorPaying: number;
   points: SubscriberProjectionPoint[];
   undecidedStalled: number;
+  undecidedConverting: number;
 };
 
 type Snapshot = {
@@ -293,7 +311,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'daily';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'growth';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -310,7 +328,7 @@ export default function MonitoringClient() {
   useEffect(() => {
     // Both of these tabs own their own fetch, so the shared snapshot poll would
     // be pure waste while either is open.
-    if (tab === 'backend' || tab === 'daily') return;
+    if (tab === 'backend' || tab === 'growth') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -349,7 +367,7 @@ export default function MonitoringClient() {
     { id: 'stripe', label: 'Stripe' },
     { id: 'revenue', label: 'Revenue Tracking' },
     { id: 'conveyor', label: 'Conversion Conveyor' },
-    { id: 'daily', label: 'Daily Signals' },
+    { id: 'growth', label: 'Growth' },
   ];
 
   return (
@@ -392,8 +410,8 @@ export default function MonitoringClient() {
         />
       )}
       {tab === 'backend' && <BackendMonitoring />}
-      {tab === 'stripe' && data && !loading && !error && (
-        <StripeTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      {tab === 'stripe' && (
+        <StripeTab data={data} loading={loading} error={error} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
       {tab === 'revenue' && data && !loading && !error && (
         <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
@@ -401,11 +419,11 @@ export default function MonitoringClient() {
       {tab === 'conveyor' && data && !loading && !error && (
         <ConveyorTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab === 'daily' && (
-        <DailySignals cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      {tab === 'growth' && (
+        <GrowthClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab !== 'backend' && tab !== 'daily' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && tab !== 'daily' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
@@ -552,6 +570,16 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 // "Twitter/X" since they're the same channel. `(direct / none)` is the
 // DIRECT_SOURCE_LABEL bucket from core/pageAnalytics.ts. Any source not listed
 // here falls through to its raw key so nothing is silently dropped.
+//
+// `twitter` is now folded into `x` by sanitizeUtmSource itself, so it should no
+// longer reach this map. The entry stays as a backstop for any row written
+// before that landed and not yet caught by `make normalize-utm-sources`.
+//
+// This display-time merge is also why the split went unnoticed for so long: this
+// view showed one combined row while the channel really was stored as two keys,
+// and it took a report that does NOT use this map (the decline-by-source cut) to
+// make the split visible. A merge in the presentation layer hides a data problem
+// that a different report will eventually trip over.
 const CONVERSION_SOURCE_LABELS: Record<string, string> = {
   '(direct / none)': 'Direct/none',
   twitter: 'Twitter/X',
@@ -706,16 +734,36 @@ function ConversionBySourceSection({
 
 type DataTabProps = Omit<FrontendTabProps, 'loading' | 'error'> & { data: Snapshot };
 
-function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+// The billing tab, in the order the money matters: what is being lost without
+// anyone choosing it, then what is being lost because someone did, then whether
+// the pipe carrying either of them is healthy.
+//
+// Payment Declines owns its own fetch (its window is caller-chosen and its read
+// runs a reconcile pass, neither of which belongs on the shared 60-second
+// snapshot poll), so it renders immediately rather than waiting on `data`.
+function StripeTab({ data, loading, error, cardBg, borderColor, axisStroke, mutedText, textColor }: FrontendTabProps) {
   return <div>
     <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
-      <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Payment Declines</h2>
+        <span className="text-xs" style={{ color: mutedText }}>Revenue that did not arrive because a card said no — how much is gone, how much is still coming back, and why.</span>
+      </div>
+      <DeclineTracking mutedText={mutedText} axisStroke={axisStroke} borderColor={borderColor} />
     </section>
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
-      <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-    </section>
+    {loading && !data && <LoadingSpinner size="lg" />}
+    {error && <ErrorMessage message={error} />}
+    {data && (
+      <>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
+          <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+        </section>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
+          <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+        </section>
+      </>
+    )}
   </div>;
 }
 
@@ -1067,10 +1115,12 @@ const LEDGER_TONE: Record<LedgerEventKind, string> = {
   trialStarted: ROW_COLORS.signups,
   conversionPending: CONVERTING_COLOR,
   converted: CONVEYOR_COLORS.running,
+  orphanRecovered: CONVEYOR_COLORS.running,
   recovered: CONVEYOR_COLORS.running,
   trialChargeDeclined: CONVEYOR_COLORS.stalled,
   renewalFailed: CONVEYOR_COLORS.stalled,
-  cancelScheduled: CONVEYOR_COLORS.stalled,
+  cancelScheduledTrial: CONVEYOR_COLORS.stalled,
+  cancelScheduledPaid: CONVEYOR_COLORS.rollingOff,
   cancelReverted: CONVEYOR_COLORS.running,
   paused: PAUSE_COLOR,
   resumed: CONVEYOR_COLORS.running,
@@ -1159,7 +1209,22 @@ function SubscriberLedgerCard({
         </button>
       </div>
 
-      {rows.length === 0 ? (
+      {ledger.error ? (
+        // A failed build must never read as a quiet window. Chasing a member who
+        // is missing from this list is a very different job depending on which
+        // of the two it is, and the page is the only thing that knows.
+        <div className="text-sm py-6 px-3 text-center" style={{ color: CONVEYOR_COLORS.stalled }}>
+          <div className="font-semibold">The ledger could not be built.</div>
+          <div className="text-xs mt-1" style={{ color: mutedText }}>
+            This is NOT &ldquo;nothing happened&rdquo; — the query failed, so the last{' '}
+            {ledger.windowDays} days are unknown. Check the server log for
+            <code className="mx-1">[monitoring] subscriber ledger</code>.
+          </div>
+          <div className="text-[11px] mt-2 font-mono break-words" style={{ color: mutedText }}>
+            {ledger.error}
+          </div>
+        </div>
+      ) : rows.length === 0 ? (
         <p className="text-sm py-6 text-center" style={{ color: mutedText }}>
           Nothing has changed in the last {ledger.windowDays} days.
         </p>
@@ -1297,6 +1362,287 @@ function ScheduledDeparturesCard({
   );
 }
 
+// ── What's coming up ───────────────────────────────────────────────────────
+// The belt's committed events on a real clock: a step that rises at the instant
+// a trial is due to be charged and falls at the instant a cancellation takes
+// effect, read against zero — today's paid count. Green above the line, red
+// below. Nothing here is forecast: every step is an event Stripe already has a
+// date for, which is what makes it worth acting on.
+
+// Day names come off ET day keys, which are calendar dates — parsed and
+// formatted as UTC so the label can't slide a day on the viewer's clock.
+function upcomingDayLabel(day: string, opts?: { withDate?: boolean }): string {
+  const ms = Date.parse(`${day}T00:00:00Z`);
+  if (!Number.isFinite(ms)) return day;
+  return new Date(ms).toLocaleDateString('en-US', {
+    weekday: 'short',
+    timeZone: 'UTC',
+    ...(opts?.withDate ? { month: 'numeric', day: 'numeric' } : {}),
+  });
+}
+
+// An instant on the belt, in ET — the same clock every bucket on this page is
+// cut on, so the time shown and the day it sits under always agree.
+function upcomingInstant(at: string, opts?: { withDay?: boolean }): string {
+  const ms = Date.parse(at);
+  if (!Number.isFinite(ms)) return '—';
+  return new Date(ms).toLocaleString('en-US', {
+    ...(opts?.withDay ? { weekday: 'short', month: 'numeric', day: 'numeric' } : {}),
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/New_York',
+  });
+}
+
+// Longest list of members named in one step's tooltip before it is summarized.
+// A step usually carries one event; several only collide when Stripe schedules
+// them for the same instant.
+const UPCOMING_TOOLTIP_ROWS = 8;
+
+function UpcomingChangesCard({
+  upcoming,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  upcoming: UpcomingChangesSnapshot;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const steps = upcoming.steps;
+  const addColor = CONVEYOR_COLORS.running;
+  const dropColor = CONVEYOR_COLORS.rollingOff;
+  // SVG gradient ids have to be unique across the whole DOCUMENT: a duplicate id
+  // makes every `url(#…)` on the page resolve to the FIRST one, so a second card
+  // would silently paint itself with the first card's zero crossing.
+  const gradientId = useId();
+  const fillId = `upcomingNetFill${gradientId}`;
+  const strokeId = `upcomingNetStroke${gradientId}`;
+
+  const startMs = useMemo(() => Date.parse(upcoming.startsAt), [upcoming.startsAt]);
+  const endMs = useMemo(() => Date.parse(upcoming.endsAt), [upcoming.endsAt]);
+  const stepByTime = useMemo(() => new Map(steps.map((s) => [s.t, s] as const)), [steps]);
+
+  // Where zero sits inside the plotted shape, as a 0..1 fraction from the top.
+  // An SVG gradient on a Recharts <Area> is measured against the PATH's own
+  // bounding box, not the axis, so this is computed from the values the path
+  // actually reaches — never from the padded axis domain, which would put the
+  // color change above or below the line it is meant to trace. The step always
+  // opens at zero, so the box always contains it.
+  const { splitOffset, yScale } = useMemo(() => {
+    const values = steps.map((s) => s.net);
+    const high = Math.max(0, ...values);
+    const low = Math.min(0, ...values);
+    const offset = high === low ? 1 : high / (high - low);
+    // One unit of headroom either side, so the line never runs along the frame
+    // and an all-green week still shows the room below zero it isn't using.
+    // Ticks are spaced separately and walked OUTWARD FROM ZERO, because zero is
+    // the one value on this axis that has to carry a label — it is what the
+    // whole chart is read against.
+    const step = Math.max(1, Math.ceil((high - low) / 3));
+    const ticks = [0];
+    for (let v = step; v <= high + 1; v += step) ticks.push(v);
+    for (let v = -step; v >= low - 1; v -= step) ticks.unshift(v);
+    return {
+      splitOffset: offset,
+      yScale: { domain: [low - 1, high + 1] as [number, number], ticks },
+    };
+  }, [steps]);
+
+  // Server-side counts arrive pre-negated to match the chart; the header reads
+  // them back as plain magnitudes, and a zero never wears a minus sign.
+  const drops = upcoming.drops === 0 ? 0 : -upcoming.drops;
+  const dropValue = upcoming.dropValue === 0 ? 0 : -upcoming.dropValue;
+  const quiet = upcoming.adds === 0 && drops === 0;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-x-4 gap-y-2 mb-2">
+        <div className="flex items-center gap-4 flex-wrap text-xs" style={{ color: mutedText }}>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm" style={{ background: addColor }} />
+            Converting <span className="tabular-nums font-semibold" style={{ color: addColor }}>+{upcoming.adds}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm" style={{ background: dropColor }} />
+            Leaving{' '}
+            <span className="tabular-nums font-semibold" style={{ color: dropColor }}>
+              {drops === 0 ? '0' : `−${drops}`}
+            </span>
+          </span>
+          <span style={{ color: textColor }}>
+            Net{' '}
+            <span
+              className="tabular-nums font-semibold"
+              style={{ color: upcoming.net >= 0 ? addColor : dropColor }}
+            >
+              {upcoming.net >= 0 ? '+' : '−'}{Math.abs(upcoming.net)}
+            </span>{' '}
+            paid subscriber{Math.abs(upcoming.net) === 1 ? '' : 's'} over the next {upcoming.horizonDays} days
+          </span>
+        </div>
+        <span className="text-xs tabular-nums" style={{ color: mutedText }}>
+          {formatUsd(upcoming.addValue)}/mo arriving · {formatUsd(dropValue)}/mo leaving
+        </span>
+      </div>
+
+      <ResponsiveContainer width="100%" height={140}>
+        <ComposedChart data={steps} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <defs>
+            {/* One shape, two colors, split exactly where the line crosses zero. */}
+            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset={0} stopColor={addColor} stopOpacity={0.5} />
+              <stop offset={splitOffset} stopColor={addColor} stopOpacity={0.12} />
+              <stop offset={splitOffset} stopColor={dropColor} stopOpacity={0.12} />
+              <stop offset={1} stopColor={dropColor} stopOpacity={0.5} />
+            </linearGradient>
+            <linearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset={0} stopColor={addColor} />
+              <stop offset={splitOffset} stopColor={addColor} />
+              <stop offset={splitOffset} stopColor={dropColor} />
+              <stop offset={1} stopColor={dropColor} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeOpacity={0.1} vertical={false} />
+          {/* A real time axis: each step sits at the instant it is due, not in a
+              bucket. Ticks are the ET midnights inside the window, resolved
+              server-side, plus "Now" pinning the left edge. */}
+          <XAxis
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={[startMs, endMs]}
+            stroke={mutedText}
+            tick={{ fill: mutedText, fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            // No interval={0}: "Now" and the first midnight sit close together
+            // whenever the page is opened late in the day, and at phone width
+            // they collide. minTickGap drops whichever the axis has no room for
+            // rather than overprinting them.
+            minTickGap={26}
+            ticks={[startMs, ...upcoming.dayMarks.map((m) => Date.parse(m.at))]}
+            tickFormatter={(t: number) => {
+              const mark = upcoming.dayMarks.find((m) => Date.parse(m.at) === t);
+              return mark ? upcomingDayLabel(mark.day) : 'Now';
+            }}
+          />
+          <YAxis
+            stroke={mutedText}
+            tick={{ fill: mutedText, fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={28}
+            allowDecimals={false}
+            domain={yScale.domain}
+            ticks={yScale.ticks}
+            interval={0}
+          />
+          <Tooltip
+            cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+            content={({ active, label }) => {
+              if (!active) return null;
+              const step = stepByTime.get(Number(label));
+              if (!step) return null;
+              return <UpcomingStepTooltip step={step} addColor={addColor} dropColor={dropColor} />;
+            }}
+          />
+          {/* stepAfter, never a curve: a headcount moves in whole subscribers,
+              so the value holds flat until the next event and then jumps. */}
+          <Area
+            dataKey="net"
+            type="stepAfter"
+            stroke={`url(#${strokeId})`}
+            strokeWidth={2}
+            fill={`url(#${fillId})`}
+            baseValue={0}
+            dot={{ r: 2, strokeWidth: 0, fill: 'var(--color-text-primary)', fillOpacity: 0.45 }}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+          {/* Today's count. The whole chart is read as a distance from this
+              line, and it is the secondary encoding that keeps the two colors
+              legible without hue: up is green, down is red.
+              Drawn AFTER the area, on purpose. A stretch where nothing has
+              landed yet sits exactly on zero, and the gradient bisects that
+              stroke — leaving a flat, unchanged week showing a red edge. The
+              neutral line covers it, which is also the honest reading: a net of
+              zero is neither a gain nor a loss. */}
+          <ReferenceLine y={0} stroke={mutedText} strokeOpacity={0.7} strokeWidth={2} />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      <p className="text-xs mt-2" style={{ color: mutedText }}>
+        {quiet
+          ? `Nothing is scheduled to land in the next ${upcoming.horizonDays} days — no trial reaches its first charge and no cancellation takes effect.`
+          : 'The line is the running net against today, stepping at the instant each charge or cancellation lands. A trialer who clicks Cancel stops heading for a charge, so their step simply leaves the chart.'}
+        {upcoming.undecidedStalled > 0 &&
+          ` ${upcoming.undecidedStalled} trial${upcoming.undecidedStalled === 1 ? '' : 's'} retrying a declined charge ${upcoming.undecidedStalled === 1 ? 'is' : 'are'} left off — genuinely undecided until the retry lands.`}
+      </p>
+    </div>
+  );
+}
+
+function UpcomingStepTooltip({
+  step,
+  addColor,
+  dropColor,
+}: {
+  step: UpcomingStep;
+  addColor: string;
+  dropColor: string;
+}) {
+  const shown = step.events.slice(0, UPCOMING_TOOLTIP_ROWS);
+  const hidden = step.events.length - shown.length;
+  const netColor = step.net > 0 ? addColor : step.net < 0 ? dropColor : undefined;
+  return (
+    <div
+      className="rounded-lg border px-3 py-2 text-xs"
+      style={{
+        backgroundColor: 'var(--color-chart-tooltip-bg)',
+        borderColor: 'var(--color-border)',
+        color: 'var(--color-chart-tooltip-text)',
+      }}
+    >
+      <div className="font-semibold mb-1">{upcomingInstant(step.at, { withDay: true })}</div>
+      <div className="mb-1" style={{ opacity: 0.85 }}>
+        Running net vs today:{' '}
+        <span className="tabular-nums font-semibold" style={{ color: netColor }}>
+          {step.net >= 0 ? '+' : '−'}{Math.abs(step.net)}
+        </span>
+      </div>
+      {step.events.length === 0 ? (
+        <div style={{ opacity: 0.7 }}>Nothing lands at this moment</div>
+      ) : (
+        <>
+          <ul>
+            {shown.map((e) => (
+              <li key={`${e.kind}-${e.userId}`} className="flex gap-2">
+                <span
+                  className="tabular-nums font-semibold"
+                  style={{ color: e.kind === 'conversion' ? addColor : dropColor }}
+                >
+                  {e.kind === 'conversion' ? '+1' : '−1'}
+                </span>
+                <span className="truncate" style={{ maxWidth: '16rem' }}>{e.email ?? e.userId}</span>
+                {e.monthlyValue > 0 && (
+                  <span className="tabular-nums" style={{ opacity: 0.7 }}>
+                    {formatUsd(e.monthlyValue)}/mo
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {hidden > 0 && <div style={{ opacity: 0.7 }}>+ {hidden} more at this instant</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTabProps) {
   const conveyor = data.trialConveyor;
 
@@ -1391,6 +1737,26 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
           </div>
         </div>
       </div>
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>
+          Next {conveyor.upcoming.horizonDays} Days
+        </h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Net paid subscription adds against drops, day by day: every trial due to be charged is a +1 on the day it
+          converts, every scheduled cancellation a −1 on the day access ends. Committed events only — it re-reads
+          itself every minute, so a new trial appears and a canceled one disappears on its own.
+        </span>
+      </div>
+      <UpcomingChangesCard
+        upcoming={conveyor.upcoming}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
     </section>
 
     <section className="mb-8">
@@ -2940,8 +3306,19 @@ function projectionTitle(projection: SubscriberProjection): string {
     `Committed projection: today's ${projection.anchorPaying} full subscribers, plus trials already scheduled ` +
     `to be charged over the next ${projection.horizonDays} days, minus members whose cancellation takes effect ` +
     `in that window. No new signups are assumed.`;
-  return projection.undecidedStalled > 0
-    ? `${base} ${projection.undecidedStalled} trial${projection.undecidedStalled === 1 ? '' : 's'} retrying a declined charge are excluded as undecided.`
+  const undecided: string[] = [];
+  if (projection.undecidedStalled > 0) {
+    undecided.push(
+      `${projection.undecidedStalled} trial${projection.undecidedStalled === 1 ? '' : 's'} retrying a declined charge`,
+    );
+  }
+  if (projection.undecidedConverting > 0) {
+    undecided.push(
+      `${projection.undecidedConverting} whose first charge is in flight right now`,
+    );
+  }
+  return undecided.length > 0
+    ? `${base} Excluded as undecided: ${undecided.join(', ')}.`
     : base;
 }
 

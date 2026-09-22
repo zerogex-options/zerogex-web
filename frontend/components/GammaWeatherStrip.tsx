@@ -140,6 +140,8 @@ export interface GammaWeatherStripProps {
   flow?: HedgingFlowPayload | null;
   regime?: GammaRegimeSeriesPayload | null;
   symbol?: string;
+  /** Set on a dated page so the drawer narrates that session, not today. */
+  date?: string | null;
 }
 
 export default function GammaWeatherStrip({
@@ -147,6 +149,7 @@ export default function GammaWeatherStrip({
   flow = null,
   regime = null,
   symbol,
+  date = null,
 }: GammaWeatherStripProps) {
   // One field at a time, per the spec: opening another swaps the drawer,
   // clicking the open one closes it. Five charts at once is the wall of
@@ -159,7 +162,7 @@ export default function GammaWeatherStrip({
   // does not need a session of sentences to say what the read is now.
   const { data: series, loading: seriesLoading } = useGammaWeatherSeries(
     symbol ?? payload.symbol,
-    openField != null,
+    { enabled: openField != null, date },
   );
 
   const tone = STATE_TONE[payload.state] ?? 'neutral';

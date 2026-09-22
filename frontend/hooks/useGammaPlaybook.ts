@@ -45,6 +45,7 @@ import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { resolvePriceSession } from '@/core/sessionCloses';
 import { etTodayDateKey } from '@/core/utils';
 import { longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { firstLevel, levelOrNull } from '@/core/levelValue';
 import {
   atSpotGammaForPlaybook,
   describePlaybookScenario,
@@ -99,11 +100,6 @@ export interface GammaPlaybookRead {
   delayed: boolean;
 }
 
-function num(value: unknown): number | null {
-  const n = typeof value === 'string' ? Number(value) : (value as number);
-  return typeof n === 'number' && Number.isFinite(n) ? n : null;
-}
-
 /**
  * Most-recent bucket that actually carries gamma. Mirrors the chart's
  * `liveGexBucket`: walk back from the tip so an empty / all-zero after-hours
@@ -112,7 +108,7 @@ function num(value: unknown): number | null {
 function lastGammaBucket(buckets: StrikeProfileBucket[]): StrikeProfileBucket | null {
   for (let i = buckets.length - 1; i >= 0; i--) {
     const bucket = buckets[i];
-    if (Array.isArray(bucket.strikes) && bucket.strikes.some((s) => num(s.net_gamma))) return bucket;
+    if (Array.isArray(bucket.strikes) && bucket.strikes.some((s) => levelOrNull(s.net_gamma))) return bucket;
   }
   return null;
 }
@@ -150,20 +146,20 @@ export function useGammaPlaybook({
   // when a subset is chosen (so the Playbook reads the book the chart is
   // drawing), then the delayed snapshot, then the whole-chain profile/summary.
   const flip = levelBucket
-    ? num(levelBucket.gamma_flip)
+    ? levelOrNull(levelBucket.gamma_flip)
     : snapshot
       ? snapshot.gamma.flip
-      : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
+      : firstLevel(gexProfile?.gamma_flip, gexSummary?.gamma_flip);
   const callWall = levelBucket
-    ? num(levelBucket.call_wall)
+    ? levelOrNull(levelBucket.call_wall)
     : snapshot
       ? snapshot.gamma.callWall
-      : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
+      : firstLevel(gexProfile?.call_wall, gexSummary?.call_wall);
   const putWall = levelBucket
-    ? num(levelBucket.put_wall)
+    ? levelOrNull(levelBucket.put_wall)
     : snapshot
       ? snapshot.gamma.putWall
-      : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+      : firstLevel(gexProfile?.put_wall, gexSummary?.put_wall);
   // Max Pain is not a stored field on the timeseries buckets, so a filtered
   // book recovers it from that bucket's per-strike OI — the same recovery the
   // chart does, so the strip can never print a whole-chain pin beside a
@@ -172,11 +168,11 @@ export function useGammaPlaybook({
     ? computeMaxPainFromStrikes(levelBucket.strikes)
     : snapshot
       ? snapshot.gamma.maxPain
-      : num(gexSummary?.max_pain);
+      : levelOrNull(gexSummary?.max_pain);
   // Pin Strike is summary-only (see the interface note) and absent from the
   // public snapshot, where it degrades to "no active pin".
-  const pinStrike = snapshot ? null : num(gexSummary?.pin_strike);
-  const pinConfidence = snapshot ? null : num(gexSummary?.pin_confidence);
+  const pinStrike = snapshot ? null : levelOrNull(gexSummary?.pin_strike);
+  const pinConfidence = snapshot ? null : levelOrNull(gexSummary?.pin_confidence);
 
   // Spot: the same tape reading the chart's price marker rides (live quote in
   // extended hours, the regular close when the tape is shut).
@@ -192,7 +188,7 @@ export function useGammaPlaybook({
     sessionCloses: snapshot ? snapshot.sessionCloses : sessionCloses,
     preferLiveExtendedHours: true,
   });
-  const spot = tape.displayPrice ?? num(gexProfile?.spot_price ?? gexSummary?.spot_price);
+  const spot = tape.displayPrice ?? firstLevel(gexProfile?.spot_price, gexSummary?.spot_price);
 
   // Whole-chain at-spot gamma, withheld when the levels above came from a
   // filtered book (see atSpotGammaForPlaybook).

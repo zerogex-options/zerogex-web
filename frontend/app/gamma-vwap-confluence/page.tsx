@@ -1,6 +1,7 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import Link from 'next/link';
 import { useMemo } from 'react';
 import { Compass, Gauge, Magnet, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -76,19 +77,17 @@ export default function GammaVwapConfluencePage() {
     };
   }, [payload, gexSummary]);
 
-  // cluster_gap_pct is the range spanned by the clustered levels, normalized
-  // by spot. Back-compute it when the backend omits it.
-  const clusterGapPct = useMemo(() => {
-    const raw = getNumber(payload.cluster_gap_pct);
-    if (raw != null) return raw;
-    const candidates = [ctx.gammaFlip, ctx.vwap, ctx.maxPain, ctx.maxGamma, ctx.callWall]
-      .filter((v): v is number => v != null && Number.isFinite(v));
-    if (candidates.length < 2) return null;
-    const spot = ctx.close;
-    if (spot == null || spot === 0) return null;
-    const span = Math.max(...candidates) - Math.min(...candidates);
-    return span / spot;
-  }, [payload.cluster_gap_pct, ctx]);
+  // cluster_gap_pct is |flip - VWAP| / price: the distance between the two
+  // PERMANENT cluster members, never the span of all five reference levels.
+  // The backend always emits the key and sends null only from its
+  // `missing_levels` short-circuit -- the same branch that omits
+  // confluence_level, cluster_quality and cluster_members and scores 0. There
+  // is no cluster in that state, so there is no gap to reconstruct: a
+  // back-computed number would be the only populated field in the box, and
+  // would have to borrow a gamma flip from gex-summary that the signal itself
+  // treated as unavailable. Read the field and let it render as "--" with its
+  // neighbours, which is what /advanced-signals already does.
+  const clusterGapPct = getNumber(payload.cluster_gap_pct);
 
   const trend = toTrend(payload.direction);
   const color = trendColor(trend);
@@ -116,7 +115,7 @@ export default function GammaVwapConfluencePage() {
         title="Gamma / VWAP Confluence"
         subtitle={'"Are key levels stacking up here?"'}
         icon={Magnet}
-        tooltip="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
+        tooltip="The gamma flip and VWAP are ALWAYS the core of the cluster; max pain, max gamma and the call wall join only when they sit within 0.15% of the flip/VWAP midpoint. The more that qualify, and the tighter the flip and VWAP sit, the more the stack reads as a magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -212,10 +211,19 @@ export default function GammaVwapConfluencePage() {
       <SignalHowItsBuilt
         caveat={<>Short-gamma regime → breakout continues past the level (continuation). Long-gamma regime → reverts to the level (mean-reversion, ×0.7 conviction).</>}
       >
-        <div>Cluster the five reference levels (Gamma Flip, VWAP, Max Pain, Max Gamma, Call Wall) by their pairwise gap relative to spot.</div>
-        <div><code>Cluster Quality = (Members in Cluster / 5) × (1 − Cluster Gap % / Max Gap)</code>.</div>
-        <div><code>Raw = Cluster Quality × sign(Close − Confluence Level) × Regime Factor</code>, where Regime Factor depends on dealer Net GEX sign.</div>
-        <div><code>Score = clip(Raw, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 20.</div>
+        <div>The <strong>Gamma Flip and VWAP are always members</strong>, which is why every card floors at <code>Members: 2</code>. Max Pain, Max Gamma and the Call Wall each join only if they sit within <strong>0.15%</strong> of the midpoint between the flip and VWAP.</div>
+        <div><code>Confluence Level = mean(qualifying members)</code>, and <code>Cluster Gap = |Flip − VWAP| ÷ Price</code> — the gap is the two core members’ distance, not the span of all five.</div>
+        <div><code>Cluster Quality = clamp(1 − Cluster Gap % ÷ 1.0%, 0.05, 1.00)</code>. That 0.05 floor is why a wide-gap card still prints a small score: a ±5 is the model reporting <em>no cluster</em>, not weak direction.</div>
+        <div><code>Members Multiplier = 1 + 0.15 × (Members − 2)</code> — four members is 1.30× on the same geometry.</div>
+        <div><code>Distance = (Price − Confluence Level) ÷ Price</code>, scaled so roughly ±0.30% saturates the reading: the model reads which side price is on, not how far it has gone.</div>
+        <div><code>Raw = Quality × Members Multiplier × scaled Distance × Regime Factor</code>, where Regime Factor is <code>+1</code> in short gamma (continuation) and <code>−0.7</code> in long gamma (mean reversion — the sign inverts).</div>
+        <div><code>Score = clip(Raw, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 20; below that the card reads “No confluence edge” rather than naming a direction.</div>
+        <div className="pt-1">
+          The long version — why the quality floor makes a small score an <em>absent</em> cluster rather than a weak one, and why two symbols can read opposite on the same afternoon:{' '}
+          <Link href="/education/gamma-vwap-confluence-explained" className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline">
+            Gamma / VWAP Confluence explained
+          </Link>.
+        </div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="gamma_vwap_confluence" symbol={symbol} title="Event Timeline" />

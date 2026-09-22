@@ -76,6 +76,32 @@ function initDb(): DatabaseSync {
     );
   `);
 
+  // Named boards a member has saved on My Dashboard. One row per saved board;
+  // the live working board still lives in localStorage and is untouched by
+  // this. `layout_json` holds the same serialized DashboardLayout that
+  // sanitizeLayout() already validates on read, so a row written by an older
+  // release — or, later, by another member — is checked against the current
+  // widget registry before anything is rendered.
+  //
+  // Shaped with sharing in mind: a published board is this row plus a
+  // visibility flag and an author, so that becomes an added column rather than
+  // a second table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dashboard_layouts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      layout_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      -- Two boards with the same name under one account are indistinguishable
+      -- in the switcher, so the database refuses them rather than the UI.
+      UNIQUE(user_id, name),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_dashboard_layouts_user_id ON dashboard_layouts(user_id);');
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id TEXT PRIMARY KEY,
@@ -186,6 +212,11 @@ function initDb(): DatabaseSync {
   // not falsified. Read them as "no recorded acceptance" and fall back to the
   // footer-linked published terms.
   ensureColumn('users', 'terms_accepted_at', 'TEXT');
+  // Appearance, stored against the account so it follows the member to a new
+  // browser or device instead of living only in that browser's cookie. Null
+  // means "never chosen" — the site default applies.
+  ensureColumn('users', 'ui_theme', 'TEXT');
+  ensureColumn('users', 'ui_palette', 'TEXT');
   ensureColumn('users', 'terms_version_accepted', 'TEXT');
 
   // Last authenticated request, throttled to one write per
@@ -337,8 +368,9 @@ function initDb(): DatabaseSync {
   // (basic → premium with no intervening cancel) trigger nothing.
   ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
 
-  // One-time in-app "Welcome to Pro" onboarding modal (announces self-service
-  // API-key generation). NULL = not yet shown; set to the ISO timestamp the
+  // One-time in-app "Welcome to Pro" onboarding modal (points a new member at
+  // the Signal Dashboard to start; API keys are mentioned second). NULL = not
+  // yet shown; set to the ISO timestamp the
   // first time the member sees/dismisses it, so it greets a new Pro subscriber
   // exactly once — on their first landing back after the Stripe checkout
   // redirect. Backfilled to "already seen" for everyone who ALREADY holds a
@@ -473,6 +505,20 @@ function initDb(): DatabaseSync {
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
 
+  // COOLDOWN anchor — deliberately NOT a latch — for the return-intent email
+  // sent by scripts/send-return-intent.mts: the reply to a churned member who
+  // logged back in on their own. Stores the ISO timestamp of the last such send.
+  //
+  // Every other nudge column in this file is a one-shot that is never cleared,
+  // which is right for a milestone (you only abandon your first checkout once)
+  // and wrong for a recurring signal. A member can come back, decide not to
+  // resubscribe, and come back again eight months later; latching would spend
+  // the entire churned book on one sweep and leave nothing for any future
+  // churn. core/returnIntent.ts therefore reads this as "how long since we last
+  // answered them" and additionally requires the visit to be NEWER than this
+  // timestamp, so an expiring cooldown can never re-fire on a stale login.
+  ensureColumn('users', 'return_intent_email_sent_at', 'TEXT');
+
   // One-shot latch for the self-serve retention SAVE (app/save/route.ts): the
   // automated "keep my access + claim the discount" one-click flow linked from
   // the cancellation email. NULL = never claimed; set to the ISO timestamp when
@@ -581,6 +627,68 @@ function initDb(): DatabaseSync {
           SET first_payment_at = updated_at
         WHERE first_payment_at IS NULL
           AND subscription_status = 'active'`,
+    ).run();
+  }
+
+  // The SAME question as first_payment_at, asked about the SUBSCRIPTION rather
+  // than the account: has an invoice been paid on the subscription this member
+  // is on RIGHT NOW? first_payment_at cannot answer it. It is stamped at most
+  // once per account, so a member who paid on an earlier subscription carries a
+  // non-null value into every subsequent one — and the Total Subscribers chart,
+  // reading it, counted a returning member as a Full Subscriber for the hour
+  // between Stripe raising their post-trial invoice and actually charging it.
+  // That is exactly the sawtooth the Converting line exists to prevent; it just
+  // never protected anyone on their second subscription.
+  //
+  // Stored as a POINTER (which subscription) plus a date, rather than a single
+  // "paid on the current sub" stamp that would have to be cleared whenever the
+  // subscription changes. Clearing is what makes it fragile: `invoice.paid` and
+  // `customer.subscription.created` have no delivery order, so a clear-on-change
+  // scheme drops the stamp whenever the payment lands first — which is routine
+  // for a no-trial signup. Comparing two columns is order-independent: whichever
+  // event arrives first, the pair reads correctly once both have.
+  //
+  // Read ONLY as "does this name the current subscription" (see
+  // subscriptionPaidAt in core/subscriberBucket.ts); the date is for humans
+  // reading `make diagnose-user`.
+  const addedPaidSubId = ensureColumn('users', 'last_paid_subscription_id', 'TEXT');
+  ensureColumn('users', 'last_paid_invoice_at', 'TEXT');
+  // Backfill, gated on the "column was just added" return so it runs EXACTLY
+  // ONCE — same load-bearing reason as first_payment_at above.
+  //
+  // This is written to preserve the chart's census EXACTLY, row for row, rather
+  // than to be maximally accurate. Only the `active` branch of the classifier
+  // reads these columns, so the census is unchanged if and only if every active
+  // row ends up stamped precisely when first_payment_at was non-null — which is
+  // the first arm below. An active row that was ALREADY on Converting (no
+  // payment on record) is deliberately left NULL so it stays there.
+  //
+  //   • past_due is stamped too, though no bucket reads it there: an established
+  //     payer in renewal dunning whose retry succeeds returns to `active`, and
+  //     an unstamped row would land on Converting instead of the Full Subscriber
+  //     line it never left. The old rule treats reaching a renewal as proof of
+  //     payment, so this carries that forward.
+  //   • past_due inside TRIAL grace is the one past_due deliberately excluded:
+  //     that member has never completed a payment on this subscription, so the
+  //     real stamp must come from their retry actually clearing.
+  //   • `trialing` is excluded for the same reason — their conversion charge has
+  //     not been attempted yet. This is what puts the 33 trials now running onto
+  //     Converting for the hour after their trial ends, which is the point.
+  //
+  // Verify before deploying with `make verify-bucket-migration`, which reports
+  // any row whose bucket would move. It should report none.
+  if (addedPaidSubId) {
+    db.prepare(
+      `UPDATE users
+          SET last_paid_subscription_id = stripe_subscription_id,
+              last_paid_invoice_at = COALESCE(first_payment_at, updated_at)
+        WHERE last_paid_subscription_id IS NULL
+          AND stripe_subscription_id IS NOT NULL
+          AND (
+                (subscription_status = 'active' AND first_payment_at IS NOT NULL)
+             OR (subscription_status = 'past_due'
+                 AND (payment_grace_reason IS NULL OR payment_grace_reason <> 'trial'))
+          )`,
     ).run();
   }
 
@@ -735,6 +843,140 @@ function initDb(): DatabaseSync {
     );
   `);
 
+  // Successful Stripe invoices, imported from the Stripe API by
+  // scripts/backfill-stripe-invoices.mts. ANALYTICS ONLY: nothing in the billing
+  // path reads this table, and the importer never writes to Stripe.
+  //
+  // It exists because a renewal cannot be inferred — it has to be seen — and the
+  // `stripe_invoice_paid` audit event only started being written when that event
+  // type shipped. Every renewal that fell due before then is invisible in
+  // audit_events, so a renewal rate computed from audit rows alone reports the
+  // product's entire early history as "did not renew". This table carries the
+  // real invoices back to the first customer.
+  //
+  // `billing_reason` is the column that matters: only `subscription_create` and
+  // `subscription_cycle` are billing periods. A `subscription_update` proration
+  // is real money and is NOT a renewal.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stripe_invoice_history (
+      invoice_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      customer_id TEXT,
+      subscription_id TEXT,
+      price_id TEXT,
+      status TEXT NOT NULL,
+      billing_reason TEXT,
+      amount_paid INTEGER NOT NULL,
+      currency TEXT,
+      paid_at TEXT NOT NULL,
+      period_start TEXT,
+      period_end TEXT,
+      imported_at TEXT NOT NULL
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_stripe_invoice_history_user ON stripe_invoice_history(user_id, paid_at);');
+
+  // Every DECLINED subscription payment attempt, with the reason the issuer
+  // gave and what eventually happened to the money.
+  //
+  // Why a table rather than another audit_events type: `stripe_payment_failed`
+  // records THAT a charge failed and nothing about WHY, so the only way to ask
+  // "how much revenue am I losing to insufficient funds versus to issuer blocks,
+  // and how much of it comes back" was to open Stripe invoice by invoice. The
+  // decline codes exist for about as long as the webhook handler's stack frame
+  // — Stripe does not hand them to you again later, and the charge they hang off
+  // can only be re-read one API call at a time — so they have to be captured at
+  // failure time or not at all.
+  //
+  // The row is APPEND-ONLY except for its outcome columns. One row per
+  // (invoice, attempt): Stripe's Smart Retries fire invoice.payment_failed again
+  // with attempt_count 2, 3, … for the SAME invoice, and each of those is a
+  // separate decline with its own (possibly different) reason — a card that was
+  // short on Monday can be blocked by the issuer on Thursday. Counting attempts
+  // and counting invoices are therefore different questions, and both are asked:
+  // UNIQUE(invoice_id, attempt_count) keeps a redelivered webhook from inflating
+  // either.
+  //
+  // `kind` is the question the money view turns on: a declined FIRST charge at
+  // the end of a free trial is a conversion that did not happen, a declined
+  // renewal is a customer walking out. They are recorded separately because they
+  // are different failures with different remedies.
+  //
+  // `outcome` walks open → recovered | lost and is the only mutable part:
+  //   open       the invoice is still live — Stripe has retries left, or the
+  //              member is inside the payment-recovery grace window.
+  //   recovered  the same invoice was later PAID (any route: an automatic retry,
+  //              a new card, the hosted invoice link).
+  //   lost       the subscription was canceled, or the invoice was voided /
+  //              marked uncollectible, with this attempt still unpaid.
+  //
+  // `source` records how the row got here, because it decides what may be read
+  // off it: 'webhook' rows carry real decline codes; 'audit_backfill' rows are
+  // reconstructed from the pre-existing `stripe_payment_failed` audit history and
+  // have NO codes at all (category 'unknown'). Mixing them silently would report
+  // the product's early history as a wall of unexplained declines; the report
+  // states the split instead.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_declines (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL,
+      charge_id TEXT,
+      user_id TEXT,
+      email TEXT,
+      customer_id TEXT,
+      subscription_id TEXT,
+      price_id TEXT,
+      tier TEXT,
+      cadence TEXT,
+      kind TEXT NOT NULL,
+      billing_reason TEXT,
+      amount_due INTEGER NOT NULL DEFAULT 0,
+      currency TEXT,
+      failure_code TEXT,
+      decline_code TEXT,
+      network_decline_code TEXT,
+      failure_message TEXT,
+      seller_message TEXT,
+      category TEXT NOT NULL,
+      card_brand TEXT,
+      card_last4 TEXT,
+      card_funding TEXT,
+      card_country TEXT,
+      next_attempt_at TEXT,
+      grace_until TEXT,
+      failed_at TEXT NOT NULL,
+      outcome TEXT NOT NULL DEFAULT 'open',
+      resolved_at TEXT,
+      recovered_amount INTEGER,
+      recovery_route TEXT,
+      lost_reason TEXT,
+      source TEXT NOT NULL DEFAULT 'webhook',
+      recorded_at TEXT NOT NULL,
+      UNIQUE(invoice_id, attempt_count)
+    );
+  `);
+  // The report reads by window (failed_at), resolves by invoice, and closes out
+  // by subscription when one is canceled. One index each; the UNIQUE above
+  // already covers the invoice lookup's leading column.
+  // Answering "is Stripe still going to try" needs the invoice's own state, not
+  // the absence of a payment. `collection_method` says whether Stripe is
+  // collecting at all (`send_invoice` means it never will), and `invoice_status`
+  // distinguishes an open invoice from one already voided or written off. Both
+  // are NULL on rows captured before this column existed, which reads as "retry
+  // state unknown" — deliberately NOT as "retries still running".
+  // What the payment method IS — card, link, cashapp. A live audit of the
+  // trial-to-paid step put a card-entry decline rate of 59% against Link's 30%
+  // on comparable volume, which no other field on the charge came close to
+  // separating. It was not being stored at all, so the strongest predictor of a
+  // failed conversion was invisible to every report.
+  ensureColumn('payment_declines', 'method_type', 'TEXT');
+  ensureColumn('payment_declines', 'collection_method', 'TEXT');
+  ensureColumn('payment_declines', 'invoice_status', 'TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_failed_at ON payment_declines(failed_at);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_sub ON payment_declines(subscription_id, outcome);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_user ON payment_declines(user_id, failed_at);');
+
   // The joined one-row-per-day shape, for ad-hoc `sqlite3` querying outside the
   // app (the admin page reads the same join through core/dailyMetrics.ts). A
   // day that exists in either table appears exactly once. Dropped and recreated
@@ -766,6 +1008,79 @@ function initDb(): DatabaseSync {
     FROM daily_external_metrics x
     WHERE NOT EXISTS (SELECT 1 FROM daily_metrics d WHERE d.day = x.day)
     ORDER BY day;
+  `);
+
+  // ── Free daily levels email ───────────────────────────────────────────────
+  // Subscribers to the pre-open levels digest, captured from the public
+  // /<ticker>-gamma-levels pages.
+  //
+  // DELIBERATELY NOT A `users` ROW, AND NO FOREIGN KEY. A levels subscriber has
+  // no account, no password and no tier. About twenty sites across billing and
+  // lifecycle email treat the literal string tier='public' as "not a paying
+  // customer", five of them cohort queries that would silently stop matching if
+  // signups landed anywhere else. And a `users` row created by this form would
+  // fall straight into the verify-reminder, verified-never-paid and
+  // reactivation cohorts — so somebody who asked for a levels email would begin
+  // receiving "finish verifying your account" and "try the trial". They never
+  // asked for an account. A separate table means this feature cannot reach that
+  // machinery by construction, and can be dropped without touching any of it.
+  //
+  // `id` is opaque and is what the confirm / unsubscribe links are signed over
+  // (core/levelsEmail.ts), so the address never travels in a URL and therefore
+  // never lands in an access log, browser history or Referer header.
+  //
+  // CONSENT RECORD. confirmed_at plus the two IP columns are the proof that a
+  // double opt-in actually happened, which is the evidence a complaint or an
+  // audit asks for. Both IPs are personal data and belong in the privacy
+  // policy's disclosure alongside the rest of what this app records.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS levels_subscribers (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      confirmed_at TEXT,
+      confirm_sent_at TEXT,
+      unsubscribed_at TEXT,
+      source TEXT,
+      signup_ip TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_sent_at TEXT
+    );
+  `);
+
+  // Convergence, not decoration. CREATE TABLE IF NOT EXISTS silently accepts a
+  // table that already exists in ANY shape — including one created by hand at a
+  // sqlite3 prompt, which is how this one first reached production. Without the
+  // calls below such a table would simply be left as it was found and the
+  // divergence would surface later as a runtime error on a column that exists
+  // everywhere except the one database that matters. Each ensureColumn is a
+  // no-op on a table this file created.
+  ensureColumn('levels_subscribers', 'confirmed_at', 'TEXT');
+  ensureColumn('levels_subscribers', 'confirm_sent_at', 'TEXT');
+  ensureColumn('levels_subscribers', 'unsubscribed_at', 'TEXT');
+  ensureColumn('levels_subscribers', 'source', 'TEXT');
+  ensureColumn('levels_subscribers', 'signup_ip', 'TEXT');
+  ensureColumn('levels_subscribers', 'last_sent_at', 'TEXT');
+  // Second half of the consent record: where the confirmation click came from.
+  // Added after the table shipped, which is exactly the case ensureColumn is
+  // for — and the reason a hand-created table has to be reconciled rather than
+  // trusted.
+  ensureColumn('levels_subscribers', 'confirm_ip', 'TEXT');
+  // The subscriber's chosen ticker: it leads their digest's subject, table and
+  // TradingView paste block. NOT NULL with a default because SQLite requires a
+  // default to add a NOT NULL column to a table that already has rows, and
+  // because a subscriber without a symbol has no sensible digest — SPX is the
+  // ticker the search demand behind these pages is about, so it is the safe
+  // value for a row that predates this column.
+  ensureColumn('levels_subscribers', 'symbol', "TEXT NOT NULL DEFAULT 'SPX'");
+
+  // The daily send reads exactly one predicate: confirmed and not opted out.
+  // Partial index so it covers only the rows the send can actually mail, and
+  // stays small as unsubscribes accumulate.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_levels_subscribers_sendable
+      ON levels_subscribers(confirmed_at)
+      WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL;
   `);
 
   return db;

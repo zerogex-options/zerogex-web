@@ -20,6 +20,8 @@
  * cell, and never `$0.00` — a zero strike would read as a real level.
  */
 
+import { levelOrNull } from './levelValue.ts';
+
 /**
  * The em-dash empty state. Must stay identical to core/pinStrike's
  * PIN_STRIKE_EMPTY — a unit test asserts the two agree. It is restated rather
@@ -73,13 +75,11 @@ export interface KeyLevel {
   tooltip: string;
 }
 
-function finite(value: unknown): number | null {
-  // An empty string is absent data, not zero — the same coercion the chart's
-  // own bucket reader uses, so a blank column never becomes a $0 strike.
-  if (value == null || value === '') return null;
-  const n = typeof value === 'string' ? Number(value) : (value as number);
-  return typeof n === 'number' && Number.isFinite(n) ? n : null;
-}
+// Kept under the name this module has always used internally; the coercion
+// itself now lives in core/levelValue, shared with the chart and the snapshot
+// builder so no surface can be stricter about a served value than the surface
+// beside it (see that module's header for what the divergence cost).
+const finite = levelOrNull;
 
 /**
  * A level is only real when it is a positive price. The backend emits null for
@@ -206,7 +206,7 @@ export function computeMaxPainFromStrikes(
  */
 export interface KeyLevelPinInput {
   strike: number | null | undefined;
-  /** "Pin strength: Strong" for an active pin; null when there is none. */
+  /** "Pin strength: Strong · 62%" for an active pin; null when there is none. */
   note: string | null;
   /** Shown when there is no pin at all — pinStrengthLabel('none'). */
   absentLabel: string;
@@ -235,6 +235,20 @@ export interface KeyLevelsInput {
   callWall: number | null | undefined;
   putWall: number | null | undefined;
   maxPain: number | null | undefined;
+  /**
+   * True when a strict SUBSET of the chain is on screen (the Expiry filter).
+   * Changes only what an EMPTY flip means, and only for the flip: under a
+   * filter the level is recomputed from the selected expirations alone, so a
+   * blank is that subset having no crossing rather than a declined publish
+   * (see {@link noFlipInScopeTooltip}). The walls and Max Pain are ranked over
+   * whatever strikes are in scope and need no equivalent — a filtered book
+   * still has a heaviest strike.
+   *
+   * Optional and defaulting to false, so the surfaces that read the unfiltered
+   * summary (the My Dashboard tile, the Dealer Positioning header) keep
+   * today's wording without opting in.
+   */
+  filtered?: boolean;
 }
 
 const TOOLTIPS: Record<Exclude<KeyLevelId, 'pin'>, string> = {
@@ -245,9 +259,18 @@ const TOOLTIPS: Record<Exclude<KeyLevelId, 'pin'>, string> = {
   maxPain: 'Estimated strike where option-holder payout is minimized at expiry — the options pin.',
 };
 
-/** The two reasons a level shows no distance, as the cards word them. */
+/** The reasons a level shows no distance, as the cards word them. */
 export const LEVEL_AWAITING_PRICE_NOTE = 'Awaiting price';
 export const LEVEL_UNRESOLVED_NOTE = 'Unresolved this snapshot';
+/**
+ * The flip's note when a strict SUBSET of the chain is on screen. A different
+ * fact from {@link LEVEL_UNRESOLVED_NOTE}, and the distinction is the whole
+ * point: "Unresolved this snapshot" says the publish was declined and invites
+ * the reader to wait for a later one, which is wrong advice for a book that
+ * simply has no crossing to find. Waiting will not produce one; widening the
+ * Expiry filter will.
+ */
+export const LEVEL_NO_FLIP_IN_SCOPE_NOTE = 'No flip in selected expiries';
 
 /**
  * Reason copy for a card with no distance to show, in PriceDistanceMetricCard's
@@ -345,6 +368,42 @@ export function unresolvedLevelTooltip(
 }
 
 /**
+ * Why the Gamma Flip is blank when the Expiry filter has a strict SUBSET of
+ * the chain on screen — the counterpart to {@link unresolvedLevelTooltip}, and
+ * deliberately a different story.
+ *
+ * Under a filter the flip is not the canonical spot-shift level at all: that
+ * one needs per-strike implied volatility, which is not persisted, so the
+ * backend recomputes the crossing of the cumulative net-GEX curve built from
+ * the same strikes the bars render (`compute_gamma_flip_from_strikes`). A
+ * subset is frequently ONE-SIGNED — an afternoon 0DTE book carrying only
+ * negative gamma is the ordinary case — and a one-signed curve has no crossing
+ * to report. That is a finding about the book the trader selected, not a
+ * degraded snapshot, so it must not borrow the unresolved copy: telling
+ * someone to wait for a later snapshot is advice that cannot come true, and it
+ * hides the one action that does work.
+ *
+ * It also has to account for the whole-chain flip still on screen elsewhere —
+ * the Dealer Positioning header and the My Dashboard tile both read the
+ * unfiltered summary — or the two readings look like a contradiction.
+ *
+ * Pure and English-only, matching the rest of this module; localized surfaces
+ * compose the same shape from their own dictionaries.
+ */
+export function noFlipInScopeTooltip(label = 'Gamma Flip'): string {
+  return (
+    `The expirations selected in the Expiry filter carry no ${label}. For a ` +
+    'subset of the chain the level is the zero crossing of that subset\u2019s own ' +
+    'cumulative dealer-gamma curve, and a subset is often one-signed \u2014 a 0DTE ' +
+    'book that is negative-gamma at every strike never crosses \u2014 so there is no ' +
+    'crossing to draw. This is a property of the book you picked, not a gap in ' +
+    'the data: it will not resolve on a later snapshot, but setting Expiry back ' +
+    'to All shows the whole-chain flip (the same one the Dealer Positioning ' +
+    "header reads). Net GEX's sign still tells you which regime spot is in."
+  );
+}
+
+/**
  * The ordered set of levels the Key Levels surfaces render.
  *
  * Spot leads because it is the reference every other row is measured against;
@@ -356,6 +415,12 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
   const spot = positiveLevel(input.spot);
   const hasSpot = spot != null;
 
+  // A blank flip under an active Expiry filter is a different fact from a
+  // blank one on the whole chain, and only the flip is affected — see
+  // KeyLevelsInput.filtered.
+  const scopedFlipBlank = (id: KeyLevelId, level: number | null): boolean =>
+    id === 'flip' && level == null && input.filtered === true;
+
   const priced = (
     id: Exclude<KeyLevelId, 'spot' | 'pin'>,
     label: string,
@@ -363,23 +428,34 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
   ): KeyLevel => {
     const level = positiveLevel(value);
     const distance = keyLevelDistance(level, spot);
+    const scoped = scopedFlipBlank(id, level);
     return {
       id,
       label,
       value: level,
       valueLabel: formatKeyLevelValue(level),
       distance,
-      emptyNote: distance ? null : emptyNoteFor(level != null, hasSpot),
+      emptyNote: distance
+        ? null
+        : scoped && hasSpot
+          ? LEVEL_NO_FLIP_IN_SCOPE_NOTE
+          : emptyNoteFor(level != null, hasSpot),
+      // Still true for the scoped blank: the reader gets the same "?" hover
+      // affordance, carrying the scoped explanation instead of the declined-
+      // publish one. Without it the card falls back to the DEFINITION of a
+      // gamma flip, which is the one thing someone staring at an empty card
+      // already knows.
       unresolved: hasSpot && level == null,
       note: null,
       subnote: null,
       // A card with no level to define is better served by an explanation of
       // WHY there is none: the definition is what the trader already knows,
       // and "unresolved" on its own reads as a broken feed.
-      tooltip:
-        hasSpot && level == null
-          ? unresolvedLevelTooltip(label, input.symbol, UNRESOLVED_KIND[id])
-          : TOOLTIPS[id],
+      tooltip: !hasSpot || level != null
+        ? TOOLTIPS[id]
+        : scoped
+          ? noFlipInScopeTooltip(label)
+          : unresolvedLevelTooltip(label, input.symbol, UNRESOLVED_KIND[id]),
     };
   };
 

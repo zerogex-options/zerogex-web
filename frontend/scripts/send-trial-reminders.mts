@@ -42,7 +42,6 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 import { buildTrialReminderEmail, sendTrialReminderEmail } from '../core/mailer.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
-import { buildConvertUrl } from '../core/retentionToken.ts';
 import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 import {
   classifyTrialEngagement,
@@ -210,6 +209,13 @@ type BillingDetails = {
   // Display-ready brand ("Visa") or null when unknown (wallet / Link / a brand
   // code we don't map), in which case the mailer uses a neutral phrasing.
   cardBrand: string | null;
+  // 'credit' | 'debit' | 'prepaid' from the card on file, or null. Debit and
+  // prepaid cards need the funds present on the charge date, which is what the
+  // reminder's extra sentence tells the member.
+  cardFunding: string | null;
+  // What the charge reads as on a statement, from the Stripe ACCOUNT rather
+  // than a hardcoded string, so it cannot drift from what the bank shows.
+  statementDescriptor: string | null;
   // Last four of the card that will be charged, or null when no card can be
   // named at all — a Link/wallet member has a chargeable method but no
   // brand/last4 to show. The mailer then quotes the price with neutral
@@ -259,12 +265,12 @@ async function resolveCard(
   stripe: Stripe,
   sub: Stripe.Subscription,
   customerId: string | null,
-): Promise<{ brand: string | null; last4: string } | null> {
+): Promise<{ brand: string | null; last4: string; funding: string | null } | null> {
   // default_payment_method is expanded on the subscription retrieve below, so
   // when set it arrives as a full PaymentMethod object.
   const subPm = sub.default_payment_method;
   if (subPm && typeof subPm === 'object' && 'card' in subPm && subPm.card?.last4) {
-    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4 };
+    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4, funding: subPm.card.funding ?? null };
   }
 
   let pmId = idOf(subPm);
@@ -277,7 +283,7 @@ async function resolveCard(
 
   if (pmId) {
     const pm = await stripe.paymentMethods.retrieve(pmId);
-    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4 };
+    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4, funding: pm.card.funding ?? null };
     return null;
   }
 
@@ -295,7 +301,9 @@ async function resolveCard(
     limit: 1,
   });
   const card = cards.data[0]?.card;
-  if (card?.last4) return { brand: card.brand ?? null, last4: card.last4 };
+  if (card?.last4) {
+    return { brand: card.brand ?? null, last4: card.last4, funding: card.funding ?? null };
+  }
   return null;
 }
 
@@ -306,6 +314,23 @@ async function resolveCard(
 // (a Link/wallet member), the card fields come back null and the mailer quotes
 // the price with neutral wording. Stripe errors propagate to the caller, which
 // treats them as non-fatal and sends the reminder without the line.
+// What the charge will read as on a statement, read once per run from the
+// Stripe ACCOUNT. Hardcoding it would let the email and the bank statement drift
+// apart, which is worse than saying nothing: a member told to look for the wrong
+// word will not recognise the right one. Cached because it is the same for every
+// member, and best-effort because a failed lookup must not stop the reminder.
+let cachedDescriptor: string | null | undefined;
+async function resolveStatementDescriptor(stripe: Stripe): Promise<string | null> {
+  if (cachedDescriptor !== undefined) return cachedDescriptor;
+  try {
+    const account = await stripe.accounts.retrieve();
+    cachedDescriptor = account.settings?.payments?.statement_descriptor ?? null;
+  } catch {
+    cachedDescriptor = null;
+  }
+  return cachedDescriptor;
+}
+
 async function resolveBillingDetails(
   stripe: Stripe,
   customerId: string | null,
@@ -353,6 +378,8 @@ async function resolveBillingDetails(
     chargeLabel,
     cardBrand: card ? formatCardBrand(card.brand) : null,
     cardLast4: card ? card.last4 : null,
+    cardFunding: card?.funding ?? null,
+    statementDescriptor: await resolveStatementDescriptor(stripe),
   };
 }
 
@@ -384,10 +411,6 @@ const NEXT_PUBLIC_APP_URL =
 // Optional: used only to enrich the reminder with the exact post-trial charge
 // and the card on file. Absent key => reminders still send, minus that line.
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || envLocal.STRIPE_SECRET_KEY;
-// Optional: signs the one-click /convert offer link the reminder carries. Absent
-// => the reminder still sends, just without the "lock in a discount" incentive.
-const ZEROGEX_END_USER_TOKEN_SECRET =
-  process.env.ZEROGEX_END_USER_TOKEN_SECRET || envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
 
 if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
@@ -399,21 +422,12 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
-if (ZEROGEX_END_USER_TOKEN_SECRET) {
-  process.env.ZEROGEX_END_USER_TOKEN_SECRET = ZEROGEX_END_USER_TOKEN_SECRET;
-}
-
-// Best-effort signed /convert offer link for the reminder's conversion incentive.
-// Returns null (no incentive shown) when the app URL or token secret is unset, or
-// on any signing error — the reminder still sends as the plain courtesy nudge.
-function convertUrlFor(userId: string): string | null {
-  if (!NEXT_PUBLIC_APP_URL || !ZEROGEX_END_USER_TOKEN_SECRET) return null;
-  try {
-    return buildConvertUrl(NEXT_PUBLIC_APP_URL, userId);
-  } catch {
-    return null;
-  }
-}
+// This reminder carries NO discount. It used to mint a signed one-click
+// /convert link offering 25% off for a year — handed unprompted to a trialer
+// with a card on file who was about to be charged anyway, and spending the
+// once-per-account retention latch (users.retention_offer_claimed_at) that the
+// cancellation save needs. The 25% is a win-back lever now; see the note on
+// TrialReminderEmailOptions in core/mailer.ts.
 
 if (cliArgs.previewTo) {
   const sample = new Date(Date.now() + TARGET_HOURS * 3600_000).toISOString();
@@ -424,7 +438,6 @@ if (cliArgs.previewTo) {
   await sendTrialReminderEmail(cliArgs.previewTo, {
     trialEndIso: sample,
     billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' },
-    convertOfferUrl: convertUrlFor('preview_user'),
   });
   console.log('Preview sent.');
   process.exit(0);
@@ -494,7 +507,6 @@ if (cliArgs.render) {
   const { subject, html, text } = buildTrialReminderEmail({
     trialEndIso: user.current_period_end,
     billing,
-    convertOfferUrl: convertUrlFor(user.id),
     dormant: shouldSendDormantTrialCopy(renderEngagement),
   });
 
@@ -663,7 +675,6 @@ for (const user of eligible) {
     await sendTrialReminderEmail(user.email, {
       trialEndIso: user.current_period_end,
       billing,
-      convertOfferUrl: convertUrlFor(user.id),
       dormant: shouldSendDormantTrialCopy(engagementFor(user)),
     });
     const nowIso = new Date().toISOString();

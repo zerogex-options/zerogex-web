@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BarChart3, Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
@@ -20,6 +21,14 @@ import {
   type ExpirationSegment,
 } from '@/core/expirationGradient';
 import { pinLineLabel, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
+import { isZoomGesture } from '@/core/wheelZoom';
+import {
+  replayScopeHref,
+  replayScopeLabel,
+  replayScopeTitle,
+  REPLAY_SCOPES,
+  type ReplayScope,
+} from '@/core/replayScope';
 
 // Interactive replay of one trading day's per-minute GEX frames. Pure
 // client-side once the initial range payload is hydrated — scrubbing
@@ -154,6 +163,15 @@ interface ReplayScrubberProps {
    *  past the payload's expiration cap), which ranks last and therefore takes
    *  the faintest shade. Empty when the payload carries no expiration mix. */
   expirations?: string[];
+  /** Expiration scope this payload was built for, from `?exp=`. The toggle
+   *  navigates between scopes rather than fetching: /replay/* is public while
+   *  /api/replay/* is Basic-gated at the BFF (core/api/apiTierGate), so the
+   *  scoped payload has to arrive the way this one did — server-rendered. */
+  scope: ReplayScope;
+  /** Playhead to open on, as an HHMM-in-ET token (`?t=`), or null for the
+   *  session's last frame. The scope toggle writes it so a switch keeps the
+   *  minute you were on across the navigation that remounts this component. */
+  initialMinute?: string | null;
 }
 
 // Stable empty default for the optional expirations legend — a fresh []
@@ -214,6 +232,26 @@ function isoToMinuteToken(iso: string): string {
   } catch {
     return '0930';
   }
+}
+
+/**
+ * Frame index for an HHMM-in-ET token, or the session's last frame.
+ *
+ * Snaps to the LAST frame at-or-before the token — the same at-or-before rule
+ * the /snapshot/[time] permalinks resolve by — so a minute the session doesn't
+ * carry (a half day, a gap in the feed, a token from a different symbol's
+ * session) lands on the nearest real moment instead of the closing bell.
+ */
+function frameIndexForMinute(frames: Frame[], minute: string | null | undefined): number {
+  const last = frames.length > 0 ? frames.length - 1 : 0;
+  if (!minute || frames.length === 0) return last;
+  let best = -1;
+  for (let i = 0; i < frames.length; i += 1) {
+    const token = isoToMinuteToken(frames[i].timestamp);
+    if (token <= minute) best = i;
+    else break;
+  }
+  return best >= 0 ? best : 0;
 }
 
 // Pick `desired` evenly-spaced indices from 0..count-1 inclusive,
@@ -389,10 +427,14 @@ export default function ReplayScrubber({
   initialCandles,
   siteUrl,
   expirations = EMPTY_EXPIRATIONS,
+  scope,
+  initialMinute = null,
 }: ReplayScrubberProps) {
   const frames = initialFrames;
   const candles = initialCandles;
-  const [cursor, setCursor] = useState<number>(frames.length > 0 ? frames.length - 1 : 0);
+  // Derived from props only — never from browser storage — so the server and
+  // the client open on the same minute and hydration stays clean.
+  const [cursor, setCursor] = useState<number>(() => frameIndexForMinute(frames, initialMinute));
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<PlaySpeed>(4);
   const [pinA, setPinA] = useState<number | null>(null);
@@ -404,6 +446,28 @@ export default function ReplayScrubber({
   // opens on the single-net-bar ladder it always has.
   const [gexMode, setGexMode] = useState<GexMode>('split');
   const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleScopeChange = useCallback(
+    (next: ReplayScope) => {
+      capture('replay_expiration_scope_changed', {
+        symbol,
+        session_date: sessionDate,
+        scope: next,
+      });
+    },
+    [sessionDate, symbol],
+  );
+
+  // A scope the session's chain never had (0DTE on a day with no same-day
+  // expiry) comes back as frames with empty ladders — deliberately, so the page
+  // can say so rather than quietly redrawing the whole chain.
+  const scopeHasNoContracts = useMemo(
+    () =>
+      scope !== 'all' &&
+      frames.length > 0 &&
+      frames.every((f) => (f.strikes?.length ?? 0) === 0),
+    [scope, frames],
+  );
 
   const currentFrame = frames[cursor] ?? frames[0];
   const cursorTimestamp = currentFrame?.timestamp ?? null;
@@ -716,6 +780,44 @@ export default function ReplayScrubber({
             <div className="mt-0.5 font-mono text-lg font-bold">
               {cursorTimestamp ? formatTime(cursorTimestamp) : '—'} ET
             </div>
+            {/* Expiration scope. 0DTE replays only the contracts that settled
+                that afternoon — the walls, flip and max pain come back
+                re-derived from that book, so this is a different read of the
+                session, not a filter on the bars alone. */}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
+                Expiration
+              </span>
+              <div className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)] text-[10px] uppercase tracking-[0.14em]">
+                {REPLAY_SCOPES.map((option) => {
+                  const isActive = scope === option;
+                  return (
+                    <Link
+                      key={option}
+                      href={replayScopeHref(symbol, sessionDate, option, minuteToken)}
+                      scroll={false}
+                      onClick={() => {
+                        if (!isActive) handleScopeChange(option);
+                      }}
+                      aria-current={isActive ? 'true' : undefined}
+                      title={replayScopeTitle(option, sessionDate)}
+                      className="px-2.5 py-1.5 transition-colors"
+                      style={{
+                        background: isActive
+                          ? 'var(--color-surface-subtle)'
+                          : 'var(--color-surface)',
+                        color: isActive
+                          ? 'var(--color-text-primary)'
+                          : 'var(--color-text-secondary)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {replayScopeLabel(option)}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -816,6 +918,21 @@ export default function ReplayScrubber({
             <Twitter size={13} /> Share to X
           </a>
         </div>
+
+        {scopeHasNoContracts && (
+          <div className="mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+            No contracts expiring {sessionDate} in this chain — that session had no 0DTE book.
+            Switch back to <strong>All exps</strong> for the whole-chain surface.
+          </div>
+        )}
+
+        {scope === '0dte' && !scopeHasNoContracts && (
+          <div className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
+            Bars, call wall, put wall, gamma flip and max pain are the {sessionDate} expiry alone.
+            Pin strike and GEX King stay whole-chain — same as the live charts, where neither
+            follows the Expiry selector. Snapshot cards render the whole chain.
+          </div>
+        )}
       </div>
 
       {/* Combined candles + strike-profile overlay */}
@@ -1082,14 +1199,16 @@ function ReplayOverlayChart({
     return { effLo: priceCenter - half, effHi: priceCenter + half };
   }, [yLo, yHi, yZoom, priceCenter]);
 
-  // Mouse-wheel vertical zoom. Attached imperatively with { passive: false }
-  // so preventDefault suppresses page scroll while the cursor is over the
-  // chart — same pattern as the GEX Strike Profile chart.
+  // Mouse-wheel vertical zoom, on a deliberate gesture only (see
+  // core/wheelZoom) — a bare wheel scrolls the page. Attached imperatively
+  // with { passive: false } so preventDefault can suppress page scroll on the
+  // gestures we do claim; same pattern as the GEX Strike Profile chart.
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0) return;
+      if (!isZoomGesture({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })) return;
       e.preventDefault();
       const factor = e.deltaY > 0 ? Y_ZOOM_STEP : 1 / Y_ZOOM_STEP;
       setYZoom((v) => clampZoom(v * factor));

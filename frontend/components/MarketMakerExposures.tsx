@@ -33,9 +33,12 @@ import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes,
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { visibleViewBoxRight } from '@/core/chartViewport';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { seriesRollNote, summarizeSeriesContracts } from '@/core/futuresContract';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
+import { isZoomGesture } from '@/core/wheelZoom';
 import ChartCaption from './ChartCaption';
+import FuturesContractBadge from './FuturesContractBadge';
 
 interface StrikeAggregation {
   strike: number;
@@ -590,6 +593,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const futuresChartTicker = useMemo(
     () => marketHistoricalAll.find((b) => b.display_source === 'futures')?.data_symbol ?? null,
     [marketHistoricalAll],
+  );
+  // WHICH CME contract these candles are. The contract is per-bar on this
+  // endpoint — a range spanning a roll really does hold two of them — so the
+  // whole series is read rather than one bar: the chip names the newest
+  // contract, and says so when the visible range crosses a roll, because the
+  // step in price at that boundary is cost of carry rather than a market move.
+  // Covers both futures paths: the overnight display swap and a natively-served
+  // ES / NQ series, which sets none of the swap fields above.
+  const seriesContracts = useMemo(
+    () => summarizeSeriesContracts(marketHistoricalAll),
+    [marketHistoricalAll],
+  );
+  const seriesContractRollNote = useMemo(
+    () => seriesRollNote(seriesContracts),
+    [seriesContracts],
   );
   const candleBuckets = useMemo(() => {
     const base = isFuturesMode
@@ -1521,9 +1539,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // even in the outside-session futures view — same freeze-don't-blank rule as
   // the gamma / OI panels above.  They sit on the futures price axis offset by
   // the index↔future basis; the spot line still tracks the futures candle close.
-  const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
-  const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
-  const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  //
+  // The `?? gexSummary` fallback seeds the lines before the first bucket
+  // arrives, but it is WHOLE-CHAIN — so it may only stand in for a whole-chain
+  // bucket. Under an expiration filter the bucket's levels describe the
+  // selected subset, and the summary's describe every expiration; substituting
+  // one for the other draws a chain-scoped line across subset bars. That
+  // matters most for the flip, which the server resolves to NULL whenever the
+  // subset's cumulative curve has no crossing that clears the noise floor (a
+  // net-short 0DTE book, routinely) — precisely when the fallback would fire.
+  // Filtered → read the bucket alone and draw nothing when it is null, the
+  // same rule GammaTerminalChart applies to its own bucket-sourced levels.
+  const levelsAreFiltered = expirationsParam !== 'all';
+  const levelFallback = <T,>(bucketValue: T | null, summaryValue: T | null): T | null =>
+    bucketValue ?? (levelsAreFiltered ? null : summaryValue);
+  const effFlip = levelFallback(toNumber(levelSourceBucket?.gamma_flip), toNumber(gexSummary?.gamma_flip));
+  const effCallWall = levelFallback(toNumber(levelSourceBucket?.call_wall), toNumber(gexSummary?.call_wall));
+  const effPutWall = levelFallback(toNumber(levelSourceBucket?.put_wall), toNumber(gexSummary?.put_wall));
   // Pin Strike is a summary-only level (not carried on the strike-profile
   // timeseries buckets), so it reads straight from the served summary.
   const effPin = toNumber(gexSummary?.pin_strike);
@@ -1715,6 +1747,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (!svg) return;
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY === 0) return;
+      // A bare wheel scrolls the page; zoom needs a deliberate gesture. The
+      // zoom buttons above the chart are the discoverable route.
+      if (!isZoomGesture({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })) return;
       e.preventDefault();
       const factor = e.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
       setZoomMul((v) => clamp(v * factor, ZOOM_MIN, ZOOM_MAX));
@@ -2014,6 +2049,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span>◆ {futuresChartTicker ?? 'FUTURES'} · levels frozen</span>
           </div>
         )}
+
+        <FuturesContractBadge
+          contract={seriesContracts.latest}
+          expiry={seriesContracts.latestExpiry}
+          note={seriesContractRollNote}
+          className={toolbarBtnClass}
+          style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
+        />
 
         {/* Expiry dropdown */}
         <div ref={expiryRef} className="relative">

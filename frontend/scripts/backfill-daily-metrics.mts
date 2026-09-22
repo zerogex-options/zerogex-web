@@ -2,7 +2,7 @@
 // Run from the frontend/ directory (or via `make backfill-daily-metrics`):
 //   node --experimental-strip-types scripts/backfill-daily-metrics.mts
 //
-// Materializes the per-day rollup behind Admin → Monitoring → Daily Signals,
+// Materializes the per-day rollup behind Admin → Monitoring → Growth,
 // and optionally imports the two off-platform feeds that cannot be derived.
 //
 // The rollup is a CACHE of the append-only sources this DB already holds

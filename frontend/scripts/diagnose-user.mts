@@ -21,8 +21,30 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
-import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
+import { classifySubscriberBucket, subscriptionPaidAt } from '../core/subscriberBucket.ts';
 import { previewNextInvoice, isNoUpcomingInvoiceError } from '../core/stripeInvoicePreview.ts';
+import {
+  classifyDecline,
+  declineGuidance,
+  describeDecline,
+  readChargeDecline,
+  type ChargeDecline,
+} from '../core/declineReason.ts';
+
+// Exit quietly when the reader downstream closes the pipe. `| head`, `| grep -m1`
+// and quitting a pager all close the read end early, and Node surfaces that as
+// an unhandled 'error' event on the stream — which crashes the process with a
+// stack trace and a non-zero exit code. On a read-only diagnostic that noise
+// prints immediately after the line the reader actually asked for, so a
+// successful lookup reads like a failure and `make diagnose-user` reports an
+// error. Nothing is left half-done: the reader stopped listening, which is its
+// right.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (err) => {
+    if ((err as { code?: string }).code === 'EPIPE') process.exit(0);
+    throw err;
+  });
+}
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -82,6 +104,9 @@ function usage() {
 
 Prints the DB row, last 20 audit_events (with the originating IP), and live
 Stripe state (customer, subscription, last 5 invoices) for one user. Read-only.
+
+A failed invoice also prints WHY the card was declined and what that implies
+for the follow-up — an issuer block and an empty account need opposite advice.
 
 Options:
   -e, --email <email>   Target user. Required.
@@ -169,6 +194,8 @@ type UserRow = {
   payment_grace_started_at: string | null;
   payment_grace_reason: string | null;
   first_payment_at: string | null;
+  last_paid_subscription_id: string | null;
+  last_paid_invoice_at: string | null;
   trial_reminder_email_sent_at: string | null;
   referred_by_code: string | null;
   referral_credit_months: number | null;
@@ -207,6 +234,8 @@ const rows = querySqlite<UserRow>(
           payment_grace_started_at, payment_grace_reason, first_payment_at,
           trial_reminder_email_sent_at,
           referred_by_code, referral_credit_months,
+          ${col('last_paid_subscription_id')},
+          ${col('last_paid_invoice_at')},
           ${col('signup_utm_source')},
           ${col('marketing_unsubscribed_at')},
           ${col('verified_never_paid_email_sent_at')},
@@ -305,6 +334,40 @@ kv('Cancel at period end', yesNo(user.cancel_at_period_end));
 kv('Payment grace started', orDash(user.payment_grace_started_at));
 kv('Payment grace reason', orDash(user.payment_grace_reason));
 kv('First payment cleared', orDash(user.first_payment_at));
+{
+  // The bottom line on money, stated before any flag that could be mistaken for
+  // it. `first_payment_at` is the webhook's real-time stamp;
+  // stripe_invoice_history is Stripe's own record, refreshed on a timer. Either
+  // one is enough — see core/paidHistory.ts for why neither may veto the other.
+  const cleared = querySqlite<{ c: number; total: number | null }>(
+    dbPath,
+    `SELECT COUNT(*) AS c, SUM(amount_paid) AS total FROM stripe_invoice_history
+      WHERE user_id = '${escapeSqlLiteral(user.id)}' AND status = 'paid' AND amount_paid > 0;`,
+  )[0] ?? { c: 0, total: 0 };
+  const everPaid = user.first_payment_at != null || Number(cleared.c) > 0;
+  kv(
+    'MONEY EVER COLLECTED',
+    everPaid
+      ? `YES — ${cleared.c} cleared invoice(s)${cleared.total ? `, ${formatMoney(Number(cleared.total), 'usd')} total` : ''}`
+      : 'NO — nothing has ever cleared on this account',
+  );
+  if (!everPaid) {
+    console.log('                               (a $0.00 trial invoice is not a payment, and an');
+    console.log('                               open invoice is a bill, not money)');
+  }
+}
+const paidOnCurrentSub = subscriptionPaidAt({
+  stripeSubscriptionId: user.stripe_subscription_id,
+  lastPaidSubscriptionId: user.last_paid_subscription_id,
+  lastPaidInvoiceAt: user.last_paid_invoice_at,
+});
+// Per-SUBSCRIPTION, and the line that answers "why is this person on Converting
+// / Full Subscriber" outright. `first_payment_at` above is account-scoped, so
+// for anyone on their second subscription the two disagree by design.
+kv('Paid on THIS subscription', paidOnCurrentSub === null ? '— (no invoice cleared on this sub yet)' : paidOnCurrentSub);
+if (user.last_paid_subscription_id && user.last_paid_subscription_id !== user.stripe_subscription_id) {
+  kv('  last paid sub', `${user.last_paid_subscription_id} (a PREVIOUS subscription)`);
+}
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
@@ -321,8 +384,10 @@ kv('Onboarding nudge sent', orDash(user.verified_never_paid_email_sent_at));
 kv('Reactivation email sent', orDash(user.reactivation_email_sent_at));
 kv('Win-back email sent', orDash(user.winback_email_sent_at));
 {
-  // Mirrors hasPriorPaidSubscription in app/api/billing/checkout/route.ts.
-  const hasPriorPaid =
+  // Mirrors hasHeldSubscriptionBefore in app/api/billing/checkout/route.ts.
+  // NOT a statement about money: both stamps land on a trial that never
+  // converted. See core/paidHistory.ts.
+  const hasHeldSubscriptionBefore =
     user.paid_welcome_email_sent_at != null || Number(user.subscription_lapsed) === 1;
   // Mirrors getReactivationTrialDays() in the same file, clamp included, so the
   // number printed is the number checkout would actually grant.
@@ -332,8 +397,8 @@ kv('Win-back email sent', orDash(user.winback_email_sent_at));
     : REACTIVATION_TRIAL_DAYS_DEFAULT;
   kv(
     'Trial checkout would grant',
-    hasPriorPaid
-      ? 'none — prior paid subscription on this account'
+    hasHeldSubscriptionBefore
+      ? 'none — this account has already held a subscription (trial or paid)'
       : user.reactivation_email_sent_at != null
         ? `${reactivationDays}d via /pricing?trial=1&reactivate=1 (${TRIAL_PERIOD_DAYS}d without it)`
         : `${TRIAL_PERIOD_DAYS}d — NOT entitled to the extended trial ` +
@@ -358,7 +423,9 @@ header('Admin monitoring bucket');
     tier: user.tier,
     paymentGraceReason: user.payment_grace_reason,
     cancelAtPeriodEnd: Number(user.cancel_at_period_end) === 1,
-    firstPaymentAt: user.first_payment_at,
+    stripeSubscriptionId: user.stripe_subscription_id,
+    lastPaidSubscriptionId: user.last_paid_subscription_id,
+    lastPaidInvoiceAt: user.last_paid_invoice_at,
   });
   kv('Counted as', verdict.label);
   kv('Because', verdict.why);
@@ -368,9 +435,12 @@ header('Admin monitoring bucket');
 // time of subscription. Surfaces the exact reason a founder might NOT have
 // gotten the July-1 deferral.
 header('Deferral analysis');
-const hasPriorPaidSub =
+// Same expression as the checkout route's trial gate. It is true of a trial
+// that lapsed without ever paying, which is why it is no longer named for
+// money — see core/paidHistory.ts and the MONEY EVER COLLECTED line above.
+const heldSubscriptionBefore =
   !!user.paid_welcome_email_sent_at || Number(user.subscription_lapsed) === 1;
-kv('hasPriorPaidSubscription', yesNo(hasPriorPaidSub ? 1 : 0));
+kv('hasHeldSubscriptionBefore', yesNo(heldSubscriptionBefore ? 1 : 0));
 kv('Founding deadline', FOUNDING_DEADLINE_ISO);
 kv('Deferral deployed at', FOUNDING_DEFERRAL_DEPLOY_ISO);
 
@@ -396,17 +466,20 @@ if (startedAt == null) {
   if (user.subscription_status === 'trialing') {
     console.log('        Status is trialing — deferral most likely applied correctly.');
   } else if (user.subscription_status === 'active') {
-    if (hasPriorPaidSub) {
+    if (heldSubscriptionBefore) {
       console.log(
-        '        Status is active and hasPriorPaidSubscription is true → deferral was',
+        '        Status is active and hasHeldSubscriptionBefore is true → deferral was',
       );
-      console.log('        intentionally skipped (route.ts:139-146 requires no prior paid sub).');
+      console.log(
+        '        intentionally skipped (the route grants no trial to an account that',
+      );
+      console.log('        has already held a subscription).');
       console.log(
         '        Check the billing_checkout_started audit row below: trial=0 confirms this.',
       );
     } else {
       console.log(
-        '        BUG SUSPECTED: status is active and no prior paid sub, yet not trialing.',
+        '        BUG SUSPECTED: status is active and no prior subscription, yet not trialing.',
       );
       console.log(
         '        Check the billing_checkout_started audit row below for the trial= value:',
@@ -752,11 +825,39 @@ if (user.stripe_subscription_id) {
   }
 }
 
+// Why each failed invoice failed, keyed by invoice id. Read from CHARGES rather
+// than expanding the invoice's payment_intent: charges carry failure_code and
+// outcome.seller_message in a shape that has been stable across the API versions
+// this repo spans, whereas the invoice→PaymentIntent link moved in Stripe's
+// 2025-03-31.basil release (see core/stripeInvoice.ts) and this script does not
+// pin a version at all. Best-effort — a lookup failure just omits the line.
+async function loadDeclinesByInvoice(customerId: string): Promise<Map<string, ChargeDecline>> {
+  const byInvoice = new Map<string, ChargeDecline>();
+  const charges = await stripe.charges.list({ customer: customerId, limit: 20 });
+  // Stripe lists newest first, so the FIRST failure seen for an invoice is its
+  // most recent attempt — which is the one that explains where things stand.
+  for (const charge of charges.data) {
+    const invoiceId =
+      typeof charge.invoice === 'string' ? charge.invoice : (charge.invoice?.id ?? null);
+    if (!invoiceId || byInvoice.has(invoiceId)) continue;
+    const decline = readChargeDecline(charge);
+    if (decline) byInvoice.set(invoiceId, decline);
+  }
+  return byInvoice;
+}
+
 try {
   const invoices = await stripe.invoices.list({
     customer: user.stripe_customer_id,
     limit: 5,
   });
+  let declines = new Map<string, ChargeDecline>();
+  try {
+    declines = await loadDeclinesByInvoice(user.stripe_customer_id);
+  } catch (err) {
+    const e = err as StripeError;
+    console.log(`  (decline lookup failed: ${e.message})`);
+  }
   header('Stripe invoices (last 5)');
   if (invoices.data.length === 0) {
     console.log('  (none)');
@@ -769,6 +870,15 @@ try {
     );
     if (inv.hosted_invoice_url) {
       console.log(`    hosted_invoice_url: ${inv.hosted_invoice_url}`);
+    }
+    // The decline reason, and what it means for the follow-up. This is the
+    // difference between "ask them to approve it with their bank" and "wait for
+    // the retry / offer a cheaper plan" — opposite advice, and until this landed
+    // the only way to tell them apart was opening the Stripe dashboard.
+    const decline = inv.id ? declines.get(inv.id) : undefined;
+    if (decline) {
+      console.log(`    decline: ${describeDecline(decline)}`);
+      console.log(`    → ${declineGuidance(classifyDecline(decline))}`);
     }
   }
 } catch (err) {

@@ -61,6 +61,7 @@ export const de: Dictionary = {
   'nav.liveOptionsQuotes': 'Live-Optionskurse',
   'nav.dailyReplay': 'Tägliches Replay',
   'nav.dailyForecast': 'Tagesprognose',
+  'nav.dailyScorecard': 'Tages-Scorecard',
   'nav.hub': 'Hub',
   'nav.guides': 'Anleitungen',
   'nav.articles': 'Artikel',
@@ -115,4 +116,15 @@ export const de: Dictionary = {
   'login.backToLanding': 'Zurück zur Startseite',
   'login.csrfError': 'Sichere Anmeldung konnte nicht initialisiert werden. Bitte aktualisiere die Seite und versuche es erneut.',
   'login.genericError': 'Anmeldung fehlgeschlagen',
+
+  'termsGate.eyebrow': 'Nutzungsbedingungen',
+  'termsGate.title': 'Bitte akzeptiere unsere Bedingungen, um fortzufahren',
+  'termsGate.body': 'Für dein Konto ist keine Zustimmung zu unseren Nutzungsbedingungen und unserer Datenschutzerklärung gespeichert. Bitte lies sie und akzeptiere sie, um ZeroGEX weiter zu nutzen.',
+  'termsGate.submit': 'Akzeptieren und fortfahren',
+  'termsGate.submitting': 'Wird gespeichert…',
+  'termsGate.error': 'Deine Zustimmung konnte nicht gespeichert werden. Bitte versuche es erneut.',
+  'termsGate.networkError': 'Netzwerkfehler. Bitte versuche es erneut.',
+  'termsGate.csrfError': 'Sichere Anfrage konnte nicht initialisiert werden. Bitte lade die Seite neu und versuche es erneut.',
+  'termsGate.effective': 'Gültig ab',
+  'login.oauthTermsIntro': 'Wenn du mit Google oder Apple fortfährst, stimmst du den',
 };

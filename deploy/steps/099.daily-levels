@@ -1,0 +1,178 @@
+#!/bin/bash
+
+# ==============================================
+# Step 099: Free Daily Levels Email Timer (systemd)
+# ==============================================
+#
+# Installs and enables the pre-open levels digest timer (see
+# deploy/systemd/zerogex-web-daily-levels.{service,timer}). The timer fires
+# weekdays at 08:47 America/New_York and triggers `make daily-levels YES=1`,
+# which mails every confirmed, non-unsubscribed row in levels_subscribers.
+#
+# TWO THINGS ABOUT THIS UNIT DIFFER FROM THE OTHER SEND TIMERS, on purpose:
+#
+#   * Persistent=FALSE. Every other timer here replays a missed run once the
+#     box is back. That would fire a "pre-open levels" email mid-session. A
+#     missed morning is simply missed; the next weekday tick is the recovery.
+#   * The schedule carries an explicit America/New_York, so it stays 08:47 ET
+#     across DST instead of drifting an hour twice a year like the UTC-hour
+#     timers do. An hour late here is after the open.
+#
+# Idempotent — safe to re-run. Unit files are overwritten from the repo
+# (they are version-controlled, so that is the desired behavior) and
+# `systemctl enable --now` is a no-op for an already-enabled timer.
+
+set -e
+
+# Re-point HOME when run directly under `sudo`.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Free Daily Levels Email Timer Setup"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-daily-levels"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+# Some keys have an accepted alias. Warn only when EVERY spelling is absent,
+# otherwise the step reports a missing token that the script is reading
+# perfectly well — and an operator who believes it may "fix" it by adding a
+# second, wrong value alongside the working one.
+warn_missing_env_any() {
+    local key
+    for key in "$@"; do
+        local value
+        value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+        if [ -n "$value" ]; then
+            log "  ✓ $key is set"
+            return 0
+        fi
+    done
+    log "  ⚠ none of [$*] are set in $ENV_FILE — timer will install but sends will error until one is"
+}
+
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+    # ZEROGEX_API_KEY is the legacy spelling, documented in .env.example and
+    # still read as a fallback by the script (and by core/api/serverFetch).
+    # This host uses it, and checking only the new name reported a false
+    # missing-token warning on a deploy whose very next command fetched all
+    # six symbols successfully.
+    warn_missing_env_any ZEROGEX_API_TOKEN ZEROGEX_API_KEY
+    # Every digest carries a signed unsubscribe link. The script hard-refuses
+    # to start without this, rather than mailing something nobody can opt out
+    # of, so an unset value means the timer ticks and sends nothing.
+    warn_missing_env ZEROGEX_END_USER_TOKEN_SECRET
+    # Not fatal: an empty holiday list only means the trading-day guard
+    # degrades to weekends-only, and the per-symbol freshness check still
+    # aborts a send built on a stale snapshot. Worth surfacing anyway.
+    warn_missing_env NEXT_PUBLIC_NYSE_HOLIDAYS
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# ProtectSystem=strict would otherwise block the last_sent_at UPDATE and the
+# audit row whenever AUTH_DB_PATH lives outside the repo — which it does here
+# (/var/lib/zerogex). The failure mode is nasty and silent in one direction:
+# Resend succeeds, the write errors read-only, and the mail went out anyway.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (weekdays 08:47 ET, Persistent=false)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real YES=1 send
+# path, and firing it now would mail the list outside the pre-open window.
+# The script would refuse (its own window guard), but relying on a guard to
+# undo a deploy action is the wrong shape. Use `make daily-levels DRY_RUN=1
+# FORCE=1` to validate by hand.
+
+log ""
+log "Free daily levels email timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (Mon-Fri 08:47 America/New_York)"
+log "  ✓ Persistent=false — a missed morning is skipped, never replayed mid-session"
+log "  ✓ Recipients: levels_subscribers rows that are confirmed and not unsubscribed"
+log "  ✓ Three guards abort the run: non-trading day, outside 08:30-09:25 ET, stale snapshot"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                                 - next/last run"
+log "  • cd $APP_DIR && make daily-levels DRY_RUN=1 FORCE=1                  - preview (no send)"
+log "  • cd $APP_DIR && make daily-levels PREVIEW_TO=you@example.com FORCE=1 - one sample copy"
+log "  • journalctl -u ${UNIT} -n 50                                         - recent send logs"
