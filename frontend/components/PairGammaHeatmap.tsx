@@ -351,12 +351,13 @@ function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
   return (
     <span
       title={meta.label}
-      className="inline-flex items-center justify-center font-mono"
+      // 8px on desktop; a step up on a phone, where the ladders are the
+      // whole screen width and these codes are the only level labels.
+      className="inline-flex items-center justify-center font-mono text-[8px] max-sm:text-[9px]"
       style={{
         minWidth: 15,
         height: 12,
         padding: "0 2px",
-        fontSize: 8,
         fontWeight: 800,
         letterSpacing: "0.02em",
         borderRadius: 2,
