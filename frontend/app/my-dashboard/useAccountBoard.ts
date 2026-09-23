@@ -21,7 +21,9 @@ import { getCsrfToken } from '@/core/csrfClient';
 import {
   chooseWorkingBoard,
   emptyLayout,
+  hasBoardSynced,
   isBoardUnsynced,
+  isLayoutEmpty,
   loadLayout,
   sanitizeLayout,
   setBoardUnsynced,
@@ -68,9 +70,36 @@ async function writeAccountBoard(serialized: string): Promise<boolean> {
   }
 }
 
+/** Save `layout` as a named board on the account (the Boards menu). */
+async function saveNamedBoard(name: string, layout: DashboardLayout): Promise<boolean> {
+  try {
+    const csrf = await getCsrfToken();
+    if (!csrf) return false;
+    const res = await fetch('/api/account/layouts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ name, layout }),
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export function useAccountBoard(scope: string | null, validWidgetIds: ReadonlySet<string>) {
+/**
+ * @param keptBoardName Name for a board this browser held before boards were
+ *   kept on the account, when it has to make way for the account's copy. A
+ *   template: `{date}` is replaced with the current date and time.
+ */
+export function useAccountBoard(
+  scope: string | null,
+  validWidgetIds: ReadonlySet<string>,
+  keptBoardName: string,
+) {
   const scopeRef = useRef<string | null>(scope);
   // On for a signed-in member whose account copy was read this page view.
   const enabledRef = useRef(false);
@@ -143,11 +172,37 @@ export function useAccountBoard(scope: string | null, validWidgetIds: ReadonlySe
       if (!read.ok) return browser ?? emptyLayout();
 
       const account = read.layout == null ? null : sanitizeLayout(read.layout, validWidgetIds);
+      const chosen = chooseWorkingBoard({ account, browser, browserUnsynced: isBoardUnsynced(scope) });
+
+      // Boards used to live in each browser separately, so a member who used
+      // two browsers can hold two different boards. The first to load after
+      // the account kept one uploaded its board; this browser's board, never
+      // synced and different, is about to be replaced by it. Keep it under
+      // Boards first rather than lose it. If that cannot be saved, open this
+      // browser's board with syncing off: nothing is overwritten, and the next
+      // load tries again.
+      if (
+        chosen === account &&
+        browser &&
+        !hasBoardSynced(scope) &&
+        !isLayoutEmpty(browser) &&
+        JSON.stringify(browser) !== JSON.stringify(account)
+      ) {
+        const stamp = new Date().toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        const kept = await saveNamedBoard(keptBoardName.replace('{date}', stamp), browser);
+        if (!kept || isCancelled()) return browser;
+      }
+
       enabledRef.current = true;
       confirmedRef.current = account ? JSON.stringify(account) : null;
-      return chooseWorkingBoard({ account, browser, browserUnsynced: isBoardUnsynced(scope) });
+      return chosen;
     },
-    [scope, validWidgetIds],
+    [scope, validWidgetIds, keptBoardName],
   );
 
   /** Record the board as it stands now, and save it to the account shortly. */

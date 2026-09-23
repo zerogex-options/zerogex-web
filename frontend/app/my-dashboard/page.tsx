@@ -102,7 +102,11 @@ export default function MyDashboardPage() {
 
   // A signed-in member's board lives on their account; this browser keeps a
   // copy. See useAccountBoard.
-  const { load: loadBoard, noteChange: noteBoardChange } = useAccountBoard(scope, WIDGET_IDS);
+  const { load: loadBoard, noteChange: noteBoardChange } = useAccountBoard(
+    scope,
+    WIDGET_IDS,
+    t('boardKeptName'),
+  );
 
   // Load the saved board once auth resolves (so we key storage by member id,
   // and know whether there is an account to read it from). localStorage is

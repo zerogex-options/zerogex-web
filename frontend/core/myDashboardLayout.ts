@@ -411,8 +411,22 @@ export function chooseWorkingBoard(input: {
   return account ?? emptyLayout();
 }
 
-function unsyncedKey(scope?: string | null): string {
-  return `${storageKey(scope)}:unsynced`;
+// This browser's sync state for a board: absent until the browser has synced
+// with the account at all, then 'ok' (in step) or 'pending' (holds a change
+// the account never confirmed). Absent is what marks a board built before
+// boards were kept on the account.
+function syncKey(scope?: string | null): string {
+  return `${storageKey(scope)}:sync`;
+}
+
+function readSyncState(scope?: string | null): string | null {
+  const storage = getStorage();
+  if (!storage) return null;
+  try {
+    return storage.getItem(syncKey(scope));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -420,22 +434,23 @@ function unsyncedKey(scope?: string | null): string {
  * confirmed. Never throws; unreadable storage reads as "no".
  */
 export function isBoardUnsynced(scope?: string | null): boolean {
-  const storage = getStorage();
-  if (!storage) return false;
-  try {
-    return storage.getItem(unsyncedKey(scope)) === '1';
-  } catch {
-    return false;
-  }
+  return readSyncState(scope) === 'pending';
 }
 
-/** Mark or clear the unconfirmed-change flag for `scope`. Never throws. */
+/**
+ * Whether this browser has ever synced its board for `scope` with the
+ * account. False for a board built before boards were kept on the account.
+ */
+export function hasBoardSynced(scope?: string | null): boolean {
+  return readSyncState(scope) !== null;
+}
+
+/** Record whether the board for `scope` is in step with the account. Never throws. */
 export function setBoardUnsynced(scope: string | null | undefined, unsynced: boolean): void {
   const storage = getStorage();
   if (!storage) return;
   try {
-    if (unsynced) storage.setItem(unsyncedKey(scope), '1');
-    else storage.removeItem(unsyncedKey(scope));
+    storage.setItem(syncKey(scope), unsynced ? 'pending' : 'ok');
   } catch {
     /* storage unavailable — the account copy is all there is */
   }

@@ -73,6 +73,7 @@ const {
   otherPaneId,
   MY_DASHBOARD_LAYOUT_VERSION,
   chooseWorkingBoard,
+  hasBoardSynced,
   isBoardUnsynced,
   setBoardUnsynced,
 } = await import('../core/myDashboardLayout.ts');
@@ -666,18 +667,24 @@ test('no copy anywhere opens an empty board', () => {
   assert.ok(isLayoutEmpty(chosen));
 });
 
-test('the unsynced flag is per member and leaves the stored board alone', () => {
+test('the sync state is per member and leaves the stored board alone', () => {
   memory.clear();
   const board = add(emptyLayout(), 'gamma-chart', 'xl');
   saveLayout(board, 'user_a');
 
-  assert.equal(isBoardUnsynced('user_a'), false, 'unset reads as in sync');
+  // A board built before boards were kept on the account has no state at all.
+  assert.equal(hasBoardSynced('user_a'), false, 'never synced');
+  assert.equal(isBoardUnsynced('user_a'), false, 'and nothing pending');
+
   setBoardUnsynced('user_a', true);
   assert.equal(isBoardUnsynced('user_a'), true);
+  assert.equal(hasBoardSynced('user_a'), true);
   assert.equal(isBoardUnsynced('user_b'), false, 'another member sharing the browser is unaffected');
-  assert.deepEqual(loadLayout('user_a'), board, 'the flag does not touch the board itself');
+  assert.equal(hasBoardSynced('user_b'), false);
+  assert.deepEqual(loadLayout('user_a'), board, 'the state does not touch the board itself');
 
   setBoardUnsynced('user_a', false);
   assert.equal(isBoardUnsynced('user_a'), false);
+  assert.equal(hasBoardSynced('user_a'), true, 'once synced, stays known to the account');
   assert.deepEqual(loadLayout('user_a'), board);
 });
