@@ -86,6 +86,7 @@ import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
 import { buildSaveUrl } from '@/core/retentionToken';
+import { buildPayUrl } from '@/core/payLink';
 import {
   backAttributeReferral,
   getRefereeCouponId,
@@ -2873,6 +2874,18 @@ export async function POST(request: NextRequest) {
             // the same fallback this branch had before the check was hoisted.
             const trialConversionEmail = trialConversion === true;
 
+            // Our signed /pay link for this invoice (core/payLink.ts): one click
+            // to Stripe's payment page without a Stripe URL in the email, which
+            // is what spam filters read as phishing. A missing signing secret
+            // must not cost the member the email, so it falls back to the
+            // account page, whose billing portal lists the same invoice.
+            let payUrl: string | null = null;
+            try {
+              payUrl = invoice.id ? buildPayUrl(getAppUrl(), invoice.id) : null;
+            } catch {
+              payUrl = null;
+            }
+
             const failedEmailArgs = {
               amountFormatted,
               cardBrand: card?.brand ?? null,
@@ -2880,12 +2893,9 @@ export async function POST(request: NextRequest) {
               nextAttemptIso,
               graceUntilIso,
               // The category is what stops us telling a member with an empty
-              // account to fix a card that works. invoice.hosted_invoice_url is
-              // deliberately NOT passed: an off-domain Stripe payment link in a
-              // "payment failed" email looks like phishing to spam filters. The
-              // email sends them to /account instead, whose billing portal
-              // lists the same open invoice.
+              // account to fix a card that works.
               declineCategory,
+              payUrl,
             };
             try {
               if (trialConversionEmail) {

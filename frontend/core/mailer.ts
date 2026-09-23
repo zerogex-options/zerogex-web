@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { buildDeclineEmailCopy } from './declineEmailCopy.ts';
 import { groupByBucket, type OrphanAlert } from './orphanAlert.ts';
+import { onSitePayUrl } from './payLink.ts';
 import type { DeclineCategory } from './declineReason.ts';
 import type { ChurnAlert } from './cancellationAlert.ts';
 import type { ReturnAngle } from './returnIntent.ts';
@@ -1543,14 +1544,21 @@ export async function sendCardExpiringEmail(to: string, opts: CardExpiringEmailO
  * core/declineEmailCopy.ts — 60 first payments were told to update a card that
  * had nothing wrong with it.
  *
- * Every link in both goes to the account page. There is deliberately no field
- * for Stripe's hosted invoice URL: a tokenized invoice.stripe.com payment link
- * in a "payment failed" email looks like phishing to spam filters, and the
- * billing portal on the account page lists the same open invoice anyway.
+ * Every link in both stays on our domain. There is deliberately no field for
+ * Stripe's hosted invoice URL: a tokenized invoice.stripe.com payment link in
+ * a "payment failed" email looks like phishing to spam filters. The pay button
+ * is our signed /pay link instead (core/payLink.ts), which redirects to that
+ * same Stripe page at click time.
  */
 type DeclineEmailExtras = {
   /** What core/declineReason.ts made of the issuer's answer. Null when unknown. */
   declineCategory?: DeclineCategory | null;
+  /**
+   * buildPayUrl() for the failed invoice. Anything that is not a /pay link on
+   * our own domain is ignored (onSitePayUrl), and without one the button falls
+   * back to the account page, whose billing portal lists the same invoice.
+   */
+  payUrl?: string | null;
 };
 
 export type PaymentFailedEmailOptions = {
@@ -1601,6 +1609,12 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
   const amountSentence = opts?.amountFormatted
     ? `Your subscription payment of ${opts.amountFormatted} did not go through. ${copy.reason}`
     : copy.reason;
+  // Paying the invoice is one click through our signed /pay link. A card fault
+  // is the exception: paying would leave the dead card on file for the next
+  // renewal, so that button stays on the account page.
+  const payHref = copy.preferInvoice ? onSitePayUrl(getAppUrl(), opts?.payUrl) : null;
+  const safePayHref = payHref ? escapeHtml(payHref) : null;
+  const safeButtonHref = safePayHref ?? safeAccountUrl;
 
   // Access-state wording. An established (previously active) subscription that
   // fails a renewal now keeps Pro through a short grace window (see
@@ -1631,10 +1645,12 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
     '',
     retrySentence,
     '',
-    copy.preferInvoice
-      ? "If you'd rather settle it now, open the billing portal from your account page — the open invoice is listed there:"
-      : "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
-    accountUrl,
+    payHref
+      ? "If you'd rather settle it now, that page takes any card:"
+      : copy.preferInvoice
+        ? "If you'd rather settle it now, open the billing portal from your account page — the open invoice is listed there:"
+        : "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
+    payHref ?? accountUrl,
     '',
     "And if you have any questions, just reply to this email — I'm happy to help.",
     '',
@@ -1649,12 +1665,14 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
       <p>${escapeHtml(amountSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
       <p>${
-        copy.preferInvoice
-          ? `If you'd rather settle it now, open the billing portal from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; the open invoice is listed there.`
-          : `If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
+        safePayHref
+          ? `If you'd rather settle it now, <a href="${safePayHref}" style="color: #f5b400; font-weight: 600;">this page</a> takes any card.`
+          : copy.preferInvoice
+            ? `If you'd rather settle it now, open the billing portal from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; the open invoice is listed there.`
+            : `If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
       }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
+        <a href="${safeButtonHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
       <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -1747,6 +1765,11 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
       : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
 
   const retrySentence = copy.remedy;
+  // Same button rule as the renewal email: the signed /pay link unless the
+  // card itself is the fault.
+  const payHref = copy.preferInvoice ? onSitePayUrl(getAppUrl(), opts?.payUrl) : null;
+  const safePayHref = payHref ? escapeHtml(payHref) : null;
+  const safeButtonHref = safePayHref ?? safeAccountUrl;
 
   const text = [
     'Hello,',
@@ -1755,10 +1778,12 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
     '',
     retrySentence,
     '',
-    copy.preferInvoice
-      ? 'You can complete it from the billing portal on your account page, where the open invoice is listed:'
-      : 'You can update your card in about a minute from your account page:',
-    accountUrl,
+    payHref
+      ? 'You can complete it here:'
+      : copy.preferInvoice
+        ? 'You can complete it from the billing portal on your account page, where the open invoice is listed:'
+        : 'You can update your card in about a minute from your account page:',
+    payHref ?? accountUrl,
     '',
     "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
     '',
@@ -1773,12 +1798,14 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
       <p>${escapeHtml(declineSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
       <p>${
-        copy.preferInvoice
-          ? `You can complete it from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>, where the open invoice is listed.`
-          : `You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
+        safePayHref
+          ? `You can <a href="${safePayHref}" style="color: #f5b400; font-weight: 600;">complete it here</a> &mdash; that page takes any card.`
+          : copy.preferInvoice
+            ? `You can complete it from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>, where the open invoice is listed.`
+            : `You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
       }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
+        <a href="${safeButtonHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
       <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -2143,8 +2170,12 @@ export async function sendTrialConvertedEmail(to: string, opts?: TrialConvertedE
 export type OpenInvoiceRecoveryEmailOptions = {
   /** Formatted amount still owed on the invoice, e.g. "$29.00". */
   amountFormatted: string;
-  /** Stripe's hosted invoice page — the thing that makes this email useful. */
-  hostedInvoiceUrl: string;
+  /**
+   * buildPayUrl() for the invoice — the thing that makes this email useful. Our
+   * own signed link, which redirects to Stripe's payment page at click time;
+   * never the Stripe URL itself (see core/payLink.ts).
+   */
+  payUrl: string;
   /** "Pro monthly", when the plan is resolvable. Null keeps the copy generic. */
   planLabel: string | null;
   /** How long ago the invoice was raised, e.g. "in July". Null omits it. */
@@ -2180,7 +2211,14 @@ export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOpti
   const subject = 'Your ZeroGEX invoice is still open';
   const plan = opts.planLabel ? `your ${opts.planLabel} subscription` : 'your subscription';
   const raised = opts.raisedLabel ? ` ${opts.raisedLabel}` : '';
-  const safeUrl = escapeHtml(opts.hostedInvoiceUrl);
+  // No fallback, unlike the dunning emails: a lapsed member's account page never
+  // mentions the invoice, so an email without a working pay link is not worth
+  // sending. Refuse loudly instead of linking Stripe or a dead end.
+  const payUrl = onSitePayUrl(getAppUrl(), opts.payUrl);
+  if (!payUrl) {
+    throw new Error('Open-invoice recovery email needs a /pay link on our own domain (buildPayUrl).');
+  }
+  const safeUrl = escapeHtml(payUrl);
   const safeAmount = escapeHtml(opts.amountFormatted);
 
   const text = [
@@ -2191,7 +2229,7 @@ export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOpti
     '',
     `The invoice is for ${opts.amountFormatted}. If you want to pick your subscription back up, you can settle it here:`,
     '',
-    opts.hostedInvoiceUrl,
+    payUrl,
     '',
     'That page takes any card — if the one on file has changed, or you would rather use a different one, ' +
       'you can enter it there. Access comes back as soon as the payment clears.',

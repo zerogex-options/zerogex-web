@@ -20,7 +20,10 @@
 // IT NEVER: charges anything, creates or voids an invoice, changes a
 // subscription, or alters access. It reads Stripe and sends one email. Access is
 // restored by the member paying, through Stripe's own hosted page and the
-// ordinary invoice.paid webhook — this script has no part in it.
+// ordinary invoice.paid webhook — this script has no part in it. The email links
+// our signed /pay URL, which redirects to that page at click time; a raw
+// invoice.stripe.com link in the email reads as phishing to spam filters
+// (core/payLink.ts).
 //
 // Eligibility, deliberately narrow:
 //   - invoice.status = 'open' and amount_due > 0
@@ -74,22 +77,33 @@ if (!secretKey) {
 
 const { getDb } = await import('../core/db.ts');
 const { sendOpenInvoiceRecoveryEmail, buildOpenInvoiceRecoveryEmail } = await import('../core/mailer.ts');
+const { buildPayUrl } = await import('../core/payLink.ts');
 const { priceIdToSku } = await import('../core/stripe.ts');
 const { readInvoicePeriodEndUnix, readInvoicePriceId } = await import('../core/stripeInvoice.ts');
 
+// The email's only link is ours now, so it must point at the live site and be
+// signed. Without the app URL every link would say localhost; without the
+// secret no link can be built at all.
+const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '') ?? '';
+if ((send || previewTo) && !appUrl) {
+  console.error('NEXT_PUBLIC_APP_URL is not set (env or .env.local); the pay links would point at localhost.');
+  process.exit(1);
+}
+if (send && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
+  console.error('ZEROGEX_END_USER_TOKEN_SECRET is not set (env or .env.local); the /pay links cannot be signed.');
+  process.exit(1);
+}
+
 if (previewTo) {
-  const preview = buildOpenInvoiceRecoveryEmail({
+  // Sample data, so the link is a placeholder that /pay will reject as invalid.
+  const sample = {
     amountFormatted: '$29.00',
-    hostedInvoiceUrl: 'https://invoice.stripe.com/i/example',
+    payUrl: `${appUrl}/pay?i=in_example&t=preview`,
     planLabel: 'Pro monthly',
     raisedLabel: 'in July',
-  });
-  await sendOpenInvoiceRecoveryEmail(previewTo, {
-    amountFormatted: '$29.00',
-    hostedInvoiceUrl: 'https://invoice.stripe.com/i/example',
-    planLabel: 'Pro monthly',
-    raisedLabel: 'in July',
-  });
+  };
+  const preview = buildOpenInvoiceRecoveryEmail(sample);
+  await sendOpenInvoiceRecoveryEmail(previewTo, sample);
   console.log(`Preview "${preview.subject}" sent to ${previewTo}. Nothing else was touched.`);
   process.exit(0);
 }
@@ -104,7 +118,6 @@ type Candidate = {
   email: string;
   amountDue: number;
   currency: string;
-  hostedInvoiceUrl: string;
   planLabel: string | null;
   raisedAt: string;
   /**
@@ -201,6 +214,7 @@ for await (const invoice of stripe.invoices.list({
     noAccount += 1;
     continue;
   }
+  // /pay redirects to this page at click time; with no page there is nothing to link.
   if (!invoice.hosted_invoice_url || !invoice.id) continue;
   if (!user.lapsed) {
     notLapsed += 1;
@@ -216,7 +230,6 @@ for await (const invoice of stripe.invoices.list({
     email: user.email,
     amountDue: invoice.amount_due ?? 0,
     currency: invoice.currency ?? 'usd',
-    hostedInvoiceUrl: invoice.hosted_invoice_url,
     planLabel: sku ? `${sku.tier === 'pro' ? 'Pro' : 'Basic'} ${sku.cadence}` : null,
     raisedAt: new Date((invoice.created ?? 0) * 1000).toISOString(),
     autoRestores,
@@ -324,7 +337,7 @@ for (const [index, c] of sendable.slice(0, limit).entries()) {
   try {
     await sendOpenInvoiceRecoveryEmail(c.email, {
       amountFormatted: money(c.amountDue, c.currency),
-      hostedInvoiceUrl: c.hostedInvoiceUrl,
+      payUrl: buildPayUrl(appUrl, c.invoiceId),
       planLabel: c.planLabel,
       raisedLabel: null,
     });
@@ -348,7 +361,7 @@ for (const [index, c] of sendable.slice(0, limit).entries()) {
       try {
         await sendOpenInvoiceRecoveryEmail(c.email, {
           amountFormatted: money(c.amountDue, c.currency),
-          hostedInvoiceUrl: c.hostedInvoiceUrl,
+          payUrl: buildPayUrl(appUrl, c.invoiceId),
           planLabel: c.planLabel,
           raisedLabel: null,
         });

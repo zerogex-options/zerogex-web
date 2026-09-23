@@ -68,21 +68,21 @@ test('the retry line tells the truth about whether Stripe will try again', () =>
   assert.doesNotMatch(done.remedy, /will try again automatically on/i);
 });
 
-test('paying it yourself goes through the account page, not a Stripe link', () => {
-  // A tokenized invoice.stripe.com link in a "payment failed" email looks like
-  // phishing to spam filters. The copy names the account page, whose billing
-  // portal lists the same open invoice, and never promises a link to anything
-  // else.
+test('every payable decline offers the link below, which takes any card', () => {
+  // "The link below" is our signed /pay link, or the account page when no
+  // signed link could be built; both reach the open invoice. What the copy must
+  // never carry is a Stripe URL — tests/paymentFailedEmail.test.ts checks the
+  // rendered hrefs.
   for (const category of ['insufficient_funds', 'issuer_block', 'try_again', 'unknown'] as const) {
     for (const nextAttemptLabel of ['March 3', null]) {
       const { remedy } = buildDeclineEmailCopy(input({ category, nextAttemptLabel }));
-      assert.match(remedy, /pay the open invoice yourself from your account page/i, category);
-      assert.doesNotMatch(remedy, /link below|stripe\.com/i, category);
+      assert.match(remedy, /pay the open invoice yourself with the link below — it takes any card/i, category);
+      assert.doesNotMatch(remedy, /stripe\.com/i, category);
     }
   }
   const auth = buildDeclineEmailCopy(input({ category: 'authentication_required' }));
-  assert.match(auth.remedy, /open invoice from your account page/i);
-  assert.doesNotMatch(auth.remedy, /link below|stripe\.com/i);
+  assert.match(auth.remedy, /open invoice with the link below/i);
+  assert.doesNotMatch(auth.remedy, /stripe\.com/i);
 });
 
 test('trial conversions and renewals are described as what they are', () => {

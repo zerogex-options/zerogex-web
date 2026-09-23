@@ -264,17 +264,25 @@ auth/transactional and TradeWorkz alerts.
 - Pure builder `buildTrialConvertedEmail` + thin sender, locked down in
   `tests/trialConverted.test.ts`.
 
-**Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso?, declineCategory? })`
+**Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso?, declineCategory?, payUrl? })`
 - **Subject:** `We couldn't process your ZeroGEX payment`
 - Names the failed card, states the access state (grace window vs. dropped to Public),
   gives Stripe's next retry date, links the billing portal. Each enrichment degrades to
   neutral wording if unresolved. No FOH footer (urgent).
-- **Every link goes to `/account`, never Stripe's `hosted_invoice_url`.** A tokenized
+- **Every link stays on our domain, never Stripe's `hosted_invoice_url`.** A tokenized
   `invoice.stripe.com` payment link in a "payment failed" email looks like phishing to
-  spam filters. Unless the decline is a card fault, the copy says to pay the open
-  invoice, which the billing portal on the account page lists. Same rule for the
-  trial-conversion twin; locked down in `tests/paymentFailedEmail.test.ts`
-  (`npm run test:payment-failed-email`).
+  spam filters. Unless the decline is a card fault, the button is the signed `/pay`
+  link (`core/payLink.ts`, `app/pay/route.ts`): it checks the signature and redirects
+  to the invoice's current Stripe payment page, so paying is still one click, any
+  card, no sign-in. A card fault goes to `/account` to update the card, and so does
+  every button if the signing secret is missing. Same rules for the trial-conversion
+  twin and the open-invoice recovery email; locked down in
+  `tests/paymentFailedEmail.test.ts` (`npm run test:payment-failed-email`).
+- `make resend-payment-failed` re-sends this email (either framing), as it reads
+  today, to members sent it in the last `DAYS` (default 7) whose invoice is still
+  unpaid and whose subscription Stripe is still retrying. For members whose earlier
+  copy carried the Stripe link and may have gone to spam. One resend per invoice
+  (`payment_failed_email_resent`). Dry run by default.
 
 **Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso? })`
 - **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} — the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} — your last payment didn't go through`

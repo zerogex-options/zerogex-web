@@ -14,13 +14,14 @@
 // core/declineReason.ts has known since it was written that these are opposite
 // remedies. It just was not wired to the thing the customer reads.
 //
-// WHERE "PAY THE OPEN INVOICE" LEADS: the account page, never Stripe's
+// WHERE "PAY THE OPEN INVOICE" LEADS: our signed /pay link, never Stripe's
 // hosted_invoice_url. The emails used to link that URL directly, and a long
 // tokenized invoice.stripe.com payment link inside a "your payment failed"
 // email is the shape spam filters look for in phishing — it was the prime
 // suspect when these emails started landing in spam, where no link collects
-// anything. The billing portal on the account page lists the same open invoice
-// and pays it from any card, so every link in the email stays on our domain.
+// anything. /pay redirects to the same Stripe page at click time, so the member
+// still pays in one click, from any card, without signing in, and every link in
+// the email stays on our domain (core/payLink.ts).
 //
 // TONE IS PART OF THE CORRECTNESS HERE. Being short of money on a given day is
 // not a defect in the member and the copy must not imply it is. It states what
@@ -40,8 +41,8 @@ export type DeclineEmailCopy = {
    * True when the primary action is "pay the open invoice" rather than "update
    * the card on file". Only a genuine card fault makes re-saving the card the
    * right remedy; everything else is better served by paying the invoice, which
-   * takes ANY card and settles the debt in one step. The email links the account
-   * page either way — this decides what it tells the member to do there.
+   * takes ANY card and settles the debt in one step. True sends the button to
+   * the signed /pay link; false sends it to the account page to update the card.
    */
   preferInvoice: boolean;
 };
@@ -63,11 +64,15 @@ function retrySentence(input: DeclineEmailInput): string {
   return 'Stripe has made its last automatic attempt, so it will not retry on its own.';
 }
 
-/** The "you can pay it yourself" tail. Names the account page, not a Stripe URL. */
+/**
+ * The "you can pay it yourself" tail. "The link below" is our /pay link, or the
+ * account page when no signed link could be built — both reach the open
+ * invoice, and both take any card.
+ */
 function payTail(input: DeclineEmailInput): string {
   return input.nextAttemptLabel
-    ? ' If you would rather not wait, or want to use a different card, you can pay the open invoice yourself from your account page — it takes any card.'
-    : ' You can pay the open invoice yourself from your account page — it takes any card.';
+    ? ' If you would rather not wait, or want to use a different card, you can pay the open invoice yourself with the link below — it takes any card.'
+    : ' You can pay the open invoice yourself with the link below — it takes any card.';
 }
 
 /**
@@ -131,7 +136,7 @@ function buildDeclineEmailCopyInner(input: DeclineEmailInput): DeclineEmailCopy 
     case 'authentication_required':
       return {
         reason: `Your bank asked for an extra confirmation step on ${opener} and it was not completed, so the charge did not go through.`,
-        remedy: 'Paying the open invoice from your account page walks you through that step — it only takes a moment.',
+        remedy: 'Paying the open invoice with the link below walks you through that step — it only takes a moment.',
         ctaLabel: 'Confirm the payment',
         preferInvoice: true,
       };
