@@ -174,7 +174,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 20px',
           borderRadius: 'var(--radius-control)',
-          background: hovered ? `${color}18` : 'var(--bg-card)',
+          background: hovered ? `color-mix(in srgb, ${color} 9%, transparent)` : 'var(--bg-card)',
           border: `1px solid ${hovered ? color : C.border}`,
           transition: 'background 0.2s ease, border-color 0.2s ease',
           cursor: 'pointer',

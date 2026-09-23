@@ -65,8 +65,8 @@ export default function TodaysReadCard({ model, className, bulletinLink = false 
           <span
             className="inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
             style={{
-              borderColor: `${tone.color}55`,
-              background: `${tone.color}14`,
+              borderColor: `color-mix(in srgb, ${tone.color} 33%, transparent)`,
+              background: `color-mix(in srgb, ${tone.color} 8%, transparent)`,
               color: tone.color,
             }}
           >

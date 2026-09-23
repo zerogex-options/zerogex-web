@@ -183,7 +183,7 @@ function FlowStep({ label, sub, muted = false }: { label: string; sub: string; m
       style={{
         flex: '1 1 150px',
         minWidth: 140,
-        border: `1px solid var(${muted ? '--border-subtle' : '--color-brand-accent'}44)`,
+        border: `1px solid color-mix(in srgb, var(${muted ? '--border-subtle' : '--color-brand-accent'}) 27%, transparent)`,
         background: muted ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-brand-accent) 6%, transparent)',
         borderRadius: 12,
         padding: '14px 16px',

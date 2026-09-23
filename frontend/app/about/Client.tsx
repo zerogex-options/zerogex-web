@@ -481,7 +481,7 @@ export default function AboutPage() {
                 transition: 'border-color 0.2s', cursor: 'pointer',
               }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = item.color + '80';
+                  (e.currentTarget as HTMLElement).style.borderColor = `color-mix(in srgb, ${item.color} 50%, transparent)`;
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.borderColor = '';

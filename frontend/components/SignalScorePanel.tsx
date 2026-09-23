@@ -701,7 +701,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             <div className="flex items-center gap-2 flex-wrap">
               <RegimeIcon size={20} style={{ color: regimeColor }} />
               <div className="text-lg font-bold" style={{ color: regimeColor }}>{regimeLabel}</div>
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${regimeColor}20`, color: regimeColor }}>
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${regimeColor} 13%, transparent)`, color: regimeColor }}>
                 {regimeTag}
               </span>
             </div>
@@ -727,7 +727,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </div>
               <div className="text-xs text-[var(--color-text-secondary)]">hit rate</div>
               {hitRatePct != null && (
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${hitRateTone}20`, color: hitRateTone }}>
+                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${hitRateTone} 13%, transparent)`, color: hitRateTone }}>
                   {hitRateBand.label}
                 </span>
               )}
@@ -771,7 +771,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
               </div>
               <div className="text-xs text-[var(--color-text-secondary)]">agreement</div>
               {agreementPct != null && (
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${agreementColor}20`, color: agreementColor }}>
+                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${agreementColor} 13%, transparent)`, color: agreementColor }}>
                   {agreementLabel}
                 </span>
               )}
