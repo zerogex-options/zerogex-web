@@ -39,7 +39,7 @@ export default function TrackRecordStrip({
               with a second sentence saying the same thing reads like padding
               on the one strip whose whole job is to sound credible. */}
           {hasNumbers ? (
-            <> Including the days it broke — those are listed by date, with the forecast that got them wrong.</>
+            <> Including the days it broke&nbsp;- those are listed by date, with the forecast that got them wrong.</>
           ) : null}
         </p>
         <Link

@@ -151,7 +151,7 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function AboutPage() {
+export default function AboutPage({ founderPhoto = null }: { founderPhoto?: string | null }) {
   const t = usePageT(dict);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -278,15 +278,37 @@ export default function AboutPage() {
               background: C.green,
             }}
           />
-          <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 18, fontSize: 12 }}>
-            {t('founderEyebrow')}
+          {/* The photo column only exists once page.tsx finds a photo file;
+              without one the card is text only. Beside the text from sm up,
+              above it on phones. */}
+          <div className={founderPhoto ? 'grid items-center gap-5 sm:grid-cols-[auto_1fr] sm:gap-8' : undefined}>
+            {founderPhoto && (
+              <Image
+                src={founderPhoto}
+                alt={t('founderPhotoAlt')}
+                width={120}
+                height={120}
+                className="h-20 w-20 sm:h-[120px] sm:w-[120px]"
+                style={{
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  objectPosition: 'center 25%',
+                  border: `2px solid color-mix(in srgb, ${C.green} 45%, transparent)`,
+                }}
+              />
+            )}
+            <div>
+              <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 18, fontSize: 12 }}>
+                {t('founderEyebrow')}
+              </div>
+              <p style={{ fontSize: 'clamp(19px, 2.4vw, 24px)', fontWeight: 700, color: text, lineHeight: 1.4, margin: '0 0 14px' }}>
+                {t('founderLine')}
+              </p>
+              <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0 }}>
+                {t('founderAiNote')}
+              </p>
+            </div>
           </div>
-          <p style={{ fontSize: 'clamp(19px, 2.4vw, 24px)', fontWeight: 700, color: text, lineHeight: 1.4, margin: '0 0 14px' }}>
-            {t('founderLine')}
-          </p>
-          <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0 }}>
-            {t('founderAiNote')}
-          </p>
         </div>
         <div
           className="zg-panel"
