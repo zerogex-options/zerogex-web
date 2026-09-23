@@ -5,7 +5,6 @@ import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveCon
 import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
-import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ResponsiveChartArea from './ResponsiveChartArea';
@@ -14,6 +13,7 @@ import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { etTodayDateKey } from '@/core/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import ChartCaption from "./ChartCaption";
 
 // Each zoom click narrows / widens the visible strike range by this factor.
@@ -153,6 +153,10 @@ function modeLabel(mode: DisplayMode): string {
   return 'Notional';
 }
 
+// Rows of the per-expiration breakdown a phone tooltip lists before
+// summarizing the rest — the full chain runs to ~30, taller than the chart.
+const COMPACT_BREAKDOWN_ROWS = 6;
+
 function WallMapTooltip({
   active,
   payload,
@@ -161,6 +165,7 @@ function WallMapTooltip({
   stackExpirations,
   isSubset,
   dteLabel,
+  compact = false,
 }: {
   active?: boolean;
   payload?: Array<{ payload?: ChartRow }>;
@@ -169,6 +174,8 @@ function WallMapTooltip({
   stackExpirations: string[];
   isSubset: boolean;
   dteLabel: (exp: string) => string;
+  /** Phone: cap the per-expiration breakdown so the tooltip fits the chart. */
+  compact?: boolean;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
@@ -182,8 +189,12 @@ function WallMapTooltip({
   const putAll = Math.abs(Number(row.putTotalAll ?? row.putValue ?? 0));
   const callPct = isSubset && callAll > 0 ? (callSel / callAll) * 100 : null;
   const putPct = isSubset && putAll > 0 ? (putSel / putAll) * 100 : null;
+  const breakdownRows = stackExpirations.filter(
+    (exp) => Number(row[`call__${exp}`] ?? 0) !== 0 || Math.abs(Number(row[`put__${exp}`] ?? 0)) !== 0,
+  );
+  const shownBreakdown = compact ? breakdownRows.slice(0, COMPACT_BREAKDOWN_ROWS) : breakdownRows;
   return (
-    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)', fontSize: 12, ...(compact ? { maxWidth: 240 } : {}) }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
       <div style={{ color: 'var(--color-bull)' }}>
         Call {unitLabel}: {formatTooltipValue(callSel, mode)}
@@ -200,10 +211,9 @@ function WallMapTooltip({
       {stackExpirations.length > 1 && (
         <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border)' }}>
           <div style={{ opacity: 0.7, marginBottom: 2 }}>By expiration (roll-off)</div>
-          {stackExpirations.map((exp) => {
+          {shownBreakdown.map((exp) => {
             const c = Number(row[`call__${exp}`] ?? 0);
             const p = Math.abs(Number(row[`put__${exp}`] ?? 0));
-            if (c === 0 && p === 0) return null;
             return (
               <div key={exp} style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
                 <span style={{ opacity: 0.85 }}>{dteLabel(exp)}</span>
@@ -215,6 +225,9 @@ function WallMapTooltip({
               </div>
             );
           })}
+          {shownBreakdown.length < breakdownRows.length && (
+            <div style={{ opacity: 0.7 }}>+{breakdownRows.length - shownBreakdown.length} later expirations</div>
+          )}
         </div>
       )}
     </div>
@@ -222,6 +235,7 @@ function WallMapTooltip({
 }
 
 export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFallback }: GexWallsChartProps) {
+  const isMobile = useIsMobile();
   const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
   const inputBg = 'var(--color-surface-subtle)';
@@ -499,7 +513,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   }, [chartData, yView]);
 
   const renderLegend = () => (
-    <div className="w-full flex flex-wrap justify-end items-center gap-x-4 gap-y-1 text-xs" style={{ color: textColor }}>
+    <div className={`w-full flex flex-wrap ${isMobile ? 'justify-start text-[11px]' : 'justify-end text-xs'} items-center gap-x-4 gap-y-1`} style={{ color: textColor }}>
       <div className="flex items-center gap-1.5" title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest">
         <span
           className="inline-block h-3 w-5 rounded-sm"
@@ -526,89 +540,180 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         <span className="inline-block h-0.5 w-4" style={{ backgroundColor: 'var(--color-gold)' }} />
         Spot
       </div>
+      {/* A phone drops the rotated axis title, so the unit lives here. */}
+      {isMobile && (
+        <div style={{ color: 'var(--text-secondary)' }}>
+          {displayMode === 'oi' ? 'Contracts' : 'Notional ($ at exercise)'}
+        </div>
+      )}
     </div>
   );
+
+  // Strike (X) and value (Y) zoom with a shared reset — same set the Gamma
+  // chart carries; 32px finger targets on a phone.
+  const zoomBtnClass = isMobile
+    ? 'inline-flex items-center justify-center min-h-8 min-w-8 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed'
+    : 'px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed';
+  const zoomControls = (
+    <>
+      <div
+        className={isMobile ? 'inline-flex items-center rounded border' : 'ml-1 inline-flex items-center rounded border'}
+        style={{ borderColor: inputBorder, backgroundColor: inputBg }}
+      >
+        <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>X</span>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          disabled={isFullyZoomedOut}
+          title="Zoom out strikes (widen visible range)"
+          aria-label={isMobile ? 'Zoom out strikes' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
+        >
+          <ZoomOut size={12} />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          title="Zoom in strikes (narrow visible range)"
+          aria-label={isMobile ? 'Zoom in strikes' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
+        >
+          <ZoomIn size={12} />
+        </button>
+      </div>
+      <div
+        className="inline-flex items-center rounded border"
+        style={{ borderColor: inputBorder, backgroundColor: inputBg }}
+      >
+        <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>Y</span>
+        <button
+          type="button"
+          onClick={handleYZoomOut}
+          disabled={isYFull}
+          title="Zoom out the value axis"
+          aria-label={isMobile ? 'Zoom out the value axis' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
+        >
+          <ZoomOut size={12} />
+        </button>
+        <button
+          type="button"
+          onClick={handleYZoomIn}
+          disabled={isYMaxZoom}
+          title="Zoom in the value axis (magnify the OI scale)"
+          aria-label={isMobile ? 'Zoom in the value axis' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
+        >
+          <ZoomIn size={12} />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={handleResetView}
+        disabled={isDefaultView}
+        title="Reset zoom (both axes)"
+        aria-label={isMobile ? 'Reset zoom' : undefined}
+        className={
+          isMobile
+            ? 'inline-flex items-center justify-center min-h-8 min-w-8 rounded border px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed'
+            : 'inline-flex items-center rounded border px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed'
+        }
+        style={{ borderColor: inputBorder, backgroundColor: inputBg, color: 'var(--color-text-secondary)' }}
+      >
+        <RotateCcw size={12} />
+      </button>
+    </>
+  );
+
+  const modeToggle = (
+    <div className="inline-flex rounded border" style={{ borderColor: inputBorder, backgroundColor: inputBg }}>
+      <button
+        type="button"
+        className={isMobile ? 'min-h-8 px-3 text-xs font-semibold' : 'px-2.5 py-1 text-xs font-semibold'}
+        style={{
+          color: displayMode === 'oi' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+          backgroundColor: displayMode === 'oi' ? 'var(--color-info-soft)' : 'transparent',
+        }}
+        onClick={() => setDisplayMode('oi')}
+        title="Open interest (contracts outstanding)"
+      >
+        OI
+      </button>
+      <button
+        type="button"
+        className={isMobile ? 'min-h-8 px-3 text-xs font-semibold' : 'px-2.5 py-1 text-xs font-semibold'}
+        style={{
+          color: displayMode === 'notional' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+          backgroundColor: displayMode === 'notional' ? 'var(--color-info-soft)' : 'transparent',
+          borderLeft: `1px solid ${inputBorder}`,
+        }}
+        onClick={() => setDisplayMode('notional')}
+        title="Notional value of position (strike × 100 × OI) — dollars of underlying that would change hands at exercise"
+      >
+        Notional
+      </button>
+    </div>
+  );
+
+  const titleTooltip = "Strike-level open interest by call/put. Calls plot above the axis, puts below, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much OI rolls off in N days. OI = open contracts outstanding (raw count); Notional = strike × 100 × OI (the dollar value of underlying that would change hands at exercise). When you filter to specific expirations, the solid bar is the selected expirations and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % and the per-expiration breakdown. The yellow dotted line marks spot at the nearest strike.";
+
+  // On a phone the scrollbars only appear once there is something to scroll.
+  const showValueScrollbar = !isMobile || !isYFull;
+  const showStrikeScrollbar = !isMobile || !isFullyZoomedOut;
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div
-        className="rounded-2xl p-6"
+        className="rounded-2xl p-4 sm:p-6"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
         }}
       >
+        {/* On a phone the title gets its own line (it wrapped to four beside
+            the zoom controls), the controls a row below it, and the legend —
+            a Recharts <Legend> inside the plot on the desktop — an HTML row
+            above the plot, so it can't squeeze the chart. */}
+        {isMobile ? (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 pr-12">
+              <h3 className="zg-h3" style={{ color: textColor }}>
+                Open Interest by Strike
+              </h3>
+              <TooltipWrapper inlineInExpanded={false} text={titleTooltip}>
+                <Info size={14} />
+              </TooltipWrapper>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {zoomControls}
+              {modeToggle}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <ExpirationMultiSelect
+                options={expirationOptions}
+                selected={selectedExpirations}
+                onChange={setSelection}
+                zeroDte={zeroDte}
+              />
+            </div>
+            <div className="mt-2">{renderLegend()}</div>
+          </div>
+        ) : (
         <div className="flex items-center justify-between gap-3 gap-y-2 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             <h3 className="zg-h3" style={{ color: textColor }}>
               Open Interest by Strike
             </h3>
-            <TooltipWrapper inlineInExpanded={false} text="Strike-level open interest by call/put. Calls plot above the axis, puts below, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much OI rolls off in N days. OI = open contracts outstanding (raw count); Notional = strike × 100 × OI (the dollar value of underlying that would change hands at exercise). When you filter to specific expirations, the solid bar is the selected expirations and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % and the per-expiration breakdown. The yellow dotted line marks spot at the nearest strike.">
+            <TooltipWrapper inlineInExpanded={false} text={titleTooltip}>
               <Info size={14} />
             </TooltipWrapper>
             {/* Strike (X) and value (Y) zoom with a shared reset — same set
                 the Gamma chart carries. */}
-            <div
-              className="ml-1 inline-flex items-center rounded border"
-              style={{ borderColor: inputBorder, backgroundColor: inputBg }}
-            >
-              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>X</span>
-              <button
-                type="button"
-                onClick={handleZoomOut}
-                disabled={isFullyZoomedOut}
-                title="Zoom out strikes (widen visible range)"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
-              >
-                <ZoomOut size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={handleZoomIn}
-                title="Zoom in strikes (narrow visible range)"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
-              >
-                <ZoomIn size={12} />
-              </button>
-            </div>
-            <div
-              className="inline-flex items-center rounded border"
-              style={{ borderColor: inputBorder, backgroundColor: inputBg }}
-            >
-              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>Y</span>
-              <button
-                type="button"
-                onClick={handleYZoomOut}
-                disabled={isYFull}
-                title="Zoom out the value axis"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
-              >
-                <ZoomOut size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={handleYZoomIn}
-                disabled={isYMaxZoom}
-                title="Zoom in the value axis (magnify the OI scale)"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid ${inputBorder}` }}
-              >
-                <ZoomIn size={12} />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleResetView}
-              disabled={isDefaultView}
-              title="Reset zoom (both axes)"
-              className="inline-flex items-center rounded border px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ borderColor: inputBorder, backgroundColor: inputBg, color: 'var(--color-text-secondary)' }}
-            >
-              <RotateCcw size={12} />
-            </button>
+            {zoomControls}
           </div>
           <div className="flex items-center gap-3 mr-8">
             <ExpirationMultiSelect
@@ -617,35 +722,10 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               onChange={setSelection}
               zeroDte={zeroDte}
             />
-            <div className="inline-flex rounded border" style={{ borderColor: inputBorder, backgroundColor: inputBg }}>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold"
-                style={{
-                  color: displayMode === 'oi' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  backgroundColor: displayMode === 'oi' ? 'var(--color-info-soft)' : 'transparent',
-                }}
-                onClick={() => setDisplayMode('oi')}
-                title="Open interest (contracts outstanding)"
-              >
-                OI
-              </button>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold"
-                style={{
-                  color: displayMode === 'notional' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  backgroundColor: displayMode === 'notional' ? 'var(--color-info-soft)' : 'transparent',
-                  borderLeft: `1px solid ${inputBorder}`,
-                }}
-                onClick={() => setDisplayMode('notional')}
-                title="Notional value of position (strike × 100 × OI) — dollars of underlying that would change hands at exercise"
-              >
-                Notional
-              </button>
-            </div>
+            {modeToggle}
           </div>
         </div>
+        )}
 
         {!chartData.length ? (
           <div className="flex items-center justify-center h-[280px] text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -656,41 +736,50 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             {(chartHeight) => (
             <div className="flex items-start gap-1.5">
               {/* Value (Y) scrollbar — padded to line up with the plot band. */}
+              {showValueScrollbar && (
               <div
                 className="shrink-0"
                 style={{ height: chartHeight, paddingTop: PLOT_INSET_TOP, paddingBottom: PLOT_INSET_BOTTOM }}
               >
                 <ValueRangeScrollbar visibleNorm={yView} onChange={setYView} />
               </div>
+              )}
               <div className="flex-1 min-w-0">
-            <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={chartHeight}>
-              <ComposedChart data={chartData} stackOffset="sign" margin={{ top: 8, right: 12, left: 24, bottom: 8 }}>
+              <ComposedChart data={chartData} stackOffset="sign" margin={isMobile ? { top: 16, right: 4, left: 0, bottom: 4 } : { top: 8, right: 12, left: 24, bottom: 8 }}>
                 <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
-                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={22} />
+                <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={isMobile ? { left: 6, right: 6 } : { left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: isMobile ? 10 : 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={isMobile ? 24 : 22} />
                 <YAxis
                   yAxisId="value"
                   domain={yDomain}
                   ticks={yTicks}
                   allowDataOverflow
+                  width={isMobile ? 40 : undefined}
                   stroke={axisStroke}
-                  tick={{ fontSize: 11, fill: axisStroke }}
+                  tick={{ fontSize: isMobile ? 10 : 11, fill: axisStroke }}
                   // Puts are stored negative (below the axis); show magnitudes on
                   // both sides so the mirror reads "500k … 0 … 500k".
                   tickFormatter={(v) => formatAxisValue(Math.abs(Number(v)), displayMode)}
-                  label={{
-                    value:
-                      displayMode === 'oi'
-                        ? 'Open Interest (contracts)'
-                        : 'Notional ($ at exercise)',
-                    angle: -90,
-                    position: 'insideLeft',
-                    offset: 8,
-                    style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
-                  }}
+                  label={
+                    isMobile
+                      ? undefined
+                      : {
+                          value:
+                            displayMode === 'oi'
+                              ? 'Open Interest (contracts)'
+                              : 'Notional ($ at exercise)',
+                          angle: -90,
+                          position: 'insideLeft',
+                          offset: 8,
+                          style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
+                        }
+                  }
                 />
-                <Tooltip content={<WallMapTooltip mode={displayMode} stackExpirations={stackExpirations} isSubset={isSubset} dteLabel={dteLabel} />} />
-                <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
+                <Tooltip content={<WallMapTooltip mode={displayMode} stackExpirations={stackExpirations} isSubset={isSubset} dteLabel={dteLabel} compact={isMobile} />} />
+                {!isMobile && (
+                  <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
+                )}
+
                 {/* Zero baseline for the mirror layout (calls up, puts down). */}
                 <ReferenceLine yAxisId="value" y={0} stroke={axisStroke} opacity={0.4} />
                 {/* Per-strike bars, stacked by expiration on one signed stack
@@ -710,7 +799,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                     name={`Call ${modeLabel(displayMode)} ${dteLabel(exp)}`}
                     fill={'var(--color-bull)'}
                     fillOpacity={expirationOpacity.get(exp) ?? 1}
-                    barSize={14}
+                    barSize={isMobile ? undefined : 14}
                     isAnimationActive={false}
                   />
                 ))}
@@ -723,25 +812,24 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                     name={`Put ${modeLabel(displayMode)} ${dteLabel(exp)}`}
                     fill={'var(--color-bear)'}
                     fillOpacity={expirationOpacity.get(exp) ?? 1}
-                    barSize={14}
+                    barSize={isMobile ? undefined : 14}
                     isAnimationActive={false}
                   />
                 ))}
                 {allExpirationsSorted.length === 0 && (
-                  <Bar yAxisId="value" stackId="oi" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} barSize={14} isAnimationActive={false} />
+                  <Bar yAxisId="value" stackId="oi" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} barSize={isMobile ? undefined : 14} isAnimationActive={false} />
                 )}
                 {allExpirationsSorted.length === 0 && (
-                  <Bar yAxisId="value" stackId="oi" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} barSize={14} isAnimationActive={false} />
+                  <Bar yAxisId="value" stackId="oi" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} barSize={isMobile ? undefined : 14} isAnimationActive={false} />
                 )}
 
                 {closestStrike != null && (
                   <ReferenceLine yAxisId="value" x={closestStrike} stroke="var(--color-gold)" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: 'var(--color-gold)', position: 'top', fontSize: 11 }} />
                 )}
               </ComposedChart>
-            </ResponsiveContainer>
-          </MobileScrollableChart>
-                {visibleDomain && fullStrikeDomain && (
-                  <div className="mt-2 px-2">
+              </ResponsiveContainer>
+                {showStrikeScrollbar && visibleDomain && fullStrikeDomain && (
+                  <div className={isMobile ? 'mt-3 px-1' : 'mt-2 px-2'}>
                     <StrikeRangeScrollbar
                       visibleDomain={visibleDomain}
                       fullDomain={fullStrikeDomain}

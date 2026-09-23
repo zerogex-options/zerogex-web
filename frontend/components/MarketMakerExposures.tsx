@@ -1,6 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import {
   BarChart3,
   ChevronDown,
@@ -13,10 +23,13 @@ import {
   Rewind,
   RotateCcw,
   Settings2,
+  SlidersHorizontal,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
 import { useInDashboardWidget } from '@/core/dashboardWidget';
+import { lockPageScroll } from '@/core/scrollLock';
+import { useCoarsePointer, useIsMobile } from '@/hooks/useIsMobile';
 import {
   useApiData,
   useGEXByStrike,
@@ -167,26 +180,218 @@ function pickExpirationsLookbackHours(): number {
   return h * 60 + m >= 9 * 60 + 35 ? 2 : 168;
 }
 
-// SVG layout constants — sized to fit on a standard desktop without scrolling.
-const CW = 1200;
-const CH = 648;
-const PLOT_TOP = 24;
-// Compact mode keeps the grouped date row (just below the time labels at
-// ``PLOT_BOTTOM + 34``) but still drops the middle/right panel-axis labels —
-// so its bottom padding only needs to fit the time + date rows, not the panel
-// axis titles the full layout reserves space for too.
-const PLOT_BOTTOM_FULL = CH - 72;
-const PLOT_BOTTOM_COMPACT = CH - 52;
+// ── Canvas ──
+// Two drawing boards share every line of the rendering code below.
+//
+// DESKTOP is the original fixed 1200×648 viewBox, scaled to the card. It is
+// right for a wide card and ruinous on a phone: held at a 760px min-width
+// inside a sideways scroller, a 390px screen showed the candles and nothing
+// else — the strike labels, the gamma bars (the point of the page) and the
+// positions panel were all off to the right — and its 11-unit labels drew at
+// 6–7px.
+//
+// NARROW is built for the width it is drawn at, one viewBox unit per CSS px,
+// so an 11-unit label is real 11px text. Every panel keeps the one price axis
+// it shares with the candles, so a wall reads at the same height across them.
+// Below NARROW_THREE_PANEL_MIN there is room for exactly two panels side by
+// side: the candles (price context — where the tape sits against the levels)
+// and ONE bar panel, which the toolbar switches between Gamma and Positions.
+// That keeps the page's reason to exist, gamma by strike, on screen at a
+// readable width without a horizontal scroll, and never splits the candles
+// from the bars that explain them. Wider narrow cards (a phone in landscape, a
+// tablet) fit all three panels again. The field names are the SCREAMING_CASE
+// constants they replaced, destructured back into locals in the component, so
+// the drawing code reads the same either way.
+interface ProfileCanvas {
+  narrow: boolean;
+  CW: number;
+  CH: number;
+  PLOT_TOP: number;
+  PLOT_BOTTOM: number;
+  LEFT_X: number;
+  LEFT_W: number;
+  // Inset from the candle panel's edges to the first / last candle.
+  INNER_PAD_X: number;
+  STRIKE_X: number;
+  STRIKE_W: number;
+  // A width of 0 means the panel is not drawn on this board.
+  GAMMA_X: number;
+  GAMMA_W: number;
+  POS_X: number;
+  POS_W: number;
+  // Candles shown in the live window (see TARGET_VISIBLE_CANDLES).
+  VISIBLE_CANDLES: number;
+  // Roughly how many clock labels the time axis aims for, and the minimum gap
+  // (viewBox units) between two drawn labels.
+  TIME_LABEL_TARGET: number;
+  MIN_TIME_LABEL_GAP: number;
+  // Offsets below PLOT_BOTTOM for the tick row (time labels, bar-axis ticks)
+  // and the row under it (grouped dates, panel titles).
+  TICK_DY: number;
+  TITLE_DY: number;
+  DATE_DY: number;
+  AXIS_FONT: number;
+}
 
-const LEFT_X = 0;
-const LEFT_W_FULL = 540;
-// In compact mode the middle and right panels are hidden, so the candles
-// panel expands across the bulk of the viewBox. This keeps the dashboard
-// tile visually filled with chart content instead of letterboxed.
-const LEFT_W_COMPACT = 1056;
-const STRIKE_W = 64;
-const GAP = 12;
-const MID_W = 280;
+// SVG layout constants — sized to fit on a standard desktop without scrolling.
+const DESKTOP_CW = 1200;
+const DESKTOP_CH = 648;
+
+function desktopCanvas(compact: boolean): ProfileCanvas {
+  const CW = DESKTOP_CW;
+  const CH = DESKTOP_CH;
+  // In compact mode the middle and right panels are hidden, so the candles
+  // panel expands across the bulk of the viewBox. This keeps the dashboard
+  // tile visually filled with chart content instead of letterboxed.
+  const LEFT_W = compact ? 1056 : 540;
+  const LEFT_X = 0;
+  const STRIKE_X = LEFT_X + LEFT_W;
+  const STRIKE_W = 64;
+  const GAP = 12;
+  const MID_W = 280;
+  const MID_X = STRIKE_X + STRIKE_W + GAP;
+  const RIGHT_X = MID_X + MID_W + GAP;
+  return {
+    narrow: false,
+    CW,
+    CH,
+    PLOT_TOP: 24,
+    // Compact mode keeps the grouped date row (just below the time labels at
+    // ``PLOT_BOTTOM + 34``) but still drops the middle/right panel-axis labels
+    // — so its bottom padding only needs to fit the time + date rows, not the
+    // panel axis titles the full layout reserves space for too.
+    PLOT_BOTTOM: compact ? CH - 52 : CH - 72,
+    LEFT_X,
+    LEFT_W,
+    INNER_PAD_X: 12,
+    STRIKE_X,
+    STRIKE_W,
+    GAMMA_X: MID_X,
+    GAMMA_W: compact ? 0 : MID_W,
+    POS_X: RIGHT_X,
+    POS_W: compact ? 0 : CW - RIGHT_X,
+    VISIBLE_CANDLES: TARGET_VISIBLE_CANDLES,
+    TIME_LABEL_TARGET: 7,
+    MIN_TIME_LABEL_GAP: 50,
+    TICK_DY: 18,
+    TITLE_DY: 38,
+    DATE_DY: 34,
+    AXIS_FONT: 11,
+  };
+}
+
+// Widest card (CSS px) that still gets the narrow board, and the width from
+// which the narrow board has room for all three panels again.
+const NARROW_MAX_WIDTH = 900;
+const NARROW_THREE_PANEL_MIN = 560;
+// Strike column on the narrow board: tick labels, plus the key-level price
+// tags, which ride inside it (a 6-character "662.15" tag is ~37px at 10px).
+const NARROW_STRIKE_W = 44;
+// Rows of the per-expiration breakdown a narrow-board readout lists before
+// summarizing the rest (the full chain runs to ~30, taller than the chart).
+const NARROW_BREAKDOWN_ROWS = 6;
+
+type NarrowBarPanel = 'gamma' | 'positions';
+
+/**
+ * The narrow board for a card `width` CSS px wide. Portrait screens get a tall
+ * board (a phone has height to spare, and every strike row gains from it); a
+ * phone turned to landscape has ~350px of height, so there the board is short
+ * and wide. Keyed on orientation rather than on the measured viewport height,
+ * which a phone's collapsing address bar changes on every scroll.
+ */
+function narrowCanvas(
+  width: number,
+  landscape: boolean,
+  compact: boolean,
+  barPanel: NarrowBarPanel,
+): ProfileCanvas {
+  const CW = Math.max(300, Math.round(width));
+  const CH = landscape
+    ? Math.min(380, Math.max(280, Math.round(CW * 0.45)))
+    : Math.min(620, Math.max(400, Math.round(CW * 1.3)));
+  const STRIKE_W = NARROW_STRIKE_W;
+  const GAP = 4;
+  const LEFT_X = 0;
+  let LEFT_W: number;
+  let GAMMA_X: number;
+  let GAMMA_W: number;
+  let POS_X: number;
+  let POS_W: number;
+  if (compact) {
+    // Candles only (the dashboard-tile variant), strike column on the right.
+    LEFT_W = CW - STRIKE_W - 2;
+    GAMMA_X = CW;
+    GAMMA_W = 0;
+    POS_X = CW;
+    POS_W = 0;
+  } else if (CW >= NARROW_THREE_PANEL_MIN) {
+    LEFT_W = Math.round(CW * 0.4);
+    const barsX = LEFT_W + STRIKE_W + GAP;
+    const barsW = CW - barsX - 2;
+    GAMMA_X = barsX;
+    GAMMA_W = Math.round((barsW - 10) * 0.55);
+    POS_X = GAMMA_X + GAMMA_W + 10;
+    POS_W = CW - POS_X - 2;
+  } else {
+    // Two panels: candles | strikes | one switchable bar panel. The bars get
+    // the larger share — they are what the page is for.
+    LEFT_W = Math.round(CW * 0.42);
+    const slotX = LEFT_W + STRIKE_W + GAP;
+    const slotW = CW - slotX - 2;
+    GAMMA_X = slotX;
+    POS_X = slotX;
+    GAMMA_W = barPanel === 'gamma' ? slotW : 0;
+    POS_W = barPanel === 'positions' ? slotW : 0;
+  }
+  const INNER_PAD_X = 5;
+  return {
+    narrow: true,
+    CW,
+    CH,
+    PLOT_TOP: 8,
+    PLOT_BOTTOM: CH - 34,
+    LEFT_X,
+    LEFT_W,
+    INNER_PAD_X,
+    STRIKE_X: LEFT_X + LEFT_W,
+    STRIKE_W,
+    GAMMA_X,
+    GAMMA_W,
+    POS_X,
+    POS_W,
+    // Fewer candles than the desktop board's 78, so each stays a few px wide
+    // on ~140px of tape (about three hours of 5-minute candles on a phone).
+    VISIBLE_CANDLES: Math.max(30, Math.min(TARGET_VISIBLE_CANDLES, Math.floor((LEFT_W - 2 * INNER_PAD_X) / 3.6))),
+    TIME_LABEL_TARGET: Math.max(2, LEFT_W / 45),
+    MIN_TIME_LABEL_GAP: 40,
+    TICK_DY: 14,
+    TITLE_DY: 28,
+    DATE_DY: 27,
+    AXIS_FONT: 10,
+  };
+}
+
+// Short names for the key-level chips the narrow board draws at the left edge
+// of the candle panel (the price itself rides in the strike column).
+const NARROW_LEVEL_NAMES: Record<string, string> = {
+  'Gamma Flip': 'Flip',
+  'Call Wall': 'Call Wall',
+  'Put Wall': 'Put Wall',
+  Spot: 'Spot',
+  'Pin Strike': 'Pin',
+  'PM High': 'PM Hi',
+  'PM Low': 'PM Lo',
+  'Prev High': 'Prev Hi',
+  'Prev Low': 'Prev Lo',
+};
+
+// Price text for a narrow-board level tag: two decimals where they fit the
+// strike column, fewer for the four- and five-digit index prices.
+function levelTagText(price: number): string {
+  const abs = Math.abs(price);
+  return price.toFixed(abs >= 10000 ? 0 : abs >= 1000 ? 1 : 2);
+}
 
 // Numeric GEX value labels overlaid on the middle-panel gamma bars when the
 // "Show GEX values" display option is on. Drawn at each bar's tip in the bar's
@@ -233,6 +438,9 @@ const SESSION_LEVEL_DASH = '2 3';
 // bar and needs to stay legible in both.
 const NET_BAR_COLOR = '#7C3AED';
 const NET_TEXT_COLOR = '#A855F7';
+
+// A finger held this long before it moves is a crosshair scrub, not a scroll.
+const TOUCH_HOLD_MS = 260;
 
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
@@ -311,13 +519,82 @@ interface MarketMakerExposuresProps {
 export default function MarketMakerExposures({ compact = false }: MarketMakerExposuresProps = {}) {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
-  const LEFT_W = compact ? LEFT_W_COMPACT : LEFT_W_FULL;
-  const STRIKE_X = LEFT_X + LEFT_W;
-  const MID_X = STRIKE_X + STRIKE_W + GAP;
-  const RIGHT_X = MID_X + MID_W + GAP;
-  const RIGHT_W = compact ? 0 : CW - RIGHT_X;
-  const PLOT_BOTTOM = compact ? PLOT_BOTTOM_COMPACT : PLOT_BOTTOM_FULL;
+
+  // ── Board ── desktop or narrow (see ProfileCanvas), chosen from the chart
+  // container's measured width, so it is decided on the client: the first
+  // client render draws the desktop board and the layout effect swaps in the
+  // narrow one before the browser paints. The container only mounts once the
+  // price axis resolves (a loading card stands in until then), hence a
+  // callback ref — the effect has to re-run on the render that mounts it.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  // Clip for the candle panel's plot band (see the candle paint below).
+  const plotClipId = `mme-plot-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const setContainerNode = useCallback((el: HTMLDivElement | null) => {
+    containerRef.current = el;
+    setContainerEl(el);
+  }, []);
+  const [box, setBox] = useState<{ w: number; landscape: boolean } | null>(null);
+  useLayoutEffect(() => {
+    if (!containerEl) return;
+    const measure = () => {
+      const cs = window.getComputedStyle(containerEl);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const w = containerEl.clientWidth - padX;
+      const landscape = window.innerWidth > window.innerHeight;
+      setBox((cur) => (cur && Math.abs(cur.w - w) < 1 && cur.landscape === landscape ? cur : { w, landscape }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(containerEl);
+    window.addEventListener('orientationchange', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, [containerEl]);
+  const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
+  // Which bar panel the two-panel narrow board shows beside the candles.
+  const [narrowPanel, setNarrowPanel] = useState<NarrowBarPanel>('gamma');
+  const canvas = useMemo(
+    () =>
+      box && box.w > 0 && box.w < NARROW_MAX_WIDTH && (isMobile || coarsePointer)
+        ? narrowCanvas(box.w, box.landscape, compact, narrowPanel)
+        : desktopCanvas(compact),
+    [box, isMobile, coarsePointer, compact, narrowPanel],
+  );
+  const {
+    narrow,
+    CW,
+    CH,
+    PLOT_TOP,
+    PLOT_BOTTOM,
+    LEFT_X,
+    LEFT_W,
+    INNER_PAD_X,
+    STRIKE_X,
+    STRIKE_W,
+    GAMMA_X,
+    GAMMA_W,
+    POS_X,
+    POS_W,
+    VISIBLE_CANDLES,
+    TIME_LABEL_TARGET,
+    MIN_TIME_LABEL_GAP,
+    TICK_DY,
+    TITLE_DY,
+    DATE_DY,
+    AXIS_FONT,
+  } = canvas;
+  const showGamma = GAMMA_W > 0;
+  const showPos = POS_W > 0;
+  // The two-panel narrow board swaps one bar panel for the other.
+  const barSwitch = narrow && !compact && CW < NARROW_THREE_PANEL_MIN;
   const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
+  // Per-strike GEX value labels: real 10px text on the narrow board.
+  const gexValueFont = narrow ? 10 : GEX_VALUE_FONT;
+  const gexValueMinSlot = narrow ? 13 : GEX_VALUE_MIN_SLOT;
   // Volume overlay region inside the left price panel (compact mode only).
   // Takes the bottom 20% of the plot vertically; candles still span the full
   // price area and paint over the volume bars in the overlap zone.
@@ -478,6 +755,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [fullscreen]);
+
+  // The fullscreen overlay covers the viewport; the page under it must not
+  // scroll along with a swipe on the chart (a phone's rubber-band did).
+  useEffect(() => {
+    if (!fullscreen) return;
+    return lockPageScroll();
+  }, [fullscreen]);
+
+  // The narrow board folds its secondary controls into an Options panel.
+  const [optionsOpen, setOptionsOpen] = useState<boolean>(false);
 
   // ── Pause-aware polling intervals (passing 0 disables the interval after the initial fetch).
   // Default to 1s on every hook so candles, gamma bars, and OI bars all tick in real time.
@@ -987,10 +1274,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     // edge is pinned to the scrubbed candle instead, revealing the chart as it
     // appeared at that earlier point. With-Prev controls the opacity of
     // prior-session bars in the render pass instead of dropping them.
+    // The narrow board shows fewer (VISIBLE_CANDLES) so each stays legible.
     const rightEdge = rewindIndex != null ? rewindIndex : allCandles.length - 1;
-    const start = Math.max(0, rightEdge - TARGET_VISIBLE_CANDLES + 1);
+    const start = Math.max(0, rightEdge - VISIBLE_CANDLES + 1);
     return allCandles.slice(start, rightEdge + 1);
-  }, [allCandles, rewindIndex]);
+  }, [allCandles, rewindIndex, VISIBLE_CANDLES]);
 
   // ── Live tip overlay: WS quote → tip candle close/high/low ──
   //
@@ -1148,17 +1436,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return PLOT_TOP + (1 - (price - yMin) / Math.max(1e-9, yMax - yMin)) * PLOT_HEIGHT;
   };
 
-  const strikeLabels = useMemo(() => {
-    if (!yBounds) return [];
+  const { strikeLabels, strikeLabelDecimals } = useMemo(() => {
+    if (!yBounds) return { strikeLabels: [] as number[], strikeLabelDecimals: 0 };
     const { yMin, yMax } = yBounds;
-    const step = niceStep(yMax - yMin, 11);
+    // The narrow board aims for a label every ~34px of height and never steps
+    // finer than a whole point — strikes are listed on whole points, and a
+    // deep pinch would otherwise crowd the column with half-point rungs.
+    const rawStep = niceStep(yMax - yMin, narrow ? Math.max(6, Math.round(PLOT_HEIGHT / 34)) : 11);
+    const step = narrow ? Math.max(1, rawStep) : rawStep;
     const start = Math.ceil(yMin / step) * step;
     const labels: number[] = [];
     for (let v = start; v <= yMax; v += step) {
       labels.push(Number(v.toFixed(2)));
     }
-    return labels;
-  }, [yBounds]);
+    // A fractional rung needs its decimals: printed at 0dp, a 0.5-point
+    // ladder read "665, 665, 664, 664…" once zoomed in far enough.
+    return { strikeLabels: labels, strikeLabelDecimals: step >= 1 ? 0 : step >= 0.1 ? 1 : 2 };
+  }, [yBounds, narrow, PLOT_HEIGHT]);
 
   // At the right edge (most recent plot point) the rewind matches the live
   // view exactly because both read the same bucket — the timeseries' tip.
@@ -1241,7 +1535,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // suppressed (zoom in to reveal them). Never in compact mode — the middle
   // gamma panel it labels isn't drawn there.
   const gammaRowSlot = PLOT_HEIGHT / Math.max(1, visibleStrikes.length);
-  const showGammaValues = !compact && showGexValues && gammaRowSlot >= GEX_VALUE_MIN_SLOT;
+  const showGammaValues = !compact && showGamma && showGexValues && gammaRowSlot >= gexValueMinSlot;
 
   // Render one per-strike GEX value at a bar's tip. Grows outward from the tip
   // (`dir` = 1 right, -1 left) and, when that would overflow the panel, pins to
@@ -1256,9 +1550,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     key: string,
   ) => {
     const text = formatExposure(value);
-    const estW = text.length * (GEX_VALUE_FONT * 0.62);
-    const panelLeft = MID_X;
-    const panelRight = MID_X + MID_W;
+    const estW = text.length * (gexValueFont * 0.62);
+    const panelLeft = GAMMA_X;
+    const panelRight = GAMMA_X + GAMMA_W;
     let x: number;
     let anchor: 'start' | 'end';
     if (dir > 0) {
@@ -1283,7 +1577,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         y={yPos}
         textAnchor={anchor}
         dominantBaseline="central"
-        fontSize={GEX_VALUE_FONT}
+        fontSize={gexValueFont}
         fontWeight={600}
         fill={color}
         stroke={cardBg}
@@ -1381,9 +1675,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   const xForIndex = (idx: number): number => {
     if (visibleCandles.length === 0) return LEFT_X;
-    const usableW = LEFT_W - 24;
+    const usableW = LEFT_W - 2 * INNER_PAD_X;
     const ratio = visibleCandles.length === 1 ? 0.5 : idx / (visibleCandles.length - 1);
-    return LEFT_X + 12 + ratio * usableW;
+    return LEFT_X + INNER_PAD_X + ratio * usableW;
   };
 
   const xForTime = (t: number): number => {
@@ -1445,7 +1739,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     const spanMin = visibleCandles.length * intervalMin;
     const NICE_STEPS_MIN = [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360, 720];
     const stepMin =
-      NICE_STEPS_MIN.find((s) => s >= spanMin / 7) ?? NICE_STEPS_MIN[NICE_STEPS_MIN.length - 1];
+      NICE_STEPS_MIN.find((s) => s >= spanMin / TIME_LABEL_TARGET) ?? NICE_STEPS_MIN[NICE_STEPS_MIN.length - 1];
 
     const etFmt = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York',
@@ -1475,20 +1769,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     // of the next session (e.g. 04:00 ET) — closed-market periods are omitted
     // from the x-axis — so their labels overlap into an unreadable blob unless
     // the closer of the two is dropped.
-    const usableW = LEFT_W - 24;
+    const usableW = LEFT_W - 2 * INNER_PAD_X;
     const xForIdx = (idx: number) =>
-      LEFT_X + 12 + (visibleCandles.length === 1 ? 0.5 : idx / (visibleCandles.length - 1)) * usableW;
-    const MIN_LABEL_GAP = 50;
+      LEFT_X + INNER_PAD_X + (visibleCandles.length === 1 ? 0.5 : idx / (visibleCandles.length - 1)) * usableW;
+    const MIN_LABEL_GAP = MIN_TIME_LABEL_GAP;
     let lastDrawnX = Number.NEGATIVE_INFINITY;
     const out: Array<{ t: number; label: string }> = [];
+    // On the narrow board the first/last candle sits a few px from the panel
+    // edge, where a centered "13:00" would be sliced in half.
+    const edgeGuard = narrow ? 15 : 0;
     candidates.forEach((c) => {
       const x = xForIdx(c.idx);
+      if (x < LEFT_X + edgeGuard || x > LEFT_X + LEFT_W - edgeGuard) return;
       if (x - lastDrawnX < MIN_LABEL_GAP) return;
       out.push({ t: c.t, label: c.label });
       lastDrawnX = x;
     });
     return out;
-  }, [visibleCandles, tf, LEFT_W]);
+  }, [visibleCandles, tf, narrow, LEFT_X, LEFT_W, INNER_PAD_X, TIME_LABEL_TARGET, MIN_TIME_LABEL_GAP]);
 
   // The visible spot line's price. Priority order:
   //
@@ -1602,10 +1900,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
+  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_TOP, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  // (containerRef is declared with the board measurement at the top.)
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   // ── Where the drawing surface actually ends on screen ──
@@ -1618,7 +1916,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // width, and follows the container as the user scrolls the chart sideways.
   // Starts at CW so the first paint (and SSR) places them exactly where a
   // full-width layout wants them; the measurement only ever pulls them left.
-  const [labelRightEdge, setLabelRightEdge] = useState(CW);
+  const [labelRightEdge, setLabelRightEdge] = useState(DESKTOP_CW);
   // Until ``yBounds`` resolves the component renders a loading card instead of
   // the chart, so there is no container to measure yet — hence the dependency:
   // the effect has to re-run on the render that finally mounts the SVG.
@@ -1654,8 +1952,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       window.removeEventListener('resize', measure);
     };
     // ``fullscreen`` and ``compact`` both re-lay-out the SVG box; re-running
-    // re-attaches the observers to the box that actually got rendered.
-  }, [chartMounted, fullscreen, compact]);
+    // re-attaches the observers to the box that actually got rendered. A board
+    // swap (desktop ↔ narrow) changes the viewBox the measure converts into.
+  }, [chartMounted, fullscreen, compact, CW, CH]);
 
   type HoverState = {
     pxX: number;
@@ -1663,10 +1962,48 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     svgX: number;
     svgY: number;
     panel: 'left' | 'middle' | 'right' | null;
+    // The container's width, for keeping the readout inside it.
+    cw: number;
+    // Put down by a finger: the readout then pins to the top of the chart,
+    // away from the finger, instead of trailing a cursor that isn't there.
+    touch?: boolean;
   };
   const [hover, setHover] = useState<HoverState | null>(null);
 
+  // Mobile browsers replay a tap as mousemove/mousedown/mouseup a moment
+  // later. The touch handlers below already acted on it, so the mouse path
+  // sits out for a beat after any touch rather than acting on it twice (a
+  // replayed mousedown would otherwise start a pan and wipe the readout).
+  const lastTouchAtRef = useRef(0);
+  const fromRecentTouch = () => Date.now() - lastTouchAtRef.current < 800;
+
+  const hoverFromClient = (clientX: number, clientY: number, svg: SVGSVGElement, touch: boolean) => {
+    const rect = svg.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+    const pxX = clientX - containerRect.left;
+    const pxY = clientY - containerRect.top;
+    const svgX = ((clientX - rect.left) / Math.max(1, rect.width)) * CW;
+    // A fingertip at the plot's edge still means the edge row.
+    const rawY = ((clientY - rect.top) / Math.max(1, rect.height)) * CH;
+    const svgY = touch ? clamp(rawY, PLOT_TOP, PLOT_BOTTOM) : rawY;
+    let panel: HoverState['panel'] = null;
+    if (svgY >= PLOT_TOP && svgY <= PLOT_BOTTOM) {
+      if (svgX >= LEFT_X && svgX <= LEFT_X + LEFT_W) panel = 'left';
+      else if (showGamma && svgX >= GAMMA_X && svgX <= GAMMA_X + GAMMA_W) panel = 'middle';
+      else if (showPos && svgX >= POS_X && svgX <= POS_X + POS_W) panel = 'right';
+      else if (narrow && !compact && svgX > LEFT_X + LEFT_W) {
+        // On the narrow board the strike column and the slim gaps read as
+        // part of the bar panel beside them — a fingertip rarely lands on a
+        // bar exactly.
+        panel = showGamma && (!showPos || svgX < POS_X) ? 'middle' : showPos ? 'right' : null;
+      }
+    }
+    setHover({ pxX, pxY, svgX, svgY, panel, cw: containerRect.width, touch });
+  };
+
   const onSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (fromRecentTouch()) return;
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
 
@@ -1687,26 +2024,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       return;
     }
 
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    const pxX = e.clientX - containerRect.left;
-    const pxY = e.clientY - containerRect.top;
-    const svgX = ((e.clientX - rect.left) / Math.max(1, rect.width)) * CW;
-    const svgY = ((e.clientY - rect.top) / Math.max(1, rect.height)) * CH;
-    let panel: HoverState['panel'] = null;
-    if (svgY >= PLOT_TOP && svgY <= PLOT_BOTTOM) {
-      if (svgX >= LEFT_X && svgX <= LEFT_X + LEFT_W) panel = 'left';
-      else if (!compact && svgX >= MID_X && svgX <= MID_X + MID_W) panel = 'middle';
-      else if (!compact && svgX >= RIGHT_X && svgX <= RIGHT_X + RIGHT_W) panel = 'right';
-    }
-    setHover({ pxX, pxY, svgX, svgY, panel });
+    hoverFromClient(e.clientX, e.clientY, svg, false);
   };
 
   // Pan gesture entry: left-button mouse-down anywhere on the chart captures
   // the starting position and current pan offset so the move handler can
   // compute deltas relative to where the user first grabbed.
   const onSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || fromRecentTouch()) return;
     panStartRef.current = {
       clientX: e.clientX,
       clientY: e.clientY,
@@ -1727,6 +2052,177 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     document.addEventListener('mouseup', onUp);
     return () => document.removeEventListener('mouseup', onUp);
   }, [isPanning]);
+
+  // ── Touch ──
+  // A finger gets its own grammar (the Gamma Chart's), because a touchscreen
+  // has no hover and no wheel. The SVG claims only horizontal gestures
+  // (touch-action: pan-y), so a vertical swipe still scrolls the page, while:
+  //   • a tap drops the crosshair and its readout where it lands, and a tap on
+  //     a chart already showing one lifts it,
+  //   • a press-and-hold, or a sideways drag, picks the crosshair up and the
+  //     finger then scrubs it anywhere — up and down the strikes included,
+  //   • two fingers pinch the price range in and out, and drag it up and down.
+  // The crosshair outlives the finger so its readout can actually be read.
+  // Mouse and pen input never reach these handlers.
+  const touchRef = useRef<{
+    points: Map<number, { x: number; y: number }>;
+    mode: 'pending' | 'scrub' | 'pinch' | 'scroll' | 'spent';
+    startX: number;
+    startY: number;
+    startAt: number;
+    hadHover: boolean;
+    pinchDist: number;
+    pinchMidY: number;
+    pinchZoom: number;
+    pinchPan: number;
+    pinchRange: number;
+  } | null>(null);
+  // Kept apart from the gesture state above, which the effects below never
+  // read: the pending press-and-hold timer, and whether the chart has claimed
+  // the current touch (a scrub or pinch) so the native touchmove listener
+  // knows to keep the page still.
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchClaimedRef = useRef(false);
+
+  const clearHold = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+  useEffect(
+    () => () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    },
+    [],
+  );
+
+  const handleTouchDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== 'touch') return;
+    lastTouchAtRef.current = Date.now();
+    const svg = e.currentTarget;
+    let t = touchRef.current;
+    if (!t) {
+      t = {
+        points: new Map(),
+        mode: 'pending',
+        startX: e.clientX,
+        startY: e.clientY,
+        startAt: Date.now(),
+        hadHover: hover != null,
+        pinchDist: 0,
+        pinchMidY: 0,
+        pinchZoom: zoomMul,
+        pinchPan: yPanOffset,
+        pinchRange: 0,
+      };
+      touchRef.current = t;
+    }
+    t.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      svg.setPointerCapture(e.pointerId);
+    } catch {
+      /* the pointer may already be gone */
+    }
+    if (t.points.size === 1) {
+      // Held still long enough, it is a crosshair rather than a page scroll.
+      const x = e.clientX;
+      const y = e.clientY;
+      holdTimerRef.current = setTimeout(() => {
+        holdTimerRef.current = null;
+        const cur = touchRef.current;
+        if (!cur || cur.mode !== 'pending') return;
+        cur.mode = 'scrub';
+        touchClaimedRef.current = true;
+        hoverFromClient(x, y, svg, true);
+      }, TOUCH_HOLD_MS);
+    } else if (t.points.size === 2) {
+      clearHold();
+      const [a, b] = [...t.points.values()];
+      t.mode = 'pinch';
+      touchClaimedRef.current = true;
+      t.pinchDist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      t.pinchMidY = (a.y + b.y) / 2;
+      t.pinchZoom = zoomMul;
+      t.pinchPan = yPanOffset;
+      t.pinchRange = yBounds ? yBounds.yMax - yBounds.yMin : 0;
+      setHover(null);
+    }
+  };
+
+  const handleTouchMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== 'touch' || !t || !t.points.has(e.pointerId)) return;
+    lastTouchAtRef.current = Date.now();
+    t.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (t.mode === 'pinch') {
+      if (t.points.size < 2) return;
+      const [a, b] = [...t.points.values()];
+      const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      // Fingers apart → a tighter price range (zoom in); together → wider.
+      setZoomMul(clamp(t.pinchZoom * (t.pinchDist / dist), ZOOM_MIN, ZOOM_MAX));
+      // Both fingers moving together drag the price axis, grab-style like the
+      // mouse: pull down to reveal higher prices.
+      const rect = e.currentTarget.getBoundingClientRect();
+      const screenPlotHeight = (rect.height * PLOT_HEIGHT) / CH;
+      if (screenPlotHeight > 0 && t.pinchRange > 0) {
+        const dy = (a.y + b.y) / 2 - t.pinchMidY;
+        setYPanOffset(t.pinchPan + (dy / screenPlotHeight) * t.pinchRange);
+      }
+      return;
+    }
+    if (t.mode === 'scrub') {
+      hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+      return;
+    }
+    if (t.mode === 'pending') {
+      const dx = e.clientX - t.startX;
+      const dy = e.clientY - t.startY;
+      // Held long enough before moving: a scrub, even if the hold timer has
+      // not got its turn yet (a busy main thread delays it), so the first move
+      // of a deliberate hold is never mistaken for a page scroll.
+      if (Date.now() - t.startAt >= TOUCH_HOLD_MS && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+        clearHold();
+        t.mode = 'scrub';
+        touchClaimedRef.current = true;
+        hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+        return;
+      }
+      if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) {
+        // A page scroll: the browser takes it from here.
+        clearHold();
+        t.mode = 'scroll';
+        return;
+      }
+      if (Math.abs(dx) > 8) {
+        clearHold();
+        t.mode = 'scrub';
+        touchClaimedRef.current = true;
+        hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== 'touch' || !t) return;
+    lastTouchAtRef.current = Date.now();
+    const wasTap = e.type === 'pointerup' && t.mode === 'pending' && t.points.size === 1;
+    t.points.delete(e.pointerId);
+    clearHold();
+    if (wasTap) {
+      if (t.hadHover) setHover(null);
+      else hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+    }
+    if (t.points.size === 0) {
+      touchRef.current = null;
+      touchClaimedRef.current = false;
+    } else if (t.mode === 'pinch') {
+      // One finger left after a pinch: ignore it until it lifts, rather than
+      // letting it turn into a scrub that jumps from wherever it now sits.
+      t.mode = 'spent';
+    }
+  };
 
   // Mouse-wheel zoom. Attached imperatively with ``{ passive: false }`` so
   // ``preventDefault`` can suppress the page from scrolling underneath the
@@ -1754,8 +2250,19 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       const factor = e.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
       setZoomMul((v) => clamp(v * factor, ZOOM_MIN, ZOOM_MAX));
     };
+    // A scrub or pinch the chart has claimed must not ALSO scroll the page: a
+    // held finger that then slides vertically is scrubbing strikes, not
+    // scrolling. Only a non-passive native listener can cancel that; an
+    // unclaimed touch (a plain vertical swipe) is left alone and scrolls.
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchClaimedRef.current && e.cancelable) e.preventDefault();
+    };
     svg.addEventListener('wheel', onWheel, { passive: false });
-    return () => svg.removeEventListener('wheel', onWheel);
+    svg.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      svg.removeEventListener('wheel', onWheel);
+      svg.removeEventListener('touchmove', onTouchMove);
+    };
   }, [wheelTargetReady]);
 
   // Linear scans — cheap enough to compute on every render without useMemo, and
@@ -1959,10 +2466,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     );
   }
 
+  // On the narrow board every primary control is a ≥32px touch target; the
+  // desktop board keeps its dense 12px toolbar exactly as it was.
+  const touchTarget: React.CSSProperties = narrow ? { minHeight: 32, minWidth: 32, justifyContent: 'center' } : {};
   const toolbarBtnStyle = (active = false): React.CSSProperties => ({
     border: `1px solid ${border}`,
     color: active ? textPrimary : subtle,
     backgroundColor: active ? 'var(--color-info-soft)' : 'transparent',
+    ...touchTarget,
   });
   const toolbarBtnClass = 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors';
 
@@ -2005,6 +2516,488 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return nyDateFmt.format(new Date(ts)) !== todaySessionDate;
   };
 
+  // Key levels in bounds, each with a label row staggered vertically so
+  // overlapping pills always remain readable. The line itself stays at the
+  // original y; a thin leader connects it to the offset pill.
+  const PILL_H = narrow ? 15 : 16;
+  const positionedLevels = (() => {
+    const inBounds = keyLevels.filter((lvl) => lvl.y >= PLOT_TOP && lvl.y <= PLOT_BOTTOM);
+    const sorted = [...inBounds].sort((a, b) => a.y - b.y);
+    const MIN_GAP = PILL_H + 2;
+    const minY = PLOT_TOP + PILL_H / 2;
+    const maxY = PLOT_BOTTOM - PILL_H / 2;
+    const positioned = sorted.map((lvl) => ({ ...lvl, labelY: lvl.y }));
+
+    // Top-down: never let a label sit above the previous one's bottom edge.
+    for (let i = 0; i < positioned.length; i++) {
+      if (i === 0) {
+        positioned[i].labelY = Math.max(minY, positioned[i].labelY);
+      } else {
+        positioned[i].labelY = Math.max(positioned[i].labelY, positioned[i - 1].labelY + MIN_GAP);
+      }
+    }
+    // Bottom-up: clamp to plot bottom and push earlier labels up if needed.
+    for (let i = positioned.length - 1; i >= 0; i--) {
+      if (positioned[i].labelY > maxY) positioned[i].labelY = maxY;
+      if (i > 0 && positioned[i - 1].labelY > positioned[i].labelY - MIN_GAP) {
+        positioned[i - 1].labelY = positioned[i].labelY - MIN_GAP;
+      }
+    }
+    return positioned;
+  })();
+  // On the narrow board a level's price tag sits in the strike column, on top
+  // of the tick labels; a tick it would half-cover is dropped rather than left
+  // peeking out from under the tag.
+  const tickUnderTag = (y: number): boolean =>
+    narrow && positionedLevels.some((l) => Math.abs(l.labelY - y) < PILL_H / 2 + 6);
+
+  // ── Toolbar pieces ── one set of controls, laid out as the original single
+  // wrapping row on the desktop board and as a compact bar + Options panel on
+  // the narrow one (see the Toolbar block in the JSX below).
+
+  // Date label (informational, no nav — historical date selection requires a backend date param)
+  const dateChip = (
+    <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
+      <Clock size={12} />
+      <span>{todayLabel}</span>
+    </div>
+  );
+
+  // Futures display swap (outside cash session): the candle series is the cash
+  // index's future; the gamma / OI surface stays frozen at the last cash close
+  // (see frozenGexBucket) rather than blanking.
+  const futuresChip = isFuturesMode && (
+    <div
+      className={toolbarBtnClass}
+      style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
+      title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} candles; gamma & OI levels are frozen at the last cash close until the next open`}
+    >
+      <span>◆ {futuresChartTicker ?? 'FUTURES'} · levels frozen</span>
+    </div>
+  );
+
+  const contractBadge = (
+    <FuturesContractBadge
+      contract={seriesContracts.latest}
+      expiry={seriesContracts.latestExpiry}
+      note={seriesContractRollNote}
+      className={toolbarBtnClass}
+      style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
+    />
+  );
+
+  // Expiry menu rows: roomier on the narrow board, where they are finger targets.
+  const expiryRowClass = narrow
+    ? 'w-full text-left px-3 py-2.5 text-sm hover:bg-[color:var(--color-info-soft)] flex items-center gap-2'
+    : 'w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2';
+  // A single picked date reads "Sep 23" on the narrow board — the full ISO
+  // date made the button wide enough to push its row onto a second line.
+  const narrowExpiryDisplay =
+    selectedExpiries.length === 1
+      ? (() => {
+          const m = selectedExpiries[0].match(/^(\d{4})-(\d{2})-(\d{2})/);
+          return m
+            ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12)).toLocaleDateString('en-US', {
+                timeZone: 'UTC',
+                month: 'short',
+                day: 'numeric',
+              })
+            : expiryDisplay;
+        })()
+      : expiryDisplay;
+  const expiryControl = (
+    <div ref={expiryRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setExpiryOpen((v) => !v);
+          setSettingsOpen(false);
+        }}
+        className={toolbarBtnClass}
+        style={toolbarBtnStyle(selectedExpiries.length > 0)}
+        title="Filter by expiration (select one or more to aggregate)"
+        disabled={availableExpirations.length === 0}
+      >
+        <span>Expiry {narrow ? narrowExpiryDisplay : expiryDisplay}</span>
+        <ChevronDown size={12} />
+      </button>
+      {expiryOpen && (
+        <div
+          className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
+          style={{ ...popoverStyle, minWidth: narrow ? 200 : 180, maxHeight: narrow ? 320 : 280, overflowY: 'auto' }}
+        >
+          {/* Multi-select: "All expirations" clears the set (aggregate
+              the whole chain); each row toggles that expiration in/out.
+              The popover stays open across individual toggles so the
+              user can build a set in one interaction. */}
+          <button
+            type="button"
+            onClick={() => setSelectedExpiries([])}
+            className={expiryRowClass}
+            style={{
+              color: selectedExpiries.length === 0 ? textPrimary : subtle,
+              fontWeight: selectedExpiries.length === 0 ? 600 : 400,
+            }}
+          >
+            <span className="inline-flex w-3 justify-center">
+              {selectedExpiries.length === 0 ? '✓' : ''}
+            </span>
+            All expirations
+          </button>
+          {availableExpirations.map((exp) => {
+            const checked = selectedExpiries.includes(exp);
+            return (
+              <button
+                key={exp}
+                type="button"
+                onClick={() =>
+                  setSelectedExpiries(
+                    selectedExpiries.includes(exp)
+                      ? selectedExpiries.filter((v) => v !== exp)
+                      : [...selectedExpiries, exp],
+                  )
+                }
+                className={expiryRowClass}
+                style={{
+                  color: checked ? textPrimary : subtle,
+                  fontWeight: checked ? 600 : 400,
+                }}
+              >
+                <span className="inline-flex w-3 justify-center">{checked ? '✓' : ''}</span>
+                {exp}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  // DTE label (auto-derived)
+  const dteChipEl = (
+    <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
+      <span>DTE {dteLabel}</span>
+    </div>
+  );
+
+  // Gamma display mode cycle: Split → Net → Combined → Split. Hidden in
+  // compact mode (no middle panel to control).
+  const gexModeCycle = !compact && (
+    <button
+      type="button"
+      onClick={() =>
+        setGexMode((m) => (m === 'split' ? 'net' : m === 'net' ? 'combined' : 'split'))
+      }
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(gexMode !== 'split')}
+      title={`Gamma mode: ${
+        gexMode === 'split'
+          ? 'Call/Put split'
+          : gexMode === 'net'
+            ? 'Net only'
+            : 'Combined (Call/Put split with the Net overlaid)'
+      } (click to cycle)`}
+    >
+      <BarChart3 size={12} />
+      <span>{gexMode === 'split' ? 'Split' : gexMode === 'net' ? 'Net' : 'Combined'}</span>
+    </button>
+  );
+
+  // Timeframe selector
+  const tfControl = (
+    <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
+      {TIMEFRAME_OPTIONS.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => setTf(option)}
+          className="px-2.5 py-1.5 text-xs font-semibold"
+          style={{
+            color: option === tf ? textPrimary : subtle,
+            backgroundColor: option === tf ? 'var(--color-info-soft)' : 'transparent',
+            ...touchTarget,
+          }}
+          aria-pressed={narrow ? option === tf : undefined}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+
+  // With Prev
+  const withPrevBtn = (
+    <button
+      type="button"
+      title="Overlay the previous trading session's candles"
+      onClick={() => setWithPrev((v) => !v)}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(withPrev)}
+    >
+      <span>With Prev</span>
+    </button>
+  );
+
+  // Zoom out
+  const zoomOutBtn = (
+    <button
+      type="button"
+      title="Zoom out (wider strike/price range)"
+      aria-label={narrow ? 'Zoom out' : undefined}
+      onClick={() => setZoomMul((v) => clamp(v * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle()}
+      disabled={zoomMul >= ZOOM_MAX - 1e-6}
+    >
+      <ZoomOut size={12} />
+    </button>
+  );
+
+  // Zoom in
+  const zoomInBtn = (
+    <button
+      type="button"
+      title="Zoom in (tighter strike/price range)"
+      aria-label={narrow ? 'Zoom in' : undefined}
+      onClick={() => setZoomMul((v) => clamp(v / ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle()}
+      disabled={zoomMul <= ZOOM_MIN + 1e-6}
+    >
+      <ZoomIn size={12} />
+    </button>
+  );
+
+  // Pause / Play
+  const pauseBtn = (
+    <button
+      type="button"
+      title={paused ? 'Resume live updates' : 'Pause live updates'}
+      aria-label={narrow ? (paused ? 'Resume live updates' : 'Pause live updates') : undefined}
+      onClick={() => setPaused((v) => !v)}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(paused)}
+    >
+      {paused ? <Play size={12} /> : <Pause size={12} />}
+    </button>
+  );
+
+  // Rewind — freezes the chart and reveals a scrubber to replay the session
+  // back to any earlier plot point. Hidden in compact mode (the dashboard tile
+  // has no room for the scrubber strip).
+  const rewindBtn = !compact && (
+    <button
+      type="button"
+      title={rewindActive ? 'Exit rewind (return to live)' : 'Rewind through the session'}
+      onClick={toggleRewind}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(rewindActive)}
+      disabled={!rewindActive && !rewindAvailable}
+    >
+      <Rewind size={12} />
+      <span>Rewind</span>
+    </button>
+  );
+
+  // Reset all
+  const resetBtn = (
+    <button
+      type="button"
+      title="Reset all settings to default"
+      aria-label={narrow ? 'Reset all settings to default' : undefined}
+      onClick={resetAll}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle()}
+    >
+      <RotateCcw size={12} />
+    </button>
+  );
+
+  // Fullscreen toggle — in compact mode the title bar is hidden, so the expand
+  // button lives here in the toolbar instead.
+  const compactFullscreenBtn = compact && !inWidget && (
+    <button
+      type="button"
+      title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+      onClick={() => setFullscreen((v) => !v)}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(fullscreen)}
+    >
+      {fullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+    </button>
+  );
+
+  // Display settings — a popover on the desktop board.
+  const settingsControl = (
+    <div ref={settingsRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setSettingsOpen((v) => !v);
+          setExpiryOpen(false);
+        }}
+        title="Display settings"
+        className={toolbarBtnClass}
+        style={toolbarBtnStyle(settingsOpen)}
+      >
+        <Settings2 size={12} />
+      </button>
+      {settingsOpen && (
+        <div
+          className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
+          style={{ ...popoverStyle, minWidth: 200 }}
+        >
+          {!compact && (
+            <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+              <input
+                type="checkbox"
+                checked={showOiDots}
+                onChange={(e) => setShowOiDots(e.target.checked)}
+              />
+              <span>Show OI dots</span>
+            </label>
+          )}
+          {!compact && (
+            <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+              <input
+                type="checkbox"
+                checked={showGexValues}
+                onChange={(e) => setShowGexValues(e.target.checked)}
+              />
+              <span>Show GEX values</span>
+            </label>
+          )}
+          <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+            <input
+              type="checkbox"
+              checked={showGrid}
+              onChange={(e) => setShowGrid(e.target.checked)}
+            />
+            <span>Show grid lines</span>
+          </label>
+          {!symbolIsIndex && (
+            <>
+              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                <input
+                  type="checkbox"
+                  checked={showPmLevels}
+                  onChange={(e) => setShowPmLevels(e.target.checked)}
+                />
+                <span>Show PM High/Low</span>
+              </label>
+              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                <input
+                  type="checkbox"
+                  checked={showPrevLevels}
+                  onChange={(e) => setShowPrevLevels(e.target.checked)}
+                />
+                <span>Show Prev High/Low</span>
+              </label>
+            </>
+          )}
+          <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
+            <button
+              type="button"
+              onClick={() => {
+                resetAll();
+                setSettingsOpen(false);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
+              style={{ color: textPrimary }}
+            >
+              <RotateCcw size={12} />
+              <span>Reset all settings</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const liveStateBadge = rewindActive ? (
+    <span
+      className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1"
+      style={{ color: SPOT_LINE, backgroundColor: 'rgba(6, 182, 212, 0.16)' }}
+    >
+      <Rewind size={10} />
+      Rewinding
+    </span>
+  ) : (
+    paused && (
+      <span
+        className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+        style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+      >
+        Paused
+      </span>
+    )
+  );
+
+  // ── Narrow-board-only pieces ──
+  // The bar panel beside the candles: Gamma (the point of the page) or the
+  // open-interest Positions panel. Both share the candles' price axis.
+  const panelSwitch = barSwitch && (
+    <div
+      className="inline-flex rounded-md overflow-hidden"
+      style={{ border: `1px solid ${border}` }}
+      role="group"
+      aria-label="Bar panel"
+    >
+      {(['gamma', 'positions'] as const).map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => {
+            setNarrowPanel(p);
+            setHover(null);
+          }}
+          aria-pressed={narrowPanel === p}
+          className="px-3 text-xs font-semibold"
+          style={{
+            minHeight: 32,
+            color: narrowPanel === p ? textPrimary : subtle,
+            backgroundColor: narrowPanel === p ? 'var(--color-info-soft)' : 'transparent',
+          }}
+        >
+          {p === 'gamma' ? 'Gamma' : 'Positions'}
+        </button>
+      ))}
+    </div>
+  );
+  // A labelled on/off pill for the Options panel (the desktop popover's
+  // checkboxes are 12px targets).
+  const optionPill = (label: string, active: boolean, onClick: () => void, title?: string) => (
+    <button
+      key={label}
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={title}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(active)}
+    >
+      <span>{label}</span>
+    </button>
+  );
+  const optionsPanelId = 'mme-options-panel';
+  const optionsButton = (
+    <button
+      type="button"
+      onClick={() => {
+        setOptionsOpen((v) => !v);
+        setExpiryOpen(false);
+      }}
+      aria-expanded={optionsOpen}
+      aria-controls={optionsPanelId}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(optionsOpen)}
+    >
+      <SlidersHorizontal size={12} />
+      <span>Options</span>
+      <ChevronDown size={12} style={{ transform: optionsOpen ? 'rotate(180deg)' : undefined }} />
+    </button>
+  );
+
   return (
     <div className="rounded-2xl" style={containerStyle}>
       {/* Title bar — hidden in compact mode (the expand button moves into the
@@ -2020,8 +3013,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               type="button"
               onClick={() => setFullscreen((v) => !v)}
               title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+              aria-label={narrow ? (fullscreen ? 'Exit fullscreen' : 'Enter fullscreen') : undefined}
               className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
-              style={{ color: subtle }}
+              style={{ color: subtle, ...(narrow ? { minWidth: 32, minHeight: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : {}) }}
             >
               {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
@@ -2029,369 +3023,143 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className={`flex flex-wrap items-center gap-2 px-5 pt-3 pb-3 ${compact ? 'shrink-0' : ''}`}>
-        {/* Date label (informational, no nav — historical date selection requires a backend date param) */}
-        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
-          <Clock size={12} />
-          <span>{todayLabel}</span>
-        </div>
-
-        {/* Futures display swap (outside cash session): the candle series is
-            the cash index's future; the gamma / OI surface stays frozen at the
-            last cash close (see frozenGexBucket) rather than blanking. */}
-        {isFuturesMode && (
-          <div
-            className={toolbarBtnClass}
-            style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
-            title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} candles; gamma & OI levels are frozen at the last cash close until the next open`}
-          >
-            <span>◆ {futuresChartTicker ?? 'FUTURES'} · levels frozen</span>
+      {/* Toolbar. The desktop board lays every control out in one wrapping
+          row. The narrow board cannot afford that — on a phone the row ran to
+          three lines of 30px buttons above the chart — so it keeps the bar
+          panel, timeframe, expiry and zoom in sight and folds the rest (gamma
+          mode, With Prev, pause, rewind, reset, display toggles) into an
+          Options panel. */}
+      {narrow ? (
+        <div className={`flex flex-col gap-2 px-3 pt-3 pb-2 ${compact ? 'shrink-0' : ''}`}>
+          <div className="flex items-center gap-2">
+            {barSwitch ? panelSwitch : expiryControl}
+            <div className="ml-auto">{tfControl}</div>
           </div>
-        )}
-
-        <FuturesContractBadge
-          contract={seriesContracts.latest}
-          expiry={seriesContracts.latestExpiry}
-          note={seriesContractRollNote}
-          className={toolbarBtnClass}
-          style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
-        />
-
-        {/* Expiry dropdown */}
-        <div ref={expiryRef} className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setExpiryOpen((v) => !v);
-              setSettingsOpen(false);
-            }}
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(selectedExpiries.length > 0)}
-            title="Filter by expiration (select one or more to aggregate)"
-            disabled={availableExpirations.length === 0}
-          >
-            <span>Expiry {expiryDisplay}</span>
-            <ChevronDown size={12} />
-          </button>
-          {expiryOpen && (
-            <div
-              className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
-              style={{ ...popoverStyle, minWidth: 180, maxHeight: 280, overflowY: 'auto' }}
-            >
-              {/* Multi-select: "All expirations" clears the set (aggregate
-                  the whole chain); each row toggles that expiration in/out.
-                  The popover stays open across individual toggles so the
-                  user can build a set in one interaction. */}
-              <button
-                type="button"
-                onClick={() => setSelectedExpiries([])}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
-                style={{
-                  color: selectedExpiries.length === 0 ? textPrimary : subtle,
-                  fontWeight: selectedExpiries.length === 0 ? 600 : 400,
-                }}
-              >
-                <span className="inline-flex w-3 justify-center">
-                  {selectedExpiries.length === 0 ? '✓' : ''}
-                </span>
-                All expirations
-              </button>
-              {availableExpirations.map((exp) => {
-                const checked = selectedExpiries.includes(exp);
-                return (
-                  <button
-                    key={exp}
-                    type="button"
-                    onClick={() =>
-                      setSelectedExpiries(
-                        selectedExpiries.includes(exp)
-                          ? selectedExpiries.filter((v) => v !== exp)
-                          : [...selectedExpiries, exp],
-                      )
-                    }
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
-                    style={{
-                      color: checked ? textPrimary : subtle,
-                      fontWeight: checked ? 600 : 400,
-                    }}
-                  >
-                    <span className="inline-flex w-3 justify-center">{checked ? '✓' : ''}</span>
-                    {exp}
-                  </button>
-                );
-              })}
+          <div className="flex flex-wrap items-center gap-2">
+            {barSwitch && expiryControl}
+            {optionsButton}
+            <div className="ml-auto flex items-center gap-2">
+              {zoomOutBtn}
+              {zoomInBtn}
+            </div>
+          </div>
+          {optionsOpen && (
+            <div id={optionsPanelId} className="flex flex-wrap items-center gap-2 pt-1">
+              {!compact && (
+                <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }} role="group" aria-label="Gamma mode">
+                  {(['split', 'net', 'combined'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setGexMode(m)}
+                      aria-pressed={gexMode === m}
+                      className="px-2.5 text-xs font-semibold"
+                      style={{
+                        minHeight: 32,
+                        color: gexMode === m ? textPrimary : subtle,
+                        backgroundColor: gexMode === m ? 'var(--color-info-soft)' : 'transparent',
+                      }}
+                    >
+                      {m === 'split' ? 'Split' : m === 'net' ? 'Net' : 'Combined'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {withPrevBtn}
+              {pauseBtn}
+              {rewindBtn}
+              {resetBtn}
+              {compactFullscreenBtn}
+              {!compact && optionPill('OI dots', showOiDots, () => setShowOiDots((v) => !v), 'Show OI dots')}
+              {!compact && optionPill('GEX values', showGexValues, () => setShowGexValues((v) => !v), 'Show GEX values on the bars')}
+              {optionPill('Grid', showGrid, () => setShowGrid((v) => !v), 'Show grid lines')}
+              {!symbolIsIndex && optionPill('PM High/Low', showPmLevels, () => setShowPmLevels((v) => !v))}
+              {!symbolIsIndex && optionPill('Prev High/Low', showPrevLevels, () => setShowPrevLevels((v) => !v))}
             </div>
           )}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" style={{ color: subtle }}>
+            {futuresChip}
+            {contractBadge}
+            {liveStateBadge}
+            <span>
+              {todayLabel} · DTE {dteLabel} · Updated {updatedLabel}
+            </span>
+          </div>
         </div>
-
-        {/* DTE label (auto-derived) */}
-        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
-          <span>DTE {dteLabel}</span>
-        </div>
-
-        {/* Gamma display mode cycle: Split → Net → Combined → Split. Hidden in
-            compact mode (no middle panel to control). */}
-        {!compact && (
-          <button
-            type="button"
-            onClick={() =>
-              setGexMode((m) => (m === 'split' ? 'net' : m === 'net' ? 'combined' : 'split'))
-            }
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(gexMode !== 'split')}
-            title={`Gamma mode: ${
-              gexMode === 'split'
-                ? 'Call/Put split'
-                : gexMode === 'net'
-                  ? 'Net only'
-                  : 'Combined (Call/Put split with the Net overlaid)'
-            } (click to cycle)`}
-          >
-            <BarChart3 size={12} />
-            <span>{gexMode === 'split' ? 'Split' : gexMode === 'net' ? 'Net' : 'Combined'}</span>
-          </button>
-        )}
-
-        {/* Timeframe selector */}
-        <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
-          {TIMEFRAME_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setTf(option)}
-              className="px-2.5 py-1.5 text-xs font-semibold"
-              style={{
-                color: option === tf ? textPrimary : subtle,
-                backgroundColor: option === tf ? 'var(--color-info-soft)' : 'transparent',
-              }}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-
-        {/* With Prev */}
-        <button
-          type="button"
-          title="Overlay the previous trading session's candles"
-          onClick={() => setWithPrev((v) => !v)}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle(withPrev)}
-        >
-          <span>With Prev</span>
-        </button>
-
-        {/* Zoom out */}
-        <button
-          type="button"
-          title="Zoom out (wider strike/price range)"
-          onClick={() => setZoomMul((v) => clamp(v * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle()}
-          disabled={zoomMul >= ZOOM_MAX - 1e-6}
-        >
-          <ZoomOut size={12} />
-        </button>
-
-        {/* Zoom in */}
-        <button
-          type="button"
-          title="Zoom in (tighter strike/price range)"
-          onClick={() => setZoomMul((v) => clamp(v / ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle()}
-          disabled={zoomMul <= ZOOM_MIN + 1e-6}
-        >
-          <ZoomIn size={12} />
-        </button>
-
-        {/* Pause / Play */}
-        <button
-          type="button"
-          title={paused ? 'Resume live updates' : 'Pause live updates'}
-          onClick={() => setPaused((v) => !v)}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle(paused)}
-        >
-          {paused ? <Play size={12} /> : <Pause size={12} />}
-        </button>
-
-        {/* Rewind — freezes the chart and reveals a scrubber to replay the
-            session back to any earlier plot point. Hidden in compact mode
-            (the dashboard tile has no room for the scrubber strip). */}
-        {!compact && (
-          <button
-            type="button"
-            title={rewindActive ? 'Exit rewind (return to live)' : 'Rewind through the session'}
-            onClick={toggleRewind}
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(rewindActive)}
-            disabled={!rewindActive && !rewindAvailable}
-          >
-            <Rewind size={12} />
-            <span>Rewind</span>
-          </button>
-        )}
-
-        {/* Reset all */}
-        <button
-          type="button"
-          title="Reset all settings to default"
-          onClick={resetAll}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle()}
-        >
-          <RotateCcw size={12} />
-        </button>
-
-        {/* Fullscreen toggle — in compact mode the title bar is hidden, so
-            the expand button lives here in the toolbar instead. */}
-        {compact && !inWidget && (
-          <button
-            type="button"
-            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-            onClick={() => setFullscreen((v) => !v)}
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(fullscreen)}
-          >
-            {fullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-          </button>
-        )}
-
-        {/* Settings */}
-        <div ref={settingsRef} className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen((v) => !v);
-              setExpiryOpen(false);
-            }}
-            title="Display settings"
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(settingsOpen)}
-          >
-            <Settings2 size={12} />
-          </button>
-          {settingsOpen && (
-            <div
-              className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
-              style={{ ...popoverStyle, minWidth: 200 }}
-            >
-              {!compact && (
-                <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                  <input
-                    type="checkbox"
-                    checked={showOiDots}
-                    onChange={(e) => setShowOiDots(e.target.checked)}
-                  />
-                  <span>Show OI dots</span>
-                </label>
-              )}
-              {!compact && (
-                <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                  <input
-                    type="checkbox"
-                    checked={showGexValues}
-                    onChange={(e) => setShowGexValues(e.target.checked)}
-                  />
-                  <span>Show GEX values</span>
-                </label>
-              )}
-              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                <input
-                  type="checkbox"
-                  checked={showGrid}
-                  onChange={(e) => setShowGrid(e.target.checked)}
-                />
-                <span>Show grid lines</span>
-              </label>
-              {!symbolIsIndex && (
-                <>
-                  <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                    <input
-                      type="checkbox"
-                      checked={showPmLevels}
-                      onChange={(e) => setShowPmLevels(e.target.checked)}
-                    />
-                    <span>Show PM High/Low</span>
-                  </label>
-                  <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                    <input
-                      type="checkbox"
-                      checked={showPrevLevels}
-                      onChange={(e) => setShowPrevLevels(e.target.checked)}
-                    />
-                    <span>Show Prev High/Low</span>
-                  </label>
-                </>
-              )}
-              <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetAll();
-                    setSettingsOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
-                  style={{ color: textPrimary }}
-                >
-                  <RotateCcw size={12} />
-                  <span>Reset all settings</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      ) : (
+      <div className={`flex flex-wrap items-center gap-2 px-5 pt-3 pb-3 ${compact ? 'shrink-0' : ''}`}>
+        {dateChip}
+        {futuresChip}
+        {contractBadge}
+        {expiryControl}
+        {dteChipEl}
+        {gexModeCycle}
+        {tfControl}
+        {withPrevBtn}
+        {zoomOutBtn}
+        {zoomInBtn}
+        {pauseBtn}
+        {rewindBtn}
+        {resetBtn}
+        {compactFullscreenBtn}
+        {settingsControl}
 
         <div className="ml-auto text-xs flex items-center gap-2" style={{ color: subtle }}>
-          {rewindActive ? (
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1"
-              style={{ color: SPOT_LINE, backgroundColor: 'rgba(6, 182, 212, 0.16)' }}
-            >
-              <Rewind size={10} />
-              Rewinding
-            </span>
-          ) : (
-            paused && (
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-                style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
-              >
-                Paused
-              </span>
-            )
-          )}
+          {liveStateBadge}
           <span>Updated {updatedLabel}</span>
         </div>
       </div>
+      )}
 
-      {/* Composite chart */}
+      {/* Composite chart. The desktop board keeps its 760px floor inside a
+          sideways scroller; the narrow board is drawn at the card's own width
+          (one viewBox unit per px), so nothing is off-screen and nothing
+          scrolls sideways. */}
       <div
-        ref={containerRef}
-        className={`relative px-2 pb-2 ${compact ? 'flex-1 min-h-0 overflow-hidden' : 'overflow-x-auto'}`}
+        ref={setContainerNode}
+        className={`relative px-2 pb-2 ${compact ? 'flex-1 min-h-0 overflow-hidden' : narrow ? '' : 'overflow-x-auto'}`}
       >
         <svg
           ref={svgRef}
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMidYMid meet"
           className={`block ${compact ? 'h-full w-full' : 'w-full'}`}
-          style={{
-            ...(compact ? {} : { minWidth: 760 }),
-            cursor: isPanning ? 'grabbing' : 'grab',
-            // Let mobile browsers own touch scrolling — the chart has no
-            // touch handlers of its own (only mouse-driven click-and-drag
-            // y-pan, which still works on desktop), so ``touch-action: none``
-            // was blocking both the non-compact view's horizontal scroll
-            // through the ``overflow-x-auto`` container AND the page's
-            // vertical scroll when a touch landed on the dashboard tile.
-            touchAction: 'pan-x pan-y',
-          }}
+          style={
+            narrow
+              ? {
+                  ...(compact ? {} : { aspectRatio: `${CW} / ${CH}` }),
+                  cursor: isPanning ? 'grabbing' : 'crosshair',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                  // A finger's vertical swipe scrolls the page; taps, holds,
+                  // sideways scrubs and pinches are the chart's own (see the
+                  // touch handlers). Mouse input is unaffected.
+                  touchAction: 'pan-y',
+                }
+              : {
+                  ...(compact ? {} : { minWidth: 760 }),
+                  cursor: isPanning ? 'grabbing' : 'grab',
+                  // Let mobile browsers own touch scrolling here — this board
+                  // sits in an ``overflow-x-auto`` scroller, so ``touch-action:
+                  // none`` would block both its horizontal scroll AND the page's
+                  // vertical scroll when a touch landed on a dashboard tile. The
+                  // touch handlers still get taps and pinches.
+                  touchAction: 'pan-x pan-y',
+                }
+          }
           onMouseMove={onSvgMouseMove}
           onMouseDown={onSvgMouseDown}
           onMouseLeave={() => {
-            if (!isPanning) setHover(null);
+            if (!isPanning && !fromRecentTouch()) setHover(null);
+          }}
+          onPointerDown={handleTouchDown}
+          onPointerMove={handleTouchMove}
+          onPointerUp={handleTouchEnd}
+          onPointerCancel={handleTouchEnd}
+          onContextMenu={(e) => {
+            // A long press is the crosshair here, not the browser's menu.
+            if (touchRef.current) e.preventDefault();
           }}
         >
           {/* Shared horizontal grid + strike labels */}
@@ -2402,24 +3170,26 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 {showGrid && (
                   <>
                     <line x1={LEFT_X} x2={STRIKE_X} y1={y} y2={y} stroke={gridStroke} />
-                    {!compact && (
-                      <>
-                        <line x1={MID_X} x2={MID_X + MID_W} y1={y} y2={y} stroke={gridStroke} />
-                        <line x1={RIGHT_X} x2={RIGHT_X + RIGHT_W} y1={y} y2={y} stroke={gridStroke} />
-                      </>
+                    {showGamma && (
+                      <line x1={GAMMA_X} x2={GAMMA_X + GAMMA_W} y1={y} y2={y} stroke={gridStroke} />
+                    )}
+                    {showPos && (
+                      <line x1={POS_X} x2={POS_X + POS_W} y1={y} y2={y} stroke={gridStroke} />
                     )}
                   </>
                 )}
-                <text
-                  x={STRIKE_X + STRIKE_W / 2}
-                  y={y + 3.5}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fill={subtle}
-                  fontFamily="ui-sans-serif, system-ui, -apple-system, sans-serif"
-                >
-                  {p.toFixed(0)}
-                </text>
+                {!tickUnderTag(y) && (
+                  <text
+                    x={STRIKE_X + STRIKE_W / 2}
+                    y={y + 3.5}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fill={subtle}
+                    fontFamily="ui-sans-serif, system-ui, -apple-system, sans-serif"
+                  >
+                    {p.toFixed(strikeLabelDecimals)}
+                  </text>
+                )}
               </g>
             );
           })}
@@ -2429,7 +3199,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               20% of the price panel. Painted before the candles so candle
               bodies/wicks stay readable in the overlap zone. */}
           {compact && visibleCandles.length > 0 && maxVolume > 0 && (() => {
-            const volXStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
+            const volXStep = (LEFT_W - 2 * INNER_PAD_X) / Math.max(1, visibleCandles.length - 1);
             const volBarW = Math.max(2, Math.min(8, volXStep * 0.6));
             const volH = VOL_AREA_BOTTOM - VOL_AREA_TOP;
             return visibleCandles.map((c, i) => {
@@ -2466,7 +3236,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             });
           })()}
 
-          {/* ── LEFT PANEL: candlestick price chart ── */}
+          {/* ── LEFT PANEL: candlestick price chart ──
+              Clipped to the plot band: a pinch or pan that pushes price past
+              the top or bottom of the range must not paint candles over the
+              time axis. At the default framing nothing reaches the edge. */}
+          <defs>
+            <clipPath id={plotClipId}>
+              <rect x={LEFT_X} y={PLOT_TOP} width={LEFT_W} height={PLOT_HEIGHT} />
+            </clipPath>
+          </defs>
+          <g clipPath={`url(#${plotClipId})`}>
           {visibleCandles.length === 0 ? (
             <text
               x={LEFT_X + LEFT_W / 2}
@@ -2479,7 +3258,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             </text>
           ) : (
             (() => {
-              const xStep = (LEFT_W - 24) / Math.max(1, visibleCandles.length - 1);
+              const xStep = (LEFT_W - 2 * INNER_PAD_X) / Math.max(1, visibleCandles.length - 1);
               const baseCandleW = Math.max(2, Math.min(8, xStep * 0.6));
               // Resolve the candle that precedes the visible window so the
               // leftmost visible candle's color rule (close vs PREVIOUS close)
@@ -2567,14 +3346,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             })()
           )}
 
+          </g>
+
           {/* Time axis labels */}
           {timeLabels.map((tl) => (
             <text
               key={`tlbl-${tl.t}`}
               x={xForTime(tl.t)}
-              y={PLOT_BOTTOM + 18}
+              y={PLOT_BOTTOM + TICK_DY}
               textAnchor="middle"
-              fontSize={11}
+              fontSize={AXIS_FONT}
               fill={subtle}
             >
               {tl.label}
@@ -2602,7 +3383,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   <text
                     key={`dlbl-${g.dateKey}-${g.startIdx}`}
                     x={centerX}
-                    y={PLOT_BOTTOM + 34}
+                    y={PLOT_BOTTOM + DATE_DY}
                     textAnchor="middle"
                     fontSize={10}
                     fill={subtle}
@@ -2615,23 +3396,23 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             : null}
 
           {/* ── MIDDLE PANEL: Gamma horizontal bars ── */}
-          {!compact && (
+          {showGamma && (
             <line
-              x1={MID_X + MID_W / 2}
-              x2={MID_X + MID_W / 2}
+              x1={GAMMA_X + GAMMA_W / 2}
+              x2={GAMMA_X + GAMMA_W / 2}
               y1={PLOT_TOP}
               y2={PLOT_BOTTOM}
               stroke={subtle}
               opacity={0.35}
             />
           )}
-          {!compact && visibleStrikes.map((s) => {
+          {showGamma && visibleStrikes.map((s) => {
             const y = yForPrice(s.strike);
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'middle' ? 0.55 : 0.95;
-            const cx = MID_X + MID_W / 2;
-            const half = MID_W / 2;
+            const cx = GAMMA_X + GAMMA_W / 2;
+            const half = GAMMA_W / 2;
             const netPositive = s.netGex >= 0;
             const netW = (Math.abs(s.netGex) / gammaXMax) * half;
 
@@ -2724,21 +3505,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               </g>
             );
           })}
-          {!compact && (
+          {showGamma && (
             <>
-              <text x={MID_X} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="start">
+              <text x={GAMMA_X} y={PLOT_BOTTOM + TICK_DY} fontSize={10} fill={subtle} textAnchor="start">
                 -{formatExposure(gammaXMax)}
               </text>
-              <text x={MID_X + MID_W / 2} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="middle">
+              <text x={GAMMA_X + GAMMA_W / 2} y={PLOT_BOTTOM + TICK_DY} fontSize={10} fill={subtle} textAnchor="middle">
                 0
               </text>
-              <text x={MID_X + MID_W} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="end">
+              <text x={GAMMA_X + GAMMA_W} y={PLOT_BOTTOM + TICK_DY} fontSize={10} fill={subtle} textAnchor="end">
                 {formatExposure(gammaXMax)}
               </text>
               <text
-                x={MID_X + MID_W / 2}
-                y={PLOT_BOTTOM + 38}
-                fontSize={11}
+                x={GAMMA_X + GAMMA_W / 2}
+                y={PLOT_BOTTOM + TITLE_DY}
+                fontSize={AXIS_FONT}
                 fill={textPrimary}
                 textAnchor="middle"
                 fontWeight={600}
@@ -2749,24 +3530,24 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           )}
 
           {/* ── RIGHT PANEL: Positions horizontal bars ── */}
-          {!compact && (
+          {showPos && (
             <line
-              x1={RIGHT_X + RIGHT_W / 2}
-              x2={RIGHT_X + RIGHT_W / 2}
+              x1={POS_X + POS_W / 2}
+              x2={POS_X + POS_W / 2}
               y1={PLOT_TOP}
               y2={PLOT_BOTTOM}
               stroke={subtle}
               opacity={0.35}
             />
           )}
-          {!compact && visibleStrikes.map((s) => {
+          {showPos && visibleStrikes.map((s) => {
             const y = yForPrice(s.strike);
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
-            const callW = (s.callOi / positionsXMax) * (RIGHT_W / 2);
-            const putW = (s.putOi / positionsXMax) * (RIGHT_W / 2);
+            const callW = (s.callOi / positionsXMax) * (POS_W / 2);
+            const putW = (s.putOi / positionsXMax) * (POS_W / 2);
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'right';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'right' ? 0.55 : 0.95;
-            const rcx = RIGHT_X + RIGHT_W / 2;
+            const rcx = POS_X + POS_W / 2;
             // Live edge → subdivide OI by expiration; otherwise draw single bars.
             const st = stackingActive ? stackedByStrike.get(Math.round(s.strike * 100)) : undefined;
             const callSegs = st
@@ -2786,21 +3567,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               </g>
             );
           })}
-          {!compact && (
+          {showPos && (
             <>
-              <text x={RIGHT_X} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="start">
+              <text x={POS_X} y={PLOT_BOTTOM + TICK_DY} fontSize={10} fill={subtle} textAnchor="start">
                 -{formatExposure(positionsXMax)}
               </text>
-              <text x={RIGHT_X + RIGHT_W / 2} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="middle">
+              <text x={POS_X + POS_W / 2} y={PLOT_BOTTOM + TICK_DY} fontSize={10} fill={subtle} textAnchor="middle">
                 0
               </text>
-              <text x={RIGHT_X + RIGHT_W} y={PLOT_BOTTOM + 18} fontSize={10} fill={subtle} textAnchor="end">
+              <text x={POS_X + POS_W} y={PLOT_BOTTOM + TICK_DY} fontSize={10} fill={subtle} textAnchor="end">
                 {formatExposure(positionsXMax)}
               </text>
               <text
-                x={RIGHT_X + RIGHT_W / 2}
-                y={PLOT_BOTTOM + 38}
-                fontSize={11}
+                x={POS_X + POS_W / 2}
+                y={PLOT_BOTTOM + TITLE_DY}
+                fontSize={AXIS_FONT}
                 fill={textPrimary}
                 textAnchor="middle"
                 fontWeight={600}
@@ -2812,31 +3593,77 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
           {/* ── Shared horizontal price level lines (drawn last so they sit on top) ── */}
           {(() => {
-            // Filter to in-bounds levels and stagger their labels vertically so
-            // overlapping pills always remain readable. The line itself stays
-            // at the original y; a thin leader connects it to the offset pill.
-            const inBounds = keyLevels.filter((lvl) => lvl.y >= PLOT_TOP && lvl.y <= PLOT_BOTTOM);
-            const sorted = [...inBounds].sort((a, b) => a.y - b.y);
-            const PILL_H = 16;
-            const MIN_GAP = PILL_H + 2;
-            const minY = PLOT_TOP + PILL_H / 2;
-            const maxY = PLOT_BOTTOM - PILL_H / 2;
-            const positioned = sorted.map((lvl) => ({ ...lvl, labelY: lvl.y }));
-
-            // Top-down: never let a label sit above the previous one's bottom edge.
-            for (let i = 0; i < positioned.length; i++) {
-              if (i === 0) {
-                positioned[i].labelY = Math.max(minY, positioned[i].labelY);
-              } else {
-                positioned[i].labelY = Math.max(positioned[i].labelY, positioned[i - 1].labelY + MIN_GAP);
-              }
-            }
-            // Bottom-up: clamp to plot bottom and push earlier labels up if needed.
-            for (let i = positioned.length - 1; i >= 0; i--) {
-              if (positioned[i].labelY > maxY) positioned[i].labelY = maxY;
-              if (i > 0 && positioned[i - 1].labelY > positioned[i].labelY - MIN_GAP) {
-                positioned[i - 1].labelY = positioned[i].labelY - MIN_GAP;
-              }
+            const positioned = positionedLevels;
+            if (narrow) {
+              // The narrow board has no 90-unit gutter for a "Call Wall 670.00"
+              // pill, so the pill splits in two, the way a phone trading app
+              // tags a level: the NAME rides a small chip at the left edge of
+              // the candle panel (over the oldest candles, never the live
+              // ones), and the PRICE rides a tag in the strike column — both
+              // on the same staggered row, the line itself at its true price.
+              return positioned.map((lvl, i) => {
+                const name = NARROW_LEVEL_NAMES[lvl.label] ?? lvl.label;
+                const chipX = LEFT_X + 2;
+                const chipW = Math.round(name.length * 5.9 + 10);
+                const tagX = STRIKE_X + 1;
+                const tagW = STRIKE_W - 2;
+                const offset = Math.abs(lvl.labelY - lvl.y) > 0.5;
+                const dash = lvl.dash ?? (lvl.emphasized ? '5 3' : '4 4');
+                const strokeW = lvl.emphasized ? 1.4 : 1;
+                return (
+                  <g key={`lvl-${i}-${lvl.price}`}>
+                    <line x1={chipX + chipW} x2={tagX} y1={lvl.y} y2={lvl.y} stroke={lvl.color} strokeDasharray={dash} strokeWidth={strokeW} opacity={0.85} />
+                    <line x1={tagX + tagW} x2={CW} y1={lvl.y} y2={lvl.y} stroke={lvl.color} strokeDasharray={dash} strokeWidth={strokeW} opacity={0.85} />
+                    {offset && (
+                      <>
+                        <line x1={chipX + chipW} x2={chipX + chipW + 5} y1={lvl.labelY} y2={lvl.y} stroke={lvl.color} strokeWidth={1} opacity={0.65} />
+                        <line x1={tagX - 5} x2={tagX} y1={lvl.y} y2={lvl.labelY} stroke={lvl.color} strokeWidth={1} opacity={0.65} />
+                      </>
+                    )}
+                    <rect
+                      x={chipX}
+                      y={lvl.labelY - PILL_H / 2}
+                      width={chipW}
+                      height={PILL_H}
+                      rx={3}
+                      fill={cardBg}
+                      fillOpacity={0.9}
+                      stroke={lvl.color}
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={chipX + chipW / 2}
+                      y={lvl.labelY + 3.5}
+                      fontSize={10}
+                      fontWeight={600}
+                      textAnchor="middle"
+                      fill={textPrimary}
+                    >
+                      {name}
+                    </text>
+                    <rect
+                      x={tagX}
+                      y={lvl.labelY - PILL_H / 2}
+                      width={tagW}
+                      height={PILL_H}
+                      rx={3}
+                      fill={lvl.color}
+                      opacity={lvl.emphasized ? 1 : 0.92}
+                    />
+                    <text
+                      x={tagX + tagW / 2}
+                      y={lvl.labelY + 3.5}
+                      fontSize={10}
+                      fontWeight={700}
+                      textAnchor="middle"
+                      fill="#0b1620"
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {levelTagText(lvl.price)}
+                    </text>
+                  </g>
+                );
+              });
             }
 
             return positioned.map((lvl, i) => {
@@ -2932,22 +3759,62 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   opacity={0.75}
                 />
               )}
+              {/* Narrow board: the crosshair's price, tagged in the strike
+                  column — the strike it snapped to over the bars, the price
+                  under the finger over the candles. */}
+              {narrow && (() => {
+                const snapped = hover.panel !== 'left' && hoveredStrike ? hoveredStrike.strike : null;
+                const yTag = snapped != null ? yForPrice(snapped) : hover.svgY;
+                const price = snapped ?? yBounds.yMax - ((hover.svgY - PLOT_TOP) / PLOT_HEIGHT) * (yBounds.yMax - yBounds.yMin);
+                return (
+                  <>
+                    <rect x={STRIKE_X + 1} y={yTag - 7.5} width={STRIKE_W - 2} height={15} rx={3} fill={textPrimary} />
+                    <text
+                      x={STRIKE_X + STRIKE_W / 2}
+                      y={yTag + 3.5}
+                      fontSize={10}
+                      fontWeight={700}
+                      textAnchor="middle"
+                      fill={cardBg}
+                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {snapped != null ? snapped.toFixed(snapped % 1 === 0 ? 0 : 1) : levelTagText(price)}
+                    </text>
+                  </>
+                );
+              })()}
             </g>
           )}
         </svg>
 
         {/* Tooltip */}
         {hover && (hoveredCandle || hoveredStrike) && (() => {
-          const TOOLTIP_W = 200;
-          const placeRight = hover.svgX < CW * 0.65;
-          const tooltipLeft = placeRight ? hover.pxX + 14 : Math.max(8, hover.pxX - TOOLTIP_W - 14);
-          const tooltipTop = Math.max(8, hover.pxY - 12);
+          // Desktop board: trails the cursor. Narrow board: kept inside the
+          // card, and — when a finger put the crosshair down — pinned to the
+          // top of the chart on the side AWAY from the finger, which would
+          // otherwise sit on top of the very readout it asked for.
+          const TOOLTIP_W = narrow ? Math.min(212, Math.max(160, hover.cw - 16)) : 200;
+          let placement: React.CSSProperties;
+          if (hover.touch) {
+            placement = hover.pxX > hover.cw / 2 ? { left: 8, top: 6 } : { right: 8, top: 6 };
+          } else if (narrow) {
+            const want = hover.pxX < hover.cw / 2 ? hover.pxX + 14 : hover.pxX - TOOLTIP_W - 14;
+            placement = {
+              left: clamp(want, 4, Math.max(4, hover.cw - TOOLTIP_W - 4)),
+              top: Math.max(8, hover.pxY - 12),
+            };
+          } else {
+            const placeRight = hover.svgX < CW * 0.65;
+            placement = {
+              left: placeRight ? hover.pxX + 14 : Math.max(8, hover.pxX - TOOLTIP_W - 14),
+              top: Math.max(8, hover.pxY - 12),
+            };
+          }
           return (
             <div
               className="absolute z-20 pointer-events-none rounded-md px-3 py-2 text-xs"
               style={{
-                left: tooltipLeft,
-                top: tooltipTop,
+                ...placement,
                 width: TOOLTIP_W,
                 backgroundColor: popoverBg,
                 border: `1px solid ${border}`,
@@ -3028,21 +3895,36 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     {showBreakdown && (
                       <div className="mt-1 pt-1" style={{ borderTop: `1px solid ${border}` }}>
                         <div className="mb-0.5" style={{ opacity: 0.7 }}>By expiration (roll-off)</div>
-                        {stackExpiries.map((exp) => {
-                          const cf = callFrac!.get(exp) ?? 0;
-                          const pf = putFrac!.get(exp) ?? 0;
-                          if (cf === 0 && pf === 0) return null;
-                          return (
-                            <div key={exp} className="flex justify-between gap-3 font-mono tabular-nums">
-                              <span style={{ opacity: 0.85 }}>{dteChip(exp)}</span>
-                              <span>
-                                <span style={{ color: 'var(--color-bull)' }}>{formatExposure(hoveredStrike.callGex * cf)}</span>
-                                <span style={{ opacity: 0.5 }}> / </span>
-                                <span style={{ color: 'var(--color-bear)' }}>{formatExposure(hoveredStrike.putGex * pf)}</span>
-                              </span>
-                            </div>
+                        {(() => {
+                          const rows = stackExpiries.filter(
+                            (exp) => (callFrac!.get(exp) ?? 0) !== 0 || (putFrac!.get(exp) ?? 0) !== 0,
                           );
-                        })}
+                          // The whole chain runs to ~30 expirations — taller
+                          // than the chart on a phone. The nearest few are the
+                          // ones rolling off soonest.
+                          const shown = narrow ? rows.slice(0, NARROW_BREAKDOWN_ROWS) : rows;
+                          return (
+                            <>
+                              {shown.map((exp) => {
+                                const cf = callFrac!.get(exp) ?? 0;
+                                const pf = putFrac!.get(exp) ?? 0;
+                                return (
+                                  <div key={exp} className="flex justify-between gap-3 font-mono tabular-nums">
+                                    <span style={{ opacity: 0.85 }}>{dteChip(exp)}</span>
+                                    <span>
+                                      <span style={{ color: 'var(--color-bull)' }}>{formatExposure(hoveredStrike.callGex * cf)}</span>
+                                      <span style={{ opacity: 0.5 }}> / </span>
+                                      <span style={{ color: 'var(--color-bear)' }}>{formatExposure(hoveredStrike.putGex * pf)}</span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              {shown.length < rows.length && (
+                                <div style={{ opacity: 0.7 }}>+{rows.length - shown.length} later expirations</div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
@@ -3068,21 +3950,33 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     {showBreakdown && (
                       <div className="mt-1 pt-1" style={{ borderTop: `1px solid ${border}` }}>
                         <div className="mb-0.5" style={{ opacity: 0.7 }}>By expiration (roll-off)</div>
-                        {stackExpiries.map((exp) => {
-                          const cf = callFrac!.get(exp) ?? 0;
-                          const pf = putFrac!.get(exp) ?? 0;
-                          if (cf === 0 && pf === 0) return null;
-                          return (
-                            <div key={exp} className="flex justify-between gap-3 font-mono tabular-nums">
-                              <span style={{ opacity: 0.85 }}>{dteChip(exp)}</span>
-                              <span>
-                                <span style={{ color: 'var(--color-bull)' }}>{formatVolume(hoveredStrike.callOi * cf)}</span>
-                                <span style={{ opacity: 0.5 }}> / </span>
-                                <span style={{ color: 'var(--color-bear)' }}>{formatVolume(hoveredStrike.putOi * pf)}</span>
-                              </span>
-                            </div>
+                        {(() => {
+                          const rows = stackExpiries.filter(
+                            (exp) => (callFrac!.get(exp) ?? 0) !== 0 || (putFrac!.get(exp) ?? 0) !== 0,
                           );
-                        })}
+                          const shown = narrow ? rows.slice(0, NARROW_BREAKDOWN_ROWS) : rows;
+                          return (
+                            <>
+                              {shown.map((exp) => {
+                                const cf = callFrac!.get(exp) ?? 0;
+                                const pf = putFrac!.get(exp) ?? 0;
+                                return (
+                                  <div key={exp} className="flex justify-between gap-3 font-mono tabular-nums">
+                                    <span style={{ opacity: 0.85 }}>{dteChip(exp)}</span>
+                                    <span>
+                                      <span style={{ color: 'var(--color-bull)' }}>{formatVolume(hoveredStrike.callOi * cf)}</span>
+                                      <span style={{ opacity: 0.5 }}> / </span>
+                                      <span style={{ color: 'var(--color-bear)' }}>{formatVolume(hoveredStrike.putOi * pf)}</span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              {shown.length < rows.length && (
+                                <div style={{ opacity: 0.7 }}>+{rows.length - shown.length} later expirations</div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
@@ -3097,7 +3991,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           while rewind is active. Dragging it moves the chart's right edge from
           the most recent plot point (right) back to the session start (left). */}
       {!compact && rewindActive && (
-        <div className="px-5 pt-2 pb-3" style={{ borderTop: `1px solid ${border}` }}>
+        <div className={narrow ? 'px-3 pt-2 pb-3' : 'px-5 pt-2 pb-3'} style={{ borderTop: `1px solid ${border}` }}>
           <div className="flex items-center justify-between mb-1.5 text-[11px]">
             <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider" style={{ color: SPOT_LINE }}>
               <Rewind size={12} />
@@ -3119,7 +4013,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               value={rewindValue}
               onChange={(e) => onRewindScrub(Number(e.target.value))}
               aria-label="Rewind to a point earlier in the session"
-              className="flex-1 h-2 cursor-pointer appearance-none rounded-full outline-none
+              className={`${narrow ? 'min-w-0 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 ' : ''}flex-1 h-2 cursor-pointer appearance-none rounded-full outline-none
                 [&::-webkit-slider-thumb]:appearance-none
                 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4
                 [&::-webkit-slider-thumb]:rounded-full
@@ -3130,9 +4024,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 [&::-moz-range-thumb]:rounded-full
                 [&::-moz-range-thumb]:bg-[#06B6D4]
                 [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white
-                [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:border-solid"
+                [&::-moz-range-thumb]:cursor-grab [&::-moz-range-thumb]:border-solid`}
               style={{
                 background: `linear-gradient(to right, ${SPOT_LINE} 0%, ${SPOT_LINE} ${rewindFillPct}%, ${rewindTrackBg} ${rewindFillPct}%, ${rewindTrackBg} 100%)`,
+                // A finger needs a taller hit box than the 8px track.
+                ...(narrow ? { height: 28, backgroundClip: 'content-box', paddingTop: 10, paddingBottom: 10 } : {}),
               }}
             />
             {/* Playback controls — play/pause toggle, loop toggle, speed cycle.
@@ -3195,8 +4091,49 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         </div>
       )}
 
-      {/* Legend strip — hidden in compact mode to reclaim vertical space. */}
-      {!compact && (
+      {/* Legend strip — hidden in compact mode to reclaim vertical space.
+          The narrow board names every level on the chart itself (chip +
+          price tag), so its legend keeps only what the bars need and says
+          how to drive the chart with a finger. */}
+      {!compact && narrow && (
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-[11px]"
+          style={{ borderTop: `1px solid ${border}`, color: subtle }}
+        >
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block rounded-sm"
+              style={{ width: 16, height: 9, background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
+            />
+            <span style={{ color: textPrimary }}>Call</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block rounded-sm"
+              style={{ width: 16, height: 9, background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
+            />
+            <span style={{ color: textPrimary }}>Put</span>
+          </span>
+          {gexMode === 'combined' && showGamma && (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block rounded-sm" style={{ width: 16, height: 9, background: NET_BAR_COLOR }} />
+              <span style={{ color: textPrimary }}>Net</span>
+            </span>
+          )}
+          {stackingActive && (
+            <span className="flex items-center gap-1.5">
+              <span style={{ opacity: 0.8 }}>near</span>
+              <span
+                className="inline-block rounded-sm"
+                style={{ width: 24, height: 7, background: 'linear-gradient(90deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 25%, transparent) 100%)' }}
+              />
+              <span style={{ opacity: 0.8 }}>far DTE</span>
+            </span>
+          )}
+          <span className="w-full">Tap for a readout · hold or drag to scrub · pinch to zoom</span>
+        </div>
+      )}
+      {!compact && !narrow && (
       <div
         className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
