@@ -18,7 +18,9 @@ export default function Panel({
   children: ReactNode;
 }) {
   return (
-    <div className={`zg-panel ${padded ? 'p-5' : ''} ${className}`} style={style}>
+    // 16px of inset on a phone rather than 20 — the same phone inset every
+    // bordered surface takes (see the density rule in globals.css).
+    <div className={`zg-panel ${padded ? 'p-4 sm:p-5' : ''} ${className}`} style={style}>
       {children}
     </div>
   );

@@ -211,7 +211,7 @@ export default function Footer({ theme }: FooterProps) {
         borderColor: 'var(--border-default)',
       }}
     >
-      <div className="container mx-auto px-6 py-14">
+      <div className="container mx-auto px-5 py-10 sm:px-6 sm:py-14">
         <div className="zg-footer-cols">
           {/* Brand block. The logo used to render at 240px in the middle of the
               row, which put more visual weight on the mark than on anything a

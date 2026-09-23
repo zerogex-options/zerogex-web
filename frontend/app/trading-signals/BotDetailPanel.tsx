@@ -34,6 +34,7 @@ import {
 import { useApiData } from '@/hooks/useApiData';
 import EmptyState from './EmptyState';
 import { botColor, botColorSoft } from './palette';
+import { lockPageScroll } from '@/core/scrollLock';
 import { fmtDate, fmtDateTime, fmtMoney, fmtPct, fmtRatio, fmtSignedMoney, fmtSignedPct } from './format';
 import type {
   BotDetailResponse,
@@ -80,12 +81,11 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handler);
-    // Lock body scroll while modal is up.
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // Lock page scroll while modal is up.
+    const releaseScroll = lockPageScroll();
     return () => {
       window.removeEventListener('keydown', handler);
-      document.body.style.overflow = prev;
+      releaseScroll();
     };
   }, [onClose]);
 

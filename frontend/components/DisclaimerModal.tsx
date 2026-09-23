@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
+import { lockPageScroll } from '@/core/scrollLock';
 
 interface DisclaimerModalProps {
   theme: Theme;
@@ -16,12 +17,9 @@ export default function DisclaimerModal({ theme, onAcknowledged }: DisclaimerMod
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockPageScroll();
     buttonRef.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return releaseScroll;
   }, []);
 
   const handleAcknowledge = useCallback(async () => {

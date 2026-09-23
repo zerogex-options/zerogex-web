@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { getCsrfToken } from '@/core/csrfClient';
+import { lockPageScroll } from '@/core/scrollLock';
 import { useLanguage } from '@/core/LanguageContext';
 import { TERMS_VERSION, TERMS_EFFECTIVE_DATE_LABEL } from '@/core/legalTerms';
 
@@ -33,12 +34,9 @@ export default function TermsAcceptanceModal({ onAccepted }: TermsAcceptanceModa
   const checkboxRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockPageScroll();
     checkboxRef.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return releaseScroll;
   }, []);
 
   const handleAccept = useCallback(async () => {

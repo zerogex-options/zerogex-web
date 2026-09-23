@@ -18,11 +18,12 @@
  * across all twelve ZeroGEX palettes in light and dark.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity, Camera, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { Activity, Camera, ChevronDown, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
+import SymbolSelect from "./SymbolSelect";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -44,10 +45,9 @@ import {
   type VolumeMode,
 } from "@/core/netVolumeSeries";
 import { seriesRollNote, summarizeSeriesContracts } from "@/core/futuresContract";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useCoarsePointer, useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
-import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
@@ -154,29 +154,131 @@ const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
 const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
-const VW = 1360;
-const VH = 636;
-const PAD_TOP = 46;
-const PRICE_BOTTOM = 486;
-const VOL_TOP = 508;
-const VOL_BOTTOM = 586;
-const TIME_AXIS_Y = 604; // clock-time row
-const DATE_AXIS_Y = 620; // grouped trading-date row, below the times
-const PLOT_LEFT = 16;
-const PLOT_RIGHT = 1092;
-const INNER_PAD_X = 12; // left inset before the first bar
-// Right-side gutter reserved between the newest bar and the price axis, so the
-// last candle is never hidden under the wall / gamma / last-price tags that
-// sit on the axis. (Grid + level lines still run the full width to PLOT_RIGHT;
-// only the bars are inset.)
-const PAD_RIGHT = 82;
-// The right-hand price axis / tag column sits 10 units past the plot edge —
-// `axisColX` inside the component, since the edge moves in terminal mode.
+//
+// Two canvases. DESKTOP is the fixed 1360×636 board the instrument was drawn
+// on, scaled to whatever width the card has. That scaling is fine on a monitor
+// and ruinous on a phone: at 358px wide every 11-unit label renders at under
+// 3px. It used to be rescued by a 1000px minimum width inside a sideways
+// scroller, which made the chart something you swiped around rather than read.
+//
+// COMPACT is built for the width it is drawn at, one viewBox unit per CSS px,
+// so the same 10–11 unit labels are real 10–11px text. It is portrait-shaped
+// (taller than wide, capped by the viewport's height), keeps the price tags
+// inside the axis column instead of hanging an 82-unit gutter over the plot,
+// and narrows the rail. It applies to a narrow card on a phone-sized viewport
+// or a touch screen; a mouse-driven desktop keeps the board it always had.
+//
+// The field names are the SCREAMING_CASE constants they replaced, destructured
+// back into locals at the top of the component, so the drawing code reads the
+// same either way.
+interface ChartCanvas {
+  compact: boolean;
+  VW: number;
+  VH: number;
+  PAD_TOP: number;
+  PRICE_BOTTOM: number;
+  VOL_TOP: number;
+  VOL_BOTTOM: number;
+  TIME_AXIS_Y: number; // clock-time row
+  DATE_AXIS_Y: number; // grouped trading-date row, below the times
+  PLOT_LEFT: number;
+  PLOT_RIGHT: number;
+  INNER_PAD_X: number; // left inset before the first bar
+  // Right-side gutter reserved between the newest bar and the price axis, so
+  // the last candle is never hidden under the wall / gamma / last-price tags
+  // that sit on the axis. (Grid + level lines still run the full width to
+  // PLOT_RIGHT; only the bars are inset.)
+  PAD_RIGHT: number;
+  // The inline rail's column. Its center and half-width are derived per
+  // instance (see `railCenter` / `railHalf`), because a panelled rail spans its
+  // own element instead of this column.
+  RAIL_LEFT: number;
+  RAIL_RIGHT: number;
+  // Terminal mode (hideRail): the tape runs out to where the rail used to end,
+  // keeping the same-width axis / tag column beside it.
+  PLOT_RIGHT_NO_RAIL: number;
+  // Offset from the plot edge to the axis labels (`axisColX`).
+  AXIS_LABEL_GAP: number;
+}
+
+const DESKTOP_CANVAS: ChartCanvas = {
+  compact: false,
+  VW: 1360,
+  VH: 636,
+  PAD_TOP: 46,
+  PRICE_BOTTOM: 486,
+  VOL_TOP: 508,
+  VOL_BOTTOM: 586,
+  TIME_AXIS_Y: 604,
+  DATE_AXIS_Y: 620,
+  PLOT_LEFT: 16,
+  PLOT_RIGHT: 1092,
+  INNER_PAD_X: 12,
+  PAD_RIGHT: 82,
+  RAIL_LEFT: 1172,
+  RAIL_RIGHT: 1352,
+  PLOT_RIGHT_NO_RAIL: 1352 - (1172 - 1092),
+  AXIS_LABEL_GAP: 10,
+};
+
+// Widest card (CSS px) that still gets the compact canvas.
+const COMPACT_MAX_WIDTH = 900;
+// Price column on the compact canvas: axis labels, with the price tags
+// right-aligned inside it (a 9-character NDX tag is ~67 units).
+const COMPACT_AXIS_W = 68;
+
+/**
+ * The compact canvas for a card `width` CSS px wide. Portrait screens get a
+ * tall board (about 1.3× as tall as wide — a phone has height to spare and the
+ * price pane is what it is for); a phone turned to landscape has ~350px of
+ * height, so there the board is short and wide. Keyed on orientation rather
+ * than on the measured viewport height, which a phone's collapsing address bar
+ * changes on every scroll.
+ */
+function compactCanvas(width: number, landscape: boolean): ChartCanvas {
+  const VW = Math.max(300, Math.round(width));
+  const VH = landscape
+    ? Math.min(420, Math.max(330, Math.round(VW * 0.62)))
+    : Math.min(640, Math.max(400, Math.round(VW * 1.3)));
+  const DATE_AXIS_Y = VH - 7;
+  const TIME_AXIS_Y = VH - 21;
+  const VOL_BOTTOM = VH - 34;
+  const VOL_TOP = VOL_BOTTOM - 48;
+  const PRICE_BOTTOM = VOL_TOP - 16;
+  const RAIL_RIGHT = VW - 4;
+  const RAIL_LEFT = RAIL_RIGHT - Math.round(Math.min(110, Math.max(58, VW * 0.17)));
+  const PLOT_RIGHT = RAIL_LEFT - COMPACT_AXIS_W;
+  return {
+    compact: true,
+    VW,
+    VH,
+    // Room for the regime caption; the OHLC readout sits above the canvas
+    // rather than over it on this canvas.
+    PAD_TOP: 26,
+    PRICE_BOTTOM,
+    VOL_TOP,
+    VOL_BOTTOM,
+    TIME_AXIS_Y,
+    DATE_AXIS_Y,
+    PLOT_LEFT: 6,
+    PLOT_RIGHT,
+    INNER_PAD_X: 6,
+    PAD_RIGHT: 12,
+    RAIL_LEFT,
+    RAIL_RIGHT,
+    PLOT_RIGHT_NO_RAIL: RAIL_RIGHT - COMPACT_AXIS_W,
+    AXIS_LABEL_GAP: 5,
+  };
+}
 
 // View window (zoom + pan). We keep a deep pool of bars in memory and show a
 // movable slice of it; the price axis auto-fits whatever is visible.
 const POOL = 400; // bars retained for panning
 const DEFAULT_COUNT = 90; // bars shown in the default, live-following view
+// The compact canvas has ~270 units of tape against the desktop board's ~990,
+// so it opens on fewer bars (five hours of 5-minute candles) — each candle
+// stays a readable few px wide. Pinch or the Time buttons widen it.
+const COMPACT_DEFAULT_COUNT = 60;
 const MIN_COUNT = 18; // most zoomed-in (time)
 const ZOOM_FACTOR = 1.2;
 // Vertical (price-axis) zoom. `zoom` is the fraction of the auto-fit price
@@ -186,14 +288,6 @@ const ZOOM_FACTOR = 1.2;
 const PRICE_ZOOM_MIN = 0.15;
 const PRICE_ZOOM_MAX = 8;
 const DEFAULT_PRICE_VIEW: { zoom: number; center: number | null } = { zoom: 1, center: null };
-// The inline rail's column. Its center and half-width are derived per instance
-// (see `railCenter` / `railHalf`), because a panelled rail spans its own
-// element instead of this column.
-const RAIL_LEFT = 1172;
-const RAIL_RIGHT = 1352;
-// Terminal mode (hideRail): the tape runs out to where the rail used to end,
-// keeping the same-width axis / tag column beside it.
-const PLOT_RIGHT_NO_RAIL = RAIL_RIGHT - (RAIL_LEFT - PLOT_RIGHT);
 // Ribbon colors — neon orbs: a saturated hue blooms around each orb (blurred
 // copy underneath) and a hot, near-white rim sits on top; the body is a
 // bright mix of the two. Sign keeps the ladder's warm (dealer long gamma) /
@@ -543,11 +637,79 @@ export default function GammaTerminalChart({
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
+
+  // ── Canvas ── desktop board or compact (see ChartCanvas). Chosen from the
+  // card's measured width, so it is decided on the client: the server and the
+  // first client render both draw the desktop board, and a layout effect swaps
+  // in the compact one before the browser paints. On a phone the unmeasured
+  // board is kept invisible by CSS until then (.zg-gc-canvas in globals.css),
+  // so it never flashes at 3px text.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const setRootNode = useCallback((el: HTMLDivElement | null) => {
+    rootRef.current = el;
+    setRootEl(el);
+  }, []);
+  const [box, setBox] = useState<{ w: number; landscape: boolean } | null>(null);
+  useLayoutEffect(() => {
+    if (!rootEl) return;
+    const measure = () => {
+      const w = rootEl.clientWidth;
+      const landscape = window.innerWidth > window.innerHeight;
+      setBox((cur) => (cur && Math.abs(cur.w - w) < 1 && cur.landscape === landscape ? cur : { w, landscape }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(rootEl);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [rootEl]);
+  const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
+  const canvas = useMemo(
+    () =>
+      box && box.w > 0 && box.w < COMPACT_MAX_WIDTH && (isMobile || coarsePointer)
+        ? compactCanvas(box.w, box.landscape)
+        : DESKTOP_CANVAS,
+    [box, isMobile, coarsePointer],
+  );
+  const {
+    compact,
+    VW,
+    VH,
+    PAD_TOP,
+    PRICE_BOTTOM,
+    VOL_TOP,
+    VOL_BOTTOM,
+    TIME_AXIS_Y,
+    DATE_AXIS_Y,
+    PLOT_LEFT,
+    PLOT_RIGHT,
+    INNER_PAD_X,
+    PAD_RIGHT,
+    RAIL_LEFT,
+    RAIL_RIGHT,
+    PLOT_RIGHT_NO_RAIL,
+    AXIS_LABEL_GAP,
+  } = canvas;
+  const defaultCount = compact ? COMPACT_DEFAULT_COUNT : DEFAULT_COUNT;
+  // The compact toolbar's Layers panel (closed until asked for).
+  const [layersOpen, setLayersOpen] = useState(false);
+  const layersPanelId = useId();
+
   // Per-instance plot geometry: without the rail the tape widens to where the
   // rail used to end and the axis / tag column moves out with it.
   const plotRight = hideRail ? PLOT_RIGHT_NO_RAIL : PLOT_RIGHT;
-  const axisColX = plotRight + 10;
+  const axisColX = plotRight + AXIS_LABEL_GAP;
   const axisRight = hideRail ? VW : RAIL_LEFT;
+  // Where a price tag's RIGHT edge sits. The desktop board hangs its tags off
+  // the plot edge, over the PAD_RIGHT gutter; the compact canvas has no width
+  // for that gutter, so its tags ride inside the axis column instead, the way a
+  // phone trading app draws them.
+  const tagX = compact ? axisRight - 1 : axisColX - 6;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
   const symbol = snapshot ? snapshot.symbol : ctxSymbol;
   // On a linked split board the price axis is shared with the other half — see
@@ -559,7 +721,6 @@ export default function GammaTerminalChart({
   // each would auto-fit to on its own. Null when unlinked, or when this chart
   // is the only one on its symbol (nothing to reconcile with).
   const linkedBase = priceLink ? priceLink.domains.get(symbol) ?? null : null;
-  const isMobile = useIsMobile();
   // Price tags are filled with a level's own colour, so their text is picked
   // per chip rather than from the theme's inverse ink.
   const chipInk = useChipInk();
@@ -628,6 +789,15 @@ export default function GammaTerminalChart({
   const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
+  // The live view's bar count follows the canvas: when the compact canvas is
+  // swapped in after measuring (or out again on a resize), an untouched view
+  // takes that canvas's default. A view the reader has zoomed or panned is left
+  // alone. Adjusted during render, like the symbol/timeframe reset below.
+  const [viewDefault, setViewDefault] = useState(DEFAULT_COUNT);
+  if (viewDefault !== defaultCount) {
+    setViewDefault(defaultCount);
+    setView((v) => (v.count === viewDefault && v.offset === 0 ? { count: defaultCount, offset: 0 } : v));
+  }
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
   // The zoom/pan actually on screen, wherever it is stored. Gesture handlers
   // read this so a drag on the half that ISN'T driving still starts from what
@@ -680,7 +850,7 @@ export default function GammaTerminalChart({
   const [viewKey, setViewKey] = useState(`${symbol}:${timeframe}`);
   if (viewKey !== `${symbol}:${timeframe}`) {
     setViewKey(`${symbol}:${timeframe}`);
-    setView({ count: DEFAULT_COUNT, offset: 0 });
+    setView({ count: defaultCount, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
     setRewindActive(false);
     setRewindTime(null);
@@ -1171,10 +1341,10 @@ export default function GammaTerminalChart({
       scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
       last: values[values.length - 1],
     };
-  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol]);
+  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol, VOL_TOP, VOL_BOTTOM]);
 
   const atLiveEdge = !rewindActive && effOffset === 0;
-  const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
+  const isCustomView = view.offset !== 0 || view.count !== defaultCount || priceIsManual;
 
   // The gamma structure at the rewound moment: the newest bucket at or before
   // the anchor, within the anchor's own session. Keyed off the CLAMPED anchor,
@@ -1414,10 +1584,11 @@ export default function GammaTerminalChart({
   const extIcon = session === "pre-market" ? "sun" : "moon";
 
   // ── Crosshair state ──────────────────────────────────────────────────────
-  const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
+  // `touch`: the crosshair was put down by a finger. Its readout then pins to
+  // the top of the chart instead of trailing the point, which the hand covers.
+  const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number; touch?: boolean } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -1522,7 +1693,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight]);
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // Terminal mode: report where the tape's price band and the live spot sit, in
   // CSS px from the card's top edge, so the ladders beside the chart can pin
@@ -1562,7 +1733,7 @@ export default function GammaTerminalChart({
     ro.observe(svg);
     ro.observe(root);
     return () => ro.disconnect();
-  }, [onGeometry, layout, spotForGeometry]);
+  }, [onGeometry, layout, spotForGeometry, VW, PAD_TOP, PRICE_BOTTOM]);
 
   // Broadcast the replay clock so a surface can show the book as of the same
   // moment. Fires on enter, every scrub / playback step, and exit.
@@ -1832,7 +2003,7 @@ export default function GammaTerminalChart({
     const barH = Math.max(1.5, Math.min(11, slot * 0.6));
     const showLabels = railLabels && slot >= RAIL_LABEL_MIN_SLOT;
     return { inView, maxAbs, wFor, barH, showLabels };
-  }, [layout, railDomain, railStrikes, effectiveRailMode, railLabels, railHalf]);
+  }, [layout, railDomain, railStrikes, effectiveRailMode, railLabels, railHalf, PAD_TOP, PRICE_BOTTOM]);
 
   // Day-boundary separators for the time axis.
   const dateMarkers = useMemo(() => {
@@ -1871,7 +2042,14 @@ export default function GammaTerminalChart({
     return groups;
   }, [bars]);
 
+  // Mobile browsers replay a tap as mousedown/mousemove/mouseup a moment
+  // later. The touch handlers below already acted on it, so the mouse path
+  // sits out for a beat after any touch rather than acting on it twice.
+  const lastTouchAtRef = useRef(0);
+  const fromRecentTouch = () => Date.now() - lastTouchAtRef.current < 800;
+
   const handlePointerDown = (e: MouseEvent<SVGSVGElement>) => {
+    if (fromRecentTouch()) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
     // A drag that starts on the right-hand price scale zooms the y-axis
@@ -1893,7 +2071,7 @@ export default function GammaTerminalChart({
   };
 
   const handlePointerMove = (e: MouseEvent<SVGSVGElement>) => {
-    if (!layout || bars.length === 0) return;
+    if (!layout || bars.length === 0 || fromRecentTouch()) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const drag = dragRef.current;
     if (drag) {
@@ -1964,13 +2142,187 @@ export default function GammaTerminalChart({
   };
 
   const handlePointerLeave = () => {
+    // A touch crosshair is meant to stay put after the finger lifts; the
+    // replayed mouseleave from the tap must not take it straight back down.
+    if (fromRecentTouch()) return;
     setHover(null);
     if (overAxis) setOverAxis(false);
     endDrag();
   };
 
+  // ── Touch ────────────────────────────────────────────────────────────────
+  // A finger gets its own grammar, because a touchscreen has no hover and no
+  // wheel. The SVG claims only horizontal gestures (touch-action: pan-y), so a
+  // vertical swipe still scrolls the page, while:
+  //   • a horizontal drag pans through time,
+  //   • two fingers pinch the time axis in and out about their midpoint,
+  //   • a press-and-hold drops the crosshair, and the held finger scrubs it,
+  //   • a tap drops the crosshair where it lands, and a tap on a chart already
+  //     showing one lifts it.
+  // The crosshair outlives the finger so its readout can actually be read.
+  // Mouse and pen input never reach these handlers.
+  const touchRef = useRef<{
+    points: Map<number, { x: number; y: number }>;
+    mode: "pending" | "pan" | "scrub" | "pinch" | "spent";
+    startX: number;
+    startY: number;
+    startOffset: number;
+    pinchDist: number;
+    pinchCount: number;
+    pinchOffset: number;
+    pinchAnchorVx: number;
+    holdTimer: ReturnType<typeof setTimeout> | null;
+    hadHover: boolean;
+  } | null>(null);
+
+  const hoverAtClient = (clientX: number, clientY: number, rect: DOMRect, touch: boolean) => {
+    if (!layout || bars.length === 0) return;
+    const vx = (clientX - rect.left) * (VW / Math.max(1, rect.width));
+    const vy = (clientY - rect.top) * (VH / Math.max(1, rect.height));
+    const idx = Math.round((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, layout.xStep));
+    const clampedIdx = Math.max(0, Math.min(bars.length - 1, idx));
+    const price = layout.priceForY(clamp(vy, PAD_TOP, PRICE_BOTTOM));
+    setHover({ idx: clampedIdx, price, px: clientX - rect.left, py: clientY - rect.top, w: rect.width, h: rect.height, touch });
+  };
+
+  // Time zoom by `factor` about a viewBox x, from a captured starting view —
+  // the pinch's anchor stays under the fingers for the whole gesture instead
+  // of drifting as each frame compounds on the last.
+  const zoomTimeFrom = (anchorVx: number, startCount: number, startOffset: number, factor: number) => {
+    if (total <= 1) return;
+    const curCount = clamp(startCount, MIN_COUNT, Math.max(MIN_COUNT, total));
+    const curOffset = clamp(startOffset, 0, Math.max(0, total - curCount));
+    const curEnd = total - curOffset;
+    const curStart = Math.max(0, curEnd - curCount);
+    const curVisible = Math.max(1, curEnd - curStart);
+    const curXStep = (plotRight - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, curVisible - 1);
+    const rel = clamp((anchorVx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, curXStep), 0, curVisible - 1);
+    const anchorAbs = curStart + rel;
+    const f = curVisible > 1 ? rel / (curVisible - 1) : 0.5;
+    const newCount = clamp(Math.round(curCount * factor), MIN_COUNT, total);
+    const newStart = Math.round(anchorAbs - f * (newCount - 1));
+    const newOffset = clamp(total - (newStart + newCount), 0, Math.max(0, total - newCount));
+    setView((v) => (v.count === newCount && v.offset === newOffset ? v : { count: newCount, offset: newOffset }));
+  };
+
+  const clearHold = () => {
+    const t = touchRef.current;
+    if (t?.holdTimer) {
+      clearTimeout(t.holdTimer);
+      t.holdTimer = null;
+    }
+  };
+
+  const handleTouchDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch" || !layout) return;
+    lastTouchAtRef.current = Date.now();
+    const svg = e.currentTarget;
+    let t = touchRef.current;
+    if (!t) {
+      t = {
+        points: new Map(),
+        mode: "pending",
+        startX: e.clientX,
+        startY: e.clientY,
+        startOffset: effOffset,
+        pinchDist: 0,
+        pinchCount: effCount,
+        pinchOffset: effOffset,
+        pinchAnchorVx: 0,
+        holdTimer: null,
+        hadHover: hover != null,
+      };
+      touchRef.current = t;
+    }
+    t.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      svg.setPointerCapture(e.pointerId);
+    } catch {
+      /* the pointer may already be gone */
+    }
+    if (t.points.size === 1) {
+      // Held still long enough, it is a crosshair rather than a pan.
+      const x = e.clientX;
+      const y = e.clientY;
+      t.holdTimer = setTimeout(() => {
+        const cur = touchRef.current;
+        if (!cur || cur.mode !== "pending") return;
+        cur.mode = "scrub";
+        cur.holdTimer = null;
+        hoverAtClient(x, y, svg.getBoundingClientRect(), true);
+      }, 260);
+    } else if (t.points.size === 2) {
+      clearHold();
+      const [a, b] = [...t.points.values()];
+      const rect = svg.getBoundingClientRect();
+      t.mode = "pinch";
+      t.pinchDist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      t.pinchCount = effCount;
+      t.pinchOffset = effOffset;
+      t.pinchAnchorVx = ((a.x + b.x) / 2 - rect.left) * (VW / Math.max(1, rect.width));
+      setHover(null);
+    }
+  };
+
+  const handleTouchMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== "touch" || !t || !t.points.has(e.pointerId) || !layout) return;
+    lastTouchAtRef.current = Date.now();
+    t.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (t.mode === "pinch") {
+      if (t.points.size < 2) return;
+      const [a, b] = [...t.points.values()];
+      const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      // Fingers apart → fewer bars (zoom in); together → more.
+      zoomTimeFrom(t.pinchAnchorVx, t.pinchCount, t.pinchOffset, t.pinchDist / dist);
+      return;
+    }
+    if (t.mode === "scrub") {
+      hoverAtClient(e.clientX, e.clientY, rect, true);
+      return;
+    }
+    const dx = e.clientX - t.startX;
+    if (t.mode === "pending") {
+      if (Math.abs(dx) < 8) return;
+      clearHold();
+      t.mode = "pan";
+      t.startX = e.clientX;
+      t.startOffset = effOffset;
+      setHover(null);
+      return;
+    }
+    if (t.mode === "pan") {
+      // Dragging the tape right reveals older bars, as with the mouse.
+      const dxView = (e.clientX - t.startX) * (VW / Math.max(1, rect.width));
+      const dBars = Math.round(dxView / Math.max(1e-9, layout.xStep));
+      const nextOffset = clamp(t.startOffset + dBars, 0, maxOffset);
+      setView((v) => (v.offset === nextOffset ? v : { ...v, offset: nextOffset }));
+    }
+  };
+
+  const handleTouchEnd = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== "touch" || !t) return;
+    lastTouchAtRef.current = Date.now();
+    const wasTap = e.type === "pointerup" && t.mode === "pending" && t.points.size === 1;
+    t.points.delete(e.pointerId);
+    clearHold();
+    if (wasTap) {
+      if (t.hadHover) setHover(null);
+      else hoverAtClient(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect(), true);
+    }
+    if (t.points.size === 0) {
+      touchRef.current = null;
+    } else if (t.mode === "pinch") {
+      // One finger left after a pinch: ignore it until it lifts, rather than
+      // letting it turn into a pan that jumps from wherever it now sits.
+      t.mode = "spent";
+    }
+  };
+
   const resetView = () => {
-    setView({ count: DEFAULT_COUNT, offset: 0 });
+    setView({ count: defaultCount, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
     priceLink?.setView(null);
     setHover(null);
@@ -2086,7 +2438,7 @@ export default function GammaTerminalChart({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [view.count, view.offset, total, plotRight]);
+  }, [view.count, view.offset, total, plotRight, VW, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT]);
 
   // ── Rewind controls ──────────────────────────────────────────────────────
   // Keep the latest bars in a ref so the playback interval can read them
@@ -2450,7 +2802,9 @@ export default function GammaTerminalChart({
   const seriesUp = lastBar.close >= bars[0].open;
   const seriesColor = seriesUp ? "var(--color-bull)" : "var(--color-bear)";
 
-  const timeLabelEvery = Math.max(1, Math.ceil(bars.length / (isMobile ? 4 : 9)));
+  // About one clock label per 64 units of compact tape; nine across the board.
+  const timeLabelTarget = compact ? Math.max(3, Math.floor((plotRight - PLOT_LEFT) / 64)) : 9;
+  const timeLabelEvery = Math.max(1, Math.ceil(bars.length / timeLabelTarget));
 
   // Crosshair-price gamma context for the floating readout.
   const hoverGex = hover ? gexAtPrice(hover.price) : null;
@@ -2567,6 +2921,13 @@ export default function GammaTerminalChart({
         {!inPanel && (
           <>
             <rect x={railLeft - 6} y={PAD_TOP} width={railRight - railLeft + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
+            {compact ? (
+              // A ~60-unit column cannot carry the full title (or its mode
+              // suffixes — the Layers panel names the mode); one word does.
+              <text x={(railLeft + railRight) / 2} y={PAD_TOP - 8} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={9} letterSpacing="0.1em" fill={filteredExp ? "var(--color-warning)" : "var(--text-muted)"}>
+                GAMMA
+              </text>
+            ) : (
             <text x={(railLeft + railRight) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
               DEALER GAMMA BY STRIKE
               {effectiveRailMode !== "silhouette" && (
@@ -2578,6 +2939,7 @@ export default function GammaTerminalChart({
                 <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
               )}
             </text>
+            )}
           </>
         )}
         {/* zero baseline */}
@@ -2670,8 +3032,248 @@ export default function GammaTerminalChart({
       </g>
     ) : null;
 
+  // ── Toolbar pieces ── one set of controls, laid out as a single wrapping
+  // row on the desktop board and as a compact bar + Layers panel on phones
+  // (see the Controls block below).
+  const symbolTfControls = (
+    <>
+          {/* Symbol + timeframe — switchable when live; in the delayed public
+              snapshot they're fixed (switching needs data the snapshot lacks),
+              so we show an unlock CTA instead. */}
+          {live ? (
+            <>
+              {compact ? (
+                // Seven symbols as buttons are a row of their own on a phone;
+                // the native picker is one control, and the platform's wheel.
+                <SymbolSelect value={symbol as UnderlyingSymbol} onChange={(s) => setSymbol(s)} ariaLabel="Symbol" />
+              ) : (
+                <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
+                  {SYMBOLS.map((s) => (
+                    <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
+                {TIMEFRAMES.map((t) => (
+                  <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
+                {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
+              </span>
+              <a
+                href="/register"
+                className="zg-gc-pill"
+                data-active
+                style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
+              >
+                Unlock live · all symbols & timeframes →
+              </a>
+            </>
+          )}
+    </>
+  );
+  const styleControl = (
+    <>
+          {/* Price style */}
+          <div className="zg-gc-seg" role="tablist" aria-label="Price style">
+            {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
+              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === style} onClick={() => setStyle(s)} aria-pressed={s === style}>
+                {s === "candles" ? "Candle" : s === "line" ? "Line" : "Area"}
+              </button>
+            ))}
+          </div>
+
+    </>
+  );
+  const volumeControl = (
+    <>
+          {/* Volume pane view. Carries a visible "VOL" label because the
+              buttons sit beside the price-style ones and "Cumulative" has to
+              say what it is cumulative OF. */}
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
+            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
+              {(["updown", "net"] as VolumeMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="zg-gc-seg-btn"
+                  data-active={m === volumeMode}
+                  onClick={() => setVolumeMode(m)}
+                  aria-pressed={m === volumeMode}
+                  title={
+                    m === "updown"
+                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
+                      : "Running total of uptick minus downtick volume for the current session only — it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                  }
+                >
+                  {VOLUME_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+    </>
+  );
+  const overlayControls = (
+    <>
+          {/* Overlay pills */}
+          <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
+          {!hideRail && (
+            <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
+          )}
+          {live && (
+            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
+          )}
+          {live && overlays.ribbons && (
+            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
+          )}
+          <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
+          <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
+          <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
+          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
+          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
+              so a countdown on it would be counting down someone else's candle. */}
+          {live && (
+            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
+          )}
+          {/* Expected Range — live-only (the delayed public snapshot carries no
+              vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
+          {live && (
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range — the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only — the delayed snapshot carries no vol index." />
+          )}
+          {live && overlays.expectedRange && (
+            <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
+              {([
+                ["daily", "Daily"],
+                ["weekly", "Weekly"],
+                ["monthly", "Monthly"],
+              ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
+                <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          )}
+
+    </>
+  );
+  const railExpiryControls = (
+    <>
+          {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
+              labels, and an expiration filter — live only (the delayed snapshot
+              lacks the per-strike call/put split and can't refetch). */}
+          {live && (
+            <>
+              <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
+              {/* Panelled, these ride the panel instead (portalled at the
+                  bottom of this component) — the rail's view is a control of
+                  the thing being drawn, so it belongs wherever that is. */}
+              {railOn && !inPanel && railViewControls}
+              <ExpirationMultiSelect
+                options={availableExpiries}
+                selected={effectiveRailExpiries}
+                onChange={setRailExpiries}
+                label="Expiry"
+                disabled={availableExpiries.length === 0}
+                zeroDte={railZeroDte}
+              />
+              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
+                  nothing means All — so the levels below are whole-chain while
+                  the control still says 0DTE. Say it out loud, next to the
+                  control that caused it and again on the chart itself. */}
+              {railZeroDte.widenedToAll && (
+                <span
+                  className="zg-chip"
+                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
+                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
+                >
+                  No 0DTE today · showing all expiries
+                </span>
+              )}
+            </>
+          )}
+
+    </>
+  );
+  const activeLayerCount = [
+    overlays.levels,
+    !hideRail && overlays.rail,
+    live && overlays.ribbons,
+    overlays.regime,
+    overlays.vwap,
+    overlays.maxPain,
+    overlays.king,
+    overlays.pin,
+    live && overlays.barTimer,
+    live && overlays.expectedRange,
+  ].filter(Boolean).length;
+  const viewActions = (
+    <>
+
+            {isCustomView && (
+              <button
+                type="button"
+                onClick={resetView}
+                title="Reset zoom & pan to the live view"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  padding: "5px 11px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--color-accent-hot)",
+                  color: "var(--color-accent-hot)",
+                  background: "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)",
+                  cursor: "pointer",
+                }}
+              >
+                ⟲ Reset
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={downloadPng}
+              disabled={exportState === "working"}
+              title="Save this chart as a PNG image"
+              aria-label="Save this chart as a PNG image"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                padding: "5px 11px",
+                borderRadius: "var(--radius-pill)",
+                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
+                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
+                background: "var(--bg-subtle)",
+                cursor: exportState === "working" ? "progress" : "pointer",
+                opacity: exportState === "working" ? 0.6 : 1,
+              }}
+            >
+              <Camera size={13} />
+              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
+            </button>
+    </>
+  );
+
   return (
-    <div ref={rootRef} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
+    <div ref={setRootNode} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="flex flex-col gap-4 p-4 sm:p-5"
@@ -2691,18 +3293,24 @@ export default function GammaTerminalChart({
                     expiry filter grew (an "All" pill becoming a date), which
                     pushed the chart down and knocked a split board's two halves
                     out of alignment. */}
-                <TooltipWrapper text="Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view." />
+                <TooltipWrapper
+                  text={
+                    compact || coarsePointer
+                      ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere — or press and hold, then slide — to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control, and Reset snaps back to the live view."
+                      : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view."
+                  }
+                />
                 {sessionBadge && (
                   <span className="zg-chip" style={{ ["--chip-color" as string]: sessionBadge.color }}>
                     {sessionBadge.label}
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-3 mt-1">
-                <span style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-1">
+                <span style={{ fontFamily: "var(--font-display)", fontSize: compact ? 25 : 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
                   {symbol}
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: compact ? 24 : 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                   {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
                 {!rewindActive && futuresTicker && (
@@ -2816,216 +3424,78 @@ export default function GammaTerminalChart({
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {/* Symbol + timeframe — switchable when live; in the delayed public
-              snapshot they're fixed (switching needs data the snapshot lacks),
-              so we show an unlock CTA instead. */}
-          {live ? (
-            <>
-              <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
-                {SYMBOLS.map((s) => (
-                  <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-              <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
-                {TIMEFRAMES.map((t) => (
-                  <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
-                {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
-              </span>
-              <a
-                href="/register"
-                className="zg-gc-pill"
-                data-active
-                style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
-              >
-                Unlock live · all symbols & timeframes →
-              </a>
-            </>
-          )}
-          {/* Price style */}
-          <div className="zg-gc-seg" role="tablist" aria-label="Price style">
-            {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
-              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === style} onClick={() => setStyle(s)} aria-pressed={s === style}>
-                {s === "candles" ? "Candle" : s === "line" ? "Line" : "Area"}
-              </button>
-            ))}
-          </div>
-
-          {/* Volume pane view. Carries a visible "VOL" label because the
-              buttons sit beside the price-style ones and "Cumulative" has to
-              say what it is cumulative OF. */}
-          <div className="flex items-center gap-1.5">
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
-            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
-              {(["updown", "net"] as VolumeMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className="zg-gc-seg-btn"
-                  data-active={m === volumeMode}
-                  onClick={() => setVolumeMode(m)}
-                  aria-pressed={m === volumeMode}
-                  title={
-                    m === "updown"
-                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running total of uptick minus downtick volume for the current session only — it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
-                  }
-                >
-                  {VOLUME_MODE_LABELS[m]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-
-          {/* Overlay pills */}
-          <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
-          {!hideRail && (
-            <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
-          )}
-          {live && (
-            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
-          )}
-          {live && overlays.ribbons && (
-            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
-          )}
-          <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
-          <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
-          <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
-          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
-          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
-          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
-              so a countdown on it would be counting down someone else's candle. */}
-          {live && (
-            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
-          )}
-          {/* Expected Range — live-only (the delayed public snapshot carries no
-              vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
-          {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range — the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only — the delayed snapshot carries no vol index." />
-          )}
-          {live && overlays.expectedRange && (
-            <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
-              {([
-                ["daily", "Daily"],
-                ["weekly", "Weekly"],
-                ["monthly", "Monthly"],
-              ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
-                <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
-                  {lbl}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
-              labels, and an expiration filter — live only (the delayed snapshot
-              lacks the per-strike call/put split and can't refetch). */}
-          {live && (
-            <>
-              <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-              {/* Panelled, these ride the panel instead (portalled at the
-                  bottom of this component) — the rail's view is a control of
-                  the thing being drawn, so it belongs wherever that is. */}
-              {railOn && !inPanel && railViewControls}
-              <ExpirationMultiSelect
-                options={availableExpiries}
-                selected={effectiveRailExpiries}
-                onChange={setRailExpiries}
-                label="Expiry"
-                disabled={availableExpiries.length === 0}
-                zeroDte={railZeroDte}
-              />
-              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
-                  nothing means All — so the levels below are whole-chain while
-                  the control still says 0DTE. Say it out loud, next to the
-                  control that caused it and again on the chart itself. */}
-              {railZeroDte.widenedToAll && (
-                <span
-                  className="zg-chip"
-                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
-                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
-                >
-                  No 0DTE today · showing all expiries
-                </span>
-              )}
-            </>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {isCustomView && (
+        {/* Controls. The desktop board lays every control out in one wrapping
+            row. The compact canvas cannot afford that — on a phone the row ran
+            to fourteen lines, two screens of buttons above the chart — so it
+            keeps symbol, timeframe and the view actions in sight and folds the
+            layers (style, volume, overlays, rail, expiry) into a panel. */}
+        {compact ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">{symbolTfControls}</div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={resetView}
-                title="Reset zoom & pan to the live view"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  padding: "5px 11px",
-                  borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--color-accent-hot)",
-                  color: "var(--color-accent-hot)",
-                  background: "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)",
-                  cursor: "pointer",
-                }}
+                className="zg-gc-pill"
+                data-active={layersOpen}
+                aria-expanded={layersOpen}
+                aria-controls={layersPanelId}
+                onClick={() => setLayersOpen((v) => !v)}
+                style={{ ["--pill-color" as string]: "var(--text-primary)" }}
               >
-                ⟲ Reset
+                <SlidersHorizontal size={13} aria-hidden />
+                Layers
+                <span style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>{activeLayerCount}</span>
+                <ChevronDown size={13} aria-hidden style={{ transform: layersOpen ? "rotate(180deg)" : undefined, transition: "transform var(--dur-2) var(--ease-standard)" }} />
               </button>
+              <div className="ml-auto flex items-center gap-2">{viewActions}</div>
+            </div>
+            {layersOpen && (
+              <div id={layersPanelId} className="flex flex-wrap items-center gap-2 pt-1">
+                {styleControl}
+                {volumeControl}
+                {overlayControls}
+                {railExpiryControls}
+              </div>
             )}
-            <button
-              type="button"
-              onClick={downloadPng}
-              disabled={exportState === "working"}
-              title="Save this chart as a PNG image"
-              aria-label="Save this chart as a PNG image"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                padding: "5px 11px",
-                borderRadius: "var(--radius-pill)",
-                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
-                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
-                background: "var(--bg-subtle)",
-                cursor: exportState === "working" ? "progress" : "pointer",
-                opacity: exportState === "working" ? 0.6 : 1,
-              }}
-            >
-              <Camera size={13} />
-              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {symbolTfControls}
+            {styleControl}
+            {volumeControl}
+            <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
+            {overlayControls}
+            {railExpiryControls}
+            <div className="ml-auto flex items-center gap-2">{viewActions}</div>
+          </div>
+        )}
       </div>
 
       {/* ── Chart body ─────────────────────────────────────────────────── */}
       <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
-        <MobileScrollableChart minWidthClass="min-w-[1000px]" initialScroll="end">
+          {compact && (
+            <div
+              className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-3 pt-2 pb-1"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border-subtle)" }}
+            >
+              <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{symbol}</span>
+              <span style={{ color: "var(--text-muted)" }}>{TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
+              {(["O", activeBar.open, "H", activeBar.high, "L", activeBar.low, "C", activeBar.close] as const).map((v, i) =>
+                typeof v === "string" ? (
+                  <span key={`ck-${i}`} style={{ color: "var(--text-muted)", marginRight: -6 }}>{v}</span>
+                ) : (
+                  <span key={`cv-${i}`} style={{ fontWeight: 600, color: activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)" }}>
+                    {fmtPrice(v)}
+                  </span>
+                ),
+              )}
+            </div>
+          )}
           {/* The wrapper is exactly the SVG's box (block SVG, width 100%, fixed
               aspect ratio), so an HTML element placed in percentages of it
-              lands on a viewBox coordinate at any width and scrolls with the
-              SVG on mobile — the one overlay that has to track a point INSIDE
-              the plot rather than a corner of the card. */}
+              lands on a viewBox coordinate at any width — the one overlay that
+              has to track a point INSIDE the plot rather than a corner of the
+              card. */}
           <div className="relative">
           <svg
             ref={svgRef}
@@ -3038,15 +3508,27 @@ export default function GammaTerminalChart({
               width: "100%",
               cursor: axisZoomActive || overAxis ? "ns-resize" : dragging ? "grabbing" : "crosshair",
               userSelect: "none",
-              // Let the mobile wrapper scroll horizontally: don't reserve
-              // horizontal-swipe gestures for the SVG (there's no touch-drag
-              // handler). Desktop mouse zoom/pan is unaffected by touch-action.
-              touchAction: "auto",
+              WebkitUserSelect: "none",
+              // A finger's vertical swipe scrolls the page; horizontal drags and
+              // pinches are the chart's own (see the touch handlers). Desktop
+              // mouse zoom/pan is unaffected by touch-action.
+              touchAction: "pan-y",
+              WebkitTouchCallout: "none",
             }}
+            className="zg-gc-canvas"
+            data-measured={box ? "true" : undefined}
             onMouseMove={handlePointerMove}
             onMouseDown={handlePointerDown}
             onMouseUp={endDrag}
             onMouseLeave={handlePointerLeave}
+            onPointerDown={handleTouchDown}
+            onPointerMove={handleTouchMove}
+            onPointerUp={handleTouchEnd}
+            onPointerCancel={handleTouchEnd}
+            onContextMenu={(e) => {
+              // A long press is the crosshair here, not the browser's menu.
+              if (touchRef.current) e.preventDefault();
+            }}
             onDoubleClick={resetView}
           >
             <defs>
@@ -3083,7 +3565,11 @@ export default function GammaTerminalChart({
               <g>
                 <rect x={PLOT_LEFT} y={PAD_TOP} width={plotRight - PLOT_LEFT} height={Math.max(0, regimeSplitY - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
                 <rect x={PLOT_LEFT} y={regimeSplitY} width={plotRight - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - regimeSplitY)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
-                {inDomain(flip) ? (
+                {/* The compact canvas drops the captions: its tape is too
+                    short for one not to land on a wall line or a level chip,
+                    and the tint plus the header's "Dealer Gamma @ Spot" chip
+                    already say which band is which. */}
+                {compact ? null : inDomain(flip) ? (
                   <>
                     <text x={(PLOT_LEFT + plotRight) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
                       {aboveBandIsLong ? "LONG Γ · PINNING" : "SHORT Γ · TRENDING"}
@@ -3107,7 +3593,18 @@ export default function GammaTerminalChart({
               return (
                 <g key={`grid-${p}`}>
                   <line x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke="var(--color-grid-line)" strokeWidth={1} />
-                  <text x={axisColX} y={y + 3.5} fontFamily="var(--font-mono)" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {/* Compact: right-aligned to the same edge as the price tags,
+                      so a tag on a gridline covers its label outright instead
+                      of leaving the first digits peeking out beside it. */}
+                  <text
+                    x={compact ? axisRight - 5 : axisColX}
+                    y={y + 3.5}
+                    textAnchor={compact ? "end" : "start"}
+                    fontFamily="var(--font-mono)"
+                    fontSize={compact ? 10.5 : 11}
+                    fill="var(--text-muted)"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
                     {fmtPrice(p)}
                   </text>
                 </g>
@@ -3288,11 +3785,11 @@ export default function GammaTerminalChart({
               return (
                 <>
                   {tags.map((t) => (
-                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
+                    <PriceTag key={t.key} x={tagX} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
                   ))}
                   {liveBarClock && lastTagY != null && (
                     <BarCountdownTag
-                      x={axisColX - 6}
+                      x={tagX}
                       // Below the tag by default, flipped above it when the last
                       // price is riding the bottom of the range — clamping into
                       // the gutter instead would stack the two on the same row.
@@ -3368,8 +3865,11 @@ export default function GammaTerminalChart({
                 timeframe === "1day"
                   ? etTradingDateLabel(b.timestamp)
                   : new Date(b.timestamp).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
+              // Held inside the plot so the first and last labels are not cut
+              // in half by the canvas edge (a 5-char clock label is ~32 wide).
+              const half = label.length * 3.1 + 1;
               return (
-                <text key={`t-${b.timestamp}`} x={x} y={TIME_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <text key={`t-${b.timestamp}`} x={clamp(x, PLOT_LEFT + half, plotRight - half)} y={TIME_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
                   {label}
                 </text>
               );
@@ -3406,7 +3906,7 @@ export default function GammaTerminalChart({
                 <g pointerEvents="none">
                   <line x1={xForIndex(activeIdx)} x2={xForIndex(activeIdx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
                   <line x1={PLOT_LEFT} x2={plotRight} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
-                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" ink={chipInk("var(--text-secondary)")} />
+                  <PriceTag x={tagX} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" ink={chipInk("var(--text-secondary)")} />
                 </g>
               );
             })()}
@@ -3441,9 +3941,12 @@ export default function GammaTerminalChart({
             </div>
           )}
           </div>
-        </MobileScrollableChart>
 
-        {/* ── In-plot legend (OHLC of active bar) ───────────────────────── */}
+        {/* ── In-plot legend (OHLC of active bar) ─────────────────────────
+             Floats over the board's top-left corner on the desktop canvas; the
+             compact canvas has no corner to spare, so there it is a strip of
+             its own directly above the plot (see `ohlcStrip`). */}
+        {!compact && (
         <div className="pointer-events-none absolute left-3 top-3 sm:left-4 sm:top-4">
           <div
             className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-2.5 py-1.5"
@@ -3462,16 +3965,28 @@ export default function GammaTerminalChart({
             )}
           </div>
         </div>
+        )}
 
         {/* ── Floating crosshair readout (price × gamma) ────────────────── */}
         {hover && (
           <div
             className="pointer-events-none absolute z-20"
-            style={{
-              left: hover.px + 16 + 210 > hover.w ? Math.max(8, hover.px - 210) : hover.px + 16,
-              top: Math.max(8, Math.min(hover.py + 14, hover.h - 172)),
-              minWidth: 196,
-            }}
+            style={
+              hover.touch
+                ? // A finger covers the point it is on, so a touch readout pins
+                  // to the top of the chart, in the half AWAY from the crosshair.
+                  {
+                    top: 8 + (compact ? 30 : 0),
+                    ...(hover.px > hover.w / 2 ? { left: 8 } : { right: 8 }),
+                    minWidth: 184,
+                    maxWidth: "min(260px, calc(100% - 16px))",
+                  }
+                : {
+                    left: hover.px + 16 + 210 > hover.w ? Math.max(8, hover.px - 210) : hover.px + 16,
+                    top: Math.max(8, Math.min(hover.py + 14, hover.h - 172)),
+                    minWidth: 196,
+                  }
+            }
           >
             <div style={{ background: "var(--color-chart-tooltip-bg)", border: "1px solid var(--color-chart-tooltip-border)", borderRadius: "var(--radius-control)", boxShadow: "var(--shadow-pop)", padding: "9px 11px" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>
@@ -3571,8 +4086,14 @@ export default function GammaTerminalChart({
           </div>
         )}
 
-        {/* ── On-screen controls: jump-to-latest + zoom (time + price) ──── */}
-        <div className="absolute z-20 flex flex-col items-end gap-1.5" style={{ right: 12, bottom: 12 }}>
+        {/* ── On-screen controls: jump-to-latest + zoom (time + price) ────
+             On the compact canvas the steppers leave the plot (they sat on the
+             newest volume bars) for the strip under the chart; only the
+             jump-to-latest button stays, over the bottom of the price pane. */}
+        <div
+          className="absolute z-20 flex flex-col items-end gap-1.5"
+          style={compact ? { right: 8, top: `${(PRICE_BOTTOM / VH) * 100}%`, transform: "translateY(-100%)", marginTop: -6 } : { right: 12, bottom: 12 }}
+        >
           {!atLiveEdge && (
             <button
               type="button"
@@ -3602,14 +4123,34 @@ export default function GammaTerminalChart({
               <ChevronsRight size={17} />
             </button>
           )}
-          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} hint="Ctrl + scroll" />
-          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} hint="Shift + scroll" />
+          {!compact && (
+            <>
+              <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} hint="Ctrl + scroll" />
+              <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} hint="Shift + scroll" />
+            </>
+          )}
         </div>
       </div>
 
+      {/* Compact: the gesture key and the zoom steppers, under the plot. */}
+      {compact && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 py-2"
+          style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}
+        >
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.04em", color: "var(--text-muted)" }}>
+            Drag to pan · pinch to zoom · tap or hold for the crosshair
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <ZoomCluster large label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
+            <ZoomCluster large label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
+          </div>
+        </div>
+      )}
+
       {/* ── Rewind / session-replay bar (live mode only) ─────────────────── */}
       {live && (
-        <div className="flex items-center gap-2 px-4 py-2" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
+        <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
           {!rewindActive ? (
             // The blurb that used to sit beside this button is now the button's
             // own hover tooltip — it explained the control, so it belongs on it.
@@ -4009,10 +4550,12 @@ const zoomBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-function ZoomCluster({ label, onIn, onOut, hint }: { label: string; onIn: () => void; onOut: () => void; hint?: string }) {
+function ZoomCluster({ label, onIn, onOut, hint, large = false }: { label: string; onIn: () => void; onOut: () => void; hint?: string; large?: boolean }) {
   // A bare wheel scrolls the page now, so the modifier gesture only exists if
   // something tells the reader about it. These buttons are that something.
   const suffix = hint ? ` — or ${hint}` : "";
+  // `large`: finger-sized steppers for the compact canvas.
+  const btn = large ? { ...zoomBtnStyle, width: 34, height: 30, fontSize: 17 } : zoomBtnStyle;
   return (
     <div
       className="flex items-center gap-1"
@@ -4024,13 +4567,13 @@ function ZoomCluster({ label, onIn, onOut, hint }: { label: string; onIn: () => 
         backdropFilter: "blur(3px)",
       }}
     >
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: 34, textAlign: "right", paddingRight: 2 }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: large ? "auto" : 34, textAlign: "right", paddingRight: 2 }}>
         {label}
       </span>
-      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})${suffix}`} style={zoomBtnStyle}>
+      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})${suffix}`} style={btn}>
         −
       </button>
-      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})${suffix}`} style={zoomBtnStyle}>
+      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})${suffix}`} style={btn}>
         +
       </button>
     </div>
@@ -4051,20 +4594,20 @@ function KeyOrb({ fill, ry, opacity }: { fill: string; ry: number; opacity: numb
 function RibbonKey() {
   return (
     <span
-      className="flex items-center gap-1.5"
+      className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
       style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}
     >
       <span style={{ color: "var(--text-muted)" }}>Ribbons</span>
-      <span className="flex items-center gap-1" title="Gold: dealers net long gamma at the strike — a magnet and a brake">
+      <span className="flex items-center gap-1 whitespace-nowrap" title="Gold: dealers net long gamma at the strike — a magnet and a brake">
         <KeyOrb fill={RIBBON_POS_GLOW} ry={4.5} opacity={0.9} />
         long &#915;
       </span>
-      <span className="flex items-center gap-1" title="Violet: dealers net short gamma at the strike — an accelerant">
+      <span className="flex items-center gap-1 whitespace-nowrap" title="Violet: dealers net short gamma at the strike — an accelerant">
         <KeyOrb fill={RIBBON_NEG_GLOW} ry={4.5} opacity={0.9} />
         short &#915;
       </span>
       <span
-        className="flex items-center gap-1"
+        className="flex items-center gap-1 whitespace-nowrap"
         title="Height and opacity: the strike's net dealer gamma as a share of the heaviest strike on screen — a sliver is a light strike, a full lane is the wall"
       >
         <span className="flex items-center" style={{ gap: 1 }}>

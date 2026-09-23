@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { X } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
+import { lockPageScroll } from '@/core/scrollLock';
 import { FOUNDING_LOCKIN_DEADLINE_LABEL } from '@/core/foundingLockin';
 import FoundingLockinCountdown from './FoundingLockinCountdown';
 
@@ -26,12 +27,9 @@ export default function FoundingLockinModal({
   const buttonRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockPageScroll();
     buttonRef.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return releaseScroll;
   }, []);
 
   const persistDismiss = useCallback(async () => {

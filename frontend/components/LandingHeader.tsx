@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Moon, Search, Sun } from 'lucide-react';
+import { ArrowRight, Menu, Moon, Search, Sun, X } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { brandTitle } from '@/core/brand';
 import { normalizeTier } from '@/core/auth';
@@ -30,6 +30,10 @@ interface LandingHeaderProps {
 export default function LandingHeader({ hidePricingButton = false }: LandingHeaderProps) {
   const { theme, setTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
+  // Phone-only menu. Below `sm` the bar keeps just the logo, the primary CTA
+  // and this toggle; the secondary links move into the panel it opens, which
+  // is what stops the CTA running off the right edge of a 375px screen.
+  const [menuOpen, setMenuOpen] = useState(false);
   const { data: authSession } = useAuthSession();
 
   const isDark = theme === 'dark';
@@ -53,19 +57,36 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
-    window.addEventListener('scroll', onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
+
+  // The bar is transparent over the hero until the page scrolls; an open menu
+  // needs the solid ground regardless.
+  const solid = scrolled || menuOpen;
 
   return (
     <nav
       className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
       style={{
-        background: scrolled
-          ? `${isDark ? C.bgDark : 'var(--color-bg)'}ee`
+        // color-mix, not a hex alpha suffix: `${'var(--color-bg)'}ee` is not a
+        // colour at all, so the declaration was dropped and the bar stayed
+        // clear over the text scrolling beneath it.
+        background: solid
+          ? 'color-mix(in srgb, var(--color-bg) 93%, transparent)'
           : 'transparent',
-        borderBottom: scrolled ? `1px solid ${C.border}` : '1px solid transparent',
-        backdropFilter: scrolled ? 'blur(20px)' : 'none',
+        borderBottom: solid ? `1px solid ${C.border}` : '1px solid transparent',
+        backdropFilter: solid ? 'blur(20px)' : 'none',
+        WebkitBackdropFilter: solid ? 'blur(20px)' : 'none',
         transition: 'all 0.3s ease',
       }}
     >
@@ -78,11 +99,10 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           {...brandTitle(isDark)}
           alt="ZeroGEX"
           priority
-          // The lockup is trimmed to its artwork, so a plain height fraction of
-          // the bar is the whole sizing story. Phones still cap the width so a
-          // 3.3:1 lockup can't hog the row and push the action buttons off the
-          // right edge; desktop runs unclamped via sm:max-w-none.
-          className="h-[80%] sm:h-[88%] w-auto block max-w-[120px] sm:max-w-none"
+          // The lockup is trimmed to its artwork, so a height is the whole
+          // sizing story: a fixed 30px on phones (the same lockup size as the
+          // app's top bar), a fraction of the taller bar from `sm` up.
+          className="h-[30px] sm:h-[88%] w-auto block max-w-none"
           style={{
             maxHeight: 'none',
             objectFit: 'contain',
@@ -96,7 +116,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         <button
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+          className="hidden sm:flex w-[38px] h-[38px] items-center justify-center rounded-[10px]"
           style={{
             background: 'var(--bg-hover)',
             border: `1px solid ${C.border}`,
@@ -115,7 +135,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
         <Link
           href="/search"
           aria-label="Search"
-          className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+          className="hidden sm:flex w-[38px] h-[38px] items-center justify-center rounded-[10px]"
           style={{ background: 'var(--bg-hover)', border: `1px solid ${C.border}`, color: C.muted }}
         >
           <Search size={15} />
@@ -157,9 +177,9 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           </Link>
         )}
 
-        <Link href={isAuthed ? '/account' : '/login'} style={{ textDecoration: 'none' }}>
+        <Link href={isAuthed ? '/account' : '/login'} className="hidden sm:block" style={{ textDecoration: 'none' }}>
           <button
-            className="zg-small px-2.5 py-1.5 sm:px-[14px] sm:py-2 whitespace-nowrap"
+            className="zg-small px-[14px] py-2 whitespace-nowrap"
             style={{
               background: 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
@@ -182,7 +202,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               : () => capture(TelemetryEvent.TrialCtaClick, { location: 'site_header', ...readUtmParams() })
           }
         >
-          <button className="zg-btn zg-btn--primary whitespace-nowrap" style={{ padding: '8px 12px', fontSize: 13 }}>
+          <button className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] sm:min-h-0" style={{ padding: '8px 12px', fontSize: 13 }}>
             {canLaunchApp ? (
               'Launch App'
             ) : (
@@ -196,7 +216,51 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
             <ArrowRight size={14} />
           </button>
         </Link>
+
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="sm:hidden zg-icon-btn zg-touch-btn"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+          aria-controls="zgx-landing-menu"
+        >
+          {menuOpen ? <X size={21} /> : <Menu size={21} />}
+        </button>
       </div>
+
+      {menuOpen && (
+        <div id="zgx-landing-menu" className="zg-lmenu sm:hidden">
+          <Link href="/spx-gamma-levels" className="zg-msheet-row" onClick={() => setMenuOpen(false)}>
+            <span className="zg-msheet-row-label">Free gamma levels</span>
+          </Link>
+          <Link href="/education" className="zg-msheet-row" onClick={() => setMenuOpen(false)}>
+            <span className="zg-msheet-row-label">Education</span>
+          </Link>
+          {showPricing && (
+            <Link href="/pricing" className="zg-msheet-row" onClick={() => setMenuOpen(false)}>
+              <span className="zg-msheet-row-label">Pricing</span>
+            </Link>
+          )}
+          <Link href="/search" className="zg-msheet-row" onClick={() => setMenuOpen(false)}>
+            <span className="zg-msheet-row-label">Search</span>
+            <Search size={16} aria-hidden className="zg-msheet-row-icon" />
+          </Link>
+          <button type="button" className="zg-msheet-row" onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+            <span className="zg-msheet-row-label">{isDark ? 'Light mode' : 'Dark mode'}</span>
+            {isDark ? <Sun size={16} aria-hidden className="zg-msheet-row-icon" /> : <Moon size={16} aria-hidden className="zg-msheet-row-icon" />}
+          </button>
+          <div className="zg-lmenu-actions">
+            <Link
+              href={isAuthed ? '/account' : '/login'}
+              className="zg-btn zg-btn--secondary"
+              onClick={() => setMenuOpen(false)}
+            >
+              {isAuthed ? 'Account' : 'Log in'}
+            </Link>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

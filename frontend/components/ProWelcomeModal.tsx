@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Compass, KeyRound, X } from 'lucide-react';
 import { Theme } from '@/core/types';
+import { lockPageScroll } from '@/core/scrollLock';
 
 interface ProWelcomeModalProps {
   theme: Theme;
@@ -21,12 +22,9 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
   const ctaRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockPageScroll();
     ctaRef.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return releaseScroll;
   }, []);
 
   // Persist "seen" server-side so the welcome never returns on another device

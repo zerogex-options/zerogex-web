@@ -359,7 +359,7 @@ const sections: Section[] = [
 
 export default function PlatformGuidePage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
       <Link href="/help" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Help Center
       </Link>

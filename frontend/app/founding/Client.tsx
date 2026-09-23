@@ -453,13 +453,13 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
-          <Image {...brandTitle(isDark)} alt="ZeroGEX" priority className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <Image {...brandTitle(isDark)} alt="ZeroGEX" priority className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+            className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
               background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,

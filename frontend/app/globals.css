@@ -192,6 +192,15 @@
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
+/* The section rhythm tightens on a phone, where 96px between the last chart
+   and the footer is most of a thumb-scroll of nothing. */
+@media (max-width: 639px) {
+  :root {
+    --space-block: 32px;
+    --space-section: 56px;
+  }
+}
+
 :root.dark {
   /* Neon ribbons: saturated bloom, near-white hot rim. */
   --ribbon-pos-glow: #FFB300;
@@ -1475,11 +1484,41 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* The DOCUMENT scrolls, not <body>. These rules used to pin html and body to
+   height:100% with overflow-x:hidden on both, and a non-visible overflow on
+   both elements makes <body> its own scroll container: the page scrolled
+   inside body while window.scrollY sat at 0. On a phone that costs a lot —
+   iOS Safari and Android Chrome only collapse their address bars when the
+   document scrolls, so the chrome never got out of the way of the charts;
+   tapping the iOS status bar did not return to the top; and back/forward
+   navigation could not restore the reader's place.
+   Horizontal overflow is still suppressed: the root's overflow-x propagates to
+   the viewport, and body clips with `clip`, which, unlike `hidden`, does not
+   turn body into a scroller. Modals lock scrolling through
+   core/scrollLock.ts, which holds the root still. */
 html, body {
   margin: 0;
   padding: 0;
+}
+
+html {
   overflow-x: hidden;
-  height: 100%;
+  min-height: 100%;
+  /* Keep iOS from re-inflating text when a phone turns to landscape — the
+     layouts are sized for the width they get, not for a boosted font. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: clip;
+  min-height: 100%;
+}
+
+/* A quick second tap on a toggle should toggle again, not zoom the page.
+   Scoped to controls, so double-tap and pinch zoom still work on content. */
+a, button, input, select, textarea, label, summary, [role='button'], [role='tab'], [role='option'] {
+  touch-action: manipulation;
 }
 
 *, *::before, *::after {
@@ -1524,7 +1563,8 @@ html {
 .zg-display {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: clamp(48px, 6.5vw, 96px);
+  /* The 40px floor only engages below ~740px wide; desktop sizing is as it was. */
+  font-size: clamp(40px, 6.5vw, 96px);
   line-height: var(--lh-tight);
   letter-spacing: -0.03em;
   color: var(--text-primary);
@@ -1534,7 +1574,7 @@ html {
 .zg-h1 {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(32px, 4vw, 48px);
+  font-size: clamp(28px, 4vw, 48px);
   line-height: var(--lh-snug);
   letter-spacing: -0.025em;
   color: var(--text-primary);
@@ -1594,7 +1634,8 @@ html {
 .zg-lead {
   font-family: var(--font-body);
   font-weight: 400;
-  font-size: 19px;
+  /* 17px on a phone, where 19px lead copy ran eight or nine lines deep. */
+  font-size: clamp(17px, 0.5vw + 15px, 19px);
   line-height: var(--lh-relaxed);
   color: var(--text-secondary);
 }
@@ -1922,10 +1963,14 @@ html {
               border-color var(--dur-1) var(--ease-standard),
               color var(--dur-1) var(--ease-standard);
 }
-.zg-icon-btn:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
-  color: var(--text-primary);
+/* Hover only where there is a pointer that hovers: on a touchscreen, :hover
+   sticks to whatever was tapped last, leaving the button lit after the tap. */
+@media (hover: hover) {
+  .zg-icon-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
 }
 .zg-icon-btn:active { background: var(--bg-active); }
 .zg-icon-btn[data-active="true"] {
@@ -2128,12 +2173,20 @@ html {
    Semantic link columns + a bottom legal bar, the shape every
    established platform converged on. Replaces one flat list of
    nine links under a generic "Navigation" head. */
+/* Two link columns even on a phone: one column stacked all five groups into a
+   ~1,800px footer at 390px wide, the longest thing on some pages. The brand
+   block spans the row above them until the desktop grid gives it a column. */
 .zg-footer-cols {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 32px 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 20px;
 }
-@media (min-width: 640px) { .zg-footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.zg-footer-cols > :first-child { grid-column: 1 / -1; }
+@media (min-width: 640px) { .zg-footer-cols { gap: 32px 24px; } }
+@media (min-width: 1024px) {
+  .zg-footer-cols { grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)); }
+  .zg-footer-cols > :first-child { grid-column: auto; }
+}
 @media (min-width: 1024px) { .zg-footer-cols { grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)); } }
 
 .zg-footer-link {
@@ -2546,4 +2599,487 @@ body.zg-col-resizing * {
 }
 :root.dark .zg-gc-ribbon-glow {
   mix-blend-mode: screen;
+}
+
+/* ============================================================
+   MOBILE CHROME — the phone top bar (components/Header.tsx) and
+   its menu sheet (components/MobileMenuSheet.tsx).
+   ============================================================ */
+
+/* The app header is transparent + blurred on desktop, where it floats over a
+   sidebar layout. On a phone it is the one fixed thing on screen, and content
+   scrolling through a clear bar made the logo and quote hard to read, so the
+   phone bar gets a near-opaque ground of the page colour. */
+.zg-app-header { background-color: transparent; }
+@media (max-width: 767px) {
+  .zg-app-header { background-color: color-mix(in srgb, var(--bg-main) 90%, transparent); }
+}
+
+.zg-mbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 56px;
+  padding: 0 6px 0 14px;
+}
+.zg-mbar-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+  margin-right: auto;
+  line-height: 0;
+}
+/* The lockup is trimmed to its artwork (core/brand.ts), so a height is the
+   whole sizing story: 30px tall is ~98px wide at the lockup's 3.3:1. */
+.zg-mbar-logo-img {
+  display: block;
+  height: 30px;
+  width: auto;
+  max-width: none;
+}
+@media (max-width: 359px) {
+  .zg-mbar-logo-img { height: 25px; }
+}
+
+/* Thumb-sized icon target: 40px square, borderless in the bar. */
+.zg-touch-btn {
+  width: 40px;
+  height: 40px;
+  border-color: transparent;
+  color: var(--text-primary);
+}
+
+/* Live quote chip — shows the symbol, last price and day change, and IS the
+   symbol picker: a native <select> covers the chip at zero opacity, so a tap
+   opens the platform's own picker wheel. */
+.zg-mquote {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 9px 0 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bg-card) 75%, transparent);
+}
+.zg-mquote select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  /* 16px keeps iOS from zooming the page when the select takes focus. */
+  font-size: 16px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.zg-mquote:has(select:focus-visible) {
+  outline: 2px solid var(--color-accent-hot);
+  outline-offset: 2px;
+}
+.zg-mquote-sym {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.zg-mquote-sym svg { color: var(--text-secondary); }
+.zg-mquote-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.zg-mquote-px {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+.zg-mquote-price { font-size: 13px; line-height: 1; }
+.zg-mquote-chg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 10.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+@media (max-width: 339px) {
+  .zg-mquote-px { display: none; }
+}
+
+/* The sheet: opaque, from under the bar to the bottom of the screen. */
+.zg-msheet {
+  position: fixed;
+  top: var(--zgx-header-height, 57px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  outline: none;
+  animation: zg-msheet-in var(--dur-2) var(--ease-standard);
+}
+@keyframes zg-msheet-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.zg-msheet-market {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+}
+.zg-msheet-market-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.zg-msheet-symbol { display: flex; flex-direction: column; gap: 6px; }
+.zg-msheet-symbol-field { position: relative; display: inline-flex; align-items: center; }
+.zg-msheet-symbol-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 112px;
+  height: 44px;
+  padding: 0 36px 0 12px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+}
+.zg-msheet-symbol-field svg {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+  color: var(--text-secondary);
+}
+.zg-msheet-session {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.zg-msheet-quote {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.zg-msheet-price { font-size: 26px; }
+.zg-msheet-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-control);
+  color: var(--chg);
+  background: color-mix(in srgb, var(--chg) 14%, transparent);
+}
+
+.zg-msheet-nav { padding: 4px 0; }
+.zg-msheet-group { border-bottom: 1px solid var(--border-subtle); }
+.zg-msheet-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-primary);
+  text-align: left;
+}
+.zg-msheet-group-head svg { color: var(--text-secondary); }
+.zg-msheet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+}
+.zg-msheet-list--nested {
+  padding: 0 0 4px;
+  margin-left: 16px;
+  border-left: 1px solid var(--border-default);
+}
+.zg-msheet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px 0 24px;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.zg-msheet-row:active { background: var(--bg-hover); }
+.zg-msheet-row[data-active='true'] {
+  color: var(--color-accent-hot);
+  border-left-color: var(--color-accent-hot);
+  background: color-mix(in srgb, var(--color-accent-hot) 9%, transparent);
+}
+.zg-msheet-row-label { flex: 1; min-width: 0; }
+.zg-msheet-row-icon { flex-shrink: 0; color: var(--text-muted); display: inline-flex; }
+.zg-msheet-row--sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.zg-msheet-sub-head { display: flex; align-items: center; }
+.zg-msheet-sub-head .zg-msheet-row { flex: 1; }
+.zg-msheet-sub-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 46px;
+  margin-right: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.zg-msheet-section {
+  padding: 18px 16px 4px;
+}
+.zg-msheet-section-title { margin-bottom: 10px; }
+.zg-msheet-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.zg-msheet-tools > * { min-width: 0; }
+/* A tool tile: icon over label. The badges and the snapshot button render
+   this shape when given a `label`. */
+.zg-msheet-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.zg-msheet-tool svg { color: var(--text-secondary); }
+.zg-msheet-tool:active { background: var(--bg-hover); }
+
+.zg-msheet-seg {
+  display: flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.zg-msheet-seg > button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.zg-msheet-seg > button + button { border-left: 1px solid var(--border-default); }
+.zg-msheet-seg > button[data-active='true'] {
+  color: var(--color-accent-hot);
+  background: color-mix(in srgb, var(--color-accent-hot) 12%, transparent);
+}
+.zg-msheet-seg--locales { margin-top: 10px; }
+
+/* Palettes as a row of swatch cards that scrolls sideways — twelve themes in
+   one 70px band instead of a 700px list. */
+.zg-msheet-swatches {
+  display: flex;
+  gap: 8px;
+  margin: 10px -16px 0;
+  padding: 2px 16px 6px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.zg-msheet-swatches::-webkit-scrollbar { display: none; }
+.zg-msheet-swatch {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  width: 104px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  text-align: left;
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+.zg-msheet-swatch[data-active='true'] {
+  border-color: var(--color-accent-hot);
+  box-shadow: inset 0 0 0 1px var(--color-accent-hot);
+}
+.zg-msheet-swatch-chip {
+  display: flex;
+  width: 100%;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 1px;
+  border: 1px solid var(--border-subtle);
+}
+.zg-msheet-swatch-chip > span { flex: 1; }
+.zg-msheet-swatch-name {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.zg-msheet-account { padding-top: 22px; }
+.zg-msheet-account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+.zg-msheet-account-grid .zg-btn { min-height: 46px; }
+
+/* Marketing header (components/LandingHeader.tsx) — the phone menu panel that
+   drops from the fixed bar. Rows share the menu sheet's .zg-msheet-row. */
+.zg-lmenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 6px 0 16px;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--border-default);
+  box-shadow: 0 18px 32px -18px rgba(0, 0, 0, 0.45);
+  max-height: calc(100dvh - 56px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: zg-msheet-in var(--dur-2) var(--ease-standard);
+}
+.zg-lmenu .zg-msheet-row { padding-left: 20px; }
+.zg-lmenu-actions {
+  display: grid;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+.zg-lmenu-actions .zg-btn { min-height: 46px; }
+
+/* Long-form article frame (app/education/*, app/guides/*, app/help/*).
+   On a phone the article IS the page: no card, border or inner padding, so the
+   text column is the full width inside the page gutter (~350px) instead of
+   ~270px boxed inside a card inside a gutter. From `sm` up it keeps the
+   rounded, hairlined card it has always had. */
+@media (min-width: 640px) {
+  .zg-article-card {
+    border-radius: 24px;
+    border: 1px solid var(--color-border);
+    background: color-mix(in oklab, var(--bg-card) 95%, transparent);
+    padding: 40px 32px;
+    box-shadow: 0 20px 60px var(--color-info-soft);
+  }
+}
+@media (min-width: 768px) {
+  .zg-article-card { padding-left: 56px; padding-right: 56px; }
+}
+
+/* Phone density for bordered surfaces. A 24–32px card inset inside the 16px
+   page gutter left ~310px of a 390px screen for the card's content, and those
+   cards sit inside one another on the instrument pages. On a phone every
+   feature shell and panel takes a 16px inset; from `sm` up the classes on the
+   element apply exactly as written. Unlayered, so it wins over the utility. */
+@media (max-width: 639px) {
+  .zg-feature-shell.p-5,
+  .zg-feature-shell.p-6,
+  .zg-feature-shell.p-8,
+  .zg-panel.p-5,
+  .zg-panel.p-6,
+  .zg-panel.p-8 {
+    padding: 16px;
+  }
+}
+
+/* Gamma Terminal chart canvas (components/GammaTerminalChart.tsx). Its board
+   is chosen from the card's measured width on the client; on a phone the
+   server-rendered desktop board would otherwise flash at unreadable scale for
+   a frame before the compact one replaces it, so it waits invisible until the
+   card has been measured. */
+@media (max-width: 767px) {
+  .zg-gc-canvas:not([data-measured]) { visibility: hidden; }
 }

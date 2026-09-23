@@ -16,10 +16,9 @@ import { readUtmParams } from '@/core/telemetry/utm';
 // Shown on all viewports but sized compactly; it matters most on mobile.
 //
 // Visibility is driven by an IntersectionObserver watching a positioned
-// sentinel rather than scroll offsets: this site scrolls on <body> (globals.css
-// pins html/body to height:100% with overflow-x:hidden, so window.scrollY stays
-// 0), and IntersectionObserver measures against the viewport regardless of
-// which element actually scrolls.
+// sentinel rather than scroll offsets: IntersectionObserver measures against
+// the viewport regardless of which element actually scrolls, so it held up
+// when this site scrolled on <body> and holds up now that the document does.
 
 const DISMISS_KEY = 'zgx.stickyTrialDismissed';
 

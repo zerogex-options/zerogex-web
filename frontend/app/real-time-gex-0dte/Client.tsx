@@ -184,13 +184,13 @@ export default function RealTimeGexLandingClient() {
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+            className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
               background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
@@ -201,7 +201,7 @@ export default function RealTimeGexLandingClient() {
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <Link href="/pricing" style={{ textDecoration: 'none' }}>
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               className="zg-btn zg-btn--secondary"
               style={{
@@ -214,13 +214,14 @@ export default function RealTimeGexLandingClient() {
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
-              className="zg-btn zg-btn--primary"
+              className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] sm:min-h-0"
               style={{
                 padding: '8px 14px',
                 fontSize: 13,
               }}
             >
-              Free Gamma Levels <ArrowRight size={14} />
+              <span className="hidden sm:inline">Free Gamma Levels</span>
+              <span className="sm:hidden">Free levels</span> <ArrowRight size={14} />
             </button>
           </Link>
         </div>

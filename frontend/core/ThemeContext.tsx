@@ -114,6 +114,24 @@ export function ThemeProvider({
     PALETTES.forEach((p) => root.classList.toggle(`palette-${p}`, p === palette));
   }, [palette]);
 
+  // Tint the phone browser's own chrome — Android Chrome's address bar, the
+  // iOS status-bar area — with the page ground, so the app does not sit under
+  // a white bar in a dark theme. Read back from the resolved CSS rather than a
+  // table of hex values, so it follows every palette (and any palette added
+  // later) without a second copy of the colours. Declared after the two class
+  // effects above, so the classes it depends on are already applied.
+  useEffect(() => {
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--bg-main').trim();
+    if (!color) return;
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = color;
+  }, [theme, palette]);
+
   // Mirror the choice onto the account, so it survives this browser. The
   // cookie above is still what paints the page; this is what puts the same
   // look on a second device, and what brings it back when the cookie is
