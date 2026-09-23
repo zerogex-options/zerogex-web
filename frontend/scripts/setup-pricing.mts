@@ -765,6 +765,51 @@ async function runSetup(apply: boolean): Promise<number> {
 // --verify: check the live configuration
 // ---------------------------------------------------------------------------
 
+// The prices the billing portal lets members switch between. Each read asks
+// for the plan list explicitly (it is omitted unless expanded); a read whose
+// response still lacks it does not count as "offers nothing".
+async function readPortalPlanList(
+  configId: string,
+): Promise<{ returned: boolean; priceIds: Set<string>; summary: string; errors: string[] }> {
+  const priceIds = new Set<string>();
+  const errors: string[] = [];
+  let returned = false;
+  let summary = 'no plan list';
+  const attempts: Array<[string | undefined, boolean]> = [
+    [undefined, true],
+    [PORTAL_READ_API_VERSION, true],
+    [undefined, false],
+  ];
+  for (const [apiVersion, expand] of attempts) {
+    try {
+      // stripe-node rejects an empty options object, so pass one only when set.
+      const params = expand ? { expand: ['features.subscription_update.products'] } : {};
+      const config = apiVersion
+        ? await stripe.billingPortal.configurations.retrieve(configId, params, { apiVersion })
+        : await stripe.billingPortal.configurations.retrieve(configId, params);
+      const products = (config.features?.subscription_update as { products?: unknown } | undefined)?.products;
+      if (!Array.isArray(products)) continue;
+      // An unexpanded read can come back with an empty list for a portal that
+      // does offer plans, so only an expanded read may report "none".
+      if (!expand && products.length === 0) continue;
+      const withPrices = products.filter(
+        (entry): entry is { product?: string; prices: string[] } =>
+          !!entry && Array.isArray((entry as { prices?: unknown }).prices),
+      );
+      if (products.length > 0 && withPrices.length === 0) continue;
+      returned = true;
+      for (const entry of withPrices) for (const price of entry.prices) priceIds.add(price);
+      summary = `${withPrices.length} product(s), ${priceIds.size} price(s)`;
+      break;
+    } catch (err) {
+      errors.push(errorMessage(err));
+    }
+  }
+  const uniqueErrors = [...new Set(errors)];
+  if (uniqueErrors.length) summary += `; errors on other reads: ${uniqueErrors.join('; ')}`;
+  return { returned, priceIds, summary, errors: uniqueErrors };
+}
+
 async function runVerify(): Promise<number> {
   console.log(`setup-pricing: verify (read-only), Stripe ${liveMode ? 'LIVE' : 'test'} mode`);
 
@@ -980,34 +1025,43 @@ async function runVerify(): Promise<number> {
     if (!update?.enabled) {
       problem('Plan switching is off in the portal, but the pricing page sends paying members there to switch plans.');
     } else {
-      // The newer API version read above is the only one that returns
-      // trial_update_behavior, but it leaves subscription_update.products out
-      // unless expanded — read that half at the SDK's pinned version, which
-      // always returns it, and take both.
-      let pinnedProducts: Stripe.BillingPortal.Configuration.Features.SubscriptionUpdate.Product[] = [];
-      try {
-        const pinned = await stripe.billingPortal.configurations.retrieve(config.id);
-        pinnedProducts = pinned.features?.subscription_update?.products ?? [];
-      } catch (err) {
-        problem(`Could not read the plans the billing portal offers: ${errorMessage(err)}`);
+      // The plan list (subscription_update.products) is left out of a portal
+      // read unless the request asks for it, and which API versions return it
+      // unasked has differed. So ask for it explicitly, at both the SDK's
+      // pinned version and the newer one, and only judge the portal on a read
+      // that actually returned the list: a missing list is "could not check",
+      // never "offers nothing".
+      const portal = await readPortalPlanList(config.id);
+      if (!portal.returned) {
+        warn(
+          'Stripe did not return the list of plans the portal offers, so it could not be checked' +
+            (portal.errors.length ? ` (${portal.errors.join('; ')})` : '') +
+            '. Check the Dashboard: Settings → Billing → Customer portal → Subscriptions, which should list ' +
+            `the ${configuredPriceIds.size} configured prices.`,
+        );
       }
-      const offered = new Set([...(update.products ?? []), ...pinnedProducts].flatMap((p) => p.prices ?? []));
-      for (const [priceId, sku] of configuredPriceIds) {
-        if (!offered.has(priceId)) {
-          problem(`The portal does not offer ${skuLabel(sku)} (${priceId}). Run make setup-billing-portal YES=1 (after the restart).`);
+      const offered = portal.priceIds;
+      if (portal.returned) {
+        for (const [priceId, sku] of configuredPriceIds) {
+          if (!offered.has(priceId)) {
+            problem(
+              `The portal does not offer ${skuLabel(sku)} (${priceId}). Run make setup-billing-portal YES=1 (after the restart). ` +
+                `(Stripe returned: ${portal.summary})`,
+            );
+          }
         }
-      }
-      for (const priceId of offered) {
-        if (!configuredPriceIds.has(priceId)) {
-          problem(
-            `The portal offers price ${priceId}, which is not in .env.local: a member who switches to it drops to ` +
-              'public access. Re-run make setup-billing-portal YES=1 so the portal lists exactly the configured prices.',
-          );
+        for (const priceId of offered) {
+          if (!configuredPriceIds.has(priceId)) {
+            problem(
+              `The portal offers price ${priceId}, which is not in .env.local: a member who switches to it drops to ` +
+                'public access. Re-run make setup-billing-portal YES=1 so the portal lists exactly the configured prices.',
+            );
+          }
         }
       }
       const offersAll = [...configuredPriceIds.keys()].every((id) => offered.has(id));
       const offersOnlyThose = [...offered].every((id) => configuredPriceIds.has(id));
-      if (configuredPriceIds.size > 0 && offersAll && offersOnlyThose) {
+      if (portal.returned && configuredPriceIds.size > 0 && offersAll && offersOnlyThose) {
         ok(`Offers all ${configuredPriceIds.size} configured prices, and nothing else.`);
       }
       const trialBehavior = (update as unknown as { trial_update_behavior?: string }).trial_update_behavior;
