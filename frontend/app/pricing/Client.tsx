@@ -97,6 +97,9 @@ type Props = {
   guaranteeUsed: boolean;
 };
 
+// What the promo is worth over its whole run: $10 off × 12 months = $120.
+const PROMO_TOTAL_SAVINGS_USD = MONTHLY_PROMO.amountOffUsd * MONTHLY_PROMO.months;
+
 // The billing period last picked on this page (a per-browser convenience).
 const CADENCE_STORAGE_KEY = 'zgx_pricing_cadence';
 
@@ -241,6 +244,7 @@ function PriceDisplay({
           {t('monthlyPromoNote', {
             months: display.promoPeriods ?? MONTHLY_PROMO.months,
             rack: formatBilledUsd(display.listPrice),
+            total: formatBilledUsd(PROMO_TOTAL_SAVINGS_USD),
           })}
         </div>
       </div>
@@ -483,6 +487,7 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
             {t('limitedTimePrices', { basic: formatBilledUsd(basic ?? 0), pro: formatBilledUsd(pro ?? 0) })} ·{' '}
           </>
         )}
+        <strong style={{ fontWeight: 900 }}>{t('limitedTimeTotal', { total: formatBilledUsd(PROMO_TOTAL_SAVINGS_USD) })}</strong> ·{' '}
         {deadlineLabel ? t('limitedTimeOfferEnds', { deadline: deadlineLabel }) : t('limitedTimeForLimited')}
       </div>
     </div>
