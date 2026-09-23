@@ -175,12 +175,14 @@ export default function TooltipWrapper({
           setShow(true);
         }}
         onBlur={() => setShow(false)}
-        className="inline-flex items-center opacity-60 transition-opacity duration-200 hover:opacity-100 focus:opacity-100"
+        // A 14px icon is too small a target for a finger: on touch screens the
+        // button grows an invisible 8px margin of hit area (the padding and the
+        // negative margin cancel, so nothing around it moves).
+        className="inline-flex items-center p-0 pointer-coarse:-m-2 pointer-coarse:p-2 opacity-60 transition-opacity duration-200 hover:opacity-100 focus:opacity-100"
         style={{
           cursor: "help",
           background: "none",
           border: "none",
-          padding: 0,
         }}
         type="button"
         onClick={(e) => e.stopPropagation()}

@@ -49,7 +49,7 @@ export default function PlotOnTradingView({ standalone = false }: PlotOnTradingV
       style={{
         border: '1px solid var(--border-default)',
         borderRadius: 18,
-        padding: '28px',
+        padding: 'var(--ind-card-pad)',
         marginBottom: 48,
         background: 'var(--color-surface)',
       }}

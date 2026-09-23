@@ -12,6 +12,12 @@ import {
   type ExpirationSegment,
 } from '@/core/expirationGradient';
 import { pinLineLabel } from '@/core/pinStrike';
+import { useMeasuredWidth } from '@/components/useMeasuredWidth';
+
+// The desktop board is 720 wide and used to hold a 520px minimum inside a
+// sideways scroller. A card narrower than that now gets a board drawn at its
+// measured width (one viewBox unit per CSS pixel), portrait-shaped.
+const COMPACT_MAX_WIDTH = 520;
 
 // Horizontal-strike-profile card for the shareable moment page. Mirrors the
 // ReplayScrubber's right-hand strike panel so the snapshot reads the same way
@@ -117,6 +123,8 @@ export default function StrikeProfileSnapshot({
   gexKing,
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
+  const [measureRef, boxW] = useMeasuredWidth<HTMLDivElement>();
+  const compact = boxW != null && boxW > 0 && boxW < COMPACT_MAX_WIDTH;
 
   // The frame's expiration universe, nearest-first (= DTE rank). Drives the
   // shade of each stacked segment; empty on payloads with no expiration
@@ -269,15 +277,15 @@ export default function StrikeProfileSnapshot({
     );
   }
 
-  // ── SVG geometry ──
-  const CW = 720;
-  const CH = 560;
+  // ── SVG geometry ── desktop board, or the compact one (see COMPACT_MAX_WIDTH).
+  const CW = compact ? Math.round(boxW) : 720;
+  const CH = compact ? Math.round(Math.min(560, Math.max(420, boxW * 1.3))) : 560;
   const PLOT_TOP = 30;
-  const PLOT_BOTTOM = 512;
+  const PLOT_BOTTOM = CH - 48;
   const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
-  const STRIKE_COL_W = 52;
+  const STRIKE_COL_W = compact ? 40 : 52;
   const PLOT_X0 = STRIKE_COL_W;
-  const PLOT_X1 = CW - 12;
+  const PLOT_X1 = CW - (compact ? 4 : 12);
   const CENTER = (PLOT_X0 + PLOT_X1) / 2;
   const HALF = (PLOT_X1 - PLOT_X0) / 2;
 
@@ -341,7 +349,7 @@ export default function StrikeProfileSnapshot({
         ];
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 sm:px-5 sm:py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           Dealer {effMode === 'net' ? 'net ' : ''}GEX · strike profile
@@ -374,15 +382,17 @@ export default function StrikeProfileSnapshot({
         )}
       </div>
 
-      <div className="mt-3 w-full overflow-x-auto">
+      <div ref={measureRef} className="mt-3 w-full">
         <svg
           role="img"
           aria-label="Dealer GEX strike profile snapshot"
           width="100%"
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMinYMin meet"
-          className="block w-full"
-          style={{ aspectRatio: `${CW} / ${CH}`, minWidth: '520px' }}
+          // Shares the replay overlay's hide-until-measured rule in globals.css.
+          className="zg-rp-canvas block w-full"
+          data-measured={boxW != null ? 'true' : undefined}
+          style={{ aspectRatio: `${CW} / ${CH}` }}
         >
           <defs>
             <clipPath id={clipId}>
@@ -404,10 +414,10 @@ export default function StrikeProfileSnapshot({
                   opacity={0.4}
                 />
                 <text
-                  x={PLOT_X0 - 6}
+                  x={PLOT_X0 - (compact ? 4 : 6)}
                   y={y + 3.5}
                   textAnchor="end"
-                  fontSize={11}
+                  fontSize={compact ? 10 : 11}
                   fill="var(--color-text-secondary)"
                 >
                   {formatPriceTick(p, priceStep)}

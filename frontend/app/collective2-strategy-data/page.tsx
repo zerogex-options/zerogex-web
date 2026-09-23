@@ -75,7 +75,7 @@ const API_DOCS = 'https://api.zerogex.io/docs';
 const SECTION_STYLE = {
   border: '1px solid var(--border-default)',
   borderRadius: 18,
-  padding: '28px',
+  padding: 'var(--ind-card-pad)',
   marginBottom: 32,
   background: 'var(--color-surface)',
 } as const;

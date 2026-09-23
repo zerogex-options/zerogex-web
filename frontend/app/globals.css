@@ -3088,6 +3088,10 @@ body.zg-col-resizing * {
 @media (max-width: 1023px) {
   .zg-rp-canvas:not([data-measured]) { visibility: hidden; }
 }
+/* And the Pair Comparison candles (components/PairCandleChart.tsx). */
+@media (max-width: 767px) {
+  .zg-pc-canvas:not([data-measured]) { visibility: hidden; }
+}
 
 /* My Dashboard on a phone: two columns, where only single-number metric tiles
    at the S footprint pair up; every other widget spans the row. The desktop
@@ -3157,4 +3161,19 @@ body.zg-col-resizing * {
   /* The policy points carry no bullets; flush-left with air between them they
      read as separate points instead of one indented wall of text. */
   .zg-policy-list { padding-left: 0; display: grid; gap: 12px; }
+}
+
+/* Integration and indicator pages (components/IndicatorPageShell.tsx and the
+   PlotOn* / IntegrationsStrip / BrokerConnectionNote cards). Styled inline, so
+   the two paddings that must shrink on a phone read these variables: a 24px
+   gutter plus a 28px card inset left ~285px of a 390px screen for the copy. */
+:root {
+  --ind-main-pad: 120px 24px 80px;
+  --ind-card-pad: 28px;
+}
+@media (max-width: 639px) {
+  :root {
+    --ind-main-pad: 92px 16px 56px;
+    --ind-card-pad: 20px 18px;
+  }
 }
