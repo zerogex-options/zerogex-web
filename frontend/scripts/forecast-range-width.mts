@@ -43,16 +43,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-type Args = { symbol: string; limit: number; target: number; model: string | null; json: boolean; help: boolean };
+type Args = { symbol: string; limit: number; target: number; model: string | null; since: string | null; json: boolean; help: boolean };
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { symbol: 'SPX', limit: 120, target: 0.8, model: null, json: false, help: false };
+  const a: Args = { symbol: 'SPX', limit: 120, target: 0.8, model: null, since: null, json: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
     if (v === '--symbol') a.symbol = (argv[++i] ?? 'SPX').toUpperCase();
     else if (v === '--limit') a.limit = Number(argv[++i] ?? 120);
     else if (v === '--target') a.target = Number(argv[++i] ?? 0.8);
     else if (v === '--model') a.model = argv[++i] ?? null;
+    else if (v === '--since') a.since = argv[++i] ?? null;
     else if (v === '--json') a.json = true;
     else if (v === '--help' || v === '-h') a.help = true;
   }
@@ -63,7 +64,8 @@ const args = parseArgs(process.argv.slice(2));
 if (args.help) {
   console.log(`Usage:
   node --experimental-strip-types scripts/forecast-range-width.mts \\
-    [--symbol SPX] [--limit 120] [--target 0.8] [--model NAME] [--json]
+    [--symbol SPX] [--limit 120] [--target 0.8] [--model NAME] \\
+    [--since YYYY-MM-DD] [--json]
 
 Read-only. Measures how much the morning projected range could be narrowed
 and still hit its coverage target. Writes nothing.
@@ -75,6 +77,12 @@ and still hit its coverage target. Writes nothing.
                several model generations and a pooled scale factor describes
                a blend that no longer runs -- pass the live model to get a
                number worth acting on.
+  --since  D   only sessions on or after YYYY-MM-DD. NEEDED BECAUSE --model
+               is not always enough: the persistence anchor shipped on
+               2026-08-05 without the range_model string being bumped, so
+               rows either side of that date are stamped heuristic_v1_4 and
+               are two different models. Those rows are immutable, so a date
+               is the only way to separate them after the fact.
   --json       machine-readable output`);
   process.exit(0);
 }
@@ -192,6 +200,19 @@ if (rows.length === 0) {
 }
 
 const allRows = rows.slice();
+if (args.since) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(args.since)) {
+    console.error(`Error: --since expects YYYY-MM-DD, got "${args.since}".`);
+    process.exit(1);
+  }
+  const keep = rows.filter((r) => r.date >= args.since!);
+  if (keep.length === 0) {
+    console.error(`No sessions on or after ${args.since}.`);
+    process.exit(1);
+  }
+  rows.length = 0;
+  rows.push(...keep);
+}
 if (args.model) {
   const keep = rows.filter((r) => r.model === args.model);
   if (keep.length === 0) {
@@ -237,7 +258,7 @@ const median = (xs: number[]) => percentile([...xs].sort((a, b) => a - b), 0.5);
 
 if (args.json) {
   console.log(JSON.stringify({
-    symbol: args.symbol, model: args.model, n: rows.length, nAll: allRows.length, skipped: skipped.length,
+    symbol: args.symbol, model: args.model, since: args.since, n: rows.length, nAll: allRows.length, skipped: skipped.length,
     disagreements: disagreements.map((r) => ({ date: r.date, k: r.k, graded: r.graded })),
     volRatioMax: VOL_RATIO_MAX,
     clippedSessions: allRows.filter((r) => atCap(r.volRatio)).map((r) => r.date),
@@ -253,9 +274,9 @@ if (args.json) {
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 
-console.log(`Projected-range width — ${args.symbol}${args.model ? ` · ${args.model}` : ''}\n`);
+console.log(`Projected-range width — ${args.symbol}${args.model ? ` · ${args.model}` : ''}${args.since ? ` · since ${args.since}` : ''}\n`);
 console.log(`Graded sessions    ${rows.length}${skipped.length ? `   (${skipped.length} skipped)` : ''}`
-  + (args.model ? `   [filtered from ${allRows.length} by --model]` : ''));
+  + (args.model || args.since ? `   [filtered from ${allRows.length}]` : ''));
 console.log(`Coverage now       ${pct(coverageNow)}  (${rows.filter((r) => r.contained).length}/${rows.length})`);
 console.log(`Target             ${pct(args.target)}\n`);
 

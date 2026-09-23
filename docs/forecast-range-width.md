@@ -364,3 +364,64 @@ Two consequences for whatever replaces this:
    `vix_z_score_20d`, `futures_gap_pct` and `is_event_day` and none of them
    can lift the ratio past 1.2 on their own, because they are all modifiers on
    an anchor that refuses to move.
+
+## 2026-09-23: the cohort was two models, and this document was wrong about why
+
+`anchor_src` per session, from `forecast_inputs->'rationale'`:
+
+```
+anchor_src  | sessions | min_ratio | avg_ratio | max_ratio
+persistence |       34 |     0.686 |     0.799 |     0.936
+```
+
+34 rows, all `persistence`, all dated **2026-08-05 through 2026-09-22,
+contiguous**. The 15 sessions without an anchor are the FIRST 15, and
+`anchor=atr` does not appear once.
+
+**The persistence anchor shipped on 2026-08-05 and `range_model` was never
+bumped.** The constants block describes v1.5 ("anchors on the trailing realized
+ratio ... then tilts") while the emitter still stamped `heuristic_v1_4`. So the
+"49-session heuristic_v1_4 cohort" analysed throughout this document is two
+different models:
+
+| era | sessions | misses | ratio range |
+| --- | --- | --- | --- |
+| Jul 6 - Aug 4, gamma-only from a flat 1.0 base | 15 | **7** | 1.00 - 1.09 |
+| Aug 5 - Sep 22, persistence-anchored | 34 | **0** | 0.686 - 0.936 |
+
+Every miss in the entire record predates the current model. It has not broken
+the band once in 34 sessions.
+
+### Three corrections to this document
+
+1. **The 0.6% association was confounded by time.** This document claimed the
+   four misses landing in the 15 anchor-less sessions had probability
+   C(15,4)/C(49,4) ~= 0.6%. That treats the 15 as a random subset. They are not
+   — they are the first 15 chronologically, and the misses are early. The
+   association is real but it is "both happened before August", not "missing
+   anchors cause misses". Withdrawn.
+2. **`anchor=atr` never firing is not a bug.** Once five receipts exist the
+   persistence branch always wins, so the ATR fallback is only reachable during
+   cold start for a new symbol. Nothing to fix.
+3. **"Why is the anchor NULL 31% of the time" has a boring answer**: those rows
+   were written by code that had no anchor. Also nothing to fix.
+
+### What is actually still true
+
+Step 5 stands and gets stronger. Under the current model the committed ratio
+has never exceeded **0.936** — it has not once called a day even average, let
+alone wide, and coverage is 34/34. A lagging median still cannot lead a shock;
+that critique is unchanged and untested, because no shock has occurred under
+the current model.
+
+The open question is no longer "why does it miss" but **"how much narrower
+should it be"**, measured on the 34 sessions that belong to the live model
+rather than the 49 that do not.
+
+### The fix shipped
+
+`range_model` is bumped to `heuristic_v1_5` in `zerogex-oa`, with a comment
+saying what the omission cost so the next change bumps it. And because the 34
+existing rows are immutable and still carry the old label, the measuring script
+grew `--since`: the only way to separate two models that share a string after
+the fact is the date they changed.
