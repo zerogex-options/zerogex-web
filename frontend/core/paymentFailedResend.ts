@@ -71,6 +71,42 @@ export function decideResend(input: {
   return { send: true };
 }
 
+/**
+ * Why an invoice that is still open is not in dunning any more, in words for
+ * the report. Stripe records who ended a subscription in
+ * `cancellation_details.reason`: 'payment_failed' is Stripe giving up after its
+ * last retry; 'cancellation_requested' is a person — the member in the billing
+ * portal, or the operator in the Stripe dashboard.
+ */
+export function notInDunningLabel(sub: {
+  status: string | null | undefined;
+  cancellationReason?: string | null;
+}): string {
+  switch (sub.status) {
+    case 'canceled':
+      if (sub.cancellationReason === 'payment_failed') {
+        return 'Stripe gave up retrying and canceled it — see make open-invoice-recovery';
+      }
+      if (sub.cancellationReason === 'cancellation_requested') {
+        return 'canceled on request (the member, or you in Stripe)';
+      }
+      if (sub.cancellationReason === 'payment_disputed') return 'canceled over a payment dispute';
+      return 'subscription canceled';
+    case 'active':
+    case 'trialing':
+      return 'subscription is active again';
+    case 'incomplete_expired':
+      return 'subscription expired before its first payment';
+    case 'paused':
+      return 'subscription paused';
+    case null:
+    case undefined:
+      return 'no subscription on this invoice';
+    default:
+      return `subscription is ${sub.status}`;
+  }
+}
+
 const DECLINE_CATEGORIES: ReadonlySet<string> = new Set<DeclineCategory>([
   'insufficient_funds',
   'issuer_block',

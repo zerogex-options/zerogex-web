@@ -281,8 +281,15 @@ auth/transactional and TradeWorkz alerts.
 - `make resend-payment-failed` re-sends this email (either framing), as it reads
   today, to members sent it in the last `DAYS` (default 7) whose invoice is still
   unpaid and whose subscription Stripe is still retrying. For members whose earlier
-  copy carried the Stripe link and may have gone to spam. One resend per invoice
+  copy carried the Stripe link and may have gone to spam. Skips never-verified
+  addresses and anyone named in `SKIP=` (people already written to by hand; the
+  same flag works on `make open-invoice-recovery`). One resend per invoice
   (`payment_failed_email_resent`). Dry run by default.
+- **The bank's reason is not captured live.** Stripe renders webhook events in a
+  newer API shape that leaves out the charge the reason lives on, so the webhook's
+  decline lookup comes back empty, `payment_declines` stores `unknown`, and this
+  email falls back to its neutral wording. The resend script looks the reason up
+  again through the app's pinned API client, which does return the charge.
 
 **Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso? })`
 - **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} — the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} — your last payment didn't go through`

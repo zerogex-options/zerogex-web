@@ -28,8 +28,8 @@ help:
 	@echo "  make orphan-payment-alerts - Daily sweep (systemd timer) for members who PAID and were left with nothing, emailing the operator about anything new. Detection only — every command it prints is a dry run. DRY_RUN=1 to print the email instead of sending, PREVIEW_TO=<addr> to check the layout, TO=<addr> to redirect, DAYS=<n> lookback"
 	@echo "  make decline-timing - READ-ONLY. Tests whether insufficient-funds declines persist because the retries land before payday: how long Stripe actually kept trying, and whether invoices whose window crossed the 1st or 15th recovered any better. Designed to be able to come back negative. Writes nothing. DAYS=<n> (0 = all time, the default), CATEGORY=<name|all>"
 	@echo "  make normalize-utm-sources - Rewrite stored acquisition sources (users.signup_utm_source, page_view_events.utm_source) to match what sanitizeUtmSource produces today, so one channel tagged two ways stops reading as two channels. DRY RUN by default; YES=1 to apply. Re-run whenever UTM_SOURCE_ALIASES changes"
-	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, DAYS=<n>, LIMIT=<n>"
-	@echo "  make resend-payment-failed - Re-send the payment-failed email, as it reads today (signed /pay link, no Stripe URL), to members sent it in the last DAYS days (default 7) whose invoice is still unpaid and whose subscription Stripe is still retrying. For the copies that carried the Stripe link and may have gone to spam. One resend per invoice. DRY RUN by default; YES=1 to send, PREVIEW_TO=<addr> to get one real one first, BEFORE=<iso> to skip anyone emailed after a cutoff, LIMIT=<n>"
+	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), DAYS=<n>, LIMIT=<n>"
+	@echo "  make resend-payment-failed - Re-send the payment-failed email, as it reads today (signed /pay link, no Stripe URL), to members sent it in the last DAYS days (default 7) whose invoice is still unpaid and whose subscription Stripe is still retrying. For the copies that carried the Stripe link and may have gone to spam. One resend per invoice. DRY RUN by default; YES=1 to send, PREVIEW_TO=<addr> to get one real one first, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), BEFORE=<iso> to skip anyone emailed after a cutoff, LIMIT=<n>"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -370,6 +370,7 @@ normalize-utm-sources:
 #
 #   YES=1                actually send (default sends nothing)
 #   PREVIEW_TO=<addr>    render one real email to that address and stop
+#   SKIP=<list>          emails or invoice ids to leave alone, comma-separated (repeat on every run)
 #   DAYS=<n>             how far back to look (default 180)
 #   LIMIT=<n>            cap sends in one run (default 50)
 open-invoice-recovery:
@@ -388,6 +389,7 @@ open-invoice-recovery:
 #
 #   YES=1                actually send (default sends nothing)
 #   PREVIEW_TO=<addr>    send the first eligible member's real email to <addr> and stop
+#   SKIP=<list>          emails or invoice ids to leave alone, comma-separated (repeat on every run)
 #   DAYS=<n>             how far back to look (default 7)
 #   BEFORE=<iso>         only emails sent before this instant (e.g. the /pay deploy)
 #   LIMIT=<n>            cap sends in one run (default 50)

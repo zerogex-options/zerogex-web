@@ -20,18 +20,28 @@
 //   - a `payment_failed_email_sent` audit row in the last DAYS days: the member
 //     was actually sent the email. Its framing (trial conversion or renewal) is
 //     kept, so nobody who got the renewal email is told their trial ended.
+//   - not on the SKIP list — people the operator already wrote to by hand.
+//   - a live account (not soft-deleted) whose address was verified. The same
+//     guard the other batch senders apply: an address that never proved
+//     ownership is as likely to bounce or be a spam trap as to be read, and this
+//     resend exists because deliverability was already hurting.
 //   - the invoice is still `open` with money owed. Paid since: nothing to say.
 //     Voided or written off: nothing to pay.
-//   - the subscription is still past_due / unpaid / incomplete. Once Stripe has
-//     canceled it, "Stripe will try again" is false; an open invoice on a
-//     canceled subscription is `make open-invoice-recovery`'s job.
-//   - a live account (not soft-deleted).
+//   - the subscription is still past_due / unpaid / incomplete. Once it is
+//     canceled, "Stripe will try again" is false; an open invoice on a
+//     subscription Stripe gave up on is `make open-invoice-recovery`'s job.
 //   - no earlier resend for the invoice (`payment_failed_email_resent`). One
 //     resend per invoice, ever.
 //
-// Everything in the email is re-read at send time — amount, card, Stripe's next
-// retry, the grace deadline, and the invoice's LATEST decline reason — so it
-// states today's facts rather than last week's.
+// Everything in the email is re-read from Stripe at send time — amount, card,
+// next retry, grace deadline, and the bank's reason for the LATEST decline — so
+// it states today's facts rather than last week's.
+//
+// WHY THE REASON IS LOOKED UP HERE. The webhook records the bank's reason when a
+// payment fails, but Stripe renders webhook events in a newer API shape that
+// leaves out the charge the reason lives on, so that capture comes back empty
+// and stores "unknown". This script reads the invoice through our own API
+// client, which does carry the charge, and asks again.
 //
 // It never charges, retries, voids or changes anything. It reads Stripe and the
 // database and sends at most one email per invoice.
@@ -40,6 +50,9 @@
 //   --yes                actually send (default is a dry run that sends nothing)
 //   --preview-to <addr>  send the FIRST eligible member's real email to <addr>
 //                        instead, and stop (their pay link works; don't pay it)
+//   SKIP=<list>          emails or invoice ids to leave alone, comma-separated —
+//                        e.g. members you already wrote to. Give it on EVERY run;
+//                        the commands this prints carry it forward for you.
 //   DAYS=<n>             how far back to look (default 7)
 //   BEFORE=<iso>         only emails sent before this instant — e.g. when the
 //                        /pay version was deployed, so members who already got
@@ -48,7 +61,7 @@
 
 import { loadEnvLocal } from './env-local.mts';
 import crypto from 'node:crypto';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import type { DeclineCategory } from '../core/declineReason.ts';
 import type { SentPaymentFailedEmail } from '../core/paymentFailedResend.ts';
 
@@ -69,8 +82,7 @@ if (before && Number.isNaN(before.getTime())) {
   process.exit(1);
 }
 
-const secretKey = process.env.STRIPE_SECRET_KEY;
-if (!secretKey) {
+if (!process.env.STRIPE_SECRET_KEY) {
   console.error('STRIPE_SECRET_KEY is not set (env or .env.local). Nothing to do.');
   process.exit(1);
 }
@@ -88,23 +100,30 @@ if ((send || previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
 }
 
 const { getDb } = await import('../core/db.ts');
+const { classifyDecline } = await import('../core/declineReason.ts');
+const { parseSkipList, skipArg, skipEntryFor, suspectSkipEntries } = await import('../core/emailSkipList.ts');
 const { sendPaymentFailedEmail, sendTrialConversionFailedEmail } = await import('../core/mailer.ts');
 const { buildPayUrl } = await import('../core/payLink.ts');
 const { graceWindowEndIso } = await import('../core/paymentGrace.ts');
-const { getPaymentGraceDays } = await import('../core/stripe.ts');
+const { getPaymentGraceDays, getStripe } = await import('../core/stripe.ts');
 const { resolveSubscriptionCard } = await import('../core/stripeCard.ts');
+const { lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
 const { readInvoiceSubscriptionId } = await import('../core/stripeInvoice.ts');
 const {
   RESEND_AUDIT_TYPE,
   decideResend,
+  notInDunningLabel,
   parsePaymentFailedAudit,
   parseResendAudit,
   resendAuditMessage,
   toDeclineCategory,
 } = await import('../core/paymentFailedResend.ts');
 
+const skip = parseSkipList(process.env.SKIP);
 const db = getDb();
-const stripe = new Stripe(secretKey);
+// Our pinned API version (core/stripe.ts), not the SDK default: its invoices
+// still carry the charge the decline reason is read from.
+const stripe = getStripe();
 const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
 const beforeIso = before ? before.toISOString() : new Date(Date.now() + 60_000).toISOString();
 
@@ -134,14 +153,14 @@ type ReportRow = {
   sentAt: string;
   email: string | null;
   amount: string | null;
-  category: DeclineCategory | null;
+  /** What the bank said, e.g. "insufficient_funds" or "issuer_block (do_not_honor)". */
+  reason: string;
   outcome: string;
 };
 
 const SKIP_LABEL = {
   paid: 'paid since',
   closed: 'invoice closed (voided / written off)',
-  not_in_dunning: 'subscription no longer past due — see make open-invoice-recovery',
 } as const;
 
 const resent = new Set<string>();
@@ -152,14 +171,15 @@ for (const row of db
   if (id) resent.add(id);
 }
 
-const latestCategory = db.prepare(
+const storedCategory = db.prepare(
   `SELECT category FROM payment_declines WHERE invoice_id = ? ORDER BY attempt_count DESC LIMIT 1`,
 );
 
 // Newest first, so the de-dup below keeps the most recent send per invoice.
 const sentRows = db
   .prepare(
-    `SELECT a.user_id, a.message, a.created_at, u.email, u.deleted_at, u.payment_grace_started_at
+    `SELECT a.user_id, a.message, a.created_at, u.email, u.deleted_at, u.email_verified_at,
+            u.payment_grace_started_at
        FROM audit_events a
        LEFT JOIN users u ON u.id = a.user_id
       WHERE a.type = 'payment_failed_email_sent' AND a.created_at >= ? AND a.created_at < ?
@@ -171,60 +191,89 @@ const sentRows = db
   created_at: string;
   email: string | null;
   deleted_at: string | null;
+  email_verified_at: string | null;
   payment_grace_started_at: string | null;
 }>;
 
 console.log(
-  `Checking payment-failed emails sent in the last ${days} days${before ? ` and before ${beforeIso}` : ''}…\n`,
+  `Checking payment-failed emails sent in the last ${days} days${before ? ` and before ${beforeIso}` : ''}…`,
 );
+if (skip.entries.length > 0) console.log(`Skipping at your request: ${skip.entries.join(', ')}`);
+console.log('');
 
 const report: ReportRow[] = [];
 const candidates: Candidate[] = [];
 const seen = new Set<string>();
+const skipMatched = new Set<string>();
 
 for (const row of sentRows) {
   const sent = parsePaymentFailedAudit(row.message);
   if (!sent || seen.has(sent.invoiceId)) continue;
   seen.add(sent.invoiceId);
 
-  const category = toDeclineCategory(
-    (latestCategory.get(sent.invoiceId) as { category: string } | undefined)?.category,
-  );
-  const base = { sent, sentAt: row.created_at, email: row.email, category };
+  const base = { sent, sentAt: row.created_at, email: row.email };
+  const noLookup = { amount: null, reason: '' };
 
+  const skippedBy = skipEntryFor(skip, { email: row.email, invoiceId: sent.invoiceId });
+  if (skippedBy) {
+    skipMatched.add(skippedBy);
+    report.push({ ...base, ...noLookup, outcome: 'skipped at your request' });
+    continue;
+  }
   if (resent.has(sent.invoiceId)) {
-    report.push({ ...base, amount: null, outcome: 'already resent' });
+    report.push({ ...base, ...noLookup, outcome: 'already resent' });
     continue;
   }
   if (!row.user_id || !row.email || row.deleted_at) {
-    report.push({ ...base, amount: null, outcome: 'no live account' });
+    report.push({ ...base, ...noLookup, outcome: 'no live account' });
+    continue;
+  }
+  if (!row.email_verified_at) {
+    report.push({ ...base, ...noLookup, outcome: 'address never verified' });
     continue;
   }
 
   let invoice: Stripe.Invoice;
-  let subscriptionStatus: string | null = null;
+  let subscription: Stripe.Subscription | null = null;
   try {
     invoice = await stripe.invoices.retrieve(sent.invoiceId);
+    const subscriptionId = readInvoiceSubscriptionId(invoice);
+    if (subscriptionId) subscription = await stripe.subscriptions.retrieve(subscriptionId);
   } catch (err) {
-    report.push({ ...base, amount: null, outcome: `Stripe lookup failed: ${err instanceof Error ? err.message : err}` });
+    report.push({
+      ...base,
+      ...noLookup,
+      outcome: `Stripe lookup failed: ${err instanceof Error ? err.message : err}`,
+    });
     continue;
   }
-  const invoiceSubscriptionId = readInvoiceSubscriptionId(invoice);
-  if (invoiceSubscriptionId) {
-    try {
-      subscriptionStatus = (await stripe.subscriptions.retrieve(invoiceSubscriptionId)).status;
-    } catch (err) {
-      report.push({ ...base, amount: null, outcome: `Stripe lookup failed: ${err instanceof Error ? err.message : err}` });
-      continue;
-    }
-  }
+
+  // The bank's reason for the latest attempt, read live (see the header). Falls
+  // back to whatever the webhook stored, which is usually "unknown".
+  const lookup = await lookupInvoiceDecline(stripe, invoice);
+  const category = lookup.decline
+    ? classifyDecline(lookup.decline)
+    : toDeclineCategory((storedCategory.get(sent.invoiceId) as { category: string } | undefined)?.category);
+  const bankCode = lookup.decline?.declineCode ?? lookup.decline?.code ?? null;
+  const reason = `${category ?? 'unknown'}${bankCode && bankCode !== category ? ` (${bankCode})` : ''}`;
 
   const amountDue = invoice.amount_due ?? 0;
   const currency = invoice.currency ?? 'usd';
   const amount = money(amountDue, currency);
-  const decision = decideResend({ invoiceStatus: invoice.status, amountDue: invoice.amount_due, subscriptionStatus });
+  const decision = decideResend({
+    invoiceStatus: invoice.status,
+    amountDue: invoice.amount_due,
+    subscriptionStatus: subscription?.status ?? null,
+  });
   if (!decision.send) {
-    report.push({ ...base, amount, outcome: SKIP_LABEL[decision.skip] });
+    const outcome =
+      decision.skip === 'not_in_dunning'
+        ? notInDunningLabel({
+            status: subscription?.status ?? null,
+            cancellationReason: subscription?.cancellation_details?.reason ?? null,
+          })
+        : SKIP_LABEL[decision.skip];
+    report.push({ ...base, amount, reason, outcome });
     continue;
   }
 
@@ -235,7 +284,7 @@ for (const row of sentRows) {
     amountDue,
     currency,
     customerId: typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer?.id ?? null),
-    subscriptionId: invoiceSubscriptionId,
+    subscriptionId: subscription?.id ?? null,
     nextAttemptIso:
       typeof invoice.next_payment_attempt === 'number'
         ? new Date(invoice.next_payment_attempt * 1000).toISOString()
@@ -243,7 +292,7 @@ for (const row of sentRows) {
     graceStartedAt: row.payment_grace_started_at,
     category,
   });
-  report.push({ ...base, amount, outcome: 'RESEND' });
+  report.push({ ...base, amount, reason, outcome: 'RESEND' });
 }
 
 const total = candidates.reduce((sum, c) => sum + c.amountDue, 0);
@@ -260,12 +309,20 @@ console.log('── Not resent ──');
 if (skipped.size === 0) console.log('  none');
 for (const [outcome, count] of skipped) console.log(`  ${count}  ${outcome}`);
 
-console.log('\n── The invoices ──');
+console.log("\n── The invoices (reason = what the member's bank said) ──");
 for (const r of report) {
   console.log(
     `  ${(r.amount ?? '').padStart(9)}  ${(r.email ?? '(no account)').padEnd(34)} sent ${r.sentAt.slice(0, 10)}  ` +
-      `${(r.sent.trialConversion ? 'trial' : 'renewal').padEnd(7)}  ${(r.category ?? 'unknown').padEnd(23)} ${r.outcome}`,
+      `${(r.sent.trialConversion ? 'trial' : 'renewal').padEnd(7)}  ${r.reason.padEnd(38)} ${r.outcome}`,
   );
+}
+
+// A SKIP entry that matches no account is almost always a typo — and a typo
+// means the person it was meant for is about to be emailed.
+const accountByEmail = db.prepare('SELECT 1 FROM users WHERE lower(email) = ?');
+const suspect = suspectSkipEntries(skip, skipMatched, (email) => accountByEmail.get(email) !== undefined);
+if (suspect.length > 0) {
+  console.log(`\n⚠ SKIP entries that match no account here: ${suspect.join(', ')} — check the spelling before sending.`);
 }
 
 if (candidates.length === 0) {
@@ -310,9 +367,12 @@ if (previewTo) {
 }
 
 if (!send) {
+  // Repeat every setting this run used, so the real send can't quietly drop the
+  // SKIP list (or the window) the dry run was checked with.
+  const carried = `${process.env.DAYS ? ` DAYS=${days}` : ''}${beforeRaw ? ` BEFORE=${beforeRaw}` : ''}${skipArg(skip)}`;
   console.log(`\nDRY RUN — nothing was sent. ${candidates.length} member(s) would get the new email.`);
-  console.log('Preview one with:  make resend-payment-failed PREVIEW_TO=<you>');
-  console.log('Send them with:    make resend-payment-failed YES=1');
+  console.log(`Preview one with:  make resend-payment-failed PREVIEW_TO=<you>${carried}`);
+  console.log(`Send them with:    make resend-payment-failed YES=1${carried}`);
   process.exit(0);
 }
 

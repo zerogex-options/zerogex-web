@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   decideResend,
+  notInDunningLabel,
   parsePaymentFailedAudit,
   parseResendAudit,
   resendAuditMessage,
@@ -73,4 +74,18 @@ test('only categories the copy knows are passed through', () => {
   assert.equal(toDeclineCategory('card_problem'), 'card_problem');
   assert.equal(toDeclineCategory('something_new'), null);
   assert.equal(toDeclineCategory(null), null);
+});
+
+test('the report says who ended a subscription, in plain words', () => {
+  // "No longer past due" told the operator nothing. Stripe records whether it
+  // gave up after its last retry or a person canceled, and those want
+  // different follow-ups.
+  assert.match(notInDunningLabel({ status: 'canceled', cancellationReason: 'payment_failed' }), /Stripe gave up retrying/);
+  assert.match(notInDunningLabel({ status: 'canceled', cancellationReason: 'payment_failed' }), /open-invoice-recovery/);
+  assert.match(notInDunningLabel({ status: 'canceled', cancellationReason: 'cancellation_requested' }), /on request/);
+  assert.doesNotMatch(notInDunningLabel({ status: 'canceled', cancellationReason: 'cancellation_requested' }), /open-invoice-recovery/);
+  assert.equal(notInDunningLabel({ status: 'canceled', cancellationReason: null }), 'subscription canceled');
+  assert.equal(notInDunningLabel({ status: 'active' }), 'subscription is active again');
+  assert.equal(notInDunningLabel({ status: null }), 'no subscription on this invoice');
+  assert.equal(notInDunningLabel({ status: 'something_new' }), 'subscription is something_new');
 });
