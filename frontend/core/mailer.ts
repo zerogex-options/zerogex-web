@@ -1539,19 +1539,18 @@ export async function sendCardExpiringEmail(to: string, opts: CardExpiringEmailO
 
 /**
  * The two dunning emails share one problem and now one fix: what they say about
- * WHY the charge failed, and where they send the member as a result. See
+ * WHY the charge failed, and what they tell the member to do about it. See
  * core/declineEmailCopy.ts — 60 first payments were told to update a card that
  * had nothing wrong with it.
+ *
+ * Every link in both goes to the account page. There is deliberately no field
+ * for Stripe's hosted invoice URL: a tokenized invoice.stripe.com payment link
+ * in a "payment failed" email looks like phishing to spam filters, and the
+ * billing portal on the account page lists the same open invoice anyway.
  */
 type DeclineEmailExtras = {
   /** What core/declineReason.ts made of the issuer's answer. Null when unknown. */
   declineCategory?: DeclineCategory | null;
-  /**
-   * Stripe's hosted payment page for the unpaid invoice. It takes ANY card and
-   * settles the debt in one step, which is the right destination for every
-   * decline except a genuine card fault. Null when Stripe did not publish one.
-   */
-  hostedInvoiceUrl?: string | null;
 };
 
 export type PaymentFailedEmailOptions = {
@@ -1597,15 +1596,11 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
     category: opts?.declineCategory ?? null,
     cardPhrase,
     nextAttemptLabel: opts?.nextAttemptIso ? formatTrialEndDate(opts.nextAttemptIso) : null,
-    hasInvoiceUrl: Boolean(opts?.hostedInvoiceUrl),
     trialConversion: false,
   });
   const amountSentence = opts?.amountFormatted
     ? `Your subscription payment of ${opts.amountFormatted} did not go through. ${copy.reason}`
     : copy.reason;
-  const actionUrl = copy.preferInvoice && opts?.hostedInvoiceUrl ? opts.hostedInvoiceUrl : accountUrl;
-  const safeActionUrl = escapeHtml(actionUrl);
-  const actionIsInvoice = actionUrl !== accountUrl;
 
   // Access-state wording. An established (previously active) subscription that
   // fails a renewal now keeps Pro through a short grace window (see
@@ -1636,10 +1631,10 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
     '',
     retrySentence,
     '',
-    actionIsInvoice
-      ? "If you'd rather settle it now, that page takes any card:"
+    copy.preferInvoice
+      ? "If you'd rather settle it now, open the billing portal from your account page — the open invoice is listed there:"
       : "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
-    actionUrl,
+    accountUrl,
     '',
     "And if you have any questions, just reply to this email — I'm happy to help.",
     '',
@@ -1654,12 +1649,12 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
       <p>${escapeHtml(amountSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
       <p>${
-        actionIsInvoice
-          ? `If you'd rather settle it now, <a href="${safeActionUrl}" style="color: #f5b400; font-weight: 600;">this page</a> takes any card.`
+        copy.preferInvoice
+          ? `If you'd rather settle it now, open the billing portal from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; the open invoice is listed there.`
           : `If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
       }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeActionUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
       <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -1722,7 +1717,6 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
     category: opts?.declineCategory ?? null,
     cardPhrase,
     nextAttemptLabel: opts?.nextAttemptIso ? formatTrialEndDate(opts.nextAttemptIso) : null,
-    hasInvoiceUrl: Boolean(opts?.hostedInvoiceUrl),
     trialConversion: true,
   });
   // The subject promised a card fix to everybody. For an empty account that is
@@ -1753,12 +1747,6 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
       : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
 
   const retrySentence = copy.remedy;
-  // Where the button goes. Stripe's hosted invoice page takes any card and
-  // settles the debt in one step; the account page only re-saves a card, which
-  // helps solely when the card is the thing at fault.
-  const actionUrl = copy.preferInvoice && opts?.hostedInvoiceUrl ? opts.hostedInvoiceUrl : accountUrl;
-  const safeActionUrl = escapeHtml(actionUrl);
-  const actionIsInvoice = actionUrl !== accountUrl;
 
   const text = [
     'Hello,',
@@ -1767,10 +1755,10 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
     '',
     retrySentence,
     '',
-    actionIsInvoice
-      ? 'You can complete it here:'
+    copy.preferInvoice
+      ? 'You can complete it from the billing portal on your account page, where the open invoice is listed:'
       : 'You can update your card in about a minute from your account page:',
-    actionUrl,
+    accountUrl,
     '',
     "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
     '',
@@ -1785,12 +1773,12 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
       <p>${escapeHtml(declineSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
       <p>${
-        actionIsInvoice
-          ? `You can <a href="${safeActionUrl}" style="color: #f5b400; font-weight: 600;">complete it here</a> &mdash; that page takes any card.`
+        copy.preferInvoice
+          ? `You can complete it from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>, where the open invoice is listed.`
           : `You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
       }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeActionUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
       <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>

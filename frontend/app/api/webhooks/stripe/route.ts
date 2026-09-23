@@ -2879,13 +2879,13 @@ export async function POST(request: NextRequest) {
               cardLast4: card?.last4 ?? null,
               nextAttemptIso,
               graceUntilIso,
-              // Both were already in scope and neither was being passed. The
-              // category is what stops us telling a member with an empty
-              // account to fix a card that works; the hosted invoice page is
-              // the only link in the email that can actually collect the money,
-              // from any card, the moment they have it.
+              // The category is what stops us telling a member with an empty
+              // account to fix a card that works. invoice.hosted_invoice_url is
+              // deliberately NOT passed: an off-domain Stripe payment link in a
+              // "payment failed" email looks like phishing to spam filters. The
+              // email sends them to /account instead, whose billing portal
+              // lists the same open invoice.
               declineCategory,
-              hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
             };
             try {
               if (trialConversionEmail) {

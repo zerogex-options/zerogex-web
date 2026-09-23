@@ -264,11 +264,17 @@ auth/transactional and TradeWorkz alerts.
 - Pure builder `buildTrialConvertedEmail` + thin sender, locked down in
   `tests/trialConverted.test.ts`.
 
-**Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso? })`
+**Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso?, declineCategory? })`
 - **Subject:** `We couldn't process your ZeroGEX payment`
 - Names the failed card, states the access state (grace window vs. dropped to Public),
   gives Stripe's next retry date, links the billing portal. Each enrichment degrades to
   neutral wording if unresolved. No FOH footer (urgent).
+- **Every link goes to `/account`, never Stripe's `hosted_invoice_url`.** A tokenized
+  `invoice.stripe.com` payment link in a "payment failed" email looks like phishing to
+  spam filters. Unless the decline is a card fault, the copy says to pay the open
+  invoice, which the billing portal on the account page lists. Same rule for the
+  trial-conversion twin; locked down in `tests/paymentFailedEmail.test.ts`
+  (`npm run test:payment-failed-email`).
 
 **Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso? })`
 - **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} — the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} — your last payment didn't go through`
