@@ -2649,6 +2649,30 @@ body.zg-col-resizing * {
   .zg-mbar-logo-img { height: 36px; }
 }
 
+/* Desktop header row (components/Header.tsx). From 1600px the lockup is
+   absolutely centred over a flex row, as designed. Narrower, the world clocks
+   ran over it (and near 1100px the quote did too), so the row becomes a grid:
+   each cluster keeps its full width, the lockup takes the column between
+   them, centred while there is room and shrinking once there is not. */
+.zg-hdr-logo-img { width: auto; height: 76%; max-width: none; max-height: none; }
+@media (max-width: 1599px) {
+  .zg-hdr-row {
+    display: grid;
+    grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+    column-gap: 16px;
+  }
+  .zg-hdr-logo {
+    position: static;
+    transform: none !important;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+  }
+  .zg-hdr-logo > a { min-width: 0; max-width: 100%; }
+  .zg-hdr-logo-img { height: auto; max-height: 76px; max-width: 100%; min-width: 0; }
+  .zg-hdr-right { justify-self: end; }
+}
+
 /* Thumb-sized icon target: 40px square, borderless in the bar. */
 .zg-touch-btn {
   width: 40px;

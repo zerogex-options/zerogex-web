@@ -431,7 +431,9 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
       >
         {/* Desktop Layout */}
         <div className="hidden lg:block relative">
-          <div className="relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px", paddingLeft: "10px" }}>
+          {/* zg-hdr-row: below 1600px a grid (see globals.css), so the lockup
+              sits between the two clusters instead of under them. */}
+          <div className="zg-hdr-row relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px", paddingLeft: "10px" }}>
             <div className="flex items-center" style={{ gap: isCollapsed ? "14px" : "20px" }}>
                 <button
                   onClick={onToggleTheme}
@@ -566,27 +568,34 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
             </div>
 
             {!isCollapsed && (
-            <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
+            <div className="zg-hdr-logo absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
               <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
                 {/* Trimmed artwork, so the height fraction is the whole sizing
                     story (the old padded export needed 150% to fill the band).
-                    76% keeps the 3.3:1 lockup ~250px wide — the footprint the
-                    old wordmark had, so it still clears the world clocks that
-                    sit either side of this absolutely-centered block. */}
+                    76% keeps the 3.3:1 lockup ~250px wide. From 1600px it is
+                    absolutely centred with room to spare; below that the
+                    clocks ran over it (and at ~1100px the quote did), so it
+                    joins the row and shrinks with the gap (globals.css). */}
                 <Image
                   {...brandTitle(theme === "dark")}
                   alt="ZeroGEX"
                   priority
-                  style={{ width: "auto", height: "76%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
+                  className="zg-hdr-logo-img"
+                  style={{ objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
                 />
               </Link>
             </div>
             )}
 
             {!isCollapsed && (
-              <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
-                <div style={{ marginRight: "24px" }}>
-                  <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+              <div className="zg-hdr-right flex items-center gap-3" style={{ marginRight: "24px" }}>
+                {/* Analog dials from 1600px, the compact digital row from
+                    1366px, none below: there is no room beside the lockup. */}
+                <div className="hidden min-[1600px]:block" style={{ marginRight: "24px" }}>
+                  <WorldClocks theme={theme} session={session} />
+                </div>
+                <div className="hidden min-[1366px]:block min-[1600px]:hidden" style={{ marginRight: "12px" }}>
+                  <WorldClocks theme={theme} session={session} compact />
                 </div>
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
