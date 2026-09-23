@@ -151,23 +151,83 @@ the inputs were missing, this is not a modelling problem at all — it is a
 **missing-data problem wearing a modelling problem's clothes**, and no amount of
 regime work fixes it.
 
-The `rationale` string records `anchor=persistence|atr|neutral`, but it is NOT
-exposed by `/api/forecast/{date}` and is not a column on `daily_forecast`. The
-inputs themselves are, in the `forecast_inputs` jsonb:
+**CONFIRMED, 2026-09-23, on production.** The persistence anchor was NULL on
+every one of the four:
+
+```
+    date    | expected_vol_ratio | state  | persistence_anchor | atr_5d
+------------+--------------------+--------+--------------------+--------
+ 2026-07-15 |             1.0580 | normal |                    | 61.22
+ 2026-07-23 |             1.0933 | normal |                    | 58.834
+ 2026-08-03 |             1.0524 | normal |                    | 98.774
+ 2026-08-04 |             1.0000 | normal |                    | 98.764
+```
+
+`vol_persistence_anchor` is empty on all four, and this module's own docstring
+calls it *"the dominant driver of the expected-vol prediction"* and the reason
+the model does not default to "normal". It was absent, and the model defaulted
+to "normal" on all four — exactly as documented.
+
+Note what `atr_5d` says too: 61 and 59 in July against 99 and 99 in August. The
+tape was already moving 60% wider before Aug 3-4, and the committed ratio
+barely registered it (1.05 -> 1.00). The information was in the inputs and did
+not reach the band.
+
+### The two things still to establish
+
+The ATR fallback requires BOTH the ATR and the implied move:
+
+```python
+elif (atr_5d is not None and atr_5d > 0
+      and implied_move is not None and implied_move > 0):
+```
+
+`implied_move` is the VIX-implied 1-day dollar move — a computed RESULT field
+and a column on `daily_forecast`, NOT a key inside `forecast_inputs`. An
+earlier version of the query in this document read
+`forecast_inputs->>'implied_move'` and got NULL for that reason alone; that
+NULL meant nothing. Read the column:
 
 ```sql
 SELECT date, expected_vol_ratio, expected_vol_state,
+       implied_move,                                       -- the COLUMN
        forecast_inputs->>'vol_persistence_anchor' AS persistence_anchor,
        forecast_inputs->>'atr_5d'                 AS atr_5d,
-       forecast_inputs->>'implied_move'           AS implied_move
+       forecast_inputs->>'vix_close'              AS vix_close
   FROM daily_forecast
  WHERE symbol = 'SPX'
    AND date IN ('2026-08-03','2026-08-04','2026-07-15','2026-07-23')
  ORDER BY date;
 ```
 
-NULL or zero in both anchor columns on those dates confirms the neutral
-fallback, and moves the whole investigation upstream to why they were absent.
+If `implied_move` is also NULL, BOTH anchor paths were dead and the ratio was
+pure fallback. If it is populated, the ATR path should have fired and did not,
+which is a different bug again.
+
+**And the question that decides the scale of all this** — is the persistence
+anchor empty on those four days, or on every day?
+
+```sql
+SELECT count(*)                                                            AS sessions,
+       count(*) FILTER (WHERE forecast_inputs->>'vol_persistence_anchor' IS NOT NULL)
+                                                                           AS with_persistence,
+       count(*) FILTER (WHERE implied_move IS NOT NULL AND implied_move > 0)
+                                                                           AS with_implied_move,
+       round(min(expected_vol_ratio), 4)    AS min_ratio,
+       round(max(expected_vol_ratio), 4)    AS max_ratio,
+       round(avg(expected_vol_ratio), 4)    AS avg_ratio,
+       round(stddev(expected_vol_ratio), 4) AS sd_ratio
+  FROM daily_forecast
+ WHERE symbol = 'SPX' AND range_model = 'heuristic_v1_4';
+```
+
+`with_persistence = 0` means the dominant driver has never fired in production
+and the expected-vol call has been decorative since v1.4 shipped. A small
+`sd_ratio` would confirm it from the other side: a model emitting a near
+constant is not forecasting volatility at all, which would explain both the
+12x spread in required width against a barely-moving band AND why the vol call
+scores 59% against a 69% always-say-normal baseline. You cannot beat "always
+normal" while you ARE "always normal".
 
 An earlier draft of this document asserted that "whatever flags an event day is
 missing exactly the days the band exists for". That was a guess made without
@@ -187,16 +247,22 @@ In order:
 1. ~~Settle the clamp question~~ — **done. It is not the clamp.** All four
    `v1_4` misses asked for 1.00-1.09x against a 1.90x ceiling. Do not touch
    `VOL_RATIO_MAX`; it is not the binding constraint.
-2. **Run the `forecast_inputs` query above.** If both anchors were
-   NULL/zero on Aug 3-4, the model fell through to the neutral 1.0 because it
-   had no inputs, and the fix is upstream in whatever populates them — not in
-   the regime logic. Settle this before writing any model code.
-3. **Only if the anchors were populated** is this the regime problem: the
-   persistence anchor is a trailing median, which is structurally incapable of
-   anticipating a two-day shock, so it will read "normal" right up to the day
-   it matters. That is the thing to replace, and it is a real modelling change
-   rather than a constant.
-4. **Only then consider narrowing**, and conditionally rather than uniformly. A
+2. ~~Check whether the anchors were populated~~ — **partly done. The
+   persistence anchor was NULL on all four misses**, and it is the documented
+   "dominant driver" of the expected-vol call. The model defaulted to normal
+   because it had nothing to anchor on.
+3. **Run the two queries above** before writing any model code. They settle
+   whether `implied_move` was also absent (both paths dead) and, more
+   importantly, whether the persistence anchor is empty on EVERY session or
+   only these four. Those are different-sized problems: a gap on four days is
+   a data bug; a gap on all of them means the expected-vol call has been
+   decorative since v1.4 shipped, and no regime work matters until whatever
+   should populate that anchor does.
+4. **Only once an anchor actually fires** is the modelling critique worth
+   acting on: a trailing median is structurally incapable of anticipating a
+   two-day shock and will read "normal" right up to the day it matters. Real
+   change, but pointless while the input is missing.
+5. **Only then consider narrowing**, and conditionally rather than uniformly. A
    band genuinely narrow on quiet days and genuinely wide on two-day shocks
    beats one that is uniformly 20% tighter.
 
