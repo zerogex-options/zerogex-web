@@ -77,8 +77,8 @@ function initDb(): DatabaseSync {
   `);
 
   // Named boards a member has saved on My Dashboard. One row per saved board;
-  // the live working board still lives in localStorage and is untouched by
-  // this. `layout_json` holds the same serialized DashboardLayout that
+  // the live working board is kept separately, in dashboard_working_boards
+  // below. `layout_json` holds the same serialized DashboardLayout that
   // sanitizeLayout() already validates on read, so a row written by an older
   // release — or, later, by another member — is checked against the current
   // widget registry before anything is rendered.
@@ -101,6 +101,20 @@ function initDb(): DatabaseSync {
     );
   `);
   db.exec('CREATE INDEX IF NOT EXISTS idx_dashboard_layouts_user_id ON dashboard_layouts(user_id);');
+
+  // The live working board on My Dashboard, one row per member. It used to
+  // live only in localStorage, so a browser that clears site data took the
+  // board with it. The browser keeps a copy for instant loads; this row is the
+  // one that survives. Same serialized DashboardLayout as dashboard_layouts,
+  // sanitized by the client on every read.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dashboard_working_boards (
+      user_id TEXT PRIMARY KEY,
+      layout_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (

@@ -384,6 +384,63 @@ export function clearLayout(scope?: string | null): void {
   }
 }
 
+// ── Account copy ─────────────────────────────────────────────────────────────
+//
+// A signed-in member's working board is also kept on their account
+// (/api/account/board). localStorage alone lost boards whenever a browser
+// cleared its site data — Brave's shields, Safari's ITP, a cleared cache. The
+// browser copy stays, for an instant load and for signed-out visitors.
+
+/**
+ * Pick the board to open with, given the account's copy and this browser's.
+ *
+ * The account copy wins: it is the one that survives, and it carries a change
+ * made on another device over to this one. The browser's copy wins only when
+ * the account has none — every board saved before the account kept one gets
+ * copied up this way on its first load — or when it holds a change that never
+ * reached the account (a failed save, a tab closed first). The caller saves
+ * whatever differs from the account's copy, so either case is then uploaded.
+ */
+export function chooseWorkingBoard(input: {
+  account: DashboardLayout | null;
+  browser: DashboardLayout | null;
+  browserUnsynced: boolean;
+}): DashboardLayout {
+  const { account, browser, browserUnsynced } = input;
+  if (browser && (browserUnsynced || !account)) return browser;
+  return account ?? emptyLayout();
+}
+
+function unsyncedKey(scope?: string | null): string {
+  return `${storageKey(scope)}:unsynced`;
+}
+
+/**
+ * Whether this browser's board for `scope` holds a change the account never
+ * confirmed. Never throws; unreadable storage reads as "no".
+ */
+export function isBoardUnsynced(scope?: string | null): boolean {
+  const storage = getStorage();
+  if (!storage) return false;
+  try {
+    return storage.getItem(unsyncedKey(scope)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Mark or clear the unconfirmed-change flag for `scope`. Never throws. */
+export function setBoardUnsynced(scope: string | null | undefined, unsynced: boolean): void {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    if (unsynced) storage.setItem(unsyncedKey(scope), '1');
+    else storage.removeItem(unsyncedKey(scope));
+  } catch {
+    /* storage unavailable — the account copy is all there is */
+  }
+}
+
 // ── Queries ──────────────────────────────────────────────────────────────────
 
 /** The pane with this id. Always present — a layout holds both, always. */

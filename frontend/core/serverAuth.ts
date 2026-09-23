@@ -13,6 +13,7 @@ import {
   THEME_COOKIE,
   normalizePalette,
   normalizeTheme,
+  type AccountAppearance,
 } from '@/core/appearance';
 
 // Appearance cookies outlive a session on purpose: they are a preference, and
@@ -1624,16 +1625,93 @@ export async function mutateSavedLayoutForRequest(
 }
 
 /**
+ * The member's live My Dashboard board, kept on the account so it outlives the
+ * browser. It used to live only in localStorage, and a browser that clears
+ * site data (Brave's shields, Safari's ITP, a cleared cache) took the board
+ * with it. One row per member; the named boards in dashboard_layouts are
+ * separate copies the member chose to keep.
+ *
+ * Stored as sent, like a saved board: the client sanitizes against the current
+ * widget registry on every read, so the server only bounds the size.
+ */
+export async function readWorkingBoardForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const row = getDb()
+    .prepare('SELECT layout_json, updated_at FROM dashboard_working_boards WHERE user_id = ?')
+    .get(data.user.id) as { layout_json: string; updated_at: string } | undefined;
+
+  let layout: unknown = null;
+  if (row) {
+    try {
+      layout = JSON.parse(row.layout_json);
+    } catch {
+      // Unparseable reads as "nothing saved", so the browser's copy is used
+      // and saved over it, rather than the member opening a blank board.
+      layout = null;
+    }
+  }
+
+  return {
+    layout,
+    updatedAt: row?.updated_at ?? null,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+export async function saveWorkingBoardForRequest(request: NextRequest, input: { layout?: unknown }) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  if (input.layout == null || typeof input.layout !== 'object') {
+    return { error: 'A board layout is required' as const };
+  }
+  const layoutJson = JSON.stringify(input.layout);
+  if (Buffer.byteLength(layoutJson, 'utf8') > MAX_LAYOUT_BYTES) {
+    return { error: 'That board is too large to save' as const };
+  }
+
+  const now = nowIso();
+  getDb()
+    .prepare(
+      `INSERT INTO dashboard_working_boards (user_id, layout_json, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET layout_json = excluded.layout_json, updated_at = excluded.updated_at`
+    )
+    .run(data.user.id, layoutJson, now);
+
+  return { updatedAt: now, rotatedToken: data.rotatedToken, csrfToken: data.csrfToken };
+}
+
+/**
  * Appearance saved against the account. The browser cookie is still what the
  * server paints from — this is the copy that survives a new device, a cleared
  * cookie jar, or a browser that expires script-written cookies early (Safari's
- * ITP and Brave's shields both do), and that seeds the cookie again at login.
+ * ITP and Brave's shields both do). The root layout paints from it for every
+ * signed-in request (see resolveAppearance), and login seeds the cookie from it.
  */
 export function readAccountAppearance(userId: string): { theme: string | null; palette: string | null } {
   const row = getDb()
     .prepare('SELECT ui_theme, ui_palette FROM users WHERE id = ?')
     .get(userId) as { ui_theme?: string | null; ui_palette?: string | null } | undefined;
   return { theme: row?.ui_theme ?? null, palette: row?.ui_palette ?? null };
+}
+
+/**
+ * The signed-in member's saved appearance, for the root layout to paint from;
+ * null for a signed-out visitor. Read-only on purpose: a server component
+ * cannot set cookies, so this must not rotate the session. It must also never
+ * break a page, so any failure degrades to the cookie-only behaviour a
+ * signed-out visitor gets.
+ */
+export async function readAppearanceForCurrentSession(): Promise<AccountAppearance | null> {
+  try {
+    const data = await requireSession();
+    return data ? readAccountAppearance(data.user.id) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
