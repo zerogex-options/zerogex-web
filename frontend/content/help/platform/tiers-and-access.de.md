@@ -14,7 +14,7 @@ ZeroGEX hat drei Konto-Tiers. Sie bestimmen, welche Daten und Signale du siehst.
 | Basic | Aktive Intraday-Trader | Dashboard, Live Bulletin, alle Metrics, Strategy Builder, Live Options Quotes, alle Basic Signals |
 | Pro | Ernsthafte Operator | Alles aus Basic + alle Advanced Signals + Composite Score + Backtesting + API-Zugang |
 
-Die aktuelle Aufschlüsselung — und ein 14-tägiger Testzugang — findest du auf der Seite [Pricing](/pricing).
+Die aktuelle Aufschlüsselung findest du auf der Seite [Pricing](/pricing). Basic monatlich enthält eine 7-tägige kostenlose Testphase; alle anderen Pläne sind durch eine 7-tägige Geld-zurück-Garantie abgedeckt.
 
 ## Was wo gesperrt ist
 
@@ -54,13 +54,15 @@ Einige Seiten existieren für alle Tiers, verhalten sich aber unterschiedlich je
 Kontoänderungen erfolgen an zwei Stellen:
 
 1. **[Account](/account)** — zeigt deinen aktuellen Tier, den aktuellen Plan-Status und den Link zum Billing-Portal.
-2. **[Stripe Billing Portal](/account)** — erreichbar über die Account-Seite. Wechsle zwischen Basic und Pro, wechsle von monatlich zu jährlich, ändere die Zahlungsmethode, sieh dir Rechnungen an.
+2. **[Stripe Billing Portal](/account)** — erreichbar über die Account-Seite. Wechsle zwischen Basic und Pro, wechsle zwischen monatlicher, vierteljährlicher und jährlicher Abrechnung, ändere die Zahlungsmethode, sieh dir Rechnungen an.
 
 Eine Schritt-für-Schritt-Anleitung findest du unter [Billing & Stripe Portal](/help/platform/billing).
 
 ## Wenn du dich in einer Testphase befindest
 
-Befindet sich dein Konto in einer kostenlosen Testphase (Basic oder Pro), zeigt die Account-Seite einen Chip „Trial active — X days left". Endet die Testphase, läuft das Abonnement automatisch zu dem Tarif weiter, zu dem du dich angemeldet hast. Um das zu verhindern, kündige im Billing-Portal, bevor die Testphase abläuft.
+Die 7-tägige kostenlose Testphase gibt es nur für Basic monatlich (eine pro Konto). Solange sie läuft, zeigt die Account-Seite einen Chip „Trial active — X days left". Endet die Testphase, läuft das Abonnement automatisch zu dem Tarif weiter, zu dem du dich angemeldet hast. Um das zu verhindern, kündige im Billing-Portal, bevor die Testphase abläuft — dann wird dir nichts berechnet.
+
+Wechselst du während der Testphase zu Pro oder zu einem vierteljährlichen oder jährlichen Plan, endet die Testphase und der neue Plan wird noch am selben Tag abgerechnet; die Seite [Pricing](/pricing) zeigt dir den genauen Betrag und bittet um Bestätigung, und diese Zahlung ist durch die 7-tägige Geld-zurück-Garantie abgedeckt.
 
 ## Was passiert, wenn du auf etwas klickst, auf das du keinen Zugriff hast?
 
@@ -68,6 +70,6 @@ Du wirst zur Seite [Pricing](/pricing) weitergeleitet, statt blockiert oder mit 
 
 ## Siehe auch
 
-- [Pricing](/pricing) — die aktuelle Tier-Aufschlüsselung und der Testzugang
+- [Pricing](/pricing) — die aktuelle Tier-Aufschlüsselung und die Planoptionen
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

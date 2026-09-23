@@ -170,7 +170,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
                 {proTrials
                   ? '7-day free trial. No charge until day 7. Cancel anytime.'
-                  : 'Basic: 7-day free trial, no charge until day 7, cancel anytime. Pro: 7-day money-back guarantee.'}
+                  : '7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.'}
               </p>
             )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

@@ -346,7 +346,7 @@ export function renderDailyLevelsEmail(
     'Worth reading:',
     ...FOOTER_LINKS.map((l) => `  ${l.label} — ${l.blurb}\n    ${site}${l.path}`),
     '',
-    `Live intraday levels, dealer flow and signals are what the paid plans add — 7-day trial, cancel any time: ${site}/pricing`,
+    `Live intraday levels, dealer flow and signals are what the paid plans add. Start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee: ${site}/pricing`,
     '',
     '---',
     `Unsubscribe: ${opts.unsubUrl}`,
@@ -446,7 +446,7 @@ export function renderDailyLevelsEmail(
 
       <p style="margin:20px 0 0; padding-top:18px; border-top:1px solid #e8e8e8; font-size:13px; color:#555;">
         Live intraday levels, dealer flow and signals are what the paid plans add.
-        <a href="${escapeHtml(`${site}/pricing`)}" style="color:#12283c; font-weight:600;">7-day trial</a>, cancel any time.
+        Start with a <a href="${escapeHtml(`${site}/pricing`)}" style="color:#12283c; font-weight:600;">7-day free trial on Basic</a> (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee.
       </p>
 
       <p style="margin:18px 0 0; font-size:11px; color:#8a939b;">

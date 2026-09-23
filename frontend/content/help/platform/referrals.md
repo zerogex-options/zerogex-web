@@ -26,7 +26,7 @@ Open [Account](/account). The Referrals panel shows your code, your link, and yo
 ## What counts as a successful referral
 
 - The new user must sign up with your code applied.
-- They must convert to a paid plan (trial → paid) and complete at least one full billing cycle.
+- They must convert to a paid plan (on Basic monthly, that means the free trial ending) and complete at least one full billing cycle.
 - Self-referrals are not allowed (system-detected).
 - The referrer must have a verified email and an active paid plan.
 
@@ -46,7 +46,7 @@ Three patterns we see:
 
 ## How the new user benefits
 
-The new user gets the same standard trial period (no extension via your code), and any active sitewide promo applies on top. The referral system credits **you** for the conversion, not them — the program is structured as a thank-you, not a discount transfer.
+The new user gets the same standard terms as anyone else — the 7-day free trial on Basic monthly, or the 7-day money-back guarantee on every other plan (no extension via your code), and any active sitewide promo applies on top. The referral system credits **you** for the conversion, not them — the program is structured as a thank-you, not a discount transfer.
 
 ## Privacy
 

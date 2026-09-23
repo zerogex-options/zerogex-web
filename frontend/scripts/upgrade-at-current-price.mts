@@ -93,7 +93,7 @@ const RECONCILER_SETTLE_MS = 8000;
 // our verification instead of in the member's next bill.
 const VERIFY_SETTLE_MS = 8000;
 
-type Cadence = 'monthly' | 'annual';
+type Cadence = 'monthly' | 'quarterly' | 'annual';
 
 type Args = {
   email: string | null;
@@ -501,16 +501,28 @@ if (subscription.items.data.length > 1) {
 
 const currentPrice = item.price;
 const currency = currentPrice.currency ?? 'usd';
+// Cadence from the interval AND its count: a quarterly price is interval
+// 'month' with interval_count 3, and reading it as monthly would move the
+// member onto the monthly price.
 const interval = currentPrice.recurring?.interval ?? null;
-if (interval !== 'month' && interval !== 'year') {
-  console.error(`Error: unsupported billing interval '${interval ?? 'none'}'.`);
+const intervalCount = currentPrice.recurring?.interval_count ?? 1;
+const cadence: Cadence | null =
+  interval === 'month' && intervalCount === 1
+    ? 'monthly'
+    : interval === 'month' && intervalCount === 3
+      ? 'quarterly'
+      : interval === 'year' && intervalCount === 1
+        ? 'annual'
+        : null;
+if (!cadence) {
+  console.error(`Error: unsupported billing interval '${intervalCount} ${interval ?? 'none'}'.`);
   process.exit(1);
 }
-const cadence: Cadence = interval === 'month' ? 'monthly' : 'annual';
+const PERIOD_LABEL: Record<Cadence, string> = { monthly: 'month', quarterly: 'quarter', annual: 'year' };
 
 // Target price for the SAME cadence — an upgrade must not silently move the
-// member between monthly and annual billing.
-const targetPriceEnvKey = `STRIPE_PRICE_${cliArgs.tier.toUpperCase()}_${cadence === 'monthly' ? 'MONTHLY' : 'ANNUAL'}`;
+// member to a different billing period.
+const targetPriceEnvKey = `STRIPE_PRICE_${cliArgs.tier.toUpperCase()}_${cadence.toUpperCase()}`;
 const targetPriceId = envOrLocal(targetPriceEnvKey);
 if (!targetPriceId) {
   console.error(`Error: ${targetPriceEnvKey} is not set in env or .env.local.`);
@@ -854,6 +866,6 @@ if (finalCents !== currentEffectiveCents) {
 
 const tierNow = loadUser().tier;
 console.log(
-  `\nDone. ${user.email} is on '${tierNow}', next invoice ${formatCents(finalCents, currency)} / ${cadence === 'monthly' ? 'month' : 'year'} — verified after settle.`,
+  `\nDone. ${user.email} is on '${tierNow}', next invoice ${formatCents(finalCents, currency)} / ${PERIOD_LABEL[cadence]} — verified after settle.`,
 );
 console.log('No charge today, no refund, no cancellation. Sends no email — tell the member yourself.');

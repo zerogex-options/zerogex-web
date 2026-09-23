@@ -21,6 +21,7 @@ type DonationPayload = {
   baseAmountUsd: number;
   donationUsd: number;
   interval: string;
+  intervalCount?: number;
   currency: string;
 };
 
@@ -573,7 +574,12 @@ function AccountPageContent() {
                 {t('donationContributedTo')} <strong style={{ color: C.light }}>{donation.partner}</strong>{' '}
                 {t('donationContributedSuffix', {
                   pct: donation.pledgePct,
-                  interval: donation.interval === 'year' ? t('donationIntervalAnnual') : t('donationIntervalMonthly'),
+                  interval:
+                    donation.interval === 'year'
+                      ? t('donationIntervalAnnual')
+                      : donation.intervalCount === 3
+                        ? t('donationIntervalQuarterly')
+                        : t('donationIntervalMonthly'),
                 })}{' '}
                 <Link href="/giving" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
                   {t('seeGivingPage')}

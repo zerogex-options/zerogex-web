@@ -27,7 +27,7 @@ export function generateMetadata() {
     ? 'Monthly, quarterly or annual billing.'
     : 'Monthly or annual billing.';
   return {
-    title: 'ZeroGEX Pricing: Basic & Pro Plans, 7-Day Free Trial',
+    title: 'ZeroGEX Pricing: Basic & Pro Plans, Free Trial on Basic',
     description: `ZeroGEX pricing: Basic and Pro plans for real-time GEX, dealer positioning and signals on SPX, SPY, QQQ and NDX. 7-day free trial on Basic monthly, 7-day money-back guarantee on every other plan. ${billing}`,
     alternates: { canonical: '/pricing' },
   };

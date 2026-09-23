@@ -282,7 +282,7 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Start {TRIAL_DAYS}-day free trial <ArrowRight size={16} />
+                Try Basic free for {TRIAL_DAYS} days <ArrowRight size={16} />
               </button>
             </Link>
           </div>

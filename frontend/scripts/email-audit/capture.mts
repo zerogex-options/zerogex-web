@@ -126,7 +126,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'checkout-recovery', variant: 'plain', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null })) },
   { id: 'checkout-recovery', variant: 'founding deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: 'October 1, 2026' })) },
   { id: 'checkout-recovery', variant: 'promo deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null, promoDeadlineLabel: 'October 1, 2026', promoPricing: { basicMonthly: '$29.00', proMonthly: '$49.00' } })) },
-  { id: 'founding-final-call', variant: 'default', run: () => capture(() => M.sendFoundingFinalCallEmail(TO, { deadlineLabel: 'October 1, 2026', foundingHref: `${APP_URL}/founding`, billingStartLabel: 'October 8, 2026', pricing: { basicMonthlyIntro: '$12.00', proMonthlyIntro: '$19.00', basicMonthlyList: '$29.00', proMonthlyList: '$59.00', lifetimePercentOff: 25 } })) },
+  { id: 'founding-final-call', variant: 'default', run: () => capture(() => M.sendFoundingFinalCallEmail(TO, { deadlineLabel: 'October 1, 2026', foundingHref: `${APP_URL}/founding`, billingStartLabel: 'October 8, 2026', pricing: { basicMonthlyIntro: '$12.00', proMonthlyIntro: '$19.00', basicMonthlyList: '$39.00', proMonthlyList: '$59.00', lifetimePercentOff: 25 } })) },
   { id: 'reactivation', variant: 'default (30-day)', run: () => capture(() => M.sendReactivationEmail(TO, { trialDays: 30, unsubUrl: UNSUB })) },
 
   // --- retention / churn ----------------------------------------------------

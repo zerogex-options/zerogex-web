@@ -10,7 +10,7 @@ The [Account](/account) page is the single home for everything user-level — yo
 
 ## The header
 
-Shows your email, your verified status, your tier (Public, Basic, Pro, Admin), and your plan badge (e.g., "Pro — annual"). If you're on a trial, the badge shows "Trial — N days left".
+Shows your email, your verified status, your tier (Public, Basic, Pro, Admin), and your plan badge (e.g., "Pro — annual"). If you're on the Basic monthly free trial, the badge shows "Trial — N days left".
 
 ## Email and verification
 
@@ -37,6 +37,7 @@ You can link **Google** and **Apple** sign-in to the same account. The Account p
 - Your current tier is shown.
 - A "Manage subscription" link opens the Stripe-hosted billing portal in a new tab.
 - Cancellation, plan switches, payment methods, and invoices all happen in the portal.
+- Within 7 days of your first payment on a plan covered by the 7-day money-back guarantee (Pro, or any quarterly or annual plan), click **Request a full refund** on the Account page. Access ends when the refund is issued; one refund per customer.
 
 For step-by-step, see [Billing & Stripe Portal](/help/platform/billing).
 

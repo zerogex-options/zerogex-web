@@ -77,8 +77,17 @@ The coupon deliberately has **no redeem-by date**: `PROMO_END_AT` is the only cl
 
 **Leave the promo coupon lines in place after October 1.** `PROMO_END_AT` closes the offer. The lines are how the app recognises the promo on existing members' plan switches during their 12 months.
 
-## 6. Open items
+## 6. Manual operator commands
+
+Every `make` command that looks at a member's plan knows about quarterly. Notes on the ones where it matters:
+
+- `fix-plan-switch-discount` uses the same coupon rules as the automatic plan-switch fix, so a promo member moving between the two monthly plans keeps the $10 off for the rest of their 12 months, even after October 1.
+- `honor-winback-discount` on a quarterly member: a "one year" win-back coupon covers four quarterly invoices. It uses `STRIPE_COUPON_WINBACK_<TIER>_QUARTERLY` if set, otherwise `CREATE_COUPON=1` makes one.
+- `upgrade-at-current-price` keeps a quarterly member on quarterly billing.
+- `grant-founding-on-existing-sub` and `activate-late-founder` only offer monthly or annual targets, because the founding offer has no quarterly rate. A quarterly member can still be moved onto a founding plan.
+- The July 2026 product-update newsletter can no longer be sent (`--dry-run` still counts its audience). Its copy says both plans start with a free trial.
+
+## 7. Open items
 
 - **Terms version.** The Terms page now describes the trial, the guarantee and auto-renewal, but `TERMS_VERSION` was not bumped, because a bump makes every member re-accept. Bump it if counsel wants existing members to accept the new wording.
-- **Operator scripts not yet quarterly-aware:** `honor-winback-discount`, `grant-founding-on-existing-sub`, `fix-plan-switch-discount`, `activate-late-founder`, `reactivate-member`, `upgrade-at-current-price`, `credit-founders-july1-delay`, `audit-customer-classification`. They still handle monthly and annual correctly, so check any of them by hand before using it on a quarterly subscriber.
 - **Quarterly referral bonus.** None unless `STRIPE_COUPON_REFERRAL_REFEREE_QUARTERLY` is set. The monthly coupon (100% off) must never be reused there, because it would give a free quarter.

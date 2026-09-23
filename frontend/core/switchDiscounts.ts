@@ -24,16 +24,18 @@
 //   • A pending referral bonus (a once-coupon still on the subscription) is
 //     swapped to the new cadence's referral coupon — never newly granted here.
 
+// Relative imports, and none that reach the db or mailer, so the manual twin
+// scripts/fix-plan-switch-discount.mts can import this under plain node.
 import {
   getActivePromoCouponId,
   getConfiguredPromoCouponId,
   getFoundingIntroCouponId,
   getManagedCadenceCouponIds,
   type Sku,
-} from '@/core/stripe';
-import { BILLABLE_TIERS, BILLING_CADENCES, isPromoAdvertised } from '@/core/billingPlans';
-import { getRefereeCouponId } from '@/core/referrals';
-import { pickSwitchPromoCoupon, reconcileSwitchDiscounts } from '@/core/planSwitch';
+} from './stripe.ts';
+import { BILLABLE_TIERS, BILLING_CADENCES, isPromoAdvertised } from './billingPlans.ts';
+import { getRefereeCouponId } from './refereeCoupon.ts';
+import { pickSwitchPromoCoupon, reconcileSwitchDiscounts } from './planSwitch.ts';
 
 export type SwitchDiscountPlan = {
   keep: string[];

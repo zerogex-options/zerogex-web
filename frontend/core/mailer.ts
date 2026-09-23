@@ -1293,11 +1293,11 @@ export async function sendCheckoutRecoveryEmail(
   // after the "…closes {promo}." sentence.
   const promoPricing = opts.promoPricing ?? null;
   const promoRatesText = promoPricing
-    ? ` Basic starts at ${promoPricing.basicMonthly}/mo and Pro at ${promoPricing.proMonthly}/mo, with discounted annual plans too.`
-    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
+    ? ` Basic starts at ${promoPricing.basicMonthly}/mo and Pro at ${promoPricing.proMonthly}/mo on monthly billing.`
+    : ' The discounted intro rate applies automatically at checkout on monthly plans.';
   const promoRatesHtml = promoPricing
-    ? ` Basic starts at <strong>${escapeHtml(promoPricing.basicMonthly)}/mo</strong> and Pro at <strong>${escapeHtml(promoPricing.proMonthly)}/mo</strong>, with discounted annual plans too.`
-    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
+    ? ` Basic starts at <strong>${escapeHtml(promoPricing.basicMonthly)}/mo</strong> and Pro at <strong>${escapeHtml(promoPricing.proMonthly)}/mo</strong> on monthly billing.`
+    : ' The discounted intro rate applies automatically at checkout on monthly plans.';
 
   const subject = founding
     ? `Your ZeroGEX founding rate is still available — only until ${founding}`
@@ -2915,11 +2915,11 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     '',
     "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet — wanted to reach out personally rather than route you through a generic marketing flow.",
     '',
-    "If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.",
+    "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.",
     '',
     "If you have a question, a hesitation, or feedback on what's missing — just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
     '',
-    "If you're ready to start the trial:",
+    "If you're ready to get started:",
     pricingUrl,
     '',
     'Either way, thanks for giving ZeroGEX a look.',
@@ -2933,10 +2933,10 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet &mdash; wanted to reach out personally rather than route you through a generic marketing flow.</p>
-      <p>If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.</p>
+      <p>If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.</p>
       <p>If you have a question, a hesitation, or feedback on what's missing &mdash; just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
       <p style="margin: 24px 0;">
-        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start the free trial</a>
+        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Choose your plan</a>
       </p>
       <p>Either way, thanks for giving ZeroGEX a look.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -3164,7 +3164,7 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
     '',
     "I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up — and right now that's the one thing standing between you and the product.",
     '',
-    'Confirming your email unlocks everything, including the 7-day free trial: 7 days of full access, card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial.',
+    'Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.',
     '',
     'Confirm your email with this link (it expires in 24 hours):',
     verifyUrl,
@@ -3180,9 +3180,9 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up &mdash; and right now that's the one thing standing between you and the product.</p>
-      <p>Confirming your email unlocks everything, including the 7-day free trial: 7 days of full access, card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial.</p>
+      <p>Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.</p>
       <p style="margin: 24px 0;">
-        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm email &amp; unlock the trial</a>
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm my email</a>
       </p>
       <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
       <p style="font-size: 13px; color: #555;">This link expires in 24 hours.</p>

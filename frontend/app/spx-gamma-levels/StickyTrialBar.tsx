@@ -77,7 +77,7 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
       {visible && (
     <div
       role="region"
-      aria-label="Start free trial"
+      aria-label="Get started with ZeroGEX"
       className="zgx-sticky-trial"
       style={{
         position: 'fixed',
@@ -122,7 +122,7 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
           whiteSpace: 'nowrap',
         }}
       >
-        Start Free Trial <ArrowRight size={15} />
+        Get Started <ArrowRight size={15} />
       </Link>
 
       <button

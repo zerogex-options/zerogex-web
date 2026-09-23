@@ -109,7 +109,7 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
         </Link>{' '}
         — the full gamma flip, call and put walls, dealer positioning, and the 13-signal composite.{' '}
         <Link href="/register" className={linkClass}>
-          Start a free trial
+          Sign up
         </Link>{' '}
         for the live read.
       </p>

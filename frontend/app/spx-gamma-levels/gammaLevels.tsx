@@ -794,7 +794,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           >
             Data is briefly unavailable — refresh in a minute, or{' '}
             <Link href="/register" style={{ color: 'var(--color-brand-primary)' }}>
-              start a free trial
+              sign up
             </Link>{' '}
             for the live read.
           </div>
