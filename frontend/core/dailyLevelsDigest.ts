@@ -14,6 +14,7 @@
 // reader we have, and they must find the same numbers.
 
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from './gexSummary.ts';
+import { trackRecordOneLiner, type HistorySummary } from './trackRecord.ts';
 import { netGexAtSpotOrNull } from './gammaRegime.ts';
 import { etParts, type FreshnessBasis } from './levelsEmail.ts';
 import { SYMBOLS } from './symbols.ts';
@@ -63,6 +64,15 @@ export type DigestModel = {
   /** Symbols dropped because their snapshot was from a different session. */
   omitted: string[];
   subject: string;
+  /**
+   * One line of graded track record, or null.
+   *
+   * Optional by design. The send script fetches the archive best-effort, and
+   * if that call fails the line is simply absent — a daily cron that mails
+   * real subscribers must not acquire a new way to fail in order to carry a
+   * marketing sentence.
+   */
+  trackRecord: string | null;
 };
 
 // Fallback reading order, used when a subscriber expressed no preference.
@@ -133,6 +143,11 @@ export type BuildDigestInput = {
   basis: FreshnessBasis;
   /** Ticker the subject leads with. Defaults to SPX. */
   primary?: string;
+  /**
+   * The graded forecast record for `primary`, when the caller could fetch it.
+   * Passed in rather than fetched here so this module stays pure.
+   */
+  history?: HistorySummary | null;
 };
 
 /**
@@ -201,6 +216,11 @@ export function buildDigestModel(input: BuildDigestInput): DigestModel | null {
     rows,
     omitted,
     subject: parts.join(' · '),
+    // Null unless the caller supplied an archive deep enough to say something
+    // honest; trackRecordOneLiner falls back to the practice sentence on a
+    // thin record, and there is no point spending a line of a daily email on
+    // a sentence carrying no number.
+    trackRecord: input.history ? trackRecordOneLiner(input.history, primary) : null,
   };
 }
 
@@ -301,6 +321,7 @@ const FOOTER_LINKS: ReadonlyArray<{ path: string; label: string; blurb: string }
   { path: '/education/how-to-read-a-gamma-flip', label: 'How to read a gamma flip', blurb: 'the line the whole map hangs on' },
   { path: '/education/gamma-walls-explained', label: 'Gamma walls explained', blurb: 'why price stalls at the call and put walls' },
   { path: '/scorecard', label: 'Daily Scorecard', blurb: "how the engine's calls actually resolved, session by session" },
+  { path: '/track-record', label: 'Forecast track record', blurb: 'every graded session since we started, including the days the range broke' },
   { path: '/tradingview-indicator', label: 'Free TradingView script', blurb: 'plot the levels above on your own chart' },
 ];
 
@@ -344,9 +365,12 @@ export function renderDailyLevelsEmail(
     `Full page, charts and the other tickers: ${site}/spx-gamma-levels`,
     '',
     'Worth reading:',
+    ...(model.trackRecord
+      ? [`${model.trackRecord}`, `  ${site}/track-record`, '']
+      : []),
     ...FOOTER_LINKS.map((l) => `  ${l.label} — ${l.blurb}\n    ${site}${l.path}`),
     '',
-    `Live intraday levels, dealer flow and signals are what the paid plans add — 7-day trial, cancel any time: ${site}/pricing`,
+    `Live intraday levels, dealer flow and signals are what the paid plans add. Start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee: ${site}/pricing`,
     '',
     '---',
     `Unsubscribe: ${opts.unsubUrl}`,
@@ -436,6 +460,12 @@ export function renderDailyLevelsEmail(
 
       <div style="margin:24px 0 0; padding-top:18px; border-top:1px solid #e8e8e8;">
         <p style="margin:0 0 10px; font-size:13px; font-weight:700; color:#12283c;">Worth reading</p>
+        ${model.trackRecord
+          ? `<p style="margin:0 0 14px; padding:10px 12px; background:#f4f7fa; border-left:3px solid #12283c; font-size:13px; line-height:1.5; color:#12283c;">
+              ${escapeHtml(model.trackRecord)}
+              <a href="${escapeHtml(`${site}/track-record`)}" style="color:#12283c; font-weight:600;">See the record &rarr;</a>
+            </p>`
+          : ''}
         ${FOOTER_LINKS.map(
           (l) => `<p style="margin:0 0 7px; font-size:13px; line-height:1.45;">
             <a href="${escapeHtml(`${site}${l.path}`)}" style="color:#12283c; font-weight:600; text-decoration:none;">${escapeHtml(l.label)}</a>
@@ -446,7 +476,7 @@ export function renderDailyLevelsEmail(
 
       <p style="margin:20px 0 0; padding-top:18px; border-top:1px solid #e8e8e8; font-size:13px; color:#555;">
         Live intraday levels, dealer flow and signals are what the paid plans add.
-        <a href="${escapeHtml(`${site}/pricing`)}" style="color:#12283c; font-weight:600;">7-day trial</a>, cancel any time.
+        Start with a <a href="${escapeHtml(`${site}/pricing`)}" style="color:#12283c; font-weight:600;">7-day free trial on Basic</a> (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee.
       </p>
 
       <p style="margin:18px 0 0; font-size:11px; color:#8a939b;">

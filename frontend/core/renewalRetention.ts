@@ -78,7 +78,7 @@ export type RenewalCohortRow = {
 export type AtRiskCustomer = {
   id: string;
   email: string;
-  cadence: 'monthly' | 'annual' | null;
+  cadence: 'monthly' | 'quarterly' | 'annual' | null;
   tier: string;
   /** Monthly-normalized USD, priced exactly as the MRR snapshot prices it. */
   monthlyValue: number;
@@ -90,10 +90,13 @@ export type AtRiskPool = {
   customers: AtRiskCustomer[];
   total: number;
   monthly: number;
+  quarterly: number;
   annual: number;
   cadenceUnknown: number;
   /** MRR that stops when the scheduled monthly cancellations take effect. */
   monthlyMrrAtRisk: number;
+  /** Quarterly contract value leaving with the scheduled quarterly cancellations. */
+  quarterlyRevenueAtRisk: number;
   /** Annual contract value leaving with the scheduled annual cancellations. */
   annualRevenueAtRisk: number;
   /** Every scheduled cancellation, expressed as monthly-normalized revenue. */
@@ -314,6 +317,7 @@ function buildAtRiskPool(
   }).sort((a, b) => (a.daysRemaining ?? Infinity) - (b.daysRemaining ?? Infinity));
 
   const monthly = customers.filter((customer) => customer.cadence === 'monthly');
+  const quarterly = customers.filter((customer) => customer.cadence === 'quarterly');
   const annual = customers.filter((customer) => customer.cadence === 'annual');
   const within = (days: number) => customers.filter((c) => c.daysRemaining != null && c.daysRemaining <= days).length;
 
@@ -321,9 +325,12 @@ function buildAtRiskPool(
     customers,
     total: customers.length,
     monthly: monthly.length,
+    quarterly: quarterly.length,
     annual: annual.length,
     cadenceUnknown: customers.filter((customer) => customer.cadence == null).length,
     monthlyMrrAtRisk: monthly.reduce((sum, customer) => sum + customer.monthlyValue, 0),
+    // Monthly-normalized, like the annual line below: a quarter is three of them.
+    quarterlyRevenueAtRisk: quarterly.reduce((sum, customer) => sum + customer.monthlyValue * 3, 0),
     // AmountTable is monthly-normalized, so an annual subscriber's contract is
     // twelve of those — the cash that does not come back next renewal.
     annualRevenueAtRisk: annual.reduce((sum, customer) => sum + customer.monthlyValue * 12, 0),

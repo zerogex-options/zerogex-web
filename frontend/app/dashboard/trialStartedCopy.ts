@@ -6,8 +6,8 @@
 // runner can import it directly (see tests/trialStartedBanner.test.ts), the
 // same split app/backtesting/insights/view.ts uses.
 //
-// Checkout grants three materially different things, and the banner used to
-// greet all three with "your 7-day free trial is now active. No charge until
+// Checkout grants materially different things, and the banner used to greet
+// them all with "your 7-day free trial is now active. No charge until
 // day 7":
 //
 //   days      a day-count trial — the standard TRIAL_PERIOD_DAYS, or the
@@ -19,10 +19,18 @@
 //   none      no trial at all — a returning ex-subscriber is charged at
 //             checkout (the once-per-account trial gate), so "no charge until
 //             day 7" was not merely imprecise for them, it was false.
+//   money_back
+//             no trial, paid up front — but on a plan sold under the 7-day
+//             money-back guarantee (core/billingPlans.ts), which the banner
+//             restates with how to use it and the one-refund limit.
+
+import { MONEY_BACK_GUARANTEE_DAYS } from '../../core/billingPlans.ts';
+
 export type TrialStartedCopy =
   | { variant: 'days'; days: number }
   | { variant: 'deferred' }
-  | { variant: 'none' };
+  | { variant: 'none' }
+  | { variant: 'money_back'; days: number };
 
 // Widest trial we will print a number for. Far above anything checkout can
 // actually grant (REACTIVATION_TRIAL_DAYS is clamped to 90); it exists so a
@@ -31,6 +39,7 @@ const MAX_NAMEABLE_TRIAL_DAYS = 365;
 
 export function resolveTrialStartedCopy(param: string | null): TrialStartedCopy {
   if (param === 'none') return { variant: 'none' };
+  if (param === 'money_back') return { variant: 'money_back', days: MONEY_BACK_GUARANTEE_DAYS };
   const days = Number(param);
   if (Number.isInteger(days) && days >= 1 && days <= MAX_NAMEABLE_TRIAL_DAYS) {
     return { variant: 'days', days };

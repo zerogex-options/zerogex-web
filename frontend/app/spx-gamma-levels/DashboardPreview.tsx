@@ -103,7 +103,7 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
           event={TelemetryEvent.DashboardPreviewCtaClick}
         />
         <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.85 }}>
-          7-day free trial. No charge until day 7. Cancel anytime.
+          7-day free trial on Basic monthly &middot; 7-day money-back guarantee on every other plan.
         </span>
       </div>
     </section>

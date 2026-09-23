@@ -3,8 +3,16 @@
 // The monitoring layer (core/monitoring.ts) is responsible for reading the
 // live subscriber rows out of SQLite and handing classified buckets here.
 
-export type BillableTier = 'basic' | 'pro';
-export type BillingCadence = 'monthly' | 'annual';
+import {
+  BILLABLE_TIERS,
+  BILLING_CADENCES,
+  CADENCE_MONTHS,
+  LIST_PRICE_USD,
+  type BillableTier,
+  type BillingCadence,
+} from './billingPlans.ts';
+
+export type { BillableTier, BillingCadence };
 // Which price a subscriber is actually paying. `promo` (the time-boxed
 // public discount) is intentionally absent: it can't be reconstructed from
 // the local user row after checkout, so promo subscribers fall back to
@@ -12,23 +20,33 @@ export type BillingCadence = 'monthly' | 'annual';
 export type RateClass = 'list' | 'founding';
 export type SubscriptionState = 'active' | 'trialing';
 
-// Monthly-normalized USD per (tier, cadence, rate). Annual prices are the
-// list/founding annual amounts divided by 12 so everything compares on one
-// axis. Defaults mirror app/pricing/Client.tsx (DISPLAY) and the founding
-// coupon net prices documented in core/stripe.ts.
+// Monthly-normalized USD per (tier, cadence, rate). Quarterly and annual prices
+// are the per-period amounts divided by the months they cover (3 and 12) so
+// everything compares on one axis. List amounts come from the plan catalogue
+// (core/billingPlans.ts LIST_PRICE_USD, the same numbers the pricing page
+// shows); founding amounts are the founding coupon net prices documented in
+// core/stripe.ts. There is no quarterly founding rate — the offer closed before
+// quarterly billing existed — so quarterly's founding slot is its list price,
+// which is what a founder who somehow landed on quarterly would pay.
 export type AmountTable = Record<
   BillableTier,
   Record<BillingCadence, Record<RateClass, number>>
 >;
 
+function listMonthly(tier: BillableTier, cadence: BillingCadence): number {
+  return LIST_PRICE_USD[tier][cadence] / CADENCE_MONTHS[cadence];
+}
+
 export const DEFAULT_AMOUNTS: AmountTable = {
   basic: {
-    monthly: { list: 39, founding: 12 },
-    annual: { list: 199 / 12, founding: 120 / 12 },
+    monthly: { list: listMonthly('basic', 'monthly'), founding: 12 },
+    quarterly: { list: listMonthly('basic', 'quarterly'), founding: listMonthly('basic', 'quarterly') },
+    annual: { list: listMonthly('basic', 'annual'), founding: 120 / 12 },
   },
   pro: {
-    monthly: { list: 59, founding: 19 },
-    annual: { list: 299 / 12, founding: 190 / 12 },
+    monthly: { list: listMonthly('pro', 'monthly'), founding: 19 },
+    quarterly: { list: listMonthly('pro', 'quarterly'), founding: listMonthly('pro', 'quarterly') },
+    annual: { list: listMonthly('pro', 'annual'), founding: 190 / 12 },
   },
 };
 
@@ -150,7 +168,7 @@ export function computeMrr(input: {
   // Sort breakdown for stable, readable display: tier, then cadence, then
   // rate, then state.
   const tierOrder: Record<BillableTier, number> = { pro: 0, basic: 1 };
-  const cadenceOrder: Record<BillingCadence, number> = { monthly: 0, annual: 1 };
+  const cadenceOrder: Record<BillingCadence, number> = { monthly: 0, quarterly: 1, annual: 2 };
   const rateOrder: Record<RateClass, number> = { list: 0, founding: 1 };
   const stateOrder: Record<SubscriptionState, number> = { active: 0, trialing: 1 };
   breakdown.sort(
@@ -200,15 +218,17 @@ export function parseAmountTable(raw: string | undefined): AmountTable {
   const out: AmountTable = {
     basic: {
       monthly: { ...DEFAULT_AMOUNTS.basic.monthly },
+      quarterly: { ...DEFAULT_AMOUNTS.basic.quarterly },
       annual: { ...DEFAULT_AMOUNTS.basic.annual },
     },
     pro: {
       monthly: { ...DEFAULT_AMOUNTS.pro.monthly },
+      quarterly: { ...DEFAULT_AMOUNTS.pro.quarterly },
       annual: { ...DEFAULT_AMOUNTS.pro.annual },
     },
   };
-  const tiers: BillableTier[] = ['basic', 'pro'];
-  const cadences: BillingCadence[] = ['monthly', 'annual'];
+  const tiers: readonly BillableTier[] = BILLABLE_TIERS;
+  const cadences: readonly BillingCadence[] = BILLING_CADENCES;
   const rates: RateClass[] = ['list', 'founding'];
   const src = parsed as Record<string, unknown>;
   for (const tier of tiers) {

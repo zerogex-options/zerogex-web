@@ -259,7 +259,7 @@ export default function SharedBacktestReport() {
           className="mt-4 inline-flex items-center rounded-md px-5 py-2.5 text-sm font-semibold"
           style={{ background: 'var(--color-accent)', color: 'var(--color-bg, #000)' }}
         >
-          Start your 7-day free trial →
+          See Pro plans →
         </Link>
       </section>
 

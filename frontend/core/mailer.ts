@@ -390,10 +390,17 @@ export async function sendPaidWelcomeEmail(
     // the renewal rate will look like. Detection happens in the webhook by
     // checking subscription.discounts against getActivePromoCouponIds().
     promoIntroLabel?: string | null;
+    // Last instant a full refund can be requested under the 7-day money-back
+    // guarantee, when this purchase is covered by it (a plan paid up front —
+    // see core/billingPlans.ts). Null for trials, which carry no guarantee.
+    moneyBackUntilIso?: string | null;
   },
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const promoLabel = opts?.promoIntroLabel ?? null;
+  const moneyBackUntil = !opts?.trialEndIso && opts?.moneyBackUntilIso
+    ? formatTrialEndDateTime(opts.moneyBackUntilIso)
+    : null;
   // A set trial-end date means the subscription is still trialing (the standard
   // checkout path), whatever that trial's length turned out to be. Trial copy
   // deliberately avoids "thank you for subscribing" — a trialer hasn't paid, and
@@ -421,6 +428,15 @@ export async function sendPaidWelcomeEmail(
   const promoLineHtml = promoLabel
     ? `You're on our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)} &mdash; it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
     : null;
+  // The guarantee, restated at the moment it starts running, with the exact
+  // deadline and the one-refund limit — the same terms the pricing page and the
+  // checkout button showed, so nothing about it is first learned at refund time.
+  const moneyBackLineText = moneyBackUntil
+    ? `Your plan is covered by our 7-day money-back guarantee. If ZeroGEX isn't the right fit, request a full refund from your account page (${accountUrl}) any time before ${moneyBackUntil}. Your access ends when the refund is issued, and the guarantee is limited to one refund per customer.`
+    : null;
+  const moneyBackLineHtml = moneyBackUntil
+    ? `Your plan is covered by our <strong>7-day money-back guarantee</strong>. If ZeroGEX isn't the right fit, request a full refund from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> any time before ${escapeHtml(moneyBackUntil)}. Your access ends when the refund is issued, and the guarantee is limited to one refund per customer.`
+    : null;
 
   const thankYouLine = isTrial
     ? 'I just wanted to personally thank you for trying ZeroGEX.'
@@ -434,6 +450,7 @@ export async function sendPaidWelcomeEmail(
     '',
     ...(trialLineText ? [trialLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
+    ...(moneyBackLineText ? [moneyBackLineText, ''] : []),
     thankYouLine,
     '',
     "The best place to start is the live dashboard. For your first session, here's where I'd look first:",
@@ -468,6 +485,7 @@ export async function sendPaidWelcomeEmail(
       <p>Hello,</p>
       ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
+      ${moneyBackLineHtml ? `<p>${moneyBackLineHtml}</p>` : ''}
       <p>${thankYouLine}</p>
       <p>The best place to start is the live dashboard. For your first session, here's where I'd look first:</p>
       ${startHereHtmlList()}
@@ -1275,11 +1293,11 @@ export async function sendCheckoutRecoveryEmail(
   // after the "…closes {promo}." sentence.
   const promoPricing = opts.promoPricing ?? null;
   const promoRatesText = promoPricing
-    ? ` Basic starts at ${promoPricing.basicMonthly}/mo and Pro at ${promoPricing.proMonthly}/mo, with discounted annual plans too.`
-    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
+    ? ` Basic starts at ${promoPricing.basicMonthly}/mo and Pro at ${promoPricing.proMonthly}/mo on monthly billing.`
+    : ' The discounted intro rate applies automatically at checkout on monthly plans.';
   const promoRatesHtml = promoPricing
-    ? ` Basic starts at <strong>${escapeHtml(promoPricing.basicMonthly)}/mo</strong> and Pro at <strong>${escapeHtml(promoPricing.proMonthly)}/mo</strong>, with discounted annual plans too.`
-    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
+    ? ` Basic starts at <strong>${escapeHtml(promoPricing.basicMonthly)}/mo</strong> and Pro at <strong>${escapeHtml(promoPricing.proMonthly)}/mo</strong> on monthly billing.`
+    : ' The discounted intro rate applies automatically at checkout on monthly plans.';
 
   const subject = founding
     ? `Your ZeroGEX founding rate is still available — only until ${founding}`
@@ -2897,11 +2915,11 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     '',
     "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet — wanted to reach out personally rather than route you through a generic marketing flow.",
     '',
-    "If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.",
+    "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.",
     '',
     "If you have a question, a hesitation, or feedback on what's missing — just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
     '',
-    "If you're ready to start the trial:",
+    "If you're ready to get started:",
     pricingUrl,
     '',
     'Either way, thanks for giving ZeroGEX a look.',
@@ -2915,10 +2933,10 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet &mdash; wanted to reach out personally rather than route you through a generic marketing flow.</p>
-      <p>If you've been weighing the one week free trial: it's 7 days of full access, your card is on file but won't be charged until day 8, and we send a heads-up email 48 hours before the first payment so the conversion is never a surprise. If within the 7 days you find it is not the right fit, you can cancel in one click on the billing portal and you won't be charged.</p>
+      <p>If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.</p>
       <p>If you have a question, a hesitation, or feedback on what's missing &mdash; just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
       <p style="margin: 24px 0;">
-        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start the free trial</a>
+        <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Choose your plan</a>
       </p>
       <p>Either way, thanks for giving ZeroGEX a look.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -3146,7 +3164,7 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
     '',
     "I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up — and right now that's the one thing standing between you and the product.",
     '',
-    'Confirming your email unlocks everything, including the 7-day free trial: 7 days of full access, card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial.',
+    'Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.',
     '',
     'Confirm your email with this link (it expires in 24 hours):',
     verifyUrl,
@@ -3162,9 +3180,9 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up &mdash; and right now that's the one thing standing between you and the product.</p>
-      <p>Confirming your email unlocks everything, including the 7-day free trial: 7 days of full access, card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial.</p>
+      <p>Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.</p>
       <p style="margin: 24px 0;">
-        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm email &amp; unlock the trial</a>
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm my email</a>
       </p>
       <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
       <p style="font-size: 13px; color: #555;">This link expires in 24 hours.</p>
@@ -3777,6 +3795,214 @@ export async function sendReturnIntentDigestEmail(
     </div>
   `.trim();
 
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7-day money-back guarantee
+// ---------------------------------------------------------------------------
+
+export type MoneyBackRefundEmailOptions = {
+  // "$115.00" — what was refunded, formatted by the caller from the refunds
+  // Stripe actually created.
+  amountFormatted: string;
+  // "Pro (quarterly)".
+  planLabel: string;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+};
+
+// Confirmation to the member that the guarantee was honored: how much, to
+// which card, that the plan is canceled and access has ended, and — because
+// the guarantee is once per customer — that a future subscription is paid
+// without it. Deliberately no pitch to stay: they asked to leave.
+export function buildMoneyBackRefundEmail(opts: MoneyBackRefundEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const brand = opts.cardBrand ? opts.cardBrand.charAt(0).toUpperCase() + opts.cardBrand.slice(1) : null;
+  const card = opts.cardLast4 ? `your ${brand ?? 'card'} ending in ${opts.cardLast4}` : 'your original payment method';
+  const subject = 'Your ZeroGEX refund is on its way';
+  const refundLine = `We've refunded ${opts.amountFormatted} to ${card} under our 7-day money-back guarantee. Depending on your bank it usually appears within 5–10 business days.`;
+  const cancelLine = `Your ${opts.planLabel} subscription has been canceled and your paid access has ended. Nothing further will be charged.`;
+  const onceLine = "The guarantee is one refund per customer, so if you subscribe again in the future that plan won't include it. You're always welcome back, and the free public pages stay open to you in the meantime.";
+  const askLine = "If you have a minute, I'd genuinely like to know what didn't work for you — just reply to this email. I read every message myself.";
+
+  const text = [
+    'Hello,',
+    '',
+    refundLine,
+    '',
+    cancelLine,
+    '',
+    onceLine,
+    '',
+    askLine,
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(refundLine)}</p>
+      <p>${escapeHtml(cancelLine)}</p>
+      <p>${escapeHtml(onceLine)}</p>
+      <p>${escapeHtml(askLine)}</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendMoneyBackRefundEmail(to: string, opts: MoneyBackRefundEmailOptions) {
+  const { subject, text, html } = buildMoneyBackRefundEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+export type MoneyBackOperatorAlert = {
+  // 'issued' for a clean refund; 'attention' when a step needs a human (a
+  // refund that failed part-way, a subscription Stripe would not cancel).
+  kind: 'issued' | 'attention';
+  email: string;
+  planLabel: string;
+  amountFormatted: string;
+  source: 'self_serve' | 'operator';
+  reason: string | null;
+  comment: string | null;
+  // Plain-language lines describing anything that still needs doing.
+  problems: string[];
+  subscriptionId: string;
+  refundIds: string[];
+};
+
+// Operator notice for every guarantee refund. A clean one is informational (who
+// left, why, how much); an 'attention' one names what the flow could not finish
+// — most importantly a subscription that is refunded but still live in Stripe,
+// which would bill the member again at renewal unless someone cancels it.
+export function buildMoneyBackOperatorAlertEmail(alert: MoneyBackOperatorAlert): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const subject =
+    alert.kind === 'attention'
+      ? `[ZeroGEX] ACTION NEEDED — money-back refund for ${alert.email}`
+      : `[ZeroGEX] Money-back refund issued — ${alert.email} (${alert.amountFormatted})`;
+  const facts = [
+    `Member:        ${alert.email}`,
+    `Plan:          ${alert.planLabel}`,
+    `Refunded:      ${alert.amountFormatted}`,
+    `Requested via: ${alert.source === 'self_serve' ? 'Account page (self-serve)' : 'operator script'}`,
+    `Reason:        ${alert.reason ?? 'none given'}`,
+    `In their words: ${alert.comment ? `"${alert.comment}"` : '(nothing typed)'}`,
+    `Subscription:  ${alert.subscriptionId}`,
+    `Refund ids:    ${alert.refundIds.join(', ') || 'none'}`,
+  ];
+  const text = [
+    alert.kind === 'attention'
+      ? 'A money-back refund did not complete cleanly and needs a human:'
+      : 'A member used the 7-day money-back guarantee.',
+    '',
+    ...(alert.problems.length ? ['NEEDS DOING', ...alert.problems.map((p) => `  • ${p}`), ''] : []),
+    ...facts,
+    '',
+    `Re-run safely (resumes, never double-refunds): make money-back-refund EMAIL=${alert.email}`,
+  ].join('\n');
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#1a1a1a; max-width:640px; margin:0 auto; padding:24px; line-height:1.5;">
+      <pre style="font-family: ui-monospace, Menlo, monospace; font-size: 13px; white-space: pre-wrap;">${escapeHtml(text)}</pre>
+    </div>
+  `.trim();
+  return { subject, text, html };
+}
+
+export async function sendMoneyBackOperatorAlertEmail(to: string, alert: MoneyBackOperatorAlert) {
+  const { subject, text, html } = buildMoneyBackOperatorAlertEmail(alert);
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Renewal reminder (quarterly / annual)
+// ---------------------------------------------------------------------------
+
+export type RenewalReminderEmailOptions = {
+  // "Pro (annual)".
+  planLabel: string;
+  // When the renewal charge will be attempted (users.current_period_end).
+  renewalIso: string;
+  // The exact amount Stripe will charge, from its upcoming-invoice preview, or
+  // null when that could not be read — the email then names no figure rather
+  // than guess one.
+  amountFormatted: string | null;
+};
+
+// The advance notice for a prepaid plan's automatic renewal
+// (core/renewalReminder.ts): what renews, when, for how much, and how to stop
+// it — plainly, with no retention pitch in the way of the cancel instructions.
+export function buildRenewalReminderEmail(opts: RenewalReminderEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const when = formatTrialEndDateTime(opts.renewalIso);
+  const day = formatTrialEndDate(opts.renewalIso);
+  const accountUrl = `${getAppUrl()}/account`;
+  const subject = `Your ZeroGEX ${opts.planLabel} plan renews on ${day}`;
+  const renewLine = opts.amountFormatted
+    ? `Your ZeroGEX ${opts.planLabel} subscription renews automatically on ${when}, and ${opts.amountFormatted} will be charged to your payment method on file.`
+    : `Your ZeroGEX ${opts.planLabel} subscription renews automatically on ${when}, at your plan's current rate, charged to your payment method on file.`;
+  const keepLine = "If you'd like to keep it, there's nothing to do — your access simply continues.";
+  const changeLine = `To cancel or switch plans, open the billing portal from your account page (${accountUrl}) any time before then. Cancelling stops the renewal; you keep access until the end of the period you've already paid for.`;
+
+  const text = [
+    'Hello,',
+    '',
+    renewLine,
+    '',
+    keepLine,
+    '',
+    changeLine,
+    '',
+    'Questions about your plan? Just reply to this email.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(renewLine)}</p>
+      <p>${escapeHtml(keepLine)}</p>
+      <p>To cancel or switch plans, open the billing portal from your <a href="${escapeHtml(accountUrl)}" style="color: #f5b400; font-weight: 600;">account page</a> any time before then. Cancelling stops the renewal; you keep access until the end of the period you've already paid for.</p>
+      <p>Questions about your plan? Just reply to this email.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendRenewalReminderEmail(to: string, opts: RenewalReminderEmailOptions) {
+  const { subject, text, html } = buildRenewalReminderEmail(opts);
   const client = getClient();
   const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
   if (result.error) {

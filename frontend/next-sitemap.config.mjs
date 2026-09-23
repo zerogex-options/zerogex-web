@@ -239,6 +239,11 @@ const config = {
       '/sierra-chart-indicator',
       '/terms',
       '/thinkorswim-indicator',
+      // The graded forecast record. Listed here rather than relying on
+      // auto-discovery for the reason stated at the top of this block: it
+      // renders dynamically, so next-sitemap never sees it. An unindexed
+      // credibility page is a credibility page nobody reads.
+      '/track-record',
       '/trading-mistakes',
       '/tradingview-indicator',
       '/updates',

@@ -12,7 +12,10 @@ export async function GET(request: Request) {
     return forbidden;
   }
   const requestedCadence = new URL(request.url).searchParams.get('cadence');
-  const cadence = requestedCadence === 'monthly' || requestedCadence === 'annual' ? requestedCadence : undefined;
+  const cadence =
+    requestedCadence === 'monthly' || requestedCadence === 'quarterly' || requestedCadence === 'annual'
+      ? requestedCadence
+      : undefined;
   const response = NextResponse.json({ ok: true, ...getCohortRetentionReport(cadence) });
   response.headers.set('Cache-Control', 'no-store, private');
   return response;

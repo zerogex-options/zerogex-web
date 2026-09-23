@@ -26,7 +26,7 @@ Abre [Account](/account). El panel de Referidos muestra tu código, tu enlace y 
 ## Qué cuenta como referido exitoso
 
 - El nuevo usuario debe registrarse con tu código aplicado.
-- Debe pasar a un plan de pago (prueba → pago) y completar al menos un ciclo de facturación completo.
+- Debe pasar a un plan de pago (en Basic mensual, al terminar la prueba gratuita) y completar al menos un ciclo de facturación completo.
 - No se permiten autorreferidos (detectados por el sistema).
 - Quien refiere debe tener un correo verificado y un plan de pago activo.
 
@@ -46,7 +46,7 @@ Tres patrones que observamos:
 
 ## Cómo se beneficia el nuevo usuario
 
-El nuevo usuario recibe el mismo período de prueba estándar (sin extensión por tu código), y cualquier promoción activa en todo el sitio se aplica adicionalmente. El sistema de referidos te acredita **a ti** la conversión, no a él — el programa está diseñado como un agradecimiento, no como una transferencia de descuento.
+El nuevo usuario recibe las mismas condiciones estándar que cualquier otro — la prueba gratuita de 7 días en Basic mensual, o la garantía de devolución del dinero de 7 días en todos los demás planes (sin extensión por tu código), y cualquier promoción activa en todo el sitio se aplica adicionalmente. Además, su primera factura incluye un bono de referido: **un mes gratis** en un plan mensual o trimestral, o **10% de descuento en el primer año** en el plan anual. Solo aplica a la primera suscripción. Tú recibes tu crédito por separado, como se describe arriba.
 
 ## Privacidad
 

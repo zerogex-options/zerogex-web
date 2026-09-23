@@ -66,6 +66,11 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
       { href: '/chart', label: 'Gamma Terminal' },
+      // Site-wide, for the same reason the widget below is: a public page
+      // with no inbound link does not exist. This one is also the page every
+      // accuracy claim elsewhere on the site should be checkable against,
+      // which only works if it is reachable from everywhere.
+      { href: '/track-record', label: 'Forecast Track Record' },
       // The free widget's storefront. Site-wide rather than buried on the
       // levels pages: it is the only page on the site whose whole job is to be
       // found by someone who publishes elsewhere, and /scorecard already

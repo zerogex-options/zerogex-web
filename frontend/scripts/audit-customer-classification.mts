@@ -16,7 +16,7 @@
 //    1 trial → paid                        8 recurring failure that churned
 //    2 direct to paid, no trial            9 first charge failed, never paid
 //    3 paying, before first renewal       10 churned then resubscribed
-//    4 renewed at least once              11 annual customer
+//    4 renewed at least once              11 annual or quarterly customer
 //    5 cancelled before first renewal     12 churned before day 30
 //    6 cancellation scheduled, still on   13 changed tier mid-subscription
 //    7 recurring failure that recovered
@@ -121,7 +121,7 @@ const SHAPES: Array<[string, (user: Customer) => boolean]> = [
   ['8  payment failure that churned', (u) => u.paymentFailureState === 'lost'],
   ['9  first charge failed, never paid', (u) => u.firstPaidAt == null && u.failedPaymentAttempts > 0],
   ['10 churned then resubscribed', (u) => u.reactivatedAfterInterruption],
-  ['11 annual customer', (u) => u.cadence === 'annual' && u.firstPaidAt != null],
+  ['11 annual or quarterly customer', (u) => (u.cadence === 'annual' || u.cadence === 'quarterly') && u.firstPaidAt != null],
   ['12 churned before day 30', (u) => (u.daysPaidBeforePermanentLoss ?? 999) < 30],
   ['13 changed tier mid-subscription', (u) => u.firstPaidAt != null
     && new Set(u.auditEvents.filter((e) => e.type === 'stripe_subscription_sync')
@@ -163,10 +163,10 @@ if (email) {
   }
   const pool = renewals.atRisk;
   console.log('');
-  console.log(`At risk now: ${pool.total} scheduled cancellations — ${pool.monthly} monthly, ${pool.annual} annual, ${pool.cadenceUnknown} cadence unknown.`);
-  console.log(`             $${Math.round(pool.monthlyMrrAtRisk)} MRR and $${Math.round(pool.annualRevenueAtRisk)} of annual contracts.`);
+  console.log(`At risk now: ${pool.total} scheduled cancellations — ${pool.monthly} monthly, ${pool.quarterly} quarterly, ${pool.annual} annual, ${pool.cadenceUnknown} cadence unknown.`);
+  console.log(`             $${Math.round(pool.monthlyMrrAtRisk)} MRR, $${Math.round(pool.quarterlyRevenueAtRisk)} of quarterly and $${Math.round(pool.annualRevenueAtRisk)} of annual contracts.`);
   console.log(`             ${pool.endingWithin7Days} gone within 7 days, ${pool.endingWithin30Days} within 30.`);
-  console.log(`Cadence coverage of ever-paid: ${report.cadenceCoverage.monthly} monthly, ${report.cadenceCoverage.annual} annual, ${report.cadenceCoverage.unknown} unknown.`);
+  console.log(`Cadence coverage of ever-paid: ${report.cadenceCoverage.monthly} monthly, ${report.cadenceCoverage.quarterly} quarterly, ${report.cadenceCoverage.annual} annual, ${report.cadenceCoverage.unknown} unknown.`);
 
   let missing = 0;
   for (const [shape, predicate] of SHAPES) {

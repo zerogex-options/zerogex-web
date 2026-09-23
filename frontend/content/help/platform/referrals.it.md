@@ -26,7 +26,7 @@ Apri [Account](/account). Il pannello Referral mostra il tuo codice, il tuo link
 ## Cosa conta come referral andato a buon fine
 
 - Il nuovo utente deve registrarsi con il tuo codice applicato.
-- Deve passare a un piano a pagamento (prova → pagamento) e completare almeno un intero ciclo di fatturazione.
+- Deve passare a un piano a pagamento (per Basic mensile, al termine della prova gratuita) e completare almeno un intero ciclo di fatturazione.
 - I self-referral non sono consentiti (rilevati automaticamente dal sistema).
 - Chi effettua il referral deve avere un'email verificata e un piano a pagamento attivo.
 
@@ -46,7 +46,7 @@ Tre modalità che osserviamo più spesso:
 
 ## Come ne beneficia il nuovo utente
 
-Il nuovo utente riceve lo stesso periodo di prova standard (nessuna estensione tramite il tuo codice), e qualsiasi promozione attiva a livello di sito si applica in aggiunta. Il sistema di referral accredita **a te** la conversione, non a lui — il programma è pensato come un ringraziamento, non come un trasferimento di sconto.
+Il nuovo utente riceve le stesse condizioni standard di chiunque altro — la prova gratuita di 7 giorni su Basic mensile, o la garanzia soddisfatti o rimborsati di 7 giorni su tutti gli altri piani (nessuna estensione tramite il tuo codice), e qualsiasi promozione attiva a livello di sito si applica in aggiunta. In più, la sua prima fattura include un bonus referral: **un mese gratis** con il piano mensile o trimestrale, o **il 10% di sconto sul primo anno** con il piano annuale. Vale solo per il primo abbonamento. Tu ricevi il tuo credito a parte, come descritto sopra.
 
 ## Privacy
 

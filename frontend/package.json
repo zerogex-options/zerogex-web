@@ -156,7 +156,11 @@
     "test:levels-email-routes": "node --experimental-strip-types --test tests/levelsEmailRoutes.test.ts",
     "test:daily-levels-digest": "node --experimental-strip-types --test tests/dailyLevelsDigest.test.ts",
     "test:rate-limit": "node --experimental-strip-types --test tests/rateLimit.test.ts",
-    "test:track-record": "node --experimental-strip-types --test tests/trackRecord.test.ts"
+    "test:track-record": "node --experimental-strip-types --test tests/trackRecord.test.ts",
+    "test:billing-plans": "node --experimental-strip-types --test tests/billingPlans.test.ts",
+    "test:checkout-disclosure": "node --experimental-strip-types --test tests/checkoutDisclosure.test.ts",
+    "test:money-back": "node --experimental-strip-types --test tests/moneyBackGuarantee.test.ts tests/moneyBackServer.test.ts",
+    "test:renewal-reminder": "node --experimental-strip-types --test tests/renewalReminder.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

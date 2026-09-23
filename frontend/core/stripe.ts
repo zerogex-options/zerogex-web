@@ -1,29 +1,42 @@
 import Stripe from 'stripe';
-import type { TierId } from '@/core/auth';
+import {
+  BILLABLE_TIERS,
+  BILLING_CADENCES,
+  isPromoAdvertised,
+  parseTrialPlans,
+  planHasFreeTrial,
+  planHasMoneyBackGuarantee,
+  type BillableTier,
+  type BillingCadence,
+  type Sku,
+} from './billingPlans.ts';
 
-export type BillableTier = Extract<TierId, 'basic' | 'pro'>;
-export type BillingCadence = 'monthly' | 'annual';
+// The catalogue types and guards live in core/billingPlans.ts (pure, so the
+// pricing page and the unit tests can import them without pulling in the Stripe
+// SDK). Re-exported here because every billing route already imports them from
+// this module.
+export { BILLABLE_TIERS, BILLING_CADENCES, isBillableTier, isBillingCadence } from './billingPlans.ts';
+export type { BillableTier, BillingCadence, Sku } from './billingPlans.ts';
 
-export const BILLABLE_TIERS: readonly BillableTier[] = ['basic', 'pro'];
-export const BILLING_CADENCES: readonly BillingCadence[] = ['monthly', 'annual'];
+// Env var holding the Stripe price id for each SKU. Quarterly is optional: with
+// its two keys unset the quarterly plans simply are not sellable (checkout
+// refuses them and the pricing page hides the Quarterly toggle), so this code
+// can ship before the Stripe prices exist.
+function priceEnvKey(sku: Sku): string {
+  return `STRIPE_PRICE_${sku.tier.toUpperCase()}_${sku.cadence.toUpperCase()}`;
+}
 
-export type Sku = {
-  tier: BillableTier;
-  cadence: BillingCadence;
-};
-
-// Stripe price IDs map many-to-one onto tiers (monthly + annual both flow to
-// the same tier). The lookup is built once at module load from env vars; any
-// missing env just means that SKU isn't sellable until configured.
+// Stripe price IDs map many-to-one onto tiers (every cadence flows to the same
+// tier). The lookup is built once at module load from env vars; any missing env
+// just means that SKU isn't sellable until configured.
 const SKU_BY_PRICE_ID: Map<string, Sku> = (() => {
   const map = new Map<string, Sku>();
-  const add = (priceId: string | undefined, sku: Sku) => {
-    if (priceId) map.set(priceId, sku);
-  };
-  add(process.env.STRIPE_PRICE_BASIC_MONTHLY, { tier: 'basic', cadence: 'monthly' });
-  add(process.env.STRIPE_PRICE_BASIC_ANNUAL, { tier: 'basic', cadence: 'annual' });
-  add(process.env.STRIPE_PRICE_PRO_MONTHLY, { tier: 'pro', cadence: 'monthly' });
-  add(process.env.STRIPE_PRICE_PRO_ANNUAL, { tier: 'pro', cadence: 'annual' });
+  for (const tier of BILLABLE_TIERS) {
+    for (const cadence of BILLING_CADENCES) {
+      const priceId = process.env[priceEnvKey({ tier, cadence })];
+      if (priceId) map.set(priceId, { tier, cadence });
+    }
+  }
   return map;
 })();
 
@@ -67,6 +80,22 @@ export function skuToPriceId(sku: Sku): string {
   return id;
 }
 
+// Whether this SKU has a Stripe price configured, i.e. can be sold right now.
+// Checkout and the plan-switch route refuse an unsellable SKU up front with a
+// clear 400 instead of failing deep inside the Stripe call.
+export function isSkuSellable(sku: Sku): boolean {
+  return PRICE_ID_BY_SKU.has(`${sku.tier}:${sku.cadence}`);
+}
+
+// Cadences with BOTH tiers sellable — what the pricing page may offer. A cadence
+// with only one tier configured stays hidden rather than showing a card that
+// cannot check out.
+export function getSellableCadences(): BillingCadence[] {
+  return BILLING_CADENCES.filter((cadence) =>
+    BILLABLE_TIERS.every((tier) => isSkuSellable({ tier, cadence })),
+  );
+}
+
 export function priceIdToSku(priceId: string): Sku | null {
   return SKU_BY_PRICE_ID.get(priceId) ?? null;
 }
@@ -75,27 +104,44 @@ export function priceIdToTier(priceId: string): BillableTier | null {
   return priceIdToSku(priceId)?.tier ?? null;
 }
 
-export function isBillableTier(value: unknown): value is BillableTier {
-  return typeof value === 'string' && (BILLABLE_TIERS as readonly string[]).includes(value);
+// An env value, with the empty string treated as unset. deploy/steps/036.billing
+// seeds blank placeholders (KEY=), and a blank must read as "not configured"
+// rather than as a configured id that happens to be empty.
+function envValue(key: string): string | null {
+  const value = process.env[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-export function isBillingCadence(value: unknown): value is BillingCadence {
-  return typeof value === 'string' && (BILLING_CADENCES as readonly string[]).includes(value);
+// ---------------------------------------------------------------------------
+// Free trial vs. money-back guarantee (policy in core/billingPlans.ts)
+// ---------------------------------------------------------------------------
+
+// The plans that start with a free trial, from BILLING_TRIAL_PLANS (default:
+// Basic monthly only). Read per call rather than cached so an env change takes
+// effect on the next restart without anyone having to remember a cache.
+export function getTrialPlans(): ReadonlySet<string> {
+  return parseTrialPlans(process.env.BILLING_TRIAL_PLANS);
 }
 
-// Env var that holds the public-promo coupon for a given (tier, cadence). One
-// coupon per pair so monthly and annual carry independent Stripe coupons:
-//   monthly: repeating, duration_in_months=6 (intro rate for first 6 invoices)
-//   annual:  once (intro rate for the first annual invoice)
+export function skuHasFreeTrial(sku: Sku): boolean {
+  return planHasFreeTrial(sku, getTrialPlans());
+}
+
+export function skuHasMoneyBackGuarantee(sku: Sku): boolean {
+  return planHasMoneyBackGuarantee(sku, getTrialPlans());
+}
+
+// ---------------------------------------------------------------------------
+// Coupons
+// ---------------------------------------------------------------------------
+
+// Env var that holds the public-promo coupon for a given (tier, cadence):
+// STRIPE_COUPON_PROMO_<TIER>_<CADENCE>. One coupon per pair so each cadence can
+// carry its own Stripe coupon. The current promo is monthly-only ($10 off,
+// repeating for 12 months); see isPromoAdvertised for why the other cadences'
+// keys are ignored at checkout even when set.
 function promoCouponEnvKey(sku: Sku): string {
-  if (sku.cadence === 'monthly') {
-    return sku.tier === 'basic'
-      ? 'STRIPE_COUPON_PROMO_BASIC_MONTHLY'
-      : 'STRIPE_COUPON_PROMO_PRO_MONTHLY';
-  }
-  return sku.tier === 'basic'
-    ? 'STRIPE_COUPON_PROMO_BASIC_ANNUAL'
-    : 'STRIPE_COUPON_PROMO_PRO_ANNUAL';
+  return `STRIPE_COUPON_PROMO_${sku.tier.toUpperCase()}_${sku.cadence.toUpperCase()}`;
 }
 
 // Whether the time-boxed public promo window is currently open.
@@ -112,14 +158,20 @@ export function isPromoWindowOpen(): boolean {
 // carried across a plan switch after the window has since closed. For the
 // "should we attach a promo at checkout" decision, use getActivePromoCouponId.
 export function getConfiguredPromoCouponId(sku: Sku): string | null {
-  return process.env[promoCouponEnvKey(sku)] ?? null;
+  return envValue(promoCouponEnvKey(sku));
 }
 
 // Time-boxed public promo: auto-applies while PROMO_END_AT is in the future.
 // Returns the coupon ID to attach, or null. If the matching coupon env isn't
 // set, the cadence is treated as ineligible even with PROMO_END_AT live.
+//
+// Only plans the pricing page ADVERTISES the promo on qualify
+// (core/billingPlans.isPromoAdvertised — the monthly plans). A coupon left in
+// env for another cadence, such as the retired annual promo, is ignored here so
+// checkout can never charge a price the page does not show.
 export function getActivePromoCouponId(sku: Sku): string | null {
   if (!isPromoWindowOpen()) return null;
+  if (!isPromoAdvertised(sku)) return null;
   return getConfiguredPromoCouponId(sku);
 }
 
@@ -133,7 +185,7 @@ export function getActivePromoCouponIds(): string[] {
   for (const tier of BILLABLE_TIERS) {
     for (const cadence of BILLING_CADENCES) {
       const id = getActivePromoCouponId({ tier, cadence });
-      if (id) out.push(id);
+      if (id && !out.includes(id)) out.push(id);
     }
   }
   return out;
@@ -162,23 +214,14 @@ export function getActivePromoDeadlineLabel(): string | null {
 // the public promo is a time-boxed acquisition offer for everyone, whereas the
 // win-back is a standing, per-user reactivation offer that only reaches an
 // eligible churner (subscription_lapsed=1 AND a win-back email on record). One
-// coupon per (tier, cadence), same env structure as the promo coupons above.
-// Returns null when the matching coupon env isn't set. The win-back email then
-// falls back to the public-promo copy, or — with no live promo either — ships
-// with no discount paragraph at all. There is no manual reply-for-discount
-// fallback any more; see renderWinbackEmail.
+// coupon per (tier, cadence), same env structure as the promo coupons above:
+// STRIPE_COUPON_WINBACK_<TIER>_<CADENCE>. Returns null when the matching coupon
+// env isn't set. The win-back email then falls back to the public-promo copy,
+// or — with no live promo either — ships with no discount paragraph at all.
+// There is no manual reply-for-discount fallback any more; see
+// renderWinbackEmail.
 export function getWinbackCouponId(sku: Sku): string | null {
-  const envKey = (() => {
-    if (sku.cadence === 'monthly') {
-      return sku.tier === 'basic'
-        ? 'STRIPE_COUPON_WINBACK_BASIC_MONTHLY'
-        : 'STRIPE_COUPON_WINBACK_PRO_MONTHLY';
-    }
-    return sku.tier === 'basic'
-      ? 'STRIPE_COUPON_WINBACK_BASIC_ANNUAL'
-      : 'STRIPE_COUPON_WINBACK_PRO_ANNUAL';
-  })();
-  return process.env[envKey] ?? null;
+  return envValue(`STRIPE_COUPON_WINBACK_${sku.tier.toUpperCase()}_${sku.cadence.toUpperCase()}`);
 }
 
 // Founding intro coupon for the locked rate during the first 12 months.
@@ -190,11 +233,15 @@ export function getWinbackCouponId(sku: Sku): string | null {
 // Returns null if the matching coupon env isn't set — the page-level
 // configuration check 404s the /founding route when monthly coupons are
 // missing, and the annual cadence is opt-in (toggle only renders when both
-// annual coupons exist).
+// annual coupons exist). The founding offer closed before quarterly billing
+// existed, so there is no quarterly founding rate: null, always. A lapsed
+// founder restoring on a quarterly plan is refused at checkout (see
+// resolveDiscount) rather than silently sold standard pricing.
 export function getFoundingIntroCouponId(
   tier: BillableTier,
   cadence: BillingCadence,
 ): string | null {
+  if (cadence === 'quarterly') return null;
   if (cadence === 'monthly') {
     const envKey =
       tier === 'basic' ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO' : 'STRIPE_COUPON_FOUNDING_PRO_INTRO';
@@ -207,8 +254,23 @@ export function getFoundingIntroCouponId(
   return process.env[envKey] ?? null;
 }
 
+// Promo coupons no longer configured under a STRIPE_COUPON_PROMO_<TIER>_<CADENCE>
+// key (replaced by a newer promo, or on a cadence the promo stopped covering)
+// that may still sit on live subscriptions: STRIPE_COUPON_PROMO_RETIRED,
+// comma-separated. Never attached at checkout. Listed so they stay MANAGED: a
+// plan switch then strips one like any other stale promo coupon, instead of
+// taking it for someone else's discount and stacking the current promo on top.
+// scripts/setup-pricing.mts prints the value when it replaces a configured coupon.
+export function getRetiredPromoCouponIds(): string[] {
+  return (process.env.STRIPE_COUPON_PROMO_RETIRED ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 // Every cadence-specific "rate" coupon the app manages: the public promo and
-// the founding intro coupons, across all (tier, cadence) combos. Read straight
+// the founding intro coupons, across all (tier, cadence) combos, plus retired
+// promo coupons (getRetiredPromoCouponIds). Read straight
 // from env and deliberately NOT gated by the promo window — a promo coupon left
 // on a subscription after its window closed is still one of ours to reconcile.
 //
@@ -229,6 +291,7 @@ export function getManagedCadenceCouponIds(): string[] {
       if (founding) ids.add(founding);
     }
   }
+  for (const id of getRetiredPromoCouponIds()) ids.add(id);
   return [...ids];
 }
 
@@ -318,9 +381,9 @@ export function getAppUrl(): string {
 // Create a Stripe billing-portal session for a customer, pinning
 // STRIPE_PORTAL_CONFIG_ID when set (else Stripe's account-default config). Shared
 // by the portal route and the change-plan route so both open the SAME configured
-// portal — the one setup-billing-portal.mts provisions with plan switching +
-// continue-trial. Keeping it in one place means a portal-config change can't apply
-// to one entry point and not the other.
+// portal — the one setup-billing-portal.mts provisions with plan switching (a
+// switch during the free trial ends it). Keeping it in one place means a
+// portal-config change can't apply to one entry point and not the other.
 export function createBillingPortalSession(
   customerId: string,
   returnUrl: string,

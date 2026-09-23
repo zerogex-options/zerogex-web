@@ -140,7 +140,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
         </Link>
         ). For the live, session-long value,{' '}
         <Link href="/register" className={linkClass}>
-          start a free trial
+          sign up
         </Link>
         . Modeled dealer gamma under the call-positive / put-negative convention — not observed inventory.
       </p>

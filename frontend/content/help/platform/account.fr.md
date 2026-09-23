@@ -10,7 +10,7 @@ La page [Account](/account) est le point central pour tout ce qui concerne l'uti
 
 ## L'en-tête
 
-Affiche votre email, votre statut de vérification, votre niveau (Public, Basic, Pro, Admin) et le badge de votre plan (par ex. « Pro — annual »). Si vous êtes en période d'essai, le badge affiche « Trial — N days left ».
+Affiche votre email, votre statut de vérification, votre niveau (Public, Basic, Pro, Admin) et le badge de votre plan (par ex. « Pro — annual »). Pendant l'essai gratuit de Basic mensuel, le badge affiche « Trial — N days left ».
 
 ## Email et vérification
 
@@ -37,6 +37,7 @@ Vous pouvez lier **Google** et **Apple** au même compte. La page Account indiqu
 - Votre niveau actuel est affiché.
 - Un lien « Manage subscription » ouvre le portail de facturation hébergé par Stripe dans un nouvel onglet.
 - Résiliation, changements de plan, moyens de paiement et factures se gèrent tous dans le portail.
+- Dans les 7 jours suivant votre premier paiement pour une formule couverte par la garantie satisfait ou remboursé de 7 jours (Pro, ou toute formule trimestrielle ou annuelle), cliquez sur **Request a full refund** sur la page Account. L'accès prend fin dès l'émission du remboursement ; un remboursement par client.
 
 Pour la procédure détaillée, consultez [Billing & Stripe Portal](/help/platform/billing).
 

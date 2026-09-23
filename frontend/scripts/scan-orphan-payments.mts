@@ -51,7 +51,7 @@ import {
 } from '../core/stripeInvoice.ts';
 
 type Tier = 'basic' | 'pro';
-type Cadence = 'monthly' | 'annual';
+type Cadence = 'monthly' | 'quarterly' | 'annual';
 
 type Args = {
   sinceDays: number;
@@ -242,8 +242,10 @@ if (!STRIPE_SECRET_KEY) {
 // alias, so the price map is rebuilt from the same env vars the app reads.
 const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: Cadence }> = [
   { env: 'STRIPE_PRICE_BASIC_MONTHLY', tier: 'basic', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_BASIC_QUARTERLY', tier: 'basic', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_BASIC_ANNUAL', tier: 'basic', cadence: 'annual' },
   { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_PRO_QUARTERLY', tier: 'pro', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_PRO_ANNUAL', tier: 'pro', cadence: 'annual' },
 ];
 const skuByPriceId = new Map<string, { tier: Tier; cadence: Cadence }>();
@@ -259,6 +261,25 @@ if (skuByPriceId.size === 0) {
 
 const dbPath =
   process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
+
+// Whether the member asked for this subscription's money back under the 7-day
+// guarantee (core/moneyBackServer.ts ledger). Such a subscription is never
+// "recovered": its leftover payment is a refund to finish, not a plan to
+// restore. A DB the app has not migrated yet has no ledger, so no request.
+function moneyBackRequested(subscriptionId: string | null): boolean {
+  if (!subscriptionId) return false;
+  try {
+    return (
+      querySqlite<{ hit: number }>(
+        dbPath,
+        `SELECT 1 AS hit FROM money_back_refunds WHERE subscription_id = '${escapeSqlLiteral(subscriptionId)}' LIMIT 1`,
+      ).length > 0
+    );
+  } catch (err) {
+    if (/no such table/i.test(err instanceof Error ? err.message : '')) return false;
+    throw err;
+  }
+}
 if (!fs.existsSync(dbPath)) {
   console.error(`Auth DB not found at: ${dbPath}`);
   console.error('Tip: set AUTH_DB_PATH in frontend/.env.local or export it in your shell.');
@@ -441,6 +462,7 @@ try {
       priceId,
       priceMapsToPaidTier: priceId ? skuByPriceId.has(priceId) : false,
       coveredPeriodEndUnix: readInvoicePeriodEndUnix(invoice),
+      moneyBackRequested: moneyBackRequested(subscriptionId),
       nowUnix,
     });
 

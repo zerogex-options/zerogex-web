@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 
 import { resolveTrialStartedCopy } from '../app/dashboard/trialStartedCopy.ts';
 import { dict } from '../app/dashboard/TrialStartedBanner.i18n.ts';
+import { MONEY_BACK_GUARANTEE_DAYS } from '../core/billingPlans.ts';
 
 test('a day-count trial names the length checkout actually granted', () => {
   assert.deepEqual(resolveTrialStartedCopy('7'), { variant: 'days', days: 7 });
@@ -32,6 +33,15 @@ test('the founding deferral gets trial copy with no day count', () => {
 
 test('a checkout that granted no trial never promises a charge-free window', () => {
   assert.deepEqual(resolveTrialStartedCopy('none'), { variant: 'none' });
+});
+
+test('a paid-up-front guarantee plan gets the money-back copy with the real window', () => {
+  // The window comes from the same constant the refund flow enforces, never a
+  // literal: the banner must not quote a guarantee the Account page won't honor.
+  assert.deepEqual(resolveTrialStartedCopy('money_back'), {
+    variant: 'money_back',
+    days: MONEY_BACK_GUARANTEE_DAYS,
+  });
 });
 
 test('an unreadable descriptor falls back to length-free trial copy', () => {
@@ -55,6 +65,8 @@ const KEYS = [
   'billingDeferred',
   'welcomeNone',
   'billingNone',
+  'welcomeMoneyBack',
+  'billingMoneyBack',
   'dismiss',
 ];
 
@@ -114,12 +126,30 @@ test('the no-trial copy never says the member will not be charged', () => {
       phrase,
       `${String(locale)}.billingDeferred should carry the "no charge" promise`,
     );
-    for (const key of ['welcomeNone', 'billingNone']) {
+    for (const key of ['welcomeNone', 'billingNone', 'welcomeMoneyBack', 'billingMoneyBack']) {
       assert.doesNotMatch(
         dict[locale]?.[key] as string,
         phrase,
         `${String(locale)}.${key} promises no charge to a member who was just charged`,
       );
     }
+  }
+});
+
+test('the money-back line interpolates its window and states the one-refund limit', () => {
+  // The limit has to be stated where the purchase is confirmed, not first
+  // revealed when a refund is asked for — checked per language.
+  const ONE_REFUND: Record<string, RegExp> = {
+    en: /one refund per customer/i,
+    it: /un rimborso per cliente/i,
+    de: /eine erstattung pro kunde/i,
+    es: /un reembolso por cliente/i,
+    fr: /un remboursement par client/i,
+  };
+  for (const locale of LOCALES) {
+    const value = dict[locale]?.billingMoneyBack as string;
+    assert.match(value, /\{days\}/, `${String(locale)}.billingMoneyBack must interpolate {days}`);
+    assert.doesNotMatch(value.replaceAll('{days}', ''), /\d/, `${String(locale)}.billingMoneyBack bakes in a number`);
+    assert.match(value, ONE_REFUND[String(locale)], `${String(locale)}.billingMoneyBack must state the one-refund limit`);
   }
 });

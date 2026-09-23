@@ -10,7 +10,7 @@ Die Seite [Account](/account) ist die zentrale Anlaufstelle für alles auf Nutze
 
 ## Der Header
 
-Zeigt deine E-Mail, deinen Verifizierungsstatus, dein Tier (Public, Basic, Pro, Admin) und dein Plan-Badge (z. B. „Pro — annual"). Bei einer Testphase zeigt das Badge „Trial — N days left".
+Zeigt deine E-Mail, deinen Verifizierungsstatus, dein Tier (Public, Basic, Pro, Admin) und dein Plan-Badge (z. B. „Pro — annual"). Während der kostenlosen Testphase von Basic monatlich zeigt das Badge „Trial — N days left".
 
 ## E-Mail und Verifizierung
 
@@ -37,6 +37,7 @@ Du kannst **Google** und **Apple** mit demselben Konto verknüpfen. Die Account-
 - Dein aktuelles Tier wird angezeigt.
 - Ein Link „Manage subscription" öffnet das von Stripe gehostete Billing-Portal in einem neuen Tab.
 - Kündigung, Plan-Wechsel, Zahlungsmethoden und Rechnungen erfolgen alle im Portal.
+- Innerhalb von 7 Tagen nach deiner ersten Zahlung für einen Plan mit 7-tägiger Geld-zurück-Garantie (Pro oder ein vierteljährlicher bzw. jährlicher Plan) klickst du auf der Account-Seite auf **Request a full refund**. Der Zugang endet, sobald die Erstattung ausgestellt ist; eine Erstattung pro Kunde.
 
 Eine Schritt-für-Schritt-Anleitung findest du unter [Billing & Stripe Portal](/help/platform/billing).
 

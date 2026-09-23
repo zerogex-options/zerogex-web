@@ -125,6 +125,14 @@ type Payload = {
   morning: {
     open_spot: number | null; projected_low: number | null; projected_high: number | null;
     range_model: string | null;
+    // The width the model asked for, before the band was drawn. zerogex-oa
+    // clamps it: VOL_RATIO_MAX = 1.90 in src/jobs/forecast_range_model.py. If
+    // the sessions that broke the band were sitting ON that cap, the fat right
+    // tail is a ceiling rather than a detection failure, and the fix is the
+    // clamp instead of the regime model. That is the whole reason this field
+    // is here.
+    expected_vol_ratio: number | null;
+    expected_vol_state: string | null;
   } | null;
   receipt: { actual_low: number | null; actual_high: number | null; range_respected: boolean | null } | null;
 };
@@ -141,6 +149,7 @@ type Row = {
   date: string; k: number; kUp: number; kDown: number;
   contained: boolean; graded: boolean | null; model: string | null;
   upSlackPct: number; downSlackPct: number;
+  volRatio: number | null; volState: string | null;
 };
 
 const rows: Row[] = [];
@@ -170,6 +179,8 @@ for (const entry of dates.dates) {
     contained: k <= 1,
     graded: r.range_respected,
     model: m.range_model,
+    volRatio: m.expected_vol_ratio,
+    volState: m.expected_vol_state,
     upSlackPct: (1 - kUp) * 100,
     downSlackPct: (1 - kDown) * 100,
   });
@@ -192,6 +203,21 @@ if (args.model) {
   rows.push(...keep);
 }
 
+/**
+ * The ceiling zerogex-oa puts on the expected-vol ratio
+ * (VOL_RATIO_MAX in src/jobs/forecast_range_model.py, release @ 39f2819).
+ *
+ * Hard-coded here on purpose: this repo cannot import from that one, and an
+ * obviously duplicated constant beats a silently drifting one. If the backend
+ * raises the cap, raise it here too or the readout below starts lying about
+ * which sessions were clipped.
+ */
+const VOL_RATIO_MAX = 1.90;
+const AT_CAP_EPSILON = 0.01;
+
+const atCap = (r: number | null): boolean =>
+  r != null && Number.isFinite(r) && r >= VOL_RATIO_MAX - AT_CAP_EPSILON;
+
 /** Nearest-rank percentile: with n=29 the answer must be an observed value. */
 function percentile(sorted: number[], p: number): number {
   const rank = Math.max(1, Math.ceil(p * sorted.length));
@@ -213,6 +239,9 @@ if (args.json) {
   console.log(JSON.stringify({
     symbol: args.symbol, model: args.model, n: rows.length, nAll: allRows.length, skipped: skipped.length,
     disagreements: disagreements.map((r) => ({ date: r.date, k: r.k, graded: r.graded })),
+    volRatioMax: VOL_RATIO_MAX,
+    clippedSessions: allRows.filter((r) => atCap(r.volRatio)).map((r) => r.date),
+    missesAtCap: allRows.filter((r) => !r.contained && atCap(r.volRatio)).map((r) => r.date),
     coverageNow, target: args.target, kTarget,
     kPercentiles: Object.fromEntries([10, 25, 50, 75, 80, 90, 95, 100].map((p) => [p, percentile(ks, p / 100)])),
     medianUpSlackPct: median(rows.map((r) => r.upSlackPct)),
@@ -286,8 +315,38 @@ if (byModel.size > 1) {
 const misses = allRows.filter((r) => !r.contained).sort((a, b) => b.k - a.k);
 if (misses.length) {
   console.log(`\nSessions that broke the band (${misses.length} of ${allRows.length})`);
+  console.log(`  date         needed k    asked for    vs cap ${VOL_RATIO_MAX.toFixed(2)}   model`);
   for (const r of misses) {
-    console.log(`  ${r.date}   k = ${r.k.toFixed(3)}   ${r.model ?? '(none)'}`);
+    const ratio = r.volRatio != null ? `${r.volRatio.toFixed(3)}x` : '—';
+    const flag = atCap(r.volRatio) ? 'AT CAP' : r.volRatio != null ? 'under' : '—';
+    console.log(
+      `  ${r.date}   ${r.k.toFixed(3).padStart(8)}   ${ratio.padStart(9)}   ${flag.padStart(11)}   ${r.model ?? '(none)'}`,
+    );
+  }
+
+  // THE QUESTION THIS COLUMN EXISTS TO ANSWER. A band that broke while the
+  // model was already asking for the widest ratio it is ALLOWED to ask for was
+  // not mispredicted -- it was clipped. No amount of better regime detection
+  // helps while that ceiling stands, and no amount of raising the ceiling helps
+  // if the model was asking for less than it was already permitted.
+  const clipped = misses.filter((r) => atCap(r.volRatio));
+  const withRatio = misses.filter((r) => r.volRatio != null);
+  console.log('');
+  if (withRatio.length === 0) {
+    console.log('  No expected_vol_ratio on these payloads, so whether the cap bound them');
+    console.log('  cannot be told from here.');
+  } else if (clipped.length === withRatio.length) {
+    console.log(`  EVERY miss sat at the ${VOL_RATIO_MAX.toFixed(2)}x ceiling. These were not mispredicted, they`);
+    console.log('  were CLIPPED: the model asked for the widest band it is allowed and the day');
+    console.log('  went further anyway. Raise VOL_RATIO_MAX before touching the regime logic.');
+  } else if (clipped.length > 0) {
+    console.log(`  ${clipped.length} of ${withRatio.length} misses sat at the ${VOL_RATIO_MAX.toFixed(2)}x ceiling -- clipped, not mispredicted.`);
+    console.log(`  The other ${withRatio.length - clipped.length} asked for LESS width than they were already allowed, so`);
+    console.log('  those are a prediction problem. Two different faults, two different fixes.');
+  } else {
+    console.log(`  NO miss sat at the ${VOL_RATIO_MAX.toFixed(2)}x ceiling. The cap is not the binding constraint:`);
+    console.log('  on every one of these the model asked for less width than it was allowed, so');
+    console.log('  this is a prediction problem, not a clamp problem.');
   }
   const liveModel = [...byModel.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0];
   const stale = misses.filter((r) => (r.model ?? '(none)') !== liveModel).length;
@@ -297,6 +356,15 @@ if (misses.length) {
 } else {
   console.log('\nNo session broke the band. Coverage is 100% and the band is padded by');
   console.log('an amount this sample cannot bound from above -- treat the widths as a floor.');
+}
+
+const clippedAll = allRows.filter((r) => atCap(r.volRatio));
+if (clippedAll.length) {
+  const held = clippedAll.filter((r) => r.contained).length;
+  const share = (clippedAll.length / allRows.length) * 100;
+  console.log(`\nSessions that hit the ${VOL_RATIO_MAX.toFixed(2)}x width ceiling: ${clippedAll.length} of ${allRows.length} (${share.toFixed(0)}%)`);
+  console.log(`  ${held} of those still held. A ceiling that binds this often is SHAPING the`);
+  console.log('  published band, not just guarding its tail.');
 }
 
 console.log(`\nIN-SAMPLE. k was fitted to the same ${rows.length} sessions it is measured on, so`);

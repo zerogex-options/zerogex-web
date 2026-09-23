@@ -14,7 +14,7 @@ ZeroGEX has three account tiers. They map to what data and which signals you see
 | Basic | Active intraday traders | Dashboard, Live Bulletin, all Metrics, Strategy Builder, Live Options Quotes, all Basic Signals |
 | Pro | Serious operators | Everything in Basic + all Advanced Signals + Composite Score + Backtesting + API access |
 
-See the live breakdown — and a 7-day trial path — on the [Pricing](/pricing) page.
+See the live breakdown on the [Pricing](/pricing) page. Basic monthly comes with a 7-day free trial; every other plan is covered by a 7-day money-back guarantee.
 
 ## What's gated where
 
@@ -54,13 +54,15 @@ A few pages exist for all tiers but behave differently depending on what you've 
 Account changes happen in two places:
 
 1. **[Account](/account)** — see your current tier, current plan status, and the link to the billing portal.
-2. **[Stripe Billing Portal](/account)** — accessed from the Account page. Change between Basic and Pro, switch monthly to annual, change payment method, view invoices.
+2. **[Stripe Billing Portal](/account)** — accessed from the Account page. Change between Basic and Pro, switch between monthly, quarterly and annual billing, change payment method, view invoices.
 
 For step-by-step, see [Billing & Stripe Portal](/help/platform/billing).
 
 ## When you're on a trial
 
-If your account is on a free trial (Basic or Pro), the Account page shows a "Trial active — X days left" chip. When the trial ends, the subscription continues automatically at the rate you signed up at. To prevent that, cancel in the billing portal before the trial expires.
+The 7-day free trial comes with Basic monthly only (one per account). While it's running, the Account page shows a "Trial active — X days left" chip. When the trial ends, the subscription continues automatically at the rate you signed up at. To prevent that, cancel in the billing portal before the trial expires — you won't be charged.
+
+Moving to Pro, or to a quarterly or annual plan, during the trial ends the trial and bills the new plan that day; the [Pricing](/pricing) page shows the exact amount and asks you to confirm, and that payment is covered by the 7-day money-back guarantee.
 
 ## What if you click something you don't have access to?
 
@@ -68,6 +70,6 @@ You're routed to the [Pricing](/pricing) page rather than blocked or shown an er
 
 ## See also
 
-- [Pricing](/pricing) — the live tier breakdown and trial path
+- [Pricing](/pricing) — the live tier breakdown and plan options
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

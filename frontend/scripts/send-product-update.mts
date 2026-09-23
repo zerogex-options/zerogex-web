@@ -113,6 +113,10 @@ type CampaignSpec = {
   // burn the latch on people who were never made the offer. checkTemplateOffer()
   // below cross-checks this flag against what the template actually links to.
   grantsExtendedTrial: boolean;
+  // Set when the copy no longer matches the live offer. The campaign stays
+  // registered so its cohort can still be counted with --dry-run, but a live
+  // --send is refused: it would promise terms a new recipient can't get.
+  retired?: string;
 };
 
 type Args = {
@@ -147,6 +151,9 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
     excludeOnboardingNudged: true,
     // Its CTA is a bare /pricing and the copy names no trial length.
     grantsExtendedTrial: false,
+    retired:
+      'its copy says both Basic and Pro start with a free trial. Since the October 2026 pricing, ' +
+      'only Basic monthly has a trial; every other plan has the 7-day money-back guarantee.',
     content: {
       subscribers: {
         subject: "What's new at ZeroGEX — and what's coming next",
@@ -429,6 +436,11 @@ if (cli.help || !cli.audience) {
 const audience = cli.audience;
 const campaignSpec = CAMPAIGNS[cli.campaign]!;
 const CAMPAIGN = campaignSpec.key;
+if (campaignSpec.retired && cli.send) {
+  console.error(`Error: campaign ${cli.campaign} is retired and can't be sent: ${campaignSpec.retired}`);
+  console.error('       --dry-run still counts its cohort.');
+  process.exit(1);
+}
 const content = campaignSpec.content[audience];
 if (!content) {
   console.error(

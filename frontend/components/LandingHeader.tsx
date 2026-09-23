@@ -209,8 +209,8 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               <>
                 {/* Shorten the label on phones so the CTA fits beside the logo
                     and Login button; desktop keeps the full wording. */}
-                <span className="sm:hidden">Start Trial</span>
-                <span className="hidden sm:inline">Start Free Trial</span>
+                <span className="sm:hidden">Get Started</span>
+                <span className="hidden sm:inline">Get Started</span>
               </>
             )}{' '}
             <ArrowRight size={14} />

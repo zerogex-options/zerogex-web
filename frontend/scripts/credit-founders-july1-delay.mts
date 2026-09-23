@@ -6,10 +6,10 @@
 // One-off backfill: credit each Founding Member a flat one-month founding
 // rate ($12 Basic, $19 Pro) — matching what new founders effectively get now
 // that their first payment is deferred to July 1. Same flat amount applies
-// to monthly and annual founders.
+// to every founder, whatever their billing period.
 //
 // Tier is detected by matching users.stripe_price_id against the
-// STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,ANNUAL} env vars, so the same source of
+// STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,QUARTERLY,ANNUAL} env vars, so the same source of
 // truth as core/stripe.ts.
 //
 // Credit posts as a NEGATIVE customers balance transaction; Stripe
@@ -119,7 +119,7 @@ Options:
 Idempotent: skips users with an existing audit_events row of type
 \`${AUDIT_TYPE}\`. Safe to re-run after a partial failure.
 
-Reads STRIPE_SECRET_KEY, STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,ANNUAL},
+Reads STRIPE_SECRET_KEY, STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,QUARTERLY,ANNUAL},
 RESEND_API_KEY, and RESEND_FROM_EMAIL from env or .env.local. Set
 AUTH_DB_PATH to override the default DB path.`);
 }
@@ -274,15 +274,17 @@ if (cliArgs.previewTo) {
 const priceIdToTier: Map<string, Tier> = new Map();
 for (const [envKey, tier] of [
   ['STRIPE_PRICE_BASIC_MONTHLY', 'basic'],
+  ['STRIPE_PRICE_BASIC_QUARTERLY', 'basic'],
   ['STRIPE_PRICE_BASIC_ANNUAL', 'basic'],
   ['STRIPE_PRICE_PRO_MONTHLY', 'pro'],
+  ['STRIPE_PRICE_PRO_QUARTERLY', 'pro'],
   ['STRIPE_PRICE_PRO_ANNUAL', 'pro'],
 ] as Array<[string, Tier]>) {
   const id = envOrLocal(envKey);
   if (id) priceIdToTier.set(id, tier);
 }
 if (priceIdToTier.size === 0) {
-  console.error('Error: no STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,ANNUAL} env vars set.');
+  console.error('Error: no STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,QUARTERLY,ANNUAL} env vars set.');
   console.error('At least one is required to detect tier from price ID.');
   process.exit(1);
 }

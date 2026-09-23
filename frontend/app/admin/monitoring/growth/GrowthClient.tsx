@@ -61,7 +61,7 @@ import { ChoiceRow, Disclosure, Panel, ProportionBar, RankBar, Sentence, StatTil
 
 type CohortPayload = CohortRetentionPayload;
 
-type Cadence = 'all' | 'monthly' | 'annual';
+type Cadence = 'all' | 'monthly' | 'quarterly' | 'annual';
 
 type Selection = { metric: string; cohort?: string };
 
@@ -75,6 +75,7 @@ const WINDOW_OPTIONS: Array<{ value: WindowDays; label: string }> = [
 const CADENCE_OPTIONS: Array<{ value: Cadence; label: string }> = [
   { value: 'all', label: 'All plans' },
   { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
   { value: 'annual', label: 'Annual' },
 ];
 
@@ -268,14 +269,15 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
       </Panel>
 
       {/* ── 1b. Does the second payment happen? ──────────────────────────── */}
-      {cadence !== 'annual' && <FirstRenewalCard report={report.renewals} />}
-      {cadence === 'annual' && (
+      {(cadence === 'all' || cadence === 'monthly') && <FirstRenewalCard report={report.renewals} />}
+      {(cadence === 'annual' || cadence === 'quarterly') && (
         <Panel title="First renewal" subtitle="Monthly billing only.">
           <p className="text-sm" style={{ color: mutedText }}>
-            A renewal ladder measures the month-to-month decision. An annual subscriber does not make
-            one until their year is up, so the monthly rates are not shown here rather than being
-            re-labelled as though they applied. {report.cadenceCoverage.annual} annual customer
-            {report.cadenceCoverage.annual === 1 ? '' : 's'} on record; their access and retention are
+            A renewal ladder measures the month-to-month decision. {cadence === 'annual' ? 'An annual' : 'A quarterly'}{' '}
+            subscriber does not make one until their {cadence === 'annual' ? 'year' : 'quarter'} is up, so the
+            monthly rates are not shown here rather than being re-labelled as though they applied.{' '}
+            {report.cadenceCoverage[cadence]} {cadence} customer
+            {report.cadenceCoverage[cadence] === 1 ? '' : 's'} on record; their access and retention are
             in the cohort tables below.
           </p>
         </Panel>

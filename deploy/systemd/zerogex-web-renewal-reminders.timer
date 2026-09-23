@@ -1,0 +1,14 @@
+[Unit]
+Description=ZeroGEX web renewal-reminder email timer (daily)
+
+[Timer]
+# Once a day, mid-morning ET (14:20 UTC), off the hour so it doesn't collide
+# with the hourly auth backup. The reminder window is days wide and the latch
+# is per billing period, so a single daily run sends each reminder exactly once.
+OnCalendar=*-*-* 14:20:00
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

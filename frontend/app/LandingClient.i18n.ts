@@ -8,7 +8,7 @@ export const dict: PageDictionary = {
     heroTagline: 'Know the levels that matter — before SPY/SPX/QQQ/NDX get there.',
     heroSub: 'ZeroGEX maps live call walls, put walls, the gamma flip, and modeled dealer positioning — so you can see where price is likely to react, instead of guessing.',
     ctaViewDashboard: 'View Live Dashboard',
-    ctaStartTrial: 'Start 7-Day Free Trial',
+    ctaStartTrial: 'Get Started',
     ctaViewFreeLevels: 'View Free Levels',
 
     useCasesEyebrow: 'What traders use ZeroGEX for',
@@ -122,9 +122,9 @@ export const dict: PageDictionary = {
     finalCtaTitle: 'Ready to See the',
     finalCtaTitleHighlight: 'Structure Behind the Price?',
     finalCtaSubAuthed: 'Launch the ZeroGEX dashboard now and start trading with institutional gamma intelligence.',
-    finalCtaSubTrial: 'Start your 7-day free trial and trade with institutional gamma intelligence — live SPY, SPX, QQQ, NDX, ES, and NQ.',
+    finalCtaSubTrial: 'Get started today and trade with institutional gamma intelligence — live SPY, SPX, QQQ, NDX, ES, and NQ.',
     ctaLaunchDashboard: 'Launch ZeroGEX Dashboard',
-    finalCtaTrialNote: '7-day free trial. No charge until day 7. Cancel anytime.',
+    finalCtaTrialNote: '7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.',
   },
   it: {
     heroBadge: 'Per i day trader di SPY · SPX · QQQ · NDX',
@@ -133,7 +133,7 @@ export const dict: PageDictionary = {
     heroTagline: 'Conosci i livelli che contano — prima che SPY/SPX/QQQ/NDX li raggiungano.',
     heroSub: 'ZeroGEX mappa call wall e put wall in tempo reale, il gamma flip e il posizionamento modellato dei dealer — così puoi vedere dove il prezzo reagirà probabilmente, invece di indovinare.',
     ctaViewDashboard: 'Vai alla Dashboard Live',
-    ctaStartTrial: 'Inizia la Prova Gratuita di 7 Giorni',
+    ctaStartTrial: 'Inizia Ora',
     ctaViewFreeLevels: 'Vedi i Livelli Gratuiti',
 
     useCasesEyebrow: 'A cosa serve ZeroGEX ai trader',
@@ -247,9 +247,9 @@ export const dict: PageDictionary = {
     finalCtaTitle: 'Pronto a Vedere la',
     finalCtaTitleHighlight: 'Struttura Dietro il Prezzo?',
     finalCtaSubAuthed: 'Avvia subito la dashboard ZeroGEX e inizia a fare trading con l\'intelligence gamma istituzionale.',
-    finalCtaSubTrial: 'Inizia la tua prova gratuita di 7 giorni e fai trading con l\'intelligence gamma istituzionale — SPY, SPX, QQQ, NDX, ES e NQ live.',
+    finalCtaSubTrial: 'Inizia oggi e fai trading con l\'intelligence gamma istituzionale — SPY, SPX, QQQ, NDX, ES e NQ live.',
     ctaLaunchDashboard: 'Avvia la Dashboard ZeroGEX',
-    finalCtaTrialNote: 'Prova gratuita di 7 giorni. Nessun addebito fino al giorno 7. Annulla in qualsiasi momento.',
+    finalCtaTrialNote: 'Prova gratuita di 7 giorni su Basic mensile · garanzia soddisfatti o rimborsati di 7 giorni su tutti gli altri piani.',
   },
   de: {
     heroBadge: 'Für SPY · SPX · QQQ · NDX Daytrader',
@@ -258,7 +258,7 @@ export const dict: PageDictionary = {
     heroTagline: 'Kenne die entscheidenden Level — bevor SPY/SPX/QQQ/NDX sie erreichen.',
     heroSub: 'ZeroGEX kartiert Live-Call-Walls, Put-Walls, den Gamma-Flip und das modellierte Dealer-Positioning — so siehst du, wo der Preis wahrscheinlich reagiert, statt zu raten.',
     ctaViewDashboard: 'Live-Dashboard ansehen',
-    ctaStartTrial: '7-Tage-Testphase starten',
+    ctaStartTrial: 'Jetzt starten',
     ctaViewFreeLevels: 'Kostenlose Level ansehen',
 
     useCasesEyebrow: 'Wofür Trader ZeroGEX nutzen',
@@ -372,9 +372,9 @@ export const dict: PageDictionary = {
     finalCtaTitle: 'Bereit, die',
     finalCtaTitleHighlight: 'Struktur hinter dem Preis zu sehen?',
     finalCtaSubAuthed: 'Starte jetzt das ZeroGEX-Dashboard und handle mit institutioneller Gamma-Intelligence.',
-    finalCtaSubTrial: 'Starte deine 7-tägige kostenlose Testphase und handle mit institutioneller Gamma-Intelligence — live SPY, SPX, QQQ, NDX, ES und NQ.',
+    finalCtaSubTrial: 'Starte noch heute und handle mit institutioneller Gamma-Intelligence — live SPY, SPX, QQQ, NDX, ES und NQ.',
     ctaLaunchDashboard: 'ZeroGEX-Dashboard starten',
-    finalCtaTrialNote: '7 Tage kostenlose Testphase. Keine Abbuchung bis Tag 7. Jederzeit kündbar.',
+    finalCtaTrialNote: '7 Tage kostenlos testen mit Basic monatlich · 7-Tage-Geld-zurück-Garantie für alle anderen Pläne.',
   },
   es: {
     heroBadge: 'Para day traders de SPY · SPX · QQQ · NDX',
@@ -383,7 +383,7 @@ export const dict: PageDictionary = {
     heroTagline: 'Conoce los niveles que importan — antes de que SPY/SPX/QQQ/NDX lleguen a ellos.',
     heroSub: 'ZeroGEX mapea call walls y put walls en vivo, el gamma flip y el posicionamiento modelado de los dealers — para que veas dónde es probable que reaccione el precio, en lugar de adivinar.',
     ctaViewDashboard: 'Ver Dashboard en Vivo',
-    ctaStartTrial: 'Iniciar Prueba Gratuita de 7 Días',
+    ctaStartTrial: 'Empezar Ahora',
     ctaViewFreeLevels: 'Ver Niveles Gratuitos',
 
     useCasesEyebrow: 'Para qué usan ZeroGEX los traders',
@@ -497,9 +497,9 @@ export const dict: PageDictionary = {
     finalCtaTitle: '¿Listo para Ver la',
     finalCtaTitleHighlight: 'Estructura Detrás del Precio?',
     finalCtaSubAuthed: 'Inicia ahora el dashboard de ZeroGEX y empieza a operar con inteligencia gamma institucional.',
-    finalCtaSubTrial: 'Inicia tu prueba gratuita de 7 días y opera con inteligencia gamma institucional — SPY, SPX, QQQ, NDX, ES y NQ en vivo.',
+    finalCtaSubTrial: 'Empieza hoy y opera con inteligencia gamma institucional — SPY, SPX, QQQ, NDX, ES y NQ en vivo.',
     ctaLaunchDashboard: 'Iniciar Dashboard ZeroGEX',
-    finalCtaTrialNote: 'Prueba gratuita de 7 días. Sin cargo hasta el día 7. Cancela cuando quieras.',
+    finalCtaTrialNote: 'Prueba gratuita de 7 días en Basic mensual · garantía de devolución de 7 días en todos los demás planes.',
   },
   fr: {
     heroBadge: 'Pour les day traders SPY · SPX · QQQ · NDX',
@@ -508,7 +508,7 @@ export const dict: PageDictionary = {
     heroTagline: 'Connaissez les niveaux qui comptent — avant que SPY/SPX/QQQ/NDX ne les atteignent.',
     heroSub: 'ZeroGEX cartographie en direct les call walls, put walls, le gamma flip et le positionnement modélisé des dealers — afin que vous puissiez voir où le prix est susceptible de réagir, au lieu de deviner.',
     ctaViewDashboard: 'Voir le Tableau de Bord en Direct',
-    ctaStartTrial: 'Démarrer l\'Essai Gratuit de 7 Jours',
+    ctaStartTrial: 'Commencer',
     ctaViewFreeLevels: 'Voir les Niveaux Gratuits',
 
     useCasesEyebrow: 'Pourquoi les traders utilisent ZeroGEX',
@@ -622,8 +622,8 @@ export const dict: PageDictionary = {
     finalCtaTitle: 'Prêt à Voir la',
     finalCtaTitleHighlight: 'Structure Derrière le Prix ?',
     finalCtaSubAuthed: 'Lancez dès maintenant le tableau de bord ZeroGEX et commencez à trader avec l\'intelligence gamma institutionnelle.',
-    finalCtaSubTrial: 'Démarrez votre essai gratuit de 7 jours et tradez avec l\'intelligence gamma institutionnelle — SPY, SPX, QQQ, NDX, ES et NQ en direct.',
+    finalCtaSubTrial: 'Commencez dès aujourd\'hui et tradez avec l\'intelligence gamma institutionnelle — SPY, SPX, QQQ, NDX, ES et NQ en direct.',
     ctaLaunchDashboard: 'Lancer le Tableau de Bord ZeroGEX',
-    finalCtaTrialNote: 'Essai gratuit de 7 jours. Aucun débit avant le jour 7. Annulez à tout moment.',
+    finalCtaTrialNote: 'Essai gratuit de 7 jours sur Basic mensuel · garantie satisfait ou remboursé de 7 jours sur toutes les autres offres.',
   },
 };

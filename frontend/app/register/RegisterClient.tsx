@@ -196,9 +196,15 @@ function RegisterPageContent({
       // Carry a plan preselection through if the pricing-bound next= carried one
       // (e.g. a logged-out "Start Pro Trial" click → /register?next=/pricing?…plan=pro),
       // so the chosen card lands highlighted instead of making them re-pick.
+      // The billing period they picked rides along the same way.
       if (nextPath?.startsWith('/pricing')) {
-        const nextPlan = new URLSearchParams(nextPath.split('?')[1] ?? '').get('plan');
+        const nextParams = new URLSearchParams(nextPath.split('?')[1] ?? '');
+        const nextPlan = nextParams.get('plan');
         if (nextPlan === 'basic' || nextPlan === 'pro') pricingParams.set('plan', nextPlan);
+        const nextCadence = nextParams.get('cadence');
+        if (nextCadence === 'monthly' || nextCadence === 'quarterly' || nextCadence === 'annual') {
+          pricingParams.set('cadence', nextCadence);
+        }
       }
       const trialHref = `/pricing?${pricingParams.toString()}`;
       const base = successHref.startsWith('/pricing') ? trialHref : successHref;

@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
     baseAmountUsd,
     donationUsd,
     interval: price.recurring?.interval ?? 'month',
+    intervalCount: price.recurring?.interval_count ?? 1,
     currency: price.currency.toUpperCase(),
   });
   response.headers.set('Cache-Control', 'no-store, private');
