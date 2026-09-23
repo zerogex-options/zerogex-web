@@ -123,7 +123,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
             justifyContent: "center",
             lineHeight: 1,
             border: `1px solid ${palette.border}`,
-            boxShadow: nextUrgency === "today" ? `0 0 10px ${'var(--color-brand-coral)'}80` : undefined,
+            boxShadow: nextUrgency === "today" ? `0 0 10px color-mix(in srgb, var(--color-brand-coral) 50%, transparent)` : undefined,
           }}
         >
           {nextUrgency === "today"

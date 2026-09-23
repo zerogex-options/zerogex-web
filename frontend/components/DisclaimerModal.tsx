@@ -163,7 +163,7 @@ export default function DisclaimerModal({ theme, onAcknowledged }: DisclaimerMod
             fontWeight: 600,
             letterSpacing: '0.02em',
             color: '#ffffff',
-            backgroundColor: submitting ? `${'var(--color-brand-primary)'}99` : 'var(--color-brand-primary)',
+            backgroundColor: submitting ? `color-mix(in srgb, var(--color-brand-primary) 60%, transparent)` : 'var(--color-brand-primary)',
             border: 'none',
             borderRadius: 8,
             cursor: submitting ? 'not-allowed' : 'pointer',

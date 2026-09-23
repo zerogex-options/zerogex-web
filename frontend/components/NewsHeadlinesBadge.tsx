@@ -192,8 +192,8 @@ export default function NewsHeadlinesBadge({
             height: compact ? "10px" : "12px",
             borderRadius: "999px",
             background: 'var(--color-brand-coral)',
-            border: `1px solid ${'var(--color-brand-coral)'}66`,
-            boxShadow: `0 0 10px ${'var(--color-brand-coral)'}80`,
+            border: `1px solid color-mix(in srgb, var(--color-brand-coral) 40%, transparent)`,
+            boxShadow: `0 0 10px color-mix(in srgb, var(--color-brand-coral) 50%, transparent)`,
           }}
         />
       )}
