@@ -184,7 +184,7 @@ function CustomTooltip({ active, payload, label, spot = 0 }: TooltipProps) {
   const pctSign = pctDelta > 0 ? '+' : pctDelta < 0 ? '' : '';
   const dollarSign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
   return (
-    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'color-mix(in srgb, var(--color-positive) 40%, transparent)' : 'color-mix(in srgb, var(--color-negative) 40%, transparent)'}`, borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
       <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', marginBottom: 6 }}>
         {positive ? '+' : ''}{fmtDollar(pl)}
       </div>

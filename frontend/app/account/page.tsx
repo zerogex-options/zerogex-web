@@ -538,8 +538,8 @@ function AccountPageContent() {
               marginBottom: 20,
               borderRadius: 14,
               padding: '16px 18px',
-              border: `1px solid ${C.amber}55`,
-              background: `linear-gradient(135deg, ${C.amber}1a 0%, ${C.amber}08 100%)`,
+              border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
+              background: `linear-gradient(135deg, color-mix(in srgb, ${C.amber} 10%, transparent) 0%, color-mix(in srgb, ${C.amber} 3%, transparent) 100%)`,
               color: C.light,
               display: 'flex',
               alignItems: 'flex-start',
@@ -549,7 +549,7 @@ function AccountPageContent() {
             <div
               style={{
                 width: 44, height: 44, borderRadius: '50%',
-                background: '#ffffff', border: `1px solid ${C.amber}55`,
+                background: '#ffffff', border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 padding: 3,
               }}
@@ -647,8 +647,8 @@ function AccountPageContent() {
                     fontWeight: 800,
                     letterSpacing: '0.04em',
                     color: C.amber,
-                    border: `1px solid ${C.amber}66`,
-                    background: `${C.amber}12`,
+                    border: `1px solid color-mix(in srgb, ${C.amber} 40%, transparent)`,
+                    background: `color-mix(in srgb, ${C.amber} 7%, transparent)`,
                   }}
                 >
                   {tierLabel}

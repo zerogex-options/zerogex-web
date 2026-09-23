@@ -127,7 +127,7 @@ function TierCard({
               fontWeight: 800,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              border: `1px solid ${C.amber}66`,
+              border: `1px solid color-mix(in srgb, ${C.amber} 40%, transparent)`,
               color: C.amber,
               borderRadius: 999,
               padding: '4px 10px',
@@ -180,7 +180,7 @@ export default function RealTimeGexLandingClient() {
       <nav
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
-          background: `${C.bg}ee`,
+          background: `color-mix(in srgb, ${C.bg} 93%, transparent)`,
           borderBottom: `1px solid ${C.border}`,
         }}
       >
@@ -194,7 +194,7 @@ export default function RealTimeGexLandingClient() {
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: isDark ? `color-mix(in srgb, ${C.card} 80%, transparent)` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               cursor: 'pointer',
               color: C.muted,

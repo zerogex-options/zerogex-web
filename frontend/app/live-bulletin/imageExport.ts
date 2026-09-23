@@ -21,9 +21,11 @@ async function renderToCanvas(
   scale: number,
   background: string,
 ): Promise<HTMLCanvasElement> {
-  const rect = node.getBoundingClientRect();
-  const width = Math.ceil(rect.width);
-  const height = Math.ceil(rect.height);
+  // Layout size, not on-screen size: the preview may be scaled down with a CSS
+  // transform to fit a narrow column, which getBoundingClientRect would report
+  // (cropping the clone, which renders at its full layout size).
+  const width = Math.ceil(node.offsetWidth);
+  const height = Math.ceil(node.offsetHeight);
 
   // Clone so the live node is untouched, and tag the clone with the XHTML
   // namespace foreignObject requires to parse arbitrary HTML.

@@ -228,8 +228,8 @@ function RegisterPageContent({
   };
 
   return (
-    <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
-      <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
+    <main className="min-h-screen px-4 py-8 sm:px-6 sm:py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
+      <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 sm:p-8 shadow-xl">
         <h1 className="text-3xl font-bold">{t('register.title')}</h1>
         {showReferralBanner && (
           <div className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-medium text-[var(--color-brand-primary)]">
@@ -252,7 +252,7 @@ function RegisterPageContent({
           <label className="block text-sm">
             <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.languageLabel')}</span>
             <select
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2 pointer-coarse:text-base"
               value={locale}
               onChange={(event) => setLocale(event.target.value as Locale)}
               aria-label={t('language.select')}
@@ -268,7 +268,7 @@ function RegisterPageContent({
           <label className="block text-sm">
             <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.emailLabel')}</span>
             <input
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2 pointer-coarse:text-base"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -279,7 +279,7 @@ function RegisterPageContent({
           <label className="block text-sm">
             <span className="mb-1 block text-[var(--color-text-secondary)]">{t('register.passwordLabel')}</span>
             <input
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2 pointer-coarse:text-base"
               type="password"
               minLength={12}
               value={password}

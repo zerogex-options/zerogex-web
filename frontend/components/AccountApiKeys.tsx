@@ -337,8 +337,8 @@ function RevealBox({
       style={{
         borderRadius: 14,
         padding: '16px 18px',
-        border: `1px solid ${C.amber}66`,
-        background: `linear-gradient(135deg, ${C.amber}1a 0%, ${C.amber}08 100%)`,
+        border: `1px solid color-mix(in srgb, ${C.amber} 40%, transparent)`,
+        background: `linear-gradient(135deg, color-mix(in srgb, ${C.amber} 10%, transparent) 0%, color-mix(in srgb, ${C.amber} 3%, transparent) 100%)`,
         display: 'grid',
         gap: 12,
       }}

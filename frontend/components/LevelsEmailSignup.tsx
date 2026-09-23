@@ -43,7 +43,9 @@ const inputStyle: CSSProperties = {
   flex: '1 1 260px',
   minWidth: 0,
   padding: '11px 14px',
-  fontSize: 15,
+  // 16px, not 15: iOS Safari zooms the page into any field smaller than that
+  // on focus, and this is the signup form on the busiest pages on the site.
+  fontSize: 16,
   color: 'var(--color-text-primary)',
   background: 'var(--color-bg)',
   border: '1px solid var(--border-default)',
@@ -166,8 +168,8 @@ export default function LevelsEmailSignup(props: Props) {
           display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', gap: 8,
           fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-brand-primary)',
-          border: '1px solid var(--color-brand-primary)44',
-          background: 'var(--color-brand-primary)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-primary) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-primary) 8%, transparent)',
           borderRadius: 999, padding: '5px 14px',
         }}
       >

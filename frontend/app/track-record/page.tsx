@@ -121,6 +121,28 @@ export default async function TrackRecordPage() {
     (r) => r.stats != null && (r.stats.levels_n_scored > 0 || r.stats.vol_n_scored > 0),
   );
   const totalSessions = records.reduce((n, r) => n + r.history.sessions, 0);
+  // The coverage table's cells, worked out once: the table and its phone
+  // list render the same strings.
+  const coverageRows = records.map((r) => {
+    const h = r.history.range;
+    const t = r.stats?.range_baseline ?? null;
+    const thin = h.graded < MIN_SCORED_FOR_RATES;
+    const v = thin ? 'unknown' : coverageVerdict(h.rate, t);
+    return {
+      symbol: r.symbol,
+      graded: String(h.graded),
+      held: thin ? '—' : String(h.held),
+      coverage: thin ? '—' : fmtRate(h.rate),
+      interval: thin ? '—' : fmtCi(h.ci),
+      against: thin
+        ? `fewer than ${MIN_SCORED_FOR_RATES} graded sessions — no rate published`
+        : t == null
+          ? 'no target published'
+          : `${fmtRate(t)} — ${coverageVerdictText(v)}`,
+      // The phone list has no column header, so it names the target.
+      againstInline: thin || t == null ? null : `target ${fmtRate(t)} — ${coverageVerdictText(v)}`,
+    };
+  });
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -174,7 +196,30 @@ export default async function TrackRecordPage() {
           why it is reported as a fault below rather than a win.
         </p>
 
-        <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
+        {/* One row of numbers per symbol. On a phone the six-column table sat
+            at 640px inside a sideways scroller, and its last column (a sentence)
+            wrapped each row several lines tall; there each symbol is a compact
+            item instead. Same rows, same wording. */}
+        <ul className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] text-sm sm:hidden">
+          {coverageRows.map((row) => (
+            <li key={row.symbol} className="px-3 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-mono font-semibold">{row.symbol}</span>
+                <span className="tabular-nums">
+                  <span className="font-semibold">{row.coverage}</span>
+                  {row.interval !== '—' && (
+                    <span className="ml-1.5 text-xs text-[var(--color-text-secondary)]">{row.interval}</span>
+                  )}
+                </span>
+              </div>
+              <div className="mt-1 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+                {row.held === '—' ? `${row.graded} graded` : `${row.held} of ${row.graded} held`} ·{' '}
+                {row.againstInline ?? row.against}
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto rounded-lg border border-[var(--color-border)] sm:block">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-[var(--color-surface)] text-left text-xs uppercase tracking-wider text-[var(--color-text-secondary)]">
               <tr>
@@ -187,32 +232,16 @@ export default async function TrackRecordPage() {
               </tr>
             </thead>
             <tbody>
-              {records.map((r) => {
-                const h = r.history.range;
-                const t = r.stats?.range_baseline ?? null;
-                const thin = h.graded < MIN_SCORED_FOR_RATES;
-                const v = thin ? 'unknown' : coverageVerdict(h.rate, t);
-                return (
-                  <tr key={r.symbol} className="border-t border-[var(--color-border)]">
-                    <td className="px-3 py-2 font-mono font-semibold">{r.symbol}</td>
-                    <td className="px-3 py-2 tabular-nums">{h.graded}</td>
-                    <td className="px-3 py-2 tabular-nums">{thin ? '—' : h.held}</td>
-                    <td className="px-3 py-2 tabular-nums font-semibold">
-                      {thin ? '—' : fmtRate(h.rate)}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums text-[var(--color-text-secondary)]">
-                      {thin ? '—' : fmtCi(h.ci)}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--color-text-secondary)]">
-                      {thin
-                        ? `fewer than ${MIN_SCORED_FOR_RATES} graded sessions — no rate published`
-                        : t == null
-                          ? 'no target published'
-                          : `${fmtRate(t)} — ${coverageVerdictText(v)}`}
-                    </td>
-                  </tr>
-                );
-              })}
+              {coverageRows.map((row) => (
+                <tr key={row.symbol} className="border-t border-[var(--color-border)]">
+                  <td className="px-3 py-2 font-mono font-semibold">{row.symbol}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.graded}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.held}</td>
+                  <td className="px-3 py-2 tabular-nums font-semibold">{row.coverage}</td>
+                  <td className="px-3 py-2 tabular-nums text-[var(--color-text-secondary)]">{row.interval}</td>
+                  <td className="px-3 py-2 text-[var(--color-text-secondary)]">{row.against}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
