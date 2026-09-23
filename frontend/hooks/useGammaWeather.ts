@@ -45,8 +45,14 @@ export interface GammaWeatherPayload {
   lean_side: string | null;
   /** A modifier on the state, never a competing state. */
   cushion: string;
-  /** PULSE | BUILDING | PERSISTENT — how settled the pressure direction is. */
+  /** PULSE | BUILDING | PERSISTENT, plus REVERSED on the bar a side gives way. */
   persistence: string;
+  /**
+   * Opposite bars banked toward a reversal, 0 when none is pending. Drives the
+   * "Pressure reversing" chip, which appears only for a genuine reversal and
+   * never for a fresh pulse on the other side.
+   */
+  pressure_reversing_bars: number;
   /** NEW | ESTABLISHED | CONFIRMED | MATURE — how long the state has held. */
   age: string | null;
   /**

@@ -221,6 +221,22 @@ export default function GammaWeatherStrip({
             {payload.pending_label} forming · {payload.pending_bars}/{payload.confirm_bars}
           </span>
         )}
+        {/* Only for a genuine reversal: an established side giving way while
+            it is still established. A fresh pulse on the other side gets no
+            chip, which is what keeps this one worth looking at. */}
+        {payload.pressure_reversing_bars > 0 && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              color: 'var(--color-text-secondary)',
+              border: '1px dashed var(--color-border)',
+            }}
+            title={`The established pressure side is giving way. Confirms once the opposite side holds ${payload.confirm_bars} completed bars.`}
+          >
+            Pressure reversing · {payload.pressure_reversing_bars}/{payload.confirm_bars}
+          </span>
+        )}
         {transitionRisk && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"

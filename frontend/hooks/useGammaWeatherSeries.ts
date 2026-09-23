@@ -27,6 +27,7 @@ export interface GammaWeatherSeriesBar {
   cushion_band: string | null;
   persistence: string;
   persistence_label: string;
+  pressure_reversing_bars: number;
   age_bars: number;
   age_minutes: number | null;
   age: string | null;

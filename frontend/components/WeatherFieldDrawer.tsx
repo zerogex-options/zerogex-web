@@ -119,6 +119,7 @@ export default function WeatherFieldDrawer({
   // that is precisely when "No gamma flip in the profile" is the line the
   // reader needs: losing the trail along with the chart would hide the
   // explanation for the empty chart.
+  const scrubbing = hovered != null;
   const lastCharted = points.length ? points[points.length - 1].bar_start : null;
   const lastKnown = series?.bars.length ? series.bars[series.bars.length - 1].bar_start : null;
   const readAt = hovered ?? lastCharted ?? lastKnown;
@@ -238,11 +239,20 @@ export default function WeatherFieldDrawer({
         </ResponsiveContainer>
       )}
 
+      {/* At the live end the panel sentence only repeats the banner three
+          inches above, and putting it first buries the field line, which is
+          the one thing here the banner does not already say. So now leads
+          with the stamp and the sentence is kept for scrubbing, where "what
+          was in force then" is exactly the question being asked. */}
       <div
         className="mt-2 border-t pt-2 text-xs"
         style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
       >
-        {comment.sentence ? (
+        {!comment.sentence && (
+          <p className="italic">{loading ? 'Loading the session trail…' : 'No trail yet.'}</p>
+        )}
+
+        {comment.sentence && scrubbing && (
           <>
             <p style={{ color: 'var(--color-text-primary)' }}>{comment.sentence}</p>
             {comment.line && (
@@ -254,8 +264,25 @@ export default function WeatherFieldDrawer({
               </p>
             )}
           </>
-        ) : (
-          <p className="italic">{loading ? 'Loading the session trail…' : 'No trail yet.'}</p>
+        )}
+
+        {comment.sentence && !scrubbing && (
+          <p style={{ color: 'var(--color-text-primary)' }}>
+            {comment.line ? (
+              <>
+                {comment.line}
+                {comment.lineAt && (
+                  <span style={{ color: 'var(--color-text-secondary)' }}>
+                    {` · ${safeTimeLabel(comment.lineAt)}`}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="italic" style={{ color: 'var(--color-text-secondary)' }}>
+                Nothing has changed on this field yet. Hover the chart for the read at a time.
+              </span>
+            )}
+          </p>
         )}
       </div>
     </div>

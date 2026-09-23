@@ -92,7 +92,7 @@ export const WEATHER_FIELDS: WeatherFieldSpec[] = [
   {
     key: 'gamma_trend',
     label: 'Gamma trend',
-    caption: 'The same reading since the open, so it says where the session has migrated.',
+    caption: 'Gamma near price against the session open. Above zero the book has built since the open, below it has thinned.',
     unit: 'usd',
     zeroLine: true,
   },
