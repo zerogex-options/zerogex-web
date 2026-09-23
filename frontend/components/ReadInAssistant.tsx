@@ -107,7 +107,19 @@ export default function ReadInAssistant({ symbol }: { symbol?: string }) {
         }}
       >
         Works with any Model Context Protocol client. In Claude, add it as a custom connector; in
-        Claude Code, <span style={{ ...code, fontSize: 12 }}>claude mcp add --transport http zerogex {MCP_URL}</span>.
+        Claude Code,{' '}
+        {/* ~460px on one line: on a phone the command wraps inside its own box
+            instead of running off the screen. (The class carries white-space;
+            the inline style's nowrap would beat it.) */}
+        <span
+          className="whitespace-nowrap max-sm:inline-block max-sm:max-w-full max-sm:whitespace-normal"
+          style={{ ...code, fontSize: 12, whiteSpace: undefined }}
+        >
+          claude mcp add --transport http zerogex {MCP_URL}
+        </span>
+        {/* On a phone the box fills the line, so its period would open the
+            next one; the box ends the clause there instead. */}
+        <span className="max-sm:hidden">.</span>{' '}
         Every answer carries the snapshot&apos;s age, so a delayed level can&apos;t be quoted as a live one.
       </p>
 

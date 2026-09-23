@@ -3814,7 +3814,7 @@ export default function GammaTerminalChart({
                     {fmtVolSigned(netVolume.last)}
                   </tspan>
                 )}
-                {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={8.5}>{"   ·  PROXY (EST.)"}</tspan>}
+                {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={compact ? 9.5 : 8.5}>{"   ·  PROXY (EST.)"}</tspan>}
                 {symbolIsIndex && (
                   <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
                 )}
