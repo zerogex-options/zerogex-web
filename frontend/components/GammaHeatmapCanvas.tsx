@@ -25,6 +25,15 @@ import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
+import {
+  DEFAULT_PRICE_SCALE,
+  PRICE_SCALE_LABEL,
+  PRICE_SCALE_SIDES,
+  isPriceScaleSide,
+  priceScaleLayout,
+  type Pads,
+  type PriceScaleSide,
+} from '@/core/heatmapPriceScale';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
@@ -123,6 +132,7 @@ const DEFAULTS = {
   zoomMul: 1.0,
   paused: false,
   showGrid: true,
+  priceScale: DEFAULT_PRICE_SCALE as PriceScaleSide,
 };
 
 // ── Saved chart settings ──
@@ -137,18 +147,20 @@ type PersistedSettings = {
   tf: ChartTf;
   withPrev: boolean;
   showGrid: boolean;
+  priceScale: PriceScaleSide;
 };
 
 const PERSISTED_DEFAULTS: PersistedSettings = {
   tf: DEFAULTS.tf,
   withPrev: DEFAULTS.withPrev,
   showGrid: DEFAULTS.showGrid,
+  priceScale: DEFAULTS.priceScale,
 };
 
 // Padding in CSS pixels. The canvas is always drawn at one canvas px per CSS
 // px, so its text is real 10–11px at any width — what a phone needs is a
-// different LAYOUT, not a different scale.
-type Pads = { L: number; R: number; T: number; B: number };
+// different LAYOUT, not a different scale. Both are the layouts with the price
+// scale on the left; priceScaleLayout derives the right-hand and two-sided ones.
 const DESKTOP_PADS: Pads = {
   L: 56,
   // Right padding holds the vertical color legend plus its value labels.
@@ -213,11 +225,18 @@ export default function GammaHeatmapCanvas() {
   const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
+  // chartSettings restores any string here, so a stored side is checked
+  // against the options before it can reach the layout.
+  const [priceScale, setPriceScale] = useState<PriceScaleSide>(() =>
+    isPriceScaleSide(savedSettings.priceScale) ? savedSettings.priceScale : DEFAULTS.priceScale,
+  );
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   // No fullscreen control inside a "My Dashboard" tile — see core/dashboardWidget.
   const inWidget = useInDashboardWidget();
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  // Which edge of the settings button the popover hangs from; see its button.
+  const [settingsAlign, setSettingsAlign] = useState<'left' | 'right'>('right');
 
   const resetAll = () => {
     setTf(DEFAULTS.tf);
@@ -226,6 +245,7 @@ export default function GammaHeatmapCanvas() {
     setZoomMul(DEFAULTS.zoomMul);
     setPaused(DEFAULTS.paused);
     setShowGrid(DEFAULTS.showGrid);
+    setPriceScale(DEFAULTS.priceScale);
     // The auto-save effect below persists this reset-to-defaults state, so a
     // fresh visit reopens on the factory defaults.
   };
@@ -244,11 +264,13 @@ export default function GammaHeatmapCanvas() {
       tf,
       withPrev,
       showGrid,
+      priceScale,
     });
-  }, [tf, withPrev, showGrid]);
+  }, [tf, withPrev, showGrid, priceScale]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!expiryOpen && !settingsOpen) return;
@@ -548,7 +570,13 @@ export default function GammaHeatmapCanvas() {
   // for the 96px legend gutter (see NARROW_PADS). Decided from the measured
   // width, so the server and first client render draw the desktop layout.
   const narrow = boxW != null && boxW < NARROW_MAX_WIDTH && (isMobile || coarsePointer);
-  const pads = narrow ? NARROW_PADS : DESKTOP_PADS;
+  // Memoized so the draw effect, which depends on it, reruns on a layout or
+  // price-scale change rather than on every render.
+  const scale = useMemo(
+    () => priceScaleLayout(narrow ? NARROW_PADS : DESKTOP_PADS, priceScale),
+    [narrow, priceScale],
+  );
+  const pads = scale.pads;
   const size = useMemo(() => {
     if (boxW == null) return { w: 1300, h: 720 };
     if (narrow) {
@@ -681,7 +709,6 @@ export default function GammaHeatmapCanvas() {
 
     ctx.fillStyle = axisColor;
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
 
     const labelLow = Math.ceil(yMin);
@@ -690,7 +717,16 @@ export default function GammaHeatmapCanvas() {
     const labelStep = Math.max(1, Math.ceil((labelSpan + 1) / 12));
     for (let s = labelLow; s <= labelHigh; s += labelStep) {
       const py = yForStrike(s);
-      ctx.fillText(`$${s}`, pads.L - 6, py);
+      // The same labels on whichever side(s) the viewer chose (see
+      // core/heatmapPriceScale), each set flush against the plot.
+      if (scale.left) {
+        ctx.textAlign = 'right';
+        ctx.fillText(`$${s}`, pads.L - 6, py);
+      }
+      if (scale.right) {
+        ctx.textAlign = 'left';
+        ctx.fillText(`$${s}`, pads.L + plotW + 6, py);
+      }
       if (showGrid) {
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
@@ -939,10 +975,11 @@ export default function GammaHeatmapCanvas() {
       ctx.restore();
     }
 
-    // Vertical color legend on the right edge. The narrow layout has no
-    // gutter for it; its legend is the HTML bar under the canvas instead.
+    // Vertical color legend on the right edge, past a right-hand price scale
+    // when there is one. The narrow layout has no gutter for it; its legend is
+    // the HTML bar under the canvas instead.
     if (!narrow) {
-      const legendX = pads.L + plotW + 14;
+      const legendX = pads.L + plotW + scale.rightGutter + 14;
       const legendW = 14;
       const legendY = pads.T;
       const legendH = plotH;
@@ -993,7 +1030,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf, legendGexFactor, pads, narrow]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf, legendGexFactor, pads, narrow, scale]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
@@ -1403,12 +1440,55 @@ export default function GammaHeatmapCanvas() {
     </button>
   );
 
+  // Which side(s) carry the price scale: a segmented control like the
+  // timeframe one, saved with the other display preferences. Lives in the
+  // settings popover on desktop and the Options panel on the narrow layout.
+  const priceScaleControl = (
+    <div
+      className="flex items-center gap-2 text-xs"
+      style={{ color: textPrimary }}
+      title="Show the price scale on the left, the right, or both sides of the chart"
+    >
+      <span className="whitespace-nowrap">Price scale</span>
+      <div role="group" aria-label="Price scale" className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
+        {PRICE_SCALE_SIDES.map((side) => (
+          <button
+            key={side}
+            type="button"
+            onClick={() => setPriceScale(side)}
+            aria-pressed={side === priceScale}
+            className="px-2.5 py-1 text-xs font-semibold"
+            style={{
+              color: side === priceScale ? textPrimary : subtle,
+              backgroundColor: side === priceScale ? 'var(--color-info-soft)' : 'transparent',
+              ...touchTarget,
+            }}
+          >
+            {PRICE_SCALE_LABEL[side]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   // Settings — a popover on the desktop layout.
+  const settingsPopoverW = 250;
   const settingsControl = (
     <div ref={settingsRef} className="relative">
       <button
         type="button"
-        onClick={() => {
+        onClick={(e) => {
+          // Hang the popover toward whichever side of the card has room. In a
+          // My Dashboard tile the toolbar wraps and can leave this button near
+          // the card's left edge; hung from its right edge the popover then
+          // runs past the card, whose overflow clips it.
+          const card = cardRef.current?.getBoundingClientRect();
+          if (card) {
+            const btn = e.currentTarget.getBoundingClientRect();
+            const roomLeft = btn.right - card.left;
+            const roomRight = card.right - btn.left;
+            setSettingsAlign(roomLeft >= settingsPopoverW || roomLeft >= roomRight ? 'right' : 'left');
+          }
           setSettingsOpen((v) => !v);
           setExpiryOpen(false);
         }}
@@ -1420,8 +1500,8 @@ export default function GammaHeatmapCanvas() {
       </button>
       {settingsOpen && (
         <div
-          className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
-          style={{ ...popoverStyle, minWidth: 200 }}
+          className={`absolute top-full ${settingsAlign === 'left' ? 'left-0' : 'right-0'} mt-1 rounded-md py-2 z-30`}
+          style={{ ...popoverStyle, minWidth: settingsPopoverW }}
         >
           <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
             <input
@@ -1431,6 +1511,7 @@ export default function GammaHeatmapCanvas() {
             />
             <span>Show grid lines</span>
           </label>
+          <div className="px-3 py-1.5">{priceScaleControl}</div>
           <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
             <button
               type="button"
@@ -1494,7 +1575,7 @@ export default function GammaHeatmapCanvas() {
           };
 
   return (
-    <div className="rounded-lg" style={containerStyle}>
+    <div ref={cardRef} className="rounded-lg" style={containerStyle}>
       {/* Title bar */}
       <div
         className="flex items-center justify-between px-5 py-3"
@@ -1521,9 +1602,9 @@ export default function GammaHeatmapCanvas() {
       </div>
 
       {/* Toolbar. The narrow layout keeps expiry, timeframe and zoom in sight
-          and folds With Prev, pause, reset and the grid toggle into an
-          Options panel — the single row it replaces ran to three lines of
-          buttons above the heatmap on a phone. */}
+          and folds With Prev, pause, reset, the grid toggle and the price
+          scale side into an Options panel — the single row it replaces ran
+          to three lines of buttons above the heatmap on a phone. */}
       {narrow ? (
         <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
           <div className="flex items-center gap-2">
@@ -1565,6 +1646,7 @@ export default function GammaHeatmapCanvas() {
               >
                 <span>Grid</span>
               </button>
+              {priceScaleControl}
             </div>
           )}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" style={{ color: subtle }}>
