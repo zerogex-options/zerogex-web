@@ -81,7 +81,7 @@ export const dict: PageDictionary = {
     xHandleHelper: '1–15 characters — letters, numbers, and underscores only.',
     referAFriend: 'Refer a friend',
     referralDescription:
-      'Share your link. Your friend gets their first month free (or 10% off their first year on annual), and you earn a free month every time a referral subscribes.',
+      'Share your link. Your friend gets a month free on a monthly or quarterly plan (or 10% off their first year on annual), and you earn a free month every time a referral subscribes.',
     copied: 'Copied!',
     copyLink: 'Copy link',
     signedUp: 'Signed up',
@@ -190,7 +190,7 @@ export const dict: PageDictionary = {
     xHandleHelper: '1–15 caratteri — solo lettere, numeri e trattini bassi.',
     referAFriend: 'Invita un amico',
     referralDescription:
-      'Condividi il tuo link. Il tuo amico riceve il primo mese gratis (o il 10% di sconto sul primo anno con il piano annuale), e tu guadagni un mese gratis ogni volta che un invitato si abbona.',
+      'Condividi il tuo link. Il tuo amico riceve un mese gratis con il piano mensile o trimestrale (o il 10% di sconto sul primo anno con il piano annuale), e tu guadagni un mese gratis ogni volta che un invitato si abbona.',
     copied: 'Copiato!',
     copyLink: 'Copia link',
     signedUp: 'Iscritti',
@@ -289,7 +289,7 @@ export const dict: PageDictionary = {
     xHandleHelper: '1–15 Zeichen — nur Buchstaben, Zahlen und Unterstriche.',
     referAFriend: 'Freund einladen',
     referralDescription:
-      'Teile deinen Link. Dein Freund erhält den ersten Monat kostenlos (oder 10% Rabatt auf das erste Jahr bei jährlicher Zahlung), und du erhältst einen Gratismonat, jedes Mal wenn sich jemand über dich anmeldet.',
+      'Teile deinen Link. Dein Freund erhält einen Monat kostenlos bei monatlicher oder vierteljährlicher Zahlung (oder 10% Rabatt auf das erste Jahr bei jährlicher Zahlung), und du erhältst einen Gratismonat, jedes Mal wenn sich jemand über dich anmeldet.',
     copied: 'Kopiert!',
     copyLink: 'Link kopieren',
     signedUp: 'Registriert',
@@ -388,7 +388,7 @@ export const dict: PageDictionary = {
     xHandleHelper: '1–15 caracteres — solo letras, números y guiones bajos.',
     referAFriend: 'Recomienda a un amigo',
     referralDescription:
-      'Comparte tu enlace. Tu amigo recibe su primer mes gratis (o 10% de descuento en su primer año anual), y tú ganas un mes gratis cada vez que un referido se suscribe.',
+      'Comparte tu enlace. Tu amigo recibe un mes gratis en un plan mensual o trimestral (o 10% de descuento en su primer año anual), y tú ganas un mes gratis cada vez que un referido se suscribe.',
     copied: '¡Copiado!',
     copyLink: 'Copiar enlace',
     signedUp: 'Registrados',
@@ -487,7 +487,7 @@ export const dict: PageDictionary = {
     xHandleHelper: '1 à 15 caractères — lettres, chiffres et tirets bas uniquement.',
     referAFriend: 'Parrainer un ami',
     referralDescription:
-      'Partagez votre lien. Votre ami obtient son premier mois gratuit (ou 10% de réduction sur sa première année en formule annuelle), et vous gagnez un mois gratuit à chaque fois qu’un filleul s’abonne.',
+      'Partagez votre lien. Votre ami obtient un mois gratuit en formule mensuelle ou trimestrielle (ou 10% de réduction sur sa première année en formule annuelle), et vous gagnez un mois gratuit à chaque fois qu’un filleul s’abonne.',
     copied: 'Copié !',
     copyLink: 'Copier le lien',
     signedUp: 'Inscrits',

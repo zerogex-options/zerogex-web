@@ -46,7 +46,7 @@ Three patterns we see:
 
 ## How the new user benefits
 
-The new user gets the same standard terms as anyone else — the 7-day free trial on Basic monthly, or the 7-day money-back guarantee on every other plan (no extension via your code), and any active sitewide promo applies on top. The referral system credits **you** for the conversion, not them — the program is structured as a thank-you, not a discount transfer.
+The new user gets the same standard terms as anyone else — the 7-day free trial on Basic monthly, or the 7-day money-back guarantee on every other plan (no extension via your code), and any active sitewide promo applies on top. On top of that, their first bill carries a referral bonus: **a month free** on a monthly or quarterly plan, or **10% off the first year** on annual. It applies to a first subscription only. You're credited separately, as described above.
 
 ## Privacy
 

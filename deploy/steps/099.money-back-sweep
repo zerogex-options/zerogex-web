@@ -92,7 +92,17 @@ warn_missing_env() {
 if [ -f "$ENV_FILE" ]; then
     warn_missing_env RESEND_API_KEY
     warn_missing_env RESEND_FROM_EMAIL
-    warn_missing_env REFUND_ALERT_EMAIL
+    # The sweep alerts the first of these that is set (core/moneyBackServer.ts).
+    alert_to=""
+    for key in REFUND_ALERT_EMAIL CANCELLATION_ALERT_EMAIL SIGNUP_ALARM_EMAIL FOH_REMINDER_EMAIL; do
+        value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+        if [ -n "$value" ]; then alert_to="$key"; break; fi
+    done
+    if [ -n "$alert_to" ]; then
+        log "  ✓ Refund alerts go to $alert_to"
+    else
+        log "  ⚠ No REFUND_ALERT_EMAIL (or CANCELLATION_ALERT_EMAIL / SIGNUP_ALARM_EMAIL / FOH_REMINDER_EMAIL) in $ENV_FILE — nobody will be alerted until one is set"
+    fi
 else
     log "  ⚠ $ENV_FILE not found — step 030 should have created it"
 fi

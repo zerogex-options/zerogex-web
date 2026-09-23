@@ -1,8 +1,10 @@
 // Pure decision logic for the REFER-A-FRIEND bonus — the discount the referred
 // friend (the "referee") gets on their first bill:
 //
-//   monthly -> first month free      (a 100%-off, duration:once coupon)
-//   annual  -> 10% off the first year (a 10%-off, duration:once coupon)
+//   monthly   -> first month free          (a 100%-off, duration:once coupon)
+//   quarterly -> one month free: a third off the first quarter (33.33%, once;
+//                created by scripts/setup-pricing.mts)
+//   annual    -> 10% off the first year    (a 10%-off, duration:once coupon)
 //
 // The bonus is deliberately ADDITIVE. It is a thank-you for arriving through a
 // member's link, not an alternative to whatever offer the site is already

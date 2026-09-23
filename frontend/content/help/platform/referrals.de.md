@@ -46,7 +46,7 @@ Drei Muster, die wir häufig sehen:
 
 ## Was der neue Nutzer davon hat
 
-Der neue Nutzer erhält dieselben regulären Konditionen wie alle anderen — die 7-tägige kostenlose Testphase bei Basic monatlich oder die 7-tägige Geld-zurück-Garantie bei allen anderen Plänen (keine Verlängerung durch deinen Code), und jede aktive websiteweite Promo gilt zusätzlich. Das Empfehlungssystem schreibt die Conversion **dir** gut, nicht ihm — das Programm ist als Dankeschön konzipiert, nicht als Rabattübertragung.
+Der neue Nutzer erhält dieselben regulären Konditionen wie alle anderen — die 7-tägige kostenlose Testphase bei Basic monatlich oder die 7-tägige Geld-zurück-Garantie bei allen anderen Plänen (keine Verlängerung durch deinen Code), und jede aktive websiteweite Promo gilt zusätzlich. Zusätzlich enthält seine erste Rechnung einen Empfehlungsbonus: **einen Monat kostenlos** bei monatlicher oder vierteljährlicher Zahlung oder **10% Rabatt auf das erste Jahr** bei jährlicher Zahlung. Er gilt nur für das erste Abonnement. Deine Gutschrift erhältst du separat, wie oben beschrieben.
 
 ## Datenschutz
 

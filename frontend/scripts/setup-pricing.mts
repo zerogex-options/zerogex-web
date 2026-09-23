@@ -87,6 +87,14 @@ const DEFAULT_PROMO_END_AT = '2026-10-02T03:59:59Z';
 // Fixed identifiers are what make --yes idempotent.
 const DEFAULT_PROMO_COUPON_ID = 'ZGX_MONTHLY_10_OFF_12M';
 // Customer-facing: Stripe prints a coupon's name on checkout and on invoices.
+// Refer-a-friend bonus on a quarterly plan: one month free, i.e. a third off
+// the first quarter ($25.00 off Basic's $75, $38.33 off Pro's $115). Stripe
+// rounds the discount to the cent. Never the monthly bonus coupon (100% off),
+// which would make the whole first quarter free.
+const REFERRAL_QUARTERLY_KEY = 'STRIPE_COUPON_REFERRAL_REFEREE_QUARTERLY';
+const REFERRAL_QUARTERLY_COUPON_ID = 'ZGX_REFERRAL_QUARTERLY_1MO';
+const REFERRAL_QUARTERLY_PERCENT = 33.33;
+const REFERRAL_QUARTERLY_NAME = 'Referral bonus: first month free';
 const PROMO_COUPON_NAME = `$${MONTHLY_PROMO.amountOffUsd} off your first ${MONTHLY_PROMO.months} months`;
 const quarterlyLookupKey = (tier: BillableTier) => `zgx_${tier}_quarterly`;
 
@@ -366,6 +374,22 @@ function promoCouponFindings(
   return { errors, warnings };
 }
 
+// Why a coupon is not the quarterly referral bonus (empty when it is).
+function referralQuarterlyFindings(coupon: Stripe.Coupon): string[] {
+  const errors: string[] = [];
+  if (coupon.percent_off !== REFERRAL_QUARTERLY_PERCENT) {
+    errors.push(
+      `takes ${coupon.percent_off != null ? `${coupon.percent_off}%` : formatMinor(coupon.amount_off, coupon.currency)} off, ` +
+        `not ${REFERRAL_QUARTERLY_PERCENT}% (one month of the quarter)`,
+    );
+  }
+  if (coupon.duration !== 'once') errors.push(`lasts ${coupon.duration}, not the first quarter only`);
+  if (!coupon.valid) errors.push('is no longer valid');
+  const monthly = env('STRIPE_COUPON_REFERRAL_REFEREE_MONTHLY');
+  if (monthly && coupon.id === monthly) errors.push('is the monthly bonus coupon, which would make the first quarter free');
+  return errors;
+}
+
 function monthlyPromoSkus(): Sku[] {
   return BILLABLE_TIERS.flatMap((tier) =>
     BILLING_CADENCES.filter((cadence) => isPromoAdvertised({ tier, cadence })).map((cadence) => ({ tier, cadence })),
@@ -593,6 +617,58 @@ async function runSetup(apply: boolean): Promise<number> {
     }
   }
 
+  // 3b. The refer-a-friend bonus for quarterly plans (only when the program has
+  // bonuses configured for the other billing periods).
+  const referralLines: string[] = [];
+  const referralInUse = !!(env('STRIPE_COUPON_REFERRAL_REFEREE_MONTHLY') || env('STRIPE_COUPON_REFERRAL_REFEREE_ANNUAL'));
+  if (referralInUse) {
+    heading('Referral bonus on quarterly plans (first month free: a third off the first quarter)');
+    const configured = env(REFERRAL_QUARTERLY_KEY);
+    const configuredCoupon = configured ? await retrieveCoupon(configured) : null;
+    if (configured && configuredCoupon && referralQuarterlyFindings(configuredCoupon).length === 0) {
+      ok(`${REFERRAL_QUARTERLY_KEY}=${configured} already matches; keeping it.`);
+    } else {
+      if (configured) {
+        note(
+          `${REFERRAL_QUARTERLY_KEY}=${configured} ${
+            configuredCoupon ? referralQuarterlyFindings(configuredCoupon).join('; ') : 'does not exist in Stripe'
+          }. It will be replaced.`,
+        );
+      }
+      const existing = await retrieveCoupon(REFERRAL_QUARTERLY_COUPON_ID);
+      if (existing) {
+        const errors = referralQuarterlyFindings(existing);
+        for (const error of errors) problem(`Coupon ${REFERRAL_QUARTERLY_COUPON_ID} ${error}.`);
+        if (errors.length === 0) ok(`Found coupon ${REFERRAL_QUARTERLY_COUPON_ID}; reusing it.`);
+      } else {
+        plan(
+          `${apply ? 'Create' : 'Would create'} coupon ${REFERRAL_QUARTERLY_COUPON_ID} "${REFERRAL_QUARTERLY_NAME}": ` +
+            `${REFERRAL_QUARTERLY_PERCENT}% off the first quarter only (Basic $75.00 → $50.00, Pro $115.00 → $76.67).`,
+        );
+        actions.push(async () => {
+          const created = await stripe.coupons.create(
+            {
+              id: REFERRAL_QUARTERLY_COUPON_ID,
+              name: REFERRAL_QUARTERLY_NAME,
+              percent_off: REFERRAL_QUARTERLY_PERCENT,
+              duration: 'once',
+              metadata: {
+                zgx_purpose: 'referral_referee_quarterly',
+                zgx_created_by: 'scripts/setup-pricing.mts',
+              },
+            },
+            { idempotencyKey: `zgx-setup-pricing:coupon:${REFERRAL_QUARTERLY_COUPON_ID}:${REFERRAL_QUARTERLY_PERCENT}` },
+          );
+          const check = await retrieveCoupon(created.id);
+          const errors = check ? referralQuarterlyFindings(check) : ['does not exist'];
+          if (errors.length > 0) throw new Error(`coupon ${created.id} ${errors.join('; ')}`);
+          ok(`Created coupon ${created.id}.`);
+        });
+      }
+      referralLines.push(`${REFERRAL_QUARTERLY_KEY}=${REFERRAL_QUARTERLY_COUPON_ID}`);
+    }
+  }
+
   // 4. The promo window.
   heading('Promo window');
   if (promoEndMs <= Date.now()) {
@@ -661,6 +737,7 @@ async function runSetup(apply: boolean): Promise<number> {
   for (const key of retired) retiredIds.add(env(key) as string);
   for (const id of Object.values(couponIdForKeys)) retiredIds.delete(id);
   if (retiredIds.size > 0) lines.push(`STRIPE_COUPON_PROMO_RETIRED=${[...retiredIds].join(',')}`);
+  lines.push(...referralLines);
   console.log('');
   for (const line of lines) console.log(`    ${line}`);
   if (retired.length > 0) {
@@ -828,7 +905,8 @@ async function runVerify(): Promise<number> {
       (key) =>
         !promoSkus.some((sku) => promoEnvKey(sku) === key) &&
         !retiredPromoKeysInEnv().includes(key) &&
-        key !== 'STRIPE_COUPON_PROMO_RETIRED',
+        key !== 'STRIPE_COUPON_PROMO_RETIRED' &&
+        key !== REFERRAL_QUARTERLY_KEY,
     )
     .sort();
   if (otherCouponKeys.length === 0) ok('None.');
@@ -841,6 +919,20 @@ async function runVerify(): Promise<number> {
       else ok(`${key}=${id} is valid.`);
     } catch (err) {
       warn(`${key}=${id} could not be read: ${errorMessage(err)}`);
+    }
+  }
+
+  // 3b. The quarterly referral bonus: a month free, never the monthly coupon.
+  if (env('STRIPE_COUPON_REFERRAL_REFEREE_MONTHLY') || env('STRIPE_COUPON_REFERRAL_REFEREE_ANNUAL')) {
+    heading('Referral bonus on quarterly plans');
+    const id = env(REFERRAL_QUARTERLY_KEY);
+    if (!id) {
+      warn(`${REFERRAL_QUARTERLY_KEY} is unset: a referred friend who picks a quarterly plan gets no bonus. Run make setup-pricing YES=1.`);
+    } else {
+      const coupon = await retrieveCoupon(id).catch(() => null);
+      const errors = coupon ? referralQuarterlyFindings(coupon) : ['does not exist in Stripe'];
+      if (errors.length === 0) ok(`${REFERRAL_QUARTERLY_KEY}=${id}: ${REFERRAL_QUARTERLY_PERCENT}% off the first quarter (one month free).`);
+      else problem(`${REFERRAL_QUARTERLY_KEY}=${id} ${errors.join('; ')}.`);
     }
   }
 
@@ -888,7 +980,18 @@ async function runVerify(): Promise<number> {
     if (!update?.enabled) {
       problem('Plan switching is off in the portal, but the pricing page sends paying members there to switch plans.');
     } else {
-      const offered = new Set((update.products ?? []).flatMap((p) => p.prices ?? []));
+      // The newer API version read above is the only one that returns
+      // trial_update_behavior, but it leaves subscription_update.products out
+      // unless expanded — read that half at the SDK's pinned version, which
+      // always returns it, and take both.
+      let pinnedProducts: Stripe.BillingPortal.Configuration.Features.SubscriptionUpdate.Product[] = [];
+      try {
+        const pinned = await stripe.billingPortal.configurations.retrieve(config.id);
+        pinnedProducts = pinned.features?.subscription_update?.products ?? [];
+      } catch (err) {
+        problem(`Could not read the plans the billing portal offers: ${errorMessage(err)}`);
+      }
+      const offered = new Set([...(update.products ?? []), ...pinnedProducts].flatMap((p) => p.prices ?? []));
       for (const [priceId, sku] of configuredPriceIds) {
         if (!offered.has(priceId)) {
           problem(`The portal does not offer ${skuLabel(sku)} (${priceId}). Run make setup-billing-portal YES=1 (after the restart).`);

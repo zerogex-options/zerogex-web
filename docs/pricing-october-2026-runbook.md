@@ -49,6 +49,7 @@ make setup-pricing VERIFY=1          # must end "no problems"
 | `STRIPE_COUPON_PROMO_BASIC_MONTHLY` / `STRIPE_COUPON_PROMO_PRO_MONTHLY` | `ZGX_MONTHLY_10_OFF_12M` (one coupon serves both) |
 | `PROMO_END_AT` | `2026-10-02T03:59:59Z`, the end of October 1 in New York. The page shows "Offer ends October 1, 2026". |
 | `STRIPE_COUPON_PROMO_*_ANNUAL` | blank. The promo is monthly-only, and checkout ignores these. |
+| `STRIPE_COUPON_REFERRAL_REFEREE_QUARTERLY` | `ZGX_REFERRAL_QUARTERLY_1MO`, from `make setup-pricing YES=1`: a referred friend's first quarter is a third off, i.e. one month free ($75 → $50, $115 → $76.67) |
 | `STRIPE_COUPON_PROMO_RETIRED` | printed by setup when it replaces an older promo coupon. A member still holding an old coupon has it swapped out on a plan switch, instead of getting it on top of the new promo. |
 | `BILLING_TRIAL_PLANS` | blank means Basic monthly only (see levers) |
 | `REFUND_ALERT_EMAIL` | who is emailed about each refund (falls back to `CANCELLATION_ALERT_EMAIL`) |
@@ -70,6 +71,7 @@ The coupon deliberately has **no redeem-by date**: `PROMO_END_AT` is the only cl
 |---|---|---|
 | Give every plan a trial again | `BILLING_TRIAL_PLANS=basic:monthly,pro:monthly,basic:annual,pro:annual`, then `make restart` | Those plans trial and leave the guarantee. The page follows. |
 | Remove the only free trial | `BILLING_TRIAL_PLANS=none`, then restart | Every plan is paid up front under the guarantee. |
+| Extend the promo | set `PROMO_END_AT` to the new end, then `make restart` and `make setup-pricing VERIFY=1` | The page shows the new date. End of day New York time is `03:59:59Z` the next day until November 1, and `04:59:59Z` from November 2 (daylight saving ends): the end of November 30 is `2026-12-01T04:59:59Z`. VERIFY prints the date the page will show. |
 | End the promo early | set `PROMO_END_AT` to a past time, then restart | New signups pay list price. Existing promo members keep theirs. |
 | Stop all paid signups | `BILLING_PAID_SIGNUP_DISABLED=1`, then restart | Checkout is refused. |
 
@@ -87,7 +89,6 @@ Every `make` command that looks at a member's plan knows about quarterly. Notes 
 - `grant-founding-on-existing-sub` and `activate-late-founder` only offer monthly or annual targets, because the founding offer has no quarterly rate. A quarterly member can still be moved onto a founding plan.
 - The July 2026 product-update newsletter can no longer be sent (`--dry-run` still counts its audience). Its copy says both plans start with a free trial.
 
-## 7. Open items
+## 7. Decisions on record
 
-- **Terms version.** The Terms page now describes the trial, the guarantee and auto-renewal, but `TERMS_VERSION` was not bumped, because a bump makes every member re-accept. Bump it if counsel wants existing members to accept the new wording.
-- **Quarterly referral bonus.** None unless `STRIPE_COUPON_REFERRAL_REFEREE_QUARTERLY` is set. The monthly coupon (100% off) must never be reused there, because it would give a free quarter.
+- **Terms version not bumped.** The Terms page describes the trial, the guarantee and auto-renewal. Existing members are not asked to re-accept; new members accept the new wording at signup. Bumping `TERMS_VERSION` later would prompt everyone.

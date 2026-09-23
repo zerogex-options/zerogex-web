@@ -46,7 +46,7 @@ Trois pratiques que nous observons :
 
 ## Ce que le nouvel utilisateur y gagne
 
-Le nouvel utilisateur bénéficie des mêmes conditions standard que tout le monde — l'essai gratuit de 7 jours sur Basic mensuel, ou la garantie satisfait ou remboursé de 7 jours sur toutes les autres formules (aucune extension via votre code), et toute promotion active sur l'ensemble du site s'applique en plus. Le système de parrainage vous crédite **vous** pour la conversion, pas lui — le programme est conçu comme un remerciement, pas comme un transfert de remise.
+Le nouvel utilisateur bénéficie des mêmes conditions standard que tout le monde — l'essai gratuit de 7 jours sur Basic mensuel, ou la garantie satisfait ou remboursé de 7 jours sur toutes les autres formules (aucune extension via votre code), et toute promotion active sur l'ensemble du site s'applique en plus. En plus, sa première facture comprend un bonus de parrainage : **un mois gratuit** en formule mensuelle ou trimestrielle, ou **10% de réduction sur la première année** en formule annuelle. Il ne s'applique qu'au premier abonnement. Vous recevez votre crédit séparément, comme décrit plus haut.
 
 ## Confidentialité
 

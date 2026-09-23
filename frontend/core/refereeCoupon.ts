@@ -1,7 +1,8 @@
 // Referee (the newly-referred friend) discount coupon, keyed by the cadence
 // they buy (STRIPE_COUPON_REFERRAL_REFEREE_<CADENCE>):
 //   monthly   -> "first month free"  (a 100%-off, duration:once coupon)
-//   quarterly -> whatever the operator configures; unset by default
+//   quarterly -> one month free: 33.33% off the first quarter, once
+//                (scripts/setup-pricing.mts creates it)
 //   annual    -> "10% off first year" (a 10%-off, duration:once coupon)
 // Returns null when not configured for that cadence, in which case checkout
 // simply proceeds without a referral discount. Quarterly deliberately has its
