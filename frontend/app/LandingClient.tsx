@@ -409,6 +409,20 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
             </Link>
           </div>
 
+          {/* Who builds it: a quiet byline under the CTAs rather than a claim in
+              the headline. The full note, including how AI fits into the
+              development work, is on /about#founder. */}
+          <div style={{ marginTop: 20 }}>
+            <Link href="/about#founder" className="zg-small" style={{ color: subtext, textDecoration: 'none' }}>
+              {t('heroFounder')}
+              <ArrowRight
+                size={14}
+                aria-hidden="true"
+                style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 6, color: C.amber }}
+              />
+            </Link>
+          </div>
+
           {/* The hero visual IS the live product output — the gamma profile,
               not a mock. Signed areas, the flip band, and the spot cursor. */}
           <div style={{ marginTop: 56, textAlign: 'left' }}>

@@ -256,7 +256,38 @@ export default function AboutPage() {
       </section>
 
       {/* ── Founder Intro ────────────────────────────────────────────────────── */}
-      <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto' }}>
+      {/* Who builds it, then what it is. The footer and the homepage hero both
+          link to /about#founder, so the id sits on the card itself and the
+          scroll margin keeps it clear of the fixed LandingHeader. */}
+      <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto', display: 'grid', gap: 16 }}>
+        <div
+          id="founder"
+          className="zg-panel"
+          style={{
+            padding: 'clamp(28px, 4vw, 44px)',
+            position: 'relative',
+            overflow: 'hidden',
+            scrollMarginTop: 88,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: 0, left: 0, bottom: 0,
+              width: 3,
+              background: C.green,
+            }}
+          />
+          <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 18, fontSize: 12 }}>
+            {t('founderEyebrow')}
+          </div>
+          <p style={{ fontSize: 'clamp(19px, 2.4vw, 24px)', fontWeight: 700, color: text, lineHeight: 1.4, margin: '0 0 14px' }}>
+            {t('founderLine')}
+          </p>
+          <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0 }}>
+            {t('founderAiNote')}
+          </p>
+        </div>
         <div
           className="zg-panel"
           style={{

@@ -99,6 +99,7 @@ export const fr: Dictionary = {
   'footer.faqs': 'FAQ',
   'footer.tagline':
     'Exposition gamma en temps réel et positionnement des teneurs de marché pour les traders SPX, SPY, QQQ et NDX.',
+  'footer.founderBuilt': 'Conçu et géré par son fondateur, Michael',
   'footer.veteransBadge': '3 % pour les vétérans',
   'footer.rights': '© 2026 ZeroGEX, tous droits réservés.',
   'footer.disclaimer':
