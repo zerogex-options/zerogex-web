@@ -37,11 +37,11 @@
 // next retry, grace deadline, and the bank's reason for the LATEST decline — so
 // it states today's facts rather than last week's.
 //
-// WHY THE REASON IS LOOKED UP HERE. The webhook records the bank's reason when a
-// payment fails, but Stripe renders webhook events in a newer API shape that
-// leaves out the charge the reason lives on, so that capture comes back empty
-// and stores "unknown". This script reads the invoice through our own API
-// client, which does carry the charge, and asks again.
+// WHY THE REASON IS LOOKED UP HERE rather than read from payment_declines. Until
+// core/stripeDeclineLookup.ts learned to re-read event-shaped invoices, the
+// webhook stored "unknown" for every decline, and rows from that time stay that
+// way until `make backfill-payment-declines` refills them. Asking Stripe again
+// costs one read and is right either way.
 //
 // It never charges, retries, voids or changes anything. It reads Stripe and the
 // database and sends at most one email per invoice.
@@ -249,7 +249,7 @@ for (const row of sentRows) {
   }
 
   // The bank's reason for the latest attempt, read live (see the header). Falls
-  // back to whatever the webhook stored, which is usually "unknown".
+  // back to whatever the webhook stored.
   const lookup = await lookupInvoiceDecline(stripe, invoice);
   const category = lookup.decline
     ? classifyDecline(lookup.decline)
