@@ -474,7 +474,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <GrowthRateCard rates={data.growthRates} ledgerError={data.subscriberLedger.error} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <LevelsEmailCard data={data.levelsEmail} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
@@ -1262,6 +1262,15 @@ function SubscriberLedgerCard({
                   >
                     {ledgerKindLabel(r.kind)}
                   </span>
+                  {r.paymentFailure && (
+                    <span
+                      className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                      style={{ border: `1px solid ${CONVEYOR_COLORS.stalled}`, color: CONVEYOR_COLORS.stalled }}
+                      title="Counted as a failure in the Forward-Looking Growth Rate"
+                    >
+                      payment failure
+                    </span>
+                  )}
                   <span className="text-xs truncate" style={{ color: textColor }} title={r.email ?? undefined}>
                     {r.email ?? r.userId ?? 'unknown member'}
                   </span>
@@ -1954,12 +1963,19 @@ function LevelsEmailCard({ data, cardBg, borderColor, mutedText, textColor }: { 
   );
 }
 
-function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
+// `ledgerError` is the Subscriber Ledger's build error: the failures below are
+// counted off its rows, so when it failed they are unknown, not zero.
+function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; ledgerError: string | null; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
   return (
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
         <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
-        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks (net of win-backs) and first payment failures. Rate is net growth per day over each trailing window.</p>
+        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks (net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each trailing window.</p>
+        {ledgerError && (
+          <p className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.stalled }}>
+            Payment failures could not be counted because the Subscriber Ledger failed to build, so they show as 0.
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {rates.map((rate) => (

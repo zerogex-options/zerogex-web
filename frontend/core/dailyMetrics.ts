@@ -51,6 +51,9 @@ import { isSearchConsoleConfigured } from './searchConsole.ts';
 //                    would live in.
 //   payment_failures `stripe_payment_failed (attempt 1)`, deduped per invoice —
 //                    the first decline of an invoice, not each Smart Retry.
+//                    The one exception to the rule above: the growth-rate card
+//                    counts only declines that hit a subscriber, so this can
+//                    read higher than that card.
 //   registrations    New rows in `users`, by created_at. One row per account,
 //                    so it cannot double-count the way an audit stream can.
 //   pageviews /      From page_view_events. NULL before the beacon shipped.
@@ -323,9 +326,12 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   }
 
   // ── Cancels + payment failures ────────────────────────────────────────────
-  // Both streams are deduped the way core/monitoring.ts's growth rates dedupe
-  // them: a cancel click emits both a request row and an ack-email row, and one
-  // declined invoice emits a row per Smart Retry.
+  // A cancel click emits both a request row and an ack-email row, deduped the
+  // way core/monitoring.ts's growth rates dedupe them. One declined invoice
+  // emits a row per Smart Retry, so only its first decline counts. That is every
+  // declined invoice, including ones that moved no subscriber, so it is NOT the
+  // growth-rate card's failure count, which is the Subscriber Ledger's flagged
+  // rows (see buildGrowthRates).
   const churnRows = db
     .prepare(
       `SELECT type, user_id, created_at, message FROM audit_events

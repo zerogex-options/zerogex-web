@@ -38,6 +38,7 @@ import {
   buildSubscriberLedger,
   classifySubscriberBucket,
   summarizeLedger,
+  type LedgerDeclineEvent,
   type LedgerDeleteEvent,
   type LedgerPaymentEvent,
   type LedgerRecoveryEvent,
@@ -1299,13 +1300,30 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // win-back whose original cancel fell outside the window slightly under-counts
 // cancellations, and --keep-cancellation runs (which don't clear the cancel)
 // are excluded.
-function buildGrowthRates(now: Date): GrowthRatePoint[] {
+//
+// Payment failures are the Subscriber Ledger's rows flagged `paymentFailure`,
+// read off the same build the ledger renders, so every failure counted here is
+// a named row there. They used to be every first declined attempt on an
+// invoice, which also counted declines that never moved a subscriber: a charge
+// refused on a subscription that was never on the chart or was still trialing,
+// and a second try at an already-failed bill on a later day (a member's own
+// retry does not advance Stripe's attempt count, so it can arrive as attempt 1
+// again). Those are still in Stripe → Payment Declines, which counts attempts.
+function buildGrowthRates(now: Date, ledger: LedgerBuild): GrowthRatePoint[] {
   const horizons = [1, 7, 14, 30] as const;
   const days = generateDailyKeys(now, 30);
   const signups = new Set<string>();
   const cancellations = new Set<string>();
   const paymentFailures = new Set<string>();
   const winbacks = new Set<string>();
+
+  ledger.rows.forEach((row, index) => {
+    if (!row.paymentFailure) return;
+    const at = new Date(row.at);
+    if (Number.isNaN(at.getTime())) return;
+    const day = etBucketKeys(at).day;
+    if (days.includes(day)) paymentFailures.add(`${day}:${index}`);
+  });
 
   try {
     const rows = getDb().prepare(
@@ -1314,7 +1332,6 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
          'stripe_subscription_sync',
          'stripe_cancellation_requested',
          'cancellation_ack_email_sent',
-         'stripe_payment_failed',
          'billing_winback_discount_honored'
        ) AND created_at > datetime('now', '-850 days')
        ORDER BY created_at ASC`,
@@ -1334,9 +1351,6 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
         }
       } else if (!days.includes(day)) {
         continue;
-      } else if (row.type === 'stripe_payment_failed' && /\(attempt 1\)/.test(row.message)) {
-        const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
-        paymentFailures.add(`${day}:${invoice}`);
       } else if (row.type === 'billing_winback_discount_honored') {
         // Only a win-back that actually un-canceled offsets a cancellation;
         // the script stamps "cleared cancel_at_period_end" into the message
@@ -1609,19 +1623,16 @@ function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
   return out;
 }
 
+// Every ledger row the scan produced, newest-first and untrimmed, or why there
+// are none. Built once per snapshot and shared: the Subscriber Ledger renders a
+// window of it, and the growth-rate card counts its payment failures, so the two
+// can never disagree about who failed.
+type LedgerBuild = { rows: LedgerRow[]; error: string | null };
+
 // Reconstruct the headcount's recent history from the same audit streams the
-// flow charts read. Named with a trailing underscore because the pure builder it
-// delegates to owns the plain name. Any failure yields an empty ledger rather
-// than 500-ing the admin page.
-function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
-  const empty = (error: string | null): SubscriberLedgerSnapshot => ({
-    windowDays: LEDGER_WINDOW_DAYS,
-    rows: [],
-    truncated: 0,
-    net: { fullSubscriber: 0, converting: 0, freeTrial: 0, trialGrace: 0 },
-    generatedAt: now.toISOString(),
-    error,
-  });
+// flow charts read. Any failure yields no rows, with the reason, rather than
+// 500-ing the admin page.
+function readLedgerRows(now: Date): LedgerBuild {
   try {
     const db = getDb();
     // Scanned oldest-first so each subscription's prior state is known before
@@ -1714,21 +1725,43 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       });
     }
 
-    const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
-    const all = buildSubscriberLedger(syncs, deletes, payments, recoveries, now.getTime()).filter(
-      (r) => Date.parse(r.at) >= cutoffMs,
-    );
+    // Declined charges, as evidence for how a subscription ended: Stripe cancels
+    // one in the same instant a non-card charge fails, with no past_due for the
+    // sync stream to see. Every attempt is read; the builder only needs the
+    // latest before an ending.
+    const declineRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_payment_failed'
+           AND created_at > datetime('now', '-${since} days')`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    const declines: LedgerDeclineEvent[] = [];
+    for (const row of declineRows) {
+      const subId = parseSubIdFromMessage(row.message);
+      if (subId) declines.push({ subId, at: toIsoInstant(row.created_at) });
+    }
+
     return {
-      windowDays: LEDGER_WINDOW_DAYS,
-      rows: all.slice(0, LEDGER_MAX_ROWS),
-      truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
-      net: summarizeLedger(all),
-      generatedAt: now.toISOString(),
+      rows: buildSubscriberLedger(syncs, deletes, payments, recoveries, now.getTime(), declines),
       error: null,
     };
   } catch (err) {
-    return empty(noteSnapshotFailure('subscriber ledger', err));
+    return { rows: [], error: noteSnapshotFailure('subscriber ledger', err) };
   }
+}
+
+function buildSubscriberLedgerSnapshot(now: Date, ledger: LedgerBuild): SubscriberLedgerSnapshot {
+  const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
+  const all = ledger.rows.filter((r) => Date.parse(r.at) >= cutoffMs);
+  return {
+    windowDays: LEDGER_WINDOW_DAYS,
+    rows: all.slice(0, LEDGER_MAX_ROWS),
+    truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
+    net: summarizeLedger(all),
+    generatedAt: now.toISOString(),
+    error: ledger.error,
+  };
 }
 
 // audit_events.created_at is written by SQLite's datetime() as "YYYY-MM-DD
@@ -2148,6 +2181,9 @@ export function getSnapshot(): MonitoringSnapshot {
   // the projection counts every scheduled charge.
   const conveyorParts = readConveyorParts(now);
   const trialConveyor = buildTrialConveyor(now, conveyorParts);
+  // Read once, untrimmed, and shared: the Subscriber Ledger lists these rows and
+  // the growth-rate card counts its payment failures off them.
+  const ledger = readLedgerRows(now);
   return {
     mrr,
     mrrSeries,
@@ -2159,10 +2195,10 @@ export function getSnapshot(): MonitoringSnapshot {
     mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
     signups,
     signupFlow: buildSignupFlowSeries(now),
-    growthRates: buildGrowthRates(now),
+    growthRates: buildGrowthRates(now, ledger),
     cancellationReasons: buildCancellationReasons(),
     trialConveyor,
-    subscriberLedger: buildSubscriberLedger_(now),
+    subscriberLedger: buildSubscriberLedgerSnapshot(now, ledger),
     subscriberProjection: buildSubscriberProjection(now, signups, conveyorParts),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
