@@ -426,11 +426,11 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
           server, so every phone first painted the desktop padding and then
           jumped. */}
       <div
-        className={`w-full px-0 ${isCollapsed ? "md:py-[2px]" : "md:py-2"}`}
+        className={`w-full px-0 ${isCollapsed ? "lg:py-[2px]" : "lg:py-2"}`}
         style={{ transition: "padding 0.3s ease" }}
       >
         {/* Desktop Layout */}
-        <div className="hidden md:block relative">
+        <div className="hidden lg:block relative">
           <div className="relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px", paddingLeft: "10px" }}>
             <div className="flex items-center" style={{ gap: isCollapsed ? "14px" : "20px" }}>
                 <button
@@ -546,7 +546,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                         dataAgeSeconds={quoteData?.data_age_seconds}
                       />
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
+                        <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `color-mix(in srgb, ${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'} 12%, transparent)`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -610,13 +610,16 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
           </div>
         </div>
 
-        {/* Mobile top bar. Three things only, so each gets real room: the
+        {/* Phone and tablet top bar (below lg: from 768px up to ~1000px the
+            desktop row's quote, centred logo, clocks and eight controls
+            overlapped and pushed search and the account menu off screen).
+            Three things only, so each gets real room: the
             lockup at full size, a live quote that doubles as the symbol
             switcher, and search + menu. Everything else — tools, palette,
             language, dark mode, the account — lives in the menu sheet.
             It used to carry all eight controls in one row, which left the
             logo a few pixels wide and clipped. */}
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <div ref={mobileTopBarRef} className="zg-mbar">
             <Link href="/" aria-label="ZeroGEX home" className="zg-mbar-logo">
               <Image

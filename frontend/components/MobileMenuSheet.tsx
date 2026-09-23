@@ -106,12 +106,12 @@ export default function MobileMenuSheet({
     };
   }, [open, onClose]);
 
-  // The sheet is a phone surface. If the window grows past the md breakpoint
-  // while it is open (a tablet rotating, a desktop window widening), close it
-  // rather than leave a locked page behind the desktop chrome.
+  // The sheet is the phone and tablet surface. If the window grows past the lg
+  // breakpoint while it is open (a tablet rotating, a desktop window widening),
+  // close it rather than leave a locked page behind the desktop chrome.
   useEffect(() => {
     if (!open) return;
-    const mql = window.matchMedia("(min-width: 768px)");
+    const mql = window.matchMedia("(min-width: 1024px)");
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) onClose();
     };
@@ -232,7 +232,7 @@ export default function MobileMenuSheet({
       role="dialog"
       aria-modal="true"
       aria-label="Site menu"
-      className="zg-msheet md:hidden"
+      className="zg-msheet lg:hidden"
     >
       <section className="zg-msheet-market">{market}</section>
 

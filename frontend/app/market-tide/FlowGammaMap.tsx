@@ -148,9 +148,10 @@ function spreadBubbles(
 
 export default function FlowGammaMap({ components }: { components: MarketTideComponent[] }) {
   const [hover, setHover] = useState<number | null>(null);
-  const isMobile = useIsMobile();
+  // Phones and tablets (below lg) draw the measured canvas; see MarketTideChart.
+  const compactViewport = useIsMobile(1024);
   const [measureRef, measuredWidth] = useMeasuredWidth<HTMLDivElement>();
-  const canvas = isMobile && measuredWidth != null && measuredWidth > 0 ? compactCanvas(measuredWidth) : DESKTOP_CANVAS;
+  const canvas = compactViewport && measuredWidth != null && measuredWidth > 0 ? compactCanvas(measuredWidth) : DESKTOP_CANVAS;
   const { compact, VW, VH, L, R, T, PW, PH, IT, IB } = canvas;
   // Taps are followed by emulated mouse events; they must not undo the tap.
   const lastTouchAtRef = useRef(0);
@@ -193,7 +194,7 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="xMidYMid meet"
         style={svgStyle}
-        className={measuredWidth == null ? "max-md:invisible" : undefined}
+        className={measuredWidth == null ? "max-lg:invisible" : undefined}
         role="img"
         aria-label="Flow versus dealer gamma by ticker"
         onPointerDown={(e) => {

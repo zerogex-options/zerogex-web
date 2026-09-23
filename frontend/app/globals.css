@@ -3,12 +3,12 @@
 :root {
   /* Width the sidebar reserves in the page. Navigation only assigns this from
      an effect, so before hydration the var was undefined and the consuming
-     `md:pl-[var(--zgx-nav-width,0px)]` fell back to 0 — every desktop visitor
+     `lg:pl-[var(--zgx-nav-width,0px)]` fell back to 0 — every desktop visitor
      had page content render underneath the sidebar for the first few hundred
      milliseconds and then jump 272px right. Declaring the default here means
      the first paint already reserves the gutter. Keep in sync with
-     SIDEBAR_WIDTH in components/Navigation.tsx. Only ever consumed behind a
-     `md:` prefix, so it needs no narrow-viewport variant. */
+     SIDEBAR_WIDTH in components/Navigation.tsx. Only ever consumed behind an
+     `lg:` prefix, so it needs no narrow-viewport variant. */
   --zgx-nav-width: 272px;
 
   /* Font families — resolved via Next font optimization in app/layout.tsx.
@@ -2607,11 +2607,12 @@ body.zg-col-resizing * {
    ============================================================ */
 
 /* The app header is transparent + blurred on desktop, where it floats over a
-   sidebar layout. On a phone it is the one fixed thing on screen, and content
-   scrolling through a clear bar made the logo and quote hard to read, so the
-   phone bar gets a near-opaque ground of the page colour. */
+   sidebar layout. On a phone or tablet it is the one fixed thing on screen,
+   and content scrolling through a clear bar made the logo and quote hard to
+   read, so the phone bar gets a near-opaque ground of the page colour. The
+   phone chrome runs up to the lg breakpoint (components/Header.tsx). */
 .zg-app-header { background-color: transparent; }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .zg-app-header { background-color: color-mix(in srgb, var(--bg-main) 90%, transparent); }
 }
 
@@ -2640,6 +2641,12 @@ body.zg-col-resizing * {
 }
 @media (max-width: 359px) {
   .zg-mbar-logo-img { height: 25px; }
+}
+/* Tablets get this bar too (it runs up to lg). With room to spare, the lockup
+   and the bar grow a step: 36px is ~119px wide. */
+@media (min-width: 640px) {
+  .zg-mbar { height: 64px; padding: 0 12px 0 20px; }
+  .zg-mbar-logo-img { height: 36px; }
 }
 
 /* Thumb-sized icon target: 40px square, borderless in the bar. */

@@ -55,7 +55,9 @@ function compactCanvas(width: number): TideCanvas {
   const R = 6;
   const T = 12;
   const B = 22;
-  return { compact: true, VW, VH, L, R, T, B, PW: VW - L - R, PH: VH - T - B, xLabels: 4 };
+  // About one time label per 110px: four on a phone, six on a tablet card.
+  const xLabels = Math.max(4, Math.min(6, Math.round(VW / 110)));
+  return { compact: true, VW, VH, L, R, T, B, PW: VW - L - R, PH: VH - T - B, xLabels };
 }
 
 const etTime = (iso: string) =>
@@ -83,11 +85,14 @@ export default function MarketTideChart({
   live: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const isMobile = useIsMobile();
+  // Phones and tablets (below lg, where the app runs its phone chrome) draw
+  // the measured canvas: a tablet card is 600-990px, which scaled the desktop
+  // board's 10-unit labels to 6-7px.
+  const compactViewport = useIsMobile(1024);
   const [measureRef, measuredWidth] = useMeasuredWidth<HTMLDivElement>();
   const canvas = useMemo(
-    () => (isMobile && measuredWidth != null && measuredWidth > 0 ? compactCanvas(measuredWidth) : DESKTOP_CANVAS),
-    [isMobile, measuredWidth],
+    () => (compactViewport && measuredWidth != null && measuredWidth > 0 ? compactCanvas(measuredWidth) : DESKTOP_CANVAS),
+    [compactViewport, measuredWidth],
   );
   const { compact, VW, VH, L, R, T, PW, PH } = canvas;
 
@@ -217,7 +222,7 @@ export default function MarketTideChart({
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="xMidYMid meet"
         style={svgStyle}
-        className={measuredWidth == null ? "max-md:invisible" : undefined}
+        className={measuredWidth == null ? "max-lg:invisible" : undefined}
         role="img"
         aria-label={`Market Tide ${mode === "daily" ? "daily trend" : "today"} — latest ${fmt(lastVal)}`}
         onMouseMove={(e) => {

@@ -116,7 +116,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         <button
           onClick={() => setTheme(isDark ? 'light' : 'dark')}
-          className="hidden sm:flex w-[38px] h-[38px] items-center justify-center rounded-[10px]"
+          className="hidden lg:flex w-[38px] h-[38px] items-center justify-center rounded-[10px]"
           style={{
             background: 'var(--bg-hover)',
             border: `1px solid ${C.border}`,
@@ -128,20 +128,20 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           {isDark ? <Sun size={14} /> : <Moon size={14} />}
         </button>
 
-        <div className="hidden sm:block">
+        <div className="hidden lg:block">
           <ThemeDropdown />
         </div>
 
         <Link
           href="/search"
           aria-label="Search"
-          className="hidden sm:flex w-[38px] h-[38px] items-center justify-center rounded-[10px]"
+          className="hidden lg:flex w-[38px] h-[38px] items-center justify-center rounded-[10px]"
           style={{ background: 'var(--bg-hover)', border: `1px solid ${C.border}`, color: C.muted }}
         >
           <Search size={15} />
         </Link>
 
-        <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+        <Link href="/education" className="hidden lg:block" style={{ textDecoration: 'none' }}>
           <button
             className="zg-small"
             style={{
@@ -159,7 +159,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
         </Link>
 
         {showPricing && (
-          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+          <Link href="/pricing" className="hidden lg:block" style={{ textDecoration: 'none' }}>
             <button
               className="zg-small"
               style={{
@@ -177,7 +177,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           </Link>
         )}
 
-        <Link href={isAuthed ? '/account' : '/login'} className="hidden sm:block" style={{ textDecoration: 'none' }}>
+        <Link href={isAuthed ? '/account' : '/login'} className="hidden lg:block" style={{ textDecoration: 'none' }}>
           <button
             className="zg-small px-[14px] py-2 whitespace-nowrap"
             style={{
@@ -202,7 +202,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
               : () => capture(TelemetryEvent.TrialCtaClick, { location: 'site_header', ...readUtmParams() })
           }
         >
-          <button className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] sm:min-h-0" style={{ padding: '8px 12px', fontSize: 13 }}>
+          <button className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] lg:min-h-0" style={{ padding: '8px 12px', fontSize: 13 }}>
             {canLaunchApp ? (
               'Launch App'
             ) : (
@@ -218,8 +218,10 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
         </Link>
 
         {/* Wrapped: .zg-icon-btn sets its own display, which would beat a
-            responsive `hidden` utility placed on the button itself. */}
-        <span className="sm:hidden">
+            responsive `hidden` utility placed on the button itself. The menu
+            carries the links up to lg: from 640 to ~800px the full row ran
+            past the screen edge and cut off the CTA. */}
+        <span className="lg:hidden">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -234,7 +236,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
       </div>
 
       {menuOpen && (
-        <div id="zgx-landing-menu" className="zg-lmenu sm:hidden">
+        <div id="zgx-landing-menu" className="zg-lmenu lg:hidden">
           <Link href="/spx-gamma-levels" className="zg-msheet-row" onClick={() => setMenuOpen(false)}>
             <span className="zg-msheet-row-label">Free gamma levels</span>
           </Link>

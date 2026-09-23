@@ -41,6 +41,7 @@
 
 import { useCallback, useLayoutEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   STATE_META,
   buildExpiryCaveat,
@@ -316,7 +317,12 @@ function ConcentrationRibbon({
     return () => ro.disconnect();
   }, [boxEl]);
   const setBoxNode = useCallback((el: HTMLDivElement | null) => setBoxEl(el), []);
-  const g = ribbonGeometry(boxW != null && boxW > 0 && boxW < RIBBON_COMPACT_MAX ? boxW : null);
+  // Any card narrower than RIBBON_COMPACT_MAX, and every card below lg (a
+  // tablet's 700-990px card drew the 1200-unit board's labels at ~7px).
+  const compactViewport = useIsMobile(1024);
+  const g = ribbonGeometry(
+    boxW != null && boxW > 0 && (boxW < RIBBON_COMPACT_MAX || compactViewport) ? boxW : null,
+  );
   const { compact, W, H, PAD, BOT, MID, HMAX } = g;
   const [picked, setPicked] = useState<number | null>(null);
 

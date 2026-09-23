@@ -151,7 +151,10 @@ export default function MaxPainPage() {
   // as its card (1 unit = 1px, see GammaTerminalChart's compactCanvas) instead
   // of scaling the 1200-unit board into a 760px sideways scroller.
   const [tsMeasureRef, tsMeasuredWidth] = useMeasuredWidth<HTMLDivElement>();
-  const tsCompact = isMobile && tsMeasuredWidth != null && tsMeasuredWidth > 0;
+  // Tablets too (below lg): their 600-990px card scaled the 1200-unit board's
+  // labels to 5-6px.
+  const tsCompactViewport = useIsMobile(1024);
+  const tsCompact = tsCompactViewport && tsMeasuredWidth != null && tsMeasuredWidth > 0;
   // Taps end in emulated mouse events (and a mouseleave); see onTsPointer*.
   const lastTouchAtRef = useRef(0);
 
@@ -630,7 +633,7 @@ export default function MaxPainPage() {
             height={tsHeight}
             viewBox={`0 0 ${tsWidth} ${tsHeight}`}
             // Unmeasured, a phone would see the 1200-unit board for a frame.
-            className={tsCompact ? undefined : tsMeasuredWidth == null ? "min-w-[760px] md:min-w-0 max-md:invisible" : "min-w-[760px] md:min-w-0"}
+            className={tsCompact ? undefined : tsMeasuredWidth == null ? "min-w-[760px] md:min-w-0 max-lg:invisible" : "min-w-[760px] md:min-w-0"}
             style={tsCompact ? { display: "block", touchAction: "pan-y", userSelect: "none", WebkitTouchCallout: "none" } : undefined}
             onPointerDown={onTsPointerDown}
             onPointerMove={onTsPointerMove}
