@@ -4,6 +4,7 @@ import {
   normalizeCampaignCode,
   isCampaignCode,
   getCampaignCouponId,
+  getCampaignCouponIds,
 } from '../core/campaigns.ts';
 
 // Configure a campaign (TARGET) with both cadences, and one that's annual-only
@@ -52,4 +53,23 @@ test('getCampaignCouponId returns null for an unconfigured cadence', () => {
 test('getCampaignCouponId returns null for unknown codes', () => {
   assert.equal(getCampaignCouponId('NOPE', 'monthly'), null);
   assert.equal(getCampaignCouponId(null, 'annual'), null);
+});
+
+test('getCampaignCouponIds lists every configured campaign coupon once', () => {
+  // One coupon serving two cadences, a blank key, and a key that isn't a cadence.
+  process.env.STRIPE_CAMPAIGN_LAUNCH_QUARTERLY = 'coupon_launch_annual';
+  process.env.STRIPE_CAMPAIGN_BLANK_MONTHLY = '';
+  process.env.STRIPE_CAMPAIGN_TARGET_WEEKLY = 'coupon_not_a_cadence';
+  try {
+    const ids = getCampaignCouponIds();
+    for (const id of ['coupon_target_monthly', 'coupon_target_annual', 'coupon_launch_annual']) {
+      assert.equal(ids.filter((x) => x === id).length, 1, id);
+    }
+    assert.equal(ids.includes(''), false);
+    assert.equal(ids.includes('coupon_not_a_cadence'), false);
+  } finally {
+    delete process.env.STRIPE_CAMPAIGN_LAUNCH_QUARTERLY;
+    delete process.env.STRIPE_CAMPAIGN_BLANK_MONTHLY;
+    delete process.env.STRIPE_CAMPAIGN_TARGET_WEEKLY;
+  }
 });

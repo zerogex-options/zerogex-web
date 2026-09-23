@@ -484,6 +484,8 @@ async function withExpandedDiscounts(subscription: Stripe.Subscription): Promise
 //     applied (~month 12) it persists on its own, so leave the subscription's
 //     discounts entirely untouched. Before that, the correct coupon is the
 //     founding intro for the NEW (tier, cadence).
+//   • Campaign member (the business card): also exclusive. Their campaign
+//     coupon stays as it is and the public promo is never added on top of it.
 //   • Everyone else: the correct coupon is the ACTIVE public promo for the NEW
 //     (tier, cadence), or null once the window has closed (in which case the
 //     stale coupon is stripped and the member renews at rack rate).

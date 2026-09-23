@@ -86,6 +86,7 @@
     "test:excluded-accounts": "node --experimental-strip-types --test tests/excludedAccounts.test.ts",
     "test:trial-conveyor": "node --experimental-strip-types --test tests/trialConveyor.test.ts",
     "test:plan-switch": "node --experimental-strip-types --test tests/planSwitch.test.ts",
+    "test:switch-discounts": "node --experimental-strip-types --test tests/switchDiscounts.test.ts",
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",
     "test:cancellation-email": "node --experimental-strip-types --test tests/cancellationEmail.test.ts",
     "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
