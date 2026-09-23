@@ -173,61 +173,62 @@ tape was already moving 60% wider before Aug 3-4, and the committed ratio
 barely registered it (1.05 -> 1.00). The information was in the inputs and did
 not reach the band.
 
-### The two things still to establish
+### Both questions answered, 2026-09-23
 
-The ATR fallback requires BOTH the ATR and the implied move:
+`implied_move` was NOT the gap — it is populated on all four misses and on all
+49 `v1_4` sessions. And the persistence anchor is not universally absent: it
+fires on 34 of 49. But look where the 15 blanks landed.
 
-```python
-elif (atr_5d is not None and atr_5d > 0
-      and implied_move is not None and implied_move > 0):
+```
+ sessions | with_persistence | with_implied_move | min_ratio | max_ratio | avg_ratio | sd_ratio
+       49 |               34 |                49 |    0.6864 |    1.0997 |    0.8738 |   0.1268
 ```
 
-`implied_move` is the VIX-implied 1-day dollar move — a computed RESULT field
-and a column on `daily_forecast`, NOT a key inside `forecast_inputs`. An
-earlier version of the query in this document read
-`forecast_inputs->>'implied_move'` and got NULL for that reason alone; that
-NULL meant nothing. Read the column:
+**Finding 1 — the blanks are not randomly distributed.** The anchor is missing
+on 15 of 49 sessions (31%), and all four `v1_4` misses are inside that 15.
+Drawing four sessions at random, the chance of all four landing in the blank
+group is C(15,4)/C(49,4) ≈ **0.6%**. Missing the anchor and breaking the band
+are not independent events.
 
-```sql
-SELECT date, expected_vol_ratio, expected_vol_state,
-       implied_move,                                       -- the COLUMN
-       forecast_inputs->>'vol_persistence_anchor' AS persistence_anchor,
-       forecast_inputs->>'atr_5d'                 AS atr_5d,
-       forecast_inputs->>'vix_close'              AS vix_close
-  FROM daily_forecast
- WHERE symbol = 'SPX'
-   AND date IN ('2026-08-03','2026-08-04','2026-07-15','2026-07-23')
- ORDER BY date;
+**Finding 2, and this is the real one — the model has never once predicted an
+above-normal day.** Across all 49 sessions `expected_vol_ratio` spans
+**0.6864 to 1.0997**, mean 0.8738, sd 0.1268. It has never printed 1.2, let
+alone approached the 1.90 ceiling. The band's width control has a ceiling it
+cannot reach and a dynamic range of roughly ±13%, against realized width that
+varies 12x (k from 0.222 to 2.605).
+
+That single fact explains, at once, three things previously treated as separate
+problems:
+
+- why the clamp never binds — nothing ever gets near it;
+- why the band barely moves while required width spans 12x;
+- why the vol call scores 59% against a 69% "always normal" baseline. It cannot
+  beat "always normal" because it IS "always normal", by construction.
+
+**Finding 3 — the ATR signal is present and is not reaching the band.** On the
+four misses, `atr_5d / implied_move` nearly doubled while the committed ratio
+moved 9%, in the opposite direction:
+
+```
+date         atr/implied   committed ratio
+2026-07-15      0.7929           1.0580
+2026-07-23      0.6751           1.0933
+2026-08-03      1.3033           1.0524      <- ATR up 95% from Jul 23
+2026-08-04      1.3146           1.0000      <- ratio DOWN
 ```
 
-If `implied_move` is also NULL, BOTH anchor paths were dead and the ratio was
-pure fallback. If it is populated, the ATR path should have fired and did not,
-which is a different bug again.
+Pearson r = -0.796 on n = 4, which is far too small to be evidence on its own —
+but it points the same way as the 49-session aggregate, and the mechanism is
+visible in the code either way. With the persistence anchor NULL the ATR branch
+should have taken over; whether it fired and was swamped by the modifiers, or
+never fired at all, the ATR more than doubling produced no widening.
 
-**And the question that decides the scale of all this** — is the persistence
-anchor empty on those four days, or on every day?
-
-```sql
-SELECT count(*)                                                            AS sessions,
-       count(*) FILTER (WHERE forecast_inputs->>'vol_persistence_anchor' IS NOT NULL)
-                                                                           AS with_persistence,
-       count(*) FILTER (WHERE implied_move IS NOT NULL AND implied_move > 0)
-                                                                           AS with_implied_move,
-       round(min(expected_vol_ratio), 4)    AS min_ratio,
-       round(max(expected_vol_ratio), 4)    AS max_ratio,
-       round(avg(expected_vol_ratio), 4)    AS avg_ratio,
-       round(stddev(expected_vol_ratio), 4) AS sd_ratio
-  FROM daily_forecast
- WHERE symbol = 'SPX' AND range_model = 'heuristic_v1_4';
-```
-
-`with_persistence = 0` means the dominant driver has never fired in production
-and the expected-vol call has been decorative since v1.4 shipped. A small
-`sd_ratio` would confirm it from the other side: a model emitting a near
-constant is not forecasting volatility at all, which would explain both the
-12x spread in required width against a barely-moving band AND why the vol call
-scores 59% against a 69% always-say-normal baseline. You cannot beat "always
-normal" while you ARE "always normal".
+Worth noting where the asymmetry likely comes from: the gamma tilt is
+`ratio *= 1.0 - VOL_GAMMA_WEIGHT * tanh(net_gex / SAT)`, which DAMPS whenever
+net GEX is positive. SPX is long gamma most days, so the dominant modifier
+pushes width down almost every session. A trailing-median anchor in a calm
+stretch sits below 1.0 to begin with. The two compound, and the result is a
+model that can say "quieter than normal" but has never said "busier".
 
 An earlier draft of this document asserted that "whatever flags an event day is
 missing exactly the days the band exists for". That was a guess made without
@@ -251,18 +252,24 @@ In order:
    persistence anchor was NULL on all four misses**, and it is the documented
    "dominant driver" of the expected-vol call. The model defaulted to normal
    because it had nothing to anchor on.
-3. **Run the two queries above** before writing any model code. They settle
-   whether `implied_move` was also absent (both paths dead) and, more
-   importantly, whether the persistence anchor is empty on EVERY session or
-   only these four. Those are different-sized problems: a gap on four days is
-   a data bug; a gap on all of them means the expected-vol call has been
-   decorative since v1.4 shipped, and no regime work matters until whatever
-   should populate that anchor does.
-4. **Only once an anchor actually fires** is the modelling critique worth
-   acting on: a trailing median is structurally incapable of anticipating a
-   two-day shock and will read "normal" right up to the day it matters. Real
-   change, but pointless while the input is missing.
-5. **Only then consider narrowing**, and conditionally rather than uniformly. A
+3. ~~Run the two queries~~ — **done, and they reframe the problem.** The
+   expected-vol ratio has never exceeded 1.0997 in 49 sessions against a 1.90
+   ceiling. The width control has a dynamic range of about +/-13% against
+   realized width that varies 12x. This is not a regime-detection problem and
+   not a clamp problem: **the band's width barely varies at all.**
+4. **Fix the dynamic range first.** Two concrete leads, in order:
+   a. **Why is `vol_persistence_anchor` NULL on 31% of sessions**, including
+      every session that broke the band? It is the documented dominant driver.
+      Find what populates it and why it is absent one day in three.
+   b. **Why does a 95% rise in `atr_5d / implied_move` produce no widening?**
+      With the anchor NULL the ATR branch is the fallback that should have
+      caught Aug 3-4. Instrument `anchor_src` per session and find out whether
+      it fires at all, and whether the modifiers are cancelling it.
+5. **Check the modifier asymmetry.** `ratio *= 1.0 - VOL_GAMMA_WEIGHT * g`
+   damps whenever net GEX is positive, which for SPX is most days. If the
+   dominant modifier is a near-permanent damper, nothing downstream can ever
+   call a wide day.
+6. **Only then consider narrowing**, and conditionally rather than uniformly. A
    band genuinely narrow on quiet days and genuinely wide on two-day shocks
    beats one that is uniformly 20% tighter.
 
