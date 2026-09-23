@@ -40,7 +40,7 @@ import {
   DIGEST_SYMBOL_ORDER,
   type SymbolSnapshot,
 } from '../core/dailyLevelsDigest.ts';
-import { summarizeForecastHistory, type ForecastDateEntry, type HistorySummary } from '../core/trackRecord.ts';
+import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '../core/trackRecord.ts';
 import {
   SEND_WINDOW_END_MIN,
   SEND_WINDOW_START_MIN,
@@ -260,7 +260,7 @@ async function fetchSummary(symbol: string): Promise<GexSummary | null> {
 async function fetchTrackRecord(symbol: string): Promise<HistorySummary | null> {
   try {
     const res = await fetch(
-      `${API_BASE}/api/forecast/available-dates?symbol=${encodeURIComponent(symbol)}&limit=400`,
+      `${API_BASE}/api/forecast/available-dates?symbol=${encodeURIComponent(symbol)}&limit=${FORECAST_HISTORY_LIMIT}`,
       { headers: { Authorization: `Bearer ${API_TOKEN}` } },
     );
     if (!res.ok) return null;

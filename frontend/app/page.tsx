@@ -2,6 +2,7 @@ import LandingClient from './LandingClient';
 import { serverApiGet } from '@/core/api/serverFetch';
 import {
   summarizeForecastHistory,
+  FORECAST_HISTORY_LIMIT,
   type ForecastDateEntry,
   type HistorySummary,
 } from '@/core/trackRecord';
@@ -22,7 +23,7 @@ export const metadata = {
 
 async function loadTrackRecord(): Promise<HistorySummary | null> {
   const list = await serverApiGet<{ dates: ForecastDateEntry[] }>(
-    '/api/forecast/available-dates?symbol=SPX&limit=400',
+    `/api/forecast/available-dates?symbol=SPX&limit=${FORECAST_HISTORY_LIMIT}`,
     revalidate,
   );
   if (!list?.dates?.length) return null;

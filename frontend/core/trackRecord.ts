@@ -267,6 +267,25 @@ export function volVerdictText(verdict: VolVerdict, baselineLabel?: string | nul
 // record.
 
 
+/**
+ * The deepest `limit` /api/forecast/available-dates will accept.
+ *
+ * NOT a preference — a hard server-side validation bound. Asking for more is
+ * rejected outright:
+ *
+ *   HTTP 422 — {"type":"less_than_equal","loc":["query","limit"],
+ *               "msg":"Input should be less than or equal to 365","ctx":{"le":365}}
+ *
+ * This shipped as a hand-written 400 in four separate call sites, so every
+ * track-record fetch on the site returned null and every surface silently fell
+ * back to its no-numbers copy. Nothing broke loudly: serverApiGet returns null
+ * on a non-2xx, summarizeForecastHistory turns null into an empty record, and
+ * the copy for "too few graded sessions" is indistinguishable from the copy for
+ * "the request was malformed". Hence one exported constant, and
+ * tests/trackRecord asserting it stays inside the bound.
+ */
+export const FORECAST_HISTORY_LIMIT = 365;
+
 /** One row of the /api/forecast/available-dates payload. */
 export type ForecastDateEntry = {
   date: string;

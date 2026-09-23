@@ -45,7 +45,7 @@ test("the cone has a real sidebar entry", () => {
   // subject before the dash and the scope after it. Leaving this one as the
   // only entry that named neither would have defeated the point of grouping
   // them. The product word "cone" is kept because traders use it.
-  assert.equal(cone.label, "Forecast — intraday cone");
+  assert.equal(cone.label, "Forecast - intraday cone");
   assert.match(cone.label, /cone/i, "the product word must survive a rename");
 });
 

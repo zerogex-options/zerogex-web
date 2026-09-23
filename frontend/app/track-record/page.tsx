@@ -6,6 +6,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { SYMBOLS } from '@/core/symbols';
 import {
   summarizeForecastHistory,
+  FORECAST_HISTORY_LIMIT,
   historyHeadline,
   clusteringNote,
   coverageVerdict,
@@ -52,7 +53,6 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').repl
 // Deep enough to hold every graded session the writer has ever committed —
 // the archive stood at 55 when this shipped. A cap rather than "all" so one
 // pathological response cannot stall the render.
-const HISTORY_LIMIT = 400;
 
 // The symbol the headline speaks for. SPX has the deepest archive and is what
 // the range-width analysis was run against.
@@ -68,7 +68,7 @@ type SymbolRecord = {
 
 async function loadSymbol(symbol: string): Promise<SymbolRecord> {
   const [list, stats] = await Promise.all([
-    serverApiGet<DateList>(`/api/forecast/available-dates?symbol=${symbol}&limit=${HISTORY_LIMIT}`, revalidate),
+    serverApiGet<DateList>(`/api/forecast/available-dates?symbol=${symbol}&limit=${FORECAST_HISTORY_LIMIT}`, revalidate),
     serverApiGet<RollingStats>(`/api/forecast/stats/rolling?symbol=${symbol}&window=30`, revalidate),
   ]);
   return { symbol, history: summarizeForecastHistory(list?.dates, symbol), stats };

@@ -11,6 +11,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   BRIER_COIN_FLIP,
@@ -25,6 +26,7 @@ import {
   historyHeadline,
   missClusters,
   summarizeForecastHistory,
+  FORECAST_HISTORY_LIMIT,
   trackRecordOneLiner,
   volVerdict,
   volVerdictText,
@@ -339,4 +341,40 @@ test('vol verdict is unknown rather than wrong when a baseline is missing', () =
   assert.equal(volVerdict(0.7, null), 'unknown');
   assert.equal(volVerdict(null, 0.7), 'unknown');
   assert.match(volVerdictText('unknown'), /no baseline/);
+});
+
+// ── The API's own bound on how deep the archive can be read ────────────────
+
+test('FORECAST_HISTORY_LIMIT stays inside what the API will accept', () => {
+  // /api/forecast/available-dates rejects anything above 365 with a 422, and
+  // serverApiGet turns a 422 into null, which summarizeForecastHistory turns
+  // into an empty record, which every surface renders as "too few graded
+  // sessions". A malformed request and a genuinely thin archive look
+  // IDENTICAL on the page. That is how a hand-written 400 in four call sites
+  // silently disabled the whole feature in production.
+  assert.ok(FORECAST_HISTORY_LIMIT <= 365, `${FORECAST_HISTORY_LIMIT} exceeds the API bound of 365`);
+  assert.ok(FORECAST_HISTORY_LIMIT >= 60, 'too shallow to hold a meaningful record');
+  assert.equal(Number.isInteger(FORECAST_HISTORY_LIMIT), true);
+});
+
+test('no caller hand-writes its own archive limit', () => {
+  // The four callers must reference the constant, not a literal, or this
+  // regresses the moment someone adds a fifth surface.
+  const files = [
+    '../app/track-record/page.tsx',
+    '../app/page.tsx',
+    '../app/spx-gamma-levels/gammaLevels.tsx',
+    '../scripts/send-daily-levels.mts',
+  ];
+  for (const rel of files) {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+    // The symbol half varies (a literal on the homepage, interpolated
+    // elsewhere); only the limit half is being pinned here.
+    assert.match(
+      src,
+      /available-dates\?symbol=[^`]*&limit=\$\{FORECAST_HISTORY_LIMIT\}/,
+      `${rel} must build its limit from FORECAST_HISTORY_LIMIT`,
+    );
+    assert.doesNotMatch(src, /available-dates\?symbol=[^`]*&limit=\d/, `${rel} hard-codes a limit`);
+  }
 });

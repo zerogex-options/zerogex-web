@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
-import { summarizeForecastHistory, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
+import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
 import TrackRecordStrip from '@/components/TrackRecordStrip';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
@@ -631,7 +631,7 @@ function SymbolCard({
  */
 async function loadTrackRecord(symbol: Symbol): Promise<HistorySummary | null> {
   const list = await serverApiGet<{ dates: ForecastDateEntry[] }>(
-    `/api/forecast/available-dates?symbol=${symbol}&limit=400`,
+    `/api/forecast/available-dates?symbol=${symbol}&limit=${FORECAST_HISTORY_LIMIT}`,
     900,
   );
   if (!list?.dates?.length) return null;

@@ -2,11 +2,11 @@
 
 > **Do not read this as "scale the band by 0.8".** That is the one change the
 > measurement below argues against. The live model's p80 is 0.804, but its
-> failures arrive in consecutive-day clusters and the width is hard-capped at
-> `VOL_RATIO_MAX = 1.90`, so a uniform narrowing would tighten the quiet days
-> the band already handles and do nothing for the two sessions that broke it
-> worst. Read **The three findings** and **Recommendation** before changing a
-> constant.
+> failures arrive in consecutive-day clusters, so a uniform narrowing would
+> tighten the quiet days the band already handles and do nothing for the two
+> sessions that broke it worst. Nor is the fix `VOL_RATIO_MAX`: that question
+> is settled below and the answer is no. Read **The three findings** and
+> **Recommendation** before changing a constant.
 
 Measured 2026-09-22 on 55 graded SPX sessions with
 `make forecast-range-width SYMBOL=SPX`
@@ -99,7 +99,7 @@ range would have `k` clustered near a constant; this one is close to
 uninformative about which days will be wide. That is the actual defect, and it
 is a regime-detection problem rather than a scale-factor one.
 
-**3b. There is a hard ceiling on the width, and it is the prime suspect.**
+**3b. There is a hard ceiling on the width. It is not the cause.**
 Read after this document was first written, from `zerogex-oa` @ `release`
 (`39f2819`), `src/jobs/forecast_range_model.py`:
 
@@ -115,16 +115,59 @@ The expected-vol ratio is clamped to **1.90x a normal day**. Aug 3-4 needed
 2.231x and 2.605x the band that shipped. So the fat right tail may not be a
 detection failure at all: the model may have seen it coming and been gagged.
 
-**This is now the first thing to check, and it splits the fix in two:**
+**ANSWERED, 2026-09-23, and it is NOT the clamp.** Measured on production
+with `make forecast-range-width SYMBOL=SPX`:
 
-| On the sessions that broke | Means | Fix |
-| --- | --- | --- |
-| `expected_vol_ratio` **at 1.90** | clipped, not mispredicted | raise or soften the cap |
-| `expected_vol_ratio` **below 1.90** | asked for less than allowed | regime detection |
+```
+date         needed k    asked for    vs cap 1.90   model
+2026-08-04      2.605      1.000x         under   heuristic_v1_4
+2026-08-03      2.231      1.052x         under   heuristic_v1_4
+2026-07-15      1.473      1.058x         under   heuristic_v1_4
+2026-07-23      1.393      1.093x         under   heuristic_v1_4
+```
 
-`make forecast-range-width SYMBOL=SPX` now prints `expected_vol_ratio` beside
-the required `k` for every miss, flags which ones sat `AT CAP`, and states which
-of the two faults it is. Run it before editing anything.
+Not one miss came close to the ceiling. On the worst day in the entire record
+the model asked for **1.000x — a completely normal day — and got 2.605x**. It
+was not gagged by the clamp. It was blind.
+
+Raising `VOL_RATIO_MAX` would therefore change nothing: the model never asked
+for the width it was already permitted.
+
+**And 1.000 is the tell.** `VOL_BASE_RATIO = 1.0` is the *neutral fallback*,
+taken when BOTH anchors are unavailable:
+
+```python
+if persistence_anchor is not None and persistence_anchor > 0:
+    ratio = float(persistence_anchor); anchor_src = "persistence"
+elif atr_5d is not None and atr_5d > 0 and implied_move is not None and implied_move > 0:
+    ratio = atr_5d / normal_range;      anchor_src = "atr"
+else:
+    ratio = VOL_BASE_RATIO              # 1.0 — anchor_src = "neutral"
+```
+
+An exact 1.000 after four multiplicative modifiers is either a coincidence or
+the neutral path with nothing firing. If Aug 3-4 fell through to neutral because
+the inputs were missing, this is not a modelling problem at all — it is a
+**missing-data problem wearing a modelling problem's clothes**, and no amount of
+regime work fixes it.
+
+The `rationale` string records `anchor=persistence|atr|neutral`, but it is NOT
+exposed by `/api/forecast/{date}` and is not a column on `daily_forecast`. The
+inputs themselves are, in the `forecast_inputs` jsonb:
+
+```sql
+SELECT date, expected_vol_ratio, expected_vol_state,
+       forecast_inputs->>'vol_persistence_anchor' AS persistence_anchor,
+       forecast_inputs->>'atr_5d'                 AS atr_5d,
+       forecast_inputs->>'implied_move'           AS implied_move
+  FROM daily_forecast
+ WHERE symbol = 'SPX'
+   AND date IN ('2026-08-03','2026-08-04','2026-07-15','2026-07-23')
+ ORDER BY date;
+```
+
+NULL or zero in both anchor columns on those dates confirms the neutral
+fallback, and moves the whole investigation upstream to why they were absent.
 
 An earlier draft of this document asserted that "whatever flags an event day is
 missing exactly the days the band exists for". That was a guess made without
@@ -141,16 +184,18 @@ the cost of the margin covering the tail.
 
 In order:
 
-1. **Settle the clamp question first.** Run `make forecast-range-width
-   SYMBOL=SPX` and read the `asked for` column on the misses. Nothing else can
-   be diagnosed while a ceiling may be overwriting the model's own answer.
-2. **If the misses sat at 1.90x:** the model was right and was clipped. Raise
-   the cap, or replace the hard clamp with something that saturates instead of
-   truncating, and re-grade. Much smaller than the regime work, and it has to
-   come first either way.
-3. **If they sat below 1.90x:** the cap is irrelevant and this is the regime
-   problem. Find what Jul 6-7-8 and Aug 3-4 had in common that the event-day
-   flag missed, and make the width conditional on it.
+1. ~~Settle the clamp question~~ — **done. It is not the clamp.** All four
+   `v1_4` misses asked for 1.00-1.09x against a 1.90x ceiling. Do not touch
+   `VOL_RATIO_MAX`; it is not the binding constraint.
+2. **Run the `forecast_inputs` query above.** If both anchors were
+   NULL/zero on Aug 3-4, the model fell through to the neutral 1.0 because it
+   had no inputs, and the fix is upstream in whatever populates them — not in
+   the regime logic. Settle this before writing any model code.
+3. **Only if the anchors were populated** is this the regime problem: the
+   persistence anchor is a trailing median, which is structurally incapable of
+   anticipating a two-day shock, so it will read "normal" right up to the day
+   it matters. That is the thing to replace, and it is a real modelling change
+   rather than a constant.
 4. **Only then consider narrowing**, and conditionally rather than uniformly. A
    band genuinely narrow on quiet days and genuinely wide on two-day shocks
    beats one that is uniformly 20% tighter.

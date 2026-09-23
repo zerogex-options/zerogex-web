@@ -197,23 +197,23 @@ export const NAV_GROUPS: NavGroup[] = [
       // must NOT prefix-match or both entries light up at once. NAV_ITEM_IDS
       // is what lets the more specific entry win; tests/navigationActive
       // asserts it.
-      { id: '/forecast', label: 'Forecast — one day', labelKey: 'nav.forecastOneDay', beta: true, matchPrefix: true },
+      { id: '/forecast', label: 'Forecast - one day', labelKey: 'nav.forecastOneDay', beta: true, matchPrefix: true },
       // The intraday counterpart: a cone re-anchored through the session, and
       // the reliability table that grades it. A DIFFERENT CLAIM from the line
       // above, not a view of it — ~20 commitments a day instead of one frozen
       // before the open, so it earns a track record in days rather than
       // months. Kept in this group because it publishes its own bucket counts
       // for anyone to check, which is what this group is for.
-      { id: '/forecast/cone', label: 'Forecast — intraday cone', labelKey: 'nav.forecastIntraday', beta: true },
+      { id: '/forecast/cone', label: 'Forecast - intraday cone', labelKey: 'nav.forecastIntraday', beta: true },
       // The aggregate of what the daily line grades: same subject, every
       // session instead of one. Listed AT ALL because /scorecard already
       // taught us what an unlinked public page is worth — it sat reachable
       // only from one dated post for months.
-      { id: '/track-record', label: 'Forecast — all time', labelKey: 'nav.forecastAllTime' },
+      { id: '/track-record', label: 'Forecast - all time', labelKey: 'nav.forecastAllTime' },
       // A DIFFERENT SUBJECT, which is the thing the old naming hid: this
       // grades the signal engine (every Playbook card's flips, what was
       // scorable, how it resolved), not the forecast.
-      { id: '/scorecard', label: 'Signals — one day', labelKey: 'nav.signalsOneDay', matchPrefix: true },
+      { id: '/scorecard', label: 'Signals - one day', labelKey: 'nav.signalsOneDay', matchPrefix: true },
       // Not a grade at all — a scrubbable view of a past session. Grouped
       // here because it is the fifth dated historical view, and leaving one
       // behind in Strategy Tools would recreate the scatter this fixes.
