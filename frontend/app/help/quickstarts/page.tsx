@@ -370,7 +370,7 @@ export default function QuickStartsPage() {
   const totalCount = tracks.reduce((sum, t) => sum + t.walkthroughs.length, 0);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
       <Link href="/help" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         <ArrowLeft size={14} />
         Back to Help Center

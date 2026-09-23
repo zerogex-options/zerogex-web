@@ -474,11 +474,12 @@ function LevelRow({
         display: 'flex',
         alignItems: 'baseline',
         justifyContent: 'space-between',
+        gap: 12,
         padding: '14px 0',
         borderTop: '1px solid var(--border-default)',
       }}
     >
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</div>
         {hint && (
           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.7, marginTop: 2 }}>
@@ -486,7 +487,7 @@ function LevelRow({
           </div>
         )}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-primary)' }}>
+      <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
         {value}
       </div>
     </div>
@@ -515,9 +516,8 @@ function SymbolCard({
   return (
     <Link
       href={href}
-      className="zg-panel hover:!border-[var(--color-brand-primary)]"
+      className="zg-panel p-5 sm:px-[26px] sm:py-7 hover:!border-[var(--color-brand-primary)]"
       style={{
-        padding: '28px 26px',
         display: 'flex',
         flexDirection: 'column',
         gap: 18,
@@ -539,8 +539,10 @@ function SymbolCard({
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               color: regimeColor,
-              border: `1px solid ${regimeColor}55`,
-              background: `${regimeColor}14`,
+              // color-mix, not a hex alpha suffix: the regime colours are CSS
+              // variables, and `var(--x)55` is not a colour at all.
+              border: `1px solid color-mix(in srgb, ${regimeColor} 33%, transparent)`,
+              background: `color-mix(in srgb, ${regimeColor} 8%, transparent)`,
               borderRadius: 999,
               padding: '4px 10px',
               display: 'inline-flex',
@@ -573,8 +575,8 @@ function SymbolCard({
               fontSize: 11,
               fontWeight: 700,
               color: 'var(--color-warning)',
-              border: '1px solid var(--color-warning)55',
-              background: 'var(--color-warning)14',
+              border: '1px solid color-mix(in srgb, var(--color-warning) 33%, transparent)',
+              background: 'color-mix(in srgb, var(--color-warning) 8%, transparent)',
             }}
           >
             <Clock size={11} />
@@ -768,7 +770,9 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
 
       <LandingHeader />
 
-      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
+      {/* Side gutter 16px on a phone (24 from `sm`), and less headroom under
+          the fixed header, which is shorter there. */}
+      <main className="px-4 pt-[92px] pb-16 sm:px-6 sm:pt-[120px] sm:pb-20" style={{ flex: 1, maxWidth: 1080, margin: '0 auto', width: '100%' }}>
         {/* Marks the top of the paid-traffic funnel (renders nothing). */}
         <PaidFunnelAnalytics symbol={primary} />
 

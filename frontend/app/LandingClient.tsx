@@ -111,11 +111,11 @@ function AnimatedNumber({ target, prefix = '', suffix = '', decimals = 0 }: {
 function StatCard({ label, value, sub, isDark = true }: { label: string; value: React.ReactNode; sub?: string; isDark?: boolean }) {
   return (
     <div
+      className="zg-lcard"
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${C.border}`,
         borderRadius: 'var(--radius-panel)',
-        padding: '28px 24px',
         textAlign: 'center',
       }}
     >
@@ -142,11 +142,11 @@ function FeatureCard({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className="zg-lcard"
       style={{
         background: 'var(--bg-card)',
         border: `1px solid ${hovered ? color : C.border}`,
         borderRadius: 'var(--radius-panel)',
-        padding: '28px 24px',
         transition: 'border-color 0.2s ease',
         cursor: 'default',
       }}
@@ -314,10 +314,10 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section
+        className="zg-lhero"
         style={{
           minHeight: '100vh',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '100px 24px 60px',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -388,7 +388,7 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
 
           {/* CTAs (requirement #7): primary = trial for cold visitors (dashboard
               for existing subscribers); secondary = the free levels page. */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="zg-lctas" style={{ gap: 10 }}>
             <Link
               href={canLaunchApp ? '/dashboard' : heroTrialHref}
               style={{ textDecoration: 'none' }}
@@ -398,12 +398,12 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
                   : () => capture(TelemetryEvent.TrialCtaClick, { location: 'home_hero', ...readUtmParams() })
               }
             >
-              <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '13px 22px' }}>
+              <button className="zg-btn zg-btn--primary zg-btn--lg">
                 {canLaunchApp ? t('ctaViewDashboard') : t('ctaStartTrial')} <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
-              <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '13px 22px' }}>
+              <button className="zg-btn zg-btn--secondary zg-btn--lg">
                 {t('ctaViewFreeLevels')} <ArrowRight size={16} />
               </button>
             </Link>
@@ -469,8 +469,8 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
           trader who lands on the page understands what the product DOES for
           them within the first scroll — before any "features" framing. */}
       <section
+        className="zg-lsec"
         style={{
-          padding: '80px 32px',
           maxWidth: 1200,
           margin: '0 auto',
         }}
@@ -547,14 +547,14 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
           ))}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 36, gap: 12, flexWrap: 'wrap' }}>
+        <div className="zg-lctas" style={{ marginTop: 36 }}>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
-            <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '13px 24px' }}>
+            <button className="zg-btn zg-btn--primary zg-btn--lg">
               {t('ctaSeeFreeLevels')} <ArrowRight size={16} />
             </button>
           </Link>
           <Link href="/trading-mistakes" style={{ textDecoration: 'none' }}>
-            <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '13px 24px' }}>
+            <button className="zg-btn zg-btn--secondary zg-btn--lg">
               {t('ctaTradingMistakes')} <ArrowRight size={16} />
             </button>
           </Link>
@@ -563,18 +563,12 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
 
       {/* ── Stats bar ────────────────────────────────────────────────────────── */}
       <section
+        className="zg-lsec"
         style={{
-          padding: '80px 32px',
           maxWidth: 1200, margin: '0 auto',
         }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 20,
-          }}
-        >
+        <div className="zg-lstats">
           <StatCard isDark={isDark} label={t('statAnalyticsModules')} value={<AnimatedNumber target={8} suffix="+" />} sub={t('statAnalyticsModulesSub')} />
           <StatCard isDark={isDark} label={t('statDataRefresh')} value={<AnimatedNumber target={1} suffix="s" />} sub={t('statDataRefreshSub')} />
           <StatCard isDark={isDark} label={t('statOptionsGreeks')} value={<AnimatedNumber target={4} />} sub={t('statOptionsGreeksSub')} />
@@ -587,14 +581,14 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
           capability count — how many modules, how fast the refresh — and none
           of it says whether the output is any good. This is the only number on
           the homepage that can be checked against something. */}
-      <section style={{ padding: '0 32px 40px', maxWidth: 1200, margin: '0 auto' }}>
+      <section className="px-4 pb-10 sm:px-8" style={{ maxWidth: 1200, margin: '0 auto' }}>
         <TrackRecordStrip history={trackRecord} symbol="SPX" />
       </section>
 
       {/* ── What is ZeroGEX ──────────────────────────────────────────────────── */}
       <section
+        className="zg-lsec"
         style={{
-          padding: '80px 32px',
           maxWidth: 1200, margin: '0 auto',
         }}
       >
@@ -681,8 +675,8 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
 
       {/* ── Features grid ────────────────────────────────────────────────────── */}
       <section
+        className="zg-lsec"
         style={{
-          padding: '80px 32px',
           background: 'var(--bg-subtle)',
         }}
       >
@@ -741,7 +735,7 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
       </section>
 
       {/* ── Why ZeroGEX ──────────────────────────────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 1200, margin: '0 auto' }}>
         <SectionHeading
           eyebrow={t('whyEyebrow')}
           title={t('whyTitle')}
@@ -796,8 +790,8 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
 
       {/* ── Analytics suite links ─────────────────────────────────────────────── */}
       <section
+        className="zg-lsec"
         style={{
-          padding: '80px 32px',
           background: 'transparent',
         }}
       >
@@ -915,8 +909,8 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
 
       {/* ── Final CTA ────────────────────────────────────────────────────────── */}
       <section
+        className="zg-lsec zg-lsec--cta"
         style={{
-          padding: '100px 32px',
           textAlign: 'center',
           position: 'relative',
           overflow: 'hidden',
@@ -944,7 +938,7 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
             }
             style={{ textDecoration: 'none' }}
           >
-            <button className="zg-btn zg-btn--primary" style={{ fontSize: 17, padding: '16px 40px' }}>
+            <button className="zg-btn zg-btn--primary zg-btn--xl">
               {canLaunchApp ? t('ctaLaunchDashboard') : t('ctaStartTrial')} <ArrowRight size={20} />
             </button>
           </Link>

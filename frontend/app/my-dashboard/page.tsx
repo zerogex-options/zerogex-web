@@ -478,39 +478,47 @@ function Header({
         {boardSwitcher}
         {!isEmpty && (
           <>
-            {!split && (
-              // One click to go from "I've built one board" to "I've got two,
-              // and the second one is a copy I can retarget".
+            {/* Split boards are a side-by-side desktop layout; on a phone the
+                two halves can only stack, so the controls that build and link
+                them are left to the desktop. A board already split still
+                renders — its halves one above the other. The wrapper does the
+                hiding: .zg-btn sets its own display, which a utility class on
+                the button itself cannot override. */}
+            <span className="hidden md:contents">
+              {!split && (
+                // One click to go from "I've built one board" to "I've got two,
+                // and the second one is a copy I can retarget".
+                <button
+                  type="button"
+                  onClick={onClone}
+                  disabled={!canClone}
+                  className="zg-btn zg-btn--secondary"
+                  title={t('cloneToSecondHalfTitle')}
+                >
+                  <Copy size={15} /> {t('cloneToSecondHalf')}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onClone}
-                disabled={!canClone}
-                className="zg-btn zg-btn--secondary"
-                title={t('cloneToSecondHalfTitle')}
+                onClick={onToggleSplit}
+                aria-pressed={split}
+                className={`zg-btn ${split ? 'zg-btn--primary' : 'zg-btn--ghost'}`}
+                title={t('splitViewTitle')}
               >
-                <Copy size={15} /> {t('cloneToSecondHalf')}
+                <Columns2 size={15} /> {t('splitView')}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onToggleSplit}
-              aria-pressed={split}
-              className={`zg-btn ${split ? 'zg-btn--primary' : 'zg-btn--ghost'}`}
-              title={t('splitViewTitle')}
-            >
-              <Columns2 size={15} /> {t('splitView')}
-            </button>
-            {split && (
-              <button
-                type="button"
-                onClick={onToggleLinkPriceAxis}
-                aria-pressed={linkPriceAxis}
-                className={`zg-btn ${linkPriceAxis ? 'zg-btn--secondary' : 'zg-btn--ghost'}`}
-                title={linkPriceAxis ? t('unlinkPriceAxisTitle') : t('linkPriceAxisTitle')}
-              >
-                {linkPriceAxis ? <Link2 size={15} /> : <Unlink size={15} />} {t('linkPriceAxis')}
-              </button>
-            )}
+              {split && (
+                <button
+                  type="button"
+                  onClick={onToggleLinkPriceAxis}
+                  aria-pressed={linkPriceAxis}
+                  className={`zg-btn ${linkPriceAxis ? 'zg-btn--secondary' : 'zg-btn--ghost'}`}
+                  title={linkPriceAxis ? t('unlinkPriceAxisTitle') : t('linkPriceAxisTitle')}
+                >
+                  {linkPriceAxis ? <Link2 size={15} /> : <Unlink size={15} />} {t('linkPriceAxis')}
+                </button>
+              )}
+            </span>
             {editing && (
               <button type="button" onClick={onReset} className="zg-btn zg-btn--ghost" title={t('resetBoardTitle')}>
                 <RotateCcw size={15} /> {t('reset')}
@@ -670,7 +678,9 @@ function EmptyState({
 function BoardSkeleton() {
   return (
     <div className="zg-mydash-grid" aria-hidden>
-      {['zg-w-sm', 'zg-w-sm', 'zg-w-sm', 'zg-w-sm', 'zg-w-lg', 'zg-w-md', 'zg-w-md', 'zg-w-sm'].map(
+      {/* The four leading S placeholders stand in for metric tiles, so they
+          pair up on a phone the way the tiles they become do. */}
+      {['zg-w-sm zg-w-tile', 'zg-w-sm zg-w-tile', 'zg-w-sm zg-w-tile', 'zg-w-sm zg-w-tile', 'zg-w-lg', 'zg-w-md', 'zg-w-md', 'zg-w-sm'].map(
         (cls, i) => (
           <div key={i} className={cls}>
             <div className="zg-panel h-full p-5">

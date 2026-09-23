@@ -32,8 +32,8 @@ export default function PricingTrialCta({ symbol }: { symbol: string }) {
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
           color: 'var(--color-brand-primary)',
-          border: '1px solid var(--color-brand-primary)44',
-          background: 'var(--color-brand-primary)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-primary) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-primary) 8%, transparent)',
           borderRadius: 999,
           padding: '5px 14px',
         }}

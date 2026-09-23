@@ -134,7 +134,7 @@ function Badge({ children, accent }: { children: React.ReactNode; accent: string
         fontWeight: 800,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        border: `1px solid ${accent}66`,
+        border: `1px solid color-mix(in srgb, ${accent} 40%, transparent)`,
         color: accent,
         borderRadius: 999,
         padding: '4px 10px',
@@ -195,7 +195,7 @@ function CadenceToggle({
             fontWeight: 800,
             padding: '2px 6px',
             borderRadius: 999,
-            background: cadence === 'annual' ? 'rgba(255,255,255,0.22)' : `${C.amber}22`,
+            background: cadence === 'annual' ? 'rgba(255,255,255,0.22)' : `color-mix(in srgb, ${C.amber} 13%, transparent)`,
             color: cadence === 'annual' ? 'var(--text-inverse)' : C.amber,
           }}
         >
@@ -237,11 +237,11 @@ function FoundingCard({
 
   return (
     <article
+      className="zg-pcard"
       style={{
         background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
-        border: `1px solid ${accent}66`,
+        border: `1px solid color-mix(in srgb, ${accent} 40%, transparent)`,
         borderRadius: 'var(--radius-panel)',
-        padding: 28,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -447,7 +447,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
       <nav
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
-          background: `${isDark ? 'var(--color-bg)' : 'var(--color-bg)'}ee`,
+          background: 'color-mix(in srgb, var(--color-bg) 93%, transparent)',
           borderBottom: `1px solid ${C.border}`,
           backdropFilter: 'blur(20px)',
         }}
@@ -461,7 +461,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
             className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: isDark ? `color-mix(in srgb, ${C.card} 80%, transparent)` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               cursor: 'pointer',
               color: C.muted,
@@ -472,7 +472,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
           <Link href="/about" style={{ textDecoration: 'none' }}>
             <button
               style={{
-                background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+                background: isDark ? `color-mix(in srgb, ${C.card} 80%, transparent)` : 'var(--bg-hover)',
                 border: `1px solid ${C.border}`,
                 borderRadius: 10,
                 padding: '8px 14px',
@@ -488,7 +488,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         </div>
       </nav>
 
-      <section style={{ minHeight: '100vh', padding: '120px 24px 84px', position: 'relative' }}>
+      <section className="zg-psec" style={{ minHeight: '100vh', position: 'relative' }}>
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div
@@ -518,8 +518,8 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               margin: '0 auto 28px',
               padding: '16px 20px',
               borderRadius: 'var(--radius-panel)',
-              border: `1px solid ${C.amber}55`,
-              background: `${C.amber}10`,
+              border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
+              background: `color-mix(in srgb, ${C.amber} 6%, transparent)`,
               color: C.light,
               textAlign: 'center',
               lineHeight: 1.6,
@@ -630,7 +630,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               gridTemplateColumns: 'auto 1fr',
               gap: 'clamp(14px, 2.5vw, 20px)',
               alignItems: 'center',
-              borderColor: `${C.amber}40`,
+              borderColor: `color-mix(in srgb, ${C.amber} 25%, transparent)`,
             }}>
               <div style={{
                 width: 56, height: 56, borderRadius: '50%',
@@ -660,13 +660,12 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
           </Link>
 
           <section
-            className="zg-panel"
+            className="zg-panel zg-pcard"
             style={{
               marginTop: 36,
               maxWidth: 820,
               marginLeft: 'auto',
               marginRight: 'auto',
-              padding: 28,
             }}
           >
             <h2
@@ -690,7 +689,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
                 </Link>
                 {t('refundIntroPart3', { date: FOUNDING_BILLING_START_LABEL })}
               </p>
-              <ul style={{ paddingLeft: 22, marginTop: 12 }}>
+              <ul className="zg-policy-list" style={{ marginTop: 12 }}>
                 <li>
                   <strong>{t('cancelAnytimeTitle')}</strong> {t('cancelAnytimeBody')}
                 </li>

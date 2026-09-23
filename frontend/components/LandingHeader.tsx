@@ -217,16 +217,20 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           </button>
         </Link>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="sm:hidden zg-icon-btn zg-touch-btn"
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={menuOpen}
-          aria-controls="zgx-landing-menu"
-        >
-          {menuOpen ? <X size={21} /> : <Menu size={21} />}
-        </button>
+        {/* Wrapped: .zg-icon-btn sets its own display, which would beat a
+            responsive `hidden` utility placed on the button itself. */}
+        <span className="sm:hidden">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="zg-icon-btn zg-touch-btn"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            aria-controls="zgx-landing-menu"
+          >
+            {menuOpen ? <X size={21} /> : <Menu size={21} />}
+          </button>
+        </span>
       </div>
 
       {menuOpen && (
