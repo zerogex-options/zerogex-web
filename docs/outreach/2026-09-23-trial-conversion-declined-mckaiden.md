@@ -121,7 +121,12 @@ draft says Cash App declined it and nothing more.
 reinstate. When Pro comes back they have to generate a new key at `/account` and
 swap it in.
 
-## ⚠ Verify first
+## Verify first
+
+**Done 2026-09-23.** Every check below passed. Michael voided
+`in_1UIsHI4AOiqteMYYZbtjdA2U` and sent the note the same day.
+`make audit-trial-conversions` also showed the invoice as "NO RETRY
+SCHEDULED" after one attempt, which confirms the no-retry sentence.
 
 - **Re-run `make diagnose-user EMAIL=lowrymckaiden@gmail.com`.** Invoice still
   `open`, `MONEY EVER COLLECTED` still NO, tier still `public`, and no
@@ -170,26 +175,47 @@ swap it in.
   subscription having closed, or about the API key. Once the invoice is voided,
   its link is dead too, which is why the draft says so.
 
-## Draft
+## As sent (2026-09-23)
+
+This is Michael's revision of the short draft, cleaned up in review. It adds the
+promo and the guarantee. The review suggested leaving out a quarterly-plan line;
+if it went out anyway, it read: *There's also a new quarterly plan: Pro is $115
+every 3 months (about $38 a month).*
 
 **Subject:** Why your ZeroGEX access stopped
 
 Hi Mckaiden,
 
-Your trial ended today, and Cash App declined the first $59 Pro payment. Cash App Pay payments don't get an automatic retry, so the subscription closed right away. That's why your account moved to the free tier and your API key stopped working at about 12:40 PM Eastern.
+Your trial ended today, and Cash App declined the first $59 Pro payment. Cash App Pay payments don't get an automatic retry, so the subscription closed immediately. That's why your account moved to the free tier and your API key stopped working around 12:40 PM Eastern.
 
 I've closed out that $59 bill, so you don't owe anything, and the payment link in the earlier email no longer works.
 
-If you'd like Pro back, you can restart it any time at https://zerogex.io/pricing. It comes with a 7-day money-back guarantee.
+If you'd like Pro back, you can restart it any time at https://zerogex.io/pricing. We updated our pricing last night, so restarting now gets you two things:
+
+- If you restart by October 1, Pro is $49 a month for your first year ($120 off).
+- Pro now comes with a 7-day money-back guarantee. If it isn't for you, you can get a full refund from your account page within 7 days.
 
 Your old API key can't be reactivated, so once Pro is back, generate a new one at https://zerogex.io/account and swap it in wherever you used the old one.
 
 If you'd rather not continue, there's nothing you need to do.
 
+Best,
 Michael
 Founder, ZeroGEX
+Know the levels that matter before price gets there.
+https://zerogex.io
 
-## After you send
+**What a reply can hold us to.** Two things were promised:
+
+- **$49 a month for the first year, if they restart by October 1.** Checkout
+  applies the promo automatically until `PROMO_END_AT`, which the pricing
+  runbook sets to 2026-10-02 03:59:59 UTC (the end of October 1 in New York).
+  After that
+  checkout will not apply it, and the email did not promise it past October 1.
+- **The 7-day money-back guarantee on a Pro restart.** They qualify: no trial
+  and no earlier refund, so `moneyBackCovered` is true at checkout.
+
+## After sending
 
 - **If they restart**, checkout creates a new subscription and the ordinary sync
   grants Pro. Expect the automated welcome-back email as well:
@@ -217,9 +243,12 @@ Founder, ZeroGEX
   Cash App Pay a grace window, but it would also leave every card subscription
   past due for good once its retries run out. Adding app-side grace to a
   deleted subscription would be free Pro with nothing retrying behind it.
-  **Recommendation:** get the Cash App Pay cohort's size and conversion from
-  `make audit-trial-conversions`, which splits by payment-method type. If it is
-  more than a one-off, turn Cash App Pay off for subscriptions.
+  **Decided 2026-09-23: leave it on.** `make audit-trial-conversions` (last 90
+  days) showed Cash App Pay on 3 of 175 real first charges, with 2 declined.
+  That is too few to act on. Revisit if the cohort grows. The same audit showed
+  one other invoice, `in_1UHzIi4AOiqteMYYhN0zyvPm` ($59), stopped after a single
+  attempt with no retry. It may be the other Cash App decline, and that
+  customer probably lost access just as instantly. Outreach there is optional.
 - **The deletion audit row drops Stripe's cancellation reason.**
   `formatCancellationReasonSuffix` (`frontend/core/cancellationReason.ts`)
   records only the portal survey `feedback` and `comment`, never
