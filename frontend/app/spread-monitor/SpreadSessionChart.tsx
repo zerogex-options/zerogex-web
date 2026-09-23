@@ -16,6 +16,8 @@ import {
 
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 import type { SpreadSeries } from '@/core/spreadMonitor';
+import { pctTick } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 import { legendProps } from './chartLegend';
 
@@ -56,6 +58,8 @@ const DEAD_COLOR = 'var(--color-king)';
 
 /** Shared so the two panels align. See the syncId note above. */
 const MARGIN = { top: 8, right: 8, bottom: 4, left: 8 } as const;
+/** A phone's card has no pixels to spare for side margins; still shared. */
+const PHONE_MARGIN = { top: 8, right: 4, bottom: 4, left: 0 } as const;
 const Y_AXIS_WIDTH = 46;
 
 interface ChartRow {
@@ -99,6 +103,11 @@ export default function SpreadSessionChart({
 }) {
   const rows = useMemo(() => toRows(series), [series]);
   const axisStroke = 'var(--color-chart-axis)';
+  const isMobile = useIsMobile();
+  const margin = isMobile ? PHONE_MARGIN : MARGIN;
+  // Whole-percent ticks on a 0.5% step printed "1%" twice; a phone gets the
+  // decimals the step needs (desktop is unchanged).
+  const pctFormatter = (v: unknown) => (isMobile ? pctTick(Number(v)) : `${Number(v).toFixed(0)}%`);
 
   if (rows.length === 0) {
     return (
@@ -112,7 +121,7 @@ export default function SpreadSessionChart({
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={rows} syncId={SYNC_ID} margin={MARGIN}>
+        <ComposedChart data={rows} syncId={SYNC_ID} margin={margin}>
           <CartesianGrid
             vertical={false}
             stroke="var(--color-chart-grid)"
@@ -121,7 +130,7 @@ export default function SpreadSessionChart({
           {/* Hidden here, drawn once on the panel below — the two share it. */}
           <XAxis dataKey="bucket_start" hide />
           <YAxis
-            tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+            tickFormatter={pctFormatter}
             stroke={axisStroke}
             tick={{ fontSize: 10 }}
             width={Y_AXIS_WIDTH}
@@ -183,7 +192,7 @@ export default function SpreadSessionChart({
           Share of puts with no market
         </div>
         <ResponsiveContainer width="100%" height={deadHeight}>
-          <AreaChart data={rows} syncId={SYNC_ID} margin={MARGIN}>
+          <AreaChart data={rows} syncId={SYNC_ID} margin={margin}>
             <CartesianGrid
               vertical={false}
               stroke="var(--color-chart-grid)"
@@ -198,7 +207,7 @@ export default function SpreadSessionChart({
             />
             <YAxis
               domain={[0, 'auto']}
-              tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+              tickFormatter={pctFormatter}
               stroke={axisStroke}
               tick={{ fontSize: 10 }}
               width={Y_AXIS_WIDTH}

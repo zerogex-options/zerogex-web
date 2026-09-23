@@ -22,7 +22,8 @@ export default function ChartTimeframeSelect({ value, onChange, className = 'mb-
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as ChartTimeframe)}
-        className="px-3 py-2 rounded-lg border text-sm font-semibold bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-secondary)]"
+        // 16px on a phone: iOS zooms the page into a smaller select on focus.
+        className="px-3 py-2 rounded-lg border text-sm max-sm:text-base font-semibold bg-[var(--color-surface-subtle)] border-[var(--color-border)] text-[var(--color-text-secondary)]"
       >
         {CHART_TIMEFRAME_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>

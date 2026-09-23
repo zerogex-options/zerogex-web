@@ -9,7 +9,9 @@
  * glance. Hand-rolled SVG in CSS tokens, matching the Gamma Terminal.
  */
 
-import { useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMeasuredWidth } from "@/components/useMeasuredWidth";
 import {
   finite,
   formatNumber,
@@ -18,22 +20,141 @@ import {
   type MarketTideComponent,
 } from "./data";
 
-const VW = 560;
-const VH = 470;
-const L = 54;
-const R = 22;
-const T = 26;
-const B = 54;
-const PW = VW - L - R;
-const PH = VH - T - B;
-const IT = 12;
-const IB = 12;
+// ── Canvas ────────────────────────────────────────────────────────────────────
+// Desktop draws a fixed 560×470 board scaled to its card. On a ~310px phone
+// card that put the 10.5-unit labels at 6px and the 15–29-unit bubbles on top
+// of each other, so a phone draws a canvas as wide as the card instead (1 unit
+// = 1px — see GammaTerminalChart's compactCanvas): real 10px labels, smaller
+// bubbles, slimmer gutters.
+interface MapCanvas {
+  compact: boolean;
+  VW: number;
+  VH: number;
+  L: number;
+  R: number;
+  T: number;
+  PW: number;
+  PH: number;
+  IT: number;
+  IB: number;
+  /** Baseline of the two region names above the frame. */
+  topNameY: number;
+  regionFont: number;
+  regionTracking: number;
+  axisFont: number;
+  /** Distance of the bottom axis title above the canvas bottom. */
+  axisTitleGap: number;
+  /** x of the rotated gamma axis title. */
+  gammaTitleX: number;
+  bubbleBase: number;
+  bubbleScale: number;
+  bubbleFont: number;
+}
+
+const DESKTOP_CANVAS: MapCanvas = {
+  compact: false,
+  VW: 560,
+  VH: 470,
+  L: 54,
+  R: 22,
+  T: 26,
+  PW: 560 - 54 - 22,
+  PH: 470 - 26 - 54,
+  IT: 12,
+  IB: 12,
+  topNameY: 16,
+  regionFont: 11,
+  regionTracking: 1,
+  axisFont: 10.5,
+  axisTitleGap: 28,
+  gammaTitleX: 16,
+  bubbleBase: 15,
+  bubbleScale: 14,
+  bubbleFont: 12,
+};
+
+function compactCanvas(width: number): MapCanvas {
+  const VW = Math.max(260, Math.round(width));
+  // Near-square on a phone; capped so a tablet-width card isn't a 560px tower.
+  const VH = Math.min(460, Math.round(VW * 0.9));
+  const L = 26;
+  const R = 4;
+  const T = 22;
+  const B = 30;
+  return {
+    compact: true,
+    VW,
+    VH,
+    L,
+    R,
+    T,
+    PW: VW - L - R,
+    PH: VH - T - B,
+    IT: 10,
+    IB: 10,
+    topNameY: 14,
+    regionFont: 10,
+    regionTracking: 0.6,
+    axisFont: 10,
+    axisTitleGap: 10,
+    gammaTitleX: 11,
+    bubbleBase: 12,
+    bubbleScale: 9,
+    bubbleFont: 10,
+  };
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const SP = " ";
 
+/**
+ * Nudges overlapping bubbles apart (a few rounds of pairwise push, clamped to
+ * the frame) — phone only, where two indices with near-identical readings
+ * (QQQ and NDX, SPY and SPX usually are) otherwise print as one blot. The
+ * shift is a bubble-width at most; the readout keeps the exact values.
+ */
+function spreadBubbles(
+  items: { x: number; y: number; r: number }[],
+  box: { x0: number; x1: number; y0: number; y1: number },
+): { x: number; y: number; r: number }[] {
+  const pts = items.map((p) => ({ ...p }));
+  for (let round = 0; round < 60; round++) {
+    let moved = false;
+    for (let a = 0; a < pts.length; a++) {
+      for (let b = a + 1; b < pts.length; b++) {
+        const dx = pts[b].x - pts[a].x;
+        const dy = pts[b].y - pts[a].y;
+        const d = Math.hypot(dx, dy);
+        const min = pts[a].r + pts[b].r + 2;
+        if (d >= min) continue;
+        const push = (min - d) / 2;
+        const ux = d > 0.01 ? dx / d : 1;
+        const uy = d > 0.01 ? dy / d : 0;
+        pts[a].x -= ux * push;
+        pts[a].y -= uy * push;
+        pts[b].x += ux * push;
+        pts[b].y += uy * push;
+        moved = true;
+      }
+    }
+    for (const p of pts) {
+      p.x = clamp(p.x, box.x0 + p.r, box.x1 - p.r);
+      p.y = clamp(p.y, box.y0 + p.r, box.y1 - p.r);
+    }
+    if (!moved) break;
+  }
+  return pts;
+}
+
 export default function FlowGammaMap({ components }: { components: MarketTideComponent[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  const isMobile = useIsMobile();
+  const [measureRef, measuredWidth] = useMeasuredWidth<HTMLDivElement>();
+  const canvas = isMobile && measuredWidth != null && measuredWidth > 0 ? compactCanvas(measuredWidth) : DESKTOP_CANVAS;
+  const { compact, VW, VH, L, R, T, PW, PH, IT, IB } = canvas;
+  // Taps are followed by emulated mouse events; they must not undo the tap.
+  const lastTouchAtRef = useRef(0);
+  const fromRecentTouch = () => Date.now() - lastTouchAtRef.current < 800;
 
   const comps = components.filter((c) => c && c.symbol);
   if (comps.length === 0) {
@@ -57,24 +178,46 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
   const svgStyle: CSSProperties = { fontFamily: "var(--font-mono)", display: "block", width: "100%", height: "auto" };
   const hoverC = hover != null ? comps[hover] : null;
 
+  const raw = comps.map((c) => ({
+    x: x(finite(c.flow_score) ?? 0),
+    y: y(finite(c.gamma_score) ?? 0),
+    r: canvas.bubbleBase + (finite(c.weight) ?? 0) * canvas.bubbleScale,
+  }));
+  const placed = compact ? spreadBubbles(raw, { x0: L, x1: VW - R, y0: T, y1: T + PH }) : raw;
+
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet" style={svgStyle} role="img" aria-label="Flow versus dealer gamma by ticker">
+    <div className="relative" ref={measureRef}>
+      {/* A phone would otherwise flash the desktop board at 6px type for a
+          frame before its own canvas is measured. */}
+      <svg
+        viewBox={`0 0 ${VW} ${VH}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={svgStyle}
+        className={measuredWidth == null ? "max-md:invisible" : undefined}
+        role="img"
+        aria-label="Flow versus dealer gamma by ticker"
+        onPointerDown={(e) => {
+          // A tap on open ground puts the readout away.
+          if (e.pointerType !== "touch") return;
+          lastTouchAtRef.current = Date.now();
+          setHover(null);
+        }}
+      >
         {/* quadrant tints — top-left air pocket, top-right squeeze fuel */}
         <rect x={L} y={T} width={cx - L} height={PH / 2} fill="var(--color-bear-soft)" />
         <rect x={cx} y={T} width={VW - R - cx} height={PH / 2} fill="var(--color-bull-soft)" />
 
         {/* region names: top above the frame (clear of the bubble band), bottom in the empty corners */}
-        <text x={L} y={16} fontSize="11" fontWeight="700" letterSpacing="1" fill="var(--color-bear)" opacity="0.9">
+        <text x={L} y={canvas.topNameY} fontSize={canvas.regionFont} fontWeight="700" letterSpacing={canvas.regionTracking} fill="var(--color-bear)" opacity="0.9">
           AIR POCKET
         </text>
-        <text x={VW - R} y={16} textAnchor="end" fontSize="11" fontWeight="700" letterSpacing="1" fill="var(--color-bull)" opacity="0.9">
+        <text x={VW - R} y={canvas.topNameY} textAnchor="end" fontSize={canvas.regionFont} fontWeight="700" letterSpacing={canvas.regionTracking} fill="var(--color-bull)" opacity="0.9">
           SQUEEZE FUEL
         </text>
-        <text x={L + 8} y={T + PH - 12} fontSize="10.5" fontWeight="700" letterSpacing="1" fill="var(--text-muted)">
+        <text x={L + (compact ? 6 : 8)} y={T + PH - (compact ? 8 : 12)} fontSize={compact ? 10 : 10.5} fontWeight="700" letterSpacing={canvas.regionTracking} fill="var(--text-muted)">
           SUPPORTED
         </text>
-        <text x={VW - R - 8} y={T + PH - 12} textAnchor="end" fontSize="10.5" fontWeight="700" letterSpacing="1" fill="var(--text-muted)">
+        <text x={VW - R - (compact ? 6 : 8)} y={T + PH - (compact ? 8 : 12)} textAnchor="end" fontSize={compact ? 10 : 10.5} fontWeight="700" letterSpacing={canvas.regionTracking} fill="var(--text-muted)">
           CAPPED GRIND
         </text>
 
@@ -84,36 +227,48 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
         <line x1={cx} y1={T} x2={cx} y2={T + PH} stroke="var(--border-strong)" strokeWidth="1" />
 
         {/* axis titles */}
-        <text x={cx} y={VH - 28} textAnchor="middle" fontSize="10.5" fill="var(--text-secondary)">
+        <text x={cx} y={VH - canvas.axisTitleGap} textAnchor="middle" fontSize={canvas.axisFont} fill="var(--text-secondary)">
           {`◄${SP}put-led${SP}${SP}FLOW${SP}${SP}call-led${SP}►`}
         </text>
-        <text transform={`translate(16,${T + PH / 2}) rotate(-90)`} textAnchor="middle" fontSize="10.5" fill="var(--text-secondary)">
+        <text transform={`translate(${canvas.gammaTitleX},${T + PH / 2}) rotate(-90)`} textAnchor="middle" fontSize={canvas.axisFont} fill="var(--text-secondary)">
           {`◄${SP}long γ${SP}${SP}GAMMA${SP}${SP}short γ${SP}►`}
         </text>
 
         {allShort && (
-          <text x={cx} y={cy + PH / 4 + 4} textAnchor="middle" fontSize="10.5" fill="var(--text-muted)" opacity="0.85">
+          <text x={cx} y={cy + PH / 4 + 4} textAnchor="middle" fontSize={canvas.axisFont} fill="var(--text-muted)" opacity="0.85">
             {`—${SP}no index is long-gamma right now${SP}—`}
           </text>
         )}
 
         {/* bubbles */}
         {comps.map((c, i) => {
-          const bx = x(finite(c.flow_score) ?? 0);
-          const by = y(finite(c.gamma_score) ?? 0);
+          const { x: bx, y: by, r } = placed[i];
           const bull = (finite(c.contribution) ?? 0) >= 0;
-          const r = 15 + (finite(c.weight) ?? 0) * 14;
           return (
             <g
               key={`${c.symbol}-${i}`}
               style={{ cursor: "pointer" }}
-              onMouseEnter={() => setHover(i)}
-              onMouseMove={() => setHover(i)}
-              onMouseLeave={() => setHover(null)}
+              onMouseEnter={() => {
+                if (!fromRecentTouch()) setHover(i);
+              }}
+              onMouseMove={() => {
+                if (!fromRecentTouch()) setHover(i);
+              }}
+              onMouseLeave={() => {
+                if (!fromRecentTouch()) setHover(null);
+              }}
+              onPointerDown={(e) => {
+                // A finger has no hover: a tap opens this bubble's readout,
+                // and a second tap on it puts the readout away.
+                if (e.pointerType !== "touch") return;
+                e.stopPropagation();
+                lastTouchAtRef.current = Date.now();
+                setHover((cur) => (cur === i ? null : i));
+              }}
             >
               <circle cx={bx} cy={by} r={r + 2.5} fill="var(--bg-card)" />
               <circle cx={bx} cy={by} r={r} fill={bull ? "var(--color-bull-soft)" : "var(--color-bear-soft)"} stroke={bull ? "var(--color-bull)" : "var(--color-bear)"} strokeWidth="2" />
-              <text x={bx} y={by + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--text-primary)">
+              <text x={bx} y={by + (compact ? 3.5 : 4)} textAnchor="middle" fontSize={canvas.bubbleFont} fontWeight="700" fill="var(--text-primary)">
                 {c.symbol}
               </text>
             </g>

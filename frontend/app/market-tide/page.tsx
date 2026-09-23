@@ -9,6 +9,7 @@ import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { formatEtDate, formatEtTime } from "@/core/signalHelpers";
 import { useApiData } from "@/hooks/useApiData";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import MarketTideChart from "./MarketTideChart";
 import FlowGammaMap from "./FlowGammaMap";
 import {
@@ -46,7 +47,12 @@ const border = { borderColor: "var(--border-default)" };
 function MetricTitle({ children, tip }: { children: React.ReactNode; tip: string }) {
   return (
     <div className="zg-eyebrow flex items-center gap-2">
-      {children}
+      {/* In a half-width phone card the full tracking (plus the leading
+          icon, which the cards drop below `sm`) wrapped "FLOW DIRECTION" and
+          pushed PARTICIPATION's info icon into the card edge; the label
+          tightens there. On an inner span: .zg-eyebrow is unlayered, so a
+          utility on the div itself would lose. */}
+      <span className="inline-flex items-center gap-2 max-sm:tracking-[0.06em]">{children}</span>
       <TooltipWrapper text={tip} />
     </div>
   );
@@ -215,6 +221,7 @@ function ReadCard({ data }: { data: MarketTideResponse }) {
 
 // ── By-ticker strip (replaces the dense contributor tables) ──
 function ByTickerStrip({ rows }: { rows: MarketTideComponent[] }) {
+  const isPhone = useIsMobile(640);
   if (rows.length === 0) {
     return (
       <p className="border border-dashed p-6 text-center text-sm text-[var(--text-secondary)]" style={{ ...border, borderRadius: "var(--radius-panel)" }}>
@@ -232,23 +239,32 @@ function ByTickerStrip({ rows }: { rows: MarketTideComponent[] }) {
         const mag = Math.min(1, Math.abs(flow)) * 50;
         const bull = flow >= 0;
         return (
+          // Phone: two lines — symbol, gamma chip and contribution on the
+          // first, the flow bar across the full card width on the second (in
+          // a ~170px track its label sat on top of the bar). From `sm` up it
+          // is the original four-column row.
           <div
             key={`${c.symbol}-${i}`}
-            className="grid grid-cols-[56px_1fr_auto] items-center gap-3 border-t py-3 first:border-t-0 sm:grid-cols-[64px_1fr_150px_92px] sm:gap-4"
+            className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 border-t py-3 first:border-t-0 sm:grid-cols-[64px_1fr_150px_92px] sm:gap-4"
             style={border}
           >
             <div className="font-mono font-bold">{c.symbol || "—"}</div>
-            <div className="relative h-6 overflow-hidden rounded" style={{ background: "var(--bg-subtle)" }}>
+            <div className="relative col-span-3 h-6 overflow-hidden rounded max-sm:order-last sm:col-span-1" style={{ background: "var(--bg-subtle)" }}>
               <span className="absolute inset-y-0 left-1/2 w-px" style={{ background: "var(--border-strong)" }} />
               <span
                 className="absolute inset-y-1 rounded-sm"
                 style={{ background: bull ? "var(--color-bull)" : "var(--color-bear)", width: `${mag}%`, ...(bull ? { left: "50%" } : { right: "50%" }) }}
               />
-              <span className="absolute top-1/2 -translate-y-1/2 font-mono text-[10.5px] text-[var(--text-secondary)]" style={bull ? { right: 8 } : { left: 8 }}>
+              {/* On a phone the label sits in the empty half, clear of the
+                  bar; on desktop it keeps its place at the bar's own end. */}
+              <span
+                className="absolute top-1/2 -translate-y-1/2 font-mono text-[10.5px] text-[var(--text-secondary)]"
+                style={bull ? (isPhone ? { left: 8 } : { right: 8 }) : isPhone ? { right: 8 } : { left: 8 }}
+              >
                 {bull ? "call-led" : "put-led"} {formatNumber(flow, 2)}
               </span>
             </div>
-            <div className="hidden sm:block">
+            <div className="min-w-0 sm:block">
               <span
                 className="zg-chip whitespace-nowrap"
                 style={{
@@ -263,7 +279,7 @@ function ByTickerStrip({ rows }: { rows: MarketTideComponent[] }) {
               <div className="font-mono font-semibold tabular-nums" style={{ color: contrib >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
                 {formatSigned(contrib, 2)}
               </div>
-              <div className="hidden font-mono text-[10px] text-[var(--text-muted)] sm:block">wt {formatNumber(weight * 100, 0)}%</div>
+              <div className="font-mono text-[10px] text-[var(--text-muted)] sm:block">wt {formatNumber(weight * 100, 0)}%</div>
             </div>
           </div>
         );
@@ -366,7 +382,9 @@ export default function MarketTidePage() {
                   <MetricTitle tip="Each index by its directional flow (x) and dealer gamma (y). Up = short gamma (moves amplify), down = long gamma (moves pinned); right = call-led, left = put-led.">
                     Flow × Gamma
                   </MetricTitle>
-                  <span className="text-xs uppercase tracking-[.14em] text-[var(--text-muted)]">Where each index sits</span>
+                  {/* Decorative, and on a phone it wrapped the whole header
+                      into four lines beside the title. */}
+                  <span className="hidden text-xs uppercase tracking-[.14em] text-[var(--text-muted)] sm:inline">Where each index sits</span>
                 </div>
                 <div className="mt-4">
                   <FlowGammaMap components={components} />
@@ -379,20 +397,21 @@ export default function MarketTidePage() {
               <ReadCard data={data} />
             </div>
 
-            {/* raw metric cards */}
-            <div className="grid gap-4 md:grid-cols-3">
+            {/* raw metric cards — two short readings side by side on a phone,
+                the gamma card (a sentence of copy) across the row under them */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
               <section className={card} style={cardStyle}>
                 <MetricTitle tip="Directional aggregate options pressure; it does not replace the Market Tide label.">
-                  <Activity size={15} /> Flow Direction
+                  <Activity size={15} className="max-sm:hidden" /> Flow Direction
                 </MetricTitle>
                 <div className="zg-metric mt-4 text-3xl">{formatNumber(flow)}</div>
                 <p className="mt-2 font-semibold">
                   {flow == null ? "Unavailable" : Math.abs(flow) < 0.005 ? "Balanced" : flow > 0 ? "Call-led / bullish" : "Put-led / bearish"}
                 </p>
               </section>
-              <section className={card} style={cardStyle}>
+              <section className={`${card} col-span-2 max-md:order-last md:col-span-1`} style={cardStyle}>
                 <MetricTitle tip="Gamma changes how strongly directional flow may move the market; it is not itself bullish or bearish.">
-                  <Gauge size={15} /> Gamma Regime
+                  <Gauge size={15} className="max-sm:hidden" /> Gamma Regime
                 </MetricTitle>
                 <div className="mt-4 flex items-baseline gap-3">
                   <span className="zg-metric text-3xl">{formatNumber(gamma)}</span>
@@ -402,7 +421,7 @@ export default function MarketTidePage() {
               </section>
               <section className={`${card} ${participation < 60 ? "border-[var(--color-bear)]" : ""}`} style={cardStyle}>
                 <MetricTitle tip="Share of configured symbols with fresh flow and gamma data.">
-                  <Users size={15} /> Participation
+                  <Users size={15} className="max-sm:hidden" /> Participation
                 </MetricTitle>
                 <div className="zg-metric mt-4 text-3xl">
                   {formatNumber(data.eligible_symbols, 0)}{" "}

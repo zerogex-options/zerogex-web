@@ -13,6 +13,8 @@ import {
 } from 'recharts';
 
 import { dteLabel, type ExpirationSlice } from '@/core/spreadMonitor';
+import { pctTick } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 import { legendProps } from './chartLegend';
 
@@ -75,6 +77,7 @@ export default function ExpirationCurve({
 }) {
   const rows = useMemo(() => toRows(slices), [slices]);
   const axisStroke = 'var(--color-chart-axis)';
+  const isMobile = useIsMobile();
 
   if (rows.length === 0) {
     return (
@@ -86,7 +89,7 @@ export default function ExpirationCurve({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 4, left: 8 }} barGap={2}>
+      <BarChart data={rows} margin={isMobile ? { top: 8, right: 4, bottom: 4, left: 0 } : { top: 8, right: 8, bottom: 4, left: 8 }} barGap={2}>
         {/* Recessive, horizontal only: vertical rules would compete with the
             group boundaries the bars already establish. */}
         <CartesianGrid
@@ -96,7 +99,9 @@ export default function ExpirationCurve({
         />
         <XAxis dataKey="label" stroke={axisStroke} tick={{ fontSize: 10 }} />
         <YAxis
-          tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+          // A phone prints the decimals a 0.5% step needs ("1.5%"), where
+          // whole percents labelled two gridlines "1%".
+          tickFormatter={(v) => (isMobile ? pctTick(Number(v)) : `${Number(v).toFixed(0)}%`)}
           stroke={axisStroke}
           tick={{ fontSize: 10 }}
           width={46}

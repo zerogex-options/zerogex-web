@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ComposedChart,
   Legend,
@@ -16,6 +16,13 @@ import { robustDomain } from '@/core/regimeDomain';
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
+import {
+  HEDGING_PHONE_LEFT_AXIS,
+  HEDGING_PHONE_MARGIN,
+  HEDGING_PHONE_RIGHT_AXIS,
+} from '@/components/HedgingFlowChart';
+import { compactUsdTick } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { GammaRegimeBar, GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 
@@ -99,6 +106,9 @@ export default function GammaRegimeChart({
   onHoverChange,
 }: GammaRegimeChartProps) {
   const [fullRange, setFullRange] = useState(false);
+  const isMobile = useIsMobile();
+  // See HedgingFlowChart: a tap ends in an emulated mouseleave.
+  const lastTouchAtRef = useRef(0);
   const [uncontrolledHover, setUncontrolledHover] = useState<string | null>(null);
   const hoveredLabel = controlledHover !== undefined ? controlledHover : uncontrolledHover;
   const setHovered = onHoverChange ?? setUncontrolledHover;
@@ -153,11 +163,22 @@ export default function GammaRegimeChart({
       <ComposedChart
         data={rows}
         syncId={syncId}
-        margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
+        margin={isMobile ? HEDGING_PHONE_MARGIN : { top: 8, right: 8, bottom: 4, left: 8 }}
         onMouseMove={(state: { activeLabel?: string | number }) =>
           setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)
         }
-        onMouseLeave={() => setHovered(null)}
+        // A dragging finger fires no mouse events (see HedgingFlowChart).
+        onTouchStart={() => {
+          lastTouchAtRef.current = Date.now();
+        }}
+        onTouchMove={(state: { activeLabel?: string | number }) => {
+          lastTouchAtRef.current = Date.now();
+          setHovered(state?.activeLabel != null ? String(state.activeLabel) : null);
+        }}
+        onMouseLeave={() => {
+          if (Date.now() - lastTouchAtRef.current < 1000) return;
+          setHovered(null);
+        }}
       >
         <XAxis
           dataKey="timestamp"
@@ -168,16 +189,16 @@ export default function GammaRegimeChart({
         />
         <YAxis
           yAxisId="score"
-          tickFormatter={SCORE}
+          tickFormatter={isMobile ? compactUsdTick : SCORE}
           stroke={axisStroke}
           tick={{ fontSize: 10 }}
-          width={62}
+          width={isMobile ? HEDGING_PHONE_LEFT_AXIS : 62}
           domain={fullRange ? ['auto', 'auto'] : domain}
           allowDataOverflow={!fullRange}
         />
         {/* Mirrors the flow chart's price axis so the two plot areas are the
             same width. No series is drawn on it. */}
-        <YAxis yAxisId="spacer" orientation="right" width={56} tick={false} axisLine={false} />
+        <YAxis yAxisId="spacer" orientation="right" width={isMobile ? HEDGING_PHONE_RIGHT_AXIS : 56} tick={false} axisLine={false} />
 
         {/* Cursor line only; the values are drawn in a corner instead of
             floating over the plot. See ChartHoverReadout. */}

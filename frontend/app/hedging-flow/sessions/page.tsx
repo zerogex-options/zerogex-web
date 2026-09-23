@@ -114,7 +114,7 @@ export default async function HedgingFlowSessionsPage({
       <div className="mb-5">
         <Link
           href="/hedging-flow"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
           style={{ color: 'var(--text-secondary)' }}
         >
           <ChevronLeft size={14} /> Live session
@@ -122,7 +122,9 @@ export default async function HedgingFlowSessionsPage({
       </div>
 
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        {/* Stacked below `sm`: side by side, the picker squeezed "Past
+            sessions" into two lines and ran off a phone's edge. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <div
               className="text-[11px] uppercase tracking-[0.22em] font-bold"
