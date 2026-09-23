@@ -11,7 +11,6 @@ const base: DeclineEmailInput = {
   category: 'insufficient_funds',
   cardPhrase: 'your Visa card ending in 4242',
   nextAttemptLabel: 'March 3',
-  hasInvoiceUrl: true,
   trialConversion: true,
 };
 
@@ -31,9 +30,9 @@ test('an empty account is never told to fix a card that works', () => {
 });
 
 test('a genuine card fault still sends them to the account page', () => {
-  // The fix must not overshoot: when the card really is the problem, the hosted
-  // invoice would collect this one payment and leave the next renewal to fail
-  // against the same dead card.
+  // The fix must not overshoot: when the card really is the problem, paying the
+  // open invoice would collect this one payment and leave the next renewal to
+  // fail against the same dead card.
   const copy = buildDeclineEmailCopy(input({ category: 'card_problem' }));
   assert.match(copy.reason, /expired|mistyped|no longer accepted/i);
   assert.match(copy.ctaLabel, /update/i);
@@ -69,12 +68,21 @@ test('the retry line tells the truth about whether Stripe will try again', () =>
   assert.doesNotMatch(done.remedy, /will try again automatically on/i);
 });
 
-test('no invoice link means no invitation to use one', () => {
-  const copy = buildDeclineEmailCopy(input({ hasInvoiceUrl: false }));
-  assert.doesNotMatch(copy.remedy, /link below|takes any card/i);
-  // The reason still stands on its own — losing the link must not lose the
-  // explanation, which is the half that stops a wasted call to the bank.
-  assert.match(copy.reason, /insufficient funds/i);
+test('paying it yourself goes through the account page, not a Stripe link', () => {
+  // A tokenized invoice.stripe.com link in a "payment failed" email looks like
+  // phishing to spam filters. The copy names the account page, whose billing
+  // portal lists the same open invoice, and never promises a link to anything
+  // else.
+  for (const category of ['insufficient_funds', 'issuer_block', 'try_again', 'unknown'] as const) {
+    for (const nextAttemptLabel of ['March 3', null]) {
+      const { remedy } = buildDeclineEmailCopy(input({ category, nextAttemptLabel }));
+      assert.match(remedy, /pay the open invoice yourself from your account page/i, category);
+      assert.doesNotMatch(remedy, /link below|stripe\.com/i, category);
+    }
+  }
+  const auth = buildDeclineEmailCopy(input({ category: 'authentication_required' }));
+  assert.match(auth.remedy, /open invoice from your account page/i);
+  assert.doesNotMatch(auth.remedy, /link below|stripe\.com/i);
 });
 
 test('trial conversions and renewals are described as what they are', () => {
@@ -99,9 +107,9 @@ test('every category produces usable copy', () => {
   }
 });
 
-test('only a real card fault keeps the member off the invoice page', () => {
-  // Stated as an invariant rather than case by case: the hosted page takes any
-  // card and settles the debt in one step, so it is the right destination
+test('only a real card fault is told to update the card instead of paying', () => {
+  // Stated as an invariant rather than case by case: the open invoice takes any
+  // card and settles the debt in one step, so paying it is the right instruction
   // everywhere except where re-saving the card is itself the fix.
   const categories = [
     'insufficient_funds', 'issuer_block', 'authentication_required',

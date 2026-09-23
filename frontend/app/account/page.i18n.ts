@@ -20,11 +20,11 @@ export const dict: PageDictionary = {
     upgrade: 'Upgrade',
     subscription: 'Subscription',
     paymentIssueWarning:
-        "⚠️ Your last payment didn't go through, so your access is paused. Update your payment method below to restore your subscription — no need to sign up again.",
+        "⚠️ Your last payment didn't go through. Open the billing portal below to pay the open invoice with any card, or to update your payment method — no need to sign up again.",
     billingDescription:
       'Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.',
     openingPortal: 'Opening portal…',
-    updatePaymentMethod: 'Update payment method',
+    openBillingPortal: 'Open billing portal',
     manageSubscription: 'Manage Subscription',
     cancelSubscription: 'Cancel subscription',
     subscriptionPaused:
@@ -138,11 +138,11 @@ export const dict: PageDictionary = {
     upgrade: 'Esegui upgrade',
     subscription: 'Abbonamento',
     paymentIssueWarning:
-      "⚠️ Il tuo ultimo pagamento non è andato a buon fine, quindi il tuo accesso è sospeso. Aggiorna il metodo di pagamento qui sotto per ripristinare il tuo abbonamento — non è necessario iscriversi di nuovo.",
+      "⚠️ Il tuo ultimo pagamento non è andato a buon fine. Apri il portale di fatturazione qui sotto per saldare la fattura aperta con qualsiasi carta, oppure per aggiornare il metodo di pagamento — non è necessario iscriversi di nuovo.",
     billingDescription:
       'Aggiorna i metodi di pagamento, cambia piano o annulla il tuo abbonamento nel portale di fatturazione sicuro di Stripe. I cambi di livello sui piani a pagamento sono calcolati automaticamente in proporzione. Cambiare piano durante il periodo di prova termina la prova e avvia subito la fatturazione sul nuovo piano.',
     openingPortal: 'Apertura del portale…',
-    updatePaymentMethod: 'Aggiorna metodo di pagamento',
+    openBillingPortal: 'Apri il portale di fatturazione',
     manageSubscription: 'Gestisci abbonamento',
     noActiveSubscription: 'Non hai ancora un abbonamento attivo. Scegli un piano nella',
     pricingPage: 'pagina dei prezzi',
@@ -237,11 +237,11 @@ export const dict: PageDictionary = {
     upgrade: 'Upgrade',
     subscription: 'Abonnement',
     paymentIssueWarning:
-      '⚠️ Deine letzte Zahlung ist fehlgeschlagen, daher ist dein Zugang pausiert. Aktualisiere unten deine Zahlungsmethode, um dein Abonnement wiederherzustellen — eine erneute Anmeldung ist nicht nötig.',
+      '⚠️ Deine letzte Zahlung ist fehlgeschlagen. Öffne unten das Abrechnungsportal, um die offene Rechnung mit einer beliebigen Karte zu bezahlen oder deine Zahlungsmethode zu aktualisieren — eine erneute Anmeldung ist nicht nötig.',
     billingDescription:
       'Aktualisiere Zahlungsmethoden, wechsle den Plan oder kündige dein Abonnement im sicheren Stripe-Abrechnungsportal. Stufenänderungen bei kostenpflichtigen Plänen werden automatisch anteilig berechnet. Ein Planwechsel während der kostenlosen Testphase beendet die Testphase und startet die Abrechnung sofort für den neuen Plan.',
     openingPortal: 'Portal wird geöffnet…',
-    updatePaymentMethod: 'Zahlungsmethode aktualisieren',
+    openBillingPortal: 'Abrechnungsportal öffnen',
     manageSubscription: 'Abonnement verwalten',
     noActiveSubscription: 'Du hast noch kein aktives Abonnement. Wähle einen Plan auf der',
     pricingPage: 'Preisseite',
@@ -336,11 +336,11 @@ export const dict: PageDictionary = {
     upgrade: 'Mejorar plan',
     subscription: 'Suscripción',
     paymentIssueWarning:
-      '⚠️ Tu último pago no se procesó, por lo que tu acceso está en pausa. Actualiza tu método de pago a continuación para restaurar tu suscripción — no es necesario volver a registrarte.',
+      '⚠️ Tu último pago no se procesó. Abre el portal de facturación a continuación para pagar la factura pendiente con cualquier tarjeta, o para actualizar tu método de pago — no es necesario volver a registrarte.',
     billingDescription:
       'Actualiza los métodos de pago, cambia de plan o cancela tu suscripción en el portal de facturación seguro de Stripe. Los cambios de nivel en planes de pago se prorratean automáticamente. Cambiar de plan durante tu prueba gratuita termina la prueba e inicia la facturación de inmediato en el nuevo plan.',
     openingPortal: 'Abriendo el portal…',
-    updatePaymentMethod: 'Actualizar método de pago',
+    openBillingPortal: 'Abrir el portal de facturación',
     manageSubscription: 'Gestionar suscripción',
     noActiveSubscription: 'Aún no tienes una suscripción activa. Elige un plan en la',
     pricingPage: 'página de precios',
@@ -435,11 +435,11 @@ export const dict: PageDictionary = {
     upgrade: 'Passer au niveau supérieur',
     subscription: 'Abonnement',
     paymentIssueWarning:
-      "⚠️ Votre dernier paiement n'est pas passé, votre accès est donc suspendu. Mettez à jour votre moyen de paiement ci-dessous pour restaurer votre abonnement — aucune nouvelle inscription n'est nécessaire.",
+      "⚠️ Votre dernier paiement n'est pas passé. Ouvrez le portail de facturation ci-dessous pour régler la facture en attente avec n'importe quelle carte, ou pour mettre à jour votre moyen de paiement — aucune nouvelle inscription n'est nécessaire.",
     billingDescription:
       "Mettez à jour vos moyens de paiement, changez de forfait ou annulez votre abonnement dans le portail de facturation sécurisé de Stripe. Les changements de niveau sur les forfaits payants sont calculés automatiquement au prorata. Changer de forfait pendant votre essai gratuit met fin à l'essai et démarre immédiatement la facturation du nouveau forfait.",
     openingPortal: 'Ouverture du portail…',
-    updatePaymentMethod: 'Mettre à jour le moyen de paiement',
+    openBillingPortal: 'Ouvrir le portail de facturation',
     manageSubscription: "Gérer l'abonnement",
     noActiveSubscription: "Vous n'avez pas encore d'abonnement actif. Choisissez un forfait sur la",
     pricingPage: 'page des tarifs',

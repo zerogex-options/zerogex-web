@@ -726,7 +726,7 @@ function AccountPageContent() {
             {opening
               ? t('openingPortal')
               : billing?.paymentIssue
-                ? t('updatePaymentMethod')
+                ? t('openBillingPortal')
                 : t('manageSubscription')}
           </button>
           {/* Route to /pricing whenever there's no subscription to manage — keyed
