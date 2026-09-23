@@ -10,6 +10,7 @@ export const dict: PageDictionary = {
     ctaViewDashboard: 'View Live Dashboard',
     ctaStartTrial: 'Get Started',
     ctaViewFreeLevels: 'View Free Levels',
+    heroFounder: 'Founder-built and operated by Michael',
 
     useCasesEyebrow: 'What traders use ZeroGEX for',
     useCasesTitle: 'Plan trades around live market structure, not guesswork.',
@@ -135,6 +136,7 @@ export const dict: PageDictionary = {
     ctaViewDashboard: 'Vai alla Dashboard Live',
     ctaStartTrial: 'Inizia Ora',
     ctaViewFreeLevels: 'Vedi i Livelli Gratuiti',
+    heroFounder: 'Realizzato e gestito dal suo fondatore, Michael',
 
     useCasesEyebrow: 'A cosa serve ZeroGEX ai trader',
     useCasesTitle: 'Pianifica le operazioni sulla struttura di mercato live, non a intuito.',
@@ -260,6 +262,7 @@ export const dict: PageDictionary = {
     ctaViewDashboard: 'Live-Dashboard ansehen',
     ctaStartTrial: 'Jetzt starten',
     ctaViewFreeLevels: 'Kostenlose Level ansehen',
+    heroFounder: 'Vom Gründer Michael gebaut und betrieben',
 
     useCasesEyebrow: 'Wofür Trader ZeroGEX nutzen',
     useCasesTitle: 'Trades anhand des tatsächlichen Positioning planen, nicht raten.',
@@ -385,6 +388,7 @@ export const dict: PageDictionary = {
     ctaViewDashboard: 'Ver Dashboard en Vivo',
     ctaStartTrial: 'Empezar Ahora',
     ctaViewFreeLevels: 'Ver Niveles Gratuitos',
+    heroFounder: 'Construido y gestionado por su fundador, Michael',
 
     useCasesEyebrow: 'Para qué usan ZeroGEX los traders',
     useCasesTitle: 'Planifica tus operaciones según el posicionamiento real, no a ciegas.',
@@ -510,6 +514,7 @@ export const dict: PageDictionary = {
     ctaViewDashboard: 'Voir le Tableau de Bord en Direct',
     ctaStartTrial: 'Commencer',
     ctaViewFreeLevels: 'Voir les Niveaux Gratuits',
+    heroFounder: 'Conçu et géré par son fondateur, Michael',
 
     useCasesEyebrow: 'Pourquoi les traders utilisent ZeroGEX',
     useCasesTitle: 'Planifiez vos trades sur le positionnement réel, pas au hasard.',

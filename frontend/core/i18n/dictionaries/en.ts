@@ -111,6 +111,7 @@ export const en = {
   'footer.faqs': 'FAQs',
   'footer.tagline':
     'Real-time gamma exposure and dealer positioning for SPX, SPY, QQQ and NDX traders.',
+  'footer.founderBuilt': 'Founder-built and operated by Michael',
   'footer.veteransBadge': '3% supports veterans',
   'footer.rights': '© 2026 ZeroGEX, All rights reserved.',
   'footer.disclaimer':
