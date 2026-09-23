@@ -319,7 +319,11 @@ for (const r of allRows) {
   byModel.get(key)!.push(r);
 }
 if (byModel.size > 1) {
-  console.log('\nBy range model — the pooled number above is a blend of these');
+  console.log(
+    args.since || args.model
+      ? `\nBy range model — ALL ${allRows.length} sessions, not the filtered set above`
+      : '\nBy range model — the pooled number above is a blend of these',
+  );
   console.log('  model                    n   held     p50     p80     p95     max');
   const ordered = [...byModel.entries()].sort((a, b) => b[1].length - a[1].length);
   for (const [model, arr] of ordered) {
@@ -335,7 +339,12 @@ if (byModel.size > 1) {
 
 const misses = allRows.filter((r) => !r.contained).sort((a, b) => b.k - a.k);
 if (misses.length) {
-  console.log(`\nSessions that broke the band (${misses.length} of ${allRows.length})`);
+  console.log(
+    `\nSessions that broke the band (${misses.length} of ${allRows.length})`
+    + (args.since || args.model
+      ? ` — again the FULL sample; ${rows.filter((r) => !r.contained).length} of these are in the filtered set`
+      : ''),
+  );
   console.log(`  date         needed k    asked for    vs cap ${VOL_RATIO_MAX.toFixed(2)}   model`);
   for (const r of misses) {
     const ratio = r.volRatio != null ? `${r.volRatio.toFixed(3)}x` : '—';

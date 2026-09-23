@@ -425,3 +425,68 @@ saying what the omission cost so the next change bumps it. And because the 34
 existing rows are immutable and still carry the old label, the measuring script
 grew `--since`: the only way to separate two models that share a string after
 the fact is the date they changed.
+
+## The live model, measured on its own 34 sessions
+
+`make forecast-range-width SYMBOL=SPX SINCE=2026-08-05`:
+
+```
+Graded sessions    34   [filtered from 56]
+Coverage now       100.0%  (34/34)
+
+  p 10   k = 0.193        p 80   k = 0.660  <- target
+  p 25   k = 0.269        p 90   k = 0.793
+  p 50   k = 0.442        p 95   k = 0.953
+  p 75   k = 0.632        p100   k = 0.991
+
+Where the slack sits (median unused share of each side)
+  upside    79.0%     downside  79.9%
+```
+
+**p80 = 0.660. The band is 34% wider than it needs to be, not 20%.** The
+median session uses 44% of it, and about 79% of each side goes unused on a
+typical day.
+
+**And there is no fat tail.** Max k is **0.991** — in 34 sessions the day has
+never once filled the band, let alone broken it. The 1.47 / 1.61 / 2.61 tail
+that this document treated as a live risk belongs entirely to models that were
+retired on 2026-08-04.
+
+### This retracts the main argument against narrowing
+
+This document argued that a uniform narrowing was wrong because it would
+"spend the margin that absorbs regime events", citing a tail of k > 1.4. On the
+live model that tail does not exist. The argument was made on pooled data and
+does not survive the segmentation.
+
+### What still argues for caution, on different grounds
+
+1. **The sample is 34 calm sessions.** Aug 5 to Sep 22 contains no volatility
+   event. Fitting the width to it is fitting to a quiet stretch, which is
+   exactly the in-sample trap the script warns about — and the warning is
+   sharper here than usual because the calm is the whole sample rather than
+   most of it.
+2. **The model still cannot widen for a shock.** Step 5 is unchanged: a
+   trailing median cannot lead, the committed ratio has never exceeded 0.936,
+   and the ceiling is unreachable. So narrowing improves every calm day and
+   makes the eventual shock day worse, with nothing in the model able to
+   compensate on the day it matters.
+
+That is the real trade, stated plainly: **the band is demonstrably too wide in
+calm markets and structurally unable to widen in violent ones.** Narrowing
+buys a lot of precision most days and costs coverage on the day precision
+matters least.
+
+### Coverage at each width, on the live model
+
+```
+  k=0.50   55.9%      k=0.80   91.2%
+  k=0.60   70.6%      k=0.90   91.2%
+  k=0.70   85.3%      k=1.00  100.0%
+```
+
+Against an 80% target, `k = 0.70` lands at 85.3% — 30% tighter with five points
+of margin still above target, and without fitting to the exact p80 of a calm
+sample. That is the conservative version of this change. `k = 0.66` is the
+aggressive one and hits the target exactly, in-sample, on a stretch containing
+no event.
