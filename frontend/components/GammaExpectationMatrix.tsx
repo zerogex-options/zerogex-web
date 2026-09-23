@@ -313,10 +313,12 @@ export default function GammaExpectationMatrix({
         )}
       </div>
 
-      {/* 2×2 matrix */}
-      <div className="grid gap-2" style={{ gridTemplateColumns: 'auto 1fr 1fr' }}>
+      {/* 2×2 matrix. On a phone each regime's label takes a row of its own
+          above its two cells: beside them it left each cell ~90px at 360px,
+          narrower than "Breakdown", and the right column ran off the card. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[auto_1fr_1fr]">
         {/* header row */}
-        <div />
+        <div className="hidden sm:block" />
         {APPROACHES.map((a) => (
           <div
             key={a.value}
@@ -483,7 +485,7 @@ function RowFragment({
 }) {
   return (
     <>
-      <div className="flex flex-col justify-center pr-2 py-2" style={{ minWidth: 96 }}>
+      <div className="col-span-2 flex items-baseline gap-2 pt-1.5 sm:col-span-1 sm:min-w-24 sm:flex-col sm:items-stretch sm:justify-center sm:gap-0 sm:py-2 sm:pr-2">
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
           {regimeLabel}
         </span>
