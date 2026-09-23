@@ -55,14 +55,14 @@ except `past_due`. The window is opened by the first `past_due` sync in
 the normal case, where a deletion means Stripe has already used up weeks of
 retries, so grace does not apply on that path.
 
-**Stripe cancelled on the first attempt because Cash App Pay is not a card.**
+**Stripe canceled on the first attempt because Cash App Pay is not a card.**
 Smart Retries covers card payment methods. By default, Stripe does not
 automatically retry failed non-card payment methods (ACH Direct Debit is the
 exception). It skips straight to the end-of-dunning action, which on this
 account is *Cancel the subscription* (`docs/billing-anti-abuse-runbook.md` §3).
 So the first decline was also the last attempt, and the cancel went out with it.
 The 14 ms gap between the two webhook rows shows Stripe did both in one step.
-No person cancelled it, and no code of ours did either: nothing in the app
+No person canceled it, and no code of ours did either: nothing in the app
 cancels a subscription on a payment failure.
 
 *Source caveat:* the non-card rule comes from Stripe's automatic-collection
@@ -129,7 +129,7 @@ swap it in.
   invoice from the automated email, they are restored. Do not void or send
   this. Send one line saying they are all set and need a new API key.
 - **Check the cancellation reason in the dashboard.** Open
-  `sub_1UGKw54AOiqteMYYrkjrUsHt`. It should read cancelled for *payment failed*
+  `sub_1UGKw54AOiqteMYYrkjrUsHt`. It should read canceled for *payment failed*
   (`cancellation_details.reason = payment_failed`), and the invoice should show
   no next payment attempt. If it reads anything else, the draft's "no automatic
   retry" sentence is wrong. Cut it.
@@ -223,8 +223,8 @@ Founder, ZeroGEX
 - **The deletion audit row drops Stripe's cancellation reason.**
   `formatCancellationReasonSuffix` (`frontend/core/cancellationReason.ts`)
   records only the portal survey `feedback` and `comment`, never
-  `cancellation_details.reason`. So `diagnose-user` prints "Stripe cancelled it
-  for nonpayment" and "someone cancelled it" identically. That is why this case
+  `cancellation_details.reason`. So `diagnose-user` prints "Stripe canceled it
+  for nonpayment" and "someone canceled it" identically. That is why this case
   needed digging. The suffix format is parsed by churn-breakdown and is
   round-trip tested, so the parser has to learn the new token too.
 - **The trial-conversion email still says "card" for wallet methods** (open
