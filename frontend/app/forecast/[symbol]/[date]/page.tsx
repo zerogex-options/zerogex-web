@@ -273,9 +273,11 @@ export default async function ForecastPage({
       </div>
 
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        {/* On a phone the symbol picker sits under the title: beside it, it
+            squeezed the date heading into four one-word lines. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+            <div className="text-[11px] uppercase tracking-[0.16em] sm:tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · {receipt ? 'Forecast Receipt' : 'Morning Forecast'}
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
@@ -287,7 +289,11 @@ export default async function ForecastPage({
                 : `Committed ${morning.ts} · receipt at 4:05 PM ET`}
             </p>
           </div>
-          <SymbolPicker current={sym} hrefs={pickerHrefs} />
+          {/* Six chips are ~350px: on a phone they scroll sideways, edge to
+              edge, rather than run off the screen. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+            <SymbolPicker current={sym} hrefs={pickerHrefs} />
+          </div>
         </div>
       </header>
 
@@ -462,7 +468,7 @@ export default async function ForecastPage({
         </section>
       )}
 
-      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this forecast</div>
         Daily commitment for {sym} written each morning before the open, hashed and immutable. The projected range is
         anchored on the open spot and bounded by the GEX call/put walls with a safety expansion (event
@@ -620,8 +626,8 @@ function LevelsLadder({
   rows.sort((a, b) => b.price - a.price);
 
   return (
-    <section className="mb-8 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <section className="mb-8 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4 sm:px-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           <Layers size={11} /> Levels &amp; touch odds
           <TooltipWrapper text="Each line's touch odds are our morning probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did — and if it didn't, how close it came.">
@@ -668,11 +674,13 @@ function LadderRowView({
       className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1.6fr)] items-center gap-3 border-b border-[var(--color-border)] py-2.5 last:border-b-0"
       style={isSpot ? { background: 'var(--color-accent-soft)' } : undefined}
     >
-      <div className="flex items-center gap-2 text-[13px] font-semibold">
-        {row.name}
+      {/* Name over tag on a phone — side by side, "Call wall" broke onto two
+          lines beside its tag in a ~110px column. */}
+      <div className="flex flex-col items-start gap-1 text-[13px] font-semibold sm:flex-row sm:items-center sm:gap-2">
+        <span className="whitespace-nowrap">{row.name}</span>
         {row.tag && (
           <span
-            className="rounded border px-1.5 py-px text-[9px] font-bold uppercase tracking-[0.08em]"
+            className="whitespace-nowrap rounded border px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.08em] sm:text-[9px]"
             style={{ color: row.tagColor, borderColor: row.tagColor }}
           >
             {row.tag}
@@ -699,7 +707,7 @@ function LadderRowView({
               )}
             </span>
           ) : row.kind === 'gravity' ? (
-            <span className="text-[11px] text-[var(--color-text-secondary)]">pull center (long-γ)</span>
+            <span className="text-[11px] text-[var(--color-text-secondary)]">pull center <span className="whitespace-nowrap">(long-γ)</span></span>
           ) : (
             <span className="text-[11px] text-[var(--color-text-secondary)]">—</span>
           )
@@ -708,7 +716,7 @@ function LadderRowView({
             — you are here —
           </span>
         ) : row.kind === 'gravity' ? (
-          <span className="text-[11px] text-[var(--color-text-secondary)]">pull center while long-γ</span>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">pull center while <span className="whitespace-nowrap">long-γ</span></span>
         ) : row.prob != null ? (
           <>
             <div className="h-1.5 w-full max-w-[140px] overflow-hidden rounded-full" style={{ background: 'var(--color-surface-subtle)' }}>

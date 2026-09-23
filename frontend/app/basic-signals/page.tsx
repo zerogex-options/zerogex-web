@@ -42,10 +42,12 @@ import {
   formatPrice,
 } from '@/core/signalHelpers';
 
+// `short` is the phone label: three full labels need ~450px, so on a phone
+// each wrapped onto two lines under its icon.
 const TABS = [
-  { id: 'grid', label: 'Signal Grid', icon: LayoutGrid },
-  { id: 'matrix', label: 'Confluence Matrix', icon: Table },
-  { id: 'events', label: 'Event Timelines', icon: LineChartIcon },
+  { id: 'grid', label: 'Signal Grid', short: 'Grid', icon: LayoutGrid },
+  { id: 'matrix', label: 'Confluence Matrix', short: 'Matrix', icon: Table },
+  { id: 'events', label: 'Event Timelines', short: 'Timelines', icon: LineChartIcon },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -220,7 +222,7 @@ export default function BasicSignalsPage() {
   return (
     <PageShell>
       <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Basic Signal Dashboard</h1>
+        <h1 className="text-[26px] font-bold sm:text-3xl">Basic Signal Dashboard</h1>
         <TooltipWrapper
           text="Six independent, continuous directional reads of market microstructure sitting outside the composite MSI. None dominates — the value is in their agreement (conviction) or disagreement (divergence, trap risk). Drill into any tile for detail."
           placement="bottom"
@@ -283,7 +285,8 @@ export default function BasicSignalsPage() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+              aria-pressed={active}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-2 py-2.5 text-sm font-semibold sm:flex-initial sm:justify-start sm:gap-2 sm:px-4 sm:py-2"
               style={{
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 borderBottom: active ? '2px solid var(--color-warning)' : '2px solid transparent',
@@ -291,7 +294,8 @@ export default function BasicSignalsPage() {
               }}
             >
               <Icon size={14} />
-              {t.label}
+              <span className="sm:hidden">{t.short}</span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           );
         })}

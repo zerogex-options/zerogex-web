@@ -22,9 +22,10 @@ import {
   getNumber,
 } from '@/core/signalHelpers';
 import ChartTimeAxisTick from './ChartTimeAxisTick';
-import MobileScrollableChart from './MobileScrollableChart';
+import CompactTimeAxisTick, { firstTickOfEachDay, thinTicks } from './CompactTimeAxisTick';
 import ChartCaption from "./ChartCaption";
 import ScorecardLink from './ScorecardLink';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface SignalEventsPanelProps {
   signalName: SignalEventName;
@@ -103,6 +104,12 @@ function niceStep(range: number, targetTicks: number): number {
   return nice * magnitude;
 }
 
+// Right-axis label on a phone: the fixed two decimals ("0.50%", "1.00%") are
+// trimmed so the axis fits in 40px instead of 60.
+function compactPct(v: number): string {
+  return `${Number((v * 100).toFixed(2))}%`;
+}
+
 function roundTick(value: number, step: number): number {
   const decimals = step < 1 ? Math.min(10, Math.max(0, -Math.floor(Math.log10(step)) + 2)) : 6;
   return Number(value.toFixed(decimals));
@@ -169,6 +176,9 @@ function niceScaleAligned(
 }
 
 export default function SignalEventsPanel({ signalName, symbol, title = 'Event Timeline' }: SignalEventsPanelProps) {
+  // A phone gets the same data on a chart built for ~300px: narrower axes,
+  // no side margins, and a few short time labels instead of six long ones.
+  const isMobile = useIsMobile();
   const [horizon, setHorizon] = useState<SignalEventHorizon>('60m');
   const [zoom, setZoom] = useState<ZoomMinutes>(null);
   const sessionWindow = SIGNAL_SESSION_WINDOWS_ET[signalName] ?? null;
@@ -244,37 +254,30 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
     return [firstMs, lastMs];
   }, [visibleRows, sessionWindow, zoom]);
 
-  const timeTicks = useMemo(() => {
-    if (!xDomain) return [];
+  const { timeTicks, dailyTicks } = useMemo(() => {
+    if (!xDomain) return { timeTicks: [] as number[], dailyTicks: false };
     const [startMs, endMs] = xDomain;
     const spanMin = Math.max(1, Math.round((endMs - startMs) / 60_000));
-    const step = pickTimeStepMinutes(spanMin, 6);
+    const step = pickTimeStepMinutes(spanMin, isMobile ? 4 : 6);
     let ticks = alignedTimeTicksMs(startMs, endMs, step);
     // Very short spans may not contain a boundary at the chosen step — drop
     // to the next smaller candidate until we have at least two ticks.
     let idx = TIME_STEP_CANDIDATES.indexOf(step) - 1;
+    let used = step;
     while (ticks.length < 2 && idx >= 0) {
-      ticks = alignedTimeTicksMs(startMs, endMs, TIME_STEP_CANDIDATES[idx]);
+      used = TIME_STEP_CANDIDATES[idx];
+      ticks = alignedTimeTicksMs(startMs, endMs, used);
       idx -= 1;
     }
-    return ticks;
-  }, [xDomain]);
+    // Day-long steps have no larger candidate, so a multi-day range can still
+    // hand a phone six labels; stride them down to what ~230px can hold.
+    return { timeTicks: isMobile ? thinTicks(ticks, 4) : ticks, dailyTicks: used >= 1440 };
+  }, [xDomain, isMobile]);
 
   // First tick of each ET calendar day, keyed by the stringified ms value
   // so ChartTimeAxisTick's `dateTicks.has(String(payload.value))` lookup
   // resolves correctly under the numeric x-axis.
-  const dateTicks = useMemo(() => {
-    const set = new Set<string>();
-    let lastDay = '';
-    for (const ms of timeTicks) {
-      const { day } = etPartsFromMs(ms);
-      if (day && day !== lastDay) {
-        set.add(String(ms));
-        lastDay = day;
-      }
-    }
-    return set;
-  }, [timeTicks]);
+  const dateTicks = useMemo(() => firstTickOfEachDay(timeTicks), [timeTicks]);
 
   // Score (left) scale drives the layout: its tick counts above/below zero
   // are reused by the right axis so the 0 line lands at the same chart row
@@ -314,8 +317,9 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
 
   const barSize = useMemo(() => {
     if (visibleRows.length === 0) return 4;
-    return Math.max(2, Math.min(8, Math.floor(800 / visibleRows.length)));
-  }, [visibleRows]);
+    // ~800px of plot on desktop, ~250px on a phone.
+    return Math.max(2, Math.min(8, Math.floor((isMobile ? 250 : 800) / visibleRows.length)));
+  }, [visibleRows, isMobile]);
 
   const summary = data?.summary ?? {};
 
@@ -343,7 +347,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
                       key={opt.label}
                       type="button"
                       onClick={() => setZoom(opt.minutes)}
-                      className="px-2.5 py-1 text-[11px] font-semibold"
+                      className="px-2.5 py-1 text-[11px] font-semibold max-sm:py-2 max-sm:text-xs"
                       style={{
                         background: active ? 'var(--color-warning)' : 'var(--color-surface)',
                         color: active ? 'var(--color-surface)' : 'var(--color-text-secondary)',
@@ -363,7 +367,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
                     key={h}
                     type="button"
                     onClick={() => setHorizon(h)}
-                    className="px-2.5 py-1 text-[11px] font-semibold"
+                    className="px-2.5 py-1 text-[11px] font-semibold max-sm:py-2 max-sm:text-xs"
                     style={{
                       background: horizon === h ? 'var(--color-warning)' : 'var(--color-surface)',
                       color: horizon === h ? 'var(--color-surface)' : 'var(--color-text-secondary)',
@@ -384,11 +388,15 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         </p>
       </div>
 
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4" style={{ height: 320 }}>
+      {/* 320px tall on desktop; a phone trades a little height and most of
+          the inner padding for plot width. */}
+      <div className="h-[296px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-2 sm:h-[320px] sm:p-4">
         {visibleRows.length > 0 ? (
-          <MobileScrollableChart>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={visibleRows} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
+            <ComposedChart
+              data={visibleRows}
+              margin={isMobile ? { top: 8, right: 0, bottom: 4, left: 0 } : { top: 8, right: 16, bottom: 8, left: 8 }}
+            >
               <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
               <XAxis
                 type="number"
@@ -396,8 +404,12 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
                 domain={xDomain ?? ['dataMin', 'dataMax']}
                 ticks={timeTicks}
                 interval={0}
-                height={44}
-                tick={<ChartTimeAxisTick dateTicks={dateTicks} />}
+                height={isMobile ? (dailyTicks ? 22 : 34) : 44}
+                tick={
+                  isMobile
+                    ? <CompactTimeAxisTick dateTicks={dateTicks} daily={dailyTicks} />
+                    : <ChartTimeAxisTick dateTicks={dateTicks} />
+                }
                 stroke="var(--color-border)"
                 allowDuplicatedCategory={false}
               />
@@ -405,19 +417,20 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
                 yAxisId="score"
                 domain={scoreScale.domain}
                 ticks={scoreScale.ticks}
-                tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 11 }}
                 stroke="var(--color-border)"
-                width={40}
+                width={isMobile ? 30 : 40}
               />
               <YAxis
                 yAxisId="ret"
                 orientation="right"
                 domain={realizedScale.domain}
                 ticks={realizedScale.ticks}
-                tickFormatter={(v: number) => `${(v * 100).toFixed(2)}%`}
-                tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+                tickFormatter={(v: number) => (isMobile ? compactPct(v) : `${(v * 100).toFixed(2)}%`)}
+                tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 11 }}
                 stroke="var(--color-border)"
-                width={60}
+                // "−0.25%" at 10px plus the 8px tick offset needs ~44px.
+                width={isMobile ? 44 : 60}
               />
               <Tooltip content={<EventsTooltip />} />
               <ReferenceLine yAxisId="score" y={0} stroke="var(--color-text-secondary)" strokeOpacity={0.4} />
@@ -427,7 +440,6 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
               <Scatter yAxisId="score" dataKey="flipBearish" name="Flip ↓" fill="var(--color-bear)" shape="triangle" />
             </ComposedChart>
           </ResponsiveContainer>
-          </MobileScrollableChart>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-full text-sm text-[var(--color-text-secondary)] gap-1">
             <div>Unable to load event history.</div>

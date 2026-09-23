@@ -131,7 +131,7 @@ export default function GammaVwapConfluencePage() {
               history={history}
               badges={
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
                     {humanize(signal)}
                   </span>
@@ -269,8 +269,8 @@ function LevelStack({ levels, close, confluence, expectedTarget, members }: Leve
   const toY = (v: number) => height - ((v - viewMin) / viewRange) * height;
 
   return (
-    <div className="flex items-start gap-6">
-      <svg width="80" height={height} viewBox={`0 0 80 ${height}`}>
+    <div className="flex items-start gap-4 sm:gap-6">
+      <svg width="80" height={height} viewBox={`0 0 80 ${height}`} className="shrink-0">
         <line x1={40} y1={0} x2={40} y2={height} stroke="var(--color-border)" strokeWidth={2} />
         {confluence != null && (
           <rect x={16} y={toY(confluence) - 4} width={48} height={8} fill="var(--color-warning)" opacity={0.7} />
@@ -307,10 +307,23 @@ function LevelStack({ levels, close, confluence, expectedTarget, members }: Leve
               <span className="inline-block h-2 w-2 rounded-full" style={{ background: l.color }} />
               <span className="w-24 font-semibold" style={{ color: l.color }}>{l.name}</span>
               <span className="font-mono text-[var(--color-text-primary)]">{formatPrice(l.value)}</span>
-              {inCluster && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-warning-soft)] text-[var(--color-warning)] font-semibold uppercase tracking-wide">In cluster</span>}
+              {inCluster && (
+                <>
+                  <span className="ml-auto hidden text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-warning-soft)] text-[var(--color-warning)] font-semibold uppercase tracking-wide sm:inline">In cluster</span>
+                  {/* Phone: the badge wrapped to two lines beside the price in a
+                      ~180px column; the confluence magnet marks it instead
+                      (keyed under the list). */}
+                  <Magnet size={12} aria-label="in cluster" className="ml-auto shrink-0 text-[var(--color-warning)] sm:hidden" />
+                </>
+              )}
             </div>
           );
         })}
+        {members.length > 0 && (
+          <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)] sm:hidden">
+            <Magnet size={11} className="text-[var(--color-warning)]" /> = in the confluence cluster
+          </div>
+        )}
         <div className="mt-1 border-t border-[var(--color-border)]/40 pt-2 space-y-1">
           <div className="flex items-center gap-2">
             <Magnet size={12} className="text-[var(--color-warning)]" />

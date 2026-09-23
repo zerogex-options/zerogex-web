@@ -102,8 +102,8 @@ export default function EodPressurePage() {
             />
           </div>
 
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+          <div className="lg:col-span-3 grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Timer size={14} /> Time ramp</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{timeRamp.toFixed(2)}</AutoFitValue>
               <div className="relative mt-3 h-3 rounded-full bg-[var(--color-border)]/40 overflow-hidden">
@@ -112,7 +112,7 @@ export default function EodPressurePage() {
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Linear 0 → 1 from 14:30 to 15:45 ET.</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Pin size={14} /> Pin target</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{formatPrice(pinTarget)}</AutoFitValue>
               <div className="mt-2 text-xs text-[var(--color-text-secondary)]">
@@ -120,7 +120,7 @@ export default function EodPressurePage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Gauge size={14} /> Charm @ spot</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: charmAtSpot != null && charmAtSpot > 0 ? 'var(--color-bull)' : charmAtSpot != null && charmAtSpot < 0 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
                 {charmAtSpot != null ? `${charmAtSpot >= 0 ? '+' : ''}${(charmAtSpot / 1e6).toFixed(2)}M` : '—'}
@@ -128,7 +128,7 @@ export default function EodPressurePage() {
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Signed dollar-delta of dealer charm within ATM band{atmBandPct ? ` (±${(atmBandPct * 100).toFixed(2)}%)` : ''}.</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><CalendarClock size={14} /> Gamma regime</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: gammaRegime === 'positive' ? 'var(--color-bull)' : gammaRegime === 'negative' ? 'var(--color-bear)' : 'var(--color-warning)' }}>{humanize(gammaRegime)}</AutoFitValue>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Positive → dealers pull toward pin. Negative → dealers amplify moves away.</p>

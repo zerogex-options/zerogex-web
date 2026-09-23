@@ -179,7 +179,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
   // --- Loading / empty states. ------------------------------------------- //
   if (levelsError && !levels) {
     return (
-      <div className="rounded-2xl p-6" style={cardStyle}>
+      <div className="rounded-2xl p-4 sm:p-6" style={cardStyle}>
         <ReadHeader symbol={symbol} />
         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           {levelsError === 'No data available yet'
@@ -191,7 +191,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
   }
   if (levelsLoading && !levels) {
     return (
-      <div className="rounded-2xl p-6" style={cardStyle}>
+      <div className="rounded-2xl p-4 sm:p-6" style={cardStyle}>
         <ReadHeader symbol={symbol} />
         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>Reading the tape…</div>
       </div>
@@ -199,7 +199,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
   }
   if (!ready || spot == null) {
     return (
-      <div className="rounded-2xl p-6" style={cardStyle}>
+      <div className="rounded-2xl p-4 sm:p-6" style={cardStyle}>
         <ReadHeader symbol={symbol} />
         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           No actionable read right now — the market may be closed or the book too thin to price.
@@ -209,7 +209,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
   }
 
   return (
-    <div className="rounded-2xl p-6" style={cardStyle}>
+    <div className="rounded-2xl p-4 sm:p-6" style={cardStyle}>
       <div className="mb-3 flex items-baseline justify-between gap-2 flex-wrap">
         <ReadHeader symbol={symbol} />
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>

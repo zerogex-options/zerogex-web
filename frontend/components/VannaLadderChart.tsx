@@ -16,6 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useForcedFlowVannaLadder } from '@/hooks/useApiData';
 import ChartCaption from "./ChartCaption";
 
@@ -117,10 +118,13 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
   }, [curve, hasData]);
 
   const textColor = 'var(--text-primary)';
+  // Phone: narrower value axis, no rotated axis title (the headline above
+  // says what the bars are), tighter margins — see ForcedFlowCurveChart.
+  const isMobile = useIsMobile();
 
   return (
     <div
-      className="rounded-2xl p-6"
+      className="rounded-2xl p-4 sm:p-6"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
@@ -167,8 +171,11 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
         </div>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={curve} margin={{ top: 16, right: 20, left: 16, bottom: 8 }}>
+          <ResponsiveContainer width="100%" height={isMobile ? 260 : 300}>
+            <BarChart
+              data={curve}
+              margin={isMobile ? { top: 16, right: 8, left: 0, bottom: 8 } : { top: 16, right: 20, left: 16, bottom: 8 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke={chart.gridLine} opacity={0.6} />
               <XAxis
                 dataKey="vol_change_pts"
@@ -176,28 +183,32 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
                 domain={xDomain}
                 allowDecimals={false}
                 stroke={chart.axisText}
-                tick={{ fontSize: 11, fill: chart.axisText }}
+                tick={{ fontSize: isMobile ? 10 : 11, fill: chart.axisText }}
                 tickFormatter={(v) => formatVolPts(Number(v))}
                 label={{
                   value: 'VIX change (pts)',
                   position: 'insideBottom',
                   offset: -4,
                   fill: chart.axisText,
-                  fontSize: 11,
+                  fontSize: isMobile ? 10 : 11,
                 }}
               />
               <YAxis
                 stroke={chart.axisText}
-                width={72}
-                tick={{ fontSize: 11, fill: chart.axisText }}
+                width={isMobile ? 46 : 72}
+                tick={{ fontSize: isMobile ? 10 : 11, fill: chart.axisText }}
                 tickFormatter={(v) => formatCompactUsd(Number(v))}
-                label={{
-                  value: 'Forced flow ($)',
-                  angle: -90,
-                  position: 'insideLeft',
-                  offset: 8,
-                  style: { fill: chart.axisText, fontSize: 11, textAnchor: 'middle' },
-                }}
+                label={
+                  isMobile
+                    ? undefined
+                    : {
+                        value: 'Forced flow ($)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        offset: 8,
+                        style: { fill: chart.axisText, fontSize: 11, textAnchor: 'middle' },
+                      }
+                }
               />
               <Tooltip
                 cursor={{ fill: chart.gridLine, opacity: 0.3 }}

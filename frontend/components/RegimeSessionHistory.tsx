@@ -24,7 +24,7 @@
  * every bar is keyboard-reachable with a text summary.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   STATE_META,
   formatBand,
@@ -122,6 +122,21 @@ export default function RegimeSessionHistory({
   // The API returns newest-first (natural for a list); a strip reads
   // left-to-right through time, so reverse for display only.
   const sessions = useMemo(() => [...(payload?.sessions ?? [])].reverse(), [payload]);
+
+  // Thirty 32px bars are three phone-widths wide, and the strip opened
+  // scrolled to its oldest end — today, the session the detail card
+  // describes, sat two swipes off screen. Below the desktop breakpoint it
+  // opens at the newest end instead (once per symbol, so a poll does not yank
+  // back a reader who scrolled into the past). Desktop keeps its opening view.
+  const [scrolledFor, setScrolledFor] = useState<string | null>(null);
+  const stripRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el || sessions.length === 0 || scrolledFor === symbol) return;
+      if (window.matchMedia('(max-width: 1023px)').matches) el.scrollLeft = el.scrollWidth;
+      setScrolledFor(symbol);
+    },
+    [sessions.length, scrolledFor, symbol],
+  );
   const maxMagnitude = useMemo(
     () => Math.max(1, ...sessions.map((s) => s.magnitude)),
     [sessions],
@@ -192,8 +207,10 @@ export default function RegimeSessionHistory({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(260px,320px)]">
           {/* ── the strip ───────────────────────────────────────────────── */}
           <div className="min-w-0">
-            <div className="overflow-x-auto pb-1">
-              <div className="flex min-w-fit items-end gap-1" style={{ height: 168 }}>
+            <div ref={stripRef} className="overflow-x-auto pb-1">
+              {/* px-1 below lg: room for the active bar's 2px outline at the
+                  strip's scrolled end, which the scroller would clip. */}
+              <div className="flex min-w-fit items-end gap-1 px-1 lg:px-0" style={{ height: 168 }}>
                 {sessions.map((s) => {
                   const color = stateColor(s.state);
                   const height = Math.max(8, (s.magnitude / maxMagnitude) * 118);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { ConfluenceMatrixResponse, ConfluenceMatrixCell } from '@/hooks/useApiData';
 import { getNumber } from '@/core/signalHelpers';
 import ChartCaption from "./ChartCaption";
@@ -21,6 +21,48 @@ function cellColor(net: number | null | undefined): string {
 
 function pretty(name: string): string {
   return name.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+// Axis codes for the phone heatmap. Full names down the side took ~260px of a
+// 310px card and left room for a column and a half; codes let all eight
+// columns fit, with a key underneath. Four characters or fewer where a matrix
+// can have eight columns (~32px each).
+const SHORT_CODES: Record<string, string> = {
+  tape_flow_bias: 'TAPE',
+  skew_delta: 'SKEW',
+  vanna_charm_flow: 'V/C',
+  dealer_delta_pressure: 'DDP',
+  gex_gradient: 'GEXG',
+  positioning_trap: 'PTRAP',
+  squeeze_setup: 'SQZ',
+  range_break_imminence: 'RBI',
+  trap_detection: 'TRAP',
+  zero_dte_position_imbalance: '0DTE',
+  market_pressure: 'MPI',
+  vol_expansion: 'VOL',
+  gamma_vwap_confluence: 'GVW',
+  eod_pressure: 'EOD',
+};
+
+// Names for the phone key, cased the way the signal pages title them.
+const KEY_NAMES: Record<string, string> = {
+  vanna_charm_flow: 'Vanna/Charm Flow',
+  gex_gradient: 'GEX Gradient',
+  zero_dte_position_imbalance: '0DTE Position Imbalance',
+  market_pressure: 'Market Pressure Index',
+  vol_expansion: 'Volatility Expansion',
+  gamma_vwap_confluence: 'Gamma/VWAP Confluence',
+  eod_pressure: 'EOD Pressure',
+};
+
+function shortCode(name: string): string {
+  return SHORT_CODES[name] ?? name.split('_').map((w) => w.charAt(0)).join('').toUpperCase().slice(0, 4);
+}
+
+// ".73" / "-.48": two decimals in four characters, so a value fits a ~32px cell.
+function compactNet(net: number): string {
+  const fixed = net.toFixed(2);
+  return fixed.replace(/^(-?)0\./, '$1.');
 }
 
 export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
@@ -71,7 +113,77 @@ export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Phone: the same matrix as a fitted grid of square cells with coded
+          axes. Tapping a cell opens the same detail panel hover does. */}
+      <div className="sm:hidden">
+        <div
+          className="grid gap-px"
+          style={{ gridTemplateColumns: `40px repeat(${sortedComponents.length}, minmax(0, 1fr))` }}
+          role="group"
+          aria-label="Confluence matrix"
+        >
+          <div aria-hidden />
+          {sortedComponents.map((c) => (
+            <div
+              key={c}
+              aria-hidden
+              className="truncate pb-1 text-center text-[10px] font-semibold text-[var(--color-text-secondary)]"
+              title={pretty(c)}
+            >
+              {shortCode(c)}
+            </div>
+          ))}
+          {sortedComponents.map((row) => (
+            <Fragment key={row}>
+              <div
+                aria-hidden
+                className="self-center truncate pr-1.5 text-right text-[10px] font-semibold text-[var(--color-text-secondary)]"
+                title={pretty(row)}
+              >
+                {shortCode(row)}
+              </div>
+              {sortedComponents.map((col) => {
+                const cell = matrix[row]?.[col] ?? {};
+                const net = getNumber(cell.net_confluence);
+                const isDiag = row === col;
+                const selected = hover?.row === row && hover?.col === col;
+                return (
+                  <button
+                    key={col}
+                    type="button"
+                    disabled={isDiag}
+                    onClick={() => setHover(selected ? null : { row, col, cell })}
+                    aria-label={`${pretty(row)} × ${pretty(col)}: ${net != null ? net.toFixed(2) : 'no data'}`}
+                    aria-pressed={selected}
+                    className="flex aspect-square items-center justify-center rounded-[3px] text-[10px] font-semibold tabular-nums"
+                    style={{
+                      background: isDiag ? 'var(--color-border)' : cellColor(net),
+                      color: Math.abs(net ?? 0) > 0.5 ? '#fff' : 'var(--color-text-primary)',
+                      outline: selected ? '2px solid var(--color-text-primary)' : 'none',
+                      outlineOffset: -1,
+                    }}
+                  >
+                    {isDiag ? '·' : net != null ? compactNet(net) : '—'}
+                  </button>
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] leading-snug text-[var(--color-text-secondary)]">
+          {sortedComponents.map((c) => (
+            <div key={c} className="flex min-w-0 items-baseline gap-1.5">
+              <dt className="w-10 shrink-0 font-semibold text-[var(--color-text-primary)]">{shortCode(c)}</dt>
+              <dd className="min-w-0">{KEY_NAMES[c] ?? pretty(c)}</dd>
+            </div>
+          ))}
+        </dl>
+        {!hover && (
+          <p className="mt-2 text-[11px] text-[var(--color-text-secondary)]">Tap a cell for its agreement detail.</p>
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto sm:block">
         <table className="text-xs border-collapse">
           <thead>
             <tr>

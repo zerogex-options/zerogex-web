@@ -241,7 +241,7 @@ export default function ConeReliabilityPanel({
               key={key}
               type="button"
               onClick={() => setHorizon(key)}
-              className="rounded-sm px-2.5 py-1 text-[11px] font-medium transition-colors"
+              className="rounded-sm px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:py-1"
               style={{
                 background: active ? theme.accentSoft : 'transparent',
                 color: active ? theme.accent : theme.textDim,

@@ -86,8 +86,8 @@ export default function DealerDeltaPressurePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
                 <div className="text-sm font-semibold mb-1">Dealer net delta (est.)</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: (dealerNetDelta ?? 0) < 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {formatGexCompact(dealerNetDelta)}
@@ -96,7 +96,7 @@ export default function DealerDeltaPressurePage() {
                   Shares-equivalent. Negative = dealer short delta (bullish for price).
                 </p>
               </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
                 <div className="text-sm font-semibold mb-1">DNI normalized</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black">{formatSigned(dniNormalized, 3)}</AutoFitValue>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">

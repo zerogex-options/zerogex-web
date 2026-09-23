@@ -39,9 +39,8 @@
  * also carries a glyph, a sign, or a position.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
-import MobileScrollableChart from './MobileScrollableChart';
 import {
   STATE_META,
   buildExpiryCaveat,
@@ -255,6 +254,22 @@ function ShiftPlane({
 // the concentration ribbon
 // ────────────────────────────────────────────────────────────────────────────
 
+// Widest ribbon (CSS px) that is drawn on the compact canvas.
+const RIBBON_COMPACT_MAX = 640;
+
+/**
+ * The ribbon's geometry. DESKTOP is the original 1200-unit board; the compact
+ * one is built at the width it is drawn (one viewBox unit per CSS px), because
+ * the desktop board squeezed into a phone renders its 12–13 unit labels at
+ * about 3px. It was once rescued by a 760px sideways scroller instead.
+ */
+function ribbonGeometry(compactWidth: number | null) {
+  if (compactWidth == null) {
+    return { compact: false, W: 1200, H: 196, PAD: 12, BOT: 158, MID: 92, HMAX: 64, SPOT_Y: 14, LABEL_Y: 184, fs: 12, fsStrong: 13 };
+  }
+  return { compact: true, W: Math.max(260, Math.round(compactWidth)), H: 156, PAD: 2, BOT: 126, MID: 72, HMAX: 50, SPOT_Y: 11, LABEL_Y: 146, fs: 10, fsStrong: 11 };
+}
+
 /**
  * Where the change landed on the price axis.
  *
@@ -265,7 +280,9 @@ function ShiftPlane({
  *
  * The viewBox is 1200 wide and 240 tall so it fills a full-width panel at
  * roughly 1:1 unit-to-pixel, instead of a 700x140 box stretched across 1200px
- * (which scaled the type to ~17px and left the bars in a thin band).
+ * (which scaled the type to ~17px and left the bars in a thin band). A phone
+ * gets the compact canvas above, measured from the card, and — since a
+ * finger cannot reach a bar's hover title — a tap on a bar reads it out.
  */
 function ConcentrationRibbon({
   strikes,
@@ -282,12 +299,26 @@ function ConcentrationRibbon({
   bull: string;
   bear: string;
 }) {
-  const W = 1200;
-  const H = 196;
-  const PAD = 12;
-  const BOT = 158;
-  const MID = 92;
-  const HMAX = 64;
+  // Measured in a layout effect, so the compact canvas replaces the desktop
+  // board before the browser paints (the ribbon only mounts client-side,
+  // once the shift payload has loaded).
+  const [boxEl, setBoxEl] = useState<HTMLDivElement | null>(null);
+  const [boxW, setBoxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!boxEl) return;
+    const measure = () => {
+      const w = boxEl.clientWidth;
+      setBoxW((cur) => (cur != null && Math.abs(cur - w) < 1 ? cur : w));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(boxEl);
+    return () => ro.disconnect();
+  }, [boxEl]);
+  const setBoxNode = useCallback((el: HTMLDivElement | null) => setBoxEl(el), []);
+  const g = ribbonGeometry(boxW != null && boxW > 0 && boxW < RIBBON_COMPACT_MAX ? boxW : null);
+  const { compact, W, H, PAD, BOT, MID, HMAX } = g;
+  const [picked, setPicked] = useState<number | null>(null);
 
   const ordered = useMemo(() => [...strikes].sort((a, b) => a.strike - b.strike), [strikes]);
   const reference = useMemo(() => ribbonReference(ordered, lens), [ordered, lens]);
@@ -304,8 +335,22 @@ function ConcentrationRibbon({
   const bw = span / ordered.length;
   const xOf = (k: number) => (hi === lo ? PAD : PAD + ((k - lo) / (hi - lo + 1)) * span);
   const bandResolved = band?.resolved && Number.isFinite(band.low) && Number.isFinite(band.high);
+  // Bars are ~5px apart on a phone; a 3px gutter would leave slivers.
+  const gutter = compact ? Math.min(3, bw * 0.3) : 3;
+  const pickedRow = picked == null ? null : ordered.find((r) => r.strike === picked) ?? null;
+  const pickedValue = pickedRow ? (lens === 'net' ? pickedRow.d_net : pickedRow.positioning) : null;
+
+  const onTap = (e: MouseEvent<SVGSVGElement>) => {
+    if (!compact) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const vx = (e.clientX - rect.left) * (W / Math.max(1, rect.width));
+    const idx = Math.max(0, Math.min(ordered.length - 1, Math.floor((vx - PAD) / Math.max(1e-9, bw))));
+    const strike = ordered[idx].strike;
+    setPicked((cur) => (cur === strike ? null : strike));
+  };
 
   return (
+    <div ref={setBoxNode}>
     <svg
       viewBox={`0 0 ${W} ${H}`}
       width="100%"
@@ -313,6 +358,7 @@ function ConcentrationRibbon({
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="Change in dealer gamma by strike"
+      onClick={onTap}
     >
       {bandResolved && (
         <rect
@@ -347,16 +393,17 @@ function ConcentrationRibbon({
         if (value === 0) return null;
         const h = Math.max(2, ribbonHeight(value, reference) * HMAX);
         const up = value > 0;
+        const dim = pickedRow != null && pickedRow.strike !== row.strike;
         return (
           <rect
             key={row.strike}
-            x={xOf(row.strike) + 1.5}
-            width={Math.max(2, bw - 3)}
+            x={xOf(row.strike) + gutter / 2}
+            width={Math.max(compact ? 1.5 : 2, bw - gutter)}
             y={up ? MID - h : MID}
             height={h}
-            rx={2}
+            rx={compact ? 1 : 2}
             fill={up ? bull : bear}
-            opacity={h < 8 ? 0.55 : 0.92}
+            opacity={dim ? 0.35 : h < 8 ? 0.55 : 0.92}
           >
             <title>{`${formatStrike(row.strike)}: ${formatSignedGex(value)}`}</title>
           </rect>
@@ -367,20 +414,22 @@ function ConcentrationRibbon({
         <>
           <line
             x1={xOf(spot)}
-            y1={MID - HMAX - 12}
+            y1={MID - HMAX - (compact ? 8 : 12)}
             x2={xOf(spot)}
             y2={BOT + 4}
             stroke="var(--text-primary)"
             strokeWidth={1.5}
-            strokeDasharray="5 4"
+            strokeDasharray={compact ? '4 3' : '5 4'}
             opacity={0.7}
           />
           <text
-            x={xOf(spot)}
-            y={14}
+            // Kept inside the canvas: on a phone spot can sit near an edge,
+            // where a centered label would hang off it.
+            x={compact ? Math.max(PAD + 34, Math.min(W - PAD - 34, xOf(spot))) : xOf(spot)}
+            y={g.SPOT_Y}
             textAnchor="middle"
             fontFamily="var(--font-mono)"
-            fontSize={13}
+            fontSize={g.fsStrong}
             fontWeight={700}
             fill="var(--text-primary)"
           >
@@ -389,33 +438,68 @@ function ConcentrationRibbon({
         </>
       )}
 
-      <text x={PAD} y={BOT + 26} fontFamily="var(--font-mono)" fontSize={12} fill="var(--text-muted)">
+      {pickedRow && (
+        <rect
+          x={xOf(pickedRow.strike)}
+          y={MID - HMAX - 4}
+          width={Math.max(2, bw)}
+          height={HMAX * 2 + 8}
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth={1}
+          rx={1}
+        />
+      )}
+
+      <text x={PAD} y={g.LABEL_Y} fontFamily="var(--font-mono)" fontSize={g.fs} fill="var(--text-muted)">
         {formatStrike(lo)}
       </text>
       <text
         x={W - PAD}
-        y={BOT + 26}
+        y={g.LABEL_Y}
         textAnchor="end"
         fontFamily="var(--font-mono)"
-        fontSize={12}
+        fontSize={g.fs}
         fill="var(--text-muted)"
       >
         {formatStrike(hi)}
       </text>
       <text
-        x={bandResolved ? (xOf(band.low) + xOf(band.high) + bw) / 2 : W / 2}
-        y={BOT + 26}
+        // On the compact canvas the band caption is centred on the canvas, not
+        // on the band: a band near one end would push it over a strike label.
+        x={compact ? W / 2 : bandResolved ? (xOf(band.low) + xOf(band.high) + bw) / 2 : W / 2}
+        y={g.LABEL_Y}
         textAnchor="middle"
         fontFamily="var(--font-mono)"
-        fontSize={13}
+        fontSize={g.fsStrong}
         fontWeight={600}
         fill={bandResolved ? 'var(--color-warning)' : 'var(--text-muted)'}
       >
         {bandResolved
-          ? `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
-          : 'no concentration — change is diffuse across the chain'}
+          ? compact
+            ? `${formatBand(band)} · ${formatPercent(band.share)}`
+            : `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
+          : compact
+            ? 'diffuse — no concentration'
+            : 'no concentration — change is diffuse across the chain'}
       </text>
     </svg>
+    {compact && (
+      <div className="mt-1 min-h-[18px] font-mono text-[12px]" style={{ color: 'var(--text-muted)' }} aria-live="polite">
+        {pickedRow && pickedValue != null ? (
+          <>
+            <strong style={{ color: 'var(--text-primary)' }}>{formatStrike(pickedRow.strike)}</strong>{' '}
+            <span style={{ color: pickedValue >= 0 ? bull : bear }}>{formatSignedGex(pickedValue)}</span>
+            {pickedValue === 0 ? ' · no change' : pickedValue > 0 ? ' · gamma added' : ' · gamma shed'}
+          </>
+        ) : bandResolved ? (
+          <>Band holds {formatPercent(band.share)} of the move · tap a bar to read it</>
+        ) : (
+          <>Tap a bar to read its strike</>
+        )}
+      </div>
+    )}
+    </div>
   );
 }
 
@@ -584,20 +668,17 @@ export default function GammaRegimeShiftCard({
       >
         {lensResolved ? (
           <>
-            {/* A 36-strike price axis squeezed into a phone's width scales every
-                label to ~4px. On narrow screens the ribbon keeps a readable scale
-                and scrolls instead, the same way every other wide chart on the
-                site behaves. */}
-            <MobileScrollableChart minWidthClass="min-w-[760px]" initialScroll="center">
-              <ConcentrationRibbon
-                strikes={payload.strikes}
-                lens={lens}
-                spot={payload.spot}
-                band={payload.band}
-                bull={chart.bull}
-                bear={chart.bear}
-              />
-            </MobileScrollableChart>
+            {/* A 36-strike price axis squeezed into a phone's width used to
+                scale every label to ~4px; the ribbon now draws a compact
+                canvas at the width it is given (see ribbonGeometry). */}
+            <ConcentrationRibbon
+              strikes={payload.strikes}
+              lens={lens}
+              spot={payload.spot}
+              band={payload.band}
+              bull={chart.bull}
+              bear={chart.bear}
+            />
             <div
               className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px]"
               style={{ color: 'var(--text-muted)' }}

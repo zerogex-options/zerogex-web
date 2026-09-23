@@ -140,7 +140,7 @@ export default function RangeBreakImminencePage() {
                 <>
                   <span
                     className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide"
-                    style={{ background: `${accentColor}1f`, color: accentColor }}
+                    style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor }}
                   >
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
                     {humanize(signalStr)}
@@ -162,8 +162,8 @@ export default function RangeBreakImminencePage() {
               className="rounded-xl border bg-[var(--color-surface-subtle)] p-5 flex flex-col h-full"
               style={{ borderColor: 'var(--color-border)' }}
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold flex items-center gap-2"><Layers size={14} /> Sub-score contributions</div>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-3">
+                <div className="text-sm font-semibold flex items-center gap-2 whitespace-nowrap"><Layers size={14} /> Sub-score contributions</div>
                 <div className="text-[11px] text-[var(--color-text-secondary)]">
                   Imminence = weighted sum of absolute sub-scores
                 </div>
