@@ -255,7 +255,7 @@ export default async function ReplayDatePage({
         />
       </div>
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · GEX Replay
@@ -282,7 +282,7 @@ export default async function ReplayDatePage({
         initialMinute={initialMinute}
       />
 
-      <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+      <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
         Switch the strike profile between <em>All exps</em> and <em>0DTE</em> — 0DTE replays only
         the contracts that settled that afternoon, and the call wall, put wall, gamma flip and max

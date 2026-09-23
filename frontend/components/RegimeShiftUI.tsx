@@ -75,7 +75,7 @@ export function PanelHeader({
 }) {
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-b px-5 py-3.5"
+      className="flex flex-wrap items-center gap-2 border-b px-4 py-3.5 sm:px-5"
       style={{ borderColor: 'var(--border-subtle)' }}
     >
       <h3 className="zg-h3" style={{ color: 'var(--text-primary)' }}>
@@ -112,11 +112,11 @@ export function Zone({
 }) {
   return (
     <div
-      className={`${padded ? 'px-5 py-4' : ''} ${flush ? '' : 'border-t'}`}
+      className={`${padded ? 'px-4 py-4 sm:px-5' : ''} ${flush ? '' : 'border-t'}`}
       style={flush ? undefined : { borderColor: 'var(--border-subtle)' }}
     >
       {(label || right) && (
-        <div className={`mb-3 flex items-center justify-between gap-3 ${padded ? '' : 'px-5 pt-4'}`}>
+        <div className={`mb-3 flex items-center justify-between gap-3 ${padded ? '' : 'px-4 pt-4 sm:px-5'}`}>
           {label && <span className="zg-label">{label}</span>}
           {right && (
             <span className="font-mono text-[12px]" style={{ color: 'var(--text-muted)' }}>
@@ -158,9 +158,14 @@ export function LevelTile({
   note?: string;
 }) {
   return (
-    <div className="min-w-0 flex-1 basis-[150px] px-1">
+    // 136px below sm keeps the tiles two-up down to a 360px phone (at 150px
+    // they fell to one per row there); desktop keeps its 150px basis.
+    <div className="min-w-0 flex-1 basis-[150px] px-1 max-sm:basis-[136px]">
       <div className="zg-label mb-1.5 truncate">{label}</div>
-      <div className="flex items-baseline gap-1.5">
+      {/* Below lg a long before → after pair ("−$748.3M ↑ +$730.9M") is wider
+          than a two-up phone tile, so the new value wraps under the old one
+          instead of running past the panel edge. */}
+      <div className="flex flex-wrap items-baseline gap-x-1.5 lg:flex-nowrap lg:gap-1.5">
         {before ? (
           <>
             <span

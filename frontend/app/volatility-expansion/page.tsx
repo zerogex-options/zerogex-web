@@ -100,9 +100,9 @@ export default function VolatilityExpansionPage() {
             </ExpandableCard>
           </div>
 
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="flex items-center justify-between mb-1">
+          <div className="lg:col-span-3 grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 mb-1">
                 <div className="text-sm font-semibold">Expansion</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">0 to 100</div>
               </div>
@@ -115,8 +115,8 @@ export default function VolatilityExpansionPage() {
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">GEX readiness (short-gamma bias elevates this).</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="flex items-center justify-between mb-1">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 mb-1">
                 <div className="text-sm font-semibold">Direction</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">−100 to +100</div>
               </div>
@@ -129,13 +129,13 @@ export default function VolatilityExpansionPage() {
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">5-bar z-scored momentum, tanh-squashed.</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="text-sm font-semibold mb-1">Magnitude</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{magnitude != null ? magnitude.toFixed(1) : '—'}</AutoFitValue>
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">|expansion × direction| / 100 — absolute conviction.</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="text-sm font-semibold mb-1">Expected 5-min move</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{expectedBps != null ? `${expectedBps.toFixed(1)} bps` : '—'}</AutoFitValue>
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Forecasted basis-point move into the next 5-minute bar.</p>
@@ -162,10 +162,10 @@ export default function VolatilityExpansionPage() {
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
             <div className="text-sm font-semibold mb-3">Live Inputs</div>
-            <div className="grid grid-cols-[minmax(150px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]">
+            <div className={`${CONTEXT_GRID} gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] pb-2 border-b border-[var(--color-border)]`}>
               <span>Metric</span>
               <span className="text-right">Value</span>
-              <span className="text-center">Status</span>
+              <span className="text-right sm:text-center">Status</span>
             </div>
             <div className="divide-y divide-[var(--color-border)]">
               <ContextRow label="Net GEX" value={formatGexCompact(ctx.net_gex)}>
@@ -215,12 +215,18 @@ export default function VolatilityExpansionPage() {
   );
 }
 
+// The desktop columns' 150px + 120px minimums alone overflow a phone card
+// (~290px inside), pushing the status pills past its edge. On a phone the
+// metric column gives way instead and the status hugs the right edge.
+const CONTEXT_GRID =
+  'grid grid-cols-[minmax(0,1fr)_auto_minmax(96px,auto)] sm:grid-cols-[minmax(150px,1.2fr)_1fr_minmax(120px,1fr)]';
+
 function ContextRow({ label, value, children }: { label: string; value: string; children?: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(150px,1.2fr)_1fr_minmax(120px,1fr)] gap-2 text-sm py-2.5 items-center">
+    <div className={`${CONTEXT_GRID} gap-2 text-sm py-2.5 items-center`}>
       <span className="font-medium">{label}</span>
       <span className="text-right font-mono text-[var(--color-text-secondary)]">{value}</span>
-      <span className="flex items-center justify-center">{children}</span>
+      <span className="flex items-center justify-end sm:justify-center">{children}</span>
     </div>
   );
 }

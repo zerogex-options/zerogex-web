@@ -95,13 +95,13 @@ export default function GreeksGEXPage() {
     return (
       <PageShell>
         <PageHeader title="GEX Summary" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
@@ -133,9 +133,11 @@ export default function GreeksGEXPage() {
         </div>
       )}
 
-      {/* Top row: 5 cards */}
+      {/* Top row: 5 cards. On a phone they pair up two across (a one-column
+          tower of ten cards ran to two screens) — the price card spans the row
+          as the headline, leaving the four levels as two pairs. */}
       <section className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 max-md:[&>*:first-child]:col-span-2 md:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title={`${symbol} Price`}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
@@ -200,9 +202,10 @@ export default function GreeksGEXPage() {
         </div>
       </section>
 
-      {/* Bottom row: 5 cards */}
+      {/* Bottom row: 5 cards — two across on a phone, with the Put/Call ratio
+          spanning the row so the call/put pairs (GEX, walls) sit side by side. */}
       <section className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 max-md:[&>*:nth-child(3)]:col-span-2 md:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title="Call GEX"
             value={formatGexInUnit(gexData?.total_call_gex, gexUnit, gexSpot)}

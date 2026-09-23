@@ -195,7 +195,7 @@ export default async function ReplaySnapshotPage({
       </div>
 
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · Replay snapshot

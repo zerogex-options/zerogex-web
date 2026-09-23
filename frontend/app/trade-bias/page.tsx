@@ -327,7 +327,8 @@ export default function TradeBiasPage() {
             <select
               value={tenor}
               onChange={(e) => setTenor(e.target.value as BiasTenor)}
-              className="rounded-md border bg-transparent px-2 py-1 text-xs font-medium text-[var(--color-text-primary)]"
+              // 16px on a phone: iOS zooms the page when a smaller select takes focus.
+              className="rounded-md border bg-transparent px-2 py-1.5 text-base font-medium text-[var(--color-text-primary)] sm:py-1 sm:text-xs"
               style={{ borderColor: 'var(--color-border)' }}
               aria-label="Bias horizon"
             >
@@ -463,7 +464,7 @@ export default function TradeBiasPage() {
                 {payload.watching.map((w) => {
                   const wc = w.direction === 'bullish' ? 'var(--color-bull)' : 'var(--color-bear)';
                   return (
-                    <span key={w.key} className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border" style={{ borderColor: wc, color: wc }}>
+                    <span key={w.key} className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border" style={{ borderColor: wc, color: wc }}>
                       Watching: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
                     </span>
                   );
@@ -489,7 +490,7 @@ export default function TradeBiasPage() {
             <ol className="mt-1 flex flex-col gap-1.5 text-xs">
               {payload.playbook.map((step, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0" style={{ background: `${color}1f`, color }}>
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
                     {i + 1}
                   </span>
                   <span className="leading-snug pt-0.5">{step}</span>

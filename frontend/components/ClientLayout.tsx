@@ -301,7 +301,7 @@ export default function ClientLayout({
         initialSidebarVisible={initialSidebarVisible}
         initialHeaderCollapsed={initialHeaderCollapsed}
       />
-      <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
+      <main className="lg:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>
       {/* The sidebar is position:fixed and runs to the bottom of the viewport,
@@ -310,7 +310,7 @@ export default function ClientLayout({
           disclaimer are clipped. The offset lives here rather than in Footer
           because eleven standalone pages (landing, pricing, terms, …) render
           the same Footer with no sidebar present. */}
-      <div className="md:pl-[var(--zgx-nav-width,0px)]">
+      <div className="lg:pl-[var(--zgx-nav-width,0px)]">
         <Footer theme={theme} />
       </div>
       {termsModal}

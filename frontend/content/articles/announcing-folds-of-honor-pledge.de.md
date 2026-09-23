@@ -51,7 +51,7 @@ Wenn du jemals genau sehen möchtest, wie viel ZeroGEX bisher gespendet hat, ist
 
 Wenn du ein Abonnement abschließt, siehst du auf der [Preisseite](/pricing) unter jeder Stufe eine neue Zeile: *Enthält 3% Spende an Folds of Honor*. Nach dem Checkout zeigt der Bestätigungsbildschirm den tatsächlichen Dollarbetrag, den dein Abonnement für den aktuellen Abrechnungszeitraum beigetragen hat — keine Prozentzahl, keine Marketingfloskel, die echte Zahl.
 
-Ein monatlicher Pro-Abonnent trägt beispielsweise jeden Monat 1,49 $ zu Folds of Honor bei. Ein jährliches Pro-Abonnement trägt im Voraus etwa 17,97 $ bei. Über die gesamte ZeroGEX-Abonnentenbasis summiert sich das schnell.
+Ein monatlicher Pro-Abonnent trägt beispielsweise jeden Monat 1,77 $ zu Folds of Honor bei. Ein jährliches Pro-Abonnement trägt im Voraus etwa 8,97 $ bei. Über die gesamte ZeroGEX-Abonnentenbasis summiert sich das schnell.
 
 ---
 

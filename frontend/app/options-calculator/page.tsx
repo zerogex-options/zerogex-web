@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { Minus, Plus } from 'lucide-react';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { isFuturesSymbol } from '@/core/symbols';
@@ -184,7 +184,7 @@ function CustomTooltip({ active, payload, label, spot = 0 }: TooltipProps) {
   const pctSign = pctDelta > 0 ? '+' : pctDelta < 0 ? '' : '';
   const dollarSign = dollarDelta > 0 ? '+' : dollarDelta < 0 ? '-' : '';
   return (
-    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'var(--color-positive)66' : 'var(--color-negative)66'}`, borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: `1px solid ${positive ? 'color-mix(in srgb, var(--color-positive) 40%, transparent)' : 'color-mix(in srgb, var(--color-negative) 40%, transparent)'}`, borderRadius: 8, padding: '10px 14px', minWidth: 160 }}>
       <div style={{ color: positive ? 'var(--color-positive)' : 'var(--color-negative)', fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', marginBottom: 6 }}>
         {positive ? '+' : ''}{fmtDollar(pl)}
       </div>
@@ -217,6 +217,7 @@ export default function OptionsCalculatorPage() {
   // current spot — the data itself is always indexed by absolute price.
   const [zoomLevel, setZoomLevel] = useState(0);
   const [xAxisMode, setXAxisMode] = useState<XAxisMode>('percent');
+  const isMobile = useIsMobile();
 
   const handleStrategyChange = (next: StrategyType) => {
     setStrategy(next);
@@ -393,6 +394,18 @@ export default function OptionsCalculatorPage() {
     return ticks;
   }, [minP, maxP, spot, xAxisMode]);
 
+  // A phone fits about five of the two-row tick labels, not eleven: keep every
+  // other tick, anchored on the one nearest spot so 0% / $0 stays labelled.
+  // Display only — xTicks still seeds the payoff sample points below.
+  const axisTicks = useMemo(() => {
+    if (!isMobile || xTicks.length <= 6) return xTicks;
+    let anchor = 0;
+    xTicks.forEach((t, i) => {
+      if (Math.abs(t - spot) < Math.abs(xTicks[anchor] - spot)) anchor = i;
+    });
+    return xTicks.filter((_, i) => (i - anchor) % 2 === 0);
+  }, [isMobile, xTicks, spot]);
+
   const payoffData = useMemo(() => {
     const evalPL = (S: number) => {
       return selectedLegs.reduce((sum, leg) => {
@@ -524,10 +537,10 @@ export default function OptionsCalculatorPage() {
     })();
     return (
       <g transform={`translate(${x},${y})`}>
-        <text x={0} dy={14} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={11}>
+        <text x={0} dy={14} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={isMobile ? 10 : 11}>
           ${price.toFixed(2)}
         </text>
-        <text x={0} dy={30} textAnchor="middle" fill="var(--color-text-primary)" fontSize={11}>
+        <text x={0} dy={30} textAnchor="middle" fill="var(--color-text-primary)" fontSize={isMobile ? 10 : 11}>
           {axisLabel}
         </text>
       </g>
@@ -550,12 +563,12 @@ export default function OptionsCalculatorPage() {
     <PageShell>
       <h1 className="text-3xl font-bold mb-8">Strategy Builder</h1>
 
-      <div className="bg-[var(--color-surface)] rounded-lg p-6 mb-6">
+      <div className="bg-[var(--color-surface)] rounded-lg p-4 sm:p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <label className="text-sm text-[var(--color-text-secondary)]">
             Strategy
             <select
-              className="ml-2 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
+              className="ml-2 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1 text-base sm:text-sm"
               value={strategy}
               onChange={(e) => handleStrategyChange(e.target.value as StrategyType)}
             >
@@ -567,7 +580,7 @@ export default function OptionsCalculatorPage() {
           <label className="text-sm text-[var(--color-text-secondary)]">
             Contracts
             <input
-              className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
+              className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1 text-base sm:text-sm"
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
@@ -605,7 +618,7 @@ export default function OptionsCalculatorPage() {
                   <>
                     <label className="text-sm text-[var(--color-text-secondary)]">Exp
                       <select
-                        className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1"
+                        className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1 text-base sm:text-sm"
                         value={leg.expiration}
                         onChange={(e) => setLegExpiration((curr) => ({ ...curr, [leg.id]: e.target.value }))}
                       >
@@ -614,7 +627,7 @@ export default function OptionsCalculatorPage() {
                     </label>
                     <label className="text-sm text-[var(--color-text-secondary)]">Strike
                       <select
-                        className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1"
+                        className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1 text-base sm:text-sm"
                         value={String(leg.strike)}
                         onChange={(e) => setLegStrike((curr) => ({ ...curr, [leg.id]: e.target.value }))}
                       >
@@ -723,9 +736,11 @@ export default function OptionsCalculatorPage() {
             ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
           </p>
         )}
-        <MobileScrollableChart>
-        <ResponsiveContainer width="100%" height={420}>
-          <AreaChart data={payoffData} margin={{ left: 10, right: 24, top: 32, bottom: 32 }}>
+        <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
+          <AreaChart
+            data={payoffData}
+            margin={isMobile ? { left: 0, right: 10, top: 32, bottom: 32 } : { left: 10, right: 24, top: 32, bottom: 32 }}
+          >
             <defs>
               <linearGradient id="plFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.35} />
@@ -743,7 +758,7 @@ export default function OptionsCalculatorPage() {
               type="number"
               dataKey="price"
               domain={['dataMin', 'dataMax']}
-              ticks={xTicks}
+              ticks={axisTicks}
               interval={0}
               tick={renderXTick}
               tickLine={false}
@@ -751,11 +766,11 @@ export default function OptionsCalculatorPage() {
               height={40}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: 'var(--color-text-secondary)' }}
               tickLine={false}
               axisLine={{ stroke: 'var(--color-chart-grid)' }}
               tickFormatter={(v) => fmtDollar(Number(v), 0)}
-              width={70}
+              width={isMobile ? 48 : 70}
             />
             <Tooltip content={<CustomTooltip spot={spot} />} />
             <ReferenceLine y={0} stroke="var(--color-chart-axis)" strokeWidth={1.5} />
@@ -807,7 +822,6 @@ export default function OptionsCalculatorPage() {
             />
           </AreaChart>
         </ResponsiveContainer>
-        </MobileScrollableChart>
         </>
         )}
       </div>

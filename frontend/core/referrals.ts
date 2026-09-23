@@ -2,7 +2,6 @@ import { randomBytes } from 'crypto';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { getAppUrl, getStripe } from '@/core/stripe';
-import type { BillingCadence } from '@/core/stripe';
 import { isCreatorPartnerProgramEnabled } from '@/core/creatorPartners';
 import { sendReferralRewardEmail } from '@/core/mailer';
 
@@ -13,20 +12,8 @@ export function isReferralProgramEnabled(): boolean {
   return process.env.REFERRAL_PROGRAM_ENABLED === '1';
 }
 
-// Referee (the newly-referred friend) discount coupon, keyed by the cadence
-// they buy:
-//   monthly -> "first month free"  (a 100%-off, duration:once coupon)
-//   annual  -> "10% off first year" (a 10%-off, duration:once coupon)
-// Returns null when not configured for that cadence, in which case checkout
-// simply proceeds without a referral discount.
-export function getRefereeCouponId(cadence: BillingCadence): string | null {
-  const envKey =
-    cadence === 'monthly'
-      ? 'STRIPE_COUPON_REFERRAL_REFEREE_MONTHLY'
-      : 'STRIPE_COUPON_REFERRAL_REFEREE_ANNUAL';
-  const id = process.env[envKey];
-  return id && id.length > 0 ? id : null;
-}
+// Referee discount coupon for a cadence — see core/refereeCoupon.ts.
+export { getRefereeCouponId } from '@/core/refereeCoupon';
 
 // Codes are shown to humans and typed into URLs, so drop the visually
 // ambiguous glyphs (0/O, 1/I/L). 8 chars over this 32-symbol alphabet is ~40

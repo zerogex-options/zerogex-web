@@ -85,7 +85,7 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
                 background: z.color,
                 flexShrink: 0,
                 marginTop: 3,
-                boxShadow: `0 0 5px ${z.color}70`,
+                boxShadow: `0 0 5px color-mix(in srgb, ${z.color} 44%, transparent)`,
               }}
             />
             <div className="flex-1 min-w-0">

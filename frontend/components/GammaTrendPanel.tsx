@@ -40,6 +40,7 @@ import {
 } from 'recharts';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useGexUnit, gexScaleFactor, GEX_UNIT_LABEL } from '@/core/GexUnitContext';
@@ -109,6 +110,9 @@ function zeroOffset(domain: [number, number]): number {
 
 export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: string }) {
   const chart = useChartTheme();
+  // Phone plots are ~300px wide: the 72px value axis and 36px right margin
+  // were over a third of that.
+  const isMobile = useIsMobile();
   const { symbol: ctxSymbol } = useTimeframe();
   const symbol = symbolProp ?? ctxSymbol;
   const { param: expParam } = useChartExpirations(symbol, true);
@@ -175,7 +179,11 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
     );
   }
 
-  const axisTick = { fontSize: 11, fill: chart.axisText };
+  const axisTick = { fontSize: isMobile ? 10 : 11, fill: chart.axisText };
+  const plotMargin = isMobile
+    ? { top: 8, right: 8, left: 0, bottom: 4 }
+    : { top: 8, right: 36, left: 8, bottom: 20 };
+  const valueAxisWidth = isMobile ? 46 : 72;
   const tickLabel = new Map(axis.ticks.map((t) => [t.index, t.label]));
 
   return (
@@ -230,7 +238,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
           {/* ── Plot 1: is the book building or decaying? ──────────────── */}
           <Zone label={`Dealer gamma across the session (${GEX_UNIT_LABEL[gexUnit]})`}>
             <ResponsiveContainer width="100%" height={196}>
-              <ComposedChart data={rows} margin={{ top: 8, right: 36, left: 8, bottom: 20 }}>
+              <ComposedChart data={rows} margin={plotMargin}>
                 <defs>
                   <linearGradient id="gammaTrendFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset={offset} stopColor={chart.bull} stopOpacity={0.32} />
@@ -260,7 +268,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
                 />
                 <YAxis
                   stroke={chart.axisText}
-                  width={72}
+                  width={valueAxisWidth}
                   domain={gamma.domain}
                   tick={axisTick}
                   tickFormatter={(v) => formatGexAxis(Number(v))}
@@ -296,7 +304,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
           {/* ── Plot 2: is the flip closing on spot? ───────────────────── */}
           <Zone label="Spot vs gamma flip — the shaded gap is the cushion">
             <ResponsiveContainer width="100%" height={216}>
-              <ComposedChart data={rows} margin={{ top: 8, right: 36, left: 8, bottom: 20 }}>
+              <ComposedChart data={rows} margin={plotMargin}>
                 <CartesianGrid stroke={chart.gridLine} opacity={0.5} vertical={false} />
                 <SessionBreaks axis={axis} color={chart.borderStrong} />
                 <XAxis
@@ -316,7 +324,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
                 />
                 <YAxis
                   stroke={chart.axisText}
-                  width={72}
+                  width={valueAxisWidth}
                   domain={domain}
                   tick={axisTick}
                   tickFormatter={(v) => formatStrike(Number(v))}

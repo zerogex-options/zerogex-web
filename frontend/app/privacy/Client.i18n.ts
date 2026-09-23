@@ -139,6 +139,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Eventi di audit.',
     s2Item4Text:
       'Registrazioni limitate di azioni di autenticazione e gestione dell’account (accessi, modifiche di ruolo, modifiche all’abbonamento) per sicurezza e conformità.',
+    s2Item5Label: 'Iscrizioni alla mailing list.',
+    s2Item5Text:
+      'Se ti iscrivi all’email gratuita con i livelli giornalieri, conserviamo il tuo indirizzo email, il simbolo che ci hai chiesto di mettere per primo, la pagina da cui ti sei iscritto e l’indirizzo IP con la marca temporale sia della tua richiesta di iscrizione sia del tuo clic di conferma: la documentazione che attesta il tuo consenso. Non viene creato alcun account e non viene memorizzata alcuna password. Puoi annullare l’iscrizione dal link in fondo a una qualsiasi di quelle email, con effetto immediato e senza dover accedere.',
 
     s3Title: '3. Come utilizziamo le informazioni',
     s3Item1: 'Fornire, mantenere e migliorare i Servizi.',
@@ -251,6 +254,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Audit-Ereignisse.',
     s2Item4Text:
       'Begrenzte Aufzeichnungen von Authentifizierungs- und Kontoverwaltungsmaßnahmen (Anmeldungen, Rollenänderungen, Abonnementänderungen) zu Sicherheits- und Compliance-Zwecken.',
+    s2Item5Label: 'E-Mail-Listen-Abonnements.',
+    s2Item5Text:
+      'Wenn du die kostenlose tägliche Levels-E-Mail abonnierst, speichern wir deine E-Mail-Adresse, das Symbol, das du an erster Stelle sehen möchtest, die Seite, über die du dich angemeldet hast, sowie die IP-Adresse und den Zeitstempel deiner Anmeldeanfrage und deines Bestätigungsklicks — den Nachweis deiner Einwilligung. Es wird kein Konto angelegt und kein Passwort gespeichert. Du kannst dich über den Link am Ende jeder dieser E-Mails abmelden; das wirkt sofort und ohne Anmeldung.',
 
     s3Title: '3. Wie wir Informationen verwenden',
     s3Item1: 'Bereitstellung, Pflege und Verbesserung der Dienste.',
@@ -363,6 +369,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Eventos de auditoría.',
     s2Item4Text:
       'Registros limitados de acciones de autenticación y gestión de cuentas (inicios de sesión, cambios de rol, cambios de suscripción) para seguridad y cumplimiento.',
+    s2Item5Label: 'Suscripciones a la lista de correo.',
+    s2Item5Text:
+      'Si te suscribes al correo gratuito con los niveles diarios, almacenamos tu dirección de correo electrónico, el símbolo que nos pediste mostrar en primer lugar, la página desde la que te suscribiste y la dirección IP junto con la marca de tiempo tanto de tu solicitud de suscripción como de tu clic de confirmación: el registro que acredita tu consentimiento. No se crea ninguna cuenta ni se almacena ninguna contraseña. Puedes darte de baja desde el enlace al pie de cualquiera de esos correos, con efecto inmediato y sin iniciar sesión.',
 
     s3Title: '3. Cómo utilizamos la información',
     s3Item1: 'Proporcionar, mantener y mejorar los Servicios.',
@@ -475,6 +484,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Événements d’audit.',
     s2Item4Text:
       'Enregistrements limités des actions d’authentification et de gestion de compte (connexions, changements de rôle, changements d’abonnement) à des fins de sécurité et de conformité.',
+    s2Item5Label: 'Abonnements à la liste de diffusion.',
+    s2Item5Text:
+      'Si vous vous abonnez à l’e-mail gratuit des niveaux quotidiens, nous conservons votre adresse e-mail, le symbole que vous avez demandé de placer en premier, la page depuis laquelle vous vous êtes abonné, ainsi que l’adresse IP et l’horodatage de votre demande d’abonnement et de votre clic de confirmation : le justificatif de votre consentement. Aucun compte n’est créé et aucun mot de passe n’est enregistré. Vous pouvez vous désabonner via le lien au bas de l’un quelconque de ces e-mails, avec effet immédiat et sans vous connecter.',
 
     s3Title: '3. Comment nous utilisons les informations',
     s3Item1: 'Fournir, maintenir et améliorer les Services.',

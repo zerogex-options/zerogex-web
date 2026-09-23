@@ -29,7 +29,13 @@ export default function MetricCard({
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           {icon && <div style={{ color: 'var(--text-secondary)' }}>{icon}</div>}
-          <h3 className="zg-eyebrow">{title}</h3>
+          {/* Phones track the title at 0.06em, not the label's 0.14em, so a
+              title in a two-up grid ("Nearest-expiration max pain") wraps
+              less. On the span because .zg-eyebrow is unlayered CSS and
+              would beat a utility class on the h3 itself. */}
+          <h3 className="zg-eyebrow">
+            <span className="max-sm:tracking-[0.06em]">{title}</span>
+          </h3>
         </div>
         <TooltipWrapper text={tooltip}>
           {tooltipIcon ?? <Info size={14} />}

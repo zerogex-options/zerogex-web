@@ -93,19 +93,19 @@ export function renderMarkdown(markdown: string): ReactNode[] {
     }
 
     if (trimmed.startsWith('# ')) {
-      out.push(<h1 key={`h1-${i}`} className="mt-2 mb-6 text-4xl font-extrabold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(2))}</h1>);
+      out.push(<h1 key={`h1-${i}`} className="mt-2 mb-5 sm:mb-6 text-[30px] sm:text-4xl font-extrabold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(2))}</h1>);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('## ')) {
-      out.push(<h2 key={`h2-${i}`} className="mt-10 mb-4 text-2xl font-bold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(3))}</h2>);
+      out.push(<h2 key={`h2-${i}`} className="mt-9 sm:mt-10 mb-3 sm:mb-4 text-[22px] sm:text-2xl font-bold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(3))}</h2>);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('### ')) {
-      out.push(<h3 key={`h3-${i}`} className="mt-8 mb-3 text-xl font-semibold text-[var(--color-text-primary)]">{parseInline(trimmed.slice(4))}</h3>);
+      out.push(<h3 key={`h3-${i}`} className="mt-7 sm:mt-8 mb-3 text-lg sm:text-xl font-semibold text-[var(--color-text-primary)]">{parseInline(trimmed.slice(4))}</h3>);
       i += 1;
       continue;
     }
@@ -117,7 +117,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
         i += 1;
       }
       out.push(
-        <blockquote key={`q-${i}`} className="my-6 border-l-4 border-[var(--color-warning)] bg-[var(--color-warning-soft)] py-3 pl-4 text-lg font-medium text-[var(--text-primary)]">
+        <blockquote key={`q-${i}`} className="my-6 border-l-4 border-[var(--color-warning)] bg-[var(--color-warning-soft)] py-3 pl-4 pr-3 text-[17px] sm:text-lg font-medium text-[var(--text-primary)]">
           {block.map((t, idx) => <p key={idx} className="my-1">{parseInline(t)}</p>)}
         </blockquote>,
       );
@@ -141,7 +141,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
       out.push(
         <pre
           key={`pre-${i}`}
-          className="my-6 overflow-x-auto rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--bg-hover)] p-4 text-[13px] leading-6 text-[var(--text-primary)]"
+          className="my-6 overflow-x-auto rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--bg-hover)] p-3 sm:p-4 text-[12.5px] sm:text-[13px] leading-6 text-[var(--text-primary)]"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
           <code>{code.join('\n')}</code>
@@ -170,11 +170,11 @@ export function renderMarkdown(markdown: string): ReactNode[] {
       const [header, ...body] = parsed;
       out.push(
         <div key={`tbl-${i}`} className="my-6 overflow-x-auto">
-          <table className="w-full border-collapse rounded-xl border border-[var(--color-border)] text-sm">
+          <table className="w-full border-collapse rounded-xl border border-[var(--color-border)] text-[13px] sm:text-sm">
             <thead>
               <tr className="bg-[var(--color-surface-subtle)]">
                 {header.cells.map((cell, idx) => (
-                  <th key={idx} className="border border-[var(--color-border)] px-4 py-2 text-left font-semibold text-[var(--color-text-primary)]">{parseInline(cell)}</th>
+                  <th key={idx} className="border border-[var(--color-border)] px-2.5 sm:px-4 py-2 text-left font-semibold text-[var(--color-text-primary)]">{parseInline(cell)}</th>
                 ))}
               </tr>
             </thead>
@@ -193,8 +193,8 @@ export function renderMarkdown(markdown: string): ReactNode[] {
                       key={cellIdx}
                       className={
                         row.isAccent
-                          ? 'border border-[var(--color-warning)] px-4 py-2 text-[var(--color-text-primary)]'
-                          : 'border border-[var(--color-border)] px-4 py-2 text-[var(--text-secondary)]'
+                          ? 'border border-[var(--color-warning)] px-2.5 sm:px-4 py-2 text-[var(--color-text-primary)]'
+                          : 'border border-[var(--color-border)] px-2.5 sm:px-4 py-2 text-[var(--text-secondary)]'
                       }
                     >
                       {parseInline(cell)}
@@ -216,7 +216,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
         i += 1;
       }
       out.push(
-        <ul key={`ul-${i}`} className="my-4 list-disc space-y-2 pl-6 text-[17px] leading-8 text-[var(--text-secondary)]">
+        <ul key={`ul-${i}`} className="my-4 list-disc space-y-2 pl-5 sm:pl-6 text-[16.5px] leading-[1.65] sm:text-[17px] sm:leading-8 text-[var(--text-secondary)]">
           {listItems.map((item, idx) => (
             <li key={idx}>{parseInline(item)}</li>
           ))}
@@ -232,7 +232,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
         i += 1;
       }
       out.push(
-        <ol key={`ol-${i}`} className="my-4 list-decimal space-y-2 pl-6 text-[17px] leading-8 text-[var(--text-secondary)]">
+        <ol key={`ol-${i}`} className="my-4 list-decimal space-y-2 pl-5 sm:pl-6 text-[16.5px] leading-[1.65] sm:text-[17px] sm:leading-8 text-[var(--text-secondary)]">
           {listItems.map((item, idx) => (
             <li key={idx}>{parseInline(item)}</li>
           ))}
@@ -255,7 +255,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
 
     if (paragraph.length) {
       out.push(
-        <p key={`p-${i}`} className="my-5 text-[18px] leading-9 text-[var(--text-secondary)]">
+        <p key={`p-${i}`} className="my-4 sm:my-5 text-[17px] leading-[1.7] sm:text-[18px] sm:leading-9 text-[var(--text-secondary)]">
           {parseInline(paragraph.join(' '))}
         </p>,
       );

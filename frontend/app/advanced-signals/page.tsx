@@ -45,10 +45,12 @@ import {
   toTrend,
 } from '@/core/signalHelpers';
 
+// `short` is the phone label: three full labels need ~450px, so on a phone
+// each wrapped onto two lines under its icon.
 const TABS = [
-  { id: 'grid', label: 'Signal Grid', icon: LayoutGrid },
-  { id: 'matrix', label: 'Confluence Matrix', icon: Table },
-  { id: 'events', label: 'Event Timelines', icon: LineChartIcon },
+  { id: 'grid', label: 'Signal Grid', short: 'Grid', icon: LayoutGrid },
+  { id: 'matrix', label: 'Confluence Matrix', short: 'Matrix', icon: Table },
+  { id: 'events', label: 'Event Timelines', short: 'Timelines', icon: LineChartIcon },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -208,7 +210,7 @@ export default function AdvancedSignalsPage() {
   return (
     <PageShell>
       <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
+        <h1 className="text-[26px] font-bold sm:text-3xl">Advanced Signal Dashboard</h1>
         <TooltipWrapper
           text="Dashboard of eight advanced signals, plus cross-component confluence analysis. Six extend the composite MSI; Range Break Imminence and Market Pressure Index are standalone overlays. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
           placement="bottom"
@@ -268,7 +270,8 @@ export default function AdvancedSignalsPage() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+              aria-pressed={active}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-2 py-2.5 text-sm font-semibold sm:flex-initial sm:justify-start sm:gap-2 sm:px-4 sm:py-2"
               style={{
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 borderBottom: active ? '2px solid var(--color-warning)' : '2px solid transparent',
@@ -276,7 +279,8 @@ export default function AdvancedSignalsPage() {
               }}
             >
               <Icon size={14} />
-              {t.label}
+              <span className="sm:hidden">{t.short}</span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           );
         })}

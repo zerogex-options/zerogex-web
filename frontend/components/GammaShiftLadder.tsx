@@ -38,6 +38,7 @@ import {
   type StrikeProfileBucket,
 } from '@/hooks/useStrikeProfileTimeseries';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useZeroDteOption } from '@/hooks/useZeroDteOption';
@@ -46,6 +47,7 @@ import { useGexUnit, gexScaleFactor, GEX_UNIT_LABEL } from '@/core/GexUnitContex
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { sessionOpenAnchorIndex } from '@/core/sessionDelta';
 import { formatGexCompact } from '@/core/signalHelpers';
+import AutoFitValue from './AutoFitValue';
 import ChartCaption from './ChartCaption';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import TooltipWrapper from './TooltipWrapper';
@@ -244,7 +246,9 @@ function RangeSelector({
       aria-valuemin={0}
       aria-valuemax={last}
       aria-valuenow={i}
-      className="absolute top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-full active:cursor-grabbing"
+      // A finger needs more than the 20px disc: on touch screens an invisible
+      // ::before extends the grab area to ~40px without changing the look.
+      className="absolute top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none items-center justify-center rounded-full active:cursor-grabbing pointer-coarse:before:absolute pointer-coarse:before:-inset-2.5 pointer-coarse:before:content-['']"
       style={{
         left: `${pct(i)}%`,
         background: 'var(--bg-card)',
@@ -252,7 +256,7 @@ function RangeSelector({
         boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
       }}
     >
-      <span className="text-[9px] font-bold" style={{ color: accent }}>
+      <span className="text-[10px] font-bold sm:text-[9px]" style={{ color: accent }}>
         {which === 'a' ? 'A' : 'B'}
       </span>
     </button>
@@ -294,17 +298,28 @@ function RangeSelector({
 // ────────────────────────────────────────────────────────────────────────────
 
 function StatTile({ label, value, color }: { label: string; value: string; color: string }) {
+  // Three-up on a 360px phone a tile is ~78px, too narrow for "−$42.9M" even
+  // at 16px, so on a phone the value is fitted to the tile instead of
+  // running past its border. Desktop keeps the plain element it always had.
+  const isMobile = useIsMobile();
   return (
     <div
-      className="rounded-xl px-3 py-2"
+      className="min-w-0 rounded-xl px-2.5 py-2 sm:px-3"
       style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
     >
       <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
         {label}
       </div>
-      <div className="font-mono text-lg font-bold" style={{ color }}>
-        {value}
-      </div>
+      {/* On a phone 16px, never wrapped (at 18px it broke after the minus). */}
+      {isMobile ? (
+        <AutoFitValue className="font-mono text-base font-bold" style={{ color }} minScale={0.7}>
+          {value}
+        </AutoFitValue>
+      ) : (
+        <div className="whitespace-nowrap font-mono text-base font-bold sm:text-lg" style={{ color }}>
+          {value}
+        </div>
+      )}
     </div>
   );
 }
@@ -700,7 +715,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
 
       {/* ── legend + lens ──────────────────────────────────────────────── */}
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-4 rounded-sm" style={{ background: bear }} /> removed / more short-γ
           </span>
@@ -721,9 +736,9 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
         className="mb-1 flex items-center gap-2 px-2 text-[10px] font-semibold uppercase tracking-wide"
         style={{ color: 'var(--text-muted)' }}
       >
-        <div className="w-16 shrink-0 text-right">Strike</div>
-        <div className="flex-1 text-center">← removed · added →</div>
-        <div className="w-20 shrink-0 text-right">Change</div>
+        <div className="w-12 shrink-0 text-right sm:w-16">Strike</div>
+        <div className="flex-1 whitespace-nowrap text-center">← removed · added →</div>
+        <div className="w-[68px] shrink-0 text-right sm:w-20">Change</div>
       </div>
 
       <Ladder
@@ -900,8 +915,9 @@ function Ladder({
           <div key={r.strike}>
             {showSpotAbove && <SpotDivider spot={spot} accent={accent} />}
             <div className="group flex items-center gap-2 py-[3px]" title={tooltipFor(r, scale, lens)}>
-              {/* strike label */}
-              <div className="w-16 shrink-0 text-right">
+              {/* strike label — narrower on a phone, where the wall tag is
+                  hidden anyway, so the bar track keeps its width */}
+              <div className="w-12 shrink-0 text-right sm:w-16">
                 <span
                   className="font-mono text-xs font-semibold"
                   style={{ color: label ? label.color : 'var(--text-secondary)' }}
@@ -929,7 +945,7 @@ function Ladder({
                 />
               </div>
               {/* value */}
-              <div className="w-20 shrink-0 text-right">
+              <div className="w-[68px] shrink-0 text-right sm:w-20">
                 <span className="font-mono text-[11px]" style={{ color: pos ? bull : bear }}>
                   {fmtSigned(v)}
                 </span>
@@ -945,11 +961,11 @@ function Ladder({
 function SpotDivider({ spot, accent }: { spot: number; accent: string }) {
   return (
     <div className="flex items-center gap-2 py-1">
-      <div className="w-16 shrink-0" />
+      <div className="w-12 shrink-0 sm:w-16" />
       <div className="relative h-0 flex-1">
         <div className="absolute inset-x-0 top-0 border-t border-dashed" style={{ borderColor: accent, opacity: 0.7 }} />
       </div>
-      <div className="w-20 shrink-0 text-right">
+      <div className="w-[68px] shrink-0 text-right sm:w-20">
         <span className="font-mono text-[10px] font-bold" style={{ color: accent }}>
           spot {fmtStrike(spot)}
         </span>

@@ -56,7 +56,7 @@ export default function IndicatorPageShell({
 
       <LandingHeader />
 
-      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
+      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: 'var(--ind-main-pad)', width: '100%' }}>
         {children}
       </main>
 

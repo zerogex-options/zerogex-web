@@ -72,27 +72,54 @@ Each aborts the whole run rather than sending something wrong.
 
 ### Why "or the session before"
 
-Measured against the live API, the GEX summary tracks regular hours: the last
-stamp of a session lands around 15:59 ET. Whether a snapshot exists before the
-open varies, so a Monday digest may legitimately be built on Friday's close —
-that is what a pre-open positioning map *is*, since until the new session
-trades there is no newer chain to compute from.
+**Measured on the first live send, 2026-09-22 08:48 ET.** The six tickers do
+not agree before the open, and the split is structural:
 
-The guard therefore accepts either, and reports which. A `prior-session`
-digest says so in the body ("Computed from the previous session's closing
-options chain") and stamps the snapshot's own ET instant. Demanding the
-current date would have aborted every send; not labelling it would have read
-as staleness to the first person who cross-checked against the page.
+| | Snapshot at 08:48 ET | Why |
+| --- | --- | --- |
+| SPY, QQQ | that morning, 1-2 min old | ETF options trade pre-market |
+| SPX, NDX | previous close, 15:59 ET | index options do not refresh pre-open in this pipeline |
+| ES, NQ | previous close, 15:59 ET | derived from SPX / NDX, so they inherit it |
+
+So the guard has to accept either session, and the digest has to say which
+each row came from. Demanding the current date would abort every send;
+forcing one timestamp onto all six would either drop the fresh rows or
+mislabel them.
+
+THE FIRST VERSION DID DROP THEM. An anchor rule required every row to match
+the primary's session, which sounds right and is exactly backwards before the
+open: an SPX-led digest dropped SPY and QQQ for being NEWER than the anchor,
+and a SPY-led one dropped four of six. Two subscribers on the same morning
+received materially different emails. Every row now carries its own short
+stamp instead ("8:48 AM" for the session being named, "Mon 3:59 PM" for an
+earlier one), and a mixed digest opens by explaining the split rather than
+hiding it.
 
 ## Partial data
 
-One email carries **one snapshot date**. A ticker whose snapshot is from a
-different session is dropped from the table and named ("Not included this
-morning"). The page can flag a lagging symbol with a badge; an email has no
-badge to read and no page to refresh, so the only safe version is to omit it.
+Every ticker that passed the freshness guard is printed, stamped with its own
+time. Only a ticker with **no usable snapshot at all** is dropped, and it is
+named ("Not included this morning").
+
+An unresolved gamma flip is marked `*` and footnoted, linking `/methodology` —
+which already commits to the policy: "when the option chain is too degraded
+for the flip resolver to find a qualifying crossing, ZeroGEX reports the flip
+as unresolved ... rather than fabricating an edge value". A bare em dash reads
+as an outage; the asterisk says the number was withheld on purpose.
 
 If the subscriber's *chosen* ticker has no usable snapshot, they receive the
 SPX-led digest instead of nothing. If SPX itself has none, the run aborts.
+
+## The reading list
+
+Every digest ends with five public, no-account links: `/methodology`,
+`/education/how-to-read-a-gamma-flip`, `/education/gamma-walls-explained`,
+`/scorecard` and `/tradingview-indicator`. Defined in one place
+(`FOOTER_LINKS` in core/dailyLevelsDigest.ts) and asserted public by test.
+
+`/scorecard` is there deliberately: the September Search Console review found
+it had "no entry point at all: dated permalinks, no sidebar entry, no inbound
+link", and a daily email to engaged readers is the best inbound link it gets.
 
 ## Double opt-in
 

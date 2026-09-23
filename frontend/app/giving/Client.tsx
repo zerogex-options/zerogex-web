@@ -69,7 +69,7 @@ function SectionHeading({ eyebrow, title, sub, color = C.amber }: {
   eyebrow: string; title: string; sub?: string; color?: string;
 }) {
   return (
-    <div style={{ textAlign: 'center', marginBottom: 56 }}>
+    <div className="mb-9 sm:mb-14" style={{ textAlign: 'center' }}>
       <div className="zg-eyebrow" style={{
         display: 'inline-block', color, marginBottom: 16,
       }}>
@@ -98,7 +98,7 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
   icon: React.ElementType; title: string; body: string; color?: string; isDark?: boolean;
 }) {
   return (
-    <div className="zg-panel" style={{ padding: '28px 24px' }}>
+    <div className="zg-panel zg-lcard">
       <Icon size={24} strokeWidth={1.75} style={{ color, marginBottom: 16 }} />
       <div style={{ fontSize: 16, fontWeight: 700, color: C.light, marginBottom: 8 }}>{title}</div>
       <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.65 }}>{body}</div>
@@ -111,7 +111,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: React.ReactNode; isDar
   const [open, setOpen] = useState(false);
   return (
     <div style={{
-      border: `1px solid ${open ? C.amber + '40' : C.border}`,
+      border: `1px solid ${open ? `color-mix(in srgb, ${C.amber} 25%, transparent)` : C.border}`,
       borderRadius: 14, overflow: 'hidden',
       transition: 'border-color 0.2s',
     }}>
@@ -119,7 +119,9 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: React.ReactNode; isDar
         onClick={() => setOpen(!open)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px', background: open ? `${C.amber}08` : (isDark ? `${C.card}99` : 'var(--bg-card)'),
+          padding: '20px 24px', background: open
+            ? `color-mix(in srgb, ${C.amber} 3%, transparent)`
+            : (isDark ? `color-mix(in srgb, ${C.card} 60%, transparent)` : 'var(--bg-card)'),
           border: 'none', cursor: 'pointer', textAlign: 'left', gap: 16,
           transition: 'background 0.2s',
         }}
@@ -130,7 +132,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: React.ReactNode; isDar
           : <ChevronDown size={18} style={{ color: C.muted, flexShrink: 0 }} />}
       </button>
       {open && (
-        <div style={{ padding: '0 24px 20px', background: `${C.amber}06` }}>
+        <div style={{ padding: '0 24px 20px', background: `color-mix(in srgb, ${C.amber} 2%, transparent)` }}>
           <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.75, margin: 0 }}>{a}</p>
         </div>
       )}
@@ -154,16 +156,16 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       <LandingHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section style={{
+      <section className="px-4 pt-24 pb-14 sm:px-6 sm:pt-[120px] sm:pb-20" style={{
         minHeight: '60vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '120px 24px 80px', position: 'relative', overflow: 'hidden',
+        position: 'relative', overflow: 'hidden',
       }}>
         <div style={{
           position: 'absolute', top: '40%', left: '50%',
           transform: 'translate(-50%,-50%)',
           width: 800, height: 500,
-          background: `radial-gradient(ellipse, ${C.amber}14 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse, color-mix(in srgb, ${C.amber} 8%, transparent) 0%, transparent 70%)`,
           zIndex: 0, pointerEvents: 'none',
         }} />
 
@@ -191,7 +193,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           }}>
             {t('heroSub', { pct: DONATION_PCT })}
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="zg-lctas">
             <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{
                 padding: '14px 28px', fontSize: 15,
@@ -211,16 +213,14 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       </section>
 
       {/* ── Foundation spotlight ─────────────────────────────────────────────── */}
-      <section style={{ padding: '40px 32px 0', maxWidth: 980, margin: '0 auto' }}>
+      {/* Badge beside the copy from `sm` up; stacked above it on a phone, where
+          the 180px badge column left the copy a 60px sliver, clipped at the edge. */}
+      <section className="px-4 pt-6 sm:px-8 sm:pt-10" style={{ maxWidth: 980, margin: '0 auto' }}>
         <div
-          className="zg-panel"
+          className="zg-panel grid grid-cols-1 gap-6 p-[20px] sm:grid-cols-[minmax(180px,240px)_1fr] sm:gap-8 sm:p-[clamp(28px,4vw,44px)]"
           style={{
-            padding: 'clamp(28px, 4vw, 44px)',
             position: 'relative',
             overflow: 'hidden',
-            display: 'grid',
-            gridTemplateColumns: 'minmax(180px, 240px) 1fr',
-            gap: 32,
             alignItems: 'center',
           }}
         >
@@ -235,10 +235,10 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
 
           {/* Proud Supporter badge — official mark from the Folds of Honor partner
               kit. See assets/branding/README for source. */}
-          <div style={{
+          <div className="mx-auto w-full max-w-[200px] sm:max-w-none sm:min-h-[220px]" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: '#ffffff', border: `1px solid ${C.border}`,
-            borderRadius: 16, padding: 20, minHeight: 220,
+            borderRadius: 16, padding: 20,
           }}>
             <Image
               src="/folds-of-honor-proud-supporter.png"
@@ -270,7 +270,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       </section>
 
       {/* ── How it works ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 1200, margin: '0 auto' }}>
         <SectionHeading
           eyebrow={t('howEyebrow')}
           title={t('howTitle')}
@@ -301,13 +301,12 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       </section>
 
       {/* ── Why this matters ─────────────────────────────────────────────────── */}
-      <section style={{
-        padding: '80px 32px',
+      <section className="zg-lsec" style={{
         background: isDark
-          ? `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`
+          ? `linear-gradient(180deg, transparent 0%, color-mix(in srgb, ${C.card} 20%, transparent) 50%, transparent 100%)`
           : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 50%, transparent 100%)',
       }}>
-        <div style={{ maxWidth: 980, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 40, alignItems: 'center' }}>
+        <div style={{ maxWidth: 980, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 40, alignItems: 'center' }}>
           <div>
             <div className="zg-eyebrow" style={{
               display: 'inline-block', color: C.amber, marginBottom: 20,
@@ -328,7 +327,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             </p>
           </div>
 
-          <div className="zg-panel" style={{ padding: 28 }}>
+          <div className="zg-panel zg-pcard">
             <div style={{
               fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
               color: C.green, marginBottom: 6,
@@ -385,7 +384,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       </section>
 
       {/* ── Donate directly (QR + boilerplate) ──────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 1100, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 1100, margin: '0 auto' }}>
         <SectionHeading
           eyebrow={t('donateEyebrow')}
           title={t('donateTitle')}
@@ -393,14 +392,11 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           color={C.amber}
         />
 
-        <div className="zg-panel" style={{
-          padding: 'clamp(28px, 4vw, 44px)',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(180px, 260px) 1fr',
-          gap: 40,
-          alignItems: 'center',
-        }}>
-          <div style={{
+        <div
+          className="zg-panel grid grid-cols-1 gap-6 p-[20px] sm:grid-cols-[minmax(180px,260px)_1fr] sm:gap-10 sm:p-[clamp(28px,4vw,44px)]"
+          style={{ alignItems: 'center' }}
+        >
+          <div className="mx-auto w-full max-w-[220px] sm:max-w-none" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: '#ffffff', border: `1px solid ${C.border}`,
             borderRadius: 16, padding: 16,
@@ -441,7 +437,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 900, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 900, margin: '0 auto' }}>
         <SectionHeading
           eyebrow={t('faqEyebrow')}
           title={t('faqTitle')}
@@ -490,14 +486,14 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────────────────── */}
-      <section style={{
-        padding: '100px 32px', textAlign: 'center',
+      <section className="zg-lsec zg-lsec--cta" style={{
+        textAlign: 'center',
         position: 'relative', overflow: 'hidden',
       }}>
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
           width: 700, height: 400,
-          background: `radial-gradient(ellipse, ${C.amber}18 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse, color-mix(in srgb, ${C.amber} 9%, transparent) 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -515,7 +511,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 560, lineHeight: 1.65 }}>
             {t('ctaSub')}
           </p>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="zg-lctas" style={{ gap: 14 }}>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{
                 padding: '16px 40px', fontSize: 15,

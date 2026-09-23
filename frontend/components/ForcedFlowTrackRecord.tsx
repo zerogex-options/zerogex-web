@@ -42,7 +42,7 @@ export default function ForcedFlowTrackRecord({
 
   return (
     <div
-      className="rounded-2xl p-6"
+      className="rounded-2xl p-4 sm:p-6"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
@@ -270,7 +270,7 @@ function VariantPanel({
 function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div>
-      <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-[10px] uppercase tracking-wide sm:text-[9px] sm:tracking-wider" style={{ color: 'var(--text-muted)' }}>
         {label}
       </div>
       <div className="font-bold" style={{ color }}>

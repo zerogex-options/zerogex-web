@@ -81,15 +81,56 @@ test('the subject degrades instead of printing a dash where a level should be', 
   assert.ok(!m.subject.includes('—'));
 });
 
-test('one email carries one snapshot date — an off-session ticker is dropped and named', () => {
-  // NQ lagging a session behind must not sit in the table looking current.
+test('a fresher ticker is kept and stamped, not dropped — regression, live data', () => {
+  // 2026-09-22 08:48 ET, production: SPY and QQQ had refreshed pre-market
+  // while SPX/NDX/ES/NQ still carried Monday's close. The original anchor rule
+  // required every row to match the PRIMARY's session, so an SPX-led digest
+  // dropped SPY and QQQ for being NEWER than the anchor, and a SPY-led one
+  // dropped four of six. Two subscribers on the same morning got materially
+  // different emails, every trading day.
   const mixed = [
-    ...['SPX', 'SPY', 'QQQ', 'NDX', 'ES'].map((s) => snap(s, FRI_CLOSE)),
-    snap('NQ', '2026-09-17T19:59:00+00:00'), // Thursday
+    snap('SPX', FRI_CLOSE), snap('NDX', FRI_CLOSE), snap('ES', FRI_CLOSE), snap('NQ', FRI_CLOSE),
+    snap('SPY', MON_MORNING), snap('QQQ', MON_MORNING),
   ];
-  const m = buildDigestModel({ snapshots: mixed, sessionDate: SESSION, basis: 'prior-session' })!;
-  assert.deepEqual(m.rows.map((r) => r.symbol), ['SPX', 'SPY', 'QQQ', 'NDX', 'ES']);
-  assert.deepEqual(m.omitted, ['NQ']);
+  const m = buildDigestModel({ snapshots: mixed, sessionDate: SESSION, basis: 'prior-session', primary: 'SPX' })!;
+  assert.equal(m.rows.length, 6, 'every ticker with a snapshot must be printed');
+  assert.deepEqual(m.omitted, [], 'nothing is dropped for disagreeing about the session');
+
+  // And a SPY subscriber gets all six too, not just the two fresh ones.
+  const spyLed = buildDigestModel({ snapshots: mixed, sessionDate: SESSION, basis: 'current-session', primary: 'SPY' })!;
+  assert.equal(spyLed.rows.length, 6);
+  assert.equal(spyLed.rows[0].symbol, 'SPY');
+});
+
+test('each row is stamped with its own session, in a form that distinguishes them', () => {
+  const mixed = [snap('SPX', FRI_CLOSE), snap('SPY', MON_MORNING)];
+  const m = buildDigestModel({ snapshots: mixed, sessionDate: SESSION, basis: 'prior-session', primary: 'SPX' })!;
+  const bySym = Object.fromEntries(m.rows.map((r) => [r.symbol, r]));
+  // From the session being named: time only, because the day is not in doubt.
+  assert.match(bySym.SPY.asOf, /^\d{1,2}:\d{2} (AM|PM)$/);
+  // From an earlier session: the weekday leads, so it cannot be misread.
+  assert.match(bySym.SPX.asOf, /^(Mon|Tue|Wed|Thu|Fri) \d{1,2}:\d{2} (AM|PM)$/);
+  assert.equal(bySym.SPX.sessionDate, '2026-09-18');
+  assert.equal(bySym.SPY.sessionDate, '2026-09-21');
+});
+
+test('a mixed-session digest explains why the rows disagree', () => {
+  const mixed = [snap('SPX', FRI_CLOSE), snap('SPY', MON_MORNING)];
+  const m = buildDigestModel({ snapshots: mixed, sessionDate: SESSION, basis: 'prior-session', primary: 'SPX' })!;
+  const { text, html } = render(m);
+  for (const body of [text, html]) {
+    assert.match(body, /do not trade pre-market/);
+    assert.match(body, /stamped with its own snapshot time/);
+  }
+  // The single-session wording must NOT also appear — it would contradict.
+  assert.ok(!text.includes("previous session's closing options chain"));
+});
+
+test('a single-session digest keeps the simple provenance line', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const { text } = render(m);
+  assert.match(text, /previous session/);
+  assert.ok(!text.includes('do not trade pre-market'));
 });
 
 test('a symbol with no snapshot at all is omitted, not rendered empty', () => {
@@ -195,7 +236,7 @@ test('a missing level pastes as 0, never as an em dash — regression, live data
   }
   // The readable table still reports the level as absent rather than as zero:
   // "flip 0" would be a false statement about the market.
-  assert.match(text, /NDX {2}spot .* flip —/);
+  assert.match(text, /NDX\s+\S.*spot .* flip —/);
 });
 
 test('the zero note appears only when a level actually fell back to 0', () => {
@@ -227,7 +268,7 @@ test('the trial mention is one line at the foot, never the subject', () => {
   const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
   const { subject, text } = render(m);
   assert.ok(!/trial/i.test(subject));
-  assert.equal((text.match(/7-day trial/gi) ?? []).length, 1);
+  assert.equal((text.match(/7-day free trial/gi) ?? []).length, 1);
 });
 
 test('html output escapes rather than interpolating raw values', () => {
@@ -275,7 +316,7 @@ test("a QQQ subscriber's digest leads with QQQ everywhere it matters", () => {
 
   const { text, html } = render(m);
   // First data row of the table, and first line of the paste block.
-  assert.match(text, /\nQQQ {2}spot/);
+  assert.match(text, /\nQQQ\s+\S.*spot/);
   assert.match(text, /Gamma Flip \/ Call Wall \/ Put Wall \/ Max Pain\):\nQQQ: flip/);
   // The other five are still there — the choice reorders, it does not filter.
   for (const s of ['SPX', 'SPY', 'NDX', 'ES', 'NQ']) assert.match(text, new RegExp(`${s}: flip`));
@@ -305,7 +346,7 @@ test('the digest still reads correctly with images blocked', () => {
   const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', primary: 'SPY' })!;
   const { text } = render(m);
   assert.ok(!text.includes('<img'));
-  assert.match(text, /SPY {2}spot .* flip .* call wall .* put wall/);
+  assert.match(text, /SPY\s+\S.*spot .* flip .* call wall .* put wall/);
   assert.match(text, /SPY: flip/);
 });
 
@@ -329,4 +370,132 @@ test('a chosen symbol with no snapshot yields no model — the caller substitute
   const fallback = buildDigestModel({ snapshots: withoutNq, sessionDate: SESSION, basis: 'prior-session', primary: 'SPX' })!;
   assert.equal(fallback.rows[0].symbol, 'SPX');
   assert.deepEqual(fallback.omitted, ['NQ']);
+});
+
+// ── Unresolved flip, and the reading list ───────────────────────────────────
+
+test('an unresolved flip is asterisked and explained, not left as a bare dash', () => {
+  // A blank reads as a data outage. "We refused to print a number we cannot
+  // stand behind" is a reason to trust the other five columns more, and it is
+  // what content/methodology.md already commits to.
+  const m = buildDigestModel({
+    snapshots: [snap('SPX', FRI_CLOSE), snap('NDX', FRI_CLOSE, { gamma_flip: null })],
+    sessionDate: SESSION, basis: 'prior-session',
+  })!;
+  assert.equal(m.rows.find((r) => r.symbol === 'NDX')!.flipUnresolved, true);
+  assert.equal(m.rows.find((r) => r.symbol === 'SPX')!.flipUnresolved, false);
+
+  const { text, html } = render(m);
+  for (const body of [text, html]) {
+    assert.match(body, /Gamma flip unresolved/);
+    assert.match(body, /no qualifying zero-crossing/);
+    assert.match(body, /zerogex\.io\/methodology/);
+  }
+  assert.match(text, /flip —\*/);
+});
+
+test('no asterisk and no footnote when every flip resolved', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const { text, html } = render(m);
+  for (const body of [text, html]) assert.ok(!body.includes('Gamma flip unresolved'));
+  assert.ok(!text.includes('—*'));
+});
+
+test('the reading list is present in both bodies and every link is public', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const { text, html } = render(m);
+  // /scorecard is here on purpose: the Sept Search Console review found it had
+  // no inbound link anywhere, and a daily email is the best one it will get.
+  for (const path of [
+    '/methodology',
+    '/education/how-to-read-a-gamma-flip',
+    '/education/gamma-walls-explained',
+    '/scorecard',
+    '/tradingview-indicator',
+  ]) {
+    assert.match(text, new RegExp(`zerogex\\.io${path.replace(/\//g, '\\/')}`), `text missing ${path}`);
+    assert.match(html, new RegExp(`href="https://zerogex\\.io${path.replace(/\//g, '\\/')}"`), `html missing ${path}`);
+  }
+  assert.match(text, /Worth reading:/);
+  assert.match(html, /Worth reading/);
+});
+
+// ── The track-record line ──────────────────────────────────────────────────
+//
+// Optional by design. This runs in a weekday cron that mails real
+// subscribers, and it exists to carry one marketing sentence — so every
+// failure path has to end with the email going out unchanged, never with a
+// send aborting. These tests are mostly about the absence case.
+
+import {
+  summarizeForecastHistory,
+  type ForecastDateEntry,
+} from '../core/trackRecord.ts';
+
+/** 55 graded SPX sessions with the seven real misses, as on 2026-09-22. */
+function spxRecord() {
+  const misses = new Set([
+    '2026-07-06', '2026-07-07', '2026-07-08',
+    '2026-07-15', '2026-07-23', '2026-08-03', '2026-08-04',
+  ]);
+  const out: ForecastDateEntry[] = [];
+  let made = 0;
+  for (let i = 0; made < 55; i++) {
+    const d = new Date(Date.UTC(2026, 6, 6) + i * 86400000);
+    if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+    const date = d.toISOString().slice(0, 10);
+    out.push({ date, has_receipt: true, range_respected: !misses.has(date) });
+    made++;
+  }
+  return summarizeForecastHistory(out, 'SPX');
+}
+
+test('with no history passed, the digest is exactly what it was before', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  assert.equal(m.trackRecord, null);
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  assert.ok(!r.text.includes('graded sessions'), 'no track-record line in the text body');
+  assert.ok(!r.html.includes('See the record'), 'no track-record line in the html body');
+});
+
+test('with history, the line carries the FULL record and links the page', () => {
+  const m = buildDigestModel({
+    snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', history: spxRecord(),
+  })!;
+  assert.match(m.trackRecord!, /48 of 55 graded sessions/);
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  assert.match(r.text, /48 of 55 graded sessions/);
+  assert.match(r.text, /https:\/\/zerogex\.io\/track-record/);
+  assert.match(r.html, /48 of 55 graded sessions/);
+  assert.match(r.html, /See the record/);
+});
+
+test('the email never prints the rolling 29 of 29', () => {
+  const m = buildDigestModel({
+    snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', history: spxRecord(),
+  })!;
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  for (const body of [r.text, r.html]) {
+    assert.ok(!body.includes('29 of 29'), 'the rolling window must not reach the email');
+    assert.ok(!/\b100%\b/.test(body), 'no 100% claim anywhere in the email');
+  }
+});
+
+test('a thin record yields no numeric claim rather than a hollow one', () => {
+  const thin = summarizeForecastHistory(
+    [{ date: '2026-09-18', has_receipt: true, range_respected: true }],
+    'SPX',
+  );
+  const m = buildDigestModel({
+    snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session', history: thin,
+  })!;
+  assert.ok(!/\d+ of \d+/.test(m.trackRecord!), m.trackRecord!);
+  assert.match(m.trackRecord!, /Every receipt is published/);
+});
+
+test('the reading list always carries the track-record link', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io' });
+  assert.match(r.text, /zerogex\.io\/track-record/);
+  assert.match(r.html, /zerogex\.io\/track-record/);
 });

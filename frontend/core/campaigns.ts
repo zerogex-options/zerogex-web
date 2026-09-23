@@ -7,8 +7,9 @@ import type { BillingCadence } from '@/core/stripe';
 // attribution / reporting. Everything is env-driven, so launching a new
 // campaign needs no code change:
 //
-//   STRIPE_CAMPAIGN_<CODE>_MONTHLY = <stripe coupon id>
-//   STRIPE_CAMPAIGN_<CODE>_ANNUAL  = <stripe coupon id>
+//   STRIPE_CAMPAIGN_<CODE>_MONTHLY   = <stripe coupon id>
+//   STRIPE_CAMPAIGN_<CODE>_QUARTERLY = <stripe coupon id>   (optional)
+//   STRIPE_CAMPAIGN_<CODE>_ANNUAL    = <stripe coupon id>
 //
 // e.g. the card promo (50% off the first year, code TARGET):
 //   STRIPE_CAMPAIGN_TARGET_MONTHLY = <50%-off coupon, duration: repeating, 12 months>
@@ -19,7 +20,7 @@ import type { BillingCadence } from '@/core/stripe';
 // code to first-time customers / capping redemptions / expiring it is done on
 // the Stripe coupon (or its promotion code), not here.
 
-const CADENCES: readonly BillingCadence[] = ['monthly', 'annual'];
+const CADENCES: readonly BillingCadence[] = ['monthly', 'quarterly', 'annual'];
 
 function envKey(code: string, cadence: BillingCadence): string {
   return `STRIPE_CAMPAIGN_${code}_${cadence.toUpperCase()}`;

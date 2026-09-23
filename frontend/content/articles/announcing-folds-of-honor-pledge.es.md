@@ -51,7 +51,7 @@ Si alguna vez quieres ver exactamente cuánto ha donado ZeroGEX hasta la fecha, 
 
 Al suscribirte, verás una nueva línea bajo cada plan en la [página de precios](/pricing): *Incluye donación del 3% a Folds of Honor*. Después del checkout, la pantalla de confirmación muestra el importe real en dólares que tu suscripción aportó durante el ciclo de facturación actual — no un porcentaje, no una frase de marketing, la cifra real.
 
-Un suscriptor Pro mensual, por ejemplo, contribuye con 1,49 $ a Folds of Honor cada mes. La suscripción Pro anual contribuye con unos 17,97 $ por adelantado. A lo largo de toda la base de suscriptores de ZeroGEX, eso se acumula rápidamente.
+Un suscriptor Pro mensual, por ejemplo, contribuye con 1,77 $ a Folds of Honor cada mes. La suscripción Pro anual contribuye con unos 8,97 $ por adelantado. A lo largo de toda la base de suscriptores de ZeroGEX, eso se acumula rápidamente.
 
 ---
 

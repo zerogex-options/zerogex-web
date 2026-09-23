@@ -16,13 +16,10 @@ import {
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
-  getActivePromoCouponId,
   getActivePromoCouponIds,
   getCurrentPeriodEndUnix,
-  getFoundingIntroCouponId,
   getFoundingLifetimeCouponId,
   getAppUrl,
-  getManagedCadenceCouponIds,
   getOrphanPaymentRecoveryEnabled,
   getPaymentGraceDays,
   getTrialGraceEnabled,
@@ -61,6 +58,15 @@ import {
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
 import { classifyDecline, type DeclineCategory } from '@/core/declineReason';
+import { planSwitchDiscounts } from '@/core/switchDiscounts';
+import {
+  attachedCouponIds,
+  describeDiscountsParam,
+  discountsParam,
+  readAttachedDiscounts,
+  type AttachedDiscount,
+} from '@/core/subscriptionDiscounts';
+import { MONEY_BACK_GUARANTEE_DAYS } from '@/core/billingPlans';
 import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
 import {
   markDeclinesLostForInvoice,
@@ -80,6 +86,7 @@ import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
 import { buildSaveUrl } from '@/core/retentionToken';
+import { buildPayUrl } from '@/core/payLink';
 import {
   backAttributeReferral,
   getRefereeCouponId,
@@ -435,20 +442,19 @@ async function maybeApplyFoundingLifetime(
   }
 }
 
-// The coupon ids currently attached to a subscription, de-duplicated and in
-// order. Discounts on a webhook payload may be expanded coupon objects or bare
-// ids — handle both, the same shape juggling describePromoIfPresent does above.
-function subscriptionCouponIds(subscription: Stripe.Subscription): string[] {
-  type SubDiscount = { coupon?: { id?: string } | string | null };
-  const raw = ((subscription as unknown as { discounts?: SubDiscount[] }).discounts ??
-    []) as SubDiscount[];
-  const ids: string[] = [];
-  for (const d of raw) {
-    const c = d?.coupon;
-    const id = typeof c === 'string' ? c : c?.id;
-    if (id && !ids.includes(id)) ids.push(id);
+// The subscription with its discounts expanded. Event payloads (and plain
+// retrieves) list discounts as bare 'di_' ids, and a coupon reconcile that
+// cannot see the coupons on the subscription overwrites them blind — see
+// core/subscriptionDiscounts.ts. Returns the payload itself when it already
+// carries them, a fresh read otherwise, and null when that read fails (callers
+// then leave the discounts alone; a later event retries).
+async function withExpandedDiscounts(subscription: Stripe.Subscription): Promise<Stripe.Subscription | null> {
+  if (readAttachedDiscounts(subscription) !== null) return subscription;
+  try {
+    return await getStripe().subscriptions.retrieve(subscription.id, { expand: ['discounts'] });
+  } catch {
+    return null;
   }
-  return ids;
 }
 
 // When a member switches plan/cadence in the customer portal, Stripe changes the
@@ -503,71 +509,52 @@ async function maybeReconcileDiscountOnPlanSwitch(
   const newSku = priceIdToSku(newPriceId);
   if (!newSku) return;
 
-  const current = subscriptionCouponIds(subscription);
-
-  // (1) Correct promo/founding coupon for the NEW cadence (may be null).
-  let correctPrimary: string | null;
-  if (user.founding_member_started_at) {
-    // Founding is exclusive: never fall through to the public promo. Once the
-    // lifetime coupon is on, it isn't cadence-specific and validly persists —
-    // leave the subscription's discounts untouched.
-    if (user.founding_lifetime_applied_at) return;
-    correctPrimary = getFoundingIntroCouponId(newSku.tier, newSku.cadence);
-  } else {
-    correctPrimary = getActivePromoCouponId(newSku);
+  const live = await withExpandedDiscounts(subscription);
+  const attached = live ? readAttachedDiscounts(live) : null;
+  if (!live || !attached) {
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Reconcile discount on sub ${subscription.id} after switch skipped: could not read its current discounts. Left unchanged; a later event retries.`,
+    });
+    return;
   }
+  // Another plan change landed after this event; the event for it reconciles.
+  if (live.items?.data?.[0]?.price?.id !== newPriceId) return;
 
-  // (2) Referee referral coupon: cadence-specific and duration:once. If one is
-  // still on the sub it hasn't been consumed yet (Stripe drops a once-coupon
-  // after it applies), so a cadence switch must SWAP it to the new cadence's
-  // referee coupon — otherwise the 100%-off-monthly coupon rides an annual
-  // invoice as a free YEAR. We only ever carry a pending bonus across cadences;
-  // we never newly grant one here.
-  const monthlyReferee = getRefereeCouponId('monthly');
-  const annualReferee = getRefereeCouponId('annual');
-  const refereeIds = new Set([monthlyReferee, annualReferee].filter(Boolean) as string[]);
-  const hadReferee = current.some((id) => refereeIds.has(id));
-  let correctReferee: string | null = null;
-  if (hadReferee) {
-    const c = getRefereeCouponId(newSku.cadence);
-    // Misconfig guard: never let the 100%-off monthly coupon land on annual.
-    if (c && !(newSku.cadence === 'annual' && monthlyReferee && c === monthlyReferee)) {
-      correctReferee = c;
-    }
-  }
-
-  // Managed = cadence-specific promo/founding coupons ∪ referee coupons. Correct
-  // = the cadence-correct primary + referee (either may be null). Strip any
-  // managed coupon that isn't currently correct, keep everything we DON'T manage
-  // (founding lifetime, win-back, hand-applied), and ensure the correct ones
-  // are present.
-  const managed = new Set([...getManagedCadenceCouponIds(), ...refereeIds]);
-  const correctSet = new Set([correctPrimary, correctReferee].filter(Boolean) as string[]);
-
-  const stale = current.filter((id) => managed.has(id) && !correctSet.has(id));
-  const missing = [...correctSet].filter((id) => !current.includes(id));
-
+  // Which coupons are correct for the NEW plan and which of ours are stale —
+  // shared with the in-app trial upgrade (core/switchDiscounts.ts), which has to
+  // apply the same answer on the very update that charges the first invoice.
+  const plan = planSwitchDiscounts({
+    currentCouponIds: attachedCouponIds(attached),
+    newSku,
+    foundingMemberStartedAt: user.founding_member_started_at,
+    foundingLifetimeAppliedAt: user.founding_lifetime_applied_at,
+  });
+  // A founding member whose lifetime coupon is on: it isn't cadence-specific
+  // and validly persists across any switch, so the discounts are left alone.
+  if (!plan) return;
   // Nothing to do: nothing stale to strip and every correct coupon already present.
-  if (stale.length === 0 && missing.length === 0) return;
-
-  const keep = current.filter((id) => !managed.has(id) || correctSet.has(id));
-  for (const id of correctSet) if (!keep.includes(id)) keep.push(id);
+  if (!plan.changed) return;
+  const { keep, stale, managed } = plan;
+  const correctSet = new Set(plan.correct);
+  const param = discountsParam(keep, attached);
 
   try {
-    await getStripe().subscriptions.update(subscription.id, {
-      discounts: keep.map((coupon) => ({ coupon })),
-    });
+    await getStripe().subscriptions.update(subscription.id, { discounts: param });
     logAudit({
       type: 'billing_discount_reconciled_on_switch',
       userId: user.id,
       email: user.email,
       message:
         `Reconciled discounts on sub ${subscription.id} after switch to ${newSku.tier}/${newSku.cadence} ` +
-        `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied [${[...correctSet].join(', ') || 'none'}]`,
+        `(price ${newPriceId}): stripped [${stale.join(', ') || 'none'}], applied [${[...correctSet].join(', ') || 'none'}], ` +
+        `now [${describeDiscountsParam(param, attached)}]`,
     });
     // The SUBSCRIPTION now carries the right coupons. When the switch took
     // effect at a period boundary, that is one invoice too late — see below.
-    await reconcileDiscountOnOpenInvoice(subscription, user, keep, [...managed]);
+    await reconcileDiscountOnOpenInvoice(live, user, keep, managed, attached);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'reconcile discount failed';
     logAudit({
@@ -583,10 +570,12 @@ async function maybeReconcileDiscountOnPlanSwitch(
 // Apply the reconciled coupon set to the invoice the switch landed on.
 //
 // `subscriptions.update({discounts})` binds the NEXT cycle. That is fine for a
-// switch made mid-trial — the in-app upgrade path keeps the subscription
-// `trialing` on purpose, so its coupon is in place long before the trial-end
-// invoice is drawn. It is NOT fine for a switch that takes effect at the period
-// boundary itself:
+// switch made mid-trial that keeps the trial (a portal switch, or the in-app
+// trial-to-trial upgrade), so its coupon is in place long before the trial-end
+// invoice is drawn. (The in-app upgrade that ENDS the trial onto a paid plan
+// sets the reconciled discounts on that same update, so its first invoice is
+// already right and this finds nothing to fix.) It is NOT fine for a switch
+// that takes effect at the period boundary itself:
 //
 //   • The billing portal schedules every downgrade at period end
 //     (schedule_at_period_end, conditions decreasing_item_amount /
@@ -612,6 +601,7 @@ async function reconcileDiscountOnOpenInvoice(
   user: UserRow,
   keep: string[],
   managed: string[],
+  attached: readonly AttachedDiscount[],
 ): Promise<void> {
   // A switch applied while still `trialing` lands before the boundary invoice
   // exists — nothing drawn yet, so nothing to correct.
@@ -667,9 +657,7 @@ async function reconcileDiscountOnOpenInvoice(
       return;
     }
 
-    await stripe.invoices.update(invoice.id, {
-      discounts: keep.map((coupon) => ({ coupon })),
-    });
+    await stripe.invoices.update(invoice.id, { discounts: discountsParam(keep, attached) });
     logAudit({
       type: 'billing_discount_applied_to_open_invoice',
       userId: user.id,
@@ -698,21 +686,38 @@ async function reconcileDiscountOnOpenInvoice(
 // coupon carried in subscription.metadata.stack_coupon (set by the checkout
 // route); this applies it.
 //
-// Gated on `trialing`: the discount set must be finalized BEFORE the first
-// invoice. A referee coupon is duration:once, so adding it after the first
-// (trial-end) invoice would wrongly discount a later cycle instead. Every
-// referred user gets the 7-day trial, so the window always exists in practice;
-// a rare no-trial referred user (a returning churner) simply keeps the promo
-// without the stack. Idempotent: a no-op once the coupon is already present, so
-// redeliveries and the self-triggered subscription.updated from our own update
-// don't loop. Best-effort: a failure never unwinds the tier sync.
+// Two windows, depending on how the subscription started:
+//
+//   • A TRIAL (the trial plan, Basic monthly): gated on `trialing`, because the
+//     discount set must be finalized BEFORE the first invoice. A referee coupon
+//     is duration:once, so adding it after the first (trial-end) invoice would
+//     discount a later cycle instead. Idempotent: a no-op once the coupon is
+//     already present, so redeliveries and the self-triggered
+//     subscription.updated from our own update don't loop.
+//
+//   • PAID UP FRONT (every other plan, since the trial was narrowed to one
+//     plan): there is no pre-invoice window at all — the first invoice was
+//     charged at checkout, with the promo. Dropping the bonus would silently
+//     break the "a friend referred you" promise, so it is stacked as soon as the
+//     subscription is `active` and lands on the NEXT invoice instead (the
+//     second month free rather than the first).
+//
+// Either way the discounts already on the subscription (the promo) are written
+// back by their existing discount ids, so they survive with their end dates,
+// and the same update clears `stack_coupon` from the metadata — the latch that
+// makes this run exactly once. (Presence alone cannot be the latch: a
+// once-coupon disappears after it applies.)
+//
+// Best-effort: a failure never unwinds the tier sync.
 async function maybeStackReferralCoupon(
   subscription: Stripe.Subscription,
   user: UserRow,
 ): Promise<void> {
   const stackCoupon = (subscription.metadata ?? {})['stack_coupon'];
   if (!stackCoupon) return;
-  if (subscription.status !== 'trialing') return;
+  const neverTrialed = subscription.trial_end == null;
+  const paidUpFrontWindow = neverTrialed && subscription.status === 'active';
+  if (subscription.status !== 'trialing' && !paidUpFrontWindow) return;
 
   // Only stack if the coupon still matches the sub's CURRENT cadence. If the
   // member switched plans mid-trial, the reconciler swaps the referee coupon to
@@ -724,18 +729,36 @@ async function maybeStackReferralCoupon(
   const cadenceCorrectReferee = sku ? getRefereeCouponId(sku.cadence) : null;
   if (!cadenceCorrectReferee || stackCoupon !== cadenceCorrectReferee) return;
 
-  const current = subscriptionCouponIds(subscription);
-  if (current.includes(stackCoupon)) return;
+  const live = await withExpandedDiscounts(subscription);
+  const attached = live ? readAttachedDiscounts(live) : null;
+  if (!live || !attached) {
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Stack referee coupon ${stackCoupon} onto sub ${subscription.id} skipped: could not read its current discounts. A later event retries.`,
+    });
+    return;
+  }
+  // A concurrent delivery already applied it and cleared the latch.
+  if ((live.metadata ?? {})['stack_coupon'] !== stackCoupon) return;
+  const current = attachedCouponIds(attached);
+  const alreadyOn = current.includes(stackCoupon);
 
   try {
     await getStripe().subscriptions.update(subscription.id, {
-      discounts: [...current, stackCoupon].map((coupon) => ({ coupon })),
+      ...(alreadyOn ? {} : { discounts: discountsParam([...current, stackCoupon], attached) }),
+      // Clear the latch in the same write (an empty string deletes a metadata
+      // key) so the bonus is applied exactly once.
+      metadata: { stack_coupon: '' },
     });
     logAudit({
       type: 'referral_coupon_stacked',
       userId: user.id,
       email: user.email,
-      message: `Stacked referee coupon ${stackCoupon} onto sub ${subscription.id} on top of [${current.join(', ') || 'none'}]`,
+      message: paidUpFrontWindow
+        ? `Stacked referee coupon ${stackCoupon} onto paid-up-front sub ${subscription.id} on top of [${current.join(', ') || 'none'}]; applies to the next invoice`
+        : `Stacked referee coupon ${stackCoupon} onto sub ${subscription.id} on top of [${current.join(', ') || 'none'}]`,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'stack referral coupon failed';
@@ -1402,6 +1425,20 @@ async function maybeProcessReferral(user: UserRow, subscription: Stripe.Subscrip
 // claims together guarantee at most one welcome / welcome-back per
 // signup, regardless of redelivery, retries, or which lifecycle event
 // arrives first.
+// Whether the invoice that started this subscription charged anything — the
+// latest invoice, read at the first welcome sync. False when it was $0 or could
+// not be read (the welcome then quotes no refund deadline, never a wrong one).
+async function firstInvoiceTookMoney(subscription: Stripe.Subscription): Promise<boolean> {
+  const latest = subscription.latest_invoice;
+  try {
+    const invoice =
+      typeof latest === 'string' ? await getStripe().invoices.retrieve(latest) : (latest ?? null);
+    return !!invoice && invoice.status === 'paid' && (invoice.amount_paid ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function maybeSendPaidWelcomeEmail(
   user: UserRow,
   subscription: Stripe.Subscription,
@@ -1446,12 +1483,34 @@ async function maybeSendPaidWelcomeEmail(
         : null;
     // Promo only meaningful on the non-founding path — founding has its own
     // (richer) intro discount and that email already speaks to it.
-    const promoIntroLabel = isFounding ? null : describePromoIfPresent(subscription);
+    // The payload lists discounts as bare ids; read them expanded so the promo
+    // (and its duration) is actually visible.
+    const promoIntroLabel = isFounding
+      ? null
+      : describePromoIfPresent((await withExpandedDiscounts(subscription)) ?? subscription);
+    // A plan paid up front under the 7-day money-back guarantee (stamped by
+    // checkout): the welcome restates it with the exact deadline. Anchored on
+    // the subscription's start, which for a no-trial purchase is the moment it
+    // was bought — a few seconds before the payment cleared, so the date quoted
+    // can only ever be marginally earlier than the one the refund flow honors,
+    // never later. Only when that purchase actually took money: after a free
+    // first period (a referral month, a 100%-off code) the window runs from
+    // the first real charge instead, so no date is quoted at all.
+    const moneyBackUntilIso =
+      trialEndIso === null &&
+      subMetadata.money_back === '1' &&
+      subscription.status === 'active' &&
+      (await firstInvoiceTookMoney(subscription))
+        ? new Date(
+            ((typeof subscription.start_date === 'number' ? subscription.start_date * 1000 : Date.now()) +
+              MONEY_BACK_GUARANTEE_DAYS * 86_400_000),
+          ).toISOString()
+        : null;
     try {
       if (isFounding) {
         await sendFoundingWelcomeEmail(user.email, { trialEndIso });
       } else {
-        await sendPaidWelcomeEmail(user.email, { trialEndIso, trialDays, promoIntroLabel });
+        await sendPaidWelcomeEmail(user.email, { trialEndIso, trialDays, promoIntroLabel, moneyBackUntilIso });
       }
       logAudit({
         type: 'paid_welcome_email_sent',
@@ -1965,6 +2024,11 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     priceMapsToPaidTier: priceId ? priceIdToTier(priceId) !== null : false,
     coveredPeriodEndUnix: periodEndUnix,
     nowUnix: Math.floor(Date.now() / 1000),
+    // A guarantee refund cancels on purpose; its leftover payment is a refund
+    // to finish, never a plan to restore.
+    moneyBackRequested: subscriptionId
+      ? !!getDb().prepare('SELECT 1 AS hit FROM money_back_refunds WHERE subscription_id = ? LIMIT 1').get(subscriptionId)
+      : false,
   });
 
   if (decision.kind === 'none') return;
@@ -2288,7 +2352,13 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   // retries and is deleted, any pending recovery email must NOT survive to
   // fire on a later resubscribe — that return should read as a welcome-back,
   // not a spurious "your payment went through."
-  getDb()
+  //
+  // Only when the row still points at THIS subscription (or at none). The
+  // ordering guard compares events per subscription, so a deletion delivered
+  // late — Stripe retrying an event that failed during a deploy restart — for
+  // a subscription the member has since replaced (bought again after a
+  // money-back refund, or a recovery re-created it) must not clear the new one.
+  const cleared = getDb()
     .prepare(
       `UPDATE users SET
          tier = 'public',
@@ -2304,9 +2374,20 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          payment_grace_started_at = NULL,
          payment_grace_reason = NULL,
          updated_at = ?
-       WHERE id = ?`,
+       WHERE id = ? AND (stripe_subscription_id IS NULL OR stripe_subscription_id = ?)`,
     )
-    .run(subscription.status, nowIso(), user.id);
+    .run(subscription.status, nowIso(), user.id, subscription.id) as { changes: number | bigint };
+  if (Number(cleared.changes) === 0) {
+    logAudit({
+      type: 'stripe_subscription_deleted_superseded',
+      userId: user.id,
+      email: user.email,
+      message: `Subscription ${subscription.id} ended, but the member is now on ${user.stripe_subscription_id}; their current subscription was left untouched`,
+    });
+    // The old subscription's leftover invoices are still its own business.
+    await reconcileOpenInvoicesOnCancel(subscription, user);
+    return;
+  }
 
   // Carry the cancellation survey (if any) onto the terminal churn row too, so a
   // sub that lapses without a preceding cancel-click still records its "why".
@@ -2793,19 +2874,28 @@ export async function POST(request: NextRequest) {
             // the same fallback this branch had before the check was hoisted.
             const trialConversionEmail = trialConversion === true;
 
+            // Our signed /pay link for this invoice (core/payLink.ts): one click
+            // to Stripe's payment page without a Stripe URL in the email, which
+            // is what spam filters read as phishing. A missing signing secret
+            // must not cost the member the email, so it falls back to the
+            // account page, whose billing portal lists the same invoice.
+            let payUrl: string | null = null;
+            try {
+              payUrl = invoice.id ? buildPayUrl(getAppUrl(), invoice.id) : null;
+            } catch {
+              payUrl = null;
+            }
+
             const failedEmailArgs = {
               amountFormatted,
               cardBrand: card?.brand ?? null,
               cardLast4: card?.last4 ?? null,
               nextAttemptIso,
               graceUntilIso,
-              // Both were already in scope and neither was being passed. The
-              // category is what stops us telling a member with an empty
-              // account to fix a card that works; the hosted invoice page is
-              // the only link in the email that can actually collect the money,
-              // from any card, the moment they have it.
+              // The category is what stops us telling a member with an empty
+              // account to fix a card that works.
               declineCategory,
-              hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+              payUrl,
             };
             try {
               if (trialConversionEmail) {

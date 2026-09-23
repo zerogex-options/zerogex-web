@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useMemo, useState } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   CartesianGrid,
   Line,
@@ -97,6 +98,9 @@ const TICK_STEPS_MS = [
   2 * 60 * 60_000,
 ];
 const MAX_TICK_INTERVALS = 8;
+// A phone plot is ~290px: eight clock labels touch, five breathe (and let a
+// 1H window keep quarter-hour ticks).
+const MAX_TICK_INTERVALS_PHONE = 5;
 
 function etMillisOfDay(ms: number): number {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -110,11 +114,11 @@ function etMillisOfDay(ms: number): number {
   return ((get('hour') * 60 + get('minute')) * 60 + get('second')) * 1000 + (((ms % 1000) + 1000) % 1000);
 }
 
-function buildTimeTicks(min: number, max: number): number[] {
+function buildTimeTicks(min: number, max: number, maxIntervals = MAX_TICK_INTERVALS): number[] {
   const span = max - min;
   if (!(span > 0)) return [min];
   const step =
-    TICK_STEPS_MS.find((s) => span / s <= MAX_TICK_INTERVALS) ?? TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
+    TICK_STEPS_MS.find((s) => span / s <= maxIntervals) ?? TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
   const into = etMillisOfDay(min) % step;
   const first = into === 0 ? min : min + (step - into);
   const ticks: number[] = [];
@@ -149,10 +153,15 @@ function IntradayBiasChartImpl({ history, currentBias }: Props) {
     return filtered.map((row) => ({ ts: Date.parse(row.timestamp), bias: row.biasScore, row }));
   }, [history, win]);
 
+  const isMobile = useIsMobile();
   const xTicks = useMemo(() => {
     if (data.length === 0) return [];
-    return buildTimeTicks(data[0].ts, data[data.length - 1].ts);
-  }, [data]);
+    return buildTimeTicks(
+      data[0].ts,
+      data[data.length - 1].ts,
+      isMobile ? MAX_TICK_INTERVALS_PHONE : MAX_TICK_INTERVALS,
+    );
+  }, [data, isMobile]);
 
   const dateMarkerTicks = useMemo(() => {
     const set = new Set<number>();
@@ -182,7 +191,7 @@ function IntradayBiasChartImpl({ history, currentBias }: Props) {
     const date = dateMarkerTicks.has(value) ? formatAxisDate(value) : null;
     return (
       <g transform={`translate(${x},${y})`}>
-        <text dy={12} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={11}>
+        <text dy={12} textAnchor="middle" fill="var(--color-text-secondary)" fontSize={isMobile ? 10 : 11}>
           {time}
         </text>
         {date ? (
@@ -232,11 +241,11 @@ function IntradayBiasChartImpl({ history, currentBias }: Props) {
         )}
       </div>
       <div
-        className="rounded-xl border p-3"
-        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)', height: 320 }}
+        className="h-[288px] rounded-xl border p-2 sm:h-[320px] sm:p-3"
+        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 16, bottom: 16, left: 8 }}>
+          <LineChart data={data} margin={isMobile ? { top: 8, right: 12, bottom: 8, left: 0 } : { top: 8, right: 16, bottom: 16, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
             <XAxis
               dataKey="ts"
@@ -251,9 +260,9 @@ function IntradayBiasChartImpl({ history, currentBias }: Props) {
             <YAxis
               domain={[-100, 100]}
               ticks={[-100, -50, 0, 50, 100]}
-              tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+              tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 11 }}
               stroke="var(--color-border)"
-              width={40}
+              width={isMobile ? 34 : 40}
             />
             {/* Bullish zone above the 0-line, bearish below. */}
             <ReferenceArea y1={0} y2={100} fill="var(--color-bull)" fillOpacity={0.1} />
@@ -302,7 +311,7 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
           key={o}
           type="button"
           onClick={() => onChange(o)}
-          className={`rounded-md border px-2 py-1 ${value === o ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
+          className={`rounded-md border px-3 py-2 sm:px-2 sm:py-1 ${value === o ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
           style={{
             borderColor: 'var(--color-border)',
             background: value === o ? 'var(--color-surface-elevated)' : 'transparent',

@@ -157,7 +157,7 @@ export default function MarketPressurePage() {
                 <>
                   <span
                     className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide"
-                    style={{ background: `${accentColor}1f`, color: accentColor }}
+                    style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor }}
                   >
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
                     {humanize(signalStr)}
@@ -447,14 +447,16 @@ function HalfCircleGauge({ value, color, label }: { value: number | null; color:
           />
         )}
         <circle cx={cx} cy={cy} r={4} fill={color} />
-        <text x={cx - radius} y={cy + 14} fontSize={9} fill="var(--color-text-secondary)" textAnchor="middle">0</text>
-        <text x={cx + radius} y={cy + 14} fontSize={9} fill="var(--color-text-secondary)" textAnchor="middle">100</text>
+        {/* 9px on desktop; the class lifts it to the 10px floor on a phone
+            (CSS font-size wins over the presentation attribute). */}
+        <text x={cx - radius} y={cy + 14} fontSize={9} className="text-[10px] sm:text-[9px]" fill="var(--color-text-secondary)" textAnchor="middle">0</text>
+        <text x={cx + radius} y={cy + 14} fontSize={9} className="text-[10px] sm:text-[9px]" fill="var(--color-text-secondary)" textAnchor="middle">100</text>
       </svg>
       <div className="-mt-3 text-center">
         <div className="text-2xl font-black leading-none" style={{ color }}>
           {value != null ? value.toFixed(1) : '—'}
         </div>
-        <div className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `${color}1f`, color }}>
+        <div className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
           {label}
         </div>
       </div>

@@ -339,23 +339,29 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
   );
 }
 
-// Two-letter rail tag drawn at the left edge of a level row. Colored glyph on a
-// faint same-color fill (like LevelChip) so it stays legible in every theme —
-// a solid fill with --text-inverse went white-on-amber in light palettes.
+// Two-letter rail tag drawn at the left edge of a level row.
+//
+// The glyph is --text-primary. A solid fill with --text-inverse came before it
+// and went white-on-amber in light palettes; the colored-glyph-on-a-wash that
+// replaced it was no better, clearing 4.5:1 in only 41 of the 120 palette/level
+// combinations and bottoming out at 1.91:1 — and a code you cannot read defeats
+// the reason these are two letters rather than one. The wash and the 55% border
+// still carry the level's colour.
 function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
   return (
     <span
       title={meta.label}
-      className="inline-flex items-center justify-center font-mono"
+      // 8px on desktop; a step up on a phone, where the ladders are the
+      // whole screen width and these codes are the only level labels.
+      className="inline-flex items-center justify-center font-mono text-[8px] max-sm:text-[9px]"
       style={{
         minWidth: 15,
         height: 12,
         padding: "0 2px",
-        fontSize: 8,
         fontWeight: 800,
         letterSpacing: "0.02em",
         borderRadius: 2,
-        color: meta.color,
+        color: "var(--text-primary)",
         background: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
         border: `1px solid color-mix(in srgb, ${meta.color} 55%, transparent)`,
         flex: "0 0 auto",

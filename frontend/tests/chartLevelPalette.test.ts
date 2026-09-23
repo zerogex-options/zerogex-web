@@ -263,3 +263,161 @@ test('Wall Street keeps the live price off its call wall', () => {
       + `vs call wall ${pal['--color-bear']} is only ΔE ${d.toFixed(1)}`);
   }
 });
+
+// ── the pair view's two charts ───────────────────────────────────────────────
+// PairCandleChart and PairGammaHeatmap sit side by side and label the same five
+// levels with the same two-letter codes, so SP/GF/CW/PW/MP has to mean the same
+// colour in both. They had drifted: the candle chart still drew the flip from
+// --color-warning and max pain from --color-accent-hot, which predate the
+// dedicated --color-flip and --color-maxpain tokens. In the three palettes whose
+// hot accent IS their old gold that put GF and MP on the same hex.
+const readLevels = (rel: string, re: RegExp) => {
+  const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+  const out: Record<string, string> = {};
+  for (const m of src.matchAll(re)) out[m[1]] = m[2];
+  return out;
+};
+const candleLevels = readLevels('../components/PairCandleChart.tsx',
+  /\{\s*key:\s*"(\w+)",\s*code:\s*"\w+",\s*color:\s*"var\((--[a-z0-9-]+)\)"\s*\}/g);
+const heatmapLevels = readLevels('../components/PairGammaHeatmap.tsx',
+  /^\s{2}(\w+):\s*\{[^}]*?color:\s*"var\((--[a-z0-9-]+)\)"[^}]*?\}/gm);
+
+test('the two pair charts give a level the same colour', () => {
+  assert.equal(Object.keys(candleLevels).length, 5, 'PairCandleChart should define five levels');
+  assert.deepEqual(candleLevels, heatmapLevels,
+    'PairCandleChart and PairGammaHeatmap must map each level to the same token');
+});
+
+test('the pair-view levels are distinguishable from each other, in every theme', () => {
+  const clashes: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const entries = Object.entries(candleLevels);
+      for (let i = 0; i < entries.length; i++) {
+        for (let j = i + 1; j < entries.length; j++) {
+          const a = parse(pal[entries[i][1]]);
+          const b = parse(pal[entries[j][1]]);
+          assert.ok(a && b, `${p}: ${entries[i][1]} / ${entries[j][1]} should resolve`);
+          const d = deltaE(a, b);
+          if (d < MIN_DELTA_E) {
+            clashes.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}: `
+              + `${entries[i][0]} ${pal[entries[i][1]]} vs ${entries[j][0]} ${pal[entries[j][1]]} — ΔE ${d.toFixed(1)}`);
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(clashes, [], `pair-view level collisions:\n  ${clashes.join('\n  ')}`);
+});
+
+// ── pair-view level tags ─────────────────────────────────────────────────────
+// Both pair charts label a level with a small glyph on a faint wash of that
+// level's colour. Painting that glyph IN the level colour is what fails: at 9px
+// and 8px it cleared 4.5:1 in well under half the palette/level combinations and
+// bottomed out near 1.9:1, so the price on the candle chart's tag and the code
+// on the heatmap's rail tag were the parts you could not read. The glyph is
+// --text-primary in both now; the wash and the border still carry the colour.
+const candleSrc = readFileSync(new URL('../components/PairCandleChart.tsx', import.meta.url), 'utf8');
+const heatmapSrc = readFileSync(new URL('../components/PairGammaHeatmap.tsx', import.meta.url), 'utf8');
+
+test('pair-view level tags do not paint their text in the level colour', () => {
+  const candleTag = candleSrc.slice(candleSrc.indexOf('{LEVEL_LINES.map('));
+  const tagText = candleTag.slice(0, candleTag.indexOf('</text>'));
+  assert.match(tagText, /fill="var\(--text-primary\)"/,
+    "PairCandleChart's level tag should paint its value in --text-primary");
+  assert.doesNotMatch(tagText, /fill=\{color\}/,
+    "PairCandleChart's level tag text should not use the level colour");
+
+  const railTag = heatmapSrc.slice(heatmapSrc.indexOf('function RailTag('));
+  assert.match(railTag.slice(0, railTag.indexOf('</span>')), /color:\s*"var\(--text-primary\)"/,
+    "PairGammaHeatmap's RailTag should paint its code in --text-primary");
+});
+
+test('pair-view level tag text clears AA on its tinted chip, in every theme', () => {
+  // The chip is color-mix(in srgb, <level> N%, <card>); the candle tag uses 16%
+  // and the heatmap's rail tag 18%, so 18% is the stronger wash to check.
+  const unreadable: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const card = parse(pal['--bg-card']);
+      const ink = parse(pal['--text-primary']);
+      assert.ok(card && ink, `${p} should define --bg-card and --text-primary`);
+      for (const [, tok] of Object.entries(candleLevels)) {
+        const lvl = parse(pal[tok]);
+        assert.ok(lvl, `${p} ${tok} should resolve`);
+        for (const mix of [0.16, 0.18]) {
+          const chip = [0, 1, 2].map((i) => lvl[i] * mix + card[i] * (1 - mix)) as [number, number, number];
+          const lum = ([r, g, b]: [number, number, number]) => {
+            const f = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+            return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+          };
+          const [x, y] = [lum(ink), lum(chip)];
+          const cr = (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+          if (cr < 4.5) {
+            unreadable.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'} ${tok} `
+              + `at ${Math.round(mix * 100)}% — ${cr.toFixed(2)}:1`);
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(unreadable, [], `tag text below 4.5:1:\n  ${unreadable.join('\n  ')}`);
+});
+
+// ── gamma-chart on-plot labels ───────────────────────────────────────────────
+// The level name chips, the flip status chip and the rail bar labels all used
+// to paint their text in the level's (or the bar's) own colour, at 9.5px and
+// 8.5px, against --bg-card. That cleared 4.5:1 in 105 of 192 combinations for
+// the level chips, 12 of 24 for the flip chip and 24 of 48 for the rail labels,
+// worst 2.36:1. All three are --text-primary now; the chip borders and, for the
+// rail, the bar the label is drawn against still carry the colour.
+const terminalSrc = readFileSync(new URL('../components/GammaTerminalChart.tsx', import.meta.url), 'utf8');
+
+const between = (src: string, from: string, to: string) => {
+  const i = src.indexOf(from);
+  assert.notEqual(i, -1, `expected to find ${from}`);
+  const j = src.indexOf(to, i);
+  assert.notEqual(j, -1, `expected ${to} after ${from}`);
+  return src.slice(i, j);
+};
+
+test('the gamma chart does not paint on-plot label text in the mark colour', () => {
+  const nameChip = between(terminalSrc, '{chipPlacements.map(', '</text>');
+  assert.match(nameChip, /fill="var\(--text-primary\)"/, 'level name chips should use --text-primary');
+  assert.doesNotMatch(nameChip, /fill=\{c\.color\}/, 'level name chips should not paint text in the level colour');
+
+  const flip = between(terminalSrc, '{flipChip && (', '</text>');
+  assert.doesNotMatch(flip, /fill=\{flipChip\.color\}/, 'the flip chip should not paint text in the level colour');
+  assert.match(flip, /fill=\{flipChip\.drawn \? "var\(--text-primary\)" : "var\(--text-muted\)"\}/,
+    'the flip chip should be readable when drawn and stay muted when unresolved');
+
+  const rail = between(terminalSrc, 'function RailBarLabel(', '</text>');
+  assert.match(rail, /fill="var\(--text-primary\)"/, 'rail bar labels should use --text-primary');
+  assert.doesNotMatch(rail, /\bcolor\b\s*:\s*string/, 'RailBarLabel should no longer take a colour prop');
+});
+
+test('--text-primary is readable on the chip and plot background, in every theme', () => {
+  const weak: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const ink = parse(pal['--text-primary']);
+      for (const surface of ['--bg-card', '--bg-main']) {
+        const bg = parse(pal[surface]);
+        assert.ok(ink && bg, `${p} should define --text-primary and ${surface}`);
+        const lum = ([r, g, b]: [number, number, number]) => {
+          const f = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const [x, y] = [lum(ink), lum(bg)];
+        const cr = (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+        if (cr < 4.5) {
+          weak.push(`${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'} on ${surface} — ${cr.toFixed(2)}:1`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(weak, [], `on-plot label text below 4.5:1:\n  ${weak.join('\n  ')}`);
+});

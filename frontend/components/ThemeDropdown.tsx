@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme, Palette } from '@/core/ThemeContext';
 
-interface PaletteMeta {
+export interface PaletteMeta {
   id: Palette;
   name: string;
   swatch: string[]; // 4 hex colors for the mini swatch
   subtitle?: string;
 }
 
-const PALETTES: PaletteMeta[] = [
+// Exported for the mobile menu sheet, which lays the same list out as a row of
+// tappable swatches rather than a dropdown.
+export const PALETTES: PaletteMeta[] = [
   {
     id: 'zerogex-og',
     name: 'ZeroGEX OG',

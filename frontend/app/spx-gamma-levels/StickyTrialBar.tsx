@@ -16,10 +16,9 @@ import { readUtmParams } from '@/core/telemetry/utm';
 // Shown on all viewports but sized compactly; it matters most on mobile.
 //
 // Visibility is driven by an IntersectionObserver watching a positioned
-// sentinel rather than scroll offsets: this site scrolls on <body> (globals.css
-// pins html/body to height:100% with overflow-x:hidden, so window.scrollY stays
-// 0), and IntersectionObserver measures against the viewport regardless of
-// which element actually scrolls.
+// sentinel rather than scroll offsets: IntersectionObserver measures against
+// the viewport regardless of which element actually scrolls, so it held up
+// when this site scrolled on <body> and holds up now that the document does.
 
 const DISMISS_KEY = 'zgx.stickyTrialDismissed';
 
@@ -77,7 +76,7 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
       {visible && (
     <div
       role="region"
-      aria-label="Start free trial"
+      aria-label="Get started with ZeroGEX"
       className="zgx-sticky-trial"
       style={{
         position: 'fixed',
@@ -90,11 +89,15 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
         gap: 12,
         padding: '10px max(16px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom))',
         background: 'color-mix(in srgb, var(--color-surface) 92%, transparent)',
-        borderTop: '1px solid var(--color-brand-primary)44',
+        borderTop: '1px solid color-mix(in srgb, var(--color-brand-primary) 27%, transparent)',
         boxShadow: '0 -8px 32px rgba(0,0,0,0.28)',
       }}
     >
+      {/* The pitch line is dropped on a phone: beside the CTA it had ~120px,
+          and wrapped to six lines — a bar a fifth of the screen tall covering
+          the levels it was advertising. The button carries the message there. */}
       <p
+        className="hidden sm:block"
         style={{
           margin: 0,
           flex: 1,
@@ -114,15 +117,18 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
       <Link
         href="/register"
         onClick={() => capture(TelemetryEvent.TrialCtaClick, { location: 'sticky_bar', symbol, ...readUtmParams() })}
-        className="zg-btn zg-btn--primary"
+        className="zg-btn zg-btn--primary flex-1 sm:flex-none"
         style={{
           flexShrink: 0,
           padding: '10px 16px',
+          minHeight: 44,
           fontSize: 13.5,
           whiteSpace: 'nowrap',
         }}
       >
-        Start Free Trial <ArrowRight size={15} />
+        {/* The pitch line is hidden on a phone, so the phone label carries it. */}
+        <span className="sm:hidden">Get real-time levels</span>
+        <span className="hidden sm:inline">Get Started</span> <ArrowRight size={15} />
       </Link>
 
       <button
@@ -131,8 +137,8 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
         aria-label="Dismiss"
         style={{
           flexShrink: 0,
-          width: 32,
-          height: 32,
+          width: 40,
+          height: 40,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',

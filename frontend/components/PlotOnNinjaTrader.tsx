@@ -106,7 +106,7 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
       style={{
         border: '1px solid var(--border-default)',
         borderRadius: 18,
-        padding: '28px',
+        padding: 'var(--ind-card-pad)',
         marginBottom: 48,
         background: 'var(--color-surface)',
       }}
@@ -121,8 +121,8 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
           color: 'var(--color-brand-accent)',
-          border: '1px solid var(--color-brand-accent)44',
-          background: 'var(--color-brand-accent)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-accent) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-accent) 8%, transparent)',
           borderRadius: 999,
           padding: '5px 14px',
           marginBottom: 16,

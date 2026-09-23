@@ -22,9 +22,12 @@ interface OptionsCalendarBadgeProps {
   // right side of the viewport so it lands in the same place users are
   // already used to from the expanded header.
   mobile?: boolean;
+  // Renders the trigger as a labelled tile instead of a bare icon — used in
+  // the mobile menu sheet, where the icon alone does not say what it opens.
+  label?: string;
 }
 
-export default function OptionsCalendarBadge({ theme, compact = false, mobile = false }: OptionsCalendarBadgeProps) {
+export default function OptionsCalendarBadge({ theme, compact = false, mobile = false, label }: OptionsCalendarBadgeProps) {
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState<Date>(() => new Date());
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -75,19 +78,19 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
     <button
       type="button"
       onClick={() => setOpen((prev) => !prev)}
-      className="relative rounded-full border transition-colors"
-      style={{
+      className={label ? "zg-msheet-tool relative" : "relative rounded-full border transition-colors"}
+      style={label ? undefined : {
         borderColor: border,
         color: 'var(--text-secondary)',
         backgroundColor: "transparent",
         padding: compact ? "6px" : "9px",
         cursor: "pointer",
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`;
+      onMouseEnter={label ? undefined : (e) => {
+        e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-brand-accent) 15%, transparent)";
         e.currentTarget.style.color = 'var(--color-brand-accent)';
       }}
-      onMouseLeave={(e) => {
+      onMouseLeave={label ? undefined : (e) => {
         e.currentTarget.style.backgroundColor = "transparent";
         e.currentTarget.style.color = 'var(--text-secondary)';
       }}
@@ -98,7 +101,8 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
           : "Options calendar"
       }
     >
-      <CalendarDays size={iconSize} strokeWidth={2.2} />
+      <CalendarDays size={label ? 20 : iconSize} strokeWidth={2.2} />
+      {label && <span>{label}</span>}
       {nextEvent && nextUrgency !== "later" && (
         <span
           aria-hidden
@@ -119,7 +123,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
             justifyContent: "center",
             lineHeight: 1,
             border: `1px solid ${palette.border}`,
-            boxShadow: nextUrgency === "today" ? `0 0 10px ${'var(--color-brand-coral)'}80` : undefined,
+            boxShadow: nextUrgency === "today" ? `0 0 10px color-mix(in srgb, var(--color-brand-coral) 50%, transparent)` : undefined,
           }}
         >
           {nextUrgency === "today"

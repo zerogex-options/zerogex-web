@@ -75,7 +75,7 @@ const API_DOCS = 'https://api.zerogex.io/docs';
 const SECTION_STYLE = {
   border: '1px solid var(--border-default)',
   borderRadius: 18,
-  padding: '28px',
+  padding: 'var(--ind-card-pad)',
   marginBottom: 32,
   background: 'var(--color-surface)',
 } as const;
@@ -183,8 +183,8 @@ function FlowStep({ label, sub, muted = false }: { label: string; sub: string; m
       style={{
         flex: '1 1 150px',
         minWidth: 140,
-        border: `1px solid var(${muted ? '--border-subtle' : '--color-brand-accent'}44)`,
-        background: muted ? 'var(--color-bg)' : 'var(--color-brand-accent)0f',
+        border: `1px solid color-mix(in srgb, var(${muted ? '--border-subtle' : '--color-brand-accent'}) 27%, transparent)`,
+        background: muted ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-brand-accent) 6%, transparent)',
         borderRadius: 12,
         padding: '14px 16px',
       }}
@@ -209,8 +209,8 @@ export default function Collective2StrategyDataPage() {
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
             color: 'var(--color-brand-accent)',
-            border: '1px solid var(--color-brand-accent)44',
-            background: 'var(--color-brand-accent)14',
+            border: '1px solid color-mix(in srgb, var(--color-brand-accent) 27%, transparent)',
+            background: 'color-mix(in srgb, var(--color-brand-accent) 8%, transparent)',
             borderRadius: 999,
             padding: '5px 14px',
             marginBottom: 18,

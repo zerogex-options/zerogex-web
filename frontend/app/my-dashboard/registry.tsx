@@ -124,6 +124,13 @@ export type WidgetDef = {
   allowedSizes: WidgetSize[];
   /** Shared data feeds this widget reads from MyDashboardData (empty = self-fetches). */
   feeds: FeedKey[];
+  /**
+   * A single-number metric tile. At the S footprint these pair up two across
+   * on a phone (see .zg-w-tile in globals.css); every other widget — charts
+   * above all — takes the full phone width whatever its footprint, because a
+   * chart at half of a 390px screen is not readable.
+   */
+  tile?: boolean;
   render: () => ReactNode;
 };
 
@@ -159,6 +166,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['quote', 'sessionCloses'],
+    tile: true,
     render: () => <PriceTile />,
   },
   {
@@ -236,6 +244,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'historical'],
+    tile: true,
     render: () => <NetGexTile />,
   },
   {
@@ -248,6 +257,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <GammaFlipTile />,
   },
   {
@@ -260,6 +270,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <MaxPainTile />,
   },
   {
@@ -272,6 +283,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <CallWallTile />,
   },
   {
@@ -284,6 +296,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <PutWallTile />,
   },
   {
@@ -296,6 +309,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex'],
+    tile: true,
     render: () => <CallGexTile />,
   },
   {
@@ -308,6 +322,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex'],
+    tile: true,
     render: () => <PutGexTile />,
   },
   {
@@ -412,6 +427,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['flow'],
+    tile: true,
     render: () => <NetFlowTile />,
   },
   {
@@ -424,6 +440,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['flow'],
+    tile: true,
     render: () => <NetPremiumTile />,
   },
   {
@@ -436,6 +453,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['flow'],
+    tile: true,
     render: () => <PutCallRatioTile />,
   },
 
@@ -570,6 +588,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['vol'],
+    tile: true,
     render: () => <VixTile />,
   },
 

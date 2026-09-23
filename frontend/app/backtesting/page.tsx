@@ -2087,12 +2087,14 @@ function ProgressView({
 function EmptyState() {
   return (
     <div
-      className="rounded-xl border p-12 text-center"
+      className="rounded-xl border p-8 sm:p-12 text-center"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
     >
       <div className="text-lg font-semibold mb-1">No backtest run yet</div>
       <div className="text-sm text-[var(--color-text-secondary)]">
-        Configure a run on the left and press <span className="font-semibold">Run Backtest</span>, or re-open a
+        {/* The form sits beside this panel from `lg` up and above it below that. */}
+        Configure a run <span className="hidden lg:inline">on the left</span>
+        <span className="lg:hidden">above</span> and press <span className="font-semibold">Run Backtest</span>, or re-open a
         recent run.
       </div>
     </div>

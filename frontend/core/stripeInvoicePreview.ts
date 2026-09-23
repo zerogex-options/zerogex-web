@@ -32,9 +32,15 @@ export type InvoicePreviewOptions = {
   // Pro plan?"), rather than previewing the subscription as it stands.
   items?: Array<{ id?: string; price?: string }>;
   prorationBehavior?: 'none' | 'create_prorations' | 'always_invoice';
-  // Discounts to apply for the preview only — modelling a coupon before it is
-  // attached. An empty array explicitly previews with NO discount.
-  discounts?: Array<{ coupon: string }>;
+  // The discount set to preview with instead of the subscription's own: a
+  // coupon not yet attached, an existing discount by id, or '' for none. Pass
+  // it through core/subscriptionDiscounts.discountsParam — an empty ARRAY is
+  // dropped from the request by stripe-node, which would silently preview with
+  // the subscription's current discounts instead.
+  discounts?: '' | Array<{ coupon: string } | { discount: string }>;
+  // 'now' previews the invoice that ending a trial immediately would raise —
+  // what the in-app upgrade out of a trial charges on the spot.
+  trialEnd?: 'now';
 };
 
 type InvoicesApi = {
@@ -47,19 +53,20 @@ export async function previewNextInvoice(
   options: InvoicePreviewOptions,
 ): Promise<Stripe.Invoice> {
   const invoices = stripe.invoices as unknown as InvoicesApi;
-  const { subscription, customer, items, prorationBehavior, discounts } = options;
+  const { subscription, customer, items, prorationBehavior, discounts, trialEnd } = options;
 
   if (typeof invoices.createPreview === 'function') {
     const subscriptionDetails: Record<string, unknown> = {};
     if (items) subscriptionDetails.items = items;
     if (prorationBehavior) subscriptionDetails.proration_behavior = prorationBehavior;
+    if (trialEnd) subscriptionDetails.trial_end = trialEnd;
     return invoices.createPreview({
       subscription,
       ...(customer ? { customer } : {}),
       ...(Object.keys(subscriptionDetails).length
         ? { subscription_details: subscriptionDetails }
         : {}),
-      ...(discounts ? { discounts } : {}),
+      ...(discounts !== undefined ? { discounts } : {}),
     });
   }
 
@@ -69,8 +76,11 @@ export async function previewNextInvoice(
       ...(customer ? { customer } : {}),
       ...(items ? { subscription_items: items } : {}),
       ...(prorationBehavior ? { subscription_proration_behavior: prorationBehavior } : {}),
+      ...(trialEnd ? { subscription_trial_end: trialEnd } : {}),
       // The legacy endpoint takes a single coupon id, not a discounts array.
-      ...(discounts && discounts.length === 1 ? { coupon: discounts[0].coupon } : {}),
+      ...(Array.isArray(discounts) && discounts.length === 1 && 'coupon' in discounts[0]
+        ? { coupon: discounts[0].coupon }
+        : {}),
     });
   }
 

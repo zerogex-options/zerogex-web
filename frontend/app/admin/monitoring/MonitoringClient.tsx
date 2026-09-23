@@ -82,6 +82,16 @@ type SignupFlowPoint = {
   registrations: number;
 };
 
+type LevelsEmailFunnel = {
+  submitted: number;
+  everConfirmed: number;
+  confirmRatePct: number | null;
+  pending: number;
+  active: number;
+  unsubscribed: number;
+  bySymbol: Array<{ symbol: string; count: number }>;
+};
+
 type GrowthRatePoint = {
   days: 1 | 7 | 14 | 30;
   signups: number;
@@ -113,7 +123,7 @@ type ConversionBySourceSnapshot = {
 // is a client component and can't import the server-only monitoring types).
 type MrrBreakdownRow = {
   tier: 'basic' | 'pro';
-  cadence: 'monthly' | 'annual';
+  cadence: 'monthly' | 'quarterly' | 'annual';
   rate: 'list' | 'founding';
   state: 'active' | 'trialing';
   count: number;
@@ -264,6 +274,7 @@ type Snapshot = {
   subscriberLedger: SubscriberLedger;
   subscriberProjection: SubscriberProjection;
   conversionBySource: ConversionBySourceSnapshot;
+  levelsEmail: LevelsEmailFunnel;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -464,6 +475,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <LevelsEmailCard data={data.levelsEmail} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
@@ -1873,6 +1885,75 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
   </div>;
 }
 
+// The free daily levels email's double opt-in funnel.
+//
+// The headline is the CONFIRM RATE, because that is the one number that says
+// whether the channel is healthy: a sudden fall means the confirmation email
+// stopped arriving (spam folder, a Resend problem), which is invisible from
+// every other surface — signups keep being recorded, they just never confirm.
+//
+// "Ever confirmed" deliberately counts anyone who ever clicked, including
+// people who later unsubscribed: scoring them as an opt-in failure would
+// blame the confirmation email for a decision taken weeks afterwards.
+// "Active" is the separate question of who can be mailed today.
+function LevelsEmailCard({ data, cardBg, borderColor, mutedText, textColor }: { data: LevelsEmailFunnel; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
+  // Below this, a percentage is noise dressed as a trend — three of four
+  // confirming is 75%, and means nothing. Show the counts and say so.
+  const TOO_FEW = 20;
+  const enoughToRate = data.submitted >= TOO_FEW;
+  const rows: Array<[string, string]> = [
+    ['Submitted', String(data.submitted)],
+    ['Ever confirmed', String(data.everConfirmed)],
+    ['Pending', String(data.pending)],
+    ['Unsubscribed', String(data.unsubscribed)],
+    ['Active (send list)', String(data.active)],
+  ];
+
+  return (
+    <div className="rounded-lg border p-4" style={{ background: cardBg, borderColor }}>
+      <h3 className="text-sm font-semibold mb-1" style={{ color: textColor }}>Free levels email</h3>
+      <p className="text-xs mb-3" style={{ color: mutedText }}>Double opt-in funnel</p>
+
+      <div className="mb-3">
+        <div className="text-2xl font-semibold" style={{ color: textColor }}>
+          {data.confirmRatePct == null
+            ? '—'
+            : `${data.confirmRatePct.toFixed(enoughToRate ? 1 : 0)}%`}
+        </div>
+        <div className="text-xs" style={{ color: mutedText }}>
+          {data.confirmRatePct == null
+            ? 'no subscribers yet'
+            : enoughToRate
+              ? 'confirm rate'
+              : `confirm rate — only ${data.submitted} submitted, too few to read`}
+        </div>
+      </div>
+
+      <table className="w-full text-xs">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <td className="py-0.5" style={{ color: mutedText }}>{label}</td>
+              <td className="py-0.5 text-right tabular-nums" style={{ color: textColor }}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {data.bySymbol.length > 0 && (
+        <p className="text-xs mt-3" style={{ color: mutedText }}>
+          {data.bySymbol.map((s) => `${s.symbol} ${s.count}`).join(' · ')}
+        </p>
+      )}
+
+      <p className="text-xs mt-3" style={{ color: mutedText }}>
+        Denominator counts rows; malformed, honeypot and rate-limited attempts
+        never create one. Compare against levels_email_submitted in PostHog.
+      </p>
+    </div>
+  );
+}
+
 function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
   return (
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
@@ -1902,7 +1983,7 @@ function formatUsd(n: number, opts?: { cents?: boolean }): string {
 }
 
 const TIER_LABEL = { basic: 'Basic', pro: 'Pro' } as const;
-const CADENCE_LABEL = { monthly: 'Monthly', annual: 'Annual' } as const;
+const CADENCE_LABEL = { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual' } as const;
 const RATE_LABEL = { list: 'List', founding: 'Founding' } as const;
 const STATE_LABEL = { active: 'Active', trialing: 'Trial' } as const;
 

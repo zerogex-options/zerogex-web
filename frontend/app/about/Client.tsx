@@ -48,7 +48,7 @@ function SectionHeading({ eyebrow, title, sub, color = C.amber }: {
   eyebrow: string; title: string; sub?: string; color?: string;
 }) {
   return (
-    <div style={{ textAlign: 'center', marginBottom: 56 }}>
+    <div className="mb-9 sm:mb-14" style={{ textAlign: 'center' }}>
       <div className="zg-eyebrow" style={{ color, marginBottom: 16, fontSize: 12 }}>
         {eyebrow}
       </div>
@@ -75,7 +75,7 @@ function InfoCard({ icon: Icon, title, body, color = C.amber, isDark = true }: {
   icon: React.ElementType; title: string; body: string; color?: string; isDark?: boolean;
 }) {
   return (
-    <div className="zg-panel" style={{ padding: '28px 24px' }}>
+    <div className="zg-panel zg-lcard">
       <div style={{ marginBottom: 16 }}>
         <Icon size={24} strokeWidth={1.75} style={{ color }} />
       </div>
@@ -90,7 +90,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boole
   const [open, setOpen] = useState(false);
   return (
     <div style={{
-      border: `1px solid ${open ? C.amber + '40' : C.border}`,
+      border: `1px solid ${open ? `color-mix(in srgb, ${C.amber} 25%, transparent)` : C.border}`,
       borderRadius: 'var(--radius-panel)', overflow: 'hidden',
       transition: 'border-color 0.2s',
     }}>
@@ -98,7 +98,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boole
         onClick={() => setOpen(!open)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px', background: open ? `${C.amber}08` : (isDark ? `${C.card}99` : 'var(--bg-card)'),
+          padding: '20px 24px', background: open ? `color-mix(in srgb, ${C.amber} 3%, transparent)` : (isDark ? `color-mix(in srgb, ${C.card} 60%, transparent)` : 'var(--bg-card)'),
           border: 'none', cursor: 'pointer', textAlign: 'left', gap: 16,
           transition: 'background 0.2s',
         }}
@@ -109,7 +109,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: string; isDark?: boole
           : <ChevronDown size={18} style={{ color: C.muted, flexShrink: 0 }} />}
       </button>
       {open && (
-        <div style={{ padding: '0 24px 20px', background: `${C.amber}06` }}>
+        <div style={{ padding: '0 24px 20px', background: `color-mix(in srgb, ${C.amber} 2%, transparent)` }}>
           <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.75, margin: 0 }}>{a}</p>
         </div>
       )}
@@ -133,7 +133,7 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
         transition: 'all 0.2s', cursor: 'pointer',
       }}
         onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = C.amber + '50';
+          (e.currentTarget as HTMLElement).style.borderColor = `color-mix(in srgb, ${C.amber} 31%, transparent)`;
         }}
         onMouseLeave={e => {
           (e.currentTarget as HTMLElement).style.borderColor = C.border;
@@ -165,10 +165,10 @@ export default function AboutPage() {
       <LandingHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section style={{
+      <section className="px-4 pt-24 pb-14 sm:px-6 sm:pt-[120px] sm:pb-20" style={{
         minHeight: '60vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        padding: '120px 24px 80px', position: 'relative', overflow: 'hidden',
+        position: 'relative', overflow: 'hidden',
       }}>
         {/* Grid background */}
         <div style={{
@@ -184,7 +184,7 @@ export default function AboutPage() {
           position: 'absolute', top: '40%', left: '50%',
           transform: 'translate(-50%,-50%)',
           width: 800, height: 500,
-          background: `radial-gradient(ellipse, ${C.green}12 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse, color-mix(in srgb, ${C.green} 7%, transparent) 0%, transparent 70%)`,
           zIndex: 0, pointerEvents: 'none',
         }} />
 
@@ -209,7 +209,7 @@ export default function AboutPage() {
           }}>
             {t('heroSub')}
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="zg-lctas">
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '14px 28px' }}>
                 {t('btnOpenDashboard')} <ArrowRight size={16} />
@@ -283,10 +283,10 @@ export default function AboutPage() {
       </section>
 
       {/* ── Mission ──────────────────────────────────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))',
           gap: 40, alignItems: 'center',
         }}>
           <div>
@@ -334,7 +334,7 @@ export default function AboutPage() {
       </section>
 
       {/* ── Giving Back callout ──────────────────────────────────────────────── */}
-      <section style={{ padding: '20px 32px 60px', maxWidth: 1000, margin: '0 auto' }}>
+      <section className="px-4 pt-5 pb-10 sm:px-8 sm:pb-[60px]" style={{ maxWidth: 1000, margin: '0 auto' }}>
         <Link href="/giving" style={{ textDecoration: 'none', display: 'block' }}>
           <div className="zg-panel" style={{
             padding: 'clamp(20px, 3vw, 28px)',
@@ -342,7 +342,7 @@ export default function AboutPage() {
             gridTemplateColumns: 'auto 1fr auto',
             gap: 'clamp(16px, 3vw, 24px)',
             alignItems: 'center',
-            borderColor: `${C.amber}40`,
+            borderColor: `color-mix(in srgb, ${C.amber} 25%, transparent)`,
             transition: 'border-color 0.2s',
           }}>
             <div style={{
@@ -377,10 +377,9 @@ export default function AboutPage() {
       </section>
 
       {/* ── How It Works ─────────────────────────────────────────────────────── */}
-      <section style={{
-        padding: '80px 32px',
+      <section className="zg-lsec" style={{
         background: isDark
-          ? `linear-gradient(180deg, transparent 0%, ${C.card}33 50%, transparent 100%)`
+          ? `linear-gradient(180deg, transparent 0%, color-mix(in srgb, ${C.card} 20%, transparent) 50%, transparent 100%)`
           : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 50%, transparent 100%)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -391,7 +390,7 @@ export default function AboutPage() {
             color={C.green}
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 20 }}>
             <InfoCard isDark={isDark}
               icon={Database}
               title={t('infoCard1Title')}
@@ -433,14 +432,14 @@ export default function AboutPage() {
       </section>
 
       {/* ── Platform modules ─────────────────────────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 1200, margin: '0 auto' }}>
         <SectionHeading
           eyebrow={t('platformEyebrow')}
           title={t('platformTitle')}
           sub={t('platformSub')}
         />
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 16 }}>
           {[
             {
               icon: BarChart2, href: '/dashboard', label: t('module1Label'), color: C.amber,
@@ -482,7 +481,7 @@ export default function AboutPage() {
                 transition: 'border-color 0.2s', cursor: 'pointer',
               }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = item.color + '80';
+                  (e.currentTarget as HTMLElement).style.borderColor = `color-mix(in srgb, ${item.color} 50%, transparent)`;
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.borderColor = '';
@@ -503,10 +502,9 @@ export default function AboutPage() {
       </section>
 
       {/* ── API Documentation ────────────────────────────────────────────────── */}
-      <section style={{
-        padding: '80px 32px',
+      <section className="zg-lsec" style={{
         background: isDark
-          ? `linear-gradient(180deg, transparent 0%, ${C.card}22 100%)`
+          ? `linear-gradient(180deg, transparent 0%, color-mix(in srgb, ${C.card} 13%, transparent) 100%)`
           : 'linear-gradient(180deg, transparent 0%, var(--border-subtle) 100%)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -517,7 +515,7 @@ export default function AboutPage() {
             color={C.green}
           />
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 40 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 16, marginBottom: 40 }}>
             <APILink isDark={isDark}
               href="https://api.zerogex.io/docs"
               label={t('apiLink1Label')}
@@ -535,7 +533,7 @@ export default function AboutPage() {
             />
           </div>
 
-          <div className="zg-panel" style={{ padding: '32px 36px' }}>
+          <div className="zg-panel p-[18px] sm:px-9 sm:py-8">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <Code2 size={24} strokeWidth={1.75} style={{ color: C.green, flexShrink: 0 }} />
               <div>
@@ -543,7 +541,7 @@ export default function AboutPage() {
                 <div style={{ fontSize: 13, color: C.muted }}>{t('sampleEndpointsDesc')}</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 10 }}>
               {[
                 { method: 'GET', path: '/api/gex/summary', desc: t('ep1Desc') },
                 { method: 'GET', path: '/api/gex/by-strike', desc: t('ep2Desc') },
@@ -561,13 +559,13 @@ export default function AboutPage() {
                 { method: 'GET', path: '/api/tools/option-calculator', desc: t('ep14Desc') },
               ].map((ep) => (
                 <div key={ep.path} style={{
-                  background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
+                  background: isDark ? `color-mix(in srgb, ${C.bgDark} 80%, transparent)` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
                   borderRadius: 'var(--radius-panel)', padding: '12px 14px',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{
                       fontSize: 10, fontWeight: 800, color: C.green,
-                      background: `${C.green}20`, border: `1px solid ${C.green}30`,
+                      background: `color-mix(in srgb, ${C.green} 13%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 19%, transparent)`,
                       borderRadius: 'var(--radius-panel)', padding: '2px 7px', letterSpacing: '0.05em',
                     }}>
                       {ep.method}
@@ -583,7 +581,7 @@ export default function AboutPage() {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
-      <section style={{ padding: '80px 32px', maxWidth: 900, margin: '0 auto' }}>
+      <section className="zg-lsec" style={{ maxWidth: 900, margin: '0 auto' }}>
         <SectionHeading
           eyebrow={t('faqEyebrow')}
           title={t('faqTitle')}
@@ -627,14 +625,14 @@ export default function AboutPage() {
       </section>
 
       {/* ── CTA ──────────────────────────────────────────────────────────────── */}
-      <section style={{
-        padding: '100px 32px', textAlign: 'center',
+      <section className="zg-lsec zg-lsec--cta" style={{
+        textAlign: 'center',
         position: 'relative', overflow: 'hidden',
       }}>
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
           width: 700, height: 400,
-          background: `radial-gradient(ellipse, ${C.amber}18 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse, color-mix(in srgb, ${C.amber} 9%, transparent) 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -652,7 +650,7 @@ export default function AboutPage() {
           <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 500, lineHeight: 1.65 }}>
             {t('ctaSub')}
           </p>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="zg-lctas" style={{ gap: 14 }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{ padding: '16px 40px', fontSize: 15 }}>
                 {t('btnLaunchDashboard')} <ArrowRight size={18} />

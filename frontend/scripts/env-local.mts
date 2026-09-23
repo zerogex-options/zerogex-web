@@ -21,6 +21,12 @@
 //
 // Never overwrites a variable already set in the real environment: an explicit
 // `AUTH_DB_PATH=… make …` still wins.
+//
+// A key listed twice resolves to its LAST line, as it does for the app (Next.js
+// reads .env files with dotenv, where the last occurrence wins). This matters
+// because deploy/steps/036.billing seeds blank placeholders (KEY=). An operator
+// who appends the real value below one must get that value in the scripts too,
+// not the blank.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,14 +34,14 @@ import path from 'node:path';
 export function loadEnvLocal(cwd: string = process.cwd()): string[] {
   const filePath = path.join(cwd, '.env.local');
   if (!fs.existsSync(filePath)) return [];
-  const loaded: string[] = [];
+  const fileValues = new Map<string, string>();
   for (const rawLine of fs.readFileSync(filePath, 'utf8').split('\n')) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
     const eq = line.indexOf('=');
     if (eq === -1) continue;
     const key = line.slice(0, eq).trim();
-    if (!key || process.env[key] !== undefined) continue;
+    if (!key) continue;
     let value = line.slice(eq + 1).trim();
     if (
       value.length >= 2 &&
@@ -43,6 +49,11 @@ export function loadEnvLocal(cwd: string = process.cwd()): string[] {
     ) {
       value = value.slice(1, -1);
     }
+    fileValues.set(key, value);
+  }
+  const loaded: string[] = [];
+  for (const [key, value] of fileValues) {
+    if (process.env[key] !== undefined) continue;
     process.env[key] = value;
     loaded.push(key);
   }

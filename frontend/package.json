@@ -58,6 +58,10 @@
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
     "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
     "test:payment-declines": "node --experimental-strip-types --test tests/paymentDeclines.test.ts",
+    "test:payment-failed-email": "node --experimental-strip-types --test tests/paymentFailedEmail.test.ts",
+    "test:payment-failed-resend": "node --experimental-strip-types --test tests/paymentFailedResend.test.ts",
+    "test:email-skip-list": "node --experimental-strip-types --test tests/emailSkipList.test.ts",
+    "test:pay-link": "node --experimental-strip-types --test tests/payLink.test.ts",
     "test:script-env": "node --experimental-strip-types --test tests/scriptEnvLocal.test.ts",
     "test:payment-declines-db": "node --experimental-strip-types --test tests/paymentDeclinesDb.test.ts",
     "test:billing-user": "node --experimental-strip-types --test tests/billingUser.test.ts",
@@ -154,7 +158,13 @@
     "test:levels-subscribers": "node --experimental-strip-types --test tests/levelsSubscribers.test.ts",
     "test:levels-rate-limit": "node --experimental-strip-types --test tests/levelsRateLimit.test.ts",
     "test:levels-email-routes": "node --experimental-strip-types --test tests/levelsEmailRoutes.test.ts",
-    "test:daily-levels-digest": "node --experimental-strip-types --test tests/dailyLevelsDigest.test.ts"
+    "test:daily-levels-digest": "node --experimental-strip-types --test tests/dailyLevelsDigest.test.ts",
+    "test:rate-limit": "node --experimental-strip-types --test tests/rateLimit.test.ts",
+    "test:track-record": "node --experimental-strip-types --test tests/trackRecord.test.ts",
+    "test:billing-plans": "node --experimental-strip-types --test tests/billingPlans.test.ts",
+    "test:checkout-disclosure": "node --experimental-strip-types --test tests/checkoutDisclosure.test.ts",
+    "test:money-back": "node --experimental-strip-types --test tests/moneyBackGuarantee.test.ts tests/moneyBackServer.test.ts",
+    "test:renewal-reminder": "node --experimental-strip-types --test tests/renewalReminder.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

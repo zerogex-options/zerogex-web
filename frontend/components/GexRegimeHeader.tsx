@@ -243,7 +243,9 @@ export default function GexRegimeHeader({
               Swing
             </button>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          {/* Body copy: 15px on a phone, where 14px read small for a
+              paragraph this long. */}
+          <p className="text-[15px] sm:text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {marketContextSummary}
           </p>
         </div>

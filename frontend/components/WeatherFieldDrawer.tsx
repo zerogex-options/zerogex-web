@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   CartesianGrid,
   ComposedChart,
@@ -25,6 +25,8 @@ import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
 import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 import type { GammaWeatherSeriesPayload } from '@/hooks/useGammaWeatherSeries';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
+import { compactUsdTick } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const HEIGHT = 200;
 
@@ -68,6 +70,10 @@ export default function WeatherFieldDrawer({
 }: WeatherFieldDrawerProps) {
   const spec = fieldSpec(field);
   const [hovered, setHovered] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  // A tap ends in an emulated mouseleave, which would snap the trail straight
+  // back to the latest bar; a leave right after a touch is ignored.
+  const lastTouchAtRef = useRef(0);
 
   const points = useMemo(() => fieldSeries(field, flow, regime), [field, flow, regime]);
   const marks = useMemo(
@@ -152,7 +158,7 @@ export default function WeatherFieldDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-2 py-1 text-xs"
+          className="rounded px-2 py-1 text-xs max-sm:min-h-8"
           style={{ color: 'var(--color-text-secondary)' }}
           aria-label={`Close ${spec.label} chart`}
         >
@@ -168,7 +174,7 @@ export default function WeatherFieldDrawer({
         <ResponsiveContainer width="100%" height={HEIGHT}>
           <ComposedChart
             data={rows}
-            margin={{ top: 6, right: 12, bottom: 4, left: 4 }}
+            margin={isMobile ? { top: 6, right: 4, bottom: 4, left: 0 } : { top: 6, right: 12, bottom: 4, left: 4 }}
             // activeLabel, matching the two charts below the header, so all
             // three read a hover the same way.
             onMouseMove={(state: { activeLabel?: string | number }) =>
@@ -176,7 +182,21 @@ export default function WeatherFieldDrawer({
                 state?.activeLabel != null ? barByLabel.get(String(state.activeLabel)) ?? null : null,
               )
             }
-            onMouseLeave={() => setHovered(null)}
+            // A dragging finger fires no mouse events, so the trail line under
+            // the chart would otherwise stay on the tapped bar.
+            onTouchStart={() => {
+              lastTouchAtRef.current = Date.now();
+            }}
+            onTouchMove={(state: { activeLabel?: string | number }) => {
+              lastTouchAtRef.current = Date.now();
+              setHovered(
+                state?.activeLabel != null ? barByLabel.get(String(state.activeLabel)) ?? null : null,
+              );
+            }}
+            onMouseLeave={() => {
+              if (Date.now() - lastTouchAtRef.current < 1000) return;
+              setHovered(null);
+            }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.35} />
             <XAxis
@@ -186,9 +206,11 @@ export default function WeatherFieldDrawer({
             />
             <YAxis
               domain={domain}
-              width={64}
+              width={isMobile ? 46 : 64}
               tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
-              tickFormatter={(v: number) => compact(v, spec.unit)}
+              tickFormatter={(v: number) =>
+                isMobile && spec.unit === 'usd' ? compactUsdTick(v) : compact(v, spec.unit)
+              }
             />
             {spec.zeroLine && <ReferenceLine y={0} stroke="var(--color-text-secondary)" />}
             <Tooltip content={() => null} cursor={{ stroke: 'var(--color-text-secondary)' }} />

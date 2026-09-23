@@ -24,7 +24,9 @@ export default function SignalHowItsBuilt({ title = "How it's built", children, 
         <Info size={16} />
         {title}
       </h2>
-      <div className="text-xs text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
+      {/* 12px formulas are fine beside a desktop chart; on a phone this is
+          the body copy of the section, so it reads at 13px with more leading. */}
+      <div className="text-xs max-sm:text-[13px] max-sm:leading-relaxed text-[var(--color-text-secondary)] space-y-2 max-w-3xl">
         {children}
         {caveat && (
           <div className="pt-2 border-t border-[var(--color-border)]">{caveat}</div>

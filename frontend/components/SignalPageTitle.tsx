@@ -21,9 +21,24 @@ export default function SignalPageTitle({ title, subtitle, icon: Icon, tooltip, 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-6">
       {Icon && <Icon size={24} />}
-      <h1 className="text-3xl font-bold">{title}</h1>
+      {/* On a phone a long name ("Gamma / VWAP Confluence") was pushed under
+          its icon, stranding the icon on a line of its own. Below sm the title
+          is 26px and claims exactly the rest of the icon's line (24px icon +
+          8px gap), wrapping inside itself if it must, so the subtitle always
+          starts the next line instead of squeezing in beside it. */}
+      <h1
+        className={`text-3xl font-bold max-sm:min-w-0 max-sm:text-[26px] ${
+          Icon ? 'max-sm:basis-[calc(100%_-_2rem_-_1px)]' : 'max-sm:basis-full'
+        }`}
+      >
+        {title}
+      </h1>
       {subtitle && (
-        <span className="text-sm italic text-[var(--color-text-secondary)]">{subtitle}</span>
+        // Capped short of the line on a phone so a two-line subtitle still
+        // leaves room for the ⓘ beside it, instead of stranding it below.
+        <span className="text-sm italic text-[var(--color-text-secondary)] max-sm:max-w-[calc(100%_-_2.25rem)]">
+          {subtitle}
+        </span>
       )}
       {tooltip && (
         <TooltipWrapper text={tooltip} placement="bottom">

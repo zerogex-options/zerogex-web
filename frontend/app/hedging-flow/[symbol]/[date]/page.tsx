@@ -221,7 +221,7 @@ export default async function HedgingFlowSessionPage({
       <div className="mb-5">
         <Link
           href="/hedging-flow/sessions"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
           style={{ color: 'var(--text-secondary)' }}
         >
           <ChevronLeft size={14} /> Past sessions

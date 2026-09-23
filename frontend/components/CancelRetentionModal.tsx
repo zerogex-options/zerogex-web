@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePageT } from '@/core/LanguageContext';
+import { lockPageScroll } from '@/core/scrollLock';
 import { CANCELLATION_FEEDBACK_LABELS } from '@/core/cancellationReason';
 import { dict } from './CancelRetentionModal.i18n';
 
@@ -87,11 +88,10 @@ export default function CancelRetentionModal({
       if (e.key === 'Escape' && !busy) onClose();
     };
     document.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockPageScroll();
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
+      releaseScroll();
     };
   }, [open, busy, onClose]);
 

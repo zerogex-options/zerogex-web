@@ -107,7 +107,7 @@ export default function TrapDetectionPage() {
               history={history}
               badges={
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
                     {humanize(signal) || 'None'}
                   </span>
@@ -216,7 +216,7 @@ export default function TrapDetectionPage() {
               <span>Bearish fade</span>
               {signal === 'bearish_fade' && (
                 <span
-                  className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  className="ml-auto text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
                 >
                   Active
@@ -237,7 +237,7 @@ export default function TrapDetectionPage() {
               <span>Bullish fade</span>
               {signal === 'bullish_fade' && (
                 <span
-                  className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  className="ml-auto text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
                 >
                   Active
@@ -284,7 +284,7 @@ function Chip({ label, on, color, tooltip }: { label: string; on: boolean; color
       style={{
         borderColor: on ? color : 'var(--color-border)',
         color: on ? color : 'var(--color-text-secondary)',
-        background: on ? `${color}14` : 'transparent',
+        background: on ? `color-mix(in srgb, ${color} 8%, transparent)` : 'transparent',
         cursor: tooltip ? 'help' : undefined,
       }}
     >
@@ -328,9 +328,11 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
   if (showSupport) rungs.push({ kind: 'support', value: priorSupport! });
   rungs.sort((a, b) => b.value - a.value);
 
+  // On a phone each rung's status ("Broken ↑ · above close") drops under its
+  // name and price instead of squeezing all three into a ~220px row.
   return (
     <div className="relative flex items-start gap-4">
-      <svg width="48" height={height} viewBox={`0 0 48 ${height}`}>
+      <svg width="48" height={height} viewBox={`0 0 48 ${height}`} className="shrink-0">
         <line x1={24} y1={0} x2={24} y2={height} stroke="var(--color-border)" strokeWidth={2} />
         {showResistance && (
           <g>
@@ -355,16 +357,16 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
           if (r.kind === 'resistance') {
             const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
             return (
-              <div key="resistance" className="flex items-baseline gap-3">
-                <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
+              <div key="resistance" className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+                <span className="text-[var(--color-bull)] font-semibold w-28 whitespace-nowrap sm:whitespace-normal">Prior Resistance</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                <span className="basis-full text-[10px] font-semibold uppercase tracking-wide sm:basis-auto">
                   <span className="text-[var(--color-bull)]">Broken ↑</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
                 {breakoutUp && (
                   <span
-                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
                   >
                     Active
@@ -376,16 +378,16 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
           if (r.kind === 'support') {
             const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
             return (
-              <div key="support" className="flex items-baseline gap-3">
-                <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
+              <div key="support" className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+                <span className="text-[var(--color-bear)] font-semibold w-28 whitespace-nowrap sm:whitespace-normal">Prior Support</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                <span className="basis-full text-[10px] font-semibold uppercase tracking-wide sm:basis-auto">
                   <span className="text-[var(--color-bear)]">Broken ↓</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
                 {breakoutDown && (
                   <span
-                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
                   >
                     Active
@@ -395,8 +397,8 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
             );
           }
           return (
-            <div key="spot" className="flex items-baseline gap-3">
-              <span className="text-[var(--color-warning)] font-semibold w-28">Spot</span>
+            <div key="spot" className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+              <span className="text-[var(--color-warning)] font-semibold w-28 whitespace-nowrap sm:whitespace-normal">Spot</span>
               <span className="font-mono">{formatPrice(r.value)}</span>
             </div>
           );

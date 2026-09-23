@@ -392,7 +392,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
               <li key={idx} className="flex items-start gap-2">
                 <span
                   className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0"
-                  style={{ background: `${color}1f`, color }}
+                  style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
                 >
                   {idx + 1}
                 </span>

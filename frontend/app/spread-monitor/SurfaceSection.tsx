@@ -21,6 +21,7 @@ import {
 import { useSpreadSurface } from '@/hooks/useSpreadMonitor';
 
 import ExpiryRankChart from './ExpiryRankChart';
+import ScopeChipLabel from './ScopeChipLabel';
 import SurfaceCurve, { type SurfaceMetric } from './SurfaceCurve';
 
 /**
@@ -184,33 +185,47 @@ export default function SurfaceSection({
           `actions` slot. Eleven chips beside a standfirst squeezes the
           sentence into a three-line column against the left edge, and the
           sentence is the part that says what the section found. */}
+      {/* Phone: nine chips and two dividers wrapped into three ragged rows.
+          There the expiry chips (short labels) take the first row and the
+          side and band chips share the second; from `sm` up the group
+          wrappers dissolve (`contents`) into the original single row. */}
       <FilterBar className="mb-4">
-        <FilterChip active={side === 'P'} onClick={() => setSide('P')}>
-          Puts
-        </FilterChip>
-        <FilterChip active={side === 'C'} onClick={() => setSide('C')}>
-          Calls
-        </FilterChip>
-        <FilterDivider />
-        {DTE_CHOICES.map((choice) => (
-          <FilterChip
-            key={choice}
-            active={dteMax === choice}
-            onClick={() => setDteMax(choice)}
-          >
-            {scopeLabel(choice)}
+        <div className="contents max-sm:order-2 max-sm:mr-2 max-sm:flex max-sm:gap-2 max-sm:[&>button]:min-h-8">
+          <FilterChip active={side === 'P'} onClick={() => setSide('P')}>
+            Puts
           </FilterChip>
-        ))}
-        <FilterDivider />
-        {BAND_CHOICES.map((choice) => (
-          <FilterChip
-            key={choice}
-            active={bandPct === choice}
-            onClick={() => setBandPct(choice)}
-          >
-            ±{choice}%
+          <FilterChip active={side === 'C'} onClick={() => setSide('C')}>
+            Calls
           </FilterChip>
-        ))}
+        </div>
+        <span className="contents max-sm:hidden">
+          <FilterDivider />
+        </span>
+        <div className="contents max-sm:order-1 max-sm:flex max-sm:w-full max-sm:flex-wrap max-sm:gap-2 max-sm:[&>button]:min-h-8">
+          {DTE_CHOICES.map((choice) => (
+            <FilterChip
+              key={choice}
+              active={dteMax === choice}
+              onClick={() => setDteMax(choice)}
+            >
+              <ScopeChipLabel dte={choice} />
+            </FilterChip>
+          ))}
+        </div>
+        <span className="contents max-sm:hidden">
+          <FilterDivider />
+        </span>
+        <div className="contents max-sm:order-3 max-sm:flex max-sm:gap-2 max-sm:[&>button]:min-h-8">
+          {BAND_CHOICES.map((choice) => (
+            <FilterChip
+              key={choice}
+              active={bandPct === choice}
+              onClick={() => setBandPct(choice)}
+            >
+              ±{choice}%
+            </FilterChip>
+          ))}
+        </div>
       </FilterBar>
 
       {error && (

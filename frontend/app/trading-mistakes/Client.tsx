@@ -194,8 +194,8 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
           style={{
             padding: '18px 20px',
             borderRadius: 'var(--radius-panel)',
-            background: `${C.amber}12`,
-            border: `1px solid ${C.amber}55`,
+            background: `color-mix(in srgb, ${C.amber} 7%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
             marginBottom: 18,
           }}
         >
@@ -273,22 +273,22 @@ export default function TradingMistakesClient() {
       <nav
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
-          background: `${C.bg}ee`,
+          background: `color-mix(in srgb, ${C.bg} 93%, transparent)`,
           borderBottom: `1px solid ${C.border}`,
           backdropFilter: 'blur(20px)',
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+            className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: isDark ? `color-mix(in srgb, ${C.card} 80%, transparent)` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               cursor: 'pointer',
               color: C.muted,
@@ -297,7 +297,7 @@ export default function TradingMistakesClient() {
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <Link href="/pricing" style={{ textDecoration: 'none' }}>
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               className="zg-btn zg-btn--secondary"
               style={{
@@ -310,13 +310,14 @@ export default function TradingMistakesClient() {
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
-              className="zg-btn zg-btn--primary"
+              className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] sm:min-h-0"
               style={{
                 padding: '8px 14px',
                 fontSize: 13,
               }}
             >
-              {t('freeGammaLevelsBtn')} <ArrowRight size={14} />
+              <span className="hidden sm:inline">{t('freeGammaLevelsBtn')}</span>
+              <span className="sm:hidden">{t('freeGammaLevelsShortBtn')}</span> <ArrowRight size={14} />
             </button>
           </Link>
         </div>

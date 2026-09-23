@@ -95,6 +95,7 @@ function TierCard({
   features,
   ctaLabel,
   ctaHref,
+  note,
 }: {
   title: string;
   price: string;
@@ -103,6 +104,9 @@ function TierCard({
   features: string[];
   ctaLabel: string;
   ctaHref: string;
+  // The plan's protection: the free trial (Basic monthly) or the 7-day
+  // money-back guarantee (every other plan) — see core/billingPlans.ts.
+  note: string;
 }) {
   return (
     <article
@@ -123,7 +127,7 @@ function TierCard({
               fontWeight: 800,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              border: `1px solid ${C.amber}66`,
+              border: `1px solid color-mix(in srgb, ${C.amber} 40%, transparent)`,
               color: C.amber,
               borderRadius: 999,
               padding: '4px 10px',
@@ -139,9 +143,7 @@ function TierCard({
         <span style={{ fontSize: 34, fontWeight: 900, color: C.light, letterSpacing: '-1px' }}>{price}</span>
         <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{cadence}</span>
       </div>
-      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-        Includes a {TRIAL_DAYS}-day free trial.
-      </p>
+      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>{note}</p>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 10, flex: 1 }}>
         {features.map((feature) => (
@@ -178,21 +180,21 @@ export default function RealTimeGexLandingClient() {
       <nav
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
-          background: `${C.bg}ee`,
+          background: `color-mix(in srgb, ${C.bg} 93%, transparent)`,
           borderBottom: `1px solid ${C.border}`,
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+            className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: isDark ? `color-mix(in srgb, ${C.card} 80%, transparent)` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               cursor: 'pointer',
               color: C.muted,
@@ -201,7 +203,7 @@ export default function RealTimeGexLandingClient() {
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <Link href="/pricing" style={{ textDecoration: 'none' }}>
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               className="zg-btn zg-btn--secondary"
               style={{
@@ -214,13 +216,14 @@ export default function RealTimeGexLandingClient() {
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
-              className="zg-btn zg-btn--primary"
+              className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] sm:min-h-0"
               style={{
                 padding: '8px 14px',
                 fontSize: 13,
               }}
             >
-              Free Gamma Levels <ArrowRight size={14} />
+              <span className="hidden sm:inline">Free Gamma Levels</span>
+              <span className="sm:hidden">Free levels</span> <ArrowRight size={14} />
             </button>
           </Link>
         </div>
@@ -280,7 +283,7 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Start {TRIAL_DAYS}-day free trial <ArrowRight size={16} />
+                Try Basic free for {TRIAL_DAYS} days <ArrowRight size={16} />
               </button>
             </Link>
           </div>
@@ -497,7 +500,7 @@ export default function RealTimeGexLandingClient() {
               Pricing built for the way 0DTE traders actually work.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Free 15-min-delayed gamma levels for the structural reads. Paid plans add real-time updates, the full dashboard, the signal layer, the Advanced Signals, and direct API access. Every plan starts with a {TRIAL_DAYS}-day free trial — cancel anytime.
+              Free 15-min-delayed gamma levels for the structural reads. Paid plans add real-time updates, the full dashboard, the signal layer, the Advanced Signals, and direct API access. Basic monthly starts with a {TRIAL_DAYS}-day free trial; every other plan comes with a 7-day money-back guarantee. Cancel anytime.
             </p>
           </div>
 
@@ -514,6 +517,7 @@ export default function RealTimeGexLandingClient() {
               ]}
               ctaLabel={`Start ${TRIAL_DAYS}-day free trial`}
               ctaHref="/pricing"
+              note={`Includes a ${TRIAL_DAYS}-day free trial.`}
             />
             <TierCard
               title="Pro"
@@ -526,17 +530,18 @@ export default function RealTimeGexLandingClient() {
                 'Direct access to ZeroGEX APIs',
                 'Real-time scoring + historical score charts',
               ]}
-              ctaLabel={`Start ${TRIAL_DAYS}-day free trial`}
-              ctaHref="/pricing"
+              ctaLabel="Get Pro"
+              ctaHref="/pricing?plan=pro"
+              note="7-day money-back guarantee — one refund per customer."
             />
           </div>
 
           <p style={{ textAlign: 'center', marginTop: 22, color: C.muted, fontSize: 13 }}>
-            Annual billing also available — see{' '}
+            Longer billing periods cost less per month — see{' '}
             <Link href="/pricing" style={{ color: C.amber }}>
               the pricing page
             </Link>{' '}
-            for current promo pricing and annual savings.
+            for current promo pricing and savings.
           </p>
         </div>
       </section>

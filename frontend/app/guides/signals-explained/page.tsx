@@ -17,7 +17,7 @@ export default async function SignalsExplainedGuidePage() {
   const markdown = await loadLocalizedMarkdown(guidePath);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
       <BreadcrumbJsonLd
         items={[
           { name: 'Home', url: '/' },
@@ -29,7 +29,7 @@ export default async function SignalsExplainedGuidePage() {
         ← Back to Guides
       </Link>
 
-      <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
+      <article className="zg-article-card">
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Guide • Reference</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>

@@ -75,7 +75,7 @@ export default function AdvancedSignalCard({
 
   return (
     <div
-      className="rounded-2xl border p-5 flex flex-col gap-3 transition-colors"
+      className="rounded-2xl border p-4 sm:p-5 flex flex-col gap-3 transition-colors"
       style={{
         borderColor: effectiveTriggered ? color : 'var(--color-border)',
         background: cardBg,
@@ -101,7 +101,7 @@ export default function AdvancedSignalCard({
               ) : showSignalPill ? (
                 <div
                   className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide mt-0.5"
-                  style={{ background: `${color}1f`, color }}
+                  style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
                 >
                   {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
                   {humanize(signalStr)}
@@ -111,26 +111,34 @@ export default function AdvancedSignalCard({
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
+        {/* On a phone the score, its sparkline and the scale line sit in a
+            two-row grid — number and sparkline side by side, the scale line
+            under both. In the desktop row the scale line lives under the
+            number and, being the wider of the two, squeezes the sparkline to
+            a few px; on a 330px card that left the history unreadable. The
+            left column is `display: contents` below sm so its two children
+            become grid items; from sm up it is the original block in a flex
+            row, where the grid placement classes do nothing. */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:flex sm:items-end sm:justify-between sm:gap-3">
+          <div className="contents sm:block">
+            <div className="col-start-1 row-start-1 text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
               {loading && !payload.score ? '…' : score != null ? score.toFixed(1) : '—'}
             </div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+            <div className="col-span-2 row-start-2 text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
               <span>Score −100 to +100</span>
               {!inactiveLabel ? (
                 <span className="opacity-70">· activates at ±{triggerThreshold}</span>
               ) : null}
               {effectiveTriggered ? (
                 <span
-                  className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                  style={{ background: `${color}1f`, color }}
+                  className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                  style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
                 >
                   Triggered
                 </span>
               ) : !inactiveLabel ? (
                 <span
-                  className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                  className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                   style={{
                     background: 'var(--color-surface-subtle)',
                     color: 'var(--color-text-secondary)',
@@ -142,7 +150,7 @@ export default function AdvancedSignalCard({
               ) : null}
             </div>
           </div>
-          <div className="flex-1 max-w-[55%]">
+          <div className="col-start-2 row-start-1 flex-1 sm:max-w-[55%]">
             <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1a`} />
           </div>
         </div>
@@ -161,7 +169,7 @@ export default function AdvancedSignalCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="mt-auto inline-flex items-center justify-between rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="mt-auto inline-flex items-center justify-between rounded-lg border border-[var(--color-border)] px-3 py-2 sm:py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <span>Context values</span>
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}

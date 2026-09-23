@@ -64,7 +64,7 @@ export default function ArticleMeta({ slug }: { slug: string }) {
         <span className="opacity-60">/</span>
         <span className="text-[var(--color-text-primary)]">{article.title}</span>
       </nav>
-      <div className="text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">
+      <div className="text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.2em] leading-relaxed text-[var(--text-muted)]">
         ZeroGEX Education
         {article.readMinutes > 0 ? ` • ${article.readMinutes} min read` : ''}
         {' • Published '}

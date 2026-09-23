@@ -5,6 +5,8 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Toggle theme',
     pricingBtn: 'Pricing',
     freeGammaLevelsBtn: 'Free Gamma Levels',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Free levels',
     pillTraderMistakes: 'Trader Mistakes ZeroGEX Helps You Avoid',
     heroTitleLine1: '5 trading mistakes',
     heroTitleHighlight: 'ZeroGEX helps you avoid.',
@@ -30,6 +32,8 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Cambia tema',
     pricingBtn: 'Prezzi',
     freeGammaLevelsBtn: 'Livelli Gamma Gratuiti',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Livelli gratuiti',
     pillTraderMistakes: 'Errori dei trader che ZeroGEX ti aiuta a evitare',
     heroTitleLine1: '5 errori di trading',
     heroTitleHighlight: 'che ZeroGEX ti aiuta a evitare.',
@@ -55,6 +59,8 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Design umschalten',
     pricingBtn: 'Preise',
     freeGammaLevelsBtn: 'Kostenlose Gamma-Levels',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Gratis-Levels',
     pillTraderMistakes: 'Trader-Fehler, die ZeroGEX dir hilft zu vermeiden',
     heroTitleLine1: '5 Trading-Fehler,',
     heroTitleHighlight: 'die ZeroGEX dir hilft zu vermeiden.',
@@ -80,6 +86,8 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Cambiar tema',
     pricingBtn: 'Precios',
     freeGammaLevelsBtn: 'Niveles Gamma Gratuitos',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Niveles gratis',
     pillTraderMistakes: 'Errores de traders que ZeroGEX te ayuda a evitar',
     heroTitleLine1: '5 errores de trading',
     heroTitleHighlight: 'que ZeroGEX te ayuda a evitar.',
@@ -105,6 +113,8 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Changer de thème',
     pricingBtn: 'Tarifs',
     freeGammaLevelsBtn: 'Niveaux Gamma gratuits',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Niveaux gratuits',
     pillTraderMistakes: 'Erreurs de trading que ZeroGEX vous aide à éviter',
     heroTitleLine1: '5 erreurs de trading',
     heroTitleHighlight: 'que ZeroGEX vous aide à éviter.',

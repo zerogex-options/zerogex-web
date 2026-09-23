@@ -19,6 +19,7 @@ import {
 // the point is that the look survives signing out and back in.
 const APPEARANCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 import { getDb } from '@/core/db';
+import { createFixedWindowLimiter, type RateLimitVerdict } from '@/core/rateLimit';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
@@ -141,13 +142,50 @@ const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 const SIGNUP_MAX_ATTEMPTS = 5;
 const BOOTSTRAP_ADMIN_FLAG = 'ZGEX_BOOTSTRAP_ADMIN_DONE';
 
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-const passwordResetAttempts = new Map<string, { count: number; resetAt: number }>();
+// Each of these was a bare module-level Map that was never pruned: one entry
+// per distinct key, accumulated for the life of the PM2 process, on endpoints
+// that are public and unauthenticated. createFixedWindowLimiter keeps the same
+// fixed-window semantics — a rejected attempt never extends resetAt, so a
+// blocked caller always has a time at which they recover — and additionally
+// prunes expired entries and evicts under a key ceiling, so the store is
+// bounded no matter what arrives. See core/rateLimit.ts.
+const loginLimiter = createFixedWindowLimiter({
+  windowMs: LOGIN_WINDOW_MS,
+  max: LOGIN_MAX_ATTEMPTS,
+});
+const passwordResetLimiter = createFixedWindowLimiter({
+  windowMs: PASSWORD_RESET_WINDOW_MS,
+  max: PASSWORD_RESET_MAX_REQUESTS,
+});
 // Keyed by userId, not IP: the verify-email/start endpoint is session-gated, so
 // the natural unit of abuse is the account itself (3 resends/hour). An IP-keyed
 // limit would let a shared NAT lock every user behind it out of resending.
-const emailVerificationAttempts = new Map<string, { count: number; resetAt: number }>();
-const signupAttempts = new Map<string, { count: number; resetAt: number }>();
+const emailVerificationLimiter = createFixedWindowLimiter({
+  windowMs: EMAIL_VERIFICATION_WINDOW_MS,
+  max: EMAIL_VERIFICATION_MAX_REQUESTS,
+});
+const signupLimiter = createFixedWindowLimiter({
+  windowMs: SIGNUP_WINDOW_MS,
+  max: SIGNUP_MAX_ATTEMPTS,
+});
+
+/**
+ * Adapt to the shape these four have always returned.
+ *
+ * Kept byte-identical on purpose: three route handlers outside this module
+ * read `.allowed` and `.retryAfterSeconds`, and widening the type would turn
+ * a contained refactor into a change across the auth surface for no gain.
+ *
+ * One behavioural difference, and it is a fix: the old arithmetic could yield
+ * `retryAfterSeconds: 0` when now and resetAt landed on the same millisecond,
+ * which a client reads as "retry immediately" and turns a rate limit into a
+ * hot loop. The limiter floors it at one second.
+ */
+function toLegacyVerdict(verdict: RateLimitVerdict): { allowed: boolean; retryAfterSeconds: number } {
+  return verdict.allowed
+    ? { allowed: true, retryAfterSeconds: 0 }
+    : { allowed: false, retryAfterSeconds: verdict.retryAfterSeconds };
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -403,43 +441,18 @@ export function appendAuditEvent(input: {
 }
 
 export function enforceSignupRateLimit(ip: string) {
-  const now = Date.now();
-  const entry = signupAttempts.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    signupAttempts.set(ip, { count: 1, resetAt: now + SIGNUP_WINDOW_MS });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-
-  if (entry.count >= SIGNUP_MAX_ATTEMPTS) {
-    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-
-  entry.count += 1;
-  signupAttempts.set(ip, entry);
-  return { allowed: true, retryAfterSeconds: 0 };
+  return toLegacyVerdict(signupLimiter.check(ip));
 }
 
 export function enforceLoginRateLimit(ip: string) {
-  const now = Date.now();
-  const entry = loginAttempts.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-
-  if (entry.count >= LOGIN_MAX_ATTEMPTS) {
-    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-
-  entry.count += 1;
-  loginAttempts.set(ip, entry);
-  return { allowed: true, retryAfterSeconds: 0 };
+  return toLegacyVerdict(loginLimiter.check(ip));
 }
 
+// Called on a successful sign-in. Without it, someone who mistypes their
+// password four times and then gets it right stays one attempt from a lockout
+// for the rest of the window.
 function clearLoginRateLimit(ip: string) {
-  loginAttempts.delete(ip);
+  loginLimiter.clear(ip);
 }
 
 function issueSessionCookie(response: NextResponse, token: string, maxAgeSeconds = SESSION_TTL_SECONDS) {
@@ -647,18 +660,7 @@ export async function createSessionForUserCredentials(request: NextRequest, emai
 }
 
 function enforcePasswordResetRateLimit(ip: string) {
-  const now = Date.now();
-  const entry = passwordResetAttempts.get(ip);
-  if (!entry || now > entry.resetAt) {
-    passwordResetAttempts.set(ip, { count: 1, resetAt: now + PASSWORD_RESET_WINDOW_MS });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-  if (entry.count >= PASSWORD_RESET_MAX_REQUESTS) {
-    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-  entry.count += 1;
-  passwordResetAttempts.set(ip, entry);
-  return { allowed: true, retryAfterSeconds: 0 };
+  return toLegacyVerdict(passwordResetLimiter.check(ip));
 }
 
 export type PasswordResetRequest =
@@ -834,18 +836,7 @@ export async function resetPasswordWithToken(request: NextRequest, token: string
 }
 
 function enforceEmailVerificationRateLimit(userId: string) {
-  const now = Date.now();
-  const entry = emailVerificationAttempts.get(userId);
-  if (!entry || now > entry.resetAt) {
-    emailVerificationAttempts.set(userId, { count: 1, resetAt: now + EMAIL_VERIFICATION_WINDOW_MS });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-  if (entry.count >= EMAIL_VERIFICATION_MAX_REQUESTS) {
-    return { allowed: false, retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-  entry.count += 1;
-  emailVerificationAttempts.set(userId, entry);
-  return { allowed: true, retryAfterSeconds: 0 };
+  return toLegacyVerdict(emailVerificationLimiter.check(userId));
 }
 
 export function isEmailVerified(userId: string): boolean {

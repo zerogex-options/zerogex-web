@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Area,
   Bar,
@@ -17,6 +17,8 @@ import {
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
+import { compactUsdTick, niceTicksWithin, tickDecimals } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type {
   HedgingFlowBar,
@@ -65,6 +67,17 @@ const USD = (value: number): string => {
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
   return `${sign}$${abs.toFixed(0)}`;
 };
+
+/**
+ * Phone geometry for the stacked flow + structure pair. Recharts aligns synced
+ * charts by index, not pixel, so GammaRegimeChart must use these same margins
+ * and axis widths or its crosshair lands on a different bar. On a phone the
+ * desktop gutters (62px + 56px of axes plus margins) left the plot ~190px of a
+ * 310px card; these give it ~230.
+ */
+export const HEDGING_PHONE_MARGIN = { top: 8, right: 0, bottom: 4, left: 0 };
+export const HEDGING_PHONE_LEFT_AXIS = 46;
+export const HEDGING_PHONE_RIGHT_AXIS = 40;
 
 /**
  * Lay bars onto the full session grid so the x-axis matches every other chart
@@ -163,6 +176,10 @@ export default function HedgingFlowChart({
   const mode = controlledMode ?? uncontrolledMode;
   const setMode = onModeChange ?? setUncontrolledMode;
   const [onlySignificant, setOnlySignificant] = useState(true);
+  const isMobile = useIsMobile();
+  // A tap's emulated mouse sequence ends in mouseleave, which would clear the
+  // readout the tap just opened; a leave straight after a touch is ignored.
+  const lastTouchAtRef = useRef(0);
 
   const rows = useMemo(() => alignToTimeline(payload.bars, mode), [payload.bars, mode]);
 
@@ -180,6 +197,14 @@ export default function HedgingFlowChart({
     const padding = Math.max(0.01, max - min) * 0.03;
     return [min - padding, max + padding] as const;
   }, [rows]);
+
+  // A phone's 40px price axis gets round ticks ("656 … 662"); left to
+  // Recharts they tick the padded bounds ("655.134, 657.134, …").
+  const phonePriceTicks = useMemo(
+    () => (priceDomain[0] === 'auto' ? [] : niceTicksWithin(priceDomain[0], priceDomain[1] as number, 4)),
+    [priceDomain],
+  );
+  const phonePriceDecimals = tickDecimals(phonePriceTicks);
 
   // Rate-view flips only (see the component docstring for why).
   const flipMarkers = useMemo(() => {
@@ -230,7 +255,7 @@ export default function HedgingFlowChart({
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className="rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors"
+                className="rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors max-sm:min-h-8"
                 style={{
                   borderColor: mode === m ? 'var(--color-info)' : 'var(--color-border)',
                   backgroundColor: mode === m ? 'var(--color-info-soft)' : 'transparent',
@@ -244,7 +269,7 @@ export default function HedgingFlowChart({
 
           {mode === 'rate' && (
             <label
-              className="flex cursor-pointer items-center gap-2 text-xs"
+              className="flex cursor-pointer items-center gap-2 text-xs max-sm:min-h-8"
               style={{ color: 'var(--color-text-secondary)' }}
             >
               <input
@@ -273,15 +298,27 @@ export default function HedgingFlowChart({
           top={compact ? 4 : 22}
         />
       )}
-      <ResponsiveContainer width="100%" height={compact ? 220 : 360}>
+      <ResponsiveContainer width="100%" height={compact ? 220 : isMobile ? 290 : 360}>
         <ComposedChart
           data={rows}
           syncId={syncId}
-          margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
+          margin={isMobile ? HEDGING_PHONE_MARGIN : { top: 8, right: 8, bottom: 4, left: 8 }}
           onMouseMove={(state: { activeLabel?: string | number }) =>
             setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)
           }
-          onMouseLeave={() => setHovered(null)}
+          // A dragging finger fires no mouse events; without this the corner
+          // readout stayed on the tapped bar while the cursor line moved on.
+          onTouchStart={() => {
+            lastTouchAtRef.current = Date.now();
+          }}
+          onTouchMove={(state: { activeLabel?: string | number }) => {
+            lastTouchAtRef.current = Date.now();
+            setHovered(state?.activeLabel != null ? String(state.activeLabel) : null);
+          }}
+          onMouseLeave={() => {
+            if (Date.now() - lastTouchAtRef.current < 1000) return;
+            setHovered(null);
+          }}
         >
           <XAxis
             dataKey="timestamp"
@@ -293,10 +330,10 @@ export default function HedgingFlowChart({
           />
           <YAxis
             yAxisId="flow"
-            tickFormatter={USD}
+            tickFormatter={isMobile ? compactUsdTick : USD}
             stroke={axisStroke}
             tick={{ fontSize: 10 }}
-            width={62}
+            width={isMobile ? HEDGING_PHONE_LEFT_AXIS : 62}
           />
           <YAxis
             yAxisId="price"
@@ -304,7 +341,10 @@ export default function HedgingFlowChart({
             domain={priceDomain}
             stroke={axisStroke}
             tick={{ fontSize: 10 }}
-            width={56}
+            width={isMobile ? HEDGING_PHONE_RIGHT_AXIS : 56}
+            {...(isMobile && phonePriceTicks.length > 1
+              ? { ticks: phonePriceTicks, tickFormatter: (v: number) => Number(v).toFixed(phonePriceDecimals) }
+              : {})}
           />
 
           {/* The cursor line is the useful half; the floating box is what

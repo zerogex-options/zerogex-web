@@ -12,15 +12,15 @@ import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import SectionHead from '@/components/layout/SectionHead';
 import ChartTooltipShell, { ChartTooltipRow } from '@/components/ChartTooltipShell';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Area, Bar, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTechnicals, type TechnicalsBar } from '@/hooks/useTechnicals';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 function getDateMarkerMeta(timestamps: string[]) {
@@ -120,8 +120,56 @@ function gradientVolumeColor(upPct: number | null): string {
 // Five-minute bucket interval in milliseconds; matches the API's bucket size.
 const VOLUME_BUCKET_MS = 5 * 60 * 1000;
 
+// ── Phone time axis ───────────────────────────────────────────────────────────
+// A phone plot is ~260px wide. The desktop step (hourly across a 04:00–20:00
+// session) is a dozen labels there, which overprinted into one smear
+// ("04:005:006:00…"). A phone keeps about five: the step is the smallest clock
+// interval that fits the chart's own span into that many, aligned to the ET
+// clock (not UTC, so 3-hour steps land on 09:00/12:00/15:00 in both EST and
+// EDT).
+const ET_HM = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function etMinuteOfDay(ms: number): number {
+  const parts = ET_HM.formatToParts(new Date(ms));
+  const h = Number(parts.find((p) => p.type === 'hour')?.value);
+  const m = Number(parts.find((p) => p.type === 'minute')?.value);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : -1;
+}
+
+const PHONE_MAX_TIME_LABELS = 5;
+
+function phoneLabelStepMin(timestamps: string[]): number {
+  if (timestamps.length < 2) return 60;
+  const first = new Date(timestamps[0]).getTime();
+  const last = new Date(timestamps[timestamps.length - 1]).getTime();
+  const spanMin = Number.isFinite(first) && Number.isFinite(last) ? (last - first) / 60_000 : 0;
+  for (const step of [30, 60, 120, 180, 240]) {
+    if (spanMin / step <= PHONE_MAX_TIME_LABELS) return step;
+  }
+  return 240;
+}
+
+/** Price ticks without the cents when every tick is a whole dollar — "$658",
+ *  which fits a phone's 44px axis where "$658.00" did not. */
+function phonePriceTick(v: number, ticks: number[]): string {
+  const whole = ticks.length > 0 && ticks.every((t) => Math.abs(t - Math.round(t)) < 1e-9);
+  return `$${Number(v).toFixed(whole ? 0 : 2)}`;
+}
+
+// How many divergence signals a phone shows before "Show all" — the desktop
+// list scrolls inside its card, which on a phone is a scroll box inside a
+// scrolling page.
+const PHONE_DIVERGENCE_ROWS = 6;
+
 export default function IntradayToolsPage() {
   const { symbol } = useTimeframe();
+  const isMobile = useIsMobile();
+  const [showAllDivergence, setShowAllDivergence] = useState(false);
   const axisStroke = 'var(--text-primary)';
   const mutedText = 'var(--text-secondary)';
   // Was `isDark ? --text-primary : --color-surface`: in a light theme the
@@ -339,6 +387,60 @@ export default function IntradayToolsPage() {
     );
   };
 
+  // Phone twin of renderTimelineTick: an ET-aligned step sized to each
+  // chart's own span (see phoneLabelStepMin), 10px type, and the session date
+  // under the first slot. Desktop keeps renderTimelineTick as it was.
+  const phoneTimelineTick = (stepMin: number) => {
+    const PhoneTimelineTick = (props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
+      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0);
+      const ts = String(props?.payload?.value || '');
+      const index = Number(props?.index ?? -1);
+      const ms = ts ? new Date(ts).getTime() : NaN;
+      const minute = Number.isFinite(ms) ? etMinuteOfDay(ms) : -1;
+      const showTime = minute >= 0 && minute % stepMin === 0;
+      const dateLabel = index === 0 && Number.isFinite(ms)
+        ? new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })
+        : '';
+      if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
+      return (
+        <g transform={`translate(${x},${y})`}>
+          {showTime ? <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} /> : null}
+          {showTime ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{ET_HM.format(new Date(ms))}</text> : null}
+          {dateLabel ? <text dy={26} textAnchor="start" fill={mutedText} fontSize={10}>{dateLabel}</text> : null}
+        </g>
+      );
+    };
+    return PhoneTimelineTick;
+  };
+  const barsStepMin = useMemo(() => phoneLabelStepMin(bars.map((b) => b.timestamp)), [bars]);
+  const spikesStepMin = useMemo(
+    () => phoneLabelStepMin(volumeSpikesChart.map((r) => r.timestamp)),
+    [volumeSpikesChart],
+  );
+  // On a phone the price charts fit their own data (plus a little air), not
+  // Recharts' 'auto' rounding, which left a quarter of a 260px plot empty.
+  const vwapPhoneDomain = useMemo<[number, number] | null>(() => {
+    const values: number[] = [];
+    for (const row of vwapChart) {
+      if (row.price != null) values.push(row.price);
+      if (row.vwap != null) values.push(row.vwap);
+    }
+    if (values.length === 0) return null;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const pad = max > min ? (max - min) * 0.08 : Math.max(0.5, max * 0.001);
+    return [min - pad, max + pad];
+  }, [vwapChart]);
+  const chartHeight = isMobile ? 260 : 320;
+  // Readouts on a phone pin to the top of the plot (clear of the finger) and
+  // name the bar by the ET clock the axis prints.
+  const phoneTooltipPosition = isMobile ? { position: { y: 0 } } : {};
+  const tooltipTimeLabel = (label: unknown) => {
+    if (!label) return '--';
+    const d = new Date(String(label));
+    return isMobile ? `${ET_HM.format(d)} ET` : d.toLocaleString('en-US', { timeZone: 'America/New_York' });
+  };
+
   const showInitialLoading = loading && bars.length === 0;
   const showInitialError = error && bars.length === 0;
 
@@ -373,7 +475,8 @@ export default function IntradayToolsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            {/* Short single numbers: two per row on a phone, not a tower. */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
               <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
               <MetricCard title="VWAP" value={`$${fmtFixed(vwapLatest?.vwap)}`} tooltip="Volume weighted average price" />
               <MetricCard title="Deviation" value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwapLatest?.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
@@ -382,9 +485,8 @@ export default function IntradayToolsPage() {
             {vwapChart.length > 0 ? (
               <div className="zg-panel p-5">
                 <SectionHead title="VWAP vs. underlying price" titleClassName="zg-h3" tooltip="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below." />
-                <MobileScrollableChart>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <ComposedChart data={vwapChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
+                  <ResponsiveContainer width="100%" height={chartHeight}>
+                    <ComposedChart data={vwapChart} margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 16 } : { top: 16, right: 12, left: 0, bottom: 16 }}>
                       <defs>
                         <linearGradient id="vwapAboveGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.95} />
@@ -399,15 +501,16 @@ export default function IntradayToolsPage() {
                           <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.95} />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} padding={{ top: 12, bottom: 12 }} />
+                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={isMobile ? phoneTimelineTick(barsStepMin) : renderTimelineTick} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 44 : 60} domain={isMobile && vwapPhoneDomain ? vwapPhoneDomain : ['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => (isMobile ? phonePriceTick(Number(v), vwapPriceTicks) : `$${Number(v).toFixed(2)}`)} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
+                        {...phoneTooltipPosition}
                         cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
                           if (!active || !payload?.length) return null;
                           const point = payload[0]?.payload as { price: number | null; vwap: number | null; deviationPct: number | null } | undefined;
                           if (!point) return null;
-                          const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                          const labelStr = tooltipTimeLabel(label);
                           const devColor = point.deviationPct == null ? mutedText : point.deviationPct >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
                           return (
                             <ChartTooltipShell label={labelStr}>
@@ -428,7 +531,6 @@ export default function IntradayToolsPage() {
                       <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
-                </MobileScrollableChart>
               </div>
             ) : null}
           </>
@@ -447,7 +549,8 @@ export default function IntradayToolsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            {/* Short single numbers: two per row on a phone, not a tower. */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
               <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
               <MetricCard title="ORB High" value={`$${fmtFixed(orbLatest?.orb_high)}`} subtitle={`+${fmtFixed(orbLatest?.distance_above_orb_high)}`} tooltip="Opening range high" />
               <MetricCard title="ORB Low" value={`$${fmtFixed(orbLatest?.orb_low)}`} subtitle={`-${fmtFixed(orbLatest?.distance_below_orb_low)}`} tooltip="Opening range low" />
@@ -496,7 +599,16 @@ export default function IntradayToolsPage() {
                       <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${highPct}%` }}>${orbHigh.toFixed(2)}</span>
                     </div>
                     <div className="relative h-4 text-[10px]">
-                      <span className="absolute -translate-x-1/2 whitespace-nowrap font-semibold" style={{ left: `${pricePct}%`, color: textColor }}>
+                      {/* Centered under the marker, the price label hung half
+                          off the card whenever price sat at either end of the
+                          scale (it pins there once it leaves the range). A
+                          phone anchors it inside instead. */}
+                      <span
+                        className={`absolute whitespace-nowrap font-semibold ${
+                          isMobile && pricePct > 88 ? '-translate-x-full' : isMobile && pricePct < 12 ? '' : '-translate-x-1/2'
+                        }`}
+                        style={{ left: `${pricePct}%`, color: textColor }}
+                      >
                         ${currentPrice.toFixed(2)}
                       </span>
                     </div>
@@ -507,24 +619,24 @@ export default function IntradayToolsPage() {
             {orbChart.length > 0 ? (
               <div className="zg-panel p-5">
                 <SectionHead title="ORB breakout map" titleClassName="zg-h3" tooltip="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price." />
-                <MobileScrollableChart>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <ComposedChart data={orbChart} margin={{ top: 16, right: 56, left: 0, bottom: 16 }}>
+                  <ResponsiveContainer width="100%" height={chartHeight}>
+                    <ComposedChart data={orbChart} margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 16 } : { top: 16, right: 56, left: 0, bottom: 16 }}>
                       <defs>
                         <linearGradient id="orbZoneGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.42} />
                           <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0.18} />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} allowDataOverflow={false} padding={{ top: 12, bottom: 12 }} />
+                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={isMobile ? phoneTimelineTick(barsStepMin) : renderTimelineTick} />
+                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 44 : 60} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => (isMobile ? phonePriceTick(Number(v), orbPriceTicks) : `$${Number(v).toFixed(2)}`)} allowDataOverflow={false} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
+                        {...phoneTooltipPosition}
                         cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
                           if (!active || !payload?.length) return null;
                           const point = payload[0]?.payload as { price: number | null; orbHigh: number | null; orbLow: number | null } | undefined;
                           if (!point) return null;
-                          const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                          const labelStr = tooltipTimeLabel(label);
                           const distHigh = point.price != null && point.orbHigh != null ? point.price - point.orbHigh : null;
                           const distLow = point.price != null && point.orbLow != null ? point.price - point.orbLow : null;
                           const zone = point.price == null || point.orbHigh == null || point.orbLow == null
@@ -547,15 +659,17 @@ export default function IntradayToolsPage() {
                       <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                       <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                       <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
+                      {/* The level tags hang in a 56px right gutter on desktop; a
+                          phone has no gutter to spare, so they sit inside the
+                          plot's right edge — H above its line, L below its. */}
                       {orbLatest?.orb_high != null ? (
-                        <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
+                        <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: isMobile ? 'insideTopRight' : 'right', fill: 'var(--color-bull)', fontSize: isMobile ? 10 : 11, fontWeight: 600 }} />
                       ) : null}
                       {orbLatest?.orb_low != null ? (
-                        <ReferenceLine y={orbLatest.orb_low} stroke="transparent" label={{ value: `L $${(safeNum(orbLatest.orb_low) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bear)', fontSize: 11, fontWeight: 600 }} />
+                        <ReferenceLine y={orbLatest.orb_low} stroke="transparent" label={{ value: `L $${(safeNum(orbLatest.orb_low) ?? 0).toFixed(2)}`, position: isMobile ? 'insideBottomRight' : 'right', fill: 'var(--color-bear)', fontSize: isMobile ? 10 : 11, fontWeight: 600 }} />
                       ) : null}
                     </ComposedChart>
                   </ResponsiveContainer>
-                </MobileScrollableChart>
               </div>
             ) : null}
           </>
@@ -575,19 +689,19 @@ export default function IntradayToolsPage() {
         ) : (
           <div className="zg-panel p-5">
             <SectionHead title="Volume spikes vs. underlying price" titleClassName="zg-h3" tooltip="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail." />
-            <MobileScrollableChart>
-              <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={volumeSpikesChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
-                  <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
-                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} ticks={volumeSpikeVolumeAxis.ticks} domain={volumeSpikeVolumeAxis.domain} padding={{ top: 12, bottom: 12 }} tickFormatter={(v) => {
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <ComposedChart data={volumeSpikesChart} margin={isMobile ? { top: 8, right: 0, left: 0, bottom: 16 } : { top: 16, right: 12, left: 0, bottom: 16 }}>
+                  <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={isMobile ? phoneTimelineTick(spikesStepMin) : renderTimelineTick} />
+                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 40 : 60} ticks={volumeSpikeVolumeAxis.ticks} domain={volumeSpikeVolumeAxis.domain} padding={{ top: 12, bottom: 12 }} tickFormatter={(v) => {
                     const n = Number(v);
                     if (!Number.isFinite(n)) return '--';
                     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
                     if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
                     return String(n);
                   }} />
-                  <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} padding={{ top: 12, bottom: 12 }} />
+                  <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 40 : 60} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} padding={{ top: 12, bottom: 12 }} />
                   <Tooltip
+                    {...phoneTooltipPosition}
                     cursor={{ fill: 'var(--text-primary)', fillOpacity: 0.08 }}
                     content={({ active, label, payload }) => {
                       if (!active || !payload?.length) return null;
@@ -602,7 +716,7 @@ export default function IntradayToolsPage() {
                         underlyingPrice: number | null;
                       } | undefined;
                       if (!point) return null;
-                      const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
+                      const labelStr = tooltipTimeLabel(label);
                       const hasSpike = point.volumeRaw != null;
                       return (
                         <ChartTooltipShell label={labelStr}>
@@ -623,7 +737,9 @@ export default function IntradayToolsPage() {
                       );
                     }}
                   />
-                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={14} isAnimationActive={false}>
+                  {/* 192 five-minute slots share ~250px on a phone: a 14px bar
+                      there is a smear across its neighbours, so it thins. */}
+                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={isMobile ? 3 : 14} isAnimationActive={false}>
                     {volumeSpikesChart.map((row, idx) => {
                       // Gradient red→neutral→green based on the up-vs-down volume
                       // split for the bucket. Falls back to the API-computed
@@ -638,7 +754,6 @@ export default function IntradayToolsPage() {
                   <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
-            </MobileScrollableChart>
           </div>
         )}
       </section>
@@ -653,8 +768,8 @@ export default function IntradayToolsPage() {
           <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>No divergence signals</div>
         ) : (
           <div className="zg-panel p-5">
-            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {divergenceRows.map((signal, idx) => {
+            <div className={isMobile ? 'space-y-3' : 'space-y-3 max-h-[420px] overflow-y-auto pr-1'}>
+              {(isMobile && !showAllDivergence ? divergenceRows.slice(0, PHONE_DIVERGENCE_ROWS) : divergenceRows).map((signal, idx) => {
                 const divergenceSignal = signal.signal;
                 const price = signal.price ?? 0;
                 return (
@@ -675,6 +790,16 @@ export default function IntradayToolsPage() {
                 );
               })}
             </div>
+            {isMobile && divergenceRows.length > PHONE_DIVERGENCE_ROWS ? (
+              <button
+                type="button"
+                onClick={() => setShowAllDivergence((v) => !v)}
+                className="mt-3 w-full min-h-10 rounded border text-sm font-semibold"
+                style={{ borderColor, color: 'var(--text-secondary)' }}
+              >
+                {showAllDivergence ? 'Show fewer' : `Show all ${divergenceRows.length} signals`}
+              </button>
+            ) : null}
           </div>
         )}
       </section>

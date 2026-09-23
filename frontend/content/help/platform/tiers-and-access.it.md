@@ -14,7 +14,7 @@ ZeroGEX ha tre livelli di account. Corrispondono ai dati e ai segnali che puoi v
 | Basic | Trader intraday attivi | Dashboard, Live Bulletin, tutti i Metrics, Strategy Builder, Live Options Quotes, tutti i Basic Signals |
 | Pro | Operatori seri | Tutto ciò che è incluso in Basic + tutti gli Advanced Signals + Composite Score + Backtesting + accesso API |
 
-Consulta il confronto in tempo reale — e un percorso di prova gratuita di 14 giorni — nella pagina [Pricing](/pricing).
+Consulta il confronto in tempo reale nella pagina [Pricing](/pricing). Basic mensile include una prova gratuita di 7 giorni; tutti gli altri piani sono coperti da una garanzia soddisfatti o rimborsati di 7 giorni.
 
 ## Cosa è riservato e dove
 
@@ -54,13 +54,15 @@ Alcune pagine esistono per tutti i livelli ma si comportano diversamente a secon
 Le modifiche all'account avvengono in due punti:
 
 1. **[Account](/account)** — vedi il tuo livello attuale, lo stato del piano attuale e il link al portale di fatturazione.
-2. **[Stripe Billing Portal](/account)** — accessibile dalla pagina Account. Cambia tra Basic e Pro, passa da mensile ad annuale, modifica il metodo di pagamento, visualizza le fatture.
+2. **[Stripe Billing Portal](/account)** — accessibile dalla pagina Account. Cambia tra Basic e Pro, passa tra fatturazione mensile, trimestrale e annuale, modifica il metodo di pagamento, visualizza le fatture.
 
 Per la procedura passo passo, vedi [Billing & Stripe Portal](/help/platform/billing).
 
 ## Quando sei in prova gratuita
 
-Se il tuo account è in prova gratuita (Basic o Pro), la pagina Account mostra un chip "Trial active — X days left". Al termine della prova, l'abbonamento continua automaticamente alla tariffa a cui ti sei iscritto. Per evitarlo, annulla nel portale di fatturazione prima della scadenza della prova.
+La prova gratuita di 7 giorni è disponibile solo con Basic mensile (una per account). Finché è attiva, la pagina Account mostra un chip "Trial active — X days left". Al termine della prova, l'abbonamento continua automaticamente alla tariffa a cui ti sei iscritto. Per evitarlo, annulla nel portale di fatturazione prima della scadenza della prova — non ti verrà addebitato nulla.
+
+Se durante la prova passi a Pro o a un piano trimestrale o annuale, la prova termina e il nuovo piano viene addebitato il giorno stesso; la pagina [Pricing](/pricing) mostra l'importo esatto e ti chiede di confermare, e quel pagamento è coperto dalla garanzia soddisfatti o rimborsati di 7 giorni.
 
 ## Cosa succede se clicchi su qualcosa a cui non hai accesso?
 
@@ -68,6 +70,6 @@ Vieni reindirizzato alla pagina [Pricing](/pricing) invece di essere bloccato o 
 
 ## Vedi anche
 
-- [Pricing](/pricing) — il confronto in tempo reale tra i livelli e il percorso di prova
+- [Pricing](/pricing) — il confronto in tempo reale tra i livelli e le opzioni di piano
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

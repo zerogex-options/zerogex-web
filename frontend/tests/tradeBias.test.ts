@@ -45,7 +45,8 @@ test('TREND_DOWN — long gamma + bearish flow → bearish/red', () => {
     positioningTrap: -40,
     trapDetection: -60,
     gammaVWAP: -40,
-    msi: -50,
+    // msi is the 0-100 composite. 35 used to block TREND_DOWN outright.
+    msi: 35,
   });
   assert.equal(result.marketState, 'TREND_DOWN');
   assert.equal(result.trend, 'bearish');
@@ -152,31 +153,81 @@ test('hasData flips true at ≥3 available inputs', () => {
   assert.equal(three.hasData, true);
 });
 
-test('TREND_UP blocked when MSI is outside tolerance band; falls through to CHOP', () => {
-  const bullishExceptMsi = computeBias({
-    ...empty,
-    netGEX: 50,
-    gexGradient: 60,
-    tapeFlow: 80,
-    vannaCharm: 60,
-    odtePositioning: 60,
-    msi: -15,
-  });
-  assert.equal(bullishExceptMsi.marketState, 'CHOP');
-  assert.equal(bullishExceptMsi.trend, 'neutral');
+// The MSI is 0-100 regime strength. It used to gate the trend states as if it
+// ran -100..+100: TREND_UP's `msi >= -10` always passed, while TREND_DOWN's
+// `msi <= 10` needed the gauge at 10 or below.
+test('MSI never gates either trend state', () => {
+  for (const msi of [null, 0, 10, 11, 35, 65, 100]) {
+    const up = computeBias({
+      ...empty,
+      netGEX: 50,
+      gexGradient: 60,
+      tapeFlow: 80,
+      vannaCharm: 60,
+      odtePositioning: 60,
+      msi,
+    });
+    const down = computeBias({
+      ...empty,
+      netGEX: 50,
+      gexGradient: 60,
+      tapeFlow: -80,
+      vannaCharm: -60,
+      odtePositioning: -60,
+      msi,
+    });
+    assert.equal(up.marketState, 'TREND_UP', `msi=${msi}`);
+    assert.equal(down.marketState, 'TREND_DOWN', `msi=${msi}`);
+  }
 });
 
-test('MSI within tolerance band does not block TREND_UP', () => {
+test('TREND_DOWN is the mirror of TREND_UP', () => {
+  for (const msi of [5, 35, 80]) {
+    const up = computeBias({
+      ...empty,
+      netGEX: 50,
+      gexGradient: 60,
+      tapeFlow: 80,
+      vannaCharm: 60,
+      odtePositioning: 60,
+      positioningTrap: 40,
+      trapDetection: 60,
+      gammaVWAP: 40,
+      msi,
+    });
+    const down = computeBias({
+      ...empty,
+      netGEX: 50,
+      gexGradient: 60,
+      tapeFlow: -80,
+      vannaCharm: -60,
+      odtePositioning: -60,
+      positioningTrap: -40,
+      trapDetection: -60,
+      gammaVWAP: -40,
+      msi,
+    });
+    assert.deepEqual([up.bias, down.bias], ['BUY_DIPS', 'SELL_RIPS']);
+    assert.equal(down.confidence, up.confidence, `msi=${msi}`);
+    assert.equal(down.convictionDriven, up.convictionDriven, `msi=${msi}`);
+  }
+});
+
+// SPX at 11:30 ET on 2026-09-23 (the session readout): long gamma by total net
+// GEX, tape and vanna/charm both leaning bearish, MSI 14.5 -- and the panel
+// said Range-Bound while SPX fell another 15 points.
+test('2026-09-23 SPX late morning reads TREND_DOWN', () => {
   const result = computeBias({
     ...empty,
     netGEX: 50,
-    gexGradient: 60,
-    tapeFlow: 80,
-    vannaCharm: 60,
-    odtePositioning: 60,
-    msi: -8,
+    gexGradient: -7,
+    tapeFlow: -35,
+    vannaCharm: -19,
+    odtePositioning: -6,
+    msi: 14.5,
   });
-  assert.equal(result.marketState, 'TREND_UP');
+  assert.equal(result.marketState, 'TREND_DOWN');
+  assert.equal(result.bias, 'SELL_RIPS');
 });
 
 test('single dominant flow signal carries the majority by itself', () => {

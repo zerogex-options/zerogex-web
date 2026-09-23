@@ -1,7 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { BarChart3, Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Bar,
@@ -14,6 +24,7 @@ import {
   YAxis,
 } from 'recharts';
 import { capture } from '@/core/telemetry/posthog-client';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { classifyLevelVisibility, staggerLabelYs } from './levelStagger';
 import {
   expirationOpacityRamp,
@@ -323,11 +334,25 @@ function formatMagnitude(v: number): string {
   return `${sign}${abs.toFixed(0)}`;
 }
 
-// 5-min OHLC bucket for the candlestick tape. Backend still ships
-// per-minute candles (same rows the per-minute GEX frames come from);
-// we aggregate on the client so the scrubber, the GEX ladder, and the
-// growing current-bucket candle all stay minute-aligned to one payload.
+// OHLC bucket for the candlestick tape. Backend still ships per-minute
+// candles (same rows the per-minute GEX frames come from); we aggregate on
+// the client so the scrubber, the GEX ladder, and the growing current-bucket
+// candle all stay minute-aligned to one payload. Five-minute buckets on the
+// desktop board; the phone board widens them (bucketMsFor) so a candle stays
+// wider than a hairline.
 const FIVE_MIN_MS = 5 * 60_000;
+
+// Smallest bucket (5, 10, 15 or 30 min) whose candles land at least 4px apart
+// across `usableW` pixels of tape covering `spanMs` of session. A full session
+// on a phone's ~165px tape is 2px per 5-min candle — a solid smear — and 4px
+// per 10-min candle, which reads as candles again.
+function bucketMsFor(usableW: number, spanMs: number): number {
+  for (const minutes of [5, 10, 15, 30]) {
+    const ms = minutes * 60_000;
+    if ((ms / Math.max(1, spanMs)) * usableW >= 4) return ms;
+  }
+  return 30 * 60_000;
+}
 
 interface CandleBucket {
   bucketStart: string;
@@ -340,22 +365,22 @@ interface CandleBucket {
   fullClose: number | null;
 }
 
-// Group 1-min candles by their 5-min floor and precompute the sealed
-// OHLC of each bucket. Bucket keys are UTC-aligned to 5 min; the RTH
-// open (9:30 ET) already lines up with a 5-min boundary in both EST
-// and EDT so 9:30, 9:35, … bucket cleanly.
-function bucketize5Min(candles: Candle[]): CandleBucket[] {
+// Group 1-min candles by their bucket floor and precompute the sealed
+// OHLC of each bucket. Bucket keys are UTC-aligned to the bucket size; the
+// RTH open (9:30 ET) lines up with a 5-, 10-, 15- and 30-min boundary in both
+// EST and EDT, so 9:30, 9:35, … (or 9:30, 9:40, …) bucket cleanly.
+function bucketizeCandles(candles: Candle[], bucketMs: number): CandleBucket[] {
   const map = new Map<number, CandleBucket>();
   for (const c of candles) {
     const t = new Date(c.timestamp).getTime();
     if (!Number.isFinite(t)) continue;
-    const key = Math.floor(t / FIVE_MIN_MS) * FIVE_MIN_MS;
+    const key = Math.floor(t / bucketMs) * bucketMs;
     let b = map.get(key);
     if (!b) {
       b = {
         bucketStart: new Date(key).toISOString(),
         bucketStartMs: key,
-        bucketEndMs: key + FIVE_MIN_MS,
+        bucketEndMs: key + bucketMs,
         members: [],
         fullOpen: null,
         fullHigh: null,
@@ -613,6 +638,21 @@ export default function ReplayScrubber({
     return { lo: lo - pad, hi: hi + pad };
   }, [candles, allStrikes]);
 
+  // Session-wide span of the walls and the flip, for the compact chart's
+  // default framing (fitZoom in ReplayOverlayChart).
+  const levelBounds = useMemo(() => {
+    let lo = Number.POSITIVE_INFINITY;
+    let hi = Number.NEGATIVE_INFINITY;
+    for (const f of frames) {
+      for (const v of [f.put_wall, f.call_wall, f.gamma_flip]) {
+        if (v == null || !Number.isFinite(v)) continue;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+    return Number.isFinite(lo) && Number.isFinite(hi) ? { lo, hi } : null;
+  }, [frames]);
+
   useEffect(() => {
     if (!isPlaying) {
       if (playRef.current) clearInterval(playRef.current);
@@ -639,6 +679,21 @@ export default function ReplayScrubber({
     setIsPlaying(false);
   }, []);
 
+  // Touch scrubbing on the chart hands back a moment in time; land on the
+  // frame nearest it.
+  const frameTimes = useMemo(() => frames.map((f) => new Date(f.timestamp).getTime()), [frames]);
+  const seekToMs = useCallback(
+    (ms: number) => {
+      if (frameTimes.length === 0) return;
+      let best = 0;
+      for (let i = 0; i < frameTimes.length; i += 1) {
+        if (Math.abs(frameTimes[i] - ms) < Math.abs(frameTimes[best] - ms)) best = i;
+      }
+      handleScrub(best);
+    },
+    [frameTimes, handleScrub],
+  );
+
   const dropPin = useCallback(
     (which: 'A' | 'B') => {
       if (which === 'A') setPinA(cursor);
@@ -646,6 +701,8 @@ export default function ReplayScrubber({
     },
     [cursor],
   );
+
+  const isMobile = useIsMobile();
 
   const clearPins = useCallback(() => {
     setPinA(null);
@@ -771,7 +828,7 @@ export default function ReplayScrubber({
   return (
     <div className="space-y-5">
       {/* Player controls */}
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
@@ -801,7 +858,7 @@ export default function ReplayScrubber({
                       }}
                       aria-current={isActive ? 'true' : undefined}
                       title={replayScopeTitle(option, sessionDate)}
-                      className="px-2.5 py-1.5 transition-colors"
+                      className="px-2.5 py-1.5 pointer-coarse:py-2 transition-colors"
                       style={{
                         background: isActive
                           ? 'var(--color-surface-subtle)'
@@ -820,21 +877,24 @@ export default function ReplayScrubber({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsPlaying((p) => !p)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-subtle)]"
-            >
-              {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-              {isPlaying ? 'Pause' : 'Play'}
-            </button>
+            {/* On a phone Play sits beside the slider instead (below). */}
+            <span className="hidden sm:contents">
+              <button
+                type="button"
+                onClick={() => setIsPlaying((p) => !p)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-subtle)]"
+              >
+                {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+                {isPlaying ? 'Pause' : 'Play'}
+              </button>
+            </span>
             <div className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)] text-[10px] uppercase tracking-[0.14em]">
               {PLAY_SPEEDS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSpeed(s)}
-                  className="px-2 py-1.5 transition-colors"
+                  className="px-2 py-1.5 pointer-coarse:px-2.5 pointer-coarse:py-2 transition-colors"
                   style={{
                     background:
                       speed === s ? 'var(--color-surface-subtle)' : 'var(--color-surface)',
@@ -849,10 +909,12 @@ export default function ReplayScrubber({
                 </button>
               ))}
             </div>
+            {/* The pins wrap as one group, never one pin per line. */}
+            <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => dropPin('A')}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 pointer-coarse:py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
               style={{ color: pinA != null ? 'var(--color-warning)' : 'var(--color-text-primary)' }}
             >
               Pin A {pinA != null && cursorTimestamp ? `· ${formatTime(frames[pinA].timestamp)}` : ''}
@@ -860,7 +922,7 @@ export default function ReplayScrubber({
             <button
               type="button"
               onClick={() => dropPin('B')}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 pointer-coarse:py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
               style={{ color: pinB != null ? 'var(--color-bull)' : 'var(--color-text-primary)' }}
             >
               Pin B {pinB != null && cursorTimestamp ? `· ${formatTime(frames[pinB].timestamp)}` : ''}
@@ -874,22 +936,36 @@ export default function ReplayScrubber({
                 Clear pins
               </button>
             )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-4">
-          <input
-            type="range"
-            min={0}
-            max={frames.length - 1}
-            value={cursor}
-            onChange={(e) => handleScrub(Number(e.target.value))}
-            className="w-full"
-            aria-label="Scrub through replay frames"
-          />
-          <div className="mt-1 flex justify-between font-mono text-[10px] text-[var(--color-text-secondary)]">
-            <span>{formatTime(frames[0]?.timestamp ?? '')}</span>
-            <span>{formatTime(frames[frames.length - 1]?.timestamp ?? '')}</span>
+        <div className="mt-4 flex items-center gap-3">
+          {/* Phone: a media-player row — Play beside the slider it drives. */}
+          <span className="contents sm:hidden">
+            <button
+              type="button"
+              onClick={() => setIsPlaying((p) => !p)}
+              aria-label={isPlaying ? 'Pause replay' : 'Play replay'}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-subtle)] text-[var(--color-text-primary)]"
+            >
+              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+          </span>
+          <div className="min-w-0 flex-1">
+            <input
+              type="range"
+              min={0}
+              max={frames.length - 1}
+              value={cursor}
+              onChange={(e) => handleScrub(Number(e.target.value))}
+              className="w-full"
+              aria-label="Scrub through replay frames"
+            />
+            <div className="mt-1 flex justify-between font-mono text-[10px] text-[var(--color-text-secondary)]">
+              <span>{formatTime(frames[0]?.timestamp ?? '')}</span>
+              <span>{formatTime(frames[frames.length - 1]?.timestamp ?? '')}</span>
+            </div>
           </div>
         </div>
 
@@ -897,9 +973,17 @@ export default function ReplayScrubber({
           <button
             type="button"
             onClick={handleCopyShare}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 pointer-coarse:py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
           >
-            <Link2 size={13} /> {copied ? 'Copied' : 'Snapshot this minute'}
+            <Link2 size={13} />{' '}
+            {copied ? (
+              'Copied'
+            ) : (
+              <>
+                <span className="sm:hidden">Snapshot</span>
+                <span className="hidden sm:inline">Snapshot this minute</span>
+              </>
+            )}
           </button>
           <a
             href={tweetHref}
@@ -913,7 +997,7 @@ export default function ReplayScrubber({
                 channel: 'twitter',
               })
             }
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 pointer-coarse:py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
           >
             <Twitter size={13} /> Share to X
           </a>
@@ -951,6 +1035,8 @@ export default function ReplayScrubber({
         }
         yLo={yBounds.lo}
         yHi={yBounds.hi}
+        levelLo={levelBounds?.lo ?? null}
+        levelHi={levelBounds?.hi ?? null}
         gammaFlip={gammaFlip}
         callWall={callWall}
         putWall={putWall}
@@ -961,12 +1047,13 @@ export default function ReplayScrubber({
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
+        onSeek={seekToMs}
       />
 
       {/* Pin diff — kept as its own card since it's a delta view between
           two moments, not something you overlay on live price action. */}
       {diffRows && (
-        <div className="rounded-xl border-2 px-5 py-4" style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}>
+        <div className="rounded-xl border-2 px-3 py-3 sm:px-5 sm:py-4" style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}>
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               Pin diff · A→B ·{' '}
@@ -987,19 +1074,22 @@ export default function ReplayScrubber({
               <BarChart
                 layout="vertical"
                 data={diffRows}
-                margin={{ top: 8, right: 24, left: 16, bottom: 8 }}
+                margin={isMobile ? { top: 8, right: 8, left: 0, bottom: 4 } : { top: 8, right: 24, left: 16, bottom: 8 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis
                   type="number"
                   stroke="var(--color-text-secondary)"
                   tickFormatter={formatMagnitude}
+                  tick={isMobile ? { fontSize: 10 } : undefined}
+                  minTickGap={isMobile ? 16 : undefined}
                 />
                 <YAxis
                   type="category"
                   dataKey="strike"
                   stroke="var(--color-text-secondary)"
-                  width={64}
+                  width={isMobile ? 40 : 64}
+                  tick={isMobile ? { fontSize: 10 } : undefined}
                   tickFormatter={(v) => Number(v).toFixed(0)}
                   interval="preserveStartEnd"
                 />
@@ -1077,6 +1167,85 @@ export default function ReplayScrubber({
   );
 }
 
+// ── Overlay board geometry ──
+// The desktop board is a fixed 1200×560 viewBox. Scaled to a phone's width
+// it shrank every label to ~3px, so it used to sit at an 880px minimum inside
+// a sideways scroller that showed a third of the tape at a time. A card
+// narrower than that now gets a board drawn at its measured width instead —
+// one viewBox unit per CSS pixel, so a 10-unit label is 10px text — taller
+// than it is wide, with the tape and the strike profile still side by side on
+// one price axis.
+const COMPACT_MAX_WIDTH = 880;
+
+interface OverlayBoard {
+  compact: boolean;
+  CW: number;
+  CH: number;
+  PLOT_TOP: number;
+  PLOT_BOTTOM: number;
+  LEFT_X: number;
+  LEFT_W: number;
+  STRIKE_W: number;
+  GAP: number;
+  /** Inset of the first and last candle from the tape panel's edges. */
+  PAD_X: number;
+  /** Margin to the right of the strike-profile panel. */
+  RIGHT_PAD: number;
+}
+
+const DESKTOP_BOARD: OverlayBoard = {
+  compact: false,
+  CW: 1200,
+  CH: 560,
+  PLOT_TOP: 24,
+  PLOT_BOTTOM: 500,
+  LEFT_X: 0,
+  LEFT_W: 720,
+  STRIKE_W: 64,
+  GAP: 12,
+  PAD_X: 12,
+  RIGHT_PAD: 8,
+};
+
+function compactBoard(width: number): OverlayBoard {
+  const CW = Math.max(240, Math.round(width));
+  // Portrait: price resolution comes from height, which a phone has more of
+  // than width. Clamped so a small phone still gets a usable plot and a
+  // tablet doesn't get a wall.
+  const CH = Math.round(Math.min(560, Math.max(400, CW * 1.25)));
+  return {
+    compact: true,
+    CW,
+    CH,
+    // Room above the plot for the title row and the playhead badge.
+    PLOT_TOP: 40,
+    PLOT_BOTTOM: CH - 28,
+    LEFT_X: 0,
+    // The tape keeps just over half; the strike labels take a fixed column
+    // and the profile gets the rest.
+    LEFT_W: Math.round(CW * 0.55),
+    STRIKE_W: 40,
+    GAP: 4,
+    PAD_X: 5,
+    RIGHT_PAD: 2,
+  };
+}
+
+// Level names on the compact board, where the labels share a ~100px profile
+// panel with the bars. The status row under the plot spells each one out.
+const COMPACT_LEVEL_LABEL: Record<string, string> = {
+  'call-wall': 'CW',
+  flip: 'Flip',
+  'max-pain': 'MP',
+  'put-wall': 'PW',
+  pin: 'Pin',
+  'gex-king': 'King',
+};
+
+function formatLevelShort(v: number): string {
+  return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1);
+}
+
 interface ReplayOverlayChartProps {
   symbol: string;
   candles: Candle[];
@@ -1095,6 +1264,9 @@ interface ReplayOverlayChartProps {
   onCycleGexMode: () => void;
   yLo: number;
   yHi: number;
+  /** Lowest / highest wall or flip across the session (compact framing). */
+  levelLo: number | null;
+  levelHi: number | null;
   gammaFlip: number | null;
   callWall: number | null;
   putWall: number | null;
@@ -1105,6 +1277,8 @@ interface ReplayOverlayChartProps {
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
+  /** Move the playhead to the frame nearest this moment (touch scrubbing). */
+  onSeek?: (ms: number) => void;
 }
 
 // Combined candles + strike-profile chart. Single SVG canvas so both
@@ -1125,6 +1299,8 @@ function ReplayOverlayChart({
   onCycleGexMode,
   yLo,
   yHi,
+  levelLo,
+  levelHi,
   gammaFlip,
   callWall,
   putWall,
@@ -1135,25 +1311,49 @@ function ReplayOverlayChart({
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
+  onSeek,
 }: ReplayOverlayChartProps) {
   // ── Layout ──
   // Candles occupy the left ~60% of the canvas, strike labels sit in a
   // narrow column, and the horizontal GEX bars extend from a center line
   // in the right panel — matches MarketMakerExposures so the muscle-
   // memory transfers.
-  const CW = 1200;
-  const CH = 560;
-  const PLOT_TOP = 24;
-  const PLOT_BOTTOM = 500;
+  //
+  // The board is the desktop one, or on a card narrower than
+  // COMPACT_MAX_WIDTH one drawn at the card's measured width (see
+  // OverlayBoard). Measured on the client: the server and the first client
+  // render draw the desktop board, and a layout effect swaps in the compact
+  // one before the browser paints. On a phone the unmeasured board is kept
+  // invisible by CSS until then (.zg-rp-canvas in globals.css).
+  const [frameEl, setFrameEl] = useState<HTMLDivElement | null>(null);
+  const [boxW, setBoxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!frameEl) return;
+    const measure = () => {
+      const w = frameEl.clientWidth;
+      setBoxW((cur) => (cur != null && Math.abs(cur - w) < 1 ? cur : w));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(frameEl);
+    return () => ro.disconnect();
+  }, [frameEl]);
+  const board = useMemo(
+    () =>
+      boxW != null && boxW > 0 && boxW < COMPACT_MAX_WIDTH ? compactBoard(boxW) : DESKTOP_BOARD,
+    [boxW],
+  );
+  const { compact, CW, CH, PLOT_TOP, PLOT_BOTTOM, LEFT_X, LEFT_W, STRIKE_W, GAP, PAD_X, RIGHT_PAD } =
+    board;
   const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
-  const LEFT_X = 0;
-  const LEFT_W = 720;
   const STRIKE_X = LEFT_X + LEFT_W;
-  const STRIKE_W = 64;
-  const GAP = 12;
   const MID_X = STRIKE_X + STRIKE_W + GAP;
-  const MID_W = CW - MID_X - 8;
+  const MID_W = CW - MID_X - RIGHT_PAD;
   const MID_CENTER = MID_X + MID_W / 2;
+  // Width between the first and last candle centres.
+  const TAPE_W = LEFT_W - 2 * PAD_X;
+  // Baseline of the time and GEX-magnitude axis labels under the plot.
+  const AXIS_Y = PLOT_BOTTOM + (compact ? 17 : 20);
 
   const usableCandles = useMemo(
     () =>
@@ -1173,7 +1373,11 @@ function ReplayOverlayChart({
   // useId keeps the clipPath unique if this chart ever mounts twice; strip
   // the ':' React embeds so the id stays valid inside an SVG url(#…) ref.
   const clipId = `replay-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
-  const [yZoom, setYZoom] = useState<number>(Y_ZOOM_DEFAULT);
+  // null = the default framing. On the desktop board that is the whole padded
+  // ladder (Y_ZOOM_DEFAULT). On the compact board it is fitted to the day's
+  // price and the session's walls (fitZoom below): the full ladder on a
+  // ~330px plot pressed the whole tape into a band a few pixels tall.
+  const [userZoom, setUserZoom] = useState<number | null>(null);
   // Opt-in: drop the ghosted future candles entirely so the tape reads as
   // an as-it-happened replay with no lookahead past the playhead. Default
   // off preserves the ghost-and-light-up behavior.
@@ -1189,6 +1393,26 @@ function ReplayOverlayChart({
     if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) return (lo + hi) / 2;
     return (yLo + yHi) / 2;
   }, [usableCandles, yLo, yHi]);
+
+  // Zoom that frames the candles plus the session's walls and flip with a
+  // little air, never wider than the full ladder.
+  const fitZoom = useMemo(() => {
+    const fullHalf = (yHi - yLo) / 2;
+    if (!(fullHalf > 0)) return Y_ZOOM_DEFAULT;
+    let lo = Number.POSITIVE_INFINITY;
+    let hi = Number.NEGATIVE_INFINITY;
+    for (const c of usableCandles) {
+      if (c.low != null && c.low < lo) lo = c.low;
+      if (c.high != null && c.high > hi) hi = c.high;
+    }
+    if (levelLo != null) lo = Math.min(lo, levelLo);
+    if (levelHi != null) hi = Math.max(hi, levelHi);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return Y_ZOOM_DEFAULT;
+    const half = Math.max(hi - priceCenter, priceCenter - lo) * 1.12;
+    return clampZoom(Math.min(Y_ZOOM_DEFAULT, half / fullHalf));
+  }, [yLo, yHi, usableCandles, levelLo, levelHi, priceCenter]);
+  const defaultZoom = compact ? fitZoom : Y_ZOOM_DEFAULT;
+  const yZoom = userZoom ?? defaultZoom;
 
   // Effective visible price band after zoom. At yZoom = 1 it equals the
   // parent's full padded [yLo, yHi]; smaller narrows it around the price
@@ -1211,18 +1435,34 @@ function ReplayOverlayChart({
       if (!isZoomGesture({ ctrlKey: e.ctrlKey, metaKey: e.metaKey, shiftKey: e.shiftKey })) return;
       e.preventDefault();
       const factor = e.deltaY > 0 ? Y_ZOOM_STEP : 1 / Y_ZOOM_STEP;
-      setYZoom((v) => clampZoom(v * factor));
+      setUserZoom((v) => clampZoom((v ?? defaultZoom) * factor));
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [defaultZoom]);
 
   // Aggregate the per-minute payload into 5-min OHLC buckets — the
   // candlestick tape displays 5-min bars while the scrubber, the pins,
   // and the GEX ladder all stay at 1-min resolution. The bucket the
   // cursor lives in grows minute-by-minute; past buckets stay sealed;
   // future buckets show their eventual OHLC at 25% opacity.
-  const buckets = useMemo(() => bucketize5Min(usableCandles), [usableCandles]);
+  const bucketMs = useMemo(() => {
+    if (!compact) return FIVE_MIN_MS;
+    let first = Number.POSITIVE_INFINITY;
+    let last = Number.NEGATIVE_INFINITY;
+    for (const c of usableCandles) {
+      const t = new Date(c.timestamp).getTime();
+      if (!Number.isFinite(t)) continue;
+      if (t < first) first = t;
+      if (t > last) last = t;
+    }
+    if (!Number.isFinite(first) || !Number.isFinite(last)) return FIVE_MIN_MS;
+    return bucketMsFor(TAPE_W, last - first + 60_000);
+  }, [compact, usableCandles, TAPE_W]);
+  const buckets = useMemo(
+    () => bucketizeCandles(usableCandles, bucketMs),
+    [usableCandles, bucketMs],
+  );
 
   const cursorMs = cursorTimestamp
     ? new Date(cursorTimestamp).getTime()
@@ -1255,17 +1495,16 @@ function ReplayOverlayChart({
 
   const xForTime = useCallback(
     (ms: number) => {
-      const usableW = LEFT_W - 24;
-      if (buckets.length === 0) return LEFT_X + 12;
+      if (buckets.length === 0) return LEFT_X + PAD_X;
       if (buckets.length === 1 || timelineEndMs === timelineStartMs) {
-        return LEFT_X + 12 + usableW / 2;
+        return LEFT_X + PAD_X + TAPE_W / 2;
       }
-      if (!Number.isFinite(ms)) return LEFT_X + 12;
+      if (!Number.isFinite(ms)) return LEFT_X + PAD_X;
       const ratio = (ms - timelineStartMs) / (timelineEndMs - timelineStartMs);
       const clamped = Math.max(0, Math.min(1, ratio));
-      return LEFT_X + 12 + clamped * usableW;
+      return LEFT_X + PAD_X + clamped * TAPE_W;
     },
-    [buckets.length, timelineStartMs, timelineEndMs, LEFT_X, LEFT_W],
+    [buckets.length, timelineStartMs, timelineEndMs, LEFT_X, PAD_X, TAPE_W],
   );
 
   // Per-bucket render OHLC + opacity. Bucket start > cursor → dim
@@ -1329,9 +1568,10 @@ function ReplayOverlayChart({
   // Sparse tick labels so ~78-bucket sessions don't wallpaper the axis.
   // Evenly-spaced picker: puts the first tick at bucket 0, the last at
   // buckets.length-1, and (desired-2) evenly interpolated between them.
+  // A label is ~30px wide, so the compact tape takes one per ~50px.
   const timeTicks = useMemo(
-    () => evenlySpacedIndices(buckets.length, 8),
-    [buckets.length],
+    () => evenlySpacedIndices(buckets.length, compact ? Math.max(2, Math.floor(TAPE_W / 50)) : 8),
+    [buckets.length, compact, TAPE_W],
   );
 
   // Y-axis price labels — computed from the price range, NOT from the
@@ -1363,10 +1603,10 @@ function ReplayOverlayChart({
   // the session's first candle isn't flush with its bucket start.
   const bucketSpacingPx = useMemo(() => {
     if (buckets.length < 2 || timelineEndMs === timelineStartMs) {
-      return LEFT_W - 24;
+      return TAPE_W;
     }
-    return (FIVE_MIN_MS / (timelineEndMs - timelineStartMs)) * (LEFT_W - 24);
-  }, [buckets.length, timelineStartMs, timelineEndMs, LEFT_W]);
+    return (bucketMs / (timelineEndMs - timelineStartMs)) * TAPE_W;
+  }, [buckets.length, timelineStartMs, timelineEndMs, TAPE_W, bucketMs]);
   const candleWidth = Math.max(2, Math.min(9, bucketSpacingPx * 0.65));
 
   // ── Level markers with de-collided labels ──
@@ -1443,22 +1683,74 @@ function ReplayOverlayChart({
       .filter((d) => d.lineY >= PLOT_TOP - 1 && d.lineY <= PLOT_BOTTOM + 1)
       .sort((a, b) => a.lineY - b.lineY);
     const labelYs = staggerLabelYs(items.map((d) => d.lineY), {
-      gap: 13,
+      gap: compact ? 12 : 13,
       minY: PLOT_TOP + 9,
       maxY: PLOT_BOTTOM - 3,
     });
     return items.map((d, i) => ({ ...d, labelY: labelYs[i] }));
   })();
 
+  // ── Touch: scrub on the chart itself ──
+  // On a phone the playhead follows the finger. Pointer events with
+  // touch-action: pan-y — a vertical swipe still scrolls the page (the
+  // browser takes it and sends pointercancel), while a horizontal drag or a
+  // tap seeks. Touch and pen only; the mouse keeps the slider it always had.
+  const touchRef = useRef<{ id: number; x0: number; y0: number; seeking: boolean } | null>(null);
+  const seekToClientX = useCallback(
+    (clientX: number) => {
+      const svg = svgRef.current;
+      if (!svg || !onSeek || buckets.length === 0) return;
+      const rect = svg.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const ux = ((clientX - rect.left) / rect.width) * CW;
+      const ratio = Math.max(0, Math.min(1, (ux - LEFT_X - PAD_X) / Math.max(1, TAPE_W)));
+      onSeek(timelineStartMs + ratio * (timelineEndMs - timelineStartMs));
+    },
+    [onSeek, buckets.length, CW, LEFT_X, PAD_X, TAPE_W, timelineStartMs, timelineEndMs],
+  );
+  const handleTouchDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === 'mouse') return;
+    touchRef.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, seeking: false };
+  };
+  const handleTouchMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (!t || t.id !== e.pointerId) return;
+    if (!t.seeking) {
+      const dx = Math.abs(e.clientX - t.x0);
+      const dy = Math.abs(e.clientY - t.y0);
+      if (dx < 8 || dx < dy) return;
+      t.seeking = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+    seekToClientX(e.clientX);
+  };
+  const handleTouchEnd = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (!t || t.id !== e.pointerId) return;
+    touchRef.current = null;
+    const tapped =
+      e.type === 'pointerup' &&
+      !t.seeking &&
+      Math.abs(e.clientX - t.x0) < 8 &&
+      Math.abs(e.clientY - t.y0) < 8;
+    if (tapped) seekToClientX(e.clientX);
+  };
+
+  // Title row and legend sit above the plot; on the compact board they move
+  // up to clear the playhead badge.
+  const TITLE_Y = compact ? 12 : PLOT_TOP - 8;
+
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 sm:px-5 sm:py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
         <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           {symbol} price · dealer {gexMode === 'net' ? 'net ' : ''}GEX · strike profile
         </div>
-        <div className="flex items-center gap-3">
+        {/* On a phone the OHLC readout takes its own line and the controls wrap
+            under it; from `sm` up the group sits beside the title as before. */}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
           {currentBar && (
-            <div className="font-mono text-[11px] text-[var(--color-text-secondary)]">
+            <div className="w-full font-mono text-[11px] text-[var(--color-text-secondary)] sm:w-auto">
               O {currentBar.open?.toFixed(2)} · H {currentBar.high?.toFixed(2)} · L{' '}
               {currentBar.low?.toFixed(2)} · C{' '}
               <span className="text-[var(--color-text-primary)] font-bold">
@@ -1481,7 +1773,7 @@ function ReplayOverlayChart({
                     ? 'Net only'
                     : 'Combined (Call/Put split with the Net overlaid)'
               } (click to cycle)`}
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 pointer-coarse:py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
               style={{
                 color: gexMode !== 'net' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 background: gexMode !== 'net' ? 'var(--color-surface-subtle)' : 'var(--color-surface)',
@@ -1503,7 +1795,7 @@ function ReplayOverlayChart({
                 ? 'Show future bars (ghosted ahead of the playhead)'
                 : 'Hide future bars (draw only up to the playhead)'
             }
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 pointer-coarse:py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
             style={{
               color: hideFuture ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
               background: hideFuture ? 'var(--color-surface-subtle)' : 'var(--color-surface)',
@@ -1521,35 +1813,35 @@ function ReplayOverlayChart({
           >
             <button
               type="button"
-              onClick={() => setYZoom((v) => clampZoom(v * Y_ZOOM_STEP))}
+              onClick={() => setUserZoom(clampZoom(yZoom * Y_ZOOM_STEP))}
               disabled={yZoom >= Y_ZOOM_MAX - 1e-6}
               title="Zoom out (compress more strikes into view)"
-              className="px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-2 py-1.5 pointer-coarse:px-2.5 pointer-coarse:py-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ZoomOut size={13} />
             </button>
             <button
               type="button"
-              onClick={() => setYZoom((v) => clampZoom(v / Y_ZOOM_STEP))}
+              onClick={() => setUserZoom(clampZoom(yZoom / Y_ZOOM_STEP))}
               disabled={yZoom <= Y_ZOOM_MIN + 1e-6}
               title="Zoom in (spread the strikes apart)"
-              className="border-l border-[var(--color-border)] px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="border-l border-[var(--color-border)] px-2 py-1.5 pointer-coarse:px-2.5 pointer-coarse:py-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ZoomIn size={13} />
             </button>
             <button
               type="button"
-              onClick={() => setYZoom(Y_ZOOM_DEFAULT)}
-              disabled={Math.abs(yZoom - Y_ZOOM_DEFAULT) < 1e-6}
-              title="Reset zoom to full strike range"
-              className="border-l border-[var(--color-border)] px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={() => setUserZoom(null)}
+              disabled={Math.abs(yZoom - defaultZoom) < 1e-6}
+              title={compact ? 'Reset zoom to the day’s range and walls' : 'Reset zoom to full strike range'}
+              className="border-l border-[var(--color-border)] px-2 py-1.5 pointer-coarse:px-2.5 pointer-coarse:py-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <RotateCcw size={13} />
             </button>
           </div>
         </div>
       </div>
-      <div className="mt-3 w-full overflow-x-auto">
+      <div ref={setFrameEl} className="mt-3 w-full">
         <svg
           ref={svgRef}
           role="img"
@@ -1557,14 +1849,21 @@ function ReplayOverlayChart({
           width="100%"
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMinYMin meet"
-          className="block w-full"
-          // Keep the chart at a legible size on narrow screens instead of
-          // scaling the whole 1200-wide canvas down to phone width (which shrank
-          // every candle, bar and axis label to a few pixels). Below ~880px the
-          // SVG holds this min width and the wrapper's overflow-x-auto lets the
-          // user pan horizontally; on desktop the container is wider than the
-          // floor so width:100% still governs and nothing changes.
-          style={{ aspectRatio: `${CW} / ${CH}`, minWidth: "880px" }}
+          className="zg-rp-canvas block w-full"
+          data-measured={boxW != null ? 'true' : undefined}
+          // Width always governs: the compact board is drawn at the card's own
+          // width, so nothing scrolls sideways and nothing shrinks to 3px.
+          style={{
+            aspectRatio: `${CW} / ${CH}`,
+            touchAction: 'pan-y',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+          }}
+          onPointerDown={handleTouchDown}
+          onPointerMove={handleTouchMove}
+          onPointerUp={handleTouchEnd}
+          onPointerCancel={handleTouchEnd}
         >
           {/* Clip price-dependent marks (candles, strike bars, flip line) to
               the plot box so magnified content never spills past the axes. */}
@@ -1603,7 +1902,7 @@ function ReplayOverlayChart({
                   x={STRIKE_X + STRIKE_W / 2}
                   y={y + 3.5}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={compact ? 10 : 11}
                   fill="var(--color-text-secondary)"
                 >
                   {formatPriceTick(p, priceStep)}
@@ -1712,7 +2011,7 @@ function ReplayOverlayChart({
               <text
                 key={`t-${b.bucketStart}`}
                 x={x}
-                y={PLOT_BOTTOM + 20}
+                y={AXIS_Y}
                 textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
                 fontSize={10}
                 fill="var(--color-text-secondary)"
@@ -1823,53 +2122,62 @@ function ReplayOverlayChart({
           })}
           </g>
           <text
-            x={MID_X + 6}
-            y={PLOT_BOTTOM + 20}
+            x={MID_X + (compact ? 2 : 6)}
+            y={AXIS_Y}
             fontSize={10}
             fill="var(--color-text-secondary)"
           >
             −{formatMagnitude(gexPeak)}
           </text>
+          {/* The zero label only where the panel has room between the ends. */}
+          {MID_W >= 120 && (
+            <text
+              x={MID_CENTER}
+              y={AXIS_Y}
+              textAnchor="middle"
+              fontSize={10}
+              fill="var(--color-text-secondary)"
+            >
+              0
+            </text>
+          )}
           <text
-            x={MID_CENTER}
-            y={PLOT_BOTTOM + 20}
-            textAnchor="middle"
-            fontSize={10}
-            fill="var(--color-text-secondary)"
-          >
-            0
-          </text>
-          <text
-            x={MID_X + MID_W - 6}
-            y={PLOT_BOTTOM + 20}
+            x={MID_X + MID_W - (compact ? 2 : 6)}
+            y={AXIS_Y}
             textAnchor="end"
             fontSize={10}
             fill="var(--color-text-secondary)"
           >
             +{formatMagnitude(gexPeak)}
           </text>
+          {/* The compact tape names its bar size: it widens past five minutes
+              when five-minute candles would be hairlines (bucketMsFor). */}
           <text
             x={LEFT_X + 4}
-            y={PLOT_TOP - 8}
+            y={TITLE_Y}
             fontSize={10}
             fill="var(--color-text-secondary)"
             fontWeight={700}
           >
-            {symbol} · price
+            {compact ? `${symbol} · ${Math.round(bucketMs / 60_000)}m bars` : `${symbol} · price`}
           </text>
-          <text
-            x={MID_X}
-            y={PLOT_TOP - 8}
-            fontSize={10}
-            fill="var(--color-text-secondary)"
-            fontWeight={700}
-          >
-            {gexMode === 'net'
-              ? 'Dealer net GEX'
-              : gexMode === 'split'
-                ? 'Dealer GEX · call / put'
-                : 'Dealer GEX · combined'}
-          </text>
+          {/* The compact profile panel is too narrow for a title beside its
+              legend; the card header above already names it. */}
+          {!compact && (
+            <text
+              x={MID_X}
+              y={PLOT_TOP - 8}
+              fontSize={10}
+              fill="var(--color-text-secondary)"
+              fontWeight={700}
+            >
+              {gexMode === 'net'
+                ? 'Dealer net GEX'
+                : gexMode === 'split'
+                  ? 'Dealer GEX · call / put'
+                  : 'Dealer GEX · combined'}
+            </text>
+          )}
 
           {/* Color legend for the split/combined views — anchored to the
               right edge of the gamma panel so the purple Net overlay in
@@ -1886,15 +2194,15 @@ function ReplayOverlayChart({
               ].map((item, i, arr) => {
                 // Lay the entries out right-to-left from the panel's right
                 // edge so the group never collides with the panel title.
-                const slot = 46;
+                const slot = compact ? 34 : 46;
                 const rightX = MID_X + MID_W;
                 const x = rightX - (arr.length - i) * slot;
                 return (
                   <g key={item.label}>
-                    <rect x={x} y={PLOT_TOP - 15} width={9} height={9} fill={item.color} rx={1.5} />
+                    <rect x={x} y={TITLE_Y - 7} width={9} height={9} fill={item.color} rx={1.5} />
                     <text
                       x={x + 12}
-                      y={PLOT_TOP - 8}
+                      y={TITLE_Y}
                       fontSize={10}
                       fill="var(--color-text-secondary)"
                       fontWeight={700}
@@ -1910,7 +2218,7 @@ function ReplayOverlayChart({
           {/* Expiry ramp key — only when the gradient is actually drawn. Sits
               under the panel title on the LEFT so it can't collide with the
               call/put/net swatches anchored to the right edge. */}
-          {gexMode !== 'net' && gradientActive && (
+          {!compact && gexMode !== 'net' && gradientActive && (
             <g>
               <defs>
                 <linearGradient id={`${clipId}-expramp`} x1="0" x2="1" y1="0" y2="0">
@@ -1978,7 +2286,9 @@ function ReplayOverlayChart({
                   fontWeight={700}
                   fill={lvl.color}
                 >
-                  {lvl.label} {lvl.value.toFixed(2)}
+                  {compact
+                    ? `${COMPACT_LEVEL_LABEL[lvl.key] ?? lvl.label} ${formatLevelShort(lvl.value)}`
+                    : `${lvl.label} ${lvl.value.toFixed(2)}`}
                 </text>
               </g>
             );
@@ -1994,6 +2304,7 @@ function ReplayOverlayChart({
               x={xForTime(pinAMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
+              maxX={CW}
               label="A"
               color="var(--color-warning)"
               dashed
@@ -2004,6 +2315,7 @@ function ReplayOverlayChart({
               x={xForTime(pinBMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
+              maxX={CW}
               label="B"
               color="var(--color-bull)"
               dashed
@@ -2014,6 +2326,7 @@ function ReplayOverlayChart({
               x={xForTime(cursorMs)}
               top={PLOT_TOP}
               bottom={PLOT_BOTTOM}
+              maxX={CW}
               // Label the playhead with the ET time of the minute you've
               // scrubbed to (e.g. "14:55") rather than "Now" — in a
               // historical replay the marker sits on a past moment, so the
@@ -2073,6 +2386,7 @@ function TimeMarker({
   label,
   color,
   dashed = false,
+  maxX,
 }: {
   x: number;
   top: number;
@@ -2080,11 +2394,16 @@ function TimeMarker({
   label: string;
   color: string;
   dashed?: boolean;
+  /** Right edge of the board; the badge slides inside [0, maxX]. */
+  maxX: number;
 }) {
   // Size the badge to the label so single-char pins ("A"/"B") stay compact
   // while a word like "Playhead" isn't clipped. Floor at 36 keeps the pin
   // badges the same width they were before this became variable.
   const badgeW = Math.max(36, label.length * 6.2 + 12);
+  // Centred on the line, but slid inside the board at either end so the
+  // opening and closing minutes aren't half cut off.
+  const badgeX = Math.max(0, Math.min(maxX - badgeW, x - badgeW / 2));
   return (
     <g>
       <line
@@ -2098,7 +2417,7 @@ function TimeMarker({
         opacity={0.9}
       />
       <rect
-        x={x - badgeW / 2}
+        x={badgeX}
         y={top - 18}
         width={badgeW}
         height={14}
@@ -2107,7 +2426,7 @@ function TimeMarker({
         opacity={0.9}
       />
       <text
-        x={x}
+        x={badgeX + badgeW / 2}
         y={top - 8}
         textAnchor="middle"
         fontSize={10}

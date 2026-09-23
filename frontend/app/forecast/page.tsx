@@ -109,16 +109,22 @@ export default async function ForecastLanding({
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        {/* Picker under the title on a phone: beside it, it squeezed the
+            heading into a four-line column and ran its chips off screen. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+            <div className="text-[11px] uppercase tracking-[0.16em] sm:tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · Gamma Forecast
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Yesterday&rsquo;s promise, today&rsquo;s receipt
             </h1>
           </div>
-          <SymbolPicker current={symbol} hrefs={pickerHrefs} />
+          {/* Six chips are ~350px: on a phone they scroll sideways, edge to
+              edge, rather than run off the screen. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+            <SymbolPicker current={symbol} hrefs={pickerHrefs} />
+          </div>
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every morning before the open we commit {symbol} to a projected range, an expected-volatility
@@ -169,7 +175,7 @@ export default async function ForecastLanding({
         )}
       </section>
 
-      <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+      <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About the receipts</div>
         The commitment is written to <span className="font-mono">daily_forecast</span> each morning
         before the open with a SHA-256 content hash and a database-level immutability trigger — nothing about the

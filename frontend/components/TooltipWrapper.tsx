@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  isValidElement,
   useCallback,
   useEffect,
   useId,
@@ -160,27 +161,60 @@ export default function TooltipWrapper({
       )
     : null;
 
+  const triggerEvents = {
+    onMouseEnter: () => {
+      updateLayout();
+      setShow(true);
+    },
+    onMouseLeave: () => setShow(false),
+    onFocus: () => {
+      updateLayout();
+      setShow(true);
+    },
+    onBlur: () => setShow(false),
+  };
+
+  // A child that is itself a control (a toggle button, a link) gets a plain
+  // span around it rather than the icon's <button>: a button inside a button
+  // is invalid HTML, which React reports as a hydration error and answers by
+  // rebuilding the tree on the client. The span also skips the icon's
+  // enlarged touch area, which would reach over a neighbouring control and
+  // swallow its taps. Looks and hover behavior are the button's.
+  if (
+    isValidElement(children) &&
+    typeof children.type === "string" &&
+    ["button", "a", "select", "input", "textarea"].includes(children.type)
+  ) {
+    return (
+      <div ref={triggerRef} style={{ position: "relative", display: "inline-flex" }}>
+        <span
+          aria-describedby={show ? tooltipId : undefined}
+          {...triggerEvents}
+          className="inline-flex items-center opacity-60 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100"
+          style={{ cursor: "help" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </span>
+        {tooltipNode}
+      </div>
+    );
+  }
+
   return (
     <div ref={triggerRef} style={{ position: "relative", display: "inline-flex" }}>
       <button
         aria-describedby={show ? tooltipId : undefined}
         aria-label="Show additional context"
-        onMouseEnter={() => {
-          updateLayout();
-          setShow(true);
-        }}
-        onMouseLeave={() => setShow(false)}
-        onFocus={() => {
-          updateLayout();
-          setShow(true);
-        }}
-        onBlur={() => setShow(false)}
-        className="inline-flex items-center opacity-60 transition-opacity duration-200 hover:opacity-100 focus:opacity-100"
+        {...triggerEvents}
+        // A 14px icon is too small a target for a finger: on touch screens the
+        // button grows an invisible 8px margin of hit area (the padding and the
+        // negative margin cancel, so nothing around it moves).
+        className="inline-flex items-center p-0 pointer-coarse:-m-2 pointer-coarse:p-2 opacity-60 transition-opacity duration-200 hover:opacity-100 focus:opacity-100"
         style={{
           cursor: "help",
           background: "none",
           border: "none",
-          padding: 0,
         }}
         type="button"
         onClick={(e) => e.stopPropagation()}

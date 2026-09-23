@@ -14,7 +14,7 @@ ZeroGEX tiene tres niveles de cuenta. Determinan qué datos y qué señales pued
 | Basic | Traders intradía activos | Dashboard, Live Bulletin, todos los Metrics, Strategy Builder, Live Options Quotes, todos los Basic Signals |
 | Pro | Operadores serios | Todo lo de Basic + todos los Advanced Signals + Composite Score + Backtesting + acceso a la API |
 
-Consulta el desglose en vivo — y una vía de prueba de 14 días — en la página [Pricing](/pricing).
+Consulta el desglose en vivo en la página [Pricing](/pricing). Basic mensual incluye una prueba gratuita de 7 días; todos los demás planes cuentan con una garantía de devolución del dinero de 7 días.
 
 ## Qué está restringido y dónde
 
@@ -54,13 +54,15 @@ Algunas páginas existen para todos los niveles pero se comportan de forma disti
 Los cambios de cuenta se realizan en dos lugares:
 
 1. **[Account](/account)** — muestra tu nivel actual, el estado de tu plan actual y el enlace al portal de facturación.
-2. **[Stripe Billing Portal](/account)** — se accede desde la página Account. Cambia entre Basic y Pro, pasa de mensual a anual, cambia el método de pago, consulta facturas.
+2. **[Stripe Billing Portal](/account)** — se accede desde la página Account. Cambia entre Basic y Pro, cambia entre facturación mensual, trimestral y anual, cambia el método de pago, consulta facturas.
 
 Para instrucciones paso a paso, consulta [Billing & Stripe Portal](/help/platform/billing).
 
 ## Cuando estás en periodo de prueba
 
-Si tu cuenta está en una prueba gratuita (Basic o Pro), la página Account muestra un chip "Trial active — X days left". Cuando termina la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste. Para evitarlo, cancela en el portal de facturación antes de que expire la prueba.
+La prueba gratuita de 7 días solo está disponible con Basic mensual (una por cuenta). Mientras está activa, la página Account muestra un chip "Trial active — X days left". Cuando termina la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste. Para evitarlo, cancela en el portal de facturación antes de que expire la prueba — no se te cobrará nada.
+
+Si durante la prueba pasas a Pro o a un plan trimestral o anual, la prueba termina y el nuevo plan se factura ese mismo día; la página [Pricing](/pricing) te muestra el importe exacto y te pide confirmación, y ese pago está cubierto por la garantía de devolución del dinero de 7 días.
 
 ## ¿Qué pasa si haces clic en algo a lo que no tienes acceso?
 
@@ -68,6 +70,6 @@ Se te redirige a la página [Pricing](/pricing) en lugar de bloquearte o mostrar
 
 ## Ver también
 
-- [Pricing](/pricing) — el desglose en vivo de niveles y la vía de prueba
+- [Pricing](/pricing) — el desglose en vivo de niveles y las opciones de plan
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

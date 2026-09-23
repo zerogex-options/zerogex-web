@@ -1,0 +1,13 @@
+[Unit]
+Description=ZeroGEX web stalled money-back refund sweep timer (hourly)
+
+[Timer]
+# Hourly, off the hour. A refund request left pending (the app killed between
+# the refund and the cancel) is reported within the hour, long before any
+# renewal could bill the member again.
+OnCalendar=*-*-* *:25:00
+RandomizedDelaySec=2m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

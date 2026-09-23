@@ -115,7 +115,7 @@ function defaultWinbackPercent(): number {
 const DEFAULT_PERCENT = defaultWinbackPercent();
 
 type Tier = 'basic' | 'pro';
-type Cadence = 'monthly' | 'annual';
+type Cadence = 'monthly' | 'quarterly' | 'annual';
 
 type Args = {
   email: string | null;
@@ -220,8 +220,8 @@ Coupon resolution (first match wins):
       (env)               STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> for the member's
                           plan — the standing win-back coupon (reuse it).
       --create-coupon     Create-or-reuse a deterministic "<percent>% off, 1 yr"
-                          coupon for the member's cadence (annual: once; monthly:
-                          repeating 12 months). --percent sets the rate (default ${DEFAULT_PERCENT}).
+                          coupon for the member's cadence (annual: once; monthly and
+                          quarterly: repeating 12 months). --percent sets the rate (default ${DEFAULT_PERCENT}).
                           Overrides the (env) coupon when --percent disagrees
                           with it — see --percent below.
       --percent N         The rate you promised, 1..99. Defaults to
@@ -340,6 +340,7 @@ function describeCoupon(c: CouponShape | undefined, fallbackId: string): string 
 // What "<percent>% off for one year" looks like as a coupon for each cadence:
 //   annual  -> one annual invoice covers the year  => duration=once
 //   monthly -> twelve monthly invoices             => repeating, 12 months
+//   quarterly -> four quarterly invoices           => repeating, 12 months
 function expectedDurationLabel(cadence: Cadence): string {
   return cadence === 'annual' ? 'once' : 'repeating for 12 months';
 }
@@ -352,7 +353,7 @@ function couponMatchesOneYear(c: CouponShape, cadence: Cadence, percent: number)
 
 // Ids minted by createOrReuseOneYearCoupon below. Kept as a pattern rather than
 // a list because the rate is part of the id, so the set is open-ended.
-const MINTED_WINBACK_ID = /^winback-\d{1,2}pct-1yr-(monthly|annual)$/;
+const MINTED_WINBACK_ID = /^winback-\d{1,2}pct-1yr-(monthly|quarterly|annual)$/;
 
 /**
  * Is this coupon one of OURS — a win-back grant, from any rate or cadence?
@@ -415,8 +416,10 @@ if (!STRIPE_SECRET_KEY) {
 
 const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: Cadence }> = [
   { env: 'STRIPE_PRICE_BASIC_MONTHLY', tier: 'basic', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_BASIC_QUARTERLY', tier: 'basic', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_BASIC_ANNUAL', tier: 'basic', cadence: 'annual' },
   { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_PRO_QUARTERLY', tier: 'pro', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_PRO_ANNUAL', tier: 'pro', cadence: 'annual' },
 ];
 
@@ -427,24 +430,17 @@ for (const p of PRICE_ENV) {
 }
 
 function winbackCouponEnvKey(tier: Tier, cadence: Cadence): string {
-  if (cadence === 'monthly') {
-    return tier === 'basic'
-      ? 'STRIPE_COUPON_WINBACK_BASIC_MONTHLY'
-      : 'STRIPE_COUPON_WINBACK_PRO_MONTHLY';
-  }
-  return tier === 'basic'
-    ? 'STRIPE_COUPON_WINBACK_BASIC_ANNUAL'
-    : 'STRIPE_COUPON_WINBACK_PRO_ANNUAL';
+  return `STRIPE_COUPON_WINBACK_${tier.toUpperCase()}_${cadence.toUpperCase()}`;
 }
 
-// Every configured win-back coupon, across all four (tier, cadence) slots — not
+// Every configured win-back coupon, across all six (tier, cadence) slots — not
 // only the member's own plan. A member who switched cadence, or whose grant
 // predates a re-pointed env var, can be carrying a win-back coupon from another
 // slot, and that is still a win-back coupon for supersede purposes.
 const configuredWinbackCouponIds: ReadonlySet<string> = new Set(
   (['basic', 'pro'] as Tier[])
     .flatMap((tier) =>
-      (['monthly', 'annual'] as Cadence[]).map((cadence) =>
+      (['monthly', 'quarterly', 'annual'] as Cadence[]).map((cadence) =>
         envOrLocal(winbackCouponEnvKey(tier, cadence)),
       ),
     )

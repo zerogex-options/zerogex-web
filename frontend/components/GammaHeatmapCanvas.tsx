@@ -10,11 +10,14 @@ import {
   Play,
   RotateCcw,
   Settings2,
+  SlidersHorizontal,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
 import { useInDashboardWidget } from '@/core/dashboardWidget';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lockPageScroll } from '@/core/scrollLock';
+import { useCoarsePointer, useIsMobile } from '@/hooks/useIsMobile';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useApiData, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -25,7 +28,6 @@ import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
-import MobileScrollableChart from './MobileScrollableChart';
 import ChartCaption from './ChartCaption';
 import { isWithinTradingHoursForSymbol, getMarketSession, isSessionLive } from '@/core/utils';
 
@@ -143,14 +145,48 @@ const PERSISTED_DEFAULTS: PersistedSettings = {
   showGrid: DEFAULTS.showGrid,
 };
 
-// Padding in CSS pixels
-const PAD_L = 56;
-// Right padding holds the vertical color legend plus its value labels.
-const PAD_R = 96;
-const PAD_T = 36;
-// Extra bottom padding so the time axis labels and the grouped date row fit
-// without colliding with the plot area.
-const PAD_B = 48;
+// Padding in CSS pixels. The canvas is always drawn at one canvas px per CSS
+// px, so its text is real 10–11px at any width — what a phone needs is a
+// different LAYOUT, not a different scale.
+type Pads = { L: number; R: number; T: number; B: number };
+const DESKTOP_PADS: Pads = {
+  L: 56,
+  // Right padding holds the vertical color legend plus its value labels.
+  R: 96,
+  T: 36,
+  // Extra bottom padding so the time axis labels and the grouped date row fit
+  // without colliding with the plot area.
+  B: 48,
+};
+// Narrow (phone) layout: the 96px legend gutter left a ~160px plot on a 390px
+// screen, so the color legend moves to a horizontal bar under the canvas and
+// the plot takes the width back.
+const NARROW_PADS: Pads = { L: 44, R: 8, T: 10, B: 40 };
+// Widest container (CSS px) that still gets the narrow layout on a phone-sized
+// or touch screen.
+const NARROW_MAX_WIDTH = 700;
+// A finger held this long before it moves is a crosshair scrub, not a scroll.
+const TOUCH_HOLD_MS = 260;
+
+// Compact ±B/M/K label for the color-scale endpoints.
+function formatScaleValue(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+  return v.toFixed(0);
+}
+
+// CSS gradient matching the canvas color map, bearish (left) → bullish (right),
+// for the narrow layout's horizontal legend bar.
+const LEGEND_GRADIENT_CSS = (() => {
+  const stops: string[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const c = colorForRatio(-1 + (2 * i) / 8);
+    stops.push(`rgb(${c.r},${c.g},${c.b}) ${(i / 8) * 100}%`);
+  }
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+})();
 
 export default function GammaHeatmapCanvas() {
   const { theme } = useTheme();
@@ -233,6 +269,16 @@ export default function GammaHeatmapCanvas() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [fullscreen]);
+
+  // The fullscreen overlay covers the viewport; the page under it must not
+  // scroll along with a swipe on the chart.
+  useEffect(() => {
+    if (!fullscreen) return;
+    return lockPageScroll();
+  }, [fullscreen]);
+
+  // The narrow layout folds its secondary controls into an Options panel.
+  const [optionsOpen, setOptionsOpen] = useState<boolean>(false);
 
   // ── Pause-aware polling intervals — 1s on every hook so the heatmap stays live. ──
   const heatmapInterval = paused ? 0 : 1000;
@@ -494,8 +540,30 @@ export default function GammaHeatmapCanvas() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [size, setSize] = useState({ w: 1300, h: 720 });
-  const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
+  // Measured content width of the canvas container; null until measured.
+  const [boxW, setBoxW] = useState<number | null>(null);
+  const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
+  // Narrow layout: a phone-sized or touch screen with a container too narrow
+  // for the 96px legend gutter (see NARROW_PADS). Decided from the measured
+  // width, so the server and first client render draw the desktop layout.
+  const narrow = boxW != null && boxW < NARROW_MAX_WIDTH && (isMobile || coarsePointer);
+  const pads = narrow ? NARROW_PADS : DESKTOP_PADS;
+  const size = useMemo(() => {
+    if (boxW == null) return { w: 1300, h: 720 };
+    if (narrow) {
+      // Portrait on a phone — the strike axis is the one that needs room.
+      // (px-3 on the container: 24px of padding.)
+      const w = Math.max(260, boxW - 24);
+      return { w, h: Math.round(Math.max(360, Math.min(560, w * 1.2))) };
+    }
+    // (px-4 on the container: 32px of padding.)
+    const cw = Math.max(320, boxW - 32);
+    return { w: cw, h: Math.max(360, Math.min(820, cw * 0.55)) };
+  }, [boxW, narrow]);
+  // `touch`: put down by a finger — the readout then pins to the top of the
+  // chart, away from the finger, and the crosshair outlives the touch.
+  const [hover, setHover] = useState<{ x: number; y: number; touch?: boolean } | null>(null);
 
   // The canvas container is only rendered once `grid` resolves — before that
   // the card shows "No heatmap data available" instead. The ref is therefore
@@ -513,22 +581,18 @@ export default function GammaHeatmapCanvas() {
     if (!containerMounted) return;
     const node = containerRef.current;
     if (!node) return;
-    const measure = (w: number) => {
-      const cw = Math.max(320, w);
-      setSize({ w: cw, h: Math.max(360, Math.min(820, cw * 0.55)) });
+    // The container's OUTER width (padding included): the canvas width is
+    // derived from it and the layout's own padding (see `size`), so switching
+    // layouts — which changes that padding — can't feed back into the
+    // measurement that chose the layout. Seeded from the freshly-mounted
+    // container so the first paint already uses the real layout width
+    // instead of the fallback.
+    const measure = () => {
+      const w = node.clientWidth;
+      setBoxW((prev) => (prev != null && Math.abs(prev - w) < 0.5 ? prev : w));
     };
-    // Seed from the freshly-mounted container so the first paint already uses
-    // the real layout width instead of the fallback. Subtract the container's
-    // own padding so this matches the observer's `contentRect.width` exactly —
-    // otherwise the seed would run one frame ~32px (px-4) too wide.
-    const cs = window.getComputedStyle(node);
-    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-    measure(node.clientWidth - padX);
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0]?.contentRect;
-      if (!cr) return;
-      measure(cr.width);
-    });
+    measure();
+    const ro = new ResizeObserver(() => measure());
     ro.observe(node);
     return () => ro.disconnect();
   }, [containerMounted]);
@@ -551,20 +615,20 @@ export default function GammaHeatmapCanvas() {
     ctx.clearRect(0, 0, cssW, cssH);
 
     const isDark = theme === 'dark';
-    const plotW = Math.max(10, cssW - PAD_L - PAD_R);
-    const plotH = Math.max(10, cssH - PAD_T - PAD_B);
+    const plotW = Math.max(10, cssW - pads.L - pads.R);
+    const plotH = Math.max(10, cssH - pads.T - pads.B);
 
     // Canvas doesn't resolve CSS vars — read once per render.
     const rootStyle = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;
     const bgCardColor = rootStyle?.getPropertyValue('--bg-card').trim() || (isDark ? '#111' : '#fff');
     ctx.fillStyle = bgCardColor;
-    ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
+    ctx.fillRect(pads.L, pads.T, plotW, plotH);
 
     const T = grid.timestamps.length;
     const S = grid.stride;
     const { yMin, yMax } = bounds;
     const yRange = Math.max(1e-9, yMax - yMin);
-    const yForStrike = (s: number) => PAD_T + plotH * (1 - (s - yMin) / yRange);
+    const yForStrike = (s: number) => pads.T + plotH * (1 - (s - yMin) / yRange);
 
     // Render the (time × strike) value matrix into a small offscreen canvas, then
     // upscale with bilinear smoothing to produce the SpotGamma-style soft heatmap.
@@ -608,7 +672,7 @@ export default function GammaHeatmapCanvas() {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     if (sh > 0 && dh > 0) {
-      ctx.drawImage(off, 0, sy, T, sh, PAD_L, dy, plotW, dh);
+      ctx.drawImage(off, 0, sy, T, sh, pads.L, dy, plotW, dh);
     }
 
     // Axes
@@ -626,13 +690,13 @@ export default function GammaHeatmapCanvas() {
     const labelStep = Math.max(1, Math.ceil((labelSpan + 1) / 12));
     for (let s = labelLow; s <= labelHigh; s += labelStep) {
       const py = yForStrike(s);
-      ctx.fillText(`$${s}`, PAD_L - 6, py);
+      ctx.fillText(`$${s}`, pads.L - 6, py);
       if (showGrid) {
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(PAD_L, py);
-        ctx.lineTo(PAD_L + plotW, py);
+        ctx.moveTo(pads.L, py);
+        ctx.lineTo(pads.L + plotW, py);
         ctx.stroke();
       }
     }
@@ -684,7 +748,7 @@ export default function GammaHeatmapCanvas() {
       if (mod >= 0 && mod % tickStepMinutes === 0) {
         timeTicks.push({
           i,
-          px: PAD_L + (i + 0.5) * (plotW / T),
+          px: pads.L + (i + 0.5) * (plotW / T),
           label: d.toLocaleTimeString('en-US', {
             timeZone: 'America/New_York',
             hour: '2-digit',
@@ -713,14 +777,14 @@ export default function GammaHeatmapCanvas() {
       ctx.lineWidth = 1;
       ctx.beginPath();
       drawnTimeTicks.forEach((tk) => {
-        ctx.moveTo(tk.px, PAD_T);
-        ctx.lineTo(tk.px, PAD_T + plotH);
+        ctx.moveTo(tk.px, pads.T);
+        ctx.lineTo(tk.px, pads.T + plotH);
       });
       ctx.stroke();
     }
 
     drawnTimeTicks.forEach((tk) => {
-      ctx.fillText(tk.label, tk.px, PAD_T + plotH + 6);
+      ctx.fillText(tk.label, tk.px, pads.T + plotH + 6);
     });
 
     // Grouped date row centered under each day's span of time ticks. Skip
@@ -729,8 +793,8 @@ export default function GammaHeatmapCanvas() {
       ctx.fillStyle = isDark ? 'rgba(255,241,230,0.65)' : 'rgba(30,41,59,0.65)';
       ctx.font = '10px ui-sans-serif, system-ui, -apple-system, sans-serif';
       dateGroups.forEach((g) => {
-        const startPx = PAD_L + (g.startI + 0.5) * (plotW / T);
-        const endPx = PAD_L + (g.endI + 0.5) * (plotW / T);
+        const startPx = pads.L + (g.startI + 0.5) * (plotW / T);
+        const endPx = pads.L + (g.endI + 0.5) * (plotW / T);
         const centerPx = (startPx + endPx) / 2;
         const groupWidth = endPx - startPx;
         if (groupWidth < 48) return;
@@ -739,7 +803,7 @@ export default function GammaHeatmapCanvas() {
           month: 'short',
           day: 'numeric',
         });
-        ctx.fillText(dateLabel, centerPx, PAD_T + plotH + 22);
+        ctx.fillText(dateLabel, centerPx, pads.T + plotH + 22);
       });
       // Restore default fill color so subsequent draws aren't tinted.
       ctx.fillStyle = axisColor;
@@ -774,7 +838,7 @@ export default function GammaHeatmapCanvas() {
         const low = Number(row.low ?? close);
         if (!Number.isFinite(open) || !Number.isFinite(close) || !Number.isFinite(high) || !Number.isFinite(low)) return;
 
-        const cx = PAD_L + (i + 0.5) * cellW;
+        const cx = pads.L + (i + 0.5) * cellW;
         const yOpen = yForStrike(open);
         const yClose = yForStrike(close);
         const yHigh = yForStrike(high);
@@ -850,7 +914,7 @@ export default function GammaHeatmapCanvas() {
             return;
           }
           const py = yForStrike(v);
-          const px = PAD_L + (i + 0.5) * (plotW / T);
+          const px = pads.L + (i + 0.5) * (plotW / T);
           if (!started) { ctx.moveTo(px, py); started = true; } else { ctx.lineTo(px, py); }
         });
         ctx.stroke();
@@ -875,72 +939,75 @@ export default function GammaHeatmapCanvas() {
       ctx.restore();
     }
 
-    // Vertical color legend on the right edge.
-    const legendX = PAD_L + plotW + 14;
-    const legendW = 14;
-    const legendY = PAD_T;
-    const legendH = plotH;
-    const grad = ctx.createLinearGradient(0, legendY, 0, legendY + legendH);
-    const stops = 9;
-    for (let i = 0; i <= stops; i++) {
-      const ratio = i / stops;
-      const r = 1 - 2 * ratio;
-      const c = colorForRatio(r);
-      grad.addColorStop(ratio, `rgb(${c.r},${c.g},${c.b})`);
-    }
-    ctx.fillStyle = grad;
-    ctx.fillRect(legendX, legendY, legendW, legendH);
-    ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';
-    ctx.strokeRect(legendX + 0.5, legendY + 0.5, legendW - 1, legendH - 1);
+    // Vertical color legend on the right edge. The narrow layout has no
+    // gutter for it; its legend is the HTML bar under the canvas instead.
+    if (!narrow) {
+      const legendX = pads.L + plotW + 14;
+      const legendW = 14;
+      const legendY = pads.T;
+      const legendH = plotH;
+      const grad = ctx.createLinearGradient(0, legendY, 0, legendY + legendH);
+      const stops = 9;
+      for (let i = 0; i <= stops; i++) {
+        const ratio = i / stops;
+        const r = 1 - 2 * ratio;
+        const c = colorForRatio(r);
+        grad.addColorStop(ratio, `rgb(${c.r},${c.g},${c.b})`);
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(legendX, legendY, legendW, legendH);
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';
+      ctx.strokeRect(legendX + 0.5, legendY + 0.5, legendW - 1, legendH - 1);
 
-    const fmt = (v: number) => {
-      const abs = Math.abs(v);
-      if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
-      if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
-      if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
-      return v.toFixed(0);
-    };
-    ctx.fillStyle = axisColor;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    // Scale the legend endpoints into the active unit (per-1% × factor).
-    const legendClip = grid.clip * legendGexFactor;
-    ctx.fillText(`+${fmt(legendClip)}`, legendX + legendW + 4, legendY + 4);
-    ctx.fillText('0', legendX + legendW + 4, legendY + legendH / 2);
-    ctx.fillText(`-${fmt(legendClip)}`, legendX + legendW + 4, legendY + legendH - 4);
+      const fmt = (v: number) => {
+        const abs = Math.abs(v);
+        if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+        if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+        if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+        return v.toFixed(0);
+      };
+      ctx.fillStyle = axisColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      // Scale the legend endpoints into the active unit (per-1% × factor).
+      const legendClip = grid.clip * legendGexFactor;
+      ctx.fillText(`+${fmt(legendClip)}`, legendX + legendW + 4, legendY + 4);
+      ctx.fillText('0', legendX + legendW + 4, legendY + legendH / 2);
+      ctx.fillText(`-${fmt(legendClip)}`, legendX + legendW + 4, legendY + legendH - 4);
+    }
 
     // Crosshair
     if (hover) {
-      const inX = hover.x >= PAD_L && hover.x <= PAD_L + plotW;
-      const inY = hover.y >= PAD_T && hover.y <= PAD_T + plotH;
+      const inX = hover.x >= pads.L && hover.x <= pads.L + plotW;
+      const inY = hover.y >= pads.T && hover.y <= pads.T + plotH;
       if (inX && inY) {
         ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)';
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 3]);
         ctx.beginPath();
-        ctx.moveTo(PAD_L, hover.y);
-        ctx.lineTo(PAD_L + plotW, hover.y);
-        ctx.moveTo(hover.x, PAD_T);
-        ctx.lineTo(hover.x, PAD_T + plotH);
+        ctx.moveTo(pads.L, hover.y);
+        ctx.lineTo(pads.L + plotW, hover.y);
+        ctx.moveTo(hover.x, pads.T);
+        ctx.lineTo(hover.x, pads.T + plotH);
         ctx.stroke();
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf, legendGexFactor]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf, legendGexFactor, pads, narrow]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
-    const plotW = Math.max(10, size.w - PAD_L - PAD_R);
-    const plotH = Math.max(10, size.h - PAD_T - PAD_B);
-    if (hover.x < PAD_L || hover.x > PAD_L + plotW || hover.y < PAD_T || hover.y > PAD_T + plotH) return null;
+    const plotW = Math.max(10, size.w - pads.L - pads.R);
+    const plotH = Math.max(10, size.h - pads.T - pads.B);
+    if (hover.x < pads.L || hover.x > pads.L + plotW || hover.y < pads.T || hover.y > pads.T + plotH) return null;
 
     const T = grid.timestamps.length;
-    const xRatio = (hover.x - PAD_L) / plotW;
+    const xRatio = (hover.x - pads.L) / plotW;
     const tIdx = Math.min(T - 1, Math.max(0, Math.floor(xRatio * T)));
     const ts = grid.timestamps[tIdx];
     const ms = grid.slotsMs[tIdx];
 
-    const yRatio = (hover.y - PAD_T) / plotH;
+    const yRatio = (hover.y - pads.T) / plotH;
     const strike = bounds.yMax - yRatio * (bounds.yMax - bounds.yMin);
     const sIdx = Math.round(strike) - grid.minStrike;
     const safeS = Math.min(grid.stride - 1, Math.max(0, sIdx));
@@ -950,7 +1017,7 @@ export default function GammaHeatmapCanvas() {
     const priceRow = priceData?.find((p) => Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs === ms);
     const gammaFlip = gammaFlipByMs.get(ms);
     return { ts, strike: Math.round(strike), value, priceRow, gammaFlip };
-  }, [hover, grid, bounds, priceData, gammaFlipByMs, size, tf]);
+  }, [hover, grid, bounds, priceData, gammaFlipByMs, size, tf, pads]);
 
   // ── Toolbar derived labels ──
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
@@ -1011,14 +1078,148 @@ export default function GammaHeatmapCanvas() {
     candleLagMinutes != null &&
     candleLagMinutes >= CANDLE_LAG_BADGE_MIN;
 
+  // ── Touch ──
+  // A touchscreen has no hover, so a finger gets its own grammar (the Gamma
+  // Chart's): a tap inspects the cell under it (a tap on a chart already
+  // showing a readout lifts it), and a press-and-hold — or a sideways drag —
+  // picks the crosshair up so the finger scrubs it across time and strikes.
+  // A plain vertical swipe still scrolls the page (touch-action: pan-y). The
+  // crosshair outlives the finger so its readout can be read. Mouse input
+  // keeps the hover it always had.
+  const lastTouchAtRef = useRef(0);
+  const fromRecentTouch = () => Date.now() - lastTouchAtRef.current < 800;
+  const touchRef = useRef<{
+    id: number;
+    mode: 'pending' | 'scrub' | 'scroll';
+    startX: number;
+    startY: number;
+    startAt: number;
+    hadHover: boolean;
+  } | null>(null);
+  // Kept apart from the gesture state, which no effect reads: the pending
+  // hold timer, and whether the chart has claimed the touch (so the native
+  // touchmove listener keeps the page still while a finger scrubs).
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchClaimedRef = useRef(false);
+  const clearHold = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+  useEffect(
+    () => () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!containerMounted) return;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchClaimedRef.current && e.cancelable) e.preventDefault();
+    };
+    cv.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => cv.removeEventListener('touchmove', onTouchMove);
+  }, [containerMounted]);
+
+  const hoverFromClient = (clientX: number, clientY: number, el: HTMLCanvasElement, touch: boolean) => {
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    if (!touch) {
+      setHover({ x, y });
+      return;
+    }
+    // A fingertip at the plot's edge still means the edge cell.
+    const plotW = Math.max(10, size.w - pads.L - pads.R);
+    const plotH = Math.max(10, size.h - pads.T - pads.B);
+    setHover({
+      x: clamp(x, pads.L, pads.L + plotW),
+      y: clamp(y, pads.T, pads.T + plotH),
+      touch: true,
+    });
+  };
+
+  const handleTouchDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType !== 'touch') return;
+    lastTouchAtRef.current = Date.now();
+    // One finger inspects; a second is ignored rather than fought over.
+    if (touchRef.current) return;
+    const el = e.currentTarget;
+    touchRef.current = {
+      id: e.pointerId,
+      mode: 'pending',
+      startX: e.clientX,
+      startY: e.clientY,
+      startAt: Date.now(),
+      hadHover: hover != null,
+    };
+    const x = e.clientX;
+    const y = e.clientY;
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      const cur = touchRef.current;
+      if (!cur || cur.mode !== 'pending') return;
+      cur.mode = 'scrub';
+      touchClaimedRef.current = true;
+      hoverFromClient(x, y, el, true);
+    }, TOUCH_HOLD_MS);
+  };
+
+  const handleTouchMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== 'touch' || !t || t.id !== e.pointerId) return;
+    lastTouchAtRef.current = Date.now();
+    if (t.mode === 'scrub') {
+      hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+      return;
+    }
+    if (t.mode !== 'pending') return;
+    const dx = e.clientX - t.startX;
+    const dy = e.clientY - t.startY;
+    // Held long enough before moving: a scrub, even if the hold timer has not
+    // had its turn yet on a busy main thread.
+    const held = Date.now() - t.startAt >= TOUCH_HOLD_MS && (Math.abs(dx) > 2 || Math.abs(dy) > 2);
+    if (!held && Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) {
+      clearHold();
+      t.mode = 'scroll';
+      return;
+    }
+    if (held || Math.abs(dx) > 8) {
+      clearHold();
+      t.mode = 'scrub';
+      touchClaimedRef.current = true;
+      hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+    }
+  };
+
+  const handleTouchEnd = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== 'touch' || !t || t.id !== e.pointerId) return;
+    lastTouchAtRef.current = Date.now();
+    clearHold();
+    if (e.type === 'pointerup' && t.mode === 'pending') {
+      if (t.hadHover) setHover(null);
+      else hoverFromClient(e.clientX, e.clientY, e.currentTarget, true);
+    }
+    touchRef.current = null;
+    touchClaimedRef.current = false;
+  };
+
   if (loading && !gexData) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
 
   const toolbarBtnClass = 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors';
+  // On the narrow layout every control is a ≥32px touch target; the desktop
+  // toolbar keeps its dense 12px buttons exactly as they were.
+  const touchTarget: React.CSSProperties = narrow ? { minHeight: 32, minWidth: 32, justifyContent: 'center' } : {};
   const toolbarBtnStyle = (active = false): React.CSSProperties => ({
     border: `1px solid ${border}`,
     color: active ? textPrimary : subtle,
     backgroundColor: active ? 'var(--color-info-soft)' : 'transparent',
+    ...touchTarget,
   });
   const containerStyle: React.CSSProperties = fullscreen
     ? {
@@ -1041,6 +1242,257 @@ export default function GammaHeatmapCanvas() {
     boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
   };
 
+  // ── Toolbar pieces ── one set of controls: the original single wrapping row
+  // on the desktop layout, a compact bar + Options panel on the narrow one.
+  const dateChip = (
+    <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
+      <Clock size={12} />
+      <span>{todayLabel}</span>
+    </div>
+  );
+
+  const expiryRowClass = narrow
+    ? 'w-full text-left px-3 py-2.5 text-sm hover:bg-[color:var(--color-info-soft)]'
+    : 'w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]';
+  const expiryControl = (
+    <div ref={expiryRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setExpiryOpen((v) => !v);
+          setSettingsOpen(false);
+        }}
+        className={toolbarBtnClass}
+        style={toolbarBtnStyle(selectedExpiry !== 'all')}
+        title="Filter by expiration (best-effort — depends on /api/gex/heatmap supporting the param)"
+        disabled={availableExpirations.length === 0}
+      >
+        <span>Expiry {expiryDisplay}</span>
+        <ChevronDown size={12} />
+      </button>
+      {expiryOpen && (
+        <div
+          className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
+          style={{ ...popoverStyle, minWidth: narrow ? 200 : 160, maxHeight: narrow ? 320 : 260, overflowY: 'auto' }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedExpiry('all');
+              setExpiryOpen(false);
+            }}
+            className={expiryRowClass}
+            style={{
+              color: selectedExpiry === 'all' ? textPrimary : subtle,
+              fontWeight: selectedExpiry === 'all' ? 600 : 400,
+            }}
+          >
+            All expirations
+          </button>
+          {availableExpirations.map((exp) => (
+            <button
+              key={exp}
+              type="button"
+              onClick={() => {
+                setSelectedExpiry(exp);
+                setExpiryOpen(false);
+              }}
+              className={expiryRowClass}
+              style={{
+                color: selectedExpiry === exp ? textPrimary : subtle,
+                fontWeight: selectedExpiry === exp ? 600 : 400,
+              }}
+            >
+              {exp}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const dteChipEl = (
+    <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
+      <span>DTE {dteLabel}</span>
+    </div>
+  );
+
+  const tfControl = (
+    <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
+      {TIMEFRAME_OPTIONS.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => setTf(option)}
+          className="px-2.5 py-1.5 text-xs font-semibold"
+          style={{
+            color: option === tf ? textPrimary : subtle,
+            backgroundColor: option === tf ? 'var(--color-info-soft)' : 'transparent',
+            ...touchTarget,
+          }}
+          aria-pressed={narrow ? option === tf : undefined}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+
+  const withPrevBtn = (
+    <button
+      type="button"
+      title="Double the time window so the heatmap reaches into the prior session"
+      onClick={() => setWithPrev((v) => !v)}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(withPrev)}
+    >
+      <span>With Prev</span>
+    </button>
+  );
+
+  const zoomOutBtn = (
+    <button
+      type="button"
+      title="Zoom out (wider price-range margin)"
+      aria-label={narrow ? 'Zoom out' : undefined}
+      onClick={() => setZoomMul((v) => clamp(v * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle()}
+      disabled={zoomMul >= ZOOM_MAX - 1e-6}
+    >
+      <ZoomOut size={12} />
+    </button>
+  );
+  const zoomInBtn = (
+    <button
+      type="button"
+      title="Zoom in (tighter price-range margin)"
+      aria-label={narrow ? 'Zoom in' : undefined}
+      onClick={() => setZoomMul((v) => clamp(v / ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle()}
+      disabled={zoomMul <= ZOOM_MIN + 1e-6}
+    >
+      <ZoomIn size={12} />
+    </button>
+  );
+
+  const pauseBtn = (
+    <button
+      type="button"
+      title={paused ? 'Resume live updates' : 'Pause live updates'}
+      aria-label={narrow ? (paused ? 'Resume live updates' : 'Pause live updates') : undefined}
+      onClick={() => setPaused((v) => !v)}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle(paused)}
+    >
+      {paused ? <Play size={12} /> : <Pause size={12} />}
+    </button>
+  );
+
+  const resetBtn = (
+    <button
+      type="button"
+      title="Reset all settings to default"
+      aria-label={narrow ? 'Reset all settings to default' : undefined}
+      onClick={resetAll}
+      className={toolbarBtnClass}
+      style={toolbarBtnStyle()}
+    >
+      <RotateCcw size={12} />
+    </button>
+  );
+
+  // Settings — a popover on the desktop layout.
+  const settingsControl = (
+    <div ref={settingsRef} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setSettingsOpen((v) => !v);
+          setExpiryOpen(false);
+        }}
+        title="Display settings"
+        className={toolbarBtnClass}
+        style={toolbarBtnStyle(settingsOpen)}
+      >
+        <Settings2 size={12} />
+      </button>
+      {settingsOpen && (
+        <div
+          className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
+          style={{ ...popoverStyle, minWidth: 200 }}
+        >
+          <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+            <input
+              type="checkbox"
+              checked={showGrid}
+              onChange={(e) => setShowGrid(e.target.checked)}
+            />
+            <span>Show grid lines</span>
+          </label>
+          <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
+            <button
+              type="button"
+              onClick={() => {
+                resetAll();
+                setSettingsOpen(false);
+              }}
+              className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
+              style={{ color: textPrimary }}
+            >
+              <RotateCcw size={12} />
+              <span>Reset all settings</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const pausedBadge = paused && (
+    <span
+      className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+      style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+    >
+      Paused
+    </span>
+  );
+  const candleLagBadge = showCandleLagBadge && (
+    <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls — TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup — the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
+      <span
+        className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded cursor-help"
+        style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
+      >
+        Candles {candleLagMinutes}m behind
+      </span>
+    </TooltipWrapper>
+  );
+
+  const optionsPanelId = 'gex-heatmap-options';
+
+  // Readout placement. Desktop: trails the cursor, as it always has. Narrow:
+  // kept inside the card, and — when a finger put the crosshair down — pinned
+  // to the top of the chart on the side AWAY from the finger.
+  const tooltipPlacement: React.CSSProperties | null = !hover
+    ? null
+    : hover.touch
+      ? {
+          top: 6,
+          ...(hover.x > size.w / 2 ? { left: 8 } : { right: 8 }),
+          maxWidth: 'min(240px, calc(100% - 16px))',
+        }
+      : narrow
+        ? {
+            left: clamp(hover.x + 16, 4, Math.max(4, size.w - 196)),
+            top: Math.max(0, hover.y - 12),
+            maxWidth: 'min(240px, calc(100% - 16px))',
+          }
+        : {
+            left: Math.min(size.w - 220, hover.x + 16),
+            top: Math.max(0, hover.y - 12),
+          };
+
   return (
     <div className="rounded-lg" style={containerStyle}>
       {/* Title bar */}
@@ -1059,241 +1511,133 @@ export default function GammaHeatmapCanvas() {
             type="button"
             onClick={() => setFullscreen((v) => !v)}
             title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+            aria-label={narrow ? (fullscreen ? 'Exit fullscreen' : 'Enter fullscreen') : undefined}
             className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
-            style={{ color: subtle }}
+            style={{ color: subtle, ...(narrow ? { minWidth: 32, minHeight: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : {}) }}
           >
             {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
         )}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
-        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Current trading date">
-          <Clock size={12} />
-          <span>{todayLabel}</span>
-        </div>
-
-        {/* Expiry dropdown */}
-        <div ref={expiryRef} className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setExpiryOpen((v) => !v);
-              setSettingsOpen(false);
-            }}
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(selectedExpiry !== 'all')}
-            title="Filter by expiration (best-effort — depends on /api/gex/heatmap supporting the param)"
-            disabled={availableExpirations.length === 0}
-          >
-            <span>Expiry {expiryDisplay}</span>
-            <ChevronDown size={12} />
-          </button>
-          {expiryOpen && (
-            <div
-              className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
-              style={{ ...popoverStyle, minWidth: 160, maxHeight: 260, overflowY: 'auto' }}
+      {/* Toolbar. The narrow layout keeps expiry, timeframe and zoom in sight
+          and folds With Prev, pause, reset and the grid toggle into an
+          Options panel — the single row it replaces ran to three lines of
+          buttons above the heatmap on a phone. */}
+      {narrow ? (
+        <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
+          <div className="flex items-center gap-2">
+            {expiryControl}
+            <div className="ml-auto">{tfControl}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOptionsOpen((v) => !v);
+                setExpiryOpen(false);
+              }}
+              aria-expanded={optionsOpen}
+              aria-controls={optionsPanelId}
+              className={toolbarBtnClass}
+              style={toolbarBtnStyle(optionsOpen)}
             >
+              <SlidersHorizontal size={12} />
+              <span>Options</span>
+              <ChevronDown size={12} style={{ transform: optionsOpen ? 'rotate(180deg)' : undefined }} />
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              {zoomOutBtn}
+              {zoomInBtn}
+            </div>
+          </div>
+          {optionsOpen && (
+            <div id={optionsPanelId} className="flex flex-wrap items-center gap-2 pt-1">
+              {withPrevBtn}
+              {pauseBtn}
+              {resetBtn}
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedExpiry('all');
-                  setExpiryOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
-                style={{
-                  color: selectedExpiry === 'all' ? textPrimary : subtle,
-                  fontWeight: selectedExpiry === 'all' ? 600 : 400,
-                }}
+                onClick={() => setShowGrid((v) => !v)}
+                aria-pressed={showGrid}
+                className={toolbarBtnClass}
+                style={toolbarBtnStyle(showGrid)}
               >
-                All expirations
+                <span>Grid</span>
               </button>
-              {availableExpirations.map((exp) => (
-                <button
-                  key={exp}
-                  type="button"
-                  onClick={() => {
-                    setSelectedExpiry(exp);
-                    setExpiryOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]"
-                  style={{
-                    color: selectedExpiry === exp ? textPrimary : subtle,
-                    fontWeight: selectedExpiry === exp ? 600 : 400,
-                  }}
-                >
-                  {exp}
-                </button>
-              ))}
             </div>
           )}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" style={{ color: subtle }}>
+            {pausedBadge}
+            {candleLagBadge}
+            <span>
+              {todayLabel} · DTE {dteLabel} · Updated {updatedLabel}
+            </span>
+          </div>
         </div>
-
-        <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
-          <span>DTE {dteLabel}</span>
-        </div>
-
-        <div className="inline-flex rounded-md overflow-hidden" style={{ border: `1px solid ${border}` }}>
-          {TIMEFRAME_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setTf(option)}
-              className="px-2.5 py-1.5 text-xs font-semibold"
-              style={{
-                color: option === tf ? textPrimary : subtle,
-                backgroundColor: option === tf ? 'var(--color-info-soft)' : 'transparent',
-              }}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          title="Double the time window so the heatmap reaches into the prior session"
-          onClick={() => setWithPrev((v) => !v)}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle(withPrev)}
-        >
-          <span>With Prev</span>
-        </button>
-
-        <button
-          type="button"
-          title="Zoom out (wider price-range margin)"
-          onClick={() => setZoomMul((v) => clamp(v * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle()}
-          disabled={zoomMul >= ZOOM_MAX - 1e-6}
-        >
-          <ZoomOut size={12} />
-        </button>
-        <button
-          type="button"
-          title="Zoom in (tighter price-range margin)"
-          onClick={() => setZoomMul((v) => clamp(v / ZOOM_STEP, ZOOM_MIN, ZOOM_MAX))}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle()}
-          disabled={zoomMul <= ZOOM_MIN + 1e-6}
-        >
-          <ZoomIn size={12} />
-        </button>
-
-        <button
-          type="button"
-          title={paused ? 'Resume live updates' : 'Pause live updates'}
-          onClick={() => setPaused((v) => !v)}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle(paused)}
-        >
-          {paused ? <Play size={12} /> : <Pause size={12} />}
-        </button>
-
-        <button
-          type="button"
-          title="Reset all settings to default"
-          onClick={resetAll}
-          className={toolbarBtnClass}
-          style={toolbarBtnStyle()}
-        >
-          <RotateCcw size={12} />
-        </button>
-
-        {/* Settings */}
-        <div ref={settingsRef} className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsOpen((v) => !v);
-              setExpiryOpen(false);
-            }}
-            title="Display settings"
-            className={toolbarBtnClass}
-            style={toolbarBtnStyle(settingsOpen)}
-          >
-            <Settings2 size={12} />
-          </button>
-          {settingsOpen && (
-            <div
-              className="absolute top-full right-0 mt-1 rounded-md py-2 z-30"
-              style={{ ...popoverStyle, minWidth: 200 }}
-            >
-              <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
-                <input
-                  type="checkbox"
-                  checked={showGrid}
-                  onChange={(e) => setShowGrid(e.target.checked)}
-                />
-                <span>Show grid lines</span>
-              </label>
-              <div className="border-t mt-1 pt-1" style={{ borderColor: border }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetAll();
-                    setSettingsOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
-                  style={{ color: textPrimary }}
-                >
-                  <RotateCcw size={12} />
-                  <span>Reset all settings</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      ) : (
+      <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
+        {dateChip}
+        {expiryControl}
+        {dteChipEl}
+        {tfControl}
+        {withPrevBtn}
+        {zoomOutBtn}
+        {zoomInBtn}
+        {pauseBtn}
+        {resetBtn}
+        {settingsControl}
 
         <div className="ml-auto text-xs flex items-center gap-2" style={{ color: subtle }}>
-          {paused && (
-            <span
-              className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-              style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
-            >
-              Paused
-            </span>
-          )}
-          {showCandleLagBadge && (
-            <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls — TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup — the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
-              <span
-                className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded cursor-help"
-                style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
-              >
-                Candles {candleLagMinutes}m behind
-              </span>
-            </TooltipWrapper>
-          )}
+          {pausedBadge}
+          {candleLagBadge}
           <span>Updated {updatedLabel}</span>
         </div>
       </div>
+      )}
 
-      {/* Heatmap canvas */}
+      {/* Heatmap canvas — drawn at the container's own width on every layout,
+          so nothing scrolls sideways; see NARROW_PADS for the phone layout. */}
       {!grid ? (
         <div className="px-5 py-12 text-center" style={{ color: subtle }}>
           No heatmap data available
         </div>
       ) : (
         <>
-        <MobileScrollableChart minWidthClass="min-w-[900px]">
-          <div ref={containerRef} className="relative w-full px-4 pb-4">
+          <div ref={containerRef} className={`relative w-full ${narrow ? 'px-3 pb-2' : 'px-4 pb-4'}`}>
             <canvas
               ref={canvasRef}
               className="block w-full"
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setHover({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+              style={{
+                cursor: 'crosshair',
+                // A finger's vertical swipe scrolls the page; taps and holds
+                // are the chart's own (see the touch handlers).
+                touchAction: 'pan-y',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none',
               }}
-              onMouseLeave={() => setHover(null)}
+              onMouseMove={(e) => {
+                if (fromRecentTouch()) return;
+                hoverFromClient(e.clientX, e.clientY, e.currentTarget, false);
+              }}
+              onMouseLeave={() => {
+                if (!fromRecentTouch()) setHover(null);
+              }}
+              onPointerDown={handleTouchDown}
+              onPointerMove={handleTouchMove}
+              onPointerUp={handleTouchEnd}
+              onPointerCancel={handleTouchEnd}
+              onContextMenu={(e) => {
+                // A long press is the crosshair here, not the browser's menu.
+                if (touchRef.current) e.preventDefault();
+              }}
             />
             {tooltip && hover && (
               <div
                 className="absolute z-10 rounded-lg px-3 py-2 text-xs pointer-events-none"
                 style={{
-                  left: Math.min(size.w - 220, hover.x + 16),
-                  top: Math.max(0, hover.y - 12),
+                  ...tooltipPlacement,
                   backgroundColor: 'var(--color-chart-tooltip-bg)',
                   border: '1px solid var(--color-border)',
                   color: 'var(--color-chart-tooltip-text)',
@@ -1326,10 +1670,19 @@ export default function GammaHeatmapCanvas() {
               </div>
             )}
           </div>
-        </MobileScrollableChart>
+          {/* Narrow layout: the color scale as a horizontal bar (the canvas
+              has no gutter for the vertical one), bearish → bullish. */}
+          {narrow && (
+            <div className="flex items-center gap-2 px-3 pb-3 text-[11px] tabular-nums" style={{ color: subtle }}>
+              <span>-{formatScaleValue(grid.clip * legendGexFactor)}</span>
+              <span className="h-2.5 flex-1 rounded-sm" style={{ background: LEGEND_GRADIENT_CSS }} aria-hidden />
+              <span>+{formatScaleValue(grid.clip * legendGexFactor)}</span>
+              <span style={{ color: textPrimary }}>Net GEX {GEX_UNIT_LABEL[gexUnit]}</span>
+            </div>
+          )}
         {/* Legend strip */}
         <div
-          className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
+          className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${narrow ? 'px-3' : 'px-5'} py-2 text-xs`}
           style={{ borderTop: `1px solid ${border}`, color: subtle }}
         >
           <span

@@ -303,6 +303,76 @@ export function markLevelsDigestSent(id: string, now: Date = new Date()): void {
     .run(nowIso, nowIso, id);
 }
 
+export type LevelsEmailFunnel = {
+  /** Rows written. See the caveat below — this is not "people who tried". */
+  submitted: number;
+  /** confirmed_at IS NOT NULL, whatever happened afterwards. */
+  everConfirmed: number;
+  /** everConfirmed / submitted, as a percentage. Null when nothing submitted. */
+  confirmRatePct: number | null;
+  /** Confirmation sent, not yet clicked, not opted out. */
+  pending: number;
+  /** Confirmed and not opted out — exactly today's send list. */
+  active: number;
+  unsubscribed: number;
+  bySymbol: Array<{ symbol: string; count: number }>;
+};
+
+/**
+ * The double opt-in funnel, for the admin readout.
+ *
+ * TWO DEFINITIONS WORTH STATING, since both are easy to get wrong and the
+ * wrong one looks perfectly plausible on a dashboard:
+ *
+ *   everConfirmed counts `confirmed_at IS NOT NULL` regardless of what
+ *   happened next. Somebody who confirmed and later unsubscribed DID confirm;
+ *   scoring them as an opt-in failure blames the confirmation email for a
+ *   decision taken weeks afterwards. `active` is the other question — who can
+ *   be mailed today — and is what countLevelsSubscribers() answers.
+ *
+ *   `submitted` counts ROWS. A malformed address, a honeypot trip, a
+ *   rate-limited attempt and a resubmission of an address already on the list
+ *   all fail to create one, so confirmRatePct is an UPPER BOUND. PostHog's
+ *   levels_email_submitted is the honest denominator; the gap between the two
+ *   is itself the signal.
+ */
+export function getLevelsEmailFunnel(): LevelsEmailFunnel {
+  const db = getDb();
+  const row = db
+    .prepare(
+      `SELECT
+         COUNT(*) AS submitted,
+         SUM(CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END) AS ever_confirmed,
+         SUM(CASE WHEN confirmed_at IS NULL AND unsubscribed_at IS NULL THEN 1 ELSE 0 END) AS pending,
+         SUM(CASE WHEN confirmed_at IS NOT NULL AND unsubscribed_at IS NULL THEN 1 ELSE 0 END) AS active,
+         SUM(CASE WHEN unsubscribed_at IS NOT NULL THEN 1 ELSE 0 END) AS unsubscribed
+       FROM levels_subscribers`,
+    )
+    .get() as Record<string, number | null>;
+
+  const submitted = Number(row.submitted ?? 0);
+  const everConfirmed = Number(row.ever_confirmed ?? 0);
+  const bySymbol = (
+    db
+      .prepare(
+        `SELECT symbol, COUNT(*) AS n FROM levels_subscribers
+          WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL
+          GROUP BY symbol ORDER BY n DESC, symbol ASC`,
+      )
+      .all() as Array<Record<string, unknown>>
+  ).map((r) => ({ symbol: String(r.symbol), count: Number(r.n ?? 0) }));
+
+  return {
+    submitted,
+    everConfirmed,
+    confirmRatePct: submitted > 0 ? (everConfirmed / submitted) * 100 : null,
+    pending: Number(row.pending ?? 0),
+    active: Number(row.active ?? 0),
+    unsubscribed: Number(row.unsubscribed ?? 0),
+    bySymbol,
+  };
+}
+
 export type LevelsSubscriberCounts = {
   total: number;
   confirmed: number;

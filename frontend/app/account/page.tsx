@@ -11,6 +11,7 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import AccountApiKeys from '@/components/AccountApiKeys';
 import CancelRetentionModal from '@/components/CancelRetentionModal';
+import MoneyBackGuaranteePanel from '@/components/MoneyBackGuaranteePanel';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 
@@ -20,6 +21,7 @@ type DonationPayload = {
   baseAmountUsd: number;
   donationUsd: number;
   interval: string;
+  intervalCount?: number;
   currency: string;
 };
 
@@ -95,7 +97,7 @@ function AccountPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = usePageT(dict);
-  const { data: authSession, loading } = useAuthSession();
+  const { data: authSession, loading, refresh: refreshSession } = useAuthSession();
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const appleEnabled = isAppleAuthEnabled();
@@ -536,8 +538,8 @@ function AccountPageContent() {
               marginBottom: 20,
               borderRadius: 14,
               padding: '16px 18px',
-              border: `1px solid ${C.amber}55`,
-              background: `linear-gradient(135deg, ${C.amber}1a 0%, ${C.amber}08 100%)`,
+              border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
+              background: `linear-gradient(135deg, color-mix(in srgb, ${C.amber} 10%, transparent) 0%, color-mix(in srgb, ${C.amber} 3%, transparent) 100%)`,
               color: C.light,
               display: 'flex',
               alignItems: 'flex-start',
@@ -547,7 +549,7 @@ function AccountPageContent() {
             <div
               style={{
                 width: 44, height: 44, borderRadius: '50%',
-                background: '#ffffff', border: `1px solid ${C.amber}55`,
+                background: '#ffffff', border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 padding: 3,
               }}
@@ -572,7 +574,12 @@ function AccountPageContent() {
                 {t('donationContributedTo')} <strong style={{ color: C.light }}>{donation.partner}</strong>{' '}
                 {t('donationContributedSuffix', {
                   pct: donation.pledgePct,
-                  interval: donation.interval === 'year' ? t('donationIntervalAnnual') : t('donationIntervalMonthly'),
+                  interval:
+                    donation.interval === 'year'
+                      ? t('donationIntervalAnnual')
+                      : donation.intervalCount === 3
+                        ? t('donationIntervalQuarterly')
+                        : t('donationIntervalMonthly'),
                 })}{' '}
                 <Link href="/giving" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
                   {t('seeGivingPage')}
@@ -640,8 +647,8 @@ function AccountPageContent() {
                     fontWeight: 800,
                     letterSpacing: '0.04em',
                     color: C.amber,
-                    border: `1px solid ${C.amber}66`,
-                    background: `${C.amber}12`,
+                    border: `1px solid color-mix(in srgb, ${C.amber} 40%, transparent)`,
+                    background: `color-mix(in srgb, ${C.amber} 7%, transparent)`,
                   }}
                 >
                   {tierLabel}
@@ -719,7 +726,7 @@ function AccountPageContent() {
             {opening
               ? t('openingPortal')
               : billing?.paymentIssue
-                ? t('updatePaymentMethod')
+                ? t('openBillingPortal')
                 : t('manageSubscription')}
           </button>
           {/* Route to /pricing whenever there's no subscription to manage — keyed
@@ -810,6 +817,17 @@ function AccountPageContent() {
                 : t('subscriptionScheduledToCancel')}
             </p>
           )}
+
+          {/* The 7-day money-back guarantee. Self-hiding: it asks the server and
+              renders only while this member can actually use it (or has an
+              unfinished request to complete). */}
+          <MoneyBackGuaranteePanel
+            enabled={tier !== 'admin' && (hasActiveSubscription || hasBillingAccount)}
+            onRefunded={() => {
+              void refreshBilling();
+              void refreshSession();
+            }}
+          />
         </section>
 
         <CancelRetentionModal

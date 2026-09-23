@@ -13,7 +13,7 @@ export const metadata = {
 
 export default function SearchPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-14">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       {/* useSearchParams requires a Suspense boundary in the App Router. */}
       <Suspense fallback={null}>
         <SearchClient />
