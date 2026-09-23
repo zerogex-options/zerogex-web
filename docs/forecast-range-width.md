@@ -303,3 +303,64 @@ curl -s -H "Authorization: Bearer $ZEROGEX_API_TOKEN" \
 
 `1.9` means clipped. Anything materially below it means mispredicted. Repeat for
 `2026-08-03`, `2026-07-15` and `2026-07-23` -- the four `heuristic_v1_4` misses.
+
+## Step 5 answered: the ceiling is unreachable by construction
+
+No database needed — this follows from the constants. The modifiers applied on
+top of the anchor are structurally one-sided:
+
+```
+VOL_GAMMA_WEIGHT       0.25   two-sided (damps long gamma, amplifies short)
+VOL_LOCAL_GAMMA_WEIGHT 0.08   DAMPING ONLY — gated on `net_gex > 0`
+VOL_VIXZ_WEIGHT        0.15   two-sided
+VOL_FLIP_PROX_WEIGHT   0.10   AMPLIFYING ONLY — prox >= 0
+```
+
+Total reachable multiplier on the anchor:
+
+```
+max damping      x0.5865   (long gamma, dense local gamma, VIX z at -1)
+neutral          x1.0000
+max amplifying   x1.5813   (SHORT gamma, VIX z at +1, sitting on the flip)
+```
+
+The amplifying extreme requires **short gamma**, which for SPX is the exception.
+On an ordinary long-gamma day with dense local gamma the modifier is about
+**x0.736** — so a perfectly neutral 1.0 anchor commits 0.736. The observed
+49-session mean is 0.8738, in the same neighbourhood.
+
+**Now work backwards from the ceiling.** For a committed ratio of 1.90 the
+anchor alone would have to be:
+
+```
+1.90 / 1.5813 = 1.202   everything amplifying at once (short gamma + high VIX z + on the flip)
+1.90 / 0.736  = 2.582   on an ordinary long-gamma day
+```
+
+And the anchor is `median(trailing 10 realized ratios)`. For it to reach 2.58
+the tape must have ALREADY been running 2.6x a normal day for over a week. By
+then the shock is finished.
+
+**This is not a bug. It is the design.** The module's own comment says so:
+
+> *"v1.5 anchors on the trailing realized ratio so the predicted regime matches
+> the base rate, then tilts."*
+
+Matching the base rate is exactly what it does, and the base rate is
+compression-heavy — which is why the ratio lives at 0.69-1.10. The defect is
+that **a lagging median is the primary driver of a forward-looking claim**, so
+the model is structurally incapable of calling the FIRST day of a shock. Aug 3
+was the first day of a two-day shock. Aug 4 was the second, and by then the
+anchor had one wide day in a ten-day median — not enough to move it.
+
+Two consequences for whatever replaces this:
+
+1. **Raising `VOL_RATIO_MAX` remains pointless.** Nothing can reach 1.90 while
+   the anchor is a trailing median; the binding constraint is upstream.
+2. **A forward-looking term is required**, not a better backward-looking one.
+   Something that can be elevated on day zero: the VIX term structure, an
+   event calendar, overnight futures range, or the implied move itself
+   relative to its own trailing level. The inputs already carry
+   `vix_z_score_20d`, `futures_gap_pct` and `is_event_day` and none of them
+   can lift the ratio past 1.2 on their own, because they are all modifiers on
+   an anchor that refuses to move.
