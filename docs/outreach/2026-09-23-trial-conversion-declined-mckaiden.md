@@ -2,7 +2,7 @@
 
 A Pro monthly trial converted today, the first charge failed, and the account
 dropped to **Public in the same second**. There was no Trial Grace, no retry, and
-his API key was revoked on the spot. This note covers why that happened (it is
+their API key was revoked on the spot. This note covers why that happened (it is
 the payment method, not a bug in the grace code) and has a 1:1 founder draft.
 
 American English, one line per paragraph in the draft, so it pastes straight
@@ -31,7 +31,7 @@ Everything below is from `make diagnose-user EMAIL=lowrymckaiden@gmail.com`
 | Risk level | Normal |
 | Annualized | $708 at list; $588 on the monthly promo |
 
-## Why he got no grace period
+## Why they got no grace period
 
 **The grace window only opens when Stripe marks a subscription `past_due`, and
 this one never went past due.** `decidePaymentGrace`
@@ -70,26 +70,26 @@ docs as quoted in search results. Stripe's doc domains are blocked from the
 session this was written in. The same-second cancel supports it. **Confirm it in
 the dashboard** (see Verify first).
 
-**What this means beyond him:** every Cash App Pay member, whether converting
-from a trial or renewing, gets no retry, no grace and an instant API-key
-revocation on the first decline. `BILLING_PAYMENT_GRACE_DAYS` cannot help,
+**What this means beyond this account:** every Cash App Pay member, whether
+converting from a trial or renewing, gets no retry, no grace and an instant
+API-key revocation on the first decline. `BILLING_PAYMENT_GRACE_DAYS` cannot help,
 because there is no retry to wait for. See **Worth a separate ticket**.
 
 ## The read
 
-**He was using it.** He generated an API key within a minute of the trial
-starting and was last seen the morning the trial ended. Anything he wired to
+**They were using it.** They generated an API key within a minute of the trial
+starting and were last seen the morning the trial ended. Anything they wired to
 that key began failing at 12:40 PM ET today, in the middle of the session, with
-no warning. That is the main reason to write: if he is using the key, he is
-looking at auth failures with nothing to explain them.
+no warning. That is the main reason to write: if they are using the key, they
+are looking at auth failures with nothing to explain them.
 
-**Send him to `/pricing` and void the open invoice first.** The October pricing
+**Send them to `/pricing` and void the open invoice first.** The October pricing
 shipped on 2026-09-22/23 (`docs/pricing-october-2026-runbook.md`). If it is
-deployed (see Verify first), it changes which path is best for him.
+deployed (see Verify first), it changes which path is best for them.
 
 - **A fresh Pro checkout** is paid up front, as every non-trial plan now is.
   It carries the **7-day money-back guarantee**: in the checkout route,
-  `moneyBackCovered` is true for him because he gets no trial and has never
+  `moneyBackCovered` is true for them because they get no trial and have never
   used a refund. While the promo is on, it is also **$49/mo for 12 months**
   instead of $59. It is the standard flow, and the page states the price and
   the terms next to the Subscribe button.
@@ -99,34 +99,35 @@ deployed (see Verify first), it changes which path is best for him.
   every payment email as a spam-filter risk. The other is a trip through the
   billing portal's invoice history.
 - **Leaving the invoice open next to a `/pricing` restart is a double-pay
-  trap.** If he restarts and later clicks the pay link in this afternoon's
+  trap.** If they restart and later click the pay link in this afternoon's
   automated email, orphan recovery sees `local_subscription_present` and grants
   nothing. That is $59 for no access, and a refund to issue.
 
 So void `in_1UIsHI4AOiqteMYYZbtjdA2U` **before** sending. The draft then tells
-him he owes nothing, and one clean path is left. Voiding gives up nothing he
-would actually use: whichever way he comes back, he pays for the same Pro.
+them they owe nothing, and one clean path is left. Voiding gives up nothing
+they would actually use: whichever way they come back, they pay for the same
+Pro.
 
 **Do not push a card.** A card SetupIntent failed (`generic_decline`) 45 minutes
-before he completed checkout with Cash App Pay. Cash App may be the method that
-works for him. The draft names no payment method.
+before they completed checkout with Cash App Pay. Cash App may be the method that
+works for them. The draft names no payment method.
 
 **Name no reason.** `diagnose-user` classes this decline `unknown`, meaning no
 usable decline code, so use neutral copy. `PAYMENT_DECLINED_OTHER` does not
 tell us whether it was balance, a Cash App limit or a revoked authorization. The
 draft says Cash App declined it and nothing more.
 
-**His old key is gone for good.** `revokeAllApiKeys` revokes; there is no
-reinstate. When Pro comes back he has to generate a new key at `/account` and
+**Their old key is gone for good.** `revokeAllApiKeys` revokes; there is no
+reinstate. When Pro comes back they have to generate a new key at `/account` and
 swap it in.
 
 ## ⚠ Verify first
 
 - **Re-run `make diagnose-user EMAIL=lowrymckaiden@gmail.com`.** Invoice still
   `open`, `MONEY EVER COLLECTED` still NO, tier still `public`, and no
-  `billing_orphan_payment_recovered` row. If he has already paid the invoice
-  from the automated email, he is restored. Do not void or send this. Send one
-  line saying he is all set and needs a new API key.
+  `billing_orphan_payment_recovered` row. If they have already paid the
+  invoice from the automated email, they are restored. Do not void or send
+  this. Send one line saying they are all set and need a new API key.
 - **Check the cancellation reason in the dashboard.** Open
   `sub_1UGKw54AOiqteMYYrkjrUsHt`. It should read cancelled for *payment failed*
   (`cancellation_details.reason = payment_failed`), and the invoice should show
@@ -144,13 +145,13 @@ swap it in.
 - **Send today.** The draft says "today" and "12:40 PM Eastern". If it goes out
   later, change "today" to "yesterday" or the date.
 
-## What he has already been sent
+## What they have already been sent
 
 - `paid_welcome_email_sent` 2026-09-16 · `trial_value_nudge_sent` 2026-09-18 ·
   `trial_reminder_email_sent` 2026-09-21
 - `payment_failed_email_sent` **2026-09-23 16:40:34 UTC**, the trial-conversion
   variant, sent 0.3 s *after* the subscription was deleted. It went out about an
-  hour before `8e4dfaf` moved these emails to `/account`, so his copy still
+  hour before `8e4dfaf` moved these emails to `/account`, so their copy still
   buttons to the hosted invoice. No grace window was open, and with no retry
   scheduled it should have rendered the `unknown`-category copy like this
   (rendered from the pre-`8e4dfaf` `buildDeclineEmailCopy`):
@@ -164,7 +165,7 @@ swap it in.
   > Stripe has made its last automatic attempt, so it will not retry on its own.
   > You can complete it yourself with the link below — it takes any card.
 
-  The noun is wrong: he has no card on file. The access line hedges on
+  The noun is wrong: they have no card on file. The access line hedges on
   something the webhook could have known. It also says nothing about the
   subscription having closed, or about the API key. Once the invoice is voided,
   its link is dead too, which is why the draft says so.
@@ -190,18 +191,18 @@ Founder, ZeroGEX
 
 ## After you send
 
-- **If he restarts**, checkout creates a new subscription and the ordinary sync
+- **If they restart**, checkout creates a new subscription and the ordinary sync
   grants Pro. Expect the automated welcome-back email as well:
   `subscription_lapsed = 1` makes the first active sync send it. That is normal.
   It counts as a new paid start, not a trial conversion, so this trial stays
   lost in the conversion numbers.
-- **If he restarts on Cash App Pay**, the checkout charge is on-session (he
-  approves it in Cash App). Each renewal is not, and a declined renewal
+- **If they restart on Cash App Pay**, the checkout charge is on-session
+  (they approve it in Cash App). Each renewal is not, and a declined renewal
   cancels instantly again, the same as today.
 - **A money-back request within 7 days** goes through the Account page panel, or
   `make money-back-refund` if it arrives by email. See
   `docs/pricing-october-2026-runbook.md` §4.
-- **With the invoice void**, he no longer qualifies for
+- **With the invoice void**, they no longer qualify for
   `make open-invoice-recovery` and the Oct 23 value cliff no longer applies.
   Nothing else needs watching.
 
