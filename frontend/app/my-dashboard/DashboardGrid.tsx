@@ -62,7 +62,7 @@ export default function DashboardGrid({
         return (
           <div
             key={item.instanceId}
-            className={`zg-w-${item.size}`}
+            className={`zg-w-${item.size}${widget.tile && item.size === 'sm' ? ' zg-w-tile' : ''}`}
             draggable={editing && resizeIndex === null}
             onDragStart={(e) => {
               if (!editing || resizeIndex !== null) {

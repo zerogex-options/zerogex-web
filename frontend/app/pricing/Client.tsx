@@ -272,7 +272,7 @@ function Badge({ children, accent }: { children: React.ReactNode; accent: string
         fontWeight: 800,
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
-        border: `1px solid ${accent}66`,
+        border: `1px solid color-mix(in srgb, ${accent} 40%, transparent)`,
         color: accent,
         borderRadius: 999,
         padding: '4px 10px',
@@ -329,11 +329,10 @@ function TierCard({
   const t = usePageT(dict);
   return (
     <article
-      className="zg-panel"
+      className="zg-panel zg-pcard"
       style={{
         borderColor: accent,
         borderWidth: highlighted ? 2 : undefined,
-        padding: 28,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -389,7 +388,8 @@ function TierCard({
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
           margin: '12px 0 0', padding: '3px 12px 3px 3px', borderRadius: 999,
-          background: `${accent}14`, border: `1px solid ${accent}33`,
+          background: `color-mix(in srgb, ${accent} 8%, transparent)`,
+          border: `1px solid color-mix(in srgb, ${accent} 20%, transparent)`,
           color: accent, fontSize: 11, fontWeight: 700,
           letterSpacing: '0.04em', textDecoration: 'none', alignSelf: 'flex-start',
         }}
@@ -1290,7 +1290,7 @@ function PricingClientInner({
       `}</style>
       <LandingHeader hidePricingButton />
 
-      <section style={{ minHeight: '100vh', padding: '120px 24px 84px', position: 'relative' }}>
+      <section className="zg-psec" style={{ minHeight: '100vh', position: 'relative' }}>
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div
@@ -1545,13 +1545,12 @@ function PricingClientInner({
           <PlanComparison />
 
           <section
-            className="zg-panel"
+            className="zg-panel zg-pcard"
             style={{
               marginTop: 36,
               maxWidth: 820,
               marginLeft: 'auto',
               marginRight: 'auto',
-              padding: 28,
             }}
           >
             <h2
@@ -1573,7 +1572,7 @@ function PricingClientInner({
                 </Link>{' '}
                 {t('refundPolicyIntro2')}
               </p>
-              <ul style={{ paddingLeft: 22, marginTop: 12 }}>
+              <ul className="zg-policy-list" style={{ marginTop: 12 }}>
                 <li>
                   <strong>{t('trialListLabel', { days: TRIAL_DAYS })}</strong> {t('trialListBody')}
                 </li>

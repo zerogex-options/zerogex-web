@@ -54,7 +54,7 @@ const popular = [
 
 export default function HelpCenterPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-14">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <LifeBuoy size={14} />

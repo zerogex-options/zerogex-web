@@ -104,6 +104,7 @@ export default function PlanComparison() {
   return (
     <section
       aria-labelledby="plan-comparison-heading"
+      className="zg-plancmp"
       style={{
         marginTop: 36,
         maxWidth: 820,
@@ -112,7 +113,6 @@ export default function PlanComparison() {
         background: `linear-gradient(145deg, ${C.card} 0%, var(--bg-active) 100%)`,
         border: `1px solid ${C.border}`,
         borderRadius: 18,
-        padding: 28,
       }}
     >
       <h2
@@ -132,9 +132,9 @@ export default function PlanComparison() {
       </p>
 
       <div
+        className="zg-plancmp-cols"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) 88px 88px',
           alignItems: 'center',
           padding: '10px 4px',
           borderBottom: `1px solid ${C.border}`,
@@ -167,9 +167,9 @@ export default function PlanComparison() {
           {section.rows.map((row) => (
             <div
               key={row.feature}
+              className="zg-plancmp-cols"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) 88px 88px',
                 alignItems: 'center',
                 padding: '10px 4px',
                 borderTop: `1px solid ${C.border}`,

@@ -268,7 +268,7 @@ const ARTICLES: Article[] = [
 
 export default function ArticlesPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-14">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       {/* CollectionPage ItemList — mirrors the visible article list below. */}
       <ItemListJsonLd
         items={ARTICLES.map((a) => ({ href: a.href, name: a.title }))}

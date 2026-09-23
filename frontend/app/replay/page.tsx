@@ -80,7 +80,7 @@ export default async function ReplayLanding({
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · GEX Replay

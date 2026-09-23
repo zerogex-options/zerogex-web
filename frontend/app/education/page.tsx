@@ -60,7 +60,7 @@ const popularExplainers = [
 
 export default function EducationHubPage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-14">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       {/* ItemList structured data — mirrors the "Popular explainers" list. */}
       <ItemListJsonLd
         items={popularExplainers.map((e) => ({ href: e.href, name: e.label }))}
