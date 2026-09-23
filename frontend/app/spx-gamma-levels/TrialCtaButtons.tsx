@@ -30,7 +30,7 @@ const secondaryStyle: CSSProperties = {
 };
 
 export function TrialButton({
-  label = 'Start 7-Day Free Trial',
+  label = 'Get Started',
   location,
   symbol,
   event = TelemetryEvent.TrialCtaClick,

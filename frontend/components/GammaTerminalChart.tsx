@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Activity, Camera, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
@@ -130,6 +131,13 @@ const DEFAULT_OVERLAYS: OverlayState = {
   // Off by default: a new overlay shouldn't reshape every existing user's chart
   // unasked. The stored-prefs merge leaves them false for returning users too.
   king: false,
+  // That reasoning still holds for Expected Range, and this stays false. What it
+  // does not cover is discoverability: off-by-default made the band hard to FIND
+  // rather than merely quiet, and a daily user asked for an IV expected-range
+  // high/low by name without knowing the pill was already on their toolbar. That
+  // is answered by the title on the pill below, which costs a returning user
+  // nothing; flipping this to true would redraw every existing chart to answer
+  // one person's question.
   expectedRange: false,
   barTimer: false,
   ribbons: false,
@@ -178,10 +186,11 @@ const ZOOM_FACTOR = 1.2;
 const PRICE_ZOOM_MIN = 0.15;
 const PRICE_ZOOM_MAX = 8;
 const DEFAULT_PRICE_VIEW: { zoom: number; center: number | null } = { zoom: 1, center: null };
+// The inline rail's column. Its center and half-width are derived per instance
+// (see `railCenter` / `railHalf`), because a panelled rail spans its own
+// element instead of this column.
 const RAIL_LEFT = 1172;
 const RAIL_RIGHT = 1352;
-const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
-const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
 // Terminal mode (hideRail): the tape runs out to where the rail used to end,
 // keeping the same-width axis / tag column beside it.
 const PLOT_RIGHT_NO_RAIL = RAIL_RIGHT - (RAIL_LEFT - PLOT_RIGHT);
@@ -462,6 +471,9 @@ export default function GammaTerminalChart({
   overlayDefaults,
   onGeometry,
   onRewind,
+  strikePanelTarget = null,
+  strikePanelBand = null,
+  railControlsTarget = null,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
@@ -483,6 +495,51 @@ export default function GammaTerminalChart({
   onGeometry?: (geometry: ChartGeometry) => void;
   /** Receives the replay clock whenever rewind starts, moves, or ends. */
   onRewind?: (state: RewindState) => void;
+  /**
+   * Draw the gamma-structure rail HERE instead of inside the chart's own SVG.
+   *
+   * The Gamma Terminal keeps one layout — tape on the left, a panel beside it —
+   * and lets the reader choose what the panel holds: two gamma ladders, or this
+   * rail. So the rail has to leave the chart's right-hand column and become a
+   * panel of its own, WITHOUT leaving the component: every number it draws
+   * (the live bucket vs the rewound one vs the delayed snapshot, the expiry
+   * scope, the per-expiration split) is derived here, and a second component
+   * re-deriving it is a second chance to disagree with the tape it sits beside.
+   *
+   * So the chart portals the rail into the element the page gives it. The page
+   * owns where that element sits — it positions it across the tape's own price
+   * band, so a strike's bar is level with that price on the candles — and the
+   * chart owns what is drawn in it and at what scale. The rail's x geometry
+   * becomes per-instance (see `railCenter` / `railHalf`): inline it spans its
+   * old column, in a panel it spans the element, with the viewBox shaped to the
+   * element's aspect so nothing is stretched.
+   *
+   * Null (the default) keeps the rail inline, which is what /dashboard,
+   * /my-dashboard and the public gamma-levels pages still mount.
+   */
+  strikePanelTarget?: HTMLElement | null;
+  /**
+   * Where the chart's price band sits inside `strikePanelTarget`, in CSS px
+   * from that element's top — `top` to the tape's first price, `height` for
+   * the band itself.
+   *
+   * This is what ties the panel to the tape: one px-per-price scale is derived
+   * from it and used for the whole element, so a strike lands at exactly the
+   * height that price has on the candles. The element is taller than the band
+   * (it fills its card, while the band is only as tall as the tape, which
+   * starts below the chart's header), and that surplus is not padding: the
+   * panel keeps the same scale through it and draws the strikes that sit just
+   * above and just below the visible tape, which is precisely where the wall
+   * you are about to run into tends to be.
+   *
+   * Null — a stacked layout, with no chart band beside it to match — falls back
+   * to fitting the visible price domain to the element.
+   */
+  strikePanelBand?: { top: number; height: number } | null;
+  /** Where to put the rail's own view controls (Silhouette / Net / Split /
+   *  Combined + Labels) when the rail is panelled — they belong on the panel,
+   *  not on the toolbar of a chart that is no longer drawing it. */
+  railControlsTarget?: HTMLElement | null;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
@@ -511,8 +568,62 @@ export default function GammaTerminalChart({
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [volumeMode, setVolumeMode] = useState<VolumeMode>("updown");
   const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
-  // The rail cannot be shown at all in terminal mode — its column is gone.
-  const railOn = overlays.rail && !hideRail;
+
+  // ── Where the rail is drawn ──────────────────────────────────────────────
+  // Inline (the default) it occupies its own column inside the chart's SVG.
+  // Panelled (`strikePanelTarget`) it is portalled out to an element the page
+  // positions beside the tape, and the chart's own column is gone.
+  const inPanel = !!strikePanelTarget;
+  // The panel's pixel box, so the viewBox can be shaped to its aspect and the
+  // bars are never stretched. Measured rather than assumed: the page sizes the
+  // element from the chart's reported geometry, which moves with the layout.
+  const [panelBox, setPanelBox] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = strikePanelTarget;
+    // Nothing to measure, and nothing to clear: `panelBox` is only read while a
+    // target exists, so a stale box is never drawn from.
+    if (!el) return;
+    // ResizeObserver fires once on observe, so the first measurement arrives
+    // from the observer rather than from a synchronous setState in this body.
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      setPanelBox((cur) =>
+        cur && Math.abs(cur.width - r.width) < 0.5 && Math.abs(cur.height - r.height) < 0.5
+          ? cur
+          : { width: r.width, height: r.height },
+      );
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [strikePanelTarget]);
+  // The panel's viewBox, in the chart's own y units — which is the whole trick:
+  // `yPrice` is then correct inside the panel with no adjustment at all, so a
+  // strike is drawn at the height its price has on the tape.
+  //
+  // `u` is the one scale: chart y-units per CSS px, taken from the band the
+  // page reports. Everything else follows from it, which is also why nothing is
+  // ever stretched — width and height are converted by the same number, so the
+  // viewBox always has the element's aspect.
+  const PANEL_VB_H = PRICE_BOTTOM - PAD_TOP;
+  const panelVb = (() => {
+    if (!panelBox || panelBox.height <= 0) {
+      return { y: PAD_TOP, h: PANEL_VB_H, w: RAIL_RIGHT - RAIL_LEFT };
+    }
+    if (strikePanelBand && strikePanelBand.height > 0) {
+      const u = PANEL_VB_H / strikePanelBand.height;
+      return { y: PAD_TOP - strikePanelBand.top * u, h: panelBox.height * u, w: Math.max(60, panelBox.width * u) };
+    }
+    // No band to match: fit the tape's price band to the element instead.
+    return { y: PAD_TOP, h: PANEL_VB_H, w: Math.max(60, PANEL_VB_H * (panelBox.width / panelBox.height)) };
+  })();
+  const railLeft = inPanel ? 0 : RAIL_LEFT;
+  const railRight = inPanel ? panelVb.w : RAIL_RIGHT;
+  const railCenter = (railLeft + railRight) / 2;
+  const railHalf = (railRight - railLeft) / 2 - 10;
+  // Inline, the rail is an overlay the reader toggles off. Panelled, it IS the
+  // panel — the page's own view switch put it there, so an overlay pill that
+  // could empty the panel would be a second, contradictory control.
+  const railOn = inPanel || (overlays.rail && !hideRail);
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
@@ -1517,23 +1628,33 @@ export default function GammaTerminalChart({
     setPriceView((pv) => (pv.center === nextCenter ? pv : { zoom: pv.zoom, center: nextCenter }));
   };
 
+  // The price range the rail covers. Inline it is exactly the tape's visible
+  // domain — the rail is a column of the chart and shows what the chart shows.
+  // Panelled it is the panel's own extent, which reaches past the tape at both
+  // ends, so the strikes just off-screen are drawn instead of cropped.
+  const railDomain = useMemo(() => {
+    if (!layout) return null;
+    if (!inPanel) return { min: layout.dMin, max: layout.dMax };
+    return { max: layout.priceForY(panelVb.y), min: layout.priceForY(panelVb.y + panelVb.h) };
+  }, [layout, inPanel, panelVb.y, panelVb.h]);
+
   // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
   const rail = useMemo(() => {
-    if (!layout || profilePoints.length < 2) return null;
-    const pts = profilePoints.filter((p) => p.price >= layout.dMin && p.price <= layout.dMax);
+    if (!layout || !railDomain || profilePoints.length < 2) return null;
+    const pts = profilePoints.filter((p) => p.price >= railDomain.min && p.price <= railDomain.max);
     if (pts.length < 2) return null;
     const maxAbs = Math.max(...pts.map((p) => Math.abs(p.gex)), 1);
-    const xFor = (gex: number) => RAIL_CENTER + clamp(gex / maxAbs, -1, 1) * RAIL_HALF;
+    const xFor = (gex: number) => railCenter + clamp(gex / maxAbs, -1, 1) * railHalf;
     const yFor = (price: number) => layout.yPrice(price);
 
     const posPath =
-      `M ${RAIL_CENTER} ${yFor(pts[0].price)} ` +
+      `M ${railCenter} ${yFor(pts[0].price)} ` +
       pts.map((p) => `L ${xFor(Math.max(0, p.gex)).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ") +
-      ` L ${RAIL_CENTER} ${yFor(pts[pts.length - 1].price)} Z`;
+      ` L ${railCenter} ${yFor(pts[pts.length - 1].price)} Z`;
     const negPath =
-      `M ${RAIL_CENTER} ${yFor(pts[0].price)} ` +
+      `M ${railCenter} ${yFor(pts[0].price)} ` +
       pts.map((p) => `L ${xFor(Math.min(0, p.gex)).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ") +
-      ` L ${RAIL_CENTER} ${yFor(pts[pts.length - 1].price)} Z`;
+      ` L ${railCenter} ${yFor(pts[pts.length - 1].price)} Z`;
     const edge = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(p.gex).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ");
 
     // Peaks — the call-side and put-side extrema (the literal "walls").
@@ -1544,7 +1665,7 @@ export default function GammaTerminalChart({
       if (p.gex < putPeak.gex) putPeak = p;
     }
     return { pts, maxAbs, xFor, yFor, posPath, negPath, edge, callPeak, putPeak };
-  }, [layout, profilePoints]);
+  }, [layout, railDomain, profilePoints, railCenter, railHalf]);
 
   // Interpolate net dealer gamma at an arbitrary price (for the crosshair).
   const gexAtPrice = useCallback(
@@ -1670,7 +1791,7 @@ export default function GammaTerminalChart({
     const singleShown = railStackExpiries.length <= 1;
     const rects: ReactNode[] = [];
     const yTop = y - barH / 2;
-    let cursor = RAIL_CENTER;
+    let cursor = railCenter;
     segs.forEach(({ exp, frac }) => {
       const w = totalWidth * frac;
       if (!(w > 0)) return;
@@ -1693,8 +1814,8 @@ export default function GammaTerminalChart({
   // Bar geometry: an x-scale max per mode, a bar thickness from the median
   // vertical strike spacing, and a density gate for the on-bar $ labels.
   const railBars = useMemo(() => {
-    if (!layout || effectiveRailMode === "silhouette") return null;
-    const inView = railStrikes.filter((s) => s.price >= layout.dMin && s.price <= layout.dMax);
+    if (!layout || !railDomain || effectiveRailMode === "silhouette") return null;
+    const inView = railStrikes.filter((s) => s.price >= railDomain.min && s.price <= railDomain.max);
     if (inView.length === 0) return null;
     const maxAbs =
       effectiveRailMode === "net"
@@ -1702,7 +1823,7 @@ export default function GammaTerminalChart({
         : effectiveRailMode === "split"
           ? Math.max(...inView.flatMap((s) => [Math.abs(s.callGex), Math.abs(s.putGex)]), 1)
           : Math.max(...inView.flatMap((s) => [Math.abs(s.callGex), Math.abs(s.putGex), Math.abs(s.netGex)]), 1);
-    const wFor = (v: number) => (Math.abs(v) / maxAbs) * RAIL_HALF;
+    const wFor = (v: number) => (Math.abs(v) / maxAbs) * railHalf;
     const ys = inView.map((s) => layout.yPrice(s.price)).sort((a, b) => a - b);
     const gaps: number[] = [];
     for (let i = 1; i < ys.length; i++) gaps.push(ys[i] - ys[i - 1]);
@@ -1711,7 +1832,7 @@ export default function GammaTerminalChart({
     const barH = Math.max(1.5, Math.min(11, slot * 0.6));
     const showLabels = railLabels && slot >= RAIL_LABEL_MIN_SLOT;
     return { inView, maxAbs, wFor, barH, showLabels };
-  }, [layout, railStrikes, effectiveRailMode, railLabels]);
+  }, [layout, railDomain, railStrikes, effectiveRailMode, railLabels, railHalf]);
 
   // Day-boundary separators for the time axis.
   const dateMarkers = useMemo(() => {
@@ -2408,6 +2529,147 @@ export default function GammaTerminalChart({
   // scrub bar's close while rewinding. Change/percent come from `headline` too.
   const headlinePrice = rewindActive ? spot : headline.displayPrice ?? spot;
 
+  // ── Gamma structure rail (net silhouette or per-strike bars) ────────────
+  // Built here rather than inline in the SVG below because it has two homes:
+  // the chart's own rail column, and — when the page panels it — a portal of
+  // its own beside the tape. Same node, same numbers, two mounts.
+  // The rail's own view controls — the four gamma-by-strike views and the
+  // on-bar $ labels. Live only: the delayed snapshot carries no per-strike
+  // call/put split, so `effectiveRailMode` is pinned to the silhouette there
+  // and a mode switch would be a control over nothing.
+  const railViewControls = live ? (
+    <>
+      <div className="zg-gc-seg" role="tablist" aria-label="Gamma rail view">
+        {([
+          ["silhouette", "Silhouette"],
+          ["net", "Net"],
+          ["split", "Split"],
+          ["combined", "Combined"],
+        ] as Array<[RailMode, string]>).map(([m, lbl]) => (
+          <button key={m} type="button" className="zg-gc-seg-btn" data-active={railMode === m} onClick={() => setRailMode(m)} aria-pressed={railMode === m}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      {railMode !== "silhouette" && (
+        <OverlayPill label="Labels" color="var(--text-secondary)" active={railLabels} onClick={() => setRailLabels((v) => !v)} />
+      )}
+    </>
+  ) : null;
+
+  const railGradSuffix = inPanel ? "-panel" : "";
+  const railGroup =
+    railOn && (effectiveRailMode === "silhouette" ? rail : railBars) ? (
+      <g>
+        {/* Inline, the rail is a column inside the chart and needs its own
+            ground and title. Panelled, the page supplies the card and a real
+            HTML header above it, so both would be a card drawn inside a card. */}
+        {!inPanel && (
+          <>
+            <rect x={railLeft - 6} y={PAD_TOP} width={railRight - railLeft + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
+            <text x={(railLeft + railRight) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
+              DEALER GAMMA BY STRIKE
+              {effectiveRailMode !== "silhouette" && (
+                <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
+              )}
+              {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
+              {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
+              {railZeroDte.widenedToAll && (
+                <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
+              )}
+            </text>
+          </>
+        )}
+        {/* zero baseline */}
+        <line
+          x1={railCenter}
+          x2={railCenter}
+          y1={inPanel ? panelVb.y : PAD_TOP}
+          y2={inPanel ? panelVb.y + panelVb.h : PRICE_BOTTOM}
+          stroke="var(--border-strong)"
+          strokeWidth={1}
+          opacity={0.5}
+        />
+
+        {/* smoothed net silhouette */}
+        {effectiveRailMode === "silhouette" && rail && (
+          <>
+            <path d={rail.posPath} fill={`url(#${RAIL_POS_GRADIENT_ID}${railGradSuffix})`} />
+            <path d={rail.negPath} fill={`url(#${RAIL_NEG_GRADIENT_ID}${railGradSuffix})`} />
+            <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
+            {[{ p: rail.callPeak, c: "var(--color-bull)" }, { p: rail.putPeak, c: "var(--color-bear)" }].map(({ p, c }, i) => (
+              <circle key={`peak-${i}`} cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
+            ))}
+          </>
+        )}
+
+        {/* discrete per-strike bars */}
+        {effectiveRailMode !== "silhouette" &&
+          railBars &&
+          railBars.inView.map((s) => {
+            const y = yPrice(s.price);
+            const h = railBars.barH;
+            if (effectiveRailMode === "net") {
+              const w = railBars.wFor(s.netGex);
+              const pos = s.netGex >= 0;
+              const c = pos ? "var(--color-bull)" : "var(--color-bear)";
+              return (
+                <g key={`bar-${s.price}`}>
+                  <rect x={pos ? railCenter : railCenter - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
+                  {railBars.showLabels && s.netGex !== 0 && (
+                    <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} text={fmtGex(s.netGex)} />
+                  )}
+                </g>
+              );
+            }
+            const cw = railBars.wFor(s.callGex);
+            const pw = railBars.wFor(s.putGex);
+            const netW = railBars.wFor(s.netGex);
+            const netPos = s.netGex >= 0;
+            // Live edge → subdivide the authoritative call/put widths
+            // by expiration (nearest at the baseline, faintest at the
+            // tip); otherwise, or at a strike the snapshot doesn't
+            // cover, draw the single aggregate bars.
+            const st = railStackingActive ? railStackedByStrike.get(Math.round(s.price * 100)) : undefined;
+            const callSegs = st
+              ? railStackSegments(`callseg-${s.price}`, st.call, 1, Math.max(0, cw), y, h, "var(--color-bull)")
+              : null;
+            const putSegs = st
+              ? railStackSegments(`putseg-${s.price}`, st.put, -1, Math.max(0, pw), y, h, "var(--color-bear)")
+              : null;
+            return (
+              <g key={`bar-${s.price}`}>
+                {callSegs ?? (
+                  <rect x={railCenter} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={RAIL_BAR_OPACITY} />
+                )}
+                {putSegs ?? (
+                  <rect x={railCenter - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={RAIL_BAR_OPACITY} />
+                )}
+                {/* Net overlay: same thickness as the call/put bars (the
+                    split tip still shows past it), matching the GEX Strike
+                    Profile's Combined view. */}
+                {effectiveRailMode === "combined" && s.netGex !== 0 && (
+                  <rect x={netPos ? railCenter : railCenter - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
+                )}
+                {railBars.showLabels && s.callGex !== 0 && (
+                  <RailBarLabel x={clamp(railCenter + cw + 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="start" text={fmtGex(s.callGex)} />
+                )}
+                {railBars.showLabels && s.putGex !== 0 && (
+                  <RailBarLabel x={clamp(railCenter - pw - 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="end" text={fmtGex(s.putGex)} />
+                )}
+              </g>
+            );
+          })}
+
+        {/* Flip zero-crossing tie-line. Inline it reaches back past the rail's
+            ground toward the plot; in a panel there is nothing to reach to, so
+            it stays inside the box. */}
+        {inDomain(flip) && (
+          <line x1={inPanel ? railLeft : railLeft - 6} x2={railRight} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--color-flip)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
+        )}
+      </g>
+    ) : null;
+
   return (
     <div ref={rootRef} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -2652,7 +2914,7 @@ export default function GammaTerminalChart({
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} />
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range — the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only — the delayed snapshot carries no vol index." />
           )}
           {live && overlays.expectedRange && (
             <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
@@ -2674,25 +2936,10 @@ export default function GammaTerminalChart({
           {live && (
             <>
               <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-              {railOn && (
-                <>
-                  <div className="zg-gc-seg" role="tablist" aria-label="Gamma rail view">
-                    {([
-                      ["silhouette", "Silhouette"],
-                      ["net", "Net"],
-                      ["split", "Split"],
-                      ["combined", "Combined"],
-                    ] as Array<[RailMode, string]>).map(([m, lbl]) => (
-                      <button key={m} type="button" className="zg-gc-seg-btn" data-active={railMode === m} onClick={() => setRailMode(m)} aria-pressed={railMode === m}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                  {railMode !== "silhouette" && (
-                    <OverlayPill label="Labels" color="var(--text-secondary)" active={railLabels} onClick={() => setRailLabels((v) => !v)} />
-                  )}
-                </>
-              )}
+              {/* Panelled, these ride the panel instead (portalled at the
+                  bottom of this component) — the rail's view is a control of
+                  the thing being drawn, so it belongs wherever that is. */}
+              {railOn && !inPanel && railViewControls}
               <ExpirationMultiSelect
                 options={availableExpiries}
                 selected={effectiveRailExpiries}
@@ -2899,100 +3146,7 @@ export default function GammaTerminalChart({
               </g>
             )}
 
-            {/* ── Gamma structure rail (net silhouette or per-strike bars) ── */}
-            {railOn && (effectiveRailMode === "silhouette" ? rail : railBars) && (
-              <g>
-                <rect x={RAIL_LEFT - 6} y={PAD_TOP} width={RAIL_RIGHT - RAIL_LEFT + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
-                <text x={(RAIL_LEFT + RAIL_RIGHT) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
-                  DEALER GAMMA BY STRIKE
-                  {effectiveRailMode !== "silhouette" && (
-                    <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
-                  )}
-                  {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
-                  {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
-                  {railZeroDte.widenedToAll && (
-                    <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
-                  )}
-                </text>
-                {/* zero baseline */}
-                <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
-
-                {/* smoothed net silhouette */}
-                {effectiveRailMode === "silhouette" && rail && (
-                  <>
-                    <path d={rail.posPath} fill={`url(#${RAIL_POS_GRADIENT_ID})`} />
-                    <path d={rail.negPath} fill={`url(#${RAIL_NEG_GRADIENT_ID})`} />
-                    <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
-                    {[{ p: rail.callPeak, c: "var(--color-bull)" }, { p: rail.putPeak, c: "var(--color-bear)" }].map(({ p, c }, i) => (
-                      <circle key={`peak-${i}`} cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
-                    ))}
-                  </>
-                )}
-
-                {/* discrete per-strike bars */}
-                {effectiveRailMode !== "silhouette" &&
-                  railBars &&
-                  railBars.inView.map((s) => {
-                    const y = yPrice(s.price);
-                    const h = railBars.barH;
-                    if (effectiveRailMode === "net") {
-                      const w = railBars.wFor(s.netGex);
-                      const pos = s.netGex >= 0;
-                      const c = pos ? "var(--color-bull)" : "var(--color-bear)";
-                      return (
-                        <g key={`bar-${s.price}`}>
-                          <rect x={pos ? RAIL_CENTER : RAIL_CENTER - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
-                          {railBars.showLabels && s.netGex !== 0 && (
-                            <RailBarLabel x={clamp((pos ? RAIL_CENTER + w : RAIL_CENTER - w) + (pos ? 3 : -3), RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor={pos ? "start" : "end"} color={c} text={fmtGex(s.netGex)} />
-                          )}
-                        </g>
-                      );
-                    }
-                    const cw = railBars.wFor(s.callGex);
-                    const pw = railBars.wFor(s.putGex);
-                    const netW = railBars.wFor(s.netGex);
-                    const netPos = s.netGex >= 0;
-                    // Live edge → subdivide the authoritative call/put widths
-                    // by expiration (nearest at the baseline, faintest at the
-                    // tip); otherwise, or at a strike the snapshot doesn't
-                    // cover, draw the single aggregate bars.
-                    const st = railStackingActive ? railStackedByStrike.get(Math.round(s.price * 100)) : undefined;
-                    const callSegs = st
-                      ? railStackSegments(`callseg-${s.price}`, st.call, 1, Math.max(0, cw), y, h, "var(--color-bull)")
-                      : null;
-                    const putSegs = st
-                      ? railStackSegments(`putseg-${s.price}`, st.put, -1, Math.max(0, pw), y, h, "var(--color-bear)")
-                      : null;
-                    return (
-                      <g key={`bar-${s.price}`}>
-                        {callSegs ?? (
-                          <rect x={RAIL_CENTER} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={RAIL_BAR_OPACITY} />
-                        )}
-                        {putSegs ?? (
-                          <rect x={RAIL_CENTER - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={RAIL_BAR_OPACITY} />
-                        )}
-                        {/* Net overlay: same thickness as the call/put bars (the
-                            split tip still shows past it), matching the GEX Strike
-                            Profile's Combined view. */}
-                        {effectiveRailMode === "combined" && s.netGex !== 0 && (
-                          <rect x={netPos ? RAIL_CENTER : RAIL_CENTER - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
-                        )}
-                        {railBars.showLabels && s.callGex !== 0 && (
-                          <RailBarLabel x={clamp(RAIL_CENTER + cw + 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="start" color="var(--color-bull)" text={fmtGex(s.callGex)} />
-                        )}
-                        {railBars.showLabels && s.putGex !== 0 && (
-                          <RailBarLabel x={clamp(RAIL_CENTER - pw - 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="end" color="var(--color-bear)" text={fmtGex(s.putGex)} />
-                        )}
-                      </g>
-                    );
-                  })}
-
-                {/* flip zero-crossing tie-line to the plot */}
-                {inDomain(flip) && (
-                  <line x1={RAIL_LEFT - 6} x2={RAIL_RIGHT} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--color-flip)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
-                )}
-              </g>
-            )}
+            {!inPanel && railGroup}
 
             {/* ── Price series ──────────────────────────────────────────── */}
             <g clipPath={`url(#${PLOT_CLIP_ID})`}>
@@ -3051,11 +3205,16 @@ export default function GammaTerminalChart({
               );
             })}
 
-            {/* ── Level name chips, de-collided so they never overlap ────── */}
+            {/* ── Level name chips, de-collided so they never overlap ──────
+                 The label is --text-primary, not the level colour: a 9.5px
+                 glyph in the level's own colour on a --bg-card chip cleared
+                 4.5:1 in only 105 of 192 palette/level combinations, down to
+                 2.36:1. The border keeps the colour, and the chip sits on the
+                 level's own line, so nothing about the association is lost. */}
             {chipPlacements.map((c) => (
               <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
                 <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={c.color} fontWeight={600}>
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill="var(--text-primary)" fontWeight={600}>
                   {c.label}
                 </text>
               </g>
@@ -3068,7 +3227,10 @@ export default function GammaTerminalChart({
             {flipChip && (
               <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
                 <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.drawn ? undefined : "2 2"} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.color} fontWeight={600}>
+                {/* Same as the level chips: the border carries the colour and
+                    the dash carries the drawn/unresolved state, so the label
+                    itself can be legible. Unresolved stays muted on purpose. */}
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.drawn ? "var(--text-primary)" : "var(--text-muted)"} fontWeight={600}>
                   {flipChip.label}
                 </text>
                 <title>{flipChip.tooltip}</title>
@@ -3579,6 +3741,50 @@ export default function GammaTerminalChart({
           </span>
         </div>
       </div>
+
+      {/* ── Panelled rail ────────────────────────────────────────────────
+          The page gave us an element across the tape's price band, so the rail
+          is drawn there instead of in the chart's own column. The viewBox
+          spans the SAME band (PAD_TOP..PRICE_BOTTOM), so `yPrice` puts a strike
+          at the identical height it has on the candles — this is what makes a
+          bar line up with its price on the tape — while the width is shaped to
+          the element's aspect so `preserveAspectRatio="none"` scales x and y by
+          the same factor and nothing is stretched.
+
+          The gradients are re-declared here rather than referenced across from
+          the chart's own <defs>: a url(#id) does resolve document-wide, but
+          that would quietly make this panel depend on the chart's SVG still
+          being mounted, which is exactly the coupling a portal should not add. */}
+      {inPanel && strikePanelTarget
+        ? createPortal(
+            <svg
+              width="100%"
+              height="100%"
+              viewBox={`${railLeft} ${panelVb.y} ${railRight - railLeft} ${panelVb.h}`}
+              preserveAspectRatio="none"
+              style={{ display: "block", overflow: "visible" }}
+              role="img"
+              aria-label="Dealer gamma by strike"
+            >
+              <defs>
+                <linearGradient id={`${RAIL_POS_GRADIENT_ID}-panel`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.12} />
+                  <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id={`${RAIL_NEG_GRADIENT_ID}-panel`} x1="1" y1="0" x2="0" y2="0">
+                  <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.12} />
+                  <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+              {railGroup}
+            </svg>,
+            strikePanelTarget,
+          )
+        : null}
+
+      {/* The rail's view controls follow it: on the panel when it is panelled,
+          on this toolbar when it is not (see the toolbar block above). */}
+      {inPanel && railControlsTarget ? createPortal(railViewControls, railControlsTarget) : null}
     </div>
   );
 }
@@ -3678,7 +3884,13 @@ function sessionLabel(session: string | null | undefined): { label: string; colo
 
 // On-bar $ gamma label for the per-strike rail bars. A halo (stroke painted
 // under the fill) keeps it legible over the bars and the plot grid alike.
-function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anchor: "start" | "end"; color: string; text: string }) {
+//
+// The text is --text-primary rather than the bar's own bull/bear: at 8.5px on
+// the halo's --bg-card that colour cleared 4.5:1 in only 24 of 48 palette/side
+// combinations, down to 2.36:1. The label is drawn hard against the end of the
+// bar it belongs to, and calls sit right of the rail centre while puts sit
+// left, so which bar a number belongs to was never the colour's job.
+function RailBarLabel({ x, y, anchor, text }: { x: number; y: number; anchor: "start" | "end"; text: string }) {
   return (
     <text
       x={x}
@@ -3687,7 +3899,7 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
       fontFamily="var(--font-mono)"
       fontSize={8.5}
       fontWeight={600}
-      fill={color}
+      fill="var(--text-primary)"
       style={{ paintOrder: "stroke", stroke: "var(--bg-card)", strokeWidth: 2.5, fontVariantNumeric: "tabular-nums" } as CSSProperties}
     >
       {text}

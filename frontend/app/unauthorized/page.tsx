@@ -4,6 +4,7 @@ import { ArrowRight, BarChart2, BookOpen, RotateCcw, Sparkles } from 'lucide-rea
 
 import { navItemLabel } from '@/core/navigation';
 import { requireSession } from '@/core/serverAuth';
+import { skuHasFreeTrial } from '@/core/stripe';
 import { pricingHrefFor, resolveWall } from '@/core/returningMember';
 import { getChurnContext } from '@/core/returningMemberServer';
 import { selectHighlightsSince } from '@/core/winbackHighlights';
@@ -145,6 +146,11 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   // copy rather than a promise we can't stand behind.
   // ---------------------------------------------------------------------------
   if (wall.audience === 'newcomer') {
+    // Only Basic monthly trials by default (core/billingPlans.ts); Pro is paid up
+    // front under the 7-day money-back guarantee. Read from the same policy
+    // checkout enforces, so this screen can never promise a Pro trial checkout
+    // would not grant.
+    const proTrials = skuHasFreeTrial({ tier: 'pro', cadence: 'monthly' });
     return (
       <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         <div className="w-full max-w-xl">
@@ -162,7 +168,9 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             </p>
             {wall.promiseTrial && (
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
-                7-day free trial. No charge until day 7. Cancel anytime.
+                {proTrials
+                  ? '7-day free trial. No charge until day 7. Cancel anytime.'
+                  : '7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.'}
               </p>
             )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -176,7 +184,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
                 href={pricingHrefFor(wall, 'pro')}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
               >
-                {wall.promiseTrial ? 'Start Pro Trial' : 'Get Pro'} <ArrowRight size={16} />
+                {wall.promiseTrial && proTrials ? 'Start Pro Trial' : 'Get Pro'} <ArrowRight size={16} />
               </Link>
             </div>
             <p className="mt-5">

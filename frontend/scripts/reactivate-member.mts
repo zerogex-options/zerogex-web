@@ -2,7 +2,7 @@
 // Run from the frontend/ directory (nvm 22):
 //   node --experimental-strip-types --no-warnings scripts/reactivate-member.mts \
 //     --email <addr> [--days N | --trial-end <iso>] [--tier basic|pro] \
-//     [--cadence monthly|annual] [--price price_...] [--payment-method pm_...] \
+//     [--cadence monthly|quarterly|annual] [--price price_...] [--payment-method pm_...] \
 //     [--wait-seconds N] [--dry-run | --yes]
 //
 // Bring a CHURNED member back on a goodwill trial with NOTHING for them to do —
@@ -83,7 +83,7 @@ const POLL_INTERVAL_MS = 3000;
 const DEFAULT_WAIT_SECONDS = 90;
 
 type Tier = 'basic' | 'pro';
-type Cadence = 'monthly' | 'annual';
+type Cadence = 'monthly' | 'quarterly' | 'annual';
 
 type Args = {
   email: string | null;
@@ -159,8 +159,8 @@ function parseArgs(argv: string[]): Args {
       args.tier = value;
     } else if (arg === '--cadence') {
       const value = (argv[++i] ?? '').trim().toLowerCase();
-      if (value !== 'monthly' && value !== 'annual') {
-        console.error(`Error: --cadence must be monthly|annual (got ${value || '<none>'}).`);
+      if (value !== 'monthly' && value !== 'quarterly' && value !== 'annual') {
+        console.error(`Error: --cadence must be monthly|quarterly|annual (got ${value || '<none>'}).`);
         process.exit(1);
       }
       args.cadence = value;
@@ -182,7 +182,7 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types --no-warnings scripts/reactivate-member.mts \\
     --email <addr> [--days N | --trial-end <iso>] [--tier basic|pro] \\
-    [--cadence monthly|annual] [--price price_...] [--payment-method pm_...] \\
+    [--cadence monthly|quarterly|annual] [--price price_...] [--payment-method pm_...] \\
     [--wait-seconds N] [--dry-run | --yes]
 
 Reactivates a CHURNED member with a goodwill free trial, with nothing for them
@@ -195,7 +195,7 @@ Options:
       --days N            Trial length in days (default ${DEFAULT_TRIAL_DAYS}, min 2, max ${MAX_TRIAL_DAYS}).
       --trial-end <iso>   Absolute trial end instead of a day count (>= 48h out).
       --tier basic|pro    Plan tier. Default: whatever they were last on.
-      --cadence m|a       monthly|annual. Default: whatever they were last on.
+      --cadence C         monthly|quarterly|annual. Default: whatever they were last on.
       --price price_...   Pin an exact Stripe price, bypassing tier/cadence.
       --payment-method pm_...  Card to bill at trial end. Default: the
                           customer's default, else their last subscription's,

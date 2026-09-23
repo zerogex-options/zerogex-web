@@ -123,7 +123,10 @@ function parseArgs(argv: string[]): Args {
       const next = argv[++i];
       if (next === 'monthly' || next === 'annual') args.cadence = next;
       else {
-        console.error(`Error: --cadence must be monthly|annual (got ${next ?? '<none>'}).`);
+        console.error(
+          `Error: --cadence must be monthly|annual (got ${next ?? '<none>'}). ` +
+            'The founding offer has no quarterly rate.',
+        );
         process.exit(1);
       }
     } else if (arg === '--trial-days') {

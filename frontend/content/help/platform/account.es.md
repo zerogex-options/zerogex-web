@@ -10,7 +10,7 @@ La página [Account](/account) es el punto central para todo lo relacionado con 
 
 ## El encabezado
 
-Muestra tu correo electrónico, tu estado de verificación, tu nivel (Public, Basic, Pro, Admin) y la insignia de tu plan (por ejemplo, "Pro — annual"). Si estás en período de prueba, la insignia muestra "Trial — N days left".
+Muestra tu correo electrónico, tu estado de verificación, tu nivel (Public, Basic, Pro, Admin) y la insignia de tu plan (por ejemplo, "Pro — annual"). Si estás en la prueba gratuita de Basic mensual, la insignia muestra "Trial — N days left".
 
 ## Correo electrónico y verificación
 
@@ -37,6 +37,7 @@ Puedes vincular **Google** y **Apple** a la misma cuenta. La página Account mue
 - Se muestra tu nivel actual.
 - El enlace "Manage subscription" abre el portal de facturación alojado por Stripe en una nueva pestaña.
 - Las cancelaciones, cambios de plan, métodos de pago y facturas se gestionan todos en el portal.
+- En los 7 días siguientes a tu primer pago de un plan cubierto por la garantía de devolución del dinero de 7 días (Pro, o cualquier plan trimestral o anual), haz clic en **Request a full refund** en la página Account. El acceso termina cuando se emite el reembolso; un reembolso por cliente.
 
 Para el proceso paso a paso, consulta [Billing & Stripe Portal](/help/platform/billing).
 

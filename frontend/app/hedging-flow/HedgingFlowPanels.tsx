@@ -124,7 +124,13 @@ export default function HedgingFlowPanels({
         <>
           {weather && (
             <div className="mt-6">
-              <GammaWeatherStrip payload={weather} />
+              <GammaWeatherStrip
+                payload={weather}
+                flow={data}
+                regime={regime}
+                symbol={symbol}
+                date={historical ? sessionDateKey : null}
+              />
             </div>
           )}
 

@@ -45,15 +45,14 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/dashboard', label: 'Main Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
       { id: '/my-dashboard', label: 'My Dashboard', labelKey: 'nav.myDashboard', requiredTier: 'basic' },
-      // /chart is a public dual-mode route (delayed snapshot for anonymous
-      // visitors, live for subscribers), so it carries no requiredTier — the
-      // route table in core/auth.ts keeps it public and the page branches on
-      // the session. Marking it 'basic' here would wrongly hide it from guests.
-      { id: '/chart', label: 'Gamma Chart' },
-      // Gamma Terminal (beta): the Gamma Chart's price chart with two gamma
-      // ladders beside it. Live-only (no delayed public snapshot), so unlike
-      // /chart it is a member page and carries the Basic tier.
-      { id: '/gamma-terminal', label: 'Gamma Terminal', requiredTier: 'basic', beta: true },
+      // The Gamma Terminal — the flagship surface, and the fold of what used to
+      // be two nav entries: the public Gamma Chart and the members-only
+      // /gamma-terminal beta (now 301'd to /chart). It is a public dual-mode
+      // route (delayed snapshot for anonymous visitors, live for subscribers),
+      // so it carries no requiredTier — the route table in core/auth.ts keeps
+      // it public and the page branches on the session. Marking it 'basic'
+      // here would wrongly hide it from guests.
+      { id: '/chart', label: 'Gamma Terminal' },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
@@ -192,8 +191,21 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // All four are landing pages whose real content lives at dated
       // permalinks, so each matches its own subtree for active-state.
+      // All five are landing pages whose real content lives at dated
+      // permalinks or a live session, so each prefix-matches its own subtree
+      // for active-state — except the cone, which sits UNDER /forecast and
+      // must NOT prefix-match or both entries light up at once. NAV_ITEM_IDS
+      // is what lets the more specific entry win; tests/navigationActive
+      // asserts it.
       { id: '/forecast', label: 'Forecast — one day', labelKey: 'nav.forecastOneDay', beta: true, matchPrefix: true },
-      // The aggregate of what the line above grades: same subject, every
+      // The intraday counterpart: a cone re-anchored through the session, and
+      // the reliability table that grades it. A DIFFERENT CLAIM from the line
+      // above, not a view of it — ~20 commitments a day instead of one frozen
+      // before the open, so it earns a track record in days rather than
+      // months. Kept in this group because it publishes its own bucket counts
+      // for anyone to check, which is what this group is for.
+      { id: '/forecast/cone', label: 'Forecast — intraday cone', labelKey: 'nav.forecastIntraday', beta: true },
+      // The aggregate of what the daily line grades: same subject, every
       // session instead of one. Listed AT ALL because /scorecard already
       // taught us what an unlinked public page is worth — it sat reachable
       // only from one dated post for months.
@@ -203,7 +215,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // scorable, how it resolved), not the forecast.
       { id: '/scorecard', label: 'Signals — one day', labelKey: 'nav.signalsOneDay', matchPrefix: true },
       // Not a grade at all — a scrubbable view of a past session. Grouped
-      // here because it is the fourth dated historical view, and leaving one
+      // here because it is the fifth dated historical view, and leaving one
       // behind in Strategy Tools would recreate the scatter this fixes.
       { id: '/replay', label: 'Session replay', labelKey: 'nav.sessionReplay', matchPrefix: true },
     ],
@@ -268,6 +280,25 @@ export const NAV_GROUPS: NavGroup[] = [
  * it and the two can never drift. Returns undefined for routes that sit
  * directly in a group (no subcategory to name) or are not in the menu at all.
  */
+/**
+ * Every nav entry's id, flattened across groups and subgroups.
+ *
+ * Exists so a `matchPrefix` entry can yield to a more specific one. `/forecast`
+ * must prefix-match, because its real content lives at dated permalinks like
+ * `/forecast/SPY/2026-09-21` that have no entry of their own — but it must NOT
+ * stay lit when the reader is on `/forecast/cone`, which does. Membership here
+ * is the difference between those two cases.
+ */
+export const NAV_ITEM_IDS: ReadonlySet<string> = new Set(
+  NAV_GROUPS.flatMap((group) => [
+    ...(group.items ?? []).map((item) => item.id),
+    ...(group.subgroups ?? []).flatMap((sub) => [
+      sub.id,
+      ...sub.items.map((item) => item.id),
+    ]),
+  ]).filter((id): id is string => typeof id === 'string' && id.startsWith('/')),
+);
+
 export function navSubcategoryLabel(pathname: string | null | undefined): string | undefined {
   if (!pathname) return undefined;
   for (const group of NAV_GROUPS) {

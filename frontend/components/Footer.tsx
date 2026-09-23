@@ -65,7 +65,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'footer.platform',
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
-      { href: '/chart', label: 'Gamma Chart' },
+      { href: '/chart', label: 'Gamma Terminal' },
       // Site-wide, for the same reason the widget below is: a public page
       // with no inbound link does not exist. This one is also the page every
       // accuracy claim elsewhere on the site should be checkable against,

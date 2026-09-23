@@ -334,9 +334,20 @@ All of it is exercisable in **Stripe test mode** with test cards
   charge). Confirm the member **keeps** their tier and you see a
   `billing_payment_grace_active` audit row; advance the test clock past
   `BILLING_PAYMENT_GRACE_DAYS` and confirm downgrade.
-- **Trial-conversion failure → no grace:** start a trial with a card that will
-  fail at conversion; confirm **immediate** downgrade (no grace), i.e. the abuse
-  path is unchanged.
+- **Trial-conversion failure → grace (Trial Grace band):** start a trial with a
+  card that *attaches* cleanly but fails on charge (`4000 0000 0000 0341`), so
+  the SetupIntent succeeds and the trial is granted access. At conversion,
+  confirm the member **keeps** their tier, `users.payment_grace_reason` reads
+  `trial`, and a `billing_payment_grace_active` audit row is written; advance the
+  test clock past `BILLING_PAYMENT_GRACE_DAYS` and confirm the downgrade. Set
+  `BILLING_TRIAL_GRACE_ENABLED=0` and re-run to confirm the hard trial-end
+  downgrade is still available.
+- **Withheld trial → no grace:** a trial whose SetupIntent never succeeded is
+  held at `tier=public` by the payment-setup gate (look for the
+  `billing_trial_setup_pending` audit row). Its conversion failure opens **no**
+  window whatever `BILLING_TRIAL_GRACE_ENABLED` is set to — `decidePaymentGrace`
+  requires that the trial had actually been granted access. Confirm **immediate**
+  downgrade: this is the abuse path, and it is unchanged.
 - **Radar rules:** `4000 0000 0000 0101` (CVC check fails),
   `4100 0000 0000 0019` (always-blocked/fraudulent) to confirm your Block rules fire.
 

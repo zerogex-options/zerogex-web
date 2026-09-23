@@ -144,10 +144,10 @@ export function AtRiskPanel({ pool }: { pool: AtRiskPool }) {
               tone={pool.monthlyMrrAtRisk > 0 ? DROP_COLOR : undefined}
             />
             <Figure
-              label="Annual contracts at risk"
-              value={usd(pool.annualRevenueAtRisk)}
-              hint={`${pool.annual} annual subscriber${pool.annual === 1 ? '' : 's'}`}
-              tone={pool.annualRevenueAtRisk > 0 ? DROP_COLOR : undefined}
+              label="Prepaid contracts at risk"
+              value={usd(pool.annualRevenueAtRisk + pool.quarterlyRevenueAtRisk)}
+              hint={`${pool.annual} annual · ${pool.quarterly} quarterly`}
+              tone={pool.annualRevenueAtRisk + pool.quarterlyRevenueAtRisk > 0 ? DROP_COLOR : undefined}
             />
             <Figure label="Customers leaving" value={pool.total.toLocaleString()} hint="access ends on the dates below" />
             <Figure

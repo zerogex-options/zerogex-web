@@ -122,6 +122,15 @@ export default function TermsPage() {
                 <strong>{t('s4PlanChangesLabel')}</strong> {t('s4PlanChangesBody')}
               </li>
               <li>
+                <strong>{t('s4TrialLabel')}</strong> {t('s4TrialBody')}
+              </li>
+              <li>
+                <strong>{t('s4GuaranteeLabel')}</strong> {t('s4GuaranteeBody')}
+              </li>
+              <li>
+                <strong>{t('s4RenewalLabel')}</strong> {t('s4RenewalBody')}
+              </li>
+              <li>
                 <strong>{t('s4CancellationLabel')}</strong> {t('s4CancellationBody')}
               </li>
               <li>

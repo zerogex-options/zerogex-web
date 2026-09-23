@@ -268,7 +268,7 @@ test('the trial mention is one line at the foot, never the subject', () => {
   const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
   const { subject, text } = render(m);
   assert.ok(!/trial/i.test(subject));
-  assert.equal((text.match(/7-day trial/gi) ?? []).length, 1);
+  assert.equal((text.match(/7-day free trial/gi) ?? []).length, 1);
 });
 
 test('html output escapes rather than interpolating raw values', () => {

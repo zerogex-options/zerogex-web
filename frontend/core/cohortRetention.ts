@@ -38,7 +38,7 @@ const ENTITLED_TIERS = ['basic', 'pro', 'starter', 'elite'];
 /** Subscription statuses that still carry access (past_due is the grace window). */
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
-export type BillingCadence = 'monthly' | 'annual';
+export type BillingCadence = 'monthly' | 'quarterly' | 'annual';
 
 /**
  * Where a customer's billing cadence came from. `current_price` is the live

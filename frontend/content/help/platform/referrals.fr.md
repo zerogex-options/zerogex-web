@@ -26,7 +26,7 @@ Ouvrez [Account](/account). Le panneau Parrainage affiche votre code, votre lien
 ## Ce qui compte comme un parrainage réussi
 
 - Le nouvel utilisateur doit s'inscrire avec votre code appliqué.
-- Il doit passer à un forfait payant (essai → payant) et terminer au moins un cycle de facturation complet.
+- Il doit passer à un forfait payant (pour Basic mensuel, à la fin de l'essai gratuit) et terminer au moins un cycle de facturation complet.
 - Les auto-parrainages ne sont pas autorisés (détectés automatiquement par le système).
 - Le parrain doit avoir une adresse e-mail vérifiée et un forfait payant actif.
 
@@ -46,7 +46,7 @@ Trois pratiques que nous observons :
 
 ## Ce que le nouvel utilisateur y gagne
 
-Le nouvel utilisateur bénéficie de la même période d'essai standard (aucune extension via votre code), et toute promotion active sur l'ensemble du site s'applique en plus. Le système de parrainage vous crédite **vous** pour la conversion, pas lui — le programme est conçu comme un remerciement, pas comme un transfert de remise.
+Le nouvel utilisateur bénéficie des mêmes conditions standard que tout le monde — l'essai gratuit de 7 jours sur Basic mensuel, ou la garantie satisfait ou remboursé de 7 jours sur toutes les autres formules (aucune extension via votre code), et toute promotion active sur l'ensemble du site s'applique en plus. Le système de parrainage vous crédite **vous** pour la conversion, pas lui — le programme est conçu comme un remerciement, pas comme un transfert de remise.
 
 ## Confidentialité
 

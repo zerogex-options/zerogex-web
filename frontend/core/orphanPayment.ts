@@ -106,6 +106,14 @@ export type OrphanPaymentInput = {
   coveredPeriodEndUnix: number | null;
   // Injected clock (seconds) so the decision is deterministic under test.
   nowUnix: number;
+  // Whether the member asked for this subscription's money back under the
+  // 7-day guarantee (a money_back_refunds ledger row exists for it). Required
+  // for the same reason as amountRefunded: a guarantee refund cancels the
+  // subscription and drops the member to 'public' on purpose, and if one of its
+  // payments could not be refunded automatically, the leftover paid invoice
+  // looks exactly like an orphaned payment. Re-granting that plan would hand
+  // back the access the member asked to give up.
+  moneyBackRequested: boolean;
 };
 
 export type OrphanPaymentDecision =
@@ -169,6 +177,7 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
     priceMapsToPaidTier,
     coveredPeriodEndUnix,
     nowUnix,
+    moneyBackRequested,
   } = input;
 
   // --- Is anything actually orphaned? ------------------------------------
@@ -211,6 +220,12 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
     // owed — but how much access that buys is a judgment call, and re-creating
     // the full plan would grant a period only partly paid for.
     return { kind: 'detected', recoverable: false, reason: 'partially_refunded' };
+  }
+  if (moneyBackRequested) {
+    // The member asked for their money back (core/moneyBackServer.ts) and this
+    // payment is still with us: the refund has to be finished, not the plan
+    // restored. Always a human, never a recovery.
+    return { kind: 'detected', recoverable: false, reason: 'money_back_requested' };
   }
 
   // Past here: a paid, non-zero, un-refunded invoice, and the payer holds no

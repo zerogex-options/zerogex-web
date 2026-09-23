@@ -21,19 +21,22 @@
 //   "cancel anytime in the billing portal" copy in core/mailer.ts.
 //
 //   This script builds a configuration with the full feature set enabled and
-//   both cadence prices listed under each tier, then prints the resulting
+//   every cadence's price listed under each tier, then prints the resulting
 //   bpc_... id to wire into STRIPE_PORTAL_CONFIG_ID (see core/stripe.ts
 //   getPortalConfigId + deploy/steps/036.billing).
 //
-//   The feature set here MIRRORS the account default config as configured in the
-//   Stripe Dashboard (Settings → Billing → Customer portal): trials continue on
-//   switch, prorations deferred to period end, downgrades scheduled at period
-//   end, promotion-code entry OFF. Keep the two in sync if you change either.
+//   The feature set here should MIRROR the account default config in the Stripe
+//   Dashboard (Settings → Billing → Customer portal): a switch during a trial
+//   ends the trial, prorations deferred to period end, downgrades scheduled at
+//   period end, promotion-code entry OFF. Keep the two in sync if you change
+//   either — the Dashboard default governs whenever STRIPE_PORTAL_CONFIG_ID is
+//   unset.
 //
 // WHAT IT ENABLES
 //   • subscription_update  — allowed update: price. products = every tier's
-//     monthly + annual price, grouped by their Stripe product, so a member can
-//     move between any of the four prices (cadence swap and tier swap both).
+//     monthly, quarterly (when configured) and annual price, grouped by their
+//     Stripe product, so a member can move between any of them (cadence swap
+//     and tier swap both).
 //   • subscription_cancel  — at period end (matches our "keep access until the
 //     end of the billing period" policy in content/help/platform/billing.md).
 //   • payment_method_update, invoice_history, customer_update (address/name/
@@ -44,7 +47,8 @@
 //   portal would reopen that. Honoring a member's existing founding/promo rate
 //   across a cadence switch is handled server-side in the webhook instead.
 //
-// PRORATION (paying members only — trial members are never charged on a switch)
+// PRORATION (paying members; a trial member's switch is governed by the trial
+// behavior below)
 //   --proration create_prorations (default): matches the Dashboard's "Prorate
 //     charges and credits" + "Invoice prorations at the end of the billing
 //     period". Proration credit/charge line items are created and applied to the
@@ -54,13 +58,21 @@
 //   --proration none: no proration; the new price simply applies going forward.
 //
 // TRIAL BEHAVIOR ON SWITCH
-//   --trial-update-behavior continue_trial (default): keep an active free trial
-//     when a member switches plan/cadence — no charge until the trial ends, then
-//     billed at the new price. Stripe's OWN default is 'end_trial' (end the trial
-//     and charge immediately), so we set this explicitly. Pass end_trial to opt
-//     into immediate conversion instead.
-//   This field requires Stripe API 2025-09-30, which this script pins on its
-//   Stripe client for the config write only (the app's client is unaffected).
+//   --trial-update-behavior end_trial (default): a member switching plan during
+//     a free trial ends the trial and is charged the new plan now. Since only
+//     Basic monthly has a trial (core/billingPlans.ts), this is what stops the
+//     portal being a way to get a free trial of Pro or of a quarterly/annual
+//     plan — those are paid up front under the 7-day money-back guarantee. (The
+//     pricing page's own switch does the same in-app, with a confirm step.)
+//     Downgrades are unaffected: they are scheduled at period end regardless.
+//   --trial-update-behavior continue_trial: keep an active free trial on a
+//     switch — no charge until the trial ends, then billed at the new price. The
+//     pre-October-2026 behaviour; only right if every plan trials again
+//     (BILLING_TRIAL_PLANS).
+//   The field is newer (Stripe API 2025-09-30) than the version the app pins.
+//   If Stripe rejects it, the script writes everything else anyway (the plan
+//   list matters more) and says to set the behavior in the Dashboard instead;
+//   Stripe's own default there is to end the trial, which is what we want.
 //
 // DOWNGRADES
 //   Switching to a cheaper plan or a shorter interval (annual → monthly) is
@@ -104,13 +116,17 @@ type Args = {
   help: boolean;
 };
 
-// The four SKUs the portal must be able to move between. Order is display-only
+// The SKUs the portal must be able to move between. Order is display-only
 // (dry-run print); grouping into Stripe products happens by the live product id.
+// Monthly and annual are required; quarterly is included when its price ids are
+// set (it is optional in the app until configured — core/stripe.ts).
 const PRICE_ENV_KEYS = [
-  { env: 'STRIPE_PRICE_BASIC_MONTHLY', label: 'Basic / monthly' },
-  { env: 'STRIPE_PRICE_BASIC_ANNUAL', label: 'Basic / annual' },
-  { env: 'STRIPE_PRICE_PRO_MONTHLY', label: 'Pro / monthly' },
-  { env: 'STRIPE_PRICE_PRO_ANNUAL', label: 'Pro / annual' },
+  { env: 'STRIPE_PRICE_BASIC_MONTHLY', label: 'Basic / monthly', optional: false },
+  { env: 'STRIPE_PRICE_BASIC_QUARTERLY', label: 'Basic / quarterly', optional: true },
+  { env: 'STRIPE_PRICE_BASIC_ANNUAL', label: 'Basic / annual', optional: false },
+  { env: 'STRIPE_PRICE_PRO_MONTHLY', label: 'Pro / monthly', optional: false },
+  { env: 'STRIPE_PRICE_PRO_QUARTERLY', label: 'Pro / quarterly', optional: true },
+  { env: 'STRIPE_PRICE_PRO_ANNUAL', label: 'Pro / annual', optional: false },
 ] as const;
 
 const PRORATION_VALUES: ProrationBehavior[] = ['create_prorations', 'always_invoice', 'none'];
@@ -151,7 +167,7 @@ function parseArgs(argv: string[]): Args {
   const args: Args = {
     configId: null,
     proration: 'create_prorations',
-    trialBehavior: 'continue_trial',
+    trialBehavior: 'end_trial',
     privacyUrl: null,
     termsUrl: null,
     headline: null,
@@ -213,10 +229,10 @@ Options:
                             (default; prorations on next invoice), always_invoice
                             (invoice immediately), or none.
       --trial-update-behavior <b>
-                            continue_trial (default; keep the free trial on a
-                            switch, no charge until it ends) or end_trial (end the
-                            trial and charge immediately). Stripe's own default is
-                            end_trial, so we set continue_trial explicitly.
+                            end_trial (default; a switch during the free trial
+                            ends it and charges the new plan now — only Basic
+                            monthly trials) or continue_trial (keep the trial on
+                            a switch; only right if every plan trials again).
       --privacy-url <url>   Override the portal's privacy policy URL
                             (default: <NEXT_PUBLIC_APP_URL>/privacy).
       --terms-url <url>     Override the portal's terms of service URL
@@ -231,7 +247,8 @@ Options:
   -h, --help                Show this help.
 
 Reads STRIPE_SECRET_KEY, STRIPE_PRICE_BASIC_MONTHLY, STRIPE_PRICE_BASIC_ANNUAL,
-STRIPE_PRICE_PRO_MONTHLY, STRIPE_PRICE_PRO_ANNUAL, and NEXT_PUBLIC_APP_URL from
+STRIPE_PRICE_PRO_MONTHLY, STRIPE_PRICE_PRO_ANNUAL (required), the two
+STRIPE_PRICE_*_QUARTERLY ids (included when set) and NEXT_PUBLIC_APP_URL from
 env or .env.local.`);
 }
 
@@ -261,15 +278,23 @@ if (!STRIPE_SECRET_KEY) {
   process.exit(1);
 }
 
-// Resolve the four price ids up front so a missing one fails loud and early,
-// before we touch Stripe. All four are required: switching monthly <-> annual
-// needs both cadences present for each tier.
+// Resolve the price ids up front so a missing one fails loud and early, before
+// we touch Stripe. Monthly and annual are required for each tier; quarterly is
+// listed only when BOTH tiers have it (a one-tier quarterly would let the portal
+// offer a plan the pricing page does not).
 const missing: string[] = [];
-const priceInputs = PRICE_ENV_KEYS.map(({ env, label }) => {
-  const id = envOrLocal(env);
-  if (!id) missing.push(env);
-  return { env, label, id: id ?? null };
-});
+const quarterlyConfigured =
+  !!envOrLocal('STRIPE_PRICE_BASIC_QUARTERLY') && !!envOrLocal('STRIPE_PRICE_PRO_QUARTERLY');
+const priceInputs = PRICE_ENV_KEYS.filter(({ optional }) => !optional || quarterlyConfigured).map(
+  ({ env, label }) => {
+    const id = envOrLocal(env);
+    if (!id) missing.push(env);
+    return { env, label, id: id ?? null };
+  },
+);
+if (!quarterlyConfigured) {
+  console.log('Note: quarterly prices are not configured (both STRIPE_PRICE_*_QUARTERLY needed); leaving quarterly out of the portal.');
+}
 if (missing.length > 0) {
   console.error(`Error: missing required price id(s) in env or .env.local:\n  ${missing.join('\n  ')}`);
   console.error('These are the same keys deploy/steps/036.billing seeds. Fill them in first.');
@@ -332,7 +357,11 @@ for (const p of priceInputs) {
     productId: product.id,
     productName: product.name ?? product.id,
     productActive: product.active !== false,
-    interval: price.recurring?.interval ?? null,
+    interval: price.recurring
+      ? price.recurring.interval_count > 1
+        ? `every ${price.recurring.interval_count} ${price.recurring.interval}s`
+        : price.recurring.interval
+      : null,
     active: price.active,
   });
 }
@@ -396,7 +425,7 @@ const subscriptionUpdate = {
   proration_behavior: cliArgs.proration,
   products: productEntries.map((e) => ({ product: e.product, prices: e.prices })),
   // Downgrades wait for period end: cheaper plan => decreasing_item_amount;
-  // annual -> monthly => shortening_interval.
+  // a shorter period (annual -> quarterly -> monthly) => shortening_interval.
   schedule_at_period_end: {
     conditions: [{ type: 'decreasing_item_amount' }, { type: 'shortening_interval' }],
   },
@@ -459,34 +488,67 @@ function verifyTrialBehavior(config: Stripe.BillingPortal.Configuration) {
   console.error('  • re-run with --api-version <a version your account supports> (see Stripe');
   console.error('    Dashboard → Developers → API version), or');
   console.error('  • set it in the Dashboard: Settings → Billing → Customer portal →');
-  console.error('    "when a customer changes plans during a trial" → keep the trial.');
-  console.error('Until then, a mid-trial plan switch will still end the trial and charge.');
+  console.error('    "when a customer changes plans during a trial".');
+  console.error(`Until then, a mid-trial plan switch will not follow ${cliArgs.trialBehavior}.`);
+}
+
+// Some API versions reject trial_update_behavior outright ("Received unknown
+// parameter") instead of ignoring it. Plan switching (the quarterly prices
+// included) must not be held hostage to that one field: retry the write without
+// it, and say how to set the trial behavior in the Dashboard instead.
+function isRejectedTrialBehavior(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : '';
+  return /trial_update_behavior/.test(message) && /unknown parameter/i.test(message);
+}
+
+async function writeConfig(
+  withTrialBehavior: boolean,
+): Promise<{ config: Stripe.BillingPortal.Configuration; created: boolean }> {
+  const params = {
+    features: withTrialBehavior
+      ? features
+      : {
+          ...features,
+          subscription_update: (() => {
+            const { trial_update_behavior: _omitted, ...rest } = subscriptionUpdate as unknown as Record<string, unknown>;
+            void _omitted;
+            return rest as unknown as Stripe.BillingPortal.ConfigurationCreateParams.Features.SubscriptionUpdate;
+          })(),
+        },
+    business_profile: businessProfile,
+  };
+  if (targetConfigId) {
+    return { config: await stripe.billingPortal.configurations.update(targetConfigId, params), created: false };
+  }
+  return { config: await stripe.billingPortal.configurations.create(params), created: true };
 }
 
 try {
-  if (targetConfigId) {
-    const updated = await stripe.billingPortal.configurations.update(targetConfigId, {
-      features,
-      business_profile: businessProfile,
-    });
-    console.log(`\nDone. Updated portal configuration ${updated.id}.`);
+  let result: { config: Stripe.BillingPortal.Configuration; created: boolean };
+  try {
+    result = await writeConfig(true);
+  } catch (err) {
+    if (!isRejectedTrialBehavior(err)) throw err;
+    console.error(`\nNote: Stripe rejected trial_update_behavior (${err instanceof Error ? err.message : 'unknown parameter'}).`);
+    console.error('Writing the rest of the configuration without it.');
+    result = await writeConfig(false);
+  }
+  const { config, created } = result;
+  if (!created) {
+    console.log(`\nDone. Updated portal configuration ${config.id}.`);
     console.log('Plan switching, cancel, payment-method and invoice features are now enabled on it.');
-    verifyTrialBehavior(updated);
-    if (envOrLocal('STRIPE_PORTAL_CONFIG_ID') !== updated.id) {
-      console.log(`\nMake sure STRIPE_PORTAL_CONFIG_ID=${updated.id} is set in .env.local, then: make rebuild`);
+    verifyTrialBehavior(config);
+    if (envOrLocal('STRIPE_PORTAL_CONFIG_ID') !== config.id) {
+      console.log(`\nMake sure STRIPE_PORTAL_CONFIG_ID=${config.id} is set in .env.local, then: make restart`);
     }
   } else {
-    const created = await stripe.billingPortal.configurations.create({
-      features,
-      business_profile: businessProfile,
-    });
-    console.log(`\nDone. Created portal configuration ${created.id}.`);
-    verifyTrialBehavior(created);
+    console.log(`\nDone. Created portal configuration ${config.id}.`);
+    verifyTrialBehavior(config);
     console.log('\nNext steps to make the portal use it:');
     console.log(`  1. Set this in frontend/.env.local:`);
-    console.log(`       STRIPE_PORTAL_CONFIG_ID=${created.id}`);
-    console.log(`  2. Rebuild so the value is picked up:`);
-    console.log(`       make rebuild`);
+    console.log(`       STRIPE_PORTAL_CONFIG_ID=${config.id}`);
+    console.log(`  2. Restart so the value is picked up:`);
+    console.log(`       make restart`);
     console.log(
       '\n(Without STRIPE_PORTAL_CONFIG_ID pinned, the portal keeps using Stripe\'s',
     );

@@ -20,6 +20,39 @@ type Update = {
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
   {
+    date: 'September 20, 2026',
+    title: 'The Gamma Chart and the Gamma Terminal are one page now',
+    intro:
+      'These were never really two products. The Gamma Terminal was the Gamma Chart with two strike ladders beside it instead of the gamma rail \u2014 same instrument, same levels, same engine, different thing in the right-hand column. Keeping them apart meant you had to pick a page before you knew which reading you wanted, and it meant the ladders were locked behind a members-only beta while the chart was the free front door. So they are folded: one flagship page at /chart, a switch for what sits beside the tape, and the whole thing \u2014 ladders included \u2014 free on a ~15-minute delay.',
+    whatsNew: [
+      {
+        title: 'One layout, two readings of the book',
+        href: '/chart',
+        body: 'The page is the terminal layout throughout: tape on the left, a panel beside it, the panel as tall as the chart. A "Beside the tape" switch chooses what the panel holds \u2014 Gamma Ladders, two strike-aligned Net GEX books pinned to the same spot row as the candles, or the Strike Panel, net dealer gamma by price with all four of its views (Silhouette, Net, Split, Combined) and the on-bar labels. The chart does not change between them: same width, same toolbar, same overlays. Only the panel switches, and your choice is remembered.',
+      },
+      {
+        title: 'The gamma rail left its cramped column',
+        href: '/chart',
+        body: 'It used to be a narrow strip inside the chart, squeezed between the candles and the price axis. Now it is the panel \u2014 roughly twice the width, the full height of the card \u2014 and it is drawn against the tape\u2019s own price scale, so a strike\u2019s bar sits exactly level with that price on the candles. It also reaches past the top and bottom of the visible tape at the same scale, which is usually where the wall you are about to run into lives. Its four views moved onto the panel with it.',
+      },
+      {
+        title: 'Nothing was dropped in the fold',
+        href: '/chart',
+        body: 'Key Levels, the Playbook, the GEX ribbons (available under either view, since they read the tape rather than the panel), the Expiry filter, Rewind, Session \u0394 and the symbol swap all came across. The chart keeps one saved toolbar now rather than one per view, because there is one chart to save.',
+      },
+      {
+        title: 'The ladders are free now, 15 minutes behind',
+        href: '/chart',
+        body: 'The public view used to be the chart alone. It is now the whole terminal: the tape, the levels, and both gamma ladders \u2014 SPY read against SPX \u2014 rendered from a server snapshot on the same ~15-minute delay the free gamma levels have always used. Members get it live, on every symbol, with the Expiry filter and Rewind driving the ladders too.',
+      },
+      {
+        title: 'The Gamma Terminal beta URL now lands here',
+        href: '/chart',
+        body: 'The beta at /gamma-terminal is gone as a separate page and redirects to /chart, which is where the nav entry points too \u2014 now labelled Gamma Terminal, and no longer flagged beta. Old bookmarks and links keep working.',
+      },
+    ],
+  },
+  {
     date: 'September 16, 2026',
     title: 'A baseline for spreads, and 0DTE on the replay',
     intro:

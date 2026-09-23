@@ -52,7 +52,7 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       </div>
 
       <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.85 }}>
-        7-day free trial. No charge until day 7. Cancel anytime.
+        7-day free trial on Basic monthly &middot; 7-day money-back guarantee on every other plan.
       </p>
     </section>
   );

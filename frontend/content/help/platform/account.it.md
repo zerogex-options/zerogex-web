@@ -10,7 +10,7 @@ La pagina [Account](/account) è il punto di riferimento unico per tutto ciò ch
 
 ## L'intestazione
 
-Mostra la tua email, lo stato di verifica, il tuo livello (Public, Basic, Pro, Admin) e il badge del piano (ad es. "Pro — annuale"). Se sei in prova, il badge mostra "Trial — N giorni rimasti".
+Mostra la tua email, lo stato di verifica, il tuo livello (Public, Basic, Pro, Admin) e il badge del piano (ad es. "Pro — annuale"). Se sei nella prova gratuita di Basic mensile, il badge mostra "Trial — N giorni rimasti".
 
 ## Email e verifica
 
@@ -37,6 +37,7 @@ Puoi collegare **Google** e **Apple** allo stesso account. La pagina Account mos
 - Viene mostrato il tuo livello attuale.
 - Il link "Gestisci abbonamento" apre il portale di fatturazione ospitato da Stripe in una nuova scheda.
 - Cancellazione, cambio piano, metodi di pagamento e fatture avvengono tutti nel portale.
+- Entro 7 giorni dal primo pagamento di un piano coperto dalla garanzia soddisfatti o rimborsati di 7 giorni (Pro, o qualsiasi piano trimestrale o annuale), clicca su **Request a full refund** nella pagina Account. L'accesso termina quando il rimborso viene emesso; un rimborso per cliente.
 
 Per la procedura dettagliata, vedi [Fatturazione e portale Stripe](/help/platform/billing).
 

@@ -14,7 +14,7 @@ ZeroGEX propose trois niveaux de compte. Ils déterminent quelles données et qu
 | Basic | Traders intraday actifs | Dashboard, Live Bulletin, tous les Metrics, Strategy Builder, Live Options Quotes, tous les Basic Signals |
 | Pro | Opérateurs sérieux | Tout ce qui est inclus dans Basic + tous les Advanced Signals + Composite Score + Backtesting + accès API |
 
-Consultez la répartition en direct — et un essai de 14 jours — sur la page [Pricing](/pricing).
+Consultez la répartition en direct sur la page [Pricing](/pricing). Basic mensuel inclut un essai gratuit de 7 jours ; toutes les autres formules bénéficient d'une garantie satisfait ou remboursé de 7 jours.
 
 ## Ce qui est restreint et où
 
@@ -54,13 +54,15 @@ Certaines pages existent pour tous les niveaux mais se comportent différemment 
 Les modifications de compte se font à deux endroits :
 
 1. **[Account](/account)** — affiche votre niveau actuel, le statut de votre forfait actuel et le lien vers le portail de facturation.
-2. **[Stripe Billing Portal](/account)** — accessible depuis la page Account. Changez entre Basic et Pro, passez de mensuel à annuel, modifiez le moyen de paiement, consultez les factures.
+2. **[Stripe Billing Portal](/account)** — accessible depuis la page Account. Changez entre Basic et Pro, passez d'une facturation mensuelle, trimestrielle ou annuelle à une autre, modifiez le moyen de paiement, consultez les factures.
 
 Pour un guide pas à pas, consultez [Billing & Stripe Portal](/help/platform/billing).
 
 ## Lorsque vous êtes en période d'essai
 
-Si votre compte est en période d'essai gratuite (Basic ou Pro), la page Account affiche une puce « Trial active — X days left ». À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez dans le portail de facturation avant l'expiration de l'essai.
+L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Pendant l'essai, la page Account affiche une puce « Trial active — X days left ». À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez dans le portail de facturation avant l'expiration de l'essai — vous ne serez pas facturé.
+
+Passer à Pro, ou à une formule trimestrielle ou annuelle, pendant l'essai met fin à l'essai et facture la nouvelle formule le jour même ; la page [Pricing](/pricing) affiche le montant exact et vous demande de confirmer, et ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.
 
 ## Que se passe-t-il si vous cliquez sur quelque chose auquel vous n'avez pas accès ?
 
@@ -68,6 +70,6 @@ Vous êtes redirigé vers la page [Pricing](/pricing) plutôt que bloqué ou con
 
 ## Voir aussi
 
-- [Pricing](/pricing) — la répartition en direct des niveaux et le parcours d'essai
+- [Pricing](/pricing) — la répartition en direct des niveaux et les formules
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

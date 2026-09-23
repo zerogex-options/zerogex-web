@@ -1,0 +1,42 @@
+[Unit]
+Description=ZeroGEX web renewal reminders for quarterly / annual plans
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+# A non-zero exit here reached journald and nothing else. Route failures to
+# an email instead; %n is this unit's own name, which the alert template turns
+# into the subject line and the journal it quotes.
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make renewal-reminders` shells through nvm to get Node 22 (the script is a
+# .mts that needs --experimental-strip-types); HOME is all it needs from here.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web renewal-reminders YES=1
+
+# Resend + Stripe are the only outbound legs; cap so a hung HTTPS connect
+# can't pile up overlapping timer fires.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the trial-reminders unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir — the users.renewal_reminder_sent_for latch
+# and the audit_events INSERT write the same SQLite file as the live PM2
+# writer. deploy/steps/099.renewal-reminders adds a drop-in when AUTH_DB_PATH
+# points elsewhere.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-renewal-reminders

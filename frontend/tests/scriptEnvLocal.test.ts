@@ -71,3 +71,15 @@ test('a missing file is not an error', () => {
   assert.deepEqual(loadEnvLocal(dir), []);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('a key listed twice takes its last line, as the app does', () => {
+  // deploy/steps/036.billing seeds blank placeholders; a real value appended
+  // below one must win here exactly as it does for Next.js.
+  withEnvFile('STRIPE_PRICE_PRO_QUARTERLY=\nSTRIPE_PRICE_PRO_QUARTERLY=price_q\n', (dir) => {
+    delete process.env.STRIPE_PRICE_PRO_QUARTERLY;
+    const loaded = loadEnvLocal(dir);
+    assert.equal(process.env.STRIPE_PRICE_PRO_QUARTERLY, 'price_q');
+    assert.equal(loaded.filter((key) => key === 'STRIPE_PRICE_PRO_QUARTERLY').length, 1);
+    delete process.env.STRIPE_PRICE_PRO_QUARTERLY;
+  });
+});

@@ -1,5 +1,13 @@
 # The projected range is wider than it needs to be, and that is not the problem
 
+> **Do not read this as "scale the band by 0.8".** That is the one change the
+> measurement below argues against. The live model's p80 is 0.804, but its
+> failures arrive in consecutive-day clusters and the width is hard-capped at
+> `VOL_RATIO_MAX = 1.90`, so a uniform narrowing would tighten the quiet days
+> the band already handles and do nothing for the two sessions that broke it
+> worst. Read **The three findings** and **Recommendation** before changing a
+> constant.
+
 Measured 2026-09-22 on 55 graded SPX sessions with
 `make forecast-range-width SYMBOL=SPX`
 (`frontend/scripts/forecast-range-width.mts`, read-only).
@@ -91,9 +99,38 @@ range would have `k` clustered near a constant; this one is close to
 uninformative about which days will be wide. That is the actual defect, and it
 is a regime-detection problem rather than a scale-factor one.
 
-Note the existing event-day stretch (1.5x, per the copy on
-`/forecast/[symbol]/[date]`) did not catch Jul 6–8 or Aug 3–4. Whatever flags
-an event day is missing exactly the days the band exists for.
+**3b. There is a hard ceiling on the width, and it is the prime suspect.**
+Read after this document was first written, from `zerogex-oa` @ `release`
+(`39f2819`), `src/jobs/forecast_range_model.py`:
+
+```python
+VOL_RATIO_MIN = 0.45
+VOL_RATIO_MAX = 1.90
+EVENT_DAY_MULTIPLIER = 1.5
+...
+ratio = _clamp(ratio, VOL_RATIO_MIN, VOL_RATIO_MAX)   # last step before the band
+```
+
+The expected-vol ratio is clamped to **1.90x a normal day**. Aug 3-4 needed
+2.231x and 2.605x the band that shipped. So the fat right tail may not be a
+detection failure at all: the model may have seen it coming and been gagged.
+
+**This is now the first thing to check, and it splits the fix in two:**
+
+| On the sessions that broke | Means | Fix |
+| --- | --- | --- |
+| `expected_vol_ratio` **at 1.90** | clipped, not mispredicted | raise or soften the cap |
+| `expected_vol_ratio` **below 1.90** | asked for less than allowed | regime detection |
+
+`make forecast-range-width SYMBOL=SPX` now prints `expected_vol_ratio` beside
+the required `k` for every miss, flags which ones sat `AT CAP`, and states which
+of the two faults it is. Run it before editing anything.
+
+An earlier draft of this document asserted that "whatever flags an event day is
+missing exactly the days the band exists for". That was a guess made without
+having read the model, and the clamp is the better hypothesis. The event-day
+stretch (`EVENT_DAY_MULTIPLIER = 1.5`) may still be mis-firing, but it cannot be
+diagnosed while a downstream clamp can silently overwrite whatever it produces.
 
 ## Recommendation
 
@@ -102,10 +139,21 @@ uniform scaling preserves the shape of a long right tail — it moves every day
 including the ones already breaking, and buys tightness on the median day at
 the cost of the margin covering the tail.
 
-Work the regime problem instead: find what Jul 6–8 and Aug 3–4 had in common
-that the event-day flag missed, and make the width conditional on it. A band
-that is narrow on quiet days and genuinely wide on the two-day shocks beats a
-band that is uniformly 20% narrower.
+In order:
+
+1. **Settle the clamp question first.** Run `make forecast-range-width
+   SYMBOL=SPX` and read the `asked for` column on the misses. Nothing else can
+   be diagnosed while a ceiling may be overwriting the model's own answer.
+2. **If the misses sat at 1.90x:** the model was right and was clipped. Raise
+   the cap, or replace the hard clamp with something that saturates instead of
+   truncating, and re-grade. Much smaller than the regime work, and it has to
+   come first either way.
+3. **If they sat below 1.90x:** the cap is irrelevant and this is the regime
+   problem. Find what Jul 6-7-8 and Aug 3-4 had in common that the event-day
+   flag missed, and make the width conditional on it.
+4. **Only then consider narrowing**, and conditionally rather than uniformly. A
+   band genuinely narrow on quiet days and genuinely wide on two-day shocks
+   beats one that is uniformly 20% tighter.
 
 **In-sample caveat.** `k` was fitted to the same 48 `v1_4` sessions it is
 measured on. Treat 0.804 as a starting estimate to watch forward, never as a
@@ -113,10 +161,27 @@ tuned constant.
 
 ## Reproducing
 
+**These commands live in `zerogex-web`, not here.** Both repos deploy to the
+same box and the script reads the same forecast API, so run them from the
+`zerogex-web` checkout:
+
 ```
-make forecast-range-width SYMBOL=SPX                        # all models
+make forecast-range-width SYMBOL=SPX                        # all models + the cap readout
 make forecast-range-width SYMBOL=SPX MODEL=heuristic_v1_4   # live model only
 make forecast-range-width SYMBOL=SPX JSON=1                 # machine-readable
 ```
 
 Read-only. Writes nothing, touches no database, hits only the forecast API.
+
+Working only from `zerogex-oa`? The one field that decides the clamp question is
+on the stored forecast:
+
+```
+curl -s -H "Authorization: Bearer $ZEROGEX_API_TOKEN" \
+  "http://127.0.0.1:8000/api/forecast/2026-08-04?symbol=SPX" \
+  | python3 -c "import json,sys; m=json.load(sys.stdin)['morning']; \
+      print(m['expected_vol_ratio'], m['expected_vol_state'], m['range_model'])"
+```
+
+`1.9` means clipped. Anything materially below it means mispredicted. Repeat for
+`2026-08-03`, `2026-07-15` and `2026-07-23` -- the four `heuristic_v1_4` misses.

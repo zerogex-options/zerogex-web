@@ -1010,6 +1010,67 @@ function initDb(): DatabaseSync {
     ORDER BY day;
   `);
 
+  // The billing period (its current_period_end) a quarterly/annual renewal
+  // reminder was last sent for — scripts/send-renewal-reminders.mts. Keyed on the
+  // period rather than a timestamp so the latch re-arms by itself when the next
+  // period starts, and a late or repeated run never sends twice for one renewal.
+  ensureColumn('users', 'renewal_reminder_sent_for', 'TEXT');
+
+  // ── 7-day money-back guarantee ledger ─────────────────────────────────────
+  // One row per guarantee refund request, keyed by the subscription it
+  // refunds. Two jobs:
+  //
+  //   1. The ONE-REFUND-PER-CUSTOMER limit. A new request is refused when any
+  //      pending or completed row for a different subscription matches this
+  //      account, this canonical email (core/moneyBackGuarantee.canonicalEmail)
+  //      or the card that paid (Stripe's per-account card fingerprint). A
+  //      'failed' row moved no money and never counts.
+  //   2. Crash-safe resumption. The row is claimed ('pending') BEFORE any money
+  //      moves, so a double click or a retry after a Stripe hiccup resumes the
+  //      same request — Stripe idempotency keys stop a second refund — rather
+  //      than starting a new one.
+  //
+  // DELIBERATELY NOT A FOREIGN KEY, and never deleted with the account: the
+  // limit has to survive "delete the account, sign up again with the same card"
+  // to mean anything. It is a record kept about a payment to prevent abuse and
+  // resolve disputes — the purposes the privacy policy's use (§3) and retention
+  // (§6) sections already name. `card_fingerprint` is Stripe's opaque per-card
+  // token, not card data.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS money_back_refunds (
+      id TEXT PRIMARY KEY,
+      subscription_id TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      email_canonical TEXT NOT NULL,
+      customer_id TEXT,
+      card_fingerprint TEXT,
+      price_id TEXT,
+      tier TEXT,
+      cadence TEXT,
+      first_invoice_id TEXT,
+      first_paid_at TEXT,
+      amount_refunded INTEGER NOT NULL DEFAULT 0,
+      currency TEXT,
+      refund_ids TEXT,
+      status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      feedback TEXT,
+      comment TEXT,
+      error TEXT,
+      requested_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_user ON money_back_refunds(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_email ON money_back_refunds(email_canonical);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_card ON money_back_refunds(card_fingerprint);');
+  // The updated_at a stalled-request alert was sent for
+  // (core/moneyBackServer.ts sweepStalledMoneyBackRequests): one alert per
+  // stall, re-armed whenever the request moves again.
+  ensureColumn('money_back_refunds', 'stale_alert_for', 'TEXT');
+
   // ── Free daily levels email ───────────────────────────────────────────────
   // Subscribers to the pre-open levels digest, captured from the public
   // /<ticker>-gamma-levels pages.

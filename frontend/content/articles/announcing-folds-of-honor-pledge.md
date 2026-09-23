@@ -51,7 +51,7 @@ If you ever want to see exactly how much ZeroGEX has donated to date, that page 
 
 When you subscribe, you will see a new line under each tier on the [pricing page](/pricing): *Includes 3% donation to Folds of Honor*. After checkout, your confirmation screen shows the actual dollar amount your subscription contributed for the current billing cycle — not a percentage, not a marketing phrase, the real number.
 
-A monthly Pro subscriber, for example, contributes $1.49 to Folds of Honor every month. Annual Pro contributes about $17.97 up front. Across the full ZeroGEX subscriber base, that adds up fast.
+A monthly Pro subscriber, for example, contributes $1.77 to Folds of Honor every month. Annual Pro contributes about $8.97 up front. Across the full ZeroGEX subscriber base, that adds up fast.
 
 ---
 

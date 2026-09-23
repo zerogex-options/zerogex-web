@@ -41,7 +41,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'free-trial',
         q: 'Is there a free trial?',
-        a: 'Yes. Both Basic and Pro come with a free trial. The trial length is shown on the Pricing page. At the end of the trial, the subscription continues automatically at the rate you signed up at. Cancel before the trial ends to avoid being charged.',
+        a: 'Yes — Basic monthly comes with a 7-day free trial: full access right away, no charge until the trial ends, and the subscription then continues automatically at the rate you signed up at. Cancel before it ends and you pay nothing. Every other plan (Pro, and any quarterly or annual plan) is billed when you subscribe and covered by a 7-day money-back guarantee instead: request a full refund from the Account page within 7 days of paying, limited to one refund per customer.',
       },
       {
         id: 'first-page',
@@ -141,13 +141,13 @@ const FAQ_DATA: FAQCategory[] = [
       },
       {
         id: 'monthly-vs-annual',
-        q: 'Should I pay monthly or annual?',
-        a: 'Annual is meaningfully discounted versus monthly — the exact rate is on the Pricing page. Most active users switch to annual after a couple of months. You can switch in the Stripe billing portal at any time; proration handles the math.',
+        q: 'Should I pay monthly, quarterly, or annual?',
+        a: 'The longer the billing period, the less you pay per month — the Pricing page shows every plan as a monthly equivalent so you can compare directly. Most active users move to a longer period after a couple of months. You can switch in the Stripe billing portal at any time; proration handles the math.',
       },
       {
         id: 'switch-plan',
-        q: 'How do I switch my plan (tier or monthly/annual)?',
-        a: 'Open the Account page and click "Manage subscription" to open the Stripe billing portal — you can move between Basic and Pro and between monthly and annual right there. Upgrades (and monthly → annual) take effect immediately; downgrades and annual → monthly take effect at the end of your current period, so you keep what you paid for until then. Proration is applied and shows up on your next invoice, not as an upfront charge. If you’re still in your free trial, switching keeps the trial — you won’t be charged until it ends, and then you’re billed the new plan’s rate.',
+        q: 'How do I switch my plan (tier or billing period)?',
+        a: 'Open the Account page and click "Manage subscription" to open the Stripe billing portal — you can move between Basic and Pro and between monthly, quarterly and annual right there. Upgrades (and moves to a longer billing period) take effect immediately; downgrades and moves to a shorter period take effect at the end of your current period, so you keep what you paid for until then. Proration is applied and shows up on your next invoice, not as an upfront charge. If you’re still in the Basic free trial, moving to Pro or to a quarterly or annual plan ends the trial and bills the new plan that day — the Pricing page shows the exact amount and asks you to confirm — and that payment is covered by the 7-day money-back guarantee.',
       },
       {
         id: 'tier-upgrade',
@@ -162,7 +162,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'refunds',
         q: 'Do you offer refunds?',
-        a: 'The trial is unconditional — cancel before it ends and you are never charged. Paid subscriptions are billed in advance and not pro-rated on cancellation by default. For exceptions and edge cases, email support@zerogex.io and we will work it out.',
+        a: 'Two protections, one per plan. The Basic monthly free trial is unconditional — cancel before it ends and you are never charged. Every other plan comes with a 7-day money-back guarantee: request a full refund from the Account page within 7 days of your first payment and it is refunded in full, with your access ending when the refund is issued (one refund per customer). Beyond that, subscriptions are billed in advance and not pro-rated on cancellation. For anything else, email support@zerogex.io and we will work it out.',
       },
       {
         id: 'billing-issue',
@@ -279,6 +279,11 @@ const FAQ_DATA: FAQCategory[] = [
         id: 'api-ninjatrader',
         q: 'Can I plot the levels on NinjaTrader?',
         a: 'Yes — our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
+      },
+      {
+        id: 'levels-not-touched',
+        q: 'Price stopped just short of a level and my limit order never filled. Is the data late?',
+        a: 'Almost certainly not, and the near miss is usually the signal rather than a fault. These levels are option <strong>strikes</strong>, not lines drawn off the chart, so they sit where the option chain puts them regardless of where price happens to turn. On ES and NQ they are the index strike carried onto the futures price axis, which is why they rarely land on a round futures number. More importantly, a big wall is where dealer hedging concentrates: as price walks into a heavy call strike the hedging flow leans against it, so the last couple of ticks into the level are the hardest ones to get. A resting order exactly on the number is the least likely fill of the whole approach. Treat a wall as a <strong>zone</strong> and work the order a few ticks in front of it rather than on it. Two things that would be a real data problem and look different: the info panel showing <em>&#9888; not updating</em> with a reason, or an <em>updated</em> age that keeps climbing past a couple of minutes during the session.',
       },
       {
         id: 'api-interactive-brokers',
