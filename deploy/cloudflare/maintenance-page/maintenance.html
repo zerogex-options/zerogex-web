@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Down for maintenance · ZeroGEX</title>
+<!--
+  Served by the Cloudflare Worker in this directory while the zerogex.io origin
+  is down, so it must stand entirely on its own: no stylesheet, script, font or
+  image from the site, because the site is exactly what isn't answering. Styled
+  to match frontend/app/global-error.tsx, the app's other self-contained page.
+-->
+<noscript><meta http-equiv="refresh" content="60"></noscript>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background-color: #031A24;
+    color: #FFF1E6;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main {
+    width: 100%;
+    max-width: 30rem;
+    text-align: center;
+  }
+  .brand {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #F4645F;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+  }
+  p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(255, 241, 230, 0.72);
+    margin: 0 0 1.75rem;
+  }
+  .status {
+    font-size: 0.85rem;
+  }
+  /* Inline rather than a flex item, so it stays beside the first word when
+     the line wraps on a phone instead of drifting to the edge. */
+  .dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    border-radius: 50%;
+    background-color: #F4645F;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    50% { opacity: 0.25; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; }
+  }
+  .button {
+    display: inline-block;
+    border-radius: 0.5rem;
+    padding: 0.7rem 1.4rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: #1A0B09;
+    background-color: #F4645F;
+  }
+  .contact {
+    margin: 1.75rem 0 0;
+    font-size: 0.8rem;
+    color: rgba(255, 241, 230, 0.4);
+  }
+  .contact a {
+    color: inherit;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">ZeroGEX</div>
+  <h1>Down for maintenance</h1>
+  <p>
+    ZeroGEX is offline for a few minutes while our servers restart for routine
+    maintenance. There&rsquo;s nothing you need to do.
+  </p>
+  <p class="status">
+    <span class="dot" aria-hidden="true"></span>This page will reload on its own as soon as we&rsquo;re back.
+  </p>
+  <!-- An empty href is this same URL, so the button works without JavaScript. -->
+  <a class="button" href="">Try now</a>
+  <p class="contact">Questions? <a href="mailto:support@zerogex.io">support@zerogex.io</a></p>
+</main>
+<script>
+  // Poll the URL this page was served in place of, and reload once the site
+  // answers it. The Worker only swaps in this page for page loads, and a plain
+  // fetch isn't one, so the probe sees the origin's real status: anything under
+  // 500 (a 200, a 404, or a redirect, which redirect: 'manual' reports as
+  // status 0) means the site is back. Backs off so a long outage isn't a steady
+  // drumbeat of requests from every open tab.
+  (function () {
+    var delay = 5000;
+    function schedule() {
+      setTimeout(check, delay);
+      delay = Math.min(delay * 1.5, 60000);
+    }
+    function check() {
+      fetch(location.href, { method: 'HEAD', cache: 'no-store', redirect: 'manual' })
+        .then(function (res) {
+          if (res.status < 500) location.reload();
+          else schedule();
+        })
+        .catch(schedule);
+    }
+    schedule();
+  })();
+</script>
+</body>
+</html>
