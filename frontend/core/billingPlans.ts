@@ -187,3 +187,15 @@ export function planDisplay(sku: Sku): PlanDisplay {
 export function formatUsd(amount: number): string {
   return Number.isInteger(amount) ? `$${amount}` : `$${amount.toFixed(2)}`;
 }
+
+// What a member is billed, in whole dollars ("$199"). Every list and promo
+// price is a whole-dollar amount; rounding only guards display.
+export function formatBilledUsd(amount: number): string {
+  return `$${Math.round(amount)}`;
+}
+
+// A monthly equivalent, always to the cent ("$16.58", "$25.00"), so the
+// per-month column reads uniformly.
+export function formatPerMonthUsd(amount: number): string {
+  return `$${amount.toFixed(2)}`;
+}

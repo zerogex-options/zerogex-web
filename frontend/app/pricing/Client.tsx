@@ -20,7 +20,8 @@ import { ArrowRight, CheckCircle2, Loader2, ShieldCheck, Sparkles } from 'lucide
 import { usePageT } from '@/core/LanguageContext';
 import {
   BILLING_CADENCES,
-  formatUsd,
+  formatBilledUsd,
+  formatPerMonthUsd,
   maxSavingsPct,
   MONEY_BACK_GUARANTEE_DAYS,
   MONTHLY_PROMO,
@@ -181,22 +182,29 @@ function CtaButton({
   );
 }
 
-// Every plan is quoted on one axis — dollars per month — so Monthly, Quarterly
-// and Annual compare apples to apples, with what is actually billed stated right
-// under it ("$75 billed every 3 months").
+// The headline is what the member is actually billed, in whole dollars
+// ("$199 /year"); longer plans add their monthly equivalent to the cent in the
+// card's accent ("Equivalent to $16.58/mo") so every cadence still compares on
+// one axis.
+function periodSuffixKey(cadence: Cadence): string {
+  return cadence === 'monthly' ? 'perMonthSuffix' : cadence === 'quarterly' ? 'perQuarterSuffix' : 'perYearSuffix';
+}
+
 function PriceDisplay({
   cadence,
   tier,
   promoActive,
+  accent,
 }: {
   cadence: Cadence;
   tier: BillableTier;
   promoActive: boolean;
+  accent: string;
 }) {
   const t = usePageT(dict);
   const display = planDisplay({ tier, cadence });
-  const perMonthSuffix = (
-    <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>{t('perMonthSuffix')}</span>
+  const suffix = (
+    <span style={{ fontSize: 15, color: C.muted, fontWeight: 700 }}>{t(periodSuffixKey(cadence))}</span>
   );
 
   if (cadence === 'monthly' && promoActive && display.promoPrice != null) {
@@ -213,7 +221,7 @@ function PriceDisplay({
               fontWeight: 700,
             }}
           >
-            {formatUsd(display.listPrice)}
+            {formatBilledUsd(display.listPrice)}
           </span>
           <span
             style={{
@@ -225,35 +233,33 @@ function PriceDisplay({
               textShadow: '0 0 24px var(--color-brand-primary-soft, rgba(245,180,0,0.35))',
             }}
           >
-            {formatUsd(display.promoPrice)}
+            {formatBilledUsd(display.promoPrice)}
           </span>
-          {perMonthSuffix}
+          {suffix}
         </div>
         <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
           {t('monthlyPromoNote', {
             months: display.promoPeriods ?? MONTHLY_PROMO.months,
-            rack: formatUsd(display.listPrice),
+            rack: formatBilledUsd(display.listPrice),
           })}
         </div>
       </div>
     );
   }
 
-  const billedNote =
-    cadence === 'quarterly'
-      ? t('billedQuarterlyNote', { price: formatUsd(display.listPrice) })
-      : cadence === 'annual'
-        ? t('billedAnnuallyNote', { price: formatUsd(display.listPrice) })
-        : null;
   return (
     <div style={{ marginTop: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
-          {formatUsd(display.perMonth)}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: 46, fontWeight: 900, letterSpacing: '-1.5px', lineHeight: 1, color: C.light }}>
+          {formatBilledUsd(display.listPrice)}
         </span>
-        {perMonthSuffix}
+        {suffix}
       </div>
-      {billedNote && <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>{billedNote}</div>}
+      {cadence !== 'monthly' && (
+        <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: accent }}>
+          {t('equivalentPerMonth', { price: formatPerMonthUsd(display.perMonth) })}
+        </div>
+      )}
     </div>
   );
 }
@@ -354,7 +360,7 @@ function TierCard({
         )}
       </div>
 
-      <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} />
+      <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} accent={accent} />
 
       {startsTrial && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
@@ -469,12 +475,12 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
           lineHeight: 1.2,
         }}
       >
-        {t('limitedTimeHeadline', { amount: formatUsd(MONTHLY_PROMO.amountOffUsd), months: MONTHLY_PROMO.months })}
+        {t('limitedTimeHeadline', { amount: formatBilledUsd(MONTHLY_PROMO.amountOffUsd), months: MONTHLY_PROMO.months })}
       </div>
       <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, opacity: 0.9 }}>
         {basic != null && pro != null && (
           <>
-            {t('limitedTimePrices', { basic: formatUsd(basic), pro: formatUsd(pro) })} ·{' '}
+            {t('limitedTimePrices', { basic: formatBilledUsd(basic ?? 0), pro: formatBilledUsd(pro ?? 0) })} ·{' '}
           </>
         )}
         {deadlineLabel ? t('limitedTimeOfferEnds', { deadline: deadlineLabel }) : t('limitedTimeForLimited')}
@@ -536,7 +542,6 @@ function CadenceToggle({
     >
       {cadences.map((option) => {
         const active = cadence === option;
-        const savings = maxSavingsPct(option);
         return (
           <button
             key={option}
@@ -546,24 +551,235 @@ function CadenceToggle({
             onClick={() => setCadence(option)}
           >
             {label[option]}
-            {savings != null && (
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 800,
-                  padding: '2px 6px',
-                  borderRadius: 999,
-                  background: active ? 'rgba(255,255,255,0.22)' : `${C.amber}22`,
-                  color: active ? 'var(--text-inverse)' : C.amber,
-                }}
-              >
-                {t('saveUpToBadge', { pct: savings })}
-              </span>
-            )}
           </button>
         );
       })}
     </div>
+  );
+}
+
+// The "save up to" figures, moved out of the toggle onto one quiet line under
+// it: "Quarterly saves up to 36% · Annual saves up to 58%".
+function SavingsHint({ cadences }: { cadences: Cadence[] }) {
+  const t = usePageT(dict);
+  const label: Record<Cadence, string> = {
+    monthly: t('monthlyToggle'),
+    quarterly: t('quarterlyToggle'),
+    annual: t('annualToggle'),
+  };
+  const items = cadences
+    .map((option) => ({ option, pct: maxSavingsPct(option) }))
+    .filter((item): item is { option: Cadence; pct: number } => item.pct != null);
+  if (items.length === 0) return null;
+  return (
+    <p style={{ margin: '12px 0 0', fontSize: 13, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
+      {items.map((item, index) => (
+        <span key={item.option} style={{ whiteSpace: 'nowrap' }}>
+          {index > 0 && <span aria-hidden style={{ margin: '0 10px', opacity: 0.5 }}>·</span>}
+          {t('savingsHintLead', { cadence: label[item.option] })}{' '}
+          <strong style={{ color: 'var(--color-bull)', fontWeight: 800 }}>{item.pct}%</strong>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+// Every billing period side by side: what you're billed (whole dollars), what
+// it works out to per month (to the cent, in the tier's accent), and the saving
+// against paying the monthly list price. A row selects that billing period for
+// the cards above.
+function BillingComparison({
+  cadences,
+  cadence,
+  setCadence,
+  promoActiveByCadence,
+}: {
+  cadences: Cadence[];
+  cadence: Cadence;
+  setCadence: (cadence: Cadence) => void;
+  promoActiveByCadence: Record<Cadence, boolean>;
+}) {
+  const t = usePageT(dict);
+  const tiers: Array<{ tier: BillableTier; title: string; accent: string }> = [
+    { tier: 'basic', title: t('basicTitle'), accent: 'var(--color-brand-primary)' },
+    { tier: 'pro', title: t('proTitle'), accent: 'var(--color-brand-accent)' },
+  ];
+  const rowLabel: Record<Cadence, string> = {
+    monthly: t('monthlyToggle'),
+    quarterly: t('quarterlyToggle'),
+    annual: t('annualToggle'),
+  };
+  const rowNote: Record<Cadence, string> = {
+    monthly: t('billedMonthlyShort'),
+    quarterly: t('billedQuarterlyShort'),
+    annual: t('billedAnnuallyShort'),
+  };
+  const cellPad = 'clamp(10px, 2.2vw, 18px)';
+
+  return (
+    <section className="zg-panel zgx-billing-compare" style={{ marginTop: 28, padding: 'clamp(16px, 3vw, 28px)' }}>
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.light, letterSpacing: '-0.3px' }}>
+        {t('compareBillingTitle')}
+      </h2>
+      <p style={{ margin: '6px 0 0', fontSize: 13, color: C.muted, lineHeight: 1.55 }}>{t('compareBillingSubtitle')}</p>
+
+      <table style={{ width: '100%', marginTop: 18, borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: '30%' }} />
+          <col style={{ width: '35%' }} />
+          <col style={{ width: '35%' }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" style={{ padding: `0 ${cellPad} 10px`, textAlign: 'left' }}>
+              <span className="sr-only">{t('compareBillingPeriodColumn')}</span>
+            </th>
+            {tiers.map(({ tier, title, accent }) => (
+              <th
+                key={tier}
+                scope="col"
+                style={{
+                  padding: `0 ${cellPad} 10px`,
+                  textAlign: 'left',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: accent,
+                }}
+              >
+                {title}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {cadences.map((option) => {
+            const selected = option === cadence;
+            const promo = option === 'monthly' && promoActiveByCadence.monthly;
+            const rowBg = selected ? 'color-mix(in srgb, var(--color-brand-primary) 9%, transparent)' : 'transparent';
+            const cellStyle: React.CSSProperties = {
+              padding: `${cellPad}`,
+              verticalAlign: 'top',
+              background: rowBg,
+              borderTop: `1px solid ${C.border}`,
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            };
+            return (
+              <tr key={option} onClick={() => setCadence(option)}>
+                <th
+                  scope="row"
+                  style={{
+                    ...cellStyle,
+                    textAlign: 'left',
+                    boxShadow: selected ? 'inset 3px 0 0 var(--color-brand-primary)' : undefined,
+                  }}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setCadence(option);
+                    }}
+                    style={{
+                      all: 'unset',
+                      cursor: 'pointer',
+                      display: 'block',
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: C.light,
+                    }}
+                  >
+                    {rowLabel[option]}
+                  </button>
+                  <div style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: C.muted, lineHeight: 1.4 }}>
+                    {rowNote[option]}
+                  </div>
+                </th>
+                {tiers.map(({ tier, accent }) => {
+                  const display = planDisplay({ tier, cadence: option });
+                  const billed = promo && display.promoPrice != null ? display.promoPrice : display.listPrice;
+                  const perMonth = option === 'monthly' ? billed : display.perMonth;
+                  return (
+                    <td key={tier} style={cellStyle}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            fontSize: 'clamp(22px, 3.4vw, 30px)',
+                            fontWeight: 900,
+                            letterSpacing: '-0.8px',
+                            lineHeight: 1,
+                            color: C.light,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {formatBilledUsd(billed)}
+                        </span>
+                        {promo && display.promoPrice != null && (
+                          <span
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: C.muted,
+                              textDecoration: 'line-through',
+                              textDecorationColor: 'var(--color-bear)',
+                              textDecorationThickness: 2,
+                            }}
+                          >
+                            {formatBilledUsd(display.listPrice)}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: 14,
+                          fontWeight: 800,
+                          color: accent,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {formatPerMonthUsd(perMonth)}
+                        <span style={{ fontWeight: 700, opacity: 0.85 }}>{t('perMonthSuffix')}</span>
+                      </div>
+                      <div style={{ marginTop: 8, minHeight: 22 }}>
+                        {display.savingsPct != null ? (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              fontSize: 11,
+                              fontWeight: 800,
+                              letterSpacing: '0.08em',
+                              textTransform: 'uppercase',
+                              padding: '3px 9px',
+                              borderRadius: 999,
+                              color: 'var(--color-bull)',
+                              background: 'var(--color-bull-soft, rgba(34,197,94,0.14))',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {t('saveHighlight', { pct: display.savingsPct })}
+                          </span>
+                        ) : promo ? (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, lineHeight: 1.4 }}>
+                            {t('comparePromoNote', {
+                              months: display.promoPeriods ?? MONTHLY_PROMO.months,
+                              rack: formatBilledUsd(display.listPrice),
+                            })}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -1141,7 +1357,10 @@ function PricingClientInner({
           {anyPromoActive && <LimitedTimeBanner deadlineLabel={promoDeadlineLabel} />}
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-            <CadenceToggle cadence={cadence} cadences={cadences} setCadence={setCadence} />
+            <div>
+              <CadenceToggle cadence={cadence} cadences={cadences} setCadence={setCadence} />
+              <SavingsHint cadences={cadences} />
+            </div>
           </div>
 
           {referralPresent && (
@@ -1315,6 +1534,13 @@ function PricingClientInner({
               onChangePlan={handleChangePlan}
             />
           </div>
+
+          <BillingComparison
+            cadences={cadences}
+            cadence={cadence}
+            setCadence={setCadence}
+            promoActiveByCadence={promoActiveByCadence}
+          />
 
           <PlanComparison />
 

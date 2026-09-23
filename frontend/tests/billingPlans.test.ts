@@ -13,6 +13,8 @@ import {
   LIST_PRICE_USD,
   MONEY_BACK_GUARANTEE_DAYS,
   MONTHLY_PROMO,
+  formatBilledUsd,
+  formatPerMonthUsd,
   formatUsd,
   isBillingCadence,
   isPromoAdvertised,
@@ -140,4 +142,19 @@ test('money formatting drops .00 but keeps real cents', () => {
   assert.equal(formatUsd(25), '$25');
   assert.equal(formatUsd(16.58), '$16.58');
   assert.equal(formatUsd(38.3), '$38.30');
+});
+
+test('billed prices are whole dollars; monthly equivalents are always to the cent', () => {
+  for (const tier of BILLABLE_TIERS) {
+    for (const cadence of BILLING_CADENCES) {
+      const display = planDisplay({ tier, cadence });
+      assert.match(formatBilledUsd(display.listPrice), /^\$\d+$/);
+      assert.match(formatPerMonthUsd(display.perMonth), /^\$\d+\.\d{2}$/);
+      if (display.promoPrice != null) assert.match(formatBilledUsd(display.promoPrice), /^\$\d+$/);
+    }
+  }
+  assert.equal(formatBilledUsd(199), '$199');
+  assert.equal(formatPerMonthUsd(25), '$25.00');
+  assert.equal(formatPerMonthUsd(perMonthEquivalentUsd({ tier: 'basic', cadence: 'annual' })), '$16.58');
+  assert.equal(formatPerMonthUsd(perMonthEquivalentUsd({ tier: 'pro', cadence: 'quarterly' })), '$38.33');
 });
