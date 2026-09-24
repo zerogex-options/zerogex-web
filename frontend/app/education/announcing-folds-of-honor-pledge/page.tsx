@@ -19,7 +19,7 @@ export default async function AnnouncingFoldsOfHonorPledgePage() {
   const markdown = await loadLocalizedMarkdown(articlePath);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
       <ArticleJsonLd slug="announcing-folds-of-honor-pledge" />
       <Link
         href="/articles"
@@ -28,7 +28,7 @@ export default async function AnnouncingFoldsOfHonorPledgePage() {
         ← Back to Articles
       </Link>
 
-      <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
+      <article className="zg-article-card">
 
         <ArticleMeta slug="announcing-folds-of-honor-pledge" />
         <div className="mb-6 flex flex-col items-center gap-4 border-b border-[var(--color-border)] pb-8 text-center">
@@ -57,7 +57,7 @@ export default async function AnnouncingFoldsOfHonorPledgePage() {
           See the live donation tally and the full mechanics
         </h3>
         <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-          Our /giving page is the running ledger — donation totals to date, the next scheduled
+          Our /giving page is the running ledger&nbsp;- donation totals to date, the next scheduled
           donation, and the FAQ covering exactly how the pledge works.
         </p>
         <Link

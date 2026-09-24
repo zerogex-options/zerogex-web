@@ -21,6 +21,12 @@ interface PremiumSurfacePlotProps {
   metric: 'extrinsic' | 'breakeven_pct';
   theme: 'dark' | 'light';
   height?: number;
+  /**
+   * Phone layout: the colorbar lies under the surface instead of taking ~60px
+   * beside it, and the modebar's row of 16px icons is dropped (the page puts
+   * the rotate/zoom gesture behind an explicit toggle instead).
+   */
+  compact?: boolean;
 }
 
 /**
@@ -39,6 +45,7 @@ export default function PremiumSurfacePlot({
   metric,
   theme,
   height = 560,
+  compact = false,
 }: PremiumSurfacePlotProps) {
   const elRef = useRef<HTMLDivElement | null>(null);
 
@@ -78,13 +85,26 @@ export default function PremiumSurfacePlot({
         // renders a continuous surface rather than axes with no mesh.
         connectgaps: true,
         colorscale: 'Viridis',
-        colorbar: {
-          title: { text: colorbarTitle, font: { color: fontColor } },
-          tickfont: { color: fontColor },
-          outlinewidth: 0,
-          thickness: 14,
-          len: 0.7,
-        },
+        colorbar: compact
+          ? {
+              title: { text: colorbarTitle, font: { color: fontColor, size: 11 }, side: 'top' },
+              tickfont: { color: fontColor, size: 10 },
+              outlinewidth: 0,
+              orientation: 'h',
+              thickness: 10,
+              len: 0.9,
+              x: 0.5,
+              xanchor: 'center',
+              y: 0,
+              yanchor: 'top',
+            }
+          : {
+              title: { text: colorbarTitle, font: { color: fontColor } },
+              tickfont: { color: fontColor },
+              outlinewidth: 0,
+              thickness: 14,
+              len: 0.7,
+            },
         contours: {
           z: { show: true, usecolormap: true, highlightcolor: '#ffffff', project: { z: true } },
         },
@@ -98,7 +118,8 @@ export default function PremiumSurfacePlot({
     const layout = {
       autosize: true,
       height,
-      margin: { l: 0, r: 0, t: 10, b: 0 },
+      // A phone keeps room under the scene for the horizontal colorbar.
+      margin: compact ? { l: 0, r: 0, t: 0, b: 56 } : { l: 0, r: 0, t: 10, b: 0 },
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
       font: { color: fontColor },
@@ -114,24 +135,32 @@ export default function PremiumSurfacePlot({
           color: fontColor,
         },
         yaxis: {
-          title: { text: 'Days to Expiration' },
+          // Short titles on a phone, where the long ones ran off the scene.
+          title: { text: compact ? 'DTE' : 'Days to Expiration' },
           gridcolor: gridColor,
           zerolinecolor: gridColor,
           color: fontColor,
         },
         zaxis: {
-          title: { text: isPct ? '% Move to Breakeven' : 'Premium − Intrinsic ($)' },
+          title: {
+            text: compact
+              ? isPct ? '% to BE' : 'Extrinsic $'
+              : isPct ? '% Move to Breakeven' : 'Premium − Intrinsic ($)',
+          },
           gridcolor: gridColor,
           zerolinecolor: gridColor,
           color: fontColor,
           rangemode: 'tozero',
         },
-        camera: { eye: { x: 1.6, y: -1.5, z: 0.9 } },
+        // A phone's scene is ~330px square: from the desktop eye the z ticks
+        // and the "Days to Expiration" title fall off its edges, so the
+        // camera stands further back there.
+        camera: { eye: compact ? { x: 1.85, y: -1.75, z: 1.05 } : { x: 1.6, y: -1.5, z: 0.9 } },
         aspectratio: { x: 1.3, y: 1, z: 0.7 },
       },
     };
 
-    const config = { responsive: true, displaylogo: false, displayModeBar: true };
+    const config = { responsive: true, displaylogo: false, displayModeBar: !compact };
 
     let resizeObserver: ResizeObserver | null = null;
 
@@ -157,7 +186,7 @@ export default function PremiumSurfacePlot({
       if (resizeObserver) resizeObserver.disconnect();
       if (plotly && el) plotly.purge(el);
     };
-  }, [strikes, dtes, z, expirationLabels, optionType, spot, metric, theme, height]);
+  }, [strikes, dtes, z, expirationLabels, optionType, spot, metric, theme, height, compact]);
 
   return <div ref={elRef} style={{ width: '100%', height }} />;
 }

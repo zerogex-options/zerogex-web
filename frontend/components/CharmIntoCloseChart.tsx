@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useForcedFlowCharmDecay } from '@/hooks/useApiData';
 import ChartCaption from "./ChartCaption";
 
@@ -97,17 +98,20 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
   const direction = closeFlow >= 0 ? 'buy' : 'sell';
 
   const textColor = 'var(--text-primary)';
+  // Phone: narrower value axis, no rotated axis title (the headline above
+  // says what the curve is), tighter margins — see ForcedFlowCurveChart.
+  const isMobile = useIsMobile();
 
   return (
     <div
-      className="rounded-2xl p-6"
+      className="rounded-2xl p-4 sm:p-6"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
         <h3 className="zg-h3" style={{ color: textColor }}>
           Charm Into the Close
         </h3>
-        <TooltipWrapper text="Cumulative dollars of stock dealers are forced to trade by the 4pm close from time decay alone, holding spot fixed — a forecast you can read at the open. The curve starts at zero now and grows to the full close-flow at the bell, steepening into the last hour as same-day options resolve. Positive = forced buying into the close; negative = forced selling.">
+        <TooltipWrapper text="Cumulative dollars of stock dealers are forced to trade by the 4pm close from time decay alone, holding spot fixed&nbsp;- a forecast you can read at the open. The curve starts at zero now and grows to the full close-flow at the bell, steepening into the last hour as same-day options resolve. Positive = forced buying into the close; negative = forced selling.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -142,8 +146,11 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
         </div>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={curve} margin={{ top: 16, right: 20, left: 16, bottom: 8 }}>
+          <ResponsiveContainer width="100%" height={isMobile ? 260 : 300}>
+            <AreaChart
+              data={curve}
+              margin={isMobile ? { top: 16, right: 8, left: 0, bottom: 8 } : { top: 16, right: 20, left: 16, bottom: 8 }}
+            >
               <defs>
                 <linearGradient id="charmIntoCloseFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={flowColor} stopOpacity={0.4} />
@@ -156,7 +163,7 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
                 type="number"
                 domain={[0, sessionDays]}
                 stroke={chart.axisText}
-                tick={{ fontSize: 11, fill: chart.axisText }}
+                tick={{ fontSize: isMobile ? 10 : 11, fill: chart.axisText }}
                 tickFormatter={(v) => {
                   const remaining = Math.max(0, sessionDays - Number(v));
                   const mins = remaining * 24 * 60;
@@ -172,21 +179,25 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
                   position: 'insideBottom',
                   offset: -4,
                   fill: chart.axisText,
-                  fontSize: 11,
+                  fontSize: isMobile ? 10 : 11,
                 }}
               />
               <YAxis
                 stroke={chart.axisText}
-                width={72}
-                tick={{ fontSize: 11, fill: chart.axisText }}
+                width={isMobile ? 46 : 72}
+                tick={{ fontSize: isMobile ? 10 : 11, fill: chart.axisText }}
                 tickFormatter={(v) => formatCompactUsd(Number(v))}
-                label={{
-                  value: 'Cumulative flow ($)',
-                  angle: -90,
-                  position: 'insideLeft',
-                  offset: 8,
-                  style: { fill: chart.axisText, fontSize: 11, textAnchor: 'middle' },
-                }}
+                label={
+                  isMobile
+                    ? undefined
+                    : {
+                        value: 'Cumulative flow ($)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        offset: 8,
+                        style: { fill: chart.axisText, fontSize: 11, textAnchor: 'middle' },
+                      }
+                }
               />
               <Tooltip
                 content={

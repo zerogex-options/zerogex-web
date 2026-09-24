@@ -24,6 +24,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Audit events.',
     s2Item4Text:
       'Limited records of authentication and account-management actions (logins, role changes, subscription changes) for security and compliance.',
+    s2Item5Label: 'Email list subscriptions.',
+    s2Item5Text:
+      'If you subscribe to the free daily levels email, we store your email address, the symbol you asked us to lead with, the page you subscribed from, and the IP address and timestamp of both your subscription request and your confirmation click\u00a0- the record that evidences your opt-in. No account is created and no password is stored. You can unsubscribe from the link at the foot of any one of those emails, which takes effect immediately and without signing in.',
 
     s3Title: '3. How We Use Information',
     s3Item1: 'Provide, maintain, and improve the Services.',
@@ -36,11 +39,11 @@ export const dict: PageDictionary = {
     s4Title: '4. Third-Party Service Providers',
     s4Intro: 'We share information with third parties that help us operate the Services. The principal providers are:',
     s4Item1Label: 'Stripe',
-    s4Item1TextPrefix: '— payment processing, billing portal, and subscription management. Stripe’s privacy practices are described at',
+    s4Item1TextPrefix: '\u00a0- payment processing, billing portal, and subscription management. Stripe’s privacy practices are described at',
     s4Item2Label: 'Cloud infrastructure providers',
-    s4Item2Text: '— hosting, storage, and content delivery for the Services.',
+    s4Item2Text: '\u00a0- hosting, storage, and content delivery for the Services.',
     s4Item3Label: 'Identity providers',
-    s4Item3Text: '— Google and Apple, when you choose to sign in with those services.',
+    s4Item3Text: '\u00a0- Google and Apple, when you choose to sign in with those services.',
     s4Closing:
       'We do not sell your personal information. We do not share personal information with third parties for their own marketing purposes.',
 
@@ -136,6 +139,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Eventi di audit.',
     s2Item4Text:
       'Registrazioni limitate di azioni di autenticazione e gestione dell’account (accessi, modifiche di ruolo, modifiche all’abbonamento) per sicurezza e conformità.',
+    s2Item5Label: 'Iscrizioni alla mailing list.',
+    s2Item5Text:
+      'Se ti iscrivi all’email gratuita con i livelli giornalieri, conserviamo il tuo indirizzo email, il simbolo che ci hai chiesto di mettere per primo, la pagina da cui ti sei iscritto e l’indirizzo IP con la marca temporale sia della tua richiesta di iscrizione sia del tuo clic di conferma: la documentazione che attesta il tuo consenso. Non viene creato alcun account e non viene memorizzata alcuna password. Puoi annullare l’iscrizione dal link in fondo a una qualsiasi di quelle email, con effetto immediato e senza dover accedere.',
 
     s3Title: '3. Come utilizziamo le informazioni',
     s3Item1: 'Fornire, mantenere e migliorare i Servizi.',
@@ -148,11 +154,11 @@ export const dict: PageDictionary = {
     s4Title: '4. Fornitori di servizi terzi',
     s4Intro: 'Condividiamo informazioni con terze parti che ci aiutano a gestire i Servizi. I principali fornitori sono:',
     s4Item1Label: 'Stripe',
-    s4Item1TextPrefix: '— elaborazione dei pagamenti, portale di fatturazione e gestione degli abbonamenti. Le pratiche sulla privacy di Stripe sono descritte su',
+    s4Item1TextPrefix: '\u00a0- elaborazione dei pagamenti, portale di fatturazione e gestione degli abbonamenti. Le pratiche sulla privacy di Stripe sono descritte su',
     s4Item2Label: 'Fornitori di infrastruttura cloud',
-    s4Item2Text: '— hosting, archiviazione e distribuzione dei contenuti per i Servizi.',
+    s4Item2Text: '\u00a0- hosting, archiviazione e distribuzione dei contenuti per i Servizi.',
     s4Item3Label: 'Provider di identità',
-    s4Item3Text: '— Google e Apple, quando scegli di accedere tramite questi servizi.',
+    s4Item3Text: '\u00a0- Google e Apple, quando scegli di accedere tramite questi servizi.',
     s4Closing:
       'Non vendiamo le tue informazioni personali. Non condividiamo informazioni personali con terze parti per i loro scopi di marketing.',
 
@@ -248,6 +254,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Audit-Ereignisse.',
     s2Item4Text:
       'Begrenzte Aufzeichnungen von Authentifizierungs- und Kontoverwaltungsmaßnahmen (Anmeldungen, Rollenänderungen, Abonnementänderungen) zu Sicherheits- und Compliance-Zwecken.',
+    s2Item5Label: 'E-Mail-Listen-Abonnements.',
+    s2Item5Text:
+      'Wenn du die kostenlose tägliche Levels-E-Mail abonnierst, speichern wir deine E-Mail-Adresse, das Symbol, das du an erster Stelle sehen möchtest, die Seite, über die du dich angemeldet hast, sowie die IP-Adresse und den Zeitstempel deiner Anmeldeanfrage und deines Bestätigungsklicks\u00a0- den Nachweis deiner Einwilligung. Es wird kein Konto angelegt und kein Passwort gespeichert. Du kannst dich über den Link am Ende jeder dieser E-Mails abmelden; das wirkt sofort und ohne Anmeldung.',
 
     s3Title: '3. Wie wir Informationen verwenden',
     s3Item1: 'Bereitstellung, Pflege und Verbesserung der Dienste.',
@@ -260,11 +269,11 @@ export const dict: PageDictionary = {
     s4Title: '4. Drittanbieter von Dienstleistungen',
     s4Intro: 'Wir geben Informationen an Dritte weiter, die uns beim Betrieb der Dienste unterstützen. Die wichtigsten Anbieter sind:',
     s4Item1Label: 'Stripe',
-    s4Item1TextPrefix: '— Zahlungsabwicklung, Abrechnungsportal und Abonnementverwaltung. Die Datenschutzpraktiken von Stripe sind beschrieben unter',
+    s4Item1TextPrefix: '\u00a0- Zahlungsabwicklung, Abrechnungsportal und Abonnementverwaltung. Die Datenschutzpraktiken von Stripe sind beschrieben unter',
     s4Item2Label: 'Cloud-Infrastrukturanbieter',
-    s4Item2Text: '— Hosting, Speicherung und Content-Delivery für die Dienste.',
+    s4Item2Text: '\u00a0- Hosting, Speicherung und Content-Delivery für die Dienste.',
     s4Item3Label: 'Identitätsanbieter',
-    s4Item3Text: '— Google und Apple, wenn du dich über diese Dienste anmeldest.',
+    s4Item3Text: '\u00a0- Google und Apple, wenn du dich über diese Dienste anmeldest.',
     s4Closing:
       'Wir verkaufen deine personenbezogenen Daten nicht. Wir geben personenbezogene Daten nicht an Dritte für deren eigene Marketingzwecke weiter.',
 
@@ -360,6 +369,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Eventos de auditoría.',
     s2Item4Text:
       'Registros limitados de acciones de autenticación y gestión de cuentas (inicios de sesión, cambios de rol, cambios de suscripción) para seguridad y cumplimiento.',
+    s2Item5Label: 'Suscripciones a la lista de correo.',
+    s2Item5Text:
+      'Si te suscribes al correo gratuito con los niveles diarios, almacenamos tu dirección de correo electrónico, el símbolo que nos pediste mostrar en primer lugar, la página desde la que te suscribiste y la dirección IP junto con la marca de tiempo tanto de tu solicitud de suscripción como de tu clic de confirmación: el registro que acredita tu consentimiento. No se crea ninguna cuenta ni se almacena ninguna contraseña. Puedes darte de baja desde el enlace al pie de cualquiera de esos correos, con efecto inmediato y sin iniciar sesión.',
 
     s3Title: '3. Cómo utilizamos la información',
     s3Item1: 'Proporcionar, mantener y mejorar los Servicios.',
@@ -372,11 +384,11 @@ export const dict: PageDictionary = {
     s4Title: '4. Proveedores de servicios externos',
     s4Intro: 'Compartimos información con terceros que nos ayudan a operar los Servicios. Los principales proveedores son:',
     s4Item1Label: 'Stripe',
-    s4Item1TextPrefix: '— procesamiento de pagos, portal de facturación y gestión de suscripciones. Las prácticas de privacidad de Stripe se describen en',
+    s4Item1TextPrefix: '\u00a0- procesamiento de pagos, portal de facturación y gestión de suscripciones. Las prácticas de privacidad de Stripe se describen en',
     s4Item2Label: 'Proveedores de infraestructura en la nube',
-    s4Item2Text: '— alojamiento, almacenamiento y distribución de contenido para los Servicios.',
+    s4Item2Text: '\u00a0- alojamiento, almacenamiento y distribución de contenido para los Servicios.',
     s4Item3Label: 'Proveedores de identidad',
-    s4Item3Text: '— Google y Apple, cuando eliges iniciar sesión con esos servicios.',
+    s4Item3Text: '\u00a0- Google y Apple, cuando eliges iniciar sesión con esos servicios.',
     s4Closing:
       'No vendemos tu información personal. No compartimos información personal con terceros para sus propios fines de marketing.',
 
@@ -472,6 +484,9 @@ export const dict: PageDictionary = {
     s2Item4Label: 'Événements d’audit.',
     s2Item4Text:
       'Enregistrements limités des actions d’authentification et de gestion de compte (connexions, changements de rôle, changements d’abonnement) à des fins de sécurité et de conformité.',
+    s2Item5Label: 'Abonnements à la liste de diffusion.',
+    s2Item5Text:
+      'Si vous vous abonnez à l’e-mail gratuit des niveaux quotidiens, nous conservons votre adresse e-mail, le symbole que vous avez demandé de placer en premier, la page depuis laquelle vous vous êtes abonné, ainsi que l’adresse IP et l’horodatage de votre demande d’abonnement et de votre clic de confirmation : le justificatif de votre consentement. Aucun compte n’est créé et aucun mot de passe n’est enregistré. Vous pouvez vous désabonner via le lien au bas de l’un quelconque de ces e-mails, avec effet immédiat et sans vous connecter.',
 
     s3Title: '3. Comment nous utilisons les informations',
     s3Item1: 'Fournir, maintenir et améliorer les Services.',
@@ -484,11 +499,11 @@ export const dict: PageDictionary = {
     s4Title: '4. Prestataires de services tiers',
     s4Intro: 'Nous partageons des informations avec des tiers qui nous aident à exploiter les Services. Les principaux prestataires sont :',
     s4Item1Label: 'Stripe',
-    s4Item1TextPrefix: '— traitement des paiements, portail de facturation et gestion des abonnements. Les pratiques de confidentialité de Stripe sont décrites sur',
+    s4Item1TextPrefix: '\u00a0- traitement des paiements, portail de facturation et gestion des abonnements. Les pratiques de confidentialité de Stripe sont décrites sur',
     s4Item2Label: 'Fournisseurs d’infrastructure cloud',
-    s4Item2Text: '— hébergement, stockage et diffusion de contenu pour les Services.',
+    s4Item2Text: '\u00a0- hébergement, stockage et diffusion de contenu pour les Services.',
     s4Item3Label: 'Fournisseurs d’identité',
-    s4Item3Text: '— Google et Apple, lorsque vous choisissez de vous connecter via ces services.',
+    s4Item3Text: '\u00a0- Google et Apple, lorsque vous choisissez de vous connecter via ces services.',
     s4Closing:
       'Nous ne vendons pas vos informations personnelles. Nous ne partageons pas d’informations personnelles avec des tiers à des fins de marketing propres.',
 

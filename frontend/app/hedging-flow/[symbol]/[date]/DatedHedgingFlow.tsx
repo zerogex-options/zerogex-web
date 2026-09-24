@@ -72,9 +72,11 @@ export default function DatedHedgingFlow({
             stock.
           </>
         }
-        tooltip="A finished session, served from the stored 5-minute bars rather than recomputed — the trades behind it are pruned at 90 days, so this is the only thing that outlives them. Everything else reads exactly as the live page: for every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies, accumulated across the session, with the dealer gamma structure sharing the window and the crosshair."
+        tooltip="A finished session, served from the stored 5-minute bars rather than recomputed&nbsp;- the trades behind it are pruned at 90 days, so this is the only thing that outlives them. Everything else reads exactly as the live page: for every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies, accumulated across the session, with the dealer gamma structure sharing the window and the crosshair."
         actions={
-          <div className="flex items-center gap-2">
+          // Wraps rather than overflowing: on a 360px phone the toggle and
+          // the four symbol chips do not share one row.
+          <div className="flex flex-wrap items-center gap-2">
             <ZeroDteToggle
               active={zeroDteOnly}
               onChange={setZeroDteOnly}

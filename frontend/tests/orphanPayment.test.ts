@@ -39,6 +39,7 @@ function input(over: Partial<OrphanPaymentInput> = {}): OrphanPaymentInput {
     priceMapsToPaidTier: true,
     coveredPeriodEndUnix: PERIOD_END,
     nowUnix: NOW,
+    moneyBackRequested: false,
     ...over,
   };
 }
@@ -655,4 +656,16 @@ test('a payment_failed cancellation inside a paid period is still a loss', () =>
   assert.equal(verdict.kind, 'lost');
   if (verdict.kind !== 'lost') return;
   assert.equal(verdict.lostAtUnix, lostAt);
+});
+
+test('a subscription the member asked to be refunded is never re-granted', () => {
+  // A money-back refund cancels on purpose. If one of its payments could not be
+  // refunded automatically, that paid invoice looks orphaned — but the refund
+  // has to be finished, not the plan restored.
+  const decision = decideOrphanPayment(input({ moneyBackRequested: true }));
+  assert.equal(decision.kind, 'detected');
+  assert.equal(decision.kind === 'detected' && decision.recoverable, false);
+  assert.equal(decision.reason, 'money_back_requested');
+  // A fully refunded one is simply closed out, as before.
+  assert.equal(decideOrphanPayment(input({ moneyBackRequested: true, amountRefunded: 22900 })).kind, 'none');
 });

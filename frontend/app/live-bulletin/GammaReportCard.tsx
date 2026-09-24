@@ -16,8 +16,9 @@ import {
 // Card colors are pulled from the active palette at render time via
 // useChartTheme, so the exported PNG matches whatever theme the operator has
 // selected (Wall Street navy, Miami neon, Kyoto pine, California coral).
-// html-to-image resolves computed styles, so passing plain color strings
-// (rather than raw var(--...) references) keeps the rasterizer reliable.
+// The PNG export draws the card as an image that sees none of the page's CSS,
+// so plain color strings (rather than raw var(--...) references) keep it
+// reliable.
 type CardColors = {
   bgTop: string;
   bgBottom: string;
@@ -126,9 +127,10 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
     unresolved: C.textFaint,
   };
 
-  // Resolve the palette's body font (set on <html>) at render time so the
-  // card typography matches the site theme. Fallbacks retain reasonable
-  // typography if the CSS var hasn't loaded yet.
+  // The palette's body font (set on <html>), so the card typography matches
+  // the site theme. The PNG export resolves the variables on its copy of the
+  // card and embeds the face (imageExport.ts): an undefined var() voids the
+  // whole declaration, so the fallbacks after it would not have applied.
   const FONT_STACK = 'var(--font-body), var(--font-display), -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif';
 
   const accent = REGIME_ACCENT[model.regime];
@@ -505,7 +507,7 @@ function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: Expec
         <span style={{ fontSize: 22, fontWeight: 800, color: C.bull, letterSpacing: -0.3 }}>
           {fmtPrice(range.low)}
         </span>
-        <span style={{ fontSize: 16, color: C.textFaint, fontWeight: 700 }}>—</span>
+        <span style={{ fontSize: 16, color: C.textFaint, fontWeight: 700 }}>-</span>
         <span style={{ fontSize: 22, fontWeight: 800, color: C.bear, letterSpacing: -0.3 }}>
           {fmtPrice(range.high)}
         </span>

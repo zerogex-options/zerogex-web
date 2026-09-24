@@ -12,11 +12,12 @@ import {
 } from 'recharts';
 import {
   alignedTimeTicksMs,
-  etPartsFromMs,
   formatEtTime,
   type ScoreHistoryPoint,
 } from '@/core/signalHelpers';
 import ChartTimeAxisTick from './ChartTimeAxisTick';
+import CompactTimeAxisTick, { firstTickOfEachDay, thinTicks } from './CompactTimeAxisTick';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 // Match SignalEventsPanel: candidate step sizes (in minutes) for the x-axis
 // tick generator, picked so labels land on familiar wall-clock boundaries.
@@ -30,6 +31,18 @@ function pickScoreTimeStep(spanMinutes: number, targetTicks = 6): number {
   return SCORE_TIME_STEPS[SCORE_TIME_STEPS.length - 1];
 }
 import { useExpandedCard } from './ExpandableCard';
+
+/**
+ * Callers ask for a tint as `${trendColor(trend)}1f`, but trendColor() returns
+ * a CSS variable and "var(--color-bull)1f" is not a color: SVG drops the fill
+ * and paints the area BLACK. This turns that form into the tint it meant.
+ */
+function tintFill(fill: string): string {
+  const m = /^(var\(--[\w-]+\))([0-9a-f]{2})$/i.exec(fill.trim());
+  if (!m) return fill;
+  const pct = Math.round((parseInt(m[2], 16) / 255) * 100);
+  return `color-mix(in srgb, ${m[1]} ${pct}%, transparent)`;
+}
 
 interface SignalSparklineProps {
   points: ScoreHistoryPoint[];
@@ -83,6 +96,7 @@ function InlineSparkline({
   fillColor,
 }: Required<Omit<SignalSparklineProps, 'points'>> & { points: ScoreHistoryPoint[] }) {
   const width = 200;
+  const areaFill = tintFill(fillColor);
 
   const path = useMemo(() => {
     if (!points.length) return { line: '', area: '', lastX: 0, lastY: 0 };
@@ -115,7 +129,7 @@ function InlineSparkline({
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none">
       <line x1={0} y1={zeroY} x2={width} y2={zeroY} stroke="var(--color-border)" strokeDasharray="2 3" strokeWidth={1} />
-      <path d={path.area} fill={fillColor} stroke="none" />
+      <path d={path.area} fill={areaFill} stroke="none" />
       <path d={path.line} fill="none" stroke={strokeColor} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={path.lastX} cy={path.lastY} r={2.25} fill={strokeColor} />
     </svg>
@@ -135,6 +149,10 @@ function ExpandedSparkline({
   strokeColor: string;
   fillColor: string;
 }) {
+  // Expanded, the card goes full-bleed on a phone (~360px of chart), where
+  // six "10:30 AM" labels overprint; thin them and print them short.
+  const isMobile = useIsMobile();
+  const areaFill = tintFill(fillColor);
   const data = useMemo(
     () =>
       points
@@ -160,32 +178,23 @@ function ExpandedSparkline({
     return [data[0].timeMs, data[data.length - 1].timeMs];
   }, [data]);
 
-  const timeTicks = useMemo(() => {
-    if (!xDomain) return [];
+  const { timeTicks, dailyTicks } = useMemo(() => {
+    if (!xDomain) return { timeTicks: [] as number[], dailyTicks: false };
     const [startMs, endMs] = xDomain;
     const spanMin = Math.max(1, Math.round((endMs - startMs) / 60_000));
-    const step = pickScoreTimeStep(spanMin, 6);
+    const step = pickScoreTimeStep(spanMin, isMobile ? 4 : 6);
     let ticks = alignedTimeTicksMs(startMs, endMs, step);
     let idx = SCORE_TIME_STEPS.indexOf(step) - 1;
+    let used = step;
     while (ticks.length < 2 && idx >= 0) {
-      ticks = alignedTimeTicksMs(startMs, endMs, SCORE_TIME_STEPS[idx]);
+      used = SCORE_TIME_STEPS[idx];
+      ticks = alignedTimeTicksMs(startMs, endMs, used);
       idx -= 1;
     }
-    return ticks;
-  }, [xDomain]);
+    return { timeTicks: isMobile ? thinTicks(ticks, 5) : ticks, dailyTicks: used >= 1440 };
+  }, [xDomain, isMobile]);
 
-  const dateTicks = useMemo(() => {
-    const set = new Set<string>();
-    let lastDay = '';
-    for (const ms of timeTicks) {
-      const { day } = etPartsFromMs(ms);
-      if (day && day !== lastDay) {
-        set.add(String(ms));
-        lastDay = day;
-      }
-    }
-    return set;
-  }, [timeTicks]);
+  const dateTicks = useMemo(() => firstTickOfEachDay(timeTicks), [timeTicks]);
 
   const ticks = useMemo(() => {
     const span = max - min;
@@ -212,7 +221,12 @@ function ExpandedSparkline({
   return (
     <div style={{ width: '100%', height: 'min(70vh, 520px)', minHeight: 360 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 16, right: 24, bottom: 12, left: 8 }}>
+        <AreaChart
+          data={data}
+          // 16px right on a phone: half of a centred "16:00" tick at the
+          // domain's end hangs past the plot, and nothing sits to its right.
+          margin={isMobile ? { top: 12, right: 16, bottom: 4, left: 0 } : { top: 16, right: 24, bottom: 12, left: 8 }}
+        >
           <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
           <XAxis
             type="number"
@@ -220,17 +234,21 @@ function ExpandedSparkline({
             domain={xDomain ?? ['dataMin', 'dataMax']}
             ticks={timeTicks}
             interval={0}
-            height={44}
-            tick={<ChartTimeAxisTick dateTicks={dateTicks} />}
+            height={isMobile ? (dailyTicks ? 22 : 34) : 44}
+            tick={
+              isMobile
+                ? <CompactTimeAxisTick dateTicks={dateTicks} daily={dailyTicks} />
+                : <ChartTimeAxisTick dateTicks={dateTicks} />
+            }
             stroke="var(--color-border)"
             allowDuplicatedCategory={false}
           />
           <YAxis
             domain={[min, max]}
             ticks={ticks}
-            tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+            tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 11 }}
             stroke="var(--color-border)"
-            width={40}
+            width={isMobile ? 34 : 40}
           />
           <Tooltip
             contentStyle={{
@@ -251,7 +269,7 @@ function ExpandedSparkline({
             dataKey="score"
             stroke={strokeColor}
             strokeWidth={2}
-            fill={fillColor}
+            fill={areaFill}
             dot={false}
             activeDot={{ r: 4, stroke: strokeColor, fill: 'var(--color-surface)' }}
             isAnimationActive={false}

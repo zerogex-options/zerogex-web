@@ -34,20 +34,19 @@ import {
   parseCancellationReasonFromMessage,
   NO_FEEDBACK,
 } from '@/core/cancellationReason';
+import { CANCEL_DECISION_AUDIT_TYPES, cancelDecisionRows } from '@/core/cancelDecisions';
 import {
-  buildSubscriberLedger,
   classifySubscriberBucket,
   summarizeLedger,
-  type LedgerDeleteEvent,
-  type LedgerPaymentEvent,
-  type LedgerRecoveryEvent,
   type LedgerRow,
-  type LedgerSyncEvent,
 } from '@/core/subscriberBucket';
 import {
-  isSubscriptionPaymentEvidence,
-  SUBSCRIPTION_PAYMENT_AUDIT_TYPES,
-} from '@/core/subscriptionPayments';
+  parseSubIdFromMessage,
+  parseSyncStatus,
+  readSubscriberLedgerRows,
+  readSubscriptionPayments,
+} from '@/core/subscriberLedgerSource';
+import { isPaidUpFrontSignup } from '@/core/subscriptionPayments';
 import {
   accumulateTrialOutcomes,
   buildUpcomingSteps,
@@ -283,6 +282,10 @@ export type TrialConveyorSnapshot = {
   // until then, so without this the drop lands as a surprise weeks later.
   departures: ConveyorRider[];
   departingValue: number;
+  // Signups paid up front at checkout over the outcomes window. They never board
+  // the belt (only a trial does), so they are counted here to sit beside the
+  // trials in the diagram rather than reading as registrations that went nowhere.
+  paidUpFront: number;
   // Nominal free-trial length, for labeling the belt's scale.
   trialDays: number;
   // Length of the payment-recovery window a stalled trial gets, in days.
@@ -1073,43 +1076,6 @@ function emptyFlowAcc(): FlowAcc {
   };
 }
 
-// Stripe subscription ids are always `sub_...`; the audit messages embed exactly
-// one. Mirrors the pattern parseStaleSkippedMessage already relies on.
-function parseSubIdFromMessage(message: string): string | null {
-  const m = message.match(/sub_[A-Za-z0-9]+/);
-  return m ? m[0] : null;
-}
-
-// stripe_subscription_sync messages read "... tier=<pro|basic|public> ...". Only
-// pro/basic count as a paid state; public (an inactive/lapsed sub) returns null
-// so it neither starts a paid signup nor overwrites the last-known paid tier.
-// stripe_subscription_sync messages read "... status=<stripe status> tier=...".
-// The Stripe status is what distinguishes an involuntary payment-failure
-// downgrade (past_due/unpaid) from a healthy sub, so a later deletion can be
-// attributed to dunning vs. a voluntary cancel.
-function parseSyncStatus(message: string): string | null {
-  const m = message.match(/\bstatus=([A-Za-z_]+)/);
-  return m ? m[1] : null;
-}
-
-// `billing_orphan_payment_recovered` messages open
-// "Invoice <in_...> recovered as subscription <sub_...> on price ...", written
-// identically by the webhook and scripts/recover-orphan-payment.mts.
-//
-// Anchored on that phrase rather than reusing parseSubIdFromMessage, which takes
-// the first sub_ token it finds: these messages go on to name carried coupons and
-// rejected params, and a format change that moved another id earlier in the
-// string would otherwise silently mark the WRONG subscription as paid for.
-function parseRecoveredSubId(message: string): string | null {
-  const m = message.match(/\brecovered as subscription (sub_[A-Za-z0-9]+)/);
-  return m ? m[1] : null;
-}
-
-function parseRecoveredInvoiceId(message: string): string | null {
-  const m = message.match(/\bInvoice (in_[A-Za-z0-9]+)\b/);
-  return m ? m[1] : null;
-}
-
 // How far back the flow / registration charts DISPLAY. Unlike the traffic
 // buckets (pruned at 90 days), these recompute from the retained, append-only
 // audit_events + users logs every request, so they can show far more history.
@@ -1282,12 +1248,19 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 }
 
 // Trailing acquisition velocity, intentionally measured at the customer's
-// decision/failure moment rather than at the later access downgrade. A first
-// paid-tier sync includes `trialing`, so it represents a free-trial start.
-// Cancellation acknowledgments provide historical coverage; the dedicated
-// request audit is the durable source going forward. Grouping cancellation
-// rows by user/day prevents the acknowledgment and request rows emitted for
-// the same click from being counted twice.
+// decision/failure moment rather than at the later access downgrade. A signup is
+// a subscription's first paid-tier sync: `trialing` for a plan with a free
+// trial, `active` for one paid up front at checkout. Cancellation
+// acknowledgments provide historical coverage; the dedicated request audit is
+// the durable source going forward. Grouping cancellation rows by user/day
+// prevents the acknowledgment and request rows emitted for the same click from
+// being counted twice.
+//
+// A money-back refund is a cancellation too. It ends the subscription on the
+// spot, so no Cancel click is ever written for it, and without it a refunded
+// signup stayed +1 here for good. core/cancelDecisions.ts decides which rows
+// count, and does not count a refund twice for a member who clicked Cancel
+// first.
 //
 // Win-backs offset cancellations: an honor-winback-discount run that clears a
 // scheduled cancellation (billing_winback_discount_honored, "cleared
@@ -1299,7 +1272,16 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // win-back whose original cancel fell outside the window slightly under-counts
 // cancellations, and --keep-cancellation runs (which don't clear the cancel)
 // are excluded.
-function buildGrowthRates(now: Date): GrowthRatePoint[] {
+//
+// Payment failures are the Subscriber Ledger's rows flagged `paymentFailure`,
+// read off the same build the ledger renders, so every failure counted here is
+// a named row there. They used to be every first declined attempt on an
+// invoice, which also counted declines that never moved a subscriber: a charge
+// refused on a subscription that was never on the chart or was still trialing,
+// and a second try at an already-failed bill on a later day (a member's own
+// retry does not advance Stripe's attempt count, so it can arrive as attempt 1
+// again). Those are still in Stripe → Payment Declines, which counts attempts.
+function buildGrowthRates(now: Date, ledger: LedgerBuild): GrowthRatePoint[] {
   const horizons = [1, 7, 14, 30] as const;
   const days = generateDailyKeys(now, 30);
   const signups = new Set<string>();
@@ -1307,19 +1289,26 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
   const paymentFailures = new Set<string>();
   const winbacks = new Set<string>();
 
+  ledger.rows.forEach((row, index) => {
+    if (!row.paymentFailure) return;
+    const at = new Date(row.at);
+    if (Number.isNaN(at.getTime())) return;
+    const day = etBucketKeys(at).day;
+    if (days.includes(day)) paymentFailures.add(`${day}:${index}`);
+  });
+
   try {
     const rows = getDb().prepare(
       `SELECT type, user_id, created_at, message FROM audit_events
        WHERE type IN (
          'stripe_subscription_sync',
-         'stripe_cancellation_requested',
-         'cancellation_ack_email_sent',
-         'stripe_payment_failed',
+         ${CANCEL_DECISION_AUDIT_TYPES.map((type) => `'${type}'`).join(', ')},
          'billing_winback_discount_honored'
        ) AND created_at > datetime('now', '-850 days')
        ORDER BY created_at ASC`,
     ).all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
 
+    const decisions = new Set(cancelDecisionRows(rows));
     const seenSubscriptions = new Set<string>();
     for (const row of rows) {
       const parsed = new Date(row.created_at);
@@ -1334,9 +1323,6 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
         }
       } else if (!days.includes(day)) {
         continue;
-      } else if (row.type === 'stripe_payment_failed' && /\(attempt 1\)/.test(row.message)) {
-        const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
-        paymentFailures.add(`${day}:${invoice}`);
       } else if (row.type === 'billing_winback_discount_honored') {
         // Only a win-back that actually un-canceled offsets a cancellation;
         // the script stamps "cleared cancel_at_period_end" into the message
@@ -1345,7 +1331,7 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
         if (/cleared cancel_at_period_end/.test(row.message)) {
           winbacks.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
         }
-      } else if (row.type === 'stripe_cancellation_requested' || row.type === 'cancellation_ack_email_sent') {
+      } else if (decisions.has(row)) {
         cancellations.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
       }
     }
@@ -1566,187 +1552,36 @@ const LEDGER_WINDOW_DAYS = 30;
 // the net totals are computed over every row, so only the list is trimmed.
 const LEDGER_MAX_ROWS = 200;
 
-// Rows proving a payment cleared on a SUBSCRIPTION, oldest-first, for the two
-// views that must see money move: the Subscriber Ledger's Converting -> Full
-// Subscriber step and the Conversion Conveyor's conversion confirmation. Which
-// audit types count — and why the $0 trial-opening invoice does not — is
-// core/subscriptionPayments.ts.
-//
-// Every paid invoice on a subscription is returned, renewals included. Both
-// consumers already reduce to the first one per subscription themselves (the
-// ledger ignores payments after a sub's first; the conveyor only asks whether
-// the sub appears at all), so narrowing it here would just duplicate that.
-type SubscriptionPaymentRow = {
-  subId: string;
-  userId: string | null;
-  email: string | null;
-  createdAt: string;
-};
+// Every ledger row the scan produced, newest-first and untrimmed, or why there
+// are none. Built once per snapshot and shared: the Subscriber Ledger renders a
+// window of it, and the growth-rate card counts its payment failures, so the two
+// can never disagree about who failed.
+type LedgerBuild = { rows: LedgerRow[]; error: string | null };
 
-function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
-  const types = SUBSCRIPTION_PAYMENT_AUDIT_TYPES.map((type) => `'${type}'`).join(', ');
-  const rows = getDb()
-    .prepare(
-      `SELECT created_at, user_id, email, type, message FROM audit_events
-        WHERE type IN (${types})
-          AND created_at > datetime('now', '-${sinceDays} days')
-        ORDER BY created_at ASC`,
-    )
-    .all() as Array<{
-      created_at: string;
-      user_id: string | null;
-      email: string | null;
-      type: string;
-      message: string;
-    }>;
-  const out: SubscriptionPaymentRow[] = [];
-  for (const row of rows) {
-    if (!isSubscriptionPaymentEvidence(row.type, row.message)) continue;
-    const subId = parseSubIdFromMessage(row.message);
-    if (!subId) continue;
-    out.push({ subId, userId: row.user_id, email: row.email, createdAt: row.created_at });
-  }
-  return out;
-}
-
-// Reconstruct the headcount's recent history from the same audit streams the
-// flow charts read. Named with a trailing underscore because the pure builder it
-// delegates to owns the plain name. Any failure yields an empty ledger rather
-// than 500-ing the admin page.
-function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
-  const empty = (error: string | null): SubscriberLedgerSnapshot => ({
-    windowDays: LEDGER_WINDOW_DAYS,
-    rows: [],
-    truncated: 0,
-    net: { fullSubscriber: 0, converting: 0, freeTrial: 0, trialGrace: 0 },
-    generatedAt: now.toISOString(),
-    error,
-  });
+// Reconstruct the headcount's recent history. A sub's history may start before
+// the display window, so the scan reaches further back than the window and the
+// rows are filtered to the window afterward — otherwise a member whose first
+// sync predates it would render as a spurious "new subscriber". Any failure
+// yields no rows, with the reason, rather than 500-ing the admin page.
+function readLedgerRows(now: Date): LedgerBuild {
   try {
-    const db = getDb();
-    // Scanned oldest-first so each subscription's prior state is known before
-    // the transition that changes it. A sub's history may start before the
-    // display window, so the scan reaches further back than the window and the
-    // rows are filtered to the window afterward — otherwise a member whose
-    // first sync predates it would render as a spurious "new subscriber".
-    const since = LEDGER_WINDOW_DAYS * 2;
-    const syncRows = db
-      .prepare(
-        `SELECT created_at, user_id, email, message FROM audit_events
-         WHERE type = 'stripe_subscription_sync'
-           AND created_at > datetime('now', '-${since} days')
-         ORDER BY created_at ASC`,
-      )
-      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
-    const deletedRows = db
-      .prepare(
-        `SELECT created_at, user_id, email, message FROM audit_events
-         WHERE type = 'stripe_subscription_deleted'
-           AND created_at > datetime('now', '-${since} days')`,
-      )
-      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
-
-    const syncs: LedgerSyncEvent[] = [];
-    for (const row of syncRows) {
-      const subId = parseSubIdFromMessage(row.message);
-      if (!subId) continue;
-      syncs.push({
-        subId,
-        userId: row.user_id,
-        email: row.email,
-        at: toIsoInstant(row.created_at),
-        status: parseSyncStatus(row.message),
-        tier: parseSyncTierRaw(row.message),
-        cancelAtPeriodEnd: /cancelAtPeriodEnd=true/.test(row.message),
-      });
-    }
-    const deletes: LedgerDeleteEvent[] = deletedRows.map((row) => ({
-      subId: parseSubIdFromMessage(row.message),
-      userId: row.user_id,
-      email: row.email,
-      at: toIsoInstant(row.created_at),
-      reason: parseCancellationReasonFromMessage(row.message).feedback,
-    }));
-
-    // The Converting -> Full Subscriber step. Nothing about the SUBSCRIPTION
-    // changes when its invoice is paid, so the sync stream above cannot see it;
-    // this is the only record that money moved.
-    const payments: LedgerPaymentEvent[] = readSubscriptionPayments(since).map((row) => ({
-      subId: row.subId,
-      userId: row.userId,
-      email: row.email,
-      at: toIsoInstant(row.createdAt),
-    }));
-
-    // Subscriptions an orphan recovery created to carry an already-paid period.
-    // They never raise an invoice of their own before their first renewal, so
-    // neither stream above can show that they are paid for — this audit row is
-    // the only record, and without it a recovered member reads as a conversion
-    // charge stuck in flight for the whole honored period.
-    // Both audit types write "Invoice <in_…> recovered as subscription <sub_…>",
-    // so one parser serves both; only what the period MEANS differs, which the
-    // kind carries.
-    const recoveredRows = db
-      .prepare(
-        `SELECT created_at, user_id, email, message, type FROM audit_events
-         WHERE type IN ('billing_orphan_payment_recovered', 'billing_paid_period_reinstated')
-           AND created_at > datetime('now', '-${since} days')
-         ORDER BY created_at ASC`,
-      )
-      .all() as Array<{
-        created_at: string;
-        user_id: string | null;
-        email: string | null;
-        message: string;
-        type: string;
-      }>;
-    const recoveries: LedgerRecoveryEvent[] = [];
-    for (const row of recoveredRows) {
-      const subId = parseRecoveredSubId(row.message);
-      if (!subId) continue;
-      recoveries.push({
-        subId,
-        userId: row.user_id,
-        email: row.email,
-        at: toIsoInstant(row.created_at),
-        invoiceId: parseRecoveredInvoiceId(row.message),
-        kind: row.type === 'billing_paid_period_reinstated' ? 'comped' : 'recovered',
-      });
-    }
-
-    const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
-    const all = buildSubscriberLedger(syncs, deletes, payments, recoveries, now.getTime()).filter(
-      (r) => Date.parse(r.at) >= cutoffMs,
-    );
-    return {
-      windowDays: LEDGER_WINDOW_DAYS,
-      rows: all.slice(0, LEDGER_MAX_ROWS),
-      truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
-      net: summarizeLedger(all),
-      generatedAt: now.toISOString(),
-      error: null,
-    };
+    return { rows: readSubscriberLedgerRows(LEDGER_WINDOW_DAYS * 2, now.getTime()), error: null };
   } catch (err) {
-    return empty(noteSnapshotFailure('subscriber ledger', err));
+    return { rows: [], error: noteSnapshotFailure('subscriber ledger', err) };
   }
 }
 
-// audit_events.created_at is written by SQLite's datetime() as "YYYY-MM-DD
-// HH:MM:SS" with no zone marker, and it is UTC. Normalize to a real ISO instant
-// so Date.parse doesn't read it as local time.
-function toIsoInstant(createdAt: string): string {
-  const trimmed = createdAt.trim();
-  if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(trimmed)) return trimmed;
-  return `${trimmed.replace(' ', 'T')}Z`;
-}
-
-// The tier token exactly as the sync message carries it, for the ledger's bucket
-// classification (which folds the legacy ids itself). parseSyncTierStrict maps
-// unknown tokens to null, which would read as "no tier"; here an unrecognized
-// token should simply not be a paid tier.
-function parseSyncTierRaw(message: string): string | null {
-  const m = message.match(/\btier=(\w+)/);
-  return m ? m[1] : null;
+function buildSubscriberLedgerSnapshot(now: Date, ledger: LedgerBuild): SubscriberLedgerSnapshot {
+  const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
+  const all = ledger.rows.filter((r) => Date.parse(r.at) >= cutoffMs);
+  return {
+    windowDays: LEDGER_WINDOW_DAYS,
+    rows: all.slice(0, LEDGER_MAX_ROWS),
+    truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
+    net: summarizeLedger(all),
+    generatedAt: now.toISOString(),
+    error: ledger.error,
+  };
 }
 
 // ── Conversion Conveyor ────────────────────────────────────────────────────
@@ -1788,6 +1623,7 @@ type ConveyorParts = {
   departingValue: number;
   totals: ConveyorTotals;
   outcomes: ConveyorOutcomes;
+  paidUpFront: number;
   graceDays: number;
 };
 
@@ -1813,6 +1649,7 @@ function readConveyorParts(now: Date): ConveyorParts {
     departingValue: 0,
     totals: summarizeRiders([]),
     outcomes: summarizeTrialOutcomes(new Map(), [], CONVEYOR_OUTCOMES_WINDOW_DAYS),
+    paidUpFront: 0,
     graceDays,
   };
 
@@ -1885,6 +1722,27 @@ function readConveyorParts(now: Date): ConveyorParts {
     const paymentEvents: ConveyorPaymentEvent[] = readSubscriptionPayments(
       CONVEYOR_SYNC_WINDOW_DAYS,
     ).map((row) => ({ subId: row.subId, day: etDayKey(row.createdAt) }));
+
+    // Signups paid up front at checkout, over the same window as the trial
+    // outcomes: a subscription's first invoice, paid for a real amount (see
+    // isPaidUpFrontSignup). Read off the invoice rather than off the first
+    // `active` sync, which would also catch an annual member whose history
+    // starts before this scan.
+    const outcomeDays = new Set(generateDailyKeys(now, CONVEYOR_OUTCOMES_WINDOW_DAYS));
+    const paidUpFrontSubs = new Set<string>();
+    const invoiceRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_invoice_paid'
+           AND created_at > datetime('now', '-${CONVEYOR_OUTCOMES_WINDOW_DAYS + 1} days')`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    for (const row of invoiceRows) {
+      if (!isPaidUpFrontSignup('stripe_invoice_paid', row.message)) continue;
+      const day = etDayKey(row.created_at);
+      const subId = parseSubIdFromMessage(row.message);
+      if (subId && day && outcomeDays.has(day)) paidUpFrontSubs.add(subId);
+    }
 
     const riders: ConveyorRider[] = [];
     const departures: ConveyorRider[] = [];
@@ -1975,6 +1833,7 @@ function readConveyorParts(now: Date): ConveyorParts {
         generateDailyKeys(now, CONVEYOR_OUTCOMES_WINDOW_DAYS),
         CONVEYOR_OUTCOMES_WINDOW_DAYS,
       ),
+      paidUpFront: paidUpFrontSubs.size,
       graceDays,
     };
   } catch (err) {
@@ -1995,6 +1854,7 @@ function buildTrialConveyor(now: Date, parts: ConveyorParts): TrialConveyorSnaps
     departingValue: parts.departingValue,
     totals: parts.totals,
     outcomes: parts.outcomes,
+    paidUpFront: parts.paidUpFront,
     trialDays: NOMINAL_TRIAL_DAYS,
     graceDays: parts.graceDays,
     upcoming: buildUpcomingChanges(now, parts),
@@ -2148,6 +2008,9 @@ export function getSnapshot(): MonitoringSnapshot {
   // the projection counts every scheduled charge.
   const conveyorParts = readConveyorParts(now);
   const trialConveyor = buildTrialConveyor(now, conveyorParts);
+  // Read once, untrimmed, and shared: the Subscriber Ledger lists these rows and
+  // the growth-rate card counts its payment failures off them.
+  const ledger = readLedgerRows(now);
   return {
     mrr,
     mrrSeries,
@@ -2159,10 +2022,10 @@ export function getSnapshot(): MonitoringSnapshot {
     mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
     signups,
     signupFlow: buildSignupFlowSeries(now),
-    growthRates: buildGrowthRates(now),
+    growthRates: buildGrowthRates(now, ledger),
     cancellationReasons: buildCancellationReasons(),
     trialConveyor,
-    subscriberLedger: buildSubscriberLedger_(now),
+    subscriberLedger: buildSubscriberLedgerSnapshot(now, ledger),
     subscriberProjection: buildSubscriberProjection(now, signups, conveyorParts),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),

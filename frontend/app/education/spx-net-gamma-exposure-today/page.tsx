@@ -106,7 +106,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
       </h2>
       <p className="text-[17px] leading-8 text-[var(--text-secondary)]">
         As of {fmtTimestampET(data.timestamp)}, SPX net gamma exposure at spot is{' '}
-        <strong className="text-[var(--color-text-primary)]">{fmtNetGex(netGex)}</strong> — a{' '}
+        <strong className="text-[var(--color-text-primary)]">{fmtNetGex(netGex)}</strong>&nbsp;- a{' '}
         {positive ? 'positive' : 'negative'}-gamma regime,{' '}
         {positive
           ? 'in which dealers are modeled net long gamma and hedging tends to dampen moves'
@@ -114,7 +114,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
         .
         {data.gamma_flip != null ? (
           <>
-            {' '}The zero-cross — the gamma flip, or zero gamma level — sits at {fmtPrice(data.gamma_flip)}
+            {' '}The zero-cross&nbsp;- the gamma flip, or zero gamma level&nbsp;- sits at {fmtPrice(data.gamma_flip)}
             {data.spot_price != null ? <>, with SPX spot at {fmtPrice(data.spot_price)}</> : null}.
           </>
         ) : null}
@@ -140,9 +140,9 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
         </Link>
         ). For the live, session-long value,{' '}
         <Link href="/register" className={linkClass}>
-          start a free trial
+          sign up
         </Link>
-        . Modeled dealer gamma under the call-positive / put-negative convention — not observed inventory.
+        . Modeled dealer gamma under the call-positive / put-negative convention&nbsp;- not observed inventory.
       </p>
     </section>
   );
@@ -157,13 +157,13 @@ export default async function SpxNetGammaExposureTodayPage() {
   const rest = nodes.slice(2);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
       <ArticleJsonLd slug={SLUG} />
       <Link href="/articles" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Articles
       </Link>
 
-      <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
+      <article className="zg-article-card">
         <ArticleMeta slug={SLUG} />
         <div className="blog-medium-style">{lead}</div>
         <CurrentNetGex data={data} />

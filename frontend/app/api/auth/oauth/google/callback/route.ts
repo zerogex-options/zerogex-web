@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrLoginOAuthUser, applyAppearanceCookies, attachSessionCookie, enforceSignupRateLimit, getClientIp, isOAuthReturningUser, issueCsrfCookie, linkUserIdentity, requireSession } from '@/core/serverAuth';
-import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME, verifyGoogleIdToken } from '@/core/oauth';
+import { getOAuthConfig, getOAuthNextCookieName, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME, verifyGoogleIdToken } from '@/core/oauth';
+import { postSignInDestination } from '@/core/safeNextPath';
 
 function clearOAuthCookies(response: NextResponse) {
   response.cookies.set({ name: getOAuthStateCookieName('google'), value: '', path: '/', maxAge: 0 });
   response.cookies.set({ name: getOAuthNonceCookieName('google'), value: '', path: '/', maxAge: 0 });
   response.cookies.set({ name: OAUTH_INTENT_COOKIE_NAME, value: '', path: '/', maxAge: 0 });
+  response.cookies.set({ name: getOAuthNextCookieName('google'), value: '', path: '/', maxAge: 0 });
 }
 
 export async function GET(request: NextRequest) {
@@ -87,10 +89,13 @@ export async function GET(request: NextRequest) {
     email: profile.email,
   });
 
-  // Public users have no paid access; /dashboard would just bounce them to
-  // /unauthorized. Route them straight to /pricing — the conversion path is
-  // the right next step for a fresh, unpaid signup.
-  const destination = session.user.tier === 'public' ? '/pricing' : '/dashboard';
+  // Back to where they were headed when they chose Google (the /login ?next=,
+  // carried by google/start). Without one: /pricing for an unpaid account,
+  // which /dashboard would only bounce to /unauthorized, else the dashboard.
+  const destination = postSignInDestination(
+    request.cookies.get(getOAuthNextCookieName('google'))?.value,
+    session.user.tier,
+  );
   const redirectTo = new URL(destination, baseUrl);
   const response = NextResponse.redirect(redirectTo);
   attachSessionCookie(response, session.token);

@@ -136,7 +136,7 @@ export async function generateMetadata({
   const human = formatHumanDate(date);
   const minute = `${time.slice(0, 2)}:${time.slice(2, 4)} ET`;
   return {
-    title: `${sym} GEX @ ${minute} · ${human} — ZeroGEX`,
+    title: `${sym} GEX @ ${minute} · ${human}\u00a0- ZeroGEX`,
     description: `Dealer gamma surface for ${sym} at ${minute} on ${human}. One-click snapshot from the ZeroGEX Replay player.`,
     alternates: { canonical: url },
     openGraph: {
@@ -195,7 +195,7 @@ export default async function ReplaySnapshotPage({
       </div>
 
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · Replay snapshot
@@ -275,7 +275,7 @@ export default async function ReplaySnapshotPage({
         from the same {' '}
         <span className="font-mono">gex_summary</span> and{' '}
         <span className="font-mono">gex_by_strike</span> rows that power the live dashboard,
-        so the math is identical — just pinned to a past timestamp.
+        so the math is identical&nbsp;- just pinned to a past timestamp.
       </section>
     </main>
   );

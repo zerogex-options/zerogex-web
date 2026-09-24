@@ -23,7 +23,6 @@ import {
   formatPct,
   percentileVerdict,
   putCallReadout,
-  scopeLabel,
   sessionDrift,
   widestBucket,
   widestExpiration,
@@ -44,6 +43,7 @@ import MoneynessCurve from './MoneynessCurve';
 import SpreadHistoryChart from './SpreadHistoryChart';
 import SpreadSessionChart from './SpreadSessionChart';
 import SurfaceSection from './SurfaceSection';
+import ScopeChipLabel from './ScopeChipLabel';
 
 /**
  * Spread Monitor — can you actually get filled in this chain?
@@ -73,6 +73,9 @@ import SurfaceSection from './SurfaceSection';
  */
 
 const HISTORY_DAYS = 60;
+
+/** A table's first column, pinned while a phone scrolls the rest sideways. */
+const STICKY_CELL = 'max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:bg-[var(--bg-card)] max-sm:shadow-[inset_-1px_0_0_var(--border-default)]';
 
 /** Half-width of the strike band, in percent of spot. */
 const BAND_CHOICES = [2, 5, 10] as const;
@@ -158,7 +161,7 @@ export default function SpreadMonitorPage() {
         <FuturesUnsupportedPanel symbol={symbol} surface="Spread Monitor" />
         <p className="mt-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
           A quoted spread is a width a market maker is actually showing on a real contract.
-          Scaling an SPX quote by the futures basis would invent a market nobody published —
+          Scaling an SPX quote by the futures basis would invent a market nobody published&nbsp;-
           in answer to the one question this page exists to answer honestly.
         </p>
       </PageShell>
@@ -170,21 +173,31 @@ export default function SpreadMonitorPage() {
       <PageHeader
         title="Spread Monitor"
         beta
-        sub="How wide the chain is quoted, and how much of it has a market at all — whether you can get filled."
-        tooltip="Quoted (NBBO) spreads, not effective spreads: the width market makers are showing, not what trades filled at. Everything else on this site reads the book to say what it means; this says whether the market is tradeable. Read every verdict as a comparison against this symbol's own history — there is no universal 'wide', since an SPX put is structurally wider than an SPY put on the calmest day of the year. The feed carries no sizes, so a tight quote for one contract and a tight quote for a thousand look identical here."
+        sub="How wide the chain is quoted, and how much of it has a market at all&nbsp;- whether you can get filled."
+        tooltip="Quoted (NBBO) spreads, not effective spreads: the width market makers are showing, not what trades filled at. Everything else on this site reads the book to say what it means; this says whether the market is tradeable. Read every verdict as a comparison against this symbol's own history&nbsp;- there is no universal 'wide', since an SPX put is structurally wider than an SPY put on the calmest day of the year. The feed carries no sizes, so a tight quote for one contract and a tight quote for a thousand look identical here."
         actions={
+          // On a phone the two choices take a row each (the expiry chips with
+          // short labels) instead of wrapping mid-group around the divider.
+          // From `sm` up the group wrappers dissolve (`contents`) and the row
+          // is exactly the original one.
           <FilterBar>
-            {DTE_CHOICES.map((choice) => (
-              <FilterChip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
-                {scopeLabel(choice)}
-              </FilterChip>
-            ))}
-            <FilterDivider />
-            {BAND_CHOICES.map((choice) => (
-              <FilterChip key={choice} active={bandPct === choice} onClick={() => setBandPct(choice)}>
-                ±{choice}%
-              </FilterChip>
-            ))}
+            <div className="contents max-sm:flex max-sm:w-full max-sm:flex-wrap max-sm:gap-2 max-sm:[&>button]:min-h-8">
+              {DTE_CHOICES.map((choice) => (
+                <FilterChip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
+                  <ScopeChipLabel dte={choice} />
+                </FilterChip>
+              ))}
+            </div>
+            <span className="contents max-sm:hidden">
+              <FilterDivider />
+            </span>
+            <div className="contents max-sm:flex max-sm:flex-wrap max-sm:gap-2 max-sm:[&>button]:min-h-8">
+              {BAND_CHOICES.map((choice) => (
+                <FilterChip key={choice} active={bandPct === choice} onClick={() => setBandPct(choice)}>
+                  ±{choice}%
+                </FilterChip>
+              ))}
+            </div>
           </FilterBar>
         }
       />
@@ -194,7 +207,8 @@ export default function SpreadMonitorPage() {
 
       {data && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Four short readings: a 2×2 block on a phone, not a tower. */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <MetricCard
               title="Put spread"
               value={formatPct(data.puts.median_relative_spread_pct)}
@@ -214,13 +228,13 @@ export default function SpreadMonitorPage() {
                   ? `${formatCrossCost(data.calls.median_spread)} per contract to cross`
                   : 'No two-sided call market'
               }
-              tooltip="The same measure on the calls. Read it next to the put figure rather than on its own — the difference between them is the reading."
+              tooltip="The same measure on the calls. Read it next to the put figure rather than on its own&nbsp;- the difference between them is the reading."
             />
             <MetricCard
               title="Put / call width"
               value={formatMultiple(data.put_call_width_ratio)}
               subtitle={sideVerdict?.label ?? 'Not enough quotes to compare'}
-              tooltip="Put width divided by call width. Above 1 means the downside is the expensive side to trade — a hedging bid rather than a broad liquidity problem."
+              tooltip="Put width divided by call width. Above 1 means the downside is the expensive side to trade&nbsp;- a hedging bid rather than a broad liquidity problem."
               trend={sideVerdict?.tone ?? 'neutral'}
             />
             <MetricCard
@@ -230,7 +244,7 @@ export default function SpreadMonitorPage() {
                 1,
               )}
               subtitle={`${data.all.tradable_count} of ${data.all.contract_count} contracts two-sided`}
-              tooltip="Share of contracts in range quoted with no bid, locked or crossed. These have no width by construction and are excluded from every median above — which is why a chain can hold its median while part of it goes untradeable."
+              tooltip="Share of contracts in range quoted with no bid, locked or crossed. These have no width by construction and are excluded from every median above&nbsp;- which is why a chain can hold its median while part of it goes untradeable."
               trend={coverage?.tone ?? 'neutral'}
             />
           </div>
@@ -263,7 +277,7 @@ export default function SpreadMonitorPage() {
                 scopeNote
               ) : (
                 <>
-                  There is no universal &ldquo;wide&rdquo; for a quoted spread — an SPX put is
+                  There is no universal &ldquo;wide&rdquo; for a quoted spread&nbsp;- an SPX put is
                   structurally wider than an SPY put on the calmest day of the year. So this
                   page only calls a reading unusual against the same symbol&rsquo;s own past
                   sessions, and stays quiet until it has them.
@@ -307,7 +321,7 @@ export default function SpreadMonitorPage() {
 
           <ChartPanel
             title="Where the chain thins"
-            tooltip="Median quoted width by strike distance from spot, signed — downside strikes left, upside right. Bucketing by unsigned distance would fold the two wings together and average away exactly the asymmetry this shows."
+            tooltip="Median quoted width by strike distance from spot, signed&nbsp;- downside strikes left, upside right. Bucketing by unsigned distance would fold the two wings together and average away exactly the asymmetry this shows."
             sub={
               worstPutBucket ? (
                 <>
@@ -333,11 +347,11 @@ export default function SpreadMonitorPage() {
               worstExpiry ? (
                 <>
                   Widest puts are <strong>{dteLabel(worstExpiry.dte)}</strong> at{' '}
-                  {formatPct(worstExpiry.pct)} of premium. Nearest expiry first —
+                  {formatPct(worstExpiry.pct)} of premium. Nearest expiry first&nbsp;-
                   quotes go first where time does.
                 </>
               ) : (
-                'Nearest expiry first — quotes go first where time does.'
+                'Nearest expiry first\u00a0- quotes go first where time does.'
               )
             }
           >
@@ -348,8 +362,11 @@ export default function SpreadMonitorPage() {
                 exact values and the two columns the chart deliberately does
                 not put on a second y-scale: width against the index, and
                 what share has no bid at all. */}
+            {/* Phone: scrolls sideways at a readable width, with the expiry
+                column pinned, rather than squeezing six columns into 330px
+                and wrapping "Put width vs index" a word per line. */}
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm max-sm:min-w-[540px]">
                 <thead>
                   <tr
                     className="border-b"
@@ -358,12 +375,12 @@ export default function SpreadMonitorPage() {
                       color: 'var(--text-secondary)',
                     }}
                   >
-                    <th className="px-3 py-2 text-left font-semibold">Expiration</th>
-                    <th className="px-3 py-2 text-left font-semibold">Put spread</th>
-                    <th className="px-3 py-2 text-left font-semibold">Call spread</th>
-                    <th className="px-3 py-2 text-left font-semibold">Put width vs index</th>
-                    <th className="px-3 py-2 text-left font-semibold">No bid</th>
-                    <th className="px-3 py-2 text-left font-semibold">Contracts</th>
+                    <th className={`px-3 py-2 text-left font-semibold max-sm:px-2 ${STICKY_CELL}`}>Expiration</th>
+                    <th className="px-3 py-2 text-left font-semibold max-sm:px-2 max-sm:whitespace-nowrap">Put spread</th>
+                    <th className="px-3 py-2 text-left font-semibold max-sm:px-2 max-sm:whitespace-nowrap">Call spread</th>
+                    <th className="px-3 py-2 text-left font-semibold max-sm:px-2 max-sm:whitespace-nowrap">Put width vs index</th>
+                    <th className="px-3 py-2 text-left font-semibold max-sm:px-2 max-sm:whitespace-nowrap">No bid</th>
+                    <th className="px-3 py-2 text-left font-semibold max-sm:px-2 max-sm:whitespace-nowrap">Contracts</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -373,7 +390,7 @@ export default function SpreadMonitorPage() {
                       className="border-b last:border-b-0"
                       style={{ borderColor: 'var(--border-default)' }}
                     >
-                      <th scope="row" className="px-3 py-2 text-left font-semibold whitespace-nowrap">
+                      <th scope="row" className={`px-3 py-2 text-left font-semibold whitespace-nowrap max-sm:px-2 ${STICKY_CELL}`}>
                         {slice.expiration}
                         <span
                           className="ml-2 text-xs font-normal"
@@ -382,19 +399,19 @@ export default function SpreadMonitorPage() {
                           {slice.dte === 0 ? '0DTE' : `${slice.dte}d`}
                         </span>
                       </th>
-                      <td className="px-3 py-2 tabular-nums">
+                      <td className="px-3 py-2 tabular-nums max-sm:px-2">
                         {formatPct(slice.puts.median_relative_spread_pct)}
                       </td>
-                      <td className="px-3 py-2 tabular-nums">
+                      <td className="px-3 py-2 tabular-nums max-sm:px-2">
                         {formatPct(slice.calls.median_relative_spread_pct)}
                       </td>
-                      <td className="px-3 py-2 tabular-nums">
+                      <td className="px-3 py-2 tabular-nums max-sm:px-2 max-sm:whitespace-nowrap">
                         {formatBps(slice.puts.median_spread_bps_underlying)}
                       </td>
-                      <td className="px-3 py-2 tabular-nums">
+                      <td className="px-3 py-2 tabular-nums max-sm:px-2">
                         {formatPct(slice.puts.zero_bid_pct, 1)}
                       </td>
-                      <td className="px-3 py-2 tabular-nums">{slice.all.contract_count}</td>
+                      <td className="px-3 py-2 tabular-nums max-sm:px-2">{slice.all.contract_count}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -412,7 +429,7 @@ export default function SpreadMonitorPage() {
           <SurfaceSection symbol={symbol} enabled={!futures} historyDays={HISTORY_DAYS} />
 
           <ChartPanel
-            title={`Daily record — last ${HISTORY_DAYS} sessions`}
+            title={`Daily record\u00a0- last ${HISTORY_DAYS} sessions`}
             tooltip="One row per trading day, written from the same reduction as the live reading above so the two are directly comparable. The band is the gap between the typical contract and the worst tenth."
             sub="Put markets by session. When both the line and the band rise the whole chain got worse; when only the band rises, the wings blew out while the money stayed orderly."
           >
@@ -431,7 +448,7 @@ export default function SpreadMonitorPage() {
                     {history.excluded_thin_sessions === 1 ? '' : 's'} in this window
                     had too little of the chain quoted to measure and {history.excluded_thin_sessions === 1 ? 'is' : 'are'}{' '}
                     left out rather than drawn. That is a gap in the data, not a
-                    quiet market — a session nobody could price is not the same as
+                    quiet market&nbsp;- a session nobody could price is not the same as
                     one nobody traded.
                   </p>
                 )}
@@ -443,7 +460,7 @@ export default function SpreadMonitorPage() {
 
           <ChartPanel
             title="Across symbols"
-            tooltip="The same reading on every index with an option chain of its own. Read it on the 'put width vs index' column: SPX near 6,800 and NDX near 25,000 are not on one dollar scale. ES and NQ are absent because they carry no option chain here — their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
+            tooltip="The same reading on every index with an option chain of its own. Read it on the 'put width vs index' column: SPX near 6,800 and NDX near 25,000 are not on one dollar scale. ES and NQ are absent because they carry no option chain here&nbsp;- their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
             sub={
               <>
                 Puts and calls within ±{bandPct}% of spot,{' '}
@@ -459,7 +476,7 @@ export default function SpreadMonitorPage() {
                     active={compareDteMax === choice}
                     onClick={() => setCompareDteMax(choice)}
                   >
-                    {scopeLabel(choice)}
+                    <ScopeChipLabel dte={choice} />
                   </FilterChip>
                 ))}
               </FilterBar>

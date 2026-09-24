@@ -108,8 +108,8 @@ export default function PutOnYourSite({ symbol }: { symbol: PickerSymbol }) {
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
           color: 'var(--color-brand-primary)',
-          border: '1px solid var(--color-brand-primary)44',
-          background: 'var(--color-brand-primary)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-primary) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-primary) 8%, transparent)',
           borderRadius: 999,
           padding: '5px 14px',
           marginBottom: 16,
@@ -147,7 +147,7 @@ export default function PutOnYourSite({ symbol }: { symbol: PickerSymbol }) {
           maxWidth: 720,
         }}
       >
-        Publishing somewhere that blocks embeds — Substack, Medium, Discord, an email newsletter?
+        Publishing somewhere that blocks embeds&nbsp;- Substack, Medium, Discord, an email newsletter?
         Take the image instead. It is the same card as a PNG, and because those platforms copy it
         onto their own servers it is a snapshot of this moment rather than a live card, which is
         why it prints its own &ldquo;as of&rdquo; time.

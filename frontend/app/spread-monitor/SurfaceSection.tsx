@@ -21,6 +21,7 @@ import {
 import { useSpreadSurface } from '@/hooks/useSpreadMonitor';
 
 import ExpiryRankChart from './ExpiryRankChart';
+import ScopeChipLabel from './ScopeChipLabel';
 import SurfaceCurve, { type SurfaceMetric } from './SurfaceCurve';
 
 /**
@@ -167,7 +168,7 @@ export default function SurfaceSection({
   return (
     <ChartPanel
       title="Spread surface vs history"
-      tooltip="Today's quoted width across the strikes, against what this symbol normally quotes in the same band at the same time of day. Every judgement here is a comparison against this symbol's own stored sessions — there is no universal 'wide'. Scopes are limited to the ones the rollup stores, because a reading can only be ranked inside a population that was actually measured."
+      tooltip="Today's quoted width across the strikes, against what this symbol normally quotes in the same band at the same time of day. Every judgement here is a comparison against this symbol's own stored sessions&nbsp;- there is no universal 'wide'. Scopes are limited to the ones the rollup stores, because a reading can only be ranked inside a population that was actually measured."
       sub={
         <>
           Are spreads unusually wide right now, and where across the strikes?{' '}
@@ -184,33 +185,47 @@ export default function SurfaceSection({
           `actions` slot. Eleven chips beside a standfirst squeezes the
           sentence into a three-line column against the left edge, and the
           sentence is the part that says what the section found. */}
+      {/* Phone: nine chips and two dividers wrapped into three ragged rows.
+          There the expiry chips (short labels) take the first row and the
+          side and band chips share the second; from `sm` up the group
+          wrappers dissolve (`contents`) into the original single row. */}
       <FilterBar className="mb-4">
-        <FilterChip active={side === 'P'} onClick={() => setSide('P')}>
-          Puts
-        </FilterChip>
-        <FilterChip active={side === 'C'} onClick={() => setSide('C')}>
-          Calls
-        </FilterChip>
-        <FilterDivider />
-        {DTE_CHOICES.map((choice) => (
-          <FilterChip
-            key={choice}
-            active={dteMax === choice}
-            onClick={() => setDteMax(choice)}
-          >
-            {scopeLabel(choice)}
+        <div className="contents max-sm:order-2 max-sm:mr-2 max-sm:flex max-sm:gap-2 max-sm:[&>button]:min-h-8">
+          <FilterChip active={side === 'P'} onClick={() => setSide('P')}>
+            Puts
           </FilterChip>
-        ))}
-        <FilterDivider />
-        {BAND_CHOICES.map((choice) => (
-          <FilterChip
-            key={choice}
-            active={bandPct === choice}
-            onClick={() => setBandPct(choice)}
-          >
-            ±{choice}%
+          <FilterChip active={side === 'C'} onClick={() => setSide('C')}>
+            Calls
           </FilterChip>
-        ))}
+        </div>
+        <span className="contents max-sm:hidden">
+          <FilterDivider />
+        </span>
+        <div className="contents max-sm:order-1 max-sm:flex max-sm:w-full max-sm:flex-wrap max-sm:gap-2 max-sm:[&>button]:min-h-8">
+          {DTE_CHOICES.map((choice) => (
+            <FilterChip
+              key={choice}
+              active={dteMax === choice}
+              onClick={() => setDteMax(choice)}
+            >
+              <ScopeChipLabel dte={choice} />
+            </FilterChip>
+          ))}
+        </div>
+        <span className="contents max-sm:hidden">
+          <FilterDivider />
+        </span>
+        <div className="contents max-sm:order-3 max-sm:flex max-sm:gap-2 max-sm:[&>button]:min-h-8">
+          {BAND_CHOICES.map((choice) => (
+            <FilterChip
+              key={choice}
+              active={bandPct === choice}
+              onClick={() => setBandPct(choice)}
+            >
+              ±{choice}%
+            </FilterChip>
+          ))}
+        </div>
       </FilterBar>
 
       {error && (
@@ -261,7 +276,7 @@ export default function SurfaceSection({
               <>
                 {' '}
                 The market is closed, so the comparison uses the{' '}
-                {data.baseline.time_bucket_label} bucket — the last one of the session —
+                {data.baseline.time_bucket_label} bucket&nbsp;- the last one of the session&nbsp;-
                 rather than a clock time that has no history behind it.
               </>
             )}
@@ -312,14 +327,14 @@ export default function SurfaceSection({
             <h4 className="zg-eyebrow mb-2">Where current spreads rank by expiry</h4>
             <ExpiryRankChart ranks={data.by_dte} />
             <p className="mt-2 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              Each bar is that expiry&rsquo;s own percentile, not its width — 0DTE is
+              Each bar is that expiry&rsquo;s own percentile, not its width&nbsp;- 0DTE is
               structurally the widest book every day of the year, so a width chart here
               would say nothing. A single tall bar beside four ordinary ones is the
               finding: the chain is broadly normal and one expiry is not. Buckets are
               ranked inside the ±{data.moneyness_band_pct}% band and change with it.
               DTE here counts <strong>trading sessions</strong>, not calendar days: from
               a Friday, 1DTE is the Monday expiry. Counting days instead would put
-              Monday in the 2&ndash;3 DTE bucket and rank it against contracts with two
+              Monday in the 2-3 DTE bucket and rank it against contracts with two
               or three real sessions of life left.
             </p>
           </div>

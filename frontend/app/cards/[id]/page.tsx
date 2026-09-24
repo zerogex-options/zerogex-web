@@ -6,7 +6,8 @@ import { ChevronLeft } from 'lucide-react';
 import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
 import { serverApiGet } from '@/core/api/serverFetch';
-import { resolveSymbol } from '@/core/symbols';
+import { formatEtTimestamp } from '@/core/etTimestamp';
+import { scorecardHrefForCard } from '@/core/scorecardDay';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
 // Public permalink for a single Playbook Action Card. Server-rendered so the
@@ -46,14 +47,14 @@ function buildTweetText(card: CardPayload | null, fallback: string): string {
   const symbol = (card.underlying || 'SPY').toUpperCase();
   const action = humanizeWords(String(card.action ?? ''));
   if (!action || action.toUpperCase() === 'STAND DOWN') {
-    return `Stand Down on ${symbol} — no tradable structure right now.`;
+    return `Stand Down on ${symbol}\u00a0- no tradable structure right now.`;
   }
   const entryPrice = typeof card.entry?.ref_price === 'number' ? `$${card.entry.ref_price.toFixed(2)}` : null;
   const targetPrice = typeof card.target?.ref_price === 'number' ? `$${card.target.ref_price.toFixed(2)}` : null;
   const confidence =
     typeof card.confidence === 'number' ? ` · conf ${card.confidence.toFixed(2)}` : '';
   if (entryPrice && targetPrice) {
-    return `${symbol} ${action} — entry ${entryPrice} → target ${targetPrice}${confidence}.`;
+    return `${symbol} ${action}\u00a0- entry ${entryPrice} → target ${targetPrice}${confidence}.`;
   }
   return `${symbol} ${action}${confidence}.`;
 }
@@ -67,7 +68,7 @@ export async function generateMetadata({
   const cardId = parseId(id);
   if (cardId == null) {
     return {
-      title: 'Action Card not found — ZeroGEX',
+      title: 'Action Card not found\u00a0- ZeroGEX',
       robots: { index: false, follow: false },
     };
   }
@@ -76,11 +77,11 @@ export async function generateMetadata({
   const action = humanizeWords(String(card?.action ?? '')) || 'Action Card';
   const pattern = humanizeWords(String(card?.pattern ?? ''));
   const title = card
-    ? `${symbol} ${action}${pattern ? ` · ${pattern}` : ''} — ZeroGEX Card #${cardId}`
-    : `Action Card #${cardId} — ZeroGEX`;
+    ? `${symbol} ${action}${pattern ? ` · ${pattern}` : ''}\u00a0- ZeroGEX Card #${cardId}`
+    : `Action Card #${cardId}\u00a0- ZeroGEX`;
   const description = card?.rationale
     ? String(card.rationale)
-    : 'A decisive Playbook trade card emitted by the ZeroGEX engine — dealer positioning + signal confluence + structural levels in one instruction.';
+    : 'A decisive Playbook trade card emitted by the ZeroGEX engine\u00a0- dealer positioning + signal confluence + structural levels in one instruction.';
   const url = `${SITE_URL}/cards/${cardId}`;
   return {
     title,
@@ -119,19 +120,20 @@ export default async function ActionCardPage({
 
   const isStandDown = String(card.action ?? '').toUpperCase() === 'STAND_DOWN';
   const symbol = (card.underlying || 'SPY').toUpperCase();
-  // The display symbol is whatever the API wrote; the Scorecard index only
-  // understands the six picker symbols, so the back link carries the resolved
-  // one rather than a ?symbol= the landing page would silently discard.
-  const scorecardSymbol = resolveSymbol(symbol);
+  // Back to the Scorecard day that lists this card (its symbol, its Eastern
+  // date), or the landing page for a symbol the Scorecard doesn't cover.
+  const scorecardHref = scorecardHrefForCard(symbol, card.timestamp ? String(card.timestamp) : null);
   const tweetText = buildTweetText(card, `ZeroGEX Action Card #${cardId} for ${symbol}.`);
   const cardUrl = `${SITE_URL}/cards/${cardId}`;
   const issuedAt = card.timestamp ? new Date(String(card.timestamp)) : null;
+  // Eastern wall time with the offset; the exact UTC stamp stays on hover.
+  const issuedEt = formatEtTimestamp(card.timestamp ? String(card.timestamp) : null);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
-          href={scorecardSymbol === 'SPY' ? '/scorecard' : `/scorecard?symbol=${scorecardSymbol}`}
+          href={scorecardHref}
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
         >
           <ChevronLeft size={14} /> Daily Scorecard
@@ -146,9 +148,12 @@ export default async function ActionCardPage({
         <h1 className="mt-1 text-2xl font-bold tracking-tight">
           {symbol} · {humanizeWords(String(card.action ?? '')) || 'Action Card'}
         </h1>
-        {issuedAt && !Number.isNaN(issuedAt.getTime()) && (
+        {issuedAt && issuedEt && (
           <div className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-            Issued {issuedAt.toISOString()}
+            Issued{' '}
+            <time dateTime={issuedAt.toISOString()} title={issuedAt.toISOString()}>
+              {issuedEt}
+            </time>
           </div>
         )}
       </header>
@@ -159,7 +164,7 @@ export default async function ActionCardPage({
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this card</div>
         Every cycle (~1 minute) the ZeroGEX Playbook engine fuses dealer positioning, options
         flow, the Market State Index, and live structural levels into one decisive instruction.
-        This is the permanent receipt for card <span className="font-mono">#{cardId}</span> —
+        This is the permanent receipt for card <span className="font-mono">#{cardId}</span>&nbsp;-
         the entry, stop, target, and reasoning at the moment it was emitted. Closed Action
         Cards never re-write; the engine cannot retroactively edit a published call. Live
         positioning lives on{' '}

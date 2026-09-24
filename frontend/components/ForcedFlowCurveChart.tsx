@@ -16,6 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useForcedFlowCurve } from '@/hooks/useApiData';
 import ChartCaption from "./ChartCaption";
 
@@ -170,17 +171,20 @@ export default function ForcedFlowCurveChart({
   }, [data, curve, hasData]);
 
   const textColor = 'var(--text-primary)';
+  // On a phone the 72px value axis and its rotated title took a quarter of a
+  // ~300px plot; the paragraph above already says what the axis measures.
+  const isMobile = useIsMobile();
 
   return (
     <div
-      className="rounded-2xl p-6"
+      className="rounded-2xl p-4 sm:p-6"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced Dealer Flow · Reprice Curve
         </h3>
-        <TooltipWrapper text="Dollars of stock dealers are mechanically forced to BUY (+) or SELL (−) to stay delta-hedged as spot moves, computed by fully repricing the entire option book at each hypothetical price — an exact figure, not a Taylor approximation. The stacked bands attribute the flow to gamma (price), charm (time) and vanna (vol); the line is the exact total. It crosses zero at the zero-flow level, where dealers flip from buyers to sellers.">
+        <TooltipWrapper text="Dollars of stock dealers are mechanically forced to BUY (+) or SELL (−) to stay delta-hedged as spot moves, computed by fully repricing the entire option book at each hypothetical price&nbsp;- an exact figure, not a Taylor approximation. The stacked bands attribute the flow to gamma (price), charm (time) and vanna (vol); the line is the exact total. It crosses zero at the zero-flow level, where dealers flip from buyers to sellers.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -188,8 +192,10 @@ export default function ForcedFlowCurveChart({
         </span>
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        Dollars of stock dealers must <span style={{ color: chart.bull, fontWeight: 600 }}>BUY (+)</span> /{' '}
-        <span style={{ color: chart.bear, fontWeight: 600 }}>SELL (−)</span> to stay delta-hedged as spot moves —
+        {/* CSS variables, not chart.*, in server-rendered markup: see the
+            same note in ForcedFlowSurfaceChart (hydration mismatch). */}
+        Dollars of stock dealers must <span style={{ color: 'var(--color-bull)', fontWeight: 600 }}>BUY (+)</span> /{' '}
+        <span style={{ color: 'var(--color-bear)', fontWeight: 600 }}>SELL (−)</span> to stay delta-hedged as spot moves&nbsp;-
         split into gamma, charm and vanna. The total line crosses zero where dealers flip from buyers to sellers.
       </p>
 
@@ -237,14 +243,14 @@ export default function ForcedFlowCurveChart({
         </div>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={380}>
+          <ResponsiveContainer width="100%" height={isMobile ? 320 : 380}>
             {/* stackOffset="sign" piles positive bands above zero and negative
                 bands below it, so the signed gamma/charm/vanna attribution
                 reads correctly around the y=0 pivot. */}
             <ComposedChart
               data={curve}
               stackOffset="sign"
-              margin={{ top: 16, right: 20, left: 16, bottom: 8 }}
+              margin={isMobile ? { top: 16, right: 8, left: 0, bottom: 8 } : { top: 16, right: 20, left: 16, bottom: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke={chart.gridLine} opacity={0.6} />
               <XAxis
@@ -252,28 +258,33 @@ export default function ForcedFlowCurveChart({
                 type="number"
                 domain={['dataMin', 'dataMax']}
                 stroke={chart.axisText}
-                tick={{ fontSize: 11, fill: chart.axisText }}
+                tick={{ fontSize: isMobile ? 10 : 11, fill: chart.axisText }}
                 tickFormatter={(v) => formatPrice(Number(v))}
+                minTickGap={isMobile ? 16 : 5}
                 label={{
                   value: 'Spot price',
                   position: 'insideBottom',
                   offset: -4,
                   fill: chart.axisText,
-                  fontSize: 11,
+                  fontSize: isMobile ? 10 : 11,
                 }}
               />
               <YAxis
                 stroke={chart.axisText}
-                width={72}
-                tick={{ fontSize: 11, fill: chart.axisText }}
+                width={isMobile ? 46 : 72}
+                tick={{ fontSize: isMobile ? 10 : 11, fill: chart.axisText }}
                 tickFormatter={(v) => formatCompactUsd(Number(v))}
-                label={{
-                  value: 'Forced flow ($)',
-                  angle: -90,
-                  position: 'insideLeft',
-                  offset: 8,
-                  style: { fill: chart.axisText, fontSize: 11, textAnchor: 'middle' },
-                }}
+                label={
+                  isMobile
+                    ? undefined
+                    : {
+                        value: 'Forced flow ($)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        offset: 8,
+                        style: { fill: chart.axisText, fontSize: 11, textAnchor: 'middle' },
+                      }
+                }
               />
               <Tooltip
                 content={

@@ -31,7 +31,8 @@ export const dict: PageDictionary = {
     s4CancellationBody:
       'You may cancel at any time through the Stripe-hosted billing portal. Cancellation takes effect at the end of the current paid billing period; you retain access to paid features until that period ends.',
     s4RefundsLabel: 'Refunds.',
-    s4RefundsBody: 'Except where required by law, fees are non-refundable.',
+    s4RefundsBody:
+      'Except for the money-back guarantee above and where required by law, fees are non-refundable.',
     s4TaxesLabel: 'Taxes.',
     s4TaxesBody: 'Stated prices do not include taxes; you are responsible for any applicable taxes.',
     s4FailedPaymentsLabel: 'Failed payments.',
@@ -111,6 +112,15 @@ export const dict: PageDictionary = {
 
     sectionTitle16: '16. Contact',
     s16Pre: 'Questions about these Terms can be sent to',
+    s4TrialLabel: 'Free trial.',
+    s4TrialBody:
+      'Where a plan includes a free trial (currently the Basic monthly plan), your payment method is collected at signup and first charged when the trial ends unless you cancel before then. One free trial per account. Switching during a trial to a plan without a trial ends the trial and bills the new plan immediately.',
+    s4GuaranteeLabel: '7-day money-back guarantee.',
+    s4GuaranteeBody:
+      'Plans without a free trial are covered by a money-back guarantee: if you request a refund from your account page within 7 days of the first payment on that subscription, we refund that payment (and any charge for an upgrade made within those 7 days) in full, cancel the subscription, and end access immediately. The guarantee is limited to one refund per customer, determined by account, email address, and payment card, and does not apply to renewals, to a trial that converts to a paid subscription, or to plans that include a free trial.',
+    s4RenewalLabel: 'Automatic renewal.',
+    s4RenewalBody:
+      'Subscriptions renew automatically at the end of each billing period (monthly, quarterly, or annually) at the then-current rate until cancelled. We send a reminder before each quarterly or annual renewal.',
   },
   it: {
     legalBadge: 'Legale',
@@ -142,7 +152,8 @@ export const dict: PageDictionary = {
     s4CancellationBody:
       'Puoi cancellare in qualsiasi momento tramite il portale di fatturazione ospitato da Stripe. La cancellazione ha effetto alla fine del periodo di fatturazione a pagamento in corso; mantieni l’accesso alle funzionalità a pagamento fino alla fine di tale periodo.',
     s4RefundsLabel: 'Rimborsi.',
-    s4RefundsBody: 'Salvo quanto richiesto dalla legge, le tariffe non sono rimborsabili.',
+    s4RefundsBody:
+      'Salvo la garanzia soddisfatti o rimborsati sopra descritta e quanto richiesto dalla legge, le tariffe non sono rimborsabili.',
     s4TaxesLabel: 'Tasse.',
     s4TaxesBody: 'I prezzi indicati non includono le tasse; sei responsabile di eventuali imposte applicabili.',
     s4FailedPaymentsLabel: 'Pagamenti falliti.',
@@ -223,6 +234,15 @@ export const dict: PageDictionary = {
 
     sectionTitle16: '16. Contatti',
     s16Pre: 'Le domande su questi Termini possono essere inviate a',
+    s4TrialLabel: 'Prova gratuita.',
+    s4TrialBody:
+      "Se un piano include una prova gratuita (attualmente il piano Basic mensile), il metodo di pagamento viene registrato all'iscrizione e addebitato per la prima volta al termine della prova, salvo annullamento prima di tale data. Una prova gratuita per account. Passare durante la prova a un piano senza prova termina la prova e addebita subito il nuovo piano.",
+    s4GuaranteeLabel: 'Garanzia soddisfatti o rimborsati di 7 giorni.',
+    s4GuaranteeBody:
+      "I piani senza prova gratuita sono coperti da una garanzia soddisfatti o rimborsati: se richiedi un rimborso dalla pagina del tuo account entro 7 giorni dal primo pagamento dell'abbonamento, rimborsiamo integralmente tale pagamento (e qualsiasi addebito per un upgrade effettuato in quei 7 giorni), annulliamo l'abbonamento e terminiamo subito l'accesso. La garanzia è limitata a un rimborso per cliente, determinato in base ad account, indirizzo email e carta di pagamento, e non si applica ai rinnovi, a una prova che si converte in abbonamento a pagamento né ai piani che includono una prova gratuita.",
+    s4RenewalLabel: 'Rinnovo automatico.',
+    s4RenewalBody:
+      "Gli abbonamenti si rinnovano automaticamente alla fine di ogni periodo di fatturazione (mensile, trimestrale o annuale) alla tariffa allora vigente, fino all'annullamento. Inviamo un promemoria prima di ogni rinnovo trimestrale o annuale.",
   },
   de: {
     legalBadge: 'Rechtliches',
@@ -254,7 +274,8 @@ export const dict: PageDictionary = {
     s4CancellationBody:
       'Sie können jederzeit über das von Stripe gehostete Abrechnungsportal kündigen. Die Kündigung wird am Ende des aktuellen bezahlten Abrechnungszeitraums wirksam; Sie behalten den Zugang zu kostenpflichtigen Funktionen bis zum Ende dieses Zeitraums.',
     s4RefundsLabel: 'Erstattungen.',
-    s4RefundsBody: 'Sofern gesetzlich nicht anders vorgeschrieben, sind Gebühren nicht erstattungsfähig.',
+    s4RefundsBody:
+      'Abgesehen von der oben beschriebenen Geld-zurück-Garantie und sofern gesetzlich nicht anders vorgeschrieben, sind Gebühren nicht erstattungsfähig.',
     s4TaxesLabel: 'Steuern.',
     s4TaxesBody:
       'Die angegebenen Preise enthalten keine Steuern; Sie sind für etwaige anfallende Steuern verantwortlich.',
@@ -336,6 +357,15 @@ export const dict: PageDictionary = {
 
     sectionTitle16: '16. Kontakt',
     s16Pre: 'Fragen zu diesen Bedingungen können gesendet werden an',
+    s4TrialLabel: 'Kostenlose Testphase.',
+    s4TrialBody:
+      'Enthält ein Plan eine kostenlose Testphase (derzeit der monatliche Basic-Plan), wird deine Zahlungsmethode bei der Anmeldung hinterlegt und erstmals zum Ende der Testphase belastet, sofern du nicht vorher kündigst. Eine kostenlose Testphase pro Konto. Ein Wechsel während der Testphase zu einem Plan ohne Testphase beendet die Testphase und berechnet den neuen Plan sofort.',
+    s4GuaranteeLabel: '7-Tage-Geld-zurück-Garantie.',
+    s4GuaranteeBody:
+      'Pläne ohne kostenlose Testphase sind durch eine Geld-zurück-Garantie abgesichert: Forderst du innerhalb von 7 Tagen nach der ersten Zahlung für das Abonnement über deine Kontoseite eine Erstattung an, erstatten wir diese Zahlung (sowie Belastungen für ein innerhalb dieser 7 Tage vorgenommenes Upgrade) vollständig, kündigen das Abonnement und beenden den Zugang sofort. Die Garantie ist auf eine Erstattung pro Kunde beschränkt, bestimmt anhand von Konto, E-Mail-Adresse und Zahlungskarte, und gilt nicht für Verlängerungen, für eine Testphase, die in ein bezahltes Abonnement übergeht, oder für Pläne mit kostenloser Testphase.',
+    s4RenewalLabel: 'Automatische Verlängerung.',
+    s4RenewalBody:
+      'Abonnements verlängern sich am Ende jedes Abrechnungszeitraums (monatlich, vierteljährlich oder jährlich) automatisch zum dann gültigen Preis, bis sie gekündigt werden. Vor jeder vierteljährlichen oder jährlichen Verlängerung senden wir eine Erinnerung.',
   },
   es: {
     legalBadge: 'Legal',
@@ -367,7 +397,8 @@ export const dict: PageDictionary = {
     s4CancellationBody:
       'Puede cancelar en cualquier momento a través del portal de facturación alojado por Stripe. La cancelación entra en vigor al final del período de facturación pagado actual; conservará el acceso a las funciones de pago hasta que finalice ese período.',
     s4RefundsLabel: 'Reembolsos.',
-    s4RefundsBody: 'Salvo que la ley lo exija, las tarifas no son reembolsables.',
+    s4RefundsBody:
+      'Salvo la garantía de devolución descrita arriba y cuando la ley lo exija, las tarifas no son reembolsables.',
     s4TaxesLabel: 'Impuestos.',
     s4TaxesBody: 'Los precios indicados no incluyen impuestos; usted es responsable de los impuestos aplicables.',
     s4FailedPaymentsLabel: 'Pagos fallidos.',
@@ -448,6 +479,15 @@ export const dict: PageDictionary = {
 
     sectionTitle16: '16. Contacto',
     s16Pre: 'Las preguntas sobre estos Términos pueden enviarse a',
+    s4TrialLabel: 'Prueba gratuita.',
+    s4TrialBody:
+      'Cuando un plan incluye una prueba gratuita (actualmente el plan Basic mensual), tu método de pago se registra al suscribirte y se cobra por primera vez al terminar la prueba, salvo que canceles antes. Una prueba gratuita por cuenta. Cambiar durante la prueba a un plan sin prueba termina la prueba y cobra el nuevo plan de inmediato.',
+    s4GuaranteeLabel: 'Garantía de devolución de 7 días.',
+    s4GuaranteeBody:
+      'Los planes sin prueba gratuita están cubiertos por una garantía de devolución: si solicitas un reembolso desde la página de tu cuenta dentro de los 7 días siguientes al primer pago de esa suscripción, reembolsamos ese pago (y cualquier cargo por una mejora realizada en esos 7 días) en su totalidad, cancelamos la suscripción y terminamos el acceso de inmediato. La garantía se limita a un reembolso por cliente, determinado por cuenta, dirección de correo y tarjeta de pago, y no se aplica a renovaciones, a una prueba que se convierte en suscripción de pago ni a planes que incluyen una prueba gratuita.',
+    s4RenewalLabel: 'Renovación automática.',
+    s4RenewalBody:
+      'Las suscripciones se renuevan automáticamente al final de cada período de facturación (mensual, trimestral o anual) a la tarifa vigente en ese momento hasta que se cancelen. Enviamos un recordatorio antes de cada renovación trimestral o anual.',
   },
   fr: {
     legalBadge: 'Mentions Légales',
@@ -479,7 +519,8 @@ export const dict: PageDictionary = {
     s4CancellationBody:
       'Vous pouvez résilier à tout moment via le portail de facturation hébergé par Stripe. La résiliation prend effet à la fin de la période de facturation payante en cours ; vous conservez l’accès aux fonctionnalités payantes jusqu’à la fin de cette période.',
     s4RefundsLabel: 'Remboursements.',
-    s4RefundsBody: 'Sauf disposition contraire de la loi, les frais ne sont pas remboursables.',
+    s4RefundsBody:
+      'Hormis la garantie satisfait ou remboursé décrite ci-dessus et sauf obligation légale contraire, les frais ne sont pas remboursables.',
     s4TaxesLabel: 'Taxes.',
     s4TaxesBody: 'Les prix indiqués n’incluent pas les taxes ; vous êtes responsable de toute taxe applicable.',
     s4FailedPaymentsLabel: 'Échecs de paiement.',
@@ -560,5 +601,14 @@ export const dict: PageDictionary = {
 
     sectionTitle16: '16. Contact',
     s16Pre: 'Les questions relatives aux présentes Conditions peuvent être envoyées à',
+    s4TrialLabel: 'Essai gratuit.',
+    s4TrialBody:
+      "Lorsqu'une offre comprend un essai gratuit (actuellement l'offre Basic mensuelle), votre moyen de paiement est enregistré à l'inscription et débité pour la première fois à la fin de l'essai, sauf annulation avant cette date. Un essai gratuit par compte. Passer pendant l'essai à une offre sans essai met fin à l'essai et facture immédiatement la nouvelle offre.",
+    s4GuaranteeLabel: 'Garantie satisfait ou remboursé de 7 jours.',
+    s4GuaranteeBody:
+      "Les offres sans essai gratuit sont couvertes par une garantie satisfait ou remboursé : si vous demandez un remboursement depuis la page de votre compte dans les 7 jours suivant le premier paiement de cet abonnement, nous remboursons intégralement ce paiement (ainsi que tout montant facturé pour une montée de gamme effectuée pendant ces 7 jours), annulons l'abonnement et mettons fin immédiatement à l'accès. La garantie est limitée à un remboursement par client, déterminé par compte, adresse e-mail et carte de paiement, et ne s'applique pas aux renouvellements, à un essai converti en abonnement payant ni aux offres comprenant un essai gratuit.",
+    s4RenewalLabel: 'Renouvellement automatique.',
+    s4RenewalBody:
+      "Les abonnements se renouvellent automatiquement à la fin de chaque période de facturation (mensuelle, trimestrielle ou annuelle) au tarif alors en vigueur, jusqu'à leur annulation. Nous envoyons un rappel avant chaque renouvellement trimestriel ou annuel.",
   },
 };

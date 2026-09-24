@@ -31,7 +31,7 @@ export default function ForcedFlowPage() {
             Positive means they must <strong>buy</strong>.
           </>
         }
-        tooltip="Every other flow surface on the site measures what traded. This measures what the current book OBLIGES dealers to trade next, under a scenario: move spot along the reprice curve, advance the clock into the close (charm), or shift implied vol (vanna), and read off the dollars of stock a delta-flat hedge would have to buy or sell. Positive is buying pressure, negative selling. It is a projection from open interest, not an observation of the tape — pair it with Hedging Flow, which is the same question asked of today's actual trades."
+        tooltip="Every other flow surface on the site measures what traded. This measures what the current book OBLIGES dealers to trade next, under a scenario: move spot along the reprice curve, advance the clock into the close (charm), or shift implied vol (vanna), and read off the dollars of stock a delta-flat hedge would have to buy or sell. Positive is buying pressure, negative selling. It is a projection from open interest, not an observation of the tape&nbsp;- pair it with Hedging Flow, which is the same question asked of today's actual trades."
         actions={
           <FilterBar>
             {SYMBOLS.map((s) => (

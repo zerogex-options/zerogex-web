@@ -1,6 +1,6 @@
 # Dealer Positioning
 
-*L'intera superficie GEX — Net GEX allo spot, il gamma flip, call wall e put wall, e come leggere la term structure.*
+*L'intera superficie GEX - Net GEX allo spot, il gamma flip, call wall e put wall, e come leggere la term structure.*
 
 ---
 
@@ -16,7 +16,7 @@ La pagina Dealer Positioning è la **mappa strutturale** del book di opzioni. Og
 
 Il valore di dollar-gamma di tutte le opzioni aperte, con segno secondo la posizione dei dealer, valutato **al prezzo spot corrente**. Positivo ⇒ i dealer sono net long gamma; negativo ⇒ i dealer sono net short.
 
-Il numero che vedi qui è misurato allo spot, non sommato lungo tutta la catena — questo è importante perché il segno allo spot determina il comportamento dei dealer in questo momento, indipendentemente da cosa faccia la curva cumulativa ad altri prezzi.
+Il numero che vedi qui è misurato allo spot, non sommato lungo tutta la catena - questo è importante perché il segno allo spot determina il comportamento dei dealer in questo momento, indipendentemente da cosa faccia la curva cumulativa ad altri prezzi.
 
 ### Gamma Flip
 
@@ -28,15 +28,15 @@ Gli strike con il maggior call gamma e put gamma. Tendono ad agire come resisten
 
 ### Max Pain
 
-Lo strike a cui il payout totale dei compratori di opzioni è minimizzato. Più rilevante nelle ultime 24–48 ore di una scadenza significativa.
+Lo strike a cui il payout totale dei compratori di opzioni è minimizzato. Più rilevante nelle ultime 24-48 ore di una scadenza significativa.
 
 ## Il grafico del profilo GEX
 
 Il grafico principale. Strike sull'asse x; gamma dei dealer sull'asse y. Tre cose da leggere:
 
-1. **Dove la curva attraversa lo zero** — il gamma flip.
-2. **Il maggior accumulo di call gamma** — il call wall.
-3. **Il maggior accumulo di put gamma** — il put wall.
+1. **Dove la curva attraversa lo zero** - il gamma flip.
+2. **Il maggior accumulo di call gamma** - il call wall.
+3. **Il maggior accumulo di put gamma** - il put wall.
 
 Il prezzo spot corrente è mostrato come linea di riferimento verticale. L'intervallo visibile è centrato sullo spot.
 
@@ -53,7 +53,7 @@ Il profilo GEX **per scadenza**. Impila 0DTE, le scadenze di questa settimana, q
 
 ## La heatmap strike × DTE
 
-Una heatmap 2D del gamma dei dealer lungo strike (righe) e DTE (colonne). Le celle più "calde" sono gli strike che contano per le scadenze più vicine. La heatmap si sposta durante la giornata man mano che arriva flusso — osservarne il movimento è informativo.
+Una heatmap 2D del gamma dei dealer lungo strike (righe) e DTE (colonne). Le celle più "calde" sono gli strike che contano per le scadenze più vicine. La heatmap si sposta durante la giornata man mano che arriva flusso - osservarne il movimento è informativo.
 
 ## L'header di regime
 
@@ -63,11 +63,11 @@ La parte più alta della pagina ripete l'etichetta di regime GEX (Positivo / Neg
 
 1. **Dove si trova lo spot rispetto al flip?** Sopra ⇒ stabilizzazione strutturale; sotto ⇒ amplificazione strutturale.
 2. **Dove sono i wall?** Il call wall è la tua frizione al rialzo; il put wall è la tua frizione al ribasso.
-3. **Come si sposta la heatmap?** Se il call wall sale, i dealer sono costretti a ripiegare più in alto — lettura strutturale rialzista.
+3. **Come si sposta la heatmap?** Se il call wall sale, i dealer sono costretti a ripiegare più in alto - lettura strutturale rialzista.
 
 ## Perché il calcolo del gamma flip di ZeroGEX è diverso
 
-Il flip è calcolato a partire da un **profilo del gamma dei dealer a spot shiftato** — non da un'approssimazione basata sul Net GEX cumulativo. Per la metodologia e il confronto prima/dopo, vedi [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
+Il flip è calcolato a partire da un **profilo del gamma dei dealer a spot shiftato** - non da un'approssimazione basata sul Net GEX cumulativo. Per la metodologia e il confronto prima/dopo, vedi [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
 
 ## Letture comuni
 

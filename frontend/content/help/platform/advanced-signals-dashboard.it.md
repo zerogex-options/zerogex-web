@@ -1,6 +1,6 @@
 # Advanced Signal Dashboard
 
-*I segnali event-driven — cosa chiede ciascuno, quando scatta e come usarlo.*
+*I segnali event-driven - cosa chiede ciascuno, quando scatta e come usarlo.*
 
 ---
 
@@ -39,15 +39,15 @@ La lettura complessiva "il mercato è carico". Combina wall pinch, prossimità a
 
 ### Range Break Imminence
 
-Lettura di compressione a 20 barre. Skew delta + dealer delta + trap pressure + rapporto di compressione a 10/60 barre. Produce sia un punteggio sia un'imminence da 0 a 100. Scatta a imminence ≥ 65 — il che significa che il range è realmente stretto rispetto alla sua storia recente.
+Lettura di compressione a 20 barre. Skew delta + dealer delta + trap pressure + rapporto di compressione a 10/60 barre. Produce sia un punteggio sia un'imminence da 0 a 100. Scatta a imminence ≥ 65 - il che significa che il range è realmente stretto rispetto alla sua storia recente.
 
 ### Squeeze Setup
 
-Rilevatore di setup multi-day. Z-score del flow, momentum a 5/10 barre, prontezza del gamma, distanza dal flip, regime del VIX. Bias di continuation — legge "il mercato è compresso a molla, la prossima gamba è X".
+Rilevatore di setup multi-day. Z-score del flow, momentum a 5/10 barre, prontezza del gamma, distanza dal flip, regime del VIX. Bias di continuation - legge "il mercato è compresso a molla, la prossima gamba è X".
 
 ### Trap Detection
 
-Il rilevatore di breakout falliti. Wall (attuali + precedenti), VWAP, flip, net GEX e ΔGEX, delta del flow. Bias di mean-reversion — scatta quando una rottura sopra il call wall o sotto il put wall torna indietro di scatto.
+Il rilevatore di breakout falliti. Wall (attuali + precedenti), VWAP, flip, net GEX e ΔGEX, delta del flow. Bias di mean-reversion - scatta quando una rottura sopra il call wall o sotto il put wall torna indietro di scatto.
 
 ### Volatility Expansion
 
@@ -80,7 +80,7 @@ Cliccando su una scheda si accede alla pagina dedicata del singolo segnale, con 
 
 ## Importante: il bias di trading conta
 
-Alcuni segnali Advanced sono di continuation, altri di mean-reversion. Trap Detection che scatta positivo **non** significa "vai long" — significa "fai fade del breakout fallito al ribasso". Controlla sempre il chip del bias di trading sulla scheda.
+Alcuni segnali Advanced sono di continuation, altri di mean-reversion. Trap Detection che scatta positivo **non** significa "vai long" - significa "fai fade del breakout fallito al ribasso". Controlla sempre il chip del bias di trading sulla scheda.
 
 ## Vedi anche
 

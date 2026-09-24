@@ -59,7 +59,7 @@ const VERDICT_TONE: Record<string, Tone> = {
 };
 
 const HEADER_TOOLTIP =
-  "Dealer gamma grouped by expiration. The nearest tranche disappears at its close whether or not anybody trades — the largest scheduled change to the surface, and the one thing a same-day snapshot can't show you. Share is measured on absolute gamma, because all of a tranche leaves even when it nets to zero.";
+  "Dealer gamma grouped by expiration. The nearest tranche disappears at its close whether or not anybody trades\u00a0- the largest scheduled change to the surface, and the one thing a same-day snapshot can't show you. Share is measured on absolute gamma, because all of a tranche leaves even when it nets to zero.";
 
 function shortDate(iso: string): string {
   try {
@@ -144,9 +144,13 @@ export default function ExpiryRolloffPanel({
       />
 
       <Zone flush>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(300px,1fr)_minmax(260px,1fr)_minmax(280px,1fr)]">
+        {/* Three columns need ~890px, which the card only has from xl up: at a
+            1024px window it is ~690px wide and the third column ran ~190px
+            past its right edge. Between lg and xl the verdict takes the full
+            width and the two ladders sit side by side under it. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_minmax(260px,1fr)_minmax(280px,1fr)]">
           {/* ── the verdict ─────────────────────────────────────────────── */}
-          <div>
+          <div className="lg:col-span-2 xl:col-span-1">
             <div className="flex flex-wrap items-start gap-4">
               <HeroStat
                 eyebrow={`Expiring ${payload.next.dte === 0 ? 'today' : `in ${payload.next.dte}d`}`}
@@ -186,7 +190,7 @@ export default function ExpiryRolloffPanel({
                 <Note tone="warning">
                   Only {payload.context.sessions_in_window} stored{' '}
                   {payload.context.sessions_in_window === 1 ? 'session' : 'sessions'} so far, so
-                  this isn’t ranked against history yet — the share above is still exact.
+                  this isn’t ranked against history yet&nbsp;- the share above is still exact.
                 </Note>
               </div>
             )}

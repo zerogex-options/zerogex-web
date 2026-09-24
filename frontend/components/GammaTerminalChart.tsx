@@ -18,10 +18,12 @@
  * across all twelve ZeroGEX palettes in light and dark.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Activity, Camera, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { Activity, Camera, ChevronDown, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
+import SymbolSelect from "./SymbolSelect";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -33,6 +35,7 @@ import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { wheelAction } from "@/core/wheelZoom";
+import { barsPrintedSince } from "@/core/chartViewHold";
 import {
   cumulativeNetVolume,
   lastSessionStartIndex,
@@ -43,10 +46,9 @@ import {
   type VolumeMode,
 } from "@/core/netVolumeSeries";
 import { seriesRollNote, summarizeSeriesContracts } from "@/core/futuresContract";
-import { useIsMobile } from "@/hooks/useIsMobile";
+import { useCoarsePointer, useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
-import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
@@ -153,45 +155,194 @@ const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
 const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
-const VW = 1360;
-const VH = 636;
-const PAD_TOP = 46;
-const PRICE_BOTTOM = 486;
-const VOL_TOP = 508;
-const VOL_BOTTOM = 586;
-const TIME_AXIS_Y = 604; // clock-time row
-const DATE_AXIS_Y = 620; // grouped trading-date row, below the times
-const PLOT_LEFT = 16;
-const PLOT_RIGHT = 1092;
-const INNER_PAD_X = 12; // left inset before the first bar
-// Right-side gutter reserved between the newest bar and the price axis, so the
-// last candle is never hidden under the wall / gamma / last-price tags that
-// sit on the axis. (Grid + level lines still run the full width to PLOT_RIGHT;
-// only the bars are inset.)
-const PAD_RIGHT = 82;
-// The right-hand price axis / tag column sits 10 units past the plot edge —
-// `axisColX` inside the component, since the edge moves in terminal mode.
+//
+// Two canvases. DESKTOP is the fixed 1360×636 board the instrument was drawn
+// on, scaled to whatever width the card has. That scaling is fine on a monitor
+// and ruinous on a phone: at 358px wide every 11-unit label renders at under
+// 3px. It used to be rescued by a 1000px minimum width inside a sideways
+// scroller, which made the chart something you swiped around rather than read.
+//
+// COMPACT is built for the width it is drawn at, one viewBox unit per CSS px,
+// so the same 10–11 unit labels are real 10–11px text. It is portrait-shaped
+// (taller than wide, capped by the viewport's height), keeps the price tags
+// inside the axis column instead of hanging an 82-unit gutter over the plot,
+// and narrows the rail. It applies to a card under 900px on a phone-sized
+// viewport or a touch screen, and to one under 700px driven by a mouse; wider
+// desktop cards get the desktop board drawn at their own width (see
+// desktopCanvas).
+//
+// The field names are the SCREAMING_CASE constants they replaced, destructured
+// back into locals at the top of the component, so the drawing code reads the
+// same either way.
+interface ChartCanvas {
+  compact: boolean;
+  VW: number;
+  VH: number;
+  PAD_TOP: number;
+  PRICE_BOTTOM: number;
+  VOL_TOP: number;
+  VOL_BOTTOM: number;
+  TIME_AXIS_Y: number; // clock-time row
+  DATE_AXIS_Y: number; // grouped trading-date row, below the times
+  PLOT_LEFT: number;
+  PLOT_RIGHT: number;
+  INNER_PAD_X: number; // left inset before the first bar
+  // Right-side gutter reserved between the newest bar and the price axis, so
+  // the last candle is never hidden under the wall / gamma / last-price tags
+  // that sit on the axis. (Grid + level lines still run the full width to
+  // PLOT_RIGHT; only the bars are inset.)
+  PAD_RIGHT: number;
+  // The inline rail's column. Its center and half-width are derived per
+  // instance (see `railCenter` / `railHalf`), because a panelled rail spans its
+  // own element instead of this column.
+  RAIL_LEFT: number;
+  RAIL_RIGHT: number;
+  // Terminal mode (hideRail): the tape runs out to where the rail used to end,
+  // keeping the same-width axis / tag column beside it.
+  PLOT_RIGHT_NO_RAIL: number;
+  // Offset from the plot edge to the axis labels (`axisColX`).
+  AXIS_LABEL_GAP: number;
+}
+
+const DESKTOP_CANVAS: ChartCanvas = {
+  compact: false,
+  VW: 1360,
+  VH: 636,
+  PAD_TOP: 46,
+  PRICE_BOTTOM: 486,
+  VOL_TOP: 508,
+  VOL_BOTTOM: 586,
+  TIME_AXIS_Y: 604,
+  DATE_AXIS_Y: 620,
+  PLOT_LEFT: 16,
+  PLOT_RIGHT: 1092,
+  INNER_PAD_X: 12,
+  PAD_RIGHT: 82,
+  RAIL_LEFT: 1172,
+  RAIL_RIGHT: 1352,
+  PLOT_RIGHT_NO_RAIL: 1352 - (1172 - 1092),
+  AXIS_LABEL_GAP: 10,
+};
+
+// The shortest the width-aware desktop board gets (see desktopCanvas).
+const DESKTOP_MIN_VH = 460;
+// The full-width board's rail, which is the only one its title fits.
+const DESKTOP_RAIL_W = DESKTOP_CANVAS.RAIL_RIGHT - DESKTOP_CANVAS.RAIL_LEFT;
+// Narrowest card (CSS px) a mouse-driven desktop draws the desktop board at.
+// Below it the board's fixed axis column and gutters would leave the tape a
+// sliver, so the compact canvas takes over there too.
+const DESKTOP_MIN_WIDTH = 700;
+
+/**
+ * The desktop board at the card's own width. The 1360-unit board used to be
+ * scaled down to fit its card, and no desktop page gives it 1360px: beside
+ * the ladders on the Terminal page (550-1080px) and on the Dashboard
+ * (690-1210px) its 10-11 unit labels rendered at 4-9px. Narrower than the
+ * board, the frame now narrows to the card instead (1 unit = 1 CSS px): the
+ * tape and the rail give up the width, the axis column and the type keep
+ * their size, and the height steps down in proportion, to a floor. At 1360
+ * this returns the board unchanged.
+ */
+function desktopCanvas(width: number): ChartCanvas {
+  const D = DESKTOP_CANVAS;
+  if (width >= D.VW) return D;
+  const VW = Math.round(width);
+  const VH = Math.max(DESKTOP_MIN_VH, Math.round((D.VH * VW) / D.VW));
+  // The same stack as the board, measured up from its bottom edge.
+  const DATE_AXIS_Y = VH - (D.VH - D.DATE_AXIS_Y);
+  const TIME_AXIS_Y = VH - (D.VH - D.TIME_AXIS_Y);
+  const VOL_BOTTOM = VH - (D.VH - D.VOL_BOTTOM);
+  const VOL_TOP = VOL_BOTTOM - (D.VOL_BOTTOM - D.VOL_TOP);
+  const PRICE_BOTTOM = VOL_TOP - (D.VOL_TOP - D.PRICE_BOTTOM);
+  const RAIL_RIGHT = VW - (D.VW - D.RAIL_RIGHT);
+  const railW = D.RAIL_RIGHT - D.RAIL_LEFT;
+  const RAIL_LEFT = RAIL_RIGHT - Math.round(Math.min(railW, Math.max(130, (VW * railW) / D.VW)));
+  const axisW = D.RAIL_LEFT - D.PLOT_RIGHT;
+  return {
+    ...D,
+    VW,
+    VH,
+    PRICE_BOTTOM,
+    VOL_TOP,
+    VOL_BOTTOM,
+    TIME_AXIS_Y,
+    DATE_AXIS_Y,
+    PLOT_RIGHT: RAIL_LEFT - axisW,
+    RAIL_LEFT,
+    RAIL_RIGHT,
+    PLOT_RIGHT_NO_RAIL: RAIL_RIGHT - axisW,
+  };
+}
+
+// Widest card (CSS px) that still gets the compact canvas.
+const COMPACT_MAX_WIDTH = 900;
+// Price column on the compact canvas: axis labels, with the price tags
+// right-aligned inside it (a 9-character NDX tag is ~67 units).
+const COMPACT_AXIS_W = 68;
+
+/**
+ * The compact canvas for a card `width` CSS px wide. Portrait screens get a
+ * tall board (about 1.3× as tall as wide — a phone has height to spare and the
+ * price pane is what it is for); a phone turned to landscape has ~350px of
+ * height, so there the board is short and wide. Keyed on orientation rather
+ * than on the measured viewport height, which a phone's collapsing address bar
+ * changes on every scroll.
+ */
+function compactCanvas(width: number, landscape: boolean): ChartCanvas {
+  const VW = Math.max(300, Math.round(width));
+  const VH = landscape
+    ? Math.min(420, Math.max(330, Math.round(VW * 0.62)))
+    : Math.min(640, Math.max(400, Math.round(VW * 1.3)));
+  const DATE_AXIS_Y = VH - 7;
+  const TIME_AXIS_Y = VH - 21;
+  const VOL_BOTTOM = VH - 34;
+  const VOL_TOP = VOL_BOTTOM - 48;
+  const PRICE_BOTTOM = VOL_TOP - 16;
+  const RAIL_RIGHT = VW - 4;
+  const RAIL_LEFT = RAIL_RIGHT - Math.round(Math.min(110, Math.max(58, VW * 0.17)));
+  const PLOT_RIGHT = RAIL_LEFT - COMPACT_AXIS_W;
+  return {
+    compact: true,
+    VW,
+    VH,
+    // Room for the regime caption; the OHLC readout sits above the canvas
+    // rather than over it on this canvas.
+    PAD_TOP: 26,
+    PRICE_BOTTOM,
+    VOL_TOP,
+    VOL_BOTTOM,
+    TIME_AXIS_Y,
+    DATE_AXIS_Y,
+    PLOT_LEFT: 6,
+    PLOT_RIGHT,
+    INNER_PAD_X: 6,
+    PAD_RIGHT: 12,
+    RAIL_LEFT,
+    RAIL_RIGHT,
+    PLOT_RIGHT_NO_RAIL: RAIL_RIGHT - COMPACT_AXIS_W,
+    AXIS_LABEL_GAP: 5,
+  };
+}
 
 // View window (zoom + pan). We keep a deep pool of bars in memory and show a
-// movable slice of it; the price axis auto-fits whatever is visible.
+// movable slice of it; the price axis auto-fits whatever is visible until the
+// reader first zooms or pans, and then holds still (see `pinnedAxis`).
 const POOL = 400; // bars retained for panning
 const DEFAULT_COUNT = 90; // bars shown in the default, live-following view
+// The compact canvas has ~270 units of tape against the desktop board's ~990,
+// so it opens on fewer bars (five hours of 5-minute candles) — each candle
+// stays a readable few px wide. Pinch or the Time buttons widen it.
+const COMPACT_DEFAULT_COUNT = 60;
 const MIN_COUNT = 18; // most zoomed-in (time)
 const ZOOM_FACTOR = 1.2;
-// Vertical (price-axis) zoom. `zoom` is the fraction of the auto-fit price
-// range shown: <1 stretches the candles (zoom in), >1 scrunches them (more
-// range in the same height). `center` is null while auto-fitting, or a pinned
-// price once the user scrunches / pans vertically.
+// Vertical (price-axis) zoom. `zoom` is the fraction of the base price range
+// shown (the auto-fit, or the window held once the reader took over): <1
+// stretches the candles (zoom in), >1 scrunches them (more range in the same
+// height). `center` is null until the reader pans vertically, then the price
+// they dragged to.
 const PRICE_ZOOM_MIN = 0.15;
 const PRICE_ZOOM_MAX = 8;
 const DEFAULT_PRICE_VIEW: { zoom: number; center: number | null } = { zoom: 1, center: null };
-const RAIL_LEFT = 1172;
-const RAIL_RIGHT = 1352;
-const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
-const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
-// Terminal mode (hideRail): the tape runs out to where the rail used to end,
-// keeping the same-width axis / tag column beside it.
-const PLOT_RIGHT_NO_RAIL = RAIL_RIGHT - (RAIL_LEFT - PLOT_RIGHT);
 // Ribbon colors — neon orbs: a saturated hue blooms around each orb (blurred
 // copy underneath) and a hot, near-white rim sits on top; the body is a
 // bright mix of the two. Sign keeps the ladder's warm (dealer long gamma) /
@@ -221,10 +372,10 @@ const clampRibbonOpacity = (v: number) => Math.min(RIBBON_OPACITY_MAX, Math.max(
 const RIBBON_GUIDE =
   "GEX ribbons: every strike is a horizontal lane, and every bar drops one orb in it. " +
   "HEIGHT is that strike's net dealer gamma in the bar's 5-minute analytics bucket, as a share of the heaviest " +
-  "strike on screen — an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
+  "strike on screen\u00a0- an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
   "OPACITY steps with the same share: faint below 15%, medium to 50%, solid above; orbs under 5% are not drawn. " +
   "COLOR is the sign: gold means dealers are net LONG gamma at the strike (they sell into strength and buy weakness " +
-  "there — a magnet and a brake), violet means net SHORT (they chase — an accelerant). " +
+  "there\u00a0- a magnet and a brake), violet means net SHORT (they chase\u00a0- an accelerant). " +
   "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
   "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
   "History covers the polled strike window, so earlier bars stay blank. " +
@@ -469,6 +620,9 @@ export default function GammaTerminalChart({
   overlayDefaults,
   onGeometry,
   onRewind,
+  strikePanelTarget = null,
+  strikePanelBand = null,
+  railControlsTarget = null,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
@@ -490,14 +644,127 @@ export default function GammaTerminalChart({
   onGeometry?: (geometry: ChartGeometry) => void;
   /** Receives the replay clock whenever rewind starts, moves, or ends. */
   onRewind?: (state: RewindState) => void;
+  /**
+   * Draw the gamma-structure rail HERE instead of inside the chart's own SVG.
+   *
+   * The Gamma Terminal keeps one layout — tape on the left, a panel beside it —
+   * and lets the reader choose what the panel holds: two gamma ladders, or this
+   * rail. So the rail has to leave the chart's right-hand column and become a
+   * panel of its own, WITHOUT leaving the component: every number it draws
+   * (the live bucket vs the rewound one vs the delayed snapshot, the expiry
+   * scope, the per-expiration split) is derived here, and a second component
+   * re-deriving it is a second chance to disagree with the tape it sits beside.
+   *
+   * So the chart portals the rail into the element the page gives it. The page
+   * owns where that element sits — it positions it across the tape's own price
+   * band, so a strike's bar is level with that price on the candles — and the
+   * chart owns what is drawn in it and at what scale. The rail's x geometry
+   * becomes per-instance (see `railCenter` / `railHalf`): inline it spans its
+   * old column, in a panel it spans the element, with the viewBox shaped to the
+   * element's aspect so nothing is stretched.
+   *
+   * Null (the default) keeps the rail inline, which is what /dashboard,
+   * /my-dashboard and the public gamma-levels pages still mount.
+   */
+  strikePanelTarget?: HTMLElement | null;
+  /**
+   * Where the chart's price band sits inside `strikePanelTarget`, in CSS px
+   * from that element's top — `top` to the tape's first price, `height` for
+   * the band itself.
+   *
+   * This is what ties the panel to the tape: one px-per-price scale is derived
+   * from it and used for the whole element, so a strike lands at exactly the
+   * height that price has on the candles. The element is taller than the band
+   * (it fills its card, while the band is only as tall as the tape, which
+   * starts below the chart's header), and that surplus is not padding: the
+   * panel keeps the same scale through it and draws the strikes that sit just
+   * above and just below the visible tape, which is precisely where the wall
+   * you are about to run into tends to be.
+   *
+   * Null — a stacked layout, with no chart band beside it to match — falls back
+   * to fitting the visible price domain to the element.
+   */
+  strikePanelBand?: { top: number; height: number } | null;
+  /** Where to put the rail's own view controls (Silhouette / Net / Split /
+   *  Combined + Labels) when the rail is panelled — they belong on the panel,
+   *  not on the toolbar of a chart that is no longer drawing it. */
+  railControlsTarget?: HTMLElement | null;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
+
+  // ── Canvas ── desktop board or compact (see ChartCanvas). Chosen from the
+  // card's measured width, so it is decided on the client: the server and the
+  // first client render both draw the desktop board, and a layout effect swaps
+  // in the compact one before the browser paints. On a phone the unmeasured
+  // board is kept invisible by CSS until then (.zg-gc-canvas in globals.css),
+  // so it never flashes at 3px text.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const setRootNode = useCallback((el: HTMLDivElement | null) => {
+    rootRef.current = el;
+    setRootEl(el);
+  }, []);
+  const [box, setBox] = useState<{ w: number; landscape: boolean } | null>(null);
+  useLayoutEffect(() => {
+    if (!rootEl) return;
+    const measure = () => {
+      const w = rootEl.clientWidth;
+      const landscape = window.innerWidth > window.innerHeight;
+      setBox((cur) => (cur && Math.abs(cur.w - w) < 1 && cur.landscape === landscape ? cur : { w, landscape }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(rootEl);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, [rootEl]);
+  const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
+  // A phone or touch screen: the gesture grammar and the touch copy apply.
+  const touchUi = isMobile || coarsePointer;
+  const canvas = useMemo(() => {
+    if (!box || box.w <= 0) return DESKTOP_CANVAS;
+    if (box.w < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)) return compactCanvas(box.w, box.landscape);
+    return desktopCanvas(box.w);
+  }, [box, touchUi]);
+  const {
+    compact,
+    VW,
+    VH,
+    PAD_TOP,
+    PRICE_BOTTOM,
+    VOL_TOP,
+    VOL_BOTTOM,
+    TIME_AXIS_Y,
+    DATE_AXIS_Y,
+    PLOT_LEFT,
+    PLOT_RIGHT,
+    INNER_PAD_X,
+    PAD_RIGHT,
+    RAIL_LEFT,
+    RAIL_RIGHT,
+    PLOT_RIGHT_NO_RAIL,
+    AXIS_LABEL_GAP,
+  } = canvas;
+  const defaultCount = compact ? COMPACT_DEFAULT_COUNT : DEFAULT_COUNT;
+  // The compact toolbar's Layers panel (closed until asked for).
+  const [layersOpen, setLayersOpen] = useState(false);
+  const layersPanelId = useId();
+
   // Per-instance plot geometry: without the rail the tape widens to where the
   // rail used to end and the axis / tag column moves out with it.
   const plotRight = hideRail ? PLOT_RIGHT_NO_RAIL : PLOT_RIGHT;
-  const axisColX = plotRight + 10;
+  const axisColX = plotRight + AXIS_LABEL_GAP;
   const axisRight = hideRail ? VW : RAIL_LEFT;
+  // Where a price tag's RIGHT edge sits. The desktop board hangs its tags off
+  // the plot edge, over the PAD_RIGHT gutter; the compact canvas has no width
+  // for that gutter, so its tags ride inside the axis column instead, the way a
+  // phone trading app draws them.
+  const tagX = compact ? axisRight - 1 : axisColX - 6;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
   const symbol = snapshot ? snapshot.symbol : ctxSymbol;
   // On a linked split board the price axis is shared with the other half — see
@@ -509,7 +776,6 @@ export default function GammaTerminalChart({
   // each would auto-fit to on its own. Null when unlinked, or when this chart
   // is the only one on its symbol (nothing to reconcile with).
   const linkedBase = priceLink ? priceLink.domains.get(symbol) ?? null : null;
-  const isMobile = useIsMobile();
   // Price tags are filled with a level's own colour, so their text is picked
   // per chip rather than from the theme's inverse ink.
   const chipInk = useChipInk();
@@ -518,20 +784,95 @@ export default function GammaTerminalChart({
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [volumeMode, setVolumeMode] = useState<VolumeMode>("updown");
   const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
-  // The rail cannot be shown at all in terminal mode — its column is gone.
-  const railOn = overlays.rail && !hideRail;
+
+  // ── Where the rail is drawn ──────────────────────────────────────────────
+  // Inline (the default) it occupies its own column inside the chart's SVG.
+  // Panelled (`strikePanelTarget`) it is portalled out to an element the page
+  // positions beside the tape, and the chart's own column is gone.
+  const inPanel = !!strikePanelTarget;
+  // The panel's pixel box, so the viewBox can be shaped to its aspect and the
+  // bars are never stretched. Measured rather than assumed: the page sizes the
+  // element from the chart's reported geometry, which moves with the layout.
+  const [panelBox, setPanelBox] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = strikePanelTarget;
+    // Nothing to measure, and nothing to clear: `panelBox` is only read while a
+    // target exists, so a stale box is never drawn from.
+    if (!el) return;
+    // ResizeObserver fires once on observe, so the first measurement arrives
+    // from the observer rather than from a synchronous setState in this body.
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      setPanelBox((cur) =>
+        cur && Math.abs(cur.width - r.width) < 0.5 && Math.abs(cur.height - r.height) < 0.5
+          ? cur
+          : { width: r.width, height: r.height },
+      );
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [strikePanelTarget]);
+  // The panel's viewBox, in the chart's own y units — which is the whole trick:
+  // `yPrice` is then correct inside the panel with no adjustment at all, so a
+  // strike is drawn at the height its price has on the tape.
+  //
+  // `u` is the one scale: chart y-units per CSS px, taken from the band the
+  // page reports. Everything else follows from it, which is also why nothing is
+  // ever stretched — width and height are converted by the same number, so the
+  // viewBox always has the element's aspect.
+  const PANEL_VB_H = PRICE_BOTTOM - PAD_TOP;
+  const panelVb = (() => {
+    if (!panelBox || panelBox.height <= 0) {
+      return { y: PAD_TOP, h: PANEL_VB_H, w: RAIL_RIGHT - RAIL_LEFT };
+    }
+    if (strikePanelBand && strikePanelBand.height > 0) {
+      const u = PANEL_VB_H / strikePanelBand.height;
+      return { y: PAD_TOP - strikePanelBand.top * u, h: panelBox.height * u, w: Math.max(60, panelBox.width * u) };
+    }
+    // No band to match: fit the tape's price band to the element instead.
+    return { y: PAD_TOP, h: PANEL_VB_H, w: Math.max(60, PANEL_VB_H * (panelBox.width / panelBox.height)) };
+  })();
+  const railLeft = inPanel ? 0 : RAIL_LEFT;
+  const railRight = inPanel ? panelVb.w : RAIL_RIGHT;
+  const railCenter = (railLeft + railRight) / 2;
+  const railHalf = (railRight - railLeft) / 2 - 10;
+  // Inline, the rail is an overlay the reader toggles off. Panelled, it IS the
+  // panel — the page's own view switch put it there, so an overlay pill that
+  // could empty the panel would be a second, contradictory control.
+  const railOn = inPanel || (overlays.rail && !hideRail);
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
+  // The live view's bar count follows the canvas: when the compact canvas is
+  // swapped in after measuring (or out again on a resize), an untouched view
+  // takes that canvas's default. A view the reader has zoomed or panned is left
+  // alone. Adjusted during render, like the symbol/timeframe reset below.
+  const [viewDefault, setViewDefault] = useState(DEFAULT_COUNT);
+  if (viewDefault !== defaultCount) {
+    setViewDefault(defaultCount);
+    setView((v) => (v.count === viewDefault && v.offset === 0 ? { count: defaultCount, offset: 0 } : v));
+  }
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
+  // The base price window, held still once the reader has touched the view.
+  // Null while the axis auto-fits, which it does only until the first zoom or
+  // pan (time or price, by wheel, drag, pinch or button). That gesture pins the
+  // window on screen at that moment, and from then on the price axis moves only
+  // when the reader moves it: live ticks, a flip or wall that moves, spot
+  // re-centering the terminal and a pan through time no longer re-scale it
+  // under their hand. Reset, a double-click, and a new symbol or timeframe hand
+  // it back to the auto-fit; a jump back to the live edge keeps it (see
+  // keepLatestInHeldWindow). `priceView` applies on top of it, exactly as it
+  // does on top of the auto-fit. Unlinked charts only: a linked board holds its
+  // shared window in the link (core/linkedPriceAxis).
+  const [pinnedAxis, setPinnedAxis] = useState<{ mid: number; half: number } | null>(null);
   // The zoom/pan actually on screen, wherever it is stored. Gesture handlers
   // read this so a drag on the half that ISN'T driving still starts from what
   // that half is showing.
   const effPriceZoom = priceLink ? (linkedView?.zoom ?? 1) : priceView.zoom;
   const priceIsManual = priceLink
     ? linkedView !== null
-    : priceView.center !== null || priceView.zoom !== 1;
+    : pinnedAxis !== null || priceView.center !== null || priceView.zoom !== 1;
   // Client-stamped instant of the latest live quote tick — drives the realtime
   // "updated HH:MM:SS ET" line (see fmtEtClock). Null until the first tick and
   // in delayed mode; never used server-side, so no hydration mismatch.
@@ -576,8 +917,9 @@ export default function GammaTerminalChart({
   const [viewKey, setViewKey] = useState(`${symbol}:${timeframe}`);
   if (viewKey !== `${symbol}:${timeframe}`) {
     setViewKey(`${symbol}:${timeframe}`);
-    setView({ count: DEFAULT_COUNT, offset: 0 });
+    setView({ count: defaultCount, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
+    setPinnedAxis(null);
     setRewindActive(false);
     setRewindTime(null);
     setPlaybackActive(false);
@@ -901,6 +1243,18 @@ export default function GammaTerminalChart({
   // how many bars are hidden to the RIGHT of the view (0 = live edge, so the
   // window follows new bars). `count` is how many bars are visible.
   const total = allBars.length;
+  // A view panned back in time stays on the bars it is showing. Counted from
+  // the right, the same offset would slide the window one bar to the left under
+  // the reader every time a bar printed, so each print widens the offset by the
+  // bars that printed. The live edge (offset 0) still follows new bars. Adjusted
+  // during render, like the symbol/timeframe reset above.
+  const newestBarTs = total > 0 ? allBars[total - 1].timestamp : null;
+  const [seenNewestBarTs, setSeenNewestBarTs] = useState(newestBarTs);
+  if (seenNewestBarTs !== newestBarTs) {
+    setSeenNewestBarTs(newestBarTs);
+    const printed = barsPrintedSince(allBars, seenNewestBarTs);
+    if (printed > 0) setView((v) => (v.offset > 0 ? { ...v, offset: v.offset + printed } : v));
+  }
   const effCount = total === 0 ? 0 : clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
   const maxOffset = Math.max(0, total - effCount);
   const effOffset = clamp(view.offset, 0, maxOffset);
@@ -1067,10 +1421,10 @@ export default function GammaTerminalChart({
       scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
       last: values[values.length - 1],
     };
-  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol]);
+  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol, VOL_TOP, VOL_BOTTOM]);
 
   const atLiveEdge = !rewindActive && effOffset === 0;
-  const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
+  const isCustomView = view.offset !== 0 || view.count !== defaultCount || priceIsManual;
 
   // The gamma structure at the rewound moment: the newest bucket at or before
   // the anchor, within the anchor's own session. Keyed off the CLAMPED anchor,
@@ -1310,10 +1664,11 @@ export default function GammaTerminalChart({
   const extIcon = session === "pre-market" ? "sun" : "moon";
 
   // ── Crosshair state ──────────────────────────────────────────────────────
-  const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
+  // `touch`: the crosshair was put down by a finger. Its readout then pins to
+  // the top of the chart instead of trailing the point, which the hand covers.
+  const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number; touch?: boolean } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -1368,7 +1723,7 @@ export default function GammaTerminalChart({
 
     // Auto-fit domain complete. Apply the manual vertical zoom/pan on top:
     // scrunch by priceView.zoom around a center (priceView.center, or the
-    // auto midpoint while still auto-fitting).
+    // base window's midpoint until the reader pans vertically).
     const autoMin = dMin;
     const autoMax = dMax;
     // Raw, purely data-derived auto-fit. Reported to the link as-is (see the
@@ -1376,16 +1731,19 @@ export default function GammaTerminalChart({
     // report and the shared window would chase each other.
     const autoMid = (autoMin + autoMax) / 2;
     const autoHalf = Math.max((autoMax - autoMin) / 2, 1e-6);
-    // The window the manual zoom/pan is applied to. Three sources, in order:
+    // The window the manual zoom/pan is applied to. Four sources, in order:
     // the axis frozen at rewind entry (so scrubbing never moves the y-axis);
-    // the window shared with the other half of a linked board (so two expiries
-    // of one symbol start out on identical price bands); or this chart's own
+    // the window the reader pinned by zooming or panning (so from then on only
+    // the reader moves it); the window shared with the other half of a linked
+    // board (so two expiries of one symbol start out on identical price bands,
+    // and the link holds it once either half is touched); or this chart's own
     // auto-fit.
     const frozen = rewindActive ? frozenAxis : null;
-    const shared = frozen ? null : linkedBase;
-    const baseMid = frozen ? frozen.mid : shared ? (shared.min + shared.max) / 2 : autoMid;
-    const baseHalf = frozen
-      ? frozen.half
+    const held = frozen ?? (priceLink ? null : pinnedAxis);
+    const shared = held ? null : linkedBase;
+    const baseMid = held ? held.mid : shared ? (shared.min + shared.max) / 2 : autoMid;
+    const baseHalf = held
+      ? held.half
       : shared
         ? Math.max((shared.max - shared.min) / 2, 1e-6)
         : autoHalf;
@@ -1418,7 +1776,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight]);
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // Terminal mode: report where the tape's price band and the live spot sit, in
   // CSS px from the card's top edge, so the ladders beside the chart can pin
@@ -1458,7 +1816,7 @@ export default function GammaTerminalChart({
     ro.observe(svg);
     ro.observe(root);
     return () => ro.disconnect();
-  }, [onGeometry, layout, spotForGeometry]);
+  }, [onGeometry, layout, spotForGeometry, VW, PAD_TOP, PRICE_BOTTOM]);
 
   // Broadcast the replay clock so a surface can show the book as of the same
   // moment. Fires on enter, every scrub / playback step, and exit.
@@ -1499,16 +1857,35 @@ export default function GammaTerminalChart({
     return () => reportDomain(linkKey, null);
   }, [reportDomain, linkKey, symbol, autoMid, autoHalf]);
 
+  // The reader has taken the price axis over: stop re-fitting it and hold the
+  // window on screen now. Every zoom and pan calls this before it moves
+  // anything, the time ones included, because a time pan or zoom changes which
+  // bars are visible and the auto-fit would re-scale the price axis under the
+  // reader's hand. Only the first call pins; after that it does nothing. On a
+  // linked board the link holds the shared window for both halves instead.
+  const holdPriceAxis = () => {
+    if (priceLink) {
+      priceLink.hold();
+      return;
+    }
+    if (!layout) return;
+    const { baseMid, baseHalf } = layout;
+    setPinnedAxis((pa) => pa ?? { mid: baseMid, half: baseHalf });
+  };
+
   // Every price zoom / pan goes through one of these two. On a linked board
   // they write the shared view — a zoom multiplier plus a pan relative to the
   // shared base window — so both halves move together; otherwise they update
-  // this chart's own axis exactly as before. They are split by axis so that
-  // zooming never disturbs the pan and vice versa, in either mode.
+  // this chart's own axis. Either way the first one holds the base window, so
+  // the zoom or pan is never re-scaled by the auto-fit afterward. They are
+  // split by axis so that zooming never disturbs the pan and vice versa, in
+  // either mode.
   const commitPriceZoom = (nextZoom: number) => {
     if (priceLink) {
       priceLink.setView({ zoom: nextZoom, centerRel: linkedView?.centerRel ?? 0 });
       return;
     }
+    holdPriceAxis();
     setPriceView((pv) => (pv.zoom === nextZoom ? pv : { zoom: nextZoom, center: pv.center }));
   };
 
@@ -1521,26 +1898,37 @@ export default function GammaTerminalChart({
       });
       return;
     }
+    holdPriceAxis();
     setPriceView((pv) => (pv.center === nextCenter ? pv : { zoom: pv.zoom, center: nextCenter }));
   };
 
+  // The price range the rail covers. Inline it is exactly the tape's visible
+  // domain — the rail is a column of the chart and shows what the chart shows.
+  // Panelled it is the panel's own extent, which reaches past the tape at both
+  // ends, so the strikes just off-screen are drawn instead of cropped.
+  const railDomain = useMemo(() => {
+    if (!layout) return null;
+    if (!inPanel) return { min: layout.dMin, max: layout.dMax };
+    return { max: layout.priceForY(panelVb.y), min: layout.priceForY(panelVb.y + panelVb.h) };
+  }, [layout, inPanel, panelVb.y, panelVb.h]);
+
   // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
   const rail = useMemo(() => {
-    if (!layout || profilePoints.length < 2) return null;
-    const pts = profilePoints.filter((p) => p.price >= layout.dMin && p.price <= layout.dMax);
+    if (!layout || !railDomain || profilePoints.length < 2) return null;
+    const pts = profilePoints.filter((p) => p.price >= railDomain.min && p.price <= railDomain.max);
     if (pts.length < 2) return null;
     const maxAbs = Math.max(...pts.map((p) => Math.abs(p.gex)), 1);
-    const xFor = (gex: number) => RAIL_CENTER + clamp(gex / maxAbs, -1, 1) * RAIL_HALF;
+    const xFor = (gex: number) => railCenter + clamp(gex / maxAbs, -1, 1) * railHalf;
     const yFor = (price: number) => layout.yPrice(price);
 
     const posPath =
-      `M ${RAIL_CENTER} ${yFor(pts[0].price)} ` +
+      `M ${railCenter} ${yFor(pts[0].price)} ` +
       pts.map((p) => `L ${xFor(Math.max(0, p.gex)).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ") +
-      ` L ${RAIL_CENTER} ${yFor(pts[pts.length - 1].price)} Z`;
+      ` L ${railCenter} ${yFor(pts[pts.length - 1].price)} Z`;
     const negPath =
-      `M ${RAIL_CENTER} ${yFor(pts[0].price)} ` +
+      `M ${railCenter} ${yFor(pts[0].price)} ` +
       pts.map((p) => `L ${xFor(Math.min(0, p.gex)).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ") +
-      ` L ${RAIL_CENTER} ${yFor(pts[pts.length - 1].price)} Z`;
+      ` L ${railCenter} ${yFor(pts[pts.length - 1].price)} Z`;
     const edge = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(p.gex).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ");
 
     // Peaks — the call-side and put-side extrema (the literal "walls").
@@ -1551,7 +1939,7 @@ export default function GammaTerminalChart({
       if (p.gex < putPeak.gex) putPeak = p;
     }
     return { pts, maxAbs, xFor, yFor, posPath, negPath, edge, callPeak, putPeak };
-  }, [layout, profilePoints]);
+  }, [layout, railDomain, profilePoints, railCenter, railHalf]);
 
   // Interpolate net dealer gamma at an arbitrary price (for the crosshair).
   const gexAtPrice = useCallback(
@@ -1677,7 +2065,7 @@ export default function GammaTerminalChart({
     const singleShown = railStackExpiries.length <= 1;
     const rects: ReactNode[] = [];
     const yTop = y - barH / 2;
-    let cursor = RAIL_CENTER;
+    let cursor = railCenter;
     segs.forEach(({ exp, frac }) => {
       const w = totalWidth * frac;
       if (!(w > 0)) return;
@@ -1700,8 +2088,8 @@ export default function GammaTerminalChart({
   // Bar geometry: an x-scale max per mode, a bar thickness from the median
   // vertical strike spacing, and a density gate for the on-bar $ labels.
   const railBars = useMemo(() => {
-    if (!layout || effectiveRailMode === "silhouette") return null;
-    const inView = railStrikes.filter((s) => s.price >= layout.dMin && s.price <= layout.dMax);
+    if (!layout || !railDomain || effectiveRailMode === "silhouette") return null;
+    const inView = railStrikes.filter((s) => s.price >= railDomain.min && s.price <= railDomain.max);
     if (inView.length === 0) return null;
     const maxAbs =
       effectiveRailMode === "net"
@@ -1709,7 +2097,7 @@ export default function GammaTerminalChart({
         : effectiveRailMode === "split"
           ? Math.max(...inView.flatMap((s) => [Math.abs(s.callGex), Math.abs(s.putGex)]), 1)
           : Math.max(...inView.flatMap((s) => [Math.abs(s.callGex), Math.abs(s.putGex), Math.abs(s.netGex)]), 1);
-    const wFor = (v: number) => (Math.abs(v) / maxAbs) * RAIL_HALF;
+    const wFor = (v: number) => (Math.abs(v) / maxAbs) * railHalf;
     const ys = inView.map((s) => layout.yPrice(s.price)).sort((a, b) => a - b);
     const gaps: number[] = [];
     for (let i = 1; i < ys.length; i++) gaps.push(ys[i] - ys[i - 1]);
@@ -1718,7 +2106,7 @@ export default function GammaTerminalChart({
     const barH = Math.max(1.5, Math.min(11, slot * 0.6));
     const showLabels = railLabels && slot >= RAIL_LABEL_MIN_SLOT;
     return { inView, maxAbs, wFor, barH, showLabels };
-  }, [layout, railStrikes, effectiveRailMode, railLabels]);
+  }, [layout, railDomain, railStrikes, effectiveRailMode, railLabels, railHalf, PAD_TOP, PRICE_BOTTOM]);
 
   // Day-boundary separators for the time axis.
   const dateMarkers = useMemo(() => {
@@ -1757,7 +2145,14 @@ export default function GammaTerminalChart({
     return groups;
   }, [bars]);
 
+  // Mobile browsers replay a tap as mousedown/mousemove/mouseup a moment
+  // later. The touch handlers below already acted on it, so the mouse path
+  // sits out for a beat after any touch rather than acting on it twice.
+  const lastTouchAtRef = useRef(0);
+  const fromRecentTouch = () => Date.now() - lastTouchAtRef.current < 800;
+
   const handlePointerDown = (e: MouseEvent<SVGSVGElement>) => {
+    if (fromRecentTouch()) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
     // A drag that starts on the right-hand price scale zooms the y-axis
@@ -1779,7 +2174,7 @@ export default function GammaTerminalChart({
   };
 
   const handlePointerMove = (e: MouseEvent<SVGSVGElement>) => {
-    if (!layout || bars.length === 0) return;
+    if (!layout || bars.length === 0 || fromRecentTouch()) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const drag = dragRef.current;
     if (drag) {
@@ -1803,6 +2198,7 @@ export default function GammaTerminalChart({
         drag.moved = true;
         setDragging(true);
         setHover(null);
+        holdPriceAxis();
       }
       if (drag.moved) {
         // Horizontal → time pan. Dragging the tape right reveals older bars.
@@ -1811,16 +2207,20 @@ export default function GammaTerminalChart({
         const nextOffset = clamp(drag.startOffset + dBars, 0, maxOffset);
         setView((v) => (v.offset === nextOffset ? v : { ...v, offset: nextOffset }));
 
-        // Vertical → price pan. Keep price auto-fitting during ordinary
-        // horizontal panning; only engage manual price mode once the user has
-        // already scrunched, or the gesture turns clearly vertical.
+        // Vertical → price pan. Once the axis was already held when the drag
+        // began, a drag pans both ways, as on any chart whose scale is set by
+        // hand. On a chart still fitting itself, only a gesture that turns
+        // clearly vertical pans price, so a sideways drag doesn't wobble it.
         const verticalGesture = Math.abs(dyScreen) > Math.abs(dxScreen) && Math.abs(dyScreen) > 6;
         if (drag.startPriceManual || drag.priceEngaged || verticalGesture) {
           drag.priceEngaged = true;
           const dyView = dyScreen * (VH / Math.max(1, rect.height));
           const dPrice = (dyView * drag.startSpan) / (PRICE_BOTTOM - PAD_TOP);
-          const lo = layout.autoMid - layout.autoHalf * 6;
-          const hi = layout.autoMid + layout.autoHalf * 6;
+          // Within reach of the bars on screen, but never a snap: a held axis
+          // can sit well away from the bars a pan through time brought into
+          // view, and the drag carries on from wherever the window is.
+          const lo = Math.min(drag.startCenter, layout.autoMid - layout.autoHalf * 6);
+          const hi = Math.max(drag.startCenter, layout.autoMid + layout.autoHalf * 6);
           commitPriceCenter(clamp(drag.startCenter + dPrice, lo, hi));
         }
         return;
@@ -1850,23 +2250,212 @@ export default function GammaTerminalChart({
   };
 
   const handlePointerLeave = () => {
+    // A touch crosshair is meant to stay put after the finger lifts; the
+    // replayed mouseleave from the tap must not take it straight back down.
+    if (fromRecentTouch()) return;
     setHover(null);
     if (overAxis) setOverAxis(false);
     endDrag();
   };
 
+  // ── Touch ────────────────────────────────────────────────────────────────
+  // A finger gets its own grammar, because a touchscreen has no hover and no
+  // wheel. The SVG claims only horizontal gestures (touch-action: pan-y), so a
+  // vertical swipe still scrolls the page, while:
+  //   • a horizontal drag pans through time,
+  //   • two fingers pinch the time axis in and out about their midpoint,
+  //   • a press-and-hold drops the crosshair, and the held finger scrubs it,
+  //   • a tap drops the crosshair where it lands, and a tap on a chart already
+  //     showing one lifts it.
+  // The crosshair outlives the finger so its readout can actually be read.
+  // Mouse and pen input never reach these handlers.
+  const touchRef = useRef<{
+    points: Map<number, { x: number; y: number }>;
+    mode: "pending" | "pan" | "scrub" | "pinch" | "spent";
+    startX: number;
+    startY: number;
+    startOffset: number;
+    pinchDist: number;
+    pinchCount: number;
+    pinchOffset: number;
+    pinchAnchorVx: number;
+    holdTimer: ReturnType<typeof setTimeout> | null;
+    hadHover: boolean;
+  } | null>(null);
+
+  const hoverAtClient = (clientX: number, clientY: number, rect: DOMRect, touch: boolean) => {
+    if (!layout || bars.length === 0) return;
+    const vx = (clientX - rect.left) * (VW / Math.max(1, rect.width));
+    const vy = (clientY - rect.top) * (VH / Math.max(1, rect.height));
+    const idx = Math.round((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, layout.xStep));
+    const clampedIdx = Math.max(0, Math.min(bars.length - 1, idx));
+    const price = layout.priceForY(clamp(vy, PAD_TOP, PRICE_BOTTOM));
+    setHover({ idx: clampedIdx, price, px: clientX - rect.left, py: clientY - rect.top, w: rect.width, h: rect.height, touch });
+  };
+
+  // Time zoom by `factor` about a viewBox x, from a captured starting view —
+  // the pinch's anchor stays under the fingers for the whole gesture instead
+  // of drifting as each frame compounds on the last.
+  const zoomTimeFrom = (anchorVx: number, startCount: number, startOffset: number, factor: number) => {
+    if (total <= 1) return;
+    const curCount = clamp(startCount, MIN_COUNT, Math.max(MIN_COUNT, total));
+    const curOffset = clamp(startOffset, 0, Math.max(0, total - curCount));
+    const curEnd = total - curOffset;
+    const curStart = Math.max(0, curEnd - curCount);
+    const curVisible = Math.max(1, curEnd - curStart);
+    const curXStep = (plotRight - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, curVisible - 1);
+    const rel = clamp((anchorVx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, curXStep), 0, curVisible - 1);
+    const anchorAbs = curStart + rel;
+    const f = curVisible > 1 ? rel / (curVisible - 1) : 0.5;
+    const newCount = clamp(Math.round(curCount * factor), MIN_COUNT, total);
+    const newStart = Math.round(anchorAbs - f * (newCount - 1));
+    const newOffset = clamp(total - (newStart + newCount), 0, Math.max(0, total - newCount));
+    setView((v) => (v.count === newCount && v.offset === newOffset ? v : { count: newCount, offset: newOffset }));
+  };
+
+  const clearHold = () => {
+    const t = touchRef.current;
+    if (t?.holdTimer) {
+      clearTimeout(t.holdTimer);
+      t.holdTimer = null;
+    }
+  };
+
+  const handleTouchDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch" || !layout) return;
+    lastTouchAtRef.current = Date.now();
+    const svg = e.currentTarget;
+    let t = touchRef.current;
+    if (!t) {
+      t = {
+        points: new Map(),
+        mode: "pending",
+        startX: e.clientX,
+        startY: e.clientY,
+        startOffset: effOffset,
+        pinchDist: 0,
+        pinchCount: effCount,
+        pinchOffset: effOffset,
+        pinchAnchorVx: 0,
+        holdTimer: null,
+        hadHover: hover != null,
+      };
+      touchRef.current = t;
+    }
+    t.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      svg.setPointerCapture(e.pointerId);
+    } catch {
+      /* the pointer may already be gone */
+    }
+    if (t.points.size === 1) {
+      // Held still long enough, it is a crosshair rather than a pan.
+      const x = e.clientX;
+      const y = e.clientY;
+      t.holdTimer = setTimeout(() => {
+        const cur = touchRef.current;
+        if (!cur || cur.mode !== "pending") return;
+        cur.mode = "scrub";
+        cur.holdTimer = null;
+        hoverAtClient(x, y, svg.getBoundingClientRect(), true);
+      }, 260);
+    } else if (t.points.size === 2) {
+      clearHold();
+      const [a, b] = [...t.points.values()];
+      const rect = svg.getBoundingClientRect();
+      t.mode = "pinch";
+      t.pinchDist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      t.pinchCount = effCount;
+      t.pinchOffset = effOffset;
+      t.pinchAnchorVx = ((a.x + b.x) / 2 - rect.left) * (VW / Math.max(1, rect.width));
+      setHover(null);
+      holdPriceAxis();
+    }
+  };
+
+  const handleTouchMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== "touch" || !t || !t.points.has(e.pointerId) || !layout) return;
+    lastTouchAtRef.current = Date.now();
+    t.points.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (t.mode === "pinch") {
+      if (t.points.size < 2) return;
+      const [a, b] = [...t.points.values()];
+      const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      // Fingers apart → fewer bars (zoom in); together → more.
+      zoomTimeFrom(t.pinchAnchorVx, t.pinchCount, t.pinchOffset, t.pinchDist / dist);
+      return;
+    }
+    if (t.mode === "scrub") {
+      hoverAtClient(e.clientX, e.clientY, rect, true);
+      return;
+    }
+    const dx = e.clientX - t.startX;
+    if (t.mode === "pending") {
+      if (Math.abs(dx) < 8) return;
+      clearHold();
+      t.mode = "pan";
+      t.startX = e.clientX;
+      t.startOffset = effOffset;
+      setHover(null);
+      holdPriceAxis();
+      return;
+    }
+    if (t.mode === "pan") {
+      // Dragging the tape right reveals older bars, as with the mouse.
+      const dxView = (e.clientX - t.startX) * (VW / Math.max(1, rect.width));
+      const dBars = Math.round(dxView / Math.max(1e-9, layout.xStep));
+      const nextOffset = clamp(t.startOffset + dBars, 0, maxOffset);
+      setView((v) => (v.offset === nextOffset ? v : { ...v, offset: nextOffset }));
+    }
+  };
+
+  const handleTouchEnd = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== "touch" || !t) return;
+    lastTouchAtRef.current = Date.now();
+    const wasTap = e.type === "pointerup" && t.mode === "pending" && t.points.size === 1;
+    t.points.delete(e.pointerId);
+    clearHold();
+    if (wasTap) {
+      if (t.hadHover) setHover(null);
+      else hoverAtClient(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect(), true);
+    }
+    if (t.points.size === 0) {
+      touchRef.current = null;
+    } else if (t.mode === "pinch") {
+      // One finger left after a pinch: ignore it until it lifts, rather than
+      // letting it turn into a pan that jumps from wherever it now sits.
+      t.mode = "spent";
+    }
+  };
+
+  // Back to the live view, and the price axis back to fitting itself.
   const resetView = () => {
-    setView({ count: DEFAULT_COUNT, offset: 0 });
+    setView({ count: defaultCount, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
+    setPinnedAxis(null);
     priceLink?.setView(null);
     setHover(null);
+  };
+
+  // For a jump back to the live edge. A price axis the reader holds keeps their
+  // scale, but if the latest price has left its window the window is
+  // re-centered on it, so the jump always lands on the bar it names. An axis
+  // still fitting itself finds the live bars on its own.
+  const keepLatestInHeldWindow = () => {
+    if (!priceIsManual || !layout) return;
+    const latest = liveClose ?? allBars[allBars.length - 1]?.close ?? null;
+    if (latest == null || !Number.isFinite(latest)) return;
+    if (latest < layout.dMin || latest > layout.dMax) commitPriceCenter(latest);
   };
 
   // ── PNG export ──────────────────────────────────────────────────────────
   // Snapshot the instrument exactly as it stands — same overlays, same zoom,
   // same expiry filter — the way TradingView's camera does. The raster comes
-  // off the SVG's viewBox rather than its on-screen box, so the file is the
-  // same 1360x636 (x2) whatever the window is doing.
+  // off the SVG's viewBox, so the file is the board as drawn for this card, at
+  // 2x: 1360x636 in a card at least that wide, the card's own width below it.
   const [exportState, setExportState] = useState<"idle" | "working" | "error">("idle");
 
   const downloadPng = async () => {
@@ -1900,6 +2489,7 @@ export default function GammaTerminalChart({
   // Time zoom about the current view center (used by the on-screen buttons).
   const zoomTimeCentered = (factor: number) => {
     setHover(null);
+    holdPriceAxis();
     setView((v) => {
       if (total <= 1) return v;
       const curCount = clamp(v.count, MIN_COUNT, Math.max(MIN_COUNT, total));
@@ -1921,10 +2511,13 @@ export default function GammaTerminalChart({
   // TIME view changes, so anything it calls must be reached through a ref —
   // closing over zoomPrice directly would freeze the price zoom at whatever it
   // was when the listener was last attached, and every wheel tick would scale
-  // that same stale value instead of compounding.
+  // that same stale value instead of compounding. holdPriceAxis likewise, or it
+  // would pin the price window from whenever that was.
   const zoomPriceRef = useRef(zoomPrice);
+  const holdPriceAxisRef = useRef(holdPriceAxis);
   useEffect(() => {
     zoomPriceRef.current = zoomPrice;
+    holdPriceAxisRef.current = holdPriceAxis;
   });
 
   // Wheel. A bare wheel is left alone so the page scrolls — see core/wheelZoom
@@ -1956,6 +2549,7 @@ export default function GammaTerminalChart({
         return;
       }
       setHover(null);
+      holdPriceAxisRef.current();
       const curCount = clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
       const curOffset = clamp(view.offset, 0, Math.max(0, total - curCount));
       const curEnd = total - curOffset;
@@ -1972,7 +2566,7 @@ export default function GammaTerminalChart({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [view.count, view.offset, total, plotRight]);
+  }, [view.count, view.offset, total, plotRight, VW, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT]);
 
   // ── Rewind controls ──────────────────────────────────────────────────────
   // Keep the latest bars in a ref so the playback interval can read them
@@ -1992,9 +2586,10 @@ export default function GammaTerminalChart({
 
   const enterRewind = () => {
     if (allBars.length < MIN_COUNT) return;
-    // Freeze the y-axis to the current auto-fit domain so scrubbing doesn't move
-    // it (the user can still adjust it by hand afterward).
-    if (layout) setFrozenAxis({ mid: layout.autoMid, half: layout.autoHalf });
+    // Freeze the y-axis to the base window on screen (the auto-fit, or the
+    // window the reader already holds) so scrubbing doesn't move it and
+    // entering doesn't jump it (the user can still adjust it by hand afterward).
+    if (layout) setFrozenAxis({ mid: layout.baseMid, half: layout.baseHalf });
     // Anchor at the earliest replayable bar (full window + GEX coverage) so Play
     // has the longest runway. Set the clock to that candle's END so it opens on
     // a fully-formed candle; playback then builds the next one forward.
@@ -2011,6 +2606,7 @@ export default function GammaTerminalChart({
     setPlaybackActive(false);
     setFrozenAxis(null);
     setView((v) => ({ ...v, offset: 0 }));
+    keepLatestInHeldWindow();
   };
 
   // Scrub lands on a fully-formed candle (clock = the candle's end), so dragging
@@ -2336,7 +2932,13 @@ export default function GammaTerminalChart({
   const seriesUp = lastBar.close >= bars[0].open;
   const seriesColor = seriesUp ? "var(--color-bull)" : "var(--color-bear)";
 
-  const timeLabelEvery = Math.max(1, Math.ceil(bars.length / (isMobile ? 4 : 9)));
+  // About one clock label per 64 units of compact tape; nine across the board.
+  // About one clock label per 64 units of compact tape, and one per 110 on the
+  // desktop board, where the full-width board fits its nine.
+  const timeLabelTarget = compact
+    ? Math.max(3, Math.floor((plotRight - PLOT_LEFT) / 64))
+    : Math.min(9, Math.max(4, Math.floor((plotRight - PLOT_LEFT) / 110)));
+  const timeLabelEvery = Math.max(1, Math.ceil(bars.length / timeLabelTarget));
 
   // Crosshair-price gamma context for the floating readout.
   const hoverGex = hover ? gexAtPrice(hover.price) : null;
@@ -2415,8 +3017,409 @@ export default function GammaTerminalChart({
   // scrub bar's close while rewinding. Change/percent come from `headline` too.
   const headlinePrice = rewindActive ? spot : headline.displayPrice ?? spot;
 
+  // ── Gamma structure rail (net silhouette or per-strike bars) ────────────
+  // Built here rather than inline in the SVG below because it has two homes:
+  // the chart's own rail column, and — when the page panels it — a portal of
+  // its own beside the tape. Same node, same numbers, two mounts.
+  // The rail's own view controls — the four gamma-by-strike views and the
+  // on-bar $ labels. Live only: the delayed snapshot carries no per-strike
+  // call/put split, so `effectiveRailMode` is pinned to the silhouette there
+  // and a mode switch would be a control over nothing.
+  const railViewControls = live ? (
+    <>
+      <div className="zg-gc-seg" role="tablist" aria-label="Gamma rail view">
+        {([
+          ["silhouette", "Silhouette"],
+          ["net", "Net"],
+          ["split", "Split"],
+          ["combined", "Combined"],
+        ] as Array<[RailMode, string]>).map(([m, lbl]) => (
+          <button key={m} type="button" className="zg-gc-seg-btn" data-active={railMode === m} onClick={() => setRailMode(m)} aria-pressed={railMode === m}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+      {railMode !== "silhouette" && (
+        <OverlayPill label="Labels" color="var(--text-secondary)" active={railLabels} onClick={() => setRailLabels((v) => !v)} />
+      )}
+    </>
+  ) : null;
+
+  const railGradSuffix = inPanel ? "-panel" : "";
+  const railGroup =
+    railOn && (effectiveRailMode === "silhouette" ? rail : railBars) ? (
+      <g>
+        {/* Inline, the rail is a column inside the chart and needs its own
+            ground and title. Panelled, the page supplies the card and a real
+            HTML header above it, so both would be a card drawn inside a card. */}
+        {!inPanel && (
+          <>
+            <rect x={railLeft - 6} y={PAD_TOP} width={railRight - railLeft + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
+            {compact ? (
+              // A ~60-unit column cannot carry the full title (or its mode
+              // suffixes — the Layers panel names the mode); one word does.
+              <text x={(railLeft + railRight) / 2} y={PAD_TOP - 8} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={9} letterSpacing="0.1em" fill={filteredExp ? "var(--color-warning)" : "var(--text-muted)"}>
+                GAMMA
+              </text>
+            ) : (
+            // Centred over the full-width rail. A rail narrowed to its card
+            // (desktopCanvas) cannot hold the title, which ran off the board's
+            // right edge, so there it right-aligns to the rail and extends
+            // left over the empty axis column instead.
+            <text
+              x={railRight - railLeft < DESKTOP_RAIL_W ? railRight : (railLeft + railRight) / 2}
+              y={PAD_TOP - 6}
+              textAnchor={railRight - railLeft < DESKTOP_RAIL_W ? "end" : "middle"}
+              fontFamily="var(--font-mono)"
+              fontSize={10}
+              letterSpacing="0.12em"
+              fill="var(--text-muted)"
+            >
+              DEALER GAMMA BY STRIKE
+              {effectiveRailMode !== "silhouette" && (
+                <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
+              )}
+              {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
+              {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
+              {railZeroDte.widenedToAll && (
+                <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
+              )}
+            </text>
+            )}
+          </>
+        )}
+        {/* zero baseline */}
+        <line
+          x1={railCenter}
+          x2={railCenter}
+          y1={inPanel ? panelVb.y : PAD_TOP}
+          y2={inPanel ? panelVb.y + panelVb.h : PRICE_BOTTOM}
+          stroke="var(--border-strong)"
+          strokeWidth={1}
+          opacity={0.5}
+        />
+
+        {/* smoothed net silhouette */}
+        {effectiveRailMode === "silhouette" && rail && (
+          <>
+            <path d={rail.posPath} fill={`url(#${RAIL_POS_GRADIENT_ID}${railGradSuffix})`} />
+            <path d={rail.negPath} fill={`url(#${RAIL_NEG_GRADIENT_ID}${railGradSuffix})`} />
+            <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
+            {[{ p: rail.callPeak, c: "var(--color-bull)" }, { p: rail.putPeak, c: "var(--color-bear)" }].map(({ p, c }, i) => (
+              <circle key={`peak-${i}`} cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
+            ))}
+          </>
+        )}
+
+        {/* discrete per-strike bars */}
+        {effectiveRailMode !== "silhouette" &&
+          railBars &&
+          railBars.inView.map((s) => {
+            const y = yPrice(s.price);
+            const h = railBars.barH;
+            if (effectiveRailMode === "net") {
+              const w = railBars.wFor(s.netGex);
+              const pos = s.netGex >= 0;
+              const c = pos ? "var(--color-bull)" : "var(--color-bear)";
+              return (
+                <g key={`bar-${s.price}`}>
+                  <rect x={pos ? railCenter : railCenter - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
+                  {railBars.showLabels && s.netGex !== 0 && (
+                    <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} text={fmtGex(s.netGex)} />
+                  )}
+                </g>
+              );
+            }
+            const cw = railBars.wFor(s.callGex);
+            const pw = railBars.wFor(s.putGex);
+            const netW = railBars.wFor(s.netGex);
+            const netPos = s.netGex >= 0;
+            // Live edge → subdivide the authoritative call/put widths
+            // by expiration (nearest at the baseline, faintest at the
+            // tip); otherwise, or at a strike the snapshot doesn't
+            // cover, draw the single aggregate bars.
+            const st = railStackingActive ? railStackedByStrike.get(Math.round(s.price * 100)) : undefined;
+            const callSegs = st
+              ? railStackSegments(`callseg-${s.price}`, st.call, 1, Math.max(0, cw), y, h, "var(--color-bull)")
+              : null;
+            const putSegs = st
+              ? railStackSegments(`putseg-${s.price}`, st.put, -1, Math.max(0, pw), y, h, "var(--color-bear)")
+              : null;
+            return (
+              <g key={`bar-${s.price}`}>
+                {callSegs ?? (
+                  <rect x={railCenter} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={RAIL_BAR_OPACITY} />
+                )}
+                {putSegs ?? (
+                  <rect x={railCenter - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={RAIL_BAR_OPACITY} />
+                )}
+                {/* Net overlay: same thickness as the call/put bars (the
+                    split tip still shows past it), matching the GEX Strike
+                    Profile's Combined view. */}
+                {effectiveRailMode === "combined" && s.netGex !== 0 && (
+                  <rect x={netPos ? railCenter : railCenter - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
+                )}
+                {railBars.showLabels && s.callGex !== 0 && (
+                  <RailBarLabel x={clamp(railCenter + cw + 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="start" text={fmtGex(s.callGex)} />
+                )}
+                {railBars.showLabels && s.putGex !== 0 && (
+                  <RailBarLabel x={clamp(railCenter - pw - 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="end" text={fmtGex(s.putGex)} />
+                )}
+              </g>
+            );
+          })}
+
+        {/* Flip zero-crossing tie-line. Inline it reaches back past the rail's
+            ground toward the plot; in a panel there is nothing to reach to, so
+            it stays inside the box. */}
+        {inDomain(flip) && (
+          <line x1={inPanel ? railLeft : railLeft - 6} x2={railRight} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--color-flip)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
+        )}
+      </g>
+    ) : null;
+
+  // ── Toolbar pieces ── one set of controls, laid out as a single wrapping
+  // row on the desktop board and as a compact bar + Layers panel on phones
+  // (see the Controls block below).
+  const symbolTfControls = (
+    <>
+          {/* Symbol + timeframe — switchable when live; in the delayed public
+              snapshot they're fixed (switching needs data the snapshot lacks),
+              so we show an unlock CTA instead. */}
+          {live ? (
+            <>
+              {compact ? (
+                // Seven symbols as buttons are a row of their own on a phone;
+                // the native picker is one control, and the platform's wheel.
+                <SymbolSelect value={symbol as UnderlyingSymbol} onChange={(s) => setSymbol(s)} ariaLabel="Symbol" />
+              ) : (
+                <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
+                  {SYMBOLS.map((s) => (
+                    <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
+                {TIMEFRAMES.map((t) => (
+                  <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
+                {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
+              </span>
+              <a
+                href="/register"
+                className="zg-gc-pill"
+                data-active
+                style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
+              >
+                Unlock live · all symbols & timeframes →
+              </a>
+            </>
+          )}
+    </>
+  );
+  const styleControl = (
+    <>
+          {/* Price style */}
+          <div className="zg-gc-seg" role="tablist" aria-label="Price style">
+            {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
+              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === style} onClick={() => setStyle(s)} aria-pressed={s === style}>
+                {s === "candles" ? "Candle" : s === "line" ? "Line" : "Area"}
+              </button>
+            ))}
+          </div>
+
+    </>
+  );
+  const volumeControl = (
+    <>
+          {/* Volume pane view. Carries a visible "VOL" label because the
+              buttons sit beside the price-style ones and "Cumulative" has to
+              say what it is cumulative OF. */}
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
+            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
+              {(["updown", "net"] as VolumeMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="zg-gc-seg-btn"
+                  data-active={m === volumeMode}
+                  onClick={() => setVolumeMode(m)}
+                  aria-pressed={m === volumeMode}
+                  title={
+                    m === "updown"
+                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
+                      : "Running total of uptick minus downtick volume for the current session only\u00a0- it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                  }
+                >
+                  {VOLUME_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+    </>
+  );
+  const overlayControls = (
+    <>
+          {/* Overlay pills */}
+          <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
+          {!hideRail && (
+            <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
+          )}
+          {live && (
+            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons&nbsp;- per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
+          )}
+          {live && overlays.ribbons && (
+            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
+          )}
+          <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
+          <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
+          <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
+          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
+          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
+              so a countdown on it would be counting down someone else's candle. */}
+          {live && (
+            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
+          )}
+          {/* Expected Range — live-only (the delayed public snapshot carries no
+              vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
+          {live && (
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range&nbsp;- the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only&nbsp;- the delayed snapshot carries no vol index." />
+          )}
+          {live && overlays.expectedRange && (
+            <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
+              {([
+                ["daily", "Daily"],
+                ["weekly", "Weekly"],
+                ["monthly", "Monthly"],
+              ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
+                <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          )}
+
+    </>
+  );
+  const railExpiryControls = (
+    <>
+          {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
+              labels, and an expiration filter — live only (the delayed snapshot
+              lacks the per-strike call/put split and can't refetch). */}
+          {live && (
+            <>
+              <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
+              {/* Panelled, these ride the panel instead (portalled at the
+                  bottom of this component) — the rail's view is a control of
+                  the thing being drawn, so it belongs wherever that is. */}
+              {railOn && !inPanel && railViewControls}
+              <ExpirationMultiSelect
+                options={availableExpiries}
+                selected={effectiveRailExpiries}
+                onChange={setRailExpiries}
+                label="Expiry"
+                disabled={availableExpiries.length === 0}
+                zeroDte={railZeroDte}
+              />
+              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
+                  nothing means All — so the levels below are whole-chain while
+                  the control still says 0DTE. Say it out loud, next to the
+                  control that caused it and again on the chart itself. */}
+              {railZeroDte.widenedToAll && (
+                <span
+                  className="zg-chip"
+                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
+                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
+                >
+                  No 0DTE today · showing all expiries
+                </span>
+              )}
+            </>
+          )}
+
+    </>
+  );
+  const activeLayerCount = [
+    overlays.levels,
+    !hideRail && overlays.rail,
+    live && overlays.ribbons,
+    overlays.regime,
+    overlays.vwap,
+    overlays.maxPain,
+    overlays.king,
+    overlays.pin,
+    live && overlays.barTimer,
+    live && overlays.expectedRange,
+  ].filter(Boolean).length;
+  const viewActions = (
+    <>
+
+            {isCustomView && (
+              <button
+                type="button"
+                onClick={resetView}
+                title="Reset zoom & pan to the live view, and let the price scale fit itself again"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  padding: "5px 11px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--color-accent-hot)",
+                  color: "var(--color-accent-hot)",
+                  background: "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)",
+                  cursor: "pointer",
+                }}
+              >
+                ⟲ Reset
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={downloadPng}
+              disabled={exportState === "working"}
+              title="Save this chart as a PNG image"
+              aria-label="Save this chart as a PNG image"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                padding: "5px 11px",
+                borderRadius: "var(--radius-pill)",
+                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
+                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
+                background: "var(--bg-subtle)",
+                cursor: exportState === "working" ? "progress" : "pointer",
+                opacity: exportState === "working" ? 0.6 : 1,
+              }}
+            >
+              <Camera size={13} />
+              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
+            </button>
+    </>
+  );
+
   return (
-    <div ref={rootRef} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
+    <div ref={setRootNode} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="flex flex-col gap-4 p-4 sm:p-5"
@@ -2436,18 +3439,24 @@ export default function GammaTerminalChart({
                     expiry filter grew (an "All" pill becoming a date), which
                     pushed the chart down and knocked a split board's two halves
                     out of alignment. */}
-                <TooltipWrapper text="Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view." />
+                <TooltipWrapper
+                  text={
+                    touchUi
+                      ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere\u00a0- or press and hold, then slide\u00a0- to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control. Once you pan or zoom, the price scale stays where you put it; Reset snaps back to the live view and lets it fit itself again."
+                      : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control. Once you zoom or pan, the price scale stays where you put it; Reset (or a double-click) snaps back to the live view and lets it fit itself again."
+                  }
+                />
                 {sessionBadge && (
                   <span className="zg-chip" style={{ ["--chip-color" as string]: sessionBadge.color }}>
                     {sessionBadge.label}
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-3 mt-1">
-                <span style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-1">
+                <span style={{ fontFamily: "var(--font-display)", fontSize: compact ? 25 : 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
                   {symbol}
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: compact ? 24 : 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                   {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
                 {!rewindActive && futuresTicker && (
@@ -2455,7 +3464,7 @@ export default function GammaTerminalChart({
                     contract={contractCode}
                     expiry={contractExpiry}
                     note={contractRollNote}
-                    fallbackTitle={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
+                    fallbackTitle={`Outside the cash session\u00a0- showing ${futuresTicker} futures for ${symbol}`}
                     style={FUTURES_CHIP_STYLE}
                   >
                     ◆ {futuresTicker} FUT
@@ -2561,231 +3570,78 @@ export default function GammaTerminalChart({
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {/* Symbol + timeframe — switchable when live; in the delayed public
-              snapshot they're fixed (switching needs data the snapshot lacks),
-              so we show an unlock CTA instead. */}
-          {live ? (
-            <>
-              <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
-                {SYMBOLS.map((s) => (
-                  <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-              <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
-                {TIMEFRAMES.map((t) => (
-                  <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
-                {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
-              </span>
-              <a
-                href="/register"
-                className="zg-gc-pill"
-                data-active
-                style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
-              >
-                Unlock live · all symbols & timeframes →
-              </a>
-            </>
-          )}
-          {/* Price style */}
-          <div className="zg-gc-seg" role="tablist" aria-label="Price style">
-            {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
-              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === style} onClick={() => setStyle(s)} aria-pressed={s === style}>
-                {s === "candles" ? "Candle" : s === "line" ? "Line" : "Area"}
-              </button>
-            ))}
-          </div>
-
-          {/* Volume pane view. Carries a visible "VOL" label because the
-              buttons sit beside the price-style ones and "Cumulative" has to
-              say what it is cumulative OF. */}
-          <div className="flex items-center gap-1.5">
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
-            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
-              {(["updown", "net"] as VolumeMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className="zg-gc-seg-btn"
-                  data-active={m === volumeMode}
-                  onClick={() => setVolumeMode(m)}
-                  aria-pressed={m === volumeMode}
-                  title={
-                    m === "updown"
-                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running total of uptick minus downtick volume for the current session only — it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
-                  }
-                >
-                  {VOLUME_MODE_LABELS[m]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-
-          {/* Overlay pills */}
-          <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
-          {!hideRail && (
-            <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
-          )}
-          {live && (
-            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
-          )}
-          {live && overlays.ribbons && (
-            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
-          )}
-          <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
-          <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
-          <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
-          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
-          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
-          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
-              so a countdown on it would be counting down someone else's candle. */}
-          {live && (
-            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
-          )}
-          {/* Expected Range — live-only (the delayed public snapshot carries no
-              vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
-          {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range — the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only — the delayed snapshot carries no vol index." />
-          )}
-          {live && overlays.expectedRange && (
-            <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
-              {([
-                ["daily", "Daily"],
-                ["weekly", "Weekly"],
-                ["monthly", "Monthly"],
-              ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
-                <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
-                  {lbl}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
-              labels, and an expiration filter — live only (the delayed snapshot
-              lacks the per-strike call/put split and can't refetch). */}
-          {live && (
-            <>
-              <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-              {railOn && (
-                <>
-                  <div className="zg-gc-seg" role="tablist" aria-label="Gamma rail view">
-                    {([
-                      ["silhouette", "Silhouette"],
-                      ["net", "Net"],
-                      ["split", "Split"],
-                      ["combined", "Combined"],
-                    ] as Array<[RailMode, string]>).map(([m, lbl]) => (
-                      <button key={m} type="button" className="zg-gc-seg-btn" data-active={railMode === m} onClick={() => setRailMode(m)} aria-pressed={railMode === m}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                  {railMode !== "silhouette" && (
-                    <OverlayPill label="Labels" color="var(--text-secondary)" active={railLabels} onClick={() => setRailLabels((v) => !v)} />
-                  )}
-                </>
-              )}
-              <ExpirationMultiSelect
-                options={availableExpiries}
-                selected={effectiveRailExpiries}
-                onChange={setRailExpiries}
-                label="Expiry"
-                disabled={availableExpiries.length === 0}
-                zeroDte={railZeroDte}
-              />
-              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
-                  nothing means All — so the levels below are whole-chain while
-                  the control still says 0DTE. Say it out loud, next to the
-                  control that caused it and again on the chart itself. */}
-              {railZeroDte.widenedToAll && (
-                <span
-                  className="zg-chip"
-                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
-                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
-                >
-                  No 0DTE today · showing all expiries
-                </span>
-              )}
-            </>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {isCustomView && (
+        {/* Controls. The desktop board lays every control out in one wrapping
+            row. The compact canvas cannot afford that — on a phone the row ran
+            to fourteen lines, two screens of buttons above the chart — so it
+            keeps symbol, timeframe and the view actions in sight and folds the
+            layers (style, volume, overlays, rail, expiry) into a panel. */}
+        {compact ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">{symbolTfControls}</div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={resetView}
-                title="Reset zoom & pan to the live view"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  padding: "5px 11px",
-                  borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--color-accent-hot)",
-                  color: "var(--color-accent-hot)",
-                  background: "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)",
-                  cursor: "pointer",
-                }}
+                className="zg-gc-pill"
+                data-active={layersOpen}
+                aria-expanded={layersOpen}
+                aria-controls={layersPanelId}
+                onClick={() => setLayersOpen((v) => !v)}
+                style={{ ["--pill-color" as string]: "var(--text-primary)" }}
               >
-                ⟲ Reset
+                <SlidersHorizontal size={13} aria-hidden />
+                Layers
+                <span style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>{activeLayerCount}</span>
+                <ChevronDown size={13} aria-hidden style={{ transform: layersOpen ? "rotate(180deg)" : undefined, transition: "transform var(--dur-2) var(--ease-standard)" }} />
               </button>
+              <div className="ml-auto flex items-center gap-2">{viewActions}</div>
+            </div>
+            {layersOpen && (
+              <div id={layersPanelId} className="flex flex-wrap items-center gap-2 pt-1">
+                {styleControl}
+                {volumeControl}
+                {overlayControls}
+                {railExpiryControls}
+              </div>
             )}
-            <button
-              type="button"
-              onClick={downloadPng}
-              disabled={exportState === "working"}
-              title="Save this chart as a PNG image"
-              aria-label="Save this chart as a PNG image"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                padding: "5px 11px",
-                borderRadius: "var(--radius-pill)",
-                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
-                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
-                background: "var(--bg-subtle)",
-                cursor: exportState === "working" ? "progress" : "pointer",
-                opacity: exportState === "working" ? 0.6 : 1,
-              }}
-            >
-              <Camera size={13} />
-              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
-            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {symbolTfControls}
+            {styleControl}
+            {volumeControl}
+            <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
+            {overlayControls}
+            {railExpiryControls}
+            <div className="ml-auto flex items-center gap-2">{viewActions}</div>
+          </div>
+        )}
       </div>
 
       {/* ── Chart body ─────────────────────────────────────────────────── */}
       <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
-        <MobileScrollableChart minWidthClass="min-w-[1000px]" initialScroll="end">
+          {compact && (
+            <div
+              className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-3 pt-2 pb-1"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border-subtle)" }}
+            >
+              <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{symbol}</span>
+              <span style={{ color: "var(--text-muted)" }}>{TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
+              {(["O", activeBar.open, "H", activeBar.high, "L", activeBar.low, "C", activeBar.close] as const).map((v, i) =>
+                typeof v === "string" ? (
+                  <span key={`ck-${i}`} style={{ color: "var(--text-muted)", marginRight: -6 }}>{v}</span>
+                ) : (
+                  <span key={`cv-${i}`} style={{ fontWeight: 600, color: activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)" }}>
+                    {fmtPrice(v)}
+                  </span>
+                ),
+              )}
+            </div>
+          )}
           {/* The wrapper is exactly the SVG's box (block SVG, width 100%, fixed
               aspect ratio), so an HTML element placed in percentages of it
-              lands on a viewBox coordinate at any width and scrolls with the
-              SVG on mobile — the one overlay that has to track a point INSIDE
-              the plot rather than a corner of the card. */}
+              lands on a viewBox coordinate at any width — the one overlay that
+              has to track a point INSIDE the plot rather than a corner of the
+              card. */}
           <div className="relative">
           <svg
             ref={svgRef}
@@ -2798,15 +3654,27 @@ export default function GammaTerminalChart({
               width: "100%",
               cursor: axisZoomActive || overAxis ? "ns-resize" : dragging ? "grabbing" : "crosshair",
               userSelect: "none",
-              // Let the mobile wrapper scroll horizontally: don't reserve
-              // horizontal-swipe gestures for the SVG (there's no touch-drag
-              // handler). Desktop mouse zoom/pan is unaffected by touch-action.
-              touchAction: "auto",
+              WebkitUserSelect: "none",
+              // A finger's vertical swipe scrolls the page; horizontal drags and
+              // pinches are the chart's own (see the touch handlers). Desktop
+              // mouse zoom/pan is unaffected by touch-action.
+              touchAction: "pan-y",
+              WebkitTouchCallout: "none",
             }}
+            className="zg-gc-canvas"
+            data-measured={box ? "true" : undefined}
             onMouseMove={handlePointerMove}
             onMouseDown={handlePointerDown}
             onMouseUp={endDrag}
             onMouseLeave={handlePointerLeave}
+            onPointerDown={handleTouchDown}
+            onPointerMove={handleTouchMove}
+            onPointerUp={handleTouchEnd}
+            onPointerCancel={handleTouchEnd}
+            onContextMenu={(e) => {
+              // A long press is the crosshair here, not the browser's menu.
+              if (touchRef.current) e.preventDefault();
+            }}
             onDoubleClick={resetView}
           >
             <defs>
@@ -2843,7 +3711,11 @@ export default function GammaTerminalChart({
               <g>
                 <rect x={PLOT_LEFT} y={PAD_TOP} width={plotRight - PLOT_LEFT} height={Math.max(0, regimeSplitY - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
                 <rect x={PLOT_LEFT} y={regimeSplitY} width={plotRight - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - regimeSplitY)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
-                {inDomain(flip) ? (
+                {/* The compact canvas drops the captions: its tape is too
+                    short for one not to land on a wall line or a level chip,
+                    and the tint plus the header's "Dealer Gamma @ Spot" chip
+                    already say which band is which. */}
+                {compact ? null : inDomain(flip) ? (
                   <>
                     <text x={(PLOT_LEFT + plotRight) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
                       {aboveBandIsLong ? "LONG Γ · PINNING" : "SHORT Γ · TRENDING"}
@@ -2867,7 +3739,18 @@ export default function GammaTerminalChart({
               return (
                 <g key={`grid-${p}`}>
                   <line x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke="var(--color-grid-line)" strokeWidth={1} />
-                  <text x={axisColX} y={y + 3.5} fontFamily="var(--font-mono)" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {/* Compact: right-aligned to the same edge as the price tags,
+                      so a tag on a gridline covers its label outright instead
+                      of leaving the first digits peeking out beside it. */}
+                  <text
+                    x={compact ? axisRight - 5 : axisColX}
+                    y={y + 3.5}
+                    textAnchor={compact ? "end" : "start"}
+                    fontFamily="var(--font-mono)"
+                    fontSize={compact ? 10.5 : 11}
+                    fill="var(--text-muted)"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
                     {fmtPrice(p)}
                   </text>
                 </g>
@@ -2906,100 +3789,7 @@ export default function GammaTerminalChart({
               </g>
             )}
 
-            {/* ── Gamma structure rail (net silhouette or per-strike bars) ── */}
-            {railOn && (effectiveRailMode === "silhouette" ? rail : railBars) && (
-              <g>
-                <rect x={RAIL_LEFT - 6} y={PAD_TOP} width={RAIL_RIGHT - RAIL_LEFT + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
-                <text x={(RAIL_LEFT + RAIL_RIGHT) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
-                  DEALER GAMMA BY STRIKE
-                  {effectiveRailMode !== "silhouette" && (
-                    <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
-                  )}
-                  {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
-                  {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
-                  {railZeroDte.widenedToAll && (
-                    <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
-                  )}
-                </text>
-                {/* zero baseline */}
-                <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
-
-                {/* smoothed net silhouette */}
-                {effectiveRailMode === "silhouette" && rail && (
-                  <>
-                    <path d={rail.posPath} fill={`url(#${RAIL_POS_GRADIENT_ID})`} />
-                    <path d={rail.negPath} fill={`url(#${RAIL_NEG_GRADIENT_ID})`} />
-                    <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
-                    {[{ p: rail.callPeak, c: "var(--color-bull)" }, { p: rail.putPeak, c: "var(--color-bear)" }].map(({ p, c }, i) => (
-                      <circle key={`peak-${i}`} cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
-                    ))}
-                  </>
-                )}
-
-                {/* discrete per-strike bars */}
-                {effectiveRailMode !== "silhouette" &&
-                  railBars &&
-                  railBars.inView.map((s) => {
-                    const y = yPrice(s.price);
-                    const h = railBars.barH;
-                    if (effectiveRailMode === "net") {
-                      const w = railBars.wFor(s.netGex);
-                      const pos = s.netGex >= 0;
-                      const c = pos ? "var(--color-bull)" : "var(--color-bear)";
-                      return (
-                        <g key={`bar-${s.price}`}>
-                          <rect x={pos ? RAIL_CENTER : RAIL_CENTER - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
-                          {railBars.showLabels && s.netGex !== 0 && (
-                            <RailBarLabel x={clamp((pos ? RAIL_CENTER + w : RAIL_CENTER - w) + (pos ? 3 : -3), RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor={pos ? "start" : "end"} color={c} text={fmtGex(s.netGex)} />
-                          )}
-                        </g>
-                      );
-                    }
-                    const cw = railBars.wFor(s.callGex);
-                    const pw = railBars.wFor(s.putGex);
-                    const netW = railBars.wFor(s.netGex);
-                    const netPos = s.netGex >= 0;
-                    // Live edge → subdivide the authoritative call/put widths
-                    // by expiration (nearest at the baseline, faintest at the
-                    // tip); otherwise, or at a strike the snapshot doesn't
-                    // cover, draw the single aggregate bars.
-                    const st = railStackingActive ? railStackedByStrike.get(Math.round(s.price * 100)) : undefined;
-                    const callSegs = st
-                      ? railStackSegments(`callseg-${s.price}`, st.call, 1, Math.max(0, cw), y, h, "var(--color-bull)")
-                      : null;
-                    const putSegs = st
-                      ? railStackSegments(`putseg-${s.price}`, st.put, -1, Math.max(0, pw), y, h, "var(--color-bear)")
-                      : null;
-                    return (
-                      <g key={`bar-${s.price}`}>
-                        {callSegs ?? (
-                          <rect x={RAIL_CENTER} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={RAIL_BAR_OPACITY} />
-                        )}
-                        {putSegs ?? (
-                          <rect x={RAIL_CENTER - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={RAIL_BAR_OPACITY} />
-                        )}
-                        {/* Net overlay: same thickness as the call/put bars (the
-                            split tip still shows past it), matching the GEX Strike
-                            Profile's Combined view. */}
-                        {effectiveRailMode === "combined" && s.netGex !== 0 && (
-                          <rect x={netPos ? RAIL_CENTER : RAIL_CENTER - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
-                        )}
-                        {railBars.showLabels && s.callGex !== 0 && (
-                          <RailBarLabel x={clamp(RAIL_CENTER + cw + 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="start" color="var(--color-bull)" text={fmtGex(s.callGex)} />
-                        )}
-                        {railBars.showLabels && s.putGex !== 0 && (
-                          <RailBarLabel x={clamp(RAIL_CENTER - pw - 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="end" color="var(--color-bear)" text={fmtGex(s.putGex)} />
-                        )}
-                      </g>
-                    );
-                  })}
-
-                {/* flip zero-crossing tie-line to the plot */}
-                {inDomain(flip) && (
-                  <line x1={RAIL_LEFT - 6} x2={RAIL_RIGHT} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--color-flip)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
-                )}
-              </g>
-            )}
+            {!inPanel && railGroup}
 
             {/* ── Price series ──────────────────────────────────────────── */}
             <g clipPath={`url(#${PLOT_CLIP_ID})`}>
@@ -3058,11 +3848,16 @@ export default function GammaTerminalChart({
               );
             })}
 
-            {/* ── Level name chips, de-collided so they never overlap ────── */}
+            {/* ── Level name chips, de-collided so they never overlap ──────
+                 The label is --text-primary, not the level colour: a 9.5px
+                 glyph in the level's own colour on a --bg-card chip cleared
+                 4.5:1 in only 105 of 192 palette/level combinations, down to
+                 2.36:1. The border keeps the colour, and the chip sits on the
+                 level's own line, so nothing about the association is lost. */}
             {chipPlacements.map((c) => (
               <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
                 <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={c.color} fontWeight={600}>
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill="var(--text-primary)" fontWeight={600}>
                   {c.label}
                 </text>
               </g>
@@ -3075,7 +3870,10 @@ export default function GammaTerminalChart({
             {flipChip && (
               <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
                 <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.drawn ? undefined : "2 2"} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.color} fontWeight={600}>
+                {/* Same as the level chips: the border carries the colour and
+                    the dash carries the drawn/unresolved state, so the label
+                    itself can be legible. Unresolved stays muted on purpose. */}
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.drawn ? "var(--text-primary)" : "var(--text-muted)"} fontWeight={600}>
                   {flipChip.label}
                 </text>
                 <title>{flipChip.tooltip}</title>
@@ -3133,11 +3931,11 @@ export default function GammaTerminalChart({
               return (
                 <>
                   {tags.map((t) => (
-                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
+                    <PriceTag key={t.key} x={tagX} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
                   ))}
                   {liveBarClock && lastTagY != null && (
                     <BarCountdownTag
-                      x={axisColX - 6}
+                      x={tagX}
                       // Below the tag by default, flipped above it when the last
                       // price is riding the bottom of the range — clamping into
                       // the gutter instead would stack the two on the same row.
@@ -3162,9 +3960,9 @@ export default function GammaTerminalChart({
                     {fmtVolSigned(netVolume.last)}
                   </tspan>
                 )}
-                {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={8.5}>{"   ·  PROXY (EST.)"}</tspan>}
+                {symbolIsIndex && <tspan fill="var(--color-warning)">{"   ·  PROXY (EST.)"}</tspan>}
                 {symbolIsIndex && (
-                  <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
+                  <title>{`${symbol} is a cash index\u00a0- it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
                 )}
               </text>
               {netVolume ? (
@@ -3213,8 +4011,11 @@ export default function GammaTerminalChart({
                 timeframe === "1day"
                   ? etTradingDateLabel(b.timestamp)
                   : new Date(b.timestamp).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
+              // Held inside the plot so the first and last labels are not cut
+              // in half by the canvas edge (a 5-char clock label is ~32 wide).
+              const half = label.length * 3.1 + 1;
               return (
-                <text key={`t-${b.timestamp}`} x={x} y={TIME_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <text key={`t-${b.timestamp}`} x={clamp(x, PLOT_LEFT + half, plotRight - half)} y={TIME_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
                   {label}
                 </text>
               );
@@ -3251,7 +4052,7 @@ export default function GammaTerminalChart({
                 <g pointerEvents="none">
                   <line x1={xForIndex(activeIdx)} x2={xForIndex(activeIdx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
                   <line x1={PLOT_LEFT} x2={plotRight} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
-                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" ink={chipInk("var(--text-secondary)")} />
+                  <PriceTag x={tagX} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" ink={chipInk("var(--text-secondary)")} />
                 </g>
               );
             })()}
@@ -3286,9 +4087,12 @@ export default function GammaTerminalChart({
             </div>
           )}
           </div>
-        </MobileScrollableChart>
 
-        {/* ── In-plot legend (OHLC of active bar) ───────────────────────── */}
+        {/* ── In-plot legend (OHLC of active bar) ─────────────────────────
+             Floats over the board's top-left corner on the desktop canvas; the
+             compact canvas has no corner to spare, so there it is a strip of
+             its own directly above the plot (see `ohlcStrip`). */}
+        {!compact && (
         <div className="pointer-events-none absolute left-3 top-3 sm:left-4 sm:top-4">
           <div
             className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-2.5 py-1.5"
@@ -3307,16 +4111,28 @@ export default function GammaTerminalChart({
             )}
           </div>
         </div>
+        )}
 
         {/* ── Floating crosshair readout (price × gamma) ────────────────── */}
         {hover && (
           <div
             className="pointer-events-none absolute z-20"
-            style={{
-              left: hover.px + 16 + 210 > hover.w ? Math.max(8, hover.px - 210) : hover.px + 16,
-              top: Math.max(8, Math.min(hover.py + 14, hover.h - 172)),
-              minWidth: 196,
-            }}
+            style={
+              hover.touch
+                ? // A finger covers the point it is on, so a touch readout pins
+                  // to the top of the chart, in the half AWAY from the crosshair.
+                  {
+                    top: 8 + (compact ? 30 : 0),
+                    ...(hover.px > hover.w / 2 ? { left: 8 } : { right: 8 }),
+                    minWidth: 184,
+                    maxWidth: "min(260px, calc(100% - 16px))",
+                  }
+                : {
+                    left: hover.px + 16 + 210 > hover.w ? Math.max(8, hover.px - 210) : hover.px + 16,
+                    top: Math.max(8, Math.min(hover.py + 14, hover.h - 172)),
+                    minWidth: 196,
+                  }
+            }
           >
             <div style={{ background: "var(--color-chart-tooltip-bg)", border: "1px solid var(--color-chart-tooltip-border)", borderRadius: "var(--radius-control)", boxShadow: "var(--shadow-pop)", padding: "9px 11px" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>
@@ -3416,8 +4232,14 @@ export default function GammaTerminalChart({
           </div>
         )}
 
-        {/* ── On-screen controls: jump-to-latest + zoom (time + price) ──── */}
-        <div className="absolute z-20 flex flex-col items-end gap-1.5" style={{ right: 12, bottom: 12 }}>
+        {/* ── On-screen controls: jump-to-latest + zoom (time + price) ────
+             On the compact canvas the steppers leave the plot (they sat on the
+             newest volume bars) for the strip under the chart; only the
+             jump-to-latest button stays, over the bottom of the price pane. */}
+        <div
+          className="absolute z-20 flex flex-col items-end gap-1.5"
+          style={compact ? { right: 8, top: `${(PRICE_BOTTOM / VH) * 100}%`, transform: "translateY(-100%)", marginTop: -6 } : { right: 12, bottom: 12 }}
+        >
           {!atLiveEdge && (
             <button
               type="button"
@@ -3427,6 +4249,7 @@ export default function GammaTerminalChart({
                 } else {
                   setView((v) => ({ ...v, offset: 0 }));
                   setHover(null);
+                  keepLatestInHeldWindow();
                 }
               }}
               title={rewindActive ? "Return to live" : "Jump to the latest bar"}
@@ -3447,14 +4270,36 @@ export default function GammaTerminalChart({
               <ChevronsRight size={17} />
             </button>
           )}
-          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} hint="Ctrl + scroll" />
-          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} hint="Shift + scroll" />
+          {!compact && (
+            <>
+              <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} hint="Ctrl + scroll" />
+              <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} hint="Shift + scroll" />
+            </>
+          )}
         </div>
       </div>
 
+      {/* Compact: the gesture key and the zoom steppers, under the plot. */}
+      {compact && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 py-2"
+          style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}
+        >
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.04em", color: "var(--text-muted)" }}>
+            {touchUi
+              ? "Drag to pan · pinch to zoom · tap or hold for the crosshair"
+              : "Drag to pan · Ctrl + scroll to zoom · hover for the crosshair"}
+          </span>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <ZoomCluster large label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
+            <ZoomCluster large label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
+          </div>
+        </div>
+      )}
+
       {/* ── Rewind / session-replay bar (live mode only) ─────────────────── */}
       {live && (
-        <div className="flex items-center gap-2 px-4 py-2" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
+        <div className="flex flex-wrap items-center gap-2 px-3 sm:px-4 py-2" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
           {!rewindActive ? (
             // The blurb that used to sit beside this button is now the button's
             // own hover tooltip — it explained the control, so it belongs on it.
@@ -3486,7 +4331,7 @@ export default function GammaTerminalChart({
                 onClick={() => setPlaybackLoop((v) => !v)}
                 aria-label={playbackLoop ? "Disable loop" : "Enable loop"}
                 aria-pressed={playbackLoop}
-                title={playbackLoop ? "Loop on — replays continuously (click to disable)" : "Loop off — click to replay continuously"}
+                title={playbackLoop ? "Loop on\u00a0- replays continuously (click to disable)" : "Loop off\u00a0- click to replay continuously"}
                 style={{
                   display: "grid",
                   placeItems: "center",
@@ -3526,7 +4371,7 @@ export default function GammaTerminalChart({
               {rewindFloorLabel && (
                 <a
                   href={`/replay/${symbol}/${etTodayDateKey()}`}
-                  title={`Rewind reaches back to ${rewindFloorLabel} ET — the strike-profile history this chart holds, which is a fixed window ending at the live tip rather than the whole session. Daily Replay carries every minute from the open.`}
+                  title={`Rewind reaches back to ${rewindFloorLabel} ET\u00a0- the strike-profile history this chart holds, which is a fixed window ending at the live tip rather than the whole session. Daily Replay carries every minute from the open.`}
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 11,
@@ -3586,6 +4431,50 @@ export default function GammaTerminalChart({
           </span>
         </div>
       </div>
+
+      {/* ── Panelled rail ────────────────────────────────────────────────
+          The page gave us an element across the tape's price band, so the rail
+          is drawn there instead of in the chart's own column. The viewBox
+          spans the SAME band (PAD_TOP..PRICE_BOTTOM), so `yPrice` puts a strike
+          at the identical height it has on the candles — this is what makes a
+          bar line up with its price on the tape — while the width is shaped to
+          the element's aspect so `preserveAspectRatio="none"` scales x and y by
+          the same factor and nothing is stretched.
+
+          The gradients are re-declared here rather than referenced across from
+          the chart's own <defs>: a url(#id) does resolve document-wide, but
+          that would quietly make this panel depend on the chart's SVG still
+          being mounted, which is exactly the coupling a portal should not add. */}
+      {inPanel && strikePanelTarget
+        ? createPortal(
+            <svg
+              width="100%"
+              height="100%"
+              viewBox={`${railLeft} ${panelVb.y} ${railRight - railLeft} ${panelVb.h}`}
+              preserveAspectRatio="none"
+              style={{ display: "block", overflow: "visible" }}
+              role="img"
+              aria-label="Dealer gamma by strike"
+            >
+              <defs>
+                <linearGradient id={`${RAIL_POS_GRADIENT_ID}-panel`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.12} />
+                  <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.55} />
+                </linearGradient>
+                <linearGradient id={`${RAIL_NEG_GRADIENT_ID}-panel`} x1="1" y1="0" x2="0" y2="0">
+                  <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.12} />
+                  <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+              {railGroup}
+            </svg>,
+            strikePanelTarget,
+          )
+        : null}
+
+      {/* The rail's view controls follow it: on the panel when it is panelled,
+          on this toolbar when it is not (see the toolbar block above). */}
+      {inPanel && railControlsTarget ? createPortal(railViewControls, railControlsTarget) : null}
     </div>
   );
 }
@@ -3685,7 +4574,13 @@ function sessionLabel(session: string | null | undefined): { label: string; colo
 
 // On-bar $ gamma label for the per-strike rail bars. A halo (stroke painted
 // under the fill) keeps it legible over the bars and the plot grid alike.
-function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anchor: "start" | "end"; color: string; text: string }) {
+//
+// The text is --text-primary rather than the bar's own bull/bear: at 8.5px on
+// the halo's --bg-card that colour cleared 4.5:1 in only 24 of 48 palette/side
+// combinations, down to 2.36:1. The label is drawn hard against the end of the
+// bar it belongs to, and calls sit right of the rail centre while puts sit
+// left, so which bar a number belongs to was never the colour's job.
+function RailBarLabel({ x, y, anchor, text }: { x: number; y: number; anchor: "start" | "end"; text: string }) {
   return (
     <text
       x={x}
@@ -3694,7 +4589,7 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
       fontFamily="var(--font-mono)"
       fontSize={8.5}
       fontWeight={600}
-      fill={color}
+      fill="var(--text-primary)"
       style={{ paintOrder: "stroke", stroke: "var(--bg-card)", strokeWidth: 2.5, fontVariantNumeric: "tabular-nums" } as CSSProperties}
     >
       {text}
@@ -3759,7 +4654,7 @@ function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v
   return (
     <label
       className="flex items-center gap-1.5"
-      title="Ribbon opacity — scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
+      title="Ribbon opacity&nbsp;- scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
       style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", color: "var(--text-secondary)", height: 26, padding: "0 8px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-control)", background: "var(--bg-card)" }}
     >
       <span style={{ textTransform: "uppercase" }}>Opacity</span>
@@ -3804,10 +4699,12 @@ const zoomBtnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
-function ZoomCluster({ label, onIn, onOut, hint }: { label: string; onIn: () => void; onOut: () => void; hint?: string }) {
+function ZoomCluster({ label, onIn, onOut, hint, large = false }: { label: string; onIn: () => void; onOut: () => void; hint?: string; large?: boolean }) {
   // A bare wheel scrolls the page now, so the modifier gesture only exists if
   // something tells the reader about it. These buttons are that something.
-  const suffix = hint ? ` — or ${hint}` : "";
+  const suffix = hint ? `\u00a0- or ${hint}` : "";
+  // `large`: finger-sized steppers for the compact canvas.
+  const btn = large ? { ...zoomBtnStyle, width: 34, height: 30, fontSize: 17 } : zoomBtnStyle;
   return (
     <div
       className="flex items-center gap-1"
@@ -3819,13 +4716,13 @@ function ZoomCluster({ label, onIn, onOut, hint }: { label: string; onIn: () => 
         backdropFilter: "blur(3px)",
       }}
     >
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: 34, textAlign: "right", paddingRight: 2 }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: large ? "auto" : 34, textAlign: "right", paddingRight: 2 }}>
         {label}
       </span>
-      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})${suffix}`} style={zoomBtnStyle}>
+      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})${suffix}`} style={btn}>
         −
       </button>
-      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})${suffix}`} style={zoomBtnStyle}>
+      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})${suffix}`} style={btn}>
         +
       </button>
     </div>
@@ -3846,21 +4743,21 @@ function KeyOrb({ fill, ry, opacity }: { fill: string; ry: number; opacity: numb
 function RibbonKey() {
   return (
     <span
-      className="flex items-center gap-1.5"
+      className="flex flex-wrap items-center gap-x-1.5 gap-y-1"
       style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}
     >
       <span style={{ color: "var(--text-muted)" }}>Ribbons</span>
-      <span className="flex items-center gap-1" title="Gold: dealers net long gamma at the strike — a magnet and a brake">
+      <span className="flex items-center gap-1 whitespace-nowrap" title="Gold: dealers net long gamma at the strike&nbsp;- a magnet and a brake">
         <KeyOrb fill={RIBBON_POS_GLOW} ry={4.5} opacity={0.9} />
         long &#915;
       </span>
-      <span className="flex items-center gap-1" title="Violet: dealers net short gamma at the strike — an accelerant">
+      <span className="flex items-center gap-1 whitespace-nowrap" title="Violet: dealers net short gamma at the strike&nbsp;- an accelerant">
         <KeyOrb fill={RIBBON_NEG_GLOW} ry={4.5} opacity={0.9} />
         short &#915;
       </span>
       <span
-        className="flex items-center gap-1"
-        title="Height and opacity: the strike's net dealer gamma as a share of the heaviest strike on screen — a sliver is a light strike, a full lane is the wall"
+        className="flex items-center gap-1 whitespace-nowrap"
+        title="Height and opacity: the strike's net dealer gamma as a share of the heaviest strike on screen&nbsp;- a sliver is a light strike, a full lane is the wall"
       >
         <span className="flex items-center" style={{ gap: 1 }}>
           <KeyOrb fill="var(--text-primary)" ry={1.3} opacity={RIBBON_TIER_OPACITY.weak + 0.15} />

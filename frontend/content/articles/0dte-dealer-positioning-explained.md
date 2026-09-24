@@ -16,11 +16,11 @@ This piece is the practical read for what "0DTE dealer positioning" and "dealer 
 
 ## What is 0DTE dealer positioning?
 
-0DTE dealer positioning is the aggregate gamma exposure dealers carry on same-day-expiring options. Mechanically, it is no different from longer-dated dealer gamma — under the standard convention dealers are *modeled* as long the calls customers overwrite and short the puts customers buy for protection, so their long-call inventory contributes positive gamma while their short-put inventory contributes negative gamma (the minus sign is the modeled short position, not puts being negative gamma in themselves). The hedging reflex is the same: keep delta flat, trade the underlying as gamma changes.
+0DTE dealer positioning is the aggregate gamma exposure dealers carry on same-day-expiring options. Mechanically, it is no different from longer-dated dealer gamma - under the standard convention dealers are *modeled* as long the calls customers overwrite and short the puts customers buy for protection, so their long-call inventory contributes positive gamma while their short-put inventory contributes negative gamma (the minus sign is the modeled short position, not puts being negative gamma in themselves). The hedging reflex is the same: keep delta flat, trade the underlying as gamma changes.
 
-> This dealer sign is a modeled convention, not observed inventory — actual positioning is not directly observable from public open interest.
+> This dealer sign is a modeled convention, not observed inventory - actual positioning is not directly observable from public open interest.
 
-What makes 0DTE different is the **gamma density**. Same-day options carry their largest gamma right at the money, and per-contract gamma scales roughly with `1/√T`. With `T` measured in fractions of a day, that denominator is small — and the gamma per contract becomes very large. All else equal, an at-the-money 0DTE contract can carry substantially more gamma than a longer-dated contract, but the ratio depends on volatility, moneyness, rates, and the precise time remaining.
+What makes 0DTE different is the **gamma density**. Same-day options carry their largest gamma right at the money, and per-contract gamma scales roughly with `1/√T`. With `T` measured in fractions of a day, that denominator is small - and the gamma per contract becomes very large. All else equal, an at-the-money 0DTE contract can carry substantially more gamma than a longer-dated contract, but the ratio depends on volatility, moneyness, rates, and the precise time remaining.
 
 The practical implication: the 0DTE bucket can contribute disproportionately to modeled intraday dealer-hedging sensitivity. Even when total open interest is dominated by longer-dated strikes, the *gamma-weighted* exposure near spot is often a 0DTE story.
 
@@ -31,23 +31,23 @@ The practical implication: the 0DTE bucket can contribute disproportionately to 
 Three things compound for 0DTE that do not compound the same way for longer-dated:
 
 1. **Gamma concentration.** Same-day options carry very high gamma at the money. Hedging trades against that gamma are large per unit move, which makes near-spot price action mechanically louder.
-2. **Charm decay.** As 0DTE options approach expiry, their delta drifts toward 0 (out-of-the-money) or ±1 (in-the-money — +1 for calls, −1 for puts), holding spot and vol constant. Dealers running a delta-neutral book tend to re-hedge that drift into the close. That flow has a modeled sign — and it is estimable in advance.
+2. **Charm decay.** As 0DTE options approach expiry, their delta drifts toward 0 (out-of-the-money) or ±1 (in-the-money - +1 for calls, −1 for puts), holding spot and vol constant. Dealers running a delta-neutral book tend to re-hedge that drift into the close. That flow has a modeled sign - and it is estimable in advance.
 3. **Pin physics.** The same gamma concentration that makes 0DTE move dealers a lot per tick also lets the heaviest 0DTE strike act as a magnet in a long-gamma regime. Pin behavior tends to be sharper on 0DTE than on multi-day setups.
 
-None of those mechanisms is unique to 0DTE — they apply to any short-dated option. They are just unusually loud in the 0DTE bucket because of how compressed `T` has become.
+None of those mechanisms is unique to 0DTE - they apply to any short-dated option. They are just unusually loud in the 0DTE bucket because of how compressed `T` has become.
 
 ---
 
 ## Negative-gamma 0DTE regimes
 
-When dealers are net short gamma — typically when spot is below the gamma flip — 0DTE flow gets noisy fast.
+When dealers are net short gamma - typically when spot is below the gamma flip - 0DTE flow gets noisy fast.
 
 What the reflex does:
 
 - A move up tends to have dealers *buy*, amplifying the move.
 - A move down tends to have dealers *sell*, amplifying the move.
 - Realized intraday vol tends to expand.
-- Walls become less reliable as resistance and support — they can invert into breakout targets.
+- Walls become less reliable as resistance and support - they can invert into breakout targets.
 - Pin behavior near the heaviest 0DTE strike weakens or reverses.
 
 What the tape tends to look like:
@@ -63,7 +63,7 @@ The practical lean in a short-gamma 0DTE regime is **with the move, not against 
 
 ## Positive-gamma 0DTE regimes
 
-When dealers are net long gamma — typically when spot is above the gamma flip — 0DTE flow tends to compress.
+When dealers are net long gamma - typically when spot is above the gamma flip - 0DTE flow tends to compress.
 
 What the reflex does:
 
@@ -92,14 +92,14 @@ A few habits that change between the two regimes:
 
 - Take breakouts of the recent range more seriously, especially when Net GEX is large and negative.
 - Treat 0DTE walls as targets, not ceilings.
-- Be skeptical of "this will pin" setups — the dealer reflex is not pulling.
+- Be skeptical of "this will pin" setups - the dealer reflex is not pulling.
 - If independent volatility measures confirm a wider-range session, size risk accordingly; modeled gamma sign alone does not prescribe a stop.
 
 **In a positive-gamma 0DTE regime:**
 
 - Default to fades of moves into 0DTE-concentrated strikes.
 - Treat the heaviest gamma strike as a magnet, especially into the close.
-- Be skeptical of breakouts — they fail more often.
+- Be skeptical of breakouts - they fail more often.
 - Tighter stops are more reasonable; ranges are more contained.
 
 **In any regime:**
@@ -122,7 +122,7 @@ The dashboard surfaces 0DTE-specific reads in a few places:
 
 A worked example. Suppose SPX is at 5,825, Net GEX reads −$800M, the gamma flip sits at 5,840, and the heatmap shows a heavy 0DTE put strike at 5,820 that has been migrating down with price all morning. The structural read: dealers are short gamma, spot is below the flip, and the heaviest 0DTE strike is tracking the move rather than holding it.
 
-Practical lean: this is a short-gamma, continuation-friendly regime, with the migrating put strike confirming rather than resisting downside. A trader who came into the session with a mean-reversion bias should be much more cautious here, because the 0DTE structure is actively pointing the other way. None of that is a trade signal — it is regime context that should reshape which entries you take seriously.
+Practical lean: this is a short-gamma, continuation-friendly regime, with the migrating put strike confirming rather than resisting downside. A trader who came into the session with a mean-reversion bias should be much more cautious here, because the 0DTE structure is actively pointing the other way. None of that is a trade signal - it is regime context that should reshape which entries you take seriously.
 
 ![ZeroGEX Net GEX and Gamma Flip cards showing a negative-gamma intraday read](/blog/zerogex-net-gex-flip-card.png)
 
@@ -144,10 +144,10 @@ A short list of how 0DTE dealer positioning gets misread:
 
 > 0DTE has changed which part of the modeled dealer book can matter intraday. Total positioning matters, and the *0DTE bucket* can dominate near-spot sensitivity on some sessions.
 
-The discipline is the same as for any dealer-positioning read — start with the regime, then read the structure inside it — but the 0DTE bucket can carry a large share of near-spot sensitivity during the cash session, so it should be evaluated rather than assumed dominant.
+The discipline is the same as for any dealer-positioning read - start with the regime, then read the structure inside it - but the 0DTE bucket can carry a large share of near-spot sensitivity during the cash session, so it should be evaluated rather than assumed dominant.
 
-Educational content only — none of the above is a trade recommendation.
+Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's 0DTE dealer positioning in real time — the regime, the heaviest same-day strikes, the live walls, and the dealer gamma profile — the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's 0DTE dealer positioning in real time - the regime, the heaviest same-day strikes, the live walls, and the dealer gamma profile - the free ZeroGEX dashboard surfaces all of it.

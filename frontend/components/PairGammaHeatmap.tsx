@@ -339,23 +339,29 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
   );
 }
 
-// Two-letter rail tag drawn at the left edge of a level row. Colored glyph on a
-// faint same-color fill (like LevelChip) so it stays legible in every theme —
-// a solid fill with --text-inverse went white-on-amber in light palettes.
+// Two-letter rail tag drawn at the left edge of a level row.
+//
+// The glyph is --text-primary. A solid fill with --text-inverse came before it
+// and went white-on-amber in light palettes; the colored-glyph-on-a-wash that
+// replaced it was no better, clearing 4.5:1 in only 41 of the 120 palette/level
+// combinations and bottoming out at 1.91:1 — and a code you cannot read defeats
+// the reason these are two letters rather than one. The wash and the 55% border
+// still carry the level's colour.
 function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
   return (
     <span
       title={meta.label}
-      className="inline-flex items-center justify-center font-mono"
+      // 9px everywhere, the app's floor for text. It fits the 12px-tall tag,
+      // and these codes are the only level labels on the ladders.
+      className="inline-flex items-center justify-center font-mono text-[9px]"
       style={{
         minWidth: 15,
         height: 12,
         padding: "0 2px",
-        fontSize: 8,
         fontWeight: 800,
         letterSpacing: "0.02em",
         borderRadius: 2,
-        color: meta.color,
+        color: "var(--text-primary)",
         background: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
         border: `1px solid color-mix(in srgb, ${meta.color} 55%, transparent)`,
         flex: "0 0 auto",
@@ -546,7 +552,7 @@ function HeatmapColumn({
           style={{ color: input.positioningKind === "rewind" ? "var(--color-flip)" : "var(--color-warning)", marginTop: -2 }}
           title={
             input.positioningKind === "rewind"
-              ? "Rewind: the book, spot and levels as of this bucket — the chart's replay clock. Exit Rewind on the chart to return to live."
+              ? "Rewind: the book, spot and levels as of this bucket\u00a0- the chart's replay clock. Exit Rewind on the chart to return to live."
               : "No live positioning in the latest analytics buckets (options closed or analytics paused). Showing the most recent bucket that carried dealer gamma; the header levels are live."
           }
         >
@@ -625,7 +631,7 @@ function HeatmapColumn({
                             }}
                           >
                             {fmtStrike(cell.strike)}
-                            <span style={{ fontSize: 8, opacity: 0.8 }}>▸</span>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>▸</span>
                           </span>
                         ) : (
                           <span className="font-semibold truncate">{fmtStrike(cell.strike)}</span>
@@ -638,7 +644,7 @@ function HeatmapColumn({
                         {isPeak && (
                           // King node — the heaviest dealer gamma in view. Crown
                           // in currentColor so it stays readable on any cell tint.
-                          <Crown size={12} strokeWidth={2.25} aria-label="King node — heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
+                          <Crown size={12} strokeWidth={2.25} aria-label="King node&nbsp;- heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
                         )}
                         {baseline &&
                           (() => {

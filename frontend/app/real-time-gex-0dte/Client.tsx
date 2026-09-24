@@ -95,6 +95,7 @@ function TierCard({
   features,
   ctaLabel,
   ctaHref,
+  note,
 }: {
   title: string;
   price: string;
@@ -103,6 +104,9 @@ function TierCard({
   features: string[];
   ctaLabel: string;
   ctaHref: string;
+  // The plan's protection: the free trial (Basic monthly) or the 7-day
+  // money-back guarantee (every other plan) — see core/billingPlans.ts.
+  note: string;
 }) {
   return (
     <article
@@ -123,7 +127,7 @@ function TierCard({
               fontWeight: 800,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              border: `1px solid ${C.amber}66`,
+              border: `1px solid color-mix(in srgb, ${C.amber} 40%, transparent)`,
               color: C.amber,
               borderRadius: 999,
               padding: '4px 10px',
@@ -139,9 +143,7 @@ function TierCard({
         <span style={{ fontSize: 34, fontWeight: 900, color: C.light, letterSpacing: '-1px' }}>{price}</span>
         <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{cadence}</span>
       </div>
-      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-        Includes a {TRIAL_DAYS}-day free trial.
-      </p>
+      <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>{note}</p>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 10, flex: 1 }}>
         {features.map((feature) => (
@@ -178,21 +180,21 @@ export default function RealTimeGexLandingClient() {
       <nav
         className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16"
         style={{
-          background: `${C.bg}ee`,
+          background: `color-mix(in srgb, ${C.bg} 93%, transparent)`,
           borderBottom: `1px solid ${C.border}`,
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+            className="w-10 h-10 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
             style={{
-              background: isDark ? `${C.card}cc` : 'var(--bg-hover)',
+              background: isDark ? `color-mix(in srgb, ${C.card} 80%, transparent)` : 'var(--bg-hover)',
               border: `1px solid ${C.border}`,
               cursor: 'pointer',
               color: C.muted,
@@ -201,7 +203,7 @@ export default function RealTimeGexLandingClient() {
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          <Link href="/pricing" style={{ textDecoration: 'none' }}>
+          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               className="zg-btn zg-btn--secondary"
               style={{
@@ -214,13 +216,14 @@ export default function RealTimeGexLandingClient() {
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button
-              className="zg-btn zg-btn--primary"
+              className="zg-btn zg-btn--primary whitespace-nowrap min-h-[40px] sm:min-h-0"
               style={{
                 padding: '8px 14px',
                 fontSize: 13,
               }}
             >
-              Free Gamma Levels <ArrowRight size={14} />
+              <span className="hidden sm:inline">Free Gamma Levels</span>
+              <span className="sm:hidden">Free levels</span> <ArrowRight size={14} />
             </button>
           </Link>
         </div>
@@ -254,10 +257,10 @@ export default function RealTimeGexLandingClient() {
           </h1>
 
           <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.light, fontSize: 19, lineHeight: 1.65, fontWeight: 500 }}>
-            ZeroGEX is real-time gamma exposure built for the way SPX and 0DTE actually trade today — live gamma flip, call and put walls, dealer positioning, and composite signals you can read.
+            ZeroGEX is real-time gamma exposure built for the way SPX and 0DTE actually trade today&nbsp;- live gamma flip, call and put walls, dealer positioning, and composite signals you can read.
           </p>
           <p style={{ margin: '0 auto 32px', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-            No black-box scores. See the free, 15-minute-delayed gamma levels — or start a trial to read the live dealer book.
+            No black-box scores. See the free, 15-minute-delayed gamma levels&nbsp;- or start a trial to read the live dealer book.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -280,7 +283,7 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Start {TRIAL_DAYS}-day free trial <ArrowRight size={16} />
+                Try Basic free for {TRIAL_DAYS} days <ArrowRight size={16} />
               </button>
             </Link>
           </div>
@@ -327,11 +330,11 @@ export default function RealTimeGexLandingClient() {
             />
             <PainPoint
               title="Static screenshots miss the migration"
-              body="Walls, the flip, and the gamma magnet all migrate intraday. A call wall that's chasing price is a very different read than one that's holding — and a screenshot can't show you which one you're looking at."
+              body="Walls, the flip, and the gamma magnet all migrate intraday. A call wall that's chasing price is a very different read than one that's holding&nbsp;- and a screenshot can't show you which one you're looking at."
             />
             <PainPoint
               title="Per-strike GEX misses sign consistency"
-              body="The retail shortcut of summing gamma × OI by strike can produce a positive headline number while the underlying curve says spot is below the flip. The headline and the regime line cannot contradict — but in some tools they do."
+              body="The retail shortcut of summing gamma × OI by strike can produce a positive headline number while the underlying curve says spot is below the flip. The headline and the regime line cannot contradict&nbsp;- but in some tools they do."
             />
             <PainPoint
               title="Aggregate gamma misses the 0DTE bucket"
@@ -361,7 +364,7 @@ export default function RealTimeGexLandingClient() {
               Real-time, methodology-first, 0DTE-aware.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 740, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Built specifically for the structural reads that matter intraday — and structurally honest about what the data can and can&apos;t say.
+              Built specifically for the structural reads that matter intraday&nbsp;- and structurally honest about what the data can and can&apos;t say.
             </p>
           </div>
 
@@ -369,7 +372,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={Activity}
               title="Real-time dealer gamma"
-              body="Live spot-shift dealer gamma profile, recalculated continuously. The headline Net GEX and the gamma flip read off one curve — they cannot contradict each other."
+              body="Live spot-shift dealer gamma profile, recalculated continuously. The headline Net GEX and the gamma flip read off one curve&nbsp;- they cannot contradict each other."
             />
             <FeatureCard
               icon={Target}
@@ -384,7 +387,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={BarChart2}
               title="Composite signal layer"
-              body="Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure — each with published methodology in the Education section, not black-box alerts."
+              body="Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure&nbsp;- each with published methodology in the Education section, not black-box alerts."
             />
             <FeatureCard
               icon={ShieldCheck}
@@ -394,7 +397,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={Sparkles}
               title="Free read on the structural stack"
-              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, QQQ, and NDX — open to anyone, no signup required, refreshed every 15 minutes."
+              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, QQQ, and NDX&nbsp;- open to anyone, no signup required, refreshed every 15 minutes."
             />
           </div>
         </div>
@@ -428,7 +431,7 @@ export default function RealTimeGexLandingClient() {
               See today&apos;s dealer book without paying for it.
             </h2>
             <p style={{ margin: 0, maxWidth: 680, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The free gamma-levels page surfaces the structural reads for SPX, SPY, QQQ, and NDX — Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
+              The free gamma-levels page surfaces the structural reads for SPX, SPY, QQQ, and NDX&nbsp;- Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, width: '100%', marginTop: 8 }}>
@@ -497,7 +500,7 @@ export default function RealTimeGexLandingClient() {
               Pricing built for the way 0DTE traders actually work.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Free 15-min-delayed gamma levels for the structural reads. Paid plans add real-time updates, the full dashboard, the signal layer, the Advanced Signals, and direct API access. Every plan starts with a {TRIAL_DAYS}-day free trial — cancel anytime.
+              Free 15-min-delayed gamma levels for the structural reads. Paid plans add real-time updates, the full dashboard, the signal layer, the Advanced Signals, and direct API access. Basic monthly starts with a {TRIAL_DAYS}-day free trial; every other plan comes with a 7-day money-back guarantee. Cancel anytime.
             </p>
           </div>
 
@@ -514,6 +517,7 @@ export default function RealTimeGexLandingClient() {
               ]}
               ctaLabel={`Start ${TRIAL_DAYS}-day free trial`}
               ctaHref="/pricing"
+              note={`Includes a ${TRIAL_DAYS}-day free trial.`}
             />
             <TierCard
               title="Pro"
@@ -526,17 +530,18 @@ export default function RealTimeGexLandingClient() {
                 'Direct access to ZeroGEX APIs',
                 'Real-time scoring + historical score charts',
               ]}
-              ctaLabel={`Start ${TRIAL_DAYS}-day free trial`}
-              ctaHref="/pricing"
+              ctaLabel="Get Pro"
+              ctaHref="/pricing?plan=pro"
+              note="7-day money-back guarantee&nbsp;- one refund per customer."
             />
           </div>
 
           <p style={{ textAlign: 'center', marginTop: 22, color: C.muted, fontSize: 13 }}>
-            Annual billing also available — see{' '}
+            Longer billing periods cost less per month&nbsp;- see{' '}
             <Link href="/pricing" style={{ color: C.amber }}>
               the pricing page
             </Link>{' '}
-            for current promo pricing and annual savings.
+            for current promo pricing and savings.
           </p>
         </div>
       </section>
@@ -561,17 +566,17 @@ export default function RealTimeGexLandingClient() {
               Every read has a write-up.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The structural reads, the signal layer, and the methodology — all documented. Pick a starting point.
+              The structural reads, the signal layer, and the methodology&nbsp;- all documented. Pick a starting point.
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             {[
-              { href: '/education/gamma-exposure-explained', title: 'Gamma Exposure (GEX) Explained', body: 'The complete guide — pillar piece.' },
+              { href: '/education/gamma-exposure-explained', title: 'Gamma Exposure (GEX) Explained', body: 'The complete guide\u00a0- pillar piece.' },
               { href: '/education/how-to-read-a-gamma-flip', title: 'What Is a Gamma Flip?', body: 'The regime line, and the practical intraday workflow.' },
               { href: '/education/gamma-walls-explained', title: 'Gamma Walls Explained', body: 'Call wall, put wall, and how price reacts.' },
               { href: '/education/0dte-dealer-positioning-explained', title: '0DTE Dealer Positioning', body: 'Why same-day expiries dominate the read.' },
-              { href: '/education/max-pain-explained', title: 'Max Pain — Does It Work?', body: 'Evidence-honest read.' },
+              { href: '/education/max-pain-explained', title: 'Max Pain\u00a0- Does It Work?', body: 'Evidence-honest read.' },
               { href: '/education/vanna-and-charm-explained', title: 'Vanna and Charm Explained', body: 'Second-order Greeks and dealer hedging.' },
             ].map((item) => (
               <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -621,7 +626,7 @@ export default function RealTimeGexLandingClient() {
             </span>
           </h2>
           <p style={{ margin: '0 auto 28px', maxWidth: 640, fontSize: 17, color: C.muted, lineHeight: 1.65 }}>
-            The free read is the same calculation paid users get — just 15 minutes behind. Try it on today&apos;s tape before you decide whether to upgrade.
+            The free read is the same calculation paid users get&nbsp;- just 15 minutes behind. Try it on today&apos;s tape before you decide whether to upgrade.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -650,7 +655,7 @@ export default function RealTimeGexLandingClient() {
           </div>
 
           <p style={{ marginTop: 24, color: C.muted, fontSize: 13, lineHeight: 1.65, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
-            Educational content only — not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.
+            Educational content only&nbsp;- not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.
           </p>
         </div>
       </section>

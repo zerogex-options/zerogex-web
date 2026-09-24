@@ -39,9 +39,9 @@
  * also carries a glyph, a sign, or a position.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
-import MobileScrollableChart from './MobileScrollableChart';
+import { useCoarsePointer, useIsMobile } from '@/hooks/useIsMobile';
 import {
   STATE_META,
   buildExpiryCaveat,
@@ -255,6 +255,30 @@ function ShiftPlane({
 // the concentration ribbon
 // ────────────────────────────────────────────────────────────────────────────
 
+// Widest ribbon (CSS px) that is drawn on the compact canvas.
+const RIBBON_COMPACT_MAX = 640;
+// The desktop board's native width.
+const RIBBON_DESKTOP_W = 1200;
+// Advance of one monospace glyph, in ems: enough to keep a label clear of the
+// canvas edges and of its neighbours without measuring the text.
+const MONO_ADVANCE = 0.6;
+
+/**
+ * The ribbon's geometry. Both canvases are drawn at the card's measured width
+ * (one viewBox unit per CSS px), so their labels render at their set size: a
+ * fixed 1200-unit board squeezed into a phone drew its 12–13 unit labels at
+ * about 3px, and into a 700px desktop card at about 7px. A card of 1200px or
+ * more keeps the original 1200-unit board. The compact canvas is the phone
+ * one: shorter, smaller type, and a tap readout under it.
+ */
+function ribbonGeometry(width: number | null, compact: boolean) {
+  if (compact && width != null) {
+    return { compact: true, W: Math.max(260, Math.round(width)), H: 156, PAD: 2, BOT: 126, MID: 72, HMAX: 50, SPOT_Y: 11, LABEL_Y: 146, fs: 10, fsStrong: 11 };
+  }
+  const W = width != null && width > 0 && width < RIBBON_DESKTOP_W ? Math.round(width) : RIBBON_DESKTOP_W;
+  return { compact: false, W, H: 196, PAD: 12, BOT: 158, MID: 92, HMAX: 64, SPOT_Y: 14, LABEL_Y: 184, fs: 12, fsStrong: 13 };
+}
+
 /**
  * Where the change landed on the price axis.
  *
@@ -263,9 +287,12 @@ function ShiftPlane({
  * below. Bars grow up for gamma added and down for gamma shed, so the sign is
  * carried by position as well as color.
  *
- * The viewBox is 1200 wide and 240 tall so it fills a full-width panel at
- * roughly 1:1 unit-to-pixel, instead of a 700x140 box stretched across 1200px
- * (which scaled the type to ~17px and left the bars in a thin band).
+ * The desktop viewBox is 1200 units wide (the card's width, if narrower) so it
+ * fills a full-width panel at roughly 1:1 unit-to-pixel, instead of a 700x140
+ * box stretched across 1200px (which scaled the type to ~17px and left the
+ * bars in a thin band). A phone gets the compact canvas above, measured from
+ * the card, and — since a finger cannot reach a bar's hover title — a tap on
+ * a bar reads it out.
  */
 function ConcentrationRibbon({
   strikes,
@@ -282,12 +309,37 @@ function ConcentrationRibbon({
   bull: string;
   bear: string;
 }) {
-  const W = 1200;
-  const H = 196;
-  const PAD = 12;
-  const BOT = 158;
-  const MID = 92;
-  const HMAX = 64;
+  // Measured in a layout effect, so the compact canvas replaces the desktop
+  // board before the browser paints (the ribbon only mounts client-side,
+  // once the shift payload has loaded).
+  const [boxEl, setBoxEl] = useState<HTMLDivElement | null>(null);
+  const [boxW, setBoxW] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!boxEl) return;
+    const measure = () => {
+      const w = boxEl.clientWidth;
+      setBoxW((cur) => (cur != null && Math.abs(cur - w) < 1 ? cur : w));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(boxEl);
+    return () => ro.disconnect();
+  }, [boxEl]);
+  const setBoxNode = useCallback((el: HTMLDivElement | null) => setBoxEl(el), []);
+  // The compact canvas for any card narrower than RIBBON_COMPACT_MAX, and for
+  // touch screens up to the desktop board's width, where a finger cannot reach
+  // a bar's hover title and the tap readout stands in for it. A mouse gets the
+  // desktop board, drawn at the card's width.
+  const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
+  const touchUi = isMobile || coarsePointer;
+  const measured = boxW != null && boxW > 0 ? boxW : null;
+  const g = ribbonGeometry(
+    measured,
+    measured != null && (measured < RIBBON_COMPACT_MAX || (touchUi && measured < RIBBON_DESKTOP_W)),
+  );
+  const { compact, W, H, PAD, BOT, MID, HMAX } = g;
+  const [picked, setPicked] = useState<number | null>(null);
 
   const ordered = useMemo(() => [...strikes].sort((a, b) => a.strike - b.strike), [strikes]);
   const reference = useMemo(() => ribbonReference(ordered, lens), [ordered, lens]);
@@ -304,8 +356,45 @@ function ConcentrationRibbon({
   const bw = span / ordered.length;
   const xOf = (k: number) => (hi === lo ? PAD : PAD + ((k - lo) / (hi - lo + 1)) * span);
   const bandResolved = band?.resolved && Number.isFinite(band.low) && Number.isFinite(band.high);
+  // Bars are ~5px apart on a phone; a 3px gutter would leave slivers.
+  const gutter = compact ? Math.min(3, bw * 0.3) : 3;
+  const pickedRow = picked == null ? null : ordered.find((r) => r.strike === picked) ?? null;
+  const pickedValue = pickedRow ? (lens === 'net' ? pickedRow.d_net : pickedRow.positioning) : null;
+
+  // Label placement. The spot label is kept inside the canvas, where a
+  // centered one would hang off an edge when spot sits near one. The band
+  // caption is centered on the band, kept clear of the strike labels at
+  // either end; on the compact canvas (or when there is no room for that) it
+  // is centered on the canvas instead.
+  const spotLabel = `SPOT ${formatStrike(spot)}`;
+  const spotHalf = (spotLabel.length * g.fsStrong * MONO_ADVANCE) / 2 + 2;
+  const spotLabelX = Math.max(PAD + spotHalf, Math.min(W - PAD - spotHalf, xOf(spot)));
+  const caption = bandResolved
+    ? compact
+      ? `${formatBand(band)} · ${formatPercent(band.share)}`
+      : `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
+    : compact
+      ? 'diffuse\u00a0- no concentration'
+      : 'no concentration\u00a0- change is diffuse across the chain';
+  const captionHalf = (caption.length * g.fsStrong * MONO_ADVANCE) / 2;
+  const captionMin = PAD + formatStrike(lo).length * g.fs * MONO_ADVANCE + 12 + captionHalf;
+  const captionMax = W - PAD - formatStrike(hi).length * g.fs * MONO_ADVANCE - 12 - captionHalf;
+  const captionX =
+    compact || !bandResolved || captionMin > captionMax
+      ? W / 2
+      : Math.max(captionMin, Math.min(captionMax, (xOf(band.low) + xOf(band.high) + bw) / 2));
+
+  const onTap = (e: MouseEvent<SVGSVGElement>) => {
+    if (!compact) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const vx = (e.clientX - rect.left) * (W / Math.max(1, rect.width));
+    const idx = Math.max(0, Math.min(ordered.length - 1, Math.floor((vx - PAD) / Math.max(1e-9, bw))));
+    const strike = ordered[idx].strike;
+    setPicked((cur) => (cur === strike ? null : strike));
+  };
 
   return (
+    <div ref={setBoxNode}>
     <svg
       viewBox={`0 0 ${W} ${H}`}
       width="100%"
@@ -313,6 +402,7 @@ function ConcentrationRibbon({
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="Change in dealer gamma by strike"
+      onClick={onTap}
     >
       {bandResolved && (
         <rect
@@ -347,16 +437,17 @@ function ConcentrationRibbon({
         if (value === 0) return null;
         const h = Math.max(2, ribbonHeight(value, reference) * HMAX);
         const up = value > 0;
+        const dim = pickedRow != null && pickedRow.strike !== row.strike;
         return (
           <rect
             key={row.strike}
-            x={xOf(row.strike) + 1.5}
-            width={Math.max(2, bw - 3)}
+            x={xOf(row.strike) + gutter / 2}
+            width={Math.max(compact ? 1.5 : 2, bw - gutter)}
             y={up ? MID - h : MID}
             height={h}
-            rx={2}
+            rx={compact ? 1 : 2}
             fill={up ? bull : bear}
-            opacity={h < 8 ? 0.55 : 0.92}
+            opacity={dim ? 0.35 : h < 8 ? 0.55 : 0.92}
           >
             <title>{`${formatStrike(row.strike)}: ${formatSignedGex(value)}`}</title>
           </rect>
@@ -367,55 +458,82 @@ function ConcentrationRibbon({
         <>
           <line
             x1={xOf(spot)}
-            y1={MID - HMAX - 12}
+            y1={MID - HMAX - (compact ? 8 : 12)}
             x2={xOf(spot)}
             y2={BOT + 4}
             stroke="var(--text-primary)"
             strokeWidth={1.5}
-            strokeDasharray="5 4"
+            strokeDasharray={compact ? '4 3' : '5 4'}
             opacity={0.7}
           />
           <text
-            x={xOf(spot)}
-            y={14}
+            x={spotLabelX}
+            y={g.SPOT_Y}
             textAnchor="middle"
             fontFamily="var(--font-mono)"
-            fontSize={13}
+            fontSize={g.fsStrong}
             fontWeight={700}
             fill="var(--text-primary)"
           >
-            SPOT {formatStrike(spot)}
+            {spotLabel}
           </text>
         </>
       )}
 
-      <text x={PAD} y={BOT + 26} fontFamily="var(--font-mono)" fontSize={12} fill="var(--text-muted)">
+      {pickedRow && (
+        <rect
+          x={xOf(pickedRow.strike)}
+          y={MID - HMAX - 4}
+          width={Math.max(2, bw)}
+          height={HMAX * 2 + 8}
+          fill="none"
+          stroke="var(--text-primary)"
+          strokeWidth={1}
+          rx={1}
+        />
+      )}
+
+      <text x={PAD} y={g.LABEL_Y} fontFamily="var(--font-mono)" fontSize={g.fs} fill="var(--text-muted)">
         {formatStrike(lo)}
       </text>
       <text
         x={W - PAD}
-        y={BOT + 26}
+        y={g.LABEL_Y}
         textAnchor="end"
         fontFamily="var(--font-mono)"
-        fontSize={12}
+        fontSize={g.fs}
         fill="var(--text-muted)"
       >
         {formatStrike(hi)}
       </text>
       <text
-        x={bandResolved ? (xOf(band.low) + xOf(band.high) + bw) / 2 : W / 2}
-        y={BOT + 26}
+        x={captionX}
+        y={g.LABEL_Y}
         textAnchor="middle"
         fontFamily="var(--font-mono)"
-        fontSize={13}
+        fontSize={g.fsStrong}
         fontWeight={600}
         fill={bandResolved ? 'var(--color-warning)' : 'var(--text-muted)'}
       >
-        {bandResolved
-          ? `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
-          : 'no concentration — change is diffuse across the chain'}
+        {caption}
       </text>
     </svg>
+    {compact && (
+      <div className="mt-1 min-h-[18px] font-mono text-[12px]" style={{ color: 'var(--text-muted)' }} aria-live="polite">
+        {pickedRow && pickedValue != null ? (
+          <>
+            <strong style={{ color: 'var(--text-primary)' }}>{formatStrike(pickedRow.strike)}</strong>{' '}
+            <span style={{ color: pickedValue >= 0 ? bull : bear }}>{formatSignedGex(pickedValue)}</span>
+            {pickedValue === 0 ? ' · no change' : pickedValue > 0 ? ' · gamma added' : ' · gamma shed'}
+          </>
+        ) : bandResolved ? (
+          <>Band holds {formatPercent(band.share)} of the move · tap a bar to read it</>
+        ) : (
+          <>Tap a bar to read its strike</>
+        )}
+      </div>
+    )}
+    </div>
   );
 }
 
@@ -539,7 +657,7 @@ export default function GammaRegimeShiftCard({
                 and it reads as a caption to the whole row either way. */}
             <p className="mt-4 max-w-[62ch] text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               On the plane, center is no change and the arrow tip is where the book sits
-              now — its length is the size of the move, so landing past the 2σ ring is
+              now&nbsp;- its length is the size of the move, so landing past the 2σ ring is
               exactly the word “{payload.read.adverb}”. The upper half is stabilizing, the
               lower half fragile; right of center is supportive, left is capping.
             </p>
@@ -584,20 +702,17 @@ export default function GammaRegimeShiftCard({
       >
         {lensResolved ? (
           <>
-            {/* A 36-strike price axis squeezed into a phone's width scales every
-                label to ~4px. On narrow screens the ribbon keeps a readable scale
-                and scrolls instead, the same way every other wide chart on the
-                site behaves. */}
-            <MobileScrollableChart minWidthClass="min-w-[760px]" initialScroll="center">
-              <ConcentrationRibbon
-                strikes={payload.strikes}
-                lens={lens}
-                spot={payload.spot}
-                band={payload.band}
-                bull={chart.bull}
-                bear={chart.bear}
-              />
-            </MobileScrollableChart>
+            {/* A 36-strike price axis squeezed into a phone's width used to
+                scale every label to ~4px; the ribbon now draws a compact
+                canvas at the width it is given (see ribbonGeometry). */}
+            <ConcentrationRibbon
+              strikes={payload.strikes}
+              lens={lens}
+              spot={payload.spot}
+              band={payload.band}
+              bull={chart.bull}
+              bear={chart.bear}
+            />
             <div
               className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px]"
               style={{ color: 'var(--text-muted)' }}
@@ -635,8 +750,8 @@ export default function GammaRegimeShiftCard({
             />
             <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               {lens === 'net'
-                ? 'Total change — every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
-                : 'Repositioning — only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate). Open interest is published once a day at settlement, so this needs a window that straddles one.'}
+                ? 'Total change\u00a0- every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
+                : 'Repositioning\u00a0- only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate). Open interest is published once a day at settlement, so this needs a window that straddles one.'}
             </p>
           </div>
           <div className="min-w-[280px] flex-1 space-y-1.5">
@@ -747,7 +862,7 @@ function LensToggle({
         'positioning',
         'Repositioning',
         positioningEmpty
-          ? 'Nothing to show in this window — open interest only republishes at settlement'
+          ? 'Nothing to show in this window\u00a0- open interest only republishes at settlement'
           : undefined,
       )}
     </div>

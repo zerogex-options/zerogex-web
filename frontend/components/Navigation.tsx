@@ -284,7 +284,7 @@ export default function Navigation({
   const menuTabRef = useRef<HTMLButtonElement | null>(null);
 
   const syncNavVars = useCallback(() => {
-    const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
+    const desktop = typeof window !== "undefined" && window.innerWidth >= 1024;
     let width = 0;
     if (desktop) {
       width = sidebarVisible
@@ -407,7 +407,7 @@ export default function Navigation({
     <>
       {sidebarVisible ? (
         <nav
-          className="group/sidebar hidden md:block fixed left-0 z-30 border-r"
+          className="group/sidebar hidden lg:block fixed left-0 z-30 border-r"
           style={{
             width: `${SIDEBAR_WIDTH}px`,
             top: "var(--zgx-header-height, 0px)",
@@ -436,7 +436,7 @@ export default function Navigation({
                     <div className="flex flex-col gap-1">
                       <span className="zg-metric" style={{ fontSize: "1.125rem" }}>${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="zg-datum flex items-center gap-1 px-2 py-0.5 font-semibold text-xs w-fit" style={{ borderRadius: 'var(--radius-control)', backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                        <div className="zg-datum flex items-center gap-1 px-2 py-0.5 font-semibold text-xs w-fit" style={{ borderRadius: 'var(--radius-control)', backgroundColor: `color-mix(in srgb, ${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'} 12%, transparent)`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -607,7 +607,7 @@ export default function Navigation({
           ref={menuTabRef}
           type="button"
           onClick={toggleSidebar}
-          className="hidden md:flex fixed z-30 items-center gap-1 border border-l-0 px-2"
+          className="hidden lg:flex fixed z-30 items-center gap-1 border border-l-0 px-2"
           style={{
             left: 0,
             top: "calc(var(--zgx-header-height, 0px) + 18px)",

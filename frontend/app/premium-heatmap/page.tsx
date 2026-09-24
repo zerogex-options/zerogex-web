@@ -12,12 +12,13 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import BetaBadge from '@/components/BetaBadge';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 // plotly.js is heavy and not SSR-safe — load the surface only on the client.
 const PremiumSurfacePlot = dynamic(() => import('./PremiumSurfacePlot'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center" style={{ height: 560 }}>
+    <div className="flex items-center justify-center h-[400px] sm:h-[560px]">
       <LoadingSpinner />
     </div>
   ),
@@ -26,7 +27,7 @@ const PremiumSurfacePlot = dynamic(() => import('./PremiumSurfacePlot'), {
 const TITLE_TOOLTIP =
   'A 3D surface of option time value. X = strike, Y = days to expiration, ' +
   'Z = either extrinsic dollars (premium − intrinsic, floored at $0) or the ' +
-  '% move from current spot to break even at expiry — toggle via the Z ' +
+  '% move from current spot to break even at expiry\u00a0- toggle via the Z ' +
   'dropdown. Use the symbol selector in the header to change the underlying.';
 
 type Metric = 'extrinsic' | 'breakeven_pct';
@@ -89,6 +90,11 @@ function interpolateRowGaps(row: (number | null)[]): (number | null)[] {
 export default function PremiumHeatmapPage() {
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
+  const plotHeight = isMobile ? 400 : 560;
+  // A 3D scene claims every touch on it (a vertical swipe rotates the surface
+  // instead of scrolling the page), so on a phone it stays inert until asked.
+  const [surfaceActive, setSurfaceActive] = useState(false);
 
   const [optionType, setOptionType] = useState<'C' | 'P'>('C');
   const [dteMax, setDteMax] = useState(60);
@@ -185,16 +191,19 @@ export default function PremiumHeatmapPage() {
   const inputBg = 'var(--bg-card)';
   const inputColor = 'var(--text-primary)';
 
+  // 16px on a phone (iOS zooms the page into a smaller select on focus), and
+  // filling its grid cell there.
   const selectStyle: React.CSSProperties = {
     padding: '6px 10px',
-    fontSize: 13,
+    fontSize: isMobile ? 16 : 13,
     borderRadius: 6,
     border: `1px solid ${inputBorder}`,
     backgroundColor: inputBg,
     color: inputColor,
     cursor: 'pointer',
     outline: 'none',
-    minWidth: 110,
+    minWidth: isMobile ? 0 : 110,
+    ...(isMobile ? { width: '100%', minHeight: 40 } : {}),
   };
 
   const showError = error && error !== 'No data available yet';
@@ -212,15 +221,18 @@ export default function PremiumHeatmapPage() {
         {metric === 'extrinsic' ? 'Extrinsic (time) value surface' : '% move from spot to breakeven at expiry'}{' '}
         for{' '}
         <span style={{ color: inputColor, fontWeight: 600 }}>{symbol}</span> {' '}
-        {optionType === 'C' ? 'calls' : 'puts'} —{' '}
+        {optionType === 'C' ? 'calls' : 'puts'} -{' '}
         {metric === 'extrinsic'
           ? 'premium minus intrinsic value across strikes and expirations.'
           : 'how far spot must move (in %) for each contract to break even at expiry.'}
       </p>
 
       {/* ── Controls ────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-4 mb-6">
-        <div className="flex items-center gap-2">
+      {/* Phone: a 2×2 grid, each label over its select, with spot on its own
+          line — four label/select pairs otherwise wrapped into four ragged
+          rows. From `sm` up it is the original wrapping row. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-3 mb-6 sm:flex sm:flex-wrap sm:items-center sm:gap-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: muted }}>Type</span>
           <select
             value={optionType}
@@ -233,7 +245,7 @@ export default function PremiumHeatmapPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: muted }}>Max DTE</span>
           <select
             value={dteMax}
@@ -249,7 +261,7 @@ export default function PremiumHeatmapPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: muted }}>Strikes</span>
           <select
             value={strikeCount}
@@ -265,7 +277,7 @@ export default function PremiumHeatmapPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: muted }}>Z</span>
           <select
             value={metric}
@@ -279,7 +291,7 @@ export default function PremiumHeatmapPage() {
         </div>
 
         {data && (
-          <div className="text-sm ml-auto" style={{ color: muted }}>
+          <div className="text-sm ml-auto max-sm:col-span-2 max-sm:ml-0" style={{ color: muted }}>
             Spot{' '}
             <span style={{ color: inputColor, fontWeight: 600 }}>
               ${data.spot_price.toFixed(2)}
@@ -291,37 +303,69 @@ export default function PremiumHeatmapPage() {
       {/* ── Surface ─────────────────────────────────────────────────── */}
       <div
         className="rounded-xl border p-4"
-        style={{ borderColor: inputBorder, backgroundColor: `${inputBg}80` }}
+        style={{ borderColor: inputBorder, backgroundColor: `color-mix(in srgb, ${inputBg} 50%, transparent)` }}
       >
         {showError ? (
           <ErrorMessage message={error} />
         ) : loading && !data ? (
-          <div className="flex items-center justify-center" style={{ height: 560 }}>
+          <div className="flex items-center justify-center" style={{ height: plotHeight }}>
             <LoadingSpinner />
           </div>
         ) : !plot ? (
           <div
             className="flex items-center justify-center text-sm"
-            style={{ height: 560, color: muted }}
+            style={{ height: plotHeight, color: muted }}
           >
             No options premium data available for {symbol} {optionType === 'C' ? 'calls' : 'puts'} yet.
           </div>
         ) : !plot.hasGrid ? (
           <div
             className="flex items-center justify-center text-sm"
-            style={{ height: 560, color: muted }}
+            style={{ height: plotHeight, color: muted }}
           >
-            Not enough strikes/expirations to render a surface — try widening Max DTE or strike count.
+            Not enough strikes/expirations to render a surface&nbsp;- try widening Max DTE or strike count.
           </div>
         ) : !plot.hasData ? (
           <div
             className="flex items-center justify-center text-sm text-center px-6"
-            style={{ height: 560, color: muted }}
+            style={{ height: plotHeight, color: muted }}
           >
             The snapshot returned strikes and expirations for {symbol}{' '}
             {optionType === 'C' ? 'calls' : 'puts'}, but no usable premium quotes
-            (bid/ask/mid/last) — so there are no time-value points to plot. This usually
+            (bid/ask/mid/last)&nbsp;- so there are no time-value points to plot. This usually
             means the latest option-chain snapshot has empty quotes.
+          </div>
+        ) : isMobile ? (
+          <div className="relative">
+            {/* Inert until "Rotate & zoom": the page scrolls straight over it,
+                and the scene only takes the finger once asked to. */}
+            <div style={{ pointerEvents: surfaceActive ? 'auto' : 'none' }}>
+              <PremiumSurfacePlot
+                strikes={plot.strikes}
+                dtes={plot.dtes}
+                z={plot.z}
+                expirationLabels={plot.expirationLabels}
+                optionType={optionType}
+                spot={data!.spot_price}
+                metric={metric}
+                theme={theme}
+                height={plotHeight}
+                compact
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSurfaceActive((v) => !v)}
+              aria-pressed={surfaceActive}
+              className="absolute right-0 top-0 min-h-8 rounded-full border px-3 text-xs font-semibold"
+              style={{
+                borderColor: surfaceActive ? 'var(--color-warning)' : 'var(--border-default)',
+                backgroundColor: surfaceActive ? 'var(--color-warning-soft)' : 'var(--bg-card)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {surfaceActive ? 'Done' : 'Rotate & zoom'}
+            </button>
           </div>
         ) : (
           <PremiumSurfacePlot

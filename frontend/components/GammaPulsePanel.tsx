@@ -44,7 +44,7 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
     key: 'net_gex_at_spot',
     title: 'Net GEX at Spot',
     description:
-      "Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip. Positive = dealers net long gamma here (pinning, mean-reversion). Negative = net short gamma here (trending, vol amplification).",
+      "Cumulative dealer gamma at the current spot price\u00a0- the value of the same low→high cumulative curve whose zero crossing is the gamma flip. Positive = dealers net long gamma here (pinning, mean-reversion). Negative = net short gamma here (trending, vol amplification).",
   },
   {
     key: 'total_net_gex',
@@ -184,7 +184,7 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
   const stats = metric.windows?.[windowLabel] ?? null;
   if (!stats) {
     return (
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 sm:p-5">
         <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
           {windowDisplay}
         </div>
@@ -212,14 +212,14 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
     : null;
 
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 space-y-3">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 sm:p-5 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
           {windowDisplay}
         </div>
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase"
-          style={{ backgroundColor: `${accent}22`, color: accent }}
+          style={{ backgroundColor: `color-mix(in srgb, ${accent} 13%, transparent)`, color: accent }}
         >
           {isRecord && (
             <Trophy size={11} strokeWidth={2.5} aria-label={trophyLegend ?? 'record'} />
@@ -280,7 +280,7 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
 
       {stats.tod_bucket_used === -1 && (
         <div className="text-[10px] italic" style={{ color: 'var(--text-secondary)' }}>
-          Using all-day (flat) distribution — the specific time-of-day bucket had too few samples.
+          Using all-day (flat) distribution&nbsp;- the specific time-of-day bucket had too few samples.
         </div>
       )}
     </div>
@@ -305,7 +305,7 @@ function MetricSection({ title, description, metric, trackingStartedAt }: Metric
       <div className="flex items-start gap-4 flex-wrap">
         <div className="flex-1 min-w-[240px]">
           <h3 className="text-xl font-semibold mb-1">{title}</h3>
-          <p className="text-sm italic" style={{ color: 'var(--text-secondary)' }}>{description}</p>
+          <p className="text-[15px] sm:text-sm italic" style={{ color: 'var(--text-secondary)' }}>{description}</p>
         </div>
         <div className="text-right">
           <div className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
@@ -352,11 +352,12 @@ export default function GammaPulsePanel({ symbol, refreshInterval = 15000 }: Gam
         </span>
         {data && !data.in_rth && (
           <span className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>
-            · outside RTH — flat distribution
+            · outside RTH&nbsp;- flat distribution
           </span>
         )}
       </div>
-      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+      {/* Body copy: 15px on a phone, where 14px read small for a paragraph. */}
+      <p className="text-sm max-sm:text-[15px] max-sm:leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
         Compares the live headline GEX figures against historical distributions
         (rolling-30-day and all-time) so you can tell at a glance whether the
         current dealer-positioning reading is a record, an extreme, elevated,

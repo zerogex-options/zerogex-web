@@ -1,6 +1,6 @@
 # Comment fonctionnent les Signals, de bout en bout
 
-*Le modèle complet des signals — Advanced vs. Basic, comment les scores se combinent, ce que montrent les cartes, et comment tout utiliser.*
+*Le modèle complet des signals - Advanced vs. Basic, comment les scores se combinent, ce que montrent les cartes, et comment tout utiliser.*
 
 ---
 
@@ -8,16 +8,16 @@
 
 ZeroGEX fait tourner **deux familles** de signals. Elles se comportent différemment, et c'est voulu.
 
-- Les **signals Advanced** posent une question précise et situationnelle — *"la clôture est-elle en train de se figer sur un niveau ?"*, *"ce breakout vient-il d'échouer ?"*. Chacun produit un score sur une ligne **[-1, +1]** **et** un **trigger** discret : dès que le score franchit le seuil du signal, il déclenche une alerte et peut activer un playbook. Ils sont event-driven.
-- Les **signals Basic** sont continus. Ils ne se déclenchent pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture de régime combinée vers le haut (vers la tendance) ou vers le bas (vers le chop) à chaque rafraîchissement. On les voit comme des intrants de la vue d'ensemble, pas comme des alertes autonomes.
+- Les **signals Advanced** posent une question précise et situationnelle - *"la clôture est-elle en train de se figer sur un niveau ?"*, *"ce breakout vient-il d'échouer ?"*. Chacun produit un score sur une ligne **[-1, +1]** **et** un **trigger** discret : dès que le score franchit le seuil du signal, il déclenche une alerte et peut activer un playbook. Ils sont event-driven.
+- Les **signals Basic** sont continus. Ils ne se déclenchent pas - ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture de régime combinée vers le haut (vers la tendance) ou vers le bas (vers le chop) à chaque rafraîchissement. On les voit comme des intrants de la vue d'ensemble, pas comme des alertes autonomes.
 
 C'est la distinction la plus importante. Assimilez-la avant de lire les pages de chaque signal.
 
 ## La ligne de score
 
-Chaque signal ZeroGEX — Advanced ou Basic — vit sur la même ligne numérique : **[-1, +1]**.
+Chaque signal ZeroGEX - Advanced ou Basic - vit sur la même ligne numérique : **[-1, +1]**.
 
-- Le **signe** indique la direction. Pour la plupart des signals, positif est haussier et négatif est baissier — mais certains sont de mean-reversion ou autrement à signe inversé, de sorte qu'un score positif ne signifie pas toujours "passer long". Chaque carte porte un chip "trade bias" qui précise exactement comment lire le signe de ce signal.
+- Le **signe** indique la direction. Pour la plupart des signals, positif est haussier et négatif est baissier - mais certains sont de mean-reversion ou autrement à signe inversé, de sorte qu'un score positif ne signifie pas toujours "passer long". Chaque carte porte un chip "trade bias" qui précise exactement comment lire le signe de ce signal.
 - La **magnitude** indique la conviction. Plus le score se rapproche de ±1, plus la lecture est forte.
 - **Un score de 0 n'est presque jamais neutre.** Pour la plupart des signals, cela signifie que les données sont insuffisantes ou que cette question précise n'a pas de réponse pour le moment. Lisez un 0 comme "pas de lecture", pas comme "pas de trade".
 
@@ -48,7 +48,7 @@ Quand le trigger d'un signal se déclenche, trois choses se produisent :
 
 Le Composite Score (Market State Index, MSI) est la **lecture combinée de l'ensemble des signals**. Chaque signal Basic contribue avec un poids fixe ; les signals Advanced contribuent lorsque leur trigger est actif.
 
-Le composite est un **score de régime 0–100**, où 50 est neutre — pas un point sur la ligne [-1, +1]. Une lecture élevée (≥ 70) signale un régime de tendance / expansion où les tendances peuvent se prolonger ; une lecture basse (< 20) signale un tape fragile et haché où les breakouts ont tendance à échouer. Il vous indique le régime, pas la direction — pour le sens, consultez le Trade Bias.
+Le composite est un **score de régime 0-100**, où 50 est neutre - pas un point sur la ligne [-1, +1]. Une lecture élevée (≥ 70) signale un régime de tendance / expansion où les tendances peuvent se prolonger ; une lecture basse (< 20) signale un tape fragile et haché où les breakouts ont tendance à échouer. Il vous indique le régime, pas la direction - pour le sens, consultez le Trade Bias.
 
 Voir [Composite Score](/help/platform/composite-score) pour le détail complet.
 
@@ -56,12 +56,12 @@ Voir [Composite Score](/help/platform/composite-score) pour le détail complet.
 
 Chaque page signal sur ZeroGEX suit la même anatomie. Une fois qu'on la connaît, tout signal se lit rapidement.
 
-1. **Titre + score hero** — le score, l'état du trigger et le timeframe.
-2. **Chip trade-bias** — directionnel, mean-reversion, continuation, regime-switch.
-3. **Panneau sparkline** — le score sur la fenêtre la plus récente.
-4. **Panneau des inputs** — les intrants principaux qui déterminent le score (par ex., pour EOD Pressure : dealer charm, pin gravity, realized vol).
-5. **"Comment c'est construit"** — explication en langage simple de la mécanique sous-jacente.
-6. **Triggers récents** — le journal d'audit des derniers déclenchements.
+1. **Titre + score hero** - le score, l'état du trigger et le timeframe.
+2. **Chip trade-bias** - directionnel, mean-reversion, continuation, regime-switch.
+3. **Panneau sparkline** - le score sur la fenêtre la plus récente.
+4. **Panneau des inputs** - les intrants principaux qui déterminent le score (par ex., pour EOD Pressure : dealer charm, pin gravity, realized vol).
+5. **"Comment c'est construit"** - explication en langage simple de la mécanique sous-jacente.
+6. **Triggers récents** - le journal d'audit des derniers déclenchements.
 
 L'ordre est cohérent d'une page à l'autre.
 
@@ -69,11 +69,11 @@ L'ordre est cohérent d'une page à l'autre.
 
 Chaque signal a un trade bias déclaré. Il figure sur la carte et sur la page du signal.
 
-- **Lecture directionnelle** — le signe du score correspond à la direction de prix attendue.
-- **Mean-reversion (vs. crowd)** — le score reflète le fait de fader la foule, pas le prix : un score positif signale une foule penchée du côté baissier qui peut squeezer *vers le haut*, un score négatif une foule penchée du côté haussier qui peut être flushée *vers le bas*.
-- **Mean-reversion (long gamma)** — fader l'extension vers la moyenne lorsque les dealers sont long gamma.
-- **Continuation** — le signe du score correspond à la direction de la prochaine jambe.
-- **Changement de régime / playbook** — le signal indique de changer de stratégie, pas de prendre un trade.
+- **Lecture directionnelle** - le signe du score correspond à la direction de prix attendue.
+- **Mean-reversion (vs. crowd)** - le score reflète le fait de fader la foule, pas le prix : un score positif signale une foule penchée du côté baissier qui peut squeezer *vers le haut*, un score négatif une foule penchée du côté haussier qui peut être flushée *vers le bas*.
+- **Mean-reversion (long gamma)** - fader l'extension vers la moyenne lorsque les dealers sont long gamma.
+- **Continuation** - le signe du score correspond à la direction de la prochaine jambe.
+- **Changement de régime / playbook** - le signal indique de changer de stratégie, pas de prendre un trade.
 
 Faites correspondre le trade bias à votre stratégie. Un signal de continuation n'est pas un fade.
 
@@ -98,4 +98,4 @@ Utilisez-les au sein d'un processus fondé sur des règles, pas comme des ticket
 - [Composite Score](/help/platform/composite-score)
 - [Basic Signal Dashboard](/help/platform/basic-signals-dashboard)
 - [Advanced Signal Dashboard](/help/platform/advanced-signals-dashboard)
-- [Signals: Explained](/guides/signals-explained) — la matrice de référence complète
+- [Signals: Explained](/guides/signals-explained) - la matrice de référence complète

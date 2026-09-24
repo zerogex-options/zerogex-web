@@ -65,7 +65,7 @@ function BucketRow({ bucket, theme }: { bucket: ReliabilityBucket; theme: Return
   return (
     <div className="grid grid-cols-[72px_1fr_92px] items-center gap-3 py-2">
       <div className="text-[11px] tabular-nums" style={{ color: theme.textDim }}>
-        {pct(bucket.bucket_low)}–{pct(bucket.bucket_high)}
+        {pct(bucket.bucket_low)}-{pct(bucket.bucket_high)}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -106,29 +106,29 @@ function BucketRow({ bucket, theme }: { bucket: ReliabilityBucket; theme: Return
   );
 }
 
-/** The verdict line. Deliberately capable of saying "we lose". */
 /** Brier skill as a signed percentage. Kept to one decimal because the
  *  interesting cases sit near zero, where "0%" and "+0.0%" say different
  *  things about whether a number was computed at all. */
 function skillPct(skill: number | null | undefined): string {
-  if (skill === null || skill === undefined) return '\u2014';
+  if (skill === null || skill === undefined || !Number.isFinite(skill)) return '—';
   return `${skill >= 0 ? '+' : ''}${(skill * 100).toFixed(1)}%`;
 }
 
+/** The verdict line. Deliberately capable of saying "we lose". */
 function BaselineVerdict({ block, theme }: { block: ConeScoreBlock; theme: ReturnType<typeof useChartTheme> }) {
   const min = block.min_sample ?? 40;
 
   if (block.n === 0) {
     return (
       <span style={{ color: theme.textMuted }}>
-        No graded claims yet — nothing to report.
+        No graded claims yet&nbsp;- nothing to report.
       </span>
     );
   }
   if (block.beats_baseline === null) {
     return (
       <span style={{ color: theme.textMuted }}>
-        Building history — {block.n} of {min} graded claims needed before a verdict.
+        Building history&nbsp;- {block.n} of {min} graded claims needed before a verdict.
       </span>
     );
   }
@@ -147,7 +147,7 @@ function BaselineVerdict({ block, theme }: { block: ConeScoreBlock; theme: Retur
   return (
     <span style={{ color: theme.warning }}>
       Does not beat the base-rate baseline ({score(block.brier)} vs{' '}
-      {score(block.baseline_brier)}, a {skillPct(block.brier_skill)} margin) —
+      {score(block.baseline_brier)}, a {skillPct(block.brier_skill)} margin)&nbsp;-
       published, not counted as a win.
     </span>
   );
@@ -260,7 +260,7 @@ export default function ConeReliabilityPanel({
               key={key}
               type="button"
               onClick={() => setHorizon(key)}
-              className="rounded-sm px-2.5 py-1 text-[11px] font-medium transition-colors"
+              className="rounded-sm px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:py-1"
               style={{
                 background: active ? theme.accentSoft : 'transparent',
                 color: active ? theme.accent : theme.textDim,
@@ -312,7 +312,7 @@ export default function ConeReliabilityPanel({
       )}
 
       <p className="mt-4 max-w-[68ch] text-[11px] leading-relaxed" style={{ color: theme.textMuted }}>
-        A band nobody forecast into is omitted rather than shown as a zero — an
+        A band nobody forecast into is omitted rather than shown as a zero&nbsp;- an
         empty bucket is not a bucket that was wrong. Claims whose window never
         produced bars are excluded from every number here rather than being
         scored either way.

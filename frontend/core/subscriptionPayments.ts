@@ -73,6 +73,23 @@ export function isSubscriptionPaymentEvidence(type: string, message: string): bo
 }
 
 /**
+ * Whether a paid invoice is a signup paid up front at checkout: a subscription's
+ * first invoice, settled for a real amount. Every plan but Basic monthly is sold
+ * this way (docs/pricing-october-2026-runbook.md), and such a member never
+ * boards the trial belt, so this is how the Conversion Conveyor counts them.
+ * Neither trial path matches: a trial's first invoice is the $0 one above, its
+ * first real charge is a later cycle invoice, and a trial member switching to a
+ * paid plan mid-trial is billed on an update invoice. An amount that does not
+ * parse is not counted, so nothing is claimed as a sale on a guess.
+ */
+export function isPaidUpFrontSignup(type: string, message: string): boolean {
+  if (type !== 'stripe_invoice_paid') return false;
+  if (!/\bbilling_reason=subscription_create\b/.test(message)) return false;
+  const amount = message.match(/\bamount=(\d+)\b/)?.[1];
+  return amount != null && Number(amount) > 0;
+}
+
+/**
  * Whether a paid invoice for `invoiceSubscriptionId` should move this member's
  * users.last_paid_subscription_id pointer.
  *

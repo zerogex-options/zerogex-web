@@ -18,7 +18,6 @@ import { useMemo, useState } from 'react';
 
 import ConeReliabilityPanel from '@/components/ConeReliabilityPanel';
 import IntradayConeChart from '@/components/IntradayConeChart';
-import { useChartTheme } from '@/hooks/useChartTheme';
 import { useConeFires } from '@/hooks/useIntradayCone';
 import { CONE_SYMBOLS, type ConeSymbol } from '@/core/coneChart';
 
@@ -34,8 +33,21 @@ function todayET(): string {
 
 const WINDOWS = [5, 10, 30] as const;
 
+// The page's own chrome is server-rendered, so it takes its colors from the
+// CSS variables rather than useChartTheme(): that hook is '' on the server and
+// the resolved value on the client's first render, a hydration mismatch React
+// leaves unpatched — the active symbol and window chips lost their highlight.
+// These are the same variables the hook reads, so the colors are unchanged.
+const theme = {
+  text: 'var(--text-primary)',
+  textDim: 'var(--text-secondary)',
+  textMuted: 'var(--text-muted)',
+  accent: 'var(--color-accent)',
+  accentSoft: 'var(--color-accent-soft)',
+  border: 'var(--border-default)',
+} as const;
+
 export default function ConePage() {
-  const theme = useChartTheme();
   const [symbol, setSymbol] = useState<ConeSymbol>('SPY');
   const [window, setWindow] = useState<number>(30);
   const sessionDate = useMemo(() => todayET(), []);
@@ -55,7 +67,7 @@ export default function ConePage() {
           Every fifteen minutes we re-anchor on the current bar, re-read the
           dealer surface, and commit a band and a probability for each horizon
           that can still finish before the bell. Then we grade every one of
-          them and publish what came back — including the horizons we get
+          them and publish what came back&nbsp;- including the horizons we get
           wrong. The daily version of the same commitment lives on{' '}
           <Link
             href="/forecast"
@@ -77,7 +89,7 @@ export default function ConePage() {
                 key={s}
                 type="button"
                 onClick={() => setSymbol(s)}
-                className="rounded-sm px-2.5 py-1 text-[11px] font-medium transition-colors"
+                className="rounded-sm px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:py-1"
                 style={{
                   background: active ? theme.accentSoft : 'transparent',
                   color: active ? theme.accent : theme.textDim,
@@ -109,7 +121,9 @@ export default function ConePage() {
       </section>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wide" style={{ color: theme.textMuted }}>
+        {/* Its own line on a phone, so the three chips share one row rather
+            than wrapping two-and-one beside the label. */}
+        <span className="text-[10px] uppercase tracking-wide max-sm:basis-full" style={{ color: theme.textMuted }}>
           Track record window
         </span>
         {WINDOWS.map((w) => {
@@ -119,7 +133,7 @@ export default function ConePage() {
               key={w}
               type="button"
               onClick={() => setWindow(w)}
-              className="rounded-sm px-2.5 py-1 text-[11px] font-medium transition-colors"
+              className="rounded-sm px-2.5 py-1.5 text-[11px] font-medium transition-colors sm:py-1"
               style={{
                 background: active ? theme.accentSoft : 'transparent',
                 color: active ? theme.accent : theme.textDim,
@@ -137,7 +151,7 @@ export default function ConePage() {
       </section>
 
       <p className="mt-6 max-w-[72ch] text-[11px] leading-relaxed" style={{ color: theme.textMuted }}>
-        Not a buy or sell signal. The cone makes no directional call — it is a
+        Not a buy or sell signal. The cone makes no directional call&nbsp;- it is a
         claim about containment, and it is graded on magnitude only.
       </p>
     </main>

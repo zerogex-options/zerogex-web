@@ -231,7 +231,7 @@ export default function FuturesContractBadge({
           link is deliberately outside it and stays reachable. */}
       <span aria-hidden="true" style={{ display: "block" }}>
         <span className="zg-contract-panel-code">{resolved.code}</span>
-        {resolved.descriptor && <span> — {resolved.descriptor}</span>}
+        {resolved.descriptor && <span>&nbsp;- {resolved.descriptor}</span>}
         {resolved.expiryLine && (
           <span style={{ display: "block", opacity: 0.8 }}>{resolved.expiryLine}</span>
         )}

@@ -618,7 +618,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     validConditions.length === 0
       ? 'Add at least one condition to run a custom strategy.'
       : neutralStructure && !hasPremiumExit
-        ? 'This structure is non-directional — set a premium take-profit or stop-loss.'
+        ? 'This structure is non-directional\u00a0- set a premium take-profit or stop-loss.'
         : !neutralStructure && !hasLevelExit && !hasPremiumExit
           ? 'Set an exit: a target/stop offset, or a premium take-profit/stop-loss.'
           : null;
@@ -868,7 +868,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           <div className="flex flex-col gap-4">
             {neutralStructure ? (
               <p className="text-[11px] text-[var(--color-text-secondary)]">
-                Non-directional structure — exits use the premium take-profit / stop-loss below.
+                Non-directional structure&nbsp;- exits use the premium take-profit / stop-loss below.
               </p>
             ) : (
               <Field label="Direction">
@@ -1451,7 +1451,7 @@ function SweepEditor({
 
       {axes.length === 0 ? (
         <p className="text-[11px] text-[var(--color-text-secondary)]">
-          Optional — vary one or two parameters across a grid and compare the results.
+          Optional&nbsp;- vary one or two parameters across a grid and compare the results.
           Add an axis to begin.
         </p>
       ) : (
@@ -1517,8 +1517,8 @@ function SweepEditor({
           >
             {cells > 0
               ? overLimit
-                ? `${cells} cells exceeds the ${SWEEP_MAX_CELLS}-cell limit — trim a value list.`
-                : `${cells} cell${cells === 1 ? '' : 's'} — ${cells} full backtest${cells === 1 ? '' : 's'} will run.`
+                ? `${cells} cells exceeds the ${SWEEP_MAX_CELLS}-cell limit\u00a0- trim a value list.`
+                : `${cells} cell${cells === 1 ? '' : 's'}\u00a0- ${cells} full backtest${cells === 1 ? '' : 's'} will run.`
               : 'Enter values for each axis to build the grid.'}
           </p>
 
@@ -1671,7 +1671,7 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         {summary && summary.n_trades > 0 ? (
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="text-sm text-[var(--color-text-secondary)]">
-              Run #{run.run_id} — share a public, read-only report of this result.
+              Run #{run.run_id}&nbsp;- share a public, read-only report of this result.
             </div>
             <ShareButton runId={run.run_id} />
           </div>
@@ -2087,12 +2087,14 @@ function ProgressView({
 function EmptyState() {
   return (
     <div
-      className="rounded-xl border p-12 text-center"
+      className="rounded-xl border p-8 sm:p-12 text-center"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
     >
       <div className="text-lg font-semibold mb-1">No backtest run yet</div>
       <div className="text-sm text-[var(--color-text-secondary)]">
-        Configure a run on the left and press <span className="font-semibold">Run Backtest</span>, or re-open a
+        {/* The form sits beside this panel from `lg` up and above it below that. */}
+        Configure a run <span className="hidden lg:inline">on the left</span>
+        <span className="lg:hidden">above</span> and press <span className="font-semibold">Run Backtest</span>, or re-open a
         recent run.
       </div>
     </div>
@@ -2423,7 +2425,7 @@ function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capit
       hint: '≥50% drawdown',
     },
     { label: 'Median return', value: fmtPct(tr.p50), color: pnlColor(tr.p50) },
-    { label: 'Range (p5–p95)', value: `${fmtPct(tr.p5)} … ${fmtPct(tr.p95)}` },
+    { label: 'Range (p5-p95)', value: `${fmtPct(tr.p5)} … ${fmtPct(tr.p95)}` },
     { label: 'Median max DD', value: fmtPct(mc.max_drawdown_pct.p50), color: 'var(--color-bear)' },
     {
       label: 'Worst max DD (p95)',
@@ -2437,7 +2439,7 @@ function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capit
         <Shuffle size={20} /> Monte Carlo outcomes
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        {mc.iterations.toLocaleString()} resampled paths of your trade sequence — the realistic
+        {mc.iterations.toLocaleString()} resampled paths of your trade sequence&nbsp;- the realistic
         range of results, not one backtest&apos;s luck.
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
@@ -2489,11 +2491,11 @@ function DiagnosticsPanel({
   const drops = Object.entries(diagnostics.drops ?? {}).sort((a, b) => b[1] - a[1]);
   const hint =
     diagnostics.cards_in_scope === 0
-      ? 'None of the selected strategies fired in this window — try other strategies or a wider date range.'
+      ? 'None of the selected strategies fired in this window\u00a0- try other strategies or a wider date range.'
       : diagnostics.priced_candidates === 0 && diagnostics.cards_after_cooldown > 0
-        ? 'Cards fired but none could be priced — see the drop reasons below.'
+        ? 'Cards fired but none could be priced\u00a0- see the drop reasons below.'
         : nTrades === 0 && diagnostics.priced_candidates > 0
-          ? 'Trades were priced but none opened — likely the concurrency cap or sizing.'
+          ? 'Trades were priced but none opened\u00a0- likely the concurrency cap or sizing.'
           : null;
 
   return (
@@ -2541,7 +2543,7 @@ function DiagnosticsPanel({
           ))}
           {diagnostics.concurrency_skipped > 0 ? (
             <div className="flex justify-between gap-4">
-              <span>Skipped — max concurrent positions reached</span>
+              <span>Skipped&nbsp;- max concurrent positions reached</span>
               <span className="font-mono text-[var(--color-text-secondary)]">
                 {diagnostics.concurrency_skipped}
               </span>
@@ -2549,7 +2551,7 @@ function DiagnosticsPanel({
           ) : null}
           {diagnostics.sized_out > 0 ? (
             <div className="flex justify-between gap-4">
-              <span>Skipped — capital couldn&apos;t afford one contract</span>
+              <span>Skipped&nbsp;- capital couldn&apos;t afford one contract</span>
               <span className="font-mono text-[var(--color-text-secondary)]">
                 {diagnostics.sized_out}
               </span>
@@ -2679,7 +2681,7 @@ function TradesBlotter({
 
       <div className="flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {start + 1}–{end} of {page.total}
+          {start + 1}-{end} of {page.total}
         </span>
         <div className="flex items-center gap-2">
           <button

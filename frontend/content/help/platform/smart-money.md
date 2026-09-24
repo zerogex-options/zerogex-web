@@ -1,17 +1,17 @@
 # Smart Money
 
-*The smart-money screen — what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.*
+*The smart-money screen - what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.*
 
 ---
 
 ## What "smart money" means here
 
-Smart money is a heuristic — a tag we apply to options trades that have the structural fingerprint of an informed bet:
+Smart money is a heuristic - a tag we apply to options trades that have the structural fingerprint of an informed bet:
 
-- **Size** — premium and contract size meaningfully above the average for the strike/expiry.
-- **Aggression** — paid at or through the offer (buy) or hit the bid (sell), not mid-prices.
-- **Repetition** — multiple aggressive prints in the same direction in a short window.
-- **Conviction premium** — the trade pays a non-trivial percent of the contract's value.
+- **Size** - premium and contract size meaningfully above the average for the strike/expiry.
+- **Aggression** - paid at or through the offer (buy) or hit the bid (sell), not mid-prices.
+- **Repetition** - multiple aggressive prints in the same direction in a short window.
+- **Conviction premium** - the trade pays a non-trivial percent of the contract's value.
 
 A single block alone doesn't qualify. A pattern of conviction trades on a strike does.
 
@@ -19,15 +19,15 @@ A single block alone doesn't qualify. A pattern of conviction trades on a strike
 
 ### The smart-money C/P ratio
 
-The ratio of smart-money call premium to smart-money put premium. A reading well above 1 means smart-money flow is structurally bid for calls; well below means puts. This is **not** the same as the headline PCR (put/call ratio) — it filters to high-conviction prints only.
+The ratio of smart-money call premium to smart-money put premium. A reading well above 1 means smart-money flow is structurally bid for calls; well below means puts. This is **not** the same as the headline PCR (put/call ratio) - it filters to high-conviction prints only.
 
 ### The smart-money tape
 
-A live feed of smart-money-tagged trades — size, premium, strike, expiry, direction, time. Click to see the trade in context.
+A live feed of smart-money-tagged trades - size, premium, strike, expiry, direction, time. Click to see the trade in context.
 
 ### The smart-money bias
 
-A blended bias chip — bullish, bearish, neutral — built from the C/P ratio plus the net premium-weighted flow on the smart-money subset.
+A blended bias chip - bullish, bearish, neutral - built from the C/P ratio plus the net premium-weighted flow on the smart-money subset.
 
 ### The strike concentration map
 
@@ -43,7 +43,7 @@ Three patterns:
 
 ## What it isn't
 
-The smart-money tag is a **probabilistic heuristic**. Not every smart-money print is informed; not every informed trade gets flagged. The page is most useful at the **bias level** — what is the cumulative tilt? — rather than as a trade signal on individual prints.
+The smart-money tag is a **probabilistic heuristic**. Not every smart-money print is informed; not every informed trade gets flagged. The page is most useful at the **bias level** - what is the cumulative tilt? - rather than as a trade signal on individual prints.
 
 ## The bigger picture
 

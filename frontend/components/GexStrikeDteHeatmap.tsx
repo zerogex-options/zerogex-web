@@ -138,7 +138,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
     return (
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
         <div
-          className="rounded-2xl p-6 h-full flex items-center justify-center"
+          className="rounded-2xl p-4 sm:p-6 h-full flex items-center justify-center"
           style={{ backgroundColor: 'var(--bg-card)', border: `1px solid var(--border-default)` }}
         >
           <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>No heatmap data available</span>
@@ -150,20 +150,21 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6 h-full"
+        className="rounded-2xl p-4 sm:p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
         }}
       >
-      <div className="flex items-center gap-2 mb-4">
+      {/* pr-12 on a phone keeps the unit badge clear of the Expand button. */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 pr-12 sm:pr-0">
         <h3
           className="zg-h3"
           style={{ color: textColor }}
         >
           GEX Heatmap · Strike &times; DTE
         </h3>
-        <TooltipWrapper inlineInExpanded={false} text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King — the strike with the largest net dealer gamma across the near-term (0–7 DTE) expirations shown here. (Pair Comparison's crown spans ALL expirations, so the two can point to different strikes.) Cell values follow the GEX unit toggle; colors are unaffected.">
+        <TooltipWrapper inlineInExpanded={false} text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King&nbsp;- the strike with the largest net dealer gamma across the near-term (0-7 DTE) expirations shown here. (Pair Comparison's crown spans ALL expirations, so the two can point to different strikes.) Cell values follow the GEX unit toggle; colors are unaffected.">
           <Info size={14} />
         </TooltipWrapper>
         <span
@@ -178,9 +179,12 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         <table className="w-full text-xs">
           <thead>
             <tr>
-              <th className="text-left py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>Strike</th>
+              {/* The Strike column stays pinned (on an opaque cell) when the
+                  DTE columns scroll sideways on a phone; nothing scrolls on a
+                  desktop, where the pinned cell looks as it always did. */}
+              <th className="text-left py-2 px-1 sm:px-2 font-semibold sticky left-0 z-[1]" style={{ color: 'var(--text-secondary)', backgroundColor: 'var(--bg-card)' }}>Strike</th>
               {dteColumns.map((dte) => (
-                <th key={dte} className="text-center py-2 px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                <th key={dte} className="text-center py-2 px-1 sm:px-2 font-semibold" style={{ color: 'var(--text-secondary)' }}>
                   {dte}DTE
                 </th>
               ))}
@@ -192,20 +196,21 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
               return (
               <tr key={strike}>
                 <td
-                  className="py-1.5 px-2 font-mono font-semibold"
+                  className="py-1.5 px-1 sm:px-2 font-mono font-semibold sticky left-0 z-[1]"
                   style={{
                     color: isKing ? 'var(--color-king)' : textColor,
-                    background: isKing ? 'var(--color-king-soft)' : undefined,
+                    backgroundColor: 'var(--bg-card)',
+                    backgroundImage: isKing ? 'linear-gradient(var(--color-king-soft), var(--color-king-soft))' : undefined,
                     boxShadow: isKing ? 'inset 3px 0 0 var(--color-king)' : undefined,
                   }}
                 >
                   <span className="inline-flex items-center gap-1">
                     {isKing && (
-                      <TooltipWrapper inlineInExpanded={false} text="GEX King — the strike with the largest net dealer gamma across the near-term (0–7 DTE) expirations shown here; the dominant node price tends to gravitate toward. (Spans only these expirations — Pair Comparison's crown spans the whole chain.)">
+                      <TooltipWrapper inlineInExpanded={false} text="GEX King&nbsp;- the strike with the largest net dealer gamma across the near-term (0-7 DTE) expirations shown here; the dominant node price tends to gravitate toward. (Spans only these expirations&nbsp;- Pair Comparison's crown spans the whole chain.)">
                         <Crown
                           size={13}
                           strokeWidth={2.25}
-                          aria-label="GEX King — dominant gamma node"
+                          aria-label="GEX King&nbsp;- dominant gamma node"
                           style={{ color: 'var(--color-king)', flex: '0 0 auto' }}
                         />
                       </TooltipWrapper>
@@ -217,16 +222,16 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
                   const value = grid.get(`${strike}_${dte}`) || 0;
                   const cellStyle = getCellStyle(value, maxAbs, isDark);
                   return (
-                    <td key={dte} className="py-1.5 px-2 text-center">
+                    <td key={dte} className="py-1.5 px-1 sm:px-2 text-center">
                       {Math.abs(value) > maxAbs * 0.02 ? (
                         <div
-                          className="rounded px-2 py-1 text-xs font-semibold inline-block min-w-[48px]"
+                          className="rounded px-1.5 sm:px-2 py-1 text-xs font-semibold inline-block min-w-[44px] sm:min-w-[48px]"
                           style={cellStyle}
                         >
                           {formatGex(value * gexFactor)}
                         </div>
                       ) : (
-                        <div className="min-w-[48px]" />
+                        <div className="min-w-[44px] sm:min-w-[48px]" />
                       )}
                     </td>
                   );
@@ -250,7 +255,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(255, 77, 90, 0.5)' }} />
-          High &ndash; GEX
+          High&nbsp;- GEX
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)' }} />

@@ -29,6 +29,7 @@ import {
   Radar,
   ScrollText,
   Signal,
+  SlidersHorizontal,
   Sparkles,
   Target,
   TrendingDown,
@@ -83,6 +84,8 @@ import {
   WorldClocksPanel,
   TopHeadlinesPanel,
   OrbBreakoutPanel,
+  OrbPositionPanel,
+  OrbBreakoutMapPanel,
   VwapDeviationPanel,
   MomentumDivergencePanel,
   VolumeSpikePanel,
@@ -124,6 +127,13 @@ export type WidgetDef = {
   allowedSizes: WidgetSize[];
   /** Shared data feeds this widget reads from MyDashboardData (empty = self-fetches). */
   feeds: FeedKey[];
+  /**
+   * A single-number metric tile. At the S footprint these pair up two across
+   * on a phone (see .zg-w-tile in globals.css); every other widget — charts
+   * above all — takes the full phone width whatever its footprint, because a
+   * chart at half of a 390px screen is not readable.
+   */
+  tile?: boolean;
   render: () => ReactNode;
 };
 
@@ -159,12 +169,13 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['quote', 'sessionCloses'],
+    tile: true,
     render: () => <PriceTile />,
   },
   {
     id: 'todays-read',
     title: "Today's Read",
-    blurb: 'Auto-generated regime headline and lead — the day in a sentence.',
+    blurb: 'Auto-generated regime headline and lead\u00a0- the day in a sentence.',
     category: 'overview',
     tier: 'basic',
     icon: ScrollText,
@@ -188,7 +199,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'dealer-exposures',
     title: 'Dealer Strike Profile',
-    blurb: 'The full strike profile — price, gamma-by-strike and open-interest panels.',
+    blurb: 'The full strike profile\u00a0- price, gamma-by-strike and open-interest panels.',
     category: 'overview',
     tier: 'basic',
     icon: BarChart3,
@@ -219,9 +230,11 @@ export const WIDGETS: WidgetDef[] = [
     category: 'gamma',
     tier: 'basic',
     icon: Crosshair,
-    // Wide enough for the whole row on a desktop board; the cards reflow to
-    // whatever footprint a resize hands it, down to two across at S.
-    defaultSize: 'lg',
+    // Full width, so all six cards sit in one strip like the Gamma Chart
+    // pages' Key Levels. At L the sixth card wraps onto a second row on
+    // ordinary desktop widths. The cards reflow to whatever footprint a resize
+    // hands it, down to two across at S.
+    defaultSize: 'xl',
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <KeyLevelsPanel />,
@@ -236,6 +249,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'historical'],
+    tile: true,
     render: () => <NetGexTile />,
   },
   {
@@ -248,6 +262,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <GammaFlipTile />,
   },
   {
@@ -260,30 +275,33 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <MaxPainTile />,
   },
   {
     id: 'call-wall',
     title: 'Call Wall',
-    blurb: 'Heaviest call open interest — the resistance level.',
+    blurb: 'Heaviest call open interest\u00a0- the resistance level.',
     category: 'gamma',
     tier: 'basic',
     icon: TrendingDown,
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <CallWallTile />,
   },
   {
     id: 'put-wall',
     title: 'Put Wall',
-    blurb: 'Heaviest put open interest — the support level.',
+    blurb: 'Heaviest put open interest\u00a0- the support level.',
     category: 'gamma',
     tier: 'basic',
     icon: TrendingUp,
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
+    tile: true,
     render: () => <PutWallTile />,
   },
   {
@@ -296,6 +314,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex'],
+    tile: true,
     render: () => <CallGexTile />,
   },
   {
@@ -308,6 +327,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['gex'],
+    tile: true,
     render: () => <PutGexTile />,
   },
   {
@@ -325,7 +345,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'gamma-by-strike',
     title: 'Gamma Exposure by Strike',
-    blurb: 'Per-strike dealer GEX bars — calls up, puts down, stacked by expiration — overlaid with the GEX Profile curve, plus spot, gamma-flip and call/put wall lines. Zoom and expiration filter built in.',
+    blurb: 'Per-strike dealer GEX bars\u00a0- calls up, puts down, stacked by expiration\u00a0- overlaid with the GEX Profile curve, plus spot, gamma-flip and call/put wall lines. Zoom and expiration filter built in.',
     category: 'gamma',
     tier: 'basic',
     icon: BarChart3,
@@ -412,6 +432,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['flow'],
+    tile: true,
     render: () => <NetFlowTile />,
   },
   {
@@ -424,6 +445,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['flow'],
+    tile: true,
     render: () => <NetPremiumTile />,
   },
   {
@@ -436,6 +458,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['flow'],
+    tile: true,
     render: () => <PutCallRatioTile />,
   },
 
@@ -477,7 +500,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'trade-bias-horizon',
     title: 'Trade Bias · Horizon',
     blurb:
-      "The Signals Engine's signed directional call for a horizon you pick — Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarized: bias, conviction and the regime behind it.",
+      "The Signals Engine's signed directional call for a horizon you pick\u00a0- Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarized: bias, conviction and the regime behind it.",
     category: 'signals',
     tier: 'basic',
     icon: Compass,
@@ -512,7 +535,7 @@ export const WIDGETS: WidgetDef[] = [
   },
   {
     id: 'signal-score',
-    title: 'Signal Score — Full Panel',
+    title: 'Signal Score\u00a0- Full Panel',
     blurb: 'The complete composite-score radar and component breakdown.',
     category: 'signals',
     tier: 'pro',
@@ -524,7 +547,7 @@ export const WIDGETS: WidgetDef[] = [
   },
   {
     id: 'vol-expansion-events',
-    title: 'Volatility Expansion — Events',
+    title: 'Volatility Expansion\u00a0- Events',
     blurb: 'Timeline of volatility-expansion signal triggers vs price.',
     category: 'signals',
     tier: 'pro',
@@ -536,7 +559,7 @@ export const WIDGETS: WidgetDef[] = [
   },
   {
     id: 'eod-pressure-events',
-    title: 'EOD Pressure — Events',
+    title: 'EOD Pressure\u00a0- Events',
     blurb: 'Timeline of end-of-day pressure signal triggers vs price.',
     category: 'signals',
     tier: 'pro',
@@ -570,6 +593,7 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: ['vol'],
+    tile: true,
     render: () => <VixTile />,
   },
 
@@ -578,7 +602,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'squeeze-setup',
     title: 'Squeeze Setup',
     blurb:
-      'Compression in the dealer-gamma profile that tends to precede an expansion — the setup, before the move.',
+      'Compression in the dealer-gamma profile that tends to precede an expansion\u00a0- the setup, before the move.',
     category: 'signals',
     tier: 'pro',
     icon: Radar,
@@ -604,7 +628,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'positioning-trap',
     title: 'Positioning Trap',
     blurb:
-      'Crowded positioning that has to unwind — who is offside, and which way they will have to go.',
+      'Crowded positioning that has to unwind\u00a0- who is offside, and which way they will have to go.',
     category: 'signals',
     tier: 'basic',
     icon: Target,
@@ -630,7 +654,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'skew-delta',
     title: 'Skew Delta',
     blurb:
-      'How the put/call skew is shifting through the session — the demand for protection, changing in real time.',
+      'How the put/call skew is shifting through the session\u00a0- the demand for protection, changing in real time.',
     category: 'signals',
     tier: 'basic',
     icon: GitCompare,
@@ -669,7 +693,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'gex-gradient',
     title: 'GEX Gradient',
     blurb:
-      'How sharply gamma exposure changes across strikes — where the profile is steep enough to accelerate a move.',
+      'How sharply gamma exposure changes across strikes\u00a0- where the profile is steep enough to accelerate a move.',
     category: 'signals',
     tier: 'basic',
     icon: LineChart,
@@ -708,7 +732,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'market-pressure',
     title: 'Market Pressure',
     blurb:
-      'The aggregate push on the tape — flow, positioning and hedging pressure read as one number.',
+      'The aggregate push on the tape\u00a0- flow, positioning and hedging pressure read as one number.',
     category: 'signals',
     tier: 'pro',
     icon: Gauge,
@@ -721,7 +745,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'gamma-vwap-confluence',
     title: 'Gamma / VWAP Confluence',
     blurb:
-      'Where a dealer-gamma level and session VWAP land on the same price — the levels that tend to hold hardest.',
+      'Where a dealer-gamma level and session VWAP land on the same price\u00a0- the levels that tend to hold hardest.',
     category: 'signals',
     tier: 'pro',
     icon: Crosshair,
@@ -732,13 +756,13 @@ export const WIDGETS: WidgetDef[] = [
   },
 
   // ── Technicals ──
-  // Both read the same /api/technicals payload as /intraday-tools, and
-  // useTechnicals refcounts per symbol, so running both costs one subscription.
+  // All of these read the same /api/technicals payload as /intraday-tools, and
+  // useTechnicals refcounts per symbol, so running several costs one subscription.
   {
     id: 'orb-breakout',
     title: 'ORB Breakout',
     blurb:
-      'The opening range (09:30–09:59 ET) — its high, low and size — plus where price is trading against it. The level intraday breakout traders work from.',
+      'The opening range (09:30-09:59 ET)\u00a0- its high, low and size\u00a0- plus where price is trading against it. The level intraday breakout traders work from.',
     category: 'technicals',
     tier: 'basic',
     icon: Crosshair,
@@ -748,10 +772,36 @@ export const WIDGETS: WidgetDef[] = [
     render: () => <OrbBreakoutPanel />,
   },
   {
+    id: 'orb-position',
+    title: 'Position Within Range',
+    blurb:
+      'Where price sits against the opening range (ORB), on the same bar the Technicals page draws: below it, inside it or above it, with the range’s high and low marked.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: SlidersHorizontal,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OrbPositionPanel />,
+  },
+  {
+    id: 'orb-map',
+    title: 'ORB Breakout Map',
+    blurb:
+      'The session’s price against the opening range: the band, its high and low, and where price left it. The same chart as the Technicals page.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: LineChart,
+    defaultSize: 'lg',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OrbBreakoutMapPanel />,
+  },
+  {
     id: 'momentum-divergence',
     title: 'Momentum Divergence',
     blurb:
-      'Where price made a new extreme that momentum did not confirm — each flagged bar of the session, newest first.',
+      'Where price made a new extreme that momentum did not confirm\u00a0- each flagged bar of the session, newest first.',
     category: 'technicals',
     tier: 'basic',
     icon: Activity,
@@ -777,7 +827,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'vwap-deviation',
     title: 'VWAP Deviation',
     blurb:
-      'Session VWAP and how far price has strayed from it, with the side it is trading on — the intraday mean the tape keeps reverting to.',
+      'Session VWAP and how far price has strayed from it, with the side it is trading on\u00a0- the intraday mean the tape keeps reverting to.',
     category: 'technicals',
     tier: 'basic',
     icon: LineChart,
@@ -792,7 +842,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'top-headlines',
     title: 'Top Headlines',
     blurb:
-      'A live, Bloomberg-style news wire — CNBC market desk plus central-bank and wire feeds — that auto-scrolls and updates as headlines break. Same feed as the header dropdown, with a high-signal filter built in.',
+      'A live, Bloomberg-style news wire\u00a0- CNBC market desk plus central-bank and wire feeds\u00a0- that auto-scrolls and updates as headlines break. Same feed as the header dropdown, with a high-signal filter built in.',
     category: 'tools',
     tier: 'basic',
     icon: Newspaper,
@@ -867,7 +917,7 @@ export const PRESETS: DashboardPreset[] = [
     // today's expiry is the half people miss.
     id: 'zero-dte-intraday',
     name: '0DTE Intraday',
-    blurb: "Same-day only — pinned to today's expiry, and it stays pinned tomorrow.",
+    blurb: "Same-day only\u00a0- pinned to today's expiry, and it stays pinned tomorrow.",
     tier: 'basic',
     // The load-bearing line. Without it this is a widget list that happens to
     // suit 0DTE while quietly showing the whole chain; with it every widget on
@@ -949,7 +999,7 @@ export const PRESETS: DashboardPreset[] = [
   {
     id: 'signals-command',
     name: 'Signals Command Center',
-    blurb: 'The full signal stack — synthesis, score radar and event timelines.',
+    blurb: 'The full signal stack\u00a0- synthesis, score radar and event timelines.',
     tier: 'pro',
     widgets: [
       { widgetId: 'composite-score', size: 'md' },

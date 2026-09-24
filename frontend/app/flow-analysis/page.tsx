@@ -31,7 +31,8 @@ import ExpandableCard from "@/components/ExpandableCard";
 import MetricCard from "@/components/MetricCard";
 import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import OptionsFlowChart from "@/components/OptionsFlowChart";
-import { buildThirtyMinGridlines } from "@/components/ChartGridlines";
+import { buildThirtyMinGridlines, isMajorTwoHourTick } from "@/components/ChartGridlines";
+import { compactUsdReadout, compactUsdTick } from "@/components/phoneAxisFormat";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -216,26 +217,6 @@ function mapSeriesToNetPositionRows(rows: FlowSeriesPoint[]): NetPositionRow[] {
   }));
 }
 
-// ── Chart layout helpers ──────────────────────────────────────────────────────
-
-const MAJOR_TICK_ET_HOURS = new Set([10, 12, 14, 16]);
-
-/** True when `ts` lands exactly on 10:00, 12:00, 14:00, or 16:00 ET — used
- *  by the compact-row charts to thin labels down to a handful of major
- *  intraday markers. DST-safe via Intl. */
-function isMajorTwoHourTick(ts: string): boolean {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return false;
-  if (d.getUTCMinutes() !== 0) return false;
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hourCycle: "h23",
-    hour: "2-digit",
-  }).formatToParts(d);
-  const etHour = Number(parts.find((p) => p.type === "hour")?.value);
-  return MAJOR_TICK_ET_HOURS.has(etHour);
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FlowAnalysisPage() {
@@ -246,6 +227,15 @@ export default function FlowAnalysisPage() {
   // These read as theme branches but both arms were the same string — the
   // tokens already theme themselves, so the ternaries decided nothing.
   const mutedText = "var(--text-secondary)";
+  // The three compact charts fit the card on a phone (they used to be 900px
+  // boards scrolled sideways, which showed one time tick) — a little shorter
+  // there, since each is a full-width card of its own.
+  const compactChartHeight = isMobile ? 256 : 288;
+  // A phone's readout pins to the top of the plot, away from the scrubbing
+  // finger, and names the bar by the same ET clock the axis prints.
+  const phoneTooltipPosition = isMobile ? { position: { y: 0 } } : {};
+  const tooltipTimeLabel = (label: unknown) =>
+    isMobile ? `${safeTimeLabel(String(label))} ET` : new Date(String(label)).toLocaleString();
   const axisStroke = "var(--text-primary)";
 
   // ── Session selector (current = most recent session, prior = previous full session)
@@ -359,8 +349,8 @@ export default function FlowAnalysisPage() {
     <PageShell>
       <PageHeader
         title="Flow Analysis"
-        sub="What traded today — premium, net volume, and the aggressor split behind both."
-        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree — a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
+        sub="What traded today&nbsp;- premium, net volume, and the aggressor split behind both."
+        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree&nbsp;- a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
         actions={
           <FilterBar>
             <FilterSelect
@@ -402,7 +392,9 @@ export default function FlowAnalysisPage() {
           Daily Totals as of:{" "}
           {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {/* Two short numbers per row on a phone rather than a tower of five
+            ~170px cards; the ratio, left over, spans the row. */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           <MetricCard
             title="Call Volume"
             value={Number(latestSnapshot?.callVolume || 0).toLocaleString()}
@@ -434,6 +426,7 @@ export default function FlowAnalysisPage() {
             tooltip="Cumulative call premium minus put premium across the selected date."
             theme="dark"
           />
+          <div className="col-span-2 md:col-span-1">
           <MetricCard
             title="Put/Call Ratio"
             value={Number(latestSnapshot?.putCallRatio || 0).toFixed(2)}
@@ -441,6 +434,7 @@ export default function FlowAnalysisPage() {
             tooltip="Cumulative put volume divided by cumulative call volume across the selected date."
             theme="dark"
           />
+          </div>
         </div>
       </section>
 
@@ -463,12 +457,12 @@ export default function FlowAnalysisPage() {
         {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
-          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 288 }}>
+          <div>
+            <div style={{ width: "100%", height: compactChartHeight }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={directionalPremiumSeries}
-                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
+                  margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
                 >
                   <XAxis
                     dataKey="timestamp"
@@ -499,7 +493,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor={isMobile ? "start" : "middle"} fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={isMobile ? 10 : 9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -509,11 +503,13 @@ export default function FlowAnalysisPage() {
                   />
                   <YAxis
                     stroke={axisStroke}
-                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tick={{ fontSize: 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
-                    width={isMobile ? 42 : 48}
+                    width={isMobile ? 44 : 48}
                     tickFormatter={(v) => {
                       const n = Number(v);
+                      // "$135.0M" does not fit a phone's axis; "$135M" does.
+                      if (isMobile) return compactUsdTick(n);
                       if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
                       if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
                       return `$${Math.round(n)}`;
@@ -521,14 +517,21 @@ export default function FlowAnalysisPage() {
                   />
                   {buildThirtyMinGridlines(directionalPremiumSeries, axisStroke, "directional-premium")}
                   <Tooltip
+                    {...phoneTooltipPosition}
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
                       const point = payload[0]?.payload as { premium?: number | null } | undefined;
                       return (
-                        <ChartTooltipShell label={new Date(String(label)).toLocaleString()}>
+                        <ChartTooltipShell label={tooltipTimeLabel(label)}>
                           <ChartTooltipRow
                             label="Cumulative Net Premium"
-                            value={point?.premium != null ? `$${point.premium.toLocaleString()}` : "—"}
+                            value={
+                              point?.premium != null
+                                ? isMobile
+                                  ? compactUsdReadout(point.premium)
+                                  : `$${point.premium.toLocaleString()}`
+                                : "—"
+                            }
                           />
                         </ChartTooltipShell>
                       );
@@ -569,12 +572,12 @@ export default function FlowAnalysisPage() {
         {!hasRatioData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
-          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 288 }}>
+          <div>
+            <div style={{ width: "100%", height: compactChartHeight }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={putCallRatioSeries}
-                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
+                  margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
                 >
                   <XAxis
                     dataKey="timestamp"
@@ -606,7 +609,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor={isMobile ? "start" : "middle"} fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={isMobile ? 10 : 9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -617,7 +620,7 @@ export default function FlowAnalysisPage() {
                   {buildThirtyMinGridlines(putCallRatioSeries, axisStroke, "pcr")}
                   <YAxis
                     stroke={axisStroke}
-                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tick={{ fontSize: 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
                     width={isMobile ? 38 : 48}
                     domain={(() => {
@@ -643,11 +646,12 @@ export default function FlowAnalysisPage() {
                     tickFormatter={(v) => Number(v).toFixed(2)}
                   />
                   <Tooltip
+                    {...phoneTooltipPosition}
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
                       return (
-                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--border-default)", color: isDark ? "var(--text-primary)" : "var(--text-primary)" }}>
-                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                        <div className="rounded border px-3 py-2 text-sm max-sm:px-2 max-sm:py-1.5 max-sm:text-xs" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--border-default)", color: isDark ? "var(--text-primary)" : "var(--text-primary)" }}>
+                          <div className="font-semibold">{tooltipTimeLabel(label)}</div>
                           <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
                         </div>
                       );
@@ -672,16 +676,16 @@ export default function FlowAnalysisPage() {
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."}>
+      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity\u00a0- this chart accounts for trade direction to distinguish buying from selling."}>
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (
-          <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 288 }}>
+          <div>
+            <div style={{ width: "100%", height: compactChartHeight }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={netPositionSeries}
-                  margin={isMobile ? { top: 8, right: 8, left: 8, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
+                  margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 24 } : { top: 10, right: 12, left: 0, bottom: 24 }}
                 >
                   <XAxis
                     dataKey="timestamp"
@@ -713,7 +717,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor={isMobile ? "start" : "middle"} fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={isMobile ? 10 : 9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -724,7 +728,7 @@ export default function FlowAnalysisPage() {
                   {buildThirtyMinGridlines(netPositionSeries, axisStroke, "net-position")}
                   <YAxis
                     stroke={axisStroke}
-                    tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+                    tick={{ fontSize: 10, fill: axisStroke }}
                     tickMargin={isMobile ? 2 : 8}
                     width={isMobile ? 42 : 48}
                     tickFormatter={(v) => {
@@ -737,11 +741,12 @@ export default function FlowAnalysisPage() {
                     }}
                   />
                   <Tooltip
+                    {...phoneTooltipPosition}
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
                       const point = payload[0]?.payload as { callPosition?: number | null; putPosition?: number | null } | undefined;
                       return (
-                        <ChartTooltipShell label={new Date(String(label)).toLocaleString()}>
+                        <ChartTooltipShell label={tooltipTimeLabel(label)}>
                           <ChartTooltipRow
                             label="Net Call Position"
                             value={point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}

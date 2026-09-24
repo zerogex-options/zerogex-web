@@ -32,9 +32,9 @@ import { INTEGRATIONS_HUB } from '@/core/integrations';
 // not" section is load-bearing, not boilerplate.
 
 const PATH = '/collective2-strategy-data';
-const TITLE = 'Dealer Positioning Data for Collective2 Strategy Managers — ZeroGEX API';
+const TITLE = 'Dealer Positioning Data for Collective2 Strategy Managers\u00a0- ZeroGEX API';
 const DESCRIPTION =
-  'Feed gamma flip, call wall, put wall, max pain and the per-strike gamma profile into the strategy you publish on Collective2. One REST call, six symbols, refreshed through the session. An input to your rules — not a signal service, and not a bridge to C2.';
+  'Feed gamma flip, call wall, put wall, max pain and the per-strike gamma profile into the strategy you publish on Collective2. One REST call, six symbols, refreshed through the session. An input to your rules\u00a0- not a signal service, and not a bridge to C2.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -75,7 +75,7 @@ const API_DOCS = 'https://api.zerogex.io/docs';
 const SECTION_STYLE = {
   border: '1px solid var(--border-default)',
   borderRadius: 18,
-  padding: '28px',
+  padding: 'var(--ind-card-pad)',
   marginBottom: 32,
   background: 'var(--color-surface)',
 } as const;
@@ -128,11 +128,11 @@ snap = requests.get(URL.format(symbol="SPX"), headers=HEAD, timeout=5).json()
 
 # Freshness is explicit, so staleness is your decision rather than a surprise.
 if (snap["age_seconds"] or 0) > 180:
-    return                      # snapshot is old — sit this cycle out
+    return                      # snapshot is old - sit this cycle out
 
 flip = snap["levels"]["gamma_flip"]
 if flip is None:
-    return                      # unresolved on a thin chain — hide, don't zero
+    return                      # unresolved on a thin chain - hide, don't zero
 
 long_gamma = snap["net_gex_at_spot"] > 0    # dealers hedging against the move
 above_flip = snap["spot"] > flip
@@ -146,7 +146,7 @@ const USES = [
   },
   {
     title: 'Location, as a target or an invalidation',
-    body: 'The call wall and put wall are where modeled dealer gamma is most concentrated. Distance to them gives a strategy something to size against, take profit into, or stand down in front of — a number that moves with the option chain rather than with price history.',
+    body: 'The call wall and put wall are where modeled dealer gamma is most concentrated. Distance to them gives a strategy something to size against, take profit into, or stand down in front of\u00a0- a number that moves with the option chain rather than with price history.',
   },
   {
     title: 'The gamma flip as a bias line',
@@ -154,7 +154,7 @@ const USES = [
   },
   {
     title: 'The full per-strike profile when you want to model it yourself',
-    body: 'The same call returns the gamma profile nearest to spot — up to 200 strikes, aggregated across expirations, with call and put exposure signed separately. If your edge is in the shape rather than the headline levels, it is all in the one response.',
+    body: 'The same call returns the gamma profile nearest to spot\u00a0- up to 200 strikes, aggregated across expirations, with call and put exposure signed separately. If your edge is in the shape rather than the headline levels, it is all in the one response.',
   },
 ];
 
@@ -183,8 +183,8 @@ function FlowStep({ label, sub, muted = false }: { label: string; sub: string; m
       style={{
         flex: '1 1 150px',
         minWidth: 140,
-        border: `1px solid var(${muted ? '--border-subtle' : '--color-brand-accent'}44)`,
-        background: muted ? 'var(--color-bg)' : 'var(--color-brand-accent)0f',
+        border: `1px solid color-mix(in srgb, var(${muted ? '--border-subtle' : '--color-brand-accent'}) 27%, transparent)`,
+        background: muted ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-brand-accent) 6%, transparent)',
         borderRadius: 12,
         padding: '14px 16px',
       }}
@@ -209,8 +209,8 @@ export default function Collective2StrategyDataPage() {
             letterSpacing: '0.16em',
             textTransform: 'uppercase',
             color: 'var(--color-brand-accent)',
-            border: '1px solid var(--color-brand-accent)44',
-            background: 'var(--color-brand-accent)14',
+            border: '1px solid color-mix(in srgb, var(--color-brand-accent) 27%, transparent)',
+            background: 'color-mix(in srgb, var(--color-brand-accent) 8%, transparent)',
             borderRadius: 999,
             padding: '5px 14px',
             marginBottom: 18,
@@ -233,7 +233,7 @@ export default function Collective2StrategyDataPage() {
 
         <p style={{ ...BODY_STYLE, fontSize: 16 }}>
           You write the rules and you publish the signals. ZeroGEX supplies one input a standard market
-          data feed does not carry — <strong style={STRONG}>where dealers are hedged</strong> — recomputed
+          data feed does not carry&nbsp;- <strong style={STRONG}>where dealers are hedged</strong>&nbsp;- recomputed
           through the session and served over a documented REST API.
         </p>
         <p style={BODY_STYLE}>
@@ -253,8 +253,8 @@ export default function Collective2StrategyDataPage() {
         </div>
         <p style={{ ...BODY_STYLE, marginBottom: 0 }}>
           The two boxes on the right are yours and C2&apos;s and we are not in either of them. Every
-          arrangement you already have with Collective2 — your listing, your fee, your track record, your
-          subscribers — is unchanged by adding us on the left.
+          arrangement you already have with Collective2&nbsp;- your listing, your fee, your track record, your
+          subscribers&nbsp;- is unchanged by adding us on the left.
         </p>
       </section>
 
@@ -265,15 +265,15 @@ export default function Collective2StrategyDataPage() {
             GET /api/v1/levels/{'{symbol}'}
           </code>{' '}
           returns the gamma flip, call wall, put wall, max pain and pin strike, plus net gamma at spot,
-          the underlying&apos;s price, and the per-strike gamma profile — for{' '}
+          the underlying&apos;s price, and the per-strike gamma profile&nbsp;- for{' '}
           <strong style={STRONG}>SPX, SPY, QQQ, NDX, ES and NQ</strong>. It is a versioned contract, so
-          the field names do not move under you, and it carries only derived analytics — never raw
+          the field names do not move under you, and it carries only derived analytics&nbsp;- never raw
           per-contract quotes.
         </p>
         <p style={BODY_STYLE}>
           The numbers refresh on roughly a 60-second analytics cycle, and every response states its own
           freshness: <code>as_of</code>, <code>data_as_of</code> and <code>age_seconds</code>. Any level
-          can come back <code>null</code> when the engine could not resolve it — hide it, do not treat it
+          can come back <code>null</code> when the engine could not resolve it&nbsp;- hide it, do not treat it
           as zero. Both of those are things a strategy has to handle, so the sample handles them.
         </p>
         <pre

@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useMemo, useState } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   CartesianGrid,
   Line,
@@ -96,6 +97,9 @@ const TICK_STEPS_MS = [
   2 * 60 * 60_000,
 ];
 const MAX_TICK_INTERVALS = 8;
+// A phone plot is ~290px: eight clock labels touch, five breathe (and let a
+// 1H window keep quarter-hour ticks).
+const MAX_TICK_INTERVALS_PHONE = 5;
 
 // Wall-clock ms elapsed since ET midnight, used to snap ticks to clock
 // boundaries. The market session never spans a DST change, so within a
@@ -115,11 +119,11 @@ function etMillisOfDay(ms: number): number {
 // Even, clock-aligned tick positions across [min, max]. Picks the largest
 // step that still yields a readable number of ticks, then snaps the first
 // tick up to the next clock boundary at/after min.
-function buildTimeTicks(min: number, max: number): number[] {
+function buildTimeTicks(min: number, max: number, maxIntervals = MAX_TICK_INTERVALS): number[] {
   const span = max - min;
   if (!(span > 0)) return [min];
   const step =
-    TICK_STEPS_MS.find((s) => span / s <= MAX_TICK_INTERVALS) ?? TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
+    TICK_STEPS_MS.find((s) => span / s <= maxIntervals) ?? TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
   const into = etMillisOfDay(min) % step;
   const first = into === 0 ? min : min + (step - into);
   const ticks: number[] = [];
@@ -141,10 +145,15 @@ function IntradayChartImpl({ history, currentScore }: Props) {
     return filtered.map((row) => ({ ts: Date.parse(row.timestamp), composite: row.composite, row }));
   }, [history, win]);
 
+  const isMobile = useIsMobile();
   const xTicks = useMemo(() => {
     if (data.length === 0) return [];
-    return buildTimeTicks(data[0].ts, data[data.length - 1].ts);
-  }, [data]);
+    return buildTimeTicks(
+      data[0].ts,
+      data[data.length - 1].ts,
+      isMobile ? MAX_TICK_INTERVALS_PHONE : MAX_TICK_INTERVALS,
+    );
+  }, [data, isMobile]);
 
   // Mark the first tick on each ET calendar day so the axis can render
   // a secondary "May 30" label beneath the time on day boundaries
@@ -179,7 +188,7 @@ function IntradayChartImpl({ history, currentScore }: Props) {
           dy={12}
           textAnchor="middle"
           fill="var(--color-text-secondary)"
-          fontSize={11}
+          fontSize={isMobile ? 10 : 11}
         >
           {time}
         </text>
@@ -214,7 +223,7 @@ function IntradayChartImpl({ history, currentScore }: Props) {
           }}
         >
           <div className="flex h-full items-center justify-center">
-            No data for today yet — markets open at 09:30 ET.
+            No data for today yet&nbsp;- markets open at 09:30 ET.
           </div>
         </div>
       </div>
@@ -225,11 +234,11 @@ function IntradayChartImpl({ history, currentScore }: Props) {
     <div className="flex flex-col gap-3">
       <WindowSelector value={win} onChange={setWin} />
       <div
-        className="rounded-xl border p-3"
-        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)', height: 320 }}
+        className="h-[288px] rounded-xl border p-2 sm:h-[320px] sm:p-3"
+        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 16, bottom: 16, left: 8 }}>
+          <LineChart data={data} margin={isMobile ? { top: 8, right: 12, bottom: 8, left: 0 } : { top: 8, right: 16, bottom: 16, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
             <XAxis
               dataKey="ts"
@@ -244,9 +253,9 @@ function IntradayChartImpl({ history, currentScore }: Props) {
             <YAxis
               domain={[0, 100]}
               ticks={[0, 25, 50, 75, 100]}
-              tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }}
+              tick={{ fill: 'var(--color-text-secondary)', fontSize: isMobile ? 10 : 11 }}
               stroke="var(--color-border)"
-              width={36}
+              width={isMobile ? 30 : 36}
             />
             {REGIME_BANDS.map((b) => (
               <ReferenceArea key={b.regime.key} y1={b.from} y2={b.to} fill={b.regime.color} fillOpacity={0.15} />
@@ -281,7 +290,7 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
       <button
         type="button"
         onClick={() => onChange('1H')}
-        className={`rounded-md border px-2 py-1 ${value === '1H' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
+        className={`rounded-md border px-3 py-2 sm:px-2 sm:py-1 ${value === '1H' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
         style={{ borderColor: 'var(--color-border)', background: value === '1H' ? 'var(--color-surface-elevated)' : 'transparent' }}
       >
         1H
@@ -289,7 +298,7 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
       <button
         type="button"
         onClick={() => onChange('TODAY')}
-        className={`rounded-md border px-2 py-1 ${value === 'TODAY' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
+        className={`rounded-md border px-3 py-2 sm:px-2 sm:py-1 ${value === 'TODAY' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
         style={{ borderColor: 'var(--color-border)', background: value === 'TODAY' ? 'var(--color-surface-elevated)' : 'transparent' }}
       >
         Today
@@ -297,7 +306,7 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
       <button
         type="button"
         onClick={() => onChange('5D')}
-        className={`rounded-md border px-2 py-1 ${value === '5D' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
+        className={`rounded-md border px-3 py-2 sm:px-2 sm:py-1 ${value === '5D' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
         style={{ borderColor: 'var(--color-border)', background: value === '5D' ? 'var(--color-surface-elevated)' : 'transparent' }}
       >
         5D

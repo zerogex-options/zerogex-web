@@ -103,10 +103,22 @@ audit('stripe_cancellation_requested', isoDaysAgo(5), 'Cancellation requested fo
 audit('cancellation_ack_email_sent', isoDaysAgo(5, 16), 'Cancellation ack for sub_A', 'u1');
 audit('stripe_cancellation_requested', isoDaysAgo(5, 18), 'Cancellation requested for sub_C', 'u2');
 
-// One invoice, three Smart Retries.
-audit('stripe_payment_failed', isoDaysAgo(2), 'Invoice in_123 payment failed for sub A (attempt 1)', 'u1');
-audit('stripe_payment_failed', isoDaysAgo(2, 18), 'Invoice in_123 payment failed for sub A (attempt 2)', 'u1');
-audit('stripe_payment_failed', isoDaysAgo(1), 'Invoice in_123 payment failed for sub A (attempt 3)', 'u1');
+// sub_D is paid up front at D-7 and refunded under the money-back guarantee at
+// D-6, which cancels on the spot with no Cancel click. sub_C, whose member
+// clicked Cancel at D-5, is refunded at D-4: the same decision, counted once.
+audit('stripe_subscription_sync', isoDaysAgo(7), 'Subscription sub_D status=active tier=basic cancelAtPeriodEnd=false', 'u3');
+audit('money_back_refund_issued', isoDaysAgo(6), 'Money-back refund (self_serve) on sub sub_D: refunded $75.00 [re_1], subscription canceled', 'u3');
+audit('money_back_refund_issued', isoDaysAgo(4), 'Money-back refund (operator) on sub sub_C: refunded $59.00 [re_2], subscription canceled', 'u2');
+
+// sub_A's first charge is declined at D-2, putting it past_due, and Stripe
+// retries twice more.
+audit('stripe_payment_failed', isoDaysAgo(2), 'Invoice in_123 payment failed for sub sub_A (attempt 1)', 'u1');
+audit('stripe_subscription_sync', isoDaysAgo(2, 17), 'Subscription sub_A status=past_due tier=pro cancelAtPeriodEnd=false', 'u1');
+audit('stripe_payment_failed', isoDaysAgo(2, 18), 'Invoice in_123 payment failed for sub sub_A (attempt 2)', 'u1');
+audit('stripe_payment_failed', isoDaysAgo(1), 'Invoice in_123 payment failed for sub sub_A (attempt 3)', 'u1');
+// sub_C, paying since D-8, has a charge refused at D-6 that changes nothing
+// about the subscription (a refused plan change, say).
+audit('stripe_payment_failed', isoDaysAgo(6), 'Invoice in_456 payment failed for sub sub_C (attempt 1)', 'u2');
 
 seedUser('u1', isoDaysAgo(10));
 seedUser('u2', isoDaysAgo(10, 18));
@@ -153,15 +165,28 @@ test('a checkout with no trial books as a paid start', () => {
   assert.equal(day.trialStarts, 0);
 });
 
+test('a money-back refund is a cancel, unless the member already clicked Cancel', () => {
+  const rows = rowsByDay();
+  assert.equal(rows.get(dayOf(6))!.cancels, 1, 'refunded with no click: still a member leaving');
+  assert.equal(rows.get(dayOf(4))!.cancels, 0, 'refunded after clicking Cancel at D-5: already counted');
+  assert.equal(rows.get(dayOf(7))!.paidStarts, 1, 'the refunded signup was still a paid start');
+});
+
 test('one cancel click counts once even though it emits two audit rows', () => {
   // Two members cancelled that day; the request+ack pair from the first is one.
   assert.equal(rowsByDay().get(dayOf(5))!.cancels, 2);
 });
 
-test('Smart Retries of one invoice count as a single payment failure', () => {
+test('a declined charge counts once, on the day it hit, however often Stripe retries', () => {
   const rows = rowsByDay();
   assert.equal(rows.get(dayOf(2))!.paymentFailures, 1);
   assert.equal(rows.get(dayOf(1))!.paymentFailures, 0);
+});
+
+test('a decline that moved no subscriber is not a payment failure', () => {
+  // The same rule as the growth-rate card, which counts the Subscriber
+  // Ledger's flagged rows: sub_C never left good standing.
+  assert.equal(rowsByDay().get(dayOf(6))!.paymentFailures, 0);
 });
 
 test('registrations come from the users table, one per account', () => {

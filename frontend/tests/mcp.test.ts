@@ -343,7 +343,7 @@ test('get_gamma_levels leads with freshness and carries a structured payload', a
 test('get_gamma_levels accepts a lowercase symbol', async () => {
   const res = await call('get_gamma_levels', { symbol: 'spy' });
   assert.notEqual(result(res).isError, true);
-  assert.match(toolText(res), /^SPY —/m);
+  assert.match(toolText(res), /^SPY - /m);
 });
 
 test('an unsupported symbol is an isError result listing the supported ones', async () => {

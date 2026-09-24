@@ -38,7 +38,7 @@ export default function IntegrationsStrip({
       style={{
         border: '1px solid var(--border-default)',
         borderRadius: 18,
-        padding: '28px',
+        padding: 'var(--ind-card-pad)',
         marginBottom: 48,
         background: 'var(--color-surface)',
       }}
@@ -56,7 +56,7 @@ export default function IntegrationsStrip({
         }}
       >
         The same levels, drawn by whichever platform you actually trade from. Whether one updates itself comes
-        down to what its scripting language is allowed to do — not to the plan you are on.
+        down to what its scripting language is allowed to do&nbsp;- not to the plan you are on.
       </p>
 
       <div

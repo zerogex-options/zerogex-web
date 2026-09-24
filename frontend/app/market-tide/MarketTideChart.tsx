@@ -9,17 +9,56 @@
  * the same approach as the Gamma Terminal.
  */
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMeasuredWidth } from "@/components/useMeasuredWidth";
 import { finite, type MarketTideHistoryMode, type MarketTideHistoryPoint } from "./data";
 
-const VW = 1000;
-const VH = 300;
-const L = 46;
-const R = 16;
-const T = 16;
-const B = 30;
-const PW = VW - L - R;
-const PH = VH - T - B;
+// ── Canvas ────────────────────────────────────────────────────────────────────
+// The desktop board is a fixed 1000×300 viewBox scaled to the card. A phone
+// card is ~310px wide, which drew that board's 10-unit labels at 3px, so a
+// phone gets its own canvas instead: viewBox width = the card's measured CSS
+// width (1 unit = 1px, so the same 10-unit labels are real 10px text), a
+// landscape-ish height, tighter gutters, and fewer time labels. The pattern is
+// GammaTerminalChart's ChartCanvas / compactCanvas.
+interface TideCanvas {
+  compact: boolean;
+  VW: number;
+  VH: number;
+  L: number;
+  R: number;
+  T: number;
+  B: number;
+  PW: number;
+  PH: number;
+  /** Target number of x labels. */
+  xLabels: number;
+}
+
+const DESKTOP_CANVAS: TideCanvas = {
+  compact: false,
+  VW: 1000,
+  VH: 300,
+  L: 46,
+  R: 16,
+  T: 16,
+  B: 30,
+  PW: 1000 - 46 - 16,
+  PH: 300 - 16 - 30,
+  xLabels: 6,
+};
+
+function compactCanvas(width: number): TideCanvas {
+  const VW = Math.max(260, Math.round(width));
+  const VH = Math.min(240, Math.max(180, Math.round(VW * 0.62)));
+  const L = 30;
+  const R = 6;
+  const T = 12;
+  const B = 22;
+  // About one time label per 110px: four on a phone, six on a tablet card.
+  const xLabels = Math.max(4, Math.min(6, Math.round(VW / 110)));
+  return { compact: true, VW, VH, L, R, T, B, PW: VW - L - R, PH: VH - T - B, xLabels };
+}
 
 const etTime = (iso: string) =>
   new Intl.DateTimeFormat("en-US", {
@@ -46,15 +85,32 @@ export default function MarketTideChart({
   live: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  // Any card narrower than the 1000-unit desktop board draws the measured
+  // canvas instead of shrinking the board: a tablet card is 600-990px and a
+  // desktop one ~570px at 1280, which scaled its 10-unit labels to 4-7px.
+  // Phones and tablets (below lg) always do.
+  const compactViewport = useIsMobile(1024);
+  const [measureRef, measuredWidth] = useMeasuredWidth<HTMLDivElement>();
+  const canvas = useMemo(
+    () =>
+      measuredWidth != null && measuredWidth > 0 && (compactViewport || measuredWidth < DESKTOP_CANVAS.VW)
+        ? compactCanvas(measuredWidth)
+        : DESKTOP_CANVAS,
+    [compactViewport, measuredWidth],
+  );
+  const { compact, VW, VH, L, R, T, PW, PH } = canvas;
 
   const geom = useMemo(() => {
+    // Read off `canvas` here rather than the destructured locals below, so the
+    // memo depends on the one canvas object (see the hooks lint rules).
+    const { compact: isCompact, xLabels, L: gL, T: gT, PW: gPW, PH: gPH } = canvas;
     const rows = points.filter((p) => finite(p.score) != null);
     const vals = rows.map((p) => finite(p.score) as number);
     if (vals.length === 0) return null;
     const n = vals.length;
     const maxAbs = Math.max(20, ...vals.map((v) => Math.abs(v))) * 1.12;
-    const x = (i: number) => L + (n === 1 ? PW / 2 : (i / (n - 1)) * PW);
-    const y = (v: number) => T + (1 - (v + maxAbs) / (2 * maxAbs)) * PH;
+    const x = (i: number) => gL + (n === 1 ? gPW / 2 : (i / (n - 1)) * gPW);
+    const y = (v: number) => gT + (1 - (v + maxAbs) / (2 * maxAbs)) * gPH;
     const yBase = y(0);
 
     let area = `M ${x(0)} ${y(vals[0])}`;
@@ -78,20 +134,36 @@ export default function MarketTideChart({
       zero: v === 0,
     }));
 
-    const step = Math.max(1, Math.round(n / (mode === "daily" ? 5 : 6)));
+    const step = Math.max(1, Math.round(n / (isCompact ? xLabels : mode === "daily" ? 5 : 6)));
     const ticks = rows
       .map((p, i) => ({ i, cx: x(i), label: mode === "daily" ? etDay(p.timestamp) : etTime(p.timestamp) }))
       .filter((t) => t.i % step === 0 || t.i === n - 1);
 
-    return { rows, vals, n, x, y, yBase, maxAbs, area, segs, grid, ticks, baseFrac: (yBase - T) / PH };
-  }, [points, mode]);
+    // The last label is always drawn; a stride label that would crowd it (the
+    // compact canvas has ~70px between labels) gives way to it.
+    const minGap = isCompact ? 40 : 0;
+    const lastX = x(n - 1);
+    const spaced = ticks.filter((t) => t.i === n - 1 || lastX - t.cx >= minGap);
+
+    return { rows, vals, n, x, y, yBase, maxAbs, area, segs, grid, ticks: spaced, baseFrac: (yBase - gT) / gPH };
+  }, [points, mode, canvas]);
+
+  // ── Touch ── a finger has no hover. The SVG claims only horizontal
+  // gestures (touch-action: pan-y), so a vertical swipe still scrolls the
+  // page, while a tap drops the readout where it lands (a tap on a chart
+  // already showing one lifts it) and a horizontal drag scrubs it. Mouse
+  // input keeps the plain hover below.
+  const touchRef = useRef<{ startX: number; moved: boolean; had: boolean } | null>(null);
+  // A tap is followed by emulated mouse events at the same point; they must
+  // not re-open a readout the tap just closed.
+  const lastTouchAtRef = useRef(0);
 
   if (!geom) {
     return (
       <div
         className="flex h-[220px] items-center justify-center text-sm text-[var(--text-secondary)]"
         role="img"
-        aria-label="Market Tide chart — no data yet"
+        aria-label="Market Tide chart&nbsp;- no data yet"
       >
         {live ? "Building today's tide…" : "No tide history for this window yet."}
       </div>
@@ -104,14 +176,42 @@ export default function MarketTideChart({
   const lastColor = lastVal >= 0 ? "var(--color-bull)" : "var(--color-bear)";
 
   const hi = hover != null && hover >= 0 && hover < n ? hover : null;
-  const svgStyle: CSSProperties = { fontFamily: "var(--font-mono)", display: "block", width: "100%", height: "auto" };
+  const svgStyle: CSSProperties = {
+    fontFamily: "var(--font-mono)",
+    display: "block",
+    width: "100%",
+    height: "auto",
+    ...(compact ? { touchAction: "pan-y", WebkitTouchCallout: "none", userSelect: "none" } : {}),
+  };
 
+  const indexAt = (clientX: number, rect: DOMRect) => {
+    const px = ((clientX - rect.left) / rect.width) * VW;
+    const i = Math.round(((px - L) / PW) * (n - 1));
+    return Math.max(0, Math.min(n - 1, i));
+  };
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width) * VW;
-    let i = Math.round(((px - L) / PW) * (n - 1));
-    i = Math.max(0, Math.min(n - 1, i));
-    setHover(i);
+    setHover(indexAt(e.clientX, e.currentTarget.getBoundingClientRect()));
+  };
+  const onTouchDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch") return;
+    lastTouchAtRef.current = Date.now();
+    touchRef.current = { startX: e.clientX, moved: false, had: hover != null };
+  };
+  const onTouchMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== "touch" || !t) return;
+    lastTouchAtRef.current = Date.now();
+    if (!t.moved && Math.abs(e.clientX - t.startX) < 6) return;
+    t.moved = true;
+    setHover(indexAt(e.clientX, e.currentTarget.getBoundingClientRect()));
+  };
+  const onTouchUp = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    touchRef.current = null;
+    if (e.pointerType !== "touch" || !t || t.moved) return;
+    lastTouchAtRef.current = Date.now();
+    if (e.type === "pointercancel") return; // the page took the gesture (a scroll)
+    setHover(t.had ? null : indexAt(e.clientX, e.currentTarget.getBoundingClientRect()));
   };
 
   const hoverRow = hi != null ? rows[hi] : null;
@@ -119,15 +219,28 @@ export default function MarketTideChart({
   const flip = tipLeftPct > 68;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={measureRef}>
+      {/* Until the card is measured it would show the desktop board at the
+          wrong scale for a frame; it stays invisible until then. */}
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="xMidYMid meet"
         style={svgStyle}
+        className={measuredWidth == null ? "invisible" : undefined}
         role="img"
-        aria-label={`Market Tide ${mode === "daily" ? "daily trend" : "today"} — latest ${fmt(lastVal)}`}
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+        aria-label={`Market Tide ${mode === "daily" ? "daily trend" : "today"}\u00a0- latest ${fmt(lastVal)}`}
+        onMouseMove={(e) => {
+          if (touchRef.current || Date.now() - lastTouchAtRef.current < 800) return;
+          onMove(e);
+        }}
+        onMouseLeave={() => {
+          if (Date.now() - lastTouchAtRef.current < 800) return;
+          setHover(null);
+        }}
+        onPointerDown={onTouchDown}
+        onPointerMove={onTouchMove}
+        onPointerUp={onTouchUp}
+        onPointerCancel={onTouchUp}
       >
         <defs>
           <linearGradient id="mt-tide" x1="0" y1={T} x2="0" y2={T + PH} gradientUnits="userSpaceOnUse">
@@ -158,10 +271,10 @@ export default function MarketTideChart({
         ))}
 
         {/* zone words */}
-        <text x={L + 40} y={T + 15} fontSize="10" letterSpacing="1.4" fill="var(--color-bull)" opacity="0.55">
+        <text x={L + (compact ? 8 : 40)} y={T + (compact ? 12 : 15)} fontSize="10" letterSpacing={compact ? 1 : 1.4} fill="var(--color-bull)" opacity="0.55">
           FLOOD
         </text>
-        <text x={L + 40} y={T + PH - 8} fontSize="10" letterSpacing="1.4" fill="var(--color-bear)" opacity="0.55">
+        <text x={L + (compact ? 8 : 40)} y={T + PH - (compact ? 6 : 8)} fontSize="10" letterSpacing={compact ? 1 : 1.4} fill="var(--color-bear)" opacity="0.55">
           EBB
         </text>
 
@@ -182,7 +295,16 @@ export default function MarketTideChart({
 
         {/* x ticks */}
         {ticks.map((t) => (
-          <text key={t.i} x={t.cx} y={VH - 9} textAnchor="middle" fontSize="10" fill="var(--text-muted)">
+          <text
+            key={t.i}
+            x={t.cx}
+            y={VH - (compact ? 6 : 9)}
+            // The compact canvas has no gutter past the plot, so the end labels
+            // align inward instead of centering off the card edge.
+            textAnchor={compact && t.i === n - 1 ? "end" : compact && t.cx - L < 16 ? "start" : "middle"}
+            fontSize="10"
+            fill="var(--text-muted)"
+          >
             {t.label}
           </text>
         ))}
@@ -210,8 +332,9 @@ export default function MarketTideChart({
             background: "var(--bg-card)",
             borderColor: "var(--border-strong)",
             left: `${flip ? tipLeftPct - 2 : tipLeftPct + 2}%`,
-            top: `${(y(vals[hi]) / VH) * 100}%`,
-            transform: flip ? "translate(-100%, -50%)" : "translate(0, -50%)",
+            // A phone pins the readout to the top edge, clear of the finger.
+            top: compact ? 0 : `${(y(vals[hi]) / VH) * 100}%`,
+            transform: compact ? (flip ? "translate(-100%, 0)" : "none") : flip ? "translate(-100%, -50%)" : "translate(0, -50%)",
             minWidth: 118,
           }}
         >

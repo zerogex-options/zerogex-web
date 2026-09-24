@@ -140,7 +140,6 @@ const config = {
     // /premium-heatmap). They are left alone here deliberately: changing what
     // Google indexes for ten unrelated tools is not this change's call.
     '/hedging-flow',
-    '/gamma-terminal',
     '/gamma-exposure',
     '/max-pain',
     '/greeks-gex',
@@ -240,6 +239,11 @@ const config = {
       '/sierra-chart-indicator',
       '/terms',
       '/thinkorswim-indicator',
+      // The graded forecast record. Listed here rather than relying on
+      // auto-discovery for the reason stated at the top of this block: it
+      // renders dynamically, so next-sitemap never sees it. An unindexed
+      // credibility page is a credibility page nobody reads.
+      '/track-record',
       '/trading-mistakes',
       '/tradingview-indicator',
       '/updates',

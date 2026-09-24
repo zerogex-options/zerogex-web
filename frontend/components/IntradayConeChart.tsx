@@ -40,6 +40,7 @@ import {
 } from 'recharts';
 
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import Panel from '@/components/layout/Panel';
 import {
   buildConePoints,
@@ -63,6 +64,17 @@ function fmtTime(ms: number): string {
   return new Date(ms).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/New_York',
+  });
+}
+
+// Phone x-axis: 24-hour ET ("13:30"). "2:15 PM" and "4:00 PM" ran into each
+// other at ~290px; the session never spans midnight, so nothing is lost.
+function fmtClock24(ms: number): string {
+  return new Date(ms).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
     timeZone: 'America/New_York',
   });
 }
@@ -93,7 +105,7 @@ function VerdictChip({ horizon, theme }: { horizon: ConeFire['horizons'][number]
         </span>
       </div>
       <div className="text-[10px] tabular-nums" style={{ color: theme.textDim }}>
-        {fmtPrice(horizon.band_low)}–{fmtPrice(horizon.band_high)}
+        {fmtPrice(horizon.band_low)}-{fmtPrice(horizon.band_high)}
         {horizon.hold_prob !== null ? ` · ${(horizon.hold_prob * 100).toFixed(0)}%` : ''}
       </div>
     </div>
@@ -108,6 +120,7 @@ export default function IntradayConeChart({
   height?: number;
 }) {
   const theme = useChartTheme();
+  const isMobile = useIsMobile();
   const fires = useMemo(() => payload?.fires ?? [], [payload]);
   const [selected, setSelected] = useState<number | null>(null);
 
@@ -168,16 +181,20 @@ export default function IntradayConeChart({
         {fmtPrice(fire.anchor_spot)}
       </div>
 
-      <div className="mt-4" style={{ height }}>
+      <div className="mt-4" style={{ height: isMobile ? Math.min(height, 300) : height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
+          <ComposedChart
+            data={rows}
+            margin={isMobile ? { top: 8, right: 6, bottom: 4, left: 0 } : { top: 8, right: 12, bottom: 4, left: 4 }}
+          >
             <XAxis
               dataKey="t"
               type="number"
               scale="time"
               domain={domain}
-              tickFormatter={fmtTime}
-              tick={{ fontSize: 11, fill: theme.textMuted }}
+              tickFormatter={isMobile ? fmtClock24 : fmtTime}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: theme.textMuted }}
+              minTickGap={isMobile ? 18 : 5}
               stroke={theme.border}
             />
             <YAxis
@@ -187,9 +204,9 @@ export default function IntradayConeChart({
               // explicit domain back to it without the overflow flag.
               domain={priceDomain ?? ['auto', 'auto']}
               allowDataOverflow={priceDomain !== null}
-              tick={{ fontSize: 11, fill: theme.textMuted }}
+              tick={{ fontSize: isMobile ? 10 : 11, fill: theme.textMuted }}
               stroke={theme.border}
-              width={64}
+              width={isMobile ? 44 : 64}
               tickFormatter={(v: number) => v.toFixed(priceDecimals)}
             />
             <Tooltip
@@ -299,7 +316,7 @@ export default function IntradayConeChart({
 
       <p className="mt-4 max-w-[68ch] text-[11px] leading-relaxed" style={{ color: theme.textMuted }}>
         The percentage on each horizon is the chance price never leaves that
-        band at any point in the window — not the chance it finishes inside.
+        band at any point in the window&nbsp;- not the chance it finishes inside.
         A path that pierces the band and comes back did not hold, and is
         graded as broken.
       </p>

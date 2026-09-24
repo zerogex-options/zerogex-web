@@ -18,15 +18,15 @@ Modeled dealer gamma in dollars, using the traditional call-positive / put-negat
 
 ### Net DEX
 
-Aggregate dealer delta — a separate modeled read from gamma. Strong negative models dealers short delta, who would tend to buy higher to stay hedged.
+Aggregate dealer delta - a separate modeled read from gamma. Strong negative models dealers short delta, who would tend to buy higher to stay hedged.
 
 ### Net VEX (Vanna)
 
-Aggregate dealer vanna — sensitivity of delta to IV. Under the modeled book, a falling IV *can* push dealers to buy and a rising IV to sell, but the direction and size depend on call vs. put, moneyness, skew, and who actually owns the options. When it lines up, it's part of what drives "vol-compression grind" days.
+Aggregate dealer vanna - sensitivity of delta to IV. Under the modeled book, a falling IV *can* push dealers to buy and a rising IV to sell, but the direction and size depend on call vs. put, moneyness, skew, and who actually owns the options. When it lines up, it's part of what drives "vol-compression grind" days.
 
 ### Net Charm
 
-Aggregate dealer charm — the modeled effect of time passing on delta (holding spot and IV constant). A positive reading models hedge pressure that *can* support the close drift; negative pressures it. This is modeled hedge pressure, not a scheduled order, and it tends to build in the last two hours.
+Aggregate dealer charm - the modeled effect of time passing on delta (holding spot and IV constant). A positive reading models hedge pressure that *can* support the close drift; negative pressures it. This is modeled hedge pressure, not a scheduled order, and it tends to build in the last two hours.
 
 ### Net Vega
 
@@ -34,7 +34,7 @@ Aggregate dealer vega. Tells you how exposed dealers are to a meaningful IV move
 
 ## The by-strike breakdown
 
-Underneath the totals, the page shows the same numbers broken down by strike — the per-strike contributions to gamma, delta, vanna, and charm. Use this when:
+Underneath the totals, the page shows the same numbers broken down by strike - the per-strike contributions to gamma, delta, vanna, and charm. Use this when:
 
 - You want to see **which strikes** are driving the headline number.
 - You want to confirm the call wall is actually where the GEX profile says it is.
@@ -42,14 +42,14 @@ Underneath the totals, the page shows the same numbers broken down by strike —
 
 ## Sign conventions
 
-ZeroGEX signs every greek from a modeled dealer perspective — the same convention throughout, not observed inventory:
+ZeroGEX signs every greek from a modeled dealer perspective - the same convention throughout, not observed inventory:
 
 - Positive gamma ⇒ under the call-positive / put-negative convention, dealers are *modeled* net long calls / short puts, hedging against price.
 - Positive delta ⇒ dealers modeled long delta.
 - Positive vanna ⇒ dealers modeled to benefit (delta-wise) when vol rises.
 - Positive charm ⇒ dealers modeled to benefit (delta-wise) as time decays.
 
-The gamma convention (dealers long calls / short puts) and the delta read are separate modeling choices — don't conflate the two.
+The gamma convention (dealers long calls / short puts) and the delta read are separate modeling choices - don't conflate the two.
 
 When you're reading another GEX provider, double-check the sign convention. Most use the same dealer-perspective sign, but a few flip it.
 
@@ -57,7 +57,7 @@ When you're reading another GEX provider, double-check the sign convention. Most
 
 Two patterns:
 
-1. **Cross-check with Dealer Positioning.** If Net GEX is meaningfully positive but the GEX profile shows the curve crossing negative just below spot, you're sitting at the regime line — risk is asymmetric.
+1. **Cross-check with Dealer Positioning.** If Net GEX is meaningfully positive but the GEX profile shows the curve crossing negative just below spot, you're sitting at the regime line - risk is asymmetric.
 2. **Watch vanna and charm into the close.** Both tend to reach peak intraday influence in the last two hours; the per-strike charm contribution can point to where a pin may form.
 
 ## See also

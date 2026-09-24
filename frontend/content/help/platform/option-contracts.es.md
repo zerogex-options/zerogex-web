@@ -18,7 +18,7 @@ Para cada strike y cada vencimiento:
 - **Open Interest**
 - **Delta, Gamma, Vega, Theta, Charm**
 - **Volatilidad Implícita**
-- **Contribución al GEX** — el valor en dólares del gamma de los dealers en ese strike
+- **Contribución al GEX** - el valor en dólares del gamma de los dealers en ese strike
 
 Cada fila está emparejada (call a la izquierda, put a la derecha) con el strike en la columna central. El clásico diseño de cadena.
 
@@ -26,14 +26,14 @@ Cada fila está emparejada (call a la izquierda, put a la derecha) con el strike
 
 La barra de filtros te permite acotar la cadena:
 
-- **Vencimiento** — selección múltiple. Por defecto 0DTE si está disponible, de lo contrario el más próximo.
-- **Moneyness** — banda ATM (p. ej., ±5% respecto al spot) o cadena completa.
-- **Ordenar** — por strike, volume, OI, IV, contribución al GEX.
-- **Mostrar solo** — volume distinto de cero, OI distinto de cero, sweeps, blocks.
+- **Vencimiento** - selección múltiple. Por defecto 0DTE si está disponible, de lo contrario el más próximo.
+- **Moneyness** - banda ATM (p. ej., ±5% respecto al spot) o cadena completa.
+- **Ordenar** - por strike, volume, OI, IV, contribución al GEX.
+- **Mostrar solo** - volume distinto de cero, OI distinto de cero, sweeps, blocks.
 
 ## Los colores de la superficie de IV
 
-Las celdas se colorean en gradiente según la IV — colores fríos (azul) para IV baja, colores cálidos (rojo) para IV alta. La escala es por vencimiento, así que un ATM "caliente" en una columna no corresponde al mismo nivel absoluto de IV que un ATM "caliente" en otra. La idea es ver la **forma** de la sonrisa (smile), no el nivel absoluto.
+Las celdas se colorean en gradiente según la IV - colores fríos (azul) para IV baja, colores cálidos (rojo) para IV alta. La escala es por vencimiento, así que un ATM "caliente" en una columna no corresponde al mismo nivel absoluto de IV que un ATM "caliente" en otra. La idea es ver la **forma** de la sonrisa (smile), no el nivel absoluto.
 
 ## Cómo leer la cadena
 

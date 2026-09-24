@@ -186,7 +186,7 @@ export default function GexRegimeHeader({
             {symbol} last: <span style={{ color: textColor, fontWeight: 500 }}>{spotPrice != null ? `$${spotPrice.toFixed(2)}` : '--'}</span>
             {flipDistance != null && (
               <>
-                {' — '}
+                {'\u00a0- '}
                 <span style={{ color: aboveFlip ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {Math.abs(flipDistance).toFixed(2)} pts {aboveFlip ? 'above' : 'below'} flip
                 </span>
@@ -243,7 +243,9 @@ export default function GexRegimeHeader({
               Swing
             </button>
           </div>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          {/* Body copy: 15px on a phone, where 14px read small for a
+              paragraph this long. */}
+          <p className="text-[15px] sm:text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {marketContextSummary}
           </p>
         </div>

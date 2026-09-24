@@ -1,6 +1,6 @@
 # Risoluzione dei problemi
 
-*L'elenco essenziale — problemi di accesso, dati mancanti, grafici non aggiornati, problemi di pagamento, cache del browser e quando scrivere al supporto.*
+*L'elenco essenziale - problemi di accesso, dati mancanti, grafici non aggiornati, problemi di pagamento, cache del browser e quando scrivere al supporto.*
 
 ---
 
@@ -10,15 +10,15 @@
 
 **Ti sei registrato con Google o Apple e non hai una password.** Accedi tramite il provider che hai usato. Dalla pagina Account potrai poi impostare una password come alternativa futura.
 
-**Il provider dice "nessun account trovato".** Potresti esserti registrato con un'email diversa. Prova l'altro provider, oppure scrivi a [support@zerogex.io](mailto:support@zerogex.io) — possiamo verificare l'account.
+**Il provider dice "nessun account trovato".** Potresti esserti registrato con un'email diversa. Prova l'altro provider, oppure scrivi a [support@zerogex.io](mailto:support@zerogex.io) - possiamo verificare l'account.
 
 **La richiesta di autenticazione a due fattori o del dispositivo non scompare.** Accedi da zero da una finestra in incognito. Se il problema persiste, il supporto può cancellare le sessioni obsolete sul tuo account.
 
 ## Dati mancanti o non aggiornati
 
-**Il badge di sessione indica Chiuso.** È normale — i mercati sono chiusi. Vengono mostrati gli ultimi valori calcolati.
+**Il badge di sessione indica Chiuso.** È normale - i mercati sono chiusi. Vengono mostrati gli ultimi valori calcolati.
 
-**Un grafico indica "nessun dato".** Di solito è un problema legato alla finestra di sessione (EOD Pressure fuori dalla sua finestra, 0DTE in un giorno senza scadenza). Passa il mouse sullo stato vuoto — il tooltip spiega il motivo.
+**Un grafico indica "nessun dato".** Di solito è un problema legato alla finestra di sessione (EOD Pressure fuori dalla sua finestra, 0DTE in un giorno senza scadenza). Passa il mouse sullo stato vuoto - il tooltip spiega il motivo.
 
 **I valori dei tile sembrano bloccati.** Controlla il timestamp sul tile del prezzo. Se è più vecchio di 30 secondi durante l'orario regolare, ricarica la pagina forzatamente (Cmd+Shift+R / Ctrl+Shift+R).
 
@@ -30,7 +30,7 @@
 
 **L'abbonamento indica "scaduto".** Stripe sta ritentando l'addebito. Aggiorna il metodo di pagamento per risolvere. Le funzioni a pagamento restano attive durante la finestra di tentativi.
 
-**La fattura è più alta del previsto.** Apri la fattura nel portale — le voci sono dettagliate. Sorprese comuni: un cambio di piano o di cadenza viene calcolato in proporzione — ricevi un credito per la parte non utilizzata del periodo corrente più l'addebito del nuovo piano, applicato alla **prossima fattura** anziché addebitato immediatamente.
+**La fattura è più alta del previsto.** Apri la fattura nel portale - le voci sono dettagliate. Sorprese comuni: un cambio di piano o di cadenza viene calcolato in proporzione - ricevi un credito per la parte non utilizzata del periodo corrente più l'addebito del nuovo piano, applicato alla **prossima fattura** anziché addebitato immediatamente.
 
 **La cancellazione non è andata a buon fine.** La cancellazione ha effetto alla fine del periodo di fatturazione. Fino ad allora, mantieni l'accesso a pagamento. Il portale mostra la data di fine prevista.
 
@@ -50,7 +50,7 @@
 
 ## Grafici
 
-**Il grafico è vuoto mentre altri hanno dati.** La causa più comune è una restrizione di livello — il grafico appartiene a un livello che non hai. Altre volte: il segnale sottostante è volutamente inattivo (la sua finestra non è aperta). Passa il mouse sullo stato vuoto per la spiegazione.
+**Il grafico è vuoto mentre altri hanno dati.** La causa più comune è una restrizione di livello - il grafico appartiene a un livello che non hai. Altre volte: il segnale sottostante è volutamente inattivo (la sua finestra non è aperta). Passa il mouse sullo stato vuoto per la spiegazione.
 
 **I tooltip al passaggio del mouse non appaiono.** È un dispositivo touch. Usa la pressione prolungata, oppure passa a un desktop.
 
@@ -69,7 +69,7 @@ Dopo aver provato le voci pertinenti sopra elencate. Includi:
 - Browser, sistema operativo e il momento approssimativo in cui è successo (con fuso orario).
 - La tua email dell'account.
 
-Scrivi a [support@zerogex.io](mailto:support@zerogex.io). Rispondiamo velocemente — di solito nella stessa giornata di trading.
+Scrivi a [support@zerogex.io](mailto:support@zerogex.io). Rispondiamo velocemente - di solito nella stessa giornata di trading.
 
 ## Vedi anche
 

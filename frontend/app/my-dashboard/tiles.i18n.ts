@@ -9,33 +9,35 @@ export const dict: PageDictionary = {
     priceTooltip: 'Current {symbol} price from the real-time quote feed.',
     netGexTitle: 'Net GEX',
     netGexTooltip:
-      'Modeled cumulative dealer gamma at the current spot, using the traditional call-positive / put-negative convention (actual dealer inventory is not observable from public option data). Positive tends to mean the modeled dealer book is net long gamma — hedging that can dampen moves (pinning, mean-reversion, lower vol). Negative tends to mean net short gamma — hedging that can amplify moves (trending, higher vol). The modeled regime changes sign at the gamma flip.',
+      'Modeled cumulative dealer gamma at the current spot, using the traditional call-positive / put-negative convention (actual dealer inventory is not observable from public option data). Positive tends to mean the modeled dealer book is net long gamma\u00a0- hedging that can dampen moves (pinning, mean-reversion, lower vol). Negative tends to mean net short gamma\u00a0- hedging that can amplify moves (trending, higher vol). The modeled regime changes sign at the gamma flip.',
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Price where aggregate net gamma changes sign. The card shows the live dollar and percent distance from the current underlying so you can judge whether spot is above or below the flip.',
     flipUnresolvedTooltip:
-      '{level} is published only when the modeled dealer-gamma profile gives a zero crossing close enough to spot to trade and backed by real open interest. When spot sits deep inside one gamma regime, or the chain is thin or one-sided — extended hours, an implied-volatility spike — no crossing clears that bar, and ZeroGEX shows no level instead of a number it cannot stand behind. It normally resolves again on a later snapshot; the sign of Net GEX still tells you which regime spot is in.',
+      '{level} is published only when the modeled dealer-gamma profile gives a zero crossing close enough to spot to trade and backed by real open interest. When spot sits deep inside one gamma regime, or the chain is thin or one-sided\u00a0- extended hours, an implied-volatility spike\u00a0- no crossing clears that bar, and ZeroGEX shows no level instead of a number it cannot stand behind. It normally resolves again on a later snapshot; the sign of Net GEX still tells you which regime spot is in.',
     levelUnresolvedProjected:
-      '{symbol} has no options chain of its own — these levels are computed from the {chain} chain and converted to {symbol} prices using the live futures basis, so it is the {chain} snapshot that came back without one.',
+      '{symbol} has no options chain of its own\u00a0- these levels are computed from the {chain} chain and converted to {symbol} prices using the live futures basis, so it is the {chain} snapshot that came back without one.',
     strikeUnresolvedTooltip:
-      '{level} is ranked over the strikes in this snapshot’s option chain, so it needs strikes carrying real open interest to rank. When the chain comes back thin or unpriced — extended hours, a feed gap — no strike qualifies, and ZeroGEX shows no level instead of a number it cannot stand behind. It normally resolves again on a later snapshot.',
+      '{level} is ranked over the strikes in this snapshot’s option chain, so it needs strikes carrying real open interest to rank. When the chain comes back thin or unpriced\u00a0- extended hours, a feed gap\u00a0- no strike qualifies, and ZeroGEX shows no level instead of a number it cannot stand behind. It normally resolves again on a later snapshot.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       'Estimated strike where option-holder payout is minimized at expiry. The card shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin.',
     callGexTitle: 'Call GEX',
     callGexTooltip:
-      'Modeled gamma exposure from call strikes (call-positive convention). Large call concentrations can influence price through dealer hedging, but whether a level acts as resistance, a magnet, or an acceleration point depends on the modeled dealer gamma sign and surrounding flow — it is not mechanically guaranteed.',
+      'Modeled gamma exposure from call strikes (call-positive convention). Large call concentrations can influence price through dealer hedging, but whether a level acts as resistance, a magnet, or an acceleration point depends on the modeled dealer gamma sign and surrounding flow\u00a0- it is not mechanically guaranteed.',
     putGexTitle: 'Put GEX',
     putGexTooltip:
-      'Modeled gamma exposure from put strikes (put-negative convention). Large put concentrations can influence price through dealer hedging, but whether a level acts as support, a magnet, or an acceleration point depends on the modeled dealer gamma sign and surrounding flow — it is not mechanically guaranteed.',
+      'Modeled gamma exposure from put strikes (put-negative convention). Large put concentrations can influence price through dealer hedging, but whether a level acts as support, a magnet, or an acceleration point depends on the modeled dealer gamma sign and surrounding flow\u00a0- it is not mechanically guaranteed.',
     callWallTitle: 'Call Wall (Resistance)',
-    callWallSubtitle: 'Heavy call open interest',
+    // “0–2DTE” below matches zerogex-oa’s INGEST_EXPIRATIONS=3 (the walls are ranked
+    // over every ingested expiration). Change it in every locale if that setting changes.
+    callWallSubtitle: 'Most call gamma above spot',
     callWallTooltip:
-      'Strike with the heaviest call open interest — a ZeroGEX level. It can act as resistance when the modeled dealer book is net long gamma there (selling into rallies toward it), but the effect depends on the modeled gamma sign and flow and is not guaranteed.',
+      'Strike at or above spot with the largest call gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0-2DTE)\u00a0- a ZeroGEX level. It can act as resistance when the modeled dealer book is net long gamma there (selling into rallies toward it), but the effect depends on the modeled gamma sign and flow and is not guaranteed.',
     putWallTitle: 'Put Wall (Support)',
-    putWallSubtitle: 'Heavy put open interest',
+    putWallSubtitle: 'Most put gamma below spot',
     putWallTooltip:
-      'Strike with the heaviest put open interest — a ZeroGEX level. It can act as support when the surrounding modeled book is net long gamma there, but a put concentration does not by itself guarantee support; the effect depends on the modeled gamma sign and flow.',
+      'Strike at or below spot with the largest put gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0-2DTE)\u00a0- a ZeroGEX level. It can act as support when the surrounding modeled book is net long gamma there, but a put concentration does not by itself guarantee support; the effect depends on the modeled gamma sign and flow.',
     netFlowTitle: 'Net Flow',
     netFlowSubtitle: 'contracts',
     netFlowTooltip: 'Cumulative call volume minus put volume for the current session.',
@@ -46,7 +48,7 @@ export const dict: PageDictionary = {
     vixTitle: '{volIndex} Level',
     vixSubtitleFallback: 'Implied volatility',
     vixTooltip:
-      "{volIndex} implied-volatility index — the market's expected 30-day volatility. Rising {volIndex} signals fear / demand for protection; falling signals calm.",
+      "{volIndex} implied-volatility index\u00a0- the market's expected 30-day volatility. Rising {volIndex} signals fear / demand for protection; falling signals calm.",
   },
   it: {
     priceTitle: 'Prezzo {symbol}',
@@ -56,33 +58,33 @@ export const dict: PageDictionary = {
     priceTooltip: 'Prezzo attuale di {symbol} dal feed quotazioni in tempo reale.',
     netGexTitle: 'Net GEX',
     netGexTooltip:
-      "Gamma cumulativa dei dealer modellata al prezzo spot attuale, secondo la convenzione tradizionale call-positivo / put-negativo (l'effettivo inventario dei dealer non è osservabile dai dati pubblici sulle opzioni). Positivo tende a indicare che il book modellato dei dealer è net long gamma — un hedging che può attenuare i movimenti (pinning, ritorno alla media, volatilità più bassa). Negativo tende a indicare net short gamma — un hedging che può amplificare i movimenti (trend, volatilità più alta). Il regime modellato cambia segno al livello di gamma flip.",
+      "Gamma cumulativa dei dealer modellata al prezzo spot attuale, secondo la convenzione tradizionale call-positivo / put-negativo (l'effettivo inventario dei dealer non è osservabile dai dati pubblici sulle opzioni). Positivo tende a indicare che il book modellato dei dealer è net long gamma\u00a0- un hedging che può attenuare i movimenti (pinning, ritorno alla media, volatilità più bassa). Negativo tende a indicare net short gamma\u00a0- un hedging che può amplificare i movimenti (trend, volatilità più alta). Il regime modellato cambia segno al livello di gamma flip.",
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Prezzo in cui la gamma netta aggregata cambia segno. La scheda mostra la distanza in tempo reale, in dollari e percentuale, dal sottostante attuale, così puoi capire se lo spot è sopra o sotto il flip.',
     flipUnresolvedTooltip:
-      '{level} viene pubblicato solo quando il profilo modellato della gamma dei dealer presenta un attraversamento dello zero abbastanza vicino allo spot per essere operabile e sostenuto da open interest reale. Quando lo spot si trova in profondità dentro un unico regime di gamma, o la catena è sottile o unilaterale — orari estesi, un picco di volatilità implicita — nessun attraversamento supera quella soglia, e ZeroGEX non mostra alcun livello invece di un numero di cui non può rispondere. Di norma si risolve di nuovo in uno snapshot successivo; il segno del Net GEX indica comunque in quale regime si trova lo spot.',
+      '{level} viene pubblicato solo quando il profilo modellato della gamma dei dealer presenta un attraversamento dello zero abbastanza vicino allo spot per essere operabile e sostenuto da open interest reale. Quando lo spot si trova in profondità dentro un unico regime di gamma, o la catena è sottile o unilaterale\u00a0- orari estesi, un picco di volatilità implicita\u00a0- nessun attraversamento supera quella soglia, e ZeroGEX non mostra alcun livello invece di un numero di cui non può rispondere. Di norma si risolve di nuovo in uno snapshot successivo; il segno del Net GEX indica comunque in quale regime si trova lo spot.',
     levelUnresolvedProjected:
-      '{symbol} non ha una propria catena di opzioni — questi livelli sono calcolati sulla catena {chain} e convertiti in prezzi {symbol} usando la base futures in tempo reale, quindi è lo snapshot {chain} a essere tornato senza il livello.',
+      '{symbol} non ha una propria catena di opzioni\u00a0- questi livelli sono calcolati sulla catena {chain} e convertiti in prezzi {symbol} usando la base futures in tempo reale, quindi è lo snapshot {chain} a essere tornato senza il livello.',
     strikeUnresolvedTooltip:
-      '{level} viene classificato sugli strike della catena di opzioni di questo snapshot, quindi ha bisogno di strike con open interest reale. Quando la catena torna sottile o senza prezzi — orari estesi, un buco nel feed — nessuno strike si qualifica, e ZeroGEX non mostra alcun livello invece di un numero di cui non può rispondere. Di norma si risolve di nuovo in uno snapshot successivo.',
+      '{level} viene classificato sugli strike della catena di opzioni di questo snapshot, quindi ha bisogno di strike con open interest reale. Quando la catena torna sottile o senza prezzi\u00a0- orari estesi, un buco nel feed\u00a0- nessuno strike si qualifica, e ZeroGEX non mostra alcun livello invece di un numero di cui non può rispondere. Di norma si risolve di nuovo in uno snapshot successivo.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       "Strike stimato in cui il payout dei detentori di opzioni è minimizzato a scadenza. La scheda mostra la distanza in tempo reale, in dollari e percentuale, dal sottostante attuale, così puoi valutare quanto lo spot è distante dal pin delle opzioni.",
     callGexTitle: 'Call GEX',
     callGexTooltip:
-      "Esposizione gamma modellata degli strike call (convenzione call-positivo). Grandi concentrazioni di call possono influenzare il prezzo tramite l'hedging dei dealer, ma se un livello agisca da resistenza, da magnete o da punto di accelerazione dipende dal segno della gamma modellata dei dealer e dal flusso circostante — non è garantito in modo meccanico.",
+      "Esposizione gamma modellata degli strike call (convenzione call-positivo). Grandi concentrazioni di call possono influenzare il prezzo tramite l'hedging dei dealer, ma se un livello agisca da resistenza, da magnete o da punto di accelerazione dipende dal segno della gamma modellata dei dealer e dal flusso circostante\u00a0- non è garantito in modo meccanico.",
     putGexTitle: 'Put GEX',
     putGexTooltip:
-      "Esposizione gamma modellata degli strike put (convenzione put-negativo). Grandi concentrazioni di put possono influenzare il prezzo tramite l'hedging dei dealer, ma se un livello agisca da supporto, da magnete o da punto di accelerazione dipende dal segno della gamma modellata dei dealer e dal flusso circostante — non è garantito in modo meccanico.",
+      "Esposizione gamma modellata degli strike put (convenzione put-negativo). Grandi concentrazioni di put possono influenzare il prezzo tramite l'hedging dei dealer, ma se un livello agisca da supporto, da magnete o da punto di accelerazione dipende dal segno della gamma modellata dei dealer e dal flusso circostante\u00a0- non è garantito in modo meccanico.",
     callWallTitle: 'Call Wall (Resistenza)',
-    callWallSubtitle: 'Open interest call elevato',
+    callWallSubtitle: 'Massima gamma call sopra lo spot',
     callWallTooltip:
-      "Strike con l'open interest call più elevato — un livello ZeroGEX. Può agire da resistenza quando il book modellato dei dealer è net long gamma a quel livello (vendendo durante i rally verso di esso), ma l'effetto dipende dal segno della gamma modellata e dal flusso e non è garantito.",
+      "Strike pari o superiore allo spot con la maggiore esposizione gamma call (gamma × open interest), sommata sulla scadenza di oggi e sulle due successive (0-2DTE)\u00a0- un livello ZeroGEX. Può agire da resistenza quando il book modellato dei dealer è net long gamma a quel livello (vendendo durante i rally verso di esso), ma l'effetto dipende dal segno della gamma modellata e dal flusso e non è garantito.",
     putWallTitle: 'Put Wall (Supporto)',
-    putWallSubtitle: 'Open interest put elevato',
+    putWallSubtitle: 'Massima gamma put sotto lo spot',
     putWallTooltip:
-      "Strike con l'open interest put più elevato — un livello ZeroGEX. Può agire da supporto quando il book modellato circostante è net long gamma a quel livello, ma una concentrazione di put non garantisce di per sé il supporto; l'effetto dipende dal segno della gamma modellata e dal flusso.",
+      "Strike pari o inferiore allo spot con la maggiore esposizione gamma put (gamma × open interest), sommata sulla scadenza di oggi e sulle due successive (0-2DTE)\u00a0- un livello ZeroGEX. Può agire da supporto quando il book modellato circostante è net long gamma a quel livello, ma una concentrazione di put non garantisce di per sé il supporto; l'effetto dipende dal segno della gamma modellata e dal flusso.",
     netFlowTitle: 'Flusso Netto',
     netFlowSubtitle: 'contratti',
     netFlowTooltip: 'Volume call cumulativo meno volume put per la sessione corrente.',
@@ -93,7 +95,7 @@ export const dict: PageDictionary = {
     vixTitle: 'Livello {volIndex}',
     vixSubtitleFallback: 'Volatilità implicita',
     vixTooltip:
-      "Indice di volatilità implicita {volIndex} — la volatilità attesa a 30 giorni dal mercato. Un {volIndex} in aumento segnala paura / domanda di protezione; in calo segnala calma.",
+      "Indice di volatilità implicita {volIndex}\u00a0- la volatilità attesa a 30 giorni dal mercato. Un {volIndex} in aumento segnala paura / domanda di protezione; in calo segnala calma.",
   },
   de: {
     priceTitle: '{symbol}-Preis',
@@ -103,33 +105,33 @@ export const dict: PageDictionary = {
     priceTooltip: 'Aktueller {symbol}-Preis aus dem Echtzeit-Kursfeed.',
     netGexTitle: 'Net GEX',
     netGexTooltip:
-      'Modellierte kumulierte Dealer-Gamma zum aktuellen Spotpreis, nach der traditionellen Konvention call-positiv / put-negativ (das tatsächliche Dealer-Inventar ist aus öffentlichen Optionsdaten nicht beobachtbar). Positiv bedeutet tendenziell, dass das modellierte Dealer-Book netto long Gamma ist — Hedging, das Bewegungen dämpfen kann (Pinning, Mean-Reversion, niedrigere Volatilität). Negativ bedeutet tendenziell netto short Gamma — Hedging, das Bewegungen verstärken kann (Trending, höhere Volatilität). Das modellierte Regime wechselt am Gamma-Flip das Vorzeichen.',
+      'Modellierte kumulierte Dealer-Gamma zum aktuellen Spotpreis, nach der traditionellen Konvention call-positiv / put-negativ (das tatsächliche Dealer-Inventar ist aus öffentlichen Optionsdaten nicht beobachtbar). Positiv bedeutet tendenziell, dass das modellierte Dealer-Book netto long Gamma ist\u00a0- Hedging, das Bewegungen dämpfen kann (Pinning, Mean-Reversion, niedrigere Volatilität). Negativ bedeutet tendenziell netto short Gamma\u00a0- Hedging, das Bewegungen verstärken kann (Trending, höhere Volatilität). Das modellierte Regime wechselt am Gamma-Flip das Vorzeichen.',
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Preis, an dem das aggregierte Netto-Gamma das Vorzeichen wechselt. Die Karte zeigt den Live-Abstand in Dollar und Prozent zum aktuellen Basiswert, damit du beurteilen kannst, ob der Spot über oder unter dem Flip liegt.',
     flipUnresolvedTooltip:
-      '{level} wird nur veröffentlicht, wenn das modellierte Dealer-Gamma-Profil einen Nulldurchgang liefert, der nah genug am Spot liegt, um handelbar zu sein, und durch echtes Open Interest gedeckt ist. Sitzt der Spot tief in einem einzigen Gamma-Regime, oder ist die Optionskette dünn oder einseitig — erweiterte Handelszeiten, ein Sprung der impliziten Volatilität —, überschreitet kein Durchgang diese Schwelle, und ZeroGEX zeigt lieber kein Level als eine Zahl, für die es nicht einstehen kann. In einem späteren Snapshot löst es sich normalerweise wieder auf; das Vorzeichen des Net GEX zeigt weiterhin, in welchem Regime der Spot steht.',
+      '{level} wird nur veröffentlicht, wenn das modellierte Dealer-Gamma-Profil einen Nulldurchgang liefert, der nah genug am Spot liegt, um handelbar zu sein, und durch echtes Open Interest gedeckt ist. Sitzt der Spot tief in einem einzigen Gamma-Regime, oder ist die Optionskette dünn oder einseitig\u00a0- erweiterte Handelszeiten, ein Sprung der impliziten Volatilität\u00a0-, überschreitet kein Durchgang diese Schwelle, und ZeroGEX zeigt lieber kein Level als eine Zahl, für die es nicht einstehen kann. In einem späteren Snapshot löst es sich normalerweise wieder auf; das Vorzeichen des Net GEX zeigt weiterhin, in welchem Regime der Spot steht.',
     levelUnresolvedProjected:
-      '{symbol} hat keine eigene Optionskette — diese Levels werden aus der {chain}-Kette berechnet und über die laufende Futures-Basis in {symbol}-Preise umgerechnet. Es ist also der {chain}-Snapshot, der ohne Level zurückkam.',
+      '{symbol} hat keine eigene Optionskette\u00a0- diese Levels werden aus der {chain}-Kette berechnet und über die laufende Futures-Basis in {symbol}-Preise umgerechnet. Es ist also der {chain}-Snapshot, der ohne Level zurückkam.',
     strikeUnresolvedTooltip:
-      '{level} wird über die Strikes der Optionskette dieses Snapshots ermittelt und braucht daher Strikes mit echtem Open Interest. Kommt die Kette dünn oder ohne Preise zurück — erweiterte Handelszeiten, eine Lücke im Feed —, qualifiziert sich kein Strike, und ZeroGEX zeigt lieber kein Level als eine Zahl, für die es nicht einstehen kann. In einem späteren Snapshot löst es sich normalerweise wieder auf.',
+      '{level} wird über die Strikes der Optionskette dieses Snapshots ermittelt und braucht daher Strikes mit echtem Open Interest. Kommt die Kette dünn oder ohne Preise zurück\u00a0- erweiterte Handelszeiten, eine Lücke im Feed\u00a0-, qualifiziert sich kein Strike, und ZeroGEX zeigt lieber kein Level als eine Zahl, für die es nicht einstehen kann. In einem späteren Snapshot löst es sich normalerweise wieder auf.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       'Geschätzter Strike, an dem die Auszahlung der Optionsinhaber bei Verfall minimiert wird. Die Karte zeigt den Live-Abstand in Dollar und Prozent zum aktuellen Basiswert, damit du einschätzen kannst, wie weit der Spot vom Options-Pin entfernt ist.',
     callGexTitle: 'Call GEX',
     callGexTooltip:
-      'Modellierte Gamma-Exposure aus Call-Strikes (Konvention call-positiv). Große Call-Konzentrationen können den Preis über das Dealer-Hedging beeinflussen, aber ob ein Niveau als Widerstand, als Magnet oder als Beschleunigungspunkt wirkt, hängt vom Vorzeichen der modellierten Dealer-Gamma und vom umgebenden Flow ab — es ist nicht mechanisch garantiert.',
+      'Modellierte Gamma-Exposure aus Call-Strikes (Konvention call-positiv). Große Call-Konzentrationen können den Preis über das Dealer-Hedging beeinflussen, aber ob ein Niveau als Widerstand, als Magnet oder als Beschleunigungspunkt wirkt, hängt vom Vorzeichen der modellierten Dealer-Gamma und vom umgebenden Flow ab\u00a0- es ist nicht mechanisch garantiert.',
     putGexTitle: 'Put GEX',
     putGexTooltip:
-      'Modellierte Gamma-Exposure aus Put-Strikes (Konvention put-negativ). Große Put-Konzentrationen können den Preis über das Dealer-Hedging beeinflussen, aber ob ein Niveau als Unterstützung, als Magnet oder als Beschleunigungspunkt wirkt, hängt vom Vorzeichen der modellierten Dealer-Gamma und vom umgebenden Flow ab — es ist nicht mechanisch garantiert.',
+      'Modellierte Gamma-Exposure aus Put-Strikes (Konvention put-negativ). Große Put-Konzentrationen können den Preis über das Dealer-Hedging beeinflussen, aber ob ein Niveau als Unterstützung, als Magnet oder als Beschleunigungspunkt wirkt, hängt vom Vorzeichen der modellierten Dealer-Gamma und vom umgebenden Flow ab\u00a0- es ist nicht mechanisch garantiert.',
     callWallTitle: 'Call Wall (Widerstand)',
-    callWallSubtitle: 'Hohes Call-Open-Interest',
+    callWallSubtitle: 'Größte Call-Gamma-Exposition',
     callWallTooltip:
-      'Strike mit dem höchsten Call-Open-Interest — ein ZeroGEX-Niveau. Kann als Widerstand wirken, wenn das modellierte Dealer-Book dort netto long Gamma ist (Verkäufe in Anstiege zu diesem Niveau hinein), aber der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab und ist nicht garantiert.',
+      'Strike auf oder über Spot mit der höchsten Call-Gamma-Exposition (Gamma × Open Interest), summiert über den heutigen Verfallstermin und die zwei folgenden (0-2DTE)\u00a0- ein ZeroGEX-Niveau. Kann als Widerstand wirken, wenn das modellierte Dealer-Book dort netto long Gamma ist (Verkäufe in Anstiege zu diesem Niveau hinein), aber der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab und ist nicht garantiert.',
     putWallTitle: 'Put Wall (Unterstützung)',
-    putWallSubtitle: 'Hohes Put-Open-Interest',
+    putWallSubtitle: 'Größte Put-Gamma-Exposition',
     putWallTooltip:
-      'Strike mit dem höchsten Put-Open-Interest — ein ZeroGEX-Niveau. Kann als Unterstützung wirken, wenn das umgebende modellierte Book dort netto long Gamma ist, aber eine Put-Konzentration garantiert für sich genommen keine Unterstützung; der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab.',
+      'Strike auf oder unter Spot mit der höchsten Put-Gamma-Exposition (Gamma × Open Interest), summiert über den heutigen Verfallstermin und die zwei folgenden (0-2DTE)\u00a0- ein ZeroGEX-Niveau. Kann als Unterstützung wirken, wenn das umgebende modellierte Book dort netto long Gamma ist, aber eine Put-Konzentration garantiert für sich genommen keine Unterstützung; der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab.',
     netFlowTitle: 'Net Flow',
     netFlowSubtitle: 'Kontrakte',
     netFlowTooltip: 'Kumuliertes Call-Volumen minus Put-Volumen für die aktuelle Sitzung.',
@@ -140,7 +142,7 @@ export const dict: PageDictionary = {
     vixTitle: '{volIndex}-Niveau',
     vixSubtitleFallback: 'Implizite Volatilität',
     vixTooltip:
-      '{volIndex}-Index für implizite Volatilität — die vom Markt erwartete 30-Tage-Volatilität. Ein steigender {volIndex} signalisiert Angst / Nachfrage nach Absicherung; ein fallender signalisiert Ruhe.',
+      '{volIndex}-Index für implizite Volatilität\u00a0- die vom Markt erwartete 30-Tage-Volatilität. Ein steigender {volIndex} signalisiert Angst / Nachfrage nach Absicherung; ein fallender signalisiert Ruhe.',
   },
   es: {
     priceTitle: 'Precio de {symbol}',
@@ -150,33 +152,33 @@ export const dict: PageDictionary = {
     priceTooltip: 'Precio actual de {symbol} del feed de cotizaciones en tiempo real.',
     netGexTitle: 'Net GEX',
     netGexTooltip:
-      'Gamma acumulada modelada de los dealers al precio spot actual, según la convención tradicional call-positivo / put-negativo (el inventario real de los dealers no es observable a partir de los datos públicos de opciones). Positivo tiende a significar que el book modelado de los dealers está net long gamma — cobertura que puede amortiguar los movimientos (pinning, reversión a la media, menor volatilidad). Negativo tiende a significar net short gamma — cobertura que puede amplificar los movimientos (tendencia, mayor volatilidad). El régimen modelado cambia de signo en el gamma flip.',
+      'Gamma acumulada modelada de los dealers al precio spot actual, según la convención tradicional call-positivo / put-negativo (el inventario real de los dealers no es observable a partir de los datos públicos de opciones). Positivo tiende a significar que el book modelado de los dealers está net long gamma\u00a0- cobertura que puede amortiguar los movimientos (pinning, reversión a la media, menor volatilidad). Negativo tiende a significar net short gamma\u00a0- cobertura que puede amplificar los movimientos (tendencia, mayor volatilidad). El régimen modelado cambia de signo en el gamma flip.',
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Precio en el que la gamma neta agregada cambia de signo. La tarjeta muestra la distancia en tiempo real, en dólares y porcentaje, respecto al subyacente actual, para que puedas evaluar si el spot está por encima o por debajo del flip.',
     flipUnresolvedTooltip:
-      '{level} solo se publica cuando el perfil modelado de gamma de los dealers ofrece un cruce por cero lo bastante cerca del spot para ser operable y respaldado por open interest real. Cuando el spot está muy dentro de un único régimen de gamma, o la cadena es delgada o unilateral — horario extendido, un salto de volatilidad implícita —, ningún cruce supera ese umbral, y ZeroGEX no muestra ningún nivel en lugar de una cifra que no puede respaldar. Normalmente vuelve a resolverse en un snapshot posterior; el signo del Net GEX sigue indicando en qué régimen está el spot.',
+      '{level} solo se publica cuando el perfil modelado de gamma de los dealers ofrece un cruce por cero lo bastante cerca del spot para ser operable y respaldado por open interest real. Cuando el spot está muy dentro de un único régimen de gamma, o la cadena es delgada o unilateral\u00a0- horario extendido, un salto de volatilidad implícita\u00a0-, ningún cruce supera ese umbral, y ZeroGEX no muestra ningún nivel en lugar de una cifra que no puede respaldar. Normalmente vuelve a resolverse en un snapshot posterior; el signo del Net GEX sigue indicando en qué régimen está el spot.',
     levelUnresolvedProjected:
       '{symbol} no tiene cadena de opciones propia: estos niveles se calculan sobre la cadena {chain} y se convierten a precios de {symbol} con la base de futuros en vivo, así que es el snapshot de {chain} el que volvió sin nivel.',
     strikeUnresolvedTooltip:
-      '{level} se clasifica sobre los strikes de la cadena de opciones de este snapshot, así que necesita strikes con open interest real. Cuando la cadena vuelve delgada o sin precios — horario extendido, un hueco en el feed —, ningún strike califica, y ZeroGEX no muestra ningún nivel en lugar de una cifra que no puede respaldar. Normalmente vuelve a resolverse en un snapshot posterior.',
+      '{level} se clasifica sobre los strikes de la cadena de opciones de este snapshot, así que necesita strikes con open interest real. Cuando la cadena vuelve delgada o sin precios\u00a0- horario extendido, un hueco en el feed\u00a0-, ningún strike califica, y ZeroGEX no muestra ningún nivel en lugar de una cifra que no puede respaldar. Normalmente vuelve a resolverse en un snapshot posterior.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       'Strike estimado en el que el pago a los tenedores de opciones se minimiza al vencimiento. La tarjeta muestra la distancia en tiempo real, en dólares y porcentaje, respecto al subyacente actual, para que puedas evaluar cuán lejos está el spot del pin de opciones.',
     callGexTitle: 'Call GEX',
     callGexTooltip:
-      'Exposición gamma modelada de los strikes call (convención call-positivo). Grandes concentraciones de calls pueden influir en el precio a través de la cobertura de los dealers, pero que un nivel actúe como resistencia, como imán o como punto de aceleración depende del signo de la gamma modelada de los dealers y del flujo circundante — no está garantizado de forma mecánica.',
+      'Exposición gamma modelada de los strikes call (convención call-positivo). Grandes concentraciones de calls pueden influir en el precio a través de la cobertura de los dealers, pero que un nivel actúe como resistencia, como imán o como punto de aceleración depende del signo de la gamma modelada de los dealers y del flujo circundante\u00a0- no está garantizado de forma mecánica.',
     putGexTitle: 'Put GEX',
     putGexTooltip:
-      'Exposición gamma modelada de los strikes put (convención put-negativo). Grandes concentraciones de puts pueden influir en el precio a través de la cobertura de los dealers, pero que un nivel actúe como soporte, como imán o como punto de aceleración depende del signo de la gamma modelada de los dealers y del flujo circundante — no está garantizado de forma mecánica.',
+      'Exposición gamma modelada de los strikes put (convención put-negativo). Grandes concentraciones de puts pueden influir en el precio a través de la cobertura de los dealers, pero que un nivel actúe como soporte, como imán o como punto de aceleración depende del signo de la gamma modelada de los dealers y del flujo circundante\u00a0- no está garantizado de forma mecánica.',
     callWallTitle: 'Call Wall (Resistencia)',
-    callWallSubtitle: 'Interés abierto de calls elevado',
+    callWallSubtitle: 'Mayor gamma de calls sobre el spot',
     callWallTooltip:
-      'Strike con el mayor interés abierto de calls — un nivel ZeroGEX. Puede actuar como resistencia cuando el book modelado de los dealers está net long gamma en ese nivel (vendiendo durante los rallies hacia él), pero el efecto depende del signo de la gamma modelada y del flujo y no está garantizado.',
+      'Strike igual o superior al spot con la mayor exposición gamma de calls (gamma × interés abierto), sumada sobre el vencimiento de hoy y los dos siguientes (0-2DTE)\u00a0- un nivel ZeroGEX. Puede actuar como resistencia cuando el book modelado de los dealers está net long gamma en ese nivel (vendiendo durante los rallies hacia él), pero el efecto depende del signo de la gamma modelada y del flujo y no está garantizado.',
     putWallTitle: 'Put Wall (Soporte)',
-    putWallSubtitle: 'Interés abierto de puts elevado',
+    putWallSubtitle: 'Mayor gamma de puts bajo el spot',
     putWallTooltip:
-      'Strike con el mayor interés abierto de puts — un nivel ZeroGEX. Puede actuar como soporte cuando el book modelado circundante está net long gamma en ese nivel, pero una concentración de puts no garantiza por sí misma el soporte; el efecto depende del signo de la gamma modelada y del flujo.',
+      'Strike igual o inferior al spot con la mayor exposición gamma de puts (gamma × interés abierto), sumada sobre el vencimiento de hoy y los dos siguientes (0-2DTE)\u00a0- un nivel ZeroGEX. Puede actuar como soporte cuando el book modelado circundante está net long gamma en ese nivel, pero una concentración de puts no garantiza por sí misma el soporte; el efecto depende del signo de la gamma modelada y del flujo.',
     netFlowTitle: 'Flujo Neto',
     netFlowSubtitle: 'contratos',
     netFlowTooltip: 'Volumen de calls acumulado menos volumen de puts para la sesión actual.',
@@ -187,7 +189,7 @@ export const dict: PageDictionary = {
     vixTitle: 'Nivel de {volIndex}',
     vixSubtitleFallback: 'Volatilidad implícita',
     vixTooltip:
-      'Índice de volatilidad implícita {volIndex} — la volatilidad esperada a 30 días por el mercado. Un {volIndex} en aumento indica miedo / demanda de protección; en descenso indica calma.',
+      'Índice de volatilidad implícita {volIndex}\u00a0- la volatilidad esperada a 30 días por el mercado. Un {volIndex} en aumento indica miedo / demanda de protección; en descenso indica calma.',
   },
   fr: {
     priceTitle: 'Prix {symbol}',
@@ -197,33 +199,33 @@ export const dict: PageDictionary = {
     priceTooltip: 'Prix actuel de {symbol} issu du flux de cotation en temps réel.',
     netGexTitle: 'Net GEX',
     netGexTooltip:
-      "Gamma cumulée modélisée des dealers au prix spot actuel, selon la convention traditionnelle call-positif / put-négatif (l'inventaire réel des dealers n'est pas observable à partir des données publiques sur les options). Positif tend à signifier que le book modélisé des dealers est net long gamma — un hedging qui peut atténuer les mouvements (pinning, retour à la moyenne, volatilité plus faible). Négatif tend à signifier net short gamma — un hedging qui peut amplifier les mouvements (tendance, volatilité plus élevée). Le régime modélisé change de signe au gamma flip.",
+      "Gamma cumulée modélisée des dealers au prix spot actuel, selon la convention traditionnelle call-positif / put-négatif (l'inventaire réel des dealers n'est pas observable à partir des données publiques sur les options). Positif tend à signifier que le book modélisé des dealers est net long gamma\u00a0- un hedging qui peut atténuer les mouvements (pinning, retour à la moyenne, volatilité plus faible). Négatif tend à signifier net short gamma\u00a0- un hedging qui peut amplifier les mouvements (tendance, volatilité plus élevée). Le régime modélisé change de signe au gamma flip.",
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       "Prix auquel la gamma nette agrégée change de signe. La carte affiche l'écart en direct, en dollars et en pourcentage, par rapport au sous-jacent actuel, pour évaluer si le spot est au-dessus ou en dessous du flip.",
     flipUnresolvedTooltip:
-      "{level} n'est publié que lorsque le profil modélisé du gamma des dealers présente un passage par zéro suffisamment proche du spot pour être négociable et adossé à un open interest réel. Lorsque le spot se situe profondément dans un seul régime de gamma, ou que la chaîne est mince ou unilatérale — séances étendues, un pic de volatilité implicite —, aucun passage ne franchit ce seuil, et ZeroGEX n'affiche aucun niveau plutôt qu'un chiffre qu'il ne peut pas assumer. Il se résout normalement à nouveau sur un snapshot ultérieur ; le signe du Net GEX indique toujours dans quel régime se trouve le spot.",
+      "{level} n'est publié que lorsque le profil modélisé du gamma des dealers présente un passage par zéro suffisamment proche du spot pour être négociable et adossé à un open interest réel. Lorsque le spot se situe profondément dans un seul régime de gamma, ou que la chaîne est mince ou unilatérale\u00a0- séances étendues, un pic de volatilité implicite\u00a0-, aucun passage ne franchit ce seuil, et ZeroGEX n'affiche aucun niveau plutôt qu'un chiffre qu'il ne peut pas assumer. Il se résout normalement à nouveau sur un snapshot ultérieur ; le signe du Net GEX indique toujours dans quel régime se trouve le spot.",
     levelUnresolvedProjected:
-      "{symbol} n'a pas de chaîne d'options propre : ces niveaux sont calculés sur la chaîne {chain} puis convertis en prix {symbol} via la base futures en direct — c'est donc le snapshot {chain} qui est revenu sans niveau.",
+      "{symbol} n'a pas de chaîne d'options propre : ces niveaux sont calculés sur la chaîne {chain} puis convertis en prix {symbol} via la base futures en direct\u00a0- c'est donc le snapshot {chain} qui est revenu sans niveau.",
     strikeUnresolvedTooltip:
-      "{level} est classé sur les strikes de la chaîne d'options de ce snapshot : il lui faut donc des strikes portant un open interest réel. Lorsque la chaîne revient mince ou sans prix — séances étendues, un trou dans le flux —, aucun strike ne se qualifie, et ZeroGEX n'affiche aucun niveau plutôt qu'un chiffre qu'il ne peut pas assumer. Il se résout normalement à nouveau sur un snapshot ultérieur.",
+      "{level} est classé sur les strikes de la chaîne d'options de ce snapshot : il lui faut donc des strikes portant un open interest réel. Lorsque la chaîne revient mince ou sans prix\u00a0- séances étendues, un trou dans le flux\u00a0-, aucun strike ne se qualifie, et ZeroGEX n'affiche aucun niveau plutôt qu'un chiffre qu'il ne peut pas assumer. Il se résout normalement à nouveau sur un snapshot ultérieur.",
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       "Strike estimé auquel le paiement aux détenteurs d'options est minimisé à l'échéance. La carte affiche l'écart en direct, en dollars et en pourcentage, par rapport au sous-jacent actuel, pour évaluer à quel point le spot est éloigné du pin des options.",
     callGexTitle: 'Call GEX',
     callGexTooltip:
-      "Exposition gamma modélisée des strikes call (convention call-positif). De fortes concentrations de call peuvent influencer le prix via le hedging des dealers, mais qu'un niveau agisse comme résistance, comme aimant ou comme point d'accélération dépend du signe de la gamma modélisée des dealers et du flux environnant — ce n'est pas mécaniquement garanti.",
+      "Exposition gamma modélisée des strikes call (convention call-positif). De fortes concentrations de call peuvent influencer le prix via le hedging des dealers, mais qu'un niveau agisse comme résistance, comme aimant ou comme point d'accélération dépend du signe de la gamma modélisée des dealers et du flux environnant\u00a0- ce n'est pas mécaniquement garanti.",
     putGexTitle: 'Put GEX',
     putGexTooltip:
-      "Exposition gamma modélisée des strikes put (convention put-négatif). De fortes concentrations de put peuvent influencer le prix via le hedging des dealers, mais qu'un niveau agisse comme support, comme aimant ou comme point d'accélération dépend du signe de la gamma modélisée des dealers et du flux environnant — ce n'est pas mécaniquement garanti.",
+      "Exposition gamma modélisée des strikes put (convention put-négatif). De fortes concentrations de put peuvent influencer le prix via le hedging des dealers, mais qu'un niveau agisse comme support, comme aimant ou comme point d'accélération dépend du signe de la gamma modélisée des dealers et du flux environnant\u00a0- ce n'est pas mécaniquement garanti.",
     callWallTitle: 'Call Wall (Résistance)',
-    callWallSubtitle: 'Fort open interest call',
+    callWallSubtitle: 'Plus forte exposition gamma call',
     callWallTooltip:
-      "Strike avec le plus fort open interest call — un niveau ZeroGEX. Peut agir comme résistance lorsque le book modélisé des dealers y est net long gamma (vente dans les rallyes vers ce niveau), mais l'effet dépend du signe de la gamma modélisée et du flux et n'est pas garanti.",
+      "Strike égal ou supérieur au spot avec la plus forte exposition gamma call (gamma × open interest), cumulée sur l'échéance du jour et les deux suivantes (0-2DTE)\u00a0- un niveau ZeroGEX. Peut agir comme résistance lorsque le book modélisé des dealers y est net long gamma (vente dans les rallyes vers ce niveau), mais l'effet dépend du signe de la gamma modélisée et du flux et n'est pas garanti.",
     putWallTitle: 'Put Wall (Support)',
-    putWallSubtitle: 'Fort open interest put',
+    putWallSubtitle: 'Plus forte exposition gamma put',
     putWallTooltip:
-      "Strike avec le plus fort open interest put — un niveau ZeroGEX. Peut agir comme support lorsque le book modélisé environnant y est net long gamma, mais une concentration de put ne garantit pas à elle seule le support ; l'effet dépend du signe de la gamma modélisée et du flux.",
+      "Strike égal ou inférieur au spot avec la plus forte exposition gamma put (gamma × open interest), cumulée sur l'échéance du jour et les deux suivantes (0-2DTE)\u00a0- un niveau ZeroGEX. Peut agir comme support lorsque le book modélisé environnant y est net long gamma, mais une concentration de put ne garantit pas à elle seule le support ; l'effet dépend du signe de la gamma modélisée et du flux.",
     netFlowTitle: 'Flux Net',
     netFlowSubtitle: 'contrats',
     netFlowTooltip: 'Volume call cumulé moins volume put pour la session en cours.',
@@ -234,6 +236,6 @@ export const dict: PageDictionary = {
     vixTitle: 'Niveau {volIndex}',
     vixSubtitleFallback: 'Volatilité implicite',
     vixTooltip:
-      "Indice de volatilité implicite {volIndex} — la volatilité attendue à 30 jours par le marché. Une hausse du {volIndex} signale la peur / la demande de protection ; une baisse signale le calme.",
+      "Indice de volatilité implicite {volIndex}\u00a0- la volatilité attendue à 30 jours par le marché. Une hausse du {volIndex} signale la peur / la demande de protection ; une baisse signale le calme.",
   },
 };

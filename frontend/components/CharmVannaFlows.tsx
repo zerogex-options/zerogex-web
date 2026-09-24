@@ -70,11 +70,11 @@ function FlowBar({ value, maxAbs, isDark }: { value: number; maxAbs: number; isD
   const width = maxAbs > 0 ? Math.min(100, (Math.abs(value) / maxAbs) * 100) : 0;
   const barColor = value >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
 
+  // Full-width under its label on a phone; the 100px column beside it on sm+.
   return (
     <div
-      className="h-5 rounded-full overflow-hidden flex-shrink-0"
+      className="h-2.5 w-full sm:h-5 sm:w-[100px] rounded-full overflow-hidden flex-shrink-0"
       style={{
-        width: '100px',
         backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
       }}
     >
@@ -219,7 +219,7 @@ export default function CharmVannaFlows({
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6 h-full"
+        className="rounded-2xl p-4 sm:p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
@@ -238,8 +238,11 @@ export default function CharmVannaFlows({
       </div>
 
       <div className="flex flex-col gap-5">
+        {/* On a phone each row wraps: label and value on one line, the bar
+            full-width beneath (beside a 100px bar the labels wrapped to three
+            lines). sm+ keeps the single row. */}
         {flowItems.map((item) => (
-          <div key={item.title} className="flex items-center gap-4">
+          <div key={item.title} className="flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-1.5">
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold" style={{ color: textColor }}>{item.title}</div>
               <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{item.description}</div>
@@ -252,7 +255,7 @@ export default function CharmVannaFlows({
         ))}
 
         {/* Vol expansion risk */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-1.5">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold" style={{ color: textColor }}>Vol expansion risk</div>
             <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -286,9 +289,8 @@ export default function CharmVannaFlows({
             {volRisk.label}
           </div>
           <div
-            className="h-5 rounded-full flex-shrink-0"
+            className="h-2.5 w-full sm:h-5 sm:w-[100px] rounded-full flex-shrink-0"
             style={{
-              width: '100px',
               backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
             }}
           >

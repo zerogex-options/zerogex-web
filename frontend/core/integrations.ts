@@ -87,7 +87,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     navLabel: 'TradingView Indicator',
     cardTitle: 'Plot the levels on TradingView',
     blurb:
-      'A free, published Pine Script that draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal lines on SPY, SPX, QQQ, NDX, ES or NQ — with optional cross-alerts. Add it from the indicator search; no account needed.',
+      'A free, published Pine Script that draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal lines on SPY, SPX, QQQ, NDX, ES or NQ\u00a0- with optional cross-alerts. Add it from the indicator search; no account needed.',
     tier: 'free',
     updates: 'manual',
     updatesNote: 'Pine Script cannot make HTTP calls, so you type today’s four numbers into Settings.',
@@ -102,11 +102,11 @@ export const INTEGRATIONS: readonly Integration[] = [
     navLabel: 'thinkorswim Study',
     cardTitle: 'Plot the levels on thinkorswim',
     blurb:
-      'A free thinkScript study for thinkorswim desktop, web, and mobile. Copy it with today’s levels already filled in, paste it into the Study Editor, and it draws the Gamma Flip, Call Wall, Put Wall, and Max Pain — with a level chip on each line and optional cross-alerts.',
+      'A free thinkScript study for thinkorswim desktop, web, and mobile. Copy it with today’s levels already filled in, paste it into the Study Editor, and it draws the Gamma Flip, Call Wall, Put Wall, and Max Pain\u00a0- with a level chip on each line and optional cross-alerts.',
     tier: 'free',
     updates: 'manual',
     updatesNote:
-      'thinkScript has no network access at all, so you re-copy the study each day — but it comes with the numbers already in it.',
+      'thinkScript has no network access at all, so you re-copy the study each day\u00a0- but it comes with the numbers already in it.',
     language: 'thinkScript',
     levels: 'Gamma Flip · Call Wall · Put Wall · Max Pain',
     accent: '--color-brand-primary',
@@ -118,7 +118,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     navLabel: 'NinjaTrader Indicator',
     cardTitle: 'Auto-updating levels on NinjaTrader',
     blurb:
-      'A NinjaScript indicator that polls the ZeroGEX API on a timer and redraws — Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike, plus an optional per-strike gamma histogram. Set the symbol to ES or NQ and the levels arrive already on the futures price axis.',
+      'A NinjaScript indicator that polls the ZeroGEX API on a timer and redraws\u00a0- Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike, plus an optional per-strike gamma histogram. Set the symbol to ES or NQ and the levels arrive already on the futures price axis.',
     tier: 'pro',
     updates: 'auto',
     updatesNote: 'NinjaScript is C#, so it polls the API and you never retype a number.',
@@ -133,7 +133,7 @@ export const INTEGRATIONS: readonly Integration[] = [
     navLabel: 'Sierra Chart Study',
     cardTitle: 'Auto-updating levels on Sierra Chart',
     blurb:
-      'An ACSIL study that polls the ZeroGEX API and redraws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike as chart-wide lines. Builds in place with Sierra Chart’s own compiler — no toolchain to install.',
+      'An ACSIL study that polls the ZeroGEX API and redraws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike as chart-wide lines. Builds in place with Sierra Chart’s own compiler\u00a0- no toolchain to install.',
     tier: 'pro',
     updates: 'auto',
     updatesNote: 'ACSIL is C++, so the study fetches the levels itself on a timer.',

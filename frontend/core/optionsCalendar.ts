@@ -333,7 +333,7 @@ function eventsForMonth(
       label: "Russell Rebalance",
       shortLabel: "Russell Rebal",
       description:
-        "FTSE Russell annual reconstitution. Index additions/deletions print at the close — the highest-volume single print of the year for many small caps.",
+        "FTSE Russell annual reconstitution. Index additions/deletions print at the close\u00a0- the highest-volume single print of the year for many small caps.",
       y: year,
       m: 6,
       d: day,
@@ -346,7 +346,7 @@ function eventsForMonth(
     if (h.y !== year || h.m !== month) continue;
     seeds.push({
       kind: "nyse-holiday",
-      label: `Market Closed — ${h.name}`,
+      label: `Market Closed\u00a0- ${h.name}`,
       shortLabel: h.name,
       description: `NYSE is closed for ${h.name}. No equity or options trading; positioning carries over from the prior session's close.`,
       y: h.y,

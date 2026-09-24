@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery resend-payment-failed sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders money-back-refund setup-pricing setup-billing-portal money-back-sweep
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -28,7 +28,8 @@ help:
 	@echo "  make orphan-payment-alerts - Daily sweep (systemd timer) for members who PAID and were left with nothing, emailing the operator about anything new. Detection only — every command it prints is a dry run. DRY_RUN=1 to print the email instead of sending, PREVIEW_TO=<addr> to check the layout, TO=<addr> to redirect, DAYS=<n> lookback"
 	@echo "  make decline-timing - READ-ONLY. Tests whether insufficient-funds declines persist because the retries land before payday: how long Stripe actually kept trying, and whether invoices whose window crossed the 1st or 15th recovered any better. Designed to be able to come back negative. Writes nothing. DAYS=<n> (0 = all time, the default), CATEGORY=<name|all>"
 	@echo "  make normalize-utm-sources - Rewrite stored acquisition sources (users.signup_utm_source, page_view_events.utm_source) to match what sanitizeUtmSource produces today, so one channel tagged two ways stops reading as two channels. DRY RUN by default; YES=1 to apply. Re-run whenever UTM_SOURCE_ALIASES changes"
-	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, DAYS=<n>, LIMIT=<n>"
+	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), DAYS=<n>, LIMIT=<n>"
+	@echo "  make resend-payment-failed - Re-send the payment-failed email, as it reads today (signed /pay link, no Stripe URL), to members sent it in the last DAYS days (default 7) whose invoice is still unpaid and whose subscription Stripe is still retrying. For the copies that carried the Stripe link and may have gone to spam. One resend per invoice. DRY RUN by default; YES=1 to send, PREVIEW_TO=<addr> to get one real one first, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), BEFORE=<iso> to skip anyone emailed after a cutoff, LIMIT=<n>"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -41,7 +42,7 @@ help:
 	@echo "  make founding-cohort-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for accounts the demotion sweep already downgraded but never deprovisioned (the 2026-07-01 batch), and retry any revocation that failed mid-sweep. Skips anyone who has since returned to Pro"
 	@echo "  make unit-failure-alert UNIT=<unit> [DRY_RUN=1] - Email the operator that a scheduled unit failed. Wired into units via OnFailure=zerogex-web-alert@%n.service; you should not need to run it by hand except to test that the recipient resolves"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|quarterly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
@@ -56,10 +57,17 @@ help:
 	@echo "  make trial-engagement - Review trials by whether the member has used the product since signup (read-only, DORMANT_ONLY=1 to filter)"
 	@echo "  make renewal-engagement - Review ACTIVE subscribers by whether they have used the product before their renewal (read-only, DORMANT_ONLY=1 to filter)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, RENDER=<email> to dry-run one member's real copy to files without sending)"
+	@echo "  make renewal-reminders - Email members whose QUARTERLY plan renews within 7 days or ANNUAL plan within 30 days (auto-renewal notice; once per renewal via users.renewal_reminder_sent_for). Daily systemd timer (step 099). DRY_RUN=1 lists who is due (the default), YES=1 sends, PREVIEW_TO=<email> sends one sample"
+	@echo "  make money-back-refund EMAIL=<email> - Honor a 7-day money-back guarantee request that came in by email, or finish one the Account page could not: the SAME path as the self-serve button (full refund, immediate cancel, access + API keys removed, confirmation email, counts as their one refund). Dry run by default; YES=1 applies; REASON=<stripe feedback> COMMENT=\"...\" optional; FORCE=1 honors it outside the window / past the one-refund limit (goodwill)"
+	@echo "  make setup-pricing - Create the quarterly Stripe prices (Basic 75 USD / Pro 115 USD every 3 months, on the existing products) and the 10-USD-off-monthly-for-12-months promo coupon, and print the .env.local lines. Dry run by default; YES=1 creates. VERIFY=1 instead checks every configured price and coupon against what the pricing page shows and fails loudly on any mismatch — run it before and after changing billing env"
+	@echo "  make money-back-sweep - List money-back refund requests that stopped part-way (still pending 30+ minutes after their last activity), e.g. the app restarted between the refund and the cancel. Dry run by default; YES=1 emails the operator once per stall. Hourly systemd timer (step 099)"
+	@echo "  make setup-billing-portal - Point the Stripe billing portal at every configured plan (monthly, quarterly, annual; both tiers) and make a plan switch during the free trial end the trial. Dry run by default; YES=1 applies. Run it AFTER make restart when prices change: the webhook maps prices to tiers through the same env"
 	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, WINDOW_HOURS=N to tune the window)"
 	@echo "  make card-expiry-reminders - Email active subscribers whose card on file expires within ~45 days so they update it before a renewal fails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, THRESHOLD_DAYS=N / LIMIT=N to tune)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
+	@echo "  make daily-levels        - Send the free pre-open levels digest to confirmed levels-email subscribers. Sends nothing without YES=1. DRY_RUN=1 prints the per-symbol freshness verdict + the rendered body, PREVIEW_TO=<email> mails one sample, FORCE=1 skips the 08:30-09:25 ET window (not the trading-day or freshness guards), LIMIT=<n> / THROTTLE_MS=<n> bound a run"
+	@echo "  make levels-subscribers  - Read-only readout of the free levels email list: the double opt-in rate, the funnel, and the split by preferred symbol and signup page. JSON=1 for machine-readable output"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|none forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
 	@echo "  make return-intent - Answer churned members who logged back in on their own (no discount, no trial claim; per-reason copy from their cancel survey). DIGEST=1 [DIGEST_TO=<email>] emails you the list + draft and sends nothing (the daily default); YES=1 delivers; DRY_RUN=1 previews with a per-member skip tally; PREVIEW_TO=<email> sends one sample; COOLDOWN_DAYS/QUIET_HOURS/MAX_LOGIN_AGE_DAYS tune the windows; LIMIT caps a run"
@@ -80,6 +88,7 @@ help:
 	@echo "  make backfill-refund-audit - Write the refund_issued audit rows for refunds issued before the webhook recorded them (idempotent, rows carry the refund's own timestamp). DRY_RUN=1 to preview, YES=1 to write, SINCE=<YYYY-MM-DD>, LIMIT=<n>"
 	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
 	@echo "  make gex-rank-backtest [SYMBOL=NQ] [SESSIONS=120] - Measure whether GEX rank actually predicts where price reacts, against a shuffled-label null and a random-strike control, bucketed by distance from the open. Needs ~80 sessions minimum to detect anything. SELF_TEST=1 runs it against synthetic data with a planted answer."
+	@echo "  make forecast-range-width [SYMBOL=SPX] [SESSIONS=120] [TARGET=0.8] [MODEL=heuristic_v1_5] [SINCE=YYYY-MM-DD] - Read-only: by how much is the morning projected range wider than it needs to be? Finds the smallest per-side scale factor that would still have contained each graded session, and reports the percentile of those that hits the coverage target. History spans several range-model generations and a pooled factor describes a blend that no longer runs, so MODEL=<name> restricts it to the live one -- and SINCE=<date> is needed where the model changed WITHOUT the string being bumped (the persistence anchor shipped 2026-08-05 under the old heuristic_v1_4 label). In-sample — a starting estimate to watch forward, not a tuned constant. JSON=1 for machine-readable output"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make subscriber-headcount [NAMES=1] - Decompose the admin Total Subscribers chart (Full Subscriber / Converting / Free Trial / Trial Grace) and account for every subscription-carrying account it does not count — paused, setup-withheld, lapsed. Answers 'why did the headcount move' (read-only)"
 	@echo "  make recover-orphan-payment EMAIL=<email> - Restore a member who PAID an invoice after Stripe had already canceled their subscription for nonpayment (money collected, still on Public). Re-creates the plan with billing anchored at the end of the period they paid for, so they are never charged twice. DRY by default, YES=1 to apply, INVOICE=in_... to pick the invoice"
@@ -361,10 +370,31 @@ normalize-utm-sources:
 #
 #   YES=1                actually send (default sends nothing)
 #   PREVIEW_TO=<addr>    render one real email to that address and stop
+#   SKIP=<list>          emails or invoice ids to leave alone, comma-separated (repeat on every run)
 #   DAYS=<n>             how far back to look (default 180)
 #   LIMIT=<n>            cap sends in one run (default 50)
 open-invoice-recovery:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-open-invoice-recovery.mts $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Re-send the payment-failed email to members whose earlier copy may have gone
+# to spam. Until the dunning emails moved to our own signed /pay link they
+# buttoned straight to Stripe's hosted invoice page, and a tokenized
+# invoice.stripe.com payment link in a "payment failed" email is the shape
+# spam filters look for in phishing.
+#
+# DRY RUN BY DEFAULT. Only members who were actually sent the email in the
+# window, whose invoice is still open, and whose subscription Stripe is still
+# retrying; never the same invoice twice. Everything in the email is re-read
+# from Stripe at send time. It never charges, retries or changes anything.
+#
+#   YES=1                actually send (default sends nothing)
+#   PREVIEW_TO=<addr>    send the first eligible member's real email to <addr> and stop
+#   SKIP=<list>          emails or invoice ids to leave alone, comma-separated (repeat on every run)
+#   DAYS=<n>             how far back to look (default 7)
+#   BEFORE=<iso>         only emails sent before this instant (e.g. the /pay deploy)
+#   LIMIT=<n>            cap sends in one run (default 50)
+resend-payment-failed:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/resend-payment-failed.mts $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
 
 # Print, for a sample of real customers, every event the growth dashboard reads
 # and every conclusion it draws — so a human can check the classification against
@@ -569,6 +599,36 @@ tradeworkz-notify:
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(RENDER),--render $(RENDER),) $(if $(OUT),--out $(OUT),)'
 
+# Advance notice before a quarterly/annual plan renews (core/renewalReminder.ts:
+# 7 days for quarterly, 30 for annual). Idempotent per billing period. Driven
+# daily by the zerogex-web-renewal-reminders timer (deploy/steps/099.renewal-reminders).
+renewal-reminders:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-renewal-reminders.mts $(if $(YES),--yes,--dry-run) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Honor a 7-day money-back guarantee request by hand (the same code path as the
+# Account page button — core/moneyBackServer.ts). Dry run unless YES=1.
+money-back-refund:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make money-back-refund EMAIL=foo@example.com YES=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/money-back-refund.mts --email $(EMAIL) $(if $(REASON),--reason $(REASON),) $(if $(COMMENT),--comment "$(COMMENT)",) $(if $(FORCE),--force,) $(if $(YES),--yes,--dry-run)'
+
+# Provision (or verify) the Stripe side of the October 2026 pricing: quarterly
+# prices and the $10-off-monthly promo coupon. Dry run unless YES=1; VERIFY=1
+# checks the live configuration against the pricing page instead.
+setup-pricing:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/setup-pricing.mts $(if $(VERIFY),--verify,$(if $(YES),--yes,--dry-run))'
+
+# Create/update the Stripe billing portal configuration (scripts/setup-billing-portal.mts
+# has the details). Dry run unless YES=1. After a price change, run it only once the
+# app has restarted with the new STRIPE_PRICE_* env.
+# Report money-back refund requests that stopped part-way (core/moneyBackServer.ts
+# sweepStalledMoneyBackRequests). Dry run unless YES=1. Driven hourly by the
+# zerogex-web-money-back-sweep timer (deploy/steps/099.money-back-sweep).
+money-back-sweep:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/money-back-sweep.mts $(if $(YES),--yes,--dry-run)'
+
+setup-billing-portal:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/setup-billing-portal.mts $(if $(YES),--yes,--dry-run)'
+
 # Send the mid-trial value/activation nudge (~day 2 of a 7-day trial) to
 # currently-trialing members, BEFORE the day 3-7 cancel wave and well before the
 # 48h billing reminder above. Idempotent via users.trial_midpoint_email_sent_at;
@@ -645,6 +705,16 @@ grace-expiry-warnings:
 # override the "no older than N hours" upper bound.
 verified-never-paid:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),)'
+
+# The free pre-open levels digest. --no-warnings suppresses the
+# MODULE_TYPELESS_PACKAGE_JSON notice the .mts loader prints, which otherwise
+# lands in the middle of the per-symbol freshness readout and makes a journal
+# entry harder to read than it needs to be.
+levels-subscribers:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/levels-subscribers.mts $(if $(JSON),--json,)'
+
+daily-levels:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-daily-levels.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(FORCE),--force,) $(if $(SESSION_DATE),--session-date $(SESSION_DATE),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),)'
 
 # Send the founder-voice "finish verifying to unlock the free trial" nudge to
 # every user who registered but never confirmed their email (public tier,
@@ -1708,6 +1778,16 @@ blog-images:
 # strike is not the nearest one.
 gex-rank-backtest:
 	@cd $(CURDIR) && python3 scripts/gex-rank-backtest.py $(if $(SELF_TEST),--self-test,--symbol $(or $(SYMBOL),NQ) --last $(or $(SESSIONS),120)) $(if $(RANKS),--ranks $(RANKS),) $(if $(JSON),--json $(JSON),)
+
+# The companion question to the backtest above: not "is the level real" but
+# "is the band too wide". Published SPX coverage sat at 29/29 against an 80%
+# target, which a coverage rate can flag as padded but cannot size. This
+# finds, per session, the smallest scale factor about the open that would
+# still have contained the day -- per side, because the call and put walls
+# are not equidistant from spot -- and takes the percentile of those that
+# lands on the target. Read-only; the range model lives in zerogex-oa.
+forecast-range-width:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/forecast-range-width.mts $(if $(SYMBOL),--symbol $(SYMBOL),) $(if $(SESSIONS),--limit $(SESSIONS),) $(if $(TARGET),--target $(TARGET),) $(if $(MODEL),--model $(MODEL),) $(if $(SINCE),--since $(SINCE),) $(if $(JSON),--json,)'
 
 ninjatrader-package:
 	@echo "Publishing NinjaTrader package..."

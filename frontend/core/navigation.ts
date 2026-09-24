@@ -45,15 +45,14 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/dashboard', label: 'Main Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
       { id: '/my-dashboard', label: 'My Dashboard', labelKey: 'nav.myDashboard', requiredTier: 'basic' },
-      // /chart is a public dual-mode route (delayed snapshot for anonymous
-      // visitors, live for subscribers), so it carries no requiredTier — the
-      // route table in core/auth.ts keeps it public and the page branches on
-      // the session. Marking it 'basic' here would wrongly hide it from guests.
-      { id: '/chart', label: 'Gamma Chart' },
-      // Gamma Terminal (beta): the Gamma Chart's price chart with two gamma
-      // ladders beside it. Live-only (no delayed public snapshot), so unlike
-      // /chart it is a member page and carries the Basic tier.
-      { id: '/gamma-terminal', label: 'Gamma Terminal', requiredTier: 'basic', beta: true },
+      // The Gamma Terminal — the flagship surface, and the fold of what used to
+      // be two nav entries: the public Gamma Chart and the members-only
+      // /gamma-terminal beta (now 301'd to /chart). It is a public dual-mode
+      // route (delayed snapshot for anonymous visitors, live for subscribers),
+      // so it carries no requiredTier — the route table in core/auth.ts keeps
+      // it public and the page branches on the session. Marking it 'basic'
+      // here would wrongly hide it from guests.
+      { id: '/chart', label: 'Gamma Terminal' },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
@@ -163,21 +162,62 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/options-calculator', label: 'Strategy Builder', labelKey: 'nav.strategyBuilder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', labelKey: 'nav.liveOptionsQuotes', requiredTier: 'basic' },
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
-      // All three are landing pages whose real content lives at dated
+    ],
+  },
+  // ── Receipts ──────────────────────────────────────────────────────────────
+  //
+  // These four used to sit at the bottom of Strategy Tools, mixed in with the
+  // Strategy Builder and the options chain, under names that told you the
+  // FORMAT ("Daily Forecast", "Daily Scorecard", "Track Record") and nothing
+  // about the subject or the scope. There are two axes here and the old names
+  // exposed neither:
+  //
+  //                      one session          all sessions
+  //   gamma forecast     /forecast/{d}        /track-record
+  //   trading signals    /scorecard/{d}       (nothing yet)
+  //
+  // So three pages that all sound like "how did we do" were in fact one
+  // subject at two scopes plus a different subject entirely. The labels below
+  // put the subject before the dash and the scope after it, which makes both
+  // axes readable at a glance without touching a single URL — and the URLs
+  // carry SEO equity we are not spending on a naming problem.
+  //
+  // Every label is keyed, and the keys were RENAMED rather than repurposed:
+  // leaving 'nav.dailyForecast' holding "Forecast — one day" would be a
+  // dictionary that lies about its own contents in five languages.
+  {
+    label: 'Receipts',
+    labelKey: 'nav.group.receipts',
+    items: [
+      // All four are landing pages whose real content lives at dated
       // permalinks, so each matches its own subtree for active-state.
-      { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay', matchPrefix: true },
-      { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true, matchPrefix: true },
-      // The intraday counterpart to Daily Forecast: a cone re-anchored every
-      // 15 minutes, and the reliability table that grades it. It lives UNDER
-      // /forecast, which is prefix-matched — see NAV_ITEM_IDS below for why
-      // that does not leave both entries lit at once.
-      { id: '/forecast/cone', label: 'Intraday Cone', beta: true },
-      // Public per-session receipt: every signal's flips, what was scorable,
-      // and how it resolved. It existed for months reachable only from the
-      // 4:15 PM ET post that links one date — no sidebar entry, no inbound
-      // link, absent from the sitemap — so nobody inside the product could
-      // find it. Now a landing page of session cards, like Daily Replay.
-      { id: '/scorecard', label: 'Daily Scorecard', labelKey: 'nav.dailyScorecard', matchPrefix: true },
+      // All five are landing pages whose real content lives at dated
+      // permalinks or a live session, so each prefix-matches its own subtree
+      // for active-state — except the cone, which sits UNDER /forecast and
+      // must NOT prefix-match or both entries light up at once. NAV_ITEM_IDS
+      // is what lets the more specific entry win; tests/navigationActive
+      // asserts it.
+      { id: '/forecast', label: 'Forecast - one day', labelKey: 'nav.forecastOneDay', beta: true, matchPrefix: true },
+      // The intraday counterpart: a cone re-anchored through the session, and
+      // the reliability table that grades it. A DIFFERENT CLAIM from the line
+      // above, not a view of it — ~20 commitments a day instead of one frozen
+      // before the open, so it earns a track record in days rather than
+      // months. Kept in this group because it publishes its own bucket counts
+      // for anyone to check, which is what this group is for.
+      { id: '/forecast/cone', label: 'Forecast - intraday cone', labelKey: 'nav.forecastIntraday', beta: true },
+      // The aggregate of what the daily line grades: same subject, every
+      // session instead of one. Listed AT ALL because /scorecard already
+      // taught us what an unlinked public page is worth — it sat reachable
+      // only from one dated post for months.
+      { id: '/track-record', label: 'Forecast - all time', labelKey: 'nav.forecastAllTime' },
+      // A DIFFERENT SUBJECT, which is the thing the old naming hid: this
+      // grades the signal engine (every Playbook card's flips, what was
+      // scorable, how it resolved), not the forecast.
+      { id: '/scorecard', label: 'Signals - one day', labelKey: 'nav.signalsOneDay', matchPrefix: true },
+      // Not a grade at all — a scrubbable view of a past session. Grouped
+      // here because it is the fifth dated historical view, and leaving one
+      // behind in Strategy Tools would recreate the scatter this fixes.
+      { id: '/replay', label: 'Session replay', labelKey: 'nav.sessionReplay', matchPrefix: true },
     ],
   },
   {

@@ -133,6 +133,6 @@ export function replayScopeLabel(scope: ReplayScope): string {
  */
 export function replayScopeTitle(scope: ReplayScope, sessionDate: string): string {
   return scope === '0dte'
-    ? `Only contracts expiring ${sessionDate} — the book that had to be hedged before the bell`
-    : 'Every expiration in the chain, aggregated — the whole-chain dealer book';
+    ? `Only contracts expiring ${sessionDate}\u00a0- the book that had to be hedged before the bell`
+    : 'Every expiration in the chain, aggregated\u00a0- the whole-chain dealer book';
 }

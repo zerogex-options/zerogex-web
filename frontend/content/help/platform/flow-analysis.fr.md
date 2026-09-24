@@ -6,7 +6,7 @@
 
 ## Ce que montre cette page
 
-La page Flow Analysis est la **vue du tape** du marché des options. Là où Dealer Positioning montre le carnet statique, cette page montre le **flux** — ce que font les agresseurs en temps réel.
+La page Flow Analysis est la **vue du tape** du marché des options. Là où Dealer Positioning montre le carnet statique, cette page montre le **flux** - ce que font les agresseurs en temps réel.
 
 ## Les trois angles du flux
 
@@ -14,7 +14,7 @@ ZeroGEX présente le flux sous trois angles, car chacun compte différemment.
 
 ### Volume net de contrats
 
-Compte simplement les contrats. Utile comme référence de bruit de fond. Peu utile à lui seul comme lecture de conviction — mille contrats à 0,05 $ et un contrat à 500 $ comptent pareil.
+Compte simplement les contrats. Utile comme référence de bruit de fond. Peu utile à lui seul comme lecture de conviction - mille contrats à 0,05 $ et un contrat à 500 $ comptent pareil.
 
 ### Flux pondéré par la prime
 
@@ -34,13 +34,13 @@ Sous la tuile principale :
 
 - Prime **achat call / vente call**
 - Prime **achat put / vente put**
-- **Delta net de l'agresseur** — la sortie de Lee-Ready pondérée par le delta du contrat
+- **Delta net de l'agresseur** - la sortie de Lee-Ready pondérée par le delta du contrat
 
 Chacun est tracé comme une série afin que vous puissiez voir la pente, pas seulement le niveau.
 
 ## Le badge smart money
 
-Des étiquettes sur des transactions individuelles les signalent comme smart money — typiquement de gros blocs, des sweeps, des prints agressifs répétés dans la même direction. Le flux smart money est affiché comme une sous-série distincte. Utilisez-le comme vérification croisée de la tuile principale.
+Des étiquettes sur des transactions individuelles les signalent comme smart money - typiquement de gros blocs, des sweeps, des prints agressifs répétés dans la même direction. Le flux smart money est affiché comme une sous-série distincte. Utilisez-le comme vérification croisée de la tuile principale.
 
 ## Comment le lire
 
@@ -56,9 +56,9 @@ Pour une analyse plus approfondie de pourquoi le volume brut peut induire en err
 
 ## Quand cette page est la plus utile
 
-- **Juste après l'ouverture** — les 30 premières minutes en disent long sur le biais de la journée.
-- **À tout niveau clé** — le flux vers un wall ou le VWAP indique si le niveau est défendu ou franchi.
-- **Vers la clôture** — combinée à EOD Pressure, la lecture du flux affine l'indication directionnelle.
+- **Juste après l'ouverture** - les 30 premières minutes en disent long sur le biais de la journée.
+- **À tout niveau clé** - le flux vers un wall ou le VWAP indique si le niveau est défendu ou franchi.
+- **Vers la clôture** - combinée à EOD Pressure, la lecture du flux affine l'indication directionnelle.
 
 ## Voir aussi
 

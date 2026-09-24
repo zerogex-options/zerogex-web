@@ -1,0 +1,24 @@
+# Cloudflare Worker that serves maintenance.html while the zerogex.io origin is
+# down. Read README.md in this directory before deploying: the /api/* and
+# /_next/* exclusions it describes are set in the dashboard, not here.
+name = "zerogex-maintenance-page"
+main = "worker.mjs"
+compatibility_date = "2026-09-01"
+
+# Run only on the site's own routes. On a *.workers.dev URL the Worker's
+# fetch(request) would have no zerogex.io origin behind it.
+workers_dev = false
+
+routes = [
+  { pattern = "zerogex.io/*", zone_name = "zerogex.io" },
+  # www is redirected to the apex by nginx on the same box, so it goes down
+  # with everything else.
+  { pattern = "www.zerogex.io/*", zone_name = "zerogex.io" },
+]
+
+# Import maintenance.html as a string. Wrangler already does this for .html by
+# default; spelled out so the bundle can't change shape under a new default.
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true

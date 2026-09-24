@@ -83,7 +83,7 @@ export default function SqueezeSetupPage() {
         title="Squeeze Setup"
         subtitle={'"Is the market coiled?"'}
         icon={Zap}
-        tooltip="Standalone detector — not part of the MSI. Correlates directional flow z-scores with momentum acceleration and dealer-gamma posture. Triggers at |score| ≥ 25. Dead-VIX regimes attenuate conviction ~50%."
+        tooltip="Standalone detector&nbsp;- not part of the MSI. Correlates directional flow z-scores with momentum acceleration and dealer-gamma posture. Triggers at |score| ≥ 25. Dead-VIX regimes attenuate conviction ~50%."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -99,7 +99,7 @@ export default function SqueezeSetupPage() {
               history={history}
               badges={
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
                     {humanize(signal) || 'None'}
                   </span>
@@ -111,17 +111,17 @@ export default function SqueezeSetupPage() {
             />
           </div>
 
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="lg:col-span-3 grid grid-cols-2 gap-3 sm:gap-4">
             <FlowZCard label="Call flow z" value={callFlowZ} positiveColor="var(--color-bull)" hint="Net call flow standardized over recent window." />
             <FlowZCard label="Put flow z" value={putFlowZ} positiveColor="var(--color-bear)" hint="Net put flow standardized over recent window." />
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="text-sm font-semibold mb-1 flex items-center gap-2"><ArrowRightLeft size={14} /> Momentum z</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: momentumZ != null && momentumZ > 0.5 ? 'var(--color-bull)' : momentumZ != null && momentumZ < -0.5 ? 'var(--color-bear)' : 'var(--color-warning)' }}>
                 {formatSigned(momentumZ, 2)}
               </AutoFitValue>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Price momentum z-score. Diverges from flow → early (no price) or exhausted (no flow).</p>
             </div>
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="text-sm font-semibold mb-1 flex items-center gap-2"><Rocket size={14} /> Acceleration</div>
               <div className="flex items-center gap-2 mt-1">
                 <AccelPill label="Up" on={ctx.accelUp} color="var(--color-bull)" />
@@ -213,7 +213,7 @@ function FlowZCard({ label, value, positiveColor, hint }: { label: string; value
   const magnitude = Math.min(100, Math.abs(value ?? 0) * 25);
   const isPositive = (value ?? 0) >= 0;
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
       <div className="text-sm font-semibold mb-1">{label}</div>
       <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: value != null && Math.abs(value) > 0.5 ? positiveColor : 'var(--color-text-primary)' }}>
         {formatSigned(value, 2)}
@@ -231,7 +231,7 @@ function FlowZCard({ label, value, positiveColor, hint }: { label: string; value
 
 function AccelPill({ label, on, color }: { label: string; on: boolean; color: string }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border" style={{ borderColor: on ? color : 'var(--color-border)', color: on ? color : 'var(--color-text-secondary)', background: on ? `${color}1a` : 'transparent' }}>
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border" style={{ borderColor: on ? color : 'var(--color-border)', color: on ? color : 'var(--color-text-secondary)', background: on ? `color-mix(in srgb, ${color} 10%, transparent)` : 'transparent' }}>
       {label} {on ? '✓' : '·'}
     </span>
   );

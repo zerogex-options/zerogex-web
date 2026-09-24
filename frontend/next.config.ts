@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        // The Gamma Terminal (a members-only beta) and the Gamma Chart were the
+        // same instrument with different things beside it, so they were folded
+        // into one flagship surface with a view switch. /chart is the survivor
+        // because it is the URL with the history: it has always been the public,
+        // indexable lead magnet and it ranks on "gamma chart", the term with the
+        // search volume. The beta URL 301s so its links and bookmarks land on
+        // the page that absorbed it rather than 404ing.
+        source: '/gamma-terminal',
+        destination: '/chart',
+        permanent: true,
+      },
+      {
         // 301 to the pillar guide. /decoding-gamma-exposure overlapped heavily
         // with /gamma-exposure-explained and was sitting at position ~60 while
         // the pillar was at ~33 — consolidating into the pillar concentrates

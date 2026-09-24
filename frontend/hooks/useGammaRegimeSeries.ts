@@ -46,6 +46,18 @@ export interface GammaRegimeBar {
   /** Expiries that left the board since the comparison point — reported, never a shed. */
   expired_expirations: string[];
   rolling_bars: number | null;
+  /**
+   * Spot-to-flip cushion, derived server-side from `spot` and the stored flip
+   * so the panel and this series cannot classify it differently. Present on
+   * the wire already; declared here now that the Weather drawer charts it.
+   */
+  gamma_flip: number | null;
+  cushion_pts: number | null;
+  cushion_side: string | null;
+  cushion_state: string | null;
+  cushion_rate_pts: number | null;
+  cushion_move_ratio: number | null;
+  typical_move_30m: number | null;
 }
 
 export interface GammaRegimeSeriesPayload {

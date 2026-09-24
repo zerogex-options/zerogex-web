@@ -2,6 +2,7 @@
 // Playbook engine. Used by both the live /trading-signals dashboard and the
 // shareable /cards/[id] permalink page, so it stays pure (no hooks, no
 // interactivity) and can render under React Server Components.
+import { formatEtTimestamp } from '@/core/etTimestamp';
 import { humanize, humanizeText } from '@/core/signalHelpers';
 import type {
   SignalActionAlternative,
@@ -26,6 +27,20 @@ export function directionColor(direction: string | undefined): string {
   return 'var(--color-warning)';
 }
 
+// The engine stamps cards in UTC. Print Eastern wall time with the offset so a
+// 4:00 AM pre-market card reads as one; the exact UTC stamp stays on hover.
+function CardTimestamp({ iso }: { iso: string | undefined }) {
+  if (!iso) return null;
+  const label = formatEtTimestamp(iso);
+  const className = 'font-mono normal-case tracking-normal text-[var(--color-text-secondary)]';
+  if (!label) return <span className={className}>{iso}</span>;
+  return (
+    <time dateTime={iso} title={iso} className={className}>
+      {label}
+    </time>
+  );
+}
+
 function PriceCell({
   label,
   level,
@@ -36,16 +51,21 @@ function PriceCell({
   accent: string;
 }) {
   const detail = level?.level_name ?? level?.kind ?? level?.trigger ?? '';
+  const price = level?.ref_price != null ? `$${level.ref_price.toFixed(2)}` : '—';
+  // Three of these share a phone's width (~100px each), where a 24px price
+  // ran past its box into the next one. Phone sizes step down for the longer
+  // index prices ($24513.20); from `sm` up every cell is the desktop size.
+  const priceSize = price.length > 8 ? 'text-[13px]' : 'text-base';
   return (
     <div
-      className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3"
+      className="min-w-0 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2.5 sm:px-4 sm:py-3"
       style={{ borderLeft: `3px solid ${accent}` }}
     >
       <div className="text-[10px] uppercase tracking-[0.18em] font-bold" style={{ color: accent }}>
         {label}
       </div>
-      <div className="mt-1 font-mono text-2xl font-bold tracking-tight">
-        {level?.ref_price != null ? `$${level.ref_price.toFixed(2)}` : '—'}
+      <div className={`mt-1 font-mono ${priceSize} font-bold tracking-tight sm:text-2xl`}>
+        {price}
       </div>
       {detail && (
         <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
@@ -65,7 +85,7 @@ function LegRow({ leg }: { leg: SignalActionLeg }) {
     <div className="flex items-center gap-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm">
       <span
         className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
-        style={{ background: `${sideColor}1f`, color: sideColor }}
+        style={{ background: `color-mix(in srgb, ${sideColor} 12%, transparent)`, color: sideColor }}
       >
         {String(leg.side).toUpperCase()}
       </span>
@@ -91,7 +111,7 @@ export function TradeCard({ data }: { data: SignalActionResponse }) {
 
   return (
     <article
-      className="rounded-[var(--radius-panel)] border-2 p-6"
+      className="rounded-[var(--radius-panel)] border-2 p-4 sm:p-6"
       style={{ borderColor: dirColor, background: 'var(--color-surface)' }}
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -100,7 +120,7 @@ export function TradeCard({ data }: { data: SignalActionResponse }) {
             <span style={{ color: dirColor }}>● {data.underlying || 'SPY'}</span>
             <span>·</span>
             <span>Decisive Trade</span>
-            {data.timestamp && <span className="font-mono normal-case tracking-normal text-[var(--color-text-secondary)]">{data.timestamp}</span>}
+            <CardTimestamp iso={data.timestamp} />
           </div>
           <h3
             className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight"
@@ -144,7 +164,7 @@ export function TradeCard({ data }: { data: SignalActionResponse }) {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3">
+      <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
         <PriceCell label="Stop" level={data.stop} accent="var(--color-bear)" />
         <PriceCell label="Entry" level={data.entry} accent="var(--color-warning)" />
         <PriceCell label="Target" level={data.target} accent="var(--color-bull)" />
@@ -186,14 +206,14 @@ export function StandDownCard({ data }: { data: SignalActionResponse }) {
 
   return (
     <article
-      className="rounded-[var(--radius-panel)] border-2 p-6"
+      className="rounded-[var(--radius-panel)] border-2 p-4 sm:p-6"
       style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
         <span style={{ color: 'var(--color-warning)' }}>● {data.underlying || 'SPY'}</span>
         <span>·</span>
         <span>No Trade</span>
-        {data.timestamp && <span className="font-mono normal-case tracking-normal">{data.timestamp}</span>}
+        <CardTimestamp iso={data.timestamp} />
       </div>
       <h3 className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight text-[var(--color-warning)]">
         Stand Down

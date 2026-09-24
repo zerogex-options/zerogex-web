@@ -56,7 +56,13 @@ const SIGNAL_LABELS = {
 export const STRONG = 25;
 export const MODERATE = 12;
 export const DOMINANT = 65;
-export const MSI_TOLERANCE = 10;
+
+// `msi` is the 0-100 composite: regime strength, not direction. Both trend
+// states treat it identically -- it adds to a trend call's confidence and
+// never gates it. It used to gate them as if it ran -100..+100 (`msi >= -10`
+// for TREND_UP, `msi <= 10` for TREND_DOWN); on the real scale the first
+// always passed and the second needed the gauge at 10 or below, so TREND_UP
+// fired freely and TREND_DOWN almost never did.
 
 export function computeBias(inp: BiasInput): BiasResult {
   const {
@@ -118,8 +124,8 @@ export function computeBias(inp: BiasInput): BiasResult {
   let marketState: MarketState = 'UNKNOWN';
   if (isShortGamma && bullishFlow && bearishStructure) marketState = 'TRAP_REVERSAL';
   else if (isShortGamma && bearishFlow && bullishStructure) marketState = 'TRAP_SQUEEZE';
-  else if (isLongGamma && bullishFlow && (msi == null || msi >= -MSI_TOLERANCE)) marketState = 'TREND_UP';
-  else if (isLongGamma && bearishFlow && (msi == null || msi <= MSI_TOLERANCE)) marketState = 'TREND_DOWN';
+  else if (isLongGamma && bullishFlow) marketState = 'TREND_UP';
+  else if (isLongGamma && bearishFlow) marketState = 'TREND_DOWN';
   else if (available >= 4) marketState = 'CHOP';
 
   const biasScores: number[] = [];
@@ -197,7 +203,7 @@ export function computeBias(inp: BiasInput): BiasResult {
       bias = 'BUY_DIPS';
       biasLabel = 'Buy Dips';
       regimeLabel = 'Trend Up Regime';
-      regimeDesc = 'Long gamma + aligned bullish flow + positive MSI.';
+      regimeDesc = 'Long gamma + aligned bullish flow.';
       setup = 'Trend Continuation (Up)';
       playbook = [
         'Buy dips toward VWAP / gamma support',
@@ -223,7 +229,7 @@ export function computeBias(inp: BiasInput): BiasResult {
       bias = 'SELL_RIPS';
       biasLabel = 'Sell Rips';
       regimeLabel = 'Trend Down Regime';
-      regimeDesc = 'Long gamma + aligned bearish flow + negative MSI.';
+      regimeDesc = 'Long gamma + aligned bearish flow.';
       setup = 'Trend Continuation (Down)';
       playbook = [
         'Short rips into VWAP / resistance',
@@ -241,15 +247,16 @@ export function computeBias(inp: BiasInput): BiasResult {
       push(positioningTrap, -1);
       push(trapDetection, -1);
       push(gammaVWAP, -1);
+      // Regime strength, like netGEX: pushed the same way as in TREND_UP.
       push(netGEX, 1);
-      push(msi, -1);
+      push(msi, 1);
       break;
     case 'CHOP': {
       trend = 'neutral';
       bias = 'RANGE_FADE';
       biasLabel = 'Range-Bound';
       regimeLabel = 'Chop / Range Regime';
-      regimeDesc = 'Mixed signals — no dominant directional thesis.';
+      regimeDesc = 'Mixed signals\u00a0- no dominant directional thesis.';
       setup = 'Mean Reversion';
       playbook = [
         'Fade extremes of the session range',

@@ -65,7 +65,7 @@ export const dict: PageDictionary = {
     addWidgetsToSide: 'Widgets zu Seite {side} hinzufügen',
     emptySideTitle: 'Diese Seite ist leer',
     emptySideLead:
-      'Klone die andere Seite hierher und ändere Verfall oder Basiswert — oder füge Widgets einzeln hinzu.',
+      'Klone die andere Seite hierher und ändere Verfall oder Basiswert\u00a0- oder füge Widgets einzeln hinzu.',
     cloneFromOtherSide: 'Seite {side} hierher klonen',
     sendToOtherSide: 'Auf Seite {side} verschieben',
     allExpirations: 'Alle Verfälle',

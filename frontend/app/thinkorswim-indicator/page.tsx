@@ -19,9 +19,9 @@ import { serverApiGet } from '@/core/api/serverFetch';
 
 const INTEGRATION = integrationById('thinkorswim');
 const PATH = INTEGRATION.href;
-const TITLE = 'ZeroGEX Daily Gamma Levels — Free thinkorswim Study';
+const TITLE = 'ZeroGEX Daily Gamma Levels\u00a0- Free thinkorswim Study';
 const DESCRIPTION =
-  'Free thinkScript study that plots the ZeroGEX gamma flip, call wall, put wall, and max pain as horizontal lines on thinkorswim — desktop, web, and mobile — with optional cross-alerts.';
+  'Free thinkScript study that plots the ZeroGEX gamma flip, call wall, put wall, and max pain as horizontal lines on thinkorswim\u00a0- desktop, web, and mobile\u00a0- with optional cross-alerts.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -112,7 +112,7 @@ export default async function ThinkorswimIndicatorPage() {
 
       <LiveLevelsCTA
         headline="Trading something other than SPX?"
-        intro="The copy button above fills in SPX. Every ticker page below carries the same section filled with its own numbers — open the one you trade and copy from there. All free, delayed roughly 15 minutes, no signup."
+        intro="The copy button above fills in SPX. Every ticker page below carries the same section filled with its own numbers&nbsp;- open the one you trade and copy from there. All free, delayed roughly 15 minutes, no signup."
       />
     </IndicatorPageShell>
   );

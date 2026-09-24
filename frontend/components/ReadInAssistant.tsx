@@ -33,8 +33,8 @@ export default function ReadInAssistant({ symbol }: { symbol?: string }) {
   const code: React.CSSProperties = {
     fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
     fontSize: 13,
-    background: 'var(--color-brand-primary)14',
-    border: '1px solid var(--color-brand-primary)33',
+    background: 'color-mix(in srgb, var(--color-brand-primary) 8%, transparent)',
+    border: '1px solid color-mix(in srgb, var(--color-brand-primary) 20%, transparent)',
     borderRadius: 8,
     padding: '3px 9px',
     color: 'var(--color-text-primary)',
@@ -67,8 +67,8 @@ export default function ReadInAssistant({ symbol }: { symbol?: string }) {
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
           color: 'var(--color-brand-primary)',
-          border: '1px solid var(--color-brand-primary)44',
-          background: 'var(--color-brand-primary)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-primary) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-primary) 8%, transparent)',
           borderRadius: 999,
           padding: '5px 14px',
           marginBottom: 16,
@@ -92,7 +92,7 @@ export default function ReadInAssistant({ symbol }: { symbol?: string }) {
       >
         Add <span style={code}>{MCP_URL}</span> to your AI assistant once, and you can ask
         &ldquo;where is the SPX gamma flip?&rdquo; in an ordinary conversation. It reads the same
-        delayed levels this page shows — the flip, both walls, max pain and the pin strike — instead
+        delayed levels this page shows&nbsp;- the flip, both walls, max pain and the pin strike&nbsp;- instead
         of guessing at a number. No key, no account, nothing to install.
       </p>
 
@@ -107,7 +107,19 @@ export default function ReadInAssistant({ symbol }: { symbol?: string }) {
         }}
       >
         Works with any Model Context Protocol client. In Claude, add it as a custom connector; in
-        Claude Code, <span style={{ ...code, fontSize: 12 }}>claude mcp add --transport http zerogex {MCP_URL}</span>.
+        Claude Code,{' '}
+        {/* ~460px on one line: on a phone the command wraps inside its own box
+            instead of running off the screen. (The class carries white-space;
+            the inline style's nowrap would beat it.) */}
+        <span
+          className="whitespace-nowrap max-sm:inline-block max-sm:max-w-full max-sm:whitespace-normal"
+          style={{ ...code, fontSize: 12, whiteSpace: undefined }}
+        >
+          claude mcp add --transport http zerogex {MCP_URL}
+        </span>
+        {/* On a phone the box fills the line, so its period would open the
+            next one; the box ends the clause there instead. */}
+        <span className="max-sm:hidden">.</span>{' '}
         Every answer carries the snapshot&apos;s age, so a delayed level can&apos;t be quoted as a live one.
       </p>
 

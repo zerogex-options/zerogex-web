@@ -20,9 +20,9 @@ import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 
 const INTEGRATION = integrationById('sierrachart');
 const PATH = INTEGRATION.href;
-const TITLE = 'ZeroGEX Gamma Levels — Auto-Updating Sierra Chart Study';
+const TITLE = 'ZeroGEX Gamma Levels\u00a0- Auto-Updating Sierra Chart Study';
 const DESCRIPTION =
-  'A Sierra Chart ACSIL study that draws the ZeroGEX gamma flip, call wall, put wall, max pain, and pin strike on your chart and keeps them current — it polls the ZeroGEX API, so you never retype a number. Included with ZeroGEX Pro, along with the API key it needs.';
+  'A Sierra Chart ACSIL study that draws the ZeroGEX gamma flip, call wall, put wall, max pain, and pin strike on your chart and keeps them current\u00a0- it polls the ZeroGEX API, so you never retype a number. Included with ZeroGEX Pro, along with the API key it needs.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -78,7 +78,7 @@ export default function SierraChartIndicatorPage() {
 
       <LiveLevelsCTA
         headline="See the levels the study draws"
-        intro="The same Gamma Flip, Call Wall, Put Wall, and Max Pain the study pulls are published free on every ticker page — delayed roughly 15 minutes, no signup, and a useful sanity check while you get the key wired up."
+        intro="The same Gamma Flip, Call Wall, Put Wall, and Max Pain the study pulls are published free on every ticker page&nbsp;- delayed roughly 15 minutes, no signup, and a useful sanity check while you get the key wired up."
       />
     </IndicatorPageShell>
   );

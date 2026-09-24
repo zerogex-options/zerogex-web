@@ -2,8 +2,9 @@
 
 /**
  * My Dashboard — a customizable board a member assembles from the pieces of the
- * site they have access to under their plan. Layout persists per-member in the
- * browser; widgets are tier-gated (Pro-only pieces show an upgrade prompt for
+ * site they have access to under their plan. Layout persists per-member on the
+ * account, with a copy in the browser (see useAccountBoard); widgets are
+ * tier-gated (Pro-only pieces show an upgrade prompt for
  * Basic members). Reordering is drag-and-drop on desktop and button-driven on
  * touch.
  *
@@ -20,6 +21,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { notePresetApplied, reportPresetRetention } from '@/core/presetAdoption';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import BoardSwitcher from './BoardSwitcher';
+import { useAccountBoard } from './useAccountBoard';
 import {
   LayoutGrid,
   Pencil,
@@ -54,7 +56,6 @@ import {
   emptyLayout,
   getPane,
   isLayoutEmpty,
-  loadLayout,
   moveWidget,
   moveWidgetToPane,
   otherPaneId,
@@ -99,29 +100,39 @@ export default function MyDashboardPage() {
   // split board "3 placed" means three on THIS side.
   const [galleryPane, setGalleryPane] = useState<PaneId | null>(null);
 
-  // Load the saved board once auth resolves (so we key storage by member id).
-  // localStorage is client-only, so this runs post-mount to avoid a hydration
-  // mismatch. The state updates happen inside a microtask callback (not the
-  // effect body) to satisfy react-hooks/set-state-in-effect.
+  // A signed-in member's board lives on their account; this browser keeps a
+  // copy. See useAccountBoard.
+  const { load: loadBoard, noteChange: noteBoardChange } = useAccountBoard(
+    scope,
+    WIDGET_IDS,
+    t('boardKeptName'),
+  );
+
+  // Load the saved board once auth resolves (so we key storage by member id,
+  // and know whether there is an account to read it from). localStorage is
+  // client-only, so this runs post-mount to avoid a hydration mismatch. The
+  // state updates happen inside a promise callback (not the effect body) to
+  // satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
     if (authLoading) return;
     let cancelled = false;
-    void Promise.resolve().then(() => {
+    void loadBoard(() => cancelled).then((loaded) => {
       if (cancelled) return;
-      const loaded = loadLayout(scope, WIDGET_IDS);
-      setLayout(loaded ?? emptyLayout());
+      setLayout(loaded);
       setHydrated(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [authLoading, scope]);
+  }, [authLoading, loadBoard]);
 
-  // Persist on every change once hydrated.
+  // Persist on every change once hydrated: to this browser at once, and to
+  // the account shortly after.
   useEffect(() => {
     if (!hydrated) return;
     saveLayout(layout, scope);
-  }, [layout, hydrated, scope]);
+    noteBoardChange(layout);
+  }, [layout, hydrated, scope, noteBoardChange]);
 
   // Copies per widget id in the pane the gallery is targeting — the gallery
   // shows a count and can add another copy.
@@ -478,39 +489,47 @@ function Header({
         {boardSwitcher}
         {!isEmpty && (
           <>
-            {!split && (
-              // One click to go from "I've built one board" to "I've got two,
-              // and the second one is a copy I can retarget".
+            {/* Split boards are a side-by-side desktop layout; on a phone the
+                two halves can only stack, so the controls that build and link
+                them are left to the desktop. A board already split still
+                renders — its halves one above the other. The wrapper does the
+                hiding: .zg-btn sets its own display, which a utility class on
+                the button itself cannot override. */}
+            <span className="hidden md:contents">
+              {!split && (
+                // One click to go from "I've built one board" to "I've got two,
+                // and the second one is a copy I can retarget".
+                <button
+                  type="button"
+                  onClick={onClone}
+                  disabled={!canClone}
+                  className="zg-btn zg-btn--secondary"
+                  title={t('cloneToSecondHalfTitle')}
+                >
+                  <Copy size={15} /> {t('cloneToSecondHalf')}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onClone}
-                disabled={!canClone}
-                className="zg-btn zg-btn--secondary"
-                title={t('cloneToSecondHalfTitle')}
+                onClick={onToggleSplit}
+                aria-pressed={split}
+                className={`zg-btn ${split ? 'zg-btn--primary' : 'zg-btn--ghost'}`}
+                title={t('splitViewTitle')}
               >
-                <Copy size={15} /> {t('cloneToSecondHalf')}
+                <Columns2 size={15} /> {t('splitView')}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onToggleSplit}
-              aria-pressed={split}
-              className={`zg-btn ${split ? 'zg-btn--primary' : 'zg-btn--ghost'}`}
-              title={t('splitViewTitle')}
-            >
-              <Columns2 size={15} /> {t('splitView')}
-            </button>
-            {split && (
-              <button
-                type="button"
-                onClick={onToggleLinkPriceAxis}
-                aria-pressed={linkPriceAxis}
-                className={`zg-btn ${linkPriceAxis ? 'zg-btn--secondary' : 'zg-btn--ghost'}`}
-                title={linkPriceAxis ? t('unlinkPriceAxisTitle') : t('linkPriceAxisTitle')}
-              >
-                {linkPriceAxis ? <Link2 size={15} /> : <Unlink size={15} />} {t('linkPriceAxis')}
-              </button>
-            )}
+              {split && (
+                <button
+                  type="button"
+                  onClick={onToggleLinkPriceAxis}
+                  aria-pressed={linkPriceAxis}
+                  className={`zg-btn ${linkPriceAxis ? 'zg-btn--secondary' : 'zg-btn--ghost'}`}
+                  title={linkPriceAxis ? t('unlinkPriceAxisTitle') : t('linkPriceAxisTitle')}
+                >
+                  {linkPriceAxis ? <Link2 size={15} /> : <Unlink size={15} />} {t('linkPriceAxis')}
+                </button>
+              )}
+            </span>
             {editing && (
               <button type="button" onClick={onReset} className="zg-btn zg-btn--ghost" title={t('resetBoardTitle')}>
                 <RotateCcw size={15} /> {t('reset')}
@@ -670,7 +689,9 @@ function EmptyState({
 function BoardSkeleton() {
   return (
     <div className="zg-mydash-grid" aria-hidden>
-      {['zg-w-sm', 'zg-w-sm', 'zg-w-sm', 'zg-w-sm', 'zg-w-lg', 'zg-w-md', 'zg-w-md', 'zg-w-sm'].map(
+      {/* The four leading S placeholders stand in for metric tiles, so they
+          pair up on a phone the way the tiles they become do. */}
+      {['zg-w-sm zg-w-tile', 'zg-w-sm zg-w-tile', 'zg-w-sm zg-w-tile', 'zg-w-sm zg-w-tile', 'zg-w-lg', 'zg-w-md', 'zg-w-md', 'zg-w-sm'].map(
         (cls, i) => (
           <div key={i} className={cls}>
             <div className="zg-panel h-full p-5">

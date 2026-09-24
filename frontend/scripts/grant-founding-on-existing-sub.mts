@@ -143,7 +143,10 @@ function parseArgs(argv: string[]): Args {
       const next = argv[++i];
       if (next === 'monthly' || next === 'annual') args.cadence = next;
       else {
-        console.error(`Error: --cadence must be monthly|annual (got ${next ?? '<none>'}).`);
+        console.error(
+          `Error: --cadence must be monthly|annual (got ${next ?? '<none>'}). ` +
+            'The founding offer has no quarterly rate.',
+        );
         process.exit(1);
       }
     } else if (arg === '--proration') {
@@ -300,13 +303,18 @@ const foundingCoupon: string = foundingCouponId;
 
 // Map every configured price id -> its (tier, cadence) so we can name the plan
 // the sub is CURRENTLY on for the operator (mirrors core/stripe.ts SKU map).
-const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: Cadence }> = [
+// Quarterly is a valid CURRENT plan (a quarterly member can be moved onto a
+// founding plan) but never a target: the founding offer has no quarterly rate.
+type CurrentCadence = Cadence | 'quarterly';
+const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: CurrentCadence }> = [
   { env: 'STRIPE_PRICE_BASIC_MONTHLY', tier: 'basic', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_BASIC_QUARTERLY', tier: 'basic', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_BASIC_ANNUAL', tier: 'basic', cadence: 'annual' },
   { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
+  { env: 'STRIPE_PRICE_PRO_QUARTERLY', tier: 'pro', cadence: 'quarterly' },
   { env: 'STRIPE_PRICE_PRO_ANNUAL', tier: 'pro', cadence: 'annual' },
 ];
-const skuByPriceId = new Map<string, { tier: Tier; cadence: Cadence }>();
+const skuByPriceId = new Map<string, { tier: Tier; cadence: CurrentCadence }>();
 for (const p of PRICE_ENV) {
   const id = envOrLocal(p.env);
   if (id) skuByPriceId.set(id, { tier: p.tier, cadence: p.cadence });

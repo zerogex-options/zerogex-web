@@ -43,7 +43,7 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, QQQ, NDX, ES, and NQ levels update in real time with
         the full GEX profile, strike-level heatmaps, options-flow classification, dealer positioning, and Market State
-        signals &mdash; so you know the levels that matter before price gets there.
+        signals&nbsp;- so you know the levels that matter before price gets there.
       </p>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
@@ -52,7 +52,7 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       </div>
 
       <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.85 }}>
-        7-day free trial. No charge until day 7. Cancel anytime.
+        7-day free trial on Basic monthly &middot; 7-day money-back guarantee on every other plan.
       </p>
     </section>
   );

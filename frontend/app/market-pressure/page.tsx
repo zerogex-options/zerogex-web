@@ -140,7 +140,7 @@ export default function MarketPressurePage() {
         title="Market Pressure Index"
         subtitle={'"Is the market loaded to move, and which way will it break?"'}
         icon={Gauge}
-        tooltip="Forward-looking coiled-spring detector. Magnitude is multiplicative across four pillars — Compression × Hedging × Flow × Tension (loading 0–100). Direction is a weighted vector across hedging, gated flow, and dealer net-delta with a ±30% agreement multiplier. Triggers when loading ≥ 50 AND |direction| ≥ 0.20. Standalone — not in the MSI composite."
+        tooltip="Forward-looking coiled-spring detector. Magnitude is multiplicative across four pillars&nbsp;- Compression × Hedging × Flow × Tension (loading 0-100). Direction is a weighted vector across hedging, gated flow, and dealer net-delta with a ±30% agreement multiplier. Triggers when loading ≥ 50 AND |direction| ≥ 0.20. Standalone&nbsp;- not in the MSI composite."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -157,7 +157,7 @@ export default function MarketPressurePage() {
                 <>
                   <span
                     className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide"
-                    style={{ background: `${accentColor}1f`, color: accentColor }}
+                    style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor }}
                   >
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
                     {humanize(signalStr)}
@@ -173,7 +173,7 @@ export default function MarketPressurePage() {
                     style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
                     title="Confidence multiplier applied to direction when hedging / flow / dealer inputs agree or fight."
                   >
-                    {confidenceMult != null ? `${confidenceMult.toFixed(2)}× — ${confidenceLabel}` : '—'}
+                    {confidenceMult != null ? `${confidenceMult.toFixed(2)}×\u00a0- ${confidenceLabel}` : '—'}
                   </span>
                 </>
               }
@@ -284,25 +284,25 @@ export default function MarketPressurePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
           <PlaybookCard
             band="Discharged"
-            range="0–24"
+            range="0-24"
             tone={FADE_COLOR}
-            description="No actionable loading. Trade existing setups — this lens is dark."
+            description="No actionable loading. Trade existing setups&nbsp;- this lens is dark."
           />
           <PlaybookCard
             band="Building"
-            range="25–49"
+            range="25-49"
             tone={FADE_COLOR}
             description="Tighten stops on counter-pressure trades; prepare directional templates."
           />
           <PlaybookCard
             band="Loaded"
-            range="50–74"
+            range="50-74"
             tone={BULL_COLOR}
             description="Stop fading. Scale into continuation entries on first confirmation (VWAP reclaim, wall break, flow spike)."
           />
           <PlaybookCard
             band="Critical"
-            range="75–100"
+            range="75-100"
             tone={BEAR_COLOR}
             description="Coil at the limit. Take the directional trade with reduced size on stops; cut all counter-pressure exposure."
           />
@@ -312,17 +312,17 @@ export default function MarketPressurePage() {
       <SignalHowItsBuilt
         caveat={
           <>
-            <strong>Bands:</strong> 0–24 Discharged · 25–49 Building · 50–74 Loaded · 75–100 Critical. A score of 0
-            does NOT mean &quot;neutral market&quot; — it means a pillar collapsed (no walls, no greeks, no flow) or
+            <strong>Bands:</strong> 0-24 Discharged · 25-49 Building · 50-74 Loaded · 75-100 Critical. A score of 0
+            does NOT mean &quot;neutral market&quot;&nbsp;- it means a pillar collapsed (no walls, no greeks, no flow) or
             opposing directional forces are canceling. Treat as &quot;this lens is dark.&quot;
           </>
         }
       >
-        <div>Four pillars produce 0–1 magnitudes (Compression, Hedging, Flow, Tension); three of them also carry signed direction (Hedging, Flow, Dealer).</div>
-        <div><code>loading = 100 · C · H<sub>mag</sub> · F<sub>mag</sub> · (0.5 + 0.5·T)</code> — multiplicative magnitude in [0, 100].</div>
+        <div>Four pillars produce 0-1 magnitudes (Compression, Hedging, Flow, Tension); three of them also carry signed direction (Hedging, Flow, Dealer).</div>
+        <div><code>loading = 100 · C · H<sub>mag</sub> · F<sub>mag</sub> · (0.5 + 0.5·T)</code>&nbsp;- multiplicative magnitude in [0, 100].</div>
         <div><code>direction = clamp((0.45·H + 0.40·F·F<sub>mag</sub> + 0.15·dealer) · confidence_mult, ±1)</code> with <code>confidence_mult ∈ [0.7, 1.3]</code> rewarding agreement and penalizing disagreement among the three directional inputs.</div>
         <div><code>score = sign(direction) · √|direction| · (loading/100)</code> ∈ [−1, +1], displayed × 100.</div>
-        <div>Triggers when <strong>loading ≥ 50 AND |direction| ≥ 0.20</strong> — both magnitude AND directional clarity required.</div>
+        <div>Triggers when <strong>loading ≥ 50 AND |direction| ≥ 0.20</strong>&nbsp;- both magnitude AND directional clarity required.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="market_pressure" symbol={symbol} title="Event Timeline" />
@@ -447,14 +447,16 @@ function HalfCircleGauge({ value, color, label }: { value: number | null; color:
           />
         )}
         <circle cx={cx} cy={cy} r={4} fill={color} />
-        <text x={cx - radius} y={cy + 14} fontSize={9} fill="var(--color-text-secondary)" textAnchor="middle">0</text>
-        <text x={cx + radius} y={cy + 14} fontSize={9} fill="var(--color-text-secondary)" textAnchor="middle">100</text>
+        {/* 9px on desktop; the class lifts it to the 10px floor on a phone
+            (CSS font-size wins over the presentation attribute). */}
+        <text x={cx - radius} y={cy + 14} fontSize={9} className="text-[10px] sm:text-[9px]" fill="var(--color-text-secondary)" textAnchor="middle">0</text>
+        <text x={cx + radius} y={cy + 14} fontSize={9} className="text-[10px] sm:text-[9px]" fill="var(--color-text-secondary)" textAnchor="middle">100</text>
       </svg>
       <div className="-mt-3 text-center">
         <div className="text-2xl font-black leading-none" style={{ color }}>
           {value != null ? value.toFixed(1) : '—'}
         </div>
-        <div className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `${color}1f`, color }}>
+        <div className="mt-1 inline-block text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
           {label}
         </div>
       </div>

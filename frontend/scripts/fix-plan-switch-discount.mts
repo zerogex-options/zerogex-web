@@ -4,12 +4,12 @@
 //     --email <addr> [--coupon <coupon_id> | --strip-only] [--dry-run | --yes]
 //
 // Corrects a subscription that carried the WRONG cadence-specific coupon across
-// a billing-portal plan switch. When a member switches monthly <-> annual (or
-// tier), Stripe keeps the old coupon on the subscription. Our promo/founding
-// coupons are cadence-specific, so e.g. the monthly promo ($20 off, repeating
-// for 6 months) keeps discounting an ANNUAL invoice instead of the annual promo
-// ($49 off, once). This script reconciles the subscription's discounts to what
-// they SHOULD be for the plan the member is now on.
+// a billing-portal plan switch. When a member switches cadence (monthly,
+// quarterly, annual) or tier, Stripe keeps the old coupon on the subscription.
+// Our promo/founding/referral coupons are cadence-specific, so e.g. the monthly
+// promo ($10 off for 12 months) would keep discounting a QUARTERLY invoice.
+// This script reconciles the subscription's discounts to what they SHOULD be
+// for the plan the member is now on.
 //
 // It is the manual twin of the webhook's maybeReconcileDiscountOnPlanSwitch
 // (app/api/webhooks/stripe/route.ts): use it to repair accounts that switched
@@ -17,21 +17,29 @@
 //
 // WHAT IT DOES
 //   1. Reads the user + their live Stripe subscription (discounts expanded).
-//   2. Resolves the CORRECT cadence-specific coupon for the plan the sub is now
-//      on, mirroring the webhook's precedence:
+//   2. Resolves the CORRECT coupons for the plan the sub is now on with the
+//      SAME code the webhook and the in-app trial upgrade use
+//      (core/switchDiscounts.ts planSwitchDiscounts), so the three can't drift:
 //        • Founding member (and lifetime not yet applied) -> founding intro
-//          coupon for the current (tier, cadence).
+//          coupon for the current (tier, cadence); left untouched when that
+//          cadence has no founding rate (quarterly).
 //        • Founding member WITH lifetime applied -> leave discounts untouched
 //          (lifetime isn't cadence-specific and validly persists).
-//        • Everyone else -> the ACTIVE public promo for the current
-//          (tier, cadence), or none once the window has closed.
-//      Override with --coupon <id> to pin an exact coupon (e.g. to honor the
-//      annual promo after its public window has closed), or --strip-only to
-//      remove stale coupons without granting any replacement.
-//   3. Strips every coupon WE manage (promo + founding intro, any tier/cadence)
-//      that isn't the correct one, and ensures the correct one is present.
-//      Coupons we don't manage (founding lifetime, win-back, referral, anything
-//      hand-applied) are preserved untouched.
+//        • Campaign member (business card) -> their campaign coupon stays and
+//          no promo is added on top; a promo already beside it is stripped.
+//        • Everyone else -> a monthly promo the member already holds stays on
+//          the other monthly plan (their first 12 months, even after the
+//          signup window closed); otherwise the ACTIVE public promo, or none.
+//        • An unconsumed referral coupon is swapped to the new cadence's one.
+//      Override with --coupon <id> to pin an exact coupon (e.g. a goodwill
+//      promo after the window has closed), or --strip-only to remove stale
+//      coupons without granting any replacement.
+//   3. Strips every coupon WE manage (promo, retired promo, founding intro,
+//      referral — any tier/cadence) that isn't correct, and ensures the correct
+//      ones are present. Coupons already on the sub are kept by their existing
+//      discount, so a repeating coupon's clock is not restarted. Coupons we
+//      don't manage (founding lifetime, win-back, anything hand-applied) are
+//      preserved untouched.
 //
 // A trialing member has no invoice yet, so this simply fixes the coupon before
 // the first charge — no refund needed. For an ALREADY-CHARGED member whose past
@@ -48,10 +56,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 
-const AUDIT_TYPE = 'billing_discount_reconciled_manual';
+import { loadEnvLocal } from './env-local.mts';
 
-type Tier = 'basic' | 'pro';
-type Cadence = 'monthly' | 'annual';
+const AUDIT_TYPE = 'billing_discount_reconciled_manual';
 
 type Args = {
   email: string | null;
@@ -116,14 +123,16 @@ function usage() {
     --email <addr> [--coupon <coupon_id> | --strip-only] [--dry-run | --yes]
 
 Reconciles one member's subscription discounts after a portal plan switch left a
-stale, cadence-mismatched coupon applied (e.g. a monthly promo riding along on an
-annual invoice). Mirrors the webhook's maybeReconcileDiscountOnPlanSwitch.
+stale, cadence-mismatched coupon applied (e.g. a monthly promo riding along on a
+quarterly invoice). Uses the same rules as the webhook's
+maybeReconcileDiscountOnPlanSwitch (core/switchDiscounts.ts).
 
-By default the correct coupon is auto-resolved for the plan the subscription is
-now on (founding intro or the active public promo). Options:
+By default the correct coupons are auto-resolved for the plan the subscription
+is now on (founding intro, the member's monthly promo, or the active public
+promo, plus any unconsumed referral coupon). Options:
       --coupon <id>   Pin an exact coupon to apply instead of the auto-resolved
-                      one — e.g. honor the annual promo coupon after its public
-                      window has closed. The stale coupon is still stripped.
+                      one — e.g. a goodwill promo after its window has closed.
+                      Stale managed coupons are still stripped.
       --strip-only    Remove stale managed coupons and grant NO replacement (the
                       member renews at rack rate).
 
@@ -132,7 +141,7 @@ Other:
   -y, --yes           Apply: update the Stripe subscription and write an audit row.
   -h, --help          Show this help.
 
-Reads STRIPE_SECRET_KEY, the four STRIPE_PRICE_* ids, and the promo/founding
+Reads STRIPE_SECRET_KEY, the STRIPE_PRICE_* ids, and the promo/founding/referral
 coupon envs from env or .env.local. Set AUTH_DB_PATH to override the default DB
 path (data/auth.db).`);
 }
@@ -212,69 +221,18 @@ if (!STRIPE_SECRET_KEY) {
   process.exit(1);
 }
 
-// --- Resolve the SKU + coupon maps from env (mirrors core/stripe.ts) ---------
-// A raw `node --experimental-strip-types` run can't resolve the '@/core/*' path
-// alias, so the price->sku and coupon lookups are inlined here from the same env
-// vars the app reads. Keep these in sync with core/stripe.ts if the keys change.
-
-const PRICE_ENV: Array<{ env: string; tier: Tier; cadence: Cadence }> = [
-  { env: 'STRIPE_PRICE_BASIC_MONTHLY', tier: 'basic', cadence: 'monthly' },
-  { env: 'STRIPE_PRICE_BASIC_ANNUAL', tier: 'basic', cadence: 'annual' },
-  { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
-  { env: 'STRIPE_PRICE_PRO_ANNUAL', tier: 'pro', cadence: 'annual' },
-];
-
-const skuByPriceId = new Map<string, { tier: Tier; cadence: Cadence }>();
-for (const p of PRICE_ENV) {
-  const id = envOrLocal(p.env);
-  if (id) skuByPriceId.set(id, { tier: p.tier, cadence: p.cadence });
-}
-
-function promoCouponEnvKey(tier: Tier, cadence: Cadence): string {
-  if (cadence === 'monthly') {
-    return tier === 'basic' ? 'STRIPE_COUPON_PROMO_BASIC_MONTHLY' : 'STRIPE_COUPON_PROMO_PRO_MONTHLY';
-  }
-  return tier === 'basic' ? 'STRIPE_COUPON_PROMO_BASIC_ANNUAL' : 'STRIPE_COUPON_PROMO_PRO_ANNUAL';
-}
-
-function foundingIntroCouponEnvKey(tier: Tier, cadence: Cadence): string {
-  if (cadence === 'monthly') {
-    return tier === 'basic' ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO' : 'STRIPE_COUPON_FOUNDING_PRO_INTRO';
-  }
-  return tier === 'basic'
-    ? 'STRIPE_COUPON_FOUNDING_BASIC_INTRO_ANNUAL'
-    : 'STRIPE_COUPON_FOUNDING_PRO_INTRO_ANNUAL';
-}
-
-function configuredPromoCouponId(tier: Tier, cadence: Cadence): string | null {
-  return envOrLocal(promoCouponEnvKey(tier, cadence)) ?? null;
-}
-function foundingIntroCouponId(tier: Tier, cadence: Cadence): string | null {
-  return envOrLocal(foundingIntroCouponEnvKey(tier, cadence)) ?? null;
-}
-
-function isPromoWindowOpen(): boolean {
-  const endAt = envOrLocal('PROMO_END_AT');
-  if (!endAt) return false;
-  const endTs = Date.parse(endAt);
-  return Number.isFinite(endTs) && endTs > Date.now();
-}
-
-// Every cadence-specific coupon the app manages (promo + founding intro), across
-// all tier/cadence combos, regardless of the promo window. A coupon from this
-// set that isn't the correct one for the current cadence is stale.
-function managedCadenceCouponIds(): Set<string> {
-  const ids = new Set<string>();
-  for (const tier of ['basic', 'pro'] as Tier[]) {
-    for (const cadence of ['monthly', 'annual'] as Cadence[]) {
-      const promo = configuredPromoCouponId(tier, cadence);
-      if (promo) ids.add(promo);
-      const founding = foundingIntroCouponId(tier, cadence);
-      if (founding) ids.add(founding);
-    }
-  }
-  return ids;
-}
+// --- Plan + coupon rules: the app's own modules ----------------------------
+// Imported after the env is loaded: core/stripe.ts builds its price table at
+// module load. Only modules with relative imports and no db/mailer reach are
+// pulled in, so a plain `node --experimental-strip-types` run can load them.
+loadEnvLocal(cwd);
+const { priceIdToSku, getManagedCadenceCouponIds } = await import('../core/stripe.ts');
+const { planSwitchDiscounts } = await import('../core/switchDiscounts.ts');
+const { readAttachedDiscounts, attachedCouponIds, discountsParam, describeDiscountsParam } = await import(
+  '../core/subscriptionDiscounts.ts'
+);
+const { getRefereeCouponId } = await import('../core/refereeCoupon.ts');
+const { BILLING_CADENCES } = await import('../core/billingPlans.ts');
 
 const dbPath =
   process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
@@ -351,7 +309,7 @@ if (!currentPriceId) {
   console.error(`Error: subscription ${subscription.id} has no price on its first item. Aborting.`);
   process.exit(1);
 }
-const sku = skuByPriceId.get(currentPriceId) ?? null;
+const sku = priceIdToSku(currentPriceId);
 if (!sku) {
   console.error(
     `Error: current price ${currentPriceId} on sub ${subscription.id} doesn't map to a known SKU.`,
@@ -360,67 +318,77 @@ if (!sku) {
   process.exit(1);
 }
 
-// Coupon ids currently on the subscription, de-duplicated in order.
+// The discounts on the subscription (expanded above), with their discount ids so
+// coupons that stay are kept by reference rather than re-applied.
+const attached = readAttachedDiscounts(subscription);
+if (!attached) {
+  console.error(`Error: could not read the discounts on ${subscription.id} (not expanded). Aborting.`);
+  process.exit(1);
+}
+const currentCouponIds = attachedCouponIds(attached);
 const discountsRaw = ((subscription as unknown as { discounts?: ExpandedDiscount[] }).discounts ??
   []) as ExpandedDiscount[];
-const currentCouponIds: string[] = [];
 const couponMeta = new Map<
   string,
   { name?: string | null; amount_off?: number | null; percent_off?: number | null; currency?: string | null; duration?: string | null; duration_in_months?: number | null }
 >();
 for (const d of discountsRaw) {
-  // We expand ['discounts'], so each entry is a discount object carrying a
-  // coupon (object when expanded, else its id). A bare-string entry would be a
-  // discount id (di_...), not a coupon — skip it, we can't classify it.
   if (typeof d === 'string') continue;
   const c = d?.coupon;
-  const id = typeof c === 'string' ? c : c?.id ?? null;
-  if (!id || currentCouponIds.includes(id)) continue;
-  currentCouponIds.push(id);
-  if (c && typeof c !== 'string') couponMeta.set(id, c);
+  if (c && typeof c !== 'string' && c.id) couponMeta.set(c.id, c);
 }
 
-// --- Resolve the correct coupon for the plan the sub is NOW on ---------------
+// --- Resolve the correct coupons for the plan the sub is NOW on --------------
 
 const foundingWithoutLifetime =
   !!user.founding_member_started_at && !user.founding_lifetime_applied_at;
 const foundingWithLifetime =
   !!user.founding_member_started_at && !!user.founding_lifetime_applied_at;
 
-let correctCoupon: string | null;
+// Everything the app manages: promo (current and retired), founding intro, and
+// referral coupons for every cadence. Anything else is never touched.
+const managed = new Set<string>([
+  ...getManagedCadenceCouponIds(),
+  ...BILLING_CADENCES.map((cadence) => getRefereeCouponId(cadence)).filter((id): id is string => !!id),
+]);
+
+let correct: string[] | null;
 let resolutionNote: string;
 if (cliArgs.stripOnly) {
-  correctCoupon = null;
+  correct = [];
   resolutionNote = '--strip-only: no replacement coupon';
 } else if (cliArgs.coupon) {
-  correctCoupon = cliArgs.coupon;
+  correct = [cliArgs.coupon];
   resolutionNote = `--coupon override: ${cliArgs.coupon}`;
-} else if (foundingWithLifetime) {
-  correctCoupon = null;
-  resolutionNote = 'founding member with lifetime coupon — discounts left untouched';
-} else if (foundingWithoutLifetime) {
-  correctCoupon = foundingIntroCouponId(sku.tier, sku.cadence);
-  resolutionNote = `founding intro for ${sku.tier}/${sku.cadence}: ${correctCoupon ?? 'not configured'}`;
 } else {
-  correctCoupon = isPromoWindowOpen() ? configuredPromoCouponId(sku.tier, sku.cadence) : null;
-  resolutionNote = isPromoWindowOpen()
-    ? `active public promo for ${sku.tier}/${sku.cadence}: ${correctCoupon ?? 'not configured'}`
-    : 'public promo window closed — no replacement (use --coupon to force one)';
+  const plan = planSwitchDiscounts({
+    currentCouponIds,
+    newSku: sku,
+    foundingMemberStartedAt: user.founding_member_started_at,
+    foundingLifetimeAppliedAt: user.founding_lifetime_applied_at,
+  });
+  correct = plan ? plan.correct : null;
+  resolutionNote = !plan
+    ? foundingWithLifetime
+      ? 'founding member with lifetime coupon — discounts left untouched'
+      : `founding member with no founding rate for ${sku.tier}/${sku.cadence} — discounts left untouched`
+    : plan.correct.length
+      ? `same rules as the webhook for ${sku.tier}/${sku.cadence}`
+      : `no promo applies to ${sku.tier}/${sku.cadence} (use --coupon to force one)`;
 }
 
-const managed = managedCadenceCouponIds();
-const stale = currentCouponIds.filter((id) => managed.has(id) && id !== correctCoupon);
-const correctPresent = correctCoupon != null && currentCouponIds.includes(correctCoupon);
-
-// Rebuild: keep unmanaged coupons + the correct one, drop stale managed ones.
-const keep = currentCouponIds.filter((id) => !managed.has(id) || id === correctCoupon);
-if (correctCoupon && !keep.includes(correctCoupon)) keep.push(correctCoupon);
+const correctSet = new Set(correct ?? []);
+const stale = correct ? currentCouponIds.filter((id) => managed.has(id) && !correctSet.has(id)) : [];
+// Rebuild: keep unmanaged coupons + the correct ones, drop stale managed ones.
+const keep = correct
+  ? [...currentCouponIds.filter((id) => !managed.has(id) || correctSet.has(id)), ...(correct ?? [])]
+  : currentCouponIds;
+const keepUnique = [...new Set(keep)];
+const param = discountsParam(keepUnique, attached);
+const correctCoupon = correct && correct.length ? correct.join(', ') : null;
 
 const noChange =
-  stale.length === 0 &&
-  (correctCoupon == null || correctPresent) &&
-  keep.length === currentCouponIds.length &&
-  keep.every((id) => currentCouponIds.includes(id));
+  keepUnique.length === currentCouponIds.length && keepUnique.every((id) => currentCouponIds.includes(id));
 
 // --- Print the plan ----------------------------------------------------------
 
@@ -455,9 +423,9 @@ console.log(`Founding:           ${foundingLabel}`);
 console.log(
   `Current discounts:  ${currentCouponIds.length ? currentCouponIds.map(couponLabel).join(', ') : 'none'}`,
 );
-console.log(`Correct coupon:     ${correctCoupon ?? 'none'}  [${resolutionNote}]`);
+console.log(`Correct coupons:    ${correct == null ? '(unchanged)' : correctCoupon ?? 'none'}  [${resolutionNote}]`);
 console.log(`Stale (to strip):   ${stale.length ? stale.map(couponLabel).join(', ') : 'none'}`);
-console.log(`Resulting coupons:  ${keep.length ? keep.join(', ') : 'none'}`);
+console.log(`Resulting coupons:  ${describeDiscountsParam(param, attached)}`);
 
 if (subscription.status === 'active') {
   console.log('');
@@ -490,7 +458,10 @@ if (!cliArgs.yes) {
 
 try {
   await stripe.subscriptions.update(subscription.id, {
-    discounts: keep.map((coupon) => ({ coupon })),
+    // Kept coupons by their existing discount (a repeating coupon's clock isn't
+    // restarted), new ones by coupon, and '' to clear — stripe-node drops an
+    // empty array (core/subscriptionDiscounts.ts).
+    discounts: param,
     // No invoice exists during a trial; pin this so the edit can't prorate or
     // charge anything as a side effect.
     proration_behavior: 'none',
@@ -523,7 +494,7 @@ execSqlite(
    );`,
 );
 
-console.log(`\nDone. ${user.email}'s subscription ${subscription.id} now carries: ${keep.length ? keep.join(', ') : 'no coupons'}.`);
+console.log(`\nDone. ${user.email}'s subscription ${subscription.id} now carries: ${keepUnique.length ? keepUnique.join(', ') : 'no coupons'}.`);
 if (correctCoupon && subscription.status === 'trialing') {
-  console.log('She is still trialing, so the corrected coupon applies to the first real invoice.');
+  console.log('The member is still trialing, so the corrected coupon applies to the first real invoice.');
 }

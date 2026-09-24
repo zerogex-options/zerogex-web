@@ -4,6 +4,7 @@ import { ArrowRight, BarChart2, BookOpen, RotateCcw, Sparkles } from 'lucide-rea
 
 import { navItemLabel } from '@/core/navigation';
 import { requireSession } from '@/core/serverAuth';
+import { skuHasFreeTrial } from '@/core/stripe';
 import { pricingHrefFor, resolveWall } from '@/core/returningMember';
 import { getChurnContext } from '@/core/returningMemberServer';
 import { selectHighlightsSince } from '@/core/winbackHighlights';
@@ -81,14 +82,14 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               {wantedLabel
                 ? `You were reaching for ${wantedLabel}, which is included with ${requiredLabel}.`
                 : `That page is included with ${requiredLabel}.`}{' '}
-              Everything you had is exactly where you left it — your layouts, symbols and settings
+              Everything you had is exactly where you left it&nbsp;- your layouts, symbols and settings
               are all still on your account.
             </p>
 
             {wall.showFoundingRestore && (
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
                 You&rsquo;re a Founding Member. That rate is still yours and applies automatically
-                when you resubscribe — founding pricing closed to new members, but never to you.
+                when you resubscribe&nbsp;- founding pricing closed to new members, but never to you.
               </p>
             )}
 
@@ -125,7 +126,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--color-text-secondary)]">
                 {selection.items.map((h) => (
                   <li key={h.title}>
-                    <strong className="text-[var(--color-text-primary)]">{h.title}</strong> &mdash;{' '}
+                    <strong className="text-[var(--color-text-primary)]">{h.title}</strong> -{' '}
                     {h.body}
                   </li>
                 ))}
@@ -145,6 +146,11 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   // copy rather than a promise we can't stand behind.
   // ---------------------------------------------------------------------------
   if (wall.audience === 'newcomer') {
+    // Only Basic monthly trials by default (core/billingPlans.ts); Pro is paid up
+    // front under the 7-day money-back guarantee. Read from the same policy
+    // checkout enforces, so this screen can never promise a Pro trial checkout
+    // would not grant.
+    const proTrials = skuHasFreeTrial({ tier: 'pro', cadence: 'monthly' });
     return (
       <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         <div className="w-full max-w-xl">
@@ -157,12 +163,14 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             </h1>
             <p className="mt-3 text-[var(--color-text-secondary)]">
               {wantedLabel
-                ? `Your account is ready. ${wantedLabel} is included with ${requiredLabel} — choose a plan to unlock it and the live dashboard.`
+                ? `Your account is ready. ${wantedLabel} is included with ${requiredLabel}\u00a0- choose a plan to unlock it and the live dashboard.`
                 : 'Your account is ready. Choose a plan to unlock the live dashboard.'}
             </p>
             {wall.promiseTrial && (
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
-                7-day free trial. No charge until day 7. Cancel anytime.
+                {proTrials
+                  ? '7-day free trial. No charge until day 7. Cancel anytime.'
+                  : '7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.'}
               </p>
             )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -176,7 +184,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
                 href={pricingHrefFor(wall, 'pro')}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
               >
-                {wall.promiseTrial ? 'Start Pro Trial' : 'Get Pro'} <ArrowRight size={16} />
+                {wall.promiseTrial && proTrials ? 'Start Pro Trial' : 'Get Pro'} <ArrowRight size={16} />
               </Link>
             </div>
             <p className="mt-5">
@@ -269,7 +277,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               Try the free Gamma Levels
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, QQQ, and NDX — 15-min delayed, no signup, no card.
+              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, QQQ, and NDX&nbsp;- 15-min delayed, no signup, no card.
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
               Open Gamma Levels <ArrowRight size={14} />
@@ -287,7 +295,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               Start with the GEX guide
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              The pillar piece — what gamma exposure is, the flip, the walls, and how to read the regime intraday.
+              The pillar piece&nbsp;- what gamma exposure is, the flip, the walls, and how to read the regime intraday.
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
               Read the pillar <ArrowRight size={14} />

@@ -61,7 +61,7 @@ import { ChoiceRow, Disclosure, Panel, ProportionBar, RankBar, Sentence, StatTil
 
 type CohortPayload = CohortRetentionPayload;
 
-type Cadence = 'all' | 'monthly' | 'annual';
+type Cadence = 'all' | 'monthly' | 'quarterly' | 'annual';
 
 type Selection = { metric: string; cohort?: string };
 
@@ -75,6 +75,7 @@ const WINDOW_OPTIONS: Array<{ value: WindowDays; label: string }> = [
 const CADENCE_OPTIONS: Array<{ value: Cadence; label: string }> = [
   { value: 'all', label: 'All plans' },
   { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
   { value: 'annual', label: 'Annual' },
 ];
 
@@ -268,14 +269,15 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
       </Panel>
 
       {/* ── 1b. Does the second payment happen? ──────────────────────────── */}
-      {cadence !== 'annual' && <FirstRenewalCard report={report.renewals} />}
-      {cadence === 'annual' && (
+      {(cadence === 'all' || cadence === 'monthly') && <FirstRenewalCard report={report.renewals} />}
+      {(cadence === 'annual' || cadence === 'quarterly') && (
         <Panel title="First renewal" subtitle="Monthly billing only.">
           <p className="text-sm" style={{ color: mutedText }}>
-            A renewal ladder measures the month-to-month decision. An annual subscriber does not make
-            one until their year is up, so the monthly rates are not shown here rather than being
-            re-labelled as though they applied. {report.cadenceCoverage.annual} annual customer
-            {report.cadenceCoverage.annual === 1 ? '' : 's'} on record; their access and retention are
+            A renewal ladder measures the month-to-month decision. {cadence === 'annual' ? 'An annual' : 'A quarterly'}{' '}
+            subscriber does not make one until their {cadence === 'annual' ? 'year' : 'quarter'} is up, so the
+            monthly rates are not shown here rather than being re-labelled as though they applied.{' '}
+            {report.cadenceCoverage[cadence]} {cadence} customer
+            {report.cadenceCoverage[cadence] === 1 ? '' : 's'} on record; their access and retention are
             in the cohort tables below.
           </p>
         </Panel>
@@ -315,6 +317,14 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
                   <div className="flex items-center gap-2 py-1 pl-1 text-xs" style={{ color: mutedText }}>
                     <span aria-hidden>·</span>
                     <span>{tooNew.toLocaleString()} too new to tell yet</span>
+                  </div>
+                )}
+                {stage.key === 'trial' && story.directToPaid > 0 && (
+                  // Paying up front is the other way in, so it is not in the
+                  // drop-off below; saying so is what makes the counts add up.
+                  <div className="flex items-center gap-2 py-1 pl-1 text-xs" style={{ color: mutedText }}>
+                    <span aria-hidden>·</span>
+                    <span>{story.directToPaid.toLocaleString()} paid up front, skipping the trial</span>
                   </div>
                 )}
                 {index > 0 && stage.droppedFromPrevious != null && stage.droppedFromPrevious > 0 && (
@@ -463,8 +473,8 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
           <h4 className="zg-h4 mt-6 mb-1">Failed cards, all time</h4>
           <p className="text-xs mb-3" style={{ color: mutedText }}>
             Counts paying customers only. {report.summary.neverPaidFailedPaymentCustomers.toLocaleString()} people
-            failed a first charge and never became customers at all — they are in the trial→paid gap
-            above, not here. The last three do not add up to the first: an outcome is only shown
+            failed a first charge and never became customers at all — they are among the funnel&apos;s
+            drop-offs above, not here. The last three do not add up to the first: an outcome is only shown
             where the audit trail actually records one.
           </p>
           <div className="grid grid-cols-4 gap-2">

@@ -105,7 +105,7 @@ export async function generateMetadata({
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
     return {
-      title: 'Session not found — ZeroGEX',
+      title: 'Session not found\u00a0- ZeroGEX',
       robots: { index: false, follow: false },
     };
   }
@@ -123,7 +123,7 @@ export async function generateMetadata({
         )}.`
       : '';
 
-  const title = `${sym} · ${human} Hedging Flow — ZeroGEX`;
+  const title = `${sym} · ${human} Hedging Flow\u00a0- ZeroGEX`;
   const description =
     `Estimated dealer hedging pressure across ${sym}'s ${human} session, bar by bar, ` +
     `with the dealer gamma structure on the same timeline. ${lean}`.trim();
@@ -221,7 +221,7 @@ export default async function HedgingFlowSessionPage({
       <div className="mb-5">
         <Link
           href="/hedging-flow/sessions"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em]"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
           style={{ color: 'var(--text-secondary)' }}
         >
           <ChevronLeft size={14} /> Past sessions
@@ -233,7 +233,7 @@ export default async function HedgingFlowSessionPage({
           {emptyHeader}
           <p className="mt-8 text-sm italic" style={{ color: 'var(--text-secondary)' }}>
             No hedging flow is stored for {sym} on {human}. Sessions before the snapshot was
-            deployed were never written, and a market holiday has nothing to write —{' '}
+            deployed were never written, and a market holiday has nothing to write&nbsp;-{' '}
             <Link href="/hedging-flow/sessions" className="underline">
               the session list
             </Link>{' '}

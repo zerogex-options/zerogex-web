@@ -45,10 +45,12 @@ import {
   toTrend,
 } from '@/core/signalHelpers';
 
+// `short` is the phone label: three full labels need ~450px, so on a phone
+// each wrapped onto two lines under its icon.
 const TABS = [
-  { id: 'grid', label: 'Signal Grid', icon: LayoutGrid },
-  { id: 'matrix', label: 'Confluence Matrix', icon: Table },
-  { id: 'events', label: 'Event Timelines', icon: LineChartIcon },
+  { id: 'grid', label: 'Signal Grid', short: 'Grid', icon: LayoutGrid },
+  { id: 'matrix', label: 'Confluence Matrix', short: 'Matrix', icon: Table },
+  { id: 'events', label: 'Event Timelines', short: 'Timelines', icon: LineChartIcon },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -68,7 +70,7 @@ function isEodInactive(payload: Record<string, unknown>): string | null {
   const tr = getNumber(payload.time_ramp);
   const score = getNumber(payload.score);
   if (tr != null && tr === 0 && (score == null || score === 0)) {
-    return 'Inactive — EOD window opens at 14:30 ET';
+    return 'Inactive\u00a0- EOD window opens at 14:30 ET';
   }
   return null;
 }
@@ -76,7 +78,7 @@ function isEodInactive(payload: Record<string, unknown>): string | null {
 function isZeroDteInactive(payload: Record<string, unknown>): string | null {
   const ctx = asObject(payload.context_values) ?? {};
   const tod = getNumber(ctx.tod_multiplier);
-  if (tod != null && tod === 0) return 'Inactive — 0DTE window closed';
+  if (tod != null && tod === 0) return 'Inactive\u00a0- 0DTE window closed';
   return null;
 }
 
@@ -106,7 +108,7 @@ export default function AdvancedSignalsPage() {
     const mpPayload = asObject(marketPressure.data) ?? {};
 
     const volRows: AdvancedSignalContextRow[] = [
-      { label: 'Expansion (0–100)', value: formatSigned(getNumber(volPayload.expansion), 1) },
+      { label: 'Expansion (0-100)', value: formatSigned(getNumber(volPayload.expansion), 1) },
       { label: 'Direction score', value: formatSigned(getNumber(volPayload.direction_score), 1), tone: toTrend(volPayload.direction) },
       { label: 'Expected 5m move', value: `${(getNumber(volPayload.expected_5min_move_bps) ?? 0).toFixed(1)} bps` },
       { label: 'Net GEX (chain-wide)', value: formatGexCompact(getNumber(asObject(volPayload.context_values)?.net_gex)) },
@@ -200,7 +202,7 @@ export default function AdvancedSignalsPage() {
       { payload: trapPayload, title: 'Trap Detection', href: '/trap-detection', icon: AlertTriangle, threshold: 25, description: 'Failed-breakout fades when dealer gamma reinforces reversal.', rows: trapRows, hook: trapDetection },
       { payload: zeroDtePayload, title: '0DTE Position Imbalance', href: '/0dte-position-imbalance', icon: Activity, threshold: 25, description: 'Same-day bucket-weighted flow tilt × time-of-day ramp.', rows: zeroDteRows, hook: zeroDte, inactive: isZeroDteInactive(zeroDtePayload) },
       { payload: gvcPayload, title: 'Gamma/VWAP Confluence', href: '/gamma-vwap-confluence', icon: Compass, threshold: 20, description: 'Multi-level magnet: flip + VWAP + max pain + max gamma + call wall.', rows: gvcRows, hook: gammaVwap },
-      { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0–100 imminence.', rows: rbiRows, hook: rangeBreak },
+      { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0-100 imminence.', rows: rbiRows, hook: rangeBreak },
       { payload: mpPayload, title: 'Market Pressure Index', href: '/market-pressure', icon: Gauge, threshold: 22, description: 'Forward-looking coiled-spring: compression × hedging × flow × tension loading + direction.', rows: mpRows, hook: marketPressure },
     ];
   }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak, marketPressure]);
@@ -208,7 +210,7 @@ export default function AdvancedSignalsPage() {
   return (
     <PageShell>
       <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
+        <h1 className="text-[26px] font-bold sm:text-3xl">Advanced Signal Dashboard</h1>
         <TooltipWrapper
           text="Dashboard of eight advanced signals, plus cross-component confluence analysis. Six extend the composite MSI; Range Break Imminence and Market Pressure Index are standalone overlays. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
           placement="bottom"
@@ -227,9 +229,9 @@ export default function AdvancedSignalsPage() {
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Signal Lens</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Eight weighted detectors with directional triggers and pin-risk setups — six extending the composite
+              Eight weighted detectors with directional triggers and pin-risk setups&nbsp;- six extending the composite
               MSI plus Range Break Imminence (regime-switch) and Market Pressure Index (coiled-spring) as
-              standalone overlays. Outlined tiles have crossed their activation threshold — interpret each
+              standalone overlays. Outlined tiles have crossed their activation threshold&nbsp;- interpret each
               alongside the current regime.
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
@@ -268,7 +270,8 @@ export default function AdvancedSignalsPage() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+              aria-pressed={active}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-2 py-2.5 text-sm font-semibold sm:flex-initial sm:justify-start sm:gap-2 sm:px-4 sm:py-2"
               style={{
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 borderBottom: active ? '2px solid var(--color-warning)' : '2px solid transparent',
@@ -276,7 +279,8 @@ export default function AdvancedSignalsPage() {
               }}
             >
               <Icon size={14} />
-              {t.label}
+              <span className="sm:hidden">{t.short}</span>
+              <span className="hidden sm:inline">{t.label}</span>
             </button>
           );
         })}

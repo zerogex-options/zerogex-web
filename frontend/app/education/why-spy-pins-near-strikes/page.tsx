@@ -18,13 +18,13 @@ export default async function WhySpyPinsNearStrikesPage() {
   const markdown = await loadLocalizedMarkdown(articlePath);
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
       <ArticleJsonLd slug="why-spy-pins-near-strikes" />
       <Link href="/articles" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Articles
       </Link>
 
-      <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
+      <article className="zg-article-card">
         <ArticleMeta slug="why-spy-pins-near-strikes" />
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>

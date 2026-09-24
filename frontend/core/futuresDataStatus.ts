@@ -63,10 +63,10 @@ export function futuresDelayTitle(symbol: string, ageSeconds: number | null | un
 
   const cause = FUTURES_REALTIME_PENDING
     ? `${symbol} quotes come from a delayed CME feed and are running ${exact} behind the futures market.`
-    : `${symbol} quotes are real-time, but the newest print is ${exact} old — the feed has stalled rather than fallen behind.`;
+    : `${symbol} quotes are real-time, but the newest print is ${exact} old\u00a0- the feed has stalled rather than fallen behind.`;
 
   const closing = FUTURES_REALTIME_PENDING
-    ? ' Real-time futures data is being enabled — this notice will clear itself once it is live.'
+    ? ' Real-time futures data is being enabled\u00a0- this notice will clear itself once it is live.'
     : ' The badge clears itself when the feed recovers.';
 
   return (

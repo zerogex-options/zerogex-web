@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Compass, KeyRound, X } from 'lucide-react';
 import { Theme } from '@/core/types';
+import { lockPageScroll } from '@/core/scrollLock';
 
 interface ProWelcomeModalProps {
   theme: Theme;
@@ -21,12 +22,9 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
   const ctaRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockPageScroll();
     ctaRef.current?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
+    return releaseScroll;
   }, []);
 
   // Persist "seen" server-side so the welcome never returns on another device
@@ -156,7 +154,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
         </div>
 
         <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 14px 0', lineHeight: 1.3 }}>
-          You&apos;re in — your Pro trial is live 🎉
+          You&apos;re in&nbsp;- Pro is live 🎉
         </h2>
 
         <div
@@ -169,7 +167,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
           }}
         >
           <p style={{ margin: '0 0 10px 0' }}>
-            Thanks for subscribing. You now have full access to everything Pro unlocks &mdash;
+            Thanks for subscribing. You now have full access to everything Pro unlocks&nbsp;-
             advanced signals, real-time dealer positioning, GEX heatmaps, and backtesting.
           </p>
           {/* Expectation-setting, deliberately BEFORE the feature tour. The most
@@ -181,7 +179,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
               publishing where your model is weakest is a strength. */}
           <p style={{ margin: '0 0 10px 0' }}>
             One thing worth knowing up front: dealer positioning is{' '}
-            <em>modeled</em>, not observed &mdash; no public dataset says who is long and who is
+            <em>modeled</em>, not observed&nbsp;- no public dataset says who is long and who is
             short at a strike. The levels are probabilistic context, not mechanical triggers. We
             write down exactly what&apos;s derived, what&apos;s assumed, and where the model is
             weakest in{' '}
@@ -208,8 +206,8 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
             >
               Signal Dashboard
             </Link>
-            . It reads today&apos;s positioning as six plain signals &mdash; tape flow, skew,
-            vanna/charm, dealer delta, GEX gradient and positioning traps &mdash; each saying what
+            . It reads today&apos;s positioning as six plain signals&nbsp;- tape flow, skew,
+            vanna/charm, dealer delta, GEX gradient and positioning traps&nbsp;- each saying what
             it means in a sentence, which is an easier place to get your bearings than raw levels.
             The full{' '}
             <Link href="/dashboard" style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
@@ -254,8 +252,8 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
             </strong>
           </div>
           <p style={{ margin: '0 0 12px 0', fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-            Call the ZeroGEX data API directly from your own scripts, spreadsheets, and integrations
-            &mdash; no waiting on support. If you need a key:
+            Call the ZeroGEX data API directly from your own scripts, spreadsheets, and integrations&nbsp;-
+            no waiting on support. If you need a key:
           </p>
           <ol
             style={{
@@ -279,7 +277,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
             </li>
             <li>
               Click <strong style={{ color: 'var(--text-primary)' }}>Generate API Key</strong> and copy
-              the secret &mdash; it&apos;s shown only once.
+              the secret&nbsp;- it&apos;s shown only once.
             </li>
             <li>
               Send it on your requests as{' '}

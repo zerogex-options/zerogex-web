@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
+const MENU_MIN_WIDTH = 180;
+
 interface ExpirationMultiSelectProps {
   /** Available expirations, ascending (YYYY-MM-DD). */
   options: string[];
@@ -71,6 +73,10 @@ export default function ExpirationMultiSelect({
   zeroDte,
 }: ExpirationMultiSelectProps) {
   const [open, setOpen] = useState(false);
+  // The menu hangs from the control's right edge; a control near the left edge
+  // of a phone would push a right-anchored 180px menu off-screen, so it opens
+  // from the left edge there instead. Decided when it opens.
+  const [alignLeft, setAlignLeft] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -129,10 +135,14 @@ export default function ExpirationMultiSelect({
       </span>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const rect = ref.current?.getBoundingClientRect();
+          setAlignLeft(rect != null && rect.right - MENU_MIN_WIDTH < 8);
+          setOpen((v) => !v);
+        }}
         disabled={disabled}
         title="Filter by expiration (select one or more to aggregate)"
-        className="inline-flex items-center justify-between gap-1 rounded px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center justify-between gap-1 rounded px-2 py-1 pointer-coarse:py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           backgroundColor: 'var(--color-surface-subtle)',
           color: 'var(--color-text-primary)',
@@ -150,12 +160,12 @@ export default function ExpirationMultiSelect({
       </button>
       {open && (
         <div
-          className="absolute top-full right-0 mt-1 rounded-md py-1 z-30"
+          className={`absolute top-full ${alignLeft ? 'left-0' : 'right-0'} mt-1 rounded-md py-1 z-30`}
           style={{
             backgroundColor: 'var(--color-chart-tooltip-bg)',
             border: `1px solid var(--color-border)`,
             boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-            minWidth: 180,
+            minWidth: MENU_MIN_WIDTH,
             maxHeight: 280,
             overflowY: 'auto',
           }}
@@ -164,7 +174,7 @@ export default function ExpirationMultiSelect({
             <button
               type="button"
               onClick={inheritOption.onSelect}
-              className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
+              className="w-full text-left px-3 py-1.5 pointer-coarse:py-2.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
               style={{
                 color: inheritOption.active
                   ? 'var(--color-text-primary)'
@@ -182,10 +192,10 @@ export default function ExpirationMultiSelect({
               onClick={zeroDte.onSelect}
               title={
                 zeroDte.availableToday
-                  ? "Follows today's expiry — stays 0DTE tomorrow instead of pinning today's date"
+                  ? "Follows today's expiry\u00a0- stays 0DTE tomorrow instead of pinning today's date"
                   : 'No same-day expiration in this chain today'
               }
-              className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
+              className="w-full text-left px-3 py-1.5 pointer-coarse:py-2.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
               style={{
                 color: zeroDte.active
                   ? 'var(--color-text-primary)'
@@ -205,7 +215,7 @@ export default function ExpirationMultiSelect({
           <button
             type="button"
             onClick={() => onChange([])}
-            className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
+            className="w-full text-left px-3 py-1.5 pointer-coarse:py-2.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
             style={{
               color: allActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
               fontWeight: allActive ? 600 : 400,
@@ -221,7 +231,7 @@ export default function ExpirationMultiSelect({
                 key={exp}
                 type="button"
                 onClick={() => toggle(exp)}
-                className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
+                className="w-full text-left px-3 py-1.5 pointer-coarse:py-2.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
                 style={{
                   color: checked ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                   fontWeight: checked ? 600 : 400,

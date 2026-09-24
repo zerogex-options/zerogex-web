@@ -124,7 +124,13 @@ export default function HedgingFlowPanels({
         <>
           {weather && (
             <div className="mt-6">
-              <GammaWeatherStrip payload={weather} />
+              <GammaWeatherStrip
+                payload={weather}
+                flow={data}
+                regime={regime}
+                symbol={symbol}
+                date={historical ? sessionDateKey : null}
+              />
             </div>
           )}
 
@@ -137,7 +143,8 @@ export default function HedgingFlowPanels({
             </p>
           )}
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Four short numbers: a 2×2 block on a phone, not a tower. */}
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <MetricCard
               title="Session pressure"
               value={latest ? USD(latest.cum_net_usd) : '—'}
@@ -167,13 +174,13 @@ export default function HedgingFlowPanels({
                     : 'None today'
               }
               subtitle={flip ? safeTimeLabel(flip.bar_start) : 'No reversal'}
-              tooltip="The last time the smoothed pressure rate changed sign — the immediate push reversing. Read off the rate rather than the session total, which crosses zero rarely and late."
+              tooltip="The last time the smoothed pressure rate changed sign&nbsp;- the immediate push reversing. Read off the rate rather than the session total, which crosses zero rarely and late."
             />
           </div>
 
           {zeroDteOnly && data.bars.length === 0 && (
             <p className="mt-6 text-sm italic" style={{ color: 'var(--text-secondary)' }}>
-              No 0DTE contracts traded this session — {sessionDateKey}{' '}
+              No 0DTE contracts traded this session&nbsp;- {sessionDateKey}{' '}
               {historical ? 'was not' : 'may not be'} an expiry for {symbol}.
             </p>
           )}
@@ -219,8 +226,8 @@ export default function HedgingFlowPanels({
               {regime && regime.bars.length === 0 && (
                 <p className="py-4 text-sm italic" style={{ color: 'var(--text-secondary)' }}>
                   {historical
-                    ? 'No structure reading was written for this session — the series began after it, or the engine was cold that day.'
-                    : 'No structure reading for this session yet — the series is written once per analytics cycle, so it fills in as the session runs.'}
+                    ? 'No structure reading was written for this session\u00a0- the series began after it, or the engine was cold that day.'
+                    : 'No structure reading for this session yet\u00a0- the series is written once per analytics cycle, so it fills in as the session runs.'}
                 </p>
               )}
 

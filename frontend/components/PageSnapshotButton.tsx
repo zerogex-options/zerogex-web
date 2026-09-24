@@ -58,7 +58,14 @@ function symbolApplies(pathname: string | null): boolean {
 
 type Phase = 'idle' | 'working' | 'ready' | 'error';
 
-export default function PageSnapshotButton({ compact = false }: { compact?: boolean }) {
+export default function PageSnapshotButton({
+  compact = false,
+  label: tileLabel,
+}: {
+  compact?: boolean;
+  /** Renders the trigger as a labelled tile (the mobile menu sheet). */
+  label?: string;
+}) {
   const pathname = usePathname();
   const { symbol } = useTimeframe();
   const [phase, setPhase] = useState<Phase>('idle');
@@ -129,7 +136,7 @@ export default function PageSnapshotButton({ compact = false }: { compact?: bool
     phase === 'working'
       ? 'Capturing this page…'
       : phase === 'error'
-        ? 'Snapshot failed — try again'
+        ? 'Snapshot failed\u00a0- try again'
         : 'Snapshot this page as an image';
 
   return (
@@ -137,7 +144,7 @@ export default function PageSnapshotButton({ compact = false }: { compact?: bool
       <button
         type="button"
         onClick={capture}
-        className={`zg-icon-btn${compact ? ' zg-icon-btn--sm' : ''}`}
+        className={tileLabel ? 'zg-msheet-tool' : `zg-icon-btn${compact ? ' zg-icon-btn--sm' : ''}`}
         title={label}
         aria-label={label}
         disabled={phase === 'working'}
@@ -148,7 +155,8 @@ export default function PageSnapshotButton({ compact = false }: { compact?: bool
           color: phase === 'error' ? 'var(--color-bear)' : undefined,
         }}
       >
-        <Camera size={compact ? 16 : 18} />
+        <Camera size={tileLabel ? 20 : compact ? 16 : 18} />
+        {tileLabel && <span>{tileLabel}</span>}
       </button>
 
       {/* Portalled to <body>. The button lives in the app header, which paints

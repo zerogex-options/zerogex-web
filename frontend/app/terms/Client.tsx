@@ -64,9 +64,9 @@ export default function TermsPage() {
                 alignItems: 'center',
                 gap: 8,
                 color: C.amber,
-                border: `1px solid ${C.amber}55`,
+                border: `1px solid color-mix(in srgb, ${C.amber} 33%, transparent)`,
                 borderRadius: 999,
-                background: `${C.amber}12`,
+                background: `color-mix(in srgb, ${C.amber} 7%, transparent)`,
                 padding: '5px 14px',
                 fontSize: 12,
                 fontWeight: 800,
@@ -120,6 +120,15 @@ export default function TermsPage() {
             <ul style={{ paddingLeft: 22, marginTop: 8 }}>
               <li>
                 <strong>{t('s4PlanChangesLabel')}</strong> {t('s4PlanChangesBody')}
+              </li>
+              <li>
+                <strong>{t('s4TrialLabel')}</strong> {t('s4TrialBody')}
+              </li>
+              <li>
+                <strong>{t('s4GuaranteeLabel')}</strong> {t('s4GuaranteeBody')}
+              </li>
+              <li>
+                <strong>{t('s4RenewalLabel')}</strong> {t('s4RenewalBody')}
               </li>
               <li>
                 <strong>{t('s4CancellationLabel')}</strong> {t('s4CancellationBody')}

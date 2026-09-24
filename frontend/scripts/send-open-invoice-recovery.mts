@@ -20,7 +20,10 @@
 // IT NEVER: charges anything, creates or voids an invoice, changes a
 // subscription, or alters access. It reads Stripe and sends one email. Access is
 // restored by the member paying, through Stripe's own hosted page and the
-// ordinary invoice.paid webhook — this script has no part in it.
+// ordinary invoice.paid webhook — this script has no part in it. The email links
+// our signed /pay URL, which redirects to that page at click time; a raw
+// invoice.stripe.com link in the email reads as phishing to spam filters
+// (core/payLink.ts).
 //
 // Eligibility, deliberately narrow:
 //   - invoice.status = 'open' and amount_due > 0
@@ -33,6 +36,8 @@
 //     is both wrong and alarming.
 //   - no prior `open_invoice_recovery_email_sent` audit row for this invoice.
 //     One email per invoice, ever.
+//   - not on the SKIP list (core/emailSkipList.ts): someone the operator has
+//     already written to personally should not get this on top.
 //   - not unsubscribed from marketing. This invoice is arguably transactional,
 //     but a lapse from months ago is close enough to win-back that the
 //     conservative read is the right one; MARKETING_OPTOUT=ignore overrides.
@@ -46,6 +51,9 @@
 // Flags / environment:
 //   --yes                actually send (default is a dry run that sends nothing)
 //   --preview-to <addr>  render one real email to that address and stop
+//   SKIP=<list>          emails or invoice ids to leave alone, comma-separated —
+//                        e.g. members you already wrote to by hand. Give it on
+//                        EVERY run; the send command this prints carries it.
 //   DAYS=<n>             how far back to look (default 180)
 //   LIMIT=<n>            cap sends in one run (default 50)
 //   MARKETING_OPTOUT=ignore   include members who opted out of marketing
@@ -74,28 +82,42 @@ if (!secretKey) {
 
 const { getDb } = await import('../core/db.ts');
 const { sendOpenInvoiceRecoveryEmail, buildOpenInvoiceRecoveryEmail } = await import('../core/mailer.ts');
+const { buildPayUrl } = await import('../core/payLink.ts');
+const { parseSkipList, skipArg, skipEntryFor, suspectSkipEntries } = await import('../core/emailSkipList.ts');
 const { priceIdToSku } = await import('../core/stripe.ts');
 const { readInvoicePeriodEndUnix, readInvoicePriceId } = await import('../core/stripeInvoice.ts');
 
+// The email's only link is ours now, so it must point at the live site and be
+// signed. Without the app URL every link would say localhost; without the
+// secret no link can be built at all.
+const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '') ?? '';
+if ((send || previewTo) && !appUrl) {
+  console.error('NEXT_PUBLIC_APP_URL is not set (env or .env.local); the pay links would point at localhost.');
+  process.exit(1);
+}
+if (send && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
+  console.error('ZEROGEX_END_USER_TOKEN_SECRET is not set (env or .env.local); the /pay links cannot be signed.');
+  process.exit(1);
+}
+
 if (previewTo) {
-  const preview = buildOpenInvoiceRecoveryEmail({
+  // Sample data, so the link is a placeholder that /pay will reject as invalid.
+  const sample = {
     amountFormatted: '$29.00',
-    hostedInvoiceUrl: 'https://invoice.stripe.com/i/example',
+    payUrl: `${appUrl}/pay?i=in_example&t=preview`,
     planLabel: 'Pro monthly',
     raisedLabel: 'in July',
-  });
-  await sendOpenInvoiceRecoveryEmail(previewTo, {
-    amountFormatted: '$29.00',
-    hostedInvoiceUrl: 'https://invoice.stripe.com/i/example',
-    planLabel: 'Pro monthly',
-    raisedLabel: 'in July',
-  });
+  };
+  const preview = buildOpenInvoiceRecoveryEmail(sample);
+  await sendOpenInvoiceRecoveryEmail(previewTo, sample);
   console.log(`Preview "${preview.subject}" sent to ${previewTo}. Nothing else was touched.`);
   process.exit(0);
 }
 
 const db = getDb();
 const stripe = new Stripe(secretKey);
+const skip = parseSkipList(process.env.SKIP);
+const skipMatched = new Set<string>();
 const sinceUnix = Math.floor(Date.now() / 1000) - days * 86_400;
 
 type Candidate = {
@@ -104,7 +126,6 @@ type Candidate = {
   email: string;
   amountDue: number;
   currency: string;
-  hostedInvoiceUrl: string;
   planLabel: string | null;
   raisedAt: string;
   /**
@@ -125,6 +146,8 @@ type Candidate = {
   optedOut: boolean;
   verified: boolean;
   alreadyEmailed: boolean;
+  /** Named in SKIP by the operator. */
+  skipped: boolean;
 };
 
 const userByCustomer = new Map<
@@ -173,7 +196,9 @@ const money = (cents: number, currency: string) => {
 };
 
 warnIfPricesUnconfigured();
-console.log(`Scanning open Stripe invoices raised in the last ${days} days…\n`);
+console.log(`Scanning open Stripe invoices raised in the last ${days} days…`);
+if (skip.entries.length > 0) console.log(`Skipping at your request: ${skip.entries.join(', ')}`);
+console.log('');
 
 const candidates: Candidate[] = [];
 let stillRetrying = 0;
@@ -201,6 +226,7 @@ for await (const invoice of stripe.invoices.list({
     noAccount += 1;
     continue;
   }
+  // /pay redirects to this page at click time; with no page there is nothing to link.
   if (!invoice.hosted_invoice_url || !invoice.id) continue;
   if (!user.lapsed) {
     notLapsed += 1;
@@ -210,13 +236,14 @@ for await (const invoice of stripe.invoices.list({
   const sku = priceId ? priceIdToSku(priceId) : null;
   const periodEnd = readInvoicePeriodEndUnix(invoice);
   const autoRestores = periodEnd != null && periodEnd > Math.floor(Date.now() / 1000);
+  const skippedBy = skipEntryFor(skip, { email: user.email, invoiceId: invoice.id });
+  if (skippedBy) skipMatched.add(skippedBy);
   candidates.push({
     invoiceId: invoice.id,
     userId: user.id,
     email: user.email,
     amountDue: invoice.amount_due ?? 0,
     currency: invoice.currency ?? 'usd',
-    hostedInvoiceUrl: invoice.hosted_invoice_url,
     planLabel: sku ? `${sku.tier === 'pro' ? 'Pro' : 'Basic'} ${sku.cadence}` : null,
     raisedAt: new Date((invoice.created ?? 0) * 1000).toISOString(),
     autoRestores,
@@ -224,6 +251,7 @@ for await (const invoice of stripe.invoices.list({
     optedOut: user.optedOut,
     verified: user.verified,
     alreadyEmailed: emailed.has(invoice.id),
+    skipped: skippedBy !== null,
   });
 }
 
@@ -241,7 +269,7 @@ const total = candidates.reduce((sum, c) => sum + c.amountDue, 0);
 // Those invoices do not want an email. They want voiding:
 //   make void-stale-invoices EMAIL=<them>
 const sendable = candidates.filter(
-  (c) => !c.alreadyEmailed && c.verified && c.autoRestores && (ignoreOptOut || !c.optedOut),
+  (c) => !c.skipped && !c.alreadyEmailed && c.verified && c.autoRestores && (ignoreOptOut || !c.optedOut),
 );
 const unverified = candidates.filter((c) => !c.verified);
 const sendableTotal = sendable.reduce((sum, c) => sum + c.amountDue, 0);
@@ -249,7 +277,7 @@ const sendableTotal = sendable.reduce((sum, c) => sum + c.amountDue, 0);
 const autoRestoring = candidates.filter((c) => c.autoRestores);
 const needsHuman = candidates.filter((c) => !c.autoRestores);
 const heldBackStale = needsHuman.filter(
-  (c) => !c.alreadyEmailed && c.verified && (ignoreOptOut || !c.optedOut),
+  (c) => !c.skipped && !c.alreadyEmailed && c.verified && (ignoreOptOut || !c.optedOut),
 );
 
 console.log('── Still payable right now ──');
@@ -285,10 +313,13 @@ console.log('── Held back ──');
 console.log(`  ${stillRetrying} invoice(s) Stripe is STILL retrying — left alone on purpose`);
 console.log(`  ${notLapsed} on accounts that have not lost access`);
 console.log(`  ${noAccount} with no live local account`);
+const skippedCount = candidates.filter((c) => c.skipped).length;
+if (skippedCount > 0) console.log(`  ${skippedCount} skipped at your request`);
 
 console.log('\n── The invoices ──');
 for (const c of candidates.slice(0, 200)) {
   const flags = [
+    c.skipped ? 'skipped at your request' : null,
     c.autoRestores ? null : 'PERIOD ELAPSED — not emailed, void it instead',
     c.alreadyEmailed ? 'already emailed' : null,
     c.optedOut ? 'opted out' : null,
@@ -301,9 +332,23 @@ for (const c of candidates.slice(0, 200)) {
   );
 }
 
+// A SKIP entry that matches no account is almost always a typo — and a typo
+// means the person it was meant for is about to be emailed.
+const accountByEmail = db.prepare('SELECT 1 FROM users WHERE lower(email) = ?');
+const suspect = suspectSkipEntries(skip, skipMatched, (email) => accountByEmail.get(email) !== undefined);
+if (suspect.length > 0) {
+  console.log(`\n⚠ SKIP entries that match no account here: ${suspect.join(', ')} — check the spelling before sending.`);
+}
+
 if (!send) {
+  // Repeat every setting this run used, so the real send can't quietly drop the
+  // SKIP list (or the window) the dry run was checked with.
+  const carried =
+    `${process.env.DAYS ? ` DAYS=${days}` : ''}` +
+    `${ignoreOptOut ? ' MARKETING_OPTOUT=ignore' : ''}` +
+    skipArg(skip);
   console.log(`\nDRY RUN — nothing was sent. ${money(sendableTotal, 'usd')} is reachable with one email each.`);
-  console.log('Send it with:  make open-invoice-recovery YES=1');
+  console.log(`Send it with:  make open-invoice-recovery YES=1${carried}`);
   process.exit(0);
 }
 
@@ -324,7 +369,7 @@ for (const [index, c] of sendable.slice(0, limit).entries()) {
   try {
     await sendOpenInvoiceRecoveryEmail(c.email, {
       amountFormatted: money(c.amountDue, c.currency),
-      hostedInvoiceUrl: c.hostedInvoiceUrl,
+      payUrl: buildPayUrl(appUrl, c.invoiceId),
       planLabel: c.planLabel,
       raisedLabel: null,
     });
@@ -348,7 +393,7 @@ for (const [index, c] of sendable.slice(0, limit).entries()) {
       try {
         await sendOpenInvoiceRecoveryEmail(c.email, {
           amountFormatted: money(c.amountDue, c.currency),
-          hostedInvoiceUrl: c.hostedInvoiceUrl,
+          payUrl: buildPayUrl(appUrl, c.invoiceId),
           planLabel: c.planLabel,
           raisedLabel: null,
         });

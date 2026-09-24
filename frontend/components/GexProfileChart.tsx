@@ -15,11 +15,11 @@ import {
 } from 'recharts';
 import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useGEXProfile } from '@/hooks/useApiData';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { LEVEL_NO_FLIP_IN_SCOPE_NOTE, noFlipInScopeTooltip } from '@/core/keyLevels';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
-import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ResponsiveChartArea from './ResponsiveChartArea';
@@ -393,6 +393,10 @@ function cumulativeZeroCrossing(rows: MergedRow[], ref?: number | null): number 
   return best;
 }
 
+// Rows of the per-expiration breakdown a phone tooltip lists before
+// summarizing the rest — the full chain runs to ~30, taller than the chart.
+const COMPACT_BREAKDOWN_ROWS = 6;
+
 function ProfileTooltip({
   active,
   payload,
@@ -401,6 +405,7 @@ function ProfileTooltip({
   stackExpirations,
   isSubset,
   dteLabel,
+  compact = false,
 }: {
   active?: boolean;
   payload?: Array<{ payload?: MergedRow }>;
@@ -409,6 +414,8 @@ function ProfileTooltip({
   stackExpirations: string[];
   isSubset: boolean;
   dteLabel: (exp: string) => string;
+  /** Phone: cap the per-expiration breakdown so the tooltip fits the chart. */
+  compact?: boolean;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
@@ -430,6 +437,10 @@ function ProfileTooltip({
   const profile = row.profileGex;
   const callPct = isSubset && Math.abs(callAll) > 0 ? (callSel / callAll) * 100 : null;
   const putPct = isSubset && Math.abs(putAll) > 0 ? (putSel / putAll) * 100 : null;
+  const breakdownRows = stackExpirations.filter(
+    (exp) => Number(row[`call__${exp}`] ?? 0) !== 0 || Number(row[`put__${exp}`] ?? 0) !== 0,
+  );
+  const shownBreakdown = compact ? breakdownRows.slice(0, COMPACT_BREAKDOWN_ROWS) : breakdownRows;
 
   return (
     <div
@@ -440,6 +451,7 @@ function ProfileTooltip({
         padding: '8px 12px',
         color: 'var(--color-chart-tooltip-text)',
         fontSize: 12,
+        ...(compact ? { maxWidth: 240 } : {}),
       }}
     >
       <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -474,10 +486,9 @@ function ProfileTooltip({
       {stackExpirations.length > 1 && (
         <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border)' }}>
           <div style={{ opacity: 0.7, marginBottom: 2 }}>By expiration (roll-off)</div>
-          {stackExpirations.map((exp) => {
+          {shownBreakdown.map((exp) => {
             const c = Number(row[`call__${exp}`] ?? 0);
             const p = Number(row[`put__${exp}`] ?? 0);
-            if (c === 0 && p === 0) return null;
             return (
               <div key={exp} style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
                 <span style={{ opacity: 0.85 }}>{dteLabel(exp)}</span>
@@ -489,6 +500,9 @@ function ProfileTooltip({
               </div>
             );
           })}
+          {shownBreakdown.length < breakdownRows.length && (
+            <div style={{ opacity: 0.7 }}>+{breakdownRows.length - shownBreakdown.length} later expirations</div>
+          )}
         </div>
       )}
     </div>
@@ -510,6 +524,7 @@ export default function GexProfileChart({
   todayKey,
 }: GexProfileChartProps) {
   const { gexUnit } = useGexUnit();
+  const isMobile = useIsMobile();
   const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
 
@@ -818,10 +833,192 @@ export default function GexProfileChart({
 
   const hasData = merged.length > 0;
 
+  // ── Zoom controls ── the same X (strikes) / Y (value) magnifiers and reset
+  // on every layout; on a phone they are 32px finger targets.
+  const zoomBtnClass = isMobile
+    ? 'inline-flex items-center justify-center min-h-8 min-w-8 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed'
+    : 'px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed';
+  const zoomControls = (
+    <>
+      <div
+        className={isMobile ? 'inline-flex items-center rounded border' : 'ml-1 inline-flex items-center rounded border'}
+        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+      >
+        <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>X</span>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          disabled={isFullyZoomedOut}
+          title="Zoom out strikes (widen visible range)"
+          aria-label={isMobile ? 'Zoom out strikes' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+        >
+          <ZoomOut size={12} />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          title="Zoom in strikes (narrow visible range)"
+          aria-label={isMobile ? 'Zoom in strikes' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+        >
+          <ZoomIn size={12} />
+        </button>
+      </div>
+      <div
+        className="inline-flex items-center rounded border"
+        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+      >
+        <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>Y</span>
+        <button
+          type="button"
+          onClick={handleYZoomOut}
+          disabled={isYFull}
+          title="Zoom out the value axis"
+          aria-label={isMobile ? 'Zoom out the value axis' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+        >
+          <ZoomOut size={12} />
+        </button>
+        <button
+          type="button"
+          onClick={handleYZoomIn}
+          disabled={isYMaxZoom}
+          title="Zoom in the value axis (magnify the gamma scale to inspect small bars)"
+          aria-label={isMobile ? 'Zoom in the value axis' : undefined}
+          className={zoomBtnClass}
+          style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+        >
+          <ZoomIn size={12} />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={handleResetView}
+        disabled={isDefaultView}
+        title="Reset zoom (both axes)"
+        aria-label={isMobile ? 'Reset zoom' : undefined}
+        className={
+          isMobile
+            ? 'inline-flex items-center justify-center min-h-8 min-w-8 rounded border px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed'
+            : 'inline-flex items-center rounded border px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed'
+        }
+        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}
+      >
+        <RotateCcw size={12} />
+      </button>
+    </>
+  );
+
+  // Legend row — on its own line so it never reflows onto a second line the
+  // way it did when it shared the title row.
+  const legendRow = (
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${isMobile ? 'text-[11px] mt-2' : 'text-xs mt-2.5'}`} style={{ color: textColor }}>
+      <div
+        className="flex items-center gap-1.5"
+        title="Stacked by expiration&nbsp;- nearest (0DTE) boldest, furthest faintest"
+      >
+        <span
+          className="inline-block h-3 w-5 rounded-sm"
+          style={{ background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
+        />
+        Call GEX
+      </div>
+      <div
+        className="flex items-center gap-1.5"
+        title="Stacked by expiration&nbsp;- nearest (0DTE) boldest, furthest faintest"
+      >
+        <span
+          className="inline-block h-3 w-5 rounded-sm"
+          style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
+        />
+        Put GEX
+      </div>
+      <div className="flex items-center gap-1.5" title="0DTE (near) → highest DTE (far)">
+        <span style={{ opacity: 0.7 }}>near</span>
+        <span
+          className="inline-block h-2 w-8 rounded-sm"
+          style={{ background: 'linear-gradient(90deg, var(--text-muted) 0%, color-mix(in srgb, var(--text-muted) 25%, transparent) 100%)' }}
+        />
+        <span style={{ opacity: 0.7 }}>far</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: NET_LINE_COLOR }} />
+        Net GEX
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-0.5 w-4" style={{ backgroundColor: PROFILE_LINE_COLOR }} />
+        {/* On a phone the profile's own (right) axis is hidden to give the
+            bars the width, so the legend says it runs on its own scale. */}
+        {isMobile ? 'GEX Profile (own scale)' : 'GEX Profile'}
+      </div>
+      {/* Why there is no Flip reference line. Only under a subset, and
+          only when the scoped curve has no crossing: a filtered book is
+          often one-signed, and an absent line with nothing beside it
+          reads as a broken chart rather than as the finding it is. The
+          copy is core/keyLevels', the same sentence the Gamma Chart's
+          chip and the Key Levels strip carry, so the three surfaces
+          cannot explain one blank three ways. With "All" selected a
+          missing flip is a different story and is left to the surfaces
+          that tell it. `hasData` gates it because an empty `merged` also
+          yields no crossing, and a chart still waiting on its first
+          strikes has found nothing rather than found nothing there. */}
+      {isSubsetSelection && hasData && effectiveGammaFlip == null && (
+        <div
+          className="flex items-center gap-1.5"
+          style={{ color: 'var(--color-warning)' }}
+          title={noFlipInScopeTooltip('Gamma Flip')}
+        >
+          <span
+            className="inline-block h-0.5 w-4"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(90deg, var(--color-warning) 0 4px, transparent 4px 8px)',
+            }}
+          />
+          {LEVEL_NO_FLIP_IN_SCOPE_NOTE}
+        </div>
+      )}
+    </div>
+  );
+
+  // Phone: the four reference levels as one wrapping row above the plot. On
+  // a ~280px plot the desktop's four stacked in-chart labels needed 48px of
+  // headroom and still ran off the edges whenever a level sat near one.
+  const levelChips: Array<{ label: string; value: number | null | undefined; color: string }> = [
+    { label: 'Spot', value: spotPrice, color: 'var(--color-hazy)' },
+    { label: 'Flip', value: effectiveGammaFlip, color: 'var(--color-warning)' },
+    { label: 'Call Wall', value: callWall, color: 'var(--color-bull)' },
+    { label: 'Put Wall', value: putWall, color: 'var(--color-bear)' },
+  ];
+  const mobileLevelsRow = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1 text-[11px] tabular-nums">
+      {levelChips
+        .filter((l) => l.value != null && Number.isFinite(l.value))
+        .map((l) => (
+          <span key={l.label} className="inline-flex items-center gap-1" style={{ color: l.color }}>
+            <span className="inline-block h-2.5 w-0 border-l border-dashed" style={{ borderColor: l.color }} aria-hidden />
+            {l.label} {formatStrikePrecise(Number(l.value))}
+          </span>
+        ))}
+    </div>
+  );
+
+  // Phone chart geometry: one visible value axis (the bars'), no rotated axis
+  // titles, tight margins, auto-width bars. Desktop keeps its two 84px axes.
+  const refTop = isMobile ? 8 : REF_LABEL_TOP_MARGIN;
+  // On a phone the scrollbars only appear once there is something to scroll
+  // — fully zoomed out they are an empty track eating the plot's width.
+  const showValueScrollbar = !isMobile || !isYFull;
+  const showStrikeScrollbar = !isMobile || !isFullyZoomedOut;
+
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart">
       <div
-        className="rounded-2xl p-6"
+        className="rounded-2xl p-4 sm:p-6"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
@@ -830,86 +1027,61 @@ export default function GexProfileChart({
         {/* Header: a controls row (title, unit badge, strike/value zoom, and the
             expiration selector) with a dedicated legend row beneath it — so the
             legend never reflows onto a second line when the expiration selection
-            changes, and the value-axis zoom controls have somewhere to sit. */}
+            changes, and the value-axis zoom controls have somewhere to sit. On a
+            phone the title gets its own line (it wrapped to three beside the
+            controls) and the controls a row of their own below it. */}
+        {isMobile ? (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 pr-12">
+              <h3 className="zg-h3" style={{ color: textColor }}>
+                Gamma Exposure by Strike
+              </h3>
+              <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry&nbsp;- the nearest expiration (0DTE) is boldest and the furthest is faintest&nbsp;- so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike&nbsp;- hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
+                <Info size={14} />
+              </TooltipWrapper>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {zoomControls}
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                style={{ color: 'var(--text-muted)', backgroundColor: 'var(--color-info-soft)' }}
+                title="Dollar GEX unit&nbsp;- change it with the GEX unit toggle"
+              >
+                {GEX_UNIT_LABEL[gexUnit]}
+              </span>
+            </div>
+            {expirationOptions && onSelectedExpirationsChange && (
+              <div className="mt-2 flex items-center gap-2" style={{ color: textColor }}>
+                <ExpirationMultiSelect
+                  options={expirationOptions}
+                  selected={selectedExpirations ?? []}
+                  onChange={onSelectedExpirationsChange}
+                  zeroDte={zeroDte}
+                />
+              </div>
+            )}
+            {legendRow}
+          </div>
+        ) : (
         <div className="mb-4">
           <div className="flex items-start justify-between gap-3 flex-wrap gap-y-2">
           <div className="flex items-center gap-2">
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
             </h3>
-            <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry&nbsp;- the nearest expiration (0DTE) is boldest and the furthest is faintest&nbsp;- so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike&nbsp;- hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <span
               className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{ color: 'var(--text-muted)', backgroundColor: 'var(--color-info-soft)' }}
-              title="Dollar GEX unit — change it with the GEX unit toggle"
+              title="Dollar GEX unit&nbsp;- change it with the GEX unit toggle"
             >
               {GEX_UNIT_LABEL[gexUnit]}
             </span>
             {/* Strike (X) and value (Y) zoom, plus a shared reset. Same
                 magnifier per axis; the X / Y prefix says which one it drives. */}
-            <div
-              className="ml-1 inline-flex items-center rounded border"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
-            >
-              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>X</span>
-              <button
-                type="button"
-                onClick={handleZoomOut}
-                disabled={isFullyZoomedOut}
-                title="Zoom out strikes (widen visible range)"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
-              >
-                <ZoomOut size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={handleZoomIn}
-                title="Zoom in strikes (narrow visible range)"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
-              >
-                <ZoomIn size={12} />
-              </button>
-            </div>
-            <div
-              className="inline-flex items-center rounded border"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
-            >
-              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>Y</span>
-              <button
-                type="button"
-                onClick={handleYZoomOut}
-                disabled={isYFull}
-                title="Zoom out the value axis"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
-              >
-                <ZoomOut size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={handleYZoomIn}
-                disabled={isYMaxZoom}
-                title="Zoom in the value axis (magnify the gamma scale to inspect small bars)"
-                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
-              >
-                <ZoomIn size={12} />
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleResetView}
-              disabled={isDefaultView}
-              title="Reset zoom (both axes)"
-              className="inline-flex items-center rounded border px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}
-            >
-              <RotateCcw size={12} />
-            </button>
+            {zoomControls}
           </div>
           {/* pr-14 keeps the expiration selector clear of the absolutely-
               positioned Expand button in the card's top-right corner. */}
@@ -924,74 +1096,9 @@ export default function GexProfileChart({
             )}
           </div>
           </div>
-          {/* Legend row — on its own line so it never reflows onto a second
-              line the way it did when it shared the title row. */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mt-2.5" style={{ color: textColor }}>
-            <div
-              className="flex items-center gap-1.5"
-              title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
-            >
-              <span
-                className="inline-block h-3 w-5 rounded-sm"
-                style={{ background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
-              />
-              Call GEX
-            </div>
-            <div
-              className="flex items-center gap-1.5"
-              title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
-            >
-              <span
-                className="inline-block h-3 w-5 rounded-sm"
-                style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
-              />
-              Put GEX
-            </div>
-            <div className="flex items-center gap-1.5" title="0DTE (near) → highest DTE (far)">
-              <span style={{ opacity: 0.7 }}>near</span>
-              <span
-                className="inline-block h-2 w-8 rounded-sm"
-                style={{ background: 'linear-gradient(90deg, var(--text-muted) 0%, color-mix(in srgb, var(--text-muted) 25%, transparent) 100%)' }}
-              />
-              <span style={{ opacity: 0.7 }}>far</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: NET_LINE_COLOR }} />
-              Net GEX
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4" style={{ backgroundColor: PROFILE_LINE_COLOR }} />
-              GEX Profile
-            </div>
-            {/* Why there is no Flip reference line. Only under a subset, and
-                only when the scoped curve has no crossing: a filtered book is
-                often one-signed, and an absent line with nothing beside it
-                reads as a broken chart rather than as the finding it is. The
-                copy is core/keyLevels', the same sentence the Gamma Chart's
-                chip and the Key Levels strip carry, so the three surfaces
-                cannot explain one blank three ways. With "All" selected a
-                missing flip is a different story and is left to the surfaces
-                that tell it. `hasData` gates it because an empty `merged` also
-                yields no crossing, and a chart still waiting on its first
-                strikes has found nothing rather than found nothing there. */}
-            {isSubsetSelection && hasData && effectiveGammaFlip == null && (
-              <div
-                className="flex items-center gap-1.5"
-                style={{ color: 'var(--color-warning)' }}
-                title={noFlipInScopeTooltip('Gamma Flip')}
-              >
-                <span
-                  className="inline-block h-0.5 w-4"
-                  style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(90deg, var(--color-warning) 0 4px, transparent 4px 8px)',
-                  }}
-                />
-                {LEVEL_NO_FLIP_IN_SCOPE_NOTE}
-              </div>
-            )}
-          </div>
+          {legendRow}
         </div>
+        )}
 
         {/* The error / loading gates below apply only to the /api/gex/profile
             spot-shift curve, which drives the chart ONLY for "All".  With a
@@ -1012,18 +1119,21 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <ResponsiveChartArea>
+          <>
+          {isMobile && mobileLevelsRow}
+          <ResponsiveChartArea mobileHeight={340}>
             {(chartHeight) => (
             <div className="flex items-start gap-1.5">
               {/* Value (Y) scrollbar — padded to line up with the plot band. */}
+              {showValueScrollbar && (
               <div
                 className="shrink-0"
-                style={{ height: chartHeight, paddingTop: REF_LABEL_TOP_MARGIN, paddingBottom: PLOT_INSET_BOTTOM }}
+                style={{ height: chartHeight, paddingTop: refTop, paddingBottom: PLOT_INSET_BOTTOM }}
               >
                 <ValueRangeScrollbar visibleNorm={yView} onChange={setYView} />
               </div>
+              )}
               <div className="flex-1 min-w-0">
-            <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={chartHeight}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
@@ -1034,7 +1144,7 @@ export default function GexProfileChart({
               <ComposedChart
                 data={merged}
                 stackOffset="sign"
-                margin={{ top: REF_LABEL_TOP_MARGIN, right: 16, left: 16, bottom: 8 }}
+                margin={isMobile ? { top: refTop, right: 4, left: 0, bottom: 4 } : { top: REF_LABEL_TOP_MARGIN, right: 16, left: 16, bottom: 8 }}
               >
                 <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
                 <XAxis
@@ -1043,49 +1153,61 @@ export default function GexProfileChart({
                   domain={visibleDomain ?? ['dataMin', 'dataMax']}
                   allowDataOverflow
                   ticks={xTicks}
-                  padding={{ left: 8, right: 8 }}
+                  padding={isMobile ? { left: 4, right: 4 } : { left: 8, right: 8 }}
                   stroke={axisStroke}
-                  tick={{ fontSize: 11, fill: axisStroke }}
+                  tick={{ fontSize: isMobile ? 10 : 11, fill: axisStroke }}
                   tickFormatter={(v) => formatStrike(Number(v))}
-                  minTickGap={28}
-                  label={{
-                    value: 'Strikes',
-                    position: 'insideBottom',
-                    offset: -4,
-                    fill: axisStroke,
-                    fontSize: 11,
-                  }}
+                  minTickGap={isMobile ? 24 : 28}
+                  label={
+                    isMobile
+                      ? undefined
+                      : {
+                          value: 'Strikes',
+                          position: 'insideBottom',
+                          offset: -4,
+                          fill: axisStroke,
+                          fontSize: 11,
+                        }
+                  }
                 />
                 <YAxis
                   yAxisId="strike"
                   // Wider YAxis track so the rotated title sits fully
                   // inside the YAxis area (offset is measured inward
                   // from the outer edge) with ~25px of clear space
-                  // between the title and the tick labels.
-                  width={84}
+                  // between the title and the tick labels. A phone drops
+                  // the rotated title (the legend and tooltip carry the
+                  // unit) and keeps just the ticks.
+                  width={isMobile ? 44 : 84}
                   domain={strikeDomain}
                   // Clip bars/line to the (possibly y-zoomed) domain instead of
                   // letting recharts expand it back to fit the data.
                   allowDataOverflow
                   ticks={strikeTicks}
                   stroke={axisStroke}
-                  tick={{ fontSize: 11, fill: axisStroke }}
+                  tick={{ fontSize: isMobile ? 10 : 11, fill: axisStroke }}
                   tickFormatter={(v) => formatTick(Number(v), denom)}
-                  label={{
-                    value: 'Gamma Exposure (per 1% move)',
-                    angle: -90,
-                    position: 'insideLeft',
-                    offset: 12,
-                    style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
-                  }}
+                  label={
+                    isMobile
+                      ? undefined
+                      : {
+                          value: 'Gamma Exposure (per 1% move)',
+                          angle: -90,
+                          position: 'insideLeft',
+                          offset: 12,
+                          style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
+                        }
+                  }
                 />
                 {/* Right axis color matches the left so the two y-scales read
                     as a pair; the profile curve and its legend swatch are
                     enough to associate the right axis with the profile
-                    series visually. */}
+                    series visually. Hidden on a phone (it keeps its scale;
+                    the legend says "own scale" and the tooltip gives values). */}
                 <YAxis
                   yAxisId="profile"
                   orientation="right"
+                  hide={isMobile}
                   width={84}
                   domain={profileDomain}
                   allowDataOverflow
@@ -1108,6 +1230,7 @@ export default function GexProfileChart({
                       stackExpirations={stackExpirations}
                       isSubset={isSubsetSelection}
                       dteLabel={dteLabel}
+                      compact={isMobile}
                     />
                   }
                 />
@@ -1149,7 +1272,11 @@ export default function GexProfileChart({
                     the nearest DTE to the baseline and stacks outward to the
                     furthest, matching the opacity ramp (nearest boldest → far
                     faintest). The axis scales to the SELECTED aggregate so a
-                    filtered subset fills the panel like the full view. */}
+                    filtered subset fills the panel like the full view.
+
+                    A phone leaves the bar width to Recharts (it fits the strike
+                    spacing): the fixed 14px bars overlapped into a smear when
+                    ~90 strikes shared ~280px. */}
                 {allExpirationsSorted.map((exp) => (
                   <Bar
                     key={`call-${exp}`}
@@ -1159,7 +1286,7 @@ export default function GexProfileChart({
                     name={`Call GEX ${dteLabel(exp)}`}
                     fill={'var(--color-bull)'}
                     fillOpacity={expirationOpacity.get(exp) ?? 1}
-                    barSize={BAR_SIZE}
+                    barSize={isMobile ? undefined : BAR_SIZE}
                     isAnimationActive={false}
                   />
                 ))}
@@ -1172,7 +1299,7 @@ export default function GexProfileChart({
                     name={`Put GEX ${dteLabel(exp)}`}
                     fill={'var(--color-bear)'}
                     fillOpacity={expirationOpacity.get(exp) ?? 1}
-                    barSize={BAR_SIZE}
+                    barSize={isMobile ? undefined : BAR_SIZE}
                     isAnimationActive={false}
                   />
                 ))}
@@ -1183,7 +1310,7 @@ export default function GexProfileChart({
                     dataKey="callGex"
                     name="Call GEX"
                     fill={'var(--color-bull)'}
-                    barSize={BAR_SIZE}
+                    barSize={isMobile ? undefined : BAR_SIZE}
                     isAnimationActive={false}
                   />
                 )}
@@ -1194,7 +1321,7 @@ export default function GexProfileChart({
                     dataKey="putGex"
                     name="Put GEX"
                     fill={'var(--color-bear)'}
-                    barSize={BAR_SIZE}
+                    barSize={isMobile ? undefined : BAR_SIZE}
                     isAnimationActive={false}
                   />
                 )}
@@ -1212,19 +1339,25 @@ export default function GexProfileChart({
                   isAnimationActive={false}
                 />
 
+                {/* Reference lines. On a phone their values ride the levels row
+                    above the plot, so the lines are drawn unlabelled. */}
                 {spotPrice != null && Number.isFinite(spotPrice) && (
                   <ReferenceLine
                     yAxisId="strike"
                     x={spotPrice}
                     stroke="var(--color-hazy)"
                     strokeDasharray="4 4"
-                    label={{
-                      value: `Spot: ${formatStrikePrecise(spotPrice)}`,
-                      position: 'top',
-                      dy: REF_LABEL_STAGGER.spot,
-                      fill: 'var(--color-hazy)',
-                      fontSize: 10,
-                    }}
+                    label={
+                      isMobile
+                        ? undefined
+                        : {
+                            value: `Spot: ${formatStrikePrecise(spotPrice)}`,
+                            position: 'top',
+                            dy: REF_LABEL_STAGGER.spot,
+                            fill: 'var(--color-hazy)',
+                            fontSize: 10,
+                          }
+                    }
                   />
                 )}
                 {effectiveGammaFlip != null && Number.isFinite(effectiveGammaFlip) && (
@@ -1233,13 +1366,17 @@ export default function GexProfileChart({
                     x={effectiveGammaFlip}
                     stroke={'var(--color-warning)'}
                     strokeDasharray="4 4"
-                    label={{
-                      value: `Flip: ${formatStrikePrecise(effectiveGammaFlip)}`,
-                      position: 'top',
-                      dy: REF_LABEL_STAGGER.flip,
-                      fill: 'var(--color-warning)',
-                      fontSize: 10,
-                    }}
+                    label={
+                      isMobile
+                        ? undefined
+                        : {
+                            value: `Flip: ${formatStrikePrecise(effectiveGammaFlip)}`,
+                            position: 'top',
+                            dy: REF_LABEL_STAGGER.flip,
+                            fill: 'var(--color-warning)',
+                            fontSize: 10,
+                          }
+                    }
                   />
                 )}
                 {callWall != null && Number.isFinite(callWall) && (
@@ -1248,13 +1385,17 @@ export default function GexProfileChart({
                     x={callWall}
                     stroke={'var(--color-bull)'}
                     strokeDasharray="2 4"
-                    label={{
-                      value: `Call Wall: ${formatStrikePrecise(callWall)}`,
-                      position: 'top',
-                      dy: REF_LABEL_STAGGER.callWall,
-                      fill: 'var(--color-bull)',
-                      fontSize: 10,
-                    }}
+                    label={
+                      isMobile
+                        ? undefined
+                        : {
+                            value: `Call Wall: ${formatStrikePrecise(callWall)}`,
+                            position: 'top',
+                            dy: REF_LABEL_STAGGER.callWall,
+                            fill: 'var(--color-bull)',
+                            fontSize: 10,
+                          }
+                    }
                   />
                 )}
                 {putWall != null && Number.isFinite(putWall) && (
@@ -1263,20 +1404,23 @@ export default function GexProfileChart({
                     x={putWall}
                     stroke={'var(--color-bear)'}
                     strokeDasharray="2 4"
-                    label={{
-                      value: `Put Wall: ${formatStrikePrecise(putWall)}`,
-                      position: 'top',
-                      dy: REF_LABEL_STAGGER.putWall,
-                      fill: 'var(--color-bear)',
-                      fontSize: 10,
-                    }}
+                    label={
+                      isMobile
+                        ? undefined
+                        : {
+                            value: `Put Wall: ${formatStrikePrecise(putWall)}`,
+                            position: 'top',
+                            dy: REF_LABEL_STAGGER.putWall,
+                            fill: 'var(--color-bear)',
+                            fontSize: 10,
+                          }
+                    }
                   />
                 )}
               </ComposedChart>
               </ResponsiveContainer>
-            </MobileScrollableChart>
-                {visibleDomain && fullStrikeDomain && (
-                  <div className="mt-2 px-2">
+                {showStrikeScrollbar && visibleDomain && fullStrikeDomain && (
+                  <div className={isMobile ? 'mt-3 px-1' : 'mt-2 px-2'}>
                     <StrikeRangeScrollbar
                       visibleDomain={visibleDomain}
                       fullDomain={fullStrikeDomain}
@@ -1288,6 +1432,7 @@ export default function GexProfileChart({
             </div>
             )}
           </ResponsiveChartArea>
+          </>
         )}
         <ChartCaption />
       </div>

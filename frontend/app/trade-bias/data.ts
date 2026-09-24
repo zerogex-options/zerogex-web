@@ -26,7 +26,7 @@ export const BIAS_INPUT_META: Record<
   net_gex: {
     label: 'Gamma Regime',
     layer: 'structural',
-    description: 'Sign of net dealer gamma — short γ amplifies moves, long γ pins them.',
+    description: 'Sign of net dealer gamma\u00a0- short γ amplifies moves, long γ pins them.',
   },
   gex_gradient: {
     label: 'GEX Gradient',
@@ -36,7 +36,7 @@ export const BIAS_INPUT_META: Record<
   msi: {
     label: 'Composite (MSI)',
     layer: 'structural',
-    description: '0-100 regime strength — how likely trends are to run.',
+    description: '0-100 regime strength\u00a0- how likely trends are to run.',
   },
   positioning_trap: {
     label: 'Positioning Trap',
@@ -46,7 +46,7 @@ export const BIAS_INPUT_META: Record<
   trap_detection: {
     label: 'Trap Detection',
     layer: 'structural',
-    description: 'Failed-breakout fade — strength/weakness that reverses.',
+    description: 'Failed-breakout fade\u00a0- strength/weakness that reverses.',
   },
   gamma_vwap: {
     label: 'Gamma / VWAP',

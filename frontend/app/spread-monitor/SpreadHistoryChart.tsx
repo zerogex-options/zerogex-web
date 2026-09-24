@@ -14,6 +14,8 @@ import {
 } from 'recharts';
 
 import type { SpreadHistoryRow } from '@/core/spreadMonitor';
+import { pctTick } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 import { legendProps } from './chartLegend';
 
@@ -99,6 +101,7 @@ export default function SpreadHistoryChart({
 }) {
   const data = useMemo(() => toRows(putRows, callRows), [putRows, callRows]);
   const axisStroke = 'var(--color-chart-axis)';
+  const isMobile = useIsMobile();
 
   if (data.length === 0) {
     return (
@@ -111,7 +114,7 @@ export default function SpreadHistoryChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+      <ComposedChart data={data} margin={isMobile ? { top: 8, right: 4, bottom: 4, left: 0 } : { top: 8, right: 8, bottom: 4, left: 8 }}>
         <CartesianGrid
           vertical={false}
           stroke="var(--color-chart-grid)"
@@ -125,7 +128,7 @@ export default function SpreadHistoryChart({
           minTickGap={30}
         />
         <YAxis
-          tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+          tickFormatter={(v) => (isMobile ? pctTick(Number(v)) : `${Number(v).toFixed(0)}%`)}
           stroke={axisStroke}
           tick={{ fontSize: 10 }}
           width={46}

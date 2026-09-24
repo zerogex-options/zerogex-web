@@ -39,13 +39,13 @@ export function buildEmbedSnippet(
 ): string {
   const slug = `${symbol.toLowerCase()}-gamma-levels`;
   const ref = host ? `&ref=${encodeURIComponent(host)}` : '';
-  return `<!-- ZeroGEX — free ${symbol} gamma levels, 15-minute delayed -->
+  return `<!-- ZeroGEX - free ${symbol} gamma levels, 15-minute delayed -->
 <iframe src="${SITE}/embed/${symbol}?theme=${theme}${ref}"
         title="${symbol} gamma levels by ZeroGEX"
         width="100%" height="${FALLBACK_HEIGHT}" loading="lazy"
         style="border:0;max-width:680px" data-zerogex-embed></iframe>
 <p style="font:400 12px/1.4 sans-serif;opacity:.7;max-width:680px">
-  <a href="${SITE}/${slug}">${symbol} gamma levels</a> by ZeroGEX — free, 15-minute delayed.
+  <a href="${SITE}/${slug}">${symbol} gamma levels</a> by ZeroGEX - free, 15-minute delayed.
 </p>
 <script async src="${SITE}/embed.js"></script>`;
 }

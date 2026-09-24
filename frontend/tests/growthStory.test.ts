@@ -165,6 +165,28 @@ test('the biggest leak is the largest real drop-off, and it is named in words', 
   assert.match(result.funnelSentence, /55 people who registered in the last 30 days/);
 });
 
+test('paying up front is the other way in, not a trial drop-off', () => {
+  // Every plan but Basic monthly skips the trial. Ten registered and paid up
+  // front, two started a trial, eight did neither: only those eight dropped.
+  const users = [
+    ...Array.from({ length: 10 }, (_, i) => paying(`upfront${i}`, ago(20), ago(19))),
+    ...Array.from({ length: 2 }, (_, i) => user(`trialer${i}`, ago(20))),
+    ...Array.from({ length: 8 }, (_, i) => user(`lurker${i}`, ago(20))),
+  ];
+  const events = [
+    ...Array.from({ length: 10 }, (_, i) => sync(`upfront${i}`, ago(19), 'active', 'pro')),
+    ...Array.from({ length: 2 }, (_, i) => sync(`trialer${i}`, ago(19), 'trialing', 'basic')),
+  ];
+  const result = story(users, events, 30);
+
+  const trialStage = result.funnel[1];
+  assert.equal(trialStage.value, 2);
+  assert.equal(trialStage.droppedFromPrevious, 8, 'not 18: the ten who paid up front did not drop off');
+  assert.equal(result.directToPaid, 10, 'shown beside the drop-off, so the counts add up');
+  assert.equal(result.funnel[3].value, 10, 'paying customers in all');
+  assert.match(result.leakSentence ?? '', /8 registrations never started a trial or paid/);
+});
+
 test('acquisition sources are folded, named, and ranked by paying customers', () => {
   const result = story(
     [

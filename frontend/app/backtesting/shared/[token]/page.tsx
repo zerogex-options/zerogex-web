@@ -168,7 +168,7 @@ export default function SharedBacktestReport() {
       {/* Monte Carlo */}
       {mc ? (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold mb-1">Monte Carlo — the range of outcomes</h2>
+          <h2 className="text-lg font-semibold mb-1">Monte Carlo&nbsp;- the range of outcomes</h2>
           <p className="text-xs text-[var(--color-text-secondary)] mb-3">
             {mc.iterations.toLocaleString()} resampled paths of this trade sequence.
           </p>
@@ -181,7 +181,7 @@ export default function SharedBacktestReport() {
               hint="≥50% drawdown"
             />
             <Tile label="Median return" value={fmtPct(mc.terminal_return_pct.p50)} color={pnlColor(mc.terminal_return_pct.p50)} />
-            <Tile label="Range (p5–p95)" value={`${fmtPct(mc.terminal_return_pct.p5)} … ${fmtPct(mc.terminal_return_pct.p95)}`} />
+            <Tile label="Range (p5-p95)" value={`${fmtPct(mc.terminal_return_pct.p5)} … ${fmtPct(mc.terminal_return_pct.p95)}`} />
           </div>
           <MonteCarloChart cone={mc.cone} startingCapital={run.capital ?? 25000} />
         </section>
@@ -251,7 +251,7 @@ export default function SharedBacktestReport() {
       >
         <h2 className="text-xl font-bold">Backtest your own dealer-positioning strategy</h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Realized 0DTE option P&amp;L on SPX/SPY/QQQ/NDX — net of slippage &amp; commission, by gamma regime, with
+          Realized 0DTE option P&amp;L on SPX/SPY/QQQ/NDX&nbsp;- net of slippage &amp; commission, by gamma regime, with
           a Monte-Carlo range. We show the losers too.
         </p>
         <Link
@@ -259,7 +259,7 @@ export default function SharedBacktestReport() {
           className="mt-4 inline-flex items-center rounded-md px-5 py-2.5 text-sm font-semibold"
           style={{ background: 'var(--color-accent)', color: 'var(--color-bg, #000)' }}
         >
-          Start your 7-day free trial →
+          See Pro plans →
         </Link>
       </section>
 

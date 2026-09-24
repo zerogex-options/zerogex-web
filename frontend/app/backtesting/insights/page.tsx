@@ -72,7 +72,7 @@ const ALL_SOURCE_OPTIONS: SourceOption[] = [
     label: 'Touch proxy (debug)',
     tooltip:
       "Debug view: did the underlying reach the target/stop? Ignores premium " +
-      "decay and bid/ask. NOT a measure of P&L — useful only as a sanity check.",
+      "decay and bid/ask. NOT a measure of P&L\u00a0- useful only as a sanity check.",
     adminOnly: true,
   },
 ];
@@ -92,7 +92,7 @@ const HEADERS: HeaderSpec[] = [
     label: 'Stage',
     align: 'left',
     tooltip:
-      'Research standing in the strategy catalog — evidence, not deployment. Most ' +
+      'Research standing in the strategy catalog\u00a0- evidence, not deployment. Most ' +
       'strategies sit in Research: that is the normal resting state, not a failure ' +
       'grade. Only a Validated strategy with a bot behind it can take live capital.',
   },
@@ -277,8 +277,8 @@ export default function InsightsPage() {
       </div>
 
       <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl mb-6">
-        Measured performance for every strategy in the catalog — the same
-        catalog Bot Trading and Backtesting use — on the standardized
+        Measured performance for every strategy in the catalog&nbsp;- the same
+        catalog Bot Trading and Backtesting use&nbsp;- on the standardized
         realized-P&amp;L backtest, net of bid/ask fills, slippage, and
         commission. One row per (strategy, underlying) pair, latest window per
         pair; strategies never screened in this source appear at the bottom as
@@ -311,7 +311,8 @@ export default function InsightsPage() {
         <select
           value={underlying}
           onChange={(e) => setUnderlying(e.target.value)}
-          className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-xs"
+          // 16px on a phone: iOS zooms the page into a smaller select on focus.
+          className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-xs max-sm:text-base"
         >
           <option value="">All underlyings</option>
           {underlyings.map((u) => (
@@ -402,7 +403,7 @@ export default function InsightsPage() {
           <div className="leading-snug">
             <strong>Debug view.</strong>{' '}
             The Win % column here counts whether the underlying&apos;s price reached
-            the card&apos;s target before its stop &mdash;{' '}
+            the card&apos;s target before its stop&nbsp;-{' '}
             <em>not</em> whether the trade made money. Touch and realized option P&L
             can disagree wildly (e.g. <code>overnight_trap_continuation</code>:
             ~95% touch rate, ~85% loss rate on options). Use{' '}
@@ -412,7 +413,107 @@ export default function InsightsPage() {
         </div>
       ) : null}
 
-      <div className="rounded-lg border overflow-x-auto" style={{ borderColor: 'var(--color-border)' }}>
+      {/* Phone: one card per (strategy, underlying) pair. The ten-column
+          table showed three columns on a phone, with each strategy name
+          wrapped onto three lines and its P&L a sideways scroll away. With no
+          column headers to tap, sorting moves to a select. */}
+      <div className="sm:hidden">
+        <div className="mb-2 flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+          <label htmlFor="insights-sort">Sort by</label>
+          <select
+            id="insights-sort"
+            value={sortKey}
+            onChange={(e) => onHeaderClick(e.target.value as InsightsSortKey)}
+            className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-base text-[var(--color-text)]"
+          >
+            {HEADERS.map((h) => (
+              <option key={h.key} value={h.key}>
+                {h.key === 'underlying' ? 'Underlying' : h.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+            aria-label={sortDir === 'desc' ? 'Sorted high to low. Sort low to high' : 'Sorted low to high. Sort high to low'}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-text)]"
+          >
+            {sortDir === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+          </button>
+        </div>
+        <ul className="divide-y divide-[var(--color-border)] rounded-lg border" style={{ borderColor: 'var(--color-border)' }}>
+          {loading && view.length === 0 ? (
+            <li className="px-4 py-6 text-center text-sm text-[var(--color-text-secondary)]">Loading…</li>
+          ) : view.length === 0 ? (
+            <li className="px-4 py-6 text-center text-sm text-[var(--color-text-secondary)]">
+              {trustworthyOnly
+                ? `No pairs with at least ${TRUSTWORTHY_MIN_N} resolved trades yet.`
+                : 'No measurements for this source / underlying yet.'}
+            </li>
+          ) : (
+            view.map((r) => {
+              const unmeasured = r.measured === false;
+              return (
+                <li
+                  key={`${r.pattern}|${r.underlying ?? 'all'}|${r.source}`}
+                  className="px-4 py-3"
+                  style={{ opacity: unmeasured ? 0.6 : 1 }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium leading-snug">
+                        {r.name || formatPatternLabel(r.pattern, patternCatalog)}
+                        {r.in_catalog === false ? (
+                          <span className="ml-1.5 text-[10px] text-[var(--color-warning)]">off-catalog</span>
+                        ) : null}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-semibold">
+                          {r.underlying ?? <span className="font-normal text-[var(--color-text-secondary)]">—</span>}
+                        </span>
+                        {r.stage ? <StageBadge stage={r.stage} /> : null}
+                      </div>
+                    </div>
+                    {unmeasured ? (
+                      <span className="shrink-0 pt-0.5 text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                        not screened
+                      </span>
+                    ) : (
+                      <div className="shrink-0 text-right">
+                        <div className="text-base font-semibold tabular-nums">{formatPnl(r.net_pnl)}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">Net P&amp;L</div>
+                      </div>
+                    )}
+                  </div>
+                  {unmeasured ? null : (
+                    <>
+                      <dl className="mt-2.5 grid grid-cols-4 gap-2">
+                        {[
+                          ['N', String(r.n_resolved)],
+                          ['Win %', formatPercent(r.hit_rate)],
+                          ['PF', formatProfitFactor(r.profit_factor)],
+                          ['Avg / trade', formatPnl(r.expectancy)],
+                        ].map(([label, value]) => (
+                          <div key={label} className="min-w-0">
+                            <dt className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">{label}</dt>
+                            <dd className="text-sm tabular-nums">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      <div className="mt-1.5 text-xs tabular-nums text-[var(--color-text-secondary)]">
+                        Avg win {formatPnl(r.avg_win_pnl)} · Avg loss{' '}
+                        {formatPnl(r.avg_loss_pnl != null ? -Math.abs(r.avg_loss_pnl) : null)}
+                      </div>
+                    </>
+                  )}
+                </li>
+              );
+            })
+          )}
+        </ul>
+      </div>
+
+      <div className="hidden rounded-lg border overflow-x-auto sm:block" style={{ borderColor: 'var(--color-border)' }}>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b" style={{ borderColor: 'var(--color-border)' }}>

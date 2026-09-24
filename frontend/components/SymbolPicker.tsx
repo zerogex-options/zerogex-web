@@ -31,7 +31,9 @@ export default function SymbolPicker({ current, hrefs, symbols = SYMBOLS }: Pick
   }
 
   return (
-    <div className="flex items-center gap-2" aria-label="Symbol">
+    // Wraps rather than overflowing: six symbols need ~330px, more than is left
+    // beside a page title on a phone. Callers stack it under the title there.
+    <div className="flex flex-wrap items-center gap-2" aria-label="Symbol">
       {symbols.map((s) => {
         const active = s === current;
         return (
@@ -41,7 +43,7 @@ export default function SymbolPicker({ current, hrefs, symbols = SYMBOLS }: Pick
             onClick={() => pick(s)}
             disabled={pending}
             aria-pressed={active}
-            className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors disabled:opacity-60"
+            className="px-3 py-1.5 pointer-coarse:py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors disabled:opacity-60"
             style={{
               background: active ? 'var(--color-warning-soft)' : 'transparent',
               border: `1px solid ${active ? 'var(--color-warning)' : 'var(--color-border)'}`,

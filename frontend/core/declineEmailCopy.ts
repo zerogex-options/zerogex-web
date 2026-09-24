@@ -1,22 +1,27 @@
 // What a dunning email should actually SAY, given what the issuer said.
 //
 // THE BUG THIS EXISTS TO FIX. Both payment-failure emails used one sentence for
-// every decline: "your card was declined — update your card", with the account
-// page as the only call to action. A live count put 63 declined invoices in the
-// `insufficient_funds` category, 60 of them a member's first payment, $2,177.50
-// never collected and a recovery rate of 16%.
+// every decline: "your card was declined — update your card". A live count put
+// 63 declined invoices in the `insufficient_funds` category, 60 of them a
+// member's first payment, $2,177.50 never collected and a recovery rate of 16%.
 //
-// For every one of those the card was FINE. There was nothing to update, nothing
-// to re-enter, and no reason for the member to visit the account page at all.
-// The email sent them to look at a card that worked, where they would find
-// nothing wrong and conclude the fault was ours. Meanwhile the one action that
-// would have collected the money — pay the open invoice, from any card, the
-// moment the balance is there — was not in the email, even though Stripe puts a
-// hosted payment page on every unpaid invoice and the webhook has its URL in
-// scope when it sends.
+// For every one of those the card was FINE. There was nothing to update and
+// nothing to re-enter. The email sent them to look at a card that worked, where
+// they would find nothing wrong and conclude the fault was ours. Meanwhile the
+// one action that would have collected the money — pay the open invoice, from
+// any card, the moment the balance is there — was never mentioned.
 //
 // core/declineReason.ts has known since it was written that these are opposite
 // remedies. It just was not wired to the thing the customer reads.
+//
+// WHERE "PAY THE OPEN INVOICE" LEADS: our signed /pay link, never Stripe's
+// hosted_invoice_url. The emails used to link that URL directly, and a long
+// tokenized invoice.stripe.com payment link inside a "your payment failed"
+// email is the shape spam filters look for in phishing — it was the prime
+// suspect when these emails started landing in spam, where no link collects
+// anything. /pay redirects to the same Stripe page at click time, so the member
+// still pays in one click, from any card, without signing in, and every link in
+// the email stays on our domain (core/payLink.ts).
 //
 // TONE IS PART OF THE CORRECTNESS HERE. Being short of money on a given day is
 // not a defect in the member and the copy must not imply it is. It states what
@@ -33,10 +38,11 @@ export type DeclineEmailCopy = {
   /** Label for the primary button. */
   ctaLabel: string;
   /**
-   * True when the primary action is "pay this invoice now" rather than "update
-   * the card on file". Only a genuine card fault makes the account page the
-   * right destination; everything else is better served by the hosted invoice,
-   * which takes ANY card and settles the debt in one step.
+   * True when the primary action is "pay the open invoice" rather than "update
+   * the card on file". Only a genuine card fault makes re-saving the card the
+   * right remedy; everything else is better served by paying the invoice, which
+   * takes ANY card and settles the debt in one step. True sends the button to
+   * the signed /pay link; false sends it to the account page to update the card.
    */
   preferInvoice: boolean;
 };
@@ -47,8 +53,6 @@ export type DeclineEmailInput = {
   cardPhrase: string | null;
   /** Stripe's next automatic retry, already formatted for a human. */
   nextAttemptLabel: string | null;
-  /** Whether Stripe's hosted invoice page is available to link to. */
-  hasInvoiceUrl: boolean;
   /** A first charge after a trial reads differently from a renewal. */
   trialConversion: boolean;
 };
@@ -60,12 +64,15 @@ function retrySentence(input: DeclineEmailInput): string {
   return 'Stripe has made its last automatic attempt, so it will not retry on its own.';
 }
 
-/** "you can settle it here" / "you can update the card" tail, when we have a link. */
+/**
+ * The "you can pay it yourself" tail. "The link below" is our /pay link, or the
+ * account page when no signed link could be built — both reach the open
+ * invoice, and both take any card.
+ */
 function payTail(input: DeclineEmailInput): string {
-  if (!input.hasInvoiceUrl) return '';
   return input.nextAttemptLabel
-    ? ' If you would rather not wait, or want to use a different card, you can complete it yourself with the link below — it takes any card.'
-    : ' You can complete it yourself with the link below — it takes any card.';
+    ? ' If you would rather not wait, or want to use a different card, you can pay the open invoice yourself with the link below — it takes any card.'
+    : ' You can pay the open invoice yourself with the link below — it takes any card.';
 }
 
 /**
@@ -129,9 +136,7 @@ function buildDeclineEmailCopyInner(input: DeclineEmailInput): DeclineEmailCopy 
     case 'authentication_required':
       return {
         reason: `Your bank asked for an extra confirmation step on ${opener} and it was not completed, so the charge did not go through.`,
-        remedy: input.hasInvoiceUrl
-          ? 'Paying from the link below walks you through that step — it only takes a moment.'
-          : retrySentence(input),
+        remedy: 'Paying the open invoice with the link below walks you through that step — it only takes a moment.',
         ctaLabel: 'Confirm the payment',
         preferInvoice: true,
       };

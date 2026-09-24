@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         status: 200,
         heading: "You're on the list",
         body:
-          'Your first levels email arrives before the open on the next trading day &mdash; the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ. Every one of them has an unsubscribe link at the bottom.',
+          'Your first levels email arrives before the open on the next trading day\u00a0- the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ. Every one of them has an unsubscribe link at the bottom.',
         cta: { href: '/spx-gamma-levels', label: "See today's levels now" },
       });
     case 'unsubscribed':

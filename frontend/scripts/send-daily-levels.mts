@@ -40,6 +40,7 @@ import {
   DIGEST_SYMBOL_ORDER,
   type SymbolSnapshot,
 } from '../core/dailyLevelsDigest.ts';
+import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '../core/trackRecord.ts';
 import {
   SEND_WINDOW_END_MIN,
   SEND_WINDOW_START_MIN,
@@ -248,6 +249,29 @@ async function fetchSummary(symbol: string): Promise<GexSummary | null> {
   }
 }
 
+/**
+ * The graded record for one symbol, best-effort.
+ *
+ * BEST-EFFORT IS THE WHOLE DESIGN. This runs in a weekday cron that mails
+ * real subscribers, and it exists to add one marketing sentence. Every
+ * failure path returns null, the digest omits the line, and the email goes
+ * out exactly as it did before. Nothing here may abort a send.
+ */
+async function fetchTrackRecord(symbol: string): Promise<HistorySummary | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/forecast/available-dates?symbol=${encodeURIComponent(symbol)}&limit=${FORECAST_HISTORY_LIMIT}`,
+      { headers: { Authorization: `Bearer ${API_TOKEN}` } },
+    );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { dates?: ForecastDateEntry[] };
+    if (!json?.dates?.length) return null;
+    return summarizeForecastHistory(json.dates, symbol);
+  } catch {
+    return null;
+  }
+}
+
 console.log('\nSnapshots:');
 const snapshots: SymbolSnapshot[] = [];
 let primaryBasis: FreshnessBasis | null = null;
@@ -272,7 +296,31 @@ if (!primaryBasis) {
   process.exit(args.dryRun ? 0 : 1);
 }
 
-const model = buildDigestModel({ snapshots, sessionDate, basis: primaryBasis, primary: PRIMARY_SYMBOL });
+// One model per DISTINCT preferred symbol, not per recipient. Everything
+// expensive is shared — the six fetches above, the freshness verdicts, the
+// formatting — and the only thing a subscriber's choice changes is the order
+// of the rows, which ticker is highlighted, and the subject. Six models
+// covers every possible preference no matter how long the list gets.
+const modelCache = new Map<string, ReturnType<typeof buildDigestModel>>();
+const historyCache = new Map<string, HistorySummary | null>();
+async function modelFor(symbol: string) {
+  if (!modelCache.has(symbol)) {
+    if (!historyCache.has(symbol)) historyCache.set(symbol, await fetchTrackRecord(symbol));
+    modelCache.set(
+      symbol,
+      buildDigestModel({
+        snapshots,
+        sessionDate,
+        basis: primaryBasis!,
+        primary: symbol,
+        history: historyCache.get(symbol) ?? null,
+      }),
+    );
+  }
+  return modelCache.get(symbol) ?? null;
+}
+
+const model = await modelFor(PRIMARY_SYMBOL);
 if (!model) {
   console.log('\nABORT: the digest model came back empty.');
   process.exit(args.dryRun ? 0 : 1);
@@ -317,6 +365,11 @@ if (recipients.length === 0) {
 }
 
 if (args.dryRun) {
+  const bySymbol = new Map<string, number>();
+  for (const r of recipients) bySymbol.set(r.symbol, (bySymbol.get(r.symbol) ?? 0) + 1);
+  console.log(
+    `Preferred symbol: ${[...bySymbol.entries()].map(([sym, n]) => `${sym}×${n}`).join(', ') || '(none)'}`,
+  );
   console.log('\n[dry-run] No mail sent, no rows written.');
   console.log('--- text body ---');
   console.log(renderDailyLevelsEmail(model, {
@@ -344,7 +397,11 @@ for (const [index, subscriber] of recipients.entries()) {
     // recipient rather than once. Everything expensive (the fetch, the model)
     // is already done; this is string assembly.
     const unsubUrl = buildLevelsUnsubUrl(APP_URL, subscriber.id);
-    const rendered = renderDailyLevelsEmail(model, { unsubUrl, siteUrl: APP_URL });
+    // Their chosen ticker leads their copy. Falls back to the SPX model if
+    // their preference has no usable snapshot this morning — better a digest
+    // led by the wrong ticker than no digest at all.
+    const theirModel = (await modelFor(subscriber.symbol)) ?? model;
+    const rendered = renderDailyLevelsEmail(theirModel, { unsubUrl, siteUrl: APP_URL });
     await sendDailyLevelsEmail(subscriber.email, { ...rendered, unsubUrl });
     markLevelsDigestSent(subscriber.id);
     sent += 1;

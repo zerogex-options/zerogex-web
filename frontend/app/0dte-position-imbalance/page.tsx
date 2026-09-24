@@ -91,7 +91,7 @@ export default function ZeroDtePositionImbalancePage() {
         <div className="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-sm flex items-start gap-3">
           <Clock size={16} className="text-[var(--color-warning)] mt-0.5" />
           <div>
-            <div className="font-semibold">Inactive — 0DTE window closed</div>
+            <div className="font-semibold">Inactive&nbsp;- 0DTE window closed</div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
               Time-of-day multiplier is zero after hours; score is gated to 0.
             </div>
@@ -105,7 +105,7 @@ export default function ZeroDtePositionImbalancePage() {
           <div>
             <div className="font-semibold text-[var(--color-warning)]">Flow source: all-expiry fallback</div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-              0DTE flow is missing — the picture is inferred from all-expiry flow, not measured same-day.
+              0DTE flow is missing&nbsp;- the picture is inferred from all-expiry flow, not measured same-day.
             </div>
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function ZeroDtePositionImbalancePage() {
               history={history}
               badges={
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
                     {humanize(signal)}
                   </span>
@@ -197,7 +197,7 @@ export default function ZeroDtePositionImbalancePage() {
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Time-of-day multiplier is 0 outside the 0DTE window (forces score to 0). When the all-expiry fallback fires, the picture is inferred — not measured same-day — and conviction should be discounted.</>}
+        caveat={<>Time-of-day multiplier is 0 outside the 0DTE window (forces score to 0). When the all-expiry fallback fires, the picture is inferred&nbsp;- not measured same-day&nbsp;- and conviction should be discounted.</>}
       >
         <div>Net premium per moneyness bucket; weighted <code>0.6 × OTM + 0.3 × ATM + 0.1 × ITM</code> for both calls and puts.</div>
         <div><code>Flow Imbalance = (Weighted Call Net − Weighted Put Net) / (|...| + |...|)</code>, gated above $50k gross premium.</div>

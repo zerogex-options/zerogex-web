@@ -6,9 +6,9 @@
 
 ## Ce qu'est le max pain
 
-Le max pain est le **strike à l'expiration** auquel la valeur totale en dollars de toutes les options ouvertes est minimale — c'est-à-dire le niveau où, globalement, les acheteurs d'options "perdent le plus".
+Le max pain est le **strike à l'expiration** auquel la valeur totale en dollars de toutes les options ouvertes est minimale - c'est-à-dire le niveau où, globalement, les acheteurs d'options "perdent le plus".
 
-L'argument classique veut que les market makers (les vendeurs naturels d'options aux particuliers) aient intérêt à pousser le spot vers le max pain. L'argument plus honnête est plus nuancé — voir [Max Pain Expliqué](/education/max-pain-explained).
+L'argument classique veut que les market makers (les vendeurs naturels d'options aux particuliers) aient intérêt à pousser le spot vers le max pain. L'argument plus honnête est plus nuancé - voir [Max Pain Expliqué](/education/max-pain-explained).
 
 ## Ce que montre cette page
 
@@ -30,7 +30,7 @@ En abscisse, le strike ; en ordonnée, la somme des payouts des options in-the-m
 
 ### La migration historique
 
-Un petit panneau montrant comment le max pain a évolué au cours des dernières séances pour l'échéance sélectionnée — utile pour repérer une dérive vers (ou à l'écart de) le spot.
+Un petit panneau montrant comment le max pain a évolué au cours des dernières séances pour l'échéance sélectionnée - utile pour repérer une dérive vers (ou à l'écart de) le spot.
 
 ## Quand le max pain compte
 
@@ -55,6 +55,6 @@ Deux lectures :
 
 ## Voir aussi
 
-- [Max Pain Expliqué — Est-ce Vraiment Efficace ?](/education/max-pain-explained)
+- [Max Pain Expliqué - Est-ce Vraiment Efficace ?](/education/max-pain-explained)
 - [Positionnement des Dealers](/help/platform/dealer-positioning)
 - [Gamma Walls Expliqués](/education/gamma-walls-explained)

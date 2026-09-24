@@ -10,15 +10,15 @@
 
 **Te registraste con Google o Apple y no tienes contraseña.** Inicia sesión con el proveedor que usaste. Desde la página de Cuenta podrás luego establecer una contraseña como alternativa futura.
 
-**El proveedor dice "no se encontró ninguna cuenta".** Puede que te hayas registrado con un correo diferente. Prueba con el otro proveedor, o escribe a [support@zerogex.io](mailto:support@zerogex.io) — podemos buscar la cuenta.
+**El proveedor dice "no se encontró ninguna cuenta".** Puede que te hayas registrado con un correo diferente. Prueba con el otro proveedor, o escribe a [support@zerogex.io](mailto:support@zerogex.io) - podemos buscar la cuenta.
 
 **El aviso de dos factores o de dispositivo no desaparece.** Inicia sesión de nuevo desde una ventana de incógnito. Si persiste, el soporte puede eliminar sesiones obsoletas en tu cuenta.
 
 ## Datos faltantes o desactualizados
 
-**El indicador de sesión dice Cerrado.** Esa es la explicación — los mercados están cerrados. Se muestran los últimos valores calculados.
+**El indicador de sesión dice Cerrado.** Esa es la explicación - los mercados están cerrados. Se muestran los últimos valores calculados.
 
-**Un gráfico dice "sin datos".** Suele deberse a un problema de ventana de sesión (EOD Pressure fuera de su ventana, 0DTE en un día sin vencimiento). Pasa el cursor sobre el estado vacío — el tooltip lo explica.
+**Un gráfico dice "sin datos".** Suele deberse a un problema de ventana de sesión (EOD Pressure fuera de su ventana, 0DTE en un día sin vencimiento). Pasa el cursor sobre el estado vacío - el tooltip lo explica.
 
 **Los valores de los tiles parecen congelados.** Revisa la marca de tiempo en el tile de precio. Si tiene más de 30 segundos de antigüedad durante el horario regular, recarga la página forzosamente (Cmd+Shift+R / Ctrl+Shift+R).
 
@@ -30,7 +30,7 @@
 
 **La suscripción dice "vencida".** Stripe está reintentando el cobro. Actualiza el método de pago para resolverlo. Las funciones de pago permanecen activas durante la ventana de reintento.
 
-**La factura es más alta de lo esperado.** Abre la factura en el portal — las partidas están detalladas. Sorpresas comunes: un cambio de plan o de periodicidad se prorratea — recibes un crédito por la parte no utilizada del periodo actual más el cargo del nuevo plan, aplicado a tu **próxima factura** en lugar de cobrarse de inmediato.
+**La factura es más alta de lo esperado.** Abre la factura en el portal - las partidas están detalladas. Sorpresas comunes: un cambio de plan o de periodicidad se prorratea - recibes un crédito por la parte no utilizada del periodo actual más el cargo del nuevo plan, aplicado a tu **próxima factura** en lugar de cobrarse de inmediato.
 
 **La cancelación no se completó.** La cancelación entra en vigor al final del periodo de facturación. Hasta entonces, conservas el acceso de pago. El portal muestra la fecha de finalización prevista.
 
@@ -50,7 +50,7 @@
 
 ## Gráficos
 
-**Un gráfico está vacío mientras otros tienen datos.** La causa más común es una restricción de nivel — el gráfico pertenece a un nivel que no tienes. Otras veces: la señal subyacente está intencionalmente inactiva (su ventana no está abierta). Pasa el cursor sobre el estado vacío para ver la explicación.
+**Un gráfico está vacío mientras otros tienen datos.** La causa más común es una restricción de nivel - el gráfico pertenece a un nivel que no tienes. Otras veces: la señal subyacente está intencionalmente inactiva (su ventana no está abierta). Pasa el cursor sobre el estado vacío para ver la explicación.
 
 **Los tooltips al pasar el cursor no aparecen.** Es un dispositivo táctil. Usa pulsación prolongada, o cambia a un escritorio.
 
@@ -69,7 +69,7 @@ Después de haber probado los puntos relevantes anteriores. Incluye:
 - Navegador, sistema operativo y aproximadamente cuándo ocurrió (con zona horaria).
 - El correo de tu cuenta.
 
-Escribe a [support@zerogex.io](mailto:support@zerogex.io). Respondemos rápido — normalmente el mismo día de trading.
+Escribe a [support@zerogex.io](mailto:support@zerogex.io). Respondemos rápido - normalmente el mismo día de trading.
 
 ## Ver también
 

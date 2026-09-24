@@ -284,3 +284,7 @@ deploy/systemd/monitoring-backup.env
 key.pem
 *.pem
 mcp-registry-auth
+
+# Wrangler's local state and bundle cache, written next to wrangler.toml when
+# the maintenance-page Worker is deployed or run locally (deploy/cloudflare/).
+.wrangler/

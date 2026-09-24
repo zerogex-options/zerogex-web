@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
+import TrackRecordStrip from '@/components/TrackRecordStrip';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
@@ -113,7 +115,7 @@ function derivationNote(primary: Symbol): string {
 function flipChainNote(primary: Symbol): string {
   const chain = SYMBOL_CHAIN[primary];
   if (chain === primary) return '';
-  return ` ${primary} carries no options chain of its own — its levels are computed from the ${chain} chain and converted to ${primary} prices — so a blank ${primary} flip means the ${chain} snapshot had no publishable crossing, not that ${primary} data is missing.`;
+  return ` ${primary} carries no options chain of its own\u00a0- its levels are computed from the ${chain} chain and converted to ${primary} prices\u00a0- so a blank ${primary} flip means the ${chain} snapshot had no publishable crossing, not that ${primary} data is missing.`;
 }
 
 function buildSymbolContent(primary: Symbol): SymbolContent {
@@ -127,9 +129,9 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
     // alternative" queries have in common and every competitor's title lacks
     // — and names GEX up front so "<ticker> gamma exposure" queries see it.
     title: `${primary} Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls`,
-    description: `Free daily ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
+    description: `Free daily ${primary} gamma levels\u00a0- the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
-    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
+    intro: `Track today's ${primary} gamma levels\u00a0- the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
   };
 }
 
@@ -245,7 +247,7 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
     },
     {
       q: `What is ${primary}'s net gamma exposure (net GEX) right now?`,
-      a: `Today's ${primary} net GEX — the net dealer gamma across the ${SYMBOL_CHAIN[primary]} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure — is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
+      a: `Today's ${primary} net GEX\u00a0- the net dealer gamma across the ${SYMBOL_CHAIN[primary]} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure\u00a0- is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
     },
     {
       q: 'What is the gamma flip?',
@@ -253,7 +255,7 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
     },
     {
       q: `Why is the ${primary} gamma flip showing no value?`,
-      a: `A blank gamma flip is a deliberate result, not missing data. ZeroGEX publishes the flip only when the modeled dealer-gamma profile has a zero crossing close enough to spot to be tradable and backed by real open interest. When ${primary} is trading deep inside one gamma regime, or the options chain is thin or one-sided — extended hours, or an implied-volatility spike that collapses modeled gamma across the board — no crossing clears that bar, and no level is published rather than one that can't be stood behind. The call wall, put wall and max pain on this page are unaffected, the sign of net GEX still tells you which regime ${primary} is in, and the flip normally resolves again on a later snapshot.${flipChainNote(primary)}`,
+      a: `A blank gamma flip is a deliberate result, not missing data. ZeroGEX publishes the flip only when the modeled dealer-gamma profile has a zero crossing close enough to spot to be tradable and backed by real open interest. When ${primary} is trading deep inside one gamma regime, or the options chain is thin or one-sided\u00a0- extended hours, or an implied-volatility spike that collapses modeled gamma across the board\u00a0- no crossing clears that bar, and no level is published rather than one that can't be stood behind. The call wall, put wall and max pain on this page are unaffected, the sign of net GEX still tells you which regime ${primary} is in, and the flip normally resolves again on a later snapshot.${flipChainNote(primary)}`,
     },
     {
       q: 'What is a call wall?',
@@ -362,26 +364,26 @@ const REGIME_DISPLAY: Record<
     label: 'Positive gamma (suppressed vol)',
     color: 'var(--color-positive)',
     icon: 'up',
-    body: 'Dealers are net long gamma at spot — mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
+    body: 'Dealers are net long gamma at spot\u00a0- mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
   },
   negative: {
     label: 'Negative gamma (amplified vol)',
     color: 'var(--color-negative)',
     icon: 'down',
-    body: 'Dealers are net short gamma at spot — moves can accelerate, walls are more brittle, trend extension is the higher-probability path.',
+    body: 'Dealers are net short gamma at spot\u00a0- moves can accelerate, walls are more brittle, trend extension is the higher-probability path.',
   },
   neutral: {
     label: 'At the gamma flip',
     color: 'var(--color-warning)',
     icon: 'flat',
-    body: 'Spot is sitting on the gamma flip — the sign of dealer hedging is unstable here, and a small move tips the tape into the next regime.',
+    body: 'Spot is sitting on the gamma flip\u00a0- the sign of dealer hedging is unstable here, and a small move tips the tape into the next regime.',
   },
   unresolved: {
     label: 'Gamma flip unresolved',
     color: 'var(--color-text-secondary)',
     icon: 'none',
     body:
-      'This snapshot produced no gamma flip: the modeled dealer-gamma profile had no zero crossing close enough to spot to be tradable and backed by real open interest, so no level is published rather than one we can’t stand behind. Read these levels as provisional — it normally resolves again on a later snapshot.',
+      'This snapshot produced no gamma flip: the modeled dealer-gamma profile had no zero crossing close enough to spot to be tradable and backed by real open interest, so no level is published rather than one we can’t stand behind. Read these levels as provisional\u00a0- it normally resolves again on a later snapshot.',
   },
 };
 
@@ -395,14 +397,14 @@ const REGIME_DISPLAY: Record<
  */
 function flipHint(symbol: Symbol, flip: number | null | undefined): string {
   if (flip != null && Number.isFinite(flip)) {
-    return 'Regime line — above = positive, below = negative';
+    return 'Regime line\u00a0- above = positive, below = negative';
   }
   const chain = SYMBOL_CHAIN[symbol];
   const source =
     chain === symbol
       ? `the ${symbol} chain`
       : `the ${chain} chain (${symbol} carries no chain of its own)`;
-  return `No crossing near enough to spot to publish in this snapshot — resolved from ${source}`;
+  return `No crossing near enough to spot to publish in this snapshot\u00a0- resolved from ${source}`;
 }
 
 // Last-good snapshot per symbol, held in process memory to ride through a brief
@@ -472,11 +474,12 @@ function LevelRow({
         display: 'flex',
         alignItems: 'baseline',
         justifyContent: 'space-between',
+        gap: 12,
         padding: '14px 0',
         borderTop: '1px solid var(--border-default)',
       }}
     >
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</div>
         {hint && (
           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.7, marginTop: 2 }}>
@@ -484,7 +487,7 @@ function LevelRow({
           </div>
         )}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-primary)' }}>
+      <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
         {value}
       </div>
     </div>
@@ -513,9 +516,8 @@ function SymbolCard({
   return (
     <Link
       href={href}
-      className="zg-panel hover:!border-[var(--color-brand-primary)]"
+      className="zg-panel p-5 sm:px-[26px] sm:py-7 hover:!border-[var(--color-brand-primary)]"
       style={{
-        padding: '28px 26px',
         display: 'flex',
         flexDirection: 'column',
         gap: 18,
@@ -537,8 +539,10 @@ function SymbolCard({
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               color: regimeColor,
-              border: `1px solid ${regimeColor}55`,
-              background: `${regimeColor}14`,
+              // color-mix, not a hex alpha suffix: the regime colours are CSS
+              // variables, and `var(--x)55` is not a colour at all.
+              border: `1px solid color-mix(in srgb, ${regimeColor} 33%, transparent)`,
+              background: `color-mix(in srgb, ${regimeColor} 8%, transparent)`,
               borderRadius: 999,
               padding: '4px 10px',
               display: 'inline-flex',
@@ -571,8 +575,8 @@ function SymbolCard({
               fontSize: 11,
               fontWeight: 700,
               color: 'var(--color-warning)',
-              border: '1px solid var(--color-warning)55',
-              background: 'var(--color-warning)14',
+              border: '1px solid color-mix(in srgb, var(--color-warning) 33%, transparent)',
+              background: 'color-mix(in srgb, var(--color-warning) 8%, transparent)',
             }}
           >
             <Clock size={11} />
@@ -587,7 +591,7 @@ function SymbolCard({
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Strike that tends to floor downside" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint={flipHint(symbol, data?.gamma_flip)} />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
-        <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — a modeled pinning level, not a target" />
+        <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration&nbsp;- a modeled pinning level, not a target" />
         <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(netGexAtSpotOrNull(data?.net_gex_at_spot))} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
       </div>
 
@@ -613,6 +617,29 @@ function SymbolCard({
   );
 }
 
+/**
+ * The graded forecast record for this page's symbol.
+ *
+ * Same ISR window as everything else here, and only the dated archive: no
+ * rolling-stats call. Two reasons. The extra request would buy a Brier score
+ * that needs a paragraph to explain, where "48 of 55 graded sessions, misses
+ * published" lands on its own. And the rolling window reads 29 of 29 on SPX,
+ * so pulling it onto the six highest-traffic pages on the site is how the
+ * wrong number ends up in front of the most people.
+ *
+ * Failure is not an error state: serverApiGet returns null, the summary comes
+ * back empty, and trackRecordOneLiner falls through to the practice sentence,
+ * which is true whether or not the archive answered.
+ */
+async function loadTrackRecord(symbol: Symbol): Promise<HistorySummary | null> {
+  const list = await serverApiGet<{ dates: ForecastDateEntry[] }>(
+    `/api/forecast/available-dates?symbol=${symbol}&limit=${FORECAST_HISTORY_LIMIT}`,
+    900,
+  );
+  if (!list?.dates?.length) return null;
+  return summarizeForecastHistory(list.dates, symbol);
+}
+
 export default async function GammaLevelsView({ primary }: { primary: Symbol }) {
   const content = SYMBOL_CONTENT[primary];
   const order = symbolOrder(primary);
@@ -620,9 +647,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   // fetched in parallel. Both go through the same ISR-cached serverApiGet at
   // 900s (and the shared /api/gex/summary URL is deduped by the Next fetch
   // cache), so the added chart costs no extra latency on a warm cache.
-  const [{ snapshots, fromCache }, chartSnapshot] = await Promise.all([
+  const [{ snapshots, fromCache }, chartSnapshot, trackRecord] = await Promise.all([
     loadSnapshots(),
     loadChartSnapshot(primary, '5min'),
+    loadTrackRecord(primary),
   ]);
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
@@ -742,7 +770,9 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
 
       <LandingHeader />
 
-      <main style={{ flex: 1, maxWidth: 1080, margin: '0 auto', padding: '120px 24px 80px', width: '100%' }}>
+      {/* Side gutter 16px on a phone (24 from `sm`), and less headroom under
+          the fixed header, which is shorter there. */}
+      <main className="px-4 pt-[92px] pb-16 sm:px-6 sm:pt-[120px] sm:pb-20" style={{ flex: 1, maxWidth: 1080, margin: '0 auto', width: '100%' }}>
         {/* Marks the top of the paid-traffic funnel (renders nothing). */}
         <PaidFunnelAnalytics symbol={primary} />
 
@@ -792,9 +822,9 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               color: 'var(--color-text-secondary)',
             }}
           >
-            Data is briefly unavailable — refresh in a minute, or{' '}
+            Data is briefly unavailable&nbsp;- refresh in a minute, or{' '}
             <Link href="/register" style={{ color: 'var(--color-brand-primary)' }}>
-              start a free trial
+              sign up
             </Link>{' '}
             for the live read.
           </div>
@@ -843,7 +873,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 }}
               >
                 <Clock size={12} />
-                {primary} data is temporarily delayed — this read reflects the last available {primary} snapshot,
+                {primary} data is temporarily delayed&nbsp;- this read reflects the last available {primary} snapshot,
                 not the current session.
               </p>
             )}
@@ -906,6 +936,13 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             />
           ))}
         </section>
+
+        {/* The graded record. Deliberately the LAST thing before the first
+            ask: everything above is free data, everything below is a request,
+            and this is the sentence that earns the request. Reads the full
+            archive rather than the rolling window — see core/trackRecord.ts
+            for why those disagree. */}
+        <TrackRecordStrip history={trackRecord} symbol={primary} />
 
         {/* Conversion block (requirement #1): directly after the free delayed
             levels, before the product preview and educational content. */}
@@ -1016,14 +1053,14 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             </h2>
             <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: 'var(--color-text-secondary)' }}>
               As of {fmtTimestampET(primaryData.timestamp)}, {primary} net gamma exposure at spot is{' '}
-              <strong style={{ color: 'var(--color-text-primary)' }}>{fmtNetGex(primaryNetGex)}</strong> — a{' '}
+              <strong style={{ color: 'var(--color-text-primary)' }}>{fmtNetGex(primaryNetGex)}</strong>&nbsp;- a{' '}
               {primaryNetGex >= 0 ? 'positive' : 'negative'}-gamma regime.{' '}
               {primaryNetGex >= 0
-                ? 'Dealers are modeled net long gamma above the flip, which tends to suppress volatility — tighter ranges, more pinning, and rallies that stall near the call wall.'
-                : 'Dealers are modeled net short gamma below the flip, which tends to amplify volatility — wider ranges, extending breakouts, and trends that run.'}
+                ? 'Dealers are modeled net long gamma above the flip, which tends to suppress volatility\u00a0- tighter ranges, more pinning, and rallies that stall near the call wall.'
+                : 'Dealers are modeled net short gamma below the flip, which tends to amplify volatility\u00a0- wider ranges, extending breakouts, and trends that run.'}
               {primaryFlip != null && (
                 <>
-                  {' '}The zero-cross — the gamma flip, or zero-gamma level — sits at {fmtPrice(primaryFlip)}
+                  {' '}The zero-cross&nbsp;- the gamma flip, or zero-gamma level&nbsp;- sits at {fmtPrice(primaryFlip)}
                   {primarySpotPrice != null ? <>, with {primary} spot at {fmtPrice(primarySpotPrice)}</> : null}.
                 </>
               )}
@@ -1061,7 +1098,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Put wall</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
-                The strike where put-side dealer gamma piles up — typically the strongest dealer-hedged support
+                The strike where put-side dealer gamma piles up&nbsp;- typically the strongest dealer-hedged support
                 in a positive-gamma session. Failing below the put wall in negative gamma is one of the cleaner
                 bear-trend setups in the playbook.
               </p>
@@ -1086,7 +1123,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Net dealer GEX (at spot)</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The cumulative dealer-gamma curve evaluated at the current price. Sign-consistent with the
-                flip — positive means we&apos;re above it, negative means below. Magnitude says how deep into the
+                flip&nbsp;- positive means we&apos;re above it, negative means below. Magnitude says how deep into the
                 regime we are.
               </p>
             </div>
@@ -1121,7 +1158,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             Two free tools nobody else ships
           </h2>
           <p style={{ margin: '0 0 16px 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
-            No login required. Bookmark either — the URL stays valid every day.
+            No login required. Bookmark either&nbsp;- the URL stays valid every day.
           </p>
           <div
             style={{
@@ -1178,7 +1215,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
                 Every morning before the open we commit to a projected range, an expected-volatility
-                call, and key gamma levels — hashed and immutable. Every afternoon we grade ourselves in public.
+                call, and key gamma levels&nbsp;- hashed and immutable. Every afternoon we grade ourselves in public.
               </div>
             </Link>
 
@@ -1250,7 +1287,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         >
           {latestTimestamp ? `Snapshot timestamp (ET): ${fmtTimestampET(latestTimestamp)}. ` : ''}
           Levels on this page are derived analytics rebuilt from a market-data snapshot that is intentionally
-          held back ~15 minutes from the live ZeroGEX feed. Provided for informational purposes only — not
+          held back ~15 minutes from the live ZeroGEX feed. Provided for informational purposes only&nbsp;- not
           investment advice. Options trading involves significant risk.
         </p>
       </main>

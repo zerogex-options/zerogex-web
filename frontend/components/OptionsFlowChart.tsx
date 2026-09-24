@@ -35,7 +35,9 @@ import {
 } from 'recharts';
 
 import SectionHead from '@/components/layout/SectionHead';
-import { buildThirtyMinGridlines } from '@/components/ChartGridlines';
+import FadeScrollRow from '@/components/FadeScrollRow';
+import { compactUsdReadout, compactUsdTick } from '@/components/phoneAxisFormat';
+import { buildThirtyMinGridlines, isMajorTwoHourTick } from '@/components/ChartGridlines';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -86,7 +88,7 @@ const OPTIONS_FLOW_DEFAULTS: OptionsFlowSettings = {
 };
 
 const CHART_TOOLTIP =
-  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area — on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
+  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area\u00a0- on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
 
 // ── Filter chips ─────────────────────────────────────────────────────────────
 
@@ -115,8 +117,10 @@ function FilterRow({
 }) {
   const active = selected.size > 0;
   const allSelected = active && selected.size === options.length;
+  // Phones get a 32px-tall chip (a finger target) at 13px; from `sm` up the
+  // chip is exactly the desktop one.
   const btnBase =
-    "shrink-0 px-2.5 py-1 text-xs rounded-full border transition whitespace-nowrap cursor-pointer";
+    "shrink-0 px-2.5 py-1 text-xs rounded-full border transition whitespace-nowrap cursor-pointer max-sm:min-h-8 max-sm:px-3 max-sm:text-[13px]";
   const btnInactive: React.CSSProperties = {
     backgroundColor: "transparent",
     borderColor: "var(--color-border)",
@@ -134,38 +138,44 @@ function FilterRow({
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <span
-        className="shrink-0 text-xs font-semibold uppercase tracking-wide"
-        style={{ color: "var(--color-text-secondary)", minWidth: 72 }}
-      >
-        {label}
-      </span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={onSelectAll}
-          disabled={options.length === 0 || allSelected}
-          className={`${btnBase} ${options.length === 0 || allSelected ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
-          style={controlBtn}
+    // On a phone the label and its Select All / Clear share a row and the
+    // chips get the full card width underneath — side by side they left the
+    // chip strip ~80px, one and a half chips. From `sm` up the header wrapper
+    // dissolves (`sm:contents`) and this is the original single row.
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex items-center justify-between gap-3 sm:contents">
+        <span
+          className="shrink-0 text-xs font-semibold uppercase tracking-wide"
+          style={{ color: "var(--color-text-secondary)", minWidth: 72 }}
         >
-          Select All
-        </button>
-        <button
-          type="button"
-          onClick={onClear}
-          disabled={!active}
-          className={`${btnBase} ${!active ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
-          style={controlBtn}
-        >
-          Clear
-        </button>
+          {label}
+        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={onSelectAll}
+            disabled={options.length === 0 || allSelected}
+            className={`${btnBase} ${options.length === 0 || allSelected ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
+            style={controlBtn}
+          >
+            Select All
+          </button>
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={!active}
+            className={`${btnBase} ${!active ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
+            style={controlBtn}
+          >
+            Clear
+          </button>
+        </div>
       </div>
-      <div className="flex gap-1.5 overflow-x-auto flex-1 min-w-0 py-0.5" style={{ scrollbarWidth: "thin" }}>
+      <FadeScrollRow className="flex gap-1.5 overflow-x-auto flex-1 min-w-0 py-0.5" style={{ scrollbarWidth: "thin" }}>
         {options.length === 0 ? (
           error ? (
             <span className="text-xs italic" style={{ color: "var(--color-danger, #ef4444)" }}>
-              Failed to load — {error}
+              Failed to load&nbsp;- {error}
             </span>
           ) : loading ? (
             <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
@@ -193,7 +203,7 @@ function FilterRow({
             );
           })
         )}
-      </div>
+      </FadeScrollRow>
     </div>
   );
 }
@@ -262,6 +272,12 @@ function FlowFilters({
   );
 }
 
+// Phone tooltip density for the default Recharts tooltip (the desktop one is
+// untouched): 12px type and a tight box, so the card stays a strip across the
+// top of a 330px plot instead of a panel over the middle of it.
+const PHONE_TOOLTIP_CONTENT: React.CSSProperties = { fontSize: 12, padding: '6px 8px', lineHeight: 1.35 };
+const PHONE_TOOLTIP_ITEM: React.CSSProperties = { padding: 0 };
+
 // ── Chart ────────────────────────────────────────────────────────────────────
 
 function FullWidthFlowChart({
@@ -322,17 +338,47 @@ function FullWidthFlowChart({
   // width. The top (price/premium) and bottom (volume) charts must keep an
   // identical left inset — margin + left-axis width — to stay vertically
   // aligned, so both switch together off this single flag.
-  const leftChartMargin = isMobile ? 8 : showUnderlyingPrice ? getDynamicLeftMargin(rows) : 16;
-  const rightChartMargin = isMobile ? 8 : 70;
-  const yAxisWidth = isMobile ? 40 : 72;
-  const yAxisWidthRight = isMobile ? 38 : 62;
-  const chartWidth = isMobile ? 900 : "100%";
+  //
+  // A phone plots at the card's own width (it used to scroll a 900px board
+  // sideways): no outer margins, and each axis sized to its compact labels —
+  // "$662" on the price side, "-$60M" / "150K" on the right — so the plot keeps
+  // ~250px of a 330px card.
+  const priceTickLabel = (v: number) => `$${Number(v).toFixed(priceDecimals)}`;
+  const phonePriceAxisW = Math.min(
+    52,
+    Math.max(32, 12 + 6.2 * Math.max(...(priceTicks ?? [0]).map((t) => priceTickLabel(t).length))),
+  );
+  const leftChartMargin = isMobile ? 0 : showUnderlyingPrice ? getDynamicLeftMargin(rows) : 16;
+  const rightChartMargin = isMobile ? 0 : 70;
+  const yAxisWidth = isMobile ? phonePriceAxisW : 72;
+  const yAxisWidthRight = isMobile ? 44 : 62;
+  const tickMargin = isMobile ? 3 : 8;
+  // The half-hour grid is 14 labels; at phone width they overprint into one
+  // smear, so a phone labels 10:00 / 12:00 / 14:00 / 16:00 and dots each hour.
+  const gridMinutes = isMobile ? 60 : 30;
+  const topHeight = isMobile ? 240 : 360;
+  const bottomHeight = isMobile ? 150 : 220;
+
+  // Compact money ticks for the phone's narrow right axis ("$80M", not
+  // "$80.0M"); the desktop formatter is unchanged.
+  const formatPremiumTick = (v: number) => {
+    const n = Number(v);
+    if (isMobile) return compactUsdTick(n);
+    const abs = Math.abs(n);
+    const sign = n < 0 ? '-' : '';
+    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+    if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+    return `${sign}$${Math.round(abs)}`;
+  };
 
   return (
-    <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-      <div className="h-[580px]" style={{ width: chartWidth, minWidth: isMobile ? 900 : undefined }}>
-      <ResponsiveContainer width="100%" height={360}>
-        <ComposedChart data={rows} margin={{ top: 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
+    <div>
+      {/* Desktop: the fixed 580px board as it always was. Phone: the card's
+          own width (it used to be a 900px board scrolled sideways inside a
+          330px card — the "impossible to navigate" chart), height by content. */}
+      <div className={isMobile ? undefined : "h-[580px]"} style={{ width: "100%" }}>
+      <ResponsiveContainer width="100%" height={topHeight}>
+        <ComposedChart data={rows} margin={{ top: isMobile ? 4 : 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
           <XAxis
             dataKey="timestamp"
             stroke={axisStroke}
@@ -347,9 +393,9 @@ function FullWidthFlowChart({
               orientation="left"
               domain={underlyingDomain}
               ticks={priceTicks}
-              tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
-              tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-              tickMargin={isMobile ? 2 : 8}
+              tickFormatter={(v) => priceTickLabel(Number(v))}
+              tick={{ fontSize: 10, fill: axisStroke }}
+              tickMargin={tickMargin}
               width={yAxisWidth}
               padding={{ top: 14, bottom: 8 }}
               label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
@@ -361,33 +407,40 @@ function FullWidthFlowChart({
             orientation="right"
             domain={[premiumDomainMin, premiumDomainMax]}
             ticks={premiumTicks}
-            tickFormatter={(v) => {
-              const n = Number(v);
-              const abs = Math.abs(n);
-              const sign = n < 0 ? '-' : '';
-              if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-              if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
-              return `${sign}$${Math.round(abs)}`;
-            }}
-            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-            tickMargin={isMobile ? 2 : 8}
+            tickFormatter={(v) => formatPremiumTick(Number(v))}
+            tick={{ fontSize: 10, fill: axisStroke }}
+            tickMargin={tickMargin}
             width={yAxisWidthRight}
             padding={{ top: 14, bottom: 8 }}
             label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
+          {/* On a phone the readout pins to the top of the plot (just under
+              the legend), away from the finger scrubbing it, and reads
+              compactly — an ET clock matching the axis and "$78.8M" rather
+              than a 16px card of cents that covered half the chart. */}
           <Tooltip
-            contentStyle={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", borderRadius: 8, color: "var(--color-chart-tooltip-text)" }}
+            {...(isMobile ? { position: { y: 26 } } : {})}
+            contentStyle={{
+              backgroundColor: "var(--color-chart-tooltip-bg)",
+              borderColor: "var(--color-border)",
+              borderRadius: 8,
+              color: "var(--color-chart-tooltip-text)",
+              ...(isMobile ? PHONE_TOOLTIP_CONTENT : {}),
+            }}
             labelStyle={{ color: "var(--color-chart-tooltip-text)", fontWeight: 600 }}
-            itemStyle={{ color: "var(--color-chart-tooltip-muted)" }}
-            labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+            itemStyle={{ color: "var(--color-chart-tooltip-muted)", ...(isMobile ? PHONE_TOOLTIP_ITEM : {}) }}
+            labelFormatter={(value) =>
+              isMobile ? `${safeTimeLabel(String(value))} ET` : new Date(String(value)).toLocaleString()
+            }
             formatter={(value, name) => {
               const n = Number(value ?? 0);
               if (name === "Underlying") return [`$${n.toFixed(2)}`, name];
+              if (isMobile) return [compactUsdReadout(n), name];
               return [`$${n.toLocaleString()}`, name];
             }}
           />
           <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
-          {buildThirtyMinGridlines(rows, axisStroke, "flow-top", "premium")}
+          {buildThirtyMinGridlines(rows, axisStroke, "flow-top", "premium", gridMinutes)}
           <ReferenceLine yAxisId="premium" y={0} stroke={axisStroke} opacity={0.6} />
           {showUnderlyingPrice ? (
             <Line
@@ -424,8 +477,20 @@ function FullWidthFlowChart({
         </ComposedChart>
       </ResponsiveContainer>
 
-      <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
+      {/* The rotated axis title is dropped on a phone, so the volume pane
+          names its basis here instead — the misread the desktop title guards
+          against (a gross running total read as a net) is just as live. */}
+      {isMobile ? (
+        <div
+          className="text-[11px] leading-4 pt-1"
+          style={{ color: "var(--color-text-secondary)", paddingLeft: showUnderlyingPrice ? yAxisWidth : 0 }}
+        >
+          {netVolumeMode === "raw" ? `Volume · ${volumeLabel}` : `Net volume · ${volumeLabel}`}
+        </div>
+      ) : null}
+
+      <ResponsiveContainer width="100%" height={bottomHeight}>
+        <ComposedChart data={rows} margin={{ top: isMobile ? 6 : 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
           <XAxis
             dataKey="timestamp"
             stroke={axisStroke}
@@ -446,7 +511,11 @@ function FullWidthFlowChart({
               const ts = String(payload?.value || "");
               const timeLabel = safeTimeLabel(ts);
               const dateLabel = dateMarkerMeta.get(index);
-              const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
+              // Phone: the 2-hour marks only, and no clock under the date at
+              // the open — "09:30" and "10:00" sit ~20px apart there.
+              const showTime = isMobile
+                ? isMajorTwoHourTick(ts)
+                : is30MinBoundary(ts) || Boolean(dateLabel);
               if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
               return (
                 <g transform={`translate(${x},${y})`}>
@@ -457,7 +526,12 @@ function FullWidthFlowChart({
                     </text>
                   ) : null}
                   {dateLabel ? (
-                    <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                    <text
+                      dy={26}
+                      textAnchor={isMobile ? "start" : "middle"}
+                      fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"}
+                      fontSize={isMobile ? 10 : 9}
+                    >
                       {dateLabel}
                     </text>
                   ) : null}
@@ -488,24 +562,25 @@ function FullWidthFlowChart({
               if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
               return String(Math.round(n));
             }}
-            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-            tickMargin={isMobile ? 2 : 8}
+            tick={{ fontSize: 10, fill: axisStroke }}
+            tickMargin={tickMargin}
             width={yAxisWidthRight}
             label={isMobile ? undefined : { value: volumeLabel, angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
+            {...(isMobile ? { position: { y: 0 } } : {})}
             content={({ active, label, payload }) => {
               if (!active || !payload || payload.length === 0) return null;
               const point = payload[0]?.payload as { netVolume?: number } | undefined;
               return (
-                <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
-                  <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm max-sm:px-2 max-sm:py-1.5 max-sm:text-xs">
+                  <div className="font-semibold">{isMobile ? `${safeTimeLabel(String(label))} ET` : new Date(String(label)).toLocaleString()}</div>
                   <div>{volumeLabel}: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
                 </div>
               );
             }}
           />
-          {buildThirtyMinGridlines(rows, axisStroke, "flow-bottom", "volume")}
+          {buildThirtyMinGridlines(rows, axisStroke, "flow-bottom", "volume", gridMinutes)}
           <ReferenceLine yAxisId="volume" y={0} stroke={axisStroke} opacity={0.6} />
           <Area
             yAxisId="volume"
@@ -561,7 +636,8 @@ function InlineSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="px-2 py-1 text-xs rounded-md border focus:outline-none cursor-pointer"
+        // 16px on a phone: iOS zooms the page into a smaller select on focus.
+        className="px-2 py-1 text-xs max-sm:text-base rounded-md border focus:outline-none cursor-pointer"
         style={{
           backgroundColor: 'var(--color-surface-subtle)',
           borderColor: 'var(--color-border)',
@@ -645,7 +721,7 @@ export default function OptionsFlowChart({
   const chainNote =
     chainSymbol.toUpperCase() === symbol.toUpperCase()
       ? null
-      : `${symbol} has no option chain of its own — its flow is ${chainSymbol} flow, so the strikes below are ${chainSymbol} strikes, not ${symbol} prices.`;
+      : `${symbol} has no option chain of its own\u00a0- its flow is ${chainSymbol} flow, so the strikes below are ${chainSymbol} strikes, not ${symbol} prices.`;
 
   const strikeOptions = useMemo(
     () => serverContractOptions.strikes.map((n) => String(n)),
@@ -770,8 +846,9 @@ export default function OptionsFlowChart({
   );
 
   return (
+    // 16px of inset on a phone, the same as every bordered surface there.
     <section
-      className={`rounded-lg p-6 ${className}`.trim()}
+      className={`rounded-lg p-4 sm:p-6 ${className}`.trim()}
       style={{ backgroundColor: 'var(--color-surface)' }}
     >
       <SectionHead

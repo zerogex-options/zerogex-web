@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,8 +18,7 @@ import {
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import { INTEGRATIONS_HUB } from "@/core/integrations";
 import AccountMenu from "./AccountMenu";
-import BetaBadge from "./BetaBadge";
-import TierBadge from "./TierBadge";
+import MobileMenuSheet from "./MobileMenuSheet";
 import ThemeDropdown from "./ThemeDropdown";
 import LanguageDropdown from "./LanguageDropdown";
 import { useLanguage } from "@/core/LanguageContext";
@@ -44,6 +43,26 @@ import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
+const MOBILE_MENU_ID = "zgx-mobile-menu";
+
+// The nav sections (and subsections) that contain `pathname`, keyed the way the
+// mobile sheet keys its expand state: a group by its label, a subgroup by
+// "group::subgroup".
+function activeNavExpansion(groups: NavGroup[], pathname: string | null): Record<string, boolean> {
+  const open: Record<string, boolean> = {};
+  if (!pathname) return open;
+  groups.forEach((group) => {
+    let groupHit = (group.items ?? []).some((item) => item.id === pathname);
+    (group.subgroups ?? []).forEach((sg) => {
+      const subHit = sg.items.some((item) => item.id === pathname);
+      if (subHit) open[`${group.label}::${sg.label}`] = true;
+      if (subHit || sg.id === pathname) groupHit = true;
+    });
+    if (groupHit) open[group.label] = true;
+  });
+  return open;
+}
+
 interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
@@ -54,10 +73,12 @@ interface HeaderProps {
 export default function Header({ theme, onToggleTheme, initialCollapsed = false }: HeaderProps) {
   const { t } = useLanguage();
   const [session, setSession] = useState(getMarketSession());
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // The phone menu is open FOR a path: it records the pathname it was opened
+  // on, so any navigation — a row in the sheet, a link in the page, the back
+  // button — closes it without an effect having to watch the route.
+  const [mobileMenuPath, setMobileMenuPath] = useState<string | null>(null);
   const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
   // Cookie-backed, with the server's read of the same cookie as the initial
   // value: the server emits the collapsed chrome directly, so there is no
   // hydration mismatch and — unlike a localStorage seed — nothing to visibly
@@ -71,6 +92,8 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  const mobileMenuOpen = mobileMenuPath !== null && mobileMenuPath === pathname;
+  const closeMobileMenu = useCallback(() => setMobileMenuPath(null), []);
 
 
   const mobileNavGroups = useMemo<NavGroup[]>(
@@ -98,22 +121,15 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   const navLabel = (entry: { label: string; labelKey?: NavItem["labelKey"] }) =>
     entry.labelKey ? t(entry.labelKey) : entry.label;
 
-  const [mobileExpandedGroups, setMobileExpandedGroups] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    mobileNavGroups.forEach((group) => {
-      const directMatch = (group.items ?? []).some((item) => pathname === item.id);
-      const subMatch = (group.subgroups ?? []).some((sg) =>
-        sg.items.some((item) => pathname === item.id),
-      );
-      initial[group.label] = directMatch || subMatch;
-      (group.subgroups ?? []).forEach((sg) => {
-        initial[`${group.label}::${sg.label}`] = sg.items.some(
-          (item) => pathname === item.id,
-        );
-      });
-    });
-    return initial;
-  });
+  const [mobileExpandedGroups, setMobileExpandedGroups] = useState<Record<string, boolean>>(() =>
+    activeNavExpansion(mobileNavGroups, pathname),
+  );
+  const openMobileMenu = () => {
+    // Open the section holding the current page — the sheet may last have
+    // been used on another page — without folding anything the reader opened.
+    setMobileExpandedGroups((prev) => ({ ...prev, ...activeNavExpansion(mobileNavGroups, pathname) }));
+    setMobileMenuPath(pathname);
+  };
   const { data: authSession, loading: authLoading, refresh: refreshAuth } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
@@ -187,12 +203,6 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
 
 
-  useEffect(() => {
-    const syncViewport = () => setIsMobileViewport(window.innerWidth < 768);
-    syncViewport();
-    window.addEventListener("resize", syncViewport);
-    return () => window.removeEventListener("resize", syncViewport);
-  }, []);
   const handleLogout = async () => {
     const csrfResponse = await fetch("/api/auth/csrf");
     const csrf = (await csrfResponse.json()) as { csrfToken: string };
@@ -347,11 +357,11 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   // alternative (reporting the session closed) swapped in the last cash close
   // and published its day change as today's.
   const row1PriceLabel = quoteData?.stale
-    ? `${row1PriceBaseLabel} — feed delayed, last observed print`
+    ? `${row1PriceBaseLabel}\u00a0- feed delayed, last observed print`
     : closesLagBehind
       // Say why the official close is not on screen yet, rather than letting the live
       // after-hours print pass silently for a settled 4 PM close.
-      ? `${row1PriceBaseLabel} — today's close has not settled yet`
+      ? `${row1PriceBaseLabel}\u00a0- today's close has not settled yet`
       : row1PriceBaseLabel;
 
   const row1ChangeLabel = priceSession === "open"
@@ -370,14 +380,36 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
     ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
     : "vs regular session close";
 
+  // ── Mobile top-bar quote ─────────────────────────────────────────────────
+  // One price and one percent, sized for the chip: the extended-hours print
+  // while that is the live number (the same choice the menu sheet makes),
+  // otherwise Row 1.
+  const mobileQuoteExtended = showExtendedRow && row2Price !== null && row2ChangePercent !== null;
+  const mobileQuotePrice = mobileQuoteExtended ? row2Price : row1Price;
+  const mobileQuotePct = mobileQuoteExtended ? row2ChangePercent : row1ChangePercent;
+  const mobileQuotePositive = mobileQuoteExtended ? row2Positive : row1Positive;
+  const mobileQuoteTitle = mobileQuoteExtended
+    ? `${row2Label} (${row2ChangeLabel})`
+    : `${row1PriceLabel} (${row1ChangeLabel})`;
+  const sessionDotColor =
+    sessionForBadge === "open"
+      ? "var(--color-bull)"
+      : sessionForBadge === "pre-market" || sessionForBadge === "after-hours"
+        ? "var(--color-warning)"
+        : sessionForBadge === "futures"
+          ? "var(--color-brand-coral)"
+          : "var(--text-muted)";
+
   const border = "var(--color-border)";
 
   return (
     <header
       ref={headerRef}
-      className="border-b sticky top-0 z-40"
+      // zg-app-header gives the phone bar a near-opaque ground (globals.css);
+      // on desktop it stays transparent. While the menu sheet is open the bar
+      // rises above it, so the close button and quote stay in reach.
+      className={`zg-app-header border-b sticky top-0 ${mobileMenuOpen ? "z-[61]" : "z-40"}`}
       style={{
-        backgroundColor: "transparent",
         borderColor: isCollapsed ? "transparent" : border,
         // The header is sticky and its background is transparent, so this blur
         // is the only thing separating it from the page scrolling underneath.
@@ -389,17 +421,19 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
         WebkitBackdropFilter: "blur(20px)",
       }}
     >
+      {/* Vertical padding is desktop-only and lives in classes, not in a
+          viewport flag read after hydration: the flag started false on the
+          server, so every phone first painted the desktop padding and then
+          jumped. */}
       <div
-        className="w-full px-0"
-        style={{
-          paddingTop: isMobileViewport ? "2px" : isCollapsed ? "2px" : "8px",
-          paddingBottom: isMobileViewport ? "2px" : isCollapsed ? "2px" : "8px",
-          transition: "padding 0.3s ease",
-        }}
+        className={`w-full px-0 ${isCollapsed ? "lg:py-[2px]" : "lg:py-2"}`}
+        style={{ transition: "padding 0.3s ease" }}
       >
         {/* Desktop Layout */}
-        <div className="hidden md:block relative">
-          <div className="relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px", paddingLeft: "10px" }}>
+        <div className="hidden lg:block relative">
+          {/* zg-hdr-row: below 1600px a grid (see globals.css), so the lockup
+              sits between the two clusters instead of under them. */}
+          <div className="zg-hdr-row relative flex items-center justify-between" style={{ minHeight: isCollapsed ? "42px" : "72px", paddingRight: "40px", paddingLeft: "10px" }}>
             <div className="flex items-center" style={{ gap: isCollapsed ? "14px" : "20px" }}>
                 <button
                   onClick={onToggleTheme}
@@ -494,7 +528,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                           contract={quoteData?.data_contract}
                           expiry={quoteData?.data_contract_expiry}
                           className="zg-chip w-fit"
-                          fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                          fallbackTitle={`Outside cash session\u00a0- showing ${futuresTicker} futures for ${symbol}`}
                           style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                         >
                           ◆ {futuresTicker} FUT
@@ -514,7 +548,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                         dataAgeSeconds={quoteData?.data_age_seconds}
                       />
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
+                        <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `color-mix(in srgb, ${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'} 12%, transparent)`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -534,27 +568,34 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
             </div>
 
             {!isCollapsed && (
-            <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
+            <div className="zg-hdr-logo absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
               <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
                 {/* Trimmed artwork, so the height fraction is the whole sizing
                     story (the old padded export needed 150% to fill the band).
-                    76% keeps the 3.3:1 lockup ~250px wide — the footprint the
-                    old wordmark had, so it still clears the world clocks that
-                    sit either side of this absolutely-centered block. */}
+                    76% keeps the 3.3:1 lockup ~250px wide. From 1600px it is
+                    absolutely centred with room to spare; below that the
+                    clocks ran over it (and at ~1100px the quote did), so it
+                    joins the row and shrinks with the gap (globals.css). */}
                 <Image
                   {...brandTitle(theme === "dark")}
                   alt="ZeroGEX"
                   priority
-                  style={{ width: "auto", height: "76%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
+                  className="zg-hdr-logo-img"
+                  style={{ objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
                 />
               </Link>
             </div>
             )}
 
             {!isCollapsed && (
-              <div className="flex items-center gap-3" style={{ marginRight: "24px" }}>
-                <div style={{ marginRight: "24px" }}>
-                  <WorldClocks theme={theme} session={session} compact={isCollapsed} />
+              <div className="zg-hdr-right flex items-center gap-3" style={{ marginRight: "24px" }}>
+                {/* Analog dials from 1600px, the compact digital row from
+                    1366px, none below: there is no room beside the lockup. */}
+                <div className="hidden min-[1600px]:block" style={{ marginRight: "24px" }}>
+                  <WorldClocks theme={theme} session={session} />
+                </div>
+                <div className="hidden min-[1366px]:block min-[1600px]:hidden" style={{ marginRight: "12px" }}>
+                  <WorldClocks theme={theme} session={session} compact />
                 </div>
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
@@ -578,348 +619,162 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
           </div>
         </div>
 
-        {/* Mobile Layout - Always Collapsed */}
-        <div className="md:hidden">
-          <div ref={mobileTopBarRef} className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
-            <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(56vw, 210px)", padding: 0, margin: 0, lineHeight: 0 }}>
+        {/* Phone and tablet top bar (below lg: from 768px up to ~1000px the
+            desktop row's quote, centred logo, clocks and eight controls
+            overlapped and pushed search and the account menu off screen).
+            Three things only, so each gets real room: the
+            lockup at full size, a live quote that doubles as the symbol
+            switcher, and search + menu. Everything else — tools, palette,
+            language, dark mode, the account — lives in the menu sheet.
+            It used to carry all eight controls in one row, which left the
+            logo a few pixels wide and clipped. */}
+        <div className="lg:hidden">
+          <div ref={mobileTopBarRef} className="zg-mbar">
+            <Link href="/" aria-label="ZeroGEX home" className="zg-mbar-logo">
               <Image
                 {...brandTitle(theme === "dark")}
                 alt="ZeroGEX"
                 priority
-                // Fit the lockup fully inside the mobile top bar: cap it to the
-                // bar height AND the (flex-shrunk) container width so it never
-                // clips top/bottom or on the right the way a fixed 130%-height,
-                // width:auto image did once the icons on the right claimed space.
-                style={{
-                  height: "auto",
-                  width: "auto",
-                  maxHeight: "100%",
-                  maxWidth: "100%",
-                  objectFit: "contain",
-                  objectPosition: "left center",
-                  display: "block",
-                  margin: 0,
-                  padding: 0,
-                }}
+                sizes="120px"
+                className="zg-mbar-logo-img"
               />
             </Link>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <PageSnapshotButton compact />
-              <Link href="/search" aria-label="Search" className="zg-icon-btn zg-icon-btn--sm">
-                <Search size={16} />
-              </Link>
-              <OptionsCalendarBadge theme={theme} compact mobile />
-              <NewsHeadlinesBadge theme={theme} compact mobile />
-              <button
-                onClick={onToggleTheme}
-                className="zg-icon-btn zg-icon-btn--sm"
-                aria-label={t('menu.toggleTheme')}
+
+            <div className="zg-mquote" title={mobileQuoteTitle}>
+              <select
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
+                aria-label={`Symbol: ${symbol}. Change symbol`}
               >
-                {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
-              </button>
-              <ThemeDropdown />
-              <LanguageDropdown compact />
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="zg-icon-btn zg-icon-btn--sm mr-1"
-                style={{ border: "0" }}
-                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-                aria-expanded={mobileMenuOpen}
-              >
-                {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
-              </button>
+                {SYMBOLS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <span className="zg-mquote-sym" aria-hidden>
+                <span className="zg-mquote-dot" style={{ background: sessionDotColor }} />
+                {symbol}
+                <ChevronDown size={12} strokeWidth={2.5} />
+              </span>
+              <span className="zg-mquote-px" aria-hidden>
+                <span className="zg-metric zg-mquote-price">
+                  {mobileQuotePrice !== null ? mobileQuotePrice.toFixed(2) : "—"}
+                </span>
+                {mobileQuotePct !== null && (
+                  <span
+                    className="zg-mquote-chg"
+                    style={{ color: mobileQuotePositive ? "var(--color-bull)" : "var(--color-bear)" }}
+                  >
+                    {mobileQuoteExtended && (extendedHoursIcon === "moon" ? <Moon size={9} /> : <Sun size={9} />)}
+                    {mobileQuotePositive ? "+" : ""}
+                    {mobileQuotePct.toFixed(2)}%
+                  </span>
+                )}
+              </span>
             </div>
-          </div>
 
-          {mobileMenuOpen && (
-            <div
-              className="space-y-4 overflow-y-auto overscroll-contain"
-              style={{
-                // Subtract the top-bar height PLUS the ~10px of header chrome
-                // above the menu (header padding + the top-bar's mb-1) so the
-                // scroll area ends just inside the viewport instead of spilling
-                // a few px past the fold and hiding the last row.
-                maxHeight:
-                  "calc(100dvh - var(--zgx-mobile-topbar-height, 44px) - 10px)",
-              }}
+            <Link href="/search" aria-label="Search" className="zg-icon-btn zg-touch-btn">
+              <Search size={19} />
+            </Link>
+            <button
+              type="button"
+              onClick={mobileMenuOpen ? closeMobileMenu : openMobileMenu}
+              className="zg-icon-btn zg-touch-btn"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+              aria-controls={MOBILE_MENU_ID}
             >
-              <div className="space-y-3">
-                {filteredMobileNavGroups.map((group) => {
-                  const isExpanded = mobileExpandedGroups[group.label] ?? false;
-                  const renderItem = (page: NavItem) => {
-                    const active = pathname === page.id;
-                    const isExternal = page.external === true;
-                    const lock = lockedTier(page);
-
-                    if (isExternal) {
-                      const targetHref = resolveNavTarget(page);
-                      return (
-                        <a
-                          key={page.id}
-                          href={targetHref}
-                          target={targetHref.startsWith("http") ? "_blank" : undefined}
-                          rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                          style={{
-                            background: "var(--bg-card)",
-                            borderColor: border,
-                            color: 'var(--text-primary)',
-                          }}
-                        >
-                          <span>{navLabel(page)}</span>
-                          {lock && <TierBadge tier={lock} />}
-                          {page.beta && <BetaBadge />}
-                        </a>
-                      );
-                    }
-
-                    return (
-                      <button
-                        key={page.id}
-                        onClick={() => {
-                          router.push(resolveNavTarget(page));
-                          setMobileMenuOpen(false);
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
-                        style={{
-                          background: "var(--bg-card)",
-                          borderColor: active ? `${'var(--color-brand-primary)'}60` : border,
-                          color: active ? 'var(--color-brand-primary)' : 'var(--text-primary)',
-                        }}
-                      >
-                        <span>{page.label}</span>
-                        {lock && <TierBadge tier={lock} />}
-                        {page.beta && <BetaBadge />}
-                      </button>
-                    );
-                  };
-
-                  return (
-                    <div key={group.label} className="rounded-lg border p-3" style={{ borderColor: border }}>
-                      <button
-                        type="button"
-                        onClick={() => setMobileExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
-                        className="mb-2 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: 'var(--color-brand-primary)' }}
-                      >
-                        {navLabel(group)}
-                        <ChevronDown size={14} style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
-                      </button>
-                      {isExpanded ? (
-                        <div className="grid grid-cols-1 gap-2">
-                          {group.items.map(renderItem)}
-                          {group.subgroups.map((subgroup) => {
-                            const subKey = `${group.label}::${subgroup.label}`;
-                            const isSubExpanded = mobileExpandedGroups[subKey] ?? false;
-                            const subgroupId = subgroup.id;
-                            const subgroupLock = lockedTier(subgroup);
-                            const subgroupActive = subgroupId != null && pathname === subgroupId;
-                            const subgroupLabelStyle = {
-                              color: subgroupActive
-                                ? 'var(--color-brand-primary)'
-                                : "var(--text-primary)",
-                              opacity: subgroupActive ? 1 : 0.8,
-                            };
-                            const toggleSubgroup = () =>
-                              setMobileExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
-                            const subgroupChevron = (
-                              <ChevronDown size={12} style={{ transform: isSubExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
-                            );
-                            return (
-                              <div key={subKey} className="mt-1 pl-2 border-l" style={{ borderColor: `${'var(--color-brand-primary)'}33` }}>
-                                {subgroupId ? (
-                                  // Two destinations, so the row splits: the
-                                  // label navigates, the chevron expands.
-                                  <div className="mb-1 flex w-full items-center text-[10px] font-semibold uppercase tracking-[0.16em]">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        router.push(resolveNavTarget({ id: subgroupId, requiredTier: subgroup.requiredTier }));
-                                        setMobileMenuOpen(false);
-                                      }}
-                                      className="flex-1 text-left bg-transparent flex items-center gap-1.5"
-                                      style={subgroupLabelStyle}
-                                    >
-                                      {navLabel(subgroup)}
-                                      {subgroupLock && <TierBadge tier={subgroupLock} />}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
-                                      aria-expanded={isSubExpanded}
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        toggleSubgroup();
-                                      }}
-                                      className="flex h-7 w-7 items-center justify-center rounded-md bg-transparent"
-                                      style={{ color: 'var(--text-primary)', opacity: 0.8 }}
-                                    >
-                                      {subgroupChevron}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  // Nothing to navigate to, so expanding is the
-                                  // row's only job and the whole row is the
-                                  // control — the label used to be inert, which
-                                  // left the 28px chevron the sole target.
-                                  <button
-                                    type="button"
-                                    onClick={toggleSubgroup}
-                                    aria-expanded={isSubExpanded}
-                                    className="mb-1 flex w-full items-center bg-transparent text-[10px] font-semibold uppercase tracking-[0.16em]"
-                                  >
-                                    <span className="flex-1 text-left flex items-center gap-1.5" style={subgroupLabelStyle}>
-                                      {navLabel(subgroup)}
-                                      {subgroupLock && <TierBadge tier={subgroupLock} />}
-                                    </span>
-                                    <span
-                                      className="flex h-7 w-7 items-center justify-center rounded-md"
-                                      style={{ color: 'var(--text-primary)', opacity: 0.8 }}
-                                    >
-                                      {subgroupChevron}
-                                    </span>
-                                  </button>
-                                )}
-                                {isSubExpanded ? (
-                                  <div className="grid grid-cols-1 gap-2">
-                                    {subgroup.items.map(renderItem)}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="flex gap-2">
-                <select
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
-                  className="flex-1 px-3 py-2 rounded-lg border text-sm font-semibold"
-                  style={{
-                    background: "var(--bg-card)",
-                    borderColor: border,
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  {SYMBOLS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {authSession?.authenticated && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      router.push("/account");
-                      setMobileMenuOpen(false);
-                    }}
-                    className="rounded-lg border px-3 py-2 text-sm font-semibold col-span-2"
-                    style={{ borderColor: border, color: 'var(--text-secondary)' }}
-                  >
-                    {t('menu.account')}
-                  </button>
-                )}
-                {canUpgrade && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      router.push("/pricing");
-                      setMobileMenuOpen(false);
-                    }}
-                    className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                    style={{ borderColor: border, color: 'var(--text-secondary)' }}
-                  >
-                    {t('menu.upgrade')}
-                  </button>
-                )}
-                {/* Unlike the desktop AccountMenu — whose trigger is inert
-                    until the session resolves, so its menu can never be opened
-                    early — this menu opens from a button that does not depend
-                    on auth at all. On a slow mobile connection it is genuinely
-                    reachable while /api/auth/session is still in flight, and a
-                    signed-in member would be shown "Log in". Hold the row's box
-                    and label it only once we know. */}
+              {mobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
+            </button>
+          </div>
+        </div>
+        <MobileMenuSheet
+          id={MOBILE_MENU_ID}
+          open={mobileMenuOpen}
+          onClose={closeMobileMenu}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          groups={filteredMobileNavGroups}
+          pathname={pathname}
+          expanded={mobileExpandedGroups}
+          onToggleExpanded={(key) =>
+            setMobileExpandedGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? false) }))
+          }
+          navLabel={navLabel}
+          lockedTier={lockedTier}
+          resolveNavTarget={resolveNavTarget}
+          market={
+            <>
+              <div className="zg-msheet-market-row">
+                <label className="zg-msheet-symbol">
+                  <span className="zg-eyebrow">Symbol</span>
+                  <span className="zg-msheet-symbol-field">
+                    <select value={symbol} onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}>
+                      {SYMBOLS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} aria-hidden />
+                  </span>
+                </label>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (authSession?.authenticated) {
-                      void handleLogout();
-                      return;
-                    }
-                    router.push("/login");
-                    setMobileMenuOpen(false);
-                  }}
-                  className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                  style={{
-                    borderColor: border,
-                    color: 'var(--text-secondary)',
-                    ...(authLoading ? { visibility: 'hidden' as const } : null),
-                  }}
-                  aria-hidden={authLoading ? true : undefined}
-                  tabIndex={authLoading ? -1 : undefined}
+                  className="zg-msheet-session"
+                  onClick={() => setShowCountdown(!showCountdown)}
+                  aria-pressed={showCountdown}
+                  title="Show the session countdown"
                 >
-                  {authLoading ? '\u00a0' : authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
+                  <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
                 </button>
               </div>
 
-              {/* Mobile: in pre-market / after-hours show ONLY the extended-hours
-                  quote with a leading session icon. Outside extended hours,
-                  fall back to the regular Row 1 quote. */}
+              {/* In pre-market / after-hours the extended-hours quote leads,
+                  with its session icon; otherwise the regular-session quote. */}
               {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null ? (
-                <div className="flex items-center gap-3 flex-wrap" title={row2Label}>
+                <div className="zg-msheet-quote" title={row2Label}>
                   {extendedHoursIcon === "moon" ? (
-                    <Moon size={20} style={{ color: 'var(--text-secondary)' }} />
+                    <Moon size={18} style={{ color: "var(--text-secondary)" }} />
                   ) : (
-                    <Sun size={20} style={{ color: 'var(--text-secondary)' }} />
+                    <Sun size={18} style={{ color: "var(--text-secondary)" }} />
                   )}
-                  <span className="zg-metric" style={{ fontSize: "1.5rem" }} title={row2Label}>
-                    ${row2Price.toFixed(2)}
-                  </span>
-                  <div
-                    className="zg-datum flex items-center gap-1.5 px-2.5 py-1 font-semibold text-sm"
+                  <span className="zg-metric zg-msheet-price">${row2Price.toFixed(2)}</span>
+                  <span
+                    className="zg-datum zg-msheet-change"
                     title={row2ChangeLabel}
-                    style={{
-                      borderRadius: 'var(--radius-control)',
-                      backgroundColor:
-                        theme === "dark"
-                          ? `${row2Positive ? 'var(--color-bull)' : 'var(--color-bear)'}15`
-                          : `${row2Positive ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
-                      color: row2Positive ? 'var(--color-bull)' : 'var(--color-bear)',
-                    }}
+                    style={{ "--chg": row2Positive ? "var(--color-bull)" : "var(--color-bear)" } as React.CSSProperties}
                   >
-                    {row2Positive ? (
-                      <TrendingUp size={14} strokeWidth={2.5} />
-                    ) : (
-                      <TrendingDown size={14} strokeWidth={2.5} />
-                    )}
+                    {row2Positive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
                     {row2Positive ? "+" : ""}
                     {row2Change.toFixed(2)} ({row2Positive ? "+" : ""}
                     {row2ChangePercent.toFixed(2)}%)
-                  </div>
+                  </span>
                 </div>
               ) : row1Price !== null ? (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span
-                    className="zg-metric"
-                    style={{ fontSize: "1.5rem" }}
-                    title={row1PriceLabel}
-                  >
+                <div className="zg-msheet-quote">
+                  <span className="zg-metric zg-msheet-price" title={row1PriceLabel}>
                     ${row1Price.toFixed(2)}
                   </span>
+                  {row1Change !== null && row1ChangePercent !== null && (
+                    <span
+                      className="zg-datum zg-msheet-change"
+                      title={row1ChangeLabel}
+                      style={{ "--chg": row1Positive ? "var(--color-bull)" : "var(--color-bear)" } as React.CSSProperties}
+                    >
+                      {row1Positive ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
+                      {row1Positive ? "+" : ""}
+                      {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
+                      {row1ChangePercent.toFixed(2)}%)
+                    </span>
+                  )}
                   {futuresTicker && (
                     <FuturesContractBadge
                       contract={quoteData?.data_contract}
                       expiry={quoteData?.data_contract_expiry}
                       className="zg-chip w-fit"
-                      fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                      fallbackTitle={`Outside cash session\u00a0- showing ${futuresTicker} futures for ${symbol}`}
                       style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                     >
                       ◆ {futuresTicker} FUT
@@ -938,45 +793,58 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                     stale={quoteData?.stale}
                     dataAgeSeconds={quoteData?.data_age_seconds}
                   />
-                  {row1Change !== null && row1ChangePercent !== null && (
-                    <div
-                      className="zg-datum flex items-center gap-1.5 px-2.5 py-1 font-semibold text-sm"
-                      title={row1ChangeLabel}
-                      style={{
-                        borderRadius: 'var(--radius-control)',
-                        backgroundColor:
-                          theme === "dark"
-                            ? `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}15`
-                            : `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
-                        color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)',
-                      }}
-                    >
-                      {row1Positive ? (
-                        <TrendingUp size={14} strokeWidth={2.5} />
-                      ) : (
-                        <TrendingDown size={14} strokeWidth={2.5} />
-                      )}
-                      {row1Positive ? "+" : ""}
-                      {row1Change.toFixed(2)} ({row1Positive ? "+" : ""}
-                      {row1ChangePercent.toFixed(2)}%)
-                    </div>
-                  )}
                 </div>
               ) : null}
 
-              <WorldClocks theme={theme} session={session} />
-              <div className="flex items-center gap-2">
-                <div onClick={() => setShowCountdown(!showCountdown)}>
-                  <SessionBadge
-                    session={session}
-                    theme={theme}
-                    showCountdown={showCountdown}
-                  />
-                </div>
-              </div>
+              <WorldClocks theme={theme} session={session} compact />
+            </>
+          }
+          tools={
+            <>
+              <OptionsCalendarBadge theme={theme} compact mobile label="Calendar" />
+              <NewsHeadlinesBadge theme={theme} compact mobile label="Headlines" />
+              <PageSnapshotButton compact label="Snapshot" />
+            </>
+          }
+          account={
+            <div className="zg-msheet-account-grid">
+              {canUpgrade && (
+                <Link href="/pricing" className="zg-btn zg-btn--primary" onClick={closeMobileMenu}>
+                  {t('menu.upgrade')}
+                </Link>
+              )}
+              {authSession?.authenticated && (
+                <Link href="/account" className="zg-btn zg-btn--secondary" onClick={closeMobileMenu}>
+                  {t('menu.account')}
+                </Link>
+              )}
+              {/* Unlike the desktop AccountMenu — whose trigger is inert until
+                  the session resolves, so its menu can never be opened early —
+                  this sheet opens from a button that does not depend on auth
+                  at all. On a slow mobile connection it is genuinely reachable
+                  while /api/auth/session is still in flight, and a signed-in
+                  member would be shown "Log in". Hold the row's box and label
+                  it only once we know. */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (authSession?.authenticated) {
+                    void handleLogout();
+                    return;
+                  }
+                  router.push("/login");
+                  closeMobileMenu();
+                }}
+                className="zg-btn zg-btn--secondary"
+                style={authLoading ? { visibility: 'hidden' as const } : undefined}
+                aria-hidden={authLoading ? true : undefined}
+                tabIndex={authLoading ? -1 : undefined}
+              >
+                {authLoading ? ' ' : authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
+              </button>
             </div>
-          )}
-        </div>
+          }
+        />
       </div>
     </header>
   );

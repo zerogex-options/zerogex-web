@@ -64,7 +64,7 @@ export default function EodPressurePage() {
         title="EOD Pressure"
         subtitle={'"Is the close getting pinned?"'}
         icon={Hourglass}
-        tooltip="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
+        tooltip="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30-16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -73,7 +73,7 @@ export default function EodPressurePage() {
         <div className="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-sm flex items-start gap-3">
           <Timer size={16} className="text-[var(--color-warning)] mt-0.5" />
           <div>
-            <div className="font-semibold">Inactive — EOD window opens at 14:30 ET</div>
+            <div className="font-semibold">Inactive&nbsp;- EOD window opens at 14:30 ET</div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
               Score returns 0 outside the activation window; live fields will populate as the close approaches.
             </div>
@@ -102,8 +102,8 @@ export default function EodPressurePage() {
             />
           </div>
 
-          <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+          <div className="lg:col-span-3 grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Timer size={14} /> Time ramp</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{timeRamp.toFixed(2)}</AutoFitValue>
               <div className="relative mt-3 h-3 rounded-full bg-[var(--color-border)]/40 overflow-hidden">
@@ -112,7 +112,7 @@ export default function EodPressurePage() {
               <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Linear 0 → 1 from 14:30 to 15:45 ET.</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Pin size={14} /> Pin target</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{formatPrice(pinTarget)}</AutoFitValue>
               <div className="mt-2 text-xs text-[var(--color-text-secondary)]">
@@ -120,7 +120,7 @@ export default function EodPressurePage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Gauge size={14} /> Charm @ spot</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: charmAtSpot != null && charmAtSpot > 0 ? 'var(--color-bull)' : charmAtSpot != null && charmAtSpot < 0 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
                 {charmAtSpot != null ? `${charmAtSpot >= 0 ? '+' : ''}${(charmAtSpot / 1e6).toFixed(2)}M` : '—'}
@@ -128,7 +128,7 @@ export default function EodPressurePage() {
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Signed dollar-delta of dealer charm within ATM band{atmBandPct ? ` (±${(atmBandPct * 100).toFixed(2)}%)` : ''}.</p>
             </div>
 
-            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><CalendarClock size={14} /> Gamma regime</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: gammaRegime === 'positive' ? 'var(--color-bull)' : gammaRegime === 'negative' ? 'var(--color-bear)' : 'var(--color-warning)' }}>{humanize(gammaRegime)}</AutoFitValue>
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Positive → dealers pull toward pin. Negative → dealers amplify moves away.</p>
@@ -140,8 +140,8 @@ export default function EodPressurePage() {
       <SignalHowItsBuilt
         caveat={<>Activation window: 14:30 ET → 16:00 ET. Ramp reaches 1.0 by ~15:45 ET. Outside the window the score is forced to 0.</>}
       >
-        <div><code>Charm Score = tanh(Charm at Spot / 20M)</code> across an ATM band — captures accelerating delta decay into the close.</div>
-        <div><code>Pin Gravity = sign(Net GEX) × min(1.0, Pin Distance % / 0.3%)</code> — flips direction when dealers cross to short gamma.</div>
+        <div><code>Charm Score = tanh(Charm at Spot / 20M)</code> across an ATM band&nbsp;- captures accelerating delta decay into the close.</div>
+        <div><code>Pin Gravity = sign(Net GEX) × min(1.0, Pin Distance % / 0.3%)</code>&nbsp;- flips direction when dealers cross to short gamma.</div>
         <div><code>Score = (0.6 · Charm + 0.4 · Pin) × Calendar Amp × Time Ramp</code>. OpEx 1.5×, quad-witching 2.0×.</div>
       </SignalHowItsBuilt>
 

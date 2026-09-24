@@ -3,9 +3,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
+import { directionColor } from '@/components/ActionCard';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { etUtcOffsetLabel, formatEtTime } from '@/core/etTimestamp';
+import { humanize } from '@/core/signalHelpers';
 import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
 import DataUnavailable from '@/components/DataUnavailable';
 
@@ -27,6 +30,16 @@ interface ScorecardSignalRow {
   avg_directional_return: number | null;
 }
 
+interface ScorecardCardRow {
+  id: number;
+  timestamp: string;
+  pattern: string | null;
+  action: string | null;
+  tier: string | null;
+  direction: string | null;
+  confidence: number | null;
+}
+
 interface ScorecardPayload {
   date: string;
   symbol: string;
@@ -37,6 +50,9 @@ interface ScorecardPayload {
     by_action: Array<{ action: string; count: number }>;
     first_card_id: number | null;
     first_card_permalink: string | null;
+    /** Every card of the day, oldest first. Absent from backends that predate
+     *  the list, in which case the page falls back to the first-call link. */
+    items?: ScorecardCardRow[];
   };
   signals: {
     events: ScorecardSignalRow[];
@@ -104,7 +120,7 @@ export async function generateMetadata({
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
-    return { title: 'Scorecard not found — ZeroGEX', robots: { index: false, follow: false } };
+    return { title: 'Scorecard not found\u00a0- ZeroGEX', robots: { index: false, follow: false } };
   }
   // Metadata does not need the missing/unavailable distinction: both fall back
   // to the generic copy below, which is correct either way. Unwrap to the
@@ -114,8 +130,8 @@ export async function generateMetadata({
   const data = scorecard.ok ? scorecard.data : null;
   const human = formatHumanDate(date);
   const title = data && !data.is_empty
-    ? `${sym} · ${human} Recap — ZeroGEX Scorecard`
-    : `${sym} · ${human} — ZeroGEX Scorecard`;
+    ? `${sym} · ${human} Recap\u00a0- ZeroGEX Scorecard`
+    : `${sym} · ${human}\u00a0- ZeroGEX Scorecard`;
   const description = data?.tweet_text
     ? data.tweet_text.split('\n')[0]
     : 'Daily aggregate of ZeroGEX Playbook calls + per-signal P&L. One number per day, time-stamped and shareable.';
@@ -161,6 +177,10 @@ export default async function ScorecardPage({
     );
   }
   const data = result.data;
+  const cardItems = data.cards.items ?? [];
+  // The engine only runs on weekdays and DST switches on a Sunday, so one
+  // offset covers every card of the day.
+  const callsOffset = etUtcOffsetLabel(new Date(`${date}T12:00:00Z`));
 
   const human = formatHumanDate(date);
   const regimeLabel = data.regime?.label || 'unknown';
@@ -190,21 +210,27 @@ export default async function ScorecardPage({
       </div>
 
       <header className="mb-6">
-        <div className="flex items-start justify-between gap-4">
+        {/* Picker under the title on a phone: beside it, it squeezed the date
+            heading into one-word lines and ran its last chips off screen. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+            <div className="text-[11px] uppercase tracking-[0.16em] sm:tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
               ZeroGEX · Scorecard
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
               {sym} · {human}
             </h1>
           </div>
-          <SymbolPicker current={sym} hrefs={pickerHrefs} />
+          {/* Six chips are ~350px: on a phone they scroll sideways, edge to
+              edge, rather than run off the screen. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+            <SymbolPicker current={sym} hrefs={pickerHrefs} />
+          </div>
         </div>
         {data.is_empty ? (
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Quiet tape. No Playbook calls were emitted and no signals flipped direction. Either a
-            non-trading day or a flat session — the engine refuses to manufacture a setup just to
+            non-trading day or a flat session&nbsp;- the engine refuses to manufacture a setup just to
             have something to say.
           </p>
         ) : (
@@ -218,7 +244,11 @@ export default async function ScorecardPage({
           value={data.cards.total.toString()}
           accent="var(--color-warning)"
           hint={
-            data.cards.first_card_permalink ? (
+            cardItems.length > 0 ? (
+              <a href="#playbook-calls" className="underline">
+                See every call ↓
+              </a>
+            ) : data.cards.first_card_permalink ? (
               <Link href={data.cards.first_card_permalink} className="underline">
                 Open first call ↗
               </Link>
@@ -243,7 +273,7 @@ export default async function ScorecardPage({
 
       <section
         className="mb-8 rounded-xl border-2 px-5 py-4"
-        style={{ borderColor: regimeColor, background: `linear-gradient(135deg, ${regimeColor}10 0%, transparent 60%)` }}
+        style={{ borderColor: regimeColor, background: `linear-gradient(135deg, color-mix(in srgb, ${regimeColor} 6%, transparent) 0%, transparent 60%)` }}
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
@@ -267,12 +297,104 @@ export default async function ScorecardPage({
         </div>
       </section>
 
+      {cardItems.length > 0 && (
+        <section id="playbook-calls" className="mb-8 scroll-mt-20">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] sm:tracking-[0.18em]">
+            All Playbook calls · {data.cards.total}
+          </h2>
+          <p className="mb-3 text-xs text-[var(--color-text-secondary)]">
+            Oldest first. Times are Eastern ({callsOffset}).
+            {cardItems.length < data.cards.total
+              ? ` Showing the first ${cardItems.length} of ${data.cards.total}.`
+              : null}
+          </p>
+          <ul className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+            {cardItems.map((card) => {
+              const color = directionColor(card.direction ?? undefined);
+              const detail = [humanize(card.pattern), card.tier].filter(Boolean).join(' · ');
+              return (
+                <li key={card.id}>
+                  <Link
+                    href={`/cards/${card.id}`}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
+                  >
+                    <time
+                      dateTime={card.timestamp}
+                      title={card.timestamp}
+                      className="w-16 shrink-0 font-mono text-xs text-[var(--color-text-secondary)] sm:w-20 sm:text-sm"
+                    >
+                      {formatEtTime(card.timestamp) ?? '—'}
+                    </time>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold uppercase tracking-tight" style={{ color }}>
+                        {humanize(card.action) || 'Action Card'}
+                      </div>
+                      {detail && (
+                        <div className="truncate font-mono text-[11px] text-[var(--color-text-secondary)]">
+                          {detail}
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-mono text-sm font-bold" style={{ color }}>
+                        {typeof card.confidence === 'number' ? card.confidence.toFixed(2) : '—'}
+                      </div>
+                      <div className="font-mono text-[11px] text-[var(--color-text-secondary)]">
+                        #{card.id}
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {data.signals.events.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.1em] text-[var(--color-text-secondary)] sm:tracking-[0.18em]">
             All signals · {data.horizon_minutes}-minute forward return
           </h2>
-          <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+          {/* Phone: one row per signal, every column still present. The
+              640px table below only showed Signal / Flips / Scored on a
+              phone, with the results a sideways scroll away. */}
+          <ul className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] sm:hidden">
+            {data.signals.events.map((row) => {
+              const avg = row.avg_directional_return;
+              const unscorable = row.scored === 0 && row.flips > 0;
+              const color =
+                avg == null ? 'var(--color-text-secondary)' :
+                avg > 0 ? 'var(--color-bull)' :
+                avg < 0 ? 'var(--color-bear)' :
+                'var(--color-text-secondary)';
+              const Arrow = avg != null && avg > 0 ? TrendingUp : avg != null && avg < 0 ? TrendingDown : null;
+              return (
+                <li key={row.name} className="px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium">{humanizeName(row.name)}</span>
+                    {unscorable ? (
+                      <span className="shrink-0 text-xs italic text-[var(--color-text-secondary)]">not scorable</span>
+                    ) : (
+                      <span className="shrink-0 font-mono text-sm" style={{ color }}>
+                        {Arrow ? <Arrow size={12} className="inline mr-1 -mt-0.5" /> : null}
+                        {formatPct(avg)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
+                    {row.flips} flips ·{' '}
+                    <span style={{ color: row.scored < row.flips ? 'var(--color-warning)' : undefined }}>
+                      {row.scored} scored
+                    </span>{' '}
+                    · <span style={{ color: 'var(--color-bull)' }}>{row.wins}W</span>{' '}
+                    <span style={{ color: 'var(--color-bear)' }}>{row.losses}L</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] sm:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-[var(--color-surface-subtle)] text-[10px] uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
@@ -340,10 +462,11 @@ export default async function ScorecardPage({
         </section>
       )}
 
-      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
+      <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this scorecard</div>
         Daily aggregate of the ZeroGEX engine&rsquo;s output for {sym}. &ldquo;Playbook calls&rdquo;
-        counts every non-STAND_DOWN Action Card persisted that day; each one has its own
+        counts every non-STAND_DOWN Action Card persisted that day, midnight to midnight
+        Eastern, so it includes calls issued before the open; each one has its own
         /cards/{'<id>'} permalink. &ldquo;Best/Worst signal&rdquo; picks the signal whose
         direction-flip events that day produced the highest/lowest average 60-minute forward
         return on {sym}, with a 2-flip minimum so a single outlier doesn&rsquo;t crown a signal
@@ -351,8 +474,8 @@ export default async function ScorecardPage({
         the forward price always comes from the same regular session, so a flip inside the last{' '}
         {data.horizon_minutes} minutes has nothing to grade against and is counted but not scored.
         A signal that only fires near the bell can read &ldquo;not scorable&rdquo; for a whole
-        session — that is an absent measurement, not a flat one. The receipt is immutable once
-        written — the engine cannot retroactively edit a published scorecard.
+        session&nbsp;- that is an absent measurement, not a flat one. The receipt is immutable once
+        written&nbsp;- the engine cannot retroactively edit a published scorecard.
       </section>
     </main>
   );

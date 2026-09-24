@@ -1,16 +1,16 @@
 # Gamma Exposure (GEX) Explained: The Complete Guide
 
-*Gamma exposure explained from the ground up — what GEX is, how dealer gamma is calculated and signed, why the regime above and below the flip behaves so differently, and how to actually use it inside a session.*
+*Gamma exposure explained from the ground up - what GEX is, how dealer gamma is calculated and signed, why the regime above and below the flip behaves so differently, and how to actually use it inside a session.*
 
 ---
 
 ## Why gamma exposure matters
 
-Most of the price action that traders try to read on a chart is a downstream effect of something happening one layer below: **dealer hedging flows**. Market makers sit on the other side of every option trade, and to stay delta-neutral, they continuously buy and sell the underlying as price moves. Whether they buy weakness or sell it — whether they dampen volatility or amplify it — depends on one structural variable: their **gamma exposure**.
+Most of the price action that traders try to read on a chart is a downstream effect of something happening one layer below: **dealer hedging flows**. Market makers sit on the other side of every option trade, and to stay delta-neutral, they continuously buy and sell the underlying as price moves. Whether they buy weakness or sell it - whether they dampen volatility or amplify it - depends on one structural variable: their **gamma exposure**.
 
-Gamma exposure (GEX) is the cleanest way to read what that dealer book is doing. It tells you whether the structural force in the tape is pushing toward stability or instability, whether breakouts are likely to extend or fade, and whether the strikes you see on the chain are absorbing flow or releasing it. It does not tell you direction. It tells you the **character of the regime** you are trading in — and that is most of the edge.
+Gamma exposure (GEX) is the cleanest way to read what that dealer book is doing. It tells you whether the structural force in the tape is pushing toward stability or instability, whether breakouts are likely to extend or fade, and whether the strikes you see on the chain are absorbing flow or releasing it. It does not tell you direction. It tells you the **character of the regime** you are trading in - and that is most of the edge.
 
-This piece is the comprehensive read. We will cover what gamma exposure is, how it is built from the chain, the mechanics of positive versus negative gamma regimes, the role of the gamma flip and the gamma walls, and the practical workflow for using all of it intraday. For the deeper trader-facing reads on each sub-topic, this guide links out to [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip), [Gamma Walls Explained](/education/gamma-walls-explained), and [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained). For specific second-order Greeks, see [Vanna and Charm Explained for Options Traders](/education/vanna-and-charm-explained), and for the pinning-versus-magnet discussion, see [Max Pain Explained — and Does It Actually Work?](/education/max-pain-explained).
+This piece is the comprehensive read. We will cover what gamma exposure is, how it is built from the chain, the mechanics of positive versus negative gamma regimes, the role of the gamma flip and the gamma walls, and the practical workflow for using all of it intraday. For the deeper trader-facing reads on each sub-topic, this guide links out to [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip), [Gamma Walls Explained](/education/gamma-walls-explained), and [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained). For specific second-order Greeks, see [Vanna and Charm Explained for Options Traders](/education/vanna-and-charm-explained), and for the pinning-versus-magnet discussion, see [Max Pain Explained - and Does It Actually Work?](/education/max-pain-explained).
 
 ---
 
@@ -24,14 +24,14 @@ Three quick definitions to ground the rest of this piece.
 
 Gamma is a second-order Greek that measures the **rate of change of delta** with respect to the underlying. Delta is how sensitive an option's price is to the underlying; gamma is how sensitive that sensitivity is. If delta is speed, gamma is acceleration.
 
-Gamma is highest at the money and decays in both directions away from spot. It also decays with time — long-dated options have less gamma per contract than short-dated ones. The strongest gamma in any chain sits in the at-the-money, short-dated strikes, which is one reason 0DTE flow has reshaped intraday structure so completely.
+Gamma is highest at the money and decays in both directions away from spot. It also decays with time - long-dated options have less gamma per contract than short-dated ones. The strongest gamma in any chain sits in the at-the-money, short-dated strikes, which is one reason 0DTE flow has reshaped intraday structure so completely.
 
 ### Why dealer gamma matters specifically
 
 Dealers do not hold options to speculate. They warehouse them as inventory, hedging out the delta as quickly as they can. Their gamma exposure determines how that hedge has to change as price moves.
 
-- A dealer who is **short gamma** tends to trade **with** the move to stay flat — buying as price rises, selling as it falls. That hedging tends to amplify the move.
-- A dealer who is **long gamma** tends to trade **against** the move to stay flat — selling as price rises, buying as it falls. That hedging tends to dampen the move.
+- A dealer who is **short gamma** tends to trade **with** the move to stay flat - buying as price rises, selling as it falls. That hedging tends to amplify the move.
+- A dealer who is **long gamma** tends to trade **against** the move to stay flat - selling as price rises, buying as it falls. That hedging tends to dampen the move.
 
 The aggregate dealer gamma exposure across the chain is, in effect, an estimate of how much underlying flow the market makers will have to push through during a given price move, and in which direction. That is what GEX captures.
 
@@ -61,16 +61,16 @@ Where:
 - `spot²` converts gamma (which is itself per-dollar) into a hedge-flow magnitude.
 - `0.01` rescales the result to a "per 1% move" interpretation, which is the industry convention.
 
-The dollar interpretation is what makes the number useful: it answers "how much underlying do dealers have to trade if spot moves 1%?" — at a single strike, and then aggregated across the chain.
+The dollar interpretation is what makes the number useful: it answers "how much underlying do dealers have to trade if spot moves 1%?" - at a single strike, and then aggregated across the chain.
 
 ### Signed gamma exposure
 
-Raw gamma magnitude carries no dealer sign on its own — a *long* option, call or put, has positive gamma, and a *short* option has negative gamma. Open interest tells you a contract exists, not whether a dealer is long or short it. To turn magnitude into a regime signal you have to assign a sign, and that takes a model of who holds what. The standard convention assumes:
+Raw gamma magnitude carries no dealer sign on its own - a *long* option, call or put, has positive gamma, and a *short* option has negative gamma. Open interest tells you a contract exists, not whether a dealer is long or short it. To turn magnitude into a regime signal you have to assign a sign, and that takes a model of who holds what. The standard convention assumes:
 
 - Customers are typically net sellers of calls (call overwriting) and net buyers of puts (downside protection).
-- Dealers are therefore modeled as holding the other side — net long the calls and net short the puts. Under that assumption their call inventory (long) contributes positive gamma and their put inventory (short) contributes negative gamma. The minus sign on the put side comes from the modeled *short* position, not from puts being "negative gamma" in themselves — a long put has positive gamma too.
+- Dealers are therefore modeled as holding the other side - net long the calls and net short the puts. Under that assumption their call inventory (long) contributes positive gamma and their put inventory (short) contributes negative gamma. The minus sign on the put side comes from the modeled *short* position, not from puts being "negative gamma" in themselves - a long put has positive gamma too.
 
-In practice, that produces a signed dealer GEX per strike — positive on the call side, negative on the put side under the convention — that, when summed, gives you the modeled net exposure across the chain.
+In practice, that produces a signed dealer GEX per strike - positive on the call side, negative on the put side under the convention - that, when summed, gives you the modeled net exposure across the chain.
 
 This is a modeled estimate, not observed inventory. Actual dealer positioning is not directly disclosed; it is inferred from open interest under the traditional long-call / short-put convention. Different vendors handle edge cases differently, and the assumption can break down in unusual flow conditions. As an estimator of regime, though, it has held up well enough to be the standard for years.
 
@@ -78,12 +78,12 @@ This is a modeled estimate, not observed inventory. Actual dealer positioning is
 
 Two aggregate numbers come from the same chain:
 
-- **Total GEX** is the sum of the *absolute* contribution at each strike — a magnitude reading, indifferent to sign. It tells you how much gamma is in the system overall.
-- **Net GEX** is the *signed* sum — calls minus puts. It tells you which side of the dealer book dominates, and whether the aggregate hedging reflex is dampening or amplifying.
+- **Total GEX** is the sum of the *absolute* contribution at each strike - a magnitude reading, indifferent to sign. It tells you how much gamma is in the system overall.
+- **Net GEX** is the *signed* sum - calls minus puts. It tells you which side of the dealer book dominates, and whether the aggregate hedging reflex is dampening or amplifying.
 
-> Net GEX is estimated/modeled dealer gamma computed under the traditional call-positive / put-negative open-interest convention — dealers modeled as net long the calls customers sell and net short the puts customers buy. It is not observed inventory; actual dealer positioning is not directly observable from public option-chain data.
+> Net GEX is estimated/modeled dealer gamma computed under the traditional call-positive / put-negative open-interest convention - dealers modeled as net long the calls customers sell and net short the puts customers buy. It is not observed inventory; actual dealer positioning is not directly observable from public option-chain data.
 
-Most regime work uses Net GEX. Magnitude matters too — a Net GEX of +$2B is a much sharper regime than +$200M — but the sign is the first read.
+Most regime work uses Net GEX. Magnitude matters too - a Net GEX of +$2B is a much sharper regime than +$200M - but the sign is the first read.
 
 ### Spot-shift dealer gamma versus per-strike aggregation
 
@@ -92,17 +92,17 @@ There are two ways to extract regime information from the chain:
 1. **Per-strike aggregation** sums signed gamma exposure at each strike at today's spot. It is fast and intuitive.
 2. **Spot-shift dealer gamma** re-prices every option's gamma at every hypothetical spot price on a grid, then sums to a *curve* of dealer gamma versus price. The zero crossing of that curve is the gamma flip; the value at today's spot is Net GEX-at-spot.
 
-ZeroGEX prefers a spot-shift profile because it evaluates modeled gamma across hypothetical underlying prices. Deriving headline Net GEX and the selected flip from the same profile improves internal consistency, while the resolver still must handle multiple, weak, or missing crossings and differences in expiration universes. The methodology behind the ZeroGEX implementation is documented in detail in [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
+ZeroGEX prefers a spot-shift profile because it evaluates modeled gamma across hypothetical underlying prices. Deriving headline Net GEX and the selected flip from the same profile improves internal consistency, while the resolver still must handle multiple, weak, or missing crossings and differences in expiration universes. The methodology behind the ZeroGEX implementation is documented in detail in [GEX and the Gamma Flip - How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 
 ## Positive versus negative gamma regimes
 
-The single most important read in dealer-positioning analysis is which side of the gamma flip spot is on. The mechanics are the inverse of each other — and the trades that work in one regime tend to be the wrong trades in the other.
+The single most important read in dealer-positioning analysis is which side of the gamma flip spot is on. The mechanics are the inverse of each other - and the trades that work in one regime tend to be the wrong trades in the other.
 
 ### Positive gamma regime
 
-Above the gamma flip, dealers are generally net long gamma. To stay delta-neutral, they hedge against directional moves — selling as price rises and buying as it falls. That reflex tends to:
+Above the gamma flip, dealers are generally net long gamma. To stay delta-neutral, they hedge against directional moves - selling as price rises and buying as it falls. That reflex tends to:
 
 - Compress realized volatility.
 - Pull price toward strikes with heavy gamma concentration, especially into the close.
@@ -113,7 +113,7 @@ The character of the tape is **range-bound and absorbing**. Pin behavior is more
 
 ### Negative gamma regime
 
-Below the gamma flip, dealers are generally net short gamma. To stay delta-neutral, they hedge with directional moves — buying as price rises and selling as it falls. That reflex tends to:
+Below the gamma flip, dealers are generally net short gamma. To stay delta-neutral, they hedge with directional moves - buying as price rises and selling as it falls. That reflex tends to:
 
 - Expand realized volatility.
 - Make breakouts extend further than they look like they should.
@@ -141,7 +141,7 @@ A few things worth being precise about:
 - It is **dynamic.** As OI rolls and the chain reweights, the flip drifts. A stale flip is a misleading flip.
 - It is a **filter, not a signal.** It tells you which playbook to run; the entry has to come from elsewhere.
 
-For the practical reading workflow — including what changes above versus below, how to act on it intraday, and the common mistakes — see [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+For the practical reading workflow - including what changes above versus below, how to act on it intraday, and the common mistakes - see [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 
 ---
 
@@ -151,7 +151,7 @@ If the flip is the regime boundary, the gamma walls are the structural boundarie
 
 The walls behave very differently in the two regimes:
 
-- In a **positive-gamma** regime, walls absorb. The dealer reflex around them is to fade moves — selling rallies into the call wall, buying dips into the put wall.
+- In a **positive-gamma** regime, walls absorb. The dealer reflex around them is to fade moves - selling rallies into the call wall, buying dips into the put wall.
 - In a **negative-gamma** regime, walls release. The same level that resisted price in long-gamma can become a breakout target.
 
 Walls also migrate. A call wall that drifts up as price tests it is a structurally different read than one that holds. For the full reading workflow, see [Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts](/education/gamma-walls-explained).
@@ -160,7 +160,7 @@ Walls also migrate. A call wall that drifts up as price tests it is a structural
 
 ## How GEX shapes intraday volatility
 
-Realized volatility — the actual amplitude of price moves during the session — is heavily shaped by the GEX regime, separately from implied volatility (which is what the option market is pricing for the future).
+Realized volatility - the actual amplitude of price moves during the session - is heavily shaped by the GEX regime, separately from implied volatility (which is what the option market is pricing for the future).
 
 The relationship is structural:
 
@@ -169,7 +169,7 @@ The relationship is structural:
 
 The magnitude matters as much as the sign. A flip from +$2B Net GEX to +$200M is a very different state than a flip from −$2B to +$200M, even though both arrive at a similar number. The first is a *fading* long-gamma regime; the second is a *building* one. The trajectory is part of the read.
 
-A common mistake is using GEX as a directional signal — "Net GEX is up, so the market is going up." That is not what it says. GEX tells you about the **character of the move**, not the direction of it. A positive-gamma regime can grind down just as easily as up, but it will tend to grind rather than break.
+A common mistake is using GEX as a directional signal - "Net GEX is up, so the market is going up." That is not what it says. GEX tells you about the **character of the move**, not the direction of it. A positive-gamma regime can grind down just as easily as up, but it will tend to grind rather than break.
 
 ---
 
@@ -179,11 +179,11 @@ A practical workflow:
 
 ### Step 1: Identify the regime
 
-Before anything else, check whether spot is above or below the gamma flip and what the Net GEX magnitude is. That single read filters out a huge share of bad trades — fades when you should be running with the move, breakouts when you should be fading them.
+Before anything else, check whether spot is above or below the gamma flip and what the Net GEX magnitude is. That single read filters out a huge share of bad trades - fades when you should be running with the move, breakouts when you should be fading them.
 
 ### Step 2: Read the walls within the regime
 
-Find the active call wall and put wall. In a positive-gamma regime, these are your absorbing boundaries — the structural range. In a negative-gamma regime, they are weaker as resistance and can flip into breakout targets.
+Find the active call wall and put wall. In a positive-gamma regime, these are your absorbing boundaries - the structural range. In a negative-gamma regime, they are weaker as resistance and can flip into breakout targets.
 
 ### Step 3: Watch migration
 
@@ -191,7 +191,7 @@ Levels are not static. A wall migrating with price (chasing the move) is a diffe
 
 ### Step 4: Account for 0DTE concentration
 
-When same-day options dominate the chain — which is increasingly the default for SPX during the cash session — the 0DTE bucket disproportionately drives intraday dealer behavior. The relevant gamma is the gamma at the strikes that will be alive at the close. The deeper treatment is in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
+When same-day options dominate the chain - which is increasingly the default for SPX during the cash session - the 0DTE bucket disproportionately drives intraday dealer behavior. The relevant gamma is the gamma at the strikes that will be alive at the close. The deeper treatment is in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
 
 ### Step 5: Layer in second-order Greeks where relevant
 
@@ -203,10 +203,10 @@ Gamma is not the whole picture. Vanna (vol-driven hedging) creates a persistent 
 
 GEX is the headline read, but it is not the whole dealer book. Two second-order Greeks materially shape dealer hedging flows on top of gamma:
 
-- **Vanna** is the sensitivity of delta to implied vol. When IV moves, dealers' option deltas move even if spot does not — and they generally hedge that. In a vol-compression regime, vanna-driven hedging from dealers' modeled short-put inventory can add a persistent grinding bid in the underlying, though its direction depends on the book's composition.
-- **Charm** is the sensitivity of delta to time. As options approach expiry, their delta drifts in a predictable direction — out-of-the-money options decay toward 0, in-the-money ones toward 1 for calls and −1 for puts — and dealers tend to re-hedge that drift continuously. The cleanest place to see charm in the tape is the final 90 minutes of the cash session.
+- **Vanna** is the sensitivity of delta to implied vol. When IV moves, dealers' option deltas move even if spot does not - and they generally hedge that. In a vol-compression regime, vanna-driven hedging from dealers' modeled short-put inventory can add a persistent grinding bid in the underlying, though its direction depends on the book's composition.
+- **Charm** is the sensitivity of delta to time. As options approach expiry, their delta drifts in a predictable direction - out-of-the-money options decay toward 0, in-the-money ones toward 1 for calls and −1 for puts - and dealers tend to re-hedge that drift continuously. The cleanest place to see charm in the tape is the final 90 minutes of the cash session.
 
-Both effects are largest when gamma is also large — which is to say, when 0DTE and short-dated options dominate the chain. Read them together with GEX, not in isolation.
+Both effects are largest when gamma is also large - which is to say, when 0DTE and short-dated options dominate the chain. Read them together with GEX, not in isolation.
 
 ---
 
@@ -226,13 +226,13 @@ A few traps:
 
 GEX is an estimator of dealer hedging requirements built from open interest under a standard assumption about who holds what. That makes it useful, but it is not a complete picture:
 
-- **OI is a snapshot, not real-time inventory.** Official open interest is computed through clearing and published for the next session, not updated continuously intraday — and it never reveals who is long or short. Dealer positioning shifts within the day in ways OI does not capture.
+- **OI is a snapshot, not real-time inventory.** Official open interest is computed through clearing and published for the next session, not updated continuously intraday - and it never reveals who is long or short. Dealer positioning shifts within the day in ways OI does not capture.
 - **The long-call / short-put convention can break.** During unusual flow conditions, the dealer-sign assumption can mis-attribute exposure.
 - **Macro events override structure.** A CPI surprise or an FOMC statement can swamp the dealer reflex.
 - **Single-stock catalysts can move index GEX indirectly.** Earnings, M&A, and component news can reshape SPX flow in ways that show up in GEX with a lag.
 - **Sticky-strike vs. sticky-delta** assumptions matter for spot-shift implementations; different vendors handle this differently.
 
-The right framing is that GEX is the cleanest single read on dealer-driven structural force in the tape — not the only force, not a forecast, and not a substitute for risk management.
+The right framing is that GEX is the cleanest single read on dealer-driven structural force in the tape - not the only force, not a forecast, and not a substitute for risk management.
 
 ---
 
@@ -243,7 +243,7 @@ The dashboard centralizes the live reads:
 - **The Net GEX card** shows the dealer-gamma-at-spot value (sign-consistent with the flip, computed from one curve).
 - **The Gamma Flip card** shows the current flip level with live distance from spot.
 - **The Call Wall and Put Wall cards** plot the live structural boundaries.
-- **The strike-profile chart** plots the dealer gamma profile across strikes — the curve from which Net GEX and the flip are both derived.
+- **The strike-profile chart** plots the dealer gamma profile across strikes - the curve from which Net GEX and the flip are both derived.
 - **The strike-by-DTE heatmap** breaks gamma down by expiry bucket, surfacing the 0DTE concentration that increasingly dominates the intraday read.
 
 ![ZeroGEX dashboard overview showing Net GEX, Gamma Flip, Call Wall, and Put Wall cards](/blog/zerogex-dashboard-overview.png)
@@ -255,22 +255,22 @@ A worked example. Suppose SPX is at 5,830 and the dashboard shows:
 - **Call Wall:** 5,850
 - **Put Wall:** 5,790
 
-The composite read: spot is comfortably in long-gamma territory ($20 above the flip), Net GEX is a substantial positive number indicating real magnitude in the dealer book, and the wall range is asymmetric with the call wall closer than the put wall. The practical lean: dampened vol regime, mean-reversion-friendly tape, breakouts more likely to fade than extend, and pin behavior toward heavy gamma concentration on the table into the close. None of that is a trade signal — it is the structural backdrop against which every other tool you use should be calibrated.
+The composite read: spot is comfortably in long-gamma territory ($20 above the flip), Net GEX is a substantial positive number indicating real magnitude in the dealer book, and the wall range is asymmetric with the call wall closer than the put wall. The practical lean: dampened vol regime, mean-reversion-friendly tape, breakouts more likely to fade than extend, and pin behavior toward heavy gamma concentration on the table into the close. None of that is a trade signal - it is the structural backdrop against which every other tool you use should be calibrated.
 
 ![ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted](/blog/zerogex-strike-profile-overview.png)
 
-Now imagine the same dashboard 90 minutes later: Net GEX has decayed to −$150M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where positive and negative modeled contributions are approximately offset, the net tendency is weak, and the right discipline is usually to wait for a cleaner read before committing.
+Now imagine the same dashboard 90 minutes later: Net GEX has decayed to −$150M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested - spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where positive and negative modeled contributions are approximately offset, the net tendency is weak, and the right discipline is usually to wait for a cleaner read before committing.
 
 ---
 
 ## Takeaway
 
-> Gamma exposure is not a prediction. It is a regime read — the structural force in the dealer book that shapes how the tape behaves, but does not on its own dictate direction.
+> Gamma exposure is not a prediction. It is a regime read - the structural force in the dealer book that shapes how the tape behaves, but does not on its own dictate direction.
 
 The discipline is to lead with the regime, read the structure inside it, watch how both migrate through the session, and let GEX filter which playbook makes sense rather than treating it as a signal in its own right. Most of the edge in dealer-positioning analysis is in *not taking* the trades that fight the dealer reflex.
 
-Educational content only — none of the above is a trade recommendation.
+Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's [full gamma exposure read in real time](/real-time-gex-0dte) — Net GEX, the gamma flip, the call and put walls, and the dealer gamma profile — [the free ZeroGEX dashboard](/spx-gamma-levels) surfaces all of it. For a side-by-side of how ZeroGEX compares with other gamma-exposure platforms, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's [full gamma exposure read in real time](/real-time-gex-0dte) - Net GEX, the gamma flip, the call and put walls, and the dealer gamma profile - [the free ZeroGEX dashboard](/spx-gamma-levels) surfaces all of it. For a side-by-side of how ZeroGEX compares with other gamma-exposure platforms, see [the best GEX tools guide](/education/best-gex-tools).

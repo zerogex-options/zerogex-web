@@ -9,11 +9,11 @@ export const dict: PageDictionary = {
     close: 'Close',
 
     // Step 1 — the save offer (shown first, before any cancel).
-    offerHeading: 'Wait — here’s {pct}% off to stay',
+    offerHeading: 'Wait\u00a0- here’s {pct}% off to stay',
     offerBody:
-      'I’d honestly rather keep you than lose you. Claim {pct}% off for a full year and your access just stays on — no re-subscribe, no re-entering a card. You’ll simply be charged the discounted rate at {date}.',
+      'I’d honestly rather keep you than lose you. Claim {pct}% off for a full year and your access just stays on\u00a0- no re-subscribe, no re-entering a card. You’ll simply be charged the discounted rate at {date}.',
     offerBodyNoDate:
-      'I’d honestly rather keep you than lose you. Claim {pct}% off for a full year and your access just stays on — no re-subscribe, no re-entering a card. You’ll simply be charged the discounted rate at the end of your current period.',
+      'I’d honestly rather keep you than lose you. Claim {pct}% off for a full year and your access just stays on\u00a0- no re-subscribe, no re-entering a card. You’ll simply be charged the discounted rate at the end of your current period.',
     applyDiscount: 'Keep my access & apply {pct}% off',
     applying: 'Applying…',
     declineToCancel: 'No thanks, continue to cancel',
@@ -21,18 +21,18 @@ export const dict: PageDictionary = {
     // Step 2 — reason capture (only if they declined the offer).
     reasonHeading: 'Sorry to see you go',
     reasonBody:
-      'Mind sharing why you’re canceling? It genuinely helps me fix what’s not working — but it’s optional.',
+      'Mind sharing why you’re canceling? It genuinely helps me fix what’s not working\u00a0- but it’s optional.',
     reasonCommentPlaceholder: 'Anything else you’d like me to know? (optional)',
     confirmCancel: 'Cancel my subscription',
     canceling: 'Canceling…',
-    keepPlan: 'Never mind — keep my plan',
+    keepPlan: 'Never mind\u00a0- keep my plan',
 
     // Terminal — saved.
-    savedHeading: 'You’re staying — welcome',
+    savedHeading: 'You’re staying\u00a0- welcome',
     savedBody:
-      'Done. {pct}% off for a year is on your account and your access continues. You’ll be charged the discounted rate at {date} — nothing else to do.',
+      'Done. {pct}% off for a year is on your account and your access continues. You’ll be charged the discounted rate at {date}\u00a0- nothing else to do.',
     savedBodyNoDate:
-      'Done. {pct}% off for a year is on your account and your access continues — nothing else to do.',
+      'Done. {pct}% off for a year is on your account and your access continues\u00a0- nothing else to do.',
 
     // Terminal — canceled.
     canceledHeading: 'Your subscription is set to cancel',
@@ -46,13 +46,13 @@ export const dict: PageDictionary = {
     pauseInstead: 'Pause instead of canceling',
     pauseHeading: 'Would a break help?',
     pauseBody:
-      "Pause your subscription instead — no charge and no access while it's paused, and it picks back up automatically. How long would you like?",
+      "Pause your subscription instead\u00a0- no charge and no access while it's paused, and it picks back up automatically. How long would you like?",
     pauseMonth: '{n} month',
     pauseMonths: '{n} months',
     pauseBack: 'Back',
     pausedHeading: 'Your subscription is paused',
     pausedBody:
-      "You won't be charged, and your access resumes automatically on {date}. Come back before then and I'll switch it right back on — nothing to re-set up.",
+      "You won't be charged, and your access resumes automatically on {date}. Come back before then and I'll switch it right back on\u00a0- nothing to re-set up.",
     pausedBodyNoDate:
       "You won't be charged while paused, and it resumes automatically. Come back anytime.",
 

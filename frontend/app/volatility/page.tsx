@@ -3,7 +3,7 @@
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import ChartPanel from '@/components/layout/ChartPanel';
-import { FilterBar, FilterChip } from '@/components/controls/Filters';
+import { FilterChip } from '@/components/controls/Filters';
 import { CHART_AXIS, CHART_GRID, CHART_TOOLTIP_PROPS } from '@/components/ChartTooltipShell';
 import { useMemo, useState } from 'react';
 import {
@@ -20,7 +20,8 @@ import {
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import FadeScrollRow from '@/components/FadeScrollRow';
 
 // ---- /api/gex/vol_surface response (per-strike call & put IV, ATM term structure) ----
 interface IvPoint { strike?: number | null; call_iv?: number | null; put_iv?: number | null; }
@@ -86,6 +87,13 @@ const fmtPct = (v: unknown): string => {
 
 export default function VolatilityPage() {
   const { symbol } = useTimeframe();
+  const isMobile = useIsMobile();
+  // Phone chart geometry: fit the card (no side margins), a little shorter,
+  // and a 10px/11px axis and legend rather than the default ~14px legend.
+  const chartHeight = isMobile ? 280 : 340;
+  const chartMargin = isMobile ? { top: 8, right: 4, left: 0, bottom: 4 } : { top: 8, right: 12, left: 0, bottom: 8 };
+  const axisProps = isMobile ? { ...CHART_AXIS, tick: { ...CHART_AXIS.tick, fontSize: 10 } } : CHART_AXIS;
+  const legendProps = isMobile ? { wrapperStyle: { fontSize: 11 } } : {};
 
   const { data: vsData, loading: vsLoading, error: vsError } = useApiData<VolSurfaceResponse>(
     `/api/gex/vol_surface?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
@@ -148,22 +156,25 @@ export default function VolatilityPage() {
         title="Volatility"
         beta
         sub={`Put against call implied vol across strikes, and realized vol against what the ${symbol} chain is pricing.`}
-        tooltip="Two questions about the same chain. The skew panel asks which side the market is paying up for: puts quoted above calls at the same distance from spot is downside fear being priced, calls above puts is right-tail demand. The realized-vs-implied panel asks whether that pricing has been earned — realized vol running below implied means options have been expensive relative to what the underlying actually delivered, above it means cheap. Neither is a signal on its own; both are the backdrop every gamma reading on this site sits against."
+        tooltip="Two questions about the same chain. The skew panel asks which side the market is paying up for: puts quoted above calls at the same distance from spot is downside fear being priced, calls above puts is right-tail demand. The realized-vs-implied panel asks whether that pricing has been earned&nbsp;- realized vol running below implied means options have been expensive relative to what the underlying actually delivered, above it means cheap. Neither is a signal on its own; both are the backdrop every gamma reading on this site sits against."
       />
 
       {/* Panel A — Put vs Call IV skew */}
       <ChartPanel
         className="mb-8"
-        title="Put vs Call IV — Skew"
+        title="Put vs Call IV&nbsp;- Skew"
         tooltip="Implied volatility of calls vs puts at each strike for the selected expiration. Puts trading above calls (a downside skew) is the market pricing more fear of a drop; calls above puts is upside / right-tail demand."
         actions={
-          <FilterBar>
+          // Seventeen expiries wrapped into four rows of chips on a phone.
+          // There they are one row that swipes sideways, its clipped ends
+          // faded; from `sm` up this is the FilterBar row it always was.
+          <FadeScrollRow className="flex flex-wrap items-center gap-2 max-sm:w-full max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:py-0.5 max-sm:[scrollbar-width:none] max-sm:[&>button]:min-h-8 max-sm:[&>button]:shrink-0">
             {tenors.map((d) => (
               <FilterChip key={d} active={d === activeDte} onClick={() => setSelectedDte(d)}>
                 {d}DTE
               </FilterChip>
             ))}
-          </FilterBar>
+          </FadeScrollRow>
         }
       >
         {atmSkew != null && (
@@ -171,8 +182,8 @@ export default function VolatilityPage() {
             ATM skew (put − call IV):{' '}
             <span style={{ color: atmSkew >= 0 ? 'var(--color-bear)' : 'var(--color-bull)', fontWeight: 600 }}>
               {atmSkew >= 0 ? '+' : ''}{atmSkew.toFixed(1)} pts
-            </span>{' '}
-            — {atmSkew >= 0 ? 'downside fear priced richer' : 'upside demand priced richer'}
+            </span>{' '}
+            - {atmSkew >= 0 ? 'downside fear priced richer' : 'upside demand priced richer'}
           </div>
         )}
 
@@ -183,23 +194,22 @@ export default function VolatilityPage() {
         ) : skew.length === 0 ? (
           <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>No IV data available for this expiration.</div>
         ) : (
-          <MobileScrollableChart>
-            <ResponsiveContainer width="100%" height={340}>
-              <LineChart data={skew} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <ResponsiveContainer width="100%" height={chartHeight}>
+              <LineChart data={skew} margin={chartMargin}>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis dataKey="strike" type="number" domain={['dataMin', 'dataMax']} {...CHART_AXIS} tickMargin={8} />
-                <YAxis {...CHART_AXIS} width={48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
+                <XAxis dataKey="strike" type="number" domain={['dataMin', 'dataMax']} {...axisProps} tickMargin={8} />
+                <YAxis {...axisProps} width={isMobile ? 38 : 48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
                 <Tooltip
                   {...CHART_TOOLTIP_PROPS}
+                  {...(isMobile ? { position: { y: 0 } } : {})}
                   formatter={(value, name) => [fmtPct(value), String(name)]}
                   labelFormatter={(l) => `Strike ${l}`}
                 />
-                <Legend />
+                <Legend {...legendProps} />
                 <Line type="monotone" dataKey="callIv" name="Call IV" stroke="var(--color-bull)" strokeWidth={2.5} dot={false} connectNulls />
                 <Line type="monotone" dataKey="putIv" name="Put IV" stroke="var(--color-bear)" strokeWidth={2.5} dot={false} connectNulls />
               </LineChart>
             </ResponsiveContainer>
-          </MobileScrollableChart>
         )}
       </ChartPanel>
 
@@ -222,17 +232,17 @@ export default function VolatilityPage() {
         {rv.length === 0 ? (
           <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading realized-vol history…</div>
         ) : (
-          <MobileScrollableChart>
-            <ResponsiveContainer width="100%" height={340}>
-              <LineChart data={rv} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <ResponsiveContainer width="100%" height={chartHeight}>
+              <LineChart data={rv} margin={chartMargin}>
                 <CartesianGrid {...CHART_GRID} />
-                <XAxis dataKey="date" {...CHART_AXIS} tickMargin={8} minTickGap={24} />
-                <YAxis {...CHART_AXIS} width={48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
+                <XAxis dataKey="date" {...axisProps} tickMargin={8} minTickGap={24} />
+                <YAxis {...axisProps} width={isMobile ? 38 : 48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
                 <Tooltip
                   {...CHART_TOOLTIP_PROPS}
+                  {...(isMobile ? { position: { y: 0 } } : {})}
                   formatter={(value, name) => [fmtPct(value), String(name)]}
                 />
-                <Legend />
+                <Legend {...legendProps} />
                 {impliedAtm != null && (
                   <ReferenceLine
                     y={impliedAtm.iv}
@@ -246,10 +256,9 @@ export default function VolatilityPage() {
                 <Line type="monotone" dataKey="rv20" name="Realized 20D" stroke="var(--regime-reversal)" strokeWidth={2.5} dot={false} connectNulls />
               </LineChart>
             </ResponsiveContainer>
-          </MobileScrollableChart>
         )}
         <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
-          Realized vol is computed from daily closes; the implied reference is the chain&apos;s current ~30-day ATM IV. A full historical implied-vol line is a small backend follow-up — the daily ATM-IV series already exists in the database.
+          Realized vol is computed from daily closes; the implied reference is the chain&apos;s current ~30-day ATM IV. A full historical implied-vol line is a small backend follow-up&nbsp;- the daily ATM-IV series already exists in the database.
         </p>
       </ChartPanel>
     </PageShell>

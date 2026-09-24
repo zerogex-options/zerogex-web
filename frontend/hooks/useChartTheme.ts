@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, useCallback } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 
 /**
@@ -125,17 +125,37 @@ function readChartTheme(): ChartTheme {
   return out as unknown as ChartTheme;
 }
 
+// What the server renders with: it has no stylesheet to read.
+const EMPTY_CHART_THEME: ChartTheme = (() => {
+  const out = {} as unknown as Record<string, unknown>;
+  for (const k of Object.keys(CSS_VAR_MAP)) out[k] = '';
+  out.series = ['', '', '', '', ''];
+  return out as unknown as ChartTheme;
+})();
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 /**
  * Reactive hook — returns the current palette's chart colors.
  * Updates whenever the palette or theme changes.
+ *
+ * The first render is empty on the client too, and a layout effect fills the
+ * real colors in before the browser paints. Reading them during that render
+ * (as this hook used to) made the hydration pass disagree with the server's
+ * empty-string colors; React does not repair mismatched attributes, so
+ * server-rendered markup colored through this hook could stay uncolored.
  */
 export function useChartTheme(): ChartTheme {
   const { theme, palette } = useTheme();
-  const [chart, setChart] = useState<ChartTheme>(() => readChartTheme());
+  const [chart, setChart] = useState<ChartTheme>(EMPTY_CHART_THEME);
 
   const refresh = useCallback(() => {
     setChart(readChartTheme());
   }, []);
+
+  useIsomorphicLayoutEffect(() => {
+    refresh();
+  }, [refresh]);
 
   useEffect(() => {
     // Wait one frame after theme/palette change so the CSS variables

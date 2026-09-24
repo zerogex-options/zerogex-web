@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useFlipSurface } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
-import MobileScrollableChart from './MobileScrollableChart';
 import TooltipWrapper from './TooltipWrapper';
 import ChartCaption from "./ChartCaption";
 
@@ -18,17 +17,27 @@ interface FlipSurfaceChartProps {
 
 const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
 
-const PAD_L = 56;
-// PAD_R reserves room for the color-bar (14px) plus its "+$X.XX" / "0" /
-// "-$X.XX" labels (~70px) and a ~22px gap to the plot.  The wall / spot /
-// contour legend now lives in a sidebar outside the canvas, so this is the
-// only legend the canvas itself has to budget for.
-const PAD_R = 118;
-// PAD_T holds three staggered rows of reference-line labels (Put Wall →
-// Call Wall → Spot, top to bottom) above the plot.  ~16px per row + a
-// small bottom buffer keeps the lowest label from kissing the plot edge.
-const PAD_T = 62;
-const PAD_B = 44;
+type Pads = { L: number; R: number; T: number; B: number };
+const DESKTOP_PADS: Pads = {
+  L: 56,
+  // R reserves room for the color-bar (14px) plus its "+$X.XX" / "0" /
+  // "-$X.XX" labels (~70px) and a ~22px gap to the plot.  The wall / spot /
+  // contour legend now lives in a sidebar outside the canvas, so this is the
+  // only legend the canvas itself has to budget for.
+  R: 118,
+  // T holds three staggered rows of reference-line labels (Put Wall →
+  // Call Wall → Spot, top to bottom) above the plot.  ~16px per row + a
+  // small bottom buffer keeps the lowest label from kissing the plot edge.
+  T: 62,
+  B: 44,
+};
+// Narrow (phone) layout. The 118px color-bar gutter and the 62px band of
+// staggered 13px level labels left a ~150px plot on a 390px screen; there the
+// color scale becomes a bar under the canvas and the level values a row above
+// it (both HTML), and the plot takes the width back.
+const NARROW_PADS: Pads = { L: 40, R: 10, T: 12, B: 40 };
+// A finger held this long before it moves is a crosshair scrub, not a scroll.
+const TOUCH_HOLD_MS = 260;
 
 // Reference-line label rows.  Each tracks the y-coordinate (with
 // textBaseline='bottom') for one type of guide so labels sitting close
@@ -52,6 +61,16 @@ const CALL_WALL_COLOR = 'var(--color-bull)';
 const PUT_WALL_COLOR = 'var(--color-bear)';
 const SPOT_COLOR = '#06B6D4';
 const FLIP_COLOR = 'var(--color-warning)';
+
+// A canvas cannot resolve CSS custom properties: `ctx.strokeStyle =
+// 'var(--color-bull)'` is rejected and the previous style (black) stays, so
+// the wall and flip lines drew black. Resolve them against the document at
+// draw time instead.
+function canvasColor(value: string): string {
+  const m = /^var\((--[\w-]+)\)$/.exec(value);
+  if (!m || typeof document === 'undefined') return value;
+  return getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || value;
+}
 
 // Bigger / bolder typography for the reference-line labels so they pop
 // against the navy / magenta gradient cells.
@@ -104,6 +123,29 @@ function formatGex(value: number | null | undefined): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
+// Nice 1/2/5 × 10^k price step at or above `raw` — spaces the narrow layout's
+// x labels to what fits instead of a fixed 5% of spot (which overprinted).
+function nicePriceStep(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / magnitude;
+  if (norm <= 1) return magnitude;
+  if (norm <= 2) return 2 * magnitude;
+  if (norm <= 5) return 5 * magnitude;
+  return 10 * magnitude;
+}
+
+// CSS gradient matching the canvas color map, short γ (left) → long γ
+// (right), for the narrow layout's horizontal color scale.
+const SCALE_GRADIENT_CSS = (() => {
+  const stops: string[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const ratio = -1 + (2 * i) / 8;
+    stops.push(`${rgbToCss(divergingColor(ratio))} ${(i / 8) * 100}%`);
+  }
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+})();
+
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -126,10 +168,17 @@ export default function FlipSurfaceChart({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [size, setSize] = useState({ w: 800, h: 420 });
+  // Narrow (phone) layout — see NARROW_PADS.
+  const narrow = isMobile && size.w < 700;
+  const pads = narrow ? NARROW_PADS : DESKTOP_PADS;
+  // `touch`: put down by a finger; the readout then pins to the top on the
+  // side away from the finger (`fx` = the finger's x in the canvas).
   const [hover, setHover] = useState<{
     horizon: number;
     price: number;
     value: number;
+    touch?: boolean;
+    fx?: number;
   } | null>(null);
 
   // The chart's container is only rendered once surface data arrives — before
@@ -151,15 +200,17 @@ export default function FlipSurfaceChart({
     // Seed `size` from the freshly-mounted container so the first paint
     // already uses the real layout dimensions instead of the {800, 420}
     // fallback while we wait for the first ResizeObserver callback.
+    // (A 260px floor rather than 320: a 360px phone gives the canvas ~296px,
+    // and a canvas wider than its card spills past the screen edge.)
     const rect = node.getBoundingClientRect();
     setSize({
-      w: Math.max(320, rect.width),
+      w: Math.max(260, rect.width),
       h: Math.max(320, rect.height),
     });
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (!cr) return;
-      const w = Math.max(320, cr.width);
+      const w = Math.max(260, cr.width);
       const h = Math.max(320, cr.height);
       setSize({ w, h });
     });
@@ -195,11 +246,11 @@ export default function FlipSurfaceChart({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const plotW = Math.max(10, cssW - PAD_L - PAD_R);
-    const plotH = Math.max(10, cssH - PAD_T - PAD_B);
+    const plotW = Math.max(10, cssW - pads.L - pads.R);
+    const plotH = Math.max(10, cssH - pads.T - pads.B);
 
-    ctx.fillStyle = 'var(--bg-card)';
-    ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
+    ctx.fillStyle = canvasColor('var(--bg-card)');
+    ctx.fillRect(pads.L, pads.T, plotW, plotH);
 
     const grid = surface.grid;
     const horizonsList = surface.horizons_days;
@@ -209,12 +260,12 @@ export default function FlipSurfaceChart({
     const gridMin = grid[0];
     const gridMax = grid[grid.length - 1];
     const xRange = Math.max(1e-9, gridMax - gridMin);
-    const xForPrice = (p: number) => PAD_L + plotW * ((p - gridMin) / xRange);
+    const xForPrice = (p: number) => pads.L + plotW * ((p - gridMin) / xRange);
 
     // Horizons rendered as equal-height bands.  Each profile row paints a
     // horizontal strip; the y-center of each band carries the horizon label.
     const bandHeight = plotH / horizonsList.length;
-    const yForBand = (idx: number) => PAD_T + bandHeight * idx;
+    const yForBand = (idx: number) => pads.T + bandHeight * idx;
     const yForHorizon = (h: number) => {
       const idx = horizonsList.indexOf(h);
       if (idx < 0) return null;
@@ -252,7 +303,7 @@ export default function FlipSurfaceChart({
     offCtx.putImageData(img, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(off, 0, 0, T, S, PAD_L, PAD_T, plotW, plotH);
+    ctx.drawImage(off, 0, 0, T, S, pads.L, pads.T, plotW, plotH);
 
     // Walls — vertical strike lines colored by type.  Style mirrors the
     // Call/Put Wall reference lines on the Strike Profile chart
@@ -262,8 +313,8 @@ export default function FlipSurfaceChart({
     // overprint a Spot or Flip label sitting at a nearby strike.
     (surface.walls ?? []).forEach((wall) => {
       const wx = xForPrice(wall.strike);
-      if (wx < PAD_L - 2 || wx > PAD_L + plotW + 2) return;
-      const col = wall.type === 'call' ? CALL_WALL_COLOR : PUT_WALL_COLOR;
+      if (wx < pads.L - 2 || wx > pads.L + plotW + 2) return;
+      const col = canvasColor(wall.type === 'call' ? CALL_WALL_COLOR : PUT_WALL_COLOR);
       const labelPrefix = wall.type === 'call' ? 'Call Wall' : 'Put Wall';
       const labelY = wall.type === 'call' ? LABEL_ROW_CALL : LABEL_ROW_PUT;
       ctx.save();
@@ -271,15 +322,18 @@ export default function FlipSurfaceChart({
       ctx.setLineDash([2, 4]);
       ctx.lineWidth = WALL_LINE_WIDTH;
       ctx.beginPath();
-      ctx.moveTo(wx, PAD_T);
-      ctx.lineTo(wx, PAD_T + plotH);
+      ctx.moveTo(wx, pads.T);
+      ctx.lineTo(wx, pads.T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = col;
-      ctx.font = REF_LABEL_FONT;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(`${labelPrefix}: ${wall.strike.toFixed(2)}`, wx, labelY);
+      // The narrow layout lists the level values in a row above the canvas.
+      if (!narrow) {
+        ctx.fillStyle = col;
+        ctx.font = REF_LABEL_FONT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`${labelPrefix}: ${wall.strike.toFixed(2)}`, wx, labelY);
+      }
       ctx.restore();
     });
 
@@ -295,15 +349,17 @@ export default function FlipSurfaceChart({
       ctx.setLineDash([4, 4]);
       ctx.lineWidth = SPOT_LINE_WIDTH;
       ctx.beginPath();
-      ctx.moveTo(sx, PAD_T);
-      ctx.lineTo(sx, PAD_T + plotH);
+      ctx.moveTo(sx, pads.T);
+      ctx.lineTo(sx, pads.T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = SPOT_COLOR;
-      ctx.font = REF_LABEL_FONT;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(`Spot: ${spot.toFixed(2)}`, sx, LABEL_ROW_SPOT);
+      if (!narrow) {
+        ctx.fillStyle = SPOT_COLOR;
+        ctx.font = REF_LABEL_FONT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(`Spot: ${spot.toFixed(2)}`, sx, LABEL_ROW_SPOT);
+      }
       ctx.restore();
     }
 
@@ -313,7 +369,7 @@ export default function FlipSurfaceChart({
     // (warning-orange stroke, 4/4 dash) with a thicker line and a larger
     // bold "Flip: XXX.XX" label anchored at the topmost resolved endpoint.
     ctx.save();
-    ctx.strokeStyle = FLIP_COLOR;
+    ctx.strokeStyle = canvasColor(FLIP_COLOR);
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = FLIP_LINE_WIDTH;
     ctx.beginPath();
@@ -341,7 +397,7 @@ export default function FlipSurfaceChart({
       const y = yForHorizon(f.horizon_days);
       if (y == null) return;
       const x = xForPrice(f.flip);
-      ctx.fillStyle = FLIP_COLOR;
+      ctx.fillStyle = canvasColor(FLIP_COLOR);
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fill();
@@ -351,11 +407,11 @@ export default function FlipSurfaceChart({
     const topFlip = (surface.flips ?? []).find(
       (f) => f.resolved && f.flip != null && Number.isFinite(f.flip),
     );
-    if (topFlip?.flip != null) {
+    if (!narrow && topFlip?.flip != null) {
       const ty = yForHorizon(topFlip.horizon_days);
       const tx = ty != null ? xForPrice(topFlip.flip) : null;
       if (ty != null && tx != null) {
-        ctx.fillStyle = FLIP_COLOR;
+        ctx.fillStyle = canvasColor(FLIP_COLOR);
         ctx.font = REF_LABEL_FONT;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
@@ -375,21 +431,26 @@ export default function FlipSurfaceChart({
     ctx.textBaseline = 'middle';
     horizonsList.forEach((h, idx) => {
       const y = yForBand(idx) + bandHeight / 2;
-      ctx.fillText(formatHorizon(h), PAD_L - 8, y);
+      ctx.fillText(formatHorizon(h), pads.L - 8, y);
       // Band separators
       if (idx > 0) {
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(PAD_L, yForBand(idx));
-        ctx.lineTo(PAD_L + plotW, yForBand(idx));
+        ctx.moveTo(pads.L, yForBand(idx));
+        ctx.lineTo(pads.L + plotW, yForBand(idx));
         ctx.stroke();
       }
     });
 
     // X-axis tick labels — every ~5% of the grid span.
+    // Desktop: every 5% of spot. Narrow: a round price step aiming for a
+    // label every ~45px, since 5% steps overprinted into one run of digits on
+    // a phone.
     const spotForTicks = Number.isFinite(spot) ? spot : (gridMin + gridMax) / 2;
-    const xStep = spotForTicks * 0.05;
+    const xStep = narrow
+      ? nicePriceStep((gridMax - gridMin) / Math.max(2, Math.floor(plotW / 45)))
+      : spotForTicks * 0.05;
     let tickPrice = Math.ceil(gridMin / xStep) * xStep;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -398,25 +459,27 @@ export default function FlipSurfaceChart({
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(tx, PAD_T);
-      ctx.lineTo(tx, PAD_T + plotH);
+      ctx.moveTo(tx, pads.T);
+      ctx.lineTo(tx, pads.T + plotH);
       ctx.stroke();
       ctx.fillStyle = axisColor;
-      ctx.fillText(formatUsd(tickPrice, 0), tx, PAD_T + plotH + 6);
+      ctx.fillText(formatUsd(tickPrice, 0), tx, pads.T + plotH + 6);
       tickPrice += xStep;
     }
     ctx.restore();
 
-    // Y-axis title.
-    ctx.save();
-    ctx.fillStyle = axisColor;
-    ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.translate(PAD_L - 50, PAD_T + plotH / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Horizon', 0, 0);
-    ctx.restore();
+    // Y-axis title (the narrow layout's 40px gutter only fits the ticks).
+    if (!narrow) {
+      ctx.save();
+      ctx.fillStyle = axisColor;
+      ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.translate(pads.L - 50, pads.T + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Horizon', 0, 0);
+      ctx.restore();
+    }
 
     // X-axis title.
     ctx.save();
@@ -424,13 +487,14 @@ export default function FlipSurfaceChart({
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Hypothetical spot (USD)', PAD_L + plotW / 2, cssH - 4);
+    ctx.fillText('Hypothetical spot (USD)', pads.L + plotW / 2, cssH - 4);
     ctx.restore();
 
-    // Legend / color bar on the right.
-    const legendX = PAD_L + plotW + 22;
+    // Legend / color bar on the right (the narrow layout's is HTML, below).
+    if (narrow) return;
+    const legendX = pads.L + plotW + 22;
     const legendW = 14;
-    const legendY = PAD_T + 8;
+    const legendY = pads.T + 8;
     const legendH = plotH - 16;
     const steps = 80;
     for (let i = 0; i < steps; i++) {
@@ -456,26 +520,33 @@ export default function FlipSurfaceChart({
     ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.fillText('long γ', legendX + legendW + 4, legendY + 18);
     ctx.fillText('short γ', legendX + legendW + 4, legendY + legendH - 18);
-  }, [surface, size, isDark, clip]);
+  }, [surface, size, isDark, clip, narrow, pads]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Reads the (horizon, price) cell under a client point — shared by the mouse
+  // hover and the touch inspect. A finger's point is clamped into the plot so
+  // a touch at its edge still reads the edge cell.
+  const inspectAt = (clientX: number, clientY: number, el: HTMLCanvasElement, touch: boolean) => {
     if (!surface) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const plotW = size.w - PAD_L - PAD_R;
-    const plotH = size.h - PAD_T - PAD_B;
-    if (x < PAD_L || x > PAD_L + plotW || y < PAD_T || y > PAD_T + plotH) {
+    const rect = el.getBoundingClientRect();
+    const plotW = size.w - pads.L - pads.R;
+    const plotH = size.h - pads.T - pads.B;
+    let x = clientX - rect.left;
+    let y = clientY - rect.top;
+    if (touch) {
+      x = Math.min(pads.L + plotW, Math.max(pads.L, x));
+      y = Math.min(pads.T + plotH - 0.5, Math.max(pads.T, y));
+    }
+    if (x < pads.L || x > pads.L + plotW || y < pads.T || y > pads.T + plotH) {
       setHover(null);
       return;
     }
     const grid = surface.grid;
     const horizonsList = surface.horizons_days;
-    const tx = (x - PAD_L) / plotW;
+    const tx = (x - pads.L) / plotW;
     const price = grid[0] + tx * (grid[grid.length - 1] - grid[0]);
     const bandIdx = Math.min(
       horizonsList.length - 1,
-      Math.max(0, Math.floor(((y - PAD_T) / plotH) * horizonsList.length)),
+      Math.max(0, Math.floor(((y - pads.T) / plotH) * horizonsList.length)),
     );
     const horizon = horizonsList[bandIdx];
     // Nearest grid index for the (h, p) reading.
@@ -493,13 +564,128 @@ export default function FlipSurfaceChart({
       setHover(null);
       return;
     }
-    setHover({ horizon, price: grid[nearest], value });
+    setHover(touch ? { horizon, price: grid[nearest], value, touch: true, fx: x } : { horizon, price: grid[nearest], value });
+  };
+
+  // Mobile browsers replay a tap as mouse events a moment later; the touch
+  // handlers already acted on it, so the mouse path sits out for a beat.
+  const lastTouchAtRef = useRef(0);
+  const fromRecentTouch = () => Date.now() - lastTouchAtRef.current < 800;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (fromRecentTouch()) return;
+    inspectAt(e.clientX, e.clientY, e.currentTarget, false);
+  };
+
+  // ── Touch ── a tap reads the cell under the finger (a tap while a readout
+  // is up lifts it); a press-and-hold or a sideways drag scrubs the readout
+  // across the surface. A plain vertical swipe still scrolls the page
+  // (touch-action: pan-y). Mouse input keeps the hover it always had.
+  const touchRef = useRef<{
+    id: number;
+    mode: 'pending' | 'scrub' | 'scroll';
+    startX: number;
+    startY: number;
+    startAt: number;
+    hadHover: boolean;
+  } | null>(null);
+  // Kept apart from the gesture state, which no effect reads: the pending
+  // hold timer and whether the chart has claimed the touch (so the native
+  // touchmove listener keeps the page still while a finger scrubs).
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchClaimedRef = useRef(false);
+  const clearHold = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+  useEffect(
+    () => () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!containerMounted) return;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchClaimedRef.current && e.cancelable) e.preventDefault();
+    };
+    cv.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => cv.removeEventListener('touchmove', onTouchMove);
+  }, [containerMounted]);
+
+  const handleTouchDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerType !== 'touch') return;
+    lastTouchAtRef.current = Date.now();
+    if (touchRef.current) return;
+    const el = e.currentTarget;
+    touchRef.current = {
+      id: e.pointerId,
+      mode: 'pending',
+      startX: e.clientX,
+      startY: e.clientY,
+      startAt: Date.now(),
+      hadHover: hover != null,
+    };
+    const x = e.clientX;
+    const y = e.clientY;
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      const cur = touchRef.current;
+      if (!cur || cur.mode !== 'pending') return;
+      cur.mode = 'scrub';
+      touchClaimedRef.current = true;
+      inspectAt(x, y, el, true);
+    }, TOUCH_HOLD_MS);
+  };
+
+  const handleTouchMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== 'touch' || !t || t.id !== e.pointerId) return;
+    lastTouchAtRef.current = Date.now();
+    if (t.mode === 'scrub') {
+      inspectAt(e.clientX, e.clientY, e.currentTarget, true);
+      return;
+    }
+    if (t.mode !== 'pending') return;
+    const dx = e.clientX - t.startX;
+    const dy = e.clientY - t.startY;
+    // Held long enough before moving: a scrub, even if the hold timer has not
+    // had its turn yet on a busy main thread.
+    const held = Date.now() - t.startAt >= TOUCH_HOLD_MS && (Math.abs(dx) > 2 || Math.abs(dy) > 2);
+    if (!held && Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) {
+      clearHold();
+      t.mode = 'scroll';
+      return;
+    }
+    if (held || Math.abs(dx) > 8) {
+      clearHold();
+      t.mode = 'scrub';
+      touchClaimedRef.current = true;
+      inspectAt(e.clientX, e.clientY, e.currentTarget, true);
+    }
+  };
+
+  const handleTouchEnd = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const t = touchRef.current;
+    if (e.pointerType !== 'touch' || !t || t.id !== e.pointerId) return;
+    lastTouchAtRef.current = Date.now();
+    clearHold();
+    if (e.type === 'pointerup' && t.mode === 'pending') {
+      if (t.hadHover) setHover(null);
+      else inspectAt(e.clientX, e.clientY, e.currentTarget, true);
+    }
+    touchRef.current = null;
+    touchClaimedRef.current = false;
   };
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6 h-full flex flex-col"
+        className="rounded-2xl p-4 sm:p-6 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
@@ -510,7 +696,7 @@ export default function FlipSurfaceChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Horizon × Price Contour
             </h3>
-            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing — the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
+            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing&nbsp;- the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
           </div>
@@ -519,7 +705,7 @@ export default function FlipSurfaceChart({
         {error ? (
           <div className="flex-1 flex items-center justify-center text-sm" style={{ color: 'var(--color-bear)' }}>
             {error === 'No data available yet'
-              ? `No usable option snapshot for ${symbol} — check ingestion.`
+              ? `No usable option snapshot for ${symbol}\u00a0- check ingestion.`
               : `Backend error: ${error}`}
           </div>
         ) : loading && !surface ? (
@@ -535,25 +721,42 @@ export default function FlipSurfaceChart({
           //
           // grid-cols-[minmax(0,1fr)_140px] is critical here.  Plain `1fr`
           // expands to `minmax(auto, 1fr)`, and `auto` lets the column be
-          // wider than the available track in order to fit min-content —
-          // which would let MobileScrollableChart's mobile-only min-width
-          // leak into desktop sizing.  `minmax(0, 1fr)` clamps the min to
-          // zero so the column is exactly the available track on desktop
-          // even when the canvas is wrapped for mobile horizontal scroll.
+          // wider than the available track in order to fit min-content (a
+          // sized canvas has one).  `minmax(0, 1fr)` clamps the min to zero
+          // so the column is exactly the available track.
           //
           // The canvas container itself gets an explicit pixel height (the
           // flex/h-full chain upstream has no concrete pixel anchor, so a
           // height:100% + minHeight rule was resolving to ~320px from the
           // intrinsic canvas fallback).  Width stays w-full so it expands
-          // to fill the now-correctly-sized grid column (or the
-          // 900px-min-width inner div on mobile).
+          // to fill the grid column.
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_140px] gap-3 flex-1">
-            {/* On mobile the chart keeps a 900px min-width and scrolls
-                horizontally inside the card instead of being squashed into
-                the ~320px viewport.  md:min-w-0 + md:overflow-visible turns
-                the wrapper into a no-op on tablet/desktop so it doesn't
-                affect the desktop grid sizing. */}
-            <MobileScrollableChart minWidthClass="min-w-[900px]">
+            {/* The canvas is drawn at the card's own width on every layout
+                (it used to sit at a 900px min-width inside a sideways
+                scroller on a phone); see NARROW_PADS for the phone layout,
+                whose level values and color scale ride HTML rows around it. */}
+            <div className="h-full w-full min-w-0">
+              {narrow && surface && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 text-[11px] tabular-nums">
+                  {(surface.walls ?? [])
+                    .slice()
+                    .sort((a, b) => (a.type === b.type ? 0 : a.type === 'put' ? -1 : 1))
+                    .map((wall) => (
+                      <span key={`${wall.type}-${wall.strike}`} style={{ color: wall.type === 'call' ? CALL_WALL_COLOR : PUT_WALL_COLOR }}>
+                        {wall.type === 'call' ? 'Call Wall' : 'Put Wall'} {wall.strike.toFixed(2)}
+                      </span>
+                    ))}
+                  {Number.isFinite(surface.spot) && (
+                    <span style={{ color: SPOT_COLOR }}>Spot {surface.spot.toFixed(2)}</span>
+                  )}
+                  {(() => {
+                    const top = (surface.flips ?? []).find((f) => f.resolved && f.flip != null && Number.isFinite(f.flip));
+                    return top?.flip != null ? (
+                      <span style={{ color: FLIP_COLOR }}>Flip ({formatHorizon(top.horizon_days)}) {top.flip.toFixed(2)}</span>
+                    ) : null;
+                  })()}
+                </div>
+              )}
               <div
                 ref={containerRef}
                 className="relative w-full h-full"
@@ -562,20 +765,40 @@ export default function FlipSurfaceChart({
                 <canvas
                   ref={canvasRef}
                   onMouseMove={handleMouseMove}
-                  onMouseLeave={() => setHover(null)}
+                  onMouseLeave={() => {
+                    if (!fromRecentTouch()) setHover(null);
+                  }}
+                  onPointerDown={handleTouchDown}
+                  onPointerMove={handleTouchMove}
+                  onPointerUp={handleTouchEnd}
+                  onPointerCancel={handleTouchEnd}
+                  onContextMenu={(e) => {
+                    // A long press is the readout here, not the browser's menu.
+                    if (touchRef.current) e.preventDefault();
+                  }}
                   style={{
                     display: 'block',
                     width: '100%',
                     height: '100%',
                     cursor: 'crosshair',
+                    // A finger's vertical swipe scrolls the page; taps and
+                    // holds are the chart's own (see the touch handlers).
+                    touchAction: 'pan-y',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
                   }}
                 />
                 {hover && (
                   <div
                     style={{
                       position: 'absolute',
-                      top: 8,
-                      left: PAD_L + 8,
+                      // A finger's readout pins to the side away from it.
+                      ...(hover.touch
+                        ? (hover.fx ?? 0) > size.w / 2
+                          ? { top: 8, left: 8 }
+                          : { top: 8, right: 8 }
+                        : { top: 8, left: pads.L + 8 }),
                       background: 'var(--color-chart-tooltip-bg)',
                       border: '1px solid var(--color-border)',
                       borderRadius: 8,
@@ -598,7 +821,14 @@ export default function FlipSurfaceChart({
                   </div>
                 )}
               </div>
-            </MobileScrollableChart>
+              {narrow && (
+                <div className="flex items-center gap-2 mt-2 text-[11px] tabular-nums" style={{ color: mutedText }}>
+                  <span>short γ {formatGex(-clip)}</span>
+                  <span className="h-2.5 flex-1 rounded-sm" style={{ background: SCALE_GRADIENT_CSS }} aria-hidden />
+                  <span>{formatGex(clip)} long γ</span>
+                </div>
+              )}
+            </div>
 
             {/* Vertical legend sidebar — Call/Put Wall, Spot, Zero contour
                 (flip).  Styles mirror the swatches on the Strike Profile

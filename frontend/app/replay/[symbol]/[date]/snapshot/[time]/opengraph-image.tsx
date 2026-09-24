@@ -8,7 +8,7 @@ import { resolveSymbol } from '@/core/symbols';
 import { formatPinStrike, PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 
 export const runtime = 'nodejs';
-export const alt = 'ZeroGEX Replay snapshot — historical dealer gamma surface';
+export const alt = 'ZeroGEX Replay snapshot - historical dealer gamma surface';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const revalidate = 86400;

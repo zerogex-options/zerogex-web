@@ -248,8 +248,8 @@ export default function TradeWorkzClient() {
     if (
       !window.confirm(
         'Reset the entire fleet? This wipes every trade, position, ' +
-          'notification, equity row, and ML state — for BOTH simulated ' +
-          'and real live-engine data — and resets every bot to its ' +
+          'notification, equity row, and ML state\u00a0- for BOTH simulated ' +
+          'and real live-engine data\u00a0- and resets every bot to its ' +
           'starting capital. This cannot be undone.',
       )
     ) {
@@ -339,7 +339,7 @@ export default function TradeWorkzClient() {
                       Seed demo data
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels — in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
+                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels&nbsp;- in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
                     <button
                       onClick={runInjectTest}
                       disabled={simBusy}
@@ -390,12 +390,13 @@ export default function TradeWorkzClient() {
           ) : summaryLoading ? (
             <SummarySkeleton />
           ) : summary.data ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            // Two across on a phone: four single-figure tiles, not a tower.
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <HeroTile tone={toneVar(summary.data.fleet_return_pct)}>
                 <HeroLabel>Fleet NAV</HeroLabel>
-                <div className="flex items-end justify-between gap-3">
+                <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <div className="text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                    <div className="text-2xl sm:text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
                       {fmtMoney(summary.data.fleet_capital_current)}
                     </div>
                     <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
@@ -423,7 +424,7 @@ export default function TradeWorkzClient() {
 
               <HeroTile tone={pfToneVar(rolling?.profit_factor)}>
                 <HeroLabel>Edge · Trailing {primaryWindow}</HeroLabel>
-                <div className="text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                <div className="text-2xl sm:text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
                   {rolling ? fmtPct(rolling.win_rate, 0) : '—'}
                 </div>
                 <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
@@ -441,7 +442,7 @@ export default function TradeWorkzClient() {
               <HeroTile tone={toneVar(fleetCumPct)}>
                 <HeroLabel>Fleet vs SPY · {trendDays}d</HeroLabel>
                 <div
-                  className="text-3xl font-semibold tabular-nums"
+                  className="text-2xl sm:text-3xl font-semibold tabular-nums"
                   style={{ color: toneVar(fleetCumPct) }}
                 >
                   {fleetCumPct !== null ? fmtSignedPct(fleetCumPct, 1) : '—'}
@@ -463,7 +464,7 @@ export default function TradeWorkzClient() {
               <HeroTile tone={toneVar(summary.data.realized_pnl_today)}>
                 <HeroLabel>Today</HeroLabel>
                 <div
-                  className="text-3xl font-semibold tabular-nums"
+                  className="text-2xl sm:text-3xl font-semibold tabular-nums"
                   style={{ color: toneVar(summary.data.realized_pnl_today) }}
                 >
                   {fmtSignedMoney(summary.data.realized_pnl_today)}
@@ -510,7 +511,7 @@ export default function TradeWorkzClient() {
         <section className="mb-8">
           <SectionHeading
             title="Performance Trend"
-            tip="Is the fleet getting better? Rolling win rate / profit factor / expectancy plus cumulative return vs a SPY buy-hold, rebased to the window start — not the since-inception NAV, which stays anchored to the pre-fix drawdown."
+            tip="Is the fleet getting better? Rolling win rate / profit factor / expectancy plus cumulative return vs a SPY buy-hold, rebased to the window start&nbsp;- not the since-inception NAV, which stays anchored to the pre-fix drawdown."
           />
           <div
             className="rounded-2xl p-4"
@@ -651,7 +652,7 @@ function PeriodToggle({
           <button
             key={opt.key}
             onClick={() => onChange(opt.key)}
-            className="text-xs px-3 py-1.5 rounded-full transition-colors font-medium"
+            className="whitespace-nowrap text-xs px-2 sm:px-3 py-1.5 rounded-full transition-colors font-medium"
             style={{
               backgroundColor: active ? 'var(--color-info)' : 'transparent',
               color: active ? 'var(--color-on-info, #ffffff)' : 'var(--color-text-secondary)',
@@ -668,7 +669,7 @@ function PeriodToggle({
 function HeroTile({ tone, children }: { tone?: string; children: ReactNode }) {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl p-5 transition-transform duration-200 hover:-translate-y-0.5"
+      className="relative overflow-hidden rounded-2xl p-4 sm:p-5 transition-transform duration-200 hover:-translate-y-0.5"
       style={{
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
@@ -715,7 +716,7 @@ function SectionHeading({
   right?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between mb-3 gap-3">
+    <div className="flex flex-wrap items-center justify-between mb-3 gap-3">
       <div className="flex items-center gap-1.5">
         <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
         <TooltipWrapper text={tip} />

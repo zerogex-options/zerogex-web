@@ -10,7 +10,7 @@ La página [Account](/account) es el punto central para todo lo relacionado con 
 
 ## El encabezado
 
-Muestra tu correo electrónico, tu estado de verificación, tu nivel (Public, Basic, Pro, Admin) y la insignia de tu plan (por ejemplo, "Pro — annual"). Si estás en período de prueba, la insignia muestra "Trial — N days left".
+Muestra tu correo electrónico, tu estado de verificación, tu nivel (Public, Basic, Pro, Admin) y la insignia de tu plan (por ejemplo, "Pro - annual"). Si estás en la prueba gratuita de Basic mensual, la insignia muestra "Trial - N days left".
 
 ## Correo electrónico y verificación
 
@@ -29,14 +29,15 @@ Muestra tu correo electrónico, tu estado de verificación, tu nivel (Public, Ba
 
 Puedes vincular **Google** y **Apple** a la misma cuenta. La página Account muestra qué proveedores están vinculados y cuándo se conectó cada uno.
 
-- **Vincular un nuevo proveedor** — inicia sesión una vez con el proveedor; el sistema lo vincula automáticamente a tu cuenta existente si el correo coincide.
-- **Desvincular un proveedor** — solo disponible si tienes al menos otra forma de iniciar sesión (otro proveedor O una contraseña). La página exige esto para que no te quedes bloqueado fuera de tu cuenta.
+- **Vincular un nuevo proveedor** - inicia sesión una vez con el proveedor; el sistema lo vincula automáticamente a tu cuenta existente si el correo coincide.
+- **Desvincular un proveedor** - solo disponible si tienes al menos otra forma de iniciar sesión (otro proveedor O una contraseña). La página exige esto para que no te quedes bloqueado fuera de tu cuenta.
 
 ## Nivel y suscripción
 
 - Se muestra tu nivel actual.
 - El enlace "Manage subscription" abre el portal de facturación alojado por Stripe en una nueva pestaña.
 - Las cancelaciones, cambios de plan, métodos de pago y facturas se gestionan todos en el portal.
+- En los 7 días siguientes a tu primer pago de un plan cubierto por la garantía de devolución del dinero de 7 días (Pro, o cualquier plan trimestral o anual), haz clic en **Request a full refund** en la página Account. El acceso termina cuando se emite el reembolso; un reembolso por cliente.
 
 Para el proceso paso a paso, consulta [Billing & Stripe Portal](/help/platform/billing).
 
@@ -44,7 +45,7 @@ Para el proceso paso a paso, consulta [Billing & Stripe Portal](/help/platform/b
 
 De forma opcional, puedes añadir tu **usuario de X (antes Twitter)** en la sección de redes sociales para que el equipo de ZeroGEX pueda contactarte allí. Nunca es obligatorio: no se te pide al registrarte y puedes añadirlo, cambiarlo o eliminarlo en cualquier momento desde tu cuenta.
 
-- Introduce el usuario con o sin la `@` inicial — de 1 a 15 caracteres, solo letras, números y guiones bajos.
+- Introduce el usuario con o sin la `@` inicial - de 1 a 15 caracteres, solo letras, números y guiones bajos.
 - Vacía el campo y guarda para eliminar un usuario que hayas añadido previamente.
 
 ## Panel de referidos

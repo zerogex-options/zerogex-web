@@ -21,8 +21,9 @@ import {
 import { useTimeframe } from '@/core/TimeframeContext';
 import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
 import RegimeSummaryBanner from '@/components/RegimeSummaryBanner';
+import { compactUsdTick } from '@/components/phoneAxisFormat';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface SmartMoneyRow {
   timestamp?: string;
@@ -267,7 +268,7 @@ function matchesDelta(delta: number | null | undefined, minDelta: DeltaFilter): 
 const dteOptions: Array<{ value: DteFilter; label: string }> = [
   { value: 'all', label: 'All expiries' },
   { value: '0dte', label: '0DTE' },
-  { value: 'weekly', label: '1–7 DTE' },
+  { value: 'weekly', label: '1-7 DTE' },
   { value: 'longer', label: '8+ DTE' },
 ];
 
@@ -303,13 +304,26 @@ type SmartMoneyTableRowProps = {
   borderColor: string;
 };
 
+// On a phone the table scrolls sideways under its first two columns, which
+// stay put (`sm-sticky`, styled in the page's <style> block) so every row keeps
+// its time and contract in view while the numbers slide past.
+const STICKY_TIME = 'max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:w-16 max-sm:min-w-16 sm-sticky';
+const STICKY_CONTRACT = 'max-sm:sticky max-sm:left-16 max-sm:z-[1] max-sm:whitespace-nowrap sm-sticky sm-sticky-edge';
+
 const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
   rowKey, time, contract, strike, expiration, dte, optionLabel, side, sideColor, delta, contracts, notional, notionalClass, borderColor,
 }: SmartMoneyTableRowProps) {
   return (
     <tr data-smart-row-key={rowKey} className="border-b" style={{ borderColor }}>
-      <td className="py-2 px-2 font-mono">{time}</td>
-      <td className="py-2 px-2">{contract}</td>
+      <td className={`py-2 px-2 font-mono ${STICKY_TIME}`}>{time}</td>
+      <td className={`py-2 px-2 ${STICKY_CONTRACT}`}>
+        {contract}
+        {/* The size and the side are what a phone reader is scanning for, and
+            their columns sit a long swipe to the right; echoed here. */}
+        <div className="sm:hidden text-[11px] font-semibold leading-4">
+          {notional} · <span style={{ color: sideColor }}>{side}</span>
+        </div>
+      </td>
       <td className="py-2 px-2">{strike}</td>
       <td className="py-2 px-2">{expiration}</td>
       <td className="py-2 px-2">{dte}</td>
@@ -324,16 +338,22 @@ const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
 });
 
 const HEADER_SUB =
-  "Block-sized option trades as they print, against price — who is paying up, and where.";
+  "Block-sized option trades as they print, against price\u00a0- who is paying up, and where.";
 
 const HEADER_TOOLTIP =
-  "A screen for the trades big enough to be somebody's position rather than somebody's hedge scrap: block prints above a notional threshold, classified by which side crossed the spread and how far from the money they sit. Size is evidence, not intent — a large print can be an opening bet, a closing exit or one leg of a spread whose other leg is elsewhere in the chain, and the tape cannot tell you which. Read it for where the money is concentrating, and check the aggressor and delta columns before reading direction into it.";
+  "A screen for the trades big enough to be somebody's position rather than somebody's hedge scrap: block prints above a notional threshold, classified by which side crossed the spread and how far from the money they sit. Size is evidence, not intent\u00a0- a large print can be an opening bet, a closing exit or one leg of a spread whose other leg is elsewhere in the chain, and the tape cannot tell you which. Read it for where the money is concentrating, and check the aggressor and delta columns before reading direction into it.";
 
 export default function SmartMoneyPage() {
   const { symbol } = useTimeframe();
+  const isMobile = useIsMobile();
+  // Phone: the four secondary filters fold behind one "Filters" chip.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const cardBg = 'var(--bg-card)';
   const inputBorder = 'var(--border-default)';
-  const rowBorderColor = `${inputBorder}66`;
+  // 40% of the border token. (A hex alpha suffix on a CSS variable —
+  // "var(--border-default)66" — is not a color, so rows fell back to
+  // full-strength currentColor rules.)
+  const rowBorderColor = `color-mix(in srgb, ${inputBorder} 40%, transparent)`;
   const inputColor = 'var(--text-primary)';
   const axisStroke = 'var(--text-primary)';
   const mutedText = 'var(--text-secondary)';
@@ -360,6 +380,9 @@ export default function SmartMoneyPage() {
   }, [openFilter]);
   const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
+  // A phone opens on the top 20 blocks (each "Show more" adds 50, as on desktop).
+  const [phoneRowLimit, setPhoneRowLimit] = useState(20);
+  const shownRowLimit = isMobile ? phoneRowLimit : tableRowLimit;
 
   // Cross-pane hover sync uses direct DOM mutations instead of React state so
   // hovering a row never re-runs the parent component's render — that used to
@@ -643,7 +666,7 @@ export default function SmartMoneyPage() {
     if (!root) return;
     const sel = `[data-smart-row-key="${CSS.escape(key)}"],[data-smart-cell-key="${CSS.escape(key)}"]`;
     root.querySelectorAll(sel).forEach((el) => el.setAttribute('data-smart-hover', 'true'));
-  }, [sortedSmartMoneyRows, smartMoneySessionChart, tableRowLimit, maxStackSegments]);
+  }, [sortedSmartMoneyRows, smartMoneySessionChart, shownRowLimit, maxStackSegments]);
   // Build a sparse Map of timestamps that should render a tick label (either a
   // 30-min boundary, a new-day marker, or both). Recharts is told to render
   // ONLY these ticks via the `ticks` prop instead of iterating every minute,
@@ -663,6 +686,18 @@ export default function SmartMoneyPage() {
     return info;
   }, [sessionTimeline]);
   const xAxisTicks = useMemo(() => Array.from(xAxisTickInfo.keys()), [xAxisTickInfo]);
+  // A phone's plot is ~250px: Recharts' collision pass measures these ticks by
+  // their raw ISO values and kept only the last one ("16:00"). A phone gets the
+  // 2-hour marks outright, plus the first slot for the date.
+  const xAxisTicksPhone = useMemo(
+    () =>
+      xAxisTicks.filter((ts, i) => {
+        if (i === 0) return true;
+        const d = new Date(ts);
+        return d.getUTCMinutes() === 0 && Number(xAxisTickInfo.get(ts)?.time?.slice(0, 2)) % 2 === 0;
+      }),
+    [xAxisTicks, xAxisTickInfo],
+  );
   const dailyTotalsTimestamp = useMemo(() => {
     const timestamps = filteredSmartMoneyData
       .map((row) => row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start || '')
@@ -719,6 +754,8 @@ export default function SmartMoneyPage() {
       </span>
     );
   };
+  const activeFilterCount =
+    (minClass !== '500k' ? 1 : 0) + (sideFilter !== 'all' ? 1 : 0) + (minDelta !== 'all' ? 1 : 0) + (dteFilter !== 'all' ? 1 : 0);
   const setColumnFilter = (key: FilterableKey, value: string) => {
     setColumnFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -745,7 +782,7 @@ export default function SmartMoneyPage() {
       <section ref={sectionRef} className="mb-8 smart-money-section">
         <style
           dangerouslySetInnerHTML={{
-            __html: `.smart-money-section tr[data-smart-row-key]{cursor:default}.smart-money-section tr[data-smart-row-key][data-smart-hover='true']{background-color:var(--color-warning-soft)}.smart-money-section rect[data-smart-cell-key][data-smart-hover='true']{fill-opacity:1;stroke:var(--color-brand-primary);stroke-width:2.5}`,
+            __html: `.smart-money-section tr[data-smart-row-key]{cursor:default}.smart-money-section tr[data-smart-row-key][data-smart-hover='true']{background-color:var(--color-warning-soft)}.smart-money-section rect[data-smart-cell-key][data-smart-hover='true']{fill-opacity:1;stroke:var(--color-brand-primary);stroke-width:2.5}@media (max-width:639px){.smart-money-section .sm-sticky{background-color:var(--bg-card)}.smart-money-section tr[data-smart-hover='true'] .sm-sticky{background-image:linear-gradient(var(--color-warning-soft),var(--color-warning-soft))}.smart-money-section .sm-sticky-edge{box-shadow:inset -1px 0 0 var(--border-default)}}`,
           }}
         />
         <FilterBar className="mb-4 gap-x-3">
@@ -758,10 +795,32 @@ export default function SmartMoneyPage() {
               { value: 'prior' as const, label: `Prior${priorDateLabel ? ` (${priorDateLabel})` : ''}` },
             ]}
           />
-          <FilterSelect label="Min class" value={minClass} onChange={setMinClass} options={minClassOptions} />
-          <FilterSelect label="Side" value={sideFilter} onChange={setSideFilter} options={sideOptions} />
-          <FilterSelect label="Min |Δ|" value={minDelta} onChange={setMinDelta} options={deltaOptions} />
-          <FilterSelect label="Expiry" value={dteFilter} onChange={setDteFilter} options={dteOptions} />
+          {/* Five selects wrapped into three ragged rows on a phone; there the
+              four that narrow the tape sit behind one chip that counts how
+              many are set. Desktop keeps the row as it was. */}
+          {isMobile ? (
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className="min-h-8 rounded-full border px-3 text-xs font-semibold"
+              style={{
+                borderColor: activeFilterCount ? 'var(--color-warning)' : 'var(--border-default)',
+                backgroundColor: activeFilterCount ? 'var(--color-warning-soft)' : 'transparent',
+                color: 'var(--text-primary)',
+              }}
+            >
+              Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''} {filtersOpen ? '▴' : '▾'}
+            </button>
+          ) : null}
+          {!isMobile || filtersOpen ? (
+            <>
+              <FilterSelect label="Min class" value={minClass} onChange={setMinClass} options={minClassOptions} />
+              <FilterSelect label="Side" value={sideFilter} onChange={setSideFilter} options={sideOptions} />
+              <FilterSelect label="Min |Δ|" value={minDelta} onChange={setMinDelta} options={deltaOptions} />
+              <FilterSelect label="Expiry" value={dteFilter} onChange={setDteFilter} options={dteOptions} />
+            </>
+          ) : null}
         </FilterBar>
         <div className="text-sm mb-3" style={{ color: mutedText }}>
           Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
@@ -777,20 +836,23 @@ export default function SmartMoneyPage() {
                 <SectionHead
                   title="Blocks vs. underlying price"
                   titleClassName="zg-h3"
-                  tooltip="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."
+                  tooltip="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30-16:15 ET session timeline."
                 />
-                <MobileScrollableChart>
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} ticks={xAxisTicks} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number } }) => {
+                <ResponsiveContainer width="100%" height={isMobile ? 260 : 300}>
+                  <ComposedChart data={smartMoneySessionChart} margin={isMobile ? { top: 8, right: 0, left: 0, bottom: 8 } : { top: 8, right: 12, left: 0, bottom: 8 }}>
+                    <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} ticks={isMobile ? xAxisTicksPhone : xAxisTicks} {...(isMobile ? { interval: 0 as const } : {})} tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string | number } }) => {
                       const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || '');
                       const info = xAxisTickInfo.get(ts);
                       if (!info) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{info.time ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{info.time}</text> : null}{info.date ? <text dy={info.time ? 26 : 14} textAnchor="middle" fill="var(--text-secondary)" fontSize={9}>{info.date}</text> : null}</g>;
+                      // Phone: the open's "09:30" would collide with "10:00";
+                      // the first slot carries the date alone, left-aligned.
+                      const time = isMobile && ts === xAxisTicksPhone[0] && info.date ? undefined : info.time;
+                      return <g transform={`translate(${x},${y})`}>{time || !isMobile ? <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} /> : null}{time ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{time}</text> : null}{info.date ? <text dy={time || !isMobile ? (time ? 26 : 14) : 26} textAnchor={isMobile ? 'start' : 'middle'} fill="var(--text-secondary)" fontSize={isMobile ? 10 : 9}>{info.date}</text> : null}</g>;
                     }} />
-                    <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
-                    <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
+                    <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 40 : 60} tickFormatter={(v) => (isMobile ? compactUsdTick(Number(v) * 1_000_000) : `$${Number(v).toFixed(1)}M`)} />
+                    <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 38 : 60} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
                     <Tooltip
+                      {...(isMobile ? { position: { y: 0 } } : {})}
                       content={({ active, label, payload }) => {
                         if (!active || !payload?.length) return null;
                         const blockEntries = payload
@@ -808,7 +870,13 @@ export default function SmartMoneyPage() {
                           .filter(Boolean) as Array<{ name: string; value: number; optionType: string }>;
 
                         return (
-                          <ChartTooltipShell label={new Date(String(label)).toLocaleString()}>
+                          <ChartTooltipShell
+                            label={
+                              isMobile
+                                ? `${new Date(String(label)).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })} ET`
+                                : new Date(String(label)).toLocaleString()
+                            }
+                          >
                             {blockEntries.map((block) => (
                               <ChartTooltipRow
                                 key={block.name}
@@ -826,7 +894,7 @@ export default function SmartMoneyPage() {
                         yAxisId="notional"
                         dataKey={`block${idx + 1}`}
                         stackId="notional"
-                        barSize={5}
+                        barSize={isMobile ? 3 : 5}
                         isAnimationActive={false}
                         shape={shape}
                         onMouseEnter={chartBarHandlers[idx].onMouseEnter}
@@ -836,7 +904,6 @@ export default function SmartMoneyPage() {
                     <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
-                </MobileScrollableChart>
               </div>
               <div className="border-t pt-5" style={{ borderColor: 'var(--border-default)' }}>
                 <SectionHead
@@ -846,12 +913,13 @@ export default function SmartMoneyPage() {
                 />
               </div>
               <div className="overflow-x-auto mt-2">
-                <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}>
+                <table className="w-full min-w-[960px] text-sm max-sm:min-w-[760px] max-sm:text-[13px]"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}>
                   {smartMoneyColumns.map((col) => {
                     const filterKey = col.filterable ? (col.key as FilterableKey) : null;
                     const activeFilter = filterKey ? columnFilters[filterKey] : '';
+                    const sticky = col.key === 'timestamp' ? STICKY_TIME : col.key === 'contract' ? STICKY_CONTRACT : '';
                     return (
-                      <th key={col.key} className={`${col.align === 'right' ? 'text-right' : ''} py-2 px-2 cursor-pointer select-none whitespace-nowrap`} onClick={() => toggleSmartMoneySort(col.key)}>
+                      <th key={col.key} className={`${col.align === 'right' ? 'text-right' : ''} py-2 px-2 cursor-pointer select-none whitespace-nowrap ${sticky}`} onClick={() => toggleSmartMoneySort(col.key)}>
                         <span>{col.label}</span>{renderSortIndicator(col.key)}
                         {filterKey ? (
                           <span data-smart-money-filter className="relative inline-block ml-1 align-middle">
@@ -902,7 +970,7 @@ export default function SmartMoneyPage() {
                   })}
                 </tr></thead>
                   <tbody>
-                    {sortedSmartMoneyRows.slice(0, tableRowLimit).map((row) => {
+                    {sortedSmartMoneyRows.slice(0, shownRowLimit).map((row) => {
                       const ts = row.timestamp || row.time_window_end || row.interval_timestamp || row.time_window_start;
                       const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--';
                       const optionType = String(row.option_type || '').toUpperCase();
@@ -933,7 +1001,7 @@ export default function SmartMoneyPage() {
                     })}
                   </tbody></table>
               </div>
-              {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="zg-btn zg-btn--secondary" style={{ padding: '6px 14px', fontSize: 11 }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
+              {shownRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="zg-btn zg-btn--secondary" style={isMobile ? { padding: '10px 16px', fontSize: 13, width: '100%' } : { padding: '6px 14px', fontSize: 11 }} onClick={() => (isMobile ? setPhoneRowLimit((v) => v + 50) : setTableRowLimit((v) => v + 50))}>Show more</button></div> : null}
             </>
           )}
         </ChartPanel>

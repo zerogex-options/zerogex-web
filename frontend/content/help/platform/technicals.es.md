@@ -1,12 +1,12 @@
 # Technicals
 
-*La instantánea técnica intradía — precio, velas, indicadores de volatilidad y cómo los niveles se superponen a los muros de GEX.*
+*La instantánea técnica intradía - precio, velas, indicadores de volatilidad y cómo los niveles se superponen a los muros de GEX.*
 
 ---
 
 ## Qué muestra esta página
 
-La página Technicals es la **lectura price-first** del símbolo activo. Es la única página que **no** parte de las cifras derivadas de opciones — parte de la acción del precio, la volatilidad y el contexto técnico estándar.
+La página Technicals es la **lectura price-first** del símbolo activo. Es la única página que **no** parte de las cifras derivadas de opciones - parte de la acción del precio, la volatilidad y el contexto técnico estándar.
 
 Es la página que abres cuando necesitas confirmar qué está implicando el posicionamiento de los dealers frente a lo que el precio realmente está haciendo.
 
@@ -25,9 +25,9 @@ El objetivo de los overlays es permitirte leer la acción del precio a través d
 
 Tres indicadores:
 
-- **Implied Volatility** — IV ATM actual con el rank respecto a los últimos 60 días.
-- **Realized Volatility** — volatilidad realizada de ventana corta con una línea base de ventana más larga.
-- **Ratio IV / RV** — cuando el ratio está significativamente por encima de 1, la vol está cara (vender prima); por debajo, la vol está barata (comprar prima).
+- **Implied Volatility** - IV ATM actual con el rank respecto a los últimos 60 días.
+- **Realized Volatility** - volatilidad realizada de ventana corta con una línea base de ventana más larga.
+- **Ratio IV / RV** - cuando el ratio está significativamente por encima de 1, la vol está cara (vender prima); por debajo, la vol está barata (comprar prima).
 
 ## La franja de sesión
 
@@ -49,7 +49,7 @@ Tres patrones:
 
 ## La vista de intraday-tools
 
-La página intraday-tools es un diseño emparejado — el gráfico de velas arriba, un encabezado comprimido de posicionamiento de dealers debajo — para traders que quieren ambas vistas lado a lado.
+La página intraday-tools es un diseño emparejado - el gráfico de velas arriba, un encabezado comprimido de posicionamiento de dealers debajo - para traders que quieren ambas vistas lado a lado.
 
 ## Ver también
 

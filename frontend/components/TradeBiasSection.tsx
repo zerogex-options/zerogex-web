@@ -83,10 +83,10 @@ const REGIME_TOOLTIP =
   'Market State derived from the confluence of net GEX, gradient, tape flow, vanna/charm, 0DTE positioning, and trap signals. Possible regimes: Trend Up (long gamma + bullish flow), Trend Down (long gamma + bearish flow), Trap / Reversal (short gamma + bullish flow into crowded structure → sell into strength), Trap / Squeeze (short gamma + bearish flow into trapped shorts → buy into weakness), Chop / Range (mixed signals → mean reversion), or Awaiting confluence (insufficient data). The checklist below shows which key conditions are currently met.';
 
 const BIAS_TOOLTIP =
-  'Directional bias suggested by the active regime. Possible values: Buy Dips (Trend Up), Sell Rips (Trend Down), Sell Strength (Trap / Reversal), Buy Weakness (Trap / Squeeze), Range-Bound (Chop), or Neutral / Wait (low confluence). Confidence is scored 0–10 based on how aligned the underlying signals are with the active regime — higher = more signals agree, lower = more mixed. The bar shows confidence as a percentage of the maximum. A “Conviction” badge appears when a regime was triggered by a single dominant signal rather than broad consensus. While in Chop, “Watching: …” chips appear for any individual signal at conviction levels — early warning that a regime swap may be brewing.';
+  'Directional bias suggested by the active regime. Possible values: Buy Dips (Trend Up), Sell Rips (Trend Down), Sell Strength (Trap / Reversal), Buy Weakness (Trap / Squeeze), Range-Bound (Chop), or Neutral / Wait (low confluence). Confidence is scored 0-10 based on how aligned the underlying signals are with the active regime\u00a0- higher = more signals agree, lower = more mixed. The bar shows confidence as a percentage of the maximum. A “Conviction” badge appears when a regime was triggered by a single dominant signal rather than broad consensus. While in Chop, “Watching: …” chips appear for any individual signal at conviction levels\u00a0- early warning that a regime swap may be brewing.';
 
 const PLAYBOOK_TOOLTIP =
-  'Suggested setup and step-by-step plan tailored to the active regime. The Setup name (e.g. Trend Continuation (Up), Trap / Squeeze, Mean Reversion) summarizes the trade thesis; the numbered steps describe how to execute it — entry trigger, level to watch, target, and risk management. Use this as a checklist, not a guarantee: confirm with the regime checklist and confidence score before sizing in.';
+  'Suggested setup and step-by-step plan tailored to the active regime. The Setup name (e.g. Trend Continuation (Up), Trap / Squeeze, Mean Reversion) summarizes the trade thesis; the numbered steps describe how to execute it\u00a0- entry trigger, level to watch, target, and risk management. Use this as a checklist, not a guarantee: confirm with the regime checklist and confidence score before sizing in.';
 
 export default function TradeBiasSection({ compact = false }: { compact?: boolean } = {}) {
   const { symbol } = useTimeframe();
@@ -331,7 +331,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
                       key={w.key}
                       className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border"
                       style={{ borderColor: watchColor, color: watchColor }}
-                      title={`${w.label} is at conviction levels (${w.direction}). No regime swap yet — watch for one if other signals align.`}
+                      title={`${w.label} is at conviction levels (${w.direction}). No regime swap yet\u00a0- watch for one if other signals align.`}
                     >
                       Watching: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
                     </span>
@@ -392,7 +392,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
               <li key={idx} className="flex items-start gap-2">
                 <span
                   className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold flex-shrink-0"
-                  style={{ background: `${color}1f`, color }}
+                  style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
                 >
                   {idx + 1}
                 </span>

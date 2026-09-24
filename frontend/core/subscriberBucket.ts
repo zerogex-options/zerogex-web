@@ -226,6 +226,18 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
 // core/trialConveyor and the window in core/trialDunning, for the same reason.
 const CONVERSION_CONFIRM_DAYS = 2;
 
+// How soon after a subscription turns `active` its first payment must be on
+// record for the charge to count as taken at once. Paying up front at checkout,
+// or switching off a trial onto a paid plan, charges in the same moment; only
+// the arrival order of the webhooks separates the two rows. A trial that runs
+// its course is charged about an hour after it turns `active`, well outside.
+const CHARGED_AT_ONCE_MS = 10 * 60_000;
+
+// How far back a declined charge still explains a subscription ending, in days.
+// The same window core/cohortRetention uses to call a loss involuntary, so the
+// ledger and the Growth tab attribute an ending to nonpayment by one rule.
+const DECLINE_EVIDENCE_DAYS = 35;
+
 const DAY_MS = 86_400_000;
 
 export type LedgerEventKind =
@@ -255,6 +267,19 @@ export type LedgerRow = {
   convertingDelta: number;
   freeTrialDelta: number;
   trialGraceDelta: number;
+  // True on the ONE row where a payment failure first hit a subscription on the
+  // chart: a declined trial charge, a renewal gone into dunning, or a
+  // subscription that lost access because a charge failed. The Forward-Looking
+  // Growth Rate counts exactly these rows as its failures, so every failure on
+  // that card is a named member here. The rest of the same episode (the grace
+  // window running out, Stripe's final cancel) is that failure playing out, not
+  // a new one.
+  //
+  // A decline that changed no subscription is never flagged: a card refused at
+  // checkout before anyone was counted, a trial member's refused switch to paid
+  // (the trial carries on untouched), or another try at a bill that had already
+  // failed. Those are in Stripe → Payment Declines, which counts every attempt.
+  paymentFailure: boolean;
   // Plain-language explanation, written for someone scanning the ledger.
   detail: string;
 };
@@ -278,6 +303,14 @@ export type LedgerPaymentEvent = {
   userId: string | null;
   email: string | null;
   at: string;
+  // Stripe's billing_reason for the invoice, when the row names one. The first
+  // paid invoice says how a subscription started paying:
+  //   subscription_create  paid up front at checkout (the $0 invoice that opens
+  //                        a trial is never a payment, see subscriptionPayments)
+  //   subscription_update  a trial member switched to a paid plan, which ends
+  //                        the trial and charges at once
+  //   subscription_cycle   the trial ran its course and the first period billed
+  billingReason?: string | null;
 };
 
 // A subscription created by ORPHAN RECOVERY to honor an invoice that was paid
@@ -320,6 +353,45 @@ export type LedgerDeleteEvent = {
   at: string;
   // Cancellation-survey reason carried on the terminal row, when Stripe sent one.
   reason?: string | null;
+};
+
+// A declined charge on a subscription (the `stripe_payment_failed` audit row).
+// Evidence only: it never makes a row of its own. What it settles is the one
+// ending the sync stream cannot explain. Stripe does not retry a declined
+// non-card payment such as Cash App Pay, so it cancels the subscription in the
+// same instant the charge fails and the subscription never passes through
+// past_due. Without the decline, that reads like any other ending.
+export type LedgerDeclineEvent = {
+  subId: string;
+  at: string;
+};
+
+// A money-back refund on a subscription (`money_back_refund_issued`, or
+// `_incomplete` for one that finished on a re-run). Evidence only, like a
+// decline: the refund cancels the subscription on the spot, and this is what
+// lets the row for that ending say it was a refund rather than a plain ending.
+// Read as set membership rather than on the timeline, because the refund's row
+// is written after the cancel it triggers and can land either side of the
+// deletion.
+export type LedgerRefundEvent = {
+  subId: string;
+  at: string;
+};
+
+// A trial member who switched to a paid plan in the app, which ends the trial
+// and charges at once (`billing_plan_switch_in_app`, "Trial ended for paid
+// switch …"). A switch made in the billing portal needs no row of its own: its
+// first invoice is an update invoice, which the payment stream already carries.
+export type LedgerTrialSwitchEvent = {
+  subId: string;
+  at: string;
+};
+
+// The streams that never make a row of their own and only explain one.
+export type LedgerEvidence = {
+  declines?: LedgerDeclineEvent[];
+  refunds?: LedgerRefundEvent[];
+  trialSwitches?: LedgerTrialSwitchEvent[];
 };
 
 const KIND_LABELS: Record<LedgerEventKind, string> = {
@@ -374,6 +446,13 @@ type SubState = {
   cancelAtPeriodEnd: boolean;
   // An established payer is currently in dunning (past_due with access kept).
   dunning: boolean;
+  // Stripe status on the last sync, so a decline can be read against it.
+  status: string | null;
+  // When a charge was last declined while the subscription was billing
+  // (`active` or `past_due`). Cleared once money clears or the subscription
+  // comes back out of past_due. A decline while still `trialing` is ignored: it
+  // is a refused switch to paid, and the trial carries on untouched.
+  declinedAtMs: number | null;
   sawTrial: boolean;
   // Timestamp (ms) of the first `active` sync, used to tell a trial still at its
   // first charge from an established payer whose renewal failed.
@@ -394,6 +473,14 @@ type SubState = {
   // Currently dropped out of the chart by a pause rather than a lapse, so the
   // return trip can be reported as a resume instead of a new subscription.
   paused: boolean;
+  // Has been on the chart at some point. A plan paid up front first syncs as
+  // `incomplete` (not counted) until its charge clears, and its arrival must
+  // not read as a member coming back.
+  everCounted: boolean;
+  // Turned `active` with its first payment moments away (see
+  // CHARGED_AT_ONCE_MS). No pending row is written for it; the payment books
+  // the arrival as one row.
+  chargingAtOnce: boolean;
   ended: boolean;
 };
 
@@ -405,6 +492,17 @@ function isTrialPhase(s: SubState, nowMs: number): boolean {
   if (!s.sawTrial) return false;
   if (s.firstActiveMs == null) return true;
   return nowMs - s.firstActiveMs <= CONVERSION_CONFIRM_DAYS * DAY_MS;
+}
+
+// A payment failure on this subscription is already counted and still playing
+// out: a declined trial charge sitting in Trial Grace, or an established payer
+// in dunning. Whatever ends it is that same failure, not a second one.
+function isFailureOpen(s: SubState): boolean {
+  return s.dunning || s.bucket === 'trialGrace';
+}
+
+function declinedRecently(s: SubState, atMs: number): boolean {
+  return s.declinedAtMs != null && atMs - s.declinedAtMs <= DECLINE_EVIDENCE_DAYS * DAY_MS;
 }
 
 // Whether a scheduled cancellation is ending a PAID subscription rather than a
@@ -440,6 +538,10 @@ function isPaidSubscription(s: SubState): boolean {
  * whichever order the webhook happens to deliver. Reading it as set membership
  * is what makes the result independent of that order, the same reasoning
  * stampSubscriptionPayment relies on for its two columns.
+ *
+ * `evidence` never makes a row either. Declines decide whether an ending was a
+ * payment failure (see LedgerRow.paymentFailure); refunds say an ending was a
+ * money-back refund.
  */
 export function buildSubscriberLedger(
   syncs: LedgerSyncEvent[],
@@ -447,9 +549,13 @@ export function buildSubscriberLedger(
   payments: LedgerPaymentEvent[] = [],
   recoveries: LedgerRecoveryEvent[] = [],
   nowMs: number = Date.now(),
+  evidence: LedgerEvidence = {},
 ): LedgerRow[] {
   const rows: LedgerRow[] = [];
   const subs = new Map<string, SubState>();
+  const declines = evidence.declines ?? [];
+  const refundedSubs = new Set((evidence.refunds ?? []).map((ev) => ev.subId));
+  const switchedSubs = new Set((evidence.trialSwitches ?? []).map((ev) => ev.subId));
 
   const recoveredSubs = new Map<string, LedgerRecoveryEvent>();
   for (const ev of recoveries) {
@@ -457,6 +563,36 @@ export function buildSubscriberLedger(
     // by one, and a re-run is refused by the recovered_from_invoice stamp.
     if (ev.subId && !recoveredSubs.has(ev.subId)) recoveredSubs.set(ev.subId, ev);
   }
+
+  // Each subscription's first payment on record: when it landed, and on which
+  // kind of invoice. Read ahead of the walk because both decide how the moment a
+  // subscription turns `active` reads, and the payment usually arrives a moment
+  // after that sync.
+  const firstPayment = new Map<string, { atMs: number; reason: string | null }>();
+  const timedPayments = payments
+    .map((ev) => ({ ev, atMs: Date.parse(ev.at) }))
+    .filter(({ ev, atMs }) => ev.subId && Number.isFinite(atMs))
+    .sort((a, b) => a.atMs - b.atMs);
+  for (const { ev, atMs } of timedPayments) {
+    const first = firstPayment.get(ev.subId);
+    if (!first) firstPayment.set(ev.subId, { atMs, reason: ev.billingReason ?? null });
+    // The account-level first-payment stamp names no invoice type; the invoice
+    // row for the same charge, a moment later, does.
+    else if (first.reason == null && atMs - first.atMs <= CHARGED_AT_ONCE_MS) first.reason = ev.billingReason ?? null;
+  }
+  const firstReason = (subId: string) => firstPayment.get(subId)?.reason ?? null;
+  const switchedOffTrial = (s: SubState, subId: string) =>
+    s.sawTrial && (firstReason(subId) === 'subscription_update' || switchedSubs.has(subId));
+  const paidUpFront = (s: SubState, subId: string) =>
+    !s.sawTrial || firstReason(subId) === 'subscription_create';
+
+  // The arrival of a subscription whose first charge was taken at once.
+  const arrivalDetail = (s: SubState, subId: string, fallback: string): string =>
+    switchedOffTrial(s, subId)
+      ? 'Ended the free trial early by switching to a paid plan, and paid at once'
+      : paidUpFront(s, subId) && firstReason(subId) != null
+        ? 'Paid up front at checkout — a new paying subscriber'
+        : fallback;
 
   const stateFor = (subId: string): SubState => {
     let s = subs.get(subId);
@@ -468,6 +604,8 @@ export function buildSubscriberLedger(
         userId: recovery?.userId ?? null,
         cancelAtPeriodEnd: false,
         dunning: false,
+        status: null,
+        declinedAtMs: null,
         sawTrial: false,
         firstActiveMs: null,
         // A recovered subscription arrives already paid for. Seeding this from
@@ -479,6 +617,8 @@ export function buildSubscriberLedger(
         recoveredKind: recovery?.kind ?? null,
         recovered: recovery != null,
         paused: false,
+        everCounted: false,
+        chargingAtOnce: false,
         ended: false,
       };
       subs.set(subId, s);
@@ -492,6 +632,7 @@ export function buildSubscriberLedger(
     kind: LedgerEventKind,
     to: SubscriberBucketId,
     detail: string,
+    paymentFailure = false,
   ) => {
     rows.push({
       at: ev.at,
@@ -499,9 +640,11 @@ export function buildSubscriberLedger(
       userId: ev.userId,
       kind,
       ...bucketDeltas(s.bucket, to),
+      paymentFailure,
       detail,
     });
     s.bucket = to;
+    if (to !== 'notCounted') s.everCounted = true;
   };
 
   // Promote a subscription whose `active` has outlived the fallback window
@@ -527,17 +670,20 @@ export function buildSubscriberLedger(
     }
   };
 
-  // ONE ordered timeline across all three streams. Every stream has to be walked
+  // ONE ordered timeline across all four streams. Every stream has to be walked
   // in real time together, because the fallback window above fires between
   // events: a trial whose charge fails an hour after `active` is deleted long
   // before its two days are up, and settling that conversion first would report
   // a member who never paid as having converted, then immediately churned.
-  // Ties resolve sync -> payment -> delete, the order the states depend on.
+  // Ties resolve sync -> payment -> decline -> delete, the order the states
+  // depend on: a decline must be on record before the deletion it explains,
+  // which Stripe can send in the same instant.
   type Step = {
     at: number;
     rank: number;
     sync?: LedgerSyncEvent;
     payment?: LedgerPaymentEvent;
+    decline?: LedgerDeclineEvent;
     del?: LedgerDeleteEvent;
   };
   const steps: Step[] = [];
@@ -551,25 +697,46 @@ export function buildSubscriberLedger(
     const at = Date.parse(ev.at);
     if (Number.isFinite(at)) steps.push({ at, rank: 1, payment: ev });
   }
+  for (const ev of declines) {
+    if (!ev.subId) continue;
+    const at = Date.parse(ev.at);
+    if (Number.isFinite(at)) steps.push({ at, rank: 2, decline: ev });
+  }
   for (const ev of deletes) {
     if (!ev.subId) continue;
     const at = Date.parse(ev.at);
-    if (Number.isFinite(at)) steps.push({ at, rank: 2, del: ev });
+    if (Number.isFinite(at)) steps.push({ at, rank: 3, del: ev });
   }
   steps.sort((a, b) => a.at - b.at || a.rank - b.rank);
 
   for (const step of steps) {
     settleDue(step.at);
 
+    if (step.decline) {
+      // Evidence only. A subscription never seen on the sync stream has nothing
+      // to lose, and one still `trialing` is refusing a switch to paid.
+      const s = subs.get(step.decline.subId);
+      if (s && !s.ended && (s.status === 'active' || s.status === 'past_due')) {
+        s.declinedAtMs = step.at;
+      }
+      continue;
+    }
+
     if (step.payment) {
       const ev = step.payment;
       const s = stateFor(ev.subId);
       if (ev.email) s.email = ev.email;
       if (ev.userId) s.userId = ev.userId;
+      // Money cleared, so no earlier decline can explain a later ending.
+      s.declinedAtMs = null;
       if (s.paidAt) continue; // a renewal, not the first payment
       s.paidAt = ev.at;
       if (s.bucket === 'converting') {
         push(ev, s, 'converted', 'fullSubscriber', 'The first payment cleared — now a paying subscriber');
+      } else if (s.chargingAtOnce) {
+        s.chargingAtOnce = false;
+        push(ev, s, 'converted', 'fullSubscriber',
+          arrivalDetail(s, ev.subId, 'The trial ended and the first payment cleared at once — now a paying subscriber'));
       }
       continue;
     }
@@ -585,17 +752,35 @@ export function buildSubscriberLedger(
       s.ended = true;
       if (s.bucket === 'notCounted' || s.bucket === null) continue; // already off the chart
       const scheduled = s.cancelAtPeriodEnd;
+      const refunded = refundedSubs.has(ev.subId!);
+      const open = isFailureOpen(s);
+      const trialPhase = isTrialPhase(s, step.at);
+      // An ending nobody asked for is a payment failure when a charge was
+      // declined on the way out. With no decline on record, ending a conversion
+      // whose first charge was still pending says the same thing: that is the
+      // moment Stripe cancels a trial whose charge it will not retry. A refund
+      // was asked for, whatever else is on record.
+      const failed =
+        !refunded &&
+        !scheduled &&
+        !open &&
+        (declinedRecently(s, step.at) || (s.bucket === 'converting' && trialPhase));
+      const reason = ev.reason ? ` (${ev.reason})` : '';
+      let detail = `Subscription ended${reason}`;
+      if (refunded) detail = `Refunded under the money-back guarantee — access ended${reason}`;
+      else if (scheduled) detail = `Scheduled cancellation took effect — access ended${reason}`;
+      else if (failed && s.paidAt) detail = 'A charge was declined and Stripe canceled the subscription';
+      else if (failed && trialPhase) detail = 'Trial ended, the first charge failed and Stripe canceled the subscription';
+      else if (failed) detail = 'The first charge failed and Stripe canceled the subscription';
+      else if (open) detail = 'Stripe canceled the subscription before the declined charge was paid';
       rows.push({
         at: ev.at,
         email: ev.email,
         userId: ev.userId,
         kind: 'accessEnded',
         ...bucketDeltas(s.bucket, 'notCounted'),
-        detail: scheduled
-          ? `Scheduled cancellation took effect — access ended${ev.reason ? ` (${ev.reason})` : ''}`
-          : isTrialPhase(s, step.at)
-            ? 'Trial ended, the first charge failed and Stripe canceled the subscription'
-            : `Subscription ended${ev.reason ? ` (${ev.reason})` : ''}`,
+        paymentFailure: failed,
+        detail,
       });
       s.bucket = 'notCounted';
       continue;
@@ -606,6 +791,12 @@ export function buildSubscriberLedger(
     const s = stateFor(ev.subId);
     if (ev.email) s.email = ev.email;
     if (ev.userId) s.userId = ev.userId;
+    // Back out of past_due means the declined bill was dealt with, so that
+    // decline no longer explains anything that happens next.
+    if (ev.status === 'active' && (s.status === 'past_due' || s.status === 'unpaid')) {
+      s.declinedAtMs = null;
+    }
+    s.status = ev.status;
 
     if (ev.status === 'trialing') s.sawTrial = true;
     const trialPhase = isTrialPhase(s, atMs);
@@ -614,9 +805,20 @@ export function buildSubscriberLedger(
     // A past_due whose window was opened by a trial conversion belongs on the
     // Trial Grace line; an established payer's belongs with the full
     // subscribers. Derived rather than read from the row because the ledger
-    // only has what the sync message carries.
+    // only has what the sync message carries. A window already open as Trial
+    // Grace stays one until it resolves, as the webhook's own grace reason
+    // does: a re-sync after the trial-phase clock has run out (the member
+    // updating their card on day three, say) is the same unpaid first charge,
+    // not a recovery followed by a failed renewal.
     const derivedGraceReason =
-      ev.status === 'past_due' ? (trialPhase ? 'trial' : 'renewal') : null;
+      ev.status === 'past_due' ? (trialPhase || s.bucket === 'trialGrace' ? 'trial' : 'renewal') : null;
+    // The statuses Stripe gives a subscription whose charge failed, or an ending
+    // with a decline on record that no cancel asked for. Only read where a row
+    // takes the member off the chart.
+    const paymentSignal =
+      ev.status === 'past_due' ||
+      ev.status === 'unpaid' ||
+      (declinedRecently(s, atMs) && !s.cancelAtPeriodEnd && !ev.cancelAtPeriodEnd);
     const next = classifySubscriberBucket({
       subscriptionStatus: ev.status,
       tier: ev.tier,
@@ -638,13 +840,26 @@ export function buildSubscriberLedger(
       } else if (next === 'freeTrial') {
         push(ev, s, 'trialStarted', next, 'Free trial began — card on file, no charge yet');
       } else if (next === 'converting') {
-        push(
-          ev,
-          s,
-          'conversionPending',
-          next,
-          'Trial ended and Stripe raised the first invoice — the charge has not been attempted yet',
-        );
+        const first = firstPayment.get(ev.subId);
+        if (first && first.atMs >= atMs && first.atMs - atMs <= CHARGED_AT_ONCE_MS) {
+          // Charged at once: paid up front at checkout, or a trial member
+          // switching to a paid plan. Nothing was ever pending, so no row; the
+          // payment moments later books the arrival.
+          s.chargingAtOnce = true;
+        } else {
+          push(
+            ev,
+            s,
+            'conversionPending',
+            next,
+            switchedOffTrial(s, ev.subId)
+              ? 'Switched from the free trial to a paid plan — the charge has not cleared yet'
+              : paidUpFront(s, ev.subId)
+                ? 'Signed up on a paid plan — the first charge has not cleared yet'
+                : `The ${normalizeBucketTier(ev.tier) === 'pro' ? 'Pro' : 'Basic'} free trial ended and Stripe raised ` +
+                  'the first invoice — the charge has not been attempted yet',
+          );
+        }
       } else if (next === 'trialGrace') {
         push(
           ev,
@@ -652,6 +867,7 @@ export function buildSubscriberLedger(
           'trialChargeDeclined',
           next,
           'The first charge after the trial was declined — Stripe is retrying, access retained for now',
+          !isFailureOpen(s),
         );
       } else if (next === 'fullSubscriber') {
         if (s.recovered) {
@@ -677,10 +893,12 @@ export function buildSubscriberLedger(
         } else if (s.paused) {
           s.paused = false;
           push(ev, s, 'resumed', next, 'Pause ended — billing restarted and access restored');
-        } else if (s.bucket === 'notCounted') {
+        } else if (s.bucket === 'notCounted' && s.everCounted) {
           push(ev, s, 'converted', next, 'Resubscribed — paying again');
         } else {
-          push(ev, s, 'converted', next, 'New paying subscriber');
+          // The payment landed before this `active` sync, so the charge was
+          // taken at once; say how, when the invoice says.
+          push(ev, s, 'converted', next, arrivalDetail(s, ev.subId, 'New paying subscriber'));
         }
       } else if (ev.status === 'active') {
         // Live subscription, no tier granted: Stripe keeps a paused sub
@@ -688,17 +906,17 @@ export function buildSubscriberLedger(
         s.paused = true;
         push(ev, s, 'paused', next, 'Subscription paused — billing and access on hold; this is not churn');
       } else {
-        push(
-          ev,
-          s,
-          'accessEnded',
-          next,
-          s.bucket === 'freeTrial'
-            ? trialPhase
-              ? 'Trial ended without a successful charge — access removed'
-              : 'Trial ended — access removed'
-            : 'Subscription lapsed — access removed',
-        );
+        const refunded = refundedSubs.has(ev.subId);
+        const open = isFailureOpen(s);
+        const failed = paymentSignal && !open && !refunded;
+        let detail = 'Subscription lapsed — access removed';
+        if (refunded) detail = 'Refunded under the money-back guarantee — access removed';
+        else if (failed && s.paidAt) detail = 'A charge was declined — access removed';
+        else if (failed) detail = 'The first charge was declined — access removed';
+        else if (open) detail = 'The declined charge was not paid in time — access removed';
+        else if (s.bucket === 'freeTrial' && trialPhase) detail = 'Trial ended without a successful charge — access removed';
+        else if (s.bucket === 'freeTrial') detail = 'Trial ended — access removed';
+        push(ev, s, 'accessEnded', next, detail, failed);
       }
     }
 
@@ -717,6 +935,8 @@ export function buildSubscriberLedger(
         convertingDelta: 0,
         freeTrialDelta: 0,
         trialGraceDelta: 0,
+        // A new episode by construction: `!s.dunning` above.
+        paymentFailure: true,
         detail: 'A renewal charge was declined — access retained while Stripe retries',
       });
     } else if (ev.status === 'active' && s.dunning) {
@@ -730,6 +950,7 @@ export function buildSubscriberLedger(
         convertingDelta: 0,
         freeTrialDelta: 0,
         trialGraceDelta: 0,
+        paymentFailure: false,
         detail: 'The declined renewal was paid — no longer at risk',
       });
     }
@@ -755,6 +976,7 @@ export function buildSubscriberLedger(
         convertingDelta: 0,
         freeTrialDelta: 0,
         trialGraceDelta: 0,
+        paymentFailure: false,
         detail: ev.cancelAtPeriodEnd
           ? paid
             ? 'Clicked Cancel on a paid subscription — keeps access until the paid period ends, then drops off'

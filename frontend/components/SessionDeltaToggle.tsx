@@ -24,7 +24,7 @@ export default function SessionDeltaToggle({ showHint = true }: { showHint?: boo
       onChange={setShowSessionDelta}
       options={OPTIONS}
       showHint={showHint}
-      hint="Overlay a small green up / red down triangle beside each strike's live Net GEX showing whether dealer gamma there has built or eroded since the 09:30 ET open — for whatever expirations are selected. Small drifts are left unmarked so the ladder stays clean."
+      hint="Overlay a small green up / red down triangle beside each strike's live Net GEX showing whether dealer gamma there has built or eroded since the 09:30 ET open&nbsp;- for whatever expirations are selected. Small drifts are left unmarked so the ladder stays clean."
     />
   );
 }

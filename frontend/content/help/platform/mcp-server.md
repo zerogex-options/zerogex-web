@@ -6,7 +6,7 @@
 
 ## What it is
 
-`https://zerogex.io/mcp` is a hosted [Model Context Protocol](https://modelcontextprotocol.io) server. Point an AI assistant at that URL and it can read ZeroGEX dealer-positioning levels directly — the gamma flip, the call and put walls, max pain, the same-day pin strike, and net dealer gamma at spot — for SPX, SPY, QQQ, NDX, ES and NQ.
+`https://zerogex.io/mcp` is a hosted [Model Context Protocol](https://modelcontextprotocol.io) server. Point an AI assistant at that URL and it can read ZeroGEX dealer-positioning levels directly - the gamma flip, the call and put walls, max pain, the same-day pin strike, and net dealer gamma at spot - for SPX, SPY, QQQ, NDX, ES and NQ.
 
 There is nothing to install, no key to generate, and no account to create. Reading is free.
 
@@ -18,7 +18,7 @@ This page is about *using* our hosted server. If you want to build your own MCP 
 
 The server speaks the Streamable HTTP transport, which is what current MCP clients expect from a remote server. Most of them just need the URL.
 
-**Claude (desktop and web).** Open your connector settings, add a custom connector, and paste `https://zerogex.io/mcp`. There is no authentication step — if the client asks for a key, leave it blank.
+**Claude (desktop and web).** Open your connector settings, add a custom connector, and paste `https://zerogex.io/mcp`. There is no authentication step - if the client asks for a key, leave it blank.
 
 **Claude Code.**
 
@@ -53,9 +53,9 @@ curl -sS -X POST https://zerogex.io/mcp \
 
 ## The two tools
 
-**`get_gamma_levels`** — everything for one symbol: spot, the modeled regime, net dealer gamma at spot, gamma flip, call wall, put wall, max pain, the same-day pin strike, and each level's distance from spot.
+**`get_gamma_levels`** - everything for one symbol: spot, the modeled regime, net dealer gamma at spot, gamma flip, call wall, put wall, max pain, the same-day pin strike, and each level's distance from spot.
 
-**`get_market_gamma_overview`** — spot, regime and flip for all six symbols in one call. Built for the opening question ("what does positioning look like today?") so an assistant answers it once instead of making six calls.
+**`get_market_gamma_overview`** - spot, regime and flip for all six symbols in one call. Built for the opening question ("what does positioning look like today?") so an assistant answers it once instead of making six calls.
 
 Both are read-only. Nothing you ask can change anything on your account, because the server does not know who you are.
 
@@ -68,19 +68,19 @@ Questions that route to them naturally:
 
 ## What the answers will tell you, and what they will not
 
-Every response leads with its own age and says plainly that the data is delayed. This is deliberate. Hand a language model the number `6412.50` and it will report the gamma flip is at 6412.50 in exactly the confident register it uses for a live quote — so the tool output carries the caveat, not just the number, and a well-behaved assistant will repeat it.
+Every response leads with its own age and says plainly that the data is delayed. This is deliberate. Hand a language model the number `6412.50` and it will report the gamma flip is at 6412.50 in exactly the confident register it uses for a live quote - so the tool output carries the caveat, not just the number, and a well-behaved assistant will repeat it.
 
 Three things worth knowing before you trade off an answer:
 
 - **The levels are up to 15 minutes old.** On a fast tape the market can be through a level well before the snapshot shows it. These are good for orientation and structure, not for timing an entry at the current price.
-- **A missing level is a real answer.** When the modeled book does not support a gamma flip, the server says the level is unavailable. It is not zero, and it is not an error. An assistant that substitutes a number there is making one up — ask it where the number came from.
+- **A missing level is a real answer.** When the modeled book does not support a gamma flip, the server says the level is unavailable. It is not zero, and it is not an error. An assistant that substitutes a number there is making one up - ask it where the number came from.
 - **Positioning is not direction.** These levels describe how dealer hedging tends to behave around price. They are not a forecast and not a recommendation, and the server says so on every call.
 
 If the assistant reports levels without mentioning the delay, ask it directly how old the snapshot is. The age is in every response it received.
 
 ## Limits and availability
 
-There is no key, so there is no per-user quota. The server answers from the same cache as the public gamma-levels pages and refreshes about every 15 minutes, so calling it more often than that returns the same snapshot — polling faster buys nothing.
+There is no key, so there is no per-user quota. The server answers from the same cache as the public gamma-levels pages and refreshes about every 15 minutes, so calling it more often than that returns the same snapshot - polling faster buys nothing.
 
 When the backend is briefly unavailable, tools return an explicit "temporarily unavailable" result that tells the assistant not to fill the gap from memory. That is a normal transient state, not a sign your configuration is wrong.
 
@@ -88,7 +88,7 @@ Outside market hours the most recent snapshot is the last one of the session, an
 
 ## Where to go next
 
-- [Free Gamma Levels: SPX](/spx-gamma-levels) — the same data as a page.
-- [API Access & Keys (Pro)](/help/platform/api-access) — the real-time feed.
-- [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration) — roll your own against Pro data.
-- [Data Coverage & Refresh](/help/platform/data-coverage) — symbols, hours, cadence.
+- [Free Gamma Levels: SPX](/spx-gamma-levels) - the same data as a page.
+- [API Access & Keys (Pro)](/help/platform/api-access) - the real-time feed.
+- [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration) - roll your own against Pro data.
+- [Data Coverage & Refresh](/help/platform/data-coverage) - symbols, hours, cadence.

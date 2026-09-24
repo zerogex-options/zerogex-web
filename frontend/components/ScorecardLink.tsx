@@ -43,7 +43,7 @@ export default function ScorecardLink({
             <span className="font-mono">{row.flips}</span> flips,{' '}
             <span className="font-mono">{row.scored}</span> scored,{' '}
             <span className="font-mono">
-              {row.wins}–{row.losses}
+              {row.wins}-{row.losses}
             </span>
             {row.win_rate != null ? <> ({(row.win_rate * 100).toFixed(0)}%)</> : null}
             {avg ? (

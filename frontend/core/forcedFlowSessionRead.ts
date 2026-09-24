@@ -261,7 +261,7 @@ function synthesize(a: {
     return {
       headline: 'No level near spot',
       sentence:
-        'No zero-flow level sits near spot right now — no pin or pivot to lean on; price is between structures.',
+        'No zero-flow level sits near spot right now\u00a0- no pin or pivot to lean on; price is between structures.',
     };
   }
 
@@ -294,7 +294,7 @@ function synthesize(a: {
       biasDir === 'up' ? 'Upward pin' : biasDir === 'down' ? 'Downward pin' : 'Flat pin';
     return {
       headline,
-      sentence: `The nearest zero-flow level is a stable pin (magnet) at ${lvl} (${pts}) — dealers sell above it and buy below, so it pulls price in. ${reactSentence}${dirTail}`,
+      sentence: `The nearest zero-flow level is a stable pin (magnet) at ${lvl} (${pts})\u00a0- dealers sell above it and buy below, so it pulls price in. ${reactSentence}${dirTail}`,
     };
   }
 
@@ -307,14 +307,14 @@ function synthesize(a: {
   if (scored && reactionPct != null) {
     reactSentence =
       reactionPct >= 0.55
-        ? `Price has run off it ${pct} of the time this session — moves extend, not revert. `
-        : `Price has held near it (only ${pct} of moves ran away) — coiling rather than breaking. `;
+        ? `Price has run off it ${pct} of the time this session\u00a0- moves extend, not revert. `
+        : `Price has held near it (only ${pct} of moves ran away)\u00a0- coiling rather than breaking. `;
   } else {
     reactSentence = 'Reaction is still scoring this early in the session. ';
   }
   const pushWord = biasDir === 'up' ? 'upward' : biasDir === 'down' ? 'downward' : 'either-way';
   return {
     headline: 'Amplifying · short γ',
-    sentence: `Price is sitting by a pivot at ${lvl} (${pts}), not a pin — dealers buy above it and sell below, so they amplify moves here (short gamma), currently a ${pushWord} push. ${reactSentence}A break back through ${lvl} flips the push the other way. ${pinTail}`,
+    sentence: `Price is sitting by a pivot at ${lvl} (${pts}), not a pin\u00a0- dealers buy above it and sell below, so they amplify moves here (short gamma), currently a ${pushWord} push. ${reactSentence}A break back through ${lvl} flips the push the other way. ${pinTail}`,
   };
 }

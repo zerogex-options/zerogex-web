@@ -6,7 +6,7 @@
 
 ## Cómo funciona el streaming
 
-ZeroGEX envía datos en vivo a tu navegador mediante una conexión persistente — abre el panel y los datos empiezan a fluir en menos de un segundo tras cargar la página. No hay polling del lado del cliente.
+ZeroGEX envía datos en vivo a tu navegador mediante una conexión persistente - abre el panel y los datos empiezan a fluir en menos de un segundo tras cargar la página. No hay polling del lado del cliente.
 
 La conexión se renueva automáticamente si se interrumpe. Si una renovación falla repetidamente, la interfaz muestra una etiqueta de "Reconectando…" y comienza un nuevo intento con backoff.
 
@@ -16,8 +16,8 @@ La conexión se renueva automáticamente si se interrumpe. Si una renovación fa
 | --- | --- |
 | Cotización de precio | ~1 segundo |
 | Flow / tape | ~1 segundo |
-| Puntuaciones de señales | 1–5 segundos según la señal |
-| Superficie GEX | 5–15 segundos (cuello de botella: snapshot de la chain) |
+| Puntuaciones de señales | 1-5 segundos según la señal |
+| Superficie GEX | 5-15 segundos (cuello de botella: snapshot de la chain) |
 | Composite Score | ~5 segundos |
 
 Cuando la página está en una pestaña en segundo plano, el navegador puede limitar las actualizaciones. Trae la pestaña al primer plano y las actualizaciones se reanudan de inmediato.
@@ -35,9 +35,9 @@ Las causas más comunes, en orden de frecuencia:
 
 Cuando algo parece no funcionar, el diagnóstico en cuatro pasos:
 
-1. Mira el **badge de sesión** — ¿está abierto el mercado?
-2. Mira el **tile de precio** — ¿la marca de tiempo es reciente?
-3. Mira el **indicador de conexión** en el encabezado — ¿está en verde?
+1. Mira el **badge de sesión** - ¿está abierto el mercado?
+2. Mira el **tile de precio** - ¿la marca de tiempo es reciente?
+3. Mira el **indicador de conexión** en el encabezado - ¿está en verde?
 4. Recarga forzando la caché (Cmd+Shift+R o Ctrl+Shift+R).
 
 Eso cubre alrededor del 95 % de las situaciones en las que "algo parece roto".
@@ -66,7 +66,7 @@ Cambiar de símbolo vuelve a obtener todos los datos; cambiar de marco temporal 
 
 ## Móvil
 
-ZeroGEX funciona en teléfonos — cada página es responsive — pero la plataforma está **diseñada para escritorio**. La densidad de los gráficos asume una pantalla más ancha de 1024px. En móvil, desplázate horizontalmente sobre los gráficos; todos los datos están ahí, solo que el diseño es más denso.
+ZeroGEX funciona en teléfonos - cada página es responsive - pero la plataforma está **diseñada para escritorio**. La densidad de los gráficos asume una pantalla más ancha de 1024px. En móvil, desplázate horizontalmente sobre los gráficos; todos los datos están ahí, solo que el diseño es más denso.
 
 ## Cuándo escribir a soporte
 
@@ -76,7 +76,7 @@ Si la propia plataforma parece atascada (no tu conexión, no una pestaña desact
 - La hora en que ocurrió (con zona horaria)
 - Tu navegador y sistema operativo
 
-Nuestros registros llevan marca de tiempo — eso es suficiente para rastrear el problema.
+Nuestros registros llevan marca de tiempo - eso es suficiente para rastrear el problema.
 
 ## Ver también
 

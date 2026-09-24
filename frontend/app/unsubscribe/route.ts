@@ -28,8 +28,8 @@ function page(heading: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZeroGEX — Email preferences</title></head>
-<body style="margin:0; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+<title>ZeroGEX\u00a0- Email preferences</title></head>
+<body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
     <div style="font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#12283c;">zerogex<span style="color:#f45854;">.io</span></div>
     <h1 style="font-size:20px; color:#12283c; margin:22px 0 10px;">${heading}</h1>

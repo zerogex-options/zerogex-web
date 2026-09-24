@@ -20,15 +20,48 @@ type Update = {
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
   {
+    date: 'September 20, 2026',
+    title: 'The Gamma Chart and the Gamma Terminal are one page now',
+    intro:
+      'These were never really two products. The Gamma Terminal was the Gamma Chart with two strike ladders beside it instead of the gamma rail\u00a0- same instrument, same levels, same engine, different thing in the right-hand column. Keeping them apart meant you had to pick a page before you knew which reading you wanted, and it meant the ladders were locked behind a members-only beta while the chart was the free front door. So they are folded: one flagship page at /chart, a switch for what sits beside the tape, and the whole thing\u00a0- ladders included\u00a0- free on a ~15-minute delay.',
+    whatsNew: [
+      {
+        title: 'One layout, two readings of the book',
+        href: '/chart',
+        body: 'The page is the terminal layout throughout: tape on the left, a panel beside it, the panel as tall as the chart. A "Beside the tape" switch chooses what the panel holds\u00a0- Gamma Ladders, two strike-aligned Net GEX books pinned to the same spot row as the candles, or the Strike Panel, net dealer gamma by price with all four of its views (Silhouette, Net, Split, Combined) and the on-bar labels. The chart does not change between them: same width, same toolbar, same overlays. Only the panel switches, and your choice is remembered.',
+      },
+      {
+        title: 'The gamma rail left its cramped column',
+        href: '/chart',
+        body: 'It used to be a narrow strip inside the chart, squeezed between the candles and the price axis. Now it is the panel\u00a0- roughly twice the width, the full height of the card\u00a0- and it is drawn against the tape\u2019s own price scale, so a strike\u2019s bar sits exactly level with that price on the candles. It also reaches past the top and bottom of the visible tape at the same scale, which is usually where the wall you are about to run into lives. Its four views moved onto the panel with it.',
+      },
+      {
+        title: 'Nothing was dropped in the fold',
+        href: '/chart',
+        body: 'Key Levels, the Playbook, the GEX ribbons (available under either view, since they read the tape rather than the panel), the Expiry filter, Rewind, Session \u0394 and the symbol swap all came across. The chart keeps one saved toolbar now rather than one per view, because there is one chart to save.',
+      },
+      {
+        title: 'The ladders are free now, 15 minutes behind',
+        href: '/chart',
+        body: 'The public view used to be the chart alone. It is now the whole terminal: the tape, the levels, and both gamma ladders\u00a0- SPY read against SPX\u00a0- rendered from a server snapshot on the same ~15-minute delay the free gamma levels have always used. Members get it live, on every symbol, with the Expiry filter and Rewind driving the ladders too.',
+      },
+      {
+        title: 'The Gamma Terminal beta URL now lands here',
+        href: '/chart',
+        body: 'The beta at /gamma-terminal is gone as a separate page and redirects to /chart, which is where the nav entry points too\u00a0- now labelled Gamma Terminal, and no longer flagged beta. Old bookmarks and links keep working.',
+      },
+    ],
+  },
+  {
     date: 'September 16, 2026',
     title: 'A baseline for spreads, and 0DTE on the replay',
     intro:
-      'Two things shipped today, and both of them were a question the site could not answer. The Spread Monitor could tell you how wide the market was, but not whether that width was unusual \u2014 and a number with nothing to compare it to is a number you still have to guess about; it has a baseline now, and the baseline knows what time it is. The Daily Replay had the opposite problem: it answered, but only ever about the whole chain. A member cancelled last week and told me so, and he was right. It knows both books now.',
+      'Two things shipped today, and both of them were a question the site could not answer. The Spread Monitor could tell you how wide the market was, but not whether that width was unusual\u00a0- and a number with nothing to compare it to is a number you still have to guess about; it has a baseline now, and the baseline knows what time it is. The Daily Replay had the opposite problem: it answered, but only ever about the whole chain. A member cancelled last week and told me so, and he was right. It knows both books now.',
     whatsNew: [
       {
         title: 'Spread surface vs history',
         href: '/spread-monitor',
-        body: 'A new section that draws today\u2019s quoted width across the strikes on top of what the same symbol normally quotes in the same band \u2014 the median, and the middle half of its own distribution shaded behind it. Puts and calls are a toggle rather than an overlay, because the reading people care about is the one where the puts moved and the calls did not.',
+        body: 'A new section that draws today\u2019s quoted width across the strikes on top of what the same symbol normally quotes in the same band\u00a0- the median, and the middle half of its own distribution shaded behind it. Puts and calls are a toggle rather than an overlay, because the reading people care about is the one where the puts moved and the calls did not.',
       },
       {
         title: 'Compared at the same time of day',
@@ -43,22 +76,22 @@ const UPDATES: Update[] = [
       {
         title: 'It says when it cannot say',
         href: '/help/platform/spread-monitor',
-        body: 'The panel prints how many comparable sessions are behind every comparison, over what dates, at what time of day \u2014 and prints zero when that is the answer. Below eight sessions no percentile is shown at all, because "the widest of the four days we have" is not a distribution, and drawing it as one would be the most misleading thing on the page.',
+        body: 'The panel prints how many comparable sessions are behind every comparison, over what dates, at what time of day\u00a0- and prints zero when that is the answer. Below eight sessions no percentile is shown at all, because "the widest of the four days we have" is not a distribution, and drawing it as one would be the most misleading thing on the page.',
       },
       {
         title: 'All exps / 0DTE on any replayed session',
         href: '/replay',
-        body: 'Every session page has a switch above the scrubber. 0DTE means the contracts that expired that afternoon \u2014 on a replay of September 15, that is the September 15 expiry, and it stays that expiry however long from now you open the link. The filter and the playhead both live in the address bar, so sending someone the 0DTE surface at 2:47 PM is a copy and a paste. A session whose chain carried no same-day expiration says so, instead of quietly showing you everything.',
+        body: 'Every session page has a switch above the scrubber. 0DTE means the contracts that expired that afternoon\u00a0- on a replay of September 15, that is the September 15 expiry, and it stays that expiry however long from now you open the link. The filter and the playhead both live in the address bar, so sending someone the 0DTE surface at 2:47 PM is a copy and a paste. A session whose chain carried no same-day expiration says so, instead of quietly showing you everything.',
       },
       {
-        title: 'On the replay, the levels follow the filter \u2014 not just the bars',
+        title: 'On the replay, the levels follow the filter\u00a0- not just the bars',
         href: '/replay',
-        body: 'This is the part that matters. On 0DTE the Call Wall, Put Wall, Gamma Flip and Max Pain are rebuilt from that day\u2019s expiry alone, so what you are reading is the book that actually had to be hedged into the bell \u2014 not a whole-chain level drawn over same-day bars. Pin Strike and GEX King stay whole-chain, because both are whole-chain by definition; that is also how they behave under the Expiry selector on the live charts.',
+        body: 'This is the part that matters. On 0DTE the Call Wall, Put Wall, Gamma Flip and Max Pain are rebuilt from that day\u2019s expiry alone, so what you are reading is the book that actually had to be hedged into the bell\u00a0- not a whole-chain level drawn over same-day bars. Pin Strike and GEX King stay whole-chain, because both are whole-chain by definition; that is also how they behave under the Expiry selector on the live charts.',
       },
       {
         title: 'And one that was already there: the Gamma Chart rewinds by expiration',
         href: '/chart',
-        body: 'Worth saying out loud, since it took a cancellation to learn it was not obvious. The Gamma Chart has a Rewind button that replays the session minute by minute, and the Expiry selector beside the gamma rail has its own 0DTE row. Set it, and the rewind, the walls and the flip all follow the same-day book. That has been live for members the whole time. It was just too well hidden \u2014 which is mine to fix, not yours to find.',
+        body: 'Worth saying out loud, since it took a cancellation to learn it was not obvious. The Gamma Chart has a Rewind button that replays the session minute by minute, and the Expiry selector beside the gamma rail has its own 0DTE row. Set it, and the rewind, the walls and the flip all follow the same-day book. That has been live for members the whole time. It was just too well hidden\u00a0- which is mine to fix, not yours to find.',
       },
     ],
   },
@@ -66,22 +99,22 @@ const UPDATES: Update[] = [
     date: 'September 10, 2026',
     title: 'Spread Monitor: can you actually get filled?',
     intro:
-      'A question came up on X this week that we could not answer: index put spreads had gone wide enough to be untradeable, and nobody had a number for how wide, or whether it was unusual. The quote data was already in the pipeline — nothing was summarising it. Now something is.',
+      'A question came up on X this week that we could not answer: index put spreads had gone wide enough to be untradeable, and nobody had a number for how wide, or whether it was unusual. The quote data was already in the pipeline\u00a0- nothing was summarising it. Now something is.',
     whatsNew: [
       {
         title: 'Spread Monitor',
         href: '/spread-monitor',
-        body: 'A new Metrics page for execution quality. It shows how wide the option market is quoted, which side of the book is the expensive one, where in the chain the market thins out, and how much of the chain has no bid at all — contracts you cannot sell at any price, which no width statistic can express and which a median alone would hide. Puts and calls are always plotted apart, because the days people complain about are days when the puts widened and the calls did not.',
+        body: 'A new Metrics page for execution quality. It shows how wide the option market is quoted, which side of the book is the expensive one, where in the chain the market thins out, and how much of the chain has no bid at all\u00a0- contracts you cannot sell at any price, which no width statistic can express and which a median alone would hide. Puts and calls are always plotted apart, because the days people complain about are days when the puts widened and the calls did not.',
       },
       {
         title: 'A baseline, not a threshold',
         href: '/help/platform/spread-monitor',
-        body: 'There is no universal "wide" for a quoted spread — an SPX put is structurally wider than an SPY put on the calmest day of the year. So the page never calls a reading wide in the abstract. It ranks today against the same symbol\u2019s own trailing sessions, and when it does not have that history it shows the measurement and withholds the verdict.',
+        body: 'There is no universal "wide" for a quoted spread\u00a0- an SPX put is structurally wider than an SPY put on the calmest day of the year. So the page never calls a reading wide in the abstract. It ranks today against the same symbol\u2019s own trailing sessions, and when it does not have that history it shows the measurement and withholds the verdict.',
       },
       {
         title: 'Side by side across the indices',
         href: '/spread-monitor',
-        body: 'A cross-symbol table answers "is NDX any better than SPX today?" on a comparable basis — width in basis points of the index level, since a dollar-wide market means something different on an index near 6,800 than on one near 25,000. ES and NQ are deliberately absent: they carry no option chain of their own here, and scaling an SPX quote by the futures basis would invent a market nobody published.',
+        body: 'A cross-symbol table answers "is NDX any better than SPX today?" on a comparable basis\u00a0- width in basis points of the index level, since a dollar-wide market means something different on an index near 6,800 than on one near 25,000. ES and NQ are deliberately absent: they carry no option chain of their own here, and scaling an SPX quote by the futures basis would invent a market nobody published.',
       },
     ],
   },
@@ -142,34 +175,34 @@ const UPDATES: Update[] = [
   },
   {
     date: 'July 24, 2026',
-    title: 'Now live — plus what’s coming next',
+    title: 'Now live\u00a0- plus what’s coming next',
     intro:
-      'Since the last note, several of the most-requested pieces shipped — including a couple that were on the “coming next” list last time. Here’s what’s live now, and where the platform is headed.',
+      'Since the last note, several of the most-requested pieces shipped\u00a0- including a couple that were on the “coming next” list last time. Here’s what’s live now, and where the platform is headed.',
     whatsNew: [
       {
         title: 'Trade Bias',
         href: '/trade-bias',
-        body: 'A single, signed directional call — which way to lean, how convinced, and the regime it started from. It fuses the gamma and volatility regime (the structural baseline) with live price action, order flow, tape, and momentum, and it tells you when the live read overrides the structure. Read it for a multi-day swing or a same-day 0DTE horizon.',
+        body: 'A single, signed directional call\u00a0- which way to lean, how convinced, and the regime it started from. It fuses the gamma and volatility regime (the structural baseline) with live price action, order flow, tape, and momentum, and it tells you when the live read overrides the structure. Read it for a multi-day swing or a same-day 0DTE horizon.',
       },
       {
         title: 'Gamma Chart',
         href: '/chart',
-        body: 'A proprietary price-and-dealer-gamma terminal — SPY, QQQ, SPX, and NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn inline, a live dealer-gamma structure rail, and full session rewind/replay. Real-time for members; a ~15-minute-delayed version is free for everyone.',
+        body: 'A proprietary price-and-dealer-gamma terminal\u00a0- SPY, QQQ, SPX, and NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn inline, a live dealer-gamma structure rail, and full session rewind/replay. Real-time for members; a ~15-minute-delayed version is free for everyone.',
       },
       {
         title: 'My Dashboard',
         href: '/my-dashboard',
-        body: 'The customizable, widget-based board from last update’s roadmap is here — pull your favorite charts and cards into one view, arrange them how you like, and save your layout, chart settings, and symbol selections. Start from a quick-start preset or add widgets one at a time.',
+        body: 'The customizable, widget-based board from last update’s roadmap is here\u00a0- pull your favorite charts and cards into one view, arrange them how you like, and save your layout, chart settings, and symbol selections. Start from a quick-start preset or add widgets one at a time.',
       },
       {
         title: 'NDX',
         href: '/ndx-gamma-levels',
-        body: 'The Nasdaq-100 joins SPY, SPX, and QQQ — the same gamma read, levels, and dealer positioning across every ZeroGEX tool, plus a free ~15-minute-delayed NDX gamma-levels page.',
+        body: 'The Nasdaq-100 joins SPY, SPX, and QQQ\u00a0- the same gamma read, levels, and dealer positioning across every ZeroGEX tool, plus a free ~15-minute-delayed NDX gamma-levels page.',
       },
       {
         title: 'Self-service API keys',
         href: '/account',
-        body: 'Generate and manage your own Pro API keys right from the Account page — no more requesting one by hand.',
+        body: 'Generate and manage your own Pro API keys right from the Account page\u00a0- no more requesting one by hand.',
       },
     ],
     whatsComing: [
@@ -179,15 +212,15 @@ const UPDATES: Update[] = [
       },
       {
         title: 'More tickers',
-        body: 'Coverage keeps growing beyond SPY, SPX, QQQ, and NDX — the same gamma read on more of what you watch.',
+        body: 'Coverage keeps growing beyond SPY, SPX, QQQ, and NDX\u00a0- the same gamma read on more of what you watch.',
       },
       {
         title: 'More automated strategies',
-        body: 'Additional TradeWorkz™ bots — each with the same public, no-cherry-picking track record.',
+        body: 'Additional TradeWorkz™ bots\u00a0- each with the same public, no-cherry-picking track record.',
       },
       {
         title: 'A more streamlined, simplified experience',
-        body: 'An ongoing pass to simplify the platform — fewer clicks to the read that matters, a cleaner layout, and less on-screen noise, so what you need is faster to find and act on.',
+        body: 'An ongoing pass to simplify the platform\u00a0- fewer clicks to the read that matters, a cleaner layout, and less on-screen noise, so what you need is faster to find and act on.',
       },
       {
         title: 'A sharper mobile experience',
@@ -197,14 +230,14 @@ const UPDATES: Update[] = [
   },
   {
     date: 'July 22, 2026',
-    title: "What's new — and what's coming next",
+    title: "What's new\u00a0- and what's coming next",
     intro:
       'Nearly everything below started as a message from a ZeroGEX trader. Here is a quick look at what has shipped recently and where the platform is headed.',
     whatsNew: [
       {
         title: 'Backtesting',
         href: '/backtesting',
-        body: 'Test options strategies and ZeroGEX signals against historical market data — a full tearsheet (risk-adjusted returns, drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable “prove it” report links. History depth is growing over time.',
+        body: 'Test options strategies and ZeroGEX signals against historical market data\u00a0- a full tearsheet (risk-adjusted returns, drawdown, win rate), a Monte Carlo outcome cone, a benchmark, and shareable “prove it” report links. History depth is growing over time.',
       },
       {
         title: 'Multi-expiration GEX',
@@ -214,23 +247,23 @@ const UPDATES: Update[] = [
       {
         title: 'Forced Flow & Charm-into-Close',
         href: '/forced-flow',
-        body: 'A new read on potential dealer hedging pressure into the close — showing where charm and vanna may influence late-session flows.',
+        body: 'A new read on potential dealer hedging pressure into the close\u00a0- showing where charm and vanna may influence late-session flows.',
       },
       {
         title: 'Daily Forecast',
         href: '/forecast',
-        body: 'Each morning, a plain-English read on the day ahead: an Expected Volatility estimate, a projected range, and the Key Levels that matter — with how far price sits from each. It grades itself against what actually happened, so you see a track record, not just a claim.',
+        body: 'Each morning, a plain-English read on the day ahead: an Expected Volatility estimate, a projected range, and the Key Levels that matter\u00a0- with how far price sits from each. It grades itself against what actually happened, so you see a track record, not just a claim.',
       },
       {
         title: 'TradeWorkz™',
         href: '/trading-signals',
-        body: 'A growing set of automated strategies built around ZeroGEX’s proprietary metrics and levels — posting their entries and exits in real time, backed by a fully public trade audit (every win and loss, not just the highlights).',
+        body: 'A growing set of automated strategies built around ZeroGEX’s proprietary metrics and levels\u00a0- posting their entries and exits in real time, backed by a fully public trade audit (every win and loss, not just the highlights).',
       },
     ],
     whatsComing: [
       {
         title: 'My Dashboard',
-        body: 'A customizable, widget-based view — pull your favorite charts and cards into one board, move things where you want them, and save your layout, chart settings, and symbol selections.',
+        body: 'A customizable, widget-based view\u00a0- pull your favorite charts and cards into one board, move things where you want them, and save your layout, chart settings, and symbol selections.',
       },
       {
         title: 'Enhanced backtesting',
@@ -238,11 +271,11 @@ const UPDATES: Update[] = [
       },
       {
         title: 'More tickers',
-        body: 'Expanding coverage beyond SPY, SPX, and QQQ — the same gamma read on more of what you watch.',
+        body: 'Expanding coverage beyond SPY, SPX, and QQQ\u00a0- the same gamma read on more of what you watch.',
       },
       {
         title: 'More automated strategies',
-        body: 'Additional TradeWorkz™ bots — each with the same public, no-cherry-picking track record.',
+        body: 'Additional TradeWorkz™ bots\u00a0- each with the same public, no-cherry-picking track record.',
       },
       {
         title: 'A sharper mobile experience',
@@ -282,7 +315,7 @@ function ItemRow({ item, marker }: { item: Item; marker: 'new' | 'next' }) {
 
 export default function UpdatesPage() {
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <div className="zg-feature-shell mb-8 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <Megaphone size={14} />
@@ -293,7 +326,7 @@ export default function UpdatesPage() {
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
           A running log of what we&apos;ve shipped and where the platform is headed. ZeroGEX is
-          largely shaped by trader feedback — if there&apos;s something you want to see, just reply
+          largely shaped by trader feedback&nbsp;- if there&apos;s something you want to see, just reply
           to any email.
         </p>
       </div>
@@ -337,7 +370,7 @@ export default function UpdatesPage() {
                   ))}
                 </ul>
                 <p className="mt-6 text-xs leading-6 text-[var(--color-text-secondary)]">
-                  Roadmap items are a direction, not a promise — priorities shift with your feedback.
+                  Roadmap items are a direction, not a promise&nbsp;- priorities shift with your feedback.
                 </p>
               </>
             )}

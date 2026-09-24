@@ -55,6 +55,10 @@ export type XPostRecord = {
   headlines: XPostHeadline[];
   levels: Record<string, number | string | null> | null;
   media: { png: string | null; clip: string | null };
+  // Added with the review gate; absent on records written before it.
+  status?: string | null;
+  problems?: string[];
+  tweet_url?: string | null;
 };
 
 export type XPostEnvelope = {
@@ -134,6 +138,38 @@ export function getLatestXPost(
   return adminFetch<XPostEnvelope>(`${BASE_PATH}/latest${qs ? `?${qs}` : ''}`, {
     method: 'GET',
   });
+}
+
+/**
+ * The Live Bulletin image the last scheduled run attached for (symbol, mode),
+ * or null when that run has none (e.g. a regenerated post). Binary, so it
+ * can't go through `adminFetch`.
+ */
+export async function getLatestXPostImage(
+  symbol: string,
+  mode: string,
+): Promise<ArrayBuffer | null> {
+  const bearer = process.env.ZEROGEX_API_TOKEN || process.env.ZEROGEX_API_KEY;
+  const adminToken = process.env.ZEROGEX_ADMIN_TOKEN;
+  if (!bearer || !adminToken) {
+    throw new XPostAdminError('X-post admin tokens are not configured on the server', 500);
+  }
+  const params = new URLSearchParams({ symbol, mode });
+  let res: Response;
+  try {
+    res = await fetch(`${UPSTREAM_BASE}${BASE_PATH}/image?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${bearer}`, 'X-Admin-Token': adminToken },
+      cache: 'no-store',
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new XPostAdminError(`Could not reach the X-post service: ${message}`, 502);
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new XPostAdminError(`X-post service returned ${res.status}`, res.status);
+  }
+  return res.arrayBuffer();
 }
 
 /** Regenerate the post+reply for (symbol, mode) and return the fresh record. */

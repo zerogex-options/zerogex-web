@@ -177,7 +177,7 @@ export function resolveFuturesContract(
     monthLabel,
     expiryLabel,
     descriptor,
-    headline: descriptor ? `${code} — ${descriptor}` : code,
+    headline: descriptor ? `${code}\u00a0- ${descriptor}` : code,
     expiryLine: expiryLabel ? `Expires ${expiryLabel}` : null,
   };
 }

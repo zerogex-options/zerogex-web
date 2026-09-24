@@ -149,7 +149,7 @@ function ConeTooltip({
       <div className="font-mono">After {point.i} trades</div>
       <div className="mt-1 font-semibold">Median {formatCurrency(point.p50)}</div>
       <div className="mt-0.5 text-[var(--color-text-secondary)]">
-        90% range {formatCurrency(p5)} – {formatCurrency(p95)}
+        90% range {formatCurrency(p5)}&nbsp;- {formatCurrency(p95)}
       </div>
     </div>
   );

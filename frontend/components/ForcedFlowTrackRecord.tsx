@@ -42,14 +42,14 @@ export default function ForcedFlowTrackRecord({
 
   return (
     <div
-      className="rounded-2xl p-6"
+      className="rounded-2xl p-4 sm:p-6"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
         <h3 className="zg-h3" style={{ color: textColor }}>
           Charm-into-Close · Track Record
         </h3>
-        <TooltipWrapper text="The honest scorecard for the charm forecast. For an index book the raw charm sign is structurally near-constant (dealers read 'buy' almost every day), so scoring it is worthless — it just matches the baseline. Instead we score the DEVIATION from recent normal: when the morning charm flow runs stronger (or weaker) than its trailing-median baseline, does the noon→close move lean the same way? The hit rate is shown against a naive directional baseline (a rate at or below it is worthless), with a 95% confidence band and a significance test that only certifies an edge on a real sample. Two definitions run side by side — the full 0DTE-inclusive close flow versus the smooth charm-only drift.">
+        <TooltipWrapper text="The honest scorecard for the charm forecast. For an index book the raw charm sign is structurally near-constant (dealers read 'buy' almost every day), so scoring it is worthless&nbsp;- it just matches the baseline. Instead we score the DEVIATION from recent normal: when the morning charm flow runs stronger (or weaker) than its trailing-median baseline, does the noon→close move lean the same way? The hit rate is shown against a naive directional baseline (a rate at or below it is worthless), with a 95% confidence band and a significance test that only certifies an edge on a real sample. Two definitions run side by side&nbsp;- the full 0DTE-inclusive close flow versus the smooth charm-only drift.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -57,11 +57,11 @@ export default function ForcedFlowTrackRecord({
         </span>
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        The raw charm sign is structurally near-constant for an index book — dealers read{' '}
-        <em>buy</em> almost every day — so scoring it just re-prints the baseline. Instead we score
+        The raw charm sign is structurally near-constant for an index book&nbsp;- dealers read{' '}
+        <em>buy</em> almost every day&nbsp;- so scoring it just re-prints the baseline. Instead we score
         the <strong>deviation from recent normal</strong>: when the morning charm flow runs stronger
         (or weaker) than its trailing-median baseline, does the noon → close move lean the same way?
-        Judged honestly against a naive directional baseline — a hit rate at or below it is worth
+        Judged honestly against a naive directional baseline&nbsp;- a hit rate at or below it is worth
         nothing. Two definitions run side by side: the <strong>full</strong> close flow (dominated by
         same-day options resolving at the bell) vs. the <strong>charm-only</strong> drift.
       </p>
@@ -100,7 +100,7 @@ export default function ForcedFlowTrackRecord({
             />
             <VariantPanel
               title="Charm-only"
-              subtitle="time-decay drift, ex–expiry resolution"
+              subtitle="time-decay drift, ex-expiry resolution"
               variant={smooth}
               chart={chart}
               textColor={textColor}
@@ -162,7 +162,7 @@ export default function ForcedFlowTrackRecord({
             builds. Each definition carries a 95% Wilson confidence band; the verdict runs a one-sided
             test that the accuracy beats the baseline, and only certifies an edge at 95% once at least 30
             decisive sessions have accrued. Signal / session is the mean of (demeaned charm lean × noon →
-            close return) — the pre-cost drift of trading that lean at noon and closing at the bell, with
+            close return)&nbsp;- the pre-cost drift of trading that lean at noon and closing at the bell, with
             its t-stat against zero. Educational only; not a trade recommendation.
           </p>
         </>
@@ -205,7 +205,7 @@ function VariantPanel({
       : 'Not yet significant';
   const ciLabel =
     variant?.hit_rate_ci_low != null && variant?.hit_rate_ci_high != null
-      ? `95% CI ${formatPct(variant.hit_rate_ci_low, 0)}–${formatPct(variant.hit_rate_ci_high, 0)}`
+      ? `95% CI ${formatPct(variant.hit_rate_ci_low, 0)}-${formatPct(variant.hit_rate_ci_high, 0)}`
       : null;
   const meanRet = variant?.signal_mean_return ?? null;
 
@@ -270,7 +270,7 @@ function VariantPanel({
 function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div>
-      <div className="text-[9px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-[10px] uppercase tracking-wide sm:text-[9px] sm:tracking-wider" style={{ color: 'var(--text-muted)' }}>
         {label}
       </div>
       <div className="font-bold" style={{ color }}>

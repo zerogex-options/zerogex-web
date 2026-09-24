@@ -31,8 +31,12 @@ import {
  * leaving a row of em dashes that reads as "we have no history".
  */
 
-const HEAD_CLASS = 'px-3 py-2 text-left font-semibold whitespace-nowrap';
-const CELL_CLASS = 'px-3 py-2 whitespace-nowrap tabular-nums';
+const HEAD_CLASS = 'px-3 py-2 text-left font-semibold whitespace-nowrap max-sm:px-2';
+const CELL_CLASS = 'px-3 py-2 whitespace-nowrap tabular-nums max-sm:px-2';
+// The symbol column stays put while a phone scrolls the readings sideways; it
+// needs its own ground to cover them (and the active row's tint on top).
+const STICKY_CELL = 'max-sm:sticky max-sm:left-0 max-sm:z-[1] max-sm:bg-[var(--bg-card)] max-sm:shadow-[inset_-1px_0_0_var(--border-default)]';
+const STICKY_ACTIVE = 'max-sm:[background:linear-gradient(var(--color-warning-soft),var(--color-warning-soft)),var(--bg-card)]';
 
 function toneFor(percentile: number | null): string {
   if (percentile == null) return 'var(--text-secondary)';
@@ -62,10 +66,10 @@ export default function CrossSymbolTable({
             className="border-b"
             style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
           >
-            <th className={HEAD_CLASS}>Symbol</th>
+            <th className={`${HEAD_CLASS} ${STICKY_CELL}`}>Symbol</th>
             <th className={HEAD_CLASS}>Put spread</th>
             <th className={HEAD_CLASS}>Call spread</th>
-            <th className={HEAD_CLASS} title="Width in basis points of the index level — the cross-symbol comparable measure">
+            <th className={HEAD_CLASS} title="Width in basis points of the index level&nbsp;- the cross-symbol comparable measure">
               Put width vs index
             </th>
             <th className={HEAD_CLASS} title="Put width divided by call width. Above 1 means the downside is the expensive side to trade.">
@@ -97,7 +101,7 @@ export default function CrossSymbolTable({
                     unreachable by keyboard and invisible to a screen reader,
                     and this is the page's only way to change symbol from the
                     comparison. */}
-                <th scope="row" className={`${CELL_CLASS} text-left font-semibold`}>
+                <th scope="row" className={`${CELL_CLASS} text-left font-semibold ${STICKY_CELL} ${isActive ? STICKY_ACTIVE : ''}`}>
                   {selectable ? (
                     <button
                       type="button"
@@ -153,7 +157,7 @@ export default function CrossSymbolTable({
         </tbody>
       </table>
       <p className="mt-3 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        Compare across symbols using <strong>put width vs index</strong> — spreads in dollars
+        Compare across symbols using <strong>put width vs index</strong>&nbsp;- spreads in dollars
         are not comparable between an index near 6,800 and one near 25,000.{' '}
         <span style={{ fontStyle: 'italic' }}>
           {scopeNote ??

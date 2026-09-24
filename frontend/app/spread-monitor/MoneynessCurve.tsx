@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 
 import { moneynessAxisLabel, type MoneynessBucket } from '@/core/spreadMonitor';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 import { legendProps } from './chartLegend';
 
@@ -107,6 +108,7 @@ export default function MoneynessCurve({
     [rows],
   );
   const axisStroke = 'var(--color-chart-axis)';
+  const isMobile = useIsMobile();
 
   if (rows.length === 0) {
     return (
@@ -118,7 +120,7 @@ export default function MoneynessCurve({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+      <ComposedChart data={rows} margin={isMobile ? { top: 8, right: 4, bottom: 4, left: 0 } : { top: 8, right: 8, bottom: 4, left: 8 }}>
         <XAxis
           dataKey="tick"
           type="category"

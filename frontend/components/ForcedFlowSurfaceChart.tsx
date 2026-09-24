@@ -3,9 +3,10 @@
 import { Info } from 'lucide-react';
 import TooltipWrapper from './TooltipWrapper';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { useCoarsePointer } from '@/hooks/useIsMobile';
 import { useForcedFlowSessionSurface } from '@/hooks/useApiData';
 import { computeForcedFlowSessionRead } from '@/core/forcedFlowSessionRead';
 import { isZoomGesture } from '@/core/wheelZoom';
@@ -16,13 +17,23 @@ interface ForcedFlowSurfaceChartProps {
   spotRangePct?: number;
 }
 
-const PAD_L = 66; // left gutter — price ticks (value + % from spot) live here
-// PAD_R reserves room for the color-bar (14px) + its "$X" / "0" / "-$X"
-// labels (~66px) and a ~22px gap to the plot.
-const PAD_R = 104;
-const PAD_T = 22;
-const PAD_B = 46; // bottom gutter — time (now → close) ticks + axis title
-const CHART_H = 560; // taller than the old 440 so price (now on y) has room
+// Canvas gutters and height. DESKTOP is the board as it always was; COMPACT
+// is for a phone-width card, where the desktop gutters (66 + 104px) left a
+// ~150px plot: the color bar moves out of the canvas into an HTML key under
+// it, the rotated price title goes, and the board is shorter but still
+// portrait so price keeps its room.
+const DESKTOP_GEOM = {
+  PAD_L: 66, // left gutter — price ticks (value + % from spot) live here
+  // PAD_R reserves room for the color-bar (14px) + its "$X" / "0" / "-$X"
+  // labels (~66px) and a ~22px gap to the plot.
+  PAD_R: 104,
+  PAD_T: 22,
+  PAD_B: 46, // bottom gutter — time (now → close) ticks + axis title
+  H: 560, // taller than the old 440 so price (now on y) has room
+};
+const COMPACT_GEOM = { PAD_L: 44, PAD_R: 8, PAD_T: 20, PAD_B: 38, H: 440 };
+// Widest container (CSS px) that gets the compact board.
+const SURFACE_COMPACT_MAX = 560;
 
 // Zoom floor: never let a visible axis shrink below this fraction of its full
 // data span (prevents zooming into a sliver of one cell).
@@ -240,7 +251,13 @@ export default function ForcedFlowSurfaceChart({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [size, setSize] = useState({ w: 900, h: CHART_H });
+  const [size, setSize] = useState({ w: 900, h: DESKTOP_GEOM.H });
+  const compact = size.w < SURFACE_COMPACT_MAX;
+  const { PAD_L, PAD_R, PAD_T, PAD_B } = compact ? COMPACT_GEOM : DESKTOP_GEOM;
+  const chartH = compact ? COMPACT_GEOM.H : DESKTOP_GEOM.H;
+  // Touch screens let vertical swipes scroll the page (touch-action: pan-y);
+  // the canvas takes horizontal drags, pinches and taps — see "Touch" below.
+  const coarsePointer = useCoarsePointer();
   const [hover, setHover] = useState<{ price: number; mtc: number; value: number; isNow: boolean } | null>(null);
   const [zoomed, setZoomed] = useState(false);
 
@@ -321,13 +338,29 @@ export default function ForcedFlowSurfaceChart({
     startDist: number;
     startMidX: number;
     startMidY: number;
+    /** A touch pan moves time only: vertical finger travel belongs to the page. */
+    lockY?: boolean;
   }>({ mode: 'none', startX: 0, startY: 0, startView: { pMin: 0, pMax: 0, tMin: 0, tMax: 0 }, centerT: 0, centerP: 0, startDist: 0, startMidX: 0, startMidY: 0 });
+  // A finger that has touched down but not yet declared itself a tap, a pan,
+  // or a page scroll (see "Touch" below).
+  const touchStart = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   const plotMetrics = useCallback(() => {
     const plotW = Math.max(10, size.w - PAD_L - PAD_R);
     const plotH = Math.max(10, size.h - PAD_T - PAD_B);
     return { plotW, plotH };
-  }, [size]);
+  }, [size, PAD_L, PAD_R, PAD_T, PAD_B]);
+
+  // The color key's end colors, shared by the in-canvas bar (desktop) and the
+  // HTML key under the compact board. Softened to the same tint the field
+  // uses (see HEATMAP_SATURATION), so the key matches the plot.
+  const legendHues = useMemo(
+    () => ({
+      pos: blend(zeroHue, posHue, HEATMAP_SATURATION),
+      neg: blend(zeroHue, negHue, HEATMAP_SATURATION),
+    }),
+    [zeroHue, posHue, negHue],
+  );
 
   const markZoomed = useCallback(() => {
     if (!zoomedRef.current) {
@@ -555,7 +588,7 @@ export default function ForcedFlowSurfaceChart({
         ctx.save();
         ctx.fillStyle = axisColor;
         ctx.globalAlpha = 0.7;
-        ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.font = `${compact ? 10 : 9}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         ctx.fillText('projection →', projLeft + 6, PAD_T + 4);
@@ -584,7 +617,7 @@ export default function ForcedFlowSurfaceChart({
         const pct = (p / spot - 1) * 100;
         ctx.save();
         ctx.globalAlpha = 0.6;
-        ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.font = `${compact ? 10 : 9}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
         ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, PAD_L - 6, py + 6);
         ctx.restore();
       }
@@ -599,7 +632,7 @@ export default function ForcedFlowSurfaceChart({
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const drawXTick = (t: number, label: string) => {
+    const drawXTick = (t: number, label: string, align: CanvasTextAlign = 'center') => {
       const tx = xForTime(t);
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
@@ -608,16 +641,29 @@ export default function ForcedFlowSurfaceChart({
       ctx.lineTo(tx, PAD_T + plotH);
       ctx.stroke();
       ctx.fillStyle = axisColor;
+      ctx.textAlign = align;
       ctx.fillText(label, tx, PAD_T + plotH + 6);
     };
-    const stepM = niceMinuteStep(Math.max(1e-6, (tMax - tMin) / 7));
+    const stepM = niceMinuteStep(Math.max(1e-6, (tMax - tMin) / (compact ? 4 : 7)));
     for (let m = Math.ceil(tMin / stepM) * stepM; m <= tMax + 1e-6; m += stepM) {
       if (m <= 0.5 || m >= sessionOpen - 0.5) continue; // the ends get the words
       if (m < tMin - 1e-9 || m > tMax + 1e-9) continue;
+      // On the compact board an interior tick next to an end label overprints
+      // it ("ope6h"); the end label wins.
+      if (compact) {
+        const tx = xForTime(m);
+        const nearOpen = sessionOpen >= tMin && sessionOpen <= tMax && Math.abs(tx - xForTime(sessionOpen)) < 32;
+        const nearClose = 0 >= tMin && 0 <= tMax && Math.abs(tx - xForTime(0)) < 30;
+        if (nearOpen || nearClose) continue;
+      }
       drawXTick(m, formatMinutes(m));
     }
-    if (0 >= tMin - 1e-9 && 0 <= tMax + 1e-9) drawXTick(0, 'close');
-    if (sessionOpen >= tMin - 1e-9 && sessionOpen <= tMax + 1e-9) drawXTick(sessionOpen, 'open');
+    // The compact board has no gutter past the plot's ends, so its end words
+    // hang inward rather than centre on (and off) the edge.
+    if (0 >= tMin - 1e-9 && 0 <= tMax + 1e-9) drawXTick(0, 'close', compact ? 'right' : 'center');
+    if (sessionOpen >= tMin - 1e-9 && sessionOpen <= tMax + 1e-9) {
+      drawXTick(sessionOpen, 'open', compact ? 'left' : 'center');
+    }
     ctx.restore();
 
     // --- Spot: horizontal dashed reference at the current price. ------------
@@ -825,21 +871,29 @@ export default function ForcedFlowSurfaceChart({
       ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('now', nx, PAD_T - 1);
+      // Kept whole on the compact board, where "now" often sits on the edge.
+      ctx.fillText('now', compact ? Math.min(nx, cssW - 12) : nx, PAD_T - 1);
       ctx.restore();
     }
 
     // --- Axis titles. -------------------------------------------------------
     ctx.save();
     ctx.fillStyle = axisColor;
-    ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
+    ctx.font = `${compact ? 10 : 11}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText('Time until close →', PAD_L + plotW / 2, cssH - 4);
-    ctx.translate(14, PAD_T + plotH / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Spot price (USD)', 0, 0);
+    // The compact board has no gutter for a rotated title; its price axis is
+    // self-evident from the "+0.3%"-from-spot labels.
+    if (!compact) {
+      ctx.translate(14, PAD_T + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Spot price (USD)', 0, 0);
+    }
     ctx.restore();
+
+    // The compact board draws its color key in HTML under the canvas.
+    if (compact) return;
 
     // --- Diverging color bar. Top = +clip (buy), bottom = −clip (sell). ----
     const legendX = PAD_L + plotW + 22;
@@ -849,8 +903,8 @@ export default function ForcedFlowSurfaceChart({
     const steps = 80;
     // Soften the legend endpoints to the same tint the field uses (see
     // HEATMAP_SATURATION), so the key matches the plot rather than out-saturating it.
-    const legPos = blend(zeroHue, posHue, HEATMAP_SATURATION);
-    const legNeg = blend(zeroHue, negHue, HEATMAP_SATURATION);
+    const legPos = legendHues.pos;
+    const legNeg = legendHues.neg;
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
       const ratio = 1 - 2 * t;
@@ -872,19 +926,22 @@ export default function ForcedFlowSurfaceChart({
     ctx.fillText('sell', legendX + legendW + 4, legendY + legendH - 18);
   }, [surface, clip, size, isDark, posHue, negHue, zeroHue, hasData, plotMetrics,
     chart.axisText, chart.gridLine, chart.bgCard, chart.info, chart.warning, chart.text,
-    chart.bull, chart.bear]);
+    chart.bull, chart.bear, compact, legendHues, PAD_L, PAD_T]);
 
   // The container only mounts once data lands; wire the ResizeObserver then.
-  useEffect(() => {
+  // Measured in a layout effect so the first paint is already at the card's
+  // width (and, on a phone, already the compact board). The 260px floor used
+  // to be 360, which pushed the canvas ~40px past a phone card's edge.
+  useLayoutEffect(() => {
     if (!containerMounted) return;
     const node = containerRef.current;
     if (!node) return;
     const rect = node.getBoundingClientRect();
-    setSize({ w: Math.max(360, rect.width), h: Math.max(360, rect.height || CHART_H) });
+    setSize({ w: Math.max(260, rect.width), h: Math.max(360, rect.height || DESKTOP_GEOM.H) });
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (!cr) return;
-      setSize({ w: Math.max(360, cr.width), h: Math.max(360, cr.height || CHART_H) });
+      setSize({ w: Math.max(260, cr.width), h: Math.max(360, cr.height || DESKTOP_GEOM.H) });
     });
     ro.observe(node);
     return () => ro.disconnect();
@@ -920,7 +977,7 @@ export default function ForcedFlowSurfaceChart({
     if (inX && y > PAD_T + plotH) return 'x';
     if (inY && x < PAD_L) return 'y';
     return 'out';
-  }, [plotMetrics]);
+  }, [plotMetrics, PAD_L, PAD_T]);
 
   const viewOrBounds = useCallback(
     (): View =>
@@ -936,11 +993,11 @@ export default function ForcedFlowSurfaceChart({
     // so screen-x increases as mtc DECREASES — invert accordingly. Kept as the
     // exact inverse of draw()'s xForTime so every gesture stays anchored.
     return v.tMax - ((x - PAD_L) / plotW) * (v.tMax - v.tMin);
-  }, [plotMetrics]);
+  }, [plotMetrics, PAD_L]);
   const priceAtY = useCallback((y: number, v: View) => {
     const { plotH } = plotMetrics();
     return v.pMax - ((y - PAD_T) / plotH) * (v.pMax - v.pMin);
-  }, [plotMetrics]);
+  }, [plotMetrics, PAD_T]);
 
   const applyZoom = useCallback((x: number, y: number, factor: number, axis: 'both' | 'x' | 'y') => {
     const b = boundsRef.current;
@@ -988,6 +1045,37 @@ export default function ForcedFlowSurfaceChart({
     if (canvasRef.current) canvasRef.current.style.cursor = c;
   };
 
+  // The read-out for the cell under a point (mouse hover or a tap).
+  const readoutAt = (x: number, y: number) => {
+    if (!surface || regionOf(x, y) !== 'plot') { setHover(null); return; }
+    const v = viewOrBounds();
+    const price = priceAtY(y, v);
+    const mtc = timeAtX(x, v);
+    let ni = 0, nd = Infinity;
+    for (let i = 0; i < surface.prices.length; i++) {
+      const d = Math.abs(surface.prices[i] - price);
+      if (d < nd) { nd = d; ni = i; }
+    }
+    let nc = 0, cd = Infinity;
+    for (let c = 0; c < surface.columns.length; c++) {
+      const d = Math.abs(surface.columns[c].min_to_close - mtc);
+      if (d < cd) { cd = d; nc = c; }
+    }
+    const val = Number(surface.z[nc]?.[ni]);
+    if (!Number.isFinite(val)) { setHover(null); return; }
+    setHover({
+      price: surface.prices[ni],
+      mtc: surface.columns[nc].min_to_close,
+      value: val,
+      isNow: nc === surface.now_index,
+    });
+  };
+
+  // ── Touch ── A finger gets its own grammar, as on the Gamma chart: the
+  // canvas claims only horizontal gestures (touch-action: pan-y), so a
+  // vertical swipe still scrolls the page, while a horizontal drag pans time,
+  // two fingers pinch-zoom, and a tap reads out the cell under it (a second
+  // tap clears it). Mouse input keeps the desktop grammar above.
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!hasData) return;
     canvasRef.current?.setPointerCapture(e.pointerId);
@@ -1007,7 +1095,20 @@ export default function ForcedFlowSurfaceChart({
       };
       gesture.current.centerT = timeAtX(gesture.current.startMidX, v);
       gesture.current.centerP = priceAtY(gesture.current.startMidY, v);
+      touchStart.current = null;
       setHover(null);
+      return;
+    }
+    if (e.pointerType === 'touch') {
+      touchStart.current = { x, y, moved: false };
+      gesture.current = {
+        mode: 'none',
+        startX: x, startY: y,
+        startView: v,
+        centerT: timeAtX(x, v),
+        centerP: priceAtY(y, v),
+        startDist: 0, startMidX: 0, startMidY: 0,
+      };
       return;
     }
     const region = regionOf(x, y);
@@ -1030,32 +1131,28 @@ export default function ForcedFlowSurfaceChart({
     const g = gesture.current;
     const b = boundsRef.current;
 
+    // An undecided finger: a clear horizontal move becomes a time pan; a
+    // vertical one is the browser's page scroll. Touch never hovers.
+    if (e.pointerType === 'touch' && g.mode === 'none') {
+      const t = touchStart.current;
+      if (!t || !pointers.current.has(e.pointerId)) return;
+      const dx = x - t.x;
+      const dy = y - t.y;
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        t.moved = true;
+        setHover(null);
+        gesture.current = { ...g, mode: 'pan', lockY: true, startX: x, startY: y, startView: { ...viewOrBounds() } };
+      } else if (Math.abs(dy) > 8) {
+        t.moved = true;
+      }
+      return;
+    }
+
     // Idle hover (no active gesture): update the read-out + cursor affordance.
     if (g.mode === 'none') {
       const region = regionOf(x, y);
       setCursor(region === 'plot' ? 'grab' : region === 'x' ? 'ew-resize' : region === 'y' ? 'ns-resize' : 'default');
-      if (region !== 'plot' || !surface) { setHover(null); return; }
-      const v = viewOrBounds();
-      const price = priceAtY(y, v);
-      const mtc = timeAtX(x, v);
-      let ni = 0, nd = Infinity;
-      for (let i = 0; i < surface.prices.length; i++) {
-        const d = Math.abs(surface.prices[i] - price);
-        if (d < nd) { nd = d; ni = i; }
-      }
-      let nc = 0, cd = Infinity;
-      for (let c = 0; c < surface.columns.length; c++) {
-        const d = Math.abs(surface.columns[c].min_to_close - mtc);
-        if (d < cd) { cd = d; nc = c; }
-      }
-      const val = Number(surface.z[nc]?.[ni]);
-      if (!Number.isFinite(val)) { setHover(null); return; }
-      setHover({
-        price: surface.prices[ni],
-        mtc: surface.columns[nc].min_to_close,
-        value: val,
-        isNow: nc === surface.now_index,
-      });
+      readoutAt(x, y);
       return;
     }
     if (!b) return;
@@ -1084,7 +1181,7 @@ export default function ForcedFlowSurfaceChart({
     if (g.mode === 'pan') {
       const { plotW, plotH } = plotMetrics();
       const dx = x - g.startX;
-      const dy = y - g.startY;
+      const dy = g.lockY ? 0 : y - g.startY;
       const tSpan = g.startView.tMax - g.startView.tMin;
       const pSpan = g.startView.pMax - g.startView.pMin;
       const [tMin, tMax] = (() => {
@@ -1131,6 +1228,18 @@ export default function ForcedFlowSurfaceChart({
   };
 
   const endPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // A finger lifted without moving is a tap: read the cell out, or clear a
+    // read-out that is already showing.
+    const t = touchStart.current;
+    if (
+      e.pointerType === 'touch' && e.type === 'pointerup' && t && !t.moved
+      && gesture.current.mode === 'none' && pointers.current.size === 1
+    ) {
+      const { x, y } = xy(e);
+      if (hover) setHover(null);
+      else readoutAt(x, y);
+    }
+    if (e.pointerType === 'touch' && pointers.current.size <= 1) touchStart.current = null;
     pointers.current.delete(e.pointerId);
     canvasRef.current?.releasePointerCapture?.(e.pointerId);
     if (pointers.current.size === 0) {
@@ -1178,14 +1287,14 @@ export default function ForcedFlowSurfaceChart({
 
   return (
     <div
-      className="rounded-2xl p-6"
+      className="rounded-2xl p-4 sm:p-6"
       style={{ backgroundColor: 'var(--bg-card)', border: `1px solid ${'var(--text-secondary)'}` }}
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Color is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The colored hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed gray line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field&nbsp;- price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Color is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet&nbsp;- a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot&nbsp;- an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The colored hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed gray line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -1195,7 +1304,7 @@ export default function ForcedFlowSurfaceChart({
           <button
             type="button"
             onClick={resetView}
-            className="ml-auto self-center rounded-md px-2 py-1 text-[11px] font-semibold"
+            className="ml-auto self-center rounded-md px-2.5 py-1.5 text-[11px] font-semibold sm:px-2 sm:py-1"
             style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--text-secondary)' }}
           >
             Reset view
@@ -1205,10 +1314,15 @@ export default function ForcedFlowSurfaceChart({
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         The whole session&apos;s dealer forced-flow field, open → close (left→right) at each spot (vertical).{' '}
         <em>Left of <strong>now</strong> is the ACTUAL field; right is a PROJECTION into the close.</em>{' '}
-        <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
-        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>;{' '}
+        {/* Static, server-rendered markup takes its colors straight from the
+            CSS variables: useChartTheme() is '' on the server and the real
+            value on the client's first render, a hydration mismatch React does
+            not patch — on a phone these words and the key's swatch lines
+            below rendered uncolored / invisible. Same colors either way. */}
+        <span style={{ color: 'var(--color-bull)', fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
+        <span style={{ color: 'var(--color-bear)', fontWeight: 600 }}>red = SELL</span>;{' '}
         candles = realized 5-min price (green up / red down); dashed gray = spot.{' '}
-        <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
+        <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot&nbsp;- zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
       {/* Line key — the one thing to remember: a Magnet PULLS price in, a Pivot
@@ -1219,18 +1333,18 @@ export default function ForcedFlowSurfaceChart({
       >
         <span className="inline-flex items-center gap-2">
           <svg width="22" height="10" aria-hidden="true">
-            <line x1="0" y1="5" x2="22" y2="5" stroke={chart.info} strokeWidth="2.5" />
+            <line x1="0" y1="5" x2="22" y2="5" stroke="var(--color-info)" strokeWidth="2.5" />
           </svg>
           <span>
-            <strong style={{ color: chart.info }}>Magnet</strong> — pulls price in
+            <strong style={{ color: 'var(--color-info)' }}>Magnet</strong>&nbsp;- pulls price in
           </span>
         </span>
         <span className="inline-flex items-center gap-2">
           <svg width="22" height="10" aria-hidden="true">
-            <line x1="0" y1="5" x2="22" y2="5" stroke={chart.warning} strokeWidth="2.5" strokeDasharray="5 3" />
+            <line x1="0" y1="5" x2="22" y2="5" stroke="var(--color-warning)" strokeWidth="2.5" strokeDasharray="5 3" />
           </svg>
           <span>
-            <strong style={{ color: chart.warning }}>Pivot</strong> — pushes price away
+            <strong style={{ color: 'var(--color-warning)' }}>Pivot</strong>&nbsp;- pushes price away
           </span>
         </span>
       </div>
@@ -1254,7 +1368,7 @@ export default function ForcedFlowSurfaceChart({
               label="Regime"
               value={regimeLabel}
               color={regimeColor}
-              title="Which zero-flow level sits nearest spot: a MAGNET (attractor — dealers sell above / buy below, pulling price in, long-gamma-like) or a PIVOT (repeller — dealers buy above / sell below, pushing price away, short gamma)."
+              title="Which zero-flow level sits nearest spot: a MAGNET (attractor&nbsp;- dealers sell above / buy below, pulling price in, long-gamma-like) or a PIVOT (repeller&nbsp;- dealers buy above / sell below, pushing price away, short gamma)."
             />
             <ReadChip label="Heading" value={`${biasArrow} ${biasWord}`} color={biasColor} />
             {read.keyLevel != null && (
@@ -1266,8 +1380,8 @@ export default function ForcedFlowSurfaceChart({
                 color={regimeColor}
                 title={
                   read.keyLevelKind === 'pivot'
-                    ? 'The pivot (short-γ tripwire) nearest spot — a level price is pushed AWAY from; a break through it accelerates.'
-                    : 'The magnet (stable pin) nearest spot — a level price is pulled TOWARD.'
+                    ? 'The pivot (short-γ tripwire) nearest spot\u00a0- a level price is pushed AWAY from; a break through it accelerates.'
+                    : 'The magnet (stable pin) nearest spot\u00a0- a level price is pulled TOWARD.'
                 }
               />
             )}
@@ -1278,8 +1392,8 @@ export default function ForcedFlowSurfaceChart({
                 color={regimeColor}
                 title={
                   read.reactionKind === 'amplify'
-                    ? `${read.reactionObeyed} of ${read.reactionTotal} session moves ran AWAY from the pivot — high = the field is amplifying (short gamma), moves extend.`
-                    : `${read.reactionObeyed} of ${read.reactionTotal} session moves ran TOWARD the magnet — high = price is pinning to the field.`
+                    ? `${read.reactionObeyed} of ${read.reactionTotal} session moves ran AWAY from the pivot\u00a0- high = the field is amplifying (short gamma), moves extend.`
+                    : `${read.reactionObeyed} of ${read.reactionTotal} session moves ran TOWARD the magnet\u00a0- high = price is pinning to the field.`
                 }
               />
             )}
@@ -1290,7 +1404,7 @@ export default function ForcedFlowSurfaceChart({
                   read.closeTargetPct != null ? ` (${formatSignedPct(read.closeTargetPct)})` : ''
                 }`}
                 color={biasColor}
-                title="The magnet extrapolated to the 4pm bell — the pin's projected close target — and its distance from spot."
+                title="The magnet extrapolated to the 4pm bell&nbsp;- the pin's projected close target&nbsp;- and its distance from spot."
               />
             )}
           </div>
@@ -1312,7 +1426,7 @@ export default function ForcedFlowSurfaceChart({
           No forced-flow surface data available.
         </div>
       ) : (
-        <div ref={containerRef} className="relative w-full" style={{ height: CHART_H }}>
+        <div ref={containerRef} className="relative w-full" style={{ height: chartH }}>
           <canvas
             ref={canvasRef}
             onPointerDown={onPointerDown}
@@ -1320,11 +1434,19 @@ export default function ForcedFlowSurfaceChart({
             onPointerUp={endPointer}
             onPointerCancel={endPointer}
             onPointerLeave={(e) => {
-              if (gesture.current.mode === 'none') setHover(null);
+              // A touch read-out outlives the finger (it was put there by a
+              // tap, and a finger lifting also "leaves").
+              if (e.pointerType !== 'touch' && gesture.current.mode === 'none') setHover(null);
               endPointer(e);
             }}
             onDoubleClick={resetView}
-            style={{ display: 'block', width: '100%', height: '100%', cursor: 'grab', touchAction: 'none' }}
+            style={{
+              display: 'block',
+              width: '100%',
+              height: '100%',
+              cursor: 'grab',
+              touchAction: coarsePointer || compact ? 'pan-y' : 'none',
+            }}
           />
           {hover && (
             <div
@@ -1353,6 +1475,29 @@ export default function ForcedFlowSurfaceChart({
             </div>
           )}
         </div>
+      )}
+      {hasData && !error && compact && (
+        <>
+          <div
+            className="mt-2 flex items-center gap-2 font-mono text-[11px]"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label={`Color key: ${formatCompactUsd(-clip)} sell to ${formatCompactUsd(clip)} buy`}
+          >
+            <span>sell {formatCompactUsd(-clip)}</span>
+            <span
+              aria-hidden
+              className="h-2.5 flex-1 rounded-full"
+              style={{
+                background: `linear-gradient(90deg, ${rgbToCss(legendHues.neg)}, ${rgbToCss(zeroHue)}, ${rgbToCss(legendHues.pos)})`,
+                border: '1px solid var(--border-default)',
+              }}
+            />
+            <span>{formatCompactUsd(clip)} buy</span>
+          </div>
+          <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            Tap to read a cell · drag sideways to pan time · pinch to zoom
+          </p>
+        </>
       )}
 
       {surface?.timestamp && hasData && (

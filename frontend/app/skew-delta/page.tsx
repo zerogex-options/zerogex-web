@@ -25,9 +25,9 @@ import AutoFitValue from '@/components/AutoFitValue';
 
 function interpretation(score: number | null): string {
   if (score == null) return 'No reading';
-  if (score <= -60) return 'Fear bid — hedge / tighten longs';
+  if (score <= -60) return 'Fear bid\u00a0- hedge / tighten longs';
   if (score <= -25) return 'Elevated put skew';
-  if (score >= 50) return 'Call-skew bid — upside squeeze watch';
+  if (score >= 50) return 'Call-skew bid\u00a0- upside squeeze watch';
   if (score >= 25) return 'Calls richer than usual';
   return 'Normal skew';
 }
@@ -57,7 +57,7 @@ export default function SkewDeltaPage() {
         title="Skew Delta"
         subtitle={'"How much is fear bid into puts?"'}
         icon={Scale}
-        tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive — this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
+        tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive&nbsp;- this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -89,29 +89,29 @@ export default function SkewDeltaPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
                 <div className="text-sm font-semibold mb-1">OTM put IV</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--color-bear)' }}>
                   {formatPct(otmPutIv, 2, false)}
                 </AutoFitValue>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Nearest-window OTM put implied volatility.</p>
               </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
                 <div className="text-sm font-semibold mb-1">OTM call IV</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--color-bull)' }}>
                   {formatPct(otmCallIv, 2, false)}
                 </AutoFitValue>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Nearest-window OTM call implied volatility.</p>
               </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
                 <div className="text-sm font-semibold mb-1">Spread</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black">{formatSigned(spread, 4)}</AutoFitValue>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                   put_iv − call_iv. Baseline: <span className="font-mono">{formatSigned(baseline, 3)}</span>
                 </p>
               </div>
-              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
                 <div className="text-sm font-semibold mb-1">Deviation</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: (deviation ?? 0) > 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
                   {formatSigned(deviation, 4)}

@@ -42,7 +42,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'live-bulletin',
     title: 'Using the Live Bulletin',
-    description: 'A live, share-ready snapshot of dealer gamma positioning — the regime, key levels, and expected range on one card.',
+    description: 'A live, share-ready snapshot of dealer gamma positioning\u00a0- the regime, key levels, and expected range on one card.',
     section: 'Core Pages',
   },
   {
@@ -66,13 +66,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'advanced-signals-dashboard',
     title: 'Advanced Signal Dashboard',
-    description: 'The event-driven signals — what fires and what it means.',
+    description: 'The event-driven signals\u00a0- what fires and what it means.',
     section: 'Signals',
   },
   {
     slug: 'dealer-positioning',
     title: 'Dealer Positioning',
-    description: 'The full GEX surface — net GEX, gamma flip, walls, term structure.',
+    description: 'The full GEX surface\u00a0- net GEX, gamma flip, walls, term structure.',
     section: 'Metrics',
     subsection: 'Positioning',
   },
@@ -122,7 +122,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'technicals',
     title: 'Technicals',
-    description: 'The intraday technical snapshot — price, candles, volatility gauges.',
+    description: 'The intraday technical snapshot\u00a0- price, candles, volatility gauges.',
     section: 'Metrics',
     subsection: 'Market Context',
   },
@@ -130,7 +130,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'spread-monitor',
     title: 'Spread Monitor',
     description:
-      'Quoted bid/ask width and liquidity across the chain — whether the market is tradeable, not just what it means.',
+      'Quoted bid/ask width and liquidity across the chain\u00a0- whether the market is tradeable, not just what it means.',
     section: 'Metrics',
     subsection: 'Market Context',
   },
@@ -143,7 +143,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'option-contracts',
     title: 'Live Options Quotes',
-    description: 'Browse the live chain — filtering, sorting, and reading the surface.',
+    description: 'Browse the live chain\u00a0- filtering, sorting, and reading the surface.',
     section: 'Strategy Tools',
   },
   {
@@ -192,7 +192,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'mcp-server',
     title: 'The ZeroGEX MCP Server (free, no key)',
     description:
-      'Connect Claude, ChatGPT or Cursor to the free delayed gamma levels — no key, no account.',
+      'Connect Claude, ChatGPT or Cursor to the free delayed gamma levels\u00a0- no key, no account.',
     section: 'API & Data Access',
   },
   {

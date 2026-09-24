@@ -1,6 +1,6 @@
 # Wie Signals von Anfang bis Ende funktionieren
 
-*Das vollständige Signal-Modell — Advanced vs. Basic, wie sich die Scores kombinieren, was die Cards zeigen und wie man das Ganze nutzt.*
+*Das vollständige Signal-Modell - Advanced vs. Basic, wie sich die Scores kombinieren, was die Cards zeigen und wie man das Ganze nutzt.*
 
 ---
 
@@ -8,16 +8,16 @@
 
 ZeroGEX betreibt **zwei Familien** von Signals. Sie verhalten sich absichtlich unterschiedlich.
 
-- **Advanced Signals** stellen eine scharfe, situationsbezogene Frage — *"pinnt sich der Schlusskurs gerade fest?"*, *"ist dieser Breakout gerade gescheitert?"*. Jedes erzeugt einen Score auf einer **[-1, +1]**-Linie **und** einen diskreten **Trigger**: Sobald der Score den Schwellenwert des Signals überschreitet, löst es einen Alert aus und kann ein Playbook freischalten. Sie sind event-driven.
-- **Basic Signals** sind kontinuierlich. Sie lösen nicht aus — stattdessen fließen sie mit fester Gewichtung in den **MSI-Composite** ein und schieben die kombinierte Regime-Lesart bei jedem Refresh nach oben (Richtung Trend) oder nach unten (Richtung Chop). Man sieht sie als Input für das große Ganze, nicht als eigenständige Alerts.
+- **Advanced Signals** stellen eine scharfe, situationsbezogene Frage - *"pinnt sich der Schlusskurs gerade fest?"*, *"ist dieser Breakout gerade gescheitert?"*. Jedes erzeugt einen Score auf einer **[-1, +1]**-Linie **und** einen diskreten **Trigger**: Sobald der Score den Schwellenwert des Signals überschreitet, löst es einen Alert aus und kann ein Playbook freischalten. Sie sind event-driven.
+- **Basic Signals** sind kontinuierlich. Sie lösen nicht aus - stattdessen fließen sie mit fester Gewichtung in den **MSI-Composite** ein und schieben die kombinierte Regime-Lesart bei jedem Refresh nach oben (Richtung Trend) oder nach unten (Richtung Chop). Man sieht sie als Input für das große Ganze, nicht als eigenständige Alerts.
 
 Das ist die wichtigste Unterscheidung. Verinnerliche sie, bevor du einzelne Signal-Seiten liest.
 
 ## Die Score-Linie
 
-Jedes ZeroGEX-Signal — Advanced oder Basic — lebt auf derselben Zahlenlinie: **[-1, +1]**.
+Jedes ZeroGEX-Signal - Advanced oder Basic - lebt auf derselben Zahlenlinie: **[-1, +1]**.
 
-- Das **Vorzeichen** gibt die Richtung an. Bei den meisten Signals ist positiv bullisch und negativ bärisch — manche sind aber Mean-Reversion-Signals oder anderweitig vorzeichen-invertiert, sodass ein positiver Score nicht immer "geh long" bedeutet. Jede Card trägt einen "Trade-Bias"-Chip, der genau angibt, wie das Vorzeichen dieses Signals zu lesen ist.
+- Das **Vorzeichen** gibt die Richtung an. Bei den meisten Signals ist positiv bullisch und negativ bärisch - manche sind aber Mean-Reversion-Signals oder anderweitig vorzeichen-invertiert, sodass ein positiver Score nicht immer "geh long" bedeutet. Jede Card trägt einen "Trade-Bias"-Chip, der genau angibt, wie das Vorzeichen dieses Signals zu lesen ist.
 - Die **Magnitude** gibt die Überzeugungsstärke an. Je näher der Score an ±1 liegt, desto stärker ist die Lesart.
 - **Ein Score von 0 ist so gut wie nie neutral.** Bei den meisten Signals bedeutet er, dass die Datenlage nicht ausreicht oder diese spezifische Frage im Moment keine Antwort hat. Lies eine 0 als "keine Aussage", nicht als "kein Trade".
 
@@ -48,7 +48,7 @@ Wenn ein Signal-Trigger auslöst, passieren drei Dinge:
 
 Der Composite Score (Market State Index, MSI) ist die **kombinierte Lesart über alle Signals hinweg**. Jedes Basic Signal trägt mit einer festen Gewichtung bei; Advanced Signals tragen bei, wenn ihr Trigger aktiv ist.
 
-Der Composite ist ein 0–100-Regime-Score, wobei 50 neutral ist — kein Punkt auf der [-1, +1]-Linie. Ein hoher Wert (≥ 70) bedeutet ein Trend-/Expansions-Regime, in dem Trends laufen können; ein niedriger Wert (< 20) bedeutet ein fragiles, choppy Tape, in dem Breakouts eher scheitern. Er sagt dir das Regime, nicht die Richtung — für die Richtung liest du den Trade Bias.
+Der Composite ist ein 0-100-Regime-Score, wobei 50 neutral ist - kein Punkt auf der [-1, +1]-Linie. Ein hoher Wert (≥ 70) bedeutet ein Trend-/Expansions-Regime, in dem Trends laufen können; ein niedriger Wert (< 20) bedeutet ein fragiles, choppy Tape, in dem Breakouts eher scheitern. Er sagt dir das Regime, nicht die Richtung - für die Richtung liest du den Trade Bias.
 
 Siehe [Composite Score](/help/platform/composite-score) für die vollständige Aufschlüsselung.
 
@@ -56,12 +56,12 @@ Siehe [Composite Score](/help/platform/composite-score) für die vollständige A
 
 Jede Signal-Seite bei ZeroGEX hat dieselbe Anatomie. Kennt man sie einmal, lässt sich jedes Signal schnell lesen.
 
-1. **Titel + Score-Hero** — der Score, der Trigger-Status und der Zeitrahmen.
-2. **Trade-Bias-Chip** — direktional, Mean-Reversion, Continuation, Regime-Switch.
-3. **Sparkline-Panel** — der Score über das jüngste Zeitfenster.
-4. **Input-Panel** — die zentralen Inputs, die den Score treiben (z. B. bei EOD Pressure: Dealer Charm, Pin Gravity, Realized Vol).
-5. **"Wie es aufgebaut ist"** — allgemeinverständliche Erklärung der Mathematik dahinter.
-6. **Letzte Trigger** — das Protokoll der jüngsten Auslösungen.
+1. **Titel + Score-Hero** - der Score, der Trigger-Status und der Zeitrahmen.
+2. **Trade-Bias-Chip** - direktional, Mean-Reversion, Continuation, Regime-Switch.
+3. **Sparkline-Panel** - der Score über das jüngste Zeitfenster.
+4. **Input-Panel** - die zentralen Inputs, die den Score treiben (z. B. bei EOD Pressure: Dealer Charm, Pin Gravity, Realized Vol).
+5. **"Wie es aufgebaut ist"** - allgemeinverständliche Erklärung der Mathematik dahinter.
+6. **Letzte Trigger** - das Protokoll der jüngsten Auslösungen.
 
 Die Reihenfolge ist über alle Seiten hinweg konsistent.
 
@@ -69,11 +69,11 @@ Die Reihenfolge ist über alle Seiten hinweg konsistent.
 
 Jedes Signal hat einen deklarierten Trade-Bias. Er steht auf der Card und auf der Signal-Seite.
 
-- **Direktionale Lesart** — das Vorzeichen des Scores entspricht der erwarteten Preisrichtung.
-- **Mean-Reversion (vs. Crowd)** — der Score spiegelt das Faden der Crowd wider, nicht des Preises: ein positiver Score kennzeichnet eine bärisch geneigte Crowd, die nach oben squeezen kann, ein negativer Score eine bullisch geneigte Crowd, die nach unten gespült werden kann.
-- **Mean-Reversion (Long Gamma)** — fade die Ausdehnung Richtung Mittelwert, wenn Dealer long Gamma sind.
-- **Continuation** — das Vorzeichen des Scores entspricht der Richtung des nächsten Legs.
-- **Regime-/Playbook-Wechsel** — das Signal sagt dir, die Strategie zu wechseln, nicht einen Trade einzugehen.
+- **Direktionale Lesart** - das Vorzeichen des Scores entspricht der erwarteten Preisrichtung.
+- **Mean-Reversion (vs. Crowd)** - der Score spiegelt das Faden der Crowd wider, nicht des Preises: ein positiver Score kennzeichnet eine bärisch geneigte Crowd, die nach oben squeezen kann, ein negativer Score eine bullisch geneigte Crowd, die nach unten gespült werden kann.
+- **Mean-Reversion (Long Gamma)** - fade die Ausdehnung Richtung Mittelwert, wenn Dealer long Gamma sind.
+- **Continuation** - das Vorzeichen des Scores entspricht der Richtung des nächsten Legs.
+- **Regime-/Playbook-Wechsel** - das Signal sagt dir, die Strategie zu wechseln, nicht einen Trade einzugehen.
 
 Bringe den Trade-Bias mit deiner Strategie in Einklang. Ein Continuation-Signal ist kein Fade.
 
@@ -98,4 +98,4 @@ Nutze sie innerhalb eines regelbasierten Prozesses, nicht als eigenständige Tra
 - [Composite Score](/help/platform/composite-score)
 - [Basic Signal Dashboard](/help/platform/basic-signals-dashboard)
 - [Advanced Signal Dashboard](/help/platform/advanced-signals-dashboard)
-- [Signals: Explained](/guides/signals-explained) — die vollständige Referenzmatrix
+- [Signals: Explained](/guides/signals-explained) - die vollständige Referenzmatrix

@@ -278,7 +278,7 @@ export function putCallReadout(ratio: number | null | undefined): Verdict | null
     return {
       label: 'Calls are the expensive side',
       tone: 'bearish',
-      meaning: `Call markets are quoted ${(1 / ratio).toFixed(2)}× as wide as puts — the less common direction, and usually an upside-chase rather than a hedging bid.`,
+      meaning: `Call markets are quoted ${(1 / ratio).toFixed(2)}× as wide as puts\u00a0- the less common direction, and usually an upside-chase rather than a hedging bid.`,
     };
   }
   return {
@@ -304,7 +304,7 @@ export function coverageReadout(aggregate: SpreadAggregate | null | undefined): 
     return {
       label: 'Large dead zone',
       tone: 'bearish',
-      meaning: `${dead.toFixed(0)}% of contracts in range have no usable two-sided market — quoted with no bid, locked, or crossed. There is nothing to sell those into at any price.`,
+      meaning: `${dead.toFixed(0)}% of contracts in range have no usable two-sided market\u00a0- quoted with no bid, locked, or crossed. There is nothing to sell those into at any price.`,
     };
   }
   if (dead >= 5) {
@@ -437,7 +437,7 @@ export function baselineScopeNote(
   const pageScope = `${scopeLabel(dteMax)}, ±${bandPct}%`;
   return (
     `Ranked readings come from the daily record, which is measured at ${storedScope}. ` +
-    `These filters measure ${pageScope} — a different population, and a percentile ` +
+    `These filters measure ${pageScope}\u00a0- a different population, and a percentile ` +
     `across two populations ranks the populations rather than the sessions. Move the ` +
     `filters back, or read the spread surface panel below, which stores its history ` +
     `per scope and ranks 0DTE against 0DTE.`
@@ -447,8 +447,8 @@ export function baselineScopeNote(
 /** `-5.0% to -3.0%` → `5.0–3.0% below spot`; reads better in a chart axis. */
 export function moneynessAxisLabel(bucket: MoneynessBucket): string {
   const { moneyness_low_pct: low, moneyness_high_pct: high } = bucket;
-  if (high <= 0) return `${Math.abs(high).toFixed(1)}–${Math.abs(low).toFixed(1)}% below`;
-  if (low >= 0) return `${low.toFixed(1)}–${high.toFixed(1)}% above`;
+  if (high <= 0) return `${Math.abs(high).toFixed(1)}-${Math.abs(low).toFixed(1)}% below`;
+  if (low >= 0) return `${low.toFixed(1)}-${high.toFixed(1)}% above`;
   return 'At the money';
 }
 
@@ -612,11 +612,11 @@ export function surfaceReadout(
     // "The whole book" is only sayable with enough bands ranked to mean it.
     // Claiming it off one or two would describe the chain from the only
     // corner of it that happens to have a baseline.
-    where = `All ${ranked.length} ranked strike bands are elevated — the whole ${side} book in this scope, not one part of it.`;
+    where = `All ${ranked.length} ranked strike bands are elevated\u00a0- the whole ${side} book in this scope, not one part of it.`;
   } else {
     const names = elevated.slice(0, 3).map((point) => point.label);
     const more = elevated.length > names.length ? ` and ${elevated.length - names.length} more` : '';
-    where = `Concentrated in ${names.join(', ')}${more} — ${elevated.length} of ${ranked.length} ranked bands.`;
+    where = `Concentrated in ${names.join(', ')}${more}\u00a0- ${elevated.length} of ${ranked.length} ranked bands.`;
   }
 
   // The shared sentence is carried VERBATIM rather than spliced into a new
@@ -726,14 +726,14 @@ export function unrankedExpiry(rank: SurfaceDteRank): UnrankedNote | null {
       label: 'No expiry here today',
       meaning:
         'Nothing expires in this bucket today, so there is no reading to rank. ' +
-        'The near buckets empty out on a schedule — 2-3 DTE covers the weekend ' +
-        'from Thursday and Friday — and that is the calendar, not a gap in the data.',
+        'The near buckets empty out on a schedule\u00a0- 2-3 DTE covers the weekend ' +
+        'from Thursday and Friday\u00a0- and that is the calendar, not a gap in the data.',
     };
   }
   const plural = rank.sessions === 1 ? '' : 's';
   return {
     label: 'Insufficient history',
-    meaning: `Only ${rank.sessions} comparable session${plural} stored — not enough to rank.`,
+    meaning: `Only ${rank.sessions} comparable session${plural} stored\u00a0- not enough to rank.`,
   };
 }
 

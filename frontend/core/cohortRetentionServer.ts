@@ -5,6 +5,7 @@
 // resolve. It is still server code; it opens the SQLite DB through ./db.ts, and
 // a client component that imported it for anything but a type would fail the
 // build on node:sqlite.
+import { MONEY_BACK_REFUND_AUDIT_TYPES } from './cancelDecisions.ts';
 import { getDb } from './db.ts';
 import {
   buildCohortReport,
@@ -26,18 +27,20 @@ export type CohortRetentionPayload = CohortReport & {
   /** Monthly renewal ladder and the scheduled-cancellation risk pool. */
   renewals: RenewalReport;
   /** How many ever-paid customers the cadence filter can actually place. */
-  cadenceCoverage: { monthly: number; annual: number; unknown: number };
+  cadenceCoverage: { monthly: number; quarterly: number; annual: number; unknown: number };
 };
 
 const AUDIT_TYPES = [
   'stripe_subscription_sync', 'stripe_first_payment', 'stripe_cancellation_requested',
   'stripe_subscription_deleted', 'stripe_payment_failed', 'stripe_invoice_paid',
   'payment_recovered_email_sent', 'billing_payment_grace_active', 'billing_payment_grace_ended',
-  // Carries `cadence=monthly|annual`. The ONLY surviving record of what a
+  // Carries `cadence=monthly|quarterly|annual`. The ONLY surviving record of what a
   // churned customer was on: clearSubscriptionFromUser nulls stripe_price_id,
   // so without this every cancelled subscriber would drop out of a
   // cadence-filtered view and the renewal rate would be computed over survivors.
   'billing_checkout_started',
+  // A money-back refund: a voluntary exit that never writes a Cancel click.
+  ...MONEY_BACK_REFUND_AUDIT_TYPES,
 ];
 
 type InvoiceHistoryRow = {
@@ -123,8 +126,10 @@ export function resolveCadence(
     const end = Number(event.message.match(/\bperiod_end=(\d+)/)?.[1]);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
     const days = (end - start) / 86_400;
-    // Well clear of both: a month is 28–31 days, a year is 365–366.
+    // Well clear of each other: a month is 28–31 days, a quarter 89–92, a year
+    // 365–366.
     if (days >= 300) return { cadence: 'annual', source: 'invoice_period' };
+    if (days >= 75 && days <= 110) return { cadence: 'quarterly', source: 'invoice_period' };
     if (days <= 45) return { cadence: 'monthly', source: 'invoice_period' };
   }
   // Last resort: what they chose at checkout. Weakest of the four — a customer
@@ -133,8 +138,10 @@ export function resolveCadence(
   for (let index = events.length - 1; index >= 0; index--) {
     const event = events[index];
     if (event.type !== 'billing_checkout_started') continue;
-    const cadence = event.message.match(/\bcadence=(monthly|annual)\b/)?.[1];
-    if (cadence === 'monthly' || cadence === 'annual') return { cadence, source: 'checkout_audit' };
+    const cadence = event.message.match(/\bcadence=(monthly|quarterly|annual)\b/)?.[1];
+    if (cadence === 'monthly' || cadence === 'quarterly' || cadence === 'annual') {
+      return { cadence, source: 'checkout_audit' };
+    }
   }
   return { cadence: null, source: 'unknown' };
 }
@@ -217,6 +224,7 @@ export function getCohortRetentionReport(cadence?: BillingCadence): CohortRetent
     renewals,
     cadenceCoverage: {
       monthly: everPaid.filter((user) => user.cadence === 'monthly').length,
+      quarterly: everPaid.filter((user) => user.cadence === 'quarterly').length,
       annual: everPaid.filter((user) => user.cadence === 'annual').length,
       unknown: everPaid.filter((user) => user.cadence == null).length,
     },

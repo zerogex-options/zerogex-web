@@ -1,7 +1,6 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { COMPONENT_KEYS, ComponentEntry, getComponentLabel } from './data';
 
 interface Props {
@@ -67,7 +66,7 @@ function ContributionStackImpl({ components, composite }: Props) {
           50 + Σ contrib ≈ {composite != null ? composite.toFixed(2) : '—'}
         </div>
       </div>
-      <MobileScrollableChart minWidthClass="min-w-[720px]" initialScroll="center">
+      <div>
         <div className="relative h-10 w-full overflow-hidden rounded-md border" style={{ background: 'var(--color-surface-subtle)', borderColor: 'var(--color-border)' }}>
           {[...negativeLayout, ...positiveLayout].map(({ entry, width, left }) => {
             if (width <= 0) return null;
@@ -111,7 +110,40 @@ function ContributionStackImpl({ components, composite }: Props) {
           <span>50 (Neutral)</span>
           <span>100</span>
         </div>
-      </MobileScrollableChart>
+      </div>
+      {/* Phone key. A 330px bar gives each segment ~10–30px, too narrow for
+          its in-bar label, and the per-segment detail lives in a hover title
+          a finger cannot reach — so the pushers are listed under the bar in
+          the same left / right arrangement as the bar itself. */}
+      <PhoneKey negatives={negativeLayout.map((l) => l.entry)} positives={positiveLayout.map((l) => l.entry)} />
+    </div>
+  );
+}
+
+function PhoneKey({ negatives, positives }: { negatives: ComponentEntry[]; positives: ComponentEntry[] }) {
+  if (negatives.length === 0 && positives.length === 0) return null;
+  const item = (entry: ComponentEntry) => {
+    const c = entry.contribution ?? 0;
+    return (
+      <li key={entry.key} className="flex items-start gap-2 text-[12px] leading-tight">
+        <span aria-hidden className="mt-0.5 h-3 w-1 shrink-0 rounded-sm" style={{ background: c >= 0 ? POSITIVE : NEGATIVE }} />
+        <span className="min-w-0 flex-1 text-[var(--color-text-primary)]">{getComponentLabel(entry.key).title}</span>
+        <span className="font-mono tabular-nums" style={{ color: c >= 0 ? POSITIVE : NEGATIVE }}>
+          {c >= 0 ? '+' : ''}{c.toFixed(1)}
+        </span>
+      </li>
+    );
+  };
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-x-4 sm:hidden">
+      <div>
+        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: NEGATIVE }}>← Chop / reversal</div>
+        <ul className="space-y-1.5">{negatives.map(item)}</ul>
+      </div>
+      <div>
+        <div className="mb-1.5 text-right text-[10px] font-semibold uppercase tracking-wide" style={{ color: POSITIVE }}>Trend / expansion →</div>
+        <ul className="space-y-1.5">{positives.map(item)}</ul>
+      </div>
     </div>
   );
 }

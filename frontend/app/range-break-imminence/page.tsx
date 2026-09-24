@@ -123,7 +123,7 @@ export default function RangeBreakImminencePage() {
         title="Range Break Imminence"
         subtitle={'"Is this range about to break?"'}
         icon={Radio}
-        tooltip="Regime-switch detector between chop and breakout. Fuses IV skew (30%), dealer delta pressure (25%), trap detection (25%), and volatility compression (20%) into a 0–100 imminence score. Triggers at imminence ≥ 65. Standalone detector, not part of the MSI composite."
+        tooltip="Regime-switch detector between chop and breakout. Fuses IV skew (30%), dealer delta pressure (25%), trap detection (25%), and volatility compression (20%) into a 0-100 imminence score. Triggers at imminence ≥ 65. Standalone detector, not part of the MSI composite."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -140,7 +140,7 @@ export default function RangeBreakImminencePage() {
                 <>
                   <span
                     className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide"
-                    style={{ background: `${accentColor}1f`, color: accentColor }}
+                    style={{ background: `color-mix(in srgb, ${accentColor} 12%, transparent)`, color: accentColor }}
                   >
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: accentColor }} />}
                     {humanize(signalStr)}
@@ -162,8 +162,8 @@ export default function RangeBreakImminencePage() {
               className="rounded-xl border bg-[var(--color-surface-subtle)] p-5 flex flex-col h-full"
               style={{ borderColor: 'var(--color-border)' }}
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold flex items-center gap-2"><Layers size={14} /> Sub-score contributions</div>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-3">
+                <div className="text-sm font-semibold flex items-center gap-2 whitespace-nowrap"><Layers size={14} /> Sub-score contributions</div>
                 <div className="text-[11px] text-[var(--color-text-secondary)]">
                   Imminence = weighted sum of absolute sub-scores
                 </div>
@@ -227,7 +227,7 @@ export default function RangeBreakImminencePage() {
               <Row label="Long σ" value={ctx.compression.longSigma != null ? ctx.compression.longSigma.toFixed(4) : '—'} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              Directionless — adds magnitude only.
+              Directionless&nbsp;- adds magnitude only.
             </p>
           </div>
         </div>
@@ -236,16 +236,16 @@ export default function RangeBreakImminencePage() {
       <SignalHowItsBuilt
         caveat={
           <>
-            <strong>Bands:</strong> 0–39 Range-Bound · 40–64 Weak Range · 65–79 Break Watch · 80–100 Breakout Mode.
-            Triggers at imminence ≥ 65 — stop blindly fading and prepare retest trades.
+            <strong>Bands:</strong> 0-39 Range-Bound · 40-64 Weak Range · 65-79 Break Watch · 80-100 Breakout Mode.
+            Triggers at imminence ≥ 65&nbsp;- stop blindly fading and prepare retest trades.
           </>
         }
       >
-        <div>Four sub-signals are computed independently as 0–100 magnitudes with optional signed direction:
+        <div>Four sub-signals are computed independently as 0-100 magnitudes with optional signed direction:
           IV skew (30%), dealer delta pressure (25%), trap detection (25%), volatility compression (20%, directionless).
         </div>
-        <div><code>Imminence = Σ (Magnitude<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in 0–100.</div>
-        <div><code>Bias = Σ (Signed<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in [−1, +1] — drives the directional <code>Score</code>.</div>
+        <div><code>Imminence = Σ (Magnitude<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in 0-100.</div>
+        <div><code>Bias = Σ (Signed<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in [−1, +1]&nbsp;- drives the directional <code>Score</code>.</div>
         <div><code>Score = Imminence × Bias</code> (sign carried by Bias). Direction is derived from sign of Bias.</div>
       </SignalHowItsBuilt>
 

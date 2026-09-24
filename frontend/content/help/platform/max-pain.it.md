@@ -6,9 +6,9 @@
 
 ## Cos'è il max pain
 
-Il max pain è lo **strike a scadenza** al quale il valore totale in dollari di tutte le opzioni aperte è minimo — cioè il livello dove, in aggregato, i compratori di opzioni "perdono di più".
+Il max pain è lo **strike a scadenza** al quale il valore totale in dollari di tutte le opzioni aperte è minimo - cioè il livello dove, in aggregato, i compratori di opzioni "perdono di più".
 
-L'argomentazione classica è che i market maker (che sono i naturali venditori di opzioni al retail) abbiano interesse a spingere lo spot verso il max pain. L'argomentazione più onesta è più sfumata — vedi [Max Pain Spiegato](/education/max-pain-explained).
+L'argomentazione classica è che i market maker (che sono i naturali venditori di opzioni al retail) abbiano interesse a spingere lo spot verso il max pain. L'argomentazione più onesta è più sfumata - vedi [Max Pain Spiegato](/education/max-pain-explained).
 
 ## Cosa mostra questa pagina
 
@@ -30,13 +30,13 @@ Sull'asse x gli strike; sull'asse y la somma del payout delle opzioni in-the-mon
 
 ### La migrazione storica
 
-Un piccolo pannello che mostra come il max pain si è spostato nelle ultime sessioni per la scadenza selezionata — utile per individuare una deriva verso (o lontano da) lo spot.
+Un piccolo pannello che mostra come il max pain si è spostato nelle ultime sessioni per la scadenza selezionata - utile per individuare una deriva verso (o lontano da) lo spot.
 
 ## Quando il max pain conta
 
 Il max pain è più affidabile:
 
-- **Nelle ultime 24–48 ore prima di una scadenza significativa.** Prima di allora, la catena è troppo attiva perché il max pain sia stabile.
+- **Nelle ultime 24-48 ore prima di una scadenza significativa.** Prima di allora, la catena è troppo attiva perché il max pain sia stabile.
 - **Per lo 0DTE su SPX.** La catena 0DTE ha una size sufficiente perché la pressione di pinning sia reale.
 - **Quando la calamita gamma si allinea con la calamita del max pain.** Quando lo strike di max pain coincide anche con uno strike a gamma elevata (un wall), la pressione di pinning è reale. Quando non si allineano, è per lo più coincidenza.
 
@@ -55,6 +55,6 @@ Due letture:
 
 ## Vedi anche
 
-- [Max Pain Spiegato — Funziona Davvero?](/education/max-pain-explained)
+- [Max Pain Spiegato - Funziona Davvero?](/education/max-pain-explained)
 - [Posizionamento dei Dealer](/help/platform/dealer-positioning)
 - [Gamma Walls Spiegati](/education/gamma-walls-explained)

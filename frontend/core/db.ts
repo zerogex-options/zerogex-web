@@ -77,8 +77,8 @@ function initDb(): DatabaseSync {
   `);
 
   // Named boards a member has saved on My Dashboard. One row per saved board;
-  // the live working board still lives in localStorage and is untouched by
-  // this. `layout_json` holds the same serialized DashboardLayout that
+  // the live working board is kept separately, in dashboard_working_boards
+  // below. `layout_json` holds the same serialized DashboardLayout that
   // sanitizeLayout() already validates on read, so a row written by an older
   // release — or, later, by another member — is checked against the current
   // widget registry before anything is rendered.
@@ -101,6 +101,20 @@ function initDb(): DatabaseSync {
     );
   `);
   db.exec('CREATE INDEX IF NOT EXISTS idx_dashboard_layouts_user_id ON dashboard_layouts(user_id);');
+
+  // The live working board on My Dashboard, one row per member. It used to
+  // live only in localStorage, so a browser that clears site data took the
+  // board with it. The browser keeps a copy for instant loads; this row is the
+  // one that survives. Same serialized DashboardLayout as dashboard_layouts,
+  // sanitized by the client on every read.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dashboard_working_boards (
+      user_id TEXT PRIMARY KEY,
+      layout_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -1010,6 +1024,67 @@ function initDb(): DatabaseSync {
     ORDER BY day;
   `);
 
+  // The billing period (its current_period_end) a quarterly/annual renewal
+  // reminder was last sent for — scripts/send-renewal-reminders.mts. Keyed on the
+  // period rather than a timestamp so the latch re-arms by itself when the next
+  // period starts, and a late or repeated run never sends twice for one renewal.
+  ensureColumn('users', 'renewal_reminder_sent_for', 'TEXT');
+
+  // ── 7-day money-back guarantee ledger ─────────────────────────────────────
+  // One row per guarantee refund request, keyed by the subscription it
+  // refunds. Two jobs:
+  //
+  //   1. The ONE-REFUND-PER-CUSTOMER limit. A new request is refused when any
+  //      pending or completed row for a different subscription matches this
+  //      account, this canonical email (core/moneyBackGuarantee.canonicalEmail)
+  //      or the card that paid (Stripe's per-account card fingerprint). A
+  //      'failed' row moved no money and never counts.
+  //   2. Crash-safe resumption. The row is claimed ('pending') BEFORE any money
+  //      moves, so a double click or a retry after a Stripe hiccup resumes the
+  //      same request — Stripe idempotency keys stop a second refund — rather
+  //      than starting a new one.
+  //
+  // DELIBERATELY NOT A FOREIGN KEY, and never deleted with the account: the
+  // limit has to survive "delete the account, sign up again with the same card"
+  // to mean anything. It is a record kept about a payment to prevent abuse and
+  // resolve disputes — the purposes the privacy policy's use (§3) and retention
+  // (§6) sections already name. `card_fingerprint` is Stripe's opaque per-card
+  // token, not card data.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS money_back_refunds (
+      id TEXT PRIMARY KEY,
+      subscription_id TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      email_canonical TEXT NOT NULL,
+      customer_id TEXT,
+      card_fingerprint TEXT,
+      price_id TEXT,
+      tier TEXT,
+      cadence TEXT,
+      first_invoice_id TEXT,
+      first_paid_at TEXT,
+      amount_refunded INTEGER NOT NULL DEFAULT 0,
+      currency TEXT,
+      refund_ids TEXT,
+      status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      feedback TEXT,
+      comment TEXT,
+      error TEXT,
+      requested_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_user ON money_back_refunds(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_email ON money_back_refunds(email_canonical);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_money_back_refunds_card ON money_back_refunds(card_fingerprint);');
+  // The updated_at a stalled-request alert was sent for
+  // (core/moneyBackServer.ts sweepStalledMoneyBackRequests): one alert per
+  // stall, re-armed whenever the request moves again.
+  ensureColumn('money_back_refunds', 'stale_alert_for', 'TEXT');
+
   // ── Free daily levels email ───────────────────────────────────────────────
   // Subscribers to the pre-open levels digest, captured from the public
   // /<ticker>-gamma-levels pages.
@@ -1066,6 +1141,13 @@ function initDb(): DatabaseSync {
   // for — and the reason a hand-created table has to be reconciled rather than
   // trusted.
   ensureColumn('levels_subscribers', 'confirm_ip', 'TEXT');
+  // The subscriber's chosen ticker: it leads their digest's subject, table and
+  // TradingView paste block. NOT NULL with a default because SQLite requires a
+  // default to add a NOT NULL column to a table that already has rows, and
+  // because a subscriber without a symbol has no sensible digest — SPX is the
+  // ticker the search demand behind these pages is about, so it is the safe
+  // value for a row that predates this column.
+  ensureColumn('levels_subscribers', 'symbol', "TEXT NOT NULL DEFAULT 'SPX'");
 
   // The daily send reads exactly one predicate: confirmed and not opted out.
   // Partial index so it covers only the rows the send can actually mail, and

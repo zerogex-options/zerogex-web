@@ -39,15 +39,60 @@ function CardBody({
   had0dte,
 }: Omit<SessionCardProps, 'href'>) {
   const { pending } = useLinkStatus();
+  const surface = {
+    borderColor: pending ? 'var(--accent-2)' : 'var(--border-default)',
+    background: pending ? 'var(--bg-subtle)' : 'var(--bg-card)',
+  };
 
   return (
+    <>
+    {/* Phone: the same four facts as the card, in two lines — date and lean,
+        then bars and status. The card's three stacked lines made a 90-session
+        list a ~9,000px column on a phone; this row is about half as tall and
+        reads down the list the way a ledger does. */}
     <div
       aria-busy={pending}
-      className="rounded-xl border px-4 py-3 transition-colors"
-      style={{
-        borderColor: pending ? 'var(--accent-2)' : 'var(--border-default)',
-        background: pending ? 'var(--bg-subtle)' : 'var(--bg-card)',
-      }}
+      className="rounded-lg border px-3 py-2.5 transition-colors sm:hidden"
+      style={surface}
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="font-semibold whitespace-nowrap text-[15px]">{humanDate}</div>
+        {leanLabel && (
+          <div
+            className="font-mono text-[13px] font-semibold whitespace-nowrap"
+            style={{ color: leanPositive ? 'var(--color-bull)' : 'var(--color-bear)' }}
+          >
+            {leanLabel}
+          </div>
+        )}
+      </div>
+      <div className="mt-0.5 flex items-center justify-between gap-3">
+        <div
+          className="flex items-center gap-2 font-mono text-[11px]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <span>{barCount} bars</span>
+          {had0dte && (
+            <span
+              className="rounded px-1.5 text-[10px] font-bold uppercase tracking-[0.08em]"
+              style={{ border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+            >
+              0DTE
+            </span>
+          )}
+        </div>
+        <div
+          className="whitespace-nowrap text-[10px] uppercase tracking-[0.12em] font-bold"
+          style={{ color: pending ? 'var(--text-secondary)' : statusTone }}
+        >
+          {pending ? 'Loading' : statusLabel}
+        </div>
+      </div>
+    </div>
+    <div
+      aria-busy={pending}
+      className="hidden rounded-xl border px-4 py-3 transition-colors sm:block"
+      style={surface}
     >
       {/* Both halves of this row refuse to wrap. Letting them wrap made a long
           date break on some cards and not others, so a grid of sessions came
@@ -101,6 +146,7 @@ function CardBody({
         )}
       </div>
     </div>
+    </>
   );
 }
 

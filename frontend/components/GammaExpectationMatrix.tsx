@@ -50,15 +50,15 @@ const MATRIX: Record<Regime, Record<Approach, CellSpec>> = {
       headline: 'Pin & reject',
       tag: 'Magnet · resistance holds',
       outcome: 'hold',
-      read: 'Above the Gamma Flip dealers are long gamma and sell into strength. As price grinds up toward the Call Wall they lean against it, bleeding momentum. The wall behaves like a magnet and a ceiling — price tends to stall and pin just under it, then fade.',
+      read: 'Above the Gamma Flip dealers are long gamma and sell into strength. As price grinds up toward the Call Wall they lean against it, bleeding momentum. The wall behaves like a magnet and a ceiling\u00a0- price tends to stall and pin just under it, then fade.',
       edge: 'Fade strength into the wall; expect mean-reversion over follow-through.',
-      caution: 'A decisive close through the Call Wall flips the read — the pin becomes a breakout.',
+      caution: 'A decisive close through the Call Wall flips the read\u00a0- the pin becomes a breakout.',
     },
     down: {
       headline: 'Bounce & hold',
       tag: 'Magnet · support holds',
       outcome: 'hold',
-      read: 'Above the Gamma Flip dealers are long gamma and buy into weakness. As price slips toward the Put Wall they cushion the move. The wall behaves like support — dips get bought and price tends to bounce or pin above it.',
+      read: 'Above the Gamma Flip dealers are long gamma and buy into weakness. As price slips toward the Put Wall they cushion the move. The wall behaves like support\u00a0- dips get bought and price tends to bounce or pin above it.',
       edge: 'Buy weakness into the wall; expect the level to hold.',
       caution: 'Losing the Put Wall and the Flip tips the tape into the short-gamma, trending regime below.',
     },
@@ -68,7 +68,7 @@ const MATRIX: Record<Regime, Record<Approach, CellSpec>> = {
       headline: 'Breakout & squeeze',
       tag: 'Fuel · level breaks',
       outcome: 'break',
-      read: 'Below the Gamma Flip dealers are short gamma and buy as price rises, amplifying the move. The Call Wall is far more likely to give way — a push through it can trigger a gamma squeeze that accelerates higher.',
+      read: 'Below the Gamma Flip dealers are short gamma and buy as price rises, amplifying the move. The Call Wall is far more likely to give way\u00a0- a push through it can trigger a gamma squeeze that accelerates higher.',
       edge: 'Trade with momentum; a break of the wall tends to run.',
       caution: 'Reclaiming the Flip restores long-gamma damping and the squeeze fuel fades.',
     },
@@ -76,7 +76,7 @@ const MATRIX: Record<Regime, Record<Approach, CellSpec>> = {
       headline: 'Breakdown & flush',
       tag: 'Fuel · level breaks',
       outcome: 'break',
-      read: 'Below the Gamma Flip dealers are short gamma and sell as price falls, amplifying the move. The Put Wall is more likely to break than hold — losing it can accelerate the selloff into a downside gamma flush.',
+      read: 'Below the Gamma Flip dealers are short gamma and sell as price falls, amplifying the move. The Put Wall is more likely to break than hold\u00a0- losing it can accelerate the selloff into a downside gamma flush.',
       edge: 'Respect momentum; a break of the wall tends to extend.',
       caution: 'Reclaiming the Put Wall / Flip re-engages dealer support and can snap price back.',
     },
@@ -245,7 +245,7 @@ export default function GammaExpectationMatrix({
         Where do we expect the underlying to go?
       </h2>
       <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 720, marginBottom: 14 }}>
-        The matrix returns the classic dealer-hedging expectation for the wall that price is trading against —
+        The matrix returns the classic dealer-hedging expectation for the wall that price is trading against&nbsp;-
         whether it should act as a magnet that holds, or as fuel that breaks. The highlighted cell is read live from the chart
         above for <strong style={{ color: 'var(--text-primary)' }}>{read.symbol}</strong> and the expirations you have
         selected; pick another cell any time to explore the other three.
@@ -269,7 +269,7 @@ export default function GammaExpectationMatrix({
             <>
               {' '}
               <span style={{ color: 'var(--color-warning)' }}>
-                Price is on the far side of that wall — treat the level as the one being retested.
+                Price is on the far side of that wall&nbsp;- treat the level as the one being retested.
               </span>
             </>
           )}
@@ -313,10 +313,12 @@ export default function GammaExpectationMatrix({
         )}
       </div>
 
-      {/* 2×2 matrix */}
-      <div className="grid gap-2" style={{ gridTemplateColumns: 'auto 1fr 1fr' }}>
+      {/* 2×2 matrix. On a phone each regime's label takes a row of its own
+          above its two cells: beside them it left each cell ~90px at 360px,
+          narrower than "Breakdown", and the right column ran off the card. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[auto_1fr_1fr]">
         {/* header row */}
-        <div />
+        <div className="hidden sm:block" />
         {APPROACHES.map((a) => (
           <div
             key={a.value}
@@ -387,7 +389,7 @@ export default function GammaExpectationMatrix({
 
       <p style={{ fontSize: 11.5, lineHeight: 1.6, color: 'var(--text-muted)', marginTop: 14 }}>
         Regime is the modeled sign of dealer gamma at spot (the chart&apos;s LONG/SHORT badge, falling back to spot vs
-        the Gamma Flip); the wall in play is whichever of the Call Wall / Put Wall sits nearest spot — all drawn on the
+        the Gamma Flip); the wall in play is whichever of the Call Wall / Put Wall sits nearest spot&nbsp;- all drawn on the
         chart, and all following your symbol and expiration picks. This is a simplified dealer-hedging heuristic and
         decision-support context, not a guarantee of price behavior or investment advice.
       </p>
@@ -483,7 +485,7 @@ function RowFragment({
 }) {
   return (
     <>
-      <div className="flex flex-col justify-center pr-2 py-2" style={{ minWidth: 96 }}>
+      <div className="col-span-2 flex items-baseline gap-2 pt-1.5 sm:col-span-1 sm:min-w-24 sm:flex-col sm:items-stretch sm:justify-center sm:gap-0 sm:py-2 sm:pr-2">
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
           {regimeLabel}
         </span>

@@ -72,6 +72,10 @@ const {
   isPaneId,
   otherPaneId,
   MY_DASHBOARD_LAYOUT_VERSION,
+  chooseWorkingBoard,
+  hasBoardSynced,
+  isBoardUnsynced,
+  setBoardUnsynced,
 } = await import('../core/myDashboardLayout.ts');
 
 type Layout = ReturnType<typeof emptyLayout>;
@@ -626,4 +630,61 @@ test('the link setting round-trips through storage', () => {
   memory.clear();
   saveLayout(setLinkPriceAxis(add(emptyLayout(), 'gamma-chart', 'xl'), false), SCOPE);
   assert.equal(loadLayout(SCOPE)!.linkPriceAxis, false);
+});
+
+// ── Account copy ─────────────────────────────────────────────────────────────
+// A signed-in member's board is kept on the account, because a browser that
+// clears site data used to take the board with it. chooseWorkingBoard decides
+// which copy opens; the unsynced flag is what stops a change that never
+// reached the account from being overwritten by the account's older copy.
+
+test('the account copy wins over an in-sync browser copy (a change made elsewhere)', () => {
+  const account = add(emptyLayout(), 'gamma-chart', 'xl');
+  const browser = add(emptyLayout(), 'key-levels', 'lg');
+  assert.equal(chooseWorkingBoard({ account, browser, browserUnsynced: false }), account);
+});
+
+test('a browser that lost its board opens the account copy', () => {
+  const account = add(emptyLayout(), 'gamma-chart', 'xl');
+  assert.equal(chooseWorkingBoard({ account, browser: null, browserUnsynced: false }), account);
+  // A stray flag with no board behind it cannot conjure one.
+  assert.equal(chooseWorkingBoard({ account, browser: null, browserUnsynced: true }), account);
+});
+
+test('a board the account has never held opens as-is, so it gets copied up', () => {
+  const browser = add(emptyLayout(), 'key-levels', 'lg');
+  assert.equal(chooseWorkingBoard({ account: null, browser, browserUnsynced: false }), browser);
+});
+
+test('a change that never reached the account wins over the older account copy', () => {
+  const account = add(emptyLayout(), 'gamma-chart', 'xl');
+  const browser = add(account, 'key-levels', 'lg');
+  assert.equal(chooseWorkingBoard({ account, browser, browserUnsynced: true }), browser);
+});
+
+test('no copy anywhere opens an empty board', () => {
+  const chosen = chooseWorkingBoard({ account: null, browser: null, browserUnsynced: false });
+  assert.ok(isLayoutEmpty(chosen));
+});
+
+test('the sync state is per member and leaves the stored board alone', () => {
+  memory.clear();
+  const board = add(emptyLayout(), 'gamma-chart', 'xl');
+  saveLayout(board, 'user_a');
+
+  // A board built before boards were kept on the account has no state at all.
+  assert.equal(hasBoardSynced('user_a'), false, 'never synced');
+  assert.equal(isBoardUnsynced('user_a'), false, 'and nothing pending');
+
+  setBoardUnsynced('user_a', true);
+  assert.equal(isBoardUnsynced('user_a'), true);
+  assert.equal(hasBoardSynced('user_a'), true);
+  assert.equal(isBoardUnsynced('user_b'), false, 'another member sharing the browser is unaffected');
+  assert.equal(hasBoardSynced('user_b'), false);
+  assert.deepEqual(loadLayout('user_a'), board, 'the state does not touch the board itself');
+
+  setBoardUnsynced('user_a', false);
+  assert.equal(isBoardUnsynced('user_a'), false);
+  assert.equal(hasBoardSynced('user_a'), true, 'once synced, stays known to the account');
+  assert.deepEqual(loadLayout('user_a'), board);
 });

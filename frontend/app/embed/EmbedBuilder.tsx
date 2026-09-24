@@ -223,8 +223,8 @@ export default function EmbedBuilder() {
             an image, and this URL renders the same levels as a PNG.{' '}
             <strong style={{ color: 'var(--color-text-primary)' }}>
               It is a snapshot, not a live card
-            </strong>{' '}
-            &mdash; those platforms copy the file onto their own servers when you post it, so your
+            </strong>{' '}
+            - those platforms copy the file onto their own servers when you post it, so your
             readers see the levels as they were at that moment. That is why the card prints its own
             &ldquo;as of&rdquo; time: a snapshot that can tell you how old it is stays honest, and
             for a daily note that is usually exactly what you want.

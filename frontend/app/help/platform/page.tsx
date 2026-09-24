@@ -17,7 +17,7 @@ import {
 export const metadata = {
   title: 'ZeroGEX Platform Guide: Feature-by-Feature Walkthroughs',
   description:
-    'Step-by-step help for the ZeroGEX platform — every page, panel and chart explained: Dashboard, Live Bulletin, Signals, Metrics and Strategy Tools.',
+    'Step-by-step help for the ZeroGEX platform\u00a0- every page, panel and chart explained: Dashboard, Live Bulletin, Signals, Metrics and Strategy Tools.',
   alternates: { canonical: '/help/platform' },
 };
 
@@ -81,7 +81,7 @@ const sections: Section[] = [
         href: '/help/platform/tiers-and-access',
         title: 'Tiers, Access &amp; What Unlocks Where',
         blurb:
-          'A clear map of which pages are public, Basic, and Pro — and what changes between tiers on each page.',
+          'A clear map of which pages are public, Basic, and Pro\u00a0- and what changes between tiers on each page.',
       },
       {
         href: '/help/platform/navigating-the-app',
@@ -119,7 +119,7 @@ const sections: Section[] = [
         href: '/help/platform/signals-overview',
         title: 'How Signals Work End-to-End',
         blurb:
-          'The full signal model — Advanced (event-driven, triggers) vs. Basic (continuous, weight the composite). How scores combine and what the cards show you.',
+          'The full signal model\u00a0- Advanced (event-driven, triggers) vs. Basic (continuous, weight the composite). How scores combine and what the cards show you.',
       },
       {
         href: '/help/platform/composite-score',
@@ -131,13 +131,13 @@ const sections: Section[] = [
         href: '/help/platform/basic-signals-dashboard',
         title: 'Basic Signal Dashboard',
         blurb:
-          'The six continuous reads — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap — and how they feed the composite.',
+          'The six continuous reads\u00a0- Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap\u00a0- and how they feed the composite.',
       },
       {
         href: '/help/platform/advanced-signals-dashboard',
         title: 'Advanced Signal Dashboard',
         blurb:
-          'The event-driven signals — Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure.',
+          'The event-driven signals\u00a0- Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure.',
       },
     ],
   },
@@ -153,7 +153,7 @@ const sections: Section[] = [
             href: '/help/platform/dealer-positioning',
             title: 'Dealer Positioning',
             blurb:
-              'The full GEX surface — net GEX at spot, the gamma flip, call wall and put wall, and how to read the term structure.',
+              'The full GEX surface\u00a0- net GEX at spot, the gamma flip, call wall and put wall, and how to read the term structure.',
           },
           {
             href: '/help/platform/gex-summary',
@@ -171,7 +171,7 @@ const sections: Section[] = [
             href: '/help/platform/pin-strike',
             title: 'Pin Strike',
             blurb:
-              'The pin score and the Strong / Moderate / Weak label explained — including why a big, isolated gamma peak can still read Weak.',
+              'The pin score and the Strong / Moderate / Weak label explained\u00a0- including why a big, isolated gamma peak can still read Weak.',
           },
         ],
       },
@@ -188,13 +188,13 @@ const sections: Section[] = [
             href: '/help/platform/hedging-flow',
             title: 'Hedging Flow',
             blurb:
-              "Estimated dealer hedging pressure from today's trades, against price — the two views, what a flip is, and why put activity often reads as buying.",
+              "Estimated dealer hedging pressure from today's trades, against price\u00a0- the two views, what a flip is, and why put activity often reads as buying.",
           },
           {
             href: '/help/platform/smart-money',
             title: 'Smart Money',
             blurb:
-              'The smart-money screen — what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.',
+              'The smart-money screen\u00a0- what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.',
           },
         ],
       },
@@ -205,13 +205,13 @@ const sections: Section[] = [
             href: '/help/platform/technicals',
             title: 'Technicals',
             blurb:
-              'The intraday technical snapshot — price, candles, volatility gauges, and how the levels overlay the GEX walls.',
+              'The intraday technical snapshot\u00a0- price, candles, volatility gauges, and how the levels overlay the GEX walls.',
           },
           {
             href: '/help/platform/spread-monitor',
             title: 'Spread Monitor',
             blurb:
-              'Quoted bid/ask width and liquidity across the chain — which side of the book is expensive to trade, where it thins out, and whether today is unusual.',
+              'Quoted bid/ask width and liquidity across the chain\u00a0- which side of the book is expensive to trade, where it thins out, and whether today is unusual.',
           },
         ],
       },
@@ -263,7 +263,7 @@ const sections: Section[] = [
         href: '/help/platform/referrals',
         title: 'Referrals',
         blurb:
-          'How the referral program works — your code, your link, what counts as a referral, and how earned months land on your bill.',
+          'How the referral program works\u00a0- your code, your link, what counts as a referral, and how earned months land on your bill.',
       },
     ],
   },
@@ -326,7 +326,7 @@ const sections: Section[] = [
         href: '/help/platform/reading-charts',
         title: 'How to Read ZeroGEX Charts',
         blurb:
-          'A shared visual vocabulary — colors, scales, hover behavior, legends, and the chart-specific notes for GEX profile, walls, and heatmaps.',
+          'A shared visual vocabulary\u00a0- colors, scales, hover behavior, legends, and the chart-specific notes for GEX profile, walls, and heatmaps.',
       },
       {
         href: '/help/platform/score-line',
@@ -351,7 +351,7 @@ const sections: Section[] = [
         href: '/help/platform/troubleshooting',
         title: 'Troubleshooting',
         blurb:
-          'The short list — sign-in problems, missing data, stale charts, payment issues, browser caches, and when to email support.',
+          'The short list\u00a0- sign-in problems, missing data, stale charts, payment issues, browser caches, and when to email support.',
       },
     ],
   },
@@ -359,7 +359,7 @@ const sections: Section[] = [
 
 export default function PlatformGuidePage() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-12">
+    <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
       <Link href="/help" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Help Center
       </Link>
@@ -372,7 +372,7 @@ export default function PlatformGuidePage() {
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Platform Guide</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
           Feature-by-feature walkthroughs of every page on the platform. Start at the top if you&apos;re
-          new — the order roughly mirrors how a working day flows on ZeroGEX. Already know what you
+          new&nbsp;- the order roughly mirrors how a working day flows on ZeroGEX. Already know what you
           need? Skip straight to the right section.
         </p>
       </div>

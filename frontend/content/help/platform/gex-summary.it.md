@@ -20,11 +20,11 @@ Il delta aggregato dei dealer. Un valore fortemente negativo significa che i dea
 
 ### Net VEX (Vanna)
 
-La vanna aggregata dei dealer — la sensibilità del delta all'IV. Positiva significa che un calo dell'IV costringe i dealer a comprare; un aumento dell'IV li costringe a vendere. Questo è il motore delle giornate di "grind da compressione della volatilità".
+La vanna aggregata dei dealer - la sensibilità del delta all'IV. Positiva significa che un calo dell'IV costringe i dealer a comprare; un aumento dell'IV li costringe a vendere. Questo è il motore delle giornate di "grind da compressione della volatilità".
 
 ### Net Charm
 
-Il charm aggregato dei dealer — la sensibilità del delta al tempo. Positivo sostiene strutturalmente il drift verso la chiusura; negativo lo contrasta. Il flusso guidato dal charm si intensifica nelle ultime due ore.
+Il charm aggregato dei dealer - la sensibilità del delta al tempo. Positivo sostiene strutturalmente il drift verso la chiusura; negativo lo contrasta. Il flusso guidato dal charm si intensifica nelle ultime due ore.
 
 ### Net Vega
 
@@ -32,7 +32,7 @@ Il vega aggregato dei dealer. Indica quanto i dealer siano esposti a un moviment
 
 ## Il dettaglio per strike
 
-Sotto i totali, la pagina mostra gli stessi numeri suddivisi per strike — i contributi per strike a gamma, delta, vanna e charm. Usalo quando:
+Sotto i totali, la pagina mostra gli stessi numeri suddivisi per strike - i contributi per strike a gamma, delta, vanna e charm. Usalo quando:
 
 - Vuoi vedere **quali strike** stanno guidando il numero principale.
 - Vuoi confermare che il call wall si trovi effettivamente dove indicato dal profilo GEX.
@@ -53,7 +53,7 @@ Quando consulti un altro provider di dati GEX, verifica sempre la convenzione de
 
 Due schemi:
 
-1. **Verifica incrociata con Dealer Positioning.** Se il Net GEX è significativamente positivo ma il profilo GEX mostra la curva che scende in negativo appena sotto lo spot, ti trovi sulla linea di regime — il rischio è asimmetrico.
+1. **Verifica incrociata con Dealer Positioning.** Se il Net GEX è significativamente positivo ma il profilo GEX mostra la curva che scende in negativo appena sotto lo spot, ti trovi sulla linea di regime - il rischio è asimmetrico.
 2. **Osserva vanna e charm verso la chiusura.** Entrambi raggiungono il picco di influenza intraday nelle ultime due ore; il contributo del charm per strike ti indica dove si posizionerà il pin.
 
 ## Vedi anche

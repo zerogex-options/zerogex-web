@@ -47,6 +47,7 @@ const TRIAL_END = '2026-09-18T23:01:00.000Z';
 const PERIOD_END = '2026-10-14T16:00:00.000Z';
 const NEXT_ATTEMPT = '2026-09-19T14:00:00.000Z';
 const GRACE_UNTIL = '2026-09-19T16:00:00.000Z';
+const MONEY_BACK_UNTIL = '2026-09-25T16:00:00.000Z';
 const UNSUB = `${APP_URL}/unsubscribe?u=user_123&t=abc123`;
 const SAVE_URL = `${APP_URL}/save?u=user_123&t=abc123`;
 const VERIFY_URL = `${APP_URL}/verify?token=abc123def456`;
@@ -95,6 +96,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   // --- welcome --------------------------------------------------------------
   { id: 'paid-welcome', variant: 'trial (7-day)', run: () => capture(() => M.sendPaidWelcomeEmail(TO, { trialEndIso: TRIAL_END, trialDays: 7 })) },
   { id: 'paid-welcome', variant: 'immediate paid (no trial)', run: () => capture(() => M.sendPaidWelcomeEmail(TO, {})) },
+  { id: 'paid-welcome', variant: 'paid up front (7-day money-back guarantee)', run: () => capture(() => M.sendPaidWelcomeEmail(TO, { moneyBackUntilIso: MONEY_BACK_UNTIL })) },
   { id: 'founding-welcome', variant: 'default', run: () => capture(() => M.sendFoundingWelcomeEmail(TO, { trialEndIso: TRIAL_END })) },
   { id: 'trial-quickstart', variant: 'default', run: () => capture(() => M.sendTrialQuickstartEmail(TO, { trialEndIso: TRIAL_END })) },
   { id: 'welcome-back', variant: 'default', run: () => capture(() => M.sendWelcomeBackEmail(TO)) },
@@ -102,7 +104,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   // --- trial lifecycle ------------------------------------------------------
   { id: 'trial-value-nudge', variant: 'default', run: () => capture(() => M.sendTrialValueEmail(TO, { trialEndIso: TRIAL_END, unsubUrl: UNSUB })) },
   { id: 'trial-reminder', variant: 'engaged', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' } })) },
-  { id: 'trial-reminder', variant: 'on a promo intro rate', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' }, promoIntroLabel: 'first 6 months' })) },
+  { id: 'trial-reminder', variant: 'on a promo intro rate', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' }, promoIntroLabel: 'first 12 months' })) },
   { id: 'trial-reminder', variant: 'dormant (never returned)', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' }, dormant: true })) },
   { id: 'trial-converted', variant: 'charged', run: () => capture(() => M.sendTrialConvertedEmail(TO, { amountFormatted: '$59.00', cardBrand: 'Visa', cardLast4: '4242', nextChargeIso: PERIOD_END })) },
   { id: 'trial-converted', variant: 'fully credited ($0 invoice)', run: () => capture(() => M.sendTrialConvertedEmail(TO, { amountFormatted: '$0.00', cardBrand: 'Visa', cardLast4: '4242', nextChargeIso: PERIOD_END, fullyCredited: true })) },
@@ -113,6 +115,8 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'grace-expiry-warning', variant: 'renewal failure', run: () => capture(() => M.sendGraceExpiryWarningEmail(TO, { reason: 'renewal', graceUntilIso: GRACE_UNTIL, cardBrand: 'Visa', cardLast4: '4242', nextAttemptIso: NEXT_ATTEMPT })) },
   { id: 'grace-expiry-warning', variant: 'trial-conversion failure', run: () => capture(() => M.sendGraceExpiryWarningEmail(TO, { reason: 'trial', graceUntilIso: GRACE_UNTIL, cardBrand: 'Visa', cardLast4: '4242', nextAttemptIso: null })) },
   { id: 'payment-recovered', variant: 'default', run: () => capture(() => M.sendPaymentRecoveredEmail(TO)) },
+  { id: 'renewal-reminder', variant: 'annual (30 days out)', run: () => capture(() => M.sendRenewalReminderEmail(TO, { planLabel: 'Pro (annual)', renewalIso: PERIOD_END, amountFormatted: '$299.00' })) },
+  { id: 'renewal-reminder', variant: 'amount unavailable', run: () => capture(() => M.sendRenewalReminderEmail(TO, { planLabel: 'Basic (quarterly)', renewalIso: PERIOD_END, amountFormatted: null })) },
   { id: 'card-expiring', variant: 'default', run: () => capture(() => M.sendCardExpiringEmail(TO, { cardBrand: 'Visa', cardLast4: '4242', expiryLabel: '10/2026' })) },
   { id: 'referral-reward', variant: 'credited', run: () => capture(() => M.sendReferralRewardEmail(TO, { kind: 'credited', amountFormatted: '$59.00', accountUrl: `${APP_URL}/account` })) },
   { id: 'referral-reward', variant: 'banked', run: () => capture(() => M.sendReferralRewardEmail(TO, { kind: 'banked', accountUrl: `${APP_URL}/account` })) },
@@ -121,13 +125,14 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'verified-never-paid', variant: 'default', run: () => capture(() => M.sendVerifiedNeverPaidEmail(TO)) },
   { id: 'checkout-recovery', variant: 'plain', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null })) },
   { id: 'checkout-recovery', variant: 'founding deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: 'October 1, 2026' })) },
-  { id: 'checkout-recovery', variant: 'promo deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null, promoDeadlineLabel: 'October 1, 2026', promoPricing: { basicMonthly: '$19.00', proMonthly: '$39.00' } })) },
-  { id: 'founding-final-call', variant: 'default', run: () => capture(() => M.sendFoundingFinalCallEmail(TO, { deadlineLabel: 'October 1, 2026', foundingHref: `${APP_URL}/founding`, billingStartLabel: 'October 8, 2026', pricing: { basicMonthlyIntro: '$12.00', proMonthlyIntro: '$19.00', basicMonthlyList: '$29.00', proMonthlyList: '$59.00', lifetimePercentOff: 25 } })) },
+  { id: 'checkout-recovery', variant: 'promo deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null, promoDeadlineLabel: 'October 1, 2026', promoPricing: { basicMonthly: '$29.00', proMonthly: '$49.00' } })) },
+  { id: 'founding-final-call', variant: 'default', run: () => capture(() => M.sendFoundingFinalCallEmail(TO, { deadlineLabel: 'October 1, 2026', foundingHref: `${APP_URL}/founding`, billingStartLabel: 'October 8, 2026', pricing: { basicMonthlyIntro: '$12.00', proMonthlyIntro: '$19.00', basicMonthlyList: '$39.00', proMonthlyList: '$59.00', lifetimePercentOff: 25 } })) },
   { id: 'reactivation', variant: 'default (30-day)', run: () => capture(() => M.sendReactivationEmail(TO, { trialDays: 30, unsubUrl: UNSUB })) },
 
   // --- retention / churn ----------------------------------------------------
   { id: 'cancellation-ack', variant: 'with save link', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL })) },
   { id: 'cancellation-ack', variant: 'conversion charge pending', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL, conversionChargePending: true })) },
+  { id: 'money-back-refund', variant: 'default', run: () => capture(() => M.sendMoneyBackRefundEmail(TO, { amountFormatted: '$115.00', planLabel: 'Pro (quarterly)', cardBrand: 'visa', cardLast4: '4242' })) },
   { id: 'winback', variant: 'auto (win-back coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS })) },
   { id: 'winback', variant: 'promo (public promo live)', run: () => capture(() => M.sendWinbackEmail(TO, { promoDeadlineLabel: 'October 1, 2026', highlights: HIGHLIGHTS })) },
   { id: 'winback', variant: 'none (no coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { highlights: HIGHLIGHTS })) },
@@ -140,6 +145,8 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
 
   // --- operator-only (no member receives these) -----------------------------
   { id: 'cancellation-alert', variant: 'clicked Cancel (still has access)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, CHURN_ALERT)) },
+  { id: 'money-back-alert', variant: 'refund issued', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'issued', email: TO, planLabel: 'Pro (quarterly)', amountFormatted: '$115.00', source: 'self_serve', reason: 'too_expensive', comment: 'More than I need right now.', problems: [], subscriptionId: 'sub_123', refundIds: ['re_123'] })) },
+  { id: 'money-back-alert', variant: 'action needed', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'attention', email: TO, planLabel: 'Pro (annual)', amountFormatted: '$299.00', source: 'self_serve', reason: null, comment: null, problems: ['The refund went through but Stripe did not cancel sub_456. Cancel it in the Dashboard, or the member is billed again at renewal.'], subscriptionId: 'sub_456', refundIds: ['re_456'] })) },
   { id: 'winback-digest', variant: 'default', run: () => capture(() => M.sendWinbackDigestEmail(OPS, { recipients: [TO, 'another@example.com'], mode: 'auto', sendCommand: 'make winback YES=1', draft: WINBACK_DRAFT })) },
   { id: 'reactivation-digest', variant: 'default', run: () => capture(() => M.sendReactivationDigestEmail(OPS, { recipients: [TO, 'another@example.com'], sendCommand: 'make reactivation YES=1', trialDays: 30, draft: REACTIVATION_DRAFT })) },
   { id: 'return-intent-digest', variant: 'default', run: () => capture(() => M.sendReturnIntentDigestEmail(OPS, { recipients: [{ email: TO, angle: 'price', lastLoginAt: '2026-09-15T09:12:00.000Z', churnedAt: '2026-08-14T12:00:00.000Z' }], sendCommand: 'make return-intent YES=1', draft: RETURN_INTENT_DRAFT })) },

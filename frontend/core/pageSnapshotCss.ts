@@ -273,7 +273,7 @@ export function resolveSnapshotTitle(sources: {
   if (nav) return nav;
   const heading = sources.headingText?.replace(/\s+/g, ' ').trim();
   if (heading) return heading;
-  const title = sources.documentTitle?.split(/\s+[—·|]\s+/)[0]?.trim();
+  const title = sources.documentTitle?.split(/\s+[—·|-]\s+/)[0]?.trim();
   if (title) return title;
   return 'ZeroGEX';
 }

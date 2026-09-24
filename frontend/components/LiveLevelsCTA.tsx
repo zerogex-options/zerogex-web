@@ -59,7 +59,7 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
       ) : null}
       <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
         Want to follow this throughout the trading day? View today&apos;s SPX, SPY, QQQ, and NDX gamma flip, call wall,
-        put wall, and Net GEX — free, delayed roughly 15 minutes, no signup required.
+        put wall, and Net GEX&nbsp;- free, delayed roughly 15 minutes, no signup required.
       </p>
       <div className="flex flex-wrap gap-3">
         {TICKERS.map((t) => (
@@ -98,18 +98,18 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
         Writing about this? Put the same levels on your own site with a{' '}
         <Link href="/embed" className={linkClass}>
           free embeddable card
-        </Link>{' '}
-        &mdash; one line of HTML, or a PNG for Substack and Discord. No account, no key.
+        </Link>{' '}
+        - one line of HTML, or a PNG for Substack and Discord. No account, no key.
       </p>
 
       <p className="mt-5 text-sm leading-7 text-[var(--color-text-secondary)]">
         Or open the live{' '}
         <Link href="/real-time-gex-0dte" className={linkClass}>
           real-time 0DTE GEX dashboard
-        </Link>{' '}
-        — the full gamma flip, call and put walls, dealer positioning, and the 13-signal composite.{' '}
+        </Link>{' '}
+        - the full gamma flip, call and put walls, dealer positioning, and the 13-signal composite.{' '}
         <Link href="/register" className={linkClass}>
-          Start a free trial
+          Sign up
         </Link>{' '}
         for the live read.
       </p>

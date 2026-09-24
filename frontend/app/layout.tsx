@@ -1,7 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { UI_COOKIE, flagFromCookie, navWidthFor } from '@/core/uiCookies';
-import { PALETTE_COOKIE, THEME_COOKIE, normalizePalette, normalizeTheme } from '@/core/appearance';
+import {
+  APPEARANCE_PENDING_COOKIE,
+  PALETTE_COOKIE,
+  THEME_COOKIE,
+  resolveAppearance,
+} from '@/core/appearance';
+import { readAppearanceForCurrentSession } from '@/core/serverAuth';
 import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -253,12 +259,19 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read persisted palette/theme from cookies so the initial HTML paints in
-  // the user's chosen palette. Prevents a flash of default styling when the
-  // client hydrates.
+  // Paint the member's chosen palette/theme in the initial HTML, so there is
+  // no flash of default styling when the client hydrates. The cookies say what
+  // this browser last used; for a signed-in member the account copy wins, so a
+  // browser that dropped the cookies still paints their own look (see
+  // resolveAppearance for the rules).
   const cookieStore = await cookies();
-  const palette = normalizePalette(cookieStore.get(PALETTE_COOKIE)?.value);
-  const theme = normalizeTheme(cookieStore.get(THEME_COOKIE)?.value);
+  const appearance = resolveAppearance({
+    cookieTheme: cookieStore.get(THEME_COOKIE)?.value,
+    cookiePalette: cookieStore.get(PALETTE_COOKIE)?.value,
+    pending: cookieStore.get(APPEARANCE_PENDING_COOKIE)?.value === '1',
+    account: await readAppearanceForCurrentSession(),
+  });
+  const { palette, theme } = appearance;
 
   // Persisted UI language — seeds both <html lang> (for a11y/SEO and correct
   // initial paint) and the LanguageProvider so SSR and the first client render
@@ -288,7 +301,12 @@ export default async function RootLayout({
         <SiteJsonLd />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
-        <ThemeProvider initialTheme={theme} initialPalette={palette}>
+        <ThemeProvider
+          initialTheme={theme}
+          initialPalette={palette}
+          fromAccount={appearance.fromAccount}
+          syncToAccount={appearance.syncToAccount}
+        >
           <LanguageProvider initialLocale={locale}>
             <TimeframeProvider>
               <GexUnitProvider>

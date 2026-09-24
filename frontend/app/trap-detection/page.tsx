@@ -27,8 +27,8 @@ import {
 
 function setupLabel(signal: string, score: number | null): string {
   if (score == null) return 'No reading';
-  if (signal === 'bearish_fade') return 'Bearish fade — failed upside breakout';
-  if (signal === 'bullish_fade') return 'Bullish fade — failed downside break';
+  if (signal === 'bearish_fade') return 'Bearish fade\u00a0- failed upside breakout';
+  if (signal === 'bullish_fade') return 'Bullish fade\u00a0- failed downside break';
   if (score <= -25) return 'Bearish fade risk';
   if (score >= 25) return 'Bullish fade risk';
   return 'No strong trap edge';
@@ -107,7 +107,7 @@ export default function TrapDetectionPage() {
               history={history}
               badges={
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
                     {humanize(signal) || 'None'}
                   </span>
@@ -142,25 +142,25 @@ export default function TrapDetectionPage() {
                 label="Gamma strengthening"
                 on={ctx.gammaStrengthening}
                 color="var(--color-bull)"
-                tooltip="Net GEX is rising session-over-session — dealer long-gamma is intensifying. Reinforces fade-trade behavior at the wall."
+                tooltip="Net GEX is rising session-over-session&nbsp;- dealer long-gamma is intensifying. Reinforces fade-trade behavior at the wall."
               />
               <Chip
                 label="Call wall migrated ↑"
                 on={callWallMigratedUp}
                 color="var(--color-bear)"
-                tooltip="The call wall has migrated higher (call_wall > prior_call_wall) — dealers are repositioning their upside reference up with price, which invalidates the bearish-fade setup at the prior resistance."
+                tooltip="The call wall has migrated higher (call_wall > prior_call_wall)&nbsp;- dealers are repositioning their upside reference up with price, which invalidates the bearish-fade setup at the prior resistance."
               />
               <Chip
                 label="Put wall migrated ↓"
                 on={putWallMigratedDown}
                 color="var(--color-bear)"
-                tooltip="The put wall has migrated lower (put_wall < prior_put_wall) — dealers are repositioning their downside reference down with price, which invalidates the bullish-fade setup at the prior support."
+                tooltip="The put wall has migrated lower (put_wall < prior_put_wall)&nbsp;- dealers are repositioning their downside reference down with price, which invalidates the bullish-fade setup at the prior support."
               />
               <Chip
                 label="Long gamma"
                 on={ctx.longGamma}
                 color="var(--color-bull)"
-                tooltip="Net GEX > 0: dealers are net long gamma. They sell into rallies and buy dips, dampening volatility — supportive of fade behavior at walls."
+                tooltip="Net GEX > 0: dealers are net long gamma. They sell into rallies and buy dips, dampening volatility&nbsp;- supportive of fade behavior at walls."
               />
             </div>
           </div>
@@ -216,7 +216,7 @@ export default function TrapDetectionPage() {
               <span>Bearish fade</span>
               {signal === 'bearish_fade' && (
                 <span
-                  className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  className="ml-auto text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
                 >
                   Active
@@ -237,7 +237,7 @@ export default function TrapDetectionPage() {
               <span>Bullish fade</span>
               {signal === 'bullish_fade' && (
                 <span
-                  className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  className="ml-auto text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
                 >
                   Active
@@ -256,10 +256,10 @@ export default function TrapDetectionPage() {
         caveat={<>Wall migration with price (dealers repositioning) invalidates the setup. Buffer band is min(0.1%, 0.15 × realized σ × √5).</>}
       >
         <div>Detects upside / downside breakouts beyond the prior resistance / support wall by at least the buffer band.</div>
-        <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction — call wall not moving up on a bearish fade (<code>call_wall_migrated_up</code>), put wall not moving down on a bullish fade (<code>put_wall_migrated_down</code>).</div>
+        <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction&nbsp;- call wall not moving up on a bearish fade (<code>call_wall_migrated_up</code>), put wall not moving down on a bullish fade (<code>put_wall_migrated_down</code>).</div>
         <div>Optional confirmation: same-side flow decelerating into the wall.</div>
         <div><code>Score = ±Confidence × 100</code>, where Confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
-        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls — prior resistance was punched through to the upside; prior support, to the downside. The fields persist past the breakout flag, so the level can sit on either side of close as price retraces.</div>
+        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls&nbsp;- prior resistance was punched through to the upside; prior support, to the downside. The fields persist past the breakout flag, so the level can sit on either side of close as price retraces.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />
@@ -284,7 +284,7 @@ function Chip({ label, on, color, tooltip }: { label: string; on: boolean; color
       style={{
         borderColor: on ? color : 'var(--color-border)',
         color: on ? color : 'var(--color-text-secondary)',
-        background: on ? `${color}14` : 'transparent',
+        background: on ? `color-mix(in srgb, ${color} 8%, transparent)` : 'transparent',
         cursor: tooltip ? 'help' : undefined,
       }}
     >
@@ -328,9 +328,11 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
   if (showSupport) rungs.push({ kind: 'support', value: priorSupport! });
   rungs.sort((a, b) => b.value - a.value);
 
+  // On a phone each rung's status ("Broken ↑ · above close") drops under its
+  // name and price instead of squeezing all three into a ~220px row.
   return (
     <div className="relative flex items-start gap-4">
-      <svg width="48" height={height} viewBox={`0 0 48 ${height}`}>
+      <svg width="48" height={height} viewBox={`0 0 48 ${height}`} className="shrink-0">
         <line x1={24} y1={0} x2={24} y2={height} stroke="var(--color-border)" strokeWidth={2} />
         {showResistance && (
           <g>
@@ -355,16 +357,16 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
           if (r.kind === 'resistance') {
             const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
             return (
-              <div key="resistance" className="flex items-baseline gap-3">
-                <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
+              <div key="resistance" className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+                <span className="text-[var(--color-bull)] font-semibold w-28 whitespace-nowrap sm:whitespace-normal">Prior Resistance</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                <span className="basis-full text-[10px] font-semibold uppercase tracking-wide sm:basis-auto">
                   <span className="text-[var(--color-bull)]">Broken ↑</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
                 {breakoutUp && (
                   <span
-                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
                   >
                     Active
@@ -376,16 +378,16 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
           if (r.kind === 'support') {
             const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
             return (
-              <div key="support" className="flex items-baseline gap-3">
-                <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
+              <div key="support" className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+                <span className="text-[var(--color-bear)] font-semibold w-28 whitespace-nowrap sm:whitespace-normal">Prior Support</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                <span className="basis-full text-[10px] font-semibold uppercase tracking-wide sm:basis-auto">
                   <span className="text-[var(--color-bear)]">Broken ↓</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
                 {breakoutDown && (
                   <span
-                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
                   >
                     Active
@@ -395,8 +397,8 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
             );
           }
           return (
-            <div key="spot" className="flex items-baseline gap-3">
-              <span className="text-[var(--color-warning)] font-semibold w-28">Spot</span>
+            <div key="spot" className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 sm:flex-nowrap">
+              <span className="text-[var(--color-warning)] font-semibold w-28 whitespace-nowrap sm:whitespace-normal">Spot</span>
               <span className="font-mono">{formatPrice(r.value)}</span>
             </div>
           );

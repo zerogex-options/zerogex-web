@@ -110,15 +110,15 @@ export function parseHistory(raw: unknown): CompositeHistoryRow[] {
 const COMPONENT_LABELS: Record<ComponentKey, { title: string; description: string; positive: string; negative: string }> = {
   net_gex_sign: {
     title: 'Net GEX Sign',
-    description: 'Sign of dealer aggregate gamma — does the book pin price (long γ) or amplify it (short γ)?',
+    description: 'Sign of dealer aggregate gamma\u00a0- does the book pin price (long γ) or amplify it (short γ)?',
     positive: 'Net GEX < 0 → dealers short gamma, hedges amplify moves → trends can run.',
     negative: 'Net GEX > 0 → dealers long gamma, hedges damp moves → pinning / mean reversion.',
   },
   gamma_anchor: {
     title: 'Gamma Anchor',
     description: 'Blended proximity to gamma flip, local gamma density, and max-gamma strike.',
-    positive: 'Price is "free" — flip near, thin local gamma, far from max-gamma → expect movement.',
-    negative: 'Price is "anchored" — far from flip, dense local gamma, at max-gamma → expect chop / pinning.',
+    positive: 'Price is "free"\u00a0- flip near, thin local gamma, far from max-gamma → expect movement.',
+    negative: 'Price is "anchored"\u00a0- far from flip, dense local gamma, at max-gamma → expect chop / pinning.',
   },
   put_call_ratio: {
     title: 'Put/Call Ratio',
@@ -134,7 +134,7 @@ const COMPONENT_LABELS: Record<ComponentKey, { title: string; description: strin
   },
   order_flow_imbalance: {
     title: 'Order Flow Imbalance',
-    description: 'Smart-money call vs put premium imbalance — the only directional component.',
+    description: 'Smart-money call vs put premium imbalance\u00a0- the only directional component.',
     positive: 'Smart-money calls dominate → bullish lead, MSI shifts toward expansion.',
     negative: 'Smart-money puts dominate → bearish lead, MSI shifts toward reversal.',
   },

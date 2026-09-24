@@ -71,7 +71,7 @@ export default function Error({
           }}
         >
           Something went wrong while loading this view. The rest of the site is
-          still available — try again, or head back to the dashboard.
+          still available&nbsp;- try again, or head back to the dashboard.
         </p>
         <div
           style={{

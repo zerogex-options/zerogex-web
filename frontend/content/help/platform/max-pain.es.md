@@ -6,9 +6,9 @@
 
 ## Qué es el max pain
 
-El max pain es el **strike al vencimiento** en el que el valor total en dólares de todas las opciones abiertas es mínimo — es decir, el nivel donde, en conjunto, los compradores de opciones "pierden más".
+El max pain es el **strike al vencimiento** en el que el valor total en dólares de todas las opciones abiertas es mínimo - es decir, el nivel donde, en conjunto, los compradores de opciones "pierden más".
 
-El argumento clásico es que los market makers (los vendedores naturales de opciones al retail) tienen incentivo para empujar el spot hacia el max pain. El argumento más honesto es más matizado — ver [Max Pain Explicado](/education/max-pain-explained).
+El argumento clásico es que los market makers (los vendedores naturales de opciones al retail) tienen incentivo para empujar el spot hacia el max pain. El argumento más honesto es más matizado - ver [Max Pain Explicado](/education/max-pain-explained).
 
 ## Qué muestra esta página
 
@@ -30,13 +30,13 @@ En el eje x, el strike; en el eje y, la suma del payout de las opciones in-the-m
 
 ### La migración histórica
 
-Un pequeño panel que muestra cómo se ha movido el max pain en las últimas sesiones para el vencimiento seleccionado — útil para detectar una deriva hacia (o alejándose de) el spot.
+Un pequeño panel que muestra cómo se ha movido el max pain en las últimas sesiones para el vencimiento seleccionado - útil para detectar una deriva hacia (o alejándose de) el spot.
 
 ## Cuándo importa el max pain
 
 El max pain es más fiable:
 
-- **En las últimas 24–48 horas antes de un vencimiento significativo.** Antes de eso, la cadena está demasiado activa como para que el max pain sea estable.
+- **En las últimas 24-48 horas antes de un vencimiento significativo.** Antes de eso, la cadena está demasiado activa como para que el max pain sea estable.
 - **Para 0DTE en SPX.** La cadena 0DTE tiene tamaño suficiente para que la presión de pinning sea real.
 - **Cuando el imán gamma se alinea con el imán del max pain.** Cuando el strike de max pain coincide también con un strike de gamma elevada (un wall), la presión de pinning es real. Cuando no se alinean, es en su mayoría coincidencia.
 
@@ -55,6 +55,6 @@ Dos lecturas:
 
 ## Ver también
 
-- [Max Pain Explicado — ¿Funciona Realmente?](/education/max-pain-explained)
+- [Max Pain Explicado - ¿Funciona Realmente?](/education/max-pain-explained)
 - [Posicionamiento de los Dealers](/help/platform/dealer-positioning)
 - [Gamma Walls Explicados](/education/gamma-walls-explained)

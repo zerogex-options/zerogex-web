@@ -18,7 +18,6 @@ import { useMarketQuote, useOptionContract, type OptionContractRow } from "@/hoo
 import { useFlowContractOptions } from "@/hooks/useFlowSeries";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
-import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -131,6 +130,56 @@ function is30MinBoundary(ts: string): boolean {
   );
   return minutes % 30 === 0;
 }
+
+/** 10:00 / 12:00 / 14:00 / 16:00 ET — a phone's time labels. The half-hour
+ *  grid is fourteen labels, which overprint into one smear at phone width. */
+function isEvenHourET(ts: string): boolean {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return false;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const h = Number(parts.find((p) => p.type === "hour")?.value);
+  const m = Number(parts.find((p) => p.type === "minute")?.value);
+  return m === 0 && h % 2 === 0;
+}
+
+/**
+ * Folds the one-minute rows into `size`-minute bins for a phone: 406 minute
+ * bars across ~250px of plot draw at a fraction of a pixel each and all but
+ * vanish. Volumes sum; last / bid / ask take the bin's final print; a bin with
+ * no prints at all stays null, like the minute rows it came from.
+ */
+function binRows(rows: ChartRow[], size: number): ChartRow[] {
+  const out: ChartRow[] = [];
+  for (let i = 0; i < rows.length; i += size) {
+    const bin = rows.slice(i, i + size);
+    const sum = (key: "askVol" | "midVol" | "bidVol") => {
+      const vals = bin.map((r) => r[key]).filter((v): v is number => v != null);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+    };
+    const lastOf = (key: "last" | "bid" | "ask") => {
+      for (let j = bin.length - 1; j >= 0; j--) if (bin[j][key] != null) return bin[j][key];
+      return null;
+    };
+    out.push({
+      timestamp: bin[0].timestamp,
+      time: bin[0].time,
+      askVol: sum("askVol"),
+      midVol: sum("midVol"),
+      bidVol: sum("bidVol"),
+      last: lastOf("last"),
+      bid: lastOf("bid"),
+      ask: lastOf("ask"),
+    });
+  }
+  return out;
+}
+
+const PHONE_BIN_MINUTES = 5;
 
 function computeRoundTicks(min: number, max: number): number[] {
   const range = max - min;
@@ -313,11 +362,16 @@ interface TooltipContentProps {
   payload?: readonly TooltipPayloadItem[];
 }
 
-function ContractTooltipContent({ active, payload, label }: TooltipContentProps) {
+function ContractTooltipContent({ active, payload, label, binMinutes = 1 }: TooltipContentProps & { binMinutes?: number }) {
   if (!active || !payload || payload.length === 0) return null;
   const row = payload[0]?.payload;
   if (!row) return null;
-  const timeLabel = safeTimeLabel(String(label ?? row.timestamp));
+  const start = String(label ?? row.timestamp);
+  // A phone's bars are 5-minute bins; the readout names the whole bin.
+  const timeLabel =
+    binMinutes > 1
+      ? `${safeTimeLabel(start)}-${safeTimeLabel(new Date(new Date(start).getTime() + (binMinutes - 1) * 60_000).toISOString())}`
+      : safeTimeLabel(start);
   const last = typeof row.last === "number" && row.last > 0 ? row.last : null;
   const bidVol = typeof row.bidVol === "number" ? row.bidVol : null;
   const midVol = typeof row.midVol === "number" ? row.midVol : null;
@@ -387,8 +441,11 @@ function ContractChart({
     }
     return best;
   }, [rawRows]);
-  const sessionDateLabel = rows.length > 0 ? formatAxisSessionDate(rows[0].timestamp) : "";
-  const dateLabelIndex = rows.length > 0 ? Math.floor((rows.length - 1) / 2) : -1;
+  // Everything below plots `plotRows`: the minute rows on desktop, 5-minute
+  // bins on a phone (see binRows).
+  const plotRows = useMemo(() => (isMobile ? binRows(rows, PHONE_BIN_MINUTES) : rows), [rows, isMobile]);
+  const sessionDateLabel = plotRows.length > 0 ? formatAxisSessionDate(plotRows[0].timestamp) : "";
+  const dateLabelIndex = plotRows.length > 0 ? Math.floor((plotRows.length - 1) / 2) : -1;
 
   if (rows.length === 0) {
     return (
@@ -401,10 +458,10 @@ function ContractChart({
     );
   }
 
-  const maxVol = Math.max(0, ...rows.map((r) => (r.askVol ?? 0) + (r.midVol ?? 0) + (r.bidVol ?? 0)));
+  const maxVol = Math.max(0, ...plotRows.map((r) => (r.askVol ?? 0) + (r.midVol ?? 0) + (r.bidVol ?? 0)));
   const volDomainMax = Math.max(1, Math.ceil(maxVol * 1.2));
 
-  const prices = rows
+  const prices = plotRows
     .map((r) => r.last)
     .filter((v): v is number => v != null && Number.isFinite(v));
   const minP = prices.length > 0 ? Math.min(...prices) : 0;
@@ -416,10 +473,12 @@ function ContractChart({
 
   const gridStroke = isDark ? "var(--color-text-secondary)" : "var(--color-border)";
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
-  const axisTickStyle = { fontSize: isMobile ? 9 : 10, fill: axisStroke };
+  const axisTickStyle = { fontSize: 10, fill: axisStroke };
 
+  // The card has no inset of its own, so a phone keeps 8px either side for
+  // the axis labels; desktop's 72px gutters carried the rotated axis titles.
   const chartMargin = isMobile
-    ? { top: 8, right: 8, left: 8, bottom: 44 }
+    ? { top: 8, right: 8, left: 8, bottom: 40 }
     : { top: 10, right: 72, left: 72, bottom: 46 };
   const yAxisWidth = isMobile ? 40 : 64;
 
@@ -427,11 +486,10 @@ function ContractChart({
     <div>
       <ContractStatsHeader rows={rawRows} latest={latestRaw} isDark={isDark} />
       <ContractLegend latest={latestRaw} isDark={isDark} />
-      <MobileScrollableChart>
-      <div className="h-[480px] mt-2">
+      <div className="mt-2" style={{ height: isMobile ? 300 : 480 }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
-            data={rows}
+            data={plotRows}
             margin={chartMargin}
             barCategoryGap="15%"
           >
@@ -453,7 +511,7 @@ function ContractChart({
                 const y = Number(props?.y ?? 0);
                 const ts = String(props?.payload?.value || "");
                 const index = Number(props?.index ?? -1);
-                const showTime = is30MinBoundary(ts);
+                const showTime = isMobile ? isEvenHourET(ts) : is30MinBoundary(ts);
                 const showDate = index === dateLabelIndex && Boolean(sessionDateLabel);
                 if (!showTime && !showDate) return <g transform={`translate(${x},${y})`} />;
                 return (
@@ -525,11 +583,14 @@ function ContractChart({
               }}
             />
             <Tooltip
+              // Pinned to the top of the plot on a phone, clear of the finger.
+              {...(isMobile ? { position: { y: 0 } } : {})}
               content={(props: TooltipContentProps) => (
                 <ContractTooltipContent
                   active={props.active}
                   payload={props.payload}
                   label={props.label}
+                  binMinutes={isMobile ? PHONE_BIN_MINUTES : 1}
                 />
               )}
             />
@@ -542,7 +603,6 @@ function ContractChart({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      </MobileScrollableChart>
     </div>
   );
 }
@@ -691,16 +751,19 @@ export default function OptionContractsPage() {
   const inputColor = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
   const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
 
+  // 16px on a phone: iOS zooms the page into any select whose text is
+  // smaller when it takes focus. There the select also fills its grid cell.
   const selectStyle: React.CSSProperties = {
     padding: "6px 10px",
-    fontSize: 13,
+    fontSize: isMobile ? 16 : 13,
     borderRadius: 6,
     border: `1px solid ${inputBorder}`,
     backgroundColor: inputBg,
     color: inputColor,
     cursor: "pointer",
     outline: "none",
-    minWidth: 120,
+    minWidth: isMobile ? 0 : 120,
+    ...(isMobile ? { width: "100%", minHeight: 40 } : {}),
   };
 
   const dropdownLoadError =
@@ -730,9 +793,12 @@ export default function OptionContractsPage() {
       )}
 
       {/* ── Controls ────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      {/* Phone: a two-column grid with each label over its select, so the
+          three controls take two tidy rows instead of three ragged ones.
+          From `sm` up it is the original wrapping row. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-3 mb-6 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         {/* Expiration */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: mutedText }}>Expiration</span>
           <select
             value={resolvedExpiration}
@@ -752,7 +818,7 @@ export default function OptionContractsPage() {
         </div>
 
         {/* Strike */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: mutedText }}>Strike</span>
           <select
             value={resolvedStrike}
@@ -772,7 +838,7 @@ export default function OptionContractsPage() {
         </div>
 
         {/* Type */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <span className="text-sm" style={{ color: mutedText }}>Type</span>
           <select
             value={optionType}

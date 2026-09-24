@@ -45,7 +45,7 @@ const HEADER_SUB =
   "The headline GEX numbers and the levels they imply, on one screen.";
 
 const HEADER_TOOLTIP =
-  "The ten numbers the rest of the Metrics section elaborates on: where net dealer gamma sits at spot, the flip level where its sign changes, the call and put walls, max pain and the pin strike, plus the call/put split behind them. Every GEX figure is a dollar amount per unit move in the underlying — the toggle switches the denominator between a 1% move and a single point; the exposure is the same either way. All of it is modeled from open interest rather than observed, so treat the levels as where hedging flow would concentrate, not as levels anyone is obliged to defend.";
+  "The ten numbers the rest of the Metrics section elaborates on: where net dealer gamma sits at spot, the flip level where its sign changes, the call and put walls, max pain and the pin strike, plus the call/put split behind them. Every GEX figure is a dollar amount per unit move in the underlying\u00a0- the toggle switches the denominator between a 1% move and a single point; the exposure is the same either way. All of it is modeled from open interest rather than observed, so treat the levels as where hedging flow would concentrate, not as levels anyone is obliged to defend.";
 
 export default function GreeksGEXPage() {
   const { theme } = useTheme();
@@ -95,13 +95,13 @@ export default function GreeksGEXPage() {
     return (
       <PageShell>
         <PageHeader title="GEX Summary" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
@@ -133,9 +133,11 @@ export default function GreeksGEXPage() {
         </div>
       )}
 
-      {/* Top row: 5 cards */}
+      {/* Top row: 5 cards. On a phone they pair up two across (a one-column
+          tower of ten cards ran to two screens) — the price card spans the row
+          as the headline, leaving the four levels as two pairs. */}
       <section className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 max-md:[&>*:first-child]:col-span-2 md:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title={`${symbol} Price`}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
@@ -157,7 +159,7 @@ export default function GreeksGEXPage() {
             subtitleColor={futuresTicker ? 'var(--color-brand-coral)' : undefined}
             tooltip={
               futuresTicker
-                ? `${symbol} cash is closed — showing ${futuresTicker} futures. GEX levels stay on the ${symbol} cash index.`
+                ? `${symbol} cash is closed\u00a0- showing ${futuresTicker} futures. GEX levels stay on the ${symbol} cash index.`
                 : isIndexSymbol(symbol)
                   ? `Current ${symbol} price from the real-time quote feed.`
                   : `Current ${symbol} price and volume from the real-time quote feed.`
@@ -180,7 +182,7 @@ export default function GreeksGEXPage() {
                 ? `Raw nearest: $${gexData.gamma_flip_raw.toFixed(2)}`
                 : 'Dealer positioning'
             }
-            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, computed with a horizon-occupancy weighting that down-weights near-dated 0DTE walls. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest crossing on the UN-weighted profile — the convention competitor dashboards publish; dropping the weighting lets near-dated walls pull it toward spot, so it can sit much closer to spot than the structural flip."
+            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, computed with a horizon-occupancy weighting that down-weights near-dated 0DTE walls. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest crossing on the UN-weighted profile&nbsp;- the convention competitor dashboards publish; dropping the weighting lets near-dated walls pull it toward spot, so it can sit much closer to spot than the structural flip."
             theme={theme}
           />
           <MetricCard
@@ -200,9 +202,10 @@ export default function GreeksGEXPage() {
         </div>
       </section>
 
-      {/* Bottom row: 5 cards */}
+      {/* Bottom row: 5 cards — two across on a phone, with the Put/Call ratio
+          spanning the row so the call/put pairs (GEX, walls) sit side by side. */}
       <section className="mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 max-md:[&>*:nth-child(3)]:col-span-2 md:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title="Call GEX"
             value={formatGexInUnit(gexData?.total_call_gex, gexUnit, gexSpot)}
@@ -228,13 +231,14 @@ export default function GreeksGEXPage() {
           />
           <MetricCard
             title="Call Wall (Resistance)"
+            // “0–2DTE” matches zerogex-oa’s INGEST_EXPIRATIONS=3; update it if that changes.
             value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
             subtitle={
               gexData?.call_wall && quoteData?.close
                 ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy call open interest'
+                : 'Most call gamma above spot'
             }
-            tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
+            tooltip="Strike at or above spot with the largest call gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0-2DTE). A 0DTE-only chart can show a different strike. Tends to act as resistance as dealers sell into rallies toward it."
             theme={theme}
             trend="bearish"
           />
@@ -244,9 +248,9 @@ export default function GreeksGEXPage() {
             subtitle={
               gexData?.put_wall && quoteData?.close
                 ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy put open interest'
+                : 'Most put gamma below spot'
             }
-            tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
+            tooltip="Strike at or below spot with the largest put gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0-2DTE). A 0DTE-only chart can show a different strike. Tends to act as support as dealers buy into selloffs toward it."
             theme={theme}
             trend="bullish"
           />

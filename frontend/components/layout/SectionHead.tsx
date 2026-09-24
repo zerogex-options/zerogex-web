@@ -36,11 +36,14 @@ export default function SectionHead({
   const centered = align === 'center';
   return (
     <div className={`mb-5 ${className}`}>
+      {/* Phones wrap: when the title block and the actions cannot share a
+          row, the actions drop under the title instead of squeezing it into
+          a one-word-per-line column. From `sm` up the row never wraps. */}
       <div
-        className={`flex gap-4 pb-2 border-b ${centered ? 'flex-col items-center text-center' : 'items-end justify-between'}`}
+        className={`flex gap-x-4 gap-y-3 pb-2 border-b ${centered ? 'flex-col items-center text-center' : 'flex-wrap sm:flex-nowrap items-end justify-between'}`}
         style={{ borderColor: 'var(--border-default)' }}
       >
-        <div className={centered ? 'max-w-2xl' : ''}>
+        <div className={centered ? 'max-w-2xl' : 'min-w-0'}>
           {eyebrow ? (
             <div className="zg-eyebrow" style={{ color: 'var(--color-accent-hot)', marginBottom: 6 }}>
               {eyebrow}
@@ -60,7 +63,7 @@ export default function SectionHead({
             </p>
           ) : null}
         </div>
-        {actions && !centered ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
+        {actions && !centered ? <div className="flex flex-wrap items-center gap-2 sm:shrink-0 max-w-full">{actions}</div> : null}
       </div>
     </div>
   );

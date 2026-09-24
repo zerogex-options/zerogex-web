@@ -1,12 +1,12 @@
 # Technicals
 
-*L'instantané technique intrajournalier — prix, bougies, jauges de volatilité et la façon dont les niveaux se superposent aux murs de GEX.*
+*L'instantané technique intrajournalier - prix, bougies, jauges de volatilité et la façon dont les niveaux se superposent aux murs de GEX.*
 
 ---
 
 ## Ce que montre cette page
 
-La page Technicals est la **lecture price-first** du symbole actif. C'est la seule page qui **ne** démarre **pas** par des chiffres dérivés des options — elle démarre par l'action du prix, la volatilité et le contexte technique standard.
+La page Technicals est la **lecture price-first** du symbole actif. C'est la seule page qui **ne** démarre **pas** par des chiffres dérivés des options - elle démarre par l'action du prix, la volatilité et le contexte technique standard.
 
 C'est la page à ouvrir quand tu as besoin de confirmer ce que le positionnement des dealers implique par rapport à ce que le prix fait réellement.
 
@@ -25,9 +25,9 @@ L'intérêt des overlays est de te permettre de lire l'action du prix à travers
 
 Trois jauges :
 
-- **Implied Volatility** — IV ATM actuelle avec le rang par rapport aux 60 derniers jours.
-- **Realized Volatility** — volatilité réalisée sur fenêtre courte avec une baseline sur fenêtre plus longue.
-- **Ratio IV / RV** — quand le ratio est significativement supérieur à 1, la vol est chère (vendre de la prime) ; en dessous, la vol est bon marché (acheter de la prime).
+- **Implied Volatility** - IV ATM actuelle avec le rang par rapport aux 60 derniers jours.
+- **Realized Volatility** - volatilité réalisée sur fenêtre courte avec une baseline sur fenêtre plus longue.
+- **Ratio IV / RV** - quand le ratio est significativement supérieur à 1, la vol est chère (vendre de la prime) ; en dessous, la vol est bon marché (acheter de la prime).
 
 ## La bande de session
 
@@ -49,7 +49,7 @@ Trois configurations :
 
 ## La vue intraday-tools
 
-La page intraday-tools est une mise en page jumelée — le graphique en chandeliers en haut, un en-tête compressé de positionnement des dealers en dessous — pour les traders qui veulent les deux vues côte à côte.
+La page intraday-tools est une mise en page jumelée - le graphique en chandeliers en haut, un en-tête compressé de positionnement des dealers en dessous - pour les traders qui veulent les deux vues côte à côte.
 
 ## Voir aussi
 

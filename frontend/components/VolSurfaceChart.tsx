@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Info } from 'lucide-react';
 import {
   Area,
@@ -17,7 +18,6 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
-import MobileScrollableChart from './MobileScrollableChart';
 import ChartCaption from "./ChartCaption";
 
 type Scalar = number | string | null | undefined;
@@ -294,14 +294,18 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
     { refreshInterval: 30000 },
   );
 
-  const normalized = normalizeSurface(data);
+  // Memoized on the response: the page re-renders every second (live quote),
+  // and a fresh points array on every render restarted Recharts' entry
+  // animation each time — its clip never grew past 0px wide, so the curves
+  // and the area fill never appeared at all (only the dots did).
+  const normalized = useMemo(() => normalizeSurface(data), [data]);
   const surface = normalized.points;
   const labels = normalized.labels;
 
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6 h-full"
+        className="rounded-2xl p-4 sm:p-6 h-full"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
@@ -330,7 +334,6 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
           {normalized.emptyReason && <span className="text-xs mt-2 opacity-80">{normalized.emptyReason}</span>}
         </div>
       ) : (
-        <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={isMobile ? 280 : 340}>
           <AreaChart data={surface} margin={{ top: 8, right: isMobile ? 2 : 8, left: isMobile ? -10 : 0, bottom: 14 }}>
             <defs>
@@ -340,17 +343,22 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
+            {/* No width fits a label per strike: ~100 of them overprinted
+                into one solid bar on a phone and into overlapping pairs on a
+                desktop card. The axis thins them to what fits; the tooltip
+                names the exact strike. */}
             <XAxis
               dataKey="xLabel"
               stroke={axisStroke}
-              tick={{ fontSize: isMobile ? 8 : 10, fill: axisStroke }}
-              interval={0}
-              tickMargin={10}
+              tick={{ fontSize: 10, fill: axisStroke }}
+              interval="preserveStartEnd"
+              minTickGap={isMobile ? 24 : 14}
+              tickMargin={isMobile ? 6 : 10}
             />
             <YAxis
               stroke={axisStroke}
-              width={isMobile ? 42 : 52}
-              tick={{ fontSize: isMobile ? 8 : 10, fill: axisStroke }}
+              width={isMobile ? 38 : 52}
+              tick={{ fontSize: 10, fill: axisStroke }}
               tickFormatter={formatPct}
             />
             <Tooltip
@@ -366,14 +374,15 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
             />
             <Legend verticalAlign="bottom" align="left" content={() => renderLegend(labels)} />
 
-            <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} />
+            <Area type="monotone" dataKey="iv0dte" stroke="none" fill="url(#surfaceFill)" fillOpacity={1} isAnimationActive={false} />
 
-            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="var(--color-brand-accent)" strokeWidth={3} fill="none" dot={{ r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls />
-            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="var(--color-brand-primary)" strokeWidth={3} fill="none" dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-brand-primary)' }} connectNulls />
-            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="var(--color-neutral)" strokeWidth={3} strokeDasharray="6 4" fill="none" dot={{ r: 3, strokeWidth: 2, fill: 'var(--color-surface)' }} connectNulls />
+            {/* Per-point dots read as beads on a string at phone width (a
+                hundred strikes in ~280px), so a phone draws the curves bare. */}
+            <Area type="monotone" dataKey="iv0dte" name={labels[0]} stroke="var(--color-brand-accent)" strokeWidth={isMobile ? 2 : 3} fill="none" dot={isMobile ? false : { r: 4, strokeWidth: 2, fill: 'transparent' }} connectNulls isAnimationActive={false} />
+            <Area type="monotone" dataKey="iv7dte" name={labels[1]} stroke="var(--color-brand-primary)" strokeWidth={isMobile ? 2 : 3} fill="none" dot={isMobile ? false : { r: 3, strokeWidth: 2, fill: 'var(--color-brand-primary)' }} connectNulls isAnimationActive={false} />
+            <Area type="monotone" dataKey="iv30dte" name={labels[2]} stroke="var(--color-neutral)" strokeWidth={isMobile ? 2 : 3} strokeDasharray="6 4" fill="none" dot={isMobile ? false : { r: 3, strokeWidth: 2, fill: 'var(--color-surface)' }} connectNulls isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
-        </MobileScrollableChart>
       )}
       <ChartCaption />
       </div>

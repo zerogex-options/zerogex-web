@@ -1,7 +1,7 @@
 "use client";
 
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { useState, type CSSProperties, type MouseEvent } from "react";
+import { useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import {
   Bar,
   BarChart,
@@ -29,8 +29,8 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
 import { etTodayDateKey, omitOutOfHoursForSymbol, shouldOmitClosedMarketTimes } from "@/core/utils";
-import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMeasuredWidth } from "@/components/useMeasuredWidth";
 
 interface MaxPainPoint {
   settlement_price: number;
@@ -118,14 +118,23 @@ function svgPath(points: Array<{ x: number; y: number }>) {
 // that the visible range fits in roughly 10 labels. The OI bar chart's default
 // categorical ticks land on whatever strikes happened to be in the data,
 // which produces irregular labels like $584, $597, $612.
-function getNiceStrikeStep(range: number): number {
+function getNiceStrikeStep(range: number, maxLabels = 10): number {
   if (!Number.isFinite(range) || range <= 0) return 1;
   const presets = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
   for (const p of presets) {
-    if (range / p <= 10) return p;
+    if (range / p <= maxLabels) return p;
   }
   return presets[presets.length - 1];
 }
+
+// Strike labels a phone's ~280px axis holds without overprinting ("$630$640…").
+const PHONE_STRIKE_LABELS = 5;
+// The compact candle canvas keeps each bar at least this many px apart, so a
+// phone shows the most recent bars that fit rather than 100 one-pixel candles.
+const PHONE_MIN_BAR_PX = 5.5;
+// The desktop candle board, in viewBox units.
+const TS_BOARD_W = 1200;
+const TS_BOARD_H = 444;
 
 export default function MaxPainPage() {
   const { symbol, getMaxDataPoints } = useTimeframe();
@@ -141,6 +150,18 @@ export default function MaxPainPage() {
   const [timeseriesTimeframe, setTimeseriesTimeframe] = useState<ChartTimeframe>("5min");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [hoverPx, setHoverPx] = useState<{ x: number; y: number } | null>(null);
+  // The candle chart is a hand-drawn SVG: on a phone it draws a canvas as wide
+  // as its card (1 unit = 1px, see GammaTerminalChart's compactCanvas) instead
+  // of scaling the 1200-unit board into a 760px sideways scroller.
+  const [tsMeasureRef, tsMeasuredWidth] = useMeasuredWidth<HTMLDivElement>();
+  // Any card narrower than the 1200-unit board, and every card below lg: a
+  // tablet's 600-990px card and a desktop one (~600px at 1024, ~950px at 1440)
+  // scaled the board's labels to 5-9px.
+  const tsCompactViewport = useIsMobile(1024);
+  const tsCompact =
+    tsMeasuredWidth != null && tsMeasuredWidth > 0 && (tsCompactViewport || tsMeasuredWidth < TS_BOARD_W);
+  // Taps end in emulated mouse events (and a mouseleave); see onTsPointer*.
+  const lastTouchAtRef = useRef(0);
 
   const { data: gexSummary } = useGEXSummary(symbol, 5000);
 
@@ -200,8 +221,12 @@ export default function MaxPainPage() {
     if (oiChart.length < 2) return 1;
     const minStrike = oiChart[0].strike;
     const maxStrike = oiChart[oiChart.length - 1].strike;
-    return getNiceStrikeStep(maxStrike - minStrike);
+    return getNiceStrikeStep(maxStrike - minStrike, isMobile ? PHONE_STRIKE_LABELS : 10);
   })();
+  // A phone hangs each reference label on the side of its line with room:
+  // left of a line in the right half, right of one in the left half.
+  const oiMidStrike = oiChart.length ? (oiChart[0].strike + oiChart[oiChart.length - 1].strike) / 2 : 0;
+  const phoneRefLabelPosition = (strike: number) => (strike > oiMidStrike ? "insideTopRight" : "insideTopLeft");
 
   const underlyingStrikeMarker = oiChart.length
     ? oiChart.reduce((closest, row) =>
@@ -280,21 +305,27 @@ export default function MaxPainPage() {
 
   const textColor = 'var(--text-primary)';
 
-  const tsWidth = 1200;
-  const tsHeight = 444;
-  const padLeft = 70;
-  const padRight = 25;
+  const tsWidth = tsCompact ? Math.max(260, Math.round(tsMeasuredWidth ?? 0)) : TS_BOARD_W;
+  // 300 on a phone, growing with a wider card to the board's own proportions.
+  const tsHeight = tsCompact ? Math.min(TS_BOARD_H, Math.max(300, Math.round(tsWidth * (TS_BOARD_H / TS_BOARD_W)))) : TS_BOARD_H;
+  const padLeft = tsCompact ? 44 : 70;
+  const padRight = tsCompact ? 8 : 25;
   const padTop = 24;
-  const padBottom = 64;
-  const timeLabelY = tsHeight - 36;
-  const dateLabelY = tsHeight - 14;
+  const padBottom = tsCompact ? 44 : 64;
+  const timeLabelY = tsHeight - (tsCompact ? 26 : 36);
+  const dateLabelY = tsHeight - (tsCompact ? 8 : 14);
+  // The bars the canvas draws: all of them on desktop; on a phone the most
+  // recent that fit at PHONE_MIN_BAR_PX apiece.
+  const chartRows = tsCompact
+    ? seriesChart.slice(-Math.max(12, Math.floor((tsWidth - padLeft - padRight) / PHONE_MIN_BAR_PX)))
+    : seriesChart;
 
-  const priceValues = seriesChart.flatMap((r) => [r.low, r.high, r.maxPain]).filter((n) => Number.isFinite(n));
+  const priceValues = chartRows.flatMap((r) => [r.low, r.high, r.maxPain]).filter((n) => Number.isFinite(n));
   const minPrice = priceValues.length ? Math.min(...priceValues) : 0;
   const maxPrice = priceValues.length ? Math.max(...priceValues) : 1;
   const y = (v: number) =>
     padTop + (1 - (v - minPrice) / Math.max(1e-9, maxPrice - minPrice)) * (tsHeight - padTop - padBottom);
-  const xStep = (tsWidth - padLeft - padRight) / Math.max(1, seriesChart.length - 1);
+  const xStep = (tsWidth - padLeft - padRight) / Math.max(1, chartRows.length - 1);
   const candleWidth = Math.max(4, Math.min(10, xStep * 0.45));
 
   const priceRange = maxPrice - minPrice;
@@ -308,7 +339,7 @@ export default function MaxPainPage() {
   }
 
   const maxPainPath = svgPath(
-    seriesChart.map((r, i) => ({
+    chartRows.map((r, i) => ({
       x: padLeft + i * xStep,
       y: y(r.maxPain),
     })),
@@ -316,7 +347,7 @@ export default function MaxPainPage() {
 
   const dateMarkers: Array<{ index: number; label: string; key: string }> = [];
   let prevDateKey = "";
-  seriesChart.forEach((row, index) => {
+  chartRows.forEach((row, index) => {
     const dt = new Date(row.timestamp);
     if (Number.isNaN(dt.getTime())) return;
     const dateKey = dt.toLocaleDateString("en-US", {
@@ -350,13 +381,12 @@ export default function MaxPainPage() {
     });
   }
 
-  const fallbackIdx = Math.max(0, seriesChart.length - 1);
+  const fallbackIdx = Math.max(0, chartRows.length - 1);
   const resolvedIdx = hoveredIdx !== null ? Math.max(0, Math.min(fallbackIdx, hoveredIdx)) : fallbackIdx;
-  const hoveredRow = seriesChart[resolvedIdx] ?? null;
+  const hoveredRow = chartRows[resolvedIdx] ?? null;
 
-  const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
-    if (seriesChart.length === 0) return;
-    const svg = event.currentTarget;
+  const hoverAtClient = (svg: SVGSVGElement, clientX: number, clientY: number) => {
+    if (chartRows.length === 0) return;
     const rect = svg.getBoundingClientRect();
     // Convert the cursor's screen coords back into viewBox coords using the
     // SVG's current transformation matrix so the bar-index math accounts for
@@ -367,22 +397,22 @@ export default function MaxPainPage() {
     let xView: number;
     if (ctm) {
       const pt = svg.createSVGPoint();
-      pt.x = event.clientX;
-      pt.y = event.clientY;
+      pt.x = clientX;
+      pt.y = clientY;
       const local = pt.matrixTransform(ctm.inverse());
       xView = local.x;
     } else {
-      xView = ((event.clientX - rect.left) / Math.max(1, rect.width)) * tsWidth;
+      xView = ((clientX - rect.left) / Math.max(1, rect.width)) * tsWidth;
     }
     const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
-    const clampedIdx = Math.max(0, Math.min(seriesChart.length - 1, idx));
+    const clampedIdx = Math.max(0, Math.min(chartRows.length - 1, idx));
     setHoveredIdx(clampedIdx);
     // Anchor the tooltip horizontally to the matched candle's screen position
     // — using the inverse of the same CTM — so the tooltip lines up with the
     // crosshair and the bar instead of sliding off to the side when the
     // cursor lands between two candles.
     const targetViewX = padLeft + clampedIdx * xStep;
-    let tooltipX = ((event.clientX - rect.left) / Math.max(1, rect.width)) * tsWidth;
+    let tooltipX = ((clientX - rect.left) / Math.max(1, rect.width)) * tsWidth;
     if (ctm) {
       const candlePt = svg.createSVGPoint();
       candlePt.x = targetViewX;
@@ -394,8 +424,44 @@ export default function MaxPainPage() {
     }
     setHoverPx({
       x: tooltipX,
-      y: event.clientY - rect.top,
+      y: clientY - rect.top,
     });
+  };
+
+  // ── Touch ── a finger has no hover. The canvas claims only horizontal
+  // gestures (touch-action: pan-y) so a vertical swipe still scrolls the page;
+  // a tap drops the readout on a candle, a horizontal drag scrubs it, and a
+  // tap on a chart already showing one puts it away. Mouse input is unchanged.
+  const tsTouchRef = useRef<{ startX: number; moved: boolean; had: boolean } | null>(null);
+  const onTsPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch") return;
+    lastTouchAtRef.current = Date.now();
+    tsTouchRef.current = { startX: e.clientX, moved: false, had: hoveredIdx !== null };
+  };
+  const onTsPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch") {
+      if (Date.now() - lastTouchAtRef.current < 800) return;
+      hoverAtClient(e.currentTarget, e.clientX, e.clientY);
+      return;
+    }
+    const t = tsTouchRef.current;
+    if (!t) return;
+    lastTouchAtRef.current = Date.now();
+    if (!t.moved && Math.abs(e.clientX - t.startX) < 6) return;
+    t.moved = true;
+    hoverAtClient(e.currentTarget, e.clientX, e.clientY);
+  };
+  const onTsPointerUp = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = tsTouchRef.current;
+    tsTouchRef.current = null;
+    if (e.pointerType !== "touch" || !t || t.moved || e.type === "pointercancel") return;
+    lastTouchAtRef.current = Date.now();
+    if (t.had) {
+      setHoveredIdx(null);
+      setHoverPx(null);
+    } else {
+      hoverAtClient(e.currentTarget, e.clientX, e.clientY);
+    }
   };
 
   return (
@@ -403,7 +469,7 @@ export default function MaxPainPage() {
       <PageHeader
         title="Max Pain"
         sub="The strike where the most option value expires worthless, and how far price sits from it."
-        tooltip="Pool every listed contract into one payout curve and find the strike at which option holders collectively lose the most — that is max pain. It is a magnet, not a mechanism: open interest only changes at settlement, so the whole-chain figure is recomputed once a day pre-market and stays flat intraday. It tends to matter most into expiration, when the contracts pinned to it are the ones still alive, and least on a day when a catalyst supplies flow that dwarfs hedging. The nearest-expiration figure can sit a few points from the whole-chain one because it covers a single expiry rather than the pooled book."
+        tooltip="Pool every listed contract into one payout curve and find the strike at which option holders collectively lose the most&nbsp;- that is max pain. It is a magnet, not a mechanism: open interest only changes at settlement, so the whole-chain figure is recomputed once a day pre-market and stays flat intraday. It tends to matter most into expiration, when the contracts pinned to it are the ones still alive, and least on a day when a catalyst supplies flow that dwarfs hedging. The nearest-expiration figure can sit a few points from the whole-chain one because it covers a single expiry rather than the pooled book."
       />
       <RegimeSummaryBanner
         title="Max Pain Regime"
@@ -414,7 +480,10 @@ export default function MaxPainPage() {
 
       <section className="mb-8">
         <SectionHead title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Phone: the headline figure (with its implied-move chip) across the
+            row, the two single numbers paired under it. */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+          <div className="col-span-2 md:col-span-1">
           <MetricCard
             title="Current Max Pain (All Expirations)"
             value={currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"}
@@ -431,7 +500,8 @@ export default function MaxPainPage() {
               </span>
             }
           />
-          <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract) — the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
+          </div>
+          <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract)&nbsp;- the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
           <MetricCard
             title="Underlying Price"
             value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
@@ -468,10 +538,12 @@ export default function MaxPainPage() {
         ) : oiChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No max pain OI data available</div>
         ) : (
-          <MobileScrollableChart>
-          <ResponsiveContainer width="100%" height={380}>
-            <BarChart data={oiChart} margin={{ top: 10, right: 20, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={'var(--text-secondary)'} opacity={0.3} />
+          <ResponsiveContainer width="100%" height={isMobile ? 300 : 380}>
+            {/* Phone: 14px on the right so the last strike label ("$700") is not
+                cut in half, and no per-strike vertical grid — at 2px a strike
+                it drew as solid hatching behind the bars. */}
+            <BarChart data={oiChart} margin={isMobile ? { top: 10, right: 14, left: 0, bottom: 5 } : { top: 10, right: 20, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={'var(--text-secondary)'} opacity={0.3} vertical={!isMobile} />
               <XAxis
                 dataKey="strike"
                 stroke={textColor}
@@ -485,19 +557,28 @@ export default function MaxPainPage() {
                   return (
                     <g transform={`translate(${x},${y})`}>
                       <line x1={0} y1={0} x2={0} y2={5} stroke={textColor} strokeWidth={1} opacity={0.6} />
-                      <text x={0} y={0} dy={16} textAnchor="middle" fontSize={11} fill={textColor}>
+                      <text x={0} y={0} dy={16} textAnchor="middle" fontSize={isMobile ? 10 : 11} fill={textColor}>
                         {`$${val.toFixed(0)}`}
                       </text>
                     </g>
                   );
                 }}
               />
-              <YAxis stroke={textColor} tickFormatter={(v) => `${Number(v).toFixed(1)}M`} domain={["auto", "auto"]} />
+              <YAxis
+                stroke={textColor}
+                // Phone: 10px ticks in a 40px gutter, "$450M" rather than
+                // "450.0M" (the default 60px axis at ~14px type was a fifth of
+                // the card).
+                {...(isMobile ? { width: 40, tick: { fontSize: 10, fill: textColor } } : {})}
+                tickFormatter={(v) => (isMobile ? `${Number(v) >= 10 ? Math.round(Number(v)) : Number(v).toFixed(1)}M` : `${Number(v).toFixed(1)}M`)}
+                domain={["auto", "auto"]}
+              />
               <Tooltip
                 {...CHART_TOOLTIP_PROPS}
+                {...(isMobile ? { position: { y: 0 } } : {})}
                 formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`}
               />
-              <Legend />
+              <Legend {...(isMobile ? { wrapperStyle: { fontSize: 11 } } : {})} />
               <ReferenceLine
                 ifOverflow="extendDomain"
                 x={safeNum(activeExpiration?.max_pain || currentMaxPain)}
@@ -507,8 +588,9 @@ export default function MaxPainPage() {
                 label={{
                   value: `Max Pain $${safeNum(activeExpiration?.max_pain || currentMaxPain).toFixed(2)}`,
                   fill: textColor,
-                  position: "insideTopLeft",
+                  position: isMobile ? phoneRefLabelPosition(safeNum(activeExpiration?.max_pain || currentMaxPain)) : "insideTopLeft",
                   dy: maxPainLabelDy,
+                  ...(isMobile ? { fontSize: 11 } : {}),
                 }}
               />
               <ReferenceLine
@@ -520,22 +602,22 @@ export default function MaxPainPage() {
                 label={{
                   value: `Spot $${currentUnderlying.toFixed(2)}`,
                   fill: textColor,
-                  position: "insideTopLeft",
+                  position: isMobile ? phoneRefLabelPosition(underlyingStrikeMarker) : "insideTopLeft",
                   dy: underlyingLabelDy,
+                  ...(isMobile ? { fontSize: 11 } : {}),
                 }}
               />
               <Bar dataKey="callNotionalM" name="Call Notional" fill={'var(--color-bull)'} />
               <Bar dataKey="putNotionalM" name="Put Notional" fill={'var(--color-bear)'} />
             </BarChart>
           </ResponsiveContainer>
-          </MobileScrollableChart>
         )}
       </ChartPanel>
 
       <ChartPanel
         className="mb-8"
         title="Max Pain vs Underlying Price"
-        tooltip="Max pain (line) against the underlying's own candles, so you can see whether price is being drawn toward the level or simply passing through it. Max pain steps rather than drifts — it only moves when open interest is rewritten at settlement."
+        tooltip="Max pain (line) against the underlying's own candles, so you can see whether price is being drawn toward the level or simply passing through it. Max pain steps rather than drifts&nbsp;- it only moves when open interest is rewritten at settlement."
         actions={
           <ChartTimeframeSelect
             value={timeseriesTimeframe}
@@ -551,22 +633,38 @@ export default function MaxPainPage() {
         ) : seriesChart.length === 0 ? (
           <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No max pain timeseries data available</div>
         ) : (
-          <div className="relative overflow-x-auto">
-          <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0" onMouseMove={handleChartMouseMove} onMouseLeave={() => { setHoveredIdx(null); setHoverPx(null); }}>
+          <div className="relative overflow-x-auto" ref={tsMeasureRef}>
+          <svg
+            width="100%"
+            height={tsHeight}
+            viewBox={`0 0 ${tsWidth} ${tsHeight}`}
+            // Unmeasured, a phone would see the 1200-unit board for a frame.
+            className={tsCompact ? undefined : tsMeasuredWidth == null ? "min-w-[760px] md:min-w-0 invisible" : "min-w-[760px] md:min-w-0"}
+            style={tsCompact ? { display: "block", touchAction: "pan-y", userSelect: "none", WebkitTouchCallout: "none" } : undefined}
+            onPointerDown={onTsPointerDown}
+            onPointerMove={onTsPointerMove}
+            onPointerUp={onTsPointerUp}
+            onPointerCancel={onTsPointerUp}
+            onMouseLeave={() => {
+              if (Date.now() - lastTouchAtRef.current < 800) return;
+              setHoveredIdx(null);
+              setHoverPx(null);
+            }}
+          >
             {yTicks.map((val) => {
               const yPos = y(val);
               const label = niceStep >= 1 ? `$${Math.round(val)}` : `$${val.toFixed(2)}`;
               return (
                 <g key={val}>
                   <line x1={padLeft} x2={tsWidth - padRight} y1={yPos} y2={yPos} stroke={'var(--text-secondary)'} opacity={0.25} />
-                  <text x={padLeft - 8} y={yPos + 4} textAnchor="end" fontSize="10" fill={textColor}>{label}</text>
+                  <text x={padLeft - (tsCompact ? 5 : 8)} y={yPos + 4} textAnchor="end" fontSize="10" fill={textColor}>{label}</text>
                 </g>
               );
             })}
 
             <path d={maxPainPath} fill="none" stroke={'var(--color-brand-primary)'} strokeWidth={2.5} />
 
-            {seriesChart.map((r, i) => {
+            {chartRows.map((r, i) => {
               const x = padLeft + i * xStep;
               const up = r.close >= r.open;
               const c = up ? 'var(--color-bull)' : 'var(--color-bear)';
@@ -586,7 +684,7 @@ export default function MaxPainPage() {
               );
             })}
 
-            {seriesChart.map((r, i) => {
+            {chartRows.map((r, i) => {
               const spacing = xStep < 12 ? 10 : xStep < 18 ? 6 : 4;
               if (i % spacing !== 0) return null;
               return (
@@ -627,7 +725,23 @@ export default function MaxPainPage() {
             <rect x={padLeft} y={8} width="10" height="2" fill={'var(--color-brand-primary)'} />
             <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
           </svg>
-          {hoveredRow && hoverPx ? (
+          {hoveredRow && hoverPx && tsCompact ? (
+            // Phone: pinned to the top corner away from the finger, the OHLC
+            // split over two lines — the desktop one-liner is ~300px wide.
+            <ChartTooltipShell
+              className="absolute z-10 pointer-events-none"
+              style={{
+                top: 4,
+                ...(hoverPx.x > tsWidth / 2 ? { left: padLeft + 4 } : { right: padRight + 4 }),
+                minWidth: 150,
+              }}
+              label={`${new Date(hoveredRow.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" })} ET`}
+            >
+              <ChartTooltipRow label="Open / High" value={`${hoveredRow.open.toFixed(2)} / ${hoveredRow.high.toFixed(2)}`} />
+              <ChartTooltipRow label="Low / Close" value={`${hoveredRow.low.toFixed(2)} / ${hoveredRow.close.toFixed(2)}`} />
+              <ChartTooltipRow label="Max Pain" value={hoveredRow.maxPain.toFixed(2)} swatch="var(--color-brand-primary)" />
+            </ChartTooltipShell>
+          ) : hoveredRow && hoverPx ? (
             <ChartTooltipShell
               className="absolute z-10 pointer-events-none whitespace-nowrap"
               style={{

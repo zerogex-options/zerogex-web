@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Download, ImageDown, RotateCcw } from 'lucide-react';
 import {
   useGEXProfile,
@@ -22,6 +22,12 @@ import {
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeImage } from './imageExport';
 import { BRAND_TITLE } from '@/core/brand';
 import { volatilityIndexFor } from '@/core/symbols';
+import { useMeasuredWidth } from '@/components/useMeasuredWidth';
+
+// The share card's design width. It is an image, not a page: it always lays
+// out at this width (so the exported PNG is the same on every device), and the
+// on-screen preview is scaled down to fit a narrower column.
+const CARD_WIDTH = 640;
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -41,6 +47,23 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
   const [copyState, setCopyState] = useState<ExportState>('idle');
 
   const cardRef = useRef<HTMLDivElement>(null);
+  // Preview fitting. The card used to sit in a flex row that let it shrink to
+  // the column: on a phone it reflowed into a cramped layout (and exported
+  // that way, since the export copies the node as laid out), and at 1280 it
+  // overflowed its ~585px column and was cut off at the screen edge. Now it
+  // keeps its design width and the preview is scaled to the column.
+  const [previewRef, previewW] = useMeasuredWidth<HTMLDivElement>();
+  const [cardHeight, setCardHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => setCardHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const previewScale = previewW != null && previewW < CARD_WIDTH ? previewW / CARD_WIDTH : 1;
 
   // Rasterize the brand lockup (served from /public) into a PNG data URL once
   // on mount so it both displays crisply and embeds into the exported image.
@@ -194,7 +217,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
           Live Bulletin
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Pick an underlying — the dealer-gamma snapshot is pulled live from the backend. Tweak the
+          Pick an underlying&nbsp;- the dealer-gamma snapshot is pulled live from the backend. Tweak the
           copy if you like, then download or copy a share-ready PNG for social.
         </p>
       </header>
@@ -255,7 +278,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {vix != null
                 ? `1σ implied move ${HORIZONS[horizon].phrase} from ${volIndex} ${vix.toFixed(1)} (~68% band). Horizon is a ${HORIZONS[horizon].days}-trading-day span, not a calendar date.`
-                : `${volIndex} implied-vol data unavailable — the expected-range band is hidden.`}
+                : `${volIndex} implied-vol data unavailable\u00a0- the expected-range band is hidden.`}
             </p>
           </div>
 
@@ -320,31 +343,49 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             {(downloadState === 'error' || copyState === 'error') && (
               <p className="text-xs" style={{ color: 'var(--color-bear)' }}>
                 {copyState === 'error'
-                  ? 'Clipboard image copy isn’t supported here — use Download PNG instead.'
+                  ? 'Clipboard image copy isn’t supported here\u00a0- use Download PNG instead.'
                   : 'Could not render the image. Please try again.'}
               </p>
             )}
           </div>
         </div>
 
-        {/* Live preview */}
-        <div className="flex flex-col items-center gap-3">
+        {/* Live preview. min-w-0 lets the grid column be narrower than the
+            card's 640px, which the preview then scales down to fit. */}
+        <div className="flex min-w-0 flex-col items-center gap-3">
           <span
             className="self-start text-xs font-semibold uppercase tracking-wide"
             style={{ color: 'var(--color-text-secondary)' }}
           >
             Live preview
           </span>
-          <div className="w-full overflow-x-auto flex justify-center">
-            <GammaReportCard
-              ref={cardRef}
-              model={model}
-              headline={headline}
-              lead={lead}
-              asOf={asOf}
-              logoUrl={logoUrl}
-              watermark={watermark}
-            />
+          <div ref={previewRef} className="w-full flex justify-center">
+            <div
+              style={
+                previewScale < 1
+                  ? { width: CARD_WIDTH * previewScale, height: cardHeight * previewScale, flexShrink: 0 }
+                  : { flexShrink: 0 }
+              }
+            >
+              <div
+                style={
+                  previewScale < 1
+                    ? { width: CARD_WIDTH, transform: `scale(${previewScale})`, transformOrigin: '0 0' }
+                    : undefined
+                }
+              >
+                <GammaReportCard
+                  ref={cardRef}
+                  model={model}
+                  headline={headline}
+                  lead={lead}
+                  asOf={asOf}
+                  logoUrl={logoUrl}
+                  watermark={watermark}
+                  width={CARD_WIDTH}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

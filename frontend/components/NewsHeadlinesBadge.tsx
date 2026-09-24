@@ -34,6 +34,9 @@ interface NewsHeadlinesBadgeProps {
   // right side of the viewport so it lands in the same place users are
   // already used to from the expanded header.
   mobile?: boolean;
+  // Renders the trigger as a labelled tile instead of a bare icon — used in
+  // the mobile menu sheet, where the icon alone does not say what it opens.
+  label?: string;
 }
 
 interface NewsResponse {
@@ -50,6 +53,7 @@ export default function NewsHeadlinesBadge({
   theme,
   compact = false,
   mobile = false,
+  label,
 }: NewsHeadlinesBadgeProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<NewsResponse | null>(null);
@@ -152,30 +156,31 @@ export default function NewsHeadlinesBadge({
     <button
       type="button"
       onClick={() => setOpen((prev) => !prev)}
-      className="relative rounded-full border transition-colors"
-      style={{
+      className={label ? "zg-msheet-tool relative" : "relative rounded-full border transition-colors"}
+      style={label ? undefined : {
         borderColor: border,
         color: 'var(--text-secondary)',
         backgroundColor: "transparent",
         padding: compact ? "6px" : "9px",
         cursor: "pointer",
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`;
+      onMouseEnter={label ? undefined : (e) => {
+        e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--color-brand-accent) 15%, transparent)";
         e.currentTarget.style.color = 'var(--color-brand-accent)';
       }}
-      onMouseLeave={(e) => {
+      onMouseLeave={label ? undefined : (e) => {
         e.currentTarget.style.backgroundColor = "transparent";
         e.currentTarget.style.color = 'var(--text-secondary)';
       }}
       aria-label="Top headlines"
       title={
         newest
-          ? `${newest.title} — ${formatRelativeTime(now, newest.publishedAtMs)}`
+          ? `${newest.title}\u00a0- ${formatRelativeTime(now, newest.publishedAtMs)}`
           : "Top headlines"
       }
     >
-      <Newspaper size={iconSize} strokeWidth={2.2} />
+      <Newspaper size={label ? 20 : iconSize} strokeWidth={2.2} />
+      {label && <span>{label}</span>}
       {hasFresh && (
         <span
           aria-hidden
@@ -187,8 +192,8 @@ export default function NewsHeadlinesBadge({
             height: compact ? "10px" : "12px",
             borderRadius: "999px",
             background: 'var(--color-brand-coral)',
-            border: `1px solid ${'var(--color-brand-coral)'}66`,
-            boxShadow: `0 0 10px ${'var(--color-brand-coral)'}80`,
+            border: `1px solid color-mix(in srgb, var(--color-brand-coral) 40%, transparent)`,
+            boxShadow: `0 0 10px color-mix(in srgb, var(--color-brand-coral) 50%, transparent)`,
           }}
         />
       )}
@@ -312,7 +317,7 @@ export default function NewsHeadlinesBadge({
             className="mt-2 text-[10px]"
             style={{ color: 'var(--text-secondary)' }}
           >
-            No high-signal headlines yet — showing all.
+            No high-signal headlines yet&nbsp;- showing all.
           </div>
         )}
       </div>

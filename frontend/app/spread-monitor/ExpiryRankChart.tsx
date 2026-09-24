@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 
 import { EMPTY, formatPct, unrankedExpiry, type SurfaceDteRank } from '@/core/spreadMonitor';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 /**
  * Where the current reading ranks, expiry by expiry — 0 to 100.
@@ -142,6 +143,7 @@ export default function ExpiryRankChart({
     note: unrankedExpiry(rank)?.label ?? '',
   }));
   const axisStroke = 'var(--color-chart-axis)';
+  const isMobile = useIsMobile();
 
   if (rows.length === 0) {
     return (
@@ -153,7 +155,7 @@ export default function ExpiryRankChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={rows} margin={{ top: 16, right: 8, bottom: 4, left: 8 }}>
+      <BarChart data={rows} margin={isMobile ? { top: 16, right: 4, bottom: 4, left: 0 } : { top: 16, right: 8, bottom: 4, left: 8 }}>
         <XAxis dataKey="label" stroke={axisStroke} tick={{ fontSize: 11 }} />
         <YAxis
           domain={[0, 100]}
@@ -193,7 +195,8 @@ export default function ExpiryRankChart({
           <LabelList
             dataKey="note"
             position="top"
-            style={{ fontSize: 9, fill: 'var(--text-secondary)' }}
+            // 10px on a phone: nothing there is set below 10.
+            style={{ fontSize: isMobile ? 10 : 9, fill: 'var(--text-secondary)' }}
           />
         </Bar>
       </BarChart>

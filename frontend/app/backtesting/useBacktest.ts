@@ -176,7 +176,7 @@ export function useBacktest(): UseBacktestResult {
       // Bound total polling time so a run stuck in 'running' can't spin forever.
       if (Date.now() - pollStartRef.current > POLL_MAX_MS) {
         if (activeRunRef.current === runId) {
-          giveUpPolling('Stopped waiting after 10 minutes — reopen the run to check its status.');
+          giveUpPolling('Stopped waiting after 10 minutes\u00a0- reopen the run to check its status.');
         }
         return;
       }

@@ -40,7 +40,13 @@ test("the cone has a real sidebar entry", () => {
   ]);
   const cone = all.find((i) => i.id === "/forecast/cone");
   assert.ok(cone, "the cone entry must be reachable from NAV_GROUPS");
-  assert.equal(cone.label, "Intraday Cone");
+  // Renamed from "Intraday Cone" when the four dated views moved out of
+  // Strategy Tools into their own Receipts group, whose entries all name the
+  // subject before the dash and the scope after it. Leaving this one as the
+  // only entry that named neither would have defeated the point of grouping
+  // them. The product word "cone" is kept because traders use it.
+  assert.equal(cone.label, "Forecast - intraday cone");
+  assert.match(cone.label, /cone/i, "the product word must survive a rename");
 });
 
 test("a dated forecast permalink still lights up Daily Forecast", () => {

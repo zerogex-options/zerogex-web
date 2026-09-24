@@ -5,11 +5,13 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Toggle theme',
     pricingBtn: 'Pricing',
     freeGammaLevelsBtn: 'Free Gamma Levels',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Free levels',
     pillTraderMistakes: 'Trader Mistakes ZeroGEX Helps You Avoid',
     heroTitleLine1: '5 trading mistakes',
     heroTitleHighlight: 'ZeroGEX helps you avoid.',
     heroSubtitle1:
-      "Every one of these costs SPY/SPX day traders real money — and every one of them is the kind of structural setup that's readable in real time if you know where to look.",
+      "Every one of these costs SPY/SPX day traders real money\u00a0- and every one of them is the kind of structural setup that's readable in real time if you know where to look.",
     heroSubtitle2:
       "The dealer book sets up these traps; the trader who can't see the dealer book walks into them. Here's what each mistake looks like, what happens when you make it, and the specific ZeroGEX surface that prevents it.",
     mistakeLabel: 'The mistake.',
@@ -24,17 +26,19 @@ export const dict: PageDictionary = {
     ctaPrimaryBtn: 'Open the free gamma levels',
     ctaSecondaryBtn: 'See pricing',
     ctaDisclaimer:
-      'Educational content only — not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.',
+      'Educational content only\u00a0- not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.',
   },
   it: {
     toggleThemeAria: 'Cambia tema',
     pricingBtn: 'Prezzi',
     freeGammaLevelsBtn: 'Livelli Gamma Gratuiti',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Livelli gratuiti',
     pillTraderMistakes: 'Errori dei trader che ZeroGEX ti aiuta a evitare',
     heroTitleLine1: '5 errori di trading',
     heroTitleHighlight: 'che ZeroGEX ti aiuta a evitare.',
     heroSubtitle1:
-      "Ognuno di questi errori costa denaro reale ai day trader su SPY/SPX — ed è il tipo di configurazione strutturale leggibile in tempo reale, se sai dove guardare.",
+      "Ognuno di questi errori costa denaro reale ai day trader su SPY/SPX\u00a0- ed è il tipo di configurazione strutturale leggibile in tempo reale, se sai dove guardare.",
     heroSubtitle2:
       "Il book dei dealer prepara queste trappole; il trader che non riesce a vedere il book dei dealer ci finisce dentro. Ecco come appare ogni errore, cosa succede quando lo commetti e la specifica funzione di ZeroGEX che lo previene.",
     mistakeLabel: "L'errore.",
@@ -55,11 +59,13 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Design umschalten',
     pricingBtn: 'Preise',
     freeGammaLevelsBtn: 'Kostenlose Gamma-Levels',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Gratis-Levels',
     pillTraderMistakes: 'Trader-Fehler, die ZeroGEX dir hilft zu vermeiden',
     heroTitleLine1: '5 Trading-Fehler,',
     heroTitleHighlight: 'die ZeroGEX dir hilft zu vermeiden.',
     heroSubtitle1:
-      'Jeder dieser Fehler kostet SPY/SPX-Daytrader echtes Geld — und jeder ist die Art von struktureller Konstellation, die in Echtzeit erkennbar ist, wenn man weiß, worauf man achten muss.',
+      'Jeder dieser Fehler kostet SPY/SPX-Daytrader echtes Geld\u00a0- und jeder ist die Art von struktureller Konstellation, die in Echtzeit erkennbar ist, wenn man weiß, worauf man achten muss.',
     heroSubtitle2:
       'Das Dealer-Buch legt diese Fallen; der Trader, der das Dealer-Buch nicht sehen kann, läuft hinein. Hier siehst du, wie jeder Fehler aussieht, was passiert, wenn du ihn machst, und welche konkrete ZeroGEX-Funktion ihn verhindert.',
     mistakeLabel: 'Der Fehler.',
@@ -80,6 +86,8 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Cambiar tema',
     pricingBtn: 'Precios',
     freeGammaLevelsBtn: 'Niveles Gamma Gratuitos',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Niveles gratis',
     pillTraderMistakes: 'Errores de traders que ZeroGEX te ayuda a evitar',
     heroTitleLine1: '5 errores de trading',
     heroTitleHighlight: 'que ZeroGEX te ayuda a evitar.',
@@ -105,11 +113,13 @@ export const dict: PageDictionary = {
     toggleThemeAria: 'Changer de thème',
     pricingBtn: 'Tarifs',
     freeGammaLevelsBtn: 'Niveaux Gamma gratuits',
+    // Phone header — the full label wraps the CTA onto three lines at 375px.
+    freeGammaLevelsShortBtn: 'Niveaux gratuits',
     pillTraderMistakes: 'Erreurs de trading que ZeroGEX vous aide à éviter',
     heroTitleLine1: '5 erreurs de trading',
     heroTitleHighlight: 'que ZeroGEX vous aide à éviter.',
     heroSubtitle1:
-      "Chacune de ces erreurs coûte de l'argent réel aux day traders SPY/SPX — et chacune est le type de configuration structurelle lisible en temps réel si l'on sait où regarder.",
+      "Chacune de ces erreurs coûte de l'argent réel aux day traders SPY/SPX\u00a0- et chacune est le type de configuration structurelle lisible en temps réel si l'on sait où regarder.",
     heroSubtitle2:
       "Le carnet des dealers met en place ces pièges ; le trader qui ne peut pas voir le carnet des dealers y tombe. Voici à quoi ressemble chaque erreur, ce qui se passe quand vous la commettez, et la fonctionnalité précise de ZeroGEX qui l'évite.",
     mistakeLabel: "L'erreur.",

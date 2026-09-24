@@ -351,7 +351,7 @@ export function formatBand(band: ShiftBand | null | undefined): string | null {
   if (!band || !band.resolved) return null;
   const low = formatStrike(band.low);
   const high = formatStrike(band.high);
-  return low === high ? low : `${low}–${high}`;
+  return low === high ? low : `${low}-${high}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -405,7 +405,7 @@ export function describePositioningGap(payload: RegimeShiftPayload): string {
   if (crossSession) {
     return (
       'Open interest has not moved at any strike between these two snapshots, ' +
-      'so there is no repositioning to attribute — the whole change is the ' +
+      'so there is no repositioning to attribute\u00a0- the whole change is the ' +
       'existing book re-pricing.'
     );
   }
@@ -505,8 +505,8 @@ export function describeFlipCrossing(
     return null;
   }
   return afterAbove
-    ? 'Spot crossed above the gamma flip — dealers are long gamma here now.'
-    : 'Spot crossed below the gamma flip — dealers are short gamma here now.';
+    ? 'Spot crossed above the gamma flip\u00a0- dealers are long gamma here now.'
+    : 'Spot crossed below the gamma flip\u00a0- dealers are short gamma here now.';
 }
 
 function sideOfFlip(levels: RegimeLevels): boolean | null {
@@ -543,18 +543,18 @@ export function buildExpiryCaveat(scope: ExpiryScope | null | undefined): string
   if (parts.length === 0) return null;
   return `Compared on ${scope.common_count} common ${
     scope.common_count === 1 ? 'expiry' : 'expiries'
-  } — ${parts.join('; ')}.`;
+  }\u00a0- ${parts.join('; ')}.`;
 }
 
 /** How confident the magnitude claim is, or null when it needs no caveat. */
 export function buildNormalizationNote(read: RegimeRead): string | null {
   if (read.normalization === 'trailing') return null;
   if (read.normalization === 'proxy') {
-    return `Magnitude is provisional — only ${read.sessions_in_window} stored ${
+    return `Magnitude is provisional\u00a0- only ${read.sessions_in_window} stored ${
       read.sessions_in_window === 1 ? 'session' : 'sessions'
     }, so it is scaled against the chain's own volatility instead of this symbol's shift history.`;
   }
-  return 'No history yet to size this against — the direction is measured, the magnitude is not.';
+  return 'No history yet to size this against\u00a0- the direction is measured, the magnitude is not.';
 }
 
 // ---------------------------------------------------------------------------
@@ -575,7 +575,7 @@ export function buildRolloffSentence(payload: ExpiryRolloffPayload): string {
   if (!verdict || percentile == null) {
     return `${base}.`;
   }
-  return `${base} — ${verdict} for ${payload.symbol} (${ordinal(
+  return `${base}\u00a0- ${verdict} for ${payload.symbol} (${ordinal(
     Math.round(percentile * 100),
   )} percentile).`;
 }
@@ -591,15 +591,15 @@ export function buildRolloffSentence(payload: ExpiryRolloffPayload): string {
 export function buildRolloffConsequence(payload: ExpiryRolloffPayload): string {
   const net = payload.next.net_gex;
   if (!Number.isFinite(net) || net === 0) {
-    return 'The expiring tranche is roughly balanced — its removal is close to neutral.';
+    return 'The expiring tranche is roughly balanced\u00a0- its removal is close to neutral.';
   }
   return net > 0
     ? `It is net long gamma (${formatSignedGex(
         net,
-      )}), so the stabilizing side is what leaves — expect a looser tape after.`
+      )}), so the stabilizing side is what leaves\u00a0- expect a looser tape after.`
     : `It is net short gamma (${formatSignedGex(
         net,
-      )}), so the accelerant is what leaves — expect a calmer tape after.`;
+      )}), so the accelerant is what leaves\u00a0- expect a calmer tape after.`;
 }
 
 function ordinal(n: number): string {
@@ -661,7 +661,7 @@ export function buildLevelRows(payload: RegimeShiftPayload): LevelRow[] {
       after: formatStrike(flipAfter),
       direction,
       sense: belowSpot === wasBelowSpot ? 'flat' : belowSpot ? 'good' : 'bad',
-      note: belowSpot ? 'below spot — long gamma' : 'above spot — short gamma',
+      note: belowSpot ? 'below spot\u00a0- long gamma' : 'above spot\u00a0- short gamma',
     });
   }
 

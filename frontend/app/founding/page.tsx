@@ -14,7 +14,7 @@ import FoundingClient from './Client';
 export const revalidate = 60;
 
 export const metadata = {
-  title: 'Founding Member Activation — ZeroGEX',
+  title: 'Founding Member Activation\u00a0- ZeroGEX',
   robots: { index: false, follow: false },
   alternates: { canonical: '/founding' },
 };

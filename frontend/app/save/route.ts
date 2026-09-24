@@ -89,8 +89,8 @@ function shell(heading: string, bodyHtml: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZeroGEX — Keep your access</title></head>
-<body style="margin:0; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+<title>ZeroGEX\u00a0- Keep your access</title></head>
+<body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
     <div style="font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#12283c;">zerogex<span style="color:#f45854;">.io</span></div>
     <h1 style="font-size:20px; color:#12283c; margin:22px 0 10px;">${heading}</h1>
@@ -112,7 +112,7 @@ const INVALID_PAGE = shell(
 );
 const CLAIMED_PAGE = shell(
   'You&rsquo;re all set',
-  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You&rsquo;ve already claimed this offer — your access continues and the discount is on your account. Nothing more to do.</p>`,
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You&rsquo;ve already claimed this offer\u00a0- your access continues and the discount is on your account. Nothing more to do.</p>`,
 );
 const NOT_CANCELLING_PAGE = shell(
   'Nothing to restore',
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
   const action = `/save?u=${encodeURIComponent(u!)}&t=${encodeURIComponent(t!)}`;
   const body = `
     <p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0 0 18px;">
-      Before you go — I&rsquo;d rather keep you than lose you. Claim <strong>25% off for a full year</strong>
+      Before you go\u00a0- I&rsquo;d rather keep you than lose you. Claim <strong>25% off for a full year</strong>
       and your access stays on, no re-subscribe and no re-entering a card. You&rsquo;ll simply be charged the
       discounted rate at ${escapeHtml(endsOn)} instead of canceling.
     </p>
@@ -145,9 +145,9 @@ export async function GET(request: NextRequest) {
       </button>
     </form>
     <p style="font-size:13px; line-height:1.5; color:#8a97a3; margin:16px 0 0;">
-      Prefer to still cancel? Just ignore this — nothing changes and your cancellation stands.
+      Prefer to still cancel? Just ignore this\u00a0- nothing changes and your cancellation stands.
     </p>`;
-  return htmlResponse(shell('Wait — here&rsquo;s 25% off to stay', body), 200);
+  return htmlResponse(shell('Wait\u00a0- here&rsquo;s 25% off to stay', body), 200);
 }
 
 export async function POST(request: NextRequest) {
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     return htmlResponse(
       shell(
         'Reply and I&rsquo;ll set it up',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your cancellation email and I&rsquo;ll set up 25% off for a year by hand &mdash; no re-subscribe needed.</p>`,
+        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your cancellation email and I&rsquo;ll set up 25% off for a year by hand\u00a0- no re-subscribe needed.</p>`,
       ),
       200,
     );
@@ -284,8 +284,8 @@ export async function POST(request: NextRequest) {
   const endsOn = formatDate(user.current_period_end);
   return htmlResponse(
     shell(
-      'You&rsquo;re staying — welcome back',
-      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. Your access continues and <strong>25% off for a year</strong> is on your account. You&rsquo;ll be charged the discounted rate at ${escapeHtml(endsOn)} — nothing else to do. Thanks for giving ZeroGEX another shot.</p>`,
+      'You&rsquo;re staying\u00a0- welcome back',
+      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. Your access continues and <strong>25% off for a year</strong> is on your account. You&rsquo;ll be charged the discounted rate at ${escapeHtml(endsOn)}\u00a0- nothing else to do. Thanks for giving ZeroGEX another shot.</p>`,
     ),
     200,
   );

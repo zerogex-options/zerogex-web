@@ -157,10 +157,12 @@ export default function HistoricalContextBadge({
     tooltipLines.push('TOD bucket: all-day (flat fallback)');
   }
 
+  // Letter-spacing relaxes on a phone: tracked out, the chip ran past the
+  // edge of a half-width metric card.
   return (
     <TooltipWrapper text={tooltipLines.join('\n')}>
       <span
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase whitespace-nowrap"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-normal sm:tracking-wider uppercase whitespace-nowrap"
         style={{ backgroundColor: bg, color: fg }}
       >
         {isRecord && (

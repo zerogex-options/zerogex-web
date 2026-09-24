@@ -49,7 +49,7 @@ export default function PlotOnTradingView({ standalone = false }: PlotOnTradingV
       style={{
         border: '1px solid var(--border-default)',
         borderRadius: 18,
-        padding: '28px',
+        padding: 'var(--ind-card-pad)',
         marginBottom: 48,
         background: 'var(--color-surface)',
       }}
@@ -64,8 +64,8 @@ export default function PlotOnTradingView({ standalone = false }: PlotOnTradingV
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
           color: 'var(--color-brand-primary)',
-          border: '1px solid var(--color-brand-primary)44',
-          background: 'var(--color-brand-primary)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-primary) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-primary) 8%, transparent)',
           borderRadius: 999,
           padding: '5px 14px',
           marginBottom: 16,
@@ -89,10 +89,10 @@ export default function PlotOnTradingView({ standalone = false }: PlotOnTradingV
         Trade off your own chart? Add our free{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{SCRIPT_NAME}</strong> indicator, then enter today&apos;s
         numbers {levelsSource}. It draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal
-        lines on SPY, SPX, QQQ, NDX, ES or NQ — with optional cross-alerts.
+        lines on SPY, SPX, QQQ, NDX, ES or NQ&nbsp;- with optional cross-alerts.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
-        Manual-entry only — the script doesn&apos;t pull data. For real-time, auto-updating levels, live dealer
+        Manual-entry only&nbsp;- the script doesn&apos;t pull data. For real-time, auto-updating levels, live dealer
         positioning, and option flow, use the ZeroGEX dashboard.
       </p>
 
@@ -131,7 +131,7 @@ export default function PlotOnTradingView({ standalone = false }: PlotOnTradingV
       >
         <li>
           <strong style={{ color: 'var(--color-text-primary)' }}>Add the indicator.</strong> Click{' '}
-          <em>Open on TradingView</em> above and add it to your chart — or, on any chart, open the{' '}
+          <em>Open on TradingView</em> above and add it to your chart&nbsp;- or, on any chart, open the{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>Indicators</strong> dialog (
           <Search size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> top toolbar) and search{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>&ldquo;{SCRIPT_NAME}&rdquo;</strong>.

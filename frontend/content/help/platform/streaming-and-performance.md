@@ -6,7 +6,7 @@
 
 ## How streaming works
 
-ZeroGEX pushes live data to your browser using a long-lived connection — open the dashboard and data starts flowing in within a second of page load. There's no polling on the client side.
+ZeroGEX pushes live data to your browser using a long-lived connection - open the dashboard and data starts flowing in within a second of page load. There's no polling on the client side.
 
 The connection refreshes itself if it drops. If a refresh fails repeatedly, the UI shows a "Reconnecting…" chip and starts a retry with backoff.
 
@@ -16,8 +16,8 @@ The connection refreshes itself if it drops. If a refresh fails repeatedly, the 
 | --- | --- |
 | Price quote | ~1 second |
 | Flow / tape | ~1 second |
-| Signal scores | 1–5 seconds depending on signal |
-| GEX surface | 5–15 seconds (bottleneck: chain snapshot) |
+| Signal scores | 1-5 seconds depending on signal |
+| GEX surface | 5-15 seconds (bottleneck: chain snapshot) |
 | Composite Score | ~5 seconds |
 
 When the page is in the background tab, the browser may throttle updates. Bring the tab forward and updates resume immediately.
@@ -35,9 +35,9 @@ The common culprits, in order of how often we see them:
 
 When something looks wrong, the four-step diagnostic:
 
-1. Look at the **session badge** — is the market open?
-2. Look at the **price tile** — is the timestamp recent?
-3. Look at the **connection chip** in the header — is it green?
+1. Look at the **session badge** - is the market open?
+2. Look at the **price tile** - is the timestamp recent?
+3. Look at the **connection chip** in the header - is it green?
 4. Hard reload (Cmd+Shift+R or Ctrl+Shift+R).
 
 That covers ~95% of "this looks broken" situations.
@@ -58,7 +58,7 @@ Privacy and ad-blocking extensions are generally fine. Aggressive script blocker
 
 ### Light mode is slightly faster
 
-Light theme renders slightly faster than dark theme on most setups because of how shadow and tinting are composited. Marginal — but if you're on a low-power device, worth knowing.
+Light theme renders slightly faster than dark theme on most setups because of how shadow and tinting are composited. Marginal - but if you're on a low-power device, worth knowing.
 
 ### Symbol switching is heavier than timeframe switching
 
@@ -66,7 +66,7 @@ Switching symbols re-fetches everything; switching timeframes re-uses the underl
 
 ## Mobile
 
-ZeroGEX runs on phones — every page is responsive — but the platform is **built for desktop**. The chart density assumes a screen wider than 1024px. On mobile, scroll horizontally on charts; the data is all there but the layout is denser.
+ZeroGEX runs on phones - every page is responsive - but the platform is **built for desktop**. The chart density assumes a screen wider than 1024px. On mobile, scroll horizontally on charts; the data is all there but the layout is denser.
 
 ## When to email support
 
@@ -76,7 +76,7 @@ If the platform itself feels stuck (not your connection, not a stale tab), check
 - The time it happened (with timezone)
 - Your browser and OS
 
-Logs on our side are timestamped — that's enough to trace it.
+Logs on our side are timestamped - that's enough to trace it.
 
 ## See also
 

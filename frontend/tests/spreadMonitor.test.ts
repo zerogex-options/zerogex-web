@@ -294,11 +294,11 @@ test('dteLabel names an expiry the way a trader says it', () => {
 test('moneyness labels read as a distance from spot, with a side', () => {
   assert.equal(
     moneynessAxisLabel(bucket({ moneyness_low_pct: -5, moneyness_high_pct: -3 })),
-    '3.0–5.0% below',
+    '3.0-5.0% below',
   );
   assert.equal(
     moneynessAxisLabel(bucket({ moneyness_low_pct: 3, moneyness_high_pct: 5 })),
-    '3.0–5.0% above',
+    '3.0-5.0% above',
   );
   assert.equal(
     moneynessAxisLabel(bucket({ moneyness_low_pct: -0.5, moneyness_high_pct: 0.5 })),

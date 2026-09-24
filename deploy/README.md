@@ -848,6 +848,16 @@ systemctl list-timers zerogex-web-janitor.timer   # next/last run
 journalctl -u zerogex-web-janitor -n 30           # recent janitor logs
 ```
 
+## Maintenance Page
+
+While this box reboots (the weekly Sunday restart, or at any other time),
+nothing on it can serve a page, so visitors would otherwise get Cloudflare's
+generic 521/522 error. A Cloudflare Worker in front of zerogex.io shows a
+branded "Down for maintenance" page whenever the origin isn't answering, and
+reloads visitors into the site once it's back. It is deployed from a laptop with
+`wrangler`, not by `deploy.sh`. See
+[cloudflare/maintenance-page/README.md](cloudflare/maintenance-page/README.md).
+
 ## Logs
 
 ### Application Logs

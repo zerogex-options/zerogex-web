@@ -5,7 +5,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
 export const runtime = 'nodejs';
-export const alt = 'ZeroGEX Action Card — Playbook trade instruction';
+export const alt = 'ZeroGEX Action Card - Playbook trade instruction';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -239,7 +239,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               display: 'flex',
             }}
           >
-            No tradable structure right now — the engine refuses to fire when no pattern clears
+            No tradable structure right now - the engine refuses to fire when no pattern clears
             its activation gate.
           </div>
         )}

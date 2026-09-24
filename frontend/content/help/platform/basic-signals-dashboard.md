@@ -1,6 +1,6 @@
 # Basic Signal Dashboard
 
-*The six continuous reads that feed the composite — what they are, how to read them, and where to drill in.*
+*The six continuous reads that feed the composite - what they are, how to read them, and where to drill in.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 The Basic Signal Dashboard is the **at-a-glance grid** of all six Basic signals. Each card shows the current score on the [-1, +1] line, the contribution it's making to the composite, and a sparkline.
 
-Basic signals are **continuous**. They don't trigger discrete alerts — they nudge the composite higher (toward trend) or lower (toward chop) on every refresh.
+Basic signals are **continuous**. They don't trigger discrete alerts - they nudge the composite higher (toward trend) or lower (toward chop) on every refresh.
 
 ## The six signals
 
@@ -35,11 +35,11 @@ The OTM put IV minus OTM call IV spread versus its baseline, sign-inverted so th
 
 ### Vanna/Charm Flow
 
-Aggregated dealer vanna and charm. Vanna models what dealers *may* hedge if vol moves; charm models the delta drift from time passing (holding spot and IV constant). A positive read models hedge flow that *can* support higher prices; negative the opposite — direction and size still depend on the book's composition and who owns the options. Charm pressure tends to build into the close.
+Aggregated dealer vanna and charm. Vanna models what dealers *may* hedge if vol moves; charm models the delta drift from time passing (holding spot and IV constant). A positive read models hedge flow that *can* support higher prices; negative the opposite - direction and size still depend on the book's composition and who owns the options. Charm pressure tends to build into the close.
 
 ### Dealer Delta Pressure
 
-The dealer net delta from the option chain (call_delta_oi + put_delta_oi) — a separate modeled read from gamma. Strong negative models dealers short delta, who would *tend* to buy higher to stay hedged; strong positive models them long, tending to sell higher. The signal asks "are dealers likely to chase this move?".
+The dealer net delta from the option chain (call_delta_oi + put_delta_oi) - a separate modeled read from gamma. Strong negative models dealers short delta, who would *tend* to buy higher to stay hedged; strong positive models them long, tending to sell higher. The signal asks "are dealers likely to chase this move?".
 
 ### GEX Gradient
 
@@ -47,15 +47,15 @@ Above-spot gamma versus below-spot gamma, with an ATM-concentration check. Tells
 
 ### Positioning Trap
 
-PCR + signed smart-money imbalance + 5-bar momentum + flip lean + regime context. Asks whether the crowd is positioned the wrong way — and it fades the crowd, not price. A high **positive** score flags a short-leaning crowd (heavy puts) that can be squeezed **higher** — an upside short-cover squeeze; a high **negative** score flags a long-leaning crowd (heavy calls) vulnerable to a **downside** flush. Read the sign as the squeeze/flush direction, not a plain "go long/short" cue.
+PCR + signed smart-money imbalance + 5-bar momentum + flip lean + regime context. Asks whether the crowd is positioned the wrong way - and it fades the crowd, not price. A high **positive** score flags a short-leaning crowd (heavy puts) that can be squeezed **higher** - an upside short-cover squeeze; a high **negative** score flags a long-leaning crowd (heavy calls) vulnerable to a **downside** flush. Read the sign as the squeeze/flush direction, not a plain "go long/short" cue.
 
 ## Reading the dashboard
 
 Three patterns:
 
 1. **Look for confluence.** If three or four of the six are pointing the same direction with non-trivial magnitudes, the composite will move toward a trend or chop regime accordingly.
-2. **Look for divergence.** When Tape Flow Bias is strongly positive but the GEX Gradient is sharply negative, dealers will fade the buying — the tape is wrong about where the structural pin is.
-3. **Look at the Positioning Trap separately.** It's the only Basic signal with mean-reversion bias. A high **negative** Trap reading (a long-leaning crowd at risk of a downside flush) alongside a strongly long Tape is a warning, not a confirmation — the crowd the tape is joining is the one the Trap flags as offside.
+2. **Look for divergence.** When Tape Flow Bias is strongly positive but the GEX Gradient is sharply negative, dealers will fade the buying - the tape is wrong about where the structural pin is.
+3. **Look at the Positioning Trap separately.** It's the only Basic signal with mean-reversion bias. A high **negative** Trap reading (a long-leaning crowd at risk of a downside flush) alongside a strongly long Tape is a warning, not a confirmation - the crowd the tape is joining is the one the Trap flags as offside.
 
 ## What's not on the Basic dashboard
 

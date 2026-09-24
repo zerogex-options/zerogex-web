@@ -106,7 +106,7 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
       style={{
         border: '1px solid var(--border-default)',
         borderRadius: 18,
-        padding: '28px',
+        padding: 'var(--ind-card-pad)',
         marginBottom: 48,
         background: 'var(--color-surface)',
       }}
@@ -121,8 +121,8 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
           letterSpacing: '0.16em',
           textTransform: 'uppercase',
           color: 'var(--color-brand-accent)',
-          border: '1px solid var(--color-brand-accent)44',
-          background: 'var(--color-brand-accent)14',
+          border: '1px solid color-mix(in srgb, var(--color-brand-accent) 27%, transparent)',
+          background: 'color-mix(in srgb, var(--color-brand-accent) 8%, transparent)',
           borderRadius: 999,
           padding: '5px 14px',
           marginBottom: 16,
@@ -145,15 +145,15 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         Our{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{INDICATOR_NAME}</strong> indicator for NinjaTrader 8
-        draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart — with an optional
-        per-strike gamma histogram — and unlike the
+        draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart&nbsp;- with an optional
+        per-strike gamma histogram&nbsp;- and unlike the
         TradingView script, it <strong style={{ color: 'var(--color-text-primary)' }}>updates itself</strong>. It
         polls the ZeroGEX API on a timer, so you never retype a number.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         Trading <strong style={{ color: 'var(--color-text-primary)' }}>ES</strong> or{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>NQ</strong>? Set the symbol and the levels arrive
-        already on the futures price axis — no basis offset to work out, and nothing to re-enter after a
+        already on the futures price axis&nbsp;- no basis offset to work out, and nothing to re-enter after a
         quarterly roll.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
@@ -274,7 +274,7 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
           <strong style={{ color: 'var(--color-text-primary)' }}>Add it to a chart.</strong> Right-click your chart
           → <strong style={{ color: 'var(--color-text-primary)' }}>Indicators…</strong>, add{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>&ldquo;{INDICATOR_NAME}&rdquo;</strong>, then paste
-          your key into <em>API key</em> and set <em>Symbol</em> to match the chart —{' '}
+          your key into <em>API key</em> and set <em>Symbol</em> to match the chart&nbsp;-{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>ES</strong> or{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>NQ</strong> for futures, or SPX, SPY, QQQ, NDX.
         </li>

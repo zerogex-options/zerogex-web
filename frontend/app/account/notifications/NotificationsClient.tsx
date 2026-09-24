@@ -437,7 +437,7 @@ export default function NotificationsClient() {
                           {rec.tier ? (
                             <span
                               className="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded"
-                              style={{ backgroundColor: `${color}22`, color }}
+                              style={{ backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)`, color }}
                             >
                               {rec.tier}
                             </span>

@@ -21,7 +21,7 @@ export default function LivePriceWidget({ data, theme }: LivePriceWidgetProps) {
       <div 
         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
         style={{
-          backgroundColor: theme === 'dark' ? `${trendColor}15` : `${trendColor}10`,
+          backgroundColor: theme === 'dark' ? `color-mix(in srgb, ${trendColor} 8%, transparent)` : `color-mix(in srgb, ${trendColor} 6%, transparent)`,
           color: trendColor,
         }}
       >

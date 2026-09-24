@@ -2,13 +2,13 @@
 > **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
-*SPY und SPX bilden denselben Index über zwei unterschiedliche Kontrakte ab — und zwei getrennte Dealer-Gamma-Bücher. Hier erfährst du, wie sich ihre Gamma-Levels unterscheiden, wie man ein Level vom einen ins andere umrechnet, welches Buch mehr Gewicht trägt und warum das wichtigste Level dasjenige ist, bei dem beide übereinstimmen.*
+*SPY und SPX bilden denselben Index über zwei unterschiedliche Kontrakte ab - und zwei getrennte Dealer-Gamma-Bücher. Hier erfährst du, wie sich ihre Gamma-Levels unterscheiden, wie man ein Level vom einen ins andere umrechnet, welches Buch mehr Gewicht trägt und warum das wichtigste Level dasjenige ist, bei dem beide übereinstimmen.*
 
 ---
 
 ## Die kurze Antwort
 
-Wenn du SPX handelst, lies die SPX-Gamma-Levels. Wenn du SPY handelst, lies die SPY-Gamma-Levels. Aber weil beide Kontrakte denselben zugrunde liegenden Index über **getrennte** Pools von Open Interest absichern, liefert die genaueste Lesart die Beobachtung beider — und die Behandlung der Levels, an denen sie übereinstimmen, als diejenigen, die am wahrscheinlichsten halten.
+Wenn du SPX handelst, lies die SPX-Gamma-Levels. Wenn du SPY handelst, lies die SPY-Gamma-Levels. Aber weil beide Kontrakte denselben zugrunde liegenden Index über **getrennte** Pools von Open Interest absichern, liefert die genaueste Lesart die Beobachtung beider - und die Behandlung der Levels, an denen sie übereinstimmen, als diejenigen, die am wahrscheinlichsten halten.
 
 Der Rest dieses Artikels erklärt, warum sich die beiden Bücher unterscheiden, wie man ein Level zwischen ihnen umrechnet und welches mehr Gewicht verdient, wenn sie nicht übereinstimmen.
 
@@ -16,14 +16,14 @@ Der Rest dieses Artikels erklärt, warum sich die beiden Bücher unterscheiden, 
 
 ## Derselbe Index, zwei verschiedene Kontrakte
 
-SPX und SPY bilden beide den S&P 500 ab. Was sich unterscheidet, ist der *Kontrakt*, der ihn umhüllt — und diese Unterschiede prägen, wie Dealer jeden von ihnen absichern.
+SPX und SPY bilden beide den S&P 500 ab. Was sich unterscheidet, ist der *Kontrakt*, der ihn umhüllt - und diese Unterschiede prägen, wie Dealer jeden von ihnen absichern.
 
 | Merkmal | SPX | SPY |
 |---|---|---|
 | Was es ist | S&P 500 **Index**optionen | S&P 500 **ETF**-Optionen |
 | Preisskala | Der Indexstand (z. B. 6000) | ~1/10 des Index (z. B. 600) |
 | Abwicklung | Barausgleich | Physische Lieferung (Aktien) |
-| Ausübungsstil | Europäisch — keine vorzeitige Zuteilung | Amerikanisch — Risiko vorzeitiger Zuteilung |
+| Ausübungsstil | Europäisch - keine vorzeitige Zuteilung | Amerikanisch - Risiko vorzeitiger Zuteilung |
 | Kontraktnominal | ~$100 × Indexstand (≈10× SPY) | ~$100 × ETF-Preis |
 | Strike-Abstände | Weiter (üblicherweise 5 Punkte) | Feiner ($1, teils $0,50) |
 | Dividenden & Steuern | Keine Dividende; Section-1256-Behandlung | Zahlt Dividenden; Aktienoptions-Behandlung |
@@ -35,11 +35,11 @@ Die für Gamma wichtigste Zeile ist das **Kontraktnominal**. Ein SPX-Kontrakt ko
 
 ## Warum SPY und SPX getrennte Gamma-Bücher haben
 
-Die Gamma-Exposure wird aus dem Open Interest einer Optionskette berechnet — Strike für Strike, Verfall für Verfall. SPX und SPY sind unterschiedliche Ketten mit unterschiedlichem Open Interest, daher erzeugt jede ihr **eigenes** [Gamma-Profil](/education/gamma-exposure-explained): ihren eigenen [Gamma-Flip](/education/how-to-read-a-gamma-flip), ihre eigene [Call Wall und Put Wall](/education/gamma-walls-explained), ihr eigenes Net GEX.
+Die Gamma-Exposure wird aus dem Open Interest einer Optionskette berechnet - Strike für Strike, Verfall für Verfall. SPX und SPY sind unterschiedliche Ketten mit unterschiedlichem Open Interest, daher erzeugt jede ihr **eigenes** [Gamma-Profil](/education/gamma-exposure-explained): ihren eigenen [Gamma-Flip](/education/how-to-read-a-gamma-flip), ihre eigene [Call Wall und Put Wall](/education/gamma-walls-explained), ihr eigenes Net GEX.
 
-Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels meist auf dieselbe Stelle in S&P-Notation. Aber sie werden von unterschiedlichen Klientel-Gruppen gebildet — SPX ist stärker institutionell und index-/0DTE-lastig, SPY trägt einen hohen Retail- und Aktien-Hedging-Flow — sodass die beiden Bücher Strikes unterschiedlich gewichten und an den Rändern auseinanderdriften können. Wenn sie divergieren, ist das Information, kein Rauschen.
+Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels meist auf dieselbe Stelle in S&P-Notation. Aber sie werden von unterschiedlichen Klientel-Gruppen gebildet - SPX ist stärker institutionell und index-/0DTE-lastig, SPY trägt einen hohen Retail- und Aktien-Hedging-Flow - sodass die beiden Bücher Strikes unterschiedlich gewichten und an den Rändern auseinanderdriften können. Wenn sie divergieren, ist das Information, kein Rauschen.
 
-Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels in S&P-Größen normalerweise auf dieselbe Stelle. Sie werden aber von unterschiedlichen Gruppen gebaut — SPX tendiert institutionell und index-/0DTE-lastig, SPY trägt eine schwerere Mischung aus Privatanlegern und Aktien-Hedging-Flow —, sodass die beiden Bücher Strikes unterschiedlich gewichten und an den Rändern auseinanderdriften können. Wenn sie divergieren, kann das Information statt Rauschen sein.
+Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels in S&P-Größen normalerweise auf dieselbe Stelle. Sie werden aber von unterschiedlichen Gruppen gebaut - SPX tendiert institutionell und index-/0DTE-lastig, SPY trägt eine schwerere Mischung aus Privatanlegern und Aktien-Hedging-Flow -, sodass die beiden Bücher Strikes unterschiedlich gewichten und an den Rändern auseinanderdriften können. Wenn sie divergieren, kann das Information statt Rauschen sein.
 
 ---
 
@@ -47,12 +47,12 @@ Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels in S&P-Gr
 
 SPY handelt bei etwa einem Zehntel des S&P-500-Index, daher als erste Näherung:
 
-> SPY-Level ≈ SPX-Level ÷ 10 — SPY 600 ≈ SPX 6000, SPY 585 ≈ SPX 5850.
+> SPY-Level ≈ SPX-Level ÷ 10 - SPY 600 ≈ SPX 6000, SPY 585 ≈ SPX 5850.
 
 Zwei Vorbehalte verhindern, dass die Umrechnung exakt ist:
 
 - **Tracking-Abweichung.** Der Preis von SPY spiegelt aufgelaufene Dividenden und kleine Tracking-Unterschiede wider, sodass das Verhältnis nie ein sauberes 10.000 ist. Rechne zur Orientierung um, nicht auf den Cent genau.
-- **Strike-Granularität.** In absoluten Dollarbeträgen listet SPY feinere Strikes ($1, teils $0,50) als die Fünf-Punkte-Staffelung von SPX — doch rechnet man die ~10×-Skala ein: Ein SPY-Dollar entspricht zehn Indexpunkten, sodass SPYs $1-Strikes in Indexpunkten umgerechnet tatsächlich *gröber* sind als SPXs Fünf-Punkte-Strikes, während seine $0,50-Strikes ihnen lediglich gleichkommen. In Indexpunkten gerechnet löst SPX die Gamma mindestens so fein auf wie SPY; SPYs echter Vorteil sind runde Dollar-Strikes, die Pins anziehen, sowie seine Aktienliquidität — nicht eine feinere Index-Auflösung.
+- **Strike-Granularität.** In absoluten Dollarbeträgen listet SPY feinere Strikes ($1, teils $0,50) als die Fünf-Punkte-Staffelung von SPX - doch rechnet man die ~10×-Skala ein: Ein SPY-Dollar entspricht zehn Indexpunkten, sodass SPYs $1-Strikes in Indexpunkten umgerechnet tatsächlich *gröber* sind als SPXs Fünf-Punkte-Strikes, während seine $0,50-Strikes ihnen lediglich gleichkommen. In Indexpunkten gerechnet löst SPX die Gamma mindestens so fein auf wie SPY; SPYs echter Vorteil sind runde Dollar-Strikes, die Pins anziehen, sowie seine Aktienliquidität - nicht eine feinere Index-Auflösung.
 
 ---
 
@@ -73,10 +73,10 @@ SPY verdient sich seinen Platz als **Granularitäts- und Bestätigungsschicht**:
 Ordne die Karte dem Instrument zu, das du tatsächlich handelst:
 
 - **SPX, /ES oder SPX 0DTE** → SPX-Gamma-Levels sind deine Karte.
-- **SPY-Aktien oder SPY-Optionen** → SPY-Gamma-Levels — die eigenen Walls und der Pin deines Instruments.
+- **SPY-Aktien oder SPY-Optionen** → SPY-Gamma-Levels - die eigenen Walls und der Pin deines Instruments.
 - **QQQ** → QQQ-Levels (siehe unten).
 
-Achte dann auf **Konfluenz**. Wenn die SPX-Call-Wall bei 6000 mit der SPY-Call-Wall bei 600 übereinstimmt, ist dieses gemeinsame Level stabiler als jedes für sich allein — zwei getrennte Dealer-Bücher, die sich auf denselben Preis stützen. Wenn sie *nicht übereinstimmen*, behandle beide als weniger belastbar und lass den Preis zeigen, welches Buch die Kontrolle hat.
+Achte dann auf **Konfluenz**. Wenn die SPX-Call-Wall bei 6000 mit der SPY-Call-Wall bei 600 übereinstimmt, ist dieses gemeinsame Level stabiler als jedes für sich allein - zwei getrennte Dealer-Bücher, die sich auf denselben Preis stützen. Wenn sie *nicht übereinstimmen*, behandle beide als weniger belastbar und lass den Preis zeigen, welches Buch die Kontrolle hat.
 
 > Das stärkste optionsbasierte Level ist nicht die größte Wall in einem einzelnen Chart. Es ist das Level, bei dem SPX und SPY übereinstimmen.
 
@@ -84,7 +84,7 @@ Achte dann auf **Konfluenz**. Wenn die SPX-Call-Wall bei 6000 mit der SPY-Call-W
 
 ## QQQ und NDX: dieselbe Logik am Nasdaq
 
-Der Nasdaq-100 hat dieselbe Aufteilung: **QQQ** ist der ETF, **NDX** ist der Cash-Index, und jeder führt sein eigenes Gamma-Buch auf einer anderen Preisskala. Wenn du QQQ handelst, lies die [QQQ-Gamma-Levels](/qqq-gamma-levels); wenn du NDX oder /NQ handelst, ist das Index-Buch deine Referenz. Das Konfluenz-Prinzip überträgt sich — QQQ-Walls, die mit dem NDX-Buch übereinstimmen, sind die, die es zu respektieren gilt.
+Der Nasdaq-100 hat dieselbe Aufteilung: **QQQ** ist der ETF, **NDX** ist der Cash-Index, und jeder führt sein eigenes Gamma-Buch auf einer anderen Preisskala. Wenn du QQQ handelst, lies die [QQQ-Gamma-Levels](/qqq-gamma-levels); wenn du NDX oder /NQ handelst, ist das Index-Buch deine Referenz. Das Konfluenz-Prinzip überträgt sich - QQQ-Walls, die mit dem NDX-Buch übereinstimmen, sind die, die es zu respektieren gilt.
 
 ---
 
@@ -92,9 +92,9 @@ Der Nasdaq-100 hat dieselbe Aufteilung: **QQQ** ist der ETF, **NDX** ist der Cas
 
 Die kostenlosen ZeroGEX-Gamma-Levels-Seiten veröffentlichen alle drei Bücher nebeneinander, sodass Übereinstimmung auf einen Blick erkennbar ist:
 
-- [SPX-Gamma-Levels](/spx-gamma-levels) — das Index-Buch, die primäre S&P-Karte.
-- [SPY-Gamma-Levels](/spy-gamma-levels) — das ETF-Buch, feinere Strikes und Pin-Details.
-- [QQQ-Gamma-Levels](/qqq-gamma-levels) — die Nasdaq-100-Lesart.
+- [SPX-Gamma-Levels](/spx-gamma-levels) - das Index-Buch, die primäre S&P-Karte.
+- [SPY-Gamma-Levels](/spy-gamma-levels) - das ETF-Buch, feinere Strikes und Pin-Details.
+- [QQQ-Gamma-Levels](/qqq-gamma-levels) - die Nasdaq-100-Lesart.
 
 Jede Seite führt mit dem Gamma-Flip, der Call Wall, der Put Wall, dem Max Pain und dem Net Dealer GEX des jeweiligen eigenen Tickers ein und zeigt dann die anderen beiden zum Abgleich. Für die Mechanik hinter den Levels beginne mit [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained), dann [Gamma Walls Explained](/education/gamma-walls-explained) und [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 
@@ -102,6 +102,6 @@ Jede Seite führt mit dem Gamma-Flip, der Call Wall, der Put Wall, dem Max Pain 
 
 ## Fazit
 
-SPY und SPX bilden einen Index über zwei Kontrakte und zwei getrennte Dealer-Gamma-Bücher ab. Handle die Levels, die zu deinem Instrument gehören, nutze das ~10×-Verhältnis zur Umrechnung zwischen ihnen, stütze dich auf SPX als die gewichtigere Index-Level-Karte und auf SPY für das Pinning an runden Zahlen und die Aktienliquidität — und schenke den Levels, bei denen beide übereinstimmen, den größten Respekt.
+SPY und SPX bilden einen Index über zwei Kontrakte und zwei getrennte Dealer-Gamma-Bücher ab. Handle die Levels, die zu deinem Instrument gehören, nutze das ~10×-Verhältnis zur Umrechnung zwischen ihnen, stütze dich auf SPX als die gewichtigere Index-Level-Karte und auf SPY für das Pinning an runden Zahlen und die Aktienliquidität - und schenke den Levels, bei denen beide übereinstimmen, den größten Respekt.
 
 *Dies sind abgeleitete Analysen zu Bildungszwecken, keine Anlageberatung. Optionshandel birgt erhebliche Risiken.*

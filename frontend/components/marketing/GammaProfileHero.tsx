@@ -239,8 +239,10 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
         <span className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>LIVE PROFILE</span>
       </div>
       <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: 260 }} aria-label={`${symbol} net gamma exposure by price, crossing zero at the gamma flip`} />
+      {/* Four across from `sm` up; a 2×2 block on a phone, where a wrapping
+          row left three cells on one line and the put wall alone on the next. */}
       <div
-        className="flex flex-wrap"
+        className="grid grid-cols-2 sm:grid-cols-4"
         style={{ borderTop: '1px solid var(--border-default)' }}
       >
         {[
@@ -251,8 +253,12 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
         ].map((cell, i) => (
           <div
             key={cell.l}
-            className="flex-1"
-            style={{ padding: '10px 16px', borderLeft: i === 0 ? undefined : '1px solid var(--border-default)', minWidth: 100 }}
+            className={[
+              'min-w-0',
+              i % 2 === 1 ? 'border-l' : i === 2 ? 'sm:border-l' : '',
+              i >= 2 ? 'border-t sm:border-t-0' : '',
+            ].join(' ')}
+            style={{ padding: '10px 16px', borderColor: 'var(--border-default)' }}
           >
             <div className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>{cell.l}</div>
             <div className="zg-metric" style={{ fontSize: 18, marginTop: 4, color: cell.c }}>{cell.v}</div>

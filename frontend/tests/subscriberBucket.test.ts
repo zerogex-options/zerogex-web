@@ -7,8 +7,10 @@ import {
   normalizeBucketTier,
   subscriptionPaidAt,
   summarizeLedger,
+  type LedgerDeclineEvent,
   type LedgerPaymentEvent,
   type LedgerRecoveryEvent,
+  type LedgerRow,
   type LedgerSyncEvent,
   type SubscriberBucketInput,
 } from '../core/subscriberBucket.ts';
@@ -855,4 +857,409 @@ test('malformed timestamps are skipped rather than throwing', () => {
   );
   assert.equal(rows.length, 1);
   assert.equal(rows[0].kind, 'trialStarted');
+});
+
+// ── Payment failures ───────────────────────────────────────────────────────
+// The Forward-Looking Growth Rate counts the rows flagged `paymentFailure` as
+// its failures, so this flag IS that number. Its contract: exactly one flagged
+// row each time a declined charge hits a subscription on the chart, however that
+// failure then plays out, and none for a decline that moved no subscriber.
+
+function decline(over: Partial<LedgerDeclineEvent> & { at: string }): LedgerDeclineEvent {
+  return { subId: 'sub_1', ...over };
+}
+
+const failures = (rows: LedgerRow[]) => rows.filter((r) => r.paymentFailure);
+
+test('a declined trial charge is ONE payment failure, however it ends', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-09-08T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-09-08T01:00:00Z', status: 'past_due' }),
+      // The grace window runs out and access drops...
+      sync({ at: '2026-09-11T01:00:00Z', status: 'past_due', tier: 'public' }),
+    ],
+    // ...then Stripe gives up and cancels.
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-09-20T01:00:00Z' }],
+    [],
+    [],
+    Date.parse('2026-09-21T00:00:00Z'),
+    { declines: [decline({ at: '2026-09-08T01:00:00Z' }), decline({ at: '2026-09-11T01:00:00Z' })] },
+  );
+  assert.deepEqual(failures(rows).map((r) => r.kind), ['trialChargeDeclined']);
+  const ended = rows.find((r) => r.kind === 'accessEnded')!;
+  assert.equal(ended.paymentFailure, false, 'the grace window running out is the same failure');
+  assert.match(ended.detail, /not paid in time/);
+});
+
+test('a trial charge refused and canceled in the same instant is a payment failure', () => {
+  // The production timeline in docs/outreach/2026-09-23-trial-conversion-
+  // declined-mckaiden.md. Cash App Pay is not a card, so Stripe did not retry:
+  // the subscription went active -> deleted 14 ms after the decline and never
+  // passed through past_due. The growth-rate card counted it as a failure while
+  // the ledger showed only an "Access ended" row.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-16T15:39:49Z', status: 'trialing' }),
+      sync({ at: '2026-09-23T15:40:13.618Z', status: 'active' }),
+    ],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-09-23T16:40:34.450Z' }],
+    [],
+    [],
+    Date.parse('2026-09-23T18:00:00Z'),
+    { declines: [decline({ at: '2026-09-23T16:40:34.436Z' })] },
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['accessEnded', 'conversionPending', 'trialStarted']);
+  assert.equal(rows[0].paymentFailure, true);
+  assert.equal(rows[0].convertingDelta, -1);
+  assert.equal(rows[0].fullSubscriberDelta, 0, 'they never paid, so the paying line never moved');
+  assert.match(rows[0].detail, /first charge failed/);
+  assert.equal(failures(rows).length, 1);
+});
+
+test('the same ending counts when no decline was captured for it', () => {
+  // The webhook can log Stripe's cancel before the decline that caused it, or
+  // miss the decline entirely. Ending a conversion whose charge was pending
+  // still says the charge failed.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-20T23:44:44Z', status: 'trialing' }),
+      sync({ at: '2026-08-27T23:45:20Z', status: 'active' }),
+    ],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-08-28T00:45:51Z' }],
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].paymentFailure, true);
+});
+
+test('a renewal in dunning is one failure; failing again after recovering is another', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-06-01T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-07-01T00:00:00Z', status: 'past_due' }),
+      sync({ at: '2026-07-02T00:00:00Z', status: 'past_due' }), // a retry fails too
+      sync({ at: '2026-07-03T00:00:00Z', status: 'active' }), // recovered
+      sync({ at: '2026-08-01T00:00:00Z', status: 'past_due' }), // next month
+    ],
+    [],
+    [payment({ at: '2026-06-01T00:10:00Z' }), payment({ at: '2026-07-03T00:00:00Z' })],
+    [],
+    Date.parse('2026-08-02T00:00:00Z'),
+    {
+      declines: [
+        decline({ at: '2026-07-01T00:00:00Z' }),
+        decline({ at: '2026-07-02T00:00:00Z' }),
+        decline({ at: '2026-08-01T00:00:00Z' }),
+      ],
+    },
+  );
+  assert.deepEqual(
+    failures(rows).map((r) => [r.kind, r.at]),
+    [
+      ['renewalFailed', '2026-08-01T00:00:00Z'],
+      ['renewalFailed', '2026-07-01T00:00:00Z'],
+    ],
+  );
+  assert.equal(rows.find((r) => r.kind === 'recovered')!.paymentFailure, false);
+});
+
+test('a renewal Stripe cancels on the first decline is a payment failure', () => {
+  // A paying member on a method Stripe does not retry: the same instant cancel
+  // as the trial above, on an established subscription.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-08-01T00:00:00Z', status: 'active' })],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-09-01T00:00:00.050Z' }],
+    [payment({ at: '2026-08-01T00:05:00Z' })],
+    [],
+    Date.parse('2026-09-02T00:00:00Z'),
+    { declines: [decline({ at: '2026-09-01T00:00:00Z' })] },
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].paymentFailure, true);
+  assert.equal(rows[0].fullSubscriberDelta, -1);
+  assert.match(rows[0].detail, /charge was declined/);
+});
+
+test('a paid subscription that drops straight to public on a decline is a payment failure', () => {
+  // No grace window held the tier, so the decline is also the departure.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-01T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-09-01T00:00:00Z', status: 'past_due', tier: 'public' }),
+    ],
+    [],
+    [payment({ at: '2026-08-01T00:05:00Z' })],
+    [],
+    Date.parse('2026-09-02T00:00:00Z'),
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].paymentFailure, true);
+  assert.equal(failures(rows).length, 1);
+});
+
+test('a scheduled cancellation taking effect is never a payment failure', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-01T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-08-10T00:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-09-01T00:00:00Z' }],
+    [payment({ at: '2026-08-01T00:05:00Z' })],
+    [],
+    Date.parse('2026-09-02T00:00:00Z'),
+    // Even with a declined charge on record (a refused plan change, say).
+    { declines: [decline({ at: '2026-08-15T00:00:00Z' })] },
+  );
+  assert.equal(failures(rows).length, 0);
+  assert.match(rows[0].detail, /Scheduled cancellation took effect/);
+});
+
+test('declines that moved no subscriber are not payment failures', () => {
+  // A trial member's refused switches to paid: the trial carries on, then
+  // converts and pays like any other.
+  const refusedSwitch = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-09-08T00:00:00Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-09-08T01:00:00Z' })],
+    [],
+    Date.parse('2026-09-09T00:00:00Z'),
+    {
+      declines: [
+        decline({ at: '2026-09-03T10:00:00Z' }),
+        decline({ at: '2026-09-03T10:01:00Z' }),
+        decline({ at: '2026-09-03T10:02:00Z' }),
+      ],
+    },
+  );
+  assert.equal(failures(refusedSwitch).length, 0);
+
+  // A card refused at checkout on a subscription that never made the chart.
+  const refusedCheckout = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-22T12:00:00Z', status: 'incomplete', tier: 'public' }),
+      sync({ at: '2026-09-23T12:00:00Z', status: 'incomplete_expired', tier: 'public' }),
+    ],
+    [],
+    [],
+    [],
+    Date.parse('2026-09-24T00:00:00Z'),
+    { declines: [decline({ at: '2026-09-22T12:00:00Z' })] },
+  );
+  assert.equal(refusedCheckout.length, 0);
+
+  // Another try at a bill that already failed, days later — from the pay link
+  // in the dunning email, say. Stripe does not advance the attempt count for a
+  // member's own retry, so this used to count as a second "attempt 1" failure.
+  const retriedBill = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-09-08T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-09-08T01:00:00Z', status: 'past_due' }),
+    ],
+    [],
+    [],
+    [],
+    Date.parse('2026-09-11T00:00:00Z'),
+    { declines: [decline({ at: '2026-09-08T01:00:00Z' }), decline({ at: '2026-09-10T15:00:00Z' })] },
+  );
+  assert.deepEqual(failures(retriedBill).map((r) => r.kind), ['trialChargeDeclined']);
+});
+
+test('a Trial Grace member re-synced after the trial clock runs out is still Trial Grace', () => {
+  // Updating the card on day three re-syncs a subscription that is still
+  // past_due on its first charge. Reading that as a renewal booked a bogus
+  // recovery and then a second failure for the same unpaid charge.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-09-08T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-09-08T01:00:00Z', status: 'past_due' }),
+      sync({ at: '2026-09-10T12:00:00Z', status: 'past_due' }),
+    ],
+    [],
+    [],
+    [],
+    Date.parse('2026-09-11T00:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['trialChargeDeclined', 'conversionPending', 'trialStarted']);
+  assert.equal(failures(rows).length, 1);
+  assert.equal(summarizeLedger(rows).trialGrace, 1);
+});
+
+test('a cleared payment means an earlier decline no longer explains an ending', () => {
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-07-01T00:00:00Z', status: 'active' })],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-08-05T00:00:00Z' }],
+    [payment({ at: '2026-07-01T00:05:00Z' }), payment({ at: '2026-08-01T00:00:00Z' })],
+    [],
+    Date.parse('2026-08-06T00:00:00Z'),
+    { declines: [decline({ at: '2026-07-20T00:00:00Z' })] },
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].paymentFailure, false);
+  assert.match(rows[0].detail, /^Subscription ended/);
+});
+
+// ── How a subscription starts paying ──────────────────────────────────────
+// Only a trial that runs its course leaves a real gap between turning `active`
+// and being charged (about an hour). Paying up front at checkout, or switching
+// off a trial onto a paid plan, is charged at once, and the first invoice's
+// billing_reason says which.
+
+test('a signup paid up front is one arrival, not a pending charge', () => {
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-23T15:00:00Z', status: 'active' })],
+    [],
+    [payment({ at: '2026-09-23T15:00:02Z', billingReason: 'subscription_create' })],
+    [],
+    Date.parse('2026-09-23T16:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted']);
+  assert.equal(rows[0].detail, 'Paid up front at checkout — a new paying subscriber');
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+  assert.equal(rows[0].convertingDelta, 0, 'nothing was ever pending');
+});
+
+test('a paid-up-front signup still being charged reads as a paid plan, not a trial', () => {
+  // The seconds before the payment is on record.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-23T15:00:00Z', status: 'active' })],
+    [],
+    [],
+    [],
+    Date.parse('2026-09-23T15:00:01Z'),
+  );
+  assert.equal(rows[0].kind, 'conversionPending');
+  assert.equal(rows[0].detail, 'Signed up on a paid plan — the first charge has not cleared yet');
+});
+
+test('a trial member switching to a paid plan is charged at once, and says so', () => {
+  const trial = sync({ at: '2026-09-20T12:00:00Z', status: 'trialing', tier: 'basic' });
+  const switched = sync({ at: '2026-09-22T10:00:00Z', status: 'active', tier: 'pro' });
+  const paid = payment({ at: '2026-09-22T10:00:03Z', billingReason: 'subscription_update' });
+  // Whichever of the two webhooks lands first.
+  for (const [label, syncs, pays] of [
+    ['status first', [trial, switched], [paid]],
+    ['payment first', [trial, { ...switched, at: '2026-09-22T10:00:05Z' }], [paid]],
+  ] as const) {
+    const rows = buildSubscriberLedger([...syncs], [], [...pays], [], Date.parse('2026-09-23T00:00:00Z'));
+    assert.deepEqual(rows.map((r) => r.kind), ['converted', 'trialStarted'], label);
+    assert.equal(rows[0].detail, 'Ended the free trial early by switching to a paid plan, and paid at once', label);
+    assert.equal(rows[0].freeTrialDelta, -1, label);
+    assert.equal(rows[0].fullSubscriberDelta, 1, label);
+  }
+});
+
+test('a switch whose charge is slow to clear is still called a switch', () => {
+  // Say the bank asked for confirmation: pending for a while, but not a trial
+  // that ran its course.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-20T12:00:00Z', status: 'trialing', tier: 'basic' }),
+      sync({ at: '2026-09-22T10:00:00Z', status: 'active', tier: 'pro' }),
+    ],
+    [],
+    [payment({ at: '2026-09-22T10:30:00Z', billingReason: 'subscription_update' })],
+    [],
+    Date.parse('2026-09-23T00:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted', 'conversionPending', 'trialStarted']);
+  assert.equal(rows[1].detail, 'Switched from the free trial to a paid plan — the charge has not cleared yet');
+});
+
+test('a trial that runs its course is the one that waits for its charge, and names its plan', () => {
+  // Including a Pro trial started before Pro stopped offering one.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-16T12:00:00Z', status: 'trialing', tier: 'pro' }),
+      sync({ at: '2026-09-23T12:00:00Z', status: 'active', tier: 'pro' }),
+    ],
+    [],
+    [payment({ at: '2026-09-23T13:00:00Z', billingReason: 'subscription_cycle' })],
+    [],
+    Date.parse('2026-09-24T00:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted', 'conversionPending', 'trialStarted']);
+  assert.equal(
+    rows[1].detail,
+    'The Pro free trial ended and Stripe raised the first invoice — the charge has not been attempted yet',
+  );
+  assert.equal(rows[0].detail, 'The first payment cleared — now a paying subscriber');
+});
+
+test('a paid-up-front signup that first syncs as incomplete is new, not a return', () => {
+  // Checkout creates the subscription `incomplete` (not counted) until the
+  // charge clears; the payment can be on record before the `active` sync.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-23T15:00:00Z', status: 'incomplete', tier: 'public' }),
+      sync({ at: '2026-09-23T15:00:05Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-09-23T15:00:03Z', billingReason: 'subscription_create' })],
+    [],
+    Date.parse('2026-09-23T16:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted']);
+  assert.equal(rows[0].detail, 'Paid up front at checkout — a new paying subscriber');
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+});
+
+test('a member who really lapsed and came back still reads as a return', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-01T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-09-01T00:00:00Z', status: 'canceled', tier: 'public' }),
+      sync({ at: '2026-09-10T00:00:00Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-08-01T00:05:00Z' })],
+    [],
+    Date.parse('2026-09-11T00:00:00Z'),
+  );
+  assert.equal(rows[0].kind, 'converted');
+  assert.equal(rows[0].detail, 'Resubscribed — paying again');
+});
+
+test('a money-back refund reads as a refund, and never as a payment failure', () => {
+  // The refund's own row can land after the deletion it caused, so it is read
+  // as a fact about the subscription rather than as a step on the timeline.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-20T12:00:00Z', status: 'active' })],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-09-24T10:00:00Z', reason: 'too_expensive' }],
+    [payment({ at: '2026-09-20T12:00:02Z' })],
+    [],
+    Date.parse('2026-09-24T12:00:00Z'),
+    {
+      refunds: [{ subId: 'sub_1', at: '2026-09-24T10:00:01Z' }],
+      // A declined charge on record does not turn a refund into a failure.
+      declines: [decline({ at: '2026-09-22T00:00:00Z' })],
+    },
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].detail, 'Refunded under the money-back guarantee — access ended (too_expensive)');
+  assert.equal(rows[0].fullSubscriberDelta, -1);
+  assert.equal(rows[0].paymentFailure, false);
+});
+
+test('an in-app switch off the trial reads as a switch whatever Stripe calls its invoice', () => {
+  // The app records the switch itself ("Trial ended for paid switch …"), so the
+  // row does not depend on the invoice's billing_reason.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-20T12:00:00Z', status: 'trialing', tier: 'basic' }),
+      sync({ at: '2026-09-22T10:00:00Z', status: 'active', tier: 'pro' }),
+    ],
+    [],
+    [payment({ at: '2026-09-22T10:00:03Z', billingReason: 'subscription_cycle' })],
+    [],
+    Date.parse('2026-09-23T00:00:00Z'),
+    { trialSwitches: [{ subId: 'sub_1', at: '2026-09-22T10:00:04Z' }] },
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted', 'trialStarted']);
+  assert.equal(rows[0].detail, 'Ended the free trial early by switching to a paid plan, and paid at once');
 });

@@ -207,7 +207,7 @@ function renderWidget(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,follow">
-<title>${esc(symbol)} gamma levels — ZeroGEX</title>
+<title>${esc(symbol)} gamma levels - ZeroGEX</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:transparent}
@@ -250,7 +250,7 @@ body{
 //
 // The re-announce schedule is the load-bearing part. The snippet loads
 // embed.js with the async attribute, so the host's listener is very often
-// registered AFTER this frame renders — and a height posted before
+// registered AFTER this frame renders - and a height posted before
 // anyone is listening is simply lost. Sending on a short bounded schedule
 // costs a handful of no-op messages and removes the race; without it the
 // widget renders at the fallback height on a majority of real pages, which

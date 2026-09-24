@@ -19,7 +19,6 @@ import { useFlipTermStructure } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
-import MobileScrollableChart from './MobileScrollableChart';
 import ChartCaption from "./ChartCaption";
 
 interface FlipTermStructureChartProps {
@@ -284,7 +283,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
   return (
     <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
       <div
-        className="rounded-2xl p-6 h-full flex flex-col"
+        className="rounded-2xl p-4 sm:p-6 h-full flex flex-col"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: `1px solid var(--border-default)`,
@@ -294,14 +293,19 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
           <h3 className="zg-h3" style={{ color: textColor }}>
             Gamma Flip · Term Structure
           </h3>
-          <TooltipWrapper text="Today's resolved gamma-flip price across option horizons (1d → 60d), versus the persisted production flip from h days ago. The line traces today's flip; markers carry sign info via color. Diamond outlines mark the production flip that was recorded h days ago — read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where the resolver could not land an interior crossing inside the scan span.">
+          <TooltipWrapper text="Today's resolved gamma-flip price across option horizons (1d → 60d), versus the persisted production flip from h days ago. The line traces today's flip; markers carry sign info via color. Diamond outlines mark the production flip that was recorded h days ago&nbsp;- read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where the resolver could not land an interior crossing inside the scan span.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
 
-        {/* Horizon controls */}
+        {/* Horizon controls. On a phone: the label and presets share the first
+            line, and the eight horizon chips ride one sideways-scrolling line
+            under them (finger-sized) instead of wrapping into three rows. From
+            sm up the chip wrapper is display:contents and the order classes
+            don't apply, so the row reads exactly as before. */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-xs" style={{ color: mutedText }}>Horizons:</span>
+          <div className="flex w-full min-w-0 max-sm:order-2 items-center gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] max-sm:[&>*]:shrink-0 sm:contents">
           {AVAILABLE_HORIZONS.map((h) => {
             const active = selectedHorizons.includes(h);
             return (
@@ -309,7 +313,8 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                 key={h}
                 type="button"
                 onClick={() => toggleHorizon(h)}
-                className="px-2.5 py-1 text-xs rounded border transition-colors"
+                aria-pressed={isMobile ? active : undefined}
+                className="max-sm:min-h-8 max-sm:min-w-10 px-2.5 py-1 text-xs rounded border transition-colors"
                 style={
                   active
                     ? {
@@ -329,11 +334,12 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
               </button>
             );
           })}
-          <div className="ml-2 inline-flex gap-1">
+          </div>
+          <div className="ml-2 max-sm:order-1 max-sm:ml-auto inline-flex gap-1">
             <button
               type="button"
               onClick={() => applyPreset([1, 3, 5, 10, 20, 60])}
-              className="px-2 py-1 text-xs rounded border"
+              className="max-sm:min-h-8 px-2 py-1 text-xs rounded border"
               style={{
                 backgroundColor: 'var(--color-surface-subtle)',
                 borderColor: 'var(--color-border)',
@@ -346,7 +352,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
             <button
               type="button"
               onClick={() => applyPreset([0.5, 1, 3, 5])}
-              className="px-2 py-1 text-xs rounded border"
+              className="max-sm:min-h-8 px-2 py-1 text-xs rounded border"
               style={{
                 backgroundColor: 'var(--color-surface-subtle)',
                 borderColor: 'var(--color-border)',
@@ -359,7 +365,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
             <button
               type="button"
               onClick={() => applyPreset([10, 20, 60, 120])}
-              className="px-2 py-1 text-xs rounded border"
+              className="max-sm:min-h-8 px-2 py-1 text-xs rounded border"
               style={{
                 backgroundColor: 'var(--color-surface-subtle)',
                 borderColor: 'var(--color-border)',
@@ -378,7 +384,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
           {error ? (
             <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--color-bear)' }}>
               {error === 'No data available yet'
-                ? `No usable option snapshot for ${symbol} — check ingestion.`
+                ? `No usable option snapshot for ${symbol}\u00a0- check ingestion.`
                 : `Backend error: ${error}`}
             </div>
           ) : loading && !data ? (
@@ -391,26 +397,26 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
-              <MobileScrollableChart>
                 <ResponsiveContainer width="100%" height={isMobile ? 360 : 460}>
                   <ComposedChart
                     layout="vertical"
                     data={chartData}
-                    margin={{ top: 12, right: 24, left: 16, bottom: 24 }}
+                    margin={isMobile ? { top: 16, right: 8, left: 0, bottom: 24 } : { top: 12, right: 24, left: 16, bottom: 24 }}
                   >
                     <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
                     <XAxis
                       type="number"
                       domain={priceDomain ?? ['dataMin', 'dataMax']}
                       stroke={axisStroke}
-                      tick={{ fontSize: 11, fill: axisStroke }}
+                      tick={{ fontSize: isMobile ? 10 : 11, fill: axisStroke }}
                       tickFormatter={(v) => formatUsd(Number(v), 0)}
+                      minTickGap={isMobile ? 16 : undefined}
                       label={{
                         value: 'Flip price (USD)',
                         position: 'insideBottom',
                         offset: -10,
                         fill: axisStroke,
-                        fontSize: 11,
+                        fontSize: isMobile ? 10 : 11,
                       }}
                     />
                     <YAxis
@@ -421,17 +427,23 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                       allowDataOverflow
                       ticks={horizonTicks}
                       reversed
-                      width={64}
+                      width={isMobile ? 36 : 64}
                       stroke={axisStroke}
-                      tick={{ fontSize: 11, fill: axisStroke }}
+                      tick={{ fontSize: isMobile ? 10 : 11, fill: axisStroke }}
                       tickFormatter={(v) => formatHorizon(Number(v))}
-                      label={{
-                        value: 'Horizon (days, log)',
-                        angle: -90,
-                        position: 'insideLeft',
-                        offset: 8,
-                        style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
-                      }}
+                      // A phone drops the rotated title; the ticks read "1d,
+                      // 3d, 20d" and the table below names the column.
+                      label={
+                        isMobile
+                          ? undefined
+                          : {
+                              value: 'Horizon (days, log)',
+                              angle: -90,
+                              position: 'insideLeft',
+                              offset: 8,
+                              style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
+                            }
+                      }
                     />
                     <Tooltip content={<FlipTooltip spot={data?.spot ?? null} />} />
 
@@ -483,7 +495,6 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
-              </MobileScrollableChart>
 
               {/* Right column: per-horizon table, vertical legend, and the
                   h-ago caveat — all stacked so the chart stays uncluttered. */}
@@ -491,13 +502,15 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
+                      {/* On a phone the six columns scroll sideways under a
+                          pinned Horizon column; tighter cell padding there. */}
                       <tr className="border-b" style={{ borderColor: 'var(--color-border)', color: mutedText }}>
-                        <th className="text-left py-2 px-2">Horizon</th>
-                        <th className="text-right py-2 px-2">Today&apos;s flip</th>
-                        <th className="text-right py-2 px-2">Span used</th>
-                        <th className="text-right py-2 px-2">Net GEX @ spot</th>
-                        <th className="text-right py-2 px-2">h-ago flip</th>
-                        <th className="text-right py-2 px-2">Drift</th>
+                        <th className="text-left py-2 px-1.5 sm:px-2 sticky left-0" style={{ backgroundColor: 'var(--bg-card)' }}>Horizon</th>
+                        <th className="text-right py-2 px-1.5 sm:px-2">Today&apos;s flip</th>
+                        <th className="text-right py-2 px-1.5 sm:px-2">Span used</th>
+                        <th className="text-right py-2 px-1.5 sm:px-2">Net GEX @ spot</th>
+                        <th className="text-right py-2 px-1.5 sm:px-2">h-ago flip</th>
+                        <th className="text-right py-2 px-1.5 sm:px-2">Drift</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -514,18 +527,18 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                               : 'var(--color-bear)';
                         return (
                           <tr key={row.horizon} className="border-b" style={{ borderColor: 'var(--color-border)' }}>
-                            <td className="text-left py-1.5 px-2 font-mono" style={{ color: textColor }}>
+                            <td className="text-left py-1.5 px-1.5 sm:px-2 font-mono sticky left-0" style={{ color: textColor, backgroundColor: 'var(--bg-card)' }}>
                               {formatHorizon(row.horizon)}
                             </td>
-                            <td className="text-right py-1.5 px-2 font-mono">
+                            <td className="text-right py-1.5 px-1.5 sm:px-2 font-mono">
                               {row.resolved ? formatUsd(row.todayFlip) : <span style={{ color: 'var(--color-bear)' }}>unresolved</span>}
                             </td>
-                            <td className="text-right py-1.5 px-2 font-mono">{formatSpan(row.spanUsed)}</td>
-                            <td className="text-right py-1.5 px-2 font-mono font-semibold" style={{ color: gexColor }}>
+                            <td className="text-right py-1.5 px-1.5 sm:px-2 font-mono">{formatSpan(row.spanUsed)}</td>
+                            <td className="text-right py-1.5 px-1.5 sm:px-2 font-mono font-semibold" style={{ color: gexColor }}>
                               {formatGex(row.netGexAtSpot)}
                             </td>
-                            <td className="text-right py-1.5 px-2 font-mono">{formatUsd(row.historicalFlip)}</td>
-                            <td className="text-right py-1.5 px-2 font-mono">
+                            <td className="text-right py-1.5 px-1.5 sm:px-2 font-mono">{formatUsd(row.historicalFlip)}</td>
+                            <td className="text-right py-1.5 px-1.5 sm:px-2 font-mono">
                               {drift == null ? (
                                 '--'
                               ) : (
@@ -627,7 +640,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
         {anyUnresolved && !hasHistorical && (
           <p className="mt-2 text-[11px]" style={{ color: mutedText }}>
             Red × markers flag horizons where the resolver could not land an interior crossing inside the
-            scan span — widen the chain or expand span_pct on the backend.
+            scan span&nbsp;- widen the chain or expand span_pct on the backend.
           </p>
         )}
 

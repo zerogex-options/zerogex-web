@@ -168,7 +168,12 @@ export default function ValueRangeScrollbar({
           cursor: fullyZoomedOut ? 'default' : 'grab',
           touchAction: 'none',
         }}
-      />
+      >
+        {/* A 10px-wide thumb is a hard target for a fingertip. This invisible
+            span widens the grab area well past the bar (events bubble to the
+            thumb's handlers) without changing how the scrollbar looks. */}
+        <span aria-hidden style={{ position: 'absolute', top: -8, bottom: -8, left: -12, right: -12 }} />
+      </div>
     </div>
   );
 }

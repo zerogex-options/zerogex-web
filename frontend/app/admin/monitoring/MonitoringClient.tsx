@@ -82,6 +82,16 @@ type SignupFlowPoint = {
   registrations: number;
 };
 
+type LevelsEmailFunnel = {
+  submitted: number;
+  everConfirmed: number;
+  confirmRatePct: number | null;
+  pending: number;
+  active: number;
+  unsubscribed: number;
+  bySymbol: Array<{ symbol: string; count: number }>;
+};
+
 type GrowthRatePoint = {
   days: 1 | 7 | 14 | 30;
   signups: number;
@@ -113,7 +123,7 @@ type ConversionBySourceSnapshot = {
 // is a client component and can't import the server-only monitoring types).
 type MrrBreakdownRow = {
   tier: 'basic' | 'pro';
-  cadence: 'monthly' | 'annual';
+  cadence: 'monthly' | 'quarterly' | 'annual';
   rate: 'list' | 'founding';
   state: 'active' | 'trialing';
   count: number;
@@ -209,6 +219,7 @@ type TrialConveyor = {
   truncated: number;
   departures: ConveyorRider[];
   departingValue: number;
+  paidUpFront: number;
   totals: ConveyorTotals;
   outcomes: ConveyorOutcomes;
   trialDays: number;
@@ -264,6 +275,7 @@ type Snapshot = {
   subscriberLedger: SubscriberLedger;
   subscriberProjection: SubscriberProjection;
   conversionBySource: ConversionBySourceSnapshot;
+  levelsEmail: LevelsEmailFunnel;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -463,7 +475,8 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <GrowthRateCard rates={data.growthRates} ledgerError={data.subscriberLedger.error} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <LevelsEmailCard data={data.levelsEmail} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
@@ -894,7 +907,7 @@ function ConveyorLane({
       className="grid items-center gap-3 py-2"
       style={{
         gridTemplateColumns: 'minmax(0, 13rem) minmax(0, 1fr) auto',
-        borderTop: `1px solid ${borderColor}33`,
+        borderTop: `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
       }}
     >
       <div className="min-w-0">
@@ -913,8 +926,8 @@ function ConveyorLane({
         <div
           className="absolute inset-x-0 top-1/2 h-3 rounded-sm -translate-y-1/2 overflow-hidden"
           style={{
-            background: `${borderColor}33`,
-            backgroundImage: `repeating-linear-gradient(115deg, ${borderColor}44 0 6px, transparent 6px 12px)`,
+            background: `color-mix(in srgb, ${borderColor} 20%, transparent)`,
+            backgroundImage: `repeating-linear-gradient(115deg, color-mix(in srgb, ${borderColor} 27%, transparent) 0 6px, transparent 6px 12px)`,
             opacity: dropped ? 0.4 : 1,
           }}
         >
@@ -969,18 +982,23 @@ function ConveyorPipelineDiagram({
   mutedText: string;
 }) {
   const windowDays = conveyor.outcomes.windowDays;
-  // Accounts created but never loaded onto the belt — the leak between "made an
-  // account" and "started a trial". Floored at 0: the two counts come from
-  // different sources (the users table vs. the audit stream), so a trial that
-  // started just outside the registration window must not render as negative.
-  const neverBoarded = Math.max(0, registrations - conveyor.outcomes.boarded);
-  const stages: Array<{ label: string; value: string; caption: string; color: string; drop?: string }> = [
+  const { converted } = conveyor.outcomes;
+  const { paidUpFront } = conveyor;
+  // Accounts created that neither boarded the belt nor paid up front — the leak
+  // between "made an account" and "started paying or trialing". A plan paid up
+  // front skips the belt by design, so it is the other way in, not a drop-off.
+  // Floored at 0: the counts come from different sources (the users table vs.
+  // the audit stream), so a signup just outside the registration window must
+  // not render as negative.
+  const neverStarted = Math.max(0, registrations - conveyor.outcomes.boarded - paidUpFront);
+  const stages: Array<{ label: string; value: string; caption: string; color: string; drop?: string; note?: string }> = [
     {
       label: 'Signs up',
       value: String(registrations),
       caption: `accounts created · ${windowDays}d`,
       color: ROW_COLORS.uniqueUsers,
-      drop: neverBoarded > 0 ? `${neverBoarded} never started a trial` : undefined,
+      note: paidUpFront > 0 ? `${paidUpFront} paid up front` : undefined,
+      drop: neverStarted > 0 ? `${neverStarted} never started a trial or paid` : undefined,
     },
     {
       label: 'Boards belt',
@@ -1004,8 +1022,10 @@ function ConveyorPipelineDiagram({
     },
     {
       label: 'Paying',
-      value: String(conveyor.outcomes.converted),
-      caption: `converted · ${windowDays}d`,
+      value: String(converted + paidUpFront),
+      caption: paidUpFront > 0
+        ? `${converted} from trials · ${paidUpFront} paid up front · ${windowDays}d`
+        : `converted · ${windowDays}d`,
       color: ROW_COLORS.mrr,
     },
   ];
@@ -1013,7 +1033,7 @@ function ConveyorPipelineDiagram({
     <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
       {stages.map((stage, idx) => (
         <div key={stage.label} className="flex items-stretch gap-2 shrink-0">
-          <div className="rounded-lg px-3 py-2 min-w-[9.5rem]" style={{ border: `1px solid ${stage.color}66` }}>
+          <div className="rounded-lg px-3 py-2 min-w-[9.5rem] max-w-[10.5rem]" style={{ border: `1px solid ${stage.color}66` }}>
             <div className="text-[11px] uppercase tracking-wide" style={{ color: mutedText }}>
               {stage.label}
             </div>
@@ -1023,6 +1043,11 @@ function ConveyorPipelineDiagram({
             <div className="text-[11px]" style={{ color: mutedText }}>
               {stage.caption}
             </div>
+            {stage.note && (
+              <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.running }}>
+                ↳ {stage.note}
+              </div>
+            )}
             {stage.drop && (
               <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.rollingOff }}>
                 ↳ {stage.drop}
@@ -1084,7 +1109,7 @@ function TrialOutcomesCard({
       </div>
 
       {decided > 0 && (
-        <div className="mt-2 h-3 rounded overflow-hidden flex" style={{ background: `${borderColor}33` }}>
+        <div className="mt-2 h-3 rounded overflow-hidden flex" style={{ background: `color-mix(in srgb, ${borderColor} 20%, transparent)` }}>
           <span style={{ width: `${convertedWidth}%`, background: CONVEYOR_COLORS.running }} />
           <span style={{ width: `${100 - convertedWidth}%`, background: CONVEYOR_COLORS.rollingOff }} />
         </div>
@@ -1097,7 +1122,7 @@ function TrialOutcomesCard({
           { label: 'Rolled off', value: outcomes.rolledOff, color: CONVEYOR_COLORS.rollingOff },
           { label: 'Charge declined', value: outcomes.stalled, color: CONVEYOR_COLORS.stalled },
         ].map((cell) => (
-          <div key={cell.label} className="rounded-lg p-2" style={{ border: `1px solid ${borderColor}55` }}>
+          <div key={cell.label} className="rounded-lg p-2" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
             <div className="text-[11px] uppercase tracking-wide" style={{ color: mutedText }}>{cell.label}</div>
             <div className="text-xl font-semibold tabular-nums" style={{ color: cell.color }}>{cell.value}</div>
           </div>
@@ -1202,7 +1227,7 @@ function SubscriberLedgerCard({
           style={{
             border: `1px solid ${borderColor}`,
             color: onlyMoves ? 'var(--color-text-primary)' : mutedText,
-            background: onlyMoves ? `${borderColor}33` : 'transparent',
+            background: onlyMoves ? `color-mix(in srgb, ${borderColor} 20%, transparent)` : 'transparent',
           }}
         >
           {onlyMoves ? 'Showing count changes only' : 'Show count changes only'}
@@ -1236,7 +1261,7 @@ function SubscriberLedgerCard({
               className="grid gap-3 py-2 items-start"
               style={{
                 gridTemplateColumns: 'minmax(0, 5rem) minmax(0, 1fr) auto',
-                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+                borderTop: idx === 0 ? undefined : `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
               }}
             >
               <span className="text-xs tabular-nums pt-0.5" style={{ color: mutedText }} title={r.at}>
@@ -1250,6 +1275,15 @@ function SubscriberLedgerCard({
                   >
                     {ledgerKindLabel(r.kind)}
                   </span>
+                  {r.paymentFailure && (
+                    <span
+                      className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap"
+                      style={{ border: `1px solid ${CONVEYOR_COLORS.stalled}`, color: CONVEYOR_COLORS.stalled }}
+                      title="Counted as a failure in the Forward-Looking Growth Rate"
+                    >
+                      payment failure
+                    </span>
+                  )}
                   <span className="text-xs truncate" style={{ color: textColor }} title={r.email ?? undefined}>
                     {r.email ?? r.userId ?? 'unknown member'}
                   </span>
@@ -1331,7 +1365,7 @@ function ScheduledDeparturesCard({
               className="grid gap-3 py-2 items-center"
               style={{
                 gridTemplateColumns: 'minmax(0, 1fr) auto',
-                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+                borderTop: idx === 0 ? undefined : `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
               }}
             >
               <div className="min-w-0">
@@ -1676,9 +1710,10 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h2 className="text-lg font-semibold" style={{ color: textColor }}>The Conveyor</h2>
         <span className="text-xs" style={{ color: mutedText }}>
-          Every free trial is a package on a belt. It boards at signup, rides for the trial length, and comes off the
-          end as a paying subscriber — unless the member cancels (falls off) or the first charge is declined (jams at
-          the gate). Timers are live.
+          Every free trial is a package on a belt. It boards when the trial starts, rides for the trial length, and
+          comes off the end as a paying subscriber — unless the member cancels (falls off) or the first charge is
+          declined (jams at the gate). Plans paid up front at checkout skip the belt and count straight into Paying.
+          Timers are live.
         </span>
       </div>
 
@@ -1873,16 +1908,92 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
   </div>;
 }
 
-function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
+// The free daily levels email's double opt-in funnel.
+//
+// The headline is the CONFIRM RATE, because that is the one number that says
+// whether the channel is healthy: a sudden fall means the confirmation email
+// stopped arriving (spam folder, a Resend problem), which is invisible from
+// every other surface — signups keep being recorded, they just never confirm.
+//
+// "Ever confirmed" deliberately counts anyone who ever clicked, including
+// people who later unsubscribed: scoring them as an opt-in failure would
+// blame the confirmation email for a decision taken weeks afterwards.
+// "Active" is the separate question of who can be mailed today.
+function LevelsEmailCard({ data, cardBg, borderColor, mutedText, textColor }: { data: LevelsEmailFunnel; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
+  // Below this, a percentage is noise dressed as a trend — three of four
+  // confirming is 75%, and means nothing. Show the counts and say so.
+  const TOO_FEW = 20;
+  const enoughToRate = data.submitted >= TOO_FEW;
+  const rows: Array<[string, string]> = [
+    ['Submitted', String(data.submitted)],
+    ['Ever confirmed', String(data.everConfirmed)],
+    ['Pending', String(data.pending)],
+    ['Unsubscribed', String(data.unsubscribed)],
+    ['Active (send list)', String(data.active)],
+  ];
+
+  return (
+    <div className="rounded-lg border p-4" style={{ background: cardBg, borderColor }}>
+      <h3 className="text-sm font-semibold mb-1" style={{ color: textColor }}>Free levels email</h3>
+      <p className="text-xs mb-3" style={{ color: mutedText }}>Double opt-in funnel</p>
+
+      <div className="mb-3">
+        <div className="text-2xl font-semibold" style={{ color: textColor }}>
+          {data.confirmRatePct == null
+            ? '—'
+            : `${data.confirmRatePct.toFixed(enoughToRate ? 1 : 0)}%`}
+        </div>
+        <div className="text-xs" style={{ color: mutedText }}>
+          {data.confirmRatePct == null
+            ? 'no subscribers yet'
+            : enoughToRate
+              ? 'confirm rate'
+              : `confirm rate — only ${data.submitted} submitted, too few to read`}
+        </div>
+      </div>
+
+      <table className="w-full text-xs">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <td className="py-0.5" style={{ color: mutedText }}>{label}</td>
+              <td className="py-0.5 text-right tabular-nums" style={{ color: textColor }}>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {data.bySymbol.length > 0 && (
+        <p className="text-xs mt-3" style={{ color: mutedText }}>
+          {data.bySymbol.map((s) => `${s.symbol} ${s.count}`).join(' · ')}
+        </p>
+      )}
+
+      <p className="text-xs mt-3" style={{ color: mutedText }}>
+        Denominator counts rows; malformed, honeypot and rate-limited attempts
+        never create one. Compare against levels_email_submitted in PostHog.
+      </p>
+    </div>
+  );
+}
+
+// `ledgerError` is the Subscriber Ledger's build error: the failures below are
+// counted off its rows, so when it failed they are unknown, not zero.
+function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; ledgerError: string | null; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
   return (
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
         <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
-        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks (net of win-backs) and first payment failures. Rate is net growth per day over each trailing window.</p>
+        <p className="text-xs" style={{ color: mutedText }}>New subscriptions (trials and plans paid up front) minus cancellations (Cancel clicks and money-back refunds, net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each trailing window.</p>
+        {ledgerError && (
+          <p className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.stalled }}>
+            Payment failures could not be counted because the Subscriber Ledger failed to build, so they show as 0.
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {rates.map((rate) => (
-          <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+          <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
             <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days}-day</div>
             <div className="text-2xl font-semibold tabular-nums" style={{ color: rate.net >= 0 ? '#2c8c6a' : '#c1435b' }}>{rate.dailyRate >= 0 ? '+' : ''}{rate.dailyRate.toFixed(2)}/day</div>
             <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>{rate.signups} signups − {rate.cancellations} cancels − {rate.paymentFailures} failures = {rate.net >= 0 ? '+' : ''}{rate.net}</div>
@@ -1902,7 +2013,7 @@ function formatUsd(n: number, opts?: { cents?: boolean }): string {
 }
 
 const TIER_LABEL = { basic: 'Basic', pro: 'Pro' } as const;
-const CADENCE_LABEL = { monthly: 'Monthly', annual: 'Annual' } as const;
+const CADENCE_LABEL = { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual' } as const;
 const RATE_LABEL = { list: 'List', founding: 'Founding' } as const;
 const STATE_LABEL = { active: 'Active', trialing: 'Trial' } as const;
 
@@ -1922,7 +2033,7 @@ function StatTile({
   textColor: string;
 }) {
   return (
-    <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+    <div className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
       <div className="text-xs uppercase tracking-wide mb-1" style={{ color: mutedText }}>{label}</div>
       <div className="text-xl font-semibold tabular-nums" style={{ color: textColor }}>{value}</div>
       {sub && <div className="text-xs mt-0.5" style={{ color: mutedText }}>{sub}</div>}
@@ -1985,7 +2096,7 @@ function IncomeReplacementCard({
       </div>
       <div
         className="h-3 rounded-full overflow-hidden mb-1"
-        style={{ backgroundColor: `${borderColor}55` }}
+        style={{ backgroundColor: `color-mix(in srgb, ${borderColor} 33%, transparent)` }}
         role="progressbar"
         aria-valuenow={Math.round(mrr.progressPct)}
         aria-valuemin={0}
@@ -2034,7 +2145,7 @@ function IncomeReplacementCard({
 
       {/* Per-plan breakdown so the estimate is auditable */}
       {mrr.breakdown.length > 0 ? (
-        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${borderColor}55` }}>
+        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ color: mutedText }} className="text-xs uppercase tracking-wide">
@@ -2048,7 +2159,7 @@ function IncomeReplacementCard({
               {mrr.breakdown.map((row) => (
                 <tr
                   key={`${row.tier}-${row.cadence}-${row.rate}-${row.state}`}
-                  style={{ borderTop: `1px solid ${borderColor}33`, color: textColor, opacity: row.state === 'trialing' ? 0.7 : 1 }}
+                  style={{ borderTop: `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`, color: textColor, opacity: row.state === 'trialing' ? 0.7 : 1 }}
                 >
                   <td className="px-3 py-1.5">
                     {TIER_LABEL[row.tier]} · {CADENCE_LABEL[row.cadence]} · {RATE_LABEL[row.rate]}
@@ -2208,7 +2319,7 @@ function MrrTrendCard({
               value={horizonMonths}
               onChange={(e) => setHorizonMonths(Number(e.target.value))}
               className="rounded border px-2 py-1 text-xs"
-              style={{ backgroundColor: cardBg, borderColor: `${axisStroke}55`, color: textColor }}
+              style={{ backgroundColor: cardBg, borderColor: `color-mix(in srgb, ${axisStroke} 33%, transparent)`, color: textColor }}
               aria-label="Projection horizon"
             >
               {MRR_PROJECTION_HORIZONS.map((h) => (
@@ -2778,10 +2889,10 @@ function CancellationReasonsCard({
                 <span className="text-xs w-40 shrink-0 truncate" style={{ color: textColor }} title={row.label}>
                   {row.label}
                 </span>
-                <span className="flex-1 h-3 rounded" style={{ background: `${borderColor}33` }}>
+                <span className="flex-1 h-3 rounded" style={{ background: `color-mix(in srgb, ${borderColor} 20%, transparent)` }}>
                   <span
                     className="block h-3 rounded"
-                    style={{ width: `${width}%`, background: isNone ? `${borderColor}88` : ROW_COLORS.webhookHealth }}
+                    style={{ width: `${width}%`, background: isNone ? `color-mix(in srgb, ${borderColor} 53%, transparent)` : ROW_COLORS.webhookHealth }}
                   />
                 </span>
                 <span className="text-xs tabular-nums w-8 text-right" style={{ color: mutedText }}>
@@ -2804,7 +2915,7 @@ function CancellationReasonsCard({
                 key={`${c.createdAt}-${idx}`}
                 className="rounded p-2 text-xs"
                 style={{
-                  border: `1px solid ${borderColor}55`,
+                  border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)`,
                   fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
                 }}
               >
@@ -2892,31 +3003,31 @@ function WebhookHealthCard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+        <div className="lg:col-span-2 rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: mutedText }}>
             Webhook events
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={eventChart} margin={{ top: 4, right: 12, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={`${borderColor}55`} vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={`color-mix(in srgb, ${borderColor} 33%, transparent)`} vertical={false} />
               <XAxis
                 dataKey="name"
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
               />
               <YAxis
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
                 allowDecimals={false}
                 domain={[0, yScale.max]}
                 ticks={yScale.ticks}
               />
               <Tooltip
-                cursor={{ fill: `${borderColor}22` }}
+                cursor={{ fill: `color-mix(in srgb, ${borderColor} 13%, transparent)` }}
                 contentStyle={{
                   backgroundColor: cardBg,
                   border: `1px solid ${borderColor}`,
@@ -2937,7 +3048,7 @@ function WebhookHealthCard({
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+        <div className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: mutedText }}>
             Founding cohort (all-time)
           </div>
@@ -2947,13 +3058,13 @@ function WebhookHealthCard({
               layout="vertical"
               margin={{ top: 4, right: 12, left: 8, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke={`${borderColor}55`} horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={`color-mix(in srgb, ${borderColor} 33%, transparent)`} horizontal={false} />
               <XAxis
                 type="number"
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
                 allowDecimals={false}
                 domain={[0, foundingScale.max]}
                 ticks={foundingScale.ticks}
@@ -2964,11 +3075,11 @@ function WebhookHealthCard({
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
                 width={110}
               />
               <Tooltip
-                cursor={{ fill: `${borderColor}22` }}
+                cursor={{ fill: `color-mix(in srgb, ${borderColor} 13%, transparent)` }}
                 contentStyle={{
                   backgroundColor: cardBg,
                   border: `1px solid ${borderColor}`,
@@ -2994,7 +3105,7 @@ function WebhookHealthCard({
                 key={`${err.createdAt}-${idx}`}
                 className="rounded p-2 text-xs"
                 style={{
-                  border: `1px solid ${borderColor}55`,
+                  border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)`,
                   fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
                 }}
               >
@@ -3029,7 +3140,7 @@ function WebhookHealthCard({
                   key={`${row.createdAt}-${idx}`}
                   className="rounded p-2 text-xs"
                   style={{
-                    border: `1px solid ${borderColor}55`,
+                    border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)`,
                     fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
                     opacity: isNoise ? 0.55 : 1,
                   }}
@@ -3040,7 +3151,7 @@ function WebhookHealthCard({
                       <span
                         className="px-1.5 py-0.5 rounded"
                         style={{
-                          background: `${borderColor}33`,
+                          background: `color-mix(in srgb, ${borderColor} 20%, transparent)`,
                           color: textColor,
                         }}
                       >
@@ -3097,12 +3208,12 @@ function RankedBarList({ items, max, color, borderColor, mutedText, monoLabel }:
             className="grid items-center gap-3 text-sm py-1"
             style={{
               gridTemplateColumns: '2rem minmax(0, 1fr) minmax(0, 2fr) auto',
-              borderBottom: `1px solid ${borderColor}33`,
+              borderBottom: `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
             }}
           >
             <span className="text-xs tabular-nums" style={{ color: mutedText }}>{idx + 1}</span>
             <span className={`truncate ${monoLabel ? 'font-mono' : ''}`} title={row.label}>{row.label}</span>
-            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${borderColor}55` }}>
+            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
               <div
                 className="h-full rounded-full"
                 style={{ width: `${pct}%`, backgroundColor: color }}
@@ -3348,7 +3459,7 @@ function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, muted
   const convertingColor = CONVERTING_COLOR;
   const graceTrialColor = '#ffd380';
   const convertingTitle =
-    'Free trial ended and Stripe raised the first subscription invoice, flipping the subscription to active — but it attempts the charge about an hour later, so no payment has cleared yet. These become Full Subscribers when it does, or Trial Grace when the card is declined.';
+    'Free trial ended and Stripe raised the first subscription invoice, flipping the subscription to active — but it attempts the charge about an hour later, so no payment has cleared yet. These become Full Subscribers when it does, or Trial Grace when the card is declined. A plan paid up front at checkout passes through here for a moment only, while its payment is recorded.';
   const graceTrialTitle =
     'Free trial ended, the first subscription charge failed, and access is retained during the bounded payment-recovery grace window while Stripe retries the card.';
   const projectedColor = '#2c8c6a';

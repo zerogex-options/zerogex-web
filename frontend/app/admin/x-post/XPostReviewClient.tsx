@@ -28,6 +28,9 @@ type XPostRecord = {
   headlines: Headline[];
   levels: Record<string, number | string | null> | null;
   media: { png: string | null; clip: string | null };
+  status?: string | null;
+  problems?: string[];
+  tweet_url?: string | null;
 };
 
 type Envelope = {
@@ -43,6 +46,19 @@ const mutedText = 'var(--color-text-secondary)';
 const borderColor = 'var(--color-border)';
 const cardBg = 'var(--color-surface)';
 const subtleBg = 'var(--color-surface-subtle)';
+
+// What the job did with the post, from the record's `status`.
+const STATUS_COPY: Record<string, { text: string; tone: 'good' | 'bad' | 'neutral' }> = {
+  posted: { text: 'Posted to X with the bulletin image attached.', tone: 'good' },
+  ready: { text: 'Passed review. Not posted yet.', tone: 'neutral' },
+  blocked: { text: 'Held back: not posted to X.', tone: 'bad' },
+  post_failed: { text: 'Passed review, but posting to X failed.', tone: 'bad' },
+  dry_run: { text: 'Preview only (dry run). Nothing was posted.', tone: 'neutral' },
+  regenerated: {
+    text: 'Regenerated here. Not posted, and no image (export it from the Live Bulletin page).',
+    tone: 'neutral',
+  },
+};
 
 function formatWhen(iso: string | null): string {
   if (!iso) return 'never';
@@ -68,6 +84,11 @@ export default function XPostReviewClient() {
   const [replyText, setReplyText] = useState('');
   const [headlines, setHeadlines] = useState<Headline[]>([]);
   const [hasRecord, setHasRecord] = useState(false);
+  const [mode, setMode] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
+  const [problems, setProblems] = useState<string[]>([]);
+  const [tweetUrl, setTweetUrl] = useState<string | null>(null);
+  const [hasImage, setHasImage] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -76,12 +97,17 @@ export default function XPostReviewClient() {
 
   const applyEnvelope = useCallback((env: Envelope) => {
     setTimingLabel(env.timing_label || '');
+    setMode(env.mode || '');
     if (env.record) {
       setPostText(env.record.post_text || '');
       setReplyText(env.record.reply_text || '');
       setHeadlines(env.record.headlines || []);
       setGeneratedAt(env.record.generated_at);
       setDateStr(env.record.date);
+      setStatus(env.record.status ?? null);
+      setProblems(env.record.problems ?? []);
+      setTweetUrl(env.record.tweet_url ?? null);
+      setHasImage(Boolean(env.record.media?.png));
       setHasRecord(true);
     } else {
       setPostText('');
@@ -89,6 +115,10 @@ export default function XPostReviewClient() {
       setHeadlines([]);
       setGeneratedAt(null);
       setDateStr(null);
+      setStatus(null);
+      setProblems([]);
+      setTweetUrl(null);
+      setHasImage(false);
       setHasRecord(false);
     }
   }, []);
@@ -209,6 +239,35 @@ export default function XPostReviewClient() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }, [postText]);
 
+  // The bulletin image the scheduled run attached. `v` busts the browser cache
+  // when a newer run replaces it.
+  const imageUrl =
+    hasImage && symbol && mode
+      ? `/api/admin/x-post/image?symbol=${encodeURIComponent(symbol)}&mode=${encodeURIComponent(mode)}&v=${encodeURIComponent(generatedAt ?? '')}`
+      : null;
+  const imageFileName = `zerogex-${symbol.toLowerCase()}-${mode || 'post'}-${dateStr ?? 'bulletin'}.png`;
+
+  const copyImage = useCallback(async () => {
+    if (!imageUrl) return;
+    try {
+      const res = await fetch(imageUrl, { cache: 'no-store', credentials: 'same-origin' });
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const blob = await res.blob();
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setNotice('Image copied. Paste it into the X composer.');
+    } catch {
+      setNotice('Copy failed. Use Download image instead.');
+    }
+  }, [imageUrl]);
+
+  const statusCopy = status ? STATUS_COPY[status] : undefined;
+  const statusColor =
+    statusCopy?.tone === 'bad'
+      ? 'var(--color-negative)'
+      : statusCopy?.tone === 'good'
+        ? 'var(--color-positive)'
+        : borderColor;
+
   const btnBase =
     'px-3 py-1.5 text-sm font-semibold rounded-md transition-opacity disabled:opacity-50 disabled:cursor-not-allowed';
 
@@ -289,6 +348,41 @@ export default function XPostReviewClient() {
             </div>
           )}
 
+          {hasRecord && (statusCopy || problems.length > 0) && (
+            <div
+              className="rounded-lg p-4 mb-4 text-sm"
+              style={{ backgroundColor: subtleBg, border: `1px solid ${statusColor}`, color: textColor }}
+              role="status"
+            >
+              {statusCopy && <p className="font-semibold">{statusCopy.text}</p>}
+              {tweetUrl && (
+                <p className="mt-1">
+                  <a
+                    href={tweetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                    style={{ color: textColor }}
+                  >
+                    Open the post on X
+                  </a>
+                </p>
+              )}
+              {problems.length > 0 && (
+                <>
+                  <p className="mt-2" style={{ color: mutedText }}>
+                    What went wrong:
+                  </p>
+                  <ul className="list-disc pl-5 mt-1 space-y-1">
+                    {problems.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Post + reply live together on one card — same text area group. */}
           <div
             className="rounded-lg p-4 mb-4"
@@ -360,10 +454,59 @@ export default function XPostReviewClient() {
               </button>
             </div>
             <p className="text-xs mt-3" style={{ color: mutedText }}>
-              &ldquo;Post to X&rdquo; opens the X composer with the post text prefilled. The reply is
-              a separate tweet — post the main tweet first, then reply with the copied reply text.
+              &ldquo;Post to X&rdquo; opens the X composer with the post text prefilled. X can&rsquo;t
+              prefill an image, so attach the bulletin image below before you post. The reply is a
+              separate tweet — post the main tweet first, then reply with the copied reply text.
             </p>
           </div>
+
+          {hasRecord && (
+            <div
+              className="rounded-lg p-4 mb-4"
+              style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}
+            >
+              <div className="text-sm font-semibold mb-2" style={{ color: textColor }}>
+                Live Bulletin image
+              </div>
+              {imageUrl ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- admin-only binary route, not an optimizable asset */}
+                  <img
+                    src={imageUrl}
+                    alt={`${symbol} Live Bulletin card attached to this post`}
+                    className="w-full max-w-md rounded-md"
+                    style={{ border: `1px solid ${borderColor}` }}
+                  />
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <a
+                      href={imageUrl}
+                      download={imageFileName}
+                      className={btnBase}
+                      style={{ color: textColor, border: `1px solid ${borderColor}` }}
+                    >
+                      Download image
+                    </a>
+                    <button
+                      type="button"
+                      onClick={copyImage}
+                      className={btnBase}
+                      style={{ color: textColor, border: `1px solid ${borderColor}` }}
+                    >
+                      Copy image
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm" style={{ color: mutedText }}>
+                  No image with this post. Export one from the{' '}
+                  <a href="/live-bulletin" className="hover:underline" style={{ color: textColor }}>
+                    Live Bulletin
+                  </a>{' '}
+                  page for {symbol}.
+                </p>
+              )}
+            </div>
+          )}
 
           {headlines.length > 0 && (
             <div

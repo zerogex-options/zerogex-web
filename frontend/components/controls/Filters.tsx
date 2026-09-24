@@ -28,8 +28,9 @@ import type { ReactNode } from 'react';
  * a SectionHead's `actions` slot without adding a second box to the page.
  */
 
+// A finger gets a 32px-tall chip (pointer-coarse); a mouse keeps the compact one.
 const CHIP_CLASS =
-  'rounded-full border px-3 py-1 text-xs font-semibold transition-colors ' +
+  'rounded-full border px-3 py-1 pointer-coarse:py-2 text-xs font-semibold transition-colors ' +
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
 
 function chipStyle(active: boolean) {
@@ -173,7 +174,8 @@ export function FilterSelect<T extends string>({
         value={value}
         onChange={(event) => onChange(event.target.value as T)}
         aria-label={ariaLabel ?? (typeof label === 'string' ? label : undefined)}
-        className="cursor-pointer border px-2.5 py-1 text-xs font-semibold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+        // 16px on a phone: iOS zooms the whole page into a smaller select on focus.
+        className="cursor-pointer border px-2.5 py-1 pointer-coarse:py-1.5 text-xs max-sm:text-base font-semibold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
         style={{
           borderRadius: 'var(--radius-control)',
           borderColor: 'var(--border-default)',

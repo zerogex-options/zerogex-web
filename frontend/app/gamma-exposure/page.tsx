@@ -39,6 +39,7 @@ import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { selectActive } from '@/core/strikeFilter';
 import { etTodayDateKey } from '@/core/utils';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
@@ -61,15 +62,18 @@ import {
 
 // Wraps the GEX Metrics Snapshot table scroller so its max height tracks the
 // expanded-card state — collapsed view fits ~20 rows, expanded view fills the
-// browser viewport minus the modal chrome above/below the table.
+// browser viewport minus the modal chrome above/below the table. On a phone
+// the collapsed scroller is capped at 60% of the screen: at 800px it filled
+// the whole viewport and caught every vertical swipe meant for the page.
 const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
   function StrikeTableScroll({ children }, ref) {
     const expanded = useExpandedCard();
+    const isMobile = useIsMobile();
     return (
       <div
         ref={ref}
         className="overflow-auto"
-        style={{ maxHeight: expanded ? 'calc(100vh - 260px)' : 800 }}
+        style={{ maxHeight: expanded ? 'calc(100vh - 260px)' : isMobile ? '60vh' : 800 }}
       >
         {children}
       </div>
@@ -80,10 +84,10 @@ const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.Rea
 type SortKey = keyof StrikeAggregate;
 
 const HEADER_SUB =
-  "The whole dealer gamma surface — regime, flip, walls and term structure — off the current book.";
+  "The whole dealer gamma surface\u00a0- regime, flip, walls and term structure\u00a0- off the current book.";
 
 const HEADER_TOOLTIP =
-  "The most complete positioning view on the site, and the one the others are slices of. It reads the live option chain, models which side of each contract dealers are on, and sums the gamma that implies: the regime (long gamma dampens moves, short gamma amplifies them), the flip level where the sign changes, the strikes carrying the heaviest hedging, and how all of it is spread across expirations. Modeled from open interest, not observed — a wall is where hedging flow would be largest if price got there, not a level anyone is obliged to defend. Decision-support context, not investment advice.";
+  "The most complete positioning view on the site, and the one the others are slices of. It reads the live option chain, models which side of each contract dealers are on, and sums the gamma that implies: the regime (long gamma dampens moves, short gamma amplifies them), the flip level where the sign changes, the strikes carrying the heaviest hedging, and how all of it is spread across expirations. Modeled from open interest, not observed\u00a0- a wall is where hedging flow would be largest if price got there, not a level anyone is obliged to defend. Decision-support context, not investment advice.";
 
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
@@ -541,7 +545,7 @@ export default function GammaExposurePage() {
             title="Net GEX"
             value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
             trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
-            tooltip="Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
+            tooltip="Cumulative dealer gamma at the current spot price&nbsp;- the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
             contextBadge={
               <HistoricalContextBadge
                 metric={historicalContext?.metrics?.net_gex_at_spot}
@@ -664,8 +668,18 @@ export default function GammaExposurePage() {
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
             ) : (
               <>
-                <FilterBar className="mb-5">
+                {/* On a phone the groups may shrink below their content
+                    (min-width 0): the chip row's full, unwrappable width
+                    would otherwise stretch the Expirations group past the
+                    card instead of the row scrolling inside it. */}
+                <FilterBar className="mb-5 max-sm:[&>*]:min-w-0">
                   <FilterGroup label="Expirations">
+                    {/* ~30 expirations wrapped into a ten-row wall of chips on a
+                        phone; there they ride one sideways-scrolling row (fading
+                        out at the right edge), each chip held at its natural
+                        width. From sm up the wrapper is display:contents, so the
+                        chips wrap in the group exactly as before. */}
+                    <div className="flex w-full min-w-0 items-center gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] max-sm:[&>*]:shrink-0 max-sm:[&>*]:whitespace-nowrap sm:contents">
                     {(() => {
                       const allSelected =
                         selectedExpirations === null ||
@@ -723,6 +737,7 @@ export default function GammaExposurePage() {
                         {exp}
                       </FilterChip>
                     ))}
+                    </div>
                   </FilterGroup>
                   <div className="ml-auto">
                     <FilterGroup label="Strikes">
@@ -739,10 +754,14 @@ export default function GammaExposurePage() {
                 </div>
 
                 <StrikeTableScroll ref={tableScrollRef}>
-                  <table className="w-full text-sm">
+                  {/* On a phone the nine columns scroll sideways inside the card;
+                      the Strike column stays pinned (sticky, on an opaque cell)
+                      so every row keeps its label. Nothing scrolls sideways on
+                      a desktop, where the pinned cell looks as it always did. */}
+                  <table className="w-full text-[13px] sm:text-sm">
                     <thead className="sticky top-0 z-10" style={{ backgroundColor: cardBg }}>
                       <tr className="border-b" style={{ borderColor: borderColor, color: mutedText }}>
-                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('strike')}>Strike</th>
+                        <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap sticky left-0 z-20" style={{ backgroundColor: cardBg }} onClick={() => toggleSort('strike')}>Strike</th>
                         <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('distanceFromSpot')}>Dist.</th>
                         <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('netGexM')}>Net GEX</th>
                         <th className="zg-label text-right py-1.5 px-2 cursor-pointer whitespace-nowrap" onClick={() => toggleSort('vannaM')}>Vanna</th>
@@ -791,10 +810,21 @@ export default function GammaExposurePage() {
                               style={{
                                 borderColor: borderColor,
                                 backgroundColor: band,
-                                boxShadow: edge ? `inset 3px 0 0 0 ${edge}` : undefined,
                               }}
                             >
-                              <td className="zg-datum py-1.5 px-2" style={{ color: 'var(--text-primary)' }}>${row.strike.toFixed(2)}</td>
+                              {/* The row's edge mark rides the pinned cell, which
+                                  paints over the row's own left edge. */}
+                              <td
+                                className="zg-datum py-1.5 px-2 sticky left-0 z-[1]"
+                                style={{
+                                  color: 'var(--text-primary)',
+                                  backgroundColor: cardBg,
+                                  backgroundImage: band ? `linear-gradient(${band}, ${band})` : undefined,
+                                  boxShadow: edge ? `inset 3px 0 0 0 ${edge}` : undefined,
+                                }}
+                              >
+                                ${row.strike.toFixed(2)}
+                              </td>
                               <td className="zg-datum py-1.5 px-2">{row.distanceFromSpot.toFixed(2)}</td>
                               <td className={`zg-datum py-1.5 px-2 font-semibold ${row.netGexM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.netGexM.toFixed(2)}M</td>
                               <td className={`zg-datum py-1.5 px-2 font-semibold ${row.vannaM >= 0 ? 'text-[var(--color-bull)]' : 'text-[var(--color-bear)]'}`}>${row.vannaM.toFixed(2)}M</td>

@@ -2,13 +2,13 @@
 > **Nota metodologica.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
 
 
-*La lettura pratica del gamma flip — cos'è davvero questo livello, cosa cambia sopra e sotto di esso, e come agire intraday. Il gamma flip spiegato senza fronzoli.*
+*La lettura pratica del gamma flip - cos'è davvero questo livello, cosa cambia sopra e sotto di esso, e come agire intraday. Il gamma flip spiegato senza fronzoli.*
 
 ---
 
 ## Perché il gamma flip è importante
 
-La maggior parte dei trader legge il price action rispetto a supporti e resistenze. Il gamma flip è qualcosa di diverso: è un **confine di regime**, non un target. Quando lo spot è sopra il flip, le dinamiche di hedging dei dealer tendono a *smorzare* la volatilità. Quando lo spot è sotto, quelle stesse dinamiche tendono ad *amplificarla*. I setup che funzionano in un regime sono di solito quelli sbagliati nell'altro — e riconoscere in quale regime ci si trova è gran parte del vantaggio.
+La maggior parte dei trader legge il price action rispetto a supporti e resistenze. Il gamma flip è qualcosa di diverso: è un **confine di regime**, non un target. Quando lo spot è sopra il flip, le dinamiche di hedging dei dealer tendono a *smorzare* la volatilità. Quando lo spot è sotto, quelle stesse dinamiche tendono ad *amplificarla*. I setup che funzionano in un regime sono di solito quelli sbagliati nell'altro - e riconoscere in quale regime ci si trova è gran parte del vantaggio.
 
 Questo articolo offre la lettura orientata al trader. Copriremo cos'è realmente il livello del flip, cosa cambia quando lo spot lo attraversa, e come usarlo all'interno di una sessione. Se vuoi approfondire la struttura di mercato sottostante, parti dal [pilastro sulla Gamma Exposure](/education/gamma-exposure-explained); per la metodologia di calcolo, vedi la [guida al calcolo del Gamma Flip](/guides/gamma-flip-calculation-before-vs-after).
 
@@ -16,7 +16,7 @@ Questo articolo offre la lettura orientata al trader. Copriremo cos'è realmente
 
 ## Cos'è un gamma flip?
 
-Il gamma flip è il livello di prezzo in cui l'esposizione gamma aggregata dei dealer attraversa lo zero. Sopra il flip, i dealer sono tipicamente net long gamma; sotto, sono tipicamente net short. Non è uno strike fisso. È il prezzo in cui il profilo di gamma dei dealer cambia segno — e mentre la catena si riponera nel corso della giornata, quel prezzo si muove.
+Il gamma flip è il livello di prezzo in cui l'esposizione gamma aggregata dei dealer attraversa lo zero. Sopra il flip, i dealer sono tipicamente net long gamma; sotto, sono tipicamente net short. Non è uno strike fisso. È il prezzo in cui il profilo di gamma dei dealer cambia segno - e mentre la catena si riponera nel corso della giornata, quel prezzo si muove.
 
 Alcune cose da chiarire esplicitamente:
 
@@ -24,7 +24,7 @@ Alcune cose da chiarire esplicitamente:
 - È un **indicatore di regime, non direzionale.** Lo spot sopra il flip non è rialzista. Lo spot sotto non è ribassista. Il regime ti dice qualcosa sul *carattere della volatilità* realizzata, non sulla direzione.
 - È **dinamico.** Man mano che l'open interest ruota, le scadenze decadono e nuovo flusso arriva sul book, il flip si sposta. Un flip obsoleto è un flip fuorviante.
 
-Trattalo come un meteorologo tratta un fronte atmosferico — sapere da che lato ti trovi ti dice che tipo di tempo aspettarti, non dove andrà la tempesta.
+Trattalo come un meteorologo tratta un fronte atmosferico - sapere da che lato ti trovi ti dice che tipo di tempo aspettarti, non dove andrà la tempesta.
 
 ---
 
@@ -54,7 +54,7 @@ Conseguenze pratiche:
 - **Il trend-continuation ha un hit rate più alto.** Il momentum tende ad estendersi piuttosto che svanire.
 - **Il mean-reversion diventa pericoloso.** Prendere un coltello che cade in un regime di gamma negativa profonda tende ad amplificare le perdite, perché il riflesso del dealer su cui contavi (comprare la debolezza) è proprio quello che si è appena invertito.
 
-Anche questa è un'inclinazione probabilistica, non una previsione. Un singolo headline tranquillo può calmare il tape all'interno dello stesso regime. Ma sapere di trovarsi in territorio short-gamma dovrebbe cambiare quali trade prendi e — soprattutto — quali trade eviti.
+Anche questa è un'inclinazione probabilistica, non una previsione. Un singolo headline tranquillo può calmare il tape all'interno dello stesso regime. Ma sapere di trovarsi in territorio short-gamma dovrebbe cambiare quali trade prendi e - soprattutto - quali trade eviti.
 
 ---
 
@@ -63,7 +63,7 @@ Anche questa è un'inclinazione probabilistica, non una previsione. Un singolo h
 Leggere il gamma flip in tempo reale è un breve set di abitudini:
 
 1. **Controlla prima il regime.** Prima di qualsiasi setup, sappi se lo spot è sopra o sotto il flip. Questa singola lettura filtra una quota significativa di trade sbagliati.
-2. **Osserva la distanza dal flip.** Uno spot chiaramente distante dal flip con un margine sano è una lettura di regime stabile. Uno spot incastrato entro pochi decimi di punto percentuale è un regime conteso — entrambi i lati del book sono parzialmente attivi, e il comportamento è instabile. Riduci la size o resta a guardare.
+2. **Osserva la distanza dal flip.** Uno spot chiaramente distante dal flip con un margine sano è una lettura di regime stabile. Uno spot incastrato entro pochi decimi di punto percentuale è un regime conteso - entrambi i lati del book sono parzialmente attivi, e il comportamento è instabile. Riduci la size o resta a guardare.
 3. **Osserva la migrazione.** I livelli di flip si spostano man mano che il positioning si riequilibra. Un flip che deriva verso l'alto insieme al prezzo ha un significato diverso da uno ancorato mentre il prezzo si muove verso di esso.
 4. **Abbina il flip ai wall.** Il flip ti dice il regime; il [call wall e put wall](/education/gamma-walls-explained) ti dicono i confini strutturali al suo interno. Leggili insieme.
 5. **Rispetta la concentrazione 0DTE.** Quando le scadenze dello stesso giorno dominano la catena, il flip diventa particolarmente reattivo. Vedi [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained) per le letture specifiche del regime.
@@ -77,7 +77,7 @@ La disciplina consiste nell'usare il flip come **filtro**, non come segnale. Ti 
 La dashboard ZeroGEX mostra il flip in due punti:
 
 - La **metric card Gamma Flip** mostra il livello attuale del flip insieme alla distanza live in dollari e in percentuale dallo spot.
-- Il **grafico del profilo gamma dei dealer** traccia la curva attraverso gli strike, con l'incrocio dello zero — il flip — visibile direttamente.
+- Il **grafico del profilo gamma dei dealer** traccia la curva attraverso gli strike, con l'incrocio dello zero - il flip - visibile direttamente.
 
 ![ZeroGEX dashboard Gamma Flip card showing SPX spot above the flip with live distance](/blog/zerogex-gamma-flip-card.png)
 
@@ -87,11 +87,11 @@ Un esempio pratico. Supponiamo che SPX sia scambiato a 5.830 e la dashboard most
 - **Gamma Flip:** 5.815
 - **Distanza:** +15 / +0,26%
 
-La lettura: lo spot è in territorio long-gamma, comodamente sopra il flip. Il valore Net GEX in evidenza è coerente con il regime — positivo, perché è il valore della stessa curva di gamma dei dealer valutata allo spot, e quella curva diventa positiva solo una volta superato il flip. (Questa coerenza di segno è strutturale al modo in cui ZeroGEX calcola il profilo.) Inclinazione pratica: volatilità smorzata, breakout con più probabilità di essere faded, pin behavior verso gli strike a forte gamma sul tavolo verso la chiusura.
+La lettura: lo spot è in territorio long-gamma, comodamente sopra il flip. Il valore Net GEX in evidenza è coerente con il regime - positivo, perché è il valore della stessa curva di gamma dei dealer valutata allo spot, e quella curva diventa positiva solo una volta superato il flip. (Questa coerenza di segno è strutturale al modo in cui ZeroGEX calcola il profilo.) Inclinazione pratica: volatilità smorzata, breakout con più probabilità di essere faded, pin behavior verso gli strike a forte gamma sul tavolo verso la chiusura.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 
-Ora immagina la stessa dashboard 30 minuti dopo: SPX 5.810, gamma flip 5.818. Lo spot è sceso sotto, e il flip è effettivamente derivato verso l'alto verso dove si trovava lo spot. Questo è il punto di inflessione strutturale in cui il carattere intraday cambia — e un trader che stava fadando i rally sopra il flip dovrebbe essere molto più cauto nel fadare il prossimo selloff all'interno del nuovo regime.
+Ora immagina la stessa dashboard 30 minuti dopo: SPX 5.810, gamma flip 5.818. Lo spot è sceso sotto, e il flip è effettivamente derivato verso l'alto verso dove si trovava lo spot. Questo è il punto di inflessione strutturale in cui il carattere intraday cambia - e un trader che stava fadando i rally sopra il flip dovrebbe essere molto più cauto nel fadare il prossimo selloff all'interno del nuovo regime.
 
 ---
 
@@ -111,9 +111,9 @@ Alcuni pattern che traggono in inganno i trader:
 
 > Sopra il flip è generalmente un regime long-gamma, che smorza la volatilità. Sotto è generalmente un regime short-gamma, che la amplifica. Lo spot sul flip è conteso, non neutrale.
 
-Usato come filtro — non come segnale — il gamma flip è la cosa più vicina a un'unica lettura solida e duratura che l'analisi del positioning dei dealer possa offrire. Non ti dirà in che direzione andrà il mercato. Ti dirà quali trade hanno il riflesso del dealer a favore e quali lo stanno contrastando.
+Usato come filtro - non come segnale - il gamma flip è la cosa più vicina a un'unica lettura solida e duratura che l'analisi del positioning dei dealer possa offrire. Non ti dirà in che direzione andrà il mercato. Ti dirà quali trade hanno il riflesso del dealer a favore e quali lo stanno contrastando.
 
-Solo a scopo educativo — nulla di quanto sopra è una raccomandazione di trading.
+Solo a scopo educativo - nulla di quanto sopra è una raccomandazione di trading.
 
 ---
 

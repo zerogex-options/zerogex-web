@@ -166,7 +166,12 @@ export default function StrikeRangeScrollbar({
           cursor: fullyZoomedOut ? 'default' : 'grab',
           touchAction: 'none',
         }}
-      />
+      >
+        {/* A 10px-tall thumb is a hard target for a fingertip. This invisible
+            span widens the grab area well past the bar (events bubble to the
+            thumb's handlers) without changing how the scrollbar looks. */}
+        <span aria-hidden style={{ position: 'absolute', top: -12, bottom: -12, left: -8, right: -8 }} />
+      </div>
     </div>
   );
 }

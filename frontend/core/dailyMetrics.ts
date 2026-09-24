@@ -20,6 +20,8 @@ import {
 import type { ExternalMetricRow } from './dailyMetricsCsv.ts';
 import { excludedAccountIds } from './excludedAccountsServer.ts';
 import { isSearchConsoleConfigured } from './searchConsole.ts';
+import { CANCEL_DECISION_AUDIT_TYPES, cancelDecisionRows } from './cancelDecisions.ts';
+import { readSubscriberLedgerRows } from './subscriberLedgerSource.ts';
 
 // One row per ET calendar day, joining what the product does (trial starts,
 // cancels, payment failures, registrations, traffic) to what brought people to
@@ -40,17 +42,26 @@ import { isSearchConsoleConfigured } from './searchConsole.ts';
 //                    twice (cancel, then re-subscribe) counts twice, and a
 //                    webhook redelivery counts once.
 //   paid_starts      The same first-paid-tier-sync moment when the status is
-//                    anything BUT trialing: a checkout that skipped the trial
-//                    (the hasPriorPaid path). Together with trial_starts this
+//                    anything BUT trialing: a checkout with no trial, which is
+//                    every plan paid up front plus a returning member's
+//                    resubscribe. Together with trial_starts this
 //                    is the "signups" line core/monitoring.ts's growth rates
 //                    already count, split by whether money moved on day one.
 //   cancels          `stripe_cancellation_requested` / `cancellation_ack_
 //                    email_sent`, deduped per member per day — the day the
 //                    member CLICKED cancel, not the later access drop. That is
 //                    the decision moment, which is what a day-of-week effect
-//                    would live in.
-//   payment_failures `stripe_payment_failed (attempt 1)`, deduped per invoice —
-//                    the first decline of an invoice, not each Smart Retry.
+//                    would live in. A money-back refund counts on the day it
+//                    was issued, unless that subscription had a click first
+//                    (core/cancelDecisions.ts).
+//   payment_failures The Subscriber Ledger's rows flagged as payment failures
+//                    (LedgerRow.paymentFailure in core/subscriberBucket.ts): a
+//                    declined charge hitting a subscriber, once per episode, on
+//                    the day it hit. The same rows the growth-rate card counts.
+//                    A decline that moved no subscriber (a refused switch to
+//                    paid, a card refused at checkout, a second try at a bill
+//                    that already failed) is not one; Stripe → Payment Declines
+//                    counts every attempt.
 //   registrations    New rows in `users`, by created_at. One row per account,
 //                    so it cannot double-count the way an audit stream can.
 //   pageviews /      From page_view_events. NULL before the beacon shipped.
@@ -322,40 +333,45 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
     else bucket.paidStarts += 1;
   }
 
-  // ── Cancels + payment failures ────────────────────────────────────────────
-  // Both streams are deduped the way core/monitoring.ts's growth rates dedupe
-  // them: a cancel click emits both a request row and an ack-email row, and one
-  // declined invoice emits a row per Smart Retry.
-  const churnRows = db
+  // ── Cancels ───────────────────────────────────────────────────────────────
+  // A Cancel click, or a money-back refund on a subscription with no click
+  // before it (core/cancelDecisions.ts), deduped per member per day the way
+  // core/monitoring.ts's growth rates dedupe them: one click emits both a
+  // request row and an ack-email row. Read over all retained history, oldest
+  // first, because whether a refund counts depends on the clicks before it.
+  const cancelRows = db
     .prepare(
       `SELECT type, user_id, created_at, message FROM audit_events
-        WHERE type IN ('stripe_cancellation_requested', 'cancellation_ack_email_sent', 'stripe_payment_failed')
-          AND created_at > datetime('now', '-${windowDays} days')`,
+        WHERE type IN (${CANCEL_DECISION_AUDIT_TYPES.map((type) => `'${type}'`).join(', ')})
+          AND created_at > datetime('now', '-${REBUILD_WINDOW_DAYS} days')
+        ORDER BY created_at ASC`,
     )
     .all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
 
   const cancelKeys = new Set<string>();
-  const failureKeys = new Set<string>();
-  for (const row of churnRows) {
+  for (const row of cancelDecisionRows(cancelRows)) {
     if (row.user_id != null && heldOut.has(row.user_id)) continue;
     const day = etDayOf(row.created_at);
     if (!day || !acc.has(day)) continue;
-    if (row.type === 'stripe_payment_failed') {
-      if (!/\(attempt 1\)/.test(row.message)) continue;
-      const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
-      failureKeys.add(`${day}:${invoice}`);
-    } else {
-      cancelKeys.add(`${day}:${row.user_id ?? parseSubId(row.message) ?? row.message}`);
-    }
+    cancelKeys.add(`${day}:${row.user_id ?? parseSubId(row.message) ?? row.message}`);
   }
   for (const key of cancelKeys) {
     const day = key.slice(0, 10);
     const bucket = acc.get(day);
     if (bucket) bucket.cancels += 1;
   }
-  for (const key of failureKeys) {
-    const day = key.slice(0, 10);
-    const bucket = acc.get(day);
+
+  // ── Payment failures ──────────────────────────────────────────────────────
+  // The Subscriber Ledger's rows flagged as payment failures: the same rows the
+  // growth-rate card counts, so a day here and that card agree. Like the
+  // subscription starts above, the scan covers all retained history whatever
+  // the write window, because whether a decline is a NEW failure depends on
+  // the subscription's state before it.
+  for (const row of readSubscriberLedgerRows(REBUILD_WINDOW_DAYS, now.getTime())) {
+    if (!row.paymentFailure) continue;
+    if (row.userId != null && heldOut.has(row.userId)) continue;
+    const day = etDayOf(row.at);
+    const bucket = day ? acc.get(day) : undefined;
     if (bucket) bucket.paymentFailures += 1;
   }
 

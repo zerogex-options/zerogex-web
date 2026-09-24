@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail, Youtube } from 'lucide-react';
+import { ArrowRight, Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { brandLogo } from '@/core/brand';
 import { INTEGRATIONS_HUB } from '@/core/integrations';
@@ -65,7 +65,12 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'footer.platform',
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
-      { href: '/chart', label: 'Gamma Chart' },
+      { href: '/chart', label: 'Gamma Terminal' },
+      // Site-wide, for the same reason the widget below is: a public page
+      // with no inbound link does not exist. This one is also the page every
+      // accuracy claim elsewhere on the site should be checkable against,
+      // which only works if it is reachable from everywhere.
+      { href: '/track-record', label: 'Forecast Track Record' },
       // The free widget's storefront. Site-wide rather than buried on the
       // levels pages: it is the only page on the site whose whole job is to be
       // found by someone who publishes elsewhere, and /scorecard already
@@ -211,7 +216,7 @@ export default function Footer({ theme }: FooterProps) {
         borderColor: 'var(--border-default)',
       }}
     >
-      <div className="container mx-auto px-6 py-14">
+      <div className="container mx-auto px-5 py-10 sm:px-6 sm:py-14">
         <div className="zg-footer-cols">
           {/* Brand block. The logo used to render at 240px in the middle of the
               row, which put more visual weight on the mark than on anything a
@@ -227,6 +232,20 @@ export default function Footer({ theme }: FooterProps) {
             <p className="zg-small" style={{ margin: 0, maxWidth: 300 }}>
               {t('footer.tagline')}
             </p>
+            {/* Who builds it, on every page. Points at the founder note on
+                /about, which also says how AI fits into the development work. */}
+            <Link
+              href="/about#founder"
+              className="zg-footer-link"
+              style={{ fontWeight: 600, maxWidth: 300 }}
+            >
+              {t('footer.founderBuilt')}
+              <ArrowRight
+                size={13}
+                aria-hidden="true"
+                style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 6 }}
+              />
+            </Link>
             <SocialLinks />
             <Link
               href="/giving"

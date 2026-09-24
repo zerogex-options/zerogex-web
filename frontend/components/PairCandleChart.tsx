@@ -14,7 +14,7 @@
  * component renders just the instrument.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { useMarketQuote } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
@@ -24,8 +24,18 @@ import ErrorMessage from "./ErrorMessage";
 import { omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { wheelAction } from "@/core/wheelZoom";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import MobileScrollableChart from "./MobileScrollableChart";
+import { useMeasuredSize } from "./useMeasuredWidth";
+
+// A card narrower than this gets the compact board: drawn at its own width
+// (one viewBox unit per CSS pixel), with tighter gutters and no rotated axis
+// title. The 1100-wide desktop board scaled into a phone left every label
+// about 3px tall; beside the ladders on a 1280px window the card is ~485px.
+const COMPACT_MAX_WIDTH = 640;
+// The desktop board. A narrower card redraws it at the card's width, so its
+// labels keep their set size (scaled into a 645px card they were ~6px), with a
+// height floor that keeps the price range usable.
+const DESKTOP_W = 1100;
+const DESKTOP_MIN_H = 360;
 
 export interface CandleReplay {
   /** When true the chart renders the replay session up to `cursorTs` instead of live. */
@@ -39,12 +49,21 @@ export interface CandleReplay {
   levels: { spot: number | null; flip: number | null; call: number | null; put: number | null; pain: number | null };
 }
 
+// The same five levels, codes and tokens as PairGammaHeatmap's LEVEL_META: the
+// two charts sit side by side on the pair view, so SP/GF/CW/PW/MP has to mean
+// the same colour in both.
+//
+// The flip used to be drawn from --color-warning and max pain from
+// --color-accent-hot, which predate the dedicated --color-flip and
+// --color-maxpain level tokens. In the palettes whose hot accent IS their old
+// gold — california, london, zurich — that put GF and MP on the very same hex,
+// so the two lines were indistinguishable in both modes.
 const LEVEL_LINES: Array<{ key: "spot" | "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
-  { key: "spot", code: "SP", color: "var(--color-navy)" },
-  { key: "flip", code: "GF", color: "var(--color-warning)" },
+  { key: "spot", code: "SP", color: "var(--color-accent-hot)" },
+  { key: "flip", code: "GF", color: "var(--color-flip)" },
   { key: "call", code: "CW", color: "var(--color-bear)" },
   { key: "put", code: "PW", color: "var(--color-bull)" },
-  { key: "pain", code: "MP", color: "var(--color-accent-hot)" },
+  { key: "pain", code: "MP", color: "var(--color-maxpain)" },
 ];
 
 interface CandleBar {
@@ -242,10 +261,19 @@ interface PairCandleChartProps {
   embedded?: boolean;
   /** When provided + active, the chart scrubs the replay session in lockstep. */
   replay?: CandleReplay;
+  /**
+   * Stretch to the height the parent gives it and draw the board at that
+   * height, instead of taking the height from the width. The pair view's
+   * side-by-side layout, where the two charts share the ladders' height.
+   */
+  fillHeight?: boolean;
 }
 
-export default function PairCandleChart({ symbol, timeframe, label, embedded = false, replay }: PairCandleChartProps) {
-  const isMobile = useIsMobile();
+export default function PairCandleChart({ symbol, timeframe, label, embedded = false, replay, fillHeight = false }: PairCandleChartProps) {
+  const [measureRef, box] = useMeasuredSize<HTMLDivElement>();
+  const boxW = box?.w ?? null;
+  const fillH = fillHeight && box != null && box.h > 0 ? Math.floor(box.h) : null;
+  const compact = boxW != null && boxW > 0 && boxW < COMPACT_MAX_WIDTH;
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const replayActive = replay?.active ?? false;
@@ -344,9 +372,23 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   }, [bars]);
 
   // ── Layout (price only; the volume panel was removed) ──
-  const width = 1100;
-  const height = timeframe === "1day" ? 480 : 440;
-  const padLeft = 60;
+  // Desktop board (at the card's width when that is narrower), or on a narrow
+  // card the compact one: a little taller relative to its width, with no
+  // rotated axis title and tighter gutters.
+  const boardH = timeframe === "1day" ? 480 : 440;
+  const width = compact
+    ? Math.floor(boxW)
+    : boxW != null && boxW > 0 && boxW < DESKTOP_W
+      ? Math.floor(boxW)
+      : DESKTOP_W;
+  const height =
+    fillH ??
+    (compact
+      ? Math.round(Math.min(360, Math.max(260, boxW * 0.8)))
+      : width < DESKTOP_W
+        ? Math.max(DESKTOP_MIN_H, Math.round((boardH * width) / DESKTOP_W))
+        : boardH);
+  const padLeft = compact ? 40 : 60;
   // Show dealer-gamma levels on the candles in BOTH live and replay; reserve a
   // right gutter for their value tags so the labels sit beside the candles, not
   // over them. If no level is available the gutter collapses.
@@ -356,9 +398,9 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       const v = replay.levels[l.key];
       return v != null && Number.isFinite(v);
     });
-  const padRight = hasLevels ? 64 : 16;
-  const padTop = 18;
-  const priceAreaBottom = height - 42;
+  const padRight = hasLevels ? (compact ? 58 : 64) : compact ? 8 : 16;
+  const padTop = compact ? 10 : 18;
+  const priceAreaBottom = height - (compact ? 24 : 42);
   const plotW = width - padLeft - padRight;
   const plotH = priceAreaBottom - padTop;
   const MIN_BARS = 6;
@@ -375,7 +417,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   // Inset the candle plotting area by a half-candle margin on each side so the
   // first and last candle bodies render fully instead of being clipped in half
   // at the plot edges. Grid/level lines still span the full [padLeft, width-padRight].
-  const edgeInset = 7;
+  const edgeInset = compact ? 4 : 7;
   const plotX0 = padLeft + edgeInset;
   const innerW = Math.max(1, plotW - 2 * edgeInset);
   const xStep = innerW / Math.max(1, vLen - 1);
@@ -504,6 +546,41 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     dragRef.current = null;
     setHoveredIdx(null);
   };
+  // Touch: the finger moves the crosshair (and the OHLC readout above the
+  // chart), and the readout stays where it was lifted. touch-action: pan-y
+  // keeps vertical swipes scrolling the page; a horizontal drag or a tap reads
+  // the candle under the finger. The mouse keeps its drag-to-pan.
+  const touchRef = useRef<{ id: number; x0: number; y0: number; tracking: boolean } | null>(null);
+  const crosshairAt = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xView = ((e.clientX - rect.left) / Math.max(1, rect.width)) * width;
+    const iVis = Math.round((xView - plotX0) / Math.max(1e-9, xStep));
+    setHoveredIdx(startIdx + clamp(iVis, 0, Math.max(0, vLen - 1)));
+  };
+  const handleTouchDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === "mouse") return;
+    touchRef.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, tracking: false };
+  };
+  const handleTouchMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (!t || t.id !== e.pointerId) return;
+    if (!t.tracking) {
+      const dx = Math.abs(e.clientX - t.x0);
+      const dy = Math.abs(e.clientY - t.y0);
+      if (dx < 8 || dx < dy) return;
+      t.tracking = true;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    }
+    crosshairAt(e);
+  };
+  const handleTouchEnd = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const t = touchRef.current;
+    if (!t || t.id !== e.pointerId) return;
+    touchRef.current = null;
+    const tapped =
+      e.type === "pointerup" && !t.tracking && Math.abs(e.clientX - t.x0) < 8 && Math.abs(e.clientY - t.y0) < 8;
+    if (tapped) crosshairAt(e);
+  };
   const resetView = () => setView({ xZoom: 1, xPan: 0, yZoom: 1, yPan: 0 });
   const zoomTime = (dir: 1 | -1) =>
     setView((prev) => {
@@ -552,7 +629,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       : { text: "CLOSED", color: "var(--text-muted)", bg: "var(--color-surface-subtle)" };
 
   return (
-    <div className={`${cardClass} p-4`} style={cardStyle}>
+    <div className={`${cardClass} p-4${fillHeight ? " flex flex-1 flex-col" : ""}`} style={cardStyle}>
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="flex items-baseline gap-2">
           <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{heading}</h3>
@@ -568,10 +645,10 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-sm:w-full max-sm:justify-between">
           {hovered && (
             <div
-              className="text-[11px] rounded px-2 py-1 font-mono pointer-events-none whitespace-nowrap"
+              className="text-[11px] rounded px-2 py-1 font-mono pointer-events-none whitespace-nowrap max-sm:text-[10px] max-sm:px-1.5"
               style={{
                 backgroundColor: "var(--color-chart-tooltip-bg)",
                 border: "1px solid var(--color-border)",
@@ -582,32 +659,43 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
             </div>
           )}
           <div className="inline-flex overflow-hidden rounded-md" style={{ border: "1px solid var(--border-default)" }} role="group" aria-label="Zoom controls">
-            <button type="button" onClick={() => zoomTime(-1)} title="Zoom out (time)" aria-label="Zoom out" className="px-2 py-1 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)" }}>
+            <button type="button" onClick={() => zoomTime(-1)} title="Zoom out (time)" aria-label="Zoom out" className="px-2 py-1 pointer-coarse:px-2.5 pointer-coarse:py-1.5 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)" }}>
               <ZoomOut size={13} />
             </button>
-            <button type="button" onClick={() => zoomTime(1)} title="Zoom in (time)" aria-label="Zoom in" className="px-2 py-1 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
+            <button type="button" onClick={() => zoomTime(1)} title="Zoom in (time)" aria-label="Zoom in" className="px-2 py-1 pointer-coarse:px-2.5 pointer-coarse:py-1.5 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
               <ZoomIn size={13} />
             </button>
-            <button type="button" onClick={resetView} disabled={!isZoomed} title="Reset zoom" aria-label="Reset zoom" className="px-2 py-1 transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
+            <button type="button" onClick={resetView} disabled={!isZoomed} title="Reset zoom" aria-label="Reset zoom" className="px-2 py-1 pointer-coarse:px-2.5 pointer-coarse:py-1.5 transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
               <RotateCcw size={13} />
             </button>
           </div>
         </div>
       </div>
-      <MobileScrollableChart>
-        <div className="relative w-full">
+      {/* Filling a height, the board is drawn at the box's measured size and
+          positioned over it, so it never feeds back into that size. */}
+      <div ref={measureRef} className={fillHeight ? "relative min-h-[300px] w-full flex-1" : "relative w-full"}>
           <svg
             ref={attachSvg}
             width="100%"
             height="100%"
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="xMinYMin meet"
-            style={{ aspectRatio: `${width} / ${height}`, cursor: "crosshair" }}
-            className="block w-full select-none"
+            style={{
+              ...(fillHeight ? {} : { aspectRatio: `${width} / ${height}` }),
+              cursor: "crosshair",
+              touchAction: "pan-y",
+              WebkitTouchCallout: "none",
+            }}
+            className={`zg-pc-canvas block w-full select-none${fillHeight ? " absolute inset-0 h-full" : ""}`}
+            data-measured={boxW != null ? "true" : undefined}
             onMouseDown={beginDrag}
             onMouseMove={handleMove}
             onMouseUp={endDrag}
             onMouseLeave={handleLeave}
+            onPointerDown={handleTouchDown}
+            onPointerMove={handleTouchMove}
+            onPointerUp={handleTouchEnd}
+            onPointerCancel={handleTouchEnd}
           >
             <defs>
               <clipPath id={clipId}>
@@ -615,9 +703,11 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
               </clipPath>
             </defs>
 
-            <text x="13" y={(padTop + priceAreaBottom) / 2} transform={`rotate(-90, 13, ${(padTop + priceAreaBottom) / 2})`} fontSize="11" fill="var(--text-secondary)">
-              Price
-            </text>
+            {!compact && (
+              <text x="13" y={(padTop + priceAreaBottom) / 2} transform={`rotate(-90, 13, ${(padTop + priceAreaBottom) / 2})`} fontSize="11" fill="var(--text-secondary)">
+                Price
+              </text>
+            )}
 
             {priceAxis.ticks.map((price) => {
               const y = yPrice(price);
@@ -625,7 +715,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
               return (
                 <g key={`p-${price}`}>
                   <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke="var(--text-secondary)" opacity={0.18} />
-                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--text-secondary)">
+                  <text x={padLeft - (compact ? 5 : 8)} y={y + 4} textAnchor="end" fontSize="10" fill="var(--text-secondary)">
                     {priceLabel(price, priceAxis.step)}
                   </text>
                 </g>
@@ -683,7 +773,16 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
             {/* Dealer-gamma levels (spot / flip / walls / max pain) on the
                 candles, live and replay — the line spans the candle area; the
                 value tag lives in the right margin (outside the clip) so labels
-                never overlap the candles. */}
+                never overlap the candles.
+
+                The tag's text is --text-primary, not the level colour. A 9px
+                glyph in the level's own colour on a faint wash of that same
+                colour cleared 4.5:1 in only 43 of the 120 palette/level
+                combinations, down to 1.94:1 — the price was the part you could
+                not read. The colour still identifies the level, through the
+                tint, the border and the dashed line the tag sits on, which is
+                the same division PairGammaHeatmap's LevelChip already makes
+                when it pairs a coloured rail tag with a --text-primary value. */}
             {LEVEL_LINES.map(({ key, code, color }) => {
                 const v = replay?.levels?.[key];
                 if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
@@ -693,8 +792,8 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                 return (
                   <g key={`lvl-${key}`}>
                     <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
-                    <rect x={tagX} y={y - 7} width={tagW} height={14} rx={2} fill={`color-mix(in srgb, ${color} 16%, var(--bg-card))`} stroke={color} strokeWidth={0.75} />
-                    <text x={tagX + tagW / 2} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight={700} fontFamily="var(--font-mono)" fill={color}>
+                    <rect x={tagX} y={y - 7} width={tagW} height={14} rx={2} fill={`color-mix(in srgb, ${color} 16%, var(--bg-card))`} stroke={color} strokeWidth={1} />
+                    <text x={tagX + tagW / 2} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight={700} fontFamily="var(--font-mono)" fill="var(--text-primary)">
                       {code} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
                     </text>
                   </g>
@@ -711,7 +810,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                 els.push(<line key={`dsep-${marker.key}`} x1={x} x2={x} y1={padTop} y2={priceAreaBottom} stroke="var(--text-secondary)" opacity={0.2} />);
               }
               let lastLabeledX = Number.NEGATIVE_INFINITY;
-              const minGap = isMobile ? 64 : 46;
+              const minGap = compact ? 58 : 46;
               visibleBars.forEach((b, i) => {
                 const x = xForVis(i);
                 if (x - lastLabeledX < minGap) return;
@@ -722,7 +821,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                     ? dt.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })
                     : dt.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
                 els.push(
-                  <text key={`xl-${b.timestamp}`} x={x} y={priceAreaBottom + 16} fontSize={isMobile ? "8" : "10"} textAnchor="middle" fill="var(--text-secondary)">
+                  <text key={`xl-${b.timestamp}`} x={x} y={priceAreaBottom + (compact ? 15 : 16)} fontSize="10" textAnchor="middle" fill="var(--text-secondary)">
                     {lbl}
                   </text>,
                 );
@@ -732,8 +831,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
 
             <line x1={padLeft} x2={width - padRight} y1={priceAreaBottom} y2={priceAreaBottom} stroke="var(--text-secondary)" opacity={0.4} />
           </svg>
-        </div>
-      </MobileScrollableChart>
+      </div>
     </div>
   );
 }

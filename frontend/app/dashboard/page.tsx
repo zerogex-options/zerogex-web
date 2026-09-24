@@ -221,8 +221,10 @@ export default function DashboardPage() {
         subtitle={t('positioningSubtitle')}
         defaultOpen={detailed}
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Two across on a phone: these are single numbers, and one per row
+            made a tower of seven cards. MetricCard auto-fits its value. */}
+        <div className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <MetricCard
               title={t('callGexTitle')}
               value={formatCompactUsd(gexData?.total_call_gex)}
@@ -262,7 +264,7 @@ export default function DashboardPage() {
               trend="bullish"
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             <MetricCard
               title={t('netFlowTitle')}
               value={Number(latestFlowSnapshot?.netFlow ?? 0).toLocaleString()}
@@ -278,13 +280,15 @@ export default function DashboardPage() {
               tooltip={t('netPremiumTooltip')}
               theme={theme}
             />
-            <MetricCard
-              title={t('putCallRatioTitle')}
-              value={Number(latestFlowSnapshot?.putCallRatio ?? 0).toFixed(2)}
-              trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
-              tooltip={t('putCallRatioTooltip')}
-              theme={theme}
-            />
+            <div className="col-span-2 md:col-span-1">
+              <MetricCard
+                title={t('putCallRatioTitle')}
+                value={Number(latestFlowSnapshot?.putCallRatio ?? 0).toFixed(2)}
+                trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
+                tooltip={t('putCallRatioTooltip')}
+                theme={theme}
+              />
+            </div>
           </div>
         </div>
       </Collapsible>
