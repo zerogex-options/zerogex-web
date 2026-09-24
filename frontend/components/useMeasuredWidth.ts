@@ -35,3 +35,30 @@ export function useMeasuredWidth<T extends HTMLElement = HTMLDivElement>(): [
 
   return [setEl, width];
 }
+
+/**
+ * useMeasuredWidth for a chart that also takes its height from its container
+ * (one that fills a flex row, say): the element's CSS width and height, or
+ * null on the server and the first client render. The sizes are exact, not
+ * rounded, so a chart can floor them and never draw a unit smaller than a px.
+ */
+export function useMeasuredSize<T extends HTMLElement = HTMLDivElement>(): [
+  (el: T | null) => void,
+  { w: number; h: number } | null,
+] {
+  const [el, setEl] = useState<T | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!el) return;
+    const update = (w: number, h: number) =>
+      setSize((cur) => (cur != null && cur.w === w && cur.h === h ? cur : { w, h }));
+    update(el.clientWidth, el.clientHeight);
+    // The observer's content box is the fractional size the read above rounds.
+    const ro = new ResizeObserver(([entry]) => update(entry.contentRect.width, entry.contentRect.height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+
+  return [setEl, size];
+}

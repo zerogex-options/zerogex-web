@@ -351,9 +351,9 @@ function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
   return (
     <span
       title={meta.label}
-      // 8px on desktop; a step up on a phone, where the ladders are the
-      // whole screen width and these codes are the only level labels.
-      className="inline-flex items-center justify-center font-mono text-[8px] max-sm:text-[9px]"
+      // 9px everywhere, the app's floor for text. It fits the 12px-tall tag,
+      // and these codes are the only level labels on the ladders.
+      className="inline-flex items-center justify-center font-mono text-[9px]"
       style={{
         minWidth: 15,
         height: 12,
@@ -631,7 +631,7 @@ function HeatmapColumn({
                             }}
                           >
                             {fmtStrike(cell.strike)}
-                            <span style={{ fontSize: 8, opacity: 0.8 }}>▸</span>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>▸</span>
                           </span>
                         ) : (
                           <span className="font-semibold truncate">{fmtStrike(cell.strike)}</span>

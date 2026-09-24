@@ -24,13 +24,18 @@ import ErrorMessage from "./ErrorMessage";
 import { omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { wheelAction } from "@/core/wheelZoom";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import { useMeasuredWidth } from "./useMeasuredWidth";
+import { useMeasuredSize } from "./useMeasuredWidth";
 
-// On a phone, a card narrower than this gets a board drawn at its own width
-// (one viewBox unit per CSS pixel) instead of the 1100-wide desktop board
-// scaled down, which left every label about 3px tall.
+// A card narrower than this gets the compact board: drawn at its own width
+// (one viewBox unit per CSS pixel), with tighter gutters and no rotated axis
+// title. The 1100-wide desktop board scaled into a phone left every label
+// about 3px tall; beside the ladders on a 1280px window the card is ~485px.
 const COMPACT_MAX_WIDTH = 640;
+// The desktop board. A narrower card redraws it at the card's width, so its
+// labels keep their set size (scaled into a 645px card they were ~6px), with a
+// height floor that keeps the price range usable.
+const DESKTOP_W = 1100;
+const DESKTOP_MIN_H = 360;
 
 export interface CandleReplay {
   /** When true the chart renders the replay session up to `cursorTs` instead of live. */
@@ -256,12 +261,19 @@ interface PairCandleChartProps {
   embedded?: boolean;
   /** When provided + active, the chart scrubs the replay session in lockstep. */
   replay?: CandleReplay;
+  /**
+   * Stretch to the height the parent gives it and draw the board at that
+   * height, instead of taking the height from the width. The pair view's
+   * side-by-side layout, where the two charts share the ladders' height.
+   */
+  fillHeight?: boolean;
 }
 
-export default function PairCandleChart({ symbol, timeframe, label, embedded = false, replay }: PairCandleChartProps) {
-  const isMobile = useIsMobile();
-  const [measureRef, boxW] = useMeasuredWidth<HTMLDivElement>();
-  const compact = isMobile && boxW != null && boxW > 0 && boxW < COMPACT_MAX_WIDTH;
+export default function PairCandleChart({ symbol, timeframe, label, embedded = false, replay, fillHeight = false }: PairCandleChartProps) {
+  const [measureRef, box] = useMeasuredSize<HTMLDivElement>();
+  const boxW = box?.w ?? null;
+  const fillH = fillHeight && box != null && box.h > 0 ? Math.floor(box.h) : null;
+  const compact = boxW != null && boxW > 0 && boxW < COMPACT_MAX_WIDTH;
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const replayActive = replay?.active ?? false;
@@ -360,13 +372,22 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   }, [bars]);
 
   // ── Layout (price only; the volume panel was removed) ──
-  // Desktop board, or on a phone-width card the compact one: drawn at the
-  // card's measured width, a little taller relative to its width, with no
+  // Desktop board (at the card's width when that is narrower), or on a narrow
+  // card the compact one: a little taller relative to its width, with no
   // rotated axis title and tighter gutters.
-  const width = compact ? Math.round(boxW) : 1100;
-  const height = compact
-    ? Math.round(Math.min(360, Math.max(260, boxW * 0.8)))
-    : timeframe === "1day" ? 480 : 440;
+  const boardH = timeframe === "1day" ? 480 : 440;
+  const width = compact
+    ? Math.floor(boxW)
+    : boxW != null && boxW > 0 && boxW < DESKTOP_W
+      ? Math.floor(boxW)
+      : DESKTOP_W;
+  const height =
+    fillH ??
+    (compact
+      ? Math.round(Math.min(360, Math.max(260, boxW * 0.8)))
+      : width < DESKTOP_W
+        ? Math.max(DESKTOP_MIN_H, Math.round((boardH * width) / DESKTOP_W))
+        : boardH);
   const padLeft = compact ? 40 : 60;
   // Show dealer-gamma levels on the candles in BOTH live and replay; reserve a
   // right gutter for their value tags so the labels sit beside the candles, not
@@ -608,7 +629,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       : { text: "CLOSED", color: "var(--text-muted)", bg: "var(--color-surface-subtle)" };
 
   return (
-    <div className={`${cardClass} p-4`} style={cardStyle}>
+    <div className={`${cardClass} p-4${fillHeight ? " flex flex-1 flex-col" : ""}`} style={cardStyle}>
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="flex items-baseline gap-2">
           <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{heading}</h3>
@@ -650,15 +671,22 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
           </div>
         </div>
       </div>
-      <div ref={measureRef} className="relative w-full">
+      {/* Filling a height, the board is drawn at the box's measured size and
+          positioned over it, so it never feeds back into that size. */}
+      <div ref={measureRef} className={fillHeight ? "relative min-h-[300px] w-full flex-1" : "relative w-full"}>
           <svg
             ref={attachSvg}
             width="100%"
             height="100%"
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="xMinYMin meet"
-            style={{ aspectRatio: `${width} / ${height}`, cursor: "crosshair", touchAction: "pan-y", WebkitTouchCallout: "none" }}
-            className="zg-pc-canvas block w-full select-none"
+            style={{
+              ...(fillHeight ? {} : { aspectRatio: `${width} / ${height}` }),
+              cursor: "crosshair",
+              touchAction: "pan-y",
+              WebkitTouchCallout: "none",
+            }}
+            className={`zg-pc-canvas block w-full select-none${fillHeight ? " absolute inset-0 h-full" : ""}`}
             data-measured={boxW != null ? "true" : undefined}
             onMouseDown={beginDrag}
             onMouseMove={handleMove}

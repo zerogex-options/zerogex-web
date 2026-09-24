@@ -3116,9 +3116,7 @@ body.zg-col-resizing * {
    swaps to a measured board on any card narrower than its 1200-unit board. */
 .zg-rp-canvas:not([data-measured]) { visibility: hidden; }
 /* And the Pair Comparison candles (components/PairCandleChart.tsx). */
-@media (max-width: 767px) {
-  .zg-pc-canvas:not([data-measured]) { visibility: hidden; }
-}
+.zg-pc-canvas:not([data-measured]) { visibility: hidden; }
 
 /* My Dashboard on a phone: two columns, where only single-number metric tiles
    at the S footprint pair up; every other widget spans the row. The desktop
