@@ -8,6 +8,9 @@
 - When the work is done, commit and push the branch.
 - Never open a pull request. I merge branches myself on the host.
 
+## Production server
+- The auth database is at `/var/lib/zerogex/auth.db` (`AUTH_DB_PATH=/var/lib/zerogex/auth.db`). Use that path in any `sqlite3` command you give me, not the `frontend/data/auth.db` default the scripts fall back to.
+
 ## How to end every reply
 End every reply with these two sections:
 
