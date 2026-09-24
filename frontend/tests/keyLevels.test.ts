@@ -426,7 +426,7 @@ test('buildKeyLevels swaps the definition for the explainer on an unresolved lev
   assert.match(flip.tooltip, /^Gamma Flip is published only when/);
   assert.match(flip.tooltip, /computed from the NDX chain/);
   // Its resolved neighbours keep their definitions — only the empty card changes.
-  assert.match(byId(nq, 'callWall').tooltip, /heaviest call open interest/);
+  assert.match(byId(nq, 'callWall').tooltip, /largest call gamma exposure/);
 });
 
 test('buildKeyLevels keeps the definition while the price is what is missing', () => {

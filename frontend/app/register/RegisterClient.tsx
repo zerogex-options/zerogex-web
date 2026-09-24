@@ -10,6 +10,7 @@ import { readUtmParams } from '@/core/telemetry/utm';
 import { useLanguage } from '@/core/LanguageContext';
 import { LOCALE_META, type Locale } from '@/core/i18n/locales';
 import { TERMS_VERSION } from '@/core/legalTerms';
+import { safeNextPath } from '@/core/safeNextPath';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -51,11 +52,10 @@ function RegisterPageContent({
     return raw && SELF_SIGNUP_TIERS.has(raw) ? raw : 'basic';
   }, [searchParams]);
 
-  const nextPath = useMemo(() => {
-    const next = searchParams.get('next');
-    if (!next || !next.startsWith('/')) return null;
-    return next;
-  }, [searchParams]);
+  // Only a path that resolves back to this site (core/safeNextPath.ts): this is
+  // handed to router.replace after signup, so anything else is a redirect to
+  // someone else's site with our sign-up form in front of it.
+  const nextPath = useMemo(() => safeNextPath(searchParams.get('next')), [searchParams]);
 
   // Referral code from the inbound link (zerogex.io/register?ref=CODE). Persist
   // it in a first-party cookie so the attribution survives the user browsing

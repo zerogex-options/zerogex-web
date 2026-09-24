@@ -13,7 +13,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import SectionHead from '@/components/layout/SectionHead';
 import ChartTooltipShell, { ChartTooltipRow } from '@/components/ChartTooltipShell';
 import { useMemo, useState } from 'react';
-import { Area, Bar, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTechnicals, type TechnicalsBar } from '@/hooks/useTechnicals';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -21,71 +21,21 @@ import MetricCard from '@/components/MetricCard';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
-
-function getDateMarkerMeta(timestamps: string[]) {
-  const groups = new Map<string, { first: number; last: number }>();
-  timestamps.forEach((ts, idx) => {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return;
-    const key = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
-    const current = groups.get(key);
-    if (!current) groups.set(key, { first: idx, last: idx });
-    else groups.set(key, { first: current.first, last: idx });
-  });
-  const indexToLabel = new Map<number, string>();
-  groups.forEach((g, label) => {
-    indexToLabel.set(g.first, label);
-  });
-  return indexToLabel;
-}
-
-function getDynamicStep(min: number, max: number): number {
-  const range = Math.max(1e-9, Math.abs(max - min));
-  const rawStep = range / 6;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const normalized = rawStep / magnitude;
-  if (normalized < 1.5) return 1 * magnitude;
-  if (normalized < 3.5) return 2 * magnitude;
-  if (normalized < 7.5) return 5 * magnitude;
-  return 10 * magnitude;
-}
-
-function safeNum(value: unknown): number | null {
-  // Treat null/undefined/empty as missing — Number(null) === 0 silently turns
-  // "no data yet" bars (e.g. ORB before market open) into a real 0, which then
-  // collapses chart domains down to zero.
-  if (value == null || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function trimEdgeTicks(ticks: number[]): number[] {
-  // Drop the first and last tick so the topmost/bottommost labels aren't
-  // rendered right at the chart edge (where they'd overlap the axis line or
-  // spill beyond the chart frame).
-  if (ticks.length <= 2) return ticks;
-  return ticks.slice(1, -1);
-}
-
-function fmtFixed(value: unknown, digits = 2): string {
-  const n = safeNum(value);
-  return n == null ? '--' : n.toFixed(digits);
-}
-
-function generateNiceTicks(min: number, max: number): number[] {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
-  if (min === max) return [min];
-  const step = getDynamicStep(min, max);
-  const start = Math.floor(min / step) * step;
-  const ticks: number[] = [];
-  for (let i = 0; i < 24; i++) {
-    const t = Number((start + i * step).toPrecision(12));
-    ticks.push(t);
-    if (t >= max) break;
-  }
-  return ticks;
-}
+import OrbPositionBar from '@/components/OrbPositionBar';
+import OrbBreakoutMap from '@/components/OrbBreakoutMap';
+import {
+  ET_HM,
+  etMinuteOfDay,
+  fmtFixed,
+  generateNiceTicks,
+  getDateMarkerMeta,
+  getDynamicStep,
+  phoneLabelStepMin,
+  phonePriceTick,
+  safeNum,
+  timelineLabelStepMin,
+  trimEdgeTicks,
+} from '@/core/technicalsCharts';
 
 function isVolumeSpike(volumeClass: string | null | undefined): boolean {
   if (!volumeClass) return false;
@@ -120,47 +70,6 @@ function gradientVolumeColor(upPct: number | null): string {
 // Five-minute bucket interval in milliseconds; matches the API's bucket size.
 const VOLUME_BUCKET_MS = 5 * 60 * 1000;
 
-// ── Phone time axis ───────────────────────────────────────────────────────────
-// A phone plot is ~260px wide. The desktop step (hourly across a 04:00–20:00
-// session) is a dozen labels there, which overprinted into one smear
-// ("04:005:006:00…"). A phone keeps about five: the step is the smallest clock
-// interval that fits the chart's own span into that many, aligned to the ET
-// clock (not UTC, so 3-hour steps land on 09:00/12:00/15:00 in both EST and
-// EDT).
-const ET_HM = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'America/New_York',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
-function etMinuteOfDay(ms: number): number {
-  const parts = ET_HM.formatToParts(new Date(ms));
-  const h = Number(parts.find((p) => p.type === 'hour')?.value);
-  const m = Number(parts.find((p) => p.type === 'minute')?.value);
-  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : -1;
-}
-
-const PHONE_MAX_TIME_LABELS = 5;
-
-function phoneLabelStepMin(timestamps: string[]): number {
-  if (timestamps.length < 2) return 60;
-  const first = new Date(timestamps[0]).getTime();
-  const last = new Date(timestamps[timestamps.length - 1]).getTime();
-  const spanMin = Number.isFinite(first) && Number.isFinite(last) ? (last - first) / 60_000 : 0;
-  for (const step of [30, 60, 120, 180, 240]) {
-    if (spanMin / step <= PHONE_MAX_TIME_LABELS) return step;
-  }
-  return 240;
-}
-
-/** Price ticks without the cents when every tick is a whole dollar — "$658",
- *  which fits a phone's 44px axis where "$658.00" did not. */
-function phonePriceTick(v: number, ticks: number[]): string {
-  const whole = ticks.length > 0 && ticks.every((t) => Math.abs(t - Math.round(t)) < 1e-9);
-  return `$${Number(v).toFixed(whole ? 0 : 2)}`;
-}
-
 // How many divergence signals a phone shows before "Show all" — the desktop
 // list scrolls inside its card, which on a phone is a scroll box inside a
 // scrolling page.
@@ -172,9 +81,6 @@ export default function IntradayToolsPage() {
   const [showAllDivergence, setShowAllDivergence] = useState(false);
   const axisStroke = 'var(--text-primary)';
   const mutedText = 'var(--text-secondary)';
-  // Was `isDark ? --text-primary : --color-surface`: in a light theme the
-  // four chart headings below rendered white on a white card.
-  const textColor = 'var(--text-primary)';
   const borderColor = 'var(--border-default)';
 
   const { bars, latest, sessionStartEt, sessionEndEt, fetchedAt, loading, error } = useTechnicals(symbol);
@@ -212,35 +118,6 @@ export default function IntradayToolsPage() {
     if (values.length === 0) return [] as number[];
     return trimEdgeTicks(generateNiceTicks(Math.min(...values), Math.max(...values)));
   }, [vwapChart]);
-
-  const orbChart = useMemo(() => {
-    return bars.map((bar) => {
-      const price = safeNum(bar.close);
-      const high = safeNum(bar.opening_range?.orb_high);
-      const low = safeNum(bar.opening_range?.orb_low);
-      const orbBand: [number, number] | null = high != null && low != null ? [low, high] : null;
-      return { timestamp: bar.timestamp, price, orbHigh: high, orbLow: low, orbBand };
-    });
-  }, [bars]);
-
-  const orbDomain = useMemo<[number, number] | null>(() => {
-    const values: number[] = [];
-    for (const row of orbChart) {
-      if (row.price != null) values.push(row.price);
-      if (row.orbHigh != null) values.push(row.orbHigh);
-      if (row.orbLow != null) values.push(row.orbLow);
-    }
-    if (values.length === 0) return null;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const padding = max > min ? (max - min) * 0.15 : Math.max(0.5, max * 0.001);
-    return [min - padding, max + padding];
-  }, [orbChart]);
-
-  const orbPriceTicks = useMemo(() => {
-    if (!orbDomain) return [] as number[];
-    return trimEdgeTicks(generateNiceTicks(orbDomain[0], orbDomain[1]));
-  }, [orbDomain]);
 
   const volumeSpikesChart = useMemo(() => {
     // Bucket existing bars by their epoch-ms so we can hydrate the static
@@ -331,14 +208,10 @@ export default function IntradayToolsPage() {
     return { ticks: trimEdgeTicks(ticks), domain: [0, top] as [number, number] };
   }, [volumeSpikesChart]);
 
-  const volumeSpikeLabelStepMin = useMemo(() => {
-    const len = volumeSpikesChart.length;
-    if (len <= 0) return 60;
-    if (len <= 24) return 15;
-    if (len <= 96) return 30;
-    if (len <= 192) return 60;
-    return 120;
-  }, [volumeSpikesChart]);
+  const volumeSpikeLabelStepMin = useMemo(
+    () => timelineLabelStepMin(volumeSpikesChart.length),
+    [volumeSpikesChart],
+  );
 
   const volumeSpikePriceTicks = useMemo(() => {
     const values = volumeSpikesChart
@@ -557,119 +430,12 @@ export default function IntradayToolsPage() {
               <MetricCard title="ORB Range" value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip="Opening range size" />
             </div>
             <div className="zg-panel p-5 mb-4">
-              {(() => {
-                const orbHigh = safeNum(orbLatest?.orb_high) ?? 0;
-                const orbLow = safeNum(orbLatest?.orb_low) ?? 0;
-                const orbRangeRaw = safeNum(orbLatest?.orb_range);
-                const currentPrice = safeNum(latest?.close) ?? 0;
-                const range = orbRangeRaw != null && orbRangeRaw > 0 ? orbRangeRaw : 1;
-                const lowEdge = orbLow - range;
-                const highEdge = orbHigh + range;
-                const span = Math.max(1e-9, highEdge - lowEdge);
-                const pct = (v: number) => Math.max(0, Math.min(100, ((v - lowEdge) / span) * 100));
-                const lowPct = pct(orbLow);
-                const highPct = pct(orbHigh);
-                const pricePct = pct(currentPrice);
-                const status = orbLatest?.orb_status ?? '--';
-                const statusColor = status.includes('🚀') ? 'var(--color-bull)' : status.includes('💥') ? 'var(--color-bear)' : 'var(--color-warning)';
-                return (
-                  <div>
-                    <div className="flex items-baseline justify-between mb-3">
-                      <h3 className="zg-h3">Position Within Range</h3>
-                      <div className="text-sm" style={{ color: statusColor, fontWeight: 600 }}>{status}</div>
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wider mb-2" style={{ color: mutedText }}>
-                      <span>Below Range</span>
-                      <span>Inside Range</span>
-                      <span>Above Range</span>
-                    </div>
-                    <div
-                      className="relative h-5 rounded-full overflow-visible"
-                      style={{ background: 'linear-gradient(to right, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 30%, transparent) 33%, color-mix(in srgb, var(--color-warning) 35%, transparent) 50%, color-mix(in srgb, var(--color-bull) 30%, transparent) 67%, var(--color-bull) 100%)' }}
-                    >
-                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${lowPct}%`, backgroundColor: 'var(--text-primary)', opacity: 0.45 }} />
-                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--text-primary)', opacity: 0.45 }} />
-                      <div
-                        className="absolute -top-1 -bottom-1 w-1 -translate-x-1/2 rounded"
-                        style={{ left: spectrumIndicatorLeft(pricePct, 20, 4), backgroundColor: 'var(--text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
-                      />
-                    </div>
-                    <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
-                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${lowPct}%` }}>${orbLow.toFixed(2)}</span>
-                      <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${highPct}%` }}>${orbHigh.toFixed(2)}</span>
-                    </div>
-                    <div className="relative h-4 text-[10px]">
-                      {/* Centered under the marker, the price label hung half
-                          off the card whenever price sat at either end of the
-                          scale (it pins there once it leaves the range). A
-                          phone anchors it inside instead. */}
-                      <span
-                        className={`absolute whitespace-nowrap font-semibold ${
-                          isMobile && pricePct > 88 ? '-translate-x-full' : isMobile && pricePct < 12 ? '' : '-translate-x-1/2'
-                        }`}
-                        style={{ left: `${pricePct}%`, color: textColor }}
-                      >
-                        ${currentPrice.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+              <OrbPositionBar orb={orbLatest} price={latest?.close} compact={isMobile} title="Position Within Range" />
             </div>
-            {orbChart.length > 0 ? (
+            {bars.length > 0 ? (
               <div className="zg-panel p-5">
                 <SectionHead title="ORB breakout map" titleClassName="zg-h3" tooltip="30-minute opening range (09:30-09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price." />
-                  <ResponsiveContainer width="100%" height={chartHeight}>
-                    <ComposedChart data={orbChart} margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 16 } : { top: 16, right: 56, left: 0, bottom: 16 }}>
-                      <defs>
-                        <linearGradient id="orbZoneGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.42} />
-                          <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0.18} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={isMobile ? phoneTimelineTick(barsStepMin) : renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 44 : 60} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => (isMobile ? phonePriceTick(Number(v), orbPriceTicks) : `$${Number(v).toFixed(2)}`)} allowDataOverflow={false} padding={{ top: 12, bottom: 12 }} />
-                      <Tooltip
-                        {...phoneTooltipPosition}
-                        cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
-                        content={({ active, label, payload }) => {
-                          if (!active || !payload?.length) return null;
-                          const point = payload[0]?.payload as { price: number | null; orbHigh: number | null; orbLow: number | null } | undefined;
-                          if (!point) return null;
-                          const labelStr = tooltipTimeLabel(label);
-                          const distHigh = point.price != null && point.orbHigh != null ? point.price - point.orbHigh : null;
-                          const distLow = point.price != null && point.orbLow != null ? point.price - point.orbLow : null;
-                          const zone = point.price == null || point.orbHigh == null || point.orbLow == null
-                            ? null
-                            : point.price > point.orbHigh ? 'Above ORB High' : point.price < point.orbLow ? 'Below ORB Low' : 'Inside ORB Range';
-                          const zoneColor = zone === 'Above ORB High' ? 'var(--color-bull)' : zone === 'Below ORB Low' ? 'var(--color-bear)' : 'var(--color-warning)';
-                          return (
-                            <ChartTooltipShell label={labelStr}>
-                              <ChartTooltipRow label="Price" value={point.price != null ? `$${point.price.toFixed(2)}` : '--'} swatch="var(--text-primary)" />
-                              <ChartTooltipRow label="ORB High" value={point.orbHigh != null ? `$${point.orbHigh.toFixed(2)}` : '--'} swatch="var(--color-bull)" />
-                              <ChartTooltipRow label="ORB Low" value={point.orbLow != null ? `$${point.orbLow.toFixed(2)}` : '--'} swatch="var(--color-bear)" />
-                              {distHigh != null ? <ChartTooltipRow label="vs High" value={`${distHigh >= 0 ? '+' : ''}$${distHigh.toFixed(2)}`} /> : null}
-                              {distLow != null ? <ChartTooltipRow label="vs Low" value={`${distLow >= 0 ? '+' : ''}$${distLow.toFixed(2)}`} /> : null}
-                              {zone ? <ChartTooltipRow label="Zone" value={zone} color={zoneColor} /> : null}
-                            </ChartTooltipShell>
-                          );
-                        }}
-                      />
-                      <Area type="stepAfter" dataKey="orbBand" stroke="none" fill="url(#orbZoneGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
-                      {/* The level tags hang in a 56px right gutter on desktop; a
-                          phone has no gutter to spare, so they sit inside the
-                          plot's right edge — H above its line, L below its. */}
-                      {orbLatest?.orb_high != null ? (
-                        <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: isMobile ? 'insideTopRight' : 'right', fill: 'var(--color-bull)', fontSize: isMobile ? 10 : 11, fontWeight: 600 }} />
-                      ) : null}
-                      {orbLatest?.orb_low != null ? (
-                        <ReferenceLine y={orbLatest.orb_low} stroke="transparent" label={{ value: `L $${(safeNum(orbLatest.orb_low) ?? 0).toFixed(2)}`, position: isMobile ? 'insideBottomRight' : 'right', fill: 'var(--color-bear)', fontSize: isMobile ? 10 : 11, fontWeight: 600 }} />
-                      ) : null}
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                <OrbBreakoutMap bars={bars} orb={orbLatest} height={chartHeight} compact={isMobile} labelStepMin={volumeSpikeLabelStepMin} />
               </div>
             ) : null}
           </>

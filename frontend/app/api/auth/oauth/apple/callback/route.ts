@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createOrLoginOAuthUser, applyAppearanceCookies, attachSessionCookie, enforceSignupRateLimit, getClientIp, isOAuthReturningUser, issueCsrfCookie, linkUserIdentity } from '@/core/serverAuth';
-import { APPLE_LINK_TICKET_COOKIE_NAME, getAppleClientSecret, getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, isAppleOAuthConfigured, verifyAppleIdToken } from '@/core/oauth';
+import { APPLE_LINK_TICKET_COOKIE_NAME, getAppleClientSecret, getOAuthConfig, getOAuthNextCookieName, getOAuthNonceCookieName, getOAuthStateCookieName, isAppleOAuthConfigured, verifyAppleIdToken } from '@/core/oauth';
+import { postSignInDestination } from '@/core/safeNextPath';
 import { readLinkTicket } from '@/core/oauthLinkTicket';
 
 function clearAppleFlowCookies(response: NextResponse) {
   // Written with SameSite=None/Secure by apple/start; the clearing Set-Cookie
   // has to match those attributes or the browser keeps the original.
-  for (const name of [getOAuthStateCookieName('apple'), getOAuthNonceCookieName('apple'), APPLE_LINK_TICKET_COOKIE_NAME]) {
+  for (const name of [
+    getOAuthStateCookieName('apple'),
+    getOAuthNonceCookieName('apple'),
+    getOAuthNextCookieName('apple'),
+    APPLE_LINK_TICKET_COOKIE_NAME,
+  ]) {
     response.cookies.set({ name, value: '', path: '/', maxAge: 0, secure: true, sameSite: 'none', httpOnly: true });
   }
 }
@@ -116,10 +122,13 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
     return fail(baseUrl, 'apple_account_unavailable');
   }
 
-  // Public users have no paid access; /dashboard would just bounce them to
-  // /unauthorized. Route them straight to /pricing — the conversion path is
-  // the right next step for a fresh, unpaid signup.
-  const destination = session.user.tier === 'public' ? '/pricing' : '/dashboard';
+  // Back to where they were headed when they chose Apple (the /login ?next=,
+  // carried by apple/start). Without one: /pricing for an unpaid account,
+  // which /dashboard would only bounce to /unauthorized, else the dashboard.
+  const destination = postSignInDestination(
+    request.cookies.get(getOAuthNextCookieName('apple'))?.value,
+    session.user.tier,
+  );
   const response = NextResponse.redirect(new URL(destination, baseUrl));
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);

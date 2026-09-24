@@ -20,6 +20,7 @@ import {
   type LedgerRefundEvent,
   type LedgerRow,
   type LedgerSyncEvent,
+  type LedgerTrialSwitchEvent,
 } from './subscriberBucket.ts';
 import {
   isSubscriptionPaymentEvidence,
@@ -93,6 +94,9 @@ export type SubscriptionPaymentRow = {
   userId: string | null;
   email: string | null;
   createdAt: string;
+  // The invoice's billing_reason, when the row is an invoice row that names one
+  // (stripe_invoice_paid); null for the account-level first-payment stamp.
+  billingReason: string | null;
 };
 
 export function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
@@ -116,7 +120,13 @@ export function readSubscriptionPayments(sinceDays: number): SubscriptionPayment
     if (!isSubscriptionPaymentEvidence(row.type, row.message)) continue;
     const subId = parseSubIdFromMessage(row.message);
     if (!subId) continue;
-    out.push({ subId, userId: row.user_id, email: row.email, createdAt: row.created_at });
+    out.push({
+      subId,
+      userId: row.user_id,
+      email: row.email,
+      createdAt: row.created_at,
+      billingReason: row.message.match(/\bbilling_reason=([a-z_]+)/)?.[1] ?? null,
+    });
   }
   return out;
 }
@@ -178,6 +188,7 @@ export function readSubscriberLedgerRows(sinceDays: number, nowMs: number): Ledg
     userId: row.userId,
     email: row.email,
     at: toIsoInstant(row.createdAt),
+    billingReason: row.billingReason,
   }));
 
   // Subscriptions an orphan recovery created to carry an already-paid period.
@@ -248,5 +259,21 @@ export function readSubscriberLedgerRows(sinceDays: number, nowMs: number): Ledg
     if (subId) refunds.push({ subId, at: toIsoInstant(row.created_at) });
   }
 
-  return buildSubscriberLedger(syncs, deletes, payments, recoveries, nowMs, { declines, refunds });
+  // Trial members who switched to a paid plan in the app: the trial ends and the
+  // new plan is charged at once, which is not a trial running its course.
+  const switchRows = db
+    .prepare(
+      `SELECT created_at, message FROM audit_events
+       WHERE type = 'billing_plan_switch_in_app'
+         AND message LIKE 'Trial ended for paid switch%'
+         AND created_at > datetime('now', '-${sinceDays} days')`,
+    )
+    .all() as Array<{ created_at: string; message: string }>;
+  const trialSwitches: LedgerTrialSwitchEvent[] = [];
+  for (const row of switchRows) {
+    const subId = parseSubIdFromMessage(row.message);
+    if (subId) trialSwitches.push({ subId, at: toIsoInstant(row.created_at) });
+  }
+
+  return buildSubscriberLedger(syncs, deletes, payments, recoveries, nowMs, { declines, refunds, trialSwitches });
 }

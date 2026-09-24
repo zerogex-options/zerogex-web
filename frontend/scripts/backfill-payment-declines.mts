@@ -235,8 +235,13 @@ for (const row of pending) {
   }
 }
 
+// A dry run writes nothing, so it reports what the real run would stamp: every
+// row a reason came back for (enrichDeclineWithReason matches any row that
+// exists). It used to print byCategory.size — the number of DISTINCT reasons —
+// so 63 stampable rows read as "Would stamp 5".
+const withReason = [...byCategory.values()].reduce((sum, count) => sum + count, 0);
 console.log(
-  `\n${dryRun ? 'Would stamp' : 'Stamped'} ${dryRun ? byCategory.size : stamped} decline(s) with a reason · ` +
+  `\n${dryRun ? 'Would stamp' : 'Stamped'} ${dryRun ? withReason : stamped} decline(s) with a reason · ` +
     `${noReason} carried none even in Stripe${dryRun ? '' : ` (${facts} still gave up their billing reason and real amount)`} · ` +
     `${failed} lookup error(s)`,
 );

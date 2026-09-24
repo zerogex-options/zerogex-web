@@ -254,8 +254,8 @@ export interface KeyLevelsInput {
 const TOOLTIPS: Record<Exclude<KeyLevelId, 'pin'>, string> = {
   spot: 'The underlying price every distance below is measured from\u00a0- the same tape reading the chart’s price marker rides.',
   flip: 'Price where aggregate net dealer gamma changes sign. Above it dealers dampen moves (pinning); below it they amplify them (trending).',
-  callWall: 'Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it.',
-  putWall: 'Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it.',
+  callWall: 'Strike at or above spot with the largest call gamma exposure (gamma × open interest) across the selected expirations. Tends to act as resistance as dealers sell into rallies toward it.',
+  putWall: 'Strike at or below spot with the largest put gamma exposure (gamma × open interest) across the selected expirations. Tends to act as support as dealers buy into selloffs toward it.',
   maxPain: 'Estimated strike where option-holder payout is minimized at expiry\u00a0- the options pin.',
 };
 

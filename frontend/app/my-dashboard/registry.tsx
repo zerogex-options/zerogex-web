@@ -29,6 +29,7 @@ import {
   Radar,
   ScrollText,
   Signal,
+  SlidersHorizontal,
   Sparkles,
   Target,
   TrendingDown,
@@ -83,6 +84,8 @@ import {
   WorldClocksPanel,
   TopHeadlinesPanel,
   OrbBreakoutPanel,
+  OrbPositionPanel,
+  OrbBreakoutMapPanel,
   VwapDeviationPanel,
   MomentumDivergencePanel,
   VolumeSpikePanel,
@@ -753,8 +756,8 @@ export const WIDGETS: WidgetDef[] = [
   },
 
   // ── Technicals ──
-  // Both read the same /api/technicals payload as /intraday-tools, and
-  // useTechnicals refcounts per symbol, so running both costs one subscription.
+  // All of these read the same /api/technicals payload as /intraday-tools, and
+  // useTechnicals refcounts per symbol, so running several costs one subscription.
   {
     id: 'orb-breakout',
     title: 'ORB Breakout',
@@ -767,6 +770,32 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <OrbBreakoutPanel />,
+  },
+  {
+    id: 'orb-position',
+    title: 'Position Within Range',
+    blurb:
+      'Where price sits against the opening range (ORB), on the same bar the Technicals page draws: below it, inside it or above it, with the range’s high and low marked.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: SlidersHorizontal,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OrbPositionPanel />,
+  },
+  {
+    id: 'orb-map',
+    title: 'ORB Breakout Map',
+    blurb:
+      'The session’s price against the opening range: the band, its high and low, and where price left it. The same chart as the Technicals page.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: LineChart,
+    defaultSize: 'lg',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OrbBreakoutMapPanel />,
   },
   {
     id: 'momentum-divergence',
