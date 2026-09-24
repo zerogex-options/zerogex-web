@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { APPLE_LINK_TICKET_COOKIE_NAME, createOAuthNonce, createOAuthState, getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName } from '@/core/oauth';
+import { APPLE_LINK_TICKET_COOKIE_NAME, createOAuthNonce, createOAuthState, getOAuthConfig, getOAuthNextCookieName, getOAuthNonceCookieName, getOAuthStateCookieName } from '@/core/oauth';
+import { safeNextPath } from '@/core/safeNextPath';
 import { createLinkTicket, isLinkTicketAvailable } from '@/core/oauthLinkTicket';
 import { requireSession } from '@/core/serverAuth';
 
@@ -26,6 +27,10 @@ export async function GET(request: NextRequest) {
   const config = getOAuthConfig('apple');
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
   const isLink = request.nextUrl.searchParams.get('intent') === 'link';
+  // The page the member was headed to when they hit /login, so the callback can
+  // land them there instead of the dashboard. Not for linking, which always
+  // returns to /account.
+  const next = isLink ? null : safeNextPath(request.nextUrl.searchParams.get('next'));
 
   // Resolve the linking user HERE, not in the callback: the session cookie is
   // SameSite=Lax and will not survive Apple's cross-site POST back to us.
@@ -61,6 +66,21 @@ export async function GET(request: NextRequest) {
   setAppleFlowCookie(response, getOAuthNonceCookieName('apple'), nonce);
   if (linkTicket) {
     setAppleFlowCookie(response, APPLE_LINK_TICKET_COOKIE_NAME, linkTicket);
+  }
+  if (next) {
+    setAppleFlowCookie(response, getOAuthNextCookieName('apple'), next);
+  } else {
+    // A leftover from an abandoned attempt must not steer this one. Cleared with
+    // the attributes it was written with, or the browser keeps the original.
+    response.cookies.set({
+      name: getOAuthNextCookieName('apple'),
+      value: '',
+      path: '/',
+      maxAge: 0,
+      secure: true,
+      sameSite: 'none',
+      httpOnly: true,
+    });
   }
 
   return response;

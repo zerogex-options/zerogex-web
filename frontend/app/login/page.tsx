@@ -7,6 +7,7 @@ import { getCsrfToken } from '@/core/csrfClient';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { isAppleAuthEnabled } from '@/core/authFlags';
 import { useLanguage } from '@/core/LanguageContext';
+import { safeNextPath } from '@/core/safeNextPath';
 
 // Friendly copy for the ?error=... codes the OAuth callbacks redirect with on
 // failure (google/callback/route.ts, apple/callback/route.ts). Without this
@@ -74,25 +75,16 @@ function LoginPageContent() {
   // adds no extra fetch). Drives the "already signed in" forward below.
   const { data: authSession, loading: authLoading } = useAuthSession();
 
-  const nextPath = useMemo(() => {
-    const next = searchParams.get('next');
-    // Only honor same-origin app paths, and never a path back to an auth page:
-    // a ?next=/login (or /register) would make the already-authenticated
-    // forward below bounce back to this page and loop. "//host" and "/\host"
-    // start with a slash but name another site, so they are refused too. Fall
-    // through to the dashboard for anything unusable.
-    if (
-      !next ||
-      !next.startsWith('/') ||
-      next.startsWith('//') ||
-      next.startsWith('/\\') ||
-      next.startsWith('/login') ||
-      next.startsWith('/register')
-    ) {
-      return '/dashboard';
-    }
-    return next;
-  }, [searchParams]);
+  // Where to go after signing in, when the visitor arrived with somewhere to
+  // go. safeNextPath keeps a path only if the browser would resolve it back to
+  // this site, and never an auth page (the signed-in forward below would loop on
+  // one). A prefix check is not enough: "/\t/host" passes one and still leaves
+  // the site, because the URL parser strips the tab. See core/safeNextPath.ts.
+  const explicitNext = useMemo(() => safeNextPath(searchParams.get('next')), [searchParams]);
+  const nextPath = explicitNext ?? '/dashboard';
+  // Google and Apple only ever return to our fixed callback, so the destination
+  // rides along to their start routes, which carry it through the round-trip.
+  const oauthNextQuery = explicitNext ? `?next=${encodeURIComponent(explicitNext)}` : '';
 
   // Forward visitors who already have a valid session instead of leaving them
   // stranded on the sign-in form. Without this, a signed-in user who lands on
@@ -232,14 +224,14 @@ function LoginPageContent() {
 
         <div className="mt-6 grid gap-3">
           <a
-            href="/api/auth/oauth/google/start"
+            href={`/api/auth/oauth/google/start${oauthNextQuery}`}
             className="w-full rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold hover:bg-[var(--bg-hover)]"
           >
             {t('login.continueGoogle')}
           </a>
           {appleEnabled ? (
             <a
-              href="/api/auth/oauth/apple/start"
+              href={`/api/auth/oauth/apple/start${oauthNextQuery}`}
               className="w-full rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold hover:bg-[var(--bg-hover)]"
             >
               {t('login.continueApple')}
