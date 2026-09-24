@@ -1380,8 +1380,8 @@ export default function ForcedFlowSurfaceChart({
                 color={regimeColor}
                 title={
                   read.keyLevelKind === 'pivot'
-                    ? 'The pivot (short-γ tripwire) nearest spot&nbsp;- a level price is pushed AWAY from; a break through it accelerates.'
-                    : 'The magnet (stable pin) nearest spot&nbsp;- a level price is pulled TOWARD.'
+                    ? 'The pivot (short-γ tripwire) nearest spot\u00a0- a level price is pushed AWAY from; a break through it accelerates.'
+                    : 'The magnet (stable pin) nearest spot\u00a0- a level price is pulled TOWARD.'
                 }
               />
             )}

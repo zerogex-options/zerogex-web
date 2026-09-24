@@ -282,8 +282,8 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
           sub={
             hasRegime
               ? shortGamma
-                ? 'Below the gamma flip. Dealers amplify moves&nbsp;- breakouts run, dips aren’t bought.'
-                : 'Above the gamma flip. Dealers dampen moves&nbsp;- extremes get faded, expect the pin.'
+                ? 'Below the gamma flip. Dealers amplify moves\u00a0- breakouts run, dips aren’t bought.'
+                : 'Above the gamma flip. Dealers dampen moves\u00a0- extremes get faded, expect the pin.'
               : 'Gamma flip unavailable.'
           }
         />

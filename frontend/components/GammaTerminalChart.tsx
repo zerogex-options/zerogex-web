@@ -3180,7 +3180,7 @@ export default function GammaTerminalChart({
                   title={
                     m === "updown"
                       ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running total of uptick minus downtick volume for the current session only&nbsp;- it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                      : "Running total of uptick minus downtick volume for the current session only\u00a0- it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
                   }
                 >
                   {VOLUME_MODE_LABELS[m]}
@@ -4252,7 +4252,7 @@ export default function GammaTerminalChart({
                 onClick={() => setPlaybackLoop((v) => !v)}
                 aria-label={playbackLoop ? "Disable loop" : "Enable loop"}
                 aria-pressed={playbackLoop}
-                title={playbackLoop ? "Loop on&nbsp;- replays continuously (click to disable)" : "Loop off&nbsp;- click to replay continuously"}
+                title={playbackLoop ? "Loop on\u00a0- replays continuously (click to disable)" : "Loop off\u00a0- click to replay continuously"}
                 style={{
                   display: "grid",
                   placeItems: "center",

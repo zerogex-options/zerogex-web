@@ -351,7 +351,7 @@ export default function SpreadMonitorPage() {
                   quotes go first where time does.
                 </>
               ) : (
-                'Nearest expiry first&nbsp;- quotes go first where time does.'
+                'Nearest expiry first\u00a0- quotes go first where time does.'
               )
             }
           >

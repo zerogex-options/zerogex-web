@@ -676,7 +676,7 @@ export default function FlowAnalysisPage() {
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity&nbsp;- this chart accounts for trade direction to distinguish buying from selling."}>
+      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity\u00a0- this chart accounts for trade direction to distinguish buying from selling."}>
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (
