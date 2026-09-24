@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOAuthNonce, createOAuthState, getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME } from '@/core/oauth';
+import { createOAuthNonce, createOAuthState, getOAuthConfig, getOAuthNextCookieName, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME } from '@/core/oauth';
+import { safeNextPath } from '@/core/safeNextPath';
 
 export async function GET(request: NextRequest) {
   const config = getOAuthConfig('google');
   const state = createOAuthState();
   const nonce = createOAuthNonce();
   const intent = request.nextUrl.searchParams.get('intent') === 'link' ? 'link' : null;
+  // The page the member was headed to when they hit /login, so the callback can
+  // land them there instead of the dashboard. Not for linking, which always
+  // returns to /account.
+  const next = intent ? null : safeNextPath(request.nextUrl.searchParams.get('next'));
 
   const url = new URL(config.authUrl);
   url.searchParams.set('client_id', config.clientId);
@@ -35,6 +40,20 @@ export async function GET(request: NextRequest) {
     path: '/',
     maxAge: 60 * 10,
   });
+  if (next) {
+    response.cookies.set({
+      name: getOAuthNextCookieName('google'),
+      value: next,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 10,
+    });
+  } else {
+    // A leftover from an abandoned attempt must not steer this one.
+    response.cookies.set({ name: getOAuthNextCookieName('google'), value: '', path: '/', maxAge: 0 });
+  }
   if (intent) {
     response.cookies.set({
       name: OAUTH_INTENT_COOKIE_NAME,

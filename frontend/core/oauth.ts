@@ -26,6 +26,7 @@ type AppleOAuthConfig = {
 
 const STATE_COOKIE_PREFIX = 'zgx_oauth_state_';
 const NONCE_COOKIE_PREFIX = 'zgx_oauth_nonce_';
+const NEXT_COOKIE_PREFIX = 'zgx_oauth_next_';
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -126,6 +127,15 @@ export function getOAuthStateCookieName(provider: OAuthProvider) {
 
 export function getOAuthNonceCookieName(provider: OAuthProvider) {
   return `${NONCE_COOKIE_PREFIX}${provider}`;
+}
+
+// Where the member was headed when they chose to sign in with the provider —
+// the /login ?next= — carried across the round-trip, since the provider only
+// ever returns to our fixed callback. Per provider like state and nonce: Apple's
+// has to be SameSite=None to survive its form_post, Google's is Lax like the
+// rest of its flow. Both routes re-check it with core/safeNextPath.ts.
+export function getOAuthNextCookieName(provider: OAuthProvider) {
+  return `${NEXT_COOKIE_PREFIX}${provider}`;
 }
 
 export const OAUTH_INTENT_COOKIE_NAME = 'oauth_intent';
