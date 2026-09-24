@@ -304,8 +304,8 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
               <p style={{ fontSize: 'clamp(19px, 2.4vw, 24px)', fontWeight: 700, color: text, lineHeight: 1.4, margin: '0 0 14px' }}>
                 {t('founderLine')}
               </p>
-              <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0 }}>
-                {t('founderAiNote')}
+              <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0, textWrap: 'pretty' }}>
+                {t('founderBody')}
               </p>
             </div>
           </div>
