@@ -91,6 +91,7 @@
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",
     "test:cancellation-email": "node --experimental-strip-types --test tests/cancellationEmail.test.ts",
     "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
+    "test:cancel-decisions": "node --experimental-strip-types --test tests/cancelDecisions.test.ts",
     "test:cancellation-alert": "node --experimental-strip-types --test tests/cancellationAlert.test.ts",
     "test:returning-member": "node --experimental-strip-types --test tests/returningMember.test.ts",
     "test:winback-highlights": "node --experimental-strip-types --test tests/winbackHighlights.test.ts",
