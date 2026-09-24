@@ -39,6 +39,9 @@ import TodaysReadCard from '@/components/TodaysReadCard';
 import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
 import MetricCard from '@/components/MetricCard';
+import OrbPositionBar from '@/components/OrbPositionBar';
+import OrbBreakoutMap from '@/components/OrbBreakoutMap';
+import { orbStatusKind, type OrbStatusKind } from '@/core/technicalsCharts';
 import { useTechnicals } from '@/hooks/useTechnicals';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -599,6 +602,17 @@ function humanizeStatus(status: string | null | undefined): string {
     .join(' ');
 }
 
+// The backend's status is display text ("💥 ORB Breakdown (Short)"), too long
+// for a headline value: it was scaled to its floor and then clipped, leaving
+// "ORB Breakdown (s". One short label per state fits the card.
+const ORB_STATUS_LABEL_KEYS: Record<OrbStatusKind, string> = {
+  breakout: 'orbStatusBreakout',
+  breakdown: 'orbStatusBreakdown',
+  nearHigh: 'orbStatusNearHigh',
+  nearLow: 'orbStatusNearLow',
+  inside: 'orbStatusInside',
+};
+
 export function OrbBreakoutPanel() {
   const t = usePageT(dict);
   const { theme, symbol } = useMyDashboardData();
@@ -609,6 +623,9 @@ export function OrbBreakoutPanel() {
   const low = techNum(orb?.orb_low);
   const range = techNum(orb?.orb_range);
   const status = orb?.orb_status ?? null;
+  // A status this build does not know still shows, humanized.
+  const statusKind = orbStatusKind(status);
+  const statusLabel = statusKind ? t(ORB_STATUS_LABEL_KEYS[statusKind]) : humanizeStatus(status);
 
   // The opening range only exists once the 09:30–09:59 ET window has closed,
   // so "no levels yet" is the normal pre-market state, not a failure.
@@ -656,13 +673,95 @@ export function OrbBreakoutPanel() {
           />
           <MetricCard
             title={t('orbStatus')}
-            value={humanizeStatus(status)}
+            value={statusLabel}
             subtitle={hasRange ? t('orbStatusSubtitle') : t('orbAwaitingRange')}
             tooltip={t('orbStatusTooltip')}
             theme={theme}
             trend={trend}
           />
         </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+/**
+ * Position Within Range — the bar from the Technicals page: where price sits
+ * against the opening range, one range-width either side of it. The same
+ * component as the page, so the two cannot drift; the compact layout keeps
+ * the price label inside a narrow tile.
+ */
+export function OrbPositionPanel() {
+  const t = usePageT(dict);
+  const { symbol } = useMyDashboardData();
+  const { latest, loading, error } = useTechnicals(symbol);
+
+  const orb = latest?.opening_range ?? null;
+  const ready = techNum(orb?.orb_high) != null && techNum(orb?.orb_low) != null && techNum(latest?.close) != null;
+
+  return (
+    <WidgetCard title={t('orbPosition')} href="/intraday-tools" hrefLabel={t('technicals')}>
+      {error && !ready ? (
+        <ErrorMessage message={error} />
+      ) : loading && !ready ? (
+        <LoadingSpinner />
+      ) : !ready ? (
+        // Before 10:00 ET there is no range to sit in: the normal state, not a failure.
+        <div className="zg-small p-2" style={{ color: 'var(--text-secondary)' }}>
+          {t('orbAwaitingRange')}
+        </div>
+      ) : (
+        <OrbPositionBar
+          orb={orb}
+          price={latest?.close}
+          compact
+          labels={{ below: t('orbBelowRange'), inside: t('orbInsideRange'), above: t('orbAboveRange') }}
+        />
+      )}
+    </WidgetCard>
+  );
+}
+
+/**
+ * ORB breakout map — the chart from the Technicals page: the session's price
+ * against the opening range. The same component as the page, in its compact
+ * layout (about five time labels, level tags inside the plot), which reads at
+ * any tile width.
+ */
+export function OrbBreakoutMapPanel() {
+  const t = usePageT(dict);
+  const { symbol } = useMyDashboardData();
+  const { bars, latest, loading, error } = useTechnicals(symbol);
+
+  const orb = latest?.opening_range ?? null;
+  const ready = bars.length > 0 && techNum(orb?.orb_high) != null && techNum(orb?.orb_low) != null;
+  const labels = useMemo(
+    () => ({
+      price: t('orbTipPrice'),
+      orbHigh: t('orbHigh'),
+      orbLow: t('orbLow'),
+      vsHigh: t('orbTipVsHigh'),
+      vsLow: t('orbTipVsLow'),
+      zone: t('orbTipZone'),
+      above: t('orbZoneAbove'),
+      below: t('orbZoneBelow'),
+      inside: t('orbZoneInside'),
+    }),
+    [t],
+  );
+
+  return (
+    <WidgetCard title={t('orbMap')} href="/intraday-tools" hrefLabel={t('technicals')}>
+      {error && !ready ? (
+        <ErrorMessage message={error} />
+      ) : loading && !ready ? (
+        <LoadingSpinner />
+      ) : !ready ? (
+        <div className="zg-small p-2" style={{ color: 'var(--text-secondary)' }}>
+          {t('orbAwaitingRange')}
+        </div>
+      ) : (
+        <OrbBreakoutMap bars={bars} orb={orb} height={260} compact labels={labels} />
       )}
     </WidgetCard>
   );
