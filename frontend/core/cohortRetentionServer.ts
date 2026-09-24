@@ -5,6 +5,7 @@
 // resolve. It is still server code; it opens the SQLite DB through ./db.ts, and
 // a client component that imported it for anything but a type would fail the
 // build on node:sqlite.
+import { MONEY_BACK_REFUND_AUDIT_TYPES } from './cancelDecisions.ts';
 import { getDb } from './db.ts';
 import {
   buildCohortReport,
@@ -38,6 +39,8 @@ const AUDIT_TYPES = [
   // so without this every cancelled subscriber would drop out of a
   // cadence-filtered view and the renewal rate would be computed over survivors.
   'billing_checkout_started',
+  // A money-back refund: a voluntary exit that never writes a Cancel click.
+  ...MONEY_BACK_REFUND_AUDIT_TYPES,
 ];
 
 type InvoiceHistoryRow = {

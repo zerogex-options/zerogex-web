@@ -319,6 +319,14 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
                     <span>{tooNew.toLocaleString()} too new to tell yet</span>
                   </div>
                 )}
+                {stage.key === 'trial' && story.directToPaid > 0 && (
+                  // Paying up front is the other way in, so it is not in the
+                  // drop-off below; saying so is what makes the counts add up.
+                  <div className="flex items-center gap-2 py-1 pl-1 text-xs" style={{ color: mutedText }}>
+                    <span aria-hidden>·</span>
+                    <span>{story.directToPaid.toLocaleString()} paid up front, skipping the trial</span>
+                  </div>
+                )}
                 {index > 0 && stage.droppedFromPrevious != null && stage.droppedFromPrevious > 0 && (
                   <div className="flex items-center gap-2 py-1 pl-1 text-xs" style={{ color: mutedText }}>
                     <span aria-hidden style={{ color: DROP_COLOR }}>↳</span>
@@ -465,8 +473,8 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
           <h4 className="zg-h4 mt-6 mb-1">Failed cards, all time</h4>
           <p className="text-xs mb-3" style={{ color: mutedText }}>
             Counts paying customers only. {report.summary.neverPaidFailedPaymentCustomers.toLocaleString()} people
-            failed a first charge and never became customers at all — they are in the trial→paid gap
-            above, not here. The last three do not add up to the first: an outcome is only shown
+            failed a first charge and never became customers at all — they are among the funnel&apos;s
+            drop-offs above, not here. The last three do not add up to the first: an outcome is only shown
             where the audit trail actually records one.
           </p>
           <div className="grid grid-cols-4 gap-2">

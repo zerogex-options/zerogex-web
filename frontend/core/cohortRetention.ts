@@ -1,3 +1,4 @@
+import { MONEY_BACK_REFUND_AUDIT_TYPES } from './cancelDecisions.ts';
 import { cancellationFeedbackLabel, parseCancellationReasonFromMessage } from './cancellationReason.ts';
 import { parseSyncTierStrict, type PaidTier } from './subscriptionFlow.ts';
 
@@ -31,6 +32,13 @@ import { parseSyncTierStrict, type PaidTier } from './subscriptionFlow.ts';
 //   core/renewalRetention.ts.
 
 const DAY_MS = 86_400_000;
+
+const MONEY_BACK_REFUND_TYPES = new Set<string>(MONEY_BACK_REFUND_AUDIT_TYPES);
+// A money-back refund's own audit row is written after the cancel it triggers
+// has gone through, so it can land a moment after the deletion that ended
+// access. Generous on purpose: a refund only exists inside the guarantee window
+// and ends the subscription itself, so it cannot belong to some other ending.
+const REFUND_AFTER_END_MS = DAY_MS;
 export const RETENTION_DAYS = [30, 60, 90] as const;
 
 /** Tiers the product treats as paid access. */
@@ -406,6 +414,9 @@ export function buildCohortReport(
       .reduce<number | null>((earliest, value) => (earliest == null || value < earliest ? value : earliest), null);
     const deletions = events.filter((event) => event.type === 'stripe_subscription_deleted');
     const cancelRequests = events.filter((event) => event.type === 'stripe_cancellation_requested');
+    // A money-back refund is the member choosing to leave, like a Cancel click,
+    // but it cancels on the spot, so no click is ever written for it.
+    const refunds = events.filter((event) => MONEY_BACK_REFUND_TYPES.has(event.type));
     const intervals = firstPaid == null ? [] : buildEntitlementIntervals(firstPaid, syncs, deletions);
 
     // Every moment paid access stopped, in order. The first is the first
@@ -424,11 +435,20 @@ export function buildCohortReport(
     const relevantEnd = terminalEnd == null
       ? null
       : deletions.find((event) => time(event.createdAt) === terminalEnd) ?? null;
+    const onFirstSub = (event: CohortAuditInput) => firstSub == null || subId(event.message) === firstSub;
+    // A Cancel click wins over a refund: a member who clicked Cancel and then
+    // asked for their money back decided when they clicked.
     const relevantCancel = [...cancelRequests].reverse().find((event) => {
       const at = time(event.createdAt);
       return at != null && firstPaid != null && at >= firstPaid && (terminalEnd == null || at <= terminalEnd)
-        && (firstSub == null || subId(event.message) === firstSub);
+        && onFirstSub(event);
+    }) ?? [...refunds].reverse().find((event) => {
+      const at = time(event.createdAt);
+      return at != null && firstPaid != null && at >= firstPaid
+        && (terminalEnd == null || at <= terminalEnd + REFUND_AFTER_END_MS)
+        && onFirstSub(event);
     }) ?? null;
+    const refunded = relevantCancel != null && MONEY_BACK_REFUND_TYPES.has(relevantCancel.type);
     const failures = events.filter((event) => event.type === 'stripe_payment_failed');
     const failureBeforeEnd = lastAccessEnd == null ? null : [...failures].reverse().find((event) => {
       const at = time(event.createdAt);
@@ -444,7 +464,9 @@ export function buildCohortReport(
       else if (failureBeforeEnd) churnKind = 'payment_failure';
       else churnKind = 'other';
     }
-    const reasonEvent = relevantCancel ?? relevantEnd;
+    // A refund states its reason in its own words; the deletion it caused
+    // carries the same answer in the survey format the parser reads.
+    const reasonEvent = refunded ? (relevantEnd ?? relevantCancel) : (relevantCancel ?? relevantEnd);
     const parsedReason = reasonEvent ? parseCancellationReasonFromMessage(reasonEvent.message) : null;
     const cancellationReason = parsedReason && (parsedReason.feedback || parsedReason.comment)
       ? [parsedReason.feedback ? cancellationFeedbackLabel(parsedReason.feedback) : null, parsedReason.comment].filter(Boolean).join(': ')
@@ -469,7 +491,10 @@ export function buildCohortReport(
       : null;
     const classificationExplanation = churnKind === 'other'
       ? 'Paid access ended without a matching cancellation-request event or a payment-failure event in the 35 days before loss; the available audit trail cannot attribute a cause.'
-      : churnKind === 'voluntary' ? 'Matched to an explicit cancellation-request event before paid access ended.'
+      : churnKind === 'voluntary'
+        ? refunded
+          ? 'Refunded under the money-back guarantee, which ends the subscription on the spot.'
+          : 'Matched to an explicit cancellation-request event before paid access ended.'
       : churnKind === 'payment_failure' ? 'Matched to a failed-payment event before the terminal paid-access loss.'
       : null;
 

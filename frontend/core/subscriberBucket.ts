@@ -351,6 +351,24 @@ export type LedgerDeclineEvent = {
   at: string;
 };
 
+// A money-back refund on a subscription (`money_back_refund_issued`, or
+// `_incomplete` for one that finished on a re-run). Evidence only, like a
+// decline: the refund cancels the subscription on the spot, and this is what
+// lets the row for that ending say it was a refund rather than a plain ending.
+// Read as set membership rather than on the timeline, because the refund's row
+// is written after the cancel it triggers and can land either side of the
+// deletion.
+export type LedgerRefundEvent = {
+  subId: string;
+  at: string;
+};
+
+// The streams that never make a row of their own and only explain one.
+export type LedgerEvidence = {
+  declines?: LedgerDeclineEvent[];
+  refunds?: LedgerRefundEvent[];
+};
+
 const KIND_LABELS: Record<LedgerEventKind, string> = {
   trialStarted: 'Trial started',
   conversionPending: 'Conversion charge pending',
@@ -430,6 +448,10 @@ type SubState = {
   // Currently dropped out of the chart by a pause rather than a lapse, so the
   // return trip can be reported as a resume instead of a new subscription.
   paused: boolean;
+  // Has been on the chart at some point. A plan paid up front first syncs as
+  // `incomplete` (not counted) until its charge clears, and its arrival must
+  // not read as a member coming back.
+  everCounted: boolean;
   ended: boolean;
 };
 
@@ -488,8 +510,9 @@ function isPaidSubscription(s: SubState): boolean {
  * is what makes the result independent of that order, the same reasoning
  * stampSubscriptionPayment relies on for its two columns.
  *
- * `declines` never makes a row either. It only decides whether an ending was a
- * payment failure (see LedgerRow.paymentFailure and LedgerDeclineEvent).
+ * `evidence` never makes a row either. Declines decide whether an ending was a
+ * payment failure (see LedgerRow.paymentFailure); refunds say an ending was a
+ * money-back refund.
  */
 export function buildSubscriberLedger(
   syncs: LedgerSyncEvent[],
@@ -497,10 +520,12 @@ export function buildSubscriberLedger(
   payments: LedgerPaymentEvent[] = [],
   recoveries: LedgerRecoveryEvent[] = [],
   nowMs: number = Date.now(),
-  declines: LedgerDeclineEvent[] = [],
+  evidence: LedgerEvidence = {},
 ): LedgerRow[] {
   const rows: LedgerRow[] = [];
   const subs = new Map<string, SubState>();
+  const declines = evidence.declines ?? [];
+  const refundedSubs = new Set((evidence.refunds ?? []).map((ev) => ev.subId));
 
   const recoveredSubs = new Map<string, LedgerRecoveryEvent>();
   for (const ev of recoveries) {
@@ -532,6 +557,7 @@ export function buildSubscriberLedger(
         recoveredKind: recovery?.kind ?? null,
         recovered: recovery != null,
         paused: false,
+        everCounted: false,
         ended: false,
       };
       subs.set(subId, s);
@@ -557,6 +583,7 @@ export function buildSubscriberLedger(
       detail,
     });
     s.bucket = to;
+    if (to !== 'notCounted') s.everCounted = true;
   };
 
   // Promote a subscription whose `active` has outlived the fallback window
@@ -660,16 +687,27 @@ export function buildSubscriberLedger(
       s.ended = true;
       if (s.bucket === 'notCounted' || s.bucket === null) continue; // already off the chart
       const scheduled = s.cancelAtPeriodEnd;
+      const refunded = refundedSubs.has(ev.subId!);
       const open = isFailureOpen(s);
       const trialPhase = isTrialPhase(s, step.at);
       // An ending nobody asked for is a payment failure when a charge was
       // declined on the way out. With no decline on record, ending a conversion
       // whose first charge was still pending says the same thing: that is the
-      // moment Stripe cancels a trial whose charge it will not retry.
+      // moment Stripe cancels a trial whose charge it will not retry. A refund
+      // was asked for, whatever else is on record.
       const failed =
+        !refunded &&
         !scheduled &&
         !open &&
         (declinedRecently(s, step.at) || (s.bucket === 'converting' && trialPhase));
+      const reason = ev.reason ? ` (${ev.reason})` : '';
+      let detail = `Subscription ended${reason}`;
+      if (refunded) detail = `Refunded under the money-back guarantee — access ended${reason}`;
+      else if (scheduled) detail = `Scheduled cancellation took effect — access ended${reason}`;
+      else if (failed && s.paidAt) detail = 'A charge was declined and Stripe canceled the subscription';
+      else if (failed && trialPhase) detail = 'Trial ended, the first charge failed and Stripe canceled the subscription';
+      else if (failed) detail = 'The first charge failed and Stripe canceled the subscription';
+      else if (open) detail = 'Stripe canceled the subscription before the declined charge was paid';
       rows.push({
         at: ev.at,
         email: ev.email,
@@ -677,17 +715,7 @@ export function buildSubscriberLedger(
         kind: 'accessEnded',
         ...bucketDeltas(s.bucket, 'notCounted'),
         paymentFailure: failed,
-        detail: scheduled
-          ? `Scheduled cancellation took effect — access ended${ev.reason ? ` (${ev.reason})` : ''}`
-          : failed
-            ? s.paidAt
-              ? 'A charge was declined and Stripe canceled the subscription'
-              : trialPhase
-                ? 'Trial ended, the first charge failed and Stripe canceled the subscription'
-                : 'The first charge failed and Stripe canceled the subscription'
-            : open
-              ? 'Stripe canceled the subscription before the declined charge was paid'
-              : `Subscription ended${ev.reason ? ` (${ev.reason})` : ''}`,
+        detail,
       });
       s.bucket = 'notCounted';
       continue;
@@ -752,7 +780,12 @@ export function buildSubscriberLedger(
           s,
           'conversionPending',
           next,
-          'Trial ended and Stripe raised the first invoice — the charge has not been attempted yet',
+          // Most plans are paid up front at checkout, with no trial: the
+          // subscription turns `active` as that charge goes through, a moment
+          // before the payment itself is on record.
+          s.sawTrial
+            ? 'Trial ended and Stripe raised the first invoice — the charge has not been attempted yet'
+            : 'Signed up on a paid plan — the first charge has not cleared yet',
         );
       } else if (next === 'trialGrace') {
         push(
@@ -787,7 +820,7 @@ export function buildSubscriberLedger(
         } else if (s.paused) {
           s.paused = false;
           push(ev, s, 'resumed', next, 'Pause ended — billing restarted and access restored');
-        } else if (s.bucket === 'notCounted') {
+        } else if (s.bucket === 'notCounted' && s.everCounted) {
           push(ev, s, 'converted', next, 'Resubscribed — paying again');
         } else {
           push(ev, s, 'converted', next, 'New paying subscriber');
@@ -798,26 +831,17 @@ export function buildSubscriberLedger(
         s.paused = true;
         push(ev, s, 'paused', next, 'Subscription paused — billing and access on hold; this is not churn');
       } else {
+        const refunded = refundedSubs.has(ev.subId);
         const open = isFailureOpen(s);
-        const failed = paymentSignal && !open;
-        push(
-          ev,
-          s,
-          'accessEnded',
-          next,
-          failed
-            ? s.paidAt
-              ? 'A charge was declined — access removed'
-              : 'The first charge was declined — access removed'
-            : open
-              ? 'The declined charge was not paid in time — access removed'
-              : s.bucket === 'freeTrial'
-                ? trialPhase
-                  ? 'Trial ended without a successful charge — access removed'
-                  : 'Trial ended — access removed'
-                : 'Subscription lapsed — access removed',
-          failed,
-        );
+        const failed = paymentSignal && !open && !refunded;
+        let detail = 'Subscription lapsed — access removed';
+        if (refunded) detail = 'Refunded under the money-back guarantee — access removed';
+        else if (failed && s.paidAt) detail = 'A charge was declined — access removed';
+        else if (failed) detail = 'The first charge was declined — access removed';
+        else if (open) detail = 'The declined charge was not paid in time — access removed';
+        else if (s.bucket === 'freeTrial' && trialPhase) detail = 'Trial ended without a successful charge — access removed';
+        else if (s.bucket === 'freeTrial') detail = 'Trial ended — access removed';
+        push(ev, s, 'accessEnded', next, detail, failed);
       }
     }
 
