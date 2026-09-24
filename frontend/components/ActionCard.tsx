@@ -2,6 +2,7 @@
 // Playbook engine. Used by both the live /trading-signals dashboard and the
 // shareable /cards/[id] permalink page, so it stays pure (no hooks, no
 // interactivity) and can render under React Server Components.
+import { formatEtTimestamp } from '@/core/etTimestamp';
 import { humanize, humanizeText } from '@/core/signalHelpers';
 import type {
   SignalActionAlternative,
@@ -24,6 +25,20 @@ export function directionColor(direction: string | undefined): string {
   if (d.includes('bull')) return 'var(--color-bull)';
   if (d.includes('bear')) return 'var(--color-bear)';
   return 'var(--color-warning)';
+}
+
+// The engine stamps cards in UTC. Print Eastern wall time with the offset so a
+// 4:00 AM pre-market card reads as one; the exact UTC stamp stays on hover.
+function CardTimestamp({ iso }: { iso: string | undefined }) {
+  if (!iso) return null;
+  const label = formatEtTimestamp(iso);
+  const className = 'font-mono normal-case tracking-normal text-[var(--color-text-secondary)]';
+  if (!label) return <span className={className}>{iso}</span>;
+  return (
+    <time dateTime={iso} title={iso} className={className}>
+      {label}
+    </time>
+  );
 }
 
 function PriceCell({
@@ -105,7 +120,7 @@ export function TradeCard({ data }: { data: SignalActionResponse }) {
             <span style={{ color: dirColor }}>● {data.underlying || 'SPY'}</span>
             <span>·</span>
             <span>Decisive Trade</span>
-            {data.timestamp && <span className="font-mono normal-case tracking-normal text-[var(--color-text-secondary)]">{data.timestamp}</span>}
+            <CardTimestamp iso={data.timestamp} />
           </div>
           <h3
             className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight"
@@ -198,7 +213,7 @@ export function StandDownCard({ data }: { data: SignalActionResponse }) {
         <span style={{ color: 'var(--color-warning)' }}>● {data.underlying || 'SPY'}</span>
         <span>·</span>
         <span>No Trade</span>
-        {data.timestamp && <span className="font-mono normal-case tracking-normal">{data.timestamp}</span>}
+        <CardTimestamp iso={data.timestamp} />
       </div>
       <h3 className="mt-2 text-3xl md:text-4xl font-black uppercase tracking-tight leading-tight text-[var(--color-warning)]">
         Stand Down
