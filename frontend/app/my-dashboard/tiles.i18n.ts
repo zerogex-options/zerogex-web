@@ -29,13 +29,15 @@ export const dict: PageDictionary = {
     putGexTooltip:
       'Modeled gamma exposure from put strikes (put-negative convention). Large put concentrations can influence price through dealer hedging, but whether a level acts as support, a magnet, or an acceleration point depends on the modeled dealer gamma sign and surrounding flow — it is not mechanically guaranteed.',
     callWallTitle: 'Call Wall (Resistance)',
-    callWallSubtitle: 'Heavy call open interest',
+    // “0–2DTE” below matches zerogex-oa’s INGEST_EXPIRATIONS=3 (the walls are ranked
+    // over every ingested expiration). Change it in every locale if that setting changes.
+    callWallSubtitle: 'Most call gamma above spot',
     callWallTooltip:
-      'Strike with the heaviest call open interest — a ZeroGEX level. It can act as resistance when the modeled dealer book is net long gamma there (selling into rallies toward it), but the effect depends on the modeled gamma sign and flow and is not guaranteed.',
+      'Strike at or above spot with the largest call gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0–2DTE) — a ZeroGEX level. It can act as resistance when the modeled dealer book is net long gamma there (selling into rallies toward it), but the effect depends on the modeled gamma sign and flow and is not guaranteed.',
     putWallTitle: 'Put Wall (Support)',
-    putWallSubtitle: 'Heavy put open interest',
+    putWallSubtitle: 'Most put gamma below spot',
     putWallTooltip:
-      'Strike with the heaviest put open interest — a ZeroGEX level. It can act as support when the surrounding modeled book is net long gamma there, but a put concentration does not by itself guarantee support; the effect depends on the modeled gamma sign and flow.',
+      'Strike at or below spot with the largest put gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0–2DTE) — a ZeroGEX level. It can act as support when the surrounding modeled book is net long gamma there, but a put concentration does not by itself guarantee support; the effect depends on the modeled gamma sign and flow.',
     netFlowTitle: 'Net Flow',
     netFlowSubtitle: 'contracts',
     netFlowTooltip: 'Cumulative call volume minus put volume for the current session.',
@@ -76,13 +78,13 @@ export const dict: PageDictionary = {
     putGexTooltip:
       "Esposizione gamma modellata degli strike put (convenzione put-negativo). Grandi concentrazioni di put possono influenzare il prezzo tramite l'hedging dei dealer, ma se un livello agisca da supporto, da magnete o da punto di accelerazione dipende dal segno della gamma modellata dei dealer e dal flusso circostante — non è garantito in modo meccanico.",
     callWallTitle: 'Call Wall (Resistenza)',
-    callWallSubtitle: 'Open interest call elevato',
+    callWallSubtitle: 'Massima gamma call sopra lo spot',
     callWallTooltip:
-      "Strike con l'open interest call più elevato — un livello ZeroGEX. Può agire da resistenza quando il book modellato dei dealer è net long gamma a quel livello (vendendo durante i rally verso di esso), ma l'effetto dipende dal segno della gamma modellata e dal flusso e non è garantito.",
+      "Strike pari o superiore allo spot con la maggiore esposizione gamma call (gamma × open interest), sommata sulla scadenza di oggi e sulle due successive (0–2DTE) — un livello ZeroGEX. Può agire da resistenza quando il book modellato dei dealer è net long gamma a quel livello (vendendo durante i rally verso di esso), ma l'effetto dipende dal segno della gamma modellata e dal flusso e non è garantito.",
     putWallTitle: 'Put Wall (Supporto)',
-    putWallSubtitle: 'Open interest put elevato',
+    putWallSubtitle: 'Massima gamma put sotto lo spot',
     putWallTooltip:
-      "Strike con l'open interest put più elevato — un livello ZeroGEX. Può agire da supporto quando il book modellato circostante è net long gamma a quel livello, ma una concentrazione di put non garantisce di per sé il supporto; l'effetto dipende dal segno della gamma modellata e dal flusso.",
+      "Strike pari o inferiore allo spot con la maggiore esposizione gamma put (gamma × open interest), sommata sulla scadenza di oggi e sulle due successive (0–2DTE) — un livello ZeroGEX. Può agire da supporto quando il book modellato circostante è net long gamma a quel livello, ma una concentrazione di put non garantisce di per sé il supporto; l'effetto dipende dal segno della gamma modellata e dal flusso.",
     netFlowTitle: 'Flusso Netto',
     netFlowSubtitle: 'contratti',
     netFlowTooltip: 'Volume call cumulativo meno volume put per la sessione corrente.',
@@ -123,13 +125,13 @@ export const dict: PageDictionary = {
     putGexTooltip:
       'Modellierte Gamma-Exposure aus Put-Strikes (Konvention put-negativ). Große Put-Konzentrationen können den Preis über das Dealer-Hedging beeinflussen, aber ob ein Niveau als Unterstützung, als Magnet oder als Beschleunigungspunkt wirkt, hängt vom Vorzeichen der modellierten Dealer-Gamma und vom umgebenden Flow ab — es ist nicht mechanisch garantiert.',
     callWallTitle: 'Call Wall (Widerstand)',
-    callWallSubtitle: 'Hohes Call-Open-Interest',
+    callWallSubtitle: 'Größte Call-Gamma-Exposition',
     callWallTooltip:
-      'Strike mit dem höchsten Call-Open-Interest — ein ZeroGEX-Niveau. Kann als Widerstand wirken, wenn das modellierte Dealer-Book dort netto long Gamma ist (Verkäufe in Anstiege zu diesem Niveau hinein), aber der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab und ist nicht garantiert.',
+      'Strike auf oder über Spot mit der höchsten Call-Gamma-Exposition (Gamma × Open Interest), summiert über den heutigen Verfallstermin und die zwei folgenden (0–2DTE) — ein ZeroGEX-Niveau. Kann als Widerstand wirken, wenn das modellierte Dealer-Book dort netto long Gamma ist (Verkäufe in Anstiege zu diesem Niveau hinein), aber der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab und ist nicht garantiert.',
     putWallTitle: 'Put Wall (Unterstützung)',
-    putWallSubtitle: 'Hohes Put-Open-Interest',
+    putWallSubtitle: 'Größte Put-Gamma-Exposition',
     putWallTooltip:
-      'Strike mit dem höchsten Put-Open-Interest — ein ZeroGEX-Niveau. Kann als Unterstützung wirken, wenn das umgebende modellierte Book dort netto long Gamma ist, aber eine Put-Konzentration garantiert für sich genommen keine Unterstützung; der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab.',
+      'Strike auf oder unter Spot mit der höchsten Put-Gamma-Exposition (Gamma × Open Interest), summiert über den heutigen Verfallstermin und die zwei folgenden (0–2DTE) — ein ZeroGEX-Niveau. Kann als Unterstützung wirken, wenn das umgebende modellierte Book dort netto long Gamma ist, aber eine Put-Konzentration garantiert für sich genommen keine Unterstützung; der Effekt hängt vom Vorzeichen der modellierten Gamma und vom Flow ab.',
     netFlowTitle: 'Net Flow',
     netFlowSubtitle: 'Kontrakte',
     netFlowTooltip: 'Kumuliertes Call-Volumen minus Put-Volumen für die aktuelle Sitzung.',
@@ -170,13 +172,13 @@ export const dict: PageDictionary = {
     putGexTooltip:
       'Exposición gamma modelada de los strikes put (convención put-negativo). Grandes concentraciones de puts pueden influir en el precio a través de la cobertura de los dealers, pero que un nivel actúe como soporte, como imán o como punto de aceleración depende del signo de la gamma modelada de los dealers y del flujo circundante — no está garantizado de forma mecánica.',
     callWallTitle: 'Call Wall (Resistencia)',
-    callWallSubtitle: 'Interés abierto de calls elevado',
+    callWallSubtitle: 'Mayor gamma de calls sobre el spot',
     callWallTooltip:
-      'Strike con el mayor interés abierto de calls — un nivel ZeroGEX. Puede actuar como resistencia cuando el book modelado de los dealers está net long gamma en ese nivel (vendiendo durante los rallies hacia él), pero el efecto depende del signo de la gamma modelada y del flujo y no está garantizado.',
+      'Strike igual o superior al spot con la mayor exposición gamma de calls (gamma × interés abierto), sumada sobre el vencimiento de hoy y los dos siguientes (0–2DTE) — un nivel ZeroGEX. Puede actuar como resistencia cuando el book modelado de los dealers está net long gamma en ese nivel (vendiendo durante los rallies hacia él), pero el efecto depende del signo de la gamma modelada y del flujo y no está garantizado.',
     putWallTitle: 'Put Wall (Soporte)',
-    putWallSubtitle: 'Interés abierto de puts elevado',
+    putWallSubtitle: 'Mayor gamma de puts bajo el spot',
     putWallTooltip:
-      'Strike con el mayor interés abierto de puts — un nivel ZeroGEX. Puede actuar como soporte cuando el book modelado circundante está net long gamma en ese nivel, pero una concentración de puts no garantiza por sí misma el soporte; el efecto depende del signo de la gamma modelada y del flujo.',
+      'Strike igual o inferior al spot con la mayor exposición gamma de puts (gamma × interés abierto), sumada sobre el vencimiento de hoy y los dos siguientes (0–2DTE) — un nivel ZeroGEX. Puede actuar como soporte cuando el book modelado circundante está net long gamma en ese nivel, pero una concentración de puts no garantiza por sí misma el soporte; el efecto depende del signo de la gamma modelada y del flujo.',
     netFlowTitle: 'Flujo Neto',
     netFlowSubtitle: 'contratos',
     netFlowTooltip: 'Volumen de calls acumulado menos volumen de puts para la sesión actual.',
@@ -217,13 +219,13 @@ export const dict: PageDictionary = {
     putGexTooltip:
       "Exposition gamma modélisée des strikes put (convention put-négatif). De fortes concentrations de put peuvent influencer le prix via le hedging des dealers, mais qu'un niveau agisse comme support, comme aimant ou comme point d'accélération dépend du signe de la gamma modélisée des dealers et du flux environnant — ce n'est pas mécaniquement garanti.",
     callWallTitle: 'Call Wall (Résistance)',
-    callWallSubtitle: 'Fort open interest call',
+    callWallSubtitle: 'Plus forte exposition gamma call',
     callWallTooltip:
-      "Strike avec le plus fort open interest call — un niveau ZeroGEX. Peut agir comme résistance lorsque le book modélisé des dealers y est net long gamma (vente dans les rallyes vers ce niveau), mais l'effet dépend du signe de la gamma modélisée et du flux et n'est pas garanti.",
+      "Strike égal ou supérieur au spot avec la plus forte exposition gamma call (gamma × open interest), cumulée sur l'échéance du jour et les deux suivantes (0–2DTE) — un niveau ZeroGEX. Peut agir comme résistance lorsque le book modélisé des dealers y est net long gamma (vente dans les rallyes vers ce niveau), mais l'effet dépend du signe de la gamma modélisée et du flux et n'est pas garanti.",
     putWallTitle: 'Put Wall (Support)',
-    putWallSubtitle: 'Fort open interest put',
+    putWallSubtitle: 'Plus forte exposition gamma put',
     putWallTooltip:
-      "Strike avec le plus fort open interest put — un niveau ZeroGEX. Peut agir comme support lorsque le book modélisé environnant y est net long gamma, mais une concentration de put ne garantit pas à elle seule le support ; l'effet dépend du signe de la gamma modélisée et du flux.",
+      "Strike égal ou inférieur au spot avec la plus forte exposition gamma put (gamma × open interest), cumulée sur l'échéance du jour et les deux suivantes (0–2DTE) — un niveau ZeroGEX. Peut agir comme support lorsque le book modélisé environnant y est net long gamma, mais une concentration de put ne garantit pas à elle seule le support ; l'effet dépend du signe de la gamma modélisée et du flux.",
     netFlowTitle: 'Flux Net',
     netFlowSubtitle: 'contrats',
     netFlowTooltip: 'Volume call cumulé moins volume put pour la session en cours.',
