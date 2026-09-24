@@ -111,16 +111,15 @@ export default function AdvancedSignalCard({
           </div>
         </div>
 
-        {/* On a phone the score, its sparkline and the scale line sit in a
-            two-row grid — number and sparkline side by side, the scale line
-            under both. In the desktop row the scale line lives under the
-            number and, being the wider of the two, squeezes the sparkline to
-            a few px; on a 330px card that left the history unreadable. The
-            left column is `display: contents` below sm so its two children
-            become grid items; from sm up it is the original block in a flex
-            row, where the grid placement classes do nothing. */}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1 sm:flex sm:items-end sm:justify-between sm:gap-3">
-          <div className="contents sm:block">
+        {/* The score, its sparkline and the scale line sit in a two-row
+            grid: number and sparkline side by side, the scale line under
+            both. Laid out as one row, the scale line lived under the number
+            and, being the wider of the two, squeezed the sparkline to a few
+            px, on a phone card and in the three-column desktop grid alike.
+            The left column is `display: contents`, so its two children are
+            grid items. */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1">
+          <div className="contents">
             <div className="col-start-1 row-start-1 text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
               {loading && !payload.score ? '…' : score != null ? score.toFixed(1) : '—'}
             </div>
@@ -150,8 +149,8 @@ export default function AdvancedSignalCard({
               ) : null}
             </div>
           </div>
-          <div className="col-start-2 row-start-1 flex-1 sm:max-w-[55%]">
-            <SignalSparkline points={history} strokeColor={color} fillColor={`${color}1a`} />
+          <div className="col-start-2 row-start-1 min-w-0">
+            <SignalSparkline points={history} strokeColor={color} fillColor={`color-mix(in srgb, ${color} 10%, transparent)`} />
           </div>
         </div>
 

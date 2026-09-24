@@ -36,6 +36,7 @@ import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { likePairFor } from "@/core/symbols";
 
 const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
@@ -156,6 +157,8 @@ export default function PairComparisonClient() {
   const [sym2, setSym2] = useState<UnderlyingSymbol>(() => likePairFor(headerSymbol));
 
   const [mode, setMode] = useState<"live" | "replay">("live");
+  // From xl up the candles sit beside the ladders and share their height.
+  const sideBySide = !useIsMobile(1280);
   // Sticky: once replay is armed the session buffers stay mounted so toggling
   // Live⇄Replay is instant instead of refetching each time.
   const [replayArmed, setReplayArmed] = useState(false);
@@ -342,24 +345,27 @@ export default function PairComparisonClient() {
 
       {/* One rectangular instrument: narrow strike-aligned ladders on the left,
           the two candle charts stacked on the right to fill the space, and the
-          replay transport spanning the bottom — one playhead drives all four. */}
+          replay transport spanning the bottom — one playhead drives all four.
+          Side by side from xl up; below that the ladders sit above the charts,
+          which beside them at a 1024px window were ~230px wide. */}
       <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
-        <div className="flex flex-col lg:flex-row">
+        <div className="flex flex-col xl:flex-row">
           {/* Left: the two gamma ladders. ~212px per column so the level
               legend, strike tags and the value column (with the Δ slot) fit
               without crowding; the candle charts flex into what remains. */}
-          <div className="w-full lg:w-[425px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
+          <div className="w-full xl:w-[425px] xl:flex-none border-b xl:border-b-0 xl:border-r border-[var(--border-default)]">
             <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} />
           </div>
 
           {/* Right: stacked candles — top = header symbol, bottom = compare
               symbol — scrubbing in lockstep with the ladders during Replay. */}
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className="border-b border-[var(--border-default)]">
+            <div className="flex flex-col border-b border-[var(--border-default)] xl:flex-1">
               <PairCandleChart
                 symbol={sym1}
                 timeframe={timeframe}
                 embedded
+                fillHeight={sideBySide}
                 replay={{
                   active: mode === "replay",
                   candles: replay1.candles,
@@ -369,18 +375,21 @@ export default function PairComparisonClient() {
                 }}
               />
             </div>
-            <PairCandleChart
-              symbol={sym2}
-              timeframe={timeframe}
-              embedded
-              replay={{
-                active: mode === "replay",
-                candles: replay2.candles,
-                cursorTs,
-                loading: replay2.loading,
-                levels: { spot: rightData.spot, flip: rightData.gammaFlip, call: rightData.callWall, put: rightData.putWall, pain: rightData.maxPain },
-              }}
-            />
+            <div className="flex flex-col xl:flex-1">
+              <PairCandleChart
+                symbol={sym2}
+                timeframe={timeframe}
+                embedded
+                fillHeight={sideBySide}
+                replay={{
+                  active: mode === "replay",
+                  candles: replay2.candles,
+                  cursorTs,
+                  loading: replay2.loading,
+                  levels: { spot: rightData.spot, flip: rightData.gammaFlip, call: rightData.callWall, put: rightData.putWall, pain: rightData.maxPain },
+                }}
+              />
+            </div>
           </div>
         </div>
 

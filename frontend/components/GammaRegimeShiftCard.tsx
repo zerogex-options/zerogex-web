@@ -41,7 +41,7 @@
 
 import { useCallback, useLayoutEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useCoarsePointer, useIsMobile } from '@/hooks/useIsMobile';
 import {
   STATE_META,
   buildExpiryCaveat,
@@ -257,18 +257,26 @@ function ShiftPlane({
 
 // Widest ribbon (CSS px) that is drawn on the compact canvas.
 const RIBBON_COMPACT_MAX = 640;
+// The desktop board's native width.
+const RIBBON_DESKTOP_W = 1200;
+// Advance of one monospace glyph, in ems: enough to keep a label clear of the
+// canvas edges and of its neighbours without measuring the text.
+const MONO_ADVANCE = 0.6;
 
 /**
- * The ribbon's geometry. DESKTOP is the original 1200-unit board; the compact
- * one is built at the width it is drawn (one viewBox unit per CSS px), because
- * the desktop board squeezed into a phone renders its 12–13 unit labels at
- * about 3px. It was once rescued by a 760px sideways scroller instead.
+ * The ribbon's geometry. Both canvases are drawn at the card's measured width
+ * (one viewBox unit per CSS px), so their labels render at their set size: a
+ * fixed 1200-unit board squeezed into a phone drew its 12–13 unit labels at
+ * about 3px, and into a 700px desktop card at about 7px. A card of 1200px or
+ * more keeps the original 1200-unit board. The compact canvas is the phone
+ * one: shorter, smaller type, and a tap readout under it.
  */
-function ribbonGeometry(compactWidth: number | null) {
-  if (compactWidth == null) {
-    return { compact: false, W: 1200, H: 196, PAD: 12, BOT: 158, MID: 92, HMAX: 64, SPOT_Y: 14, LABEL_Y: 184, fs: 12, fsStrong: 13 };
+function ribbonGeometry(width: number | null, compact: boolean) {
+  if (compact && width != null) {
+    return { compact: true, W: Math.max(260, Math.round(width)), H: 156, PAD: 2, BOT: 126, MID: 72, HMAX: 50, SPOT_Y: 11, LABEL_Y: 146, fs: 10, fsStrong: 11 };
   }
-  return { compact: true, W: Math.max(260, Math.round(compactWidth)), H: 156, PAD: 2, BOT: 126, MID: 72, HMAX: 50, SPOT_Y: 11, LABEL_Y: 146, fs: 10, fsStrong: 11 };
+  const W = width != null && width > 0 && width < RIBBON_DESKTOP_W ? Math.round(width) : RIBBON_DESKTOP_W;
+  return { compact: false, W, H: 196, PAD: 12, BOT: 158, MID: 92, HMAX: 64, SPOT_Y: 14, LABEL_Y: 184, fs: 12, fsStrong: 13 };
 }
 
 /**
@@ -279,11 +287,12 @@ function ribbonGeometry(compactWidth: number | null) {
  * below. Bars grow up for gamma added and down for gamma shed, so the sign is
  * carried by position as well as color.
  *
- * The viewBox is 1200 wide and 240 tall so it fills a full-width panel at
- * roughly 1:1 unit-to-pixel, instead of a 700x140 box stretched across 1200px
- * (which scaled the type to ~17px and left the bars in a thin band). A phone
- * gets the compact canvas above, measured from the card, and — since a
- * finger cannot reach a bar's hover title — a tap on a bar reads it out.
+ * The desktop viewBox is 1200 units wide (the card's width, if narrower) so it
+ * fills a full-width panel at roughly 1:1 unit-to-pixel, instead of a 700x140
+ * box stretched across 1200px (which scaled the type to ~17px and left the
+ * bars in a thin band). A phone gets the compact canvas above, measured from
+ * the card, and — since a finger cannot reach a bar's hover title — a tap on
+ * a bar reads it out.
  */
 function ConcentrationRibbon({
   strikes,
@@ -317,11 +326,17 @@ function ConcentrationRibbon({
     return () => ro.disconnect();
   }, [boxEl]);
   const setBoxNode = useCallback((el: HTMLDivElement | null) => setBoxEl(el), []);
-  // Any card narrower than RIBBON_COMPACT_MAX, and every card below lg (a
-  // tablet's 700-990px card drew the 1200-unit board's labels at ~7px).
-  const compactViewport = useIsMobile(1024);
+  // The compact canvas for any card narrower than RIBBON_COMPACT_MAX, and for
+  // touch screens up to the desktop board's width, where a finger cannot reach
+  // a bar's hover title and the tap readout stands in for it. A mouse gets the
+  // desktop board, drawn at the card's width.
+  const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
+  const touchUi = isMobile || coarsePointer;
+  const measured = boxW != null && boxW > 0 ? boxW : null;
   const g = ribbonGeometry(
-    boxW != null && boxW > 0 && (boxW < RIBBON_COMPACT_MAX || compactViewport) ? boxW : null,
+    measured,
+    measured != null && (measured < RIBBON_COMPACT_MAX || (touchUi && measured < RIBBON_DESKTOP_W)),
   );
   const { compact, W, H, PAD, BOT, MID, HMAX } = g;
   const [picked, setPicked] = useState<number | null>(null);
@@ -345,6 +360,29 @@ function ConcentrationRibbon({
   const gutter = compact ? Math.min(3, bw * 0.3) : 3;
   const pickedRow = picked == null ? null : ordered.find((r) => r.strike === picked) ?? null;
   const pickedValue = pickedRow ? (lens === 'net' ? pickedRow.d_net : pickedRow.positioning) : null;
+
+  // Label placement. The spot label is kept inside the canvas, where a
+  // centered one would hang off an edge when spot sits near one. The band
+  // caption is centered on the band, kept clear of the strike labels at
+  // either end; on the compact canvas (or when there is no room for that) it
+  // is centered on the canvas instead.
+  const spotLabel = `SPOT ${formatStrike(spot)}`;
+  const spotHalf = (spotLabel.length * g.fsStrong * MONO_ADVANCE) / 2 + 2;
+  const spotLabelX = Math.max(PAD + spotHalf, Math.min(W - PAD - spotHalf, xOf(spot)));
+  const caption = bandResolved
+    ? compact
+      ? `${formatBand(band)} · ${formatPercent(band.share)}`
+      : `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
+    : compact
+      ? 'diffuse\u00a0- no concentration'
+      : 'no concentration\u00a0- change is diffuse across the chain';
+  const captionHalf = (caption.length * g.fsStrong * MONO_ADVANCE) / 2;
+  const captionMin = PAD + formatStrike(lo).length * g.fs * MONO_ADVANCE + 12 + captionHalf;
+  const captionMax = W - PAD - formatStrike(hi).length * g.fs * MONO_ADVANCE - 12 - captionHalf;
+  const captionX =
+    compact || !bandResolved || captionMin > captionMax
+      ? W / 2
+      : Math.max(captionMin, Math.min(captionMax, (xOf(band.low) + xOf(band.high) + bw) / 2));
 
   const onTap = (e: MouseEvent<SVGSVGElement>) => {
     if (!compact) return;
@@ -429,9 +467,7 @@ function ConcentrationRibbon({
             opacity={0.7}
           />
           <text
-            // Kept inside the canvas: on a phone spot can sit near an edge,
-            // where a centered label would hang off it.
-            x={compact ? Math.max(PAD + 34, Math.min(W - PAD - 34, xOf(spot))) : xOf(spot)}
+            x={spotLabelX}
             y={g.SPOT_Y}
             textAnchor="middle"
             fontFamily="var(--font-mono)"
@@ -439,7 +475,7 @@ function ConcentrationRibbon({
             fontWeight={700}
             fill="var(--text-primary)"
           >
-            SPOT {formatStrike(spot)}
+            {spotLabel}
           </text>
         </>
       )}
@@ -471,9 +507,7 @@ function ConcentrationRibbon({
         {formatStrike(hi)}
       </text>
       <text
-        // On the compact canvas the band caption is centred on the canvas, not
-        // on the band: a band near one end would push it over a strike label.
-        x={compact ? W / 2 : bandResolved ? (xOf(band.low) + xOf(band.high) + bw) / 2 : W / 2}
+        x={captionX}
         y={g.LABEL_Y}
         textAnchor="middle"
         fontFamily="var(--font-mono)"
@@ -481,13 +515,7 @@ function ConcentrationRibbon({
         fontWeight={600}
         fill={bandResolved ? 'var(--color-warning)' : 'var(--text-muted)'}
       >
-        {bandResolved
-          ? compact
-            ? `${formatBand(band)} · ${formatPercent(band.share)}`
-            : `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
-          : compact
-            ? 'diffuse\u00a0- no concentration'
-            : 'no concentration\u00a0- change is diffuse across the chain'}
+        {caption}
       </text>
     </svg>
     {compact && (
