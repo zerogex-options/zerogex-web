@@ -226,6 +226,13 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
 // core/trialConveyor and the window in core/trialDunning, for the same reason.
 const CONVERSION_CONFIRM_DAYS = 2;
 
+// How soon after a subscription turns `active` its first payment must be on
+// record for the charge to count as taken at once. Paying up front at checkout,
+// or switching off a trial onto a paid plan, charges in the same moment; only
+// the arrival order of the webhooks separates the two rows. A trial that runs
+// its course is charged about an hour after it turns `active`, well outside.
+const CHARGED_AT_ONCE_MS = 10 * 60_000;
+
 // How far back a declined charge still explains a subscription ending, in days.
 // The same window core/cohortRetention uses to call a loss involuntary, so the
 // ledger and the Growth tab attribute an ending to nonpayment by one rule.
@@ -296,6 +303,14 @@ export type LedgerPaymentEvent = {
   userId: string | null;
   email: string | null;
   at: string;
+  // Stripe's billing_reason for the invoice, when the row names one. The first
+  // paid invoice says how a subscription started paying:
+  //   subscription_create  paid up front at checkout (the $0 invoice that opens
+  //                        a trial is never a payment, see subscriptionPayments)
+  //   subscription_update  a trial member switched to a paid plan, which ends
+  //                        the trial and charges at once
+  //   subscription_cycle   the trial ran its course and the first period billed
+  billingReason?: string | null;
 };
 
 // A subscription created by ORPHAN RECOVERY to honor an invoice that was paid
@@ -363,10 +378,20 @@ export type LedgerRefundEvent = {
   at: string;
 };
 
+// A trial member who switched to a paid plan in the app, which ends the trial
+// and charges at once (`billing_plan_switch_in_app`, "Trial ended for paid
+// switch …"). A switch made in the billing portal needs no row of its own: its
+// first invoice is an update invoice, which the payment stream already carries.
+export type LedgerTrialSwitchEvent = {
+  subId: string;
+  at: string;
+};
+
 // The streams that never make a row of their own and only explain one.
 export type LedgerEvidence = {
   declines?: LedgerDeclineEvent[];
   refunds?: LedgerRefundEvent[];
+  trialSwitches?: LedgerTrialSwitchEvent[];
 };
 
 const KIND_LABELS: Record<LedgerEventKind, string> = {
@@ -452,6 +477,10 @@ type SubState = {
   // `incomplete` (not counted) until its charge clears, and its arrival must
   // not read as a member coming back.
   everCounted: boolean;
+  // Turned `active` with its first payment moments away (see
+  // CHARGED_AT_ONCE_MS). No pending row is written for it; the payment books
+  // the arrival as one row.
+  chargingAtOnce: boolean;
   ended: boolean;
 };
 
@@ -526,6 +555,7 @@ export function buildSubscriberLedger(
   const subs = new Map<string, SubState>();
   const declines = evidence.declines ?? [];
   const refundedSubs = new Set((evidence.refunds ?? []).map((ev) => ev.subId));
+  const switchedSubs = new Set((evidence.trialSwitches ?? []).map((ev) => ev.subId));
 
   const recoveredSubs = new Map<string, LedgerRecoveryEvent>();
   for (const ev of recoveries) {
@@ -533,6 +563,36 @@ export function buildSubscriberLedger(
     // by one, and a re-run is refused by the recovered_from_invoice stamp.
     if (ev.subId && !recoveredSubs.has(ev.subId)) recoveredSubs.set(ev.subId, ev);
   }
+
+  // Each subscription's first payment on record: when it landed, and on which
+  // kind of invoice. Read ahead of the walk because both decide how the moment a
+  // subscription turns `active` reads, and the payment usually arrives a moment
+  // after that sync.
+  const firstPayment = new Map<string, { atMs: number; reason: string | null }>();
+  const timedPayments = payments
+    .map((ev) => ({ ev, atMs: Date.parse(ev.at) }))
+    .filter(({ ev, atMs }) => ev.subId && Number.isFinite(atMs))
+    .sort((a, b) => a.atMs - b.atMs);
+  for (const { ev, atMs } of timedPayments) {
+    const first = firstPayment.get(ev.subId);
+    if (!first) firstPayment.set(ev.subId, { atMs, reason: ev.billingReason ?? null });
+    // The account-level first-payment stamp names no invoice type; the invoice
+    // row for the same charge, a moment later, does.
+    else if (first.reason == null && atMs - first.atMs <= CHARGED_AT_ONCE_MS) first.reason = ev.billingReason ?? null;
+  }
+  const firstReason = (subId: string) => firstPayment.get(subId)?.reason ?? null;
+  const switchedOffTrial = (s: SubState, subId: string) =>
+    s.sawTrial && (firstReason(subId) === 'subscription_update' || switchedSubs.has(subId));
+  const paidUpFront = (s: SubState, subId: string) =>
+    !s.sawTrial || firstReason(subId) === 'subscription_create';
+
+  // The arrival of a subscription whose first charge was taken at once.
+  const arrivalDetail = (s: SubState, subId: string, fallback: string): string =>
+    switchedOffTrial(s, subId)
+      ? 'Ended the free trial early by switching to a paid plan, and paid at once'
+      : paidUpFront(s, subId) && firstReason(subId) != null
+        ? 'Paid up front at checkout — a new paying subscriber'
+        : fallback;
 
   const stateFor = (subId: string): SubState => {
     let s = subs.get(subId);
@@ -558,6 +618,7 @@ export function buildSubscriberLedger(
         recovered: recovery != null,
         paused: false,
         everCounted: false,
+        chargingAtOnce: false,
         ended: false,
       };
       subs.set(subId, s);
@@ -672,6 +733,10 @@ export function buildSubscriberLedger(
       s.paidAt = ev.at;
       if (s.bucket === 'converting') {
         push(ev, s, 'converted', 'fullSubscriber', 'The first payment cleared — now a paying subscriber');
+      } else if (s.chargingAtOnce) {
+        s.chargingAtOnce = false;
+        push(ev, s, 'converted', 'fullSubscriber',
+          arrivalDetail(s, ev.subId, 'The trial ended and the first payment cleared at once — now a paying subscriber'));
       }
       continue;
     }
@@ -775,18 +840,26 @@ export function buildSubscriberLedger(
       } else if (next === 'freeTrial') {
         push(ev, s, 'trialStarted', next, 'Free trial began — card on file, no charge yet');
       } else if (next === 'converting') {
-        push(
-          ev,
-          s,
-          'conversionPending',
-          next,
-          // Most plans are paid up front at checkout, with no trial: the
-          // subscription turns `active` as that charge goes through, a moment
-          // before the payment itself is on record.
-          s.sawTrial
-            ? 'Trial ended and Stripe raised the first invoice — the charge has not been attempted yet'
-            : 'Signed up on a paid plan — the first charge has not cleared yet',
-        );
+        const first = firstPayment.get(ev.subId);
+        if (first && first.atMs >= atMs && first.atMs - atMs <= CHARGED_AT_ONCE_MS) {
+          // Charged at once: paid up front at checkout, or a trial member
+          // switching to a paid plan. Nothing was ever pending, so no row; the
+          // payment moments later books the arrival.
+          s.chargingAtOnce = true;
+        } else {
+          push(
+            ev,
+            s,
+            'conversionPending',
+            next,
+            switchedOffTrial(s, ev.subId)
+              ? 'Switched from the free trial to a paid plan — the charge has not cleared yet'
+              : paidUpFront(s, ev.subId)
+                ? 'Signed up on a paid plan — the first charge has not cleared yet'
+                : `The ${normalizeBucketTier(ev.tier) === 'pro' ? 'Pro' : 'Basic'} free trial ended and Stripe raised ` +
+                  'the first invoice — the charge has not been attempted yet',
+          );
+        }
       } else if (next === 'trialGrace') {
         push(
           ev,
@@ -823,7 +896,9 @@ export function buildSubscriberLedger(
         } else if (s.bucket === 'notCounted' && s.everCounted) {
           push(ev, s, 'converted', next, 'Resubscribed — paying again');
         } else {
-          push(ev, s, 'converted', next, 'New paying subscriber');
+          // The payment landed before this `active` sync, so the charge was
+          // taken at once; say how, when the invoice says.
+          push(ev, s, 'converted', next, arrivalDetail(s, ev.subId, 'New paying subscriber'));
         }
       } else if (ev.status === 'active') {
         // Live subscription, no tier granted: Stripe keeps a paused sub
