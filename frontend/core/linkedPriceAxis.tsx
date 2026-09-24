@@ -29,6 +29,12 @@
  *      same proportional band around their own price action, which is the only
  *      way SPY and QQQ can be compared at all.
  *
+ * The base window only fits itself while nobody has touched either half. The
+ * first zoom or pan on either one (time or price) makes the view manual, and
+ * from then on each symbol's base window is held as it stood, so the axis
+ * moves only when the reader moves it (see core/linkedPriceAxisState). Reset
+ * releases it.
+ *
  * A chart that finds no provider above it (every page outside a linked board)
  * gets null and keeps its own private axis, exactly as before.
  */
@@ -41,29 +47,40 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import {
+  INITIAL_LINK_STATE,
+  holdLinkView,
+  linkDomains,
+  reportLinkDomain,
+  setLinkView,
+  type DomainReport,
+  type LinkState,
+  type LinkedPriceView,
+  type PriceDomain,
+} from './linkedPriceAxisState';
 
-/** A chart's auto-fit price domain, as reported to the link. */
-export type PriceDomain = { min: number; max: number };
-
-/** The shared manual view, relative to whatever base window a chart resolves. */
-export type LinkedPriceView = {
-  /** Multiplier on the base half-range. 1 = the base window itself. */
-  zoom: number;
-  /** Pan, in signed multiples of the base half-range. 0 = centered. */
-  centerRel: number;
-};
+export type { LinkedPriceView, PriceDomain };
 
 export type LinkedPriceAxisValue = {
   /** The shared zoom/pan, or null while every linked chart is auto-fitting. */
   view: LinkedPriceView | null;
+  /** Set the shared zoom/pan, or release it with null (Reset). */
   setView: (view: LinkedPriceView | null) => void;
+  /**
+   * Take the axis over without moving it, for a zoom or pan through time: the
+   * base windows stop fitting themselves, and a zoom/pan already set is kept.
+   */
+  hold: () => void;
   /**
    * Publish (or, with null, withdraw) this chart's auto-fit domain under a key
    * unique to the chart instance. Safe to call on every domain change: an
    * unchanged report is a no-op, so this cannot drive a render loop.
    */
-  reportDomain: (key: string, report: { symbol: string } & PriceDomain | null) => void;
-  /** The union of every reported domain for `symbol` — the shared base window. */
+  reportDomain: (key: string, report: DomainReport | null) => void;
+  /**
+   * The shared base window per symbol: the union of every reported domain for
+   * it, held as it stood once the view went manual.
+   */
   domains: ReadonlyMap<string, PriceDomain>;
 };
 
@@ -75,54 +92,27 @@ export function useLinkedPriceAxis(): LinkedPriceAxisValue | null {
 }
 
 export function LinkedPriceAxisProvider({ children }: { children: ReactNode }) {
-  const [view, setView] = useState<LinkedPriceView | null>(null);
-  const [reports, setReports] = useState<ReadonlyMap<string, { symbol: string } & PriceDomain>>(
-    () => new Map(),
-  );
+  const [state, setState] = useState<LinkState>(INITIAL_LINK_STATE);
 
-  const reportDomain = useCallback<LinkedPriceAxisValue['reportDomain']>((key, report) => {
-    setReports((prev) => {
-      const current = prev.get(key);
-      if (report === null) {
-        if (!current) return prev;
-        const next = new Map(prev);
-        next.delete(key);
-        return next;
-      }
-      // Bail on an identical report so a chart re-reporting the same domain
-      // every render can never bounce state back and forth.
-      if (
-        current &&
-        current.symbol === report.symbol &&
-        current.min === report.min &&
-        current.max === report.max
-      ) {
-        return prev;
-      }
-      const next = new Map(prev);
-      next.set(key, report);
-      return next;
-    });
+  const setView = useCallback<LinkedPriceAxisValue['setView']>((view) => {
+    setState((s) => setLinkView(s, view));
   }, []);
 
-  // Union per symbol: the smallest window that contains what every chart on
-  // that symbol would have auto-fitted to on its own.
-  const domains = useMemo<ReadonlyMap<string, PriceDomain>>(() => {
-    const out = new Map<string, PriceDomain>();
-    for (const { symbol, min, max } of reports.values()) {
-      if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) continue;
-      const current = out.get(symbol);
-      out.set(
-        symbol,
-        current ? { min: Math.min(current.min, min), max: Math.max(current.max, max) } : { min, max },
-      );
-    }
-    return out;
-  }, [reports]);
+  const hold = useCallback(() => {
+    setState(holdLinkView);
+  }, []);
+
+  const reportDomain = useCallback<LinkedPriceAxisValue['reportDomain']>((key, report) => {
+    setState((s) => reportLinkDomain(s, key, report));
+  }, []);
+
+  // While held this is the same map on every report, so reports that land
+  // while the reader is steering don't re-render the charts.
+  const domains = useMemo(() => linkDomains(state), [state]);
 
   const value = useMemo<LinkedPriceAxisValue>(
-    () => ({ view, setView, reportDomain, domains }),
-    [view, reportDomain, domains],
+    () => ({ view: state.view, setView, hold, reportDomain, domains }),
+    [state.view, setView, hold, reportDomain, domains],
   );
 
   return (

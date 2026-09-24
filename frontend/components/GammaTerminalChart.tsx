@@ -35,6 +35,7 @@ import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { wheelAction } from "@/core/wheelZoom";
+import { barsPrintedSince } from "@/core/chartViewHold";
 import {
   cumulativeNetVolume,
   lastSessionStartIndex,
@@ -324,7 +325,8 @@ function compactCanvas(width: number, landscape: boolean): ChartCanvas {
 }
 
 // View window (zoom + pan). We keep a deep pool of bars in memory and show a
-// movable slice of it; the price axis auto-fits whatever is visible.
+// movable slice of it; the price axis auto-fits whatever is visible until the
+// reader first zooms or pans, and then holds still (see `pinnedAxis`).
 const POOL = 400; // bars retained for panning
 const DEFAULT_COUNT = 90; // bars shown in the default, live-following view
 // The compact canvas has ~270 units of tape against the desktop board's ~990,
@@ -333,10 +335,11 @@ const DEFAULT_COUNT = 90; // bars shown in the default, live-following view
 const COMPACT_DEFAULT_COUNT = 60;
 const MIN_COUNT = 18; // most zoomed-in (time)
 const ZOOM_FACTOR = 1.2;
-// Vertical (price-axis) zoom. `zoom` is the fraction of the auto-fit price
-// range shown: <1 stretches the candles (zoom in), >1 scrunches them (more
-// range in the same height). `center` is null while auto-fitting, or a pinned
-// price once the user scrunches / pans vertically.
+// Vertical (price-axis) zoom. `zoom` is the fraction of the base price range
+// shown (the auto-fit, or the window held once the reader took over): <1
+// stretches the candles (zoom in), >1 scrunches them (more range in the same
+// height). `center` is null until the reader pans vertically, then the price
+// they dragged to.
 const PRICE_ZOOM_MIN = 0.15;
 const PRICE_ZOOM_MAX = 8;
 const DEFAULT_PRICE_VIEW: { zoom: number; center: number | null } = { zoom: 1, center: null };
@@ -851,13 +854,25 @@ export default function GammaTerminalChart({
     setView((v) => (v.count === viewDefault && v.offset === 0 ? { count: defaultCount, offset: 0 } : v));
   }
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
+  // The base price window, held still once the reader has touched the view.
+  // Null while the axis auto-fits, which it does only until the first zoom or
+  // pan (time or price, by wheel, drag, pinch or button). That gesture pins the
+  // window on screen at that moment, and from then on the price axis moves only
+  // when the reader moves it: live ticks, a flip or wall that moves, spot
+  // re-centering the terminal and a pan through time no longer re-scale it
+  // under their hand. Reset, a double-click, and a new symbol or timeframe hand
+  // it back to the auto-fit; a jump back to the live edge keeps it (see
+  // keepLatestInHeldWindow). `priceView` applies on top of it, exactly as it
+  // does on top of the auto-fit. Unlinked charts only: a linked board holds its
+  // shared window in the link (core/linkedPriceAxis).
+  const [pinnedAxis, setPinnedAxis] = useState<{ mid: number; half: number } | null>(null);
   // The zoom/pan actually on screen, wherever it is stored. Gesture handlers
   // read this so a drag on the half that ISN'T driving still starts from what
   // that half is showing.
   const effPriceZoom = priceLink ? (linkedView?.zoom ?? 1) : priceView.zoom;
   const priceIsManual = priceLink
     ? linkedView !== null
-    : priceView.center !== null || priceView.zoom !== 1;
+    : pinnedAxis !== null || priceView.center !== null || priceView.zoom !== 1;
   // Client-stamped instant of the latest live quote tick — drives the realtime
   // "updated HH:MM:SS ET" line (see fmtEtClock). Null until the first tick and
   // in delayed mode; never used server-side, so no hydration mismatch.
@@ -904,6 +919,7 @@ export default function GammaTerminalChart({
     setViewKey(`${symbol}:${timeframe}`);
     setView({ count: defaultCount, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
+    setPinnedAxis(null);
     setRewindActive(false);
     setRewindTime(null);
     setPlaybackActive(false);
@@ -1227,6 +1243,18 @@ export default function GammaTerminalChart({
   // how many bars are hidden to the RIGHT of the view (0 = live edge, so the
   // window follows new bars). `count` is how many bars are visible.
   const total = allBars.length;
+  // A view panned back in time stays on the bars it is showing. Counted from
+  // the right, the same offset would slide the window one bar to the left under
+  // the reader every time a bar printed, so each print widens the offset by the
+  // bars that printed. The live edge (offset 0) still follows new bars. Adjusted
+  // during render, like the symbol/timeframe reset above.
+  const newestBarTs = total > 0 ? allBars[total - 1].timestamp : null;
+  const [seenNewestBarTs, setSeenNewestBarTs] = useState(newestBarTs);
+  if (seenNewestBarTs !== newestBarTs) {
+    setSeenNewestBarTs(newestBarTs);
+    const printed = barsPrintedSince(allBars, seenNewestBarTs);
+    if (printed > 0) setView((v) => (v.offset > 0 ? { ...v, offset: v.offset + printed } : v));
+  }
   const effCount = total === 0 ? 0 : clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
   const maxOffset = Math.max(0, total - effCount);
   const effOffset = clamp(view.offset, 0, maxOffset);
@@ -1695,7 +1723,7 @@ export default function GammaTerminalChart({
 
     // Auto-fit domain complete. Apply the manual vertical zoom/pan on top:
     // scrunch by priceView.zoom around a center (priceView.center, or the
-    // auto midpoint while still auto-fitting).
+    // base window's midpoint until the reader pans vertically).
     const autoMin = dMin;
     const autoMax = dMax;
     // Raw, purely data-derived auto-fit. Reported to the link as-is (see the
@@ -1703,16 +1731,19 @@ export default function GammaTerminalChart({
     // report and the shared window would chase each other.
     const autoMid = (autoMin + autoMax) / 2;
     const autoHalf = Math.max((autoMax - autoMin) / 2, 1e-6);
-    // The window the manual zoom/pan is applied to. Three sources, in order:
+    // The window the manual zoom/pan is applied to. Four sources, in order:
     // the axis frozen at rewind entry (so scrubbing never moves the y-axis);
-    // the window shared with the other half of a linked board (so two expiries
-    // of one symbol start out on identical price bands); or this chart's own
+    // the window the reader pinned by zooming or panning (so from then on only
+    // the reader moves it); the window shared with the other half of a linked
+    // board (so two expiries of one symbol start out on identical price bands,
+    // and the link holds it once either half is touched); or this chart's own
     // auto-fit.
     const frozen = rewindActive ? frozenAxis : null;
-    const shared = frozen ? null : linkedBase;
-    const baseMid = frozen ? frozen.mid : shared ? (shared.min + shared.max) / 2 : autoMid;
-    const baseHalf = frozen
-      ? frozen.half
+    const held = frozen ?? (priceLink ? null : pinnedAxis);
+    const shared = held ? null : linkedBase;
+    const baseMid = held ? held.mid : shared ? (shared.min + shared.max) / 2 : autoMid;
+    const baseHalf = held
+      ? held.half
       : shared
         ? Math.max((shared.max - shared.min) / 2, 1e-6)
         : autoHalf;
@@ -1745,7 +1776,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // Terminal mode: report where the tape's price band and the live spot sit, in
   // CSS px from the card's top edge, so the ladders beside the chart can pin
@@ -1826,16 +1857,35 @@ export default function GammaTerminalChart({
     return () => reportDomain(linkKey, null);
   }, [reportDomain, linkKey, symbol, autoMid, autoHalf]);
 
+  // The reader has taken the price axis over: stop re-fitting it and hold the
+  // window on screen now. Every zoom and pan calls this before it moves
+  // anything, the time ones included, because a time pan or zoom changes which
+  // bars are visible and the auto-fit would re-scale the price axis under the
+  // reader's hand. Only the first call pins; after that it does nothing. On a
+  // linked board the link holds the shared window for both halves instead.
+  const holdPriceAxis = () => {
+    if (priceLink) {
+      priceLink.hold();
+      return;
+    }
+    if (!layout) return;
+    const { baseMid, baseHalf } = layout;
+    setPinnedAxis((pa) => pa ?? { mid: baseMid, half: baseHalf });
+  };
+
   // Every price zoom / pan goes through one of these two. On a linked board
   // they write the shared view — a zoom multiplier plus a pan relative to the
   // shared base window — so both halves move together; otherwise they update
-  // this chart's own axis exactly as before. They are split by axis so that
-  // zooming never disturbs the pan and vice versa, in either mode.
+  // this chart's own axis. Either way the first one holds the base window, so
+  // the zoom or pan is never re-scaled by the auto-fit afterward. They are
+  // split by axis so that zooming never disturbs the pan and vice versa, in
+  // either mode.
   const commitPriceZoom = (nextZoom: number) => {
     if (priceLink) {
       priceLink.setView({ zoom: nextZoom, centerRel: linkedView?.centerRel ?? 0 });
       return;
     }
+    holdPriceAxis();
     setPriceView((pv) => (pv.zoom === nextZoom ? pv : { zoom: nextZoom, center: pv.center }));
   };
 
@@ -1848,6 +1898,7 @@ export default function GammaTerminalChart({
       });
       return;
     }
+    holdPriceAxis();
     setPriceView((pv) => (pv.center === nextCenter ? pv : { zoom: pv.zoom, center: nextCenter }));
   };
 
@@ -2147,6 +2198,7 @@ export default function GammaTerminalChart({
         drag.moved = true;
         setDragging(true);
         setHover(null);
+        holdPriceAxis();
       }
       if (drag.moved) {
         // Horizontal → time pan. Dragging the tape right reveals older bars.
@@ -2155,16 +2207,20 @@ export default function GammaTerminalChart({
         const nextOffset = clamp(drag.startOffset + dBars, 0, maxOffset);
         setView((v) => (v.offset === nextOffset ? v : { ...v, offset: nextOffset }));
 
-        // Vertical → price pan. Keep price auto-fitting during ordinary
-        // horizontal panning; only engage manual price mode once the user has
-        // already scrunched, or the gesture turns clearly vertical.
+        // Vertical → price pan. Once the axis was already held when the drag
+        // began, a drag pans both ways, as on any chart whose scale is set by
+        // hand. On a chart still fitting itself, only a gesture that turns
+        // clearly vertical pans price, so a sideways drag doesn't wobble it.
         const verticalGesture = Math.abs(dyScreen) > Math.abs(dxScreen) && Math.abs(dyScreen) > 6;
         if (drag.startPriceManual || drag.priceEngaged || verticalGesture) {
           drag.priceEngaged = true;
           const dyView = dyScreen * (VH / Math.max(1, rect.height));
           const dPrice = (dyView * drag.startSpan) / (PRICE_BOTTOM - PAD_TOP);
-          const lo = layout.autoMid - layout.autoHalf * 6;
-          const hi = layout.autoMid + layout.autoHalf * 6;
+          // Within reach of the bars on screen, but never a snap: a held axis
+          // can sit well away from the bars a pan through time brought into
+          // view, and the drag carries on from wherever the window is.
+          const lo = Math.min(drag.startCenter, layout.autoMid - layout.autoHalf * 6);
+          const hi = Math.max(drag.startCenter, layout.autoMid + layout.autoHalf * 6);
           commitPriceCenter(clamp(drag.startCenter + dPrice, lo, hi));
         }
         return;
@@ -2313,6 +2369,7 @@ export default function GammaTerminalChart({
       t.pinchOffset = effOffset;
       t.pinchAnchorVx = ((a.x + b.x) / 2 - rect.left) * (VW / Math.max(1, rect.width));
       setHover(null);
+      holdPriceAxis();
     }
   };
 
@@ -2342,6 +2399,7 @@ export default function GammaTerminalChart({
       t.startX = e.clientX;
       t.startOffset = effOffset;
       setHover(null);
+      holdPriceAxis();
       return;
     }
     if (t.mode === "pan") {
@@ -2373,11 +2431,24 @@ export default function GammaTerminalChart({
     }
   };
 
+  // Back to the live view, and the price axis back to fitting itself.
   const resetView = () => {
     setView({ count: defaultCount, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
+    setPinnedAxis(null);
     priceLink?.setView(null);
     setHover(null);
+  };
+
+  // For a jump back to the live edge. A price axis the reader holds keeps their
+  // scale, but if the latest price has left its window the window is
+  // re-centered on it, so the jump always lands on the bar it names. An axis
+  // still fitting itself finds the live bars on its own.
+  const keepLatestInHeldWindow = () => {
+    if (!priceIsManual || !layout) return;
+    const latest = liveClose ?? allBars[allBars.length - 1]?.close ?? null;
+    if (latest == null || !Number.isFinite(latest)) return;
+    if (latest < layout.dMin || latest > layout.dMax) commitPriceCenter(latest);
   };
 
   // ── PNG export ──────────────────────────────────────────────────────────
@@ -2418,6 +2489,7 @@ export default function GammaTerminalChart({
   // Time zoom about the current view center (used by the on-screen buttons).
   const zoomTimeCentered = (factor: number) => {
     setHover(null);
+    holdPriceAxis();
     setView((v) => {
       if (total <= 1) return v;
       const curCount = clamp(v.count, MIN_COUNT, Math.max(MIN_COUNT, total));
@@ -2439,10 +2511,13 @@ export default function GammaTerminalChart({
   // TIME view changes, so anything it calls must be reached through a ref —
   // closing over zoomPrice directly would freeze the price zoom at whatever it
   // was when the listener was last attached, and every wheel tick would scale
-  // that same stale value instead of compounding.
+  // that same stale value instead of compounding. holdPriceAxis likewise, or it
+  // would pin the price window from whenever that was.
   const zoomPriceRef = useRef(zoomPrice);
+  const holdPriceAxisRef = useRef(holdPriceAxis);
   useEffect(() => {
     zoomPriceRef.current = zoomPrice;
+    holdPriceAxisRef.current = holdPriceAxis;
   });
 
   // Wheel. A bare wheel is left alone so the page scrolls — see core/wheelZoom
@@ -2474,6 +2549,7 @@ export default function GammaTerminalChart({
         return;
       }
       setHover(null);
+      holdPriceAxisRef.current();
       const curCount = clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
       const curOffset = clamp(view.offset, 0, Math.max(0, total - curCount));
       const curEnd = total - curOffset;
@@ -2510,9 +2586,10 @@ export default function GammaTerminalChart({
 
   const enterRewind = () => {
     if (allBars.length < MIN_COUNT) return;
-    // Freeze the y-axis to the current auto-fit domain so scrubbing doesn't move
-    // it (the user can still adjust it by hand afterward).
-    if (layout) setFrozenAxis({ mid: layout.autoMid, half: layout.autoHalf });
+    // Freeze the y-axis to the base window on screen (the auto-fit, or the
+    // window the reader already holds) so scrubbing doesn't move it and
+    // entering doesn't jump it (the user can still adjust it by hand afterward).
+    if (layout) setFrozenAxis({ mid: layout.baseMid, half: layout.baseHalf });
     // Anchor at the earliest replayable bar (full window + GEX coverage) so Play
     // has the longest runway. Set the clock to that candle's END so it opens on
     // a fully-formed candle; playback then builds the next one forward.
@@ -2529,6 +2606,7 @@ export default function GammaTerminalChart({
     setPlaybackActive(false);
     setFrozenAxis(null);
     setView((v) => ({ ...v, offset: 0 }));
+    keepLatestInHeldWindow();
   };
 
   // Scrub lands on a fully-formed candle (clock = the candle's end), so dragging
@@ -3292,7 +3370,7 @@ export default function GammaTerminalChart({
               <button
                 type="button"
                 onClick={resetView}
-                title="Reset zoom & pan to the live view"
+                title="Reset zoom & pan to the live view, and let the price scale fit itself again"
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 11,
@@ -3364,8 +3442,8 @@ export default function GammaTerminalChart({
                 <TooltipWrapper
                   text={
                     touchUi
-                      ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere\u00a0- or press and hold, then slide\u00a0- to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control, and Reset snaps back to the live view."
-                      : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view."
+                      ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere\u00a0- or press and hold, then slide\u00a0- to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control. Once you pan or zoom, the price scale stays where you put it; Reset snaps back to the live view and lets it fit itself again."
+                      : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control. Once you zoom or pan, the price scale stays where you put it; Reset (or a double-click) snaps back to the live view and lets it fit itself again."
                   }
                 />
                 {sessionBadge && (
@@ -4171,6 +4249,7 @@ export default function GammaTerminalChart({
                 } else {
                   setView((v) => ({ ...v, offset: 0 }));
                   setHover(null);
+                  keepLatestInHeldWindow();
                 }
               }}
               title={rewindActive ? "Return to live" : "Jump to the latest bar"}
