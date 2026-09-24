@@ -21,6 +21,11 @@
 // complete card, we stamp ``data-bulletin-ready="true"`` on the wrapper
 // and set ``window.__zerogexBulletinReady`` so Playwright's
 // ``waitForSelector`` and ``waitForFunction`` both work as ready-signals.
+//
+// The wrapper also carries ``data-bulletin-levels``: the exact numbers the
+// card draws, as JSON.  The bulletin X-post attaches this screenshot and
+// quotes its levels, so the job reads them from here rather than from its own
+// database query a minute earlier; the post and the picture can't disagree.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import GammaReportCard from '../../GammaReportCard';
@@ -118,6 +123,28 @@ export default function SnapshotClient({
     return `${dateFragment} · ${fmtTimeET(timestamp ?? undefined)}`;
   }, [timestamp, dateLabel]);
 
+  // The card's own numbers, for the X-post job (see the header comment).
+  const levelsAttr = useMemo(
+    () =>
+      JSON.stringify({
+        symbol: model.symbol,
+        spot: model.spot,
+        spot_is_projected: model.spotIsProjected,
+        spot_source: model.spotSourceLabel,
+        prior_close: priorClose,
+        change_pct: model.changePct,
+        gamma_flip: model.gammaFlip,
+        call_wall: model.callWall,
+        put_wall: model.putWall,
+        max_pain: model.maxPain,
+        net_gex: model.netGex,
+        regime: model.regime,
+        summary_timestamp: timestamp,
+        as_of: asOf,
+      }),
+    [model, priorClose, timestamp, asOf],
+  );
+
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +175,7 @@ export default function SnapshotClient({
   return (
     <div
       data-bulletin-ready={ready ? 'true' : 'false'}
+      data-bulletin-levels={levelsAttr}
       style={{
         display: 'flex',
         justifyContent: 'center',
