@@ -184,7 +184,7 @@ export default function ForcedFlowCurveChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced Dealer Flow · Reprice Curve
         </h3>
-        <TooltipWrapper text="Dollars of stock dealers are mechanically forced to BUY (+) or SELL (−) to stay delta-hedged as spot moves, computed by fully repricing the entire option book at each hypothetical price — an exact figure, not a Taylor approximation. The stacked bands attribute the flow to gamma (price), charm (time) and vanna (vol); the line is the exact total. It crosses zero at the zero-flow level, where dealers flip from buyers to sellers.">
+        <TooltipWrapper text="Dollars of stock dealers are mechanically forced to BUY (+) or SELL (−) to stay delta-hedged as spot moves, computed by fully repricing the entire option book at each hypothetical price&nbsp;- an exact figure, not a Taylor approximation. The stacked bands attribute the flow to gamma (price), charm (time) and vanna (vol); the line is the exact total. It crosses zero at the zero-flow level, where dealers flip from buyers to sellers.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -195,7 +195,7 @@ export default function ForcedFlowCurveChart({
         {/* CSS variables, not chart.*, in server-rendered markup: see the
             same note in ForcedFlowSurfaceChart (hydration mismatch). */}
         Dollars of stock dealers must <span style={{ color: 'var(--color-bull)', fontWeight: 600 }}>BUY (+)</span> /{' '}
-        <span style={{ color: 'var(--color-bear)', fontWeight: 600 }}>SELL (−)</span> to stay delta-hedged as spot moves —
+        <span style={{ color: 'var(--color-bear)', fontWeight: 600 }}>SELL (−)</span> to stay delta-hedged as spot moves&nbsp;-
         split into gamma, charm and vanna. The total line crosses zero where dealers flip from buyers to sellers.
       </p>
 

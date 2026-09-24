@@ -8,7 +8,7 @@
 
 ## Qu'est-ce qu'un gamma wall ?
 
-Un gamma wall est un strike de la chaîne d'options où l'exposition gamma des dealers se concentre fortement d'un côté du book. Les deux walls les plus surveillés sont le **call wall** — la plus forte concentration de gamma sur les calls au-dessus du spot — et le **put wall** — la plus forte concentration de gamma sur les puts en dessous du spot. Ensemble, ils dessinent la fourchette structurelle que les mécaniques de couverture des dealers tendent à défendre.
+Un gamma wall est un strike de la chaîne d'options où l'exposition gamma des dealers se concentre fortement d'un côté du book. Les deux walls les plus surveillés sont le **call wall** - la plus forte concentration de gamma sur les calls au-dessus du spot - et le **put wall** - la plus forte concentration de gamma sur les puts en dessous du spot. Ensemble, ils dessinent la fourchette structurelle que les mécaniques de couverture des dealers tendent à défendre.
 
 Les walls ne sont ni des moyennes mobiles ni des niveaux psychologiques. Ils émergent d'un positionnement réel : l'open interest, contrat par contrat, pondéré par le gamma que porte chaque contrat. Quand les traders demandent ce que signifient call wall et put wall, ce qu'ils demandent en réalité, c'est : *où se concentrent les flux de couverture des dealers, et comment ces flux affectent-ils le prix ?*
 
@@ -18,9 +18,9 @@ Cet article passe en revue ce qu'est chaque wall, pourquoi le prix a tendance à
 
 ## Qu'est-ce qu'un call wall ?
 
-Le call wall est le strike au-dessus du spot qui porte la plus forte exposition gamma sur les calls. Dans un régime de gamma positif, les dealers détenant un inventaire long-call doivent vendre lors des rallyes qui s'approchent du wall — se délestant du delta positif qu'ils accumulent à mesure que le prix monte vers celui-ci. Ce réflexe de couverture s'oppose au rallye.
+Le call wall est le strike au-dessus du spot qui porte la plus forte exposition gamma sur les calls. Dans un régime de gamma positif, les dealers détenant un inventaire long-call doivent vendre lors des rallyes qui s'approchent du wall - se délestant du delta positif qu'ils accumulent à mesure que le prix monte vers celui-ci. Ce réflexe de couverture s'oppose au rallye.
 
-En pratique, le call wall agit souvent comme une **résistance** dans les régimes de gamma longue — non pas parce que le niveau serait magique, mais parce que le flux de couverture qui s'active autour de lui est structurel.
+En pratique, le call wall agit souvent comme une **résistance** dans les régimes de gamma longue - non pas parce que le niveau serait magique, mais parce que le flux de couverture qui s'active autour de lui est structurel.
 
 À savoir :
 
@@ -32,14 +32,14 @@ En pratique, le call wall agit souvent comme une **résistance** dans les régim
 
 ## Qu'est-ce qu'un put wall ?
 
-Le put wall est le strike en dessous du spot avec la plus forte exposition gamma sur les puts. Dans un régime de gamma positif, le book net des dealers est long gamma, il achète donc à mesure que le prix chute vers le wall — le miroir du réflexe du call wall, l'achat se concentrant là où la gamma des puts est la plus dense. Ce réflexe s'oppose au selloff.
+Le put wall est le strike en dessous du spot avec la plus forte exposition gamma sur les puts. Dans un régime de gamma positif, le book net des dealers est long gamma, il achète donc à mesure que le prix chute vers le wall - le miroir du réflexe du call wall, l'achat se concentrant là où la gamma des puts est la plus dense. Ce réflexe s'oppose au selloff.
 
 En pratique, le put wall agit souvent comme un **support** dans les régimes de gamma longue. Comme pour le call wall, le mécanisme est structurel, pas psychologique.
 
 À savoir :
 
 - Le wall est dynamique. Un OI important qui s'éteint à l'approche de l'échéance peut effacer un put wall d'ici la mi-journée.
-- Dans un régime de gamma courte, le comportement des dealers s'inverse — le put wall cesse d'absorber la faiblesse et peut devenir un point de glissement (slippage) à la baisse.
+- Dans un régime de gamma courte, le comportement des dealers s'inverse - le put wall cesse d'absorber la faiblesse et peut devenir un point de glissement (slippage) à la baisse.
 - Un put wall est une inclinaison. Chocs macro, expansion de la volatilité et réajustements de la chaîne peuvent tous prendre le pas sur la lecture structurelle.
 
 ---
@@ -48,11 +48,11 @@ En pratique, le put wall agit souvent comme un **support** dans les régimes de 
 
 Le mécanisme est la couverture des dealers, pas la psychologie. La façon la plus claire de le voir :
 
-Dans un régime de **gamma positif**, les dealers se couvrent *contre* le mouvement du prix. Ils vendent quand le prix monte et achètent quand il baisse. Près d'un wall, ce réflexe s'intensifie car la concentration de gamma y est localement importante — un petit mouvement vers le wall force un trade de couverture relativement plus important en sens inverse.
+Dans un régime de **gamma positif**, les dealers se couvrent *contre* le mouvement du prix. Ils vendent quand le prix monte et achètent quand il baisse. Près d'un wall, ce réflexe s'intensifie car la concentration de gamma y est localement importante - un petit mouvement vers le wall force un trade de couverture relativement plus important en sens inverse.
 
-Dans un régime de **gamma négatif**, le réflexe s'inverse. Les dealers se couvrent *dans le même sens* que le mouvement du prix. Le même wall qui ancrait le prix en gamma longue peut devenir un vecteur de breakout — une fois que le prix le franchit, le trade de couverture renforce le mouvement au lieu de l'atténuer.
+Dans un régime de **gamma négatif**, le réflexe s'inverse. Les dealers se couvrent *dans le même sens* que le mouvement du prix. Le même wall qui ancrait le prix en gamma longue peut devenir un vecteur de breakout - une fois que le prix le franchit, le trade de couverture renforce le mouvement au lieu de l'atténuer.
 
-C'est pourquoi les walls semblent « fonctionner » certains jours et pas d'autres. Un gamma wall n'est pas une propriété fixe de la chaîne. C'est un *niveau* fixe dont l'effet comportemental dépend du **régime qui l'entoure** — ce qui est précisément ce qu'indique le gamma flip.
+C'est pourquoi les walls semblent « fonctionner » certains jours et pas d'autres. Un gamma wall n'est pas une propriété fixe de la chaîne. C'est un *niveau* fixe dont l'effet comportemental dépend du **régime qui l'entoure** - ce qui est précisément ce qu'indique le gamma flip.
 
 ---
 
@@ -60,11 +60,11 @@ C'est pourquoi les walls semblent « fonctionner » certains jours et pas d'autr
 
 Les walls ne sont pas annoncés à l'ouverture pour tenir jusqu'à la clôture. Ils migrent. Trois schémas courants :
 
-**Largeur.** Une fourchette de walls étroite signifie que la gamma est concentrée près du spot des deux côtés. En régime de gamma positive, c'est la configuration classique de pinning — la couverture s'oppose aux mouvements dans les deux sens et la fourchette tend à tenir. Une fourchette large signifie que les strikes denses les plus proches sont éloignés, donc il y a moins de couverture concentrée entre les deux et le prix peut parcourir plus de chemin avant d'en rencontrer.
+**Largeur.** Une fourchette de walls étroite signifie que la gamma est concentrée près du spot des deux côtés. En régime de gamma positive, c'est la configuration classique de pinning - la couverture s'oppose aux mouvements dans les deux sens et la fourchette tend à tenir. Une fourchette large signifie que les strikes denses les plus proches sont éloignés, donc il y a moins de couverture concentrée entre les deux et le prix peut parcourir plus de chemin avant d'en rencontrer.
 
 **Asymétrie.** Le spot se situe rarement au milieu. Quand un wall est bien plus proche que l'autre, le wall proche est le niveau qui est réellement testé et le lointain n'est surtout qu'un contexte. Un spot à 0,3 % sous le call wall et à 1,4 % au-dessus du put wall, ce n'est pas la même journée qu'un spot à mi-chemin entre les deux : le premier comporte un point de décision à court terme, le second non.
 
-Le piège est de lire la largeur ou l'asymétrie sans le régime. Les deux lectures ci-dessus supposent une gamma positive. Sous le flip, cette même fourchette étroite n'est pas un pin — c'est une courte distance entre deux niveaux que la couverture aidera le prix à franchir.
+Le piège est de lire la largeur ou l'asymétrie sans le régime. Les deux lectures ci-dessus supposent une gamma positive. Sous le flip, cette même fourchette étroite n'est pas un pin - c'est une courte distance entre deux niveaux que la couverture aidera le prix à franchir.
 
 ---
 
@@ -73,10 +73,10 @@ Le piège est de lire la largeur ou l'asymétrie sans le régime. Les deux lectu
 Les walls ne sont pas annoncés à l'ouverture pour tenir jusqu'à la clôture. Ils migrent. Trois schémas courants :
 
 1. **Rééquilibrage de l'OI.** Un volume frais sur un strike différent peut déplacer la concentration la plus lourde. En milieu de séance, un nouveau strike peut devenir le wall.
-2. **Migration du wall avec le prix.** À mesure que le prix se rapproche du call wall, une nouvelle couverture peut construire de l'OI juste au-dessus, poussant de fait le wall plus haut. Un wall qui *suit* le prix est structurellement différent d'un wall qui *tient* — la thèse du trap-fade est bien plus faible quand le wall se déplace avec le mouvement.
-3. **Décroissance à l'échéance.** Près des échéances du jour même — en particulier dans les chaînes riches en 0DTE — les walls peuvent disparaître en début d'après-midi à mesure que les contrats qui les avaient formés s'éteignent. Le wall en lequel vous aviez confiance à 10h30 ET peut ne plus être le wall à 14h30 ET.
+2. **Migration du wall avec le prix.** À mesure que le prix se rapproche du call wall, une nouvelle couverture peut construire de l'OI juste au-dessus, poussant de fait le wall plus haut. Un wall qui *suit* le prix est structurellement différent d'un wall qui *tient* - la thèse du trap-fade est bien plus faible quand le wall se déplace avec le mouvement.
+3. **Décroissance à l'échéance.** Près des échéances du jour même - en particulier dans les chaînes riches en 0DTE - les walls peuvent disparaître en début d'après-midi à mesure que les contrats qui les avaient formés s'éteignent. Le wall en lequel vous aviez confiance à 10h30 ET peut ne plus être le wall à 14h30 ET.
 
-Un wall peut aussi se déplacer uniquement parce que le spot, le temps et la volatilité implicite bougent — le strike portant le plus d'exposition modélisée change même quand le positionnement, lui, ne change pas. Un gamma wall est le strike le plus chargé en gamma modélisée *à cet instant*. Traitez-le comme une lecture vivante, pas comme une ligne fixe.
+Un wall peut aussi se déplacer uniquement parce que le spot, le temps et la volatilité implicite bougent - le strike portant le plus d'exposition modélisée change même quand le positionnement, lui, ne change pas. Un gamma wall est le strike le plus chargé en gamma modélisée *à cet instant*. Traitez-le comme une lecture vivante, pas comme une ligne fixe.
 
 ---
 
@@ -84,7 +84,7 @@ Un wall peut aussi se déplacer uniquement parce que le spot, le temps et la vol
 
 Le 0DTE est le terrain où le comportement des walls est le plus extrême, dans les deux sens.
 
-La gamma sur une chaîne du jour même est très importante près du spot et décroît rapidement en s'en éloignant, si bien que les walls se collent au prix et que la concentration qui s'y trouve est bien plus lourde que sur une chaîne à échéance plus longue. Quand le régime le permet, cela produit le pinning le plus fort que vous ayez des chances d'observer — un prix qui broie dans une bande étroite entre deux walls distants de quelques points seulement.
+La gamma sur une chaîne du jour même est très importante près du spot et décroît rapidement en s'en éloignant, si bien que les walls se collent au prix et que la concentration qui s'y trouve est bien plus lourde que sur une chaîne à échéance plus longue. Quand le régime le permet, cela produit le pinning le plus fort que vous ayez des chances d'observer - un prix qui broie dans une bande étroite entre deux walls distants de quelques points seulement.
 
 Cette même concentration rend ces walls instables. Comme la gamma 0DTE se revalorise brutalement à mesure que le spot bouge et que l'horloge tourne, un wall 0DTE peut migrer plusieurs fois en une heure sans qu'une seule position nouvelle soit ouverte. Les walls peuvent aussi disparaître : dès que des strikes se retrouvent nettement dans ou hors de la monnaie, leur gamma modélisée tend vers zéro et le classement se réorganise autour de ce qui reste près du spot.
 
@@ -112,7 +112,7 @@ Les walls ne sont pas des prédictions. Ce sont des inclinaisons qui fonctionnen
 - Un catalyseur macro (CPI, FOMC, NFP, actualité géopolitique) survient pendant que le wall est testé.
 - Le flux directionnel *s'accélère* vers le niveau au lieu de ralentir.
 
-La plupart de ces éléments peuvent se lire en temps réel. Aucun d'entre eux n'est une prédiction. Ce sont des vérifications — quand la plupart s'alignent d'un même côté, la lecture est plus nette ; quand elles se contredisent, la lecture est faible et le bon choix est généralement de ne pas trader.
+La plupart de ces éléments peuvent se lire en temps réel. Aucun d'entre eux n'est une prédiction. Ce sont des vérifications - quand la plupart s'alignent d'un même côté, la lecture est plus nette ; quand elles se contredisent, la lecture est faible et le bon choix est généralement de ne pas trader.
 
 ---
 
@@ -132,11 +132,11 @@ Un exemple concret. Supposons que le SPX soit à 5 830. Le tableau de bord affic
 - **Net GEX :** +1,5 Md $
 - **Gamma Flip :** 5 810
 
-La lecture structurelle : le spot est confortablement au-dessus du flip (régime de gamma longue), la fourchette des walls est asymétrique — bien plus proche du call wall que du put wall — et le Net GEX est sain. Inclinaison pratique : une dérive vers le call wall est la trajectoire la plus probable, les fades de rallyes vers ce niveau constituent le setup le plus propre, et une conviction baissière nécessiterait soit un franchissement du flip sous 5 810, soit un catalyseur clair pour l'emporter sur la traction structurelle du gamma positif au-dessus.
+La lecture structurelle : le spot est confortablement au-dessus du flip (régime de gamma longue), la fourchette des walls est asymétrique - bien plus proche du call wall que du put wall - et le Net GEX est sain. Inclinaison pratique : une dérive vers le call wall est la trajectoire la plus probable, les fades de rallyes vers ce niveau constituent le setup le plus propre, et une conviction baissière nécessiterait soit un franchissement du flip sous 5 810, soit un catalyseur clair pour l'emporter sur la traction structurelle du gamma positif au-dessus.
 
 ![Graphique GEX walls de ZeroGEX mettant en évidence le call wall et le put wall sur le profil gamma strike par strike](/blog/zerogex-walls-chart.png)
 
-Imaginez maintenant que le call wall migre à 5 855 pendant que le prix sonde 5 848. Cette migration est une donnée en soi — le wall poursuit le prix, le trap-fade est bien plus faible, et le breakout au-dessus de 5 850 est plus crédible qu'il ne le paraissait cinq minutes plus tôt. Lire le wall en mouvement, c'est l'essentiel de l'edge.
+Imaginez maintenant que le call wall migre à 5 855 pendant que le prix sonde 5 848. Cette migration est une donnée en soi - le wall poursuit le prix, le trap-fade est bien plus faible, et le breakout au-dessus de 5 850 est plus crédible qu'il ne le paraissait cinq minutes plus tôt. Lire le wall en mouvement, c'est l'essentiel de l'edge.
 
 ---
 
@@ -154,11 +154,11 @@ Quelques pièges :
 
 ## À retenir
 
-> Les gamma walls représentent un positionnement réel, pas de la psychologie. Ils dessinent la fourchette structurelle — mais seuls le gamma flip et le régime qui l'entoure vous disent si ces walls absorberont les mouvements ou les libéreront.
+> Les gamma walls représentent un positionnement réel, pas de la psychologie. Ils dessinent la fourchette structurelle - mais seuls le gamma flip et le régime qui l'entoure vous disent si ces walls absorberont les mouvements ou les libéreront.
 
-Lisez d'abord le régime. Lisez ensuite le wall. Lisez en troisième lieu la migration du wall. Cette séquence constitue l'essentiel de l'edge structurel dans les lectures de positionnement des dealers — et c'est aussi la différence entre fader un rallye que le book du dealer fade avec vous, et fader un rallye que ce même book de dealer s'apprête à poursuivre.
+Lisez d'abord le régime. Lisez ensuite le wall. Lisez en troisième lieu la migration du wall. Cette séquence constitue l'essentiel de l'edge structurel dans les lectures de positionnement des dealers - et c'est aussi la différence entre fader un rallye que le book du dealer fade avec vous, et fader un rallye que ce même book de dealer s'apprête à poursuivre.
 
-Contenu éducatif uniquement — rien de ce qui précède ne constitue une recommandation de trading.
+Contenu éducatif uniquement - rien de ce qui précède ne constitue une recommandation de trading.
 
 ---
 

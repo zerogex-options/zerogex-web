@@ -5,7 +5,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { resolveSymbol } from '@/core/symbols';
 
 export const runtime = 'nodejs';
-export const alt = 'ZeroGEX Gamma Forecast Card — projected range, expected volatility, key levels';
+export const alt = 'ZeroGEX Gamma Forecast Card - projected range, expected volatility, key levels';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const revalidate = 1800;
@@ -219,7 +219,7 @@ export default async function Image({
                   display: 'flex',
                 }}
               >
-                {fmtPrice(morning?.projected_low)} – {fmtPrice(morning?.projected_high)}
+                {fmtPrice(morning?.projected_low)} - {fmtPrice(morning?.projected_high)}
               </div>
               {(() => {
                 const spot = morning?.open_spot;
@@ -249,7 +249,7 @@ export default async function Image({
                     display: 'flex',
                   }}
                 >
-                  Actual: {fmtPrice(receipt?.actual_low)} – {fmtPrice(receipt?.actual_high)} · Close{' '}
+                  Actual: {fmtPrice(receipt?.actual_low)} - {fmtPrice(receipt?.actual_high)} · Close{' '}
                   {fmtPrice(receipt?.actual_close)}
                 </div>
               )}

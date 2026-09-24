@@ -71,7 +71,7 @@ export const BROKER_CONNECTIONS: readonly BrokerConnection[] = [
     broker: 'Interactive Brokers',
     short: 'IBKR',
     whyNoDirect:
-      'Trader Workstation has no scripting language and no way to draw on its charts from outside, so there is nothing for an indicator to install into — ours or anyone else’s.',
+      'Trader Workstation has no scripting language and no way to draw on its charts from outside, so there is nothing for an indicator to install into\u00a0- ours or anyone else’s.',
     paths: [
       {
         integration: 'ninjatrader',
@@ -85,7 +85,7 @@ export const BROKER_CONNECTIONS: readonly BrokerConnection[] = [
     requirement:
       'Both platforms reach IBKR through the same door, so the setup is the same either way: TWS or IB Gateway has to be running on the machine, with its socket API enabled.',
     caveat:
-      'IBKR’s own market data is thin by charting standards — snapshot ticks and limited history — which is why many traders pair a dedicated feed with IBKR for execution. It makes no difference to the levels: those are fetched from the ZeroGEX API over HTTP, and never read off the platform’s quotes.',
+      'IBKR’s own market data is thin by charting standards\u00a0- snapshot ticks and limited history\u00a0- which is why many traders pair a dedicated feed with IBKR for execution. It makes no difference to the levels: those are fetched from the ZeroGEX API over HTTP, and never read off the platform’s quotes.',
   },
 ] as const;
 

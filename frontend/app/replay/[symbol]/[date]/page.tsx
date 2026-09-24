@@ -138,12 +138,12 @@ export async function generateMetadata({
   const url = `${SITE_URL}/replay/${sym}/${date}`;
   const scoped = scope === '0dte';
   const title = scoped
-    ? `${sym} 0DTE GEX Replay · ${human} — ZeroGEX`
-    : `${sym} GEX Replay · ${human} — ZeroGEX`;
+    ? `${sym} 0DTE GEX Replay · ${human}\u00a0- ZeroGEX`
+    : `${sym} GEX Replay · ${human}\u00a0- ZeroGEX`;
   return {
     title,
     description: scoped
-      ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human} — walls, flip and max pain from the contracts that settled that afternoon.`
+      ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human}\u00a0- walls, flip and max pain from the contracts that settled that afternoon.`
       : `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`,
     alternates: { canonical: url },
     openGraph: {
@@ -215,7 +215,7 @@ export default async function ReplayDatePage({
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-sm text-[var(--color-text-secondary)]">
           {unavailable ? (
             <>
-              Couldn&rsquo;t load the {sym} replay for {formatHumanDate(date)} just now — the
+              Couldn&rsquo;t load the {sym} replay for {formatHumanDate(date)} just now&nbsp;- the
               data service didn&rsquo;t answer. This is on our side, not a gap in the session.
               Refresh in a moment, or{' '}
               <Link href="/replay" className="underline hover:text-[var(--color-text-primary)]">
@@ -225,7 +225,7 @@ export default async function ReplayDatePage({
             </>
           ) : (
             <>
-              No replayable frames for {sym} on {formatHumanDate(date)} yet — today&rsquo;s
+              No replayable frames for {sym} on {formatHumanDate(date)} yet&nbsp;- today&rsquo;s
               session fills in minute by minute once the cash session opens.
             </>
           )}
@@ -236,7 +236,7 @@ export default async function ReplayDatePage({
   const human = formatHumanDate(date);
   const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}`);
   const permalink = `${SITE_URL}/replay/${sym}/${date}`;
-  const tweetBody = `${sym} ${date} GEX replay — scrub the dealer gamma surface minute-by-minute.`;
+  const tweetBody = `${sym} ${date} GEX replay\u00a0- scrub the dealer gamma surface minute-by-minute.`;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
@@ -284,7 +284,7 @@ export default async function ReplayDatePage({
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Switch the strike profile between <em>All exps</em> and <em>0DTE</em> — 0DTE replays only
+        Switch the strike profile between <em>All exps</em> and <em>0DTE</em>&nbsp;- 0DTE replays only
         the contracts that settled that afternoon, and the call wall, put wall, gamma flip and max
         pain are re-derived from that book rather than the whole chain (the pin strike and GEX King
         stay whole-chain in both, exactly as they do on the live charts) ·
@@ -292,14 +292,14 @@ export default async function ReplayDatePage({
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
         the call wall (resistance), put wall (support), gamma flip, max pain and pin strike draw
-        as horizontal levels that migrate minute-by-minute as you scrub — the pin line carries
+        as horizontal levels that migrate minute-by-minute as you scrub&nbsp;- the pin line carries
         its strength, and the row under the plot says which levels are absent this minute
         versus merely off-screen ·
         toggle the strike profile between <em>Split</em> (call vs. put gamma), <em>Net</em>, and
-        <em>Combined</em> (the split with the purple net bar overlaid) — same views as the Strike
+        <em>Combined</em> (the split with the purple net bar overlaid)&nbsp;- same views as the Strike
         Profile chart ·
         candles past the cursor ghost out and light back to full opacity as the playhead sweeps
-        through them — or hit <em>Future</em> to hide everything ahead of the playhead for an
+        through them&nbsp;- or hit <em>Future</em> to hide everything ahead of the playhead for an
         as-it-happened tape · drop pin A then pin B to see the strike-by-strike delta between two moments ·
         click <em>Snapshot this minute</em> to generate a branded permalink with an OG image you
         can share. MP4 export of arbitrary windows is on the roadmap; today you share branded

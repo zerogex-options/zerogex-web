@@ -12,7 +12,7 @@ import {
 export const metadata = {
   title: 'ZeroGEX Help Center: Platform Guide, FAQs & Quick Starts',
   description:
-    'ZeroGEX Help Center — feature-by-feature platform walkthroughs, FAQs covering data, billing, signals, and account, plus short Quick Start video tutorials.',
+    'ZeroGEX Help Center\u00a0- feature-by-feature platform walkthroughs, FAQs covering data, billing, signals, and account, plus short Quick Start video tutorials.',
   alternates: { canonical: '/help' },
 };
 
@@ -21,7 +21,7 @@ const sections = [
     href: '/help/platform',
     title: 'Platform Guide',
     description:
-      'A complete tour of every page in ZeroGEX — Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and more. Built so a new user can learn the platform without ever having to ask.',
+      'A complete tour of every page in ZeroGEX\u00a0- Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and more. Built so a new user can learn the platform without ever having to ask.',
     icon: BookOpenCheck,
     badge: 'Walkthroughs',
   },
@@ -37,7 +37,7 @@ const sections = [
     href: '/help/quickstarts',
     title: 'Quick Starts',
     description:
-      'Short, focused video walkthroughs — 60-to-180-second clips that show you exactly how to read a chart, run a screen, or configure a feature. Watch and trade.',
+      'Short, focused video walkthroughs\u00a0- 60-to-180-second clips that show you exactly how to read a chart, run a screen, or configure a feature. Watch and trade.',
     icon: PlayCircle,
     badge: 'Video tutorials',
   },
@@ -142,7 +142,7 @@ export default function HelpCenterPage() {
         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Can&apos;t find what you need?</div>
         <h2 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">Talk to a human</h2>
         <p className="mb-4 text-sm leading-7 text-[var(--color-text-secondary)]">
-          The Help Center covers everything we&apos;ve documented so far — but real questions don&apos;t always
+          The Help Center covers everything we&apos;ve documented so far&nbsp;- but real questions don&apos;t always
           fit a category. Email{' '}
           <a className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]" href="mailto:support@zerogex.io">
             support@zerogex.io

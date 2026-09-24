@@ -1005,7 +1005,7 @@ export default function ReplayScrubber({
 
         {scopeHasNoContracts && (
           <div className="mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-            No contracts expiring {sessionDate} in this chain — that session had no 0DTE book.
+            No contracts expiring {sessionDate} in this chain&nbsp;- that session had no 0DTE book.
             Switch back to <strong>All exps</strong> for the whole-chain surface.
           </div>
         )}
@@ -1013,7 +1013,7 @@ export default function ReplayScrubber({
         {scope === '0dte' && !scopeHasNoContracts && (
           <div className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
             Bars, call wall, put wall, gamma flip and max pain are the {sessionDate} expiry alone.
-            Pin strike and GEX King stay whole-chain — same as the live charts, where neither
+            Pin strike and GEX King stay whole-chain&nbsp;- same as the live charts, where neither
             follows the Expiry selector. Snapshot cards render the whole chain.
           </div>
         )}

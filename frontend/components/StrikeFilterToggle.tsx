@@ -24,7 +24,7 @@ export default function StrikeFilterToggle({ showHint = true }: { showHint?: boo
       onChange={setActiveOnly}
       options={OPTIONS}
       showHint={showHint}
-      hint="Active hides strikes with no dealer positioning (no open interest) so the ladder and table fill with real levels — high-priced chains like NDX list a fine strike grid but only accrue open interest on the round strikes. All shows every listed strike near spot."
+      hint="Active hides strikes with no dealer positioning (no open interest) so the ladder and table fill with real levels&nbsp;- high-priced chains like NDX list a fine strike grid but only accrue open interest on the round strikes. All shows every listed strike near spot."
     />
   );
 }

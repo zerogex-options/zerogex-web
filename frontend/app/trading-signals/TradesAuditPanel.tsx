@@ -528,7 +528,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
               ← Prev
             </button>
             <span className="text-[var(--color-text-secondary)] tabular-nums">
-              {offset + 1}–{offset + data.entries.length}
+              {offset + 1}-{offset + data.entries.length}
             </span>
             <button
               onClick={() => setOffset(offset + PAGE_SIZE)}
@@ -580,7 +580,7 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
             Open positions
           </div>
           <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
-            Currently held — updates every 15s. Closed trades appear below
+            Currently held&nbsp;- updates every 15s. Closed trades appear below
             once they exit.
           </div>
         </div>

@@ -1,6 +1,6 @@
 # Advanced Signal Dashboard
 
-*Las señales event-driven — qué pregunta cada una, cuándo se dispara y cómo usarla.*
+*Las señales event-driven - qué pregunta cada una, cuándo se dispara y cómo usarla.*
 
 ---
 
@@ -39,15 +39,15 @@ La lectura integral de "el mercado está cargado". Combina el wall pinch, la pro
 
 ### Range Break Imminence
 
-Lectura de compresión de 20 barras. Skew delta + dealer delta + trap pressure + ratio de compresión de 10/60 barras. Genera tanto un puntaje como una imminence de 0 a 100. Se dispara con imminence ≥ 65 — lo que significa que el rango es realmente estrecho en relación con su historial reciente.
+Lectura de compresión de 20 barras. Skew delta + dealer delta + trap pressure + ratio de compresión de 10/60 barras. Genera tanto un puntaje como una imminence de 0 a 100. Se dispara con imminence ≥ 65 - lo que significa que el rango es realmente estrecho en relación con su historial reciente.
 
 ### Squeeze Setup
 
-Detector de setups multidía. Z-score del flujo, momentum de 5/10 barras, preparación del gamma, distancia al flip, régimen del VIX. Sesgo de continuation — indica "el mercado está comprimido, el próximo tramo es X".
+Detector de setups multidía. Z-score del flujo, momentum de 5/10 barras, preparación del gamma, distancia al flip, régimen del VIX. Sesgo de continuation - indica "el mercado está comprimido, el próximo tramo es X".
 
 ### Trap Detection
 
-El detector de breakouts fallidos. Walls (actual + previa), VWAP, flip, net GEX y ΔGEX, deltas de flujo. Sesgo de mean-reversion — se dispara cuando una ruptura por encima de la call wall o por debajo de la put wall retrocede bruscamente.
+El detector de breakouts fallidos. Walls (actual + previa), VWAP, flip, net GEX y ΔGEX, deltas de flujo. Sesgo de mean-reversion - se dispara cuando una ruptura por encima de la call wall o por debajo de la put wall retrocede bruscamente.
 
 ### Volatility Expansion
 
@@ -80,7 +80,7 @@ Haz clic en cualquier tarjeta y accederás a la página individual de la señal 
 
 ## Importante: el sesgo de trading importa
 
-Algunas señales Advanced son de continuation, otras de mean-reversion. Que Trap Detection se dispare en positivo **no** significa "ponerse long" — significa "hacer fade del breakout fallido a la baja". Verifica siempre el chip de sesgo de trading en la tarjeta.
+Algunas señales Advanced son de continuation, otras de mean-reversion. Que Trap Detection se dispare en positivo **no** significa "ponerse long" - significa "hacer fade del breakout fallido a la baja". Verifica siempre el chip de sesgo de trading en la tarjeta.
 
 ## Ver también
 

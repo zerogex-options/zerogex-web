@@ -91,7 +91,7 @@ export function freshnessLine(
 
   if (age === null) {
     return (
-      'UNDATED — this snapshot carries no timestamp, so its age cannot be established. ' +
+      'UNDATED - this snapshot carries no timestamp, so its age cannot be established. ' +
       'Say so, and do not present these levels as current.'
     );
   }
@@ -107,7 +107,7 @@ export function freshnessLine(
 
   if (age > STALE_SECONDS) {
     return (
-      `STALE — ${stamp}. This is well past the normal refresh, so the feed is likely behind. ` +
+      `STALE - ${stamp}. This is well past the normal refresh, so the feed is likely behind. ` +
       'The market has probably traded through these levels. Say they are stale; do not present ' +
       'them as describing the market now.'
     );
@@ -115,20 +115,20 @@ export function freshnessLine(
 
   if (age > BEHIND_SECONDS) {
     return (
-      `RUNNING BEHIND — ${stamp}, past the usual 15-minute delay. Quote the age with every ` +
+      `RUNNING BEHIND - ${stamp}, past the usual 15-minute delay. Quote the age with every ` +
       'level and treat the read as provisional.'
     );
   }
 
   return (
-    `Free delayed snapshot, ${stamp} — up to 15 minutes behind the live market by design. ` +
+    `Free delayed snapshot, ${stamp} - up to 15 minutes behind the live market by design. ` +
     'State the age when you quote these levels, and never call them live or real-time.'
   );
 }
 
 function priceLine(label: string, value: number | null | undefined, spot: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
-    return `- ${label}: unavailable (the modeled book does not support this level right now — this is not zero)`;
+    return `- ${label}: unavailable (the modeled book does not support this level right now - this is not zero)`;
   }
   const price = value.toFixed(2);
   if (spot == null || !Number.isFinite(spot) || spot === 0) return `- ${label}: ${price}`;
@@ -173,7 +173,7 @@ export function formatSnapshot(symbol: PickerSymbol, snapshot: GexSnapshot): str
   const spot = snapshot.spot_price ?? null;
   const lines: string[] = [];
 
-  lines.push(`${symbol} — modeled options dealer positioning`);
+  lines.push(`${symbol} - modeled options dealer positioning`);
   lines.push(
     spot != null && Number.isFinite(spot)
       ? `- Spot the levels were computed against: ${spot.toFixed(2)}`
@@ -197,7 +197,7 @@ export function formatSnapshot(symbol: PickerSymbol, snapshot: GexSnapshot): str
     // is broken", and only one of those is worth mentioning to a user.
     const reason = snapshot.pin_strike_reason;
     lines.push(
-      `- Pin strike (same-day): none${reason ? ` (${reason})` : ''} — normal when there is no ` +
+      `- Pin strike (same-day): none${reason ? ` (${reason})` : ''} - normal when there is no ` +
         'same-day expiry left or no reachable strike has restoring gamma.',
     );
   }
@@ -214,7 +214,7 @@ export function formatSnapshot(symbol: PickerSymbol, snapshot: GexSnapshot): str
     lines.push(
       `- Note: ${symbol} has no options chain of its own. These are the ${chain} option-derived ` +
         `levels carried onto the ${symbol} futures price axis. They are already on the right axis ` +
-        '— do not apply a basis offset.',
+        ' - do not apply a basis offset.',
     );
   }
 

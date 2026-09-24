@@ -369,10 +369,10 @@ const clampRibbonOpacity = (v: number) => Math.min(RIBBON_OPACITY_MAX, Math.max(
 const RIBBON_GUIDE =
   "GEX ribbons: every strike is a horizontal lane, and every bar drops one orb in it. " +
   "HEIGHT is that strike's net dealer gamma in the bar's 5-minute analytics bucket, as a share of the heaviest " +
-  "strike on screen — an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
+  "strike on screen\u00a0- an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
   "OPACITY steps with the same share: faint below 15%, medium to 50%, solid above; orbs under 5% are not drawn. " +
   "COLOR is the sign: gold means dealers are net LONG gamma at the strike (they sell into strength and buy weakness " +
-  "there — a magnet and a brake), violet means net SHORT (they chase — an accelerant). " +
+  "there\u00a0- a magnet and a brake), violet means net SHORT (they chase\u00a0- an accelerant). " +
   "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
   "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
   "History covers the polled strike window, so earlier bars stay blank. " +
@@ -3180,7 +3180,7 @@ export default function GammaTerminalChart({
                   title={
                     m === "updown"
                       ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running total of uptick minus downtick volume for the current session only — it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                      : "Running total of uptick minus downtick volume for the current session only&nbsp;- it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
                   }
                 >
                   {VOLUME_MODE_LABELS[m]}
@@ -3199,7 +3199,7 @@ export default function GammaTerminalChart({
             <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
           )}
           {live && (
-            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
+            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons&nbsp;- per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
           )}
           {live && overlays.ribbons && (
             <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
@@ -3217,7 +3217,7 @@ export default function GammaTerminalChart({
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range — the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only — the delayed snapshot carries no vol index." />
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range&nbsp;- the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only&nbsp;- the delayed snapshot carries no vol index." />
           )}
           {live && overlays.expectedRange && (
             <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
@@ -3364,7 +3364,7 @@ export default function GammaTerminalChart({
                 <TooltipWrapper
                   text={
                     touchUi
-                      ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere — or press and hold, then slide — to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control, and Reset snaps back to the live view."
+                      ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere\u00a0- or press and hold, then slide\u00a0- to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control, and Reset snaps back to the live view."
                       : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view."
                   }
                 />
@@ -3386,7 +3386,7 @@ export default function GammaTerminalChart({
                     contract={contractCode}
                     expiry={contractExpiry}
                     note={contractRollNote}
-                    fallbackTitle={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
+                    fallbackTitle={`Outside the cash session\u00a0- showing ${futuresTicker} futures for ${symbol}`}
                     style={FUTURES_CHIP_STYLE}
                   >
                     ◆ {futuresTicker} FUT
@@ -3884,7 +3884,7 @@ export default function GammaTerminalChart({
                 )}
                 {symbolIsIndex && <tspan fill="var(--color-warning)">{"   ·  PROXY (EST.)"}</tspan>}
                 {symbolIsIndex && (
-                  <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
+                  <title>{`${symbol} is a cash index\u00a0- it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
                 )}
               </text>
               {netVolume ? (
@@ -4252,7 +4252,7 @@ export default function GammaTerminalChart({
                 onClick={() => setPlaybackLoop((v) => !v)}
                 aria-label={playbackLoop ? "Disable loop" : "Enable loop"}
                 aria-pressed={playbackLoop}
-                title={playbackLoop ? "Loop on — replays continuously (click to disable)" : "Loop off — click to replay continuously"}
+                title={playbackLoop ? "Loop on&nbsp;- replays continuously (click to disable)" : "Loop off&nbsp;- click to replay continuously"}
                 style={{
                   display: "grid",
                   placeItems: "center",
@@ -4292,7 +4292,7 @@ export default function GammaTerminalChart({
               {rewindFloorLabel && (
                 <a
                   href={`/replay/${symbol}/${etTodayDateKey()}`}
-                  title={`Rewind reaches back to ${rewindFloorLabel} ET — the strike-profile history this chart holds, which is a fixed window ending at the live tip rather than the whole session. Daily Replay carries every minute from the open.`}
+                  title={`Rewind reaches back to ${rewindFloorLabel} ET\u00a0- the strike-profile history this chart holds, which is a fixed window ending at the live tip rather than the whole session. Daily Replay carries every minute from the open.`}
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 11,
@@ -4575,7 +4575,7 @@ function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v
   return (
     <label
       className="flex items-center gap-1.5"
-      title="Ribbon opacity — scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
+      title="Ribbon opacity&nbsp;- scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
       style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", color: "var(--text-secondary)", height: 26, padding: "0 8px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-control)", background: "var(--bg-card)" }}
     >
       <span style={{ textTransform: "uppercase" }}>Opacity</span>
@@ -4623,7 +4623,7 @@ const zoomBtnStyle: CSSProperties = {
 function ZoomCluster({ label, onIn, onOut, hint, large = false }: { label: string; onIn: () => void; onOut: () => void; hint?: string; large?: boolean }) {
   // A bare wheel scrolls the page now, so the modifier gesture only exists if
   // something tells the reader about it. These buttons are that something.
-  const suffix = hint ? ` — or ${hint}` : "";
+  const suffix = hint ? `\u00a0- or ${hint}` : "";
   // `large`: finger-sized steppers for the compact canvas.
   const btn = large ? { ...zoomBtnStyle, width: 34, height: 30, fontSize: 17 } : zoomBtnStyle;
   return (
@@ -4668,17 +4668,17 @@ function RibbonKey() {
       style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}
     >
       <span style={{ color: "var(--text-muted)" }}>Ribbons</span>
-      <span className="flex items-center gap-1 whitespace-nowrap" title="Gold: dealers net long gamma at the strike — a magnet and a brake">
+      <span className="flex items-center gap-1 whitespace-nowrap" title="Gold: dealers net long gamma at the strike&nbsp;- a magnet and a brake">
         <KeyOrb fill={RIBBON_POS_GLOW} ry={4.5} opacity={0.9} />
         long &#915;
       </span>
-      <span className="flex items-center gap-1 whitespace-nowrap" title="Violet: dealers net short gamma at the strike — an accelerant">
+      <span className="flex items-center gap-1 whitespace-nowrap" title="Violet: dealers net short gamma at the strike&nbsp;- an accelerant">
         <KeyOrb fill={RIBBON_NEG_GLOW} ry={4.5} opacity={0.9} />
         short &#915;
       </span>
       <span
         className="flex items-center gap-1 whitespace-nowrap"
-        title="Height and opacity: the strike's net dealer gamma as a share of the heaviest strike on screen — a sliver is a light strike, a full lane is the wall"
+        title="Height and opacity: the strike's net dealer gamma as a share of the heaviest strike on screen&nbsp;- a sliver is a light strike, a full lane is the wall"
       >
         <span className="flex items-center" style={{ gap: 1 }}>
           <KeyOrb fill="var(--text-primary)" ry={1.3} opacity={RIBBON_TIER_OPACITY.weak + 0.15} />

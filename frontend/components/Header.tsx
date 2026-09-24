@@ -357,11 +357,11 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   // alternative (reporting the session closed) swapped in the last cash close
   // and published its day change as today's.
   const row1PriceLabel = quoteData?.stale
-    ? `${row1PriceBaseLabel} — feed delayed, last observed print`
+    ? `${row1PriceBaseLabel}\u00a0- feed delayed, last observed print`
     : closesLagBehind
       // Say why the official close is not on screen yet, rather than letting the live
       // after-hours print pass silently for a settled 4 PM close.
-      ? `${row1PriceBaseLabel} — today's close has not settled yet`
+      ? `${row1PriceBaseLabel}\u00a0- today's close has not settled yet`
       : row1PriceBaseLabel;
 
   const row1ChangeLabel = priceSession === "open"
@@ -528,7 +528,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                           contract={quoteData?.data_contract}
                           expiry={quoteData?.data_contract_expiry}
                           className="zg-chip w-fit"
-                          fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                          fallbackTitle={`Outside cash session\u00a0- showing ${futuresTicker} futures for ${symbol}`}
                           style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                         >
                           ◆ {futuresTicker} FUT
@@ -774,7 +774,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                       contract={quoteData?.data_contract}
                       expiry={quoteData?.data_contract_expiry}
                       className="zg-chip w-fit"
-                      fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                      fallbackTitle={`Outside cash session\u00a0- showing ${futuresTicker} futures for ${symbol}`}
                       style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                     >
                       ◆ {futuresTicker} FUT

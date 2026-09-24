@@ -35,4 +35,4 @@ ZeroGEX's Forced Flow model compares modeled portfolio delta now with modeled de
 
 For the underlying concepts, see [Why Market Makers Trade Stock](/education/why-market-makers-trade-stock) and [Delta and Its Three Children](/education/delta-and-its-three-children).
 
-Educational content only — none of the above is a trade recommendation.
+Educational content only - none of the above is a trade recommendation.

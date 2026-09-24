@@ -248,8 +248,8 @@ export default function TradeWorkzClient() {
     if (
       !window.confirm(
         'Reset the entire fleet? This wipes every trade, position, ' +
-          'notification, equity row, and ML state — for BOTH simulated ' +
-          'and real live-engine data — and resets every bot to its ' +
+          'notification, equity row, and ML state\u00a0- for BOTH simulated ' +
+          'and real live-engine data\u00a0- and resets every bot to its ' +
           'starting capital. This cannot be undone.',
       )
     ) {
@@ -339,7 +339,7 @@ export default function TradeWorkzClient() {
                       Seed demo data
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels — in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
+                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels&nbsp;- in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
                     <button
                       onClick={runInjectTest}
                       disabled={simBusy}
@@ -511,7 +511,7 @@ export default function TradeWorkzClient() {
         <section className="mb-8">
           <SectionHeading
             title="Performance Trend"
-            tip="Is the fleet getting better? Rolling win rate / profit factor / expectancy plus cumulative return vs a SPY buy-hold, rebased to the window start — not the since-inception NAV, which stays anchored to the pre-fix drawdown."
+            tip="Is the fleet getting better? Rolling win rate / profit factor / expectancy plus cumulative return vs a SPY buy-hold, rebased to the window start&nbsp;- not the since-inception NAV, which stays anchored to the pre-fix drawdown."
           />
           <div
             className="rounded-2xl p-4"

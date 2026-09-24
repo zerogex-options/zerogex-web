@@ -108,9 +108,9 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
           color: 'var(--color-text-primary)',
         }}
       >
-        Live SPX/SPY/QQQ/NDX gamma levels{' '}
+        Live SPX/SPY/QQQ/NDX gamma levels{' '}
         <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          &mdash; delayed here, real-time inside ZeroGEX
+          - delayed here, real-time inside ZeroGEX
         </span>
       </p>
 

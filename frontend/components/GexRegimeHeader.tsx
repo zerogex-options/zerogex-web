@@ -186,7 +186,7 @@ export default function GexRegimeHeader({
             {symbol} last: <span style={{ color: textColor, fontWeight: 500 }}>{spotPrice != null ? `$${spotPrice.toFixed(2)}` : '--'}</span>
             {flipDistance != null && (
               <>
-                {' — '}
+                {'\u00a0- '}
                 <span style={{ color: aboveFlip ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {Math.abs(flipDistance).toFixed(2)} pts {aboveFlip ? 'above' : 'below'} flip
                 </span>

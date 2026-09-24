@@ -16,17 +16,17 @@ ZeroGEX starts with observed market data and applies mechanical calculations to 
 
 **Observed market data:**
 
-- **Option chain snapshots** — every listed strike and expiration on the covered underlyings, captured continuously through the session.
-- **Open interest** — the number of contracts outstanding at each strike and expiration. Standard listed-options open interest is tallied by the clearinghouse after the session and published for the *next* trading day. It is an end-of-session figure, not a live intraday one.
-- **Options trades and quotes** — the real-time options tape: execution prices, sizes, and bid/ask context.
-- **Underlying prices** — real-time quotes and OHLCV bars for the underlying index or ETF.
-- **Contract terms** — strike, expiration, days to expiry, and contract multiplier.
+- **Option chain snapshots** - every listed strike and expiration on the covered underlyings, captured continuously through the session.
+- **Open interest** - the number of contracts outstanding at each strike and expiration. Standard listed-options open interest is tallied by the clearinghouse after the session and published for the *next* trading day. It is an end-of-session figure, not a live intraday one.
+- **Options trades and quotes** - the real-time options tape: execution prices, sizes, and bid/ask context.
+- **Underlying prices** - real-time quotes and OHLCV bars for the underlying index or ETF.
+- **Contract terms** - strike, expiration, days to expiry, and contract multiplier.
 
 **Mechanically computed from those inputs:**
 
-- **Aggressor classification** — each print is classified as buyer-initiated or seller-initiated from its execution price relative to the contemporaneous bid/ask, a Lee-Ready-style rule. Prints inside the spread, the opening auction, and prints with no usable quote are left unclassified rather than assigned a side. This estimates which side *initiated* a trade. It does not identify the participant type on either side.
-- **Implied volatility** — solved from live option prices and maintained as a per-expiration volatility surface.
-- **Greeks** — per-contract delta, gamma, theta, and vega, calculated on every chain ingest through a Black-Scholes pipeline against those surfaces. They are deterministic functions of the observed inputs — reproducible from the same snapshot, and not a positioning assumption.
+- **Aggressor classification** - each print is classified as buyer-initiated or seller-initiated from its execution price relative to the contemporaneous bid/ask, a Lee-Ready-style rule. Prints inside the spread, the opening auction, and prints with no usable quote are left unclassified rather than assigned a side. This estimates which side *initiated* a trade. It does not identify the participant type on either side.
+- **Implied volatility** - solved from live option prices and maintained as a per-expiration volatility surface.
+- **Greeks** - per-contract delta, gamma, theta, and vega, calculated on every chain ingest through a Black-Scholes pipeline against those surfaces. They are deterministic functions of the observed inputs - reproducible from the same snapshot, and not a positioning assumption.
 
 These are three different layers, and the distinction matters: observed market data, classified trade direction, and modeled dealer positioning are not the same thing. Any positioning inference built from aggressor-classified flow is a separate model assumption, not an observed fact. Section 4 says so again where it counts.
 
@@ -38,13 +38,13 @@ For the futures pages (/ES, /NQ), the levels are derived from the SPX and NDX op
 
 Everything below this line is a model output. Each one is computed from the inputs above, but each one also depends on the positioning convention described in section 3.
 
-- **Dollar gamma exposure** by option series, using the industry convention `gamma × OI × 100 × S² × 0.01` — the modeled dollar sensitivity of the aggregate open interest in that series to a 1% move in the underlying.
-- **The spot-shift dealer gamma profile** — the core primitive. Every option's gamma is re-priced across a grid of hypothetical spot prices spanning roughly ±20% of spot in 0.25%-of-spot steps, then summed across the chain. Gamma is itself a function of spot, so the static snapshot value cannot be reused across the grid. Each contract is weighted by `min(1, DTE / 5 days)` so a same-day 0DTE concentration cannot dominate a multi-day regime read.
-- **Net GEX at spot** — the value of that profile at today's price.
-- **Gamma flip** — the price where the profile crosses zero, subject to three acceptance gates (interior, structural, and actionable-distance) and an adaptive grid ladder. Both readings come from the same curve, so the headline Net GEX and the spot-versus-flip regime cannot contradict each other.
-- **Call wall and put wall** — the strikes carrying the heaviest gamma-weighted open interest on each side of spot. A wall is a concentration, not automatically support or resistance; whether it absorbs, repels, or accelerates depends on the modeled gamma sign and the surrounding flow.
-- **Max pain** — the expiration price that would leave option holders with the least total value. This is an arithmetic property of the open-interest distribution, not a statement about what any market participant wants.
-- **Vanna and charm exposures, pin strike, and the signal suite** — further derived layers built on the same profile and the same convention.
+- **Dollar gamma exposure** by option series, using the industry convention `gamma × OI × 100 × S² × 0.01` - the modeled dollar sensitivity of the aggregate open interest in that series to a 1% move in the underlying.
+- **The spot-shift dealer gamma profile** - the core primitive. Every option's gamma is re-priced across a grid of hypothetical spot prices spanning roughly ±20% of spot in 0.25%-of-spot steps, then summed across the chain. Gamma is itself a function of spot, so the static snapshot value cannot be reused across the grid. Each contract is weighted by `min(1, DTE / 5 days)` so a same-day 0DTE concentration cannot dominate a multi-day regime read.
+- **Net GEX at spot** - the value of that profile at today's price.
+- **Gamma flip** - the price where the profile crosses zero, subject to three acceptance gates (interior, structural, and actionable-distance) and an adaptive grid ladder. Both readings come from the same curve, so the headline Net GEX and the spot-versus-flip regime cannot contradict each other.
+- **Call wall and put wall** - the strikes carrying the heaviest gamma-weighted open interest on each side of spot. A wall is a concentration, not automatically support or resistance; whether it absorbs, repels, or accelerates depends on the modeled gamma sign and the surrounding flow.
+- **Max pain** - the expiration price that would leave option holders with the least total value. This is an arithmetic property of the open-interest distribution, not a statement about what any market participant wants.
+- **Vanna and charm exposures, pin strike, and the signal suite** - further derived layers built on the same profile and the same convention.
 
 ---
 
@@ -75,12 +75,12 @@ A separate distinction applies to the options tape, and it is an easy one to blu
 
 Practical consequences we think are worth stating:
 
-- The convention is a population-level assumption. It can be wrong at individual strikes, and it is most likely to be wrong where customer flow differs from the conventional pattern — heavy put selling, call buying into a squeeze, large structured trades that invert the typical side.
+- The convention is a population-level assumption. It can be wrong at individual strikes, and it is most likely to be wrong where customer flow differs from the conventional pattern - heavy put selling, call buying into a squeeze, large structured trades that invert the typical side.
 - Aggressor-classified flow measures the direction of aggressive trading. Turning that flow into a statement about dealer inventory requires an additional assumption about who was on the other side, and anything ZeroGEX builds that way is labeled inferred, not observed.
 - A gamma flip crossing is a change in the *model's* aggregate hedging tendency, not a verified switch in dealer behavior.
 - Levels are probabilistic context, not mechanical triggers. Realized behavior still depends on actual positioning, flow, liquidity, volatility, and catalysts.
 
-None of this makes the output arbitrary. A consistently applied model with disclosed assumptions is a legitimate analytical instrument — it is how implied volatility, DIX, and most of the derived-analytics category work. It just is not a ledger of dealer books, and we will not describe it as one.
+None of this makes the output arbitrary. A consistently applied model with disclosed assumptions is a legitimate analytical instrument - it is how implied volatility, DIX, and most of the derived-analytics category work. It just is not a ledger of dealer books, and we will not describe it as one.
 
 ---
 
@@ -88,11 +88,11 @@ None of this makes the output arbitrary. A consistently applied model with discl
 
 Our position is that a positioning model earns its place by measurement, not by plausibility. The standards we hold ourselves to:
 
-- **Compare against observed market outcomes.** A model's value is whether its output relates to what price actually did — not whether the narrative sounds right.
+- **Compare against observed market outcomes.** A model's value is whether its output relates to what price actually did - not whether the narrative sounds right.
 - **Compare against appropriate baselines.** A signal has to beat a reasonable null: the unconditional base rate, a simpler construction, or the existing production method. "Better than nothing" is not a result.
 - **Use adequate samples.** Index-option regimes are serially correlated and seasonal. Small samples in a single regime produce confident nonsense.
 - **Allow results to be inconclusive.** Some questions do not resolve at the sample sizes available. Reporting that honestly is a result, and we treat it as one.
-- **Change the methodology when the evidence supports it.** We have done this: the gamma flip was migrated from a cumulative-by-strike approximation to the spot-shift dealer gamma profile after our own historical data showed the old level sticking flat for hours at a wall. That change is documented in full, including what was wrong before, in [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
+- **Change the methodology when the evidence supports it.** We have done this: the gamma flip was migrated from a cumulative-by-strike approximation to the spot-shift dealer gamma profile after our own historical data showed the old level sticking flat for hours at a wall. That change is documented in full, including what was wrong before, in [GEX and the Gamma Flip - How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
 
 The same standard applies to degraded data. When the option chain is too degraded for the flip resolver to find a qualifying crossing, ZeroGEX reports the flip as unresolved and emits a health warning rather than fabricating an edge value or silently carrying forward a stale one. A number we cannot stand behind does not get printed.
 
@@ -108,7 +108,7 @@ Proprietary exchange datasets classify options activity by participant type, buy
 
 The framework deliberately reuses the same gamma calculations, spot-shift profile, gamma-flip resolver, wall methodology, and market outcomes across all three. The variable under test is the positioning attribution itself, and the framework is designed so that the current production methodology can lose. It also tests the aggressor assumption directly: how often the exchange-classified market-maker population was actually on the side our classification would assume, bucket by bucket. If participant-attributed positioning produces a materially better and repeatable relationship with subsequent market behavior, the production methodology changes.
 
-To be explicit about status: **the research pipeline has been built, but this research has not yet produced findings.** No comparison against real participant-attributed exchange data has been run, and nothing on this site should be read as claiming the current methodology has been validated against market-maker-attributed positioning. When there are results, they will be published here — including if they are unfavorable or inconclusive.
+To be explicit about status: **the research pipeline has been built, but this research has not yet produced findings.** No comparison against real participant-attributed exchange data has been run, and nothing on this site should be read as claiming the current methodology has been validated against market-maker-attributed positioning. When there are results, they will be published here - including if they are unfavorable or inconclusive.
 
 ---
 
@@ -122,7 +122,7 @@ Do not use them as certainties about what dealers hold or what price must do. Ze
 
 ## See also
 
-- [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after)
+- [GEX and the Gamma Flip - How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after)
 - [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained)
 - [Data Coverage & Refresh](/help/platform/data-coverage)
 - [Dealer Positioning tiles](/help/platform/dealer-positioning)

@@ -8,18 +8,18 @@
 
 La barra lateral izquierda es la forma principal de moverse por la app. Está organizada en grupos:
 
-- **Main** — Dashboard, Live Bulletin
-- **Signals** — Composite Score, Signaled Trades, el Basic Signal Dashboard y el Advanced Signal Dashboard (cada uno desplegable en las páginas individuales de señales)
-- **Metrics** — Dealer Positioning, GEX Summary, Flow Analysis, Smart Money, Max Pain, Technicals
-- **Strategy Tools** — Strategy Builder, Live Options Quotes, Backtesting
-- **Education** — Hub, Help, Guides (desplegable), Articles (desplegable)
-- **More** — About, API Specs, Account
+- **Main** - Dashboard, Live Bulletin
+- **Signals** - Composite Score, Signaled Trades, el Basic Signal Dashboard y el Advanced Signal Dashboard (cada uno desplegable en las páginas individuales de señales)
+- **Metrics** - Dealer Positioning, GEX Summary, Flow Analysis, Smart Money, Max Pain, Technicals
+- **Strategy Tools** - Strategy Builder, Live Options Quotes, Backtesting
+- **Education** - Hub, Help, Guides (desplegable), Articles (desplegable)
+- **More** - About, API Specs, Account
 
 Cada grupo se puede contraer y expandir. Haz clic en el encabezado del grupo para alternarlo.
 
 ### Mostrar y ocultar la barra lateral
 
-Toda la barra lateral se puede ocultar. Pasa el cursor por el borde derecho de la barra lateral y aparecerá una pestaña con una flecha — haz clic en ella para ocultarla. Haz clic en la pequeña pestaña con flecha del borde izquierdo para volver a mostrarla. La preferencia se recuerda entre sesiones.
+Toda la barra lateral se puede ocultar. Pasa el cursor por el borde derecho de la barra lateral y aparecerá una pestaña con una flecha - haz clic en ella para ocultarla. Haz clic en la pequeña pestaña con flecha del borde izquierdo para volver a mostrarla. La preferencia se recuerda entre sesiones.
 
 ## La cabecera
 
@@ -27,18 +27,18 @@ La cabecera permanece fija en la parte superior de cada página de análisis y m
 
 - El logo y un enlace de vuelta al inicio
 - El símbolo activo y su precio en tiempo real
-- Una insignia de sesión — Pre-market, Open, After-Hours o Closed
+- Una insignia de sesión - Pre-market, Open, After-Hours o Closed
 - Interruptor de tema (sol / luna)
 
-Puedes contraer la cabecera para recuperar espacio vertical — la preferencia se sincroniza con la tarjeta resumen compacta de la barra lateral.
+Puedes contraer la cabecera para recuperar espacio vertical - la preferencia se sincroniza con la tarjeta resumen compacta de la barra lateral.
 
 ## El selector de símbolos
 
-ZeroGEX cubre **SPY**, **SPX**, **QQQ** y **NDX**. El selector de símbolos está en la cabecera. Al elegir un símbolo se actualiza cada página de la plataforma — tiles del dashboard, señales, gráficos — con ese símbolo.
+ZeroGEX cubre **SPY**, **SPX**, **QQQ** y **NDX**. El selector de símbolos está en la cabecera. Al elegir un símbolo se actualiza cada página de la plataforma - tiles del dashboard, señales, gráficos - con ese símbolo.
 
 ## El selector de intervalo temporal
 
-La mayoría de las páginas basadas en gráficos tienen un selector de intervalo temporal — 1 min / 5 min / 15 min / 1 h / 1 día. Controla la ventana móvil usada para el gráfico, no la lógica subyacente de las señales. El propio puntaje de la señal se calcula de forma continua.
+La mayoría de las páginas basadas en gráficos tienen un selector de intervalo temporal - 1 min / 5 min / 15 min / 1 h / 1 día. Controla la ventana móvil usada para el gráfico, no la lógica subyacente de las señales. El propio puntaje de la señal se calcula de forma continua.
 
 ## Tema
 
@@ -48,10 +48,10 @@ ZeroGEX está disponible en modo oscuro y claro. El predeterminado es el oscuro.
 
 Un pequeño conjunto de atajos agiliza el uso diario:
 
-- `/` — enfoca el selector de símbolos
-- `t` — alterna el tema
-- `b` — muestra u oculta la barra lateral
-- `?` — muestra el panel de atajos
+- `/` - enfoca el selector de símbolos
+- `t` - alterna el tema
+- `b` - muestra u oculta la barra lateral
+- `?` - muestra el panel de atajos
 
 Los atajos, de forma intencionada, no sobrescriben los predeterminados del navegador (Cmd/Ctrl + cualquier tecla).
 
@@ -67,11 +67,11 @@ Si no tienes acceso a una página, al hacer clic el elemento del menú te lleva 
 
 Cada página de análisis de ZeroGEX sigue la misma estructura:
 
-1. **Fila de título** — el nombre de la página y un breve subtítulo.
-2. **Métrica o gráfico principal** — la lectura destacada.
-3. **Barra de contexto** — etiqueta de régimen, chip de sesgo de trading, estado activado/inactivo.
-4. **Paneles de apoyo** — los inputs que alimentan la métrica principal.
-5. **"How it's built"** — una explicación en lenguaje sencillo de las matemáticas subyacentes.
+1. **Fila de título** - el nombre de la página y un breve subtítulo.
+2. **Métrica o gráfico principal** - la lectura destacada.
+3. **Barra de contexto** - etiqueta de régimen, chip de sesgo de trading, estado activado/inactivo.
+4. **Paneles de apoyo** - los inputs que alimentan la métrica principal.
+5. **"How it's built"** - una explicación en lenguaje sencillo de las matemáticas subyacentes.
 
 Una vez que hayas leído una página según esta estructura, cualquier otra página se recorre rápidamente.
 

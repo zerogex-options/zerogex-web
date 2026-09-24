@@ -8,9 +8,9 @@
 
 ZeroGEX liefert Alarme **in der App**, nicht per SMS oder Push-Benachrichtigung. Es gibt drei Stellen, an denen sie auftauchen:
 
-1. **Live Bulletin** — jeder Trigger landet hier mit vollständigem Kontext. Dies ist dein Prüfprotokoll.
-2. **Die Signalkarte** — im Dashboard oder auf der Signalliste-Seite leuchtet die Karte bei einem Trigger auf und wird in Richtung des Scores eingefärbt.
-3. **Das Composite-Panel** — wenn ein Trigger eine ausreichend hohe Überzeugung hat, verschiebt er das Composite sichtbar.
+1. **Live Bulletin** - jeder Trigger landet hier mit vollständigem Kontext. Dies ist dein Prüfprotokoll.
+2. **Die Signalkarte** - im Dashboard oder auf der Signalliste-Seite leuchtet die Karte bei einem Trigger auf und wird in Richtung des Scores eingefärbt.
+3. **Das Composite-Panel** - wenn ein Trigger eine ausreichend hohe Überzeugung hat, verschiebt er das Composite sichtbar.
 
 Das ist Absicht. ZeroGEX ist darauf ausgelegt, **beobachtet, nicht unterbrochen** zu werden. Push-artige Alarme führen zu Overtrading; das In-App-Protokoll lässt dich scannen, wann du es möchtest.
 
@@ -55,22 +55,22 @@ Bleibt ein Signal über mehrere Bars hinweg im Trigger-Zustand, wird im Bulletin
 Ein Signal kann bei +0.7 stehen und **trotzdem nicht** auslösen. Gründe:
 
 - Der Trigger-Schwellenwert des Signals nutzt ein Composite (Market Pressure benötigt zusätzlich loading ≥ 50).
-- Das Signal ist an ein Sitzungsfenster gebunden (EOD Pressure ist nur von 14:30–15:45 ET aktiv).
-- Das Signal hat ein Debounce — es muss den Schwellenwert für eine Mindestanzahl von Bars halten.
+- Das Signal ist an ein Sitzungsfenster gebunden (EOD Pressure ist nur von 14:30-15:45 ET aktiv).
+- Das Signal hat ein Debounce - es muss den Schwellenwert für eine Mindestanzahl von Bars halten.
 
 Die Signalkarte auf der Seite erklärt den aktuellen Trigger-Zustand in einfacher Sprache.
 
 ## Das Bulletin als Alarmprotokoll nutzen
 
-Das Live Bulletin ist das **maßgebliche System** für Trigger. Warst du in der Mittagspause, öffnest du nicht jede Seite einzeln, um zu sehen, was ausgelöst hat — du öffnest das Bulletin, filterst nach Symbol und Signalfamilie und liest die Ereignisse des Tages in chronologischer Reihenfolge.
+Das Live Bulletin ist das **maßgebliche System** für Trigger. Warst du in der Mittagspause, öffnest du nicht jede Seite einzeln, um zu sehen, was ausgelöst hat - du öffnest das Bulletin, filterst nach Symbol und Signalfamilie und liest die Ereignisse des Tages in chronologischer Reihenfolge.
 
 ## Ausgehende Alarme
 
 Alarme werden **ausschließlich in der App** zugestellt: über das Live Bulletin, die Signalkarten und das Composite-Panel. Signal-Alarme werden nicht per E-Mail, SMS, Push-Benachrichtigung oder Webhook versendet.
 
-Falls dir unter [Konto → Benachrichtigungen](/account/notifications) Kanal-Schalter aufgefallen sind: Die gehören zur Seite **Bot Trading**, die sich in der Beta befindet. Bau darauf noch nichts auf — der Webhook-Kanal speichert deine Einstellung, stellt aber nichts zu. Für Automatisierung fragst du heute besser die [API](/help/platform/api-access) ab, statt auf einen Push zu warten, der nicht kommt.
+Falls dir unter [Konto → Benachrichtigungen](/account/notifications) Kanal-Schalter aufgefallen sind: Die gehören zur Seite **Bot Trading**, die sich in der Beta befindet. Bau darauf noch nichts auf - der Webhook-Kanal speichert deine Einstellung, stellt aber nichts zu. Für Automatisierung fragst du heute besser die [API](/help/platform/api-access) ab, statt auf einen Push zu warten, der nicht kommt.
 
-Die ausgehende Zustellung steht auf der Liste, ist aber nicht ausgeliefert. Wenn sie ändern würde, wie du handelst, schreib an [support@zerogex.io](mailto:support@zerogex.io) und nenne Kanal und Signale — konkrete Angaben bringen das Thema nach vorn.
+Die ausgehende Zustellung steht auf der Liste, ist aber nicht ausgeliefert. Wenn sie ändern würde, wie du handelst, schreib an [support@zerogex.io](mailto:support@zerogex.io) und nenne Kanal und Signale - konkrete Angaben bringen das Thema nach vorn.
 
 ## Siehe auch
 

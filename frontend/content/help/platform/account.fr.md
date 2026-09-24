@@ -6,16 +6,16 @@
 
 ## À quoi sert la page Account
 
-La page [Account](/account) est le point central pour tout ce qui concerne l'utilisateur — votre email, vos méthodes de connexion, votre niveau d'abonnement et le panneau de parrainage.
+La page [Account](/account) est le point central pour tout ce qui concerne l'utilisateur - votre email, vos méthodes de connexion, votre niveau d'abonnement et le panneau de parrainage.
 
 ## L'en-tête
 
-Affiche votre email, votre statut de vérification, votre niveau (Public, Basic, Pro, Admin) et le badge de votre plan (par ex. « Pro — annual »). Pendant l'essai gratuit de Basic mensuel, le badge affiche « Trial — N days left ».
+Affiche votre email, votre statut de vérification, votre niveau (Public, Basic, Pro, Admin) et le badge de votre plan (par ex. « Pro - annual »). Pendant l'essai gratuit de Basic mensuel, le badge affiche « Trial - N days left ».
 
 ## Email et vérification
 
 - L'adresse email avec laquelle vous vous êtes inscrit est l'identifiant de votre compte. Elle ne peut être modifiée qu'en passant par le support.
-- Les nouveaux comptes doivent vérifier leur email — un lien de vérification est envoyé lors de l'inscription. Tant qu'il n'est pas vérifié, certaines fonctionnalités (parrainage, certaines alertes de signaux) sont restreintes.
+- Les nouveaux comptes doivent vérifier leur email - un lien de vérification est envoyé lors de l'inscription. Tant qu'il n'est pas vérifié, certaines fonctionnalités (parrainage, certaines alertes de signaux) sont restreintes.
 - Renvoyez la vérification depuis l'en-tête de la page Account si vous n'avez pas reçu le message d'origine.
 
 ## Mot de passe
@@ -23,14 +23,14 @@ Affiche votre email, votre statut de vérification, votre niveau (Public, Basic,
 - Définissez un mot de passe si vous vous êtes inscrit avec Google ou Apple et souhaitez avoir une solution de secours. Le panneau « Set password » apparaît pour les comptes sans mot de passe actuel.
 - Le changement de mot de passe se trouve dans le même panneau.
 - La longueur minimale est de 12 caractères.
-- Utilisez un gestionnaire de mots de passe. Nous n'imposons pas de règles de complexité — la longueur et l'unicité comptent plus que la variété des caractères.
+- Utilisez un gestionnaire de mots de passe. Nous n'imposons pas de règles de complexité - la longueur et l'unicité comptent plus que la variété des caractères.
 
 ## Fournisseurs de connexion liés
 
 Vous pouvez lier **Google** et **Apple** au même compte. La page Account indique quels fournisseurs sont liés et quand chacun a été connecté.
 
-- **Lier un nouveau fournisseur** — connectez-vous une fois avec le fournisseur ; le système le lie automatiquement à votre compte existant si l'email correspond.
-- **Délier un fournisseur** — possible uniquement si vous disposez d'au moins un autre moyen de connexion (un autre fournisseur OU un mot de passe). La page applique cette règle pour éviter que vous ne soyez bloqué hors de votre compte.
+- **Lier un nouveau fournisseur** - connectez-vous une fois avec le fournisseur ; le système le lie automatiquement à votre compte existant si l'email correspond.
+- **Délier un fournisseur** - possible uniquement si vous disposez d'au moins un autre moyen de connexion (un autre fournisseur OU un mot de passe). La page applique cette règle pour éviter que vous ne soyez bloqué hors de votre compte.
 
 ## Niveau et abonnement
 
@@ -43,9 +43,9 @@ Pour la procédure détaillée, consultez [Billing & Stripe Portal](/help/platfo
 
 ## Réseaux sociaux
 
-Vous pouvez ajouter, si vous le souhaitez, votre **identifiant X (anciennement Twitter)** dans la section Réseaux sociaux afin que l'équipe ZeroGEX puisse vous y contacter. Ce n'est jamais obligatoire — cela ne vous est pas demandé à l'inscription, et vous pouvez l'ajouter, le modifier ou le supprimer à tout moment depuis votre compte.
+Vous pouvez ajouter, si vous le souhaitez, votre **identifiant X (anciennement Twitter)** dans la section Réseaux sociaux afin que l'équipe ZeroGEX puisse vous y contacter. Ce n'est jamais obligatoire - cela ne vous est pas demandé à l'inscription, et vous pouvez l'ajouter, le modifier ou le supprimer à tout moment depuis votre compte.
 
-- Saisissez l'identifiant avec ou sans le `@` initial — 1 à 15 caractères, uniquement des lettres, des chiffres et des underscores.
+- Saisissez l'identifiant avec ou sans le `@` initial - 1 à 15 caractères, uniquement des lettres, des chiffres et des underscores.
 - Videz le champ et enregistrez pour supprimer un identifiant précédemment ajouté.
 
 ## Panneau de parrainage

@@ -31,7 +31,7 @@ export default function FuturesUnsupportedPanel({
       <p className="font-semibold mb-2">{surface} is not available for {ticker}</p>
       <p style={{ color: 'var(--color-text-secondary)' }}>
         {ticker} has no option chain of its own here. Its gamma levels are derived from{' '}
-        {backing} options and converted to {ticker} prices using the live futures basis —
+        {backing} options and converted to {ticker} prices using the live futures basis&nbsp;-
         which works for levels, but not for individual contracts. Switch to {backing} to see
         this page.
       </p>

@@ -82,14 +82,14 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               {wantedLabel
                 ? `You were reaching for ${wantedLabel}, which is included with ${requiredLabel}.`
                 : `That page is included with ${requiredLabel}.`}{' '}
-              Everything you had is exactly where you left it — your layouts, symbols and settings
+              Everything you had is exactly where you left it&nbsp;- your layouts, symbols and settings
               are all still on your account.
             </p>
 
             {wall.showFoundingRestore && (
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
                 You&rsquo;re a Founding Member. That rate is still yours and applies automatically
-                when you resubscribe — founding pricing closed to new members, but never to you.
+                when you resubscribe&nbsp;- founding pricing closed to new members, but never to you.
               </p>
             )}
 
@@ -126,7 +126,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--color-text-secondary)]">
                 {selection.items.map((h) => (
                   <li key={h.title}>
-                    <strong className="text-[var(--color-text-primary)]">{h.title}</strong> &mdash;{' '}
+                    <strong className="text-[var(--color-text-primary)]">{h.title}</strong> -{' '}
                     {h.body}
                   </li>
                 ))}
@@ -163,7 +163,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             </h1>
             <p className="mt-3 text-[var(--color-text-secondary)]">
               {wantedLabel
-                ? `Your account is ready. ${wantedLabel} is included with ${requiredLabel} — choose a plan to unlock it and the live dashboard.`
+                ? `Your account is ready. ${wantedLabel} is included with ${requiredLabel}\u00a0- choose a plan to unlock it and the live dashboard.`
                 : 'Your account is ready. Choose a plan to unlock the live dashboard.'}
             </p>
             {wall.promiseTrial && (
@@ -277,7 +277,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               Try the free Gamma Levels
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, QQQ, and NDX — 15-min delayed, no signup, no card.
+              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, QQQ, and NDX&nbsp;- 15-min delayed, no signup, no card.
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
               Open Gamma Levels <ArrowRight size={14} />
@@ -295,7 +295,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               Start with the GEX guide
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              The pillar piece — what gamma exposure is, the flip, the walls, and how to read the regime intraday.
+              The pillar piece&nbsp;- what gamma exposure is, the flip, the walls, and how to read the regime intraday.
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
               Read the pillar <ArrowRight size={14} />

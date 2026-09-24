@@ -919,7 +919,7 @@ export default function GexProfileChart({
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${isMobile ? 'text-[11px] mt-2' : 'text-xs mt-2.5'}`} style={{ color: textColor }}>
       <div
         className="flex items-center gap-1.5"
-        title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
+        title="Stacked by expiration&nbsp;- nearest (0DTE) boldest, furthest faintest"
       >
         <span
           className="inline-block h-3 w-5 rounded-sm"
@@ -929,7 +929,7 @@ export default function GexProfileChart({
       </div>
       <div
         className="flex items-center gap-1.5"
-        title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
+        title="Stacked by expiration&nbsp;- nearest (0DTE) boldest, furthest faintest"
       >
         <span
           className="inline-block h-3 w-5 rounded-sm"
@@ -1036,7 +1036,7 @@ export default function GexProfileChart({
               <h3 className="zg-h3" style={{ color: textColor }}>
                 Gamma Exposure by Strike
               </h3>
-              <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
+              <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry&nbsp;- the nearest expiration (0DTE) is boldest and the furthest is faintest&nbsp;- so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike&nbsp;- hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
                 <Info size={14} />
               </TooltipWrapper>
             </div>
@@ -1045,7 +1045,7 @@ export default function GexProfileChart({
               <span
                 className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
                 style={{ color: 'var(--text-muted)', backgroundColor: 'var(--color-info-soft)' }}
-                title="Dollar GEX unit — change it with the GEX unit toggle"
+                title="Dollar GEX unit&nbsp;- change it with the GEX unit toggle"
               >
                 {GEX_UNIT_LABEL[gexUnit]}
               </span>
@@ -1069,13 +1069,13 @@ export default function GexProfileChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
             </h3>
-            <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry&nbsp;- the nearest expiration (0DTE) is boldest and the furthest is faintest&nbsp;- so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike&nbsp;- hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <span
               className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
               style={{ color: 'var(--text-muted)', backgroundColor: 'var(--color-info-soft)' }}
-              title="Dollar GEX unit — change it with the GEX unit toggle"
+              title="Dollar GEX unit&nbsp;- change it with the GEX unit toggle"
             >
               {GEX_UNIT_LABEL[gexUnit]}
             </span>

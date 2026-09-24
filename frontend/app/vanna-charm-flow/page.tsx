@@ -22,9 +22,9 @@ import {
 
 function interpretation(score: number | null): string {
   if (score == null) return 'No reading';
-  if (score >= 40) return 'Vanna lift — melt-up bias';
+  if (score >= 40) return 'Vanna lift\u00a0- melt-up bias';
   if (score >= 20) return 'Bullish hedging pressure';
-  if (score <= -40) return 'Charm fade — afternoon drag';
+  if (score <= -40) return 'Charm fade\u00a0- afternoon drag';
   if (score <= -20) return 'Bearish hedging pressure';
   return 'Neutral dealer pressure';
 }
@@ -110,7 +110,7 @@ export default function VannaCharmFlowPage() {
         caveat={<>Source <code>Market Exposure Negated</code> = legacy fallback path; signal is still valid but less precise than <code>Dealer Exposure</code>.</>}
       >
         <div><code>Vanna Total = Σ Dealer Vanna Exposure</code>, <code>Charm Total = Σ Dealer Charm Exposure</code></div>
-        <div><code>Amp = Charm Amplification(Session Time)</code> — 1.0 morning, ramps to 1.5 in the final ~40% of session.</div>
+        <div><code>Amp = Charm Amplification(Session Time)</code>&nbsp;- 1.0 morning, ramps to 1.5 in the final ~40% of session.</div>
         <div><code>Combined = Vanna Total + Charm Total × Amp</code>, <code>Score = clip(Combined / VC Norm, [−1, 1]) × 100</code>.</div>
       </SignalHowItsBuilt>
 

@@ -42,7 +42,7 @@ export default async function SqueezeSetupPositioningTrapAndTrapDetectionPage() 
           The free tier surfaces these signals as scores. Pro unlocks the full stack: per-signal historical timelines, playbook-grade triggers with entry/stop/target levels, MSI composite breakdowns, and real-time alerts the moment Squeeze Setup, Positioning Trap, or Trap Detection cross conviction thresholds.
         </p>
         <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-          If you&apos;ve ever wished you could see <em>why</em> a signal moved — not just that it did — Pro is built for that.
+          If you&apos;ve ever wished you could see <em>why</em> a signal moved&nbsp;- not just that it did&nbsp;- Pro is built for that.
         </p>
         <Link
           href="/pricing"

@@ -148,7 +148,7 @@ export default function LevelsEmailSignup(props: Props) {
           }}
         >
           <Check size={20} style={{ color: 'var(--color-bull)' }} aria-hidden="true" />
-          Almost there — confirm your email
+          Almost there&nbsp;- confirm your email
         </h2>
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)', maxWidth: 660 }}>
           {message}
@@ -185,7 +185,7 @@ export default function LevelsEmailSignup(props: Props) {
 
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)', maxWidth: 660 }}>
         One email each trading morning with the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY,
-        QQQ, NDX, ES and NQ &mdash; formatted to paste straight into the free TradingView script. No account, no card.
+        QQQ, NDX, ES and NQ&nbsp;- formatted to paste straight into the free TradingView script. No account, no card.
       </p>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -278,7 +278,7 @@ export default function LevelsEmailSignup(props: Props) {
       )}
 
       <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.8 }}>
-        Free, ~15-minute-delayed levels &mdash; {symbol} first, all six tickers included. Unsubscribe from the bottom
+        Free, ~15-minute-delayed levels&nbsp;- {symbol} first, all six tickers included. Unsubscribe from the bottom
         of any email. We never sell or share your address.
       </p>
     </section>

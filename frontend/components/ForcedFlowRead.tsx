@@ -159,13 +159,13 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
     const n = bt.evaluated_sessions;
     const hr = bt.hit_rate != null ? formatPct(bt.hit_rate) : '--';
     if (n < 30) {
-      return { tone: 'warn' as const, text: `Forecast: ${hr} over ${n} sessions — collecting (${n}/30 to score)` };
+      return { tone: 'warn' as const, text: `Forecast: ${hr} over ${n} sessions\u00a0- collecting (${n}/30 to score)` };
     }
     if (bt.significant) {
       const base = bt.baseline_rate != null ? formatPct(bt.baseline_rate) : '--';
-      return { tone: 'good' as const, text: `Forecast edge: ${hr} over ${n} sessions — beats the ${base} baseline` };
+      return { tone: 'good' as const, text: `Forecast edge: ${hr} over ${n} sessions\u00a0- beats the ${base} baseline` };
     }
-    return { tone: 'warn' as const, text: `Forecast: ${hr} over ${n} sessions — not yet a proven edge` };
+    return { tone: 'warn' as const, text: `Forecast: ${hr} over ${n} sessions\u00a0- not yet a proven edge` };
   }, [backtest]);
 
   const recordColor =
@@ -183,7 +183,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
         <ReadHeader symbol={symbol} />
         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           {levelsError === 'No data available yet'
-            ? `No forced-flow read for ${symbol} yet — waiting on the next snapshot.`
+            ? `No forced-flow read for ${symbol} yet\u00a0- waiting on the next snapshot.`
             : `Couldn’t load the read: ${levelsError}`}
         </div>
       </div>
@@ -202,7 +202,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
       <div className="rounded-2xl p-4 sm:p-6" style={cardStyle}>
         <ReadHeader symbol={symbol} />
         <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          No actionable read right now — the market may be closed or the book too thin to price.
+          No actionable read right now&nbsp;- the market may be closed or the book too thin to price.
         </div>
       </div>
     );
@@ -225,8 +225,8 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
             Dealers are{' '}
             <span className="font-bold" style={{ color: regimeColor }}>
               {shortGamma ? 'short gamma' : 'long gamma'}
-            </span>{' '}
-            — {symbol} sits{' '}
+            </span>{' '}
+            - {symbol} sits{' '}
             <span className="font-mono font-semibold">{formatPrice(Math.abs(distToFlip as number))}</span>{' '}
             {(distToFlip as number) < 0 ? 'below' : 'above'} the{' '}
             <span className="font-mono font-semibold">{formatPrice(gammaFlip as number)}</span> flip, where they{' '}
@@ -244,7 +244,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
         )}
         {hasMagnet && (
           <>
-            The magnet — where dealers have nothing left to hedge — sits at{' '}
+            The magnet&nbsp;- where dealers have nothing left to hedge&nbsp;- sits at{' '}
             <span className="font-bold font-mono" style={{ color: magnetColor }}>
               {formatPrice(magnet as number)}
             </span>{' '}
@@ -282,8 +282,8 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
           sub={
             hasRegime
               ? shortGamma
-                ? 'Below the gamma flip. Dealers amplify moves — breakouts run, dips aren’t bought.'
-                : 'Above the gamma flip. Dealers dampen moves — extremes get faded, expect the pin.'
+                ? 'Below the gamma flip. Dealers amplify moves&nbsp;- breakouts run, dips aren’t bought.'
+                : 'Above the gamma flip. Dealers dampen moves&nbsp;- extremes get faded, expect the pin.'
               : 'Gamma flip unavailable.'
           }
         />
@@ -326,7 +326,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
           valueColor={magnetColor}
           sub={
             hasMagnet
-              ? `${formatSignedPrice(magnetDist as number)} from spot. The price dealers have nothing left to hedge — it pulls the tape, hardest into the close.`
+              ? `${formatSignedPrice(magnetDist as number)} from spot. The price dealers have nothing left to hedge\u00a0- it pulls the tape, hardest into the close.`
               : 'Zero-flow level unavailable in range.'
           }
         />
@@ -349,7 +349,7 @@ function ReadHeader({ symbol }: { symbol: string }) {
         The Read
       </h3>
       <TooltipWrapper
-        text={`A plain-language read of where dealers are mechanically forced today, for ${symbol}. Regime: spot vs. the gamma flip — below it dealers amplify moves (lean with the move); above it they dampen them (fade extremes, expect the pin). Into-close flow: the dollars time-decay alone forces dealers to trade by 4pm if spot holds, and how much of it lands late. Magnet: the zero-flow price where dealers have nothing left to hedge. Everything below on this page is the evidence behind this read.`}
+        text={`A plain-language read of where dealers are mechanically forced today, for ${symbol}. Regime: spot vs. the gamma flip\u00a0- below it dealers amplify moves (lean with the move); above it they dampen them (fade extremes, expect the pin). Into-close flow: the dollars time-decay alone forces dealers to trade by 4pm if spot holds, and how much of it lands late. Magnet: the zero-flow price where dealers have nothing left to hedge. Everything below on this page is the evidence behind this read.`}
       >
         <Info size={14} />
       </TooltipWrapper>

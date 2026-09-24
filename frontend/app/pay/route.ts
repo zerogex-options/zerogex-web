@@ -21,7 +21,7 @@ function shell(heading: string, bodyHtml: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZeroGEX — Pay your invoice</title></head>
+<title>ZeroGEX\u00a0- Pay your invoice</title></head>
 <body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
     <div style="font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#12283c;">zerogex<span style="color:#f45854;">.io</span></div>
@@ -52,11 +52,11 @@ const PAID_PAGE = shell(
 );
 const CLOSED_PAGE = shell(
   'This invoice is closed',
-  'It can&rsquo;t be paid online any more. If you&rsquo;d like to pick your subscription back up, you can restart it from the <a href="/pricing" style="color:#12283c; font-weight:700;">pricing page</a> &mdash; or reply to the email this link came in and I&rsquo;ll help.',
+  'It can&rsquo;t be paid online any more. If you&rsquo;d like to pick your subscription back up, you can restart it from the <a href="/pricing" style="color:#12283c; font-weight:700;">pricing page</a>\u00a0- or reply to the email this link came in and I&rsquo;ll help.',
 );
 const UNAVAILABLE_PAGE = shell(
   'Something went wrong',
-  'I couldn&rsquo;t load this invoice just now. Please try the link again in a minute &mdash; or reply to the email it came in and I&rsquo;ll help.',
+  'I couldn&rsquo;t load this invoice just now. Please try the link again in a minute\u00a0- or reply to the email it came in and I&rsquo;ll help.',
 );
 
 export async function GET(request: NextRequest) {

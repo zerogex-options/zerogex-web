@@ -6,7 +6,7 @@ import SearchClient from './SearchClient';
 // still be followed. The page stays crawlable (not robots-disallowed) so the
 // directive is visible, consistent with /login and /register.
 export const metadata = {
-  title: 'Search — ZeroGEX',
+  title: 'Search\u00a0- ZeroGEX',
   description: 'Search ZeroGEX options gamma education, live SPX / SPY / QQQ / NDX gamma levels, and tools.',
   robots: { index: false, follow: true },
 };

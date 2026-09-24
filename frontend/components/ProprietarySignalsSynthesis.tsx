@@ -109,7 +109,7 @@ function CompositeMsiCard({ score }: CompositeMsiCardProps) {
   return (
     <CardShell
       title="Composite MSI · Weighted Synthesis"
-      tooltip="Market State Index: a single 0–100 regime gauge built from six option-structure components (net GEX sign, gamma anchor, P/C ratio, vol regime, smart-money flow, dealer delta pressure). 50 is neutral. ≥70 trend / expansion, 40–70 controlled trend, 20–40 chop / range, <20 high-risk reversal. A high MSI does NOT mean bullish — it means trends can run. Read direction from the Bias panel or individual signal scores."
+      tooltip="Market State Index: a single 0-100 regime gauge built from six option-structure components (net GEX sign, gamma anchor, P/C ratio, vol regime, smart-money flow, dealer delta pressure). 50 is neutral. ≥70 trend / expansion, 40-70 controlled trend, 20-40 chop / range, <20 high-risk reversal. A high MSI does NOT mean bullish&nbsp;- it means trends can run. Read direction from the Bias panel or individual signal scores."
     >
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div
@@ -254,7 +254,7 @@ function SignalBreadthCard({ basicSignals, advancedSignals }: SignalBreadthCardP
   return (
     <CardShell
       title="Signal Breadth · Directional Vote"
-      tooltip="Unweighted directional vote across the 11 signals whose sign IS bullish vs bearish: all 6 Basic, plus EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, and Gamma/VWAP Confluence. A signal counts as bullish when its score ≥ +15, bearish when ≤ −15, else neutral. Net = bullish − bearish. The other 3 advanced signals (Vol Expansion, Range Break Imminence, Market Pressure) are regime-readiness reads — their magnitude IS the signal, sign is incidental — so they live in the Regime Triggers panel below, not in this tally."
+      tooltip="Unweighted directional vote across the 11 signals whose sign IS bullish vs bearish: all 6 Basic, plus EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, and Gamma/VWAP Confluence. A signal counts as bullish when its score ≥ +15, bearish when ≤ −15, else neutral. Net = bullish − bearish. The other 3 advanced signals (Vol Expansion, Range Break Imminence, Market Pressure) are regime-readiness reads&nbsp;- their magnitude IS the signal, sign is incidental&nbsp;- so they live in the Regime Triggers panel below, not in this tally."
     >
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div className="text-2xl sm:text-3xl md:text-4xl font-bold break-words" style={{ color }}>
@@ -362,7 +362,7 @@ function RegimeTriggersCard({ triggers, locked }: RegimeTriggersCardProps) {
   return (
     <CardShell
       title="Regime Triggers · Readiness"
-      tooltip="Three advanced signals whose magnitude — NOT sign — is the read. Each scores 0–100 readiness for a regime shift: Volatility Expansion measures whether the gamma backdrop is loaded for a directional move, Range Break Imminence measures how close chop is to resolving, Market Pressure measures coiled-spring loading. Use these to flip your playbook (e.g. Range Fade → Breakout Mode), not as bullish / bearish votes. A direction tag is shown for context where the backend supplies one — it's secondary to the magnitude."
+      tooltip="Three advanced signals whose magnitude&nbsp;- NOT sign&nbsp;- is the read. Each scores 0-100 readiness for a regime shift: Volatility Expansion measures whether the gamma backdrop is loaded for a directional move, Range Break Imminence measures how close chop is to resolving, Market Pressure measures coiled-spring loading. Use these to flip your playbook (e.g. Range Fade → Breakout Mode), not as bullish / bearish votes. A direction tag is shown for context where the backend supplies one&nbsp;- it's secondary to the magnitude."
     >
       <div className="space-y-3">
         {triggers.map((trigger) => {

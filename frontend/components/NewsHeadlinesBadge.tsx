@@ -175,7 +175,7 @@ export default function NewsHeadlinesBadge({
       aria-label="Top headlines"
       title={
         newest
-          ? `${newest.title} — ${formatRelativeTime(now, newest.publishedAtMs)}`
+          ? `${newest.title}\u00a0- ${formatRelativeTime(now, newest.publishedAtMs)}`
           : "Top headlines"
       }
     >
@@ -317,7 +317,7 @@ export default function NewsHeadlinesBadge({
             className="mt-2 text-[10px]"
             style={{ color: 'var(--text-secondary)' }}
           >
-            No high-signal headlines yet — showing all.
+            No high-signal headlines yet&nbsp;- showing all.
           </div>
         )}
       </div>

@@ -171,7 +171,7 @@ export async function generateMetadata({
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
-    return { title: 'Forecast not found — ZeroGEX', robots: { index: false, follow: false } };
+    return { title: 'Forecast not found\u00a0- ZeroGEX', robots: { index: false, follow: false } };
   }
   // Metadata does not need the missing/unavailable distinction: both fall back
   // to the generic copy below, which is correct either way. Unwrap to the
@@ -184,13 +184,13 @@ export async function generateMetadata({
   const hasReceipt = data?.receipt != null;
   const titleHead = hasReceipt ? 'Receipt' : 'Forecast';
   const title = data
-    ? `${sym} · ${human} ${titleHead} — ZeroGEX`
-    : `${sym} · ${human} Forecast — ZeroGEX`;
+    ? `${sym} · ${human} ${titleHead}\u00a0- ZeroGEX`
+    : `${sym} · ${human} Forecast\u00a0- ZeroGEX`;
   const description = data
     ? hasReceipt
       ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} (the graded claim).`
-      : `${sym} morning forecast: range ${fmtPrice(data.morning.projected_low)}–${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state)} volatility, key gamma levels with touch odds. No direction call.`
-    : 'Daily ZeroGEX Gamma Forecast Card — pre-market commitment, 4 PM receipt.';
+      : `${sym} morning forecast: range ${fmtPrice(data.morning.projected_low)}-${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state)} volatility, key gamma levels with touch odds. No direction call.`
+    : 'Daily ZeroGEX Gamma Forecast Card\u00a0- pre-market commitment, 4 PM receipt.';
   return {
     title,
     description,
@@ -243,8 +243,8 @@ export default async function ForecastPage({
   const permalink = `${SITE_URL}/forecast/${sym}/${date}`;
   const pickerHrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
   const tweetBody = receipt
-    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}. Realized vol ${fmtRatioOfNormal(receipt.realized_vol_ratio)} (context).`
-    : `${sym} ${date} forecast — range ${fmtPrice(morning.projected_low)}–${fmtPrice(morning.projected_high)}, ${volLabel.toLowerCase()} volatility, key levels with touch odds. No direction call.`;
+    ? `${sym} ${date} receipt\u00a0- range ${receipt.range_respected ? 'held' : 'broken'}. Realized vol ${fmtRatioOfNormal(receipt.realized_vol_ratio)} (context).`
+    : `${sym} ${date} forecast\u00a0- range ${fmtPrice(morning.projected_low)}-${fmtPrice(morning.projected_high)}, ${volLabel.toLowerCase()} volatility, key levels with touch odds. No direction call.`;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -301,10 +301,10 @@ export default async function ForecastPage({
         {/* 1 — Expected range (kept). Containment: how far price can travel. */}
         <Stat
           label="Expected range"
-          value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
+          value={`${fmtPrice(morning.projected_low)}\u00a0- ${fmtPrice(morning.projected_high)}`}
           accent="var(--color-accent)"
           icon={Ruler}
-          tooltip="The high–low band we commit each morning before the open, built from the GEX call/put walls plus a volatility-based expansion (event days stretch 1.5×). Graded on coverage — an 80–90% band should contain the day's full range, wicks included."
+          tooltip="The high-low band we commit each morning before the open, built from the GEX call/put walls plus a volatility-based expansion (event days stretch 1.5×). Graded on coverage&nbsp;- an 80-90% band should contain the day's full range, wicks included."
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
           hint={(() => {
             const parts: string[] = [];
@@ -320,7 +320,7 @@ export default async function ForecastPage({
               parts.push(`−${downPct.toFixed(2)}% / +${upPct.toFixed(2)}%`);
             }
             if (receipt) {
-              parts.push(`Actual: ${fmtPrice(receipt.actual_low)} – ${fmtPrice(receipt.actual_high)}`);
+              parts.push(`Actual: ${fmtPrice(receipt.actual_low)}\u00a0- ${fmtPrice(receipt.actual_high)}`);
             } else {
               parts.push('Walls · VIX/VXN · ATR blend · 90% coverage target');
             }
@@ -334,18 +334,18 @@ export default async function ForecastPage({
           value={volLabel}
           accent="var(--color-accent)"
           icon={Gauge}
-          tooltip="How much the day actually moved vs. a statistically normal day: realized daily range ÷ a normal day's range (√(8/π)× ≈1.6× the implied 1-day move, calibrated per symbol so 1.0 = an ordinary day). Long gamma damps it (compression), short gamma amplifies it (expansion). Shown for CONTEXT — not part of the graded scorecard: over our history this call doesn't beat a majority-bucket baseline, so we publish it but don't score it."
+          tooltip="How much the day actually moved vs. a statistically normal day: realized daily range ÷ a normal day's range (√(8/π)× ≈1.6× the implied 1-day move, calibrated per symbol so 1.0 = an ordinary day). Long gamma damps it (compression), short gamma amplifies it (expansion). Shown for CONTEXT&nbsp;- not part of the graded scorecard: over our history this call doesn't beat a majority-bucket baseline, so we publish it but don't score it."
           verdict={null}
           hint={(() => {
             if (receipt) {
-              if (receipt.realized_vol_ratio == null) return 'Realized — no implied move on file · informational';
+              if (receipt.realized_vol_ratio == null) return 'Realized\u00a0- no implied move on file · informational';
               return `Realized ${fmtRatioOfNormal(receipt.realized_vol_ratio)} · informational, not scored`;
             }
             const parts: string[] = [`expect ${fmtRatioOfNormal(morning.expected_vol_ratio)}`];
             if (morning.flip_cross_prob != null) {
               parts.push(`flip-cross ${fmtPct(morning.flip_cross_prob)}`);
             }
-            parts.push('informational — not graded');
+            parts.push('informational\u00a0- not graded');
             return parts.join(' · ');
           })()}
         />
@@ -361,7 +361,7 @@ export default async function ForecastPage({
           })()}
           accent="var(--color-accent)"
           icon={Layers}
-          tooltip="The dealer lines in play and how well we called which ones price would reach today — scored by Brier on the ladder below. No direction call."
+          tooltip="The dealer lines in play and how well we called which ones price would reach today&nbsp;- scored by Brier on the ladder below. No direction call."
           verdict={null}
           hint={(() => {
             if (receipt) {
@@ -391,7 +391,7 @@ export default async function ForecastPage({
           We do <span style={{ color: 'var(--color-accent)' }}>not</span> forecast which way {sym} goes.
         </div>
         <div className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-          Three claims — how far price can travel (range), how much it actually moves versus what&rsquo;s
+          Three claims&nbsp;- how far price can travel (range), how much it actually moves versus what&rsquo;s
           priced in (volatility), and which dealer lines it reaches (levels). Gamma structure conditions
           all three. Direction it does not.
         </div>
@@ -438,7 +438,7 @@ export default async function ForecastPage({
                   n={stats.n_scored}
                   baseline={stats.range_baseline}
                   baselineLabel="target"
-                  tooltip="Share of graded days whose full high–low range stayed inside the morning band. The 95% Wilson interval shows how firm the number is on this many days; the baseline is the published coverage target it should clear."
+                  tooltip="Share of graded days whose full high-low range stayed inside the morning band. The 95% Wilson interval shows how firm the number is on this many days; the baseline is the published coverage target it should clear."
                 />
                 <BrierStat
                   label="Levels Brier"
@@ -451,7 +451,7 @@ export default async function ForecastPage({
                   Expected‑volatility is <em>informational, not graded</em>: over the last{' '}
                   {stats.vol_n_scored} corrected‑scale receipts it called{' '}
                   {fmtPct(stats.vol_state_correct_rate)} vs a{' '}
-                  {fmtPct(stats.vol_baseline)} majority‑bucket baseline — no edge yet, so we
+                  {fmtPct(stats.vol_baseline)} majority‑bucket baseline&nbsp;- no edge yet, so we
                   publish the call for transparency but don&rsquo;t score it. Range coverage and
                   levels calibration are the graded claims.
                 </div>
@@ -459,7 +459,7 @@ export default async function ForecastPage({
             </>
           ) : (
             <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-              Building history — {stats.n_scored} graded{' '}
+              Building history&nbsp;- {stats.n_scored} graded{' '}
               {stats.n_scored === 1 ? 'receipt' : 'receipts'} so far. A rolling hit rate needs at
               least {MIN_SCORED_FOR_RATES} graded days to mean anything, so we hold it back until
               then rather than show a rate a single session could swing to 0% or 100%.
@@ -472,10 +472,10 @@ export default async function ForecastPage({
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this forecast</div>
         Daily commitment for {sym} written each morning before the open, hashed and immutable. The projected range is
         anchored on the open spot and bounded by the GEX call/put walls with a safety expansion (event
-        days get a 1.5× stretch); it&rsquo;s graded on <em>coverage</em> — an 80–90% band should contain
+        days get a 1.5× stretch); it&rsquo;s graded on <em>coverage</em>&nbsp;- an 80-90% band should contain
         the day that often. Key levels carry the reflection-principle odds that price reaches each wall
         and crosses the gamma flip today (scaled to the calibrated intraday move), graded by Brier score.
-        These two — <strong>range coverage</strong> and <strong>levels calibration</strong> — are the
+        These two&nbsp;- <strong>range coverage</strong> and <strong>levels calibration</strong>&nbsp;- are the
         graded claims, each shown with a 95% confidence interval and a baseline to beat. Expected
         volatility (realized daily range as a multiple of a <em>normal</em> day&rsquo;s range, √(8/π)≈1.6×
         the implied 1-day move, calibrated per symbol so 1.0 is an ordinary day) is published for
@@ -630,7 +630,7 @@ function LevelsLadder({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           <Layers size={11} /> Levels &amp; touch odds
-          <TooltipWrapper text="Each line's touch odds are our morning probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did — and if it didn't, how close it came.">
+          <TooltipWrapper text="Each line's touch odds are our morning probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did&nbsp;- and if it didn't, how close it came.">
             <Info size={12} />
           </TooltipWrapper>
         </div>
@@ -713,7 +713,7 @@ function LadderRowView({
           )
         ) : isSpot ? (
           <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--color-accent)' }}>
-            — you are here —
+            -&nbsp;you are here&nbsp;-
           </span>
         ) : row.kind === 'gravity' ? (
           <span className="text-[11px] text-[var(--color-text-secondary)]">pull center while <span className="whitespace-nowrap">long-γ</span></span>
@@ -788,7 +788,7 @@ function TrackRecord({
       </div>
       {ci && (
         <div className="text-[10px] text-[var(--color-text-secondary)]">
-          95% CI {fmtPct(ci[0])}–{fmtPct(ci[1])}
+          95% CI {fmtPct(ci[0])}-{fmtPct(ci[1])}
         </div>
       )}
       {baseline != null && (

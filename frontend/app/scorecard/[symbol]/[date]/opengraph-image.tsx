@@ -5,7 +5,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { resolveSymbol } from '@/core/symbols';
 
 export const runtime = 'nodejs';
-export const alt = "ZeroGEX Daily Scorecard — yesterday's Playbook calls + per-signal P&L";
+export const alt = "ZeroGEX Daily Scorecard - yesterday's Playbook calls + per-signal P&L";
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 export const revalidate = 3600;
@@ -173,7 +173,7 @@ export default async function Image({
               display: 'flex',
             }}
           >
-            Quiet tape — no Playbook calls, no signal flips.
+            Quiet tape - no Playbook calls, no signal flips.
           </div>
         ) : (
           <>

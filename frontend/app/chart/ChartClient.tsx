@@ -48,8 +48,8 @@ const INFO_TEXT =
   "Call/Put Walls, Max Pain, Pin Strike and GEX King, plus the GEX ribbons behind the tape. Reading the ribbons: " +
   "every strike is a horizontal lane; every bar drops one orb in that lane sized by the strike's net dealer gamma " +
   "in the 5-minute analytics bucket the bar falls in, relative to the heaviest strike on screen. Gold means dealers " +
-  "are net long gamma at that strike (they sell rallies and buy dips into it — a magnet and a brake); violet means " +
-  "net short (they chase — an accelerant). A fat ribbon that persists all session is a wall; one that thickens is " +
+  "are net long gamma at that strike (they sell rallies and buy dips into it\u00a0- a magnet and a brake); violet means " +
+  "net short (they chase\u00a0- an accelerant). A fat ribbon that persists all session is a wall; one that thickens is " +
   "positioning building, one that thins is eroding; a lane changing color is the strike flipping sides. Orbs are " +
   "capped to the lane, so a zoomed-in price axis makes them fatter and a wide one thinner, and the history covers " +
   "the polled strike window, so earlier bars stay blank. " +
@@ -63,11 +63,11 @@ const INFO_TEXT =
   "shows the newest bucket that did and marks the rows 'as of' that time, while the header levels stay live. " +
   "STRIKE PANEL puts the gamma-structure rail there instead: net dealer gamma by price, drawn across the tape's " +
   "own price band so a strike's bar sits level with that price on the candles. It is the same rail the chart used " +
-  "to carry in a narrow column inside itself, with the same four views — a smoothed silhouette, or per-strike bars " +
-  "in Net, Split (calls and puts apart) or Combined — and the same optional on-bar $ labels, which move onto the " +
+  "to carry in a narrow column inside itself, with the same four views\u00a0- a smoothed silhouette, or per-strike bars " +
+  "in Net, Split (calls and puts apart) or Combined\u00a0- and the same optional on-bar $ labels, which move onto the " +
   "panel with it. The ladders and the rail answer the same question about the same book, so the panel shows one " +
   "at a time and your choice is remembered. " +
-  "The chart itself is identical under either: same width, same toolbar, same overlays — the GEX ribbons included, " +
+  "The chart itself is identical under either: same width, same toolbar, same overlays\u00a0- the GEX ribbons included, " +
   "since those read the tape rather than the panel. " +
   "The chart keeps its own toolbar for symbol, timeframe, price style, overlays, Expiry filter and Rewind. The " +
   "Expiry filter scopes the ladders too (Max Pain reads NA while filtered, as it has no per-expiry-set " +
@@ -75,7 +75,7 @@ const INFO_TEXT =
   "bucket, labelled with its time. Strikes shows only strikes carrying dealer gamma (Active) or every listed " +
   "strike near spot (All); Session Δ marks whether dealer gamma at each strike has built or eroded since the " +
   "09:30 ET open. " +
-  "Gamma levels and Net GEX are modeled estimates of dealer positioning — decision-support context only, not " +
+  "Gamma levels and Net GEX are modeled estimates of dealer positioning\u00a0- decision-support context only, not " +
   "investment advice.";
 
 const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; body: string }> = [
@@ -83,7 +83,7 @@ const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; 
     icon: <Gauge size={18} />,
     accent: 'var(--heat-mid)',
     title: 'Gamma Flip',
-    body: 'The price where dealer gamma flips sign. Above it, dealers dampen moves (pinning); below it, they amplify them (trending). It is the single most important line on the chart — and it is drawn for you.',
+    body: 'The price where dealer gamma flips sign. Above it, dealers dampen moves (pinning); below it, they amplify them (trending). It is the single most important line on the chart\u00a0- and it is drawn for you.',
   },
   {
     icon: <Target size={18} />,
@@ -95,7 +95,7 @@ const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; 
     icon: <Columns3 size={18} />,
     accent: 'var(--color-flip)',
     title: 'Gamma Ladders',
-    body: 'Two strike-aligned Net-GEX books beside the tape, pinned to the same spot row as the candles. Read your underlying strike by strike, and compare it against another — SPY against SPX, QQQ against NDX — in the same glance.',
+    body: 'Two strike-aligned Net-GEX books beside the tape, pinned to the same spot row as the candles. Read your underlying strike by strike, and compare it against another\u00a0- SPY against SPX, QQQ against NDX\u00a0- in the same glance.',
   },
   {
     icon: <Waves size={18} />,
@@ -107,13 +107,13 @@ const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; 
     icon: <Sparkles size={18} />,
     accent: 'var(--color-warning)',
     title: 'GEX Ribbons',
-    body: 'Per-strike dealer gamma through time, behind the tape. Gold lanes are strikes where dealers are long gamma, violet where they are short — so you watch a wall build, erode or flip sides as the session runs.',
+    body: 'Per-strike dealer gamma through time, behind the tape. Gold lanes are strikes where dealers are long gamma, violet where they are short\u00a0- so you watch a wall build, erode or flip sides as the session runs.',
   },
   {
     icon: <Layers size={18} />,
     accent: 'var(--color-accent-hot)',
     title: 'Regime Zones',
-    body: 'The backdrop is tinted by regime — long-gamma pinning above the flip, short-gamma trending below. One glance tells you whether to fade extremes or ride momentum.',
+    body: 'The backdrop is tinted by regime\u00a0- long-gamma pinning above the flip, short-gamma trending below. One glance tells you whether to fade extremes or ride momentum.',
   },
 ];
 
@@ -194,7 +194,7 @@ export default function ChartClient({
         <div id="chart-hero-intro" hidden={!introOpen}>
           <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>
             Price and modeled dealer gamma on one surface. See where hedging pressure is modeled to
-            concentrate — the Gamma Flip, the Call and Put Walls drawn inline on a fast, precise candle
+            concentrate&nbsp;- the Gamma Flip, the Call and Put Walls drawn inline on a fast, precise candle
             chart, and the per-strike book itself in a panel beside the tape: two Net-GEX ladders, or a
             silhouette of modeled dealer positioning at every price. Nothing else shows you this.
             {delayed && (
@@ -266,11 +266,11 @@ export default function ChartClient({
           <div className="flex-1">
             <span className="zg-eyebrow" style={{ color: 'var(--color-warning)' }}>Unlock live</span>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', margin: '4px 0 6px' }}>
-              Get the real-time terminal — every symbol, every timeframe
+              Get the real-time terminal&nbsp;- every symbol, every timeframe
             </h3>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 620 }}>
-              You&apos;re viewing a ~15-minute-delayed snapshot of SPY. Members get the live terminal — real-time
-              dealer gamma, {SYMBOLS.join('/')}, all timeframes, the Expiry filter, Session Δ and Rewind — plus the
+              You&apos;re viewing a ~15-minute-delayed snapshot of SPY. Members get the live terminal&nbsp;- real-time
+              dealer gamma, {SYMBOLS.join('/')}, all timeframes, the Expiry filter, Session Δ and Rewind&nbsp;- plus the
               full dealer-positioning suite.
             </p>
           </div>
@@ -295,7 +295,7 @@ export default function ChartClient({
             </h3>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 620 }}>
               The terminal shows you the levels and the book. The Dealer Positioning and GEX Strike Profile pages show
-              you the forces behind them — net GEX by strike, vanna and charm flows, and the volatility surface.
+              you the forces behind them&nbsp;- net GEX by strike, vanna and charm flows, and the volatility surface.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

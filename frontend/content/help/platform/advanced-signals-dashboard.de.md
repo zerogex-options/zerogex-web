@@ -1,6 +1,6 @@
 # Advanced Signal Dashboard
 
-*Die event-getriebenen Signale — was jedes abfragt, wann jedes auslöst und wie man sie nutzt.*
+*Die event-getriebenen Signale - was jedes abfragt, wann jedes auslöst und wie man sie nutzt.*
 
 ---
 
@@ -35,19 +35,19 @@ Stapelt Gamma Flip, VWAP, Max Pain, den Max-Gamma-Strike und die Call Wall. Frag
 
 ### Market Pressure Index
 
-Die Gesamtlesart „ist der Markt geladen". Kombiniert Wall Pinch, Flip-Nähe, Regime, Vanna/Charm, den DNI, den Skew zwischen Premium- und Smart-Money-Flow, den IV-Rank und die Kompression der realisierten Volatilität. Zweidimensional: ein **Loading von 0–100** und eine **Richtung von -1 bis +1**.
+Die Gesamtlesart „ist der Markt geladen". Kombiniert Wall Pinch, Flip-Nähe, Regime, Vanna/Charm, den DNI, den Skew zwischen Premium- und Smart-Money-Flow, den IV-Rank und die Kompression der realisierten Volatilität. Zweidimensional: ein **Loading von 0-100** und eine **Richtung von -1 bis +1**.
 
 ### Range Break Imminence
 
-Kompressionslesart über 20 Bars. Skew-Delta + Dealer-Delta + Trap Pressure + Kompressionsverhältnis über 10/60 Bars. Liefert sowohl einen Score als auch eine Imminence von 0–100. Löst bei imminence ≥ 65 aus — das bedeutet, der Range ist im Verhältnis zu seiner jüngeren Historie tatsächlich eng.
+Kompressionslesart über 20 Bars. Skew-Delta + Dealer-Delta + Trap Pressure + Kompressionsverhältnis über 10/60 Bars. Liefert sowohl einen Score als auch eine Imminence von 0-100. Löst bei imminence ≥ 65 aus - das bedeutet, der Range ist im Verhältnis zu seiner jüngeren Historie tatsächlich eng.
 
 ### Squeeze Setup
 
-Mehrtägiger Setup-Detektor. Flow-Z-Score, 5/10-Bar-Momentum, Gamma-Bereitschaft, Flip-Distanz, VIX-Regime. Continuation-Bias — liest „der Markt ist zusammengepresst, das nächste Bein ist X".
+Mehrtägiger Setup-Detektor. Flow-Z-Score, 5/10-Bar-Momentum, Gamma-Bereitschaft, Flip-Distanz, VIX-Regime. Continuation-Bias - liest „der Markt ist zusammengepresst, das nächste Bein ist X".
 
 ### Trap Detection
 
-Der Detektor für gescheiterte Breakouts. Walls (aktuell + vorherig), VWAP, Flip, Net GEX und ΔGEX, Flow-Deltas. Mean-Reversion-Bias — löst aus, wenn ein Ausbruch über die Call Wall oder unter die Put Wall zurückschnappt.
+Der Detektor für gescheiterte Breakouts. Walls (aktuell + vorherig), VWAP, Flip, Net GEX und ΔGEX, Flow-Deltas. Mean-Reversion-Bias - löst aus, wenn ein Ausbruch über die Call Wall oder unter die Put Wall zurückschnappt.
 
 ### Volatility Expansion
 
@@ -80,7 +80,7 @@ Klicken Sie auf eine Karte, um die individuelle Signalseite mit Score-Sparkline,
 
 ## Wichtig: Der Trade-Bias zählt
 
-Manche Advanced-Signale sind Continuation-, manche Mean-Reversion-Signale. Wenn Trap Detection positiv auslöst, bedeutet das **nicht** „long gehen" — es bedeutet „den gescheiterten Breakout nach unten faden". Prüfen Sie immer den Trade-Bias-Chip auf der Karte.
+Manche Advanced-Signale sind Continuation-, manche Mean-Reversion-Signale. Wenn Trap Detection positiv auslöst, bedeutet das **nicht** „long gehen" - es bedeutet „den gescheiterten Breakout nach unten faden". Prüfen Sie immer den Trade-Bias-Chip auf der Karte.
 
 ## Siehe auch
 

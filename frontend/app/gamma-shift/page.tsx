@@ -75,12 +75,12 @@ export default function GammaShiftPage() {
         beta
         sub={
           <>
-            Not where dealer gamma sits, but how it <strong>changed</strong> — a book{' '}
+            Not where dealer gamma sits, but how it <strong>changed</strong>&nbsp;- a book{' '}
             <span style={{ color: 'var(--color-bull)' }}>firming</span> or{' '}
             <span style={{ color: 'var(--color-bear)' }}>deteriorating</span>.
           </>
         }
-        tooltip="Every other GEX surface is a photograph of the book right now. This is the difference between two photographs: pick a comparison window and read what dealer gamma did across it, split into the part that came from new positioning and the part that is just the same contracts re-pricing as spot moved. Also shows how much of the current book expires at the next close — gamma that will simply stop existing rather than being traded away — and where today's shift sits against recent sessions. A large shift with price unchanged is positioning; a large shift with price moved may be nothing but re-pricing."
+        tooltip="Every other GEX surface is a photograph of the book right now. This is the difference between two photographs: pick a comparison window and read what dealer gamma did across it, split into the part that came from new positioning and the part that is just the same contracts re-pricing as spot moved. Also shows how much of the current book expires at the next close&nbsp;- gamma that will simply stop existing rather than being traded away&nbsp;- and where today's shift sits against recent sessions. A large shift with price unchanged is positioning; a large shift with price moved may be nothing but re-pricing."
         actions={
           <FilterBar>
             <FilterGroup label="Compare">

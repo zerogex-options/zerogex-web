@@ -97,7 +97,7 @@ export default function OptionsCalendarBadge({ theme, compact = false, mobile = 
       aria-label="Options calendar"
       title={
         nextEvent
-          ? `${nextEvent.label} — ${formatRelativeDay(nextEvent.daysUntil)}`
+          ? `${nextEvent.label}\u00a0- ${formatRelativeDay(nextEvent.daysUntil)}`
           : "Options calendar"
       }
     >

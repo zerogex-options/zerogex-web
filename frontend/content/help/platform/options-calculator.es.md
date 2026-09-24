@@ -13,15 +13,15 @@ Es el lugar al que acudes después de que el dashboard te dice "la estructura es
 ## Construir una estrategia
 
 1. **Elige un símbolo** (SPY, SPX, QQQ, NDX).
-2. **Añade una pata** — compra o venta, call o put, strike, vencimiento. La cadena está en vivo.
+2. **Añade una pata** - compra o venta, call o put, strike, vencimiento. La cadena está en vivo.
 3. **Repite** para estructuras multi-pata (verticales, condors, calendars, ratios, straddles, strangles).
-4. **Establece el spot para el análisis** — por defecto es el spot en vivo, pero puedes probar cualquier precio como escenario.
+4. **Establece el spot para el análisis** - por defecto es el spot en vivo, pero puedes probar cualquier precio como escenario.
 
 El precio agregado, los breakevens y las greeks se actualizan con cada cambio.
 
 ## El modelo de valoración
 
-El Builder utiliza **Black-Scholes** con la superficie de volatilidad implícita en vivo para cada pata. La superficie de IV se extrae de nuestro pipeline de datos — la misma superficie que alimenta la cadena en la página de [Cotizaciones de Opciones en Vivo](/help/platform/option-contracts).
+El Builder utiliza **Black-Scholes** con la superficie de volatilidad implícita en vivo para cada pata. La superficie de IV se extrae de nuestro pipeline de datos - la misma superficie que alimenta la cadena en la página de [Cotizaciones de Opciones en Vivo](/help/platform/option-contracts).
 
 Para las consideraciones de ejercicio de estilo americano (relevantes para ETFs como SPY y QQQ), el modelo aproxima con una prima de ejercicio anticipado en patas deep ITM cerca del vencimiento. Los índices liquidados en efectivo SPX y NDX tienen ejercicio de estilo europeo, por lo que no se aplica ningún ajuste.
 
@@ -29,13 +29,13 @@ Para las consideraciones de ejercicio de estilo americano (relevantes para ETFs 
 
 Para cada pata y para el agregado:
 
-- **Delta** — exposición direccional
-- **Gamma** — cómo se mueve el delta con el spot
-- **Theta** — decaimiento temporal (por día)
-- **Vega** — sensibilidad a la IV (por cambio del 1%)
-- **Charm** — decaimiento del delta (por día)
+- **Delta** - exposición direccional
+- **Gamma** - cómo se mueve el delta con el spot
+- **Theta** - decaimiento temporal (por día)
+- **Vega** - sensibilidad a la IV (por cambio del 1%)
+- **Charm** - decaimiento del delta (por día)
 
-Las greeks agregadas te permiten leer una estructura multi-pata de un vistazo — por ejemplo, un calendar largo es net long vega y net long theta, cobrando el decaimiento en la pata corta de vencimiento cercano más rápido de lo que lo paga en la pata larga de vencimiento lejano.
+Las greeks agregadas te permiten leer una estructura multi-pata de un vistazo - por ejemplo, un calendar largo es net long vega y net long theta, cobrando el decaimiento en la pata corta de vencimiento cercano más rápido de lo que lo paga en la pata larga de vencimiento lejano.
 
 ## La superficie de P&L
 
@@ -49,7 +49,7 @@ También puedes ver los breakevens resaltados en el eje x.
 
 ## Prueba de escenarios
 
-El panel de escenarios te permite barrer dos variables a la vez — típicamente spot e IV — y ver la cuadrícula de P&L resultante. Útil para:
+El panel de escenarios te permite barrer dos variables a la vez - típicamente spot e IV - y ver la cuadrícula de P&L resultante. Útil para:
 
 - Una estructura long-vol: ¿cuánto ganas con un shock de 2 puntos de volatilidad?
 - Un pin trade: ¿cuánto puedes perder si el spot se desvía un 1% del max pain?

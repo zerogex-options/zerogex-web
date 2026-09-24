@@ -49,7 +49,7 @@ test('a futures quote names its contract, its product and its expiry', () => {
   assert.equal(contract.code, 'NQZ26');
   assert.equal(contract.productName, 'CME E-mini Nasdaq-100');
   assert.equal(contract.monthLabel, 'December 2026');
-  assert.equal(contract.headline, 'NQZ26 — CME E-mini Nasdaq-100, December 2026');
+  assert.equal(contract.headline, 'NQZ26\u00a0- CME E-mini Nasdaq-100, December 2026');
   assert.equal(contract.expiryLine, 'Expires 18 Dec 2026');
 
   const es = resolveFuturesContract('ESZ26', '2026-12-18');
@@ -86,7 +86,7 @@ test('a contract without an expiry still names itself', () => {
   // spelling table for a value the backend already chose, not a second opinion
   // about which contract is live.
   const contract = resolveFuturesContract('NQU26');
-  assert.equal(contract?.headline, 'NQU26 — CME E-mini Nasdaq-100, September 2026');
+  assert.equal(contract?.headline, 'NQU26\u00a0- CME E-mini Nasdaq-100, September 2026');
   assert.equal(contract?.expiryLine, null);
   assert.equal(contract?.expiryLabel, null);
 });
@@ -97,7 +97,7 @@ test('an unrecognized contract is shown, never guessed at', () => {
   // code and drops the name rather than inventing one.
   const unknownRoot = resolveFuturesContract('RTYZ26', '2026-12-18');
   assert.equal(unknownRoot?.productName, null);
-  assert.equal(unknownRoot?.headline, 'RTYZ26 — December 2026');
+  assert.equal(unknownRoot?.headline, 'RTYZ26\u00a0- December 2026');
 
   // Something that is not a contract code at all produces no month, rather
   // than a confidently wrong one.

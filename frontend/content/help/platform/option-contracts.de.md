@@ -18,7 +18,7 @@ Für jeden Strike und jeden Verfall:
 - **Open Interest**
 - **Delta, Gamma, Vega, Theta, Charm**
 - **Implizite Volatilität**
-- **GEX-Beitrag** — der Dollarwert des Dealer-Gammas an diesem Strike
+- **GEX-Beitrag** - der Dollarwert des Dealer-Gammas an diesem Strike
 
 Jede Zeile ist gepaart (Call links, Put rechts) mit dem Strike in der mittleren Spalte. Das klassische Ketten-Layout.
 
@@ -26,14 +26,14 @@ Jede Zeile ist gepaart (Call links, Put rechts) mit dem Strike in der mittleren 
 
 Mit der Filterleiste können Sie die Kette eingrenzen:
 
-- **Verfall** — Mehrfachauswahl. Standardmäßig 0DTE, falls verfügbar, sonst der nächstgelegene.
-- **Moneyness** — ATM-Band (z. B. ±5 % vom Spot) oder vollständige Kette.
-- **Sortieren** — nach Strike, Volume, OI, IV, GEX-Beitrag.
-- **Nur anzeigen** — Volume ungleich null, OI ungleich null, Sweeps, Blocks.
+- **Verfall** - Mehrfachauswahl. Standardmäßig 0DTE, falls verfügbar, sonst der nächstgelegene.
+- **Moneyness** - ATM-Band (z. B. ±5 % vom Spot) oder vollständige Kette.
+- **Sortieren** - nach Strike, Volume, OI, IV, GEX-Beitrag.
+- **Nur anzeigen** - Volume ungleich null, OI ungleich null, Sweeps, Blocks.
 
 ## Die Farben der IV-Oberfläche
 
-Zellen werden nach IV farblich abgestuft — kühle Farben (Blau) für niedrige IV, warme Farben (Rot) für hohe IV. Die Skala gilt pro Verfall, sodass ein "heißer" ATM in einer Spalte nicht demselben absoluten IV-Wert entspricht wie ein "heißer" ATM in einer anderen. Es geht darum, die **Form** des Smiles zu erkennen, nicht das absolute Niveau.
+Zellen werden nach IV farblich abgestuft - kühle Farben (Blau) für niedrige IV, warme Farben (Rot) für hohe IV. Die Skala gilt pro Verfall, sodass ein "heißer" ATM in einer Spalte nicht demselben absoluten IV-Wert entspricht wie ein "heißer" ATM in einer anderen. Es geht darum, die **Form** des Smiles zu erkennen, nicht das absolute Niveau.
 
 ## So liest man die Kette
 

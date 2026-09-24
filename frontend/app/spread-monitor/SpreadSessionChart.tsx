@@ -112,7 +112,7 @@ export default function SpreadSessionChart({
   if (rows.length === 0) {
     return (
       <div className="py-8 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
-        No quote readings for this session yet — the series fills in one point per{' '}
+        No quote readings for this session yet&nbsp;- the series fills in one point per{' '}
         {series.bucket_minutes}-minute bucket as the session runs.
       </div>
     );

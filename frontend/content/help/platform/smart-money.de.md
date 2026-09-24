@@ -1,17 +1,17 @@
 # Smart Money
 
-*Der Smart-Money-Screen — was einen Trade als Smart-Money qualifiziert, wie das C/P-Verhältnis berechnet wird und wie man den Bias intraday nutzt.*
+*Der Smart-Money-Screen - was einen Trade als Smart-Money qualifiziert, wie das C/P-Verhältnis berechnet wird und wie man den Bias intraday nutzt.*
 
 ---
 
 ## Was "Smart Money" hier bedeutet
 
-Smart Money ist eine Heuristik — ein Tag, den wir Optionstrades zuweisen, die den strukturellen Fingerabdruck einer informierten Wette tragen:
+Smart Money ist eine Heuristik - ein Tag, den wir Optionstrades zuweisen, die den strukturellen Fingerabdruck einer informierten Wette tragen:
 
-- **Größe** — Prämie und Kontraktgröße deutlich über dem Durchschnitt für Strike/Verfall.
-- **Aggressivität** — zum Ask oder darüber bezahlt (Kauf) bzw. zum Bid getroffen (Verkauf), nicht zu Mid-Preisen.
-- **Wiederholung** — mehrere aggressive Prints in derselben Richtung innerhalb eines kurzen Zeitfensters.
-- **Überzeugungsprämie** — der Trade zahlt einen nicht trivialen Prozentsatz des Kontraktwerts.
+- **Größe** - Prämie und Kontraktgröße deutlich über dem Durchschnitt für Strike/Verfall.
+- **Aggressivität** - zum Ask oder darüber bezahlt (Kauf) bzw. zum Bid getroffen (Verkauf), nicht zu Mid-Preisen.
+- **Wiederholung** - mehrere aggressive Prints in derselben Richtung innerhalb eines kurzen Zeitfensters.
+- **Überzeugungsprämie** - der Trade zahlt einen nicht trivialen Prozentsatz des Kontraktwerts.
 
 Ein einzelner Block allein qualifiziert nicht. Ein Muster von Überzeugungstrades auf einem Strike schon.
 
@@ -19,15 +19,15 @@ Ein einzelner Block allein qualifiziert nicht. Ein Muster von Überzeugungstrade
 
 ### Das Smart-Money C/P-Verhältnis
 
-Das Verhältnis von Smart-Money-Call-Prämie zu Smart-Money-Put-Prämie. Ein Wert deutlich über 1 bedeutet, dass der Smart-Money-Flow strukturell auf Calls setzt; deutlich darunter bedeutet Puts. Das ist **nicht** dasselbe wie die Headline-PCR (Put/Call Ratio) — hier werden nur hochüberzeugte Prints gefiltert.
+Das Verhältnis von Smart-Money-Call-Prämie zu Smart-Money-Put-Prämie. Ein Wert deutlich über 1 bedeutet, dass der Smart-Money-Flow strukturell auf Calls setzt; deutlich darunter bedeutet Puts. Das ist **nicht** dasselbe wie die Headline-PCR (Put/Call Ratio) - hier werden nur hochüberzeugte Prints gefiltert.
 
 ### Das Smart-Money-Tape
 
-Ein Live-Feed der als Smart-Money markierten Trades — Größe, Prämie, Strike, Verfall, Richtung, Zeit. Klicken, um den Trade im Kontext zu sehen.
+Ein Live-Feed der als Smart-Money markierten Trades - Größe, Prämie, Strike, Verfall, Richtung, Zeit. Klicken, um den Trade im Kontext zu sehen.
 
 ### Der Smart-Money-Bias
 
-Ein kombinierter Bias-Chip — bullish, bearish, neutral — gebildet aus dem C/P-Verhältnis plus dem netto-prämiengewichteten Flow innerhalb der Smart-Money-Teilmenge.
+Ein kombinierter Bias-Chip - bullish, bearish, neutral - gebildet aus dem C/P-Verhältnis plus dem netto-prämiengewichteten Flow innerhalb der Smart-Money-Teilmenge.
 
 ### Die Strike-Konzentrationskarte
 
@@ -43,7 +43,7 @@ Drei Muster:
 
 ## Was sie nicht ist
 
-Der Smart-Money-Tag ist eine **probabilistische Heuristik**. Nicht jeder Smart-Money-Print ist informiert; nicht jeder informierte Trade wird markiert. Die Seite ist am nützlichsten auf **Bias-Ebene** — wie ist die kumulative Neigung? — und weniger als Handelssignal für einzelne Prints.
+Der Smart-Money-Tag ist eine **probabilistische Heuristik**. Nicht jeder Smart-Money-Print ist informiert; nicht jeder informierte Trade wird markiert. Die Seite ist am nützlichsten auf **Bias-Ebene** - wie ist die kumulative Neigung? - und weniger als Handelssignal für einzelne Prints.
 
 ## Das größere Bild
 

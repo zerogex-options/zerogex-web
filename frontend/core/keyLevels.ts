@@ -252,11 +252,11 @@ export interface KeyLevelsInput {
 }
 
 const TOOLTIPS: Record<Exclude<KeyLevelId, 'pin'>, string> = {
-  spot: 'The underlying price every distance below is measured from — the same tape reading the chart’s price marker rides.',
+  spot: 'The underlying price every distance below is measured from\u00a0- the same tape reading the chart’s price marker rides.',
   flip: 'Price where aggregate net dealer gamma changes sign. Above it dealers dampen moves (pinning); below it they amplify them (trending).',
   callWall: 'Strike at or above spot with the largest call gamma exposure (gamma × open interest) across the selected expirations. Tends to act as resistance as dealers sell into rallies toward it.',
   putWall: 'Strike at or below spot with the largest put gamma exposure (gamma × open interest) across the selected expirations. Tends to act as support as dealers buy into selloffs toward it.',
-  maxPain: 'Estimated strike where option-holder payout is minimized at expiry — the options pin.',
+  maxPain: 'Estimated strike where option-holder payout is minimized at expiry\u00a0- the options pin.',
 };
 
 /** The reasons a level shows no distance, as the cards word them. */
@@ -347,18 +347,18 @@ export function unresolvedLevelTooltip(
   const chain = levelSourceChain(symbol);
   const projected =
     chain && ticker
-      ? ` ${ticker} has no options chain of its own — these levels are computed from the ${chain} chain and converted to ${ticker} prices, so it is the ${chain} snapshot that came back without one.`
+      ? ` ${ticker} has no options chain of its own\u00a0- these levels are computed from the ${chain} chain and converted to ${ticker} prices, so it is the ${chain} snapshot that came back without one.`
       : '';
   const reason =
     kind === 'flip'
       ? `${label} is published only when the modeled dealer-gamma profile gives ` +
         'a zero crossing close enough to spot to trade and backed by real open ' +
         'interest. When spot sits deep inside one gamma regime, or the chain is ' +
-        'thin or one-sided — extended hours, an implied-volatility spike — no ' +
+        'thin or one-sided\u00a0- extended hours, an implied-volatility spike\u00a0- no ' +
         'crossing clears that bar'
       : `${label} is ranked over the strikes in this snapshot's option chain, ` +
         'so it needs strikes carrying real open interest to rank. When the ' +
-        'chain comes back thin or unpriced — extended hours, a feed gap — no ' +
+        'chain comes back thin or unpriced\u00a0- extended hours, a feed gap\u00a0- no ' +
         'strike qualifies';
   return (
     `${reason}, and ZeroGEX shows no level instead of a number it can't stand ` +
@@ -394,8 +394,8 @@ export function noFlipInScopeTooltip(label = 'Gamma Flip'): string {
   return (
     `The expirations selected in the Expiry filter carry no ${label}. For a ` +
     'subset of the chain the level is the zero crossing of that subset\u2019s own ' +
-    'cumulative dealer-gamma curve, and a subset is often one-signed \u2014 a 0DTE ' +
-    'book that is negative-gamma at every strike never crosses \u2014 so there is no ' +
+    'cumulative dealer-gamma curve, and a subset is often one-signed\u00a0- a 0DTE ' +
+    'book that is negative-gamma at every strike never crosses\u00a0- so there is no ' +
     'crossing to draw. This is a property of the book you picked, not a gap in ' +
     'the data: it will not resolve on a later snapshot, but setting Expiry back ' +
     'to All shows the whole-chain flip (the same one the Dealer Positioning ' +
@@ -525,8 +525,8 @@ export function keyLevelsRegime(longGamma: boolean | null): KeyLevelsRegime | nu
     long: longGamma,
     label: longGamma ? 'Long γ' : 'Short γ',
     detail: longGamma
-      ? 'Dealers are modeled long gamma at spot — hedging dampens moves (pinning).'
-      : 'Dealers are modeled short gamma at spot — hedging amplifies moves (trending).',
+      ? 'Dealers are modeled long gamma at spot\u00a0- hedging dampens moves (pinning).'
+      : 'Dealers are modeled short gamma at spot\u00a0- hedging amplifies moves (trending).',
   };
 }
 

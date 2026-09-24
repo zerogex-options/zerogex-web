@@ -38,7 +38,7 @@ export default function VerifyEmailBanner({ email }: { email: string }) {
         throw new Error(payload.error ?? 'Could not send verification email.');
       }
       setStatus('sent');
-      setMessage('Sent — check your inbox.');
+      setMessage('Sent\u00a0- check your inbox.');
     } catch (err) {
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Something went wrong.');

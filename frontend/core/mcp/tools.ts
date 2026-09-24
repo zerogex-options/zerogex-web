@@ -45,11 +45,11 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
       "Modeled options dealer-positioning levels for one underlying: gamma flip, call wall, " +
       'put wall, max pain, same-day pin strike, and net dealer gamma at spot (whose sign is the ' +
       'regime). Use for "where is the gamma flip", "where are the walls", "is SPX in positive ' +
-      'gamma". FREE DELAYED DATA — up to 15 minutes behind live, and the response states its own ' +
+      'gamma". FREE DELAYED DATA - up to 15 minutes behind live, and the response states its own ' +
       'age; quote that age and never call these levels live. Not a price feed, not a forecast, ' +
       'and not a trade recommendation: it describes dealer positioning and says nothing on its ' +
       'own about direction. A null level means the modeled book does not support that level right ' +
-      'now — report it as unavailable, never as zero.',
+      'now - report it as unavailable, never as zero.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -75,7 +75,7 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
       'openers like "what does dealer positioning look like today" or "which indices are in ' +
       'negative gamma", instead of calling get_gamma_levels six times. Same free 15-minute-delayed ' +
       'data and the same caveats. When the question is about one symbol, call get_gamma_levels ' +
-      'instead — this tool omits the walls, max pain and pin strike.',
+      'instead - this tool omits the walls, max pain and pin strike.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },

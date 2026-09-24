@@ -20,7 +20,7 @@ export default function NotFound() {
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
       <div className="zg-feature-shell p-8">
         <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
-          404 — page not found
+          404&nbsp;- page not found
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">
           That page isn&rsquo;t here

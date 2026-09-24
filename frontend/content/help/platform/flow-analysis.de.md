@@ -6,7 +6,7 @@
 
 ## Was diese Seite zeigt
 
-Die Flow-Analysis-Seite ist die **Tape-Ansicht** des Optionsmarktes. Während Dealer Positioning das statische Buch zeigt, zeigt diese Seite den **Flow** — was Aggressoren gerade in Echtzeit tun.
+Die Flow-Analysis-Seite ist die **Tape-Ansicht** des Optionsmarktes. Während Dealer Positioning das statische Buch zeigt, zeigt diese Seite den **Flow** - was Aggressoren gerade in Echtzeit tun.
 
 ## Die drei Flow-Perspektiven
 
@@ -14,7 +14,7 @@ ZeroGEX zeigt den Flow durch drei Perspektiven, weil jede auf ihre eigene Weise 
 
 ### Netto-Kontraktvolumen
 
-Zählt einfach die Kontrakte. Nützlich als Rauschbasis. Allein wenig aussagekräftig als Überzeugungssignal — tausend Kontrakte zu $0,05 und ein Kontrakt zu $500 zählen gleich viel.
+Zählt einfach die Kontrakte. Nützlich als Rauschbasis. Allein wenig aussagekräftig als Überzeugungssignal - tausend Kontrakte zu $0,05 und ein Kontrakt zu $500 zählen gleich viel.
 
 ### Prämiengewichteter Flow
 
@@ -34,13 +34,13 @@ Unterhalb der Hauptkachel:
 
 - **Call-Kauf / Call-Verkauf**-Prämie
 - **Put-Kauf / Put-Verkauf**-Prämie
-- **Netto-Aggressor-Delta** — die Lee-Ready-Ausgabe skaliert mit dem Kontrakt-Delta
+- **Netto-Aggressor-Delta** - die Lee-Ready-Ausgabe skaliert mit dem Kontrakt-Delta
 
 Jede wird als Serie dargestellt, damit man die Steigung sieht, nicht nur das Niveau.
 
 ## Der Smart-Money-Chip
 
-Tags an einzelnen Trades kennzeichnen sie als Smart Money — typischerweise große Blocks, Sweeps, wiederholte aggressive Prints in dieselbe Richtung. Der Smart-Money-Flow wird als separate Subserie angezeigt. Nutze ihn als Gegenprobe zur Hauptkachel.
+Tags an einzelnen Trades kennzeichnen sie als Smart Money - typischerweise große Blocks, Sweeps, wiederholte aggressive Prints in dieselbe Richtung. Der Smart-Money-Flow wird als separate Subserie angezeigt. Nutze ihn als Gegenprobe zur Hauptkachel.
 
 ## Wie man sie liest
 
@@ -56,9 +56,9 @@ Für eine tiefere Betrachtung, warum reines Volumen in die Irre führen kann, wa
 
 ## Wann die Seite am nützlichsten ist
 
-- **Direkt nach der Eröffnung** — die ersten 30 Minuten verraten viel über den Bias des Tages.
-- **An jedem Schlüssellevel** — der Flow in einen Wall oder VWAP zeigt, ob das Level verteidigt oder durchbrochen wird.
-- **Zum Handelsschluss** — kombiniert mit EOD Pressure schärft die Flow-Lesart den Richtungshinweis.
+- **Direkt nach der Eröffnung** - die ersten 30 Minuten verraten viel über den Bias des Tages.
+- **An jedem Schlüssellevel** - der Flow in einen Wall oder VWAP zeigt, ob das Level verteidigt oder durchbrochen wird.
+- **Zum Handelsschluss** - kombiniert mit EOD Pressure schärft die Flow-Lesart den Richtungshinweis.
 
 ## Siehe auch
 

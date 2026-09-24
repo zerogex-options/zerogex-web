@@ -8,7 +8,7 @@ export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = 'image/png';
 
 export function ogAlt(symbol: string): string {
-  return `${symbol} Gamma Levels — Call Wall, Put Wall, Gamma Flip`;
+  return `${symbol} Gamma Levels - Call Wall, Put Wall, Gamma Flip`;
 }
 
 export function renderGammaOgImage(symbol: string) {
@@ -69,7 +69,7 @@ export function renderGammaOgImage(symbol: string) {
             display: 'flex',
           }}
         >
-          {symbol} Gamma Levels — Today
+          {symbol} Gamma Levels - Today
         </div>
         <div
           style={{

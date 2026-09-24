@@ -18,7 +18,7 @@ Pour chaque strike et chaque échéance :
 - **Open Interest**
 - **Delta, Gamma, Vega, Theta, Charm**
 - **Volatilité Implicite**
-- **Contribution au GEX** — la valeur en dollars du gamma des dealers à ce strike
+- **Contribution au GEX** - la valeur en dollars du gamma des dealers à ce strike
 
 Chaque ligne est appariée (call à gauche, put à droite) avec le strike dans la colonne centrale. La disposition classique en chaîne.
 
@@ -26,14 +26,14 @@ Chaque ligne est appariée (call à gauche, put à droite) avec le strike dans l
 
 La barre de filtres vous permet de délimiter la chaîne :
 
-- **Échéance** — sélection multiple. Par défaut 0DTE si disponible, sinon la plus proche.
-- **Moneyness** — bande ATM (p. ex., ±5 % par rapport au spot) ou chaîne complète.
-- **Trier** — par strike, volume, OI, IV, contribution au GEX.
-- **Afficher uniquement** — volume non nul, OI non nul, sweeps, blocks.
+- **Échéance** - sélection multiple. Par défaut 0DTE si disponible, sinon la plus proche.
+- **Moneyness** - bande ATM (p. ex., ±5 % par rapport au spot) ou chaîne complète.
+- **Trier** - par strike, volume, OI, IV, contribution au GEX.
+- **Afficher uniquement** - volume non nul, OI non nul, sweeps, blocks.
 
 ## Les couleurs de la surface de IV
 
-Les cellules sont colorées en dégradé selon la IV — couleurs froides (bleu) pour une IV basse, couleurs chaudes (rouge) pour une IV élevée. L'échelle est propre à chaque échéance, donc un ATM « chaud » dans une colonne ne correspond pas au même niveau absolu de IV qu'un ATM « chaud » dans une autre. L'objectif est de voir la **forme** du smile, pas le niveau absolu.
+Les cellules sont colorées en dégradé selon la IV - couleurs froides (bleu) pour une IV basse, couleurs chaudes (rouge) pour une IV élevée. L'échelle est propre à chaque échéance, donc un ATM « chaud » dans une colonne ne correspond pas au même niveau absolu de IV qu'un ATM « chaud » dans une autre. L'objectif est de voir la **forme** du smile, pas le niveau absolu.
 
 ## Comment lire la chaîne
 

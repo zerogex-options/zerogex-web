@@ -6,7 +6,7 @@
 
 ## Comment fonctionne le streaming
 
-ZeroGEX envoie des données en direct à votre navigateur via une connexion persistante — ouvrez le tableau de bord et les données commencent à affluer moins d'une seconde après le chargement de la page. Il n'y a pas de polling côté client.
+ZeroGEX envoie des données en direct à votre navigateur via une connexion persistante - ouvrez le tableau de bord et les données commencent à affluer moins d'une seconde après le chargement de la page. Il n'y a pas de polling côté client.
 
 La connexion se renouvelle automatiquement en cas de coupure. Si un renouvellement échoue de manière répétée, l'interface affiche une étiquette "Reconnexion…" et lance une nouvelle tentative avec backoff.
 
@@ -35,9 +35,9 @@ Les causes les plus fréquentes, par ordre de fréquence observée :
 
 Quand quelque chose semble anormal, le diagnostic en quatre étapes :
 
-1. Regardez le **badge de session** — le marché est-il ouvert ?
-2. Regardez la **tuile de prix** — l'horodatage est-il récent ?
-3. Regardez l'**indicateur de connexion** dans l'en-tête — est-il vert ?
+1. Regardez le **badge de session** - le marché est-il ouvert ?
+2. Regardez la **tuile de prix** - l'horodatage est-il récent ?
+3. Regardez l'**indicateur de connexion** dans l'en-tête - est-il vert ?
 4. Forcez le rechargement de la page (Cmd+Shift+R ou Ctrl+Shift+R).
 
 Cela couvre environ 95 % des situations où "quelque chose semble cassé".
@@ -58,7 +58,7 @@ Les extensions de confidentialité et de blocage de publicités posent général
 
 ### Le mode clair est légèrement plus rapide
 
-Le thème clair se rend légèrement plus vite que le thème sombre sur la plupart des configurations, en raison de la façon dont les ombres et les teintes sont composées. C'est marginal — mais utile à savoir si vous êtes sur un appareil peu puissant.
+Le thème clair se rend légèrement plus vite que le thème sombre sur la plupart des configurations, en raison de la façon dont les ombres et les teintes sont composées. C'est marginal - mais utile à savoir si vous êtes sur un appareil peu puissant.
 
 ### Changer de symbole est plus lourd que changer de période
 
@@ -66,7 +66,7 @@ Changer de symbole recharge toutes les données depuis le début ; changer de p�
 
 ## Mobile
 
-ZeroGEX fonctionne sur téléphone — chaque page est responsive — mais la plateforme est **conçue pour le bureau**. La densité des graphiques suppose un écran de plus de 1024px de large. Sur mobile, faites défiler horizontalement les graphiques ; toutes les données sont présentes, mais la mise en page est plus dense.
+ZeroGEX fonctionne sur téléphone - chaque page est responsive - mais la plateforme est **conçue pour le bureau**. La densité des graphiques suppose un écran de plus de 1024px de large. Sur mobile, faites défiler horizontalement les graphiques ; toutes les données sont présentes, mais la mise en page est plus dense.
 
 ## Quand contacter le support par e-mail
 
@@ -76,7 +76,7 @@ Si la plateforme elle-même semble bloquée (et non votre connexion ou un onglet
 - L'heure à laquelle c'est arrivé (avec le fuseau horaire)
 - Votre navigateur et votre système d'exploitation
 
-Nos journaux sont horodatés de notre côté — cela suffit pour retracer le problème.
+Nos journaux sont horodatés de notre côté - cela suffit pour retracer le problème.
 
 ## Voir aussi
 

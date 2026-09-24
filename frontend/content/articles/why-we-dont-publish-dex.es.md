@@ -36,4 +36,4 @@ El modelo Forced Flow de ZeroGEX compara el delta modelado de la cartera ahora c
 
 Para los conceptos de fondo, consulta [Por qué los market makers se ven obligados a operar en acciones](/education/why-market-makers-trade-stock) y [Delta y sus tres hijos](/education/delta-and-its-three-children).
 
-Solo contenido educativo — nada de lo anterior es una recomendación de trading.
+Solo contenido educativo - nada de lo anterior es una recomendación de trading.

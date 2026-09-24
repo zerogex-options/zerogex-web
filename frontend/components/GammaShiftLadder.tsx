@@ -476,10 +476,10 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
         tone: d > 0 ? 'up' : d < 0 ? 'down' : 'flat',
         read:
           d === 0
-            ? 'held — resistance steady'
+            ? 'held\u00a0- resistance steady'
             : d > 0
-              ? 'lifted — ceiling rising, more room above'
-              : 'dropped — resistance pulled lower',
+              ? 'lifted\u00a0- ceiling rising, more room above'
+              : 'dropped\u00a0- resistance pulled lower',
       });
     }
     if (pwA > 0 && pwB > 0) {
@@ -492,10 +492,10 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
         tone: d > 0 ? 'up' : d < 0 ? 'down' : 'flat',
         read:
           d === 0
-            ? 'held — support steady'
+            ? 'held\u00a0- support steady'
             : d > 0
-              ? 'lifted — floor firming higher'
-              : 'dropped — support giving way lower',
+              ? 'lifted\u00a0- floor firming higher'
+              : 'dropped\u00a0- support giving way lower',
       });
     }
     if (fA > 0 && fB > 0) {
@@ -512,8 +512,8 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
           d === 0
             ? `steady, ${distB >= 0 ? 'above' : 'below'} spot`
             : towardSpot
-              ? 'sliding toward spot — cushion thinning, fragility rising'
-              : 'sliding away from spot — regime firming up',
+              ? 'sliding toward spot\u00a0- cushion thinning, fragility rising'
+              : 'sliding away from spot\u00a0- regime firming up',
       });
     }
     return out;
@@ -550,7 +550,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       );
     }
     const flip = wallMoves.find((w) => w.key === 'flip');
-    const tail = flip ? ` Gamma flip ${flip.read.split('—')[0].trim()}.` : '';
+    const tail = flip ? ` Gamma flip ${flip.read.split(' -')[0].trim()}.` : '';
     if (parts.length === 0) return 'Little net repositioning between the two snapshots.';
     return `Between ${fmtTime(bucketA.timestamp)} and ${fmtTime(bucketB.timestamp)} ET, ${parts.join(
       '; ',
@@ -602,7 +602,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       <div className={card} style={cardStyle}>
         <Heading symbol={symbol} control={expiryControl} />
         <div className="flex h-[280px] items-center justify-center px-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Only one snapshot so far — Gamma Shift needs two points in time. Check back after the next update.
+          Only one snapshot so far&nbsp;- Gamma Shift needs two points in time. Check back after the next update.
         </div>
       </div>
     );
@@ -635,7 +635,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
           </span>
         </div>
         <p className="mb-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-          Compare an earlier moment against the latest data. Choose how far back to look — or drag the
+          Compare an earlier moment against the latest data. Choose how far back to look&nbsp;- or drag the
           handles for any two times.
         </p>
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -727,8 +727,8 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       </div>
       <p className="mb-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
         {lens === 'net'
-          ? 'Total change — every reason gamma moved between the two times (dealers repositioning, plus the existing book re-pricing as spot moved).'
-          : 'Repositioning — only the part from dealers actually opening or closing contracts; strips out price-driven re-pricing.'}
+          ? 'Total change\u00a0- every reason gamma moved between the two times (dealers repositioning, plus the existing book re-pricing as spot moved).'
+          : 'Repositioning\u00a0- only the part from dealers actually opening or closing contracts; strips out price-driven re-pricing.'}
       </p>
 
       {/* column headers */}
@@ -788,8 +788,8 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
         Modeled dealer gamma (calls positive, puts negative open-interest convention); actual dealer
         inventory is not directly observable from public option-chain data. Values shown {GEX_UNIT_LABEL[gexUnit]}.{' '}
         {lens === 'net'
-          ? '“Total change” is the full change in dealer gamma at each strike between your two times — both genuine repositioning and re-pricing of the existing book as spot and implied vol moved.'
-          : '“Repositioning” isolates the part of the change driven by open interest — contracts actually opened or closed — separating real dealer repositioning from price-driven re-pricing (a first-order estimate).'}
+          ? '“Total change” is the full change in dealer gamma at each strike between your two times\u00a0- both genuine repositioning and re-pricing of the existing book as spot and implied vol moved.'
+          : '“Repositioning” isolates the part of the change driven by open interest\u00a0- contracts actually opened or closed\u00a0- separating real dealer repositioning from price-driven re-pricing (a first-order estimate).'}
       </p>
 
       <ChartCaption />
@@ -808,7 +808,7 @@ function Heading({ symbol, control }: { symbol: string; control?: ReactNode }) {
         <h3 className="zg-h3" style={{ color: 'var(--text-primary)' }}>
           Gamma Shift
         </h3>
-        <TooltipWrapper text="How dealer gamma at each strike has CHANGED between two points in time — not just where it sits now. Green means gamma rose at that strike (more long-gamma / pinning force); red means it fell (more short-gamma / accelerant). Set the two times with the presets, or drag the From and To handles. The Expiry filter scopes every number on the card to the selected expirations (default: all).">
+        <TooltipWrapper text="How dealer gamma at each strike has CHANGED between two points in time&nbsp;- not just where it sits now. Green means gamma rose at that strike (more long-gamma / pinning force); red means it fell (more short-gamma / accelerant). Set the two times with the presets, or drag the From and To handles. The Expiry filter scopes every number on the card to the selected expirations (default: all).">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
@@ -819,7 +819,7 @@ function Heading({ symbol, control }: { symbol: string; control?: ReactNode }) {
       <p className="mt-1 text-sm leading-snug" style={{ color: 'var(--text-secondary)' }}>
         See how dealer gamma at each strike{' '}
         <strong style={{ color: 'var(--text-primary)' }}>changed</strong> from an earlier moment to
-        now — which walls are building, and which are eroding.
+        now&nbsp;- which walls are building, and which are eroding.
       </p>
     </div>
   );

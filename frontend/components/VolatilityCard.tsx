@@ -21,19 +21,19 @@ interface ZoneRow {
 }
 
 const SPEEDOMETER_ZONES: ZoneRow[] = [
-  { range: "0–2",  label: "Subdued",  vix: "VIX ~10–15", desc: "Ultra-low volatility. Markets are calm and complacent — the classic 'low vol' environment.", color: "var(--color-positive)" },
-  { range: "2–4",  label: "Low",      vix: "VIX ~15–19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "var(--color-bull)" },
-  { range: "4–6",  label: "Moderate", vix: "VIX ~19–27", desc: "Near the long-run average. Some nervousness; traders are actively buying protection.", color: "var(--color-brand-primary)" },
-  { range: "6–8",  label: "Elevated", vix: "VIX ~27–38", desc: "Above-average fear. Significant market stress — corrections or sharp selloffs in progress.", color: "var(--heat-mid)" },
-  { range: "8–10", label: "Extreme",  vix: "VIX ~38+",   desc: "Crisis-level fear. Extreme panic conditions. Rare but highly dangerous; tail risk is severely elevated.", color: "var(--color-negative)" },
+  { range: "0-2",  label: "Subdued",  vix: "VIX ~10-15", desc: "Ultra-low volatility. Markets are calm and complacent\u00a0- the classic 'low vol' environment.", color: "var(--color-positive)" },
+  { range: "2-4",  label: "Low",      vix: "VIX ~15-19", desc: "Below-average vol. Normal conditions; no meaningful fear premium.", color: "var(--color-bull)" },
+  { range: "4-6",  label: "Moderate", vix: "VIX ~19-27", desc: "Near the long-run average. Some nervousness; traders are actively buying protection.", color: "var(--color-brand-primary)" },
+  { range: "6-8",  label: "Elevated", vix: "VIX ~27-38", desc: "Above-average fear. Significant market stress\u00a0- corrections or sharp selloffs in progress.", color: "var(--heat-mid)" },
+  { range: "8-10", label: "Extreme",  vix: "VIX ~38+",   desc: "Crisis-level fear. Extreme panic conditions. Rare but highly dangerous; tail risk is severely elevated.", color: "var(--color-negative)" },
 ];
 
 const TACHOMETER_ZONES: ZoneRow[] = [
-  { range: "0–2",  label: "Collapsing", desc: "Fear unwinding sharply (–2σ). VIX spiked and is now falling hard — the panic is reversing fast.", color: "var(--color-positive)" },
-  { range: "2–4",  label: "Easing",     desc: "Volatility declining. Conditions are improving; fear is slowly draining out of the market.", color: "var(--color-bull)" },
-  { range: "4–6",  label: "Stable",     desc: "No meaningful directional move. VIX is range-bound; trend is neutral.", color: "var(--color-brand-primary)" },
-  { range: "6–8",  label: "Rising",     desc: "Vol building steadily. Conditions are deteriorating; hedge accordingly.", color: "var(--heat-mid)" },
-  { range: "8–10", label: "Surging",    desc: "Fear spiking hard (+2σ). VIX is surging across multiple time scales simultaneously.", color: "var(--color-negative)" },
+  { range: "0-2",  label: "Collapsing", desc: "Fear unwinding sharply (-2σ). VIX spiked and is now falling hard\u00a0- the panic is reversing fast.", color: "var(--color-positive)" },
+  { range: "2-4",  label: "Easing",     desc: "Volatility declining. Conditions are improving; fear is slowly draining out of the market.", color: "var(--color-bull)" },
+  { range: "4-6",  label: "Stable",     desc: "No meaningful directional move. VIX is range-bound; trend is neutral.", color: "var(--color-brand-primary)" },
+  { range: "6-8",  label: "Rising",     desc: "Vol building steadily. Conditions are deteriorating; hedge accordingly.", color: "var(--heat-mid)" },
+  { range: "8-10", label: "Surging",    desc: "Fear spiking hard (+2σ). VIX is surging across multiple time scales simultaneously.", color: "var(--color-negative)" },
 ];
 
 // ── Inline info panel ─────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
       <p className="text-xs leading-relaxed" style={{ color: mutedColor }}>
         {isSpeed ? (
           <>
-            Maps <strong style={{ color: textColor }}>$VIX.X</strong> to a 0–10 log scale
+            Maps <strong style={{ color: textColor }}>$VIX.X</strong> to a 0-10 log scale
             anchored to historical percentiles. Equal gauge steps represent proportionally
             equal changes in realized fear, not raw VIX points.
           </>
@@ -64,7 +64,7 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
           <>
             Weighted composite rate-of-change of VIX across five time scales (5&nbsp;min → 2&nbsp;hrs),
             normalized against realized per-bar VIX volatility. Scaled so that{" "}
-            <strong style={{ color: textColor }}>±2σ maps to the full 0–10 range</strong> —
+            <strong style={{ color: textColor }}>±2σ maps to the full 0-10 range</strong>&nbsp;-
             routine intraday moves stay in the middle band; only genuine trend moves reach the extremes.
             Reading of 5 = neutral.
           </>

@@ -1,4 +1,4 @@
-# Gamma / VWAP Confluence Explained — and Why Two Symbols Can Disagree
+# Gamma / VWAP Confluence Explained - and Why Two Symbols Can Disagree
 
 *What the confluence score measures, how the cluster is built, why the gamma regime flips the same picture from a fade into a breakout, and why SPX, SPY and QQQ can point opposite ways on the same afternoon.*
 
@@ -8,7 +8,7 @@
 
 Every dealer-positioning level answers a slightly different question. The [gamma flip](/education/how-to-read-a-gamma-flip) marks the regime boundary. The [walls](/education/gamma-walls-explained) mark concentrated one-sided gamma. [Max pain](/education/max-pain-explained) marks a settlement magnet. [Pin Strike](/education/pin-strike-explained) marks a reachable same-day attractor. VWAP marks where the session's volume actually traded.
 
-On most days they are scattered, and you read them one at a time. Occasionally several land in the same small band of price — and that is a different situation, because independently calculated levels agreeing is more informative than any one of them alone.
+On most days they are scattered, and you read them one at a time. Occasionally several land in the same small band of price - and that is a different situation, because independently calculated levels agreeing is more informative than any one of them alone.
 
 Gamma / VWAP Confluence measures exactly that: **are key levels stacking up here, and what does it mean that price is where it is relative to them?**
 
@@ -20,13 +20,13 @@ It is a score from −100 to +100. The sign is directional, the magnitude is con
 
 The cluster always starts from two members: **the gamma flip and VWAP**. Those two are the core, and they are what the "confluence" is anchored on.
 
-Three more levels can join if they are close enough — **max pain, max gamma (the GEX King) and the call wall**. Each is admitted if it sits within **0.15% of the midpoint between the flip and VWAP**. That is a tight test: on SPX at 7,700 it is about 11 points.
+Three more levels can join if they are close enough - **max pain, max gamma (the GEX King) and the call wall**. Each is admitted if it sits within **0.15% of the midpoint between the flip and VWAP**. That is a tight test: on SPX at 7,700 it is about 11 points.
 
 So a card reading `Members: 2` means only the flip and VWAP are in play. `Members: 4` means two of the optional levels came along too, and the zone is genuinely crowded.
 
 The **confluence level** is simply the average of whichever members qualified. That is the price the whole signal is measured against.
 
-Each extra member above the core two adds 15% to the score's magnitude. Four members is a 1.30× multiplier on the same geometry — the model's way of saying a four-level stack deserves more attention than a two-level one.
+Each extra member above the core two adds 15% to the score's magnitude. Four members is a 1.30× multiplier on the same geometry - the model's way of saying a four-level stack deserves more attention than a two-level one.
 
 ---
 
@@ -56,14 +56,14 @@ The score starts from where price sits relative to the cluster:
 distance = (price − confluence level) ÷ price
 ```
 
-That distance is scaled so that roughly **±0.3% saturates the reading** — beyond that, being further away adds nothing, because the model is not trying to measure how far price has gone, only which side it is on and whether it has committed.
+That distance is scaled so that roughly **±0.3% saturates the reading** - beyond that, being further away adds nothing, because the model is not trying to measure how far price has gone, only which side it is on and whether it has committed.
 
 Then the [gamma regime](/education/what-is-negative-gamma) decides what that means:
 
 - **Negative gamma → continuation.** Dealer hedging amplifies moves. Price that has left the cluster is expected to keep going. Above the cluster reads bullish; below reads bearish.
 - **Positive gamma → mean reversion, and the sign inverts.** Dealer hedging damps moves. The same picture now argues that price gets pulled *back* to the cluster. Above the cluster reads **bearish**, because the expected move is down toward it. The reading is also damped to 70% of its magnitude, because a fade is a weaker claim than a breakout.
 
-So the identical arrangement of levels — same cluster, same side, same distance — produces **opposite scores** in the two regimes. That is not a contradiction. It is the whole point: in one regime the market runs from the level, and in the other it returns to it.
+So the identical arrangement of levels - same cluster, same side, same distance - produces **opposite scores** in the two regimes. That is not a contradiction. It is the whole point: in one regime the market runs from the level, and in the other it returns to it.
 
 ---
 
@@ -87,7 +87,7 @@ The practical guidance: **do not use one symbol's confluence score to trade anot
 
 The score is recalculated continuously. It is not a morning call that holds until the close.
 
-When price crosses the confluence level, the sign flips — and because the score history is coloured by the current sign, the whole line repaints. The path has not changed; its colour has. A history that was green all morning and is now red is showing you the same data under a new sign.
+When price crosses the confluence level, the sign flips - and because the score history is coloured by the current sign, the whole line repaints. The path has not changed; its colour has. A history that was green all morning and is now red is showing you the same data under a new sign.
 
 This also means the score only updates while the market is open. A flat line into the evening is the last stored value, not a signal still running.
 
@@ -102,7 +102,7 @@ Each card publishes an expected target, and it means different things by regime:
 - **Mean reversion:** the target is the confluence level itself. The claim is that price returns to the cluster.
 - **Continuation:** the target is projected past price, twice the distance it has already travelled from the cluster. The claim is that the move extends.
 
-Two honest caveats. The target is geometric — it does not scale with the score, so a low-confidence card can still print a distant target. Read it alongside the score and the quality, not on its own. And in continuation it is an extrapolation, not a measured level: nothing in the option book says price stops there.
+Two honest caveats. The target is geometric - it does not scale with the score, so a low-confidence card can still print a distant target. Read it alongside the score and the quality, not on its own. And in continuation it is an extrapolation, not a measured level: nothing in the option book says price stops there.
 
 ---
 

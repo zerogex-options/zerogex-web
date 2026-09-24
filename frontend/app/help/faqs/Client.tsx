@@ -26,7 +26,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'what-is-zerogex',
         q: 'What is ZeroGEX?',
-        a: 'ZeroGEX is a real-time options analytics platform built around dealer positioning. It models where dealers are long or short gamma, where the gamma flip sits, where the call and put walls are, and runs a suite of real-time signals on top of all of it. The point is to give you the same lens market makers hedge through — so you can read intraday price action in those terms. Dealer positioning is modeled from the option chain, not directly observed; see the Methodology page for the full disclosure.',
+        a: 'ZeroGEX is a real-time options analytics platform built around dealer positioning. It models where dealers are long or short gamma, where the gamma flip sits, where the call and put walls are, and runs a suite of real-time signals on top of all of it. The point is to give you the same lens market makers hedge through\u00a0- so you can read intraday price action in those terms. Dealer positioning is modeled from the option chain, not directly observed; see the Methodology page for the full disclosure.',
       },
       {
         id: 'who-its-for',
@@ -36,17 +36,17 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'do-i-need-to-sign-up',
         q: 'Do I need to sign up to use ZeroGEX?',
-        a: 'The free Gamma Levels pages — SPX, SPY, QQQ, and NDX — are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
+        a: 'The free Gamma Levels pages\u00a0- SPX, SPY, QQQ, and NDX\u00a0- are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
       },
       {
         id: 'free-trial',
         q: 'Is there a free trial?',
-        a: 'Yes — Basic monthly comes with a 7-day free trial: full access right away, no charge until the trial ends, and the subscription then continues automatically at the rate you signed up at. Cancel before it ends and you pay nothing. Every other plan (Pro, and any quarterly or annual plan) is billed when you subscribe and covered by a 7-day money-back guarantee instead: request a full refund from the Account page within 7 days of paying, limited to one refund per customer.',
+        a: 'Yes\u00a0- Basic monthly comes with a 7-day free trial: full access right away, no charge until the trial ends, and the subscription then continues automatically at the rate you signed up at. Cancel before it ends and you pay nothing. Every other plan (Pro, and any quarterly or annual plan) is billed when you subscribe and covered by a 7-day money-back guarantee instead: request a full refund from the Account page within 7 days of paying, limited to one refund per customer.',
       },
       {
         id: 'first-page',
         q: 'What page should I open first?',
-        a: 'The Dashboard. It surfaces the regime label, net GEX, the gamma flip, the walls, max pain, the composite score, and the day\'s trade-bias chip — everything you need to orient. From there, drill into the signal page that matches what you\'re looking for.',
+        a: 'The Dashboard. It surfaces the regime label, net GEX, the gamma flip, the walls, max pain, the composite score, and the day\'s trade-bias chip\u00a0- everything you need to orient. From there, drill into the signal page that matches what you\'re looking for.',
       },
     ],
   },
@@ -58,22 +58,22 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'symbols',
         q: 'What symbols are currently supported?',
-        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index) — the four most liquid, most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest intraday impact. ES and NQ (the CME E-mini futures) are also first-class symbols in the picker: they carry the SPX and NDX dealer levels on the futures price axis, with the price series from the real-time CME feed. See the futures question below for how that projection works.',
+        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index)\u00a0- the four most liquid, most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest intraday impact. ES and NQ (the CME E-mini futures) are also first-class symbols in the picker: they carry the SPX and NDX dealer levels on the futures price axis, with the price series from the real-time CME feed. See the futures question below for how that projection works.',
       },
       {
         id: 'single-names',
         q: 'Will you add single-name equities (AAPL, TSLA, NVDA, etc.)?',
-        a: 'Not on the roadmap. The dealer-positioning model works best in instruments where institutional options flow dominates the underlying — that is the index complex. Single names have idiosyncratic-news noise that makes the GEX read less reliable.',
+        a: 'Not on the roadmap. The dealer-positioning model works best in instruments where institutional options flow dominates the underlying\u00a0- that is the index complex. Single names have idiosyncratic-news noise that makes the GEX read less reliable.',
       },
       {
         id: 'futures',
         q: 'Can I use ZeroGEX to trade futures like ES, MES, NQ, or MNQ?',
-        a: 'Yes — and for ES and NQ you no longer map anything by hand. Pick ES or NQ in the symbol picker and the levels come back already on the futures price axis. ES and SPX track the same index, so the dealer book behind an ES chart is the SPX book; only the price scale differs. We project the SPX (and NDX, for NQ) levels onto that axis using a ratio measured off the tape rather than modeled from carry, so it self-corrects through each quarterly roll — there is no basis offset for you to configure. For the micros, /MES and /MNQ are the same contract at a tenth the size, so the levels are identical. ES and NQ trade the CME electronic session — Sunday 6:00 PM ET through Friday 5:00 PM ET, less the 5:00–6:00 PM maintenance break — so the price axis is live through the Asian and European sessions. The levels themselves come from the index options book, which prices during U.S. hours, so overnight they hold at their last computed state rather than recomputing tick-by-tick.',
+        a: 'Yes\u00a0- and for ES and NQ you no longer map anything by hand. Pick ES or NQ in the symbol picker and the levels come back already on the futures price axis. ES and SPX track the same index, so the dealer book behind an ES chart is the SPX book; only the price scale differs. We project the SPX (and NDX, for NQ) levels onto that axis using a ratio measured off the tape rather than modeled from carry, so it self-corrects through each quarterly roll\u00a0- there is no basis offset for you to configure. For the micros, /MES and /MNQ are the same contract at a tenth the size, so the levels are identical. ES and NQ trade the CME electronic session\u00a0- Sunday 6:00 PM ET through Friday 5:00 PM ET, less the 5:00-6:00 PM maintenance break\u00a0- so the price axis is live through the Asian and European sessions. The levels themselves come from the index options book, which prices during U.S. hours, so overnight they hold at their last computed state rather than recomputing tick-by-tick.',
       },
       {
         id: 'refresh-cadence',
         q: 'How often does the data refresh?',
-        a: 'Quotes and flow refresh every ~1 second during regular hours. Signal scores refresh every 1–5 seconds depending on the signal. The GEX surface refreshes every 5–15 seconds (the chain snapshot is the bottleneck). Everything streams — you do not need to reload the page.',
+        a: 'Quotes and flow refresh every ~1 second during regular hours. Signal scores refresh every 1-5 seconds depending on the signal. The GEX surface refreshes every 5-15 seconds (the chain snapshot is the bottleneck). Everything streams\u00a0- you do not need to reload the page.',
       },
       {
         id: 'pre-market',
@@ -100,7 +100,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'how-many-signals',
         q: 'How many signals does ZeroGEX run?',
-        a: 'Fourteen total — eight Advanced (event-driven, with discrete triggers) and six Basic (continuous, feeding the composite). See the Signals: Explained guide for the full reference matrix.',
+        a: 'Fourteen total\u00a0- eight Advanced (event-driven, with discrete triggers) and six Basic (continuous, feeding the composite). See the Signals: Explained guide for the full reference matrix.',
       },
       {
         id: 'advanced-vs-basic',
@@ -120,12 +120,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'signal-alerts',
         q: 'Do I get alerts when signals fire?',
-        a: 'In-app, yes. Every trigger lands in the Live Bulletin and lights the corresponding signal card. ZeroGEX does not currently send signal alerts by SMS, push, or email — the in-app log is the system of record. We may add more channels if there is demand.',
+        a: 'In-app, yes. Every trigger lands in the Live Bulletin and lights the corresponding signal card. ZeroGEX does not currently send signal alerts by SMS, push, or email\u00a0- the in-app log is the system of record. We may add more channels if there is demand.',
       },
       {
         id: 'signal-accuracy',
         q: 'How accurate are the signals?',
-        a: 'It depends on the signal, the regime, and how you use it. Signals are not standalone trade tickets — they are filters and triggers inside a process. The Backtesting page lets you replay any signal against historical data with your own rules. We strongly recommend out-of-sample validation before deploying any rule.',
+        a: 'It depends on the signal, the regime, and how you use it. Signals are not standalone trade tickets\u00a0- they are filters and triggers inside a process. The Backtesting page lets you replay any signal against historical data with your own rules. We strongly recommend out-of-sample validation before deploying any rule.',
       },
     ],
   },
@@ -142,12 +142,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'monthly-vs-annual',
         q: 'Should I pay monthly, quarterly, or annual?',
-        a: 'The longer the billing period, the less you pay per month — the Pricing page shows every plan as a monthly equivalent so you can compare directly. Most active users move to a longer period after a couple of months. You can switch in the Stripe billing portal at any time; proration handles the math.',
+        a: 'The longer the billing period, the less you pay per month\u00a0- the Pricing page shows every plan as a monthly equivalent so you can compare directly. Most active users move to a longer period after a couple of months. You can switch in the Stripe billing portal at any time; proration handles the math.',
       },
       {
         id: 'switch-plan',
         q: 'How do I switch my plan (tier or billing period)?',
-        a: 'Open the Account page and click "Manage subscription" to open the Stripe billing portal — you can move between Basic and Pro and between monthly, quarterly and annual right there. Upgrades (and moves to a longer billing period) take effect immediately; downgrades and moves to a shorter period take effect at the end of your current period, so you keep what you paid for until then. Proration is applied and shows up on your next invoice, not as an upfront charge. If you’re still in the Basic free trial, moving to Pro or to a quarterly or annual plan ends the trial and bills the new plan that day — the Pricing page shows the exact amount and asks you to confirm — and that payment is covered by the 7-day money-back guarantee.',
+        a: 'Open the Account page and click "Manage subscription" to open the Stripe billing portal\u00a0- you can move between Basic and Pro and between monthly, quarterly and annual right there. Upgrades (and moves to a longer billing period) take effect immediately; downgrades and moves to a shorter period take effect at the end of your current period, so you keep what you paid for until then. Proration is applied and shows up on your next invoice, not as an upfront charge. If you’re still in the Basic free trial, moving to Pro or to a quarterly or annual plan ends the trial and bills the new plan that day\u00a0- the Pricing page shows the exact amount and asks you to confirm\u00a0- and that payment is covered by the 7-day money-back guarantee.',
       },
       {
         id: 'tier-upgrade',
@@ -157,12 +157,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'cancellation',
         q: 'How do I cancel?',
-        a: 'Through the Stripe billing portal, accessed from the Account page. Cancellation takes effect at the end of the current billing period — you keep paid access until then. After that, your tier reverts to Public; your account is not deleted.',
+        a: 'Through the Stripe billing portal, accessed from the Account page. Cancellation takes effect at the end of the current billing period\u00a0- you keep paid access until then. After that, your tier reverts to Public; your account is not deleted.',
       },
       {
         id: 'refunds',
         q: 'Do you offer refunds?',
-        a: 'Two protections, one per plan. The Basic monthly free trial is unconditional — cancel before it ends and you are never charged. Every other plan comes with a 7-day money-back guarantee: request a full refund from the Account page within 7 days of your first payment and it is refunded in full, with your access ending when the refund is issued (one refund per customer). Beyond that, subscriptions are billed in advance and not pro-rated on cancellation. For anything else, email support@zerogex.io and we will work it out.',
+        a: 'Two protections, one per plan. The Basic monthly free trial is unconditional\u00a0- cancel before it ends and you are never charged. Every other plan comes with a 7-day money-back guarantee: request a full refund from the Account page within 7 days of your first payment and it is refunded in full, with your access ending when the refund is issued (one refund per customer). Beyond that, subscriptions are billed in advance and not pro-rated on cancellation. For anything else, email support@zerogex.io and we will work it out.',
       },
       {
         id: 'billing-issue',
@@ -184,22 +184,22 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'dashboard-workflow',
         q: 'What is the right workflow for using ZeroGEX during a trading day?',
-        a: 'Start simple. On the Dashboard, read the three levels that matter most first: the Gamma Flip (stabilizing vs. amplifying regime), then the Call Wall and Put Wall (your likely upside and downside friction). Pull up the GEX Strike Profile to see how that structure sits on price, then confirm with your own price action — VWAP, the opening-range break, whatever you already trust. Keep the Live Bulletin open in a second tab for trigger events. The levels tell you where to pay attention; your execution triggers tell you when. Don\'t try to watch all fourteen signals at once on day one.',
+        a: 'Start simple. On the Dashboard, read the three levels that matter most first: the Gamma Flip (stabilizing vs. amplifying regime), then the Call Wall and Put Wall (your likely upside and downside friction). Pull up the GEX Strike Profile to see how that structure sits on price, then confirm with your own price action\u00a0- VWAP, the opening-range break, whatever you already trust. Keep the Live Bulletin open in a second tab for trigger events. The levels tell you where to pay attention; your execution triggers tell you when. Don\'t try to watch all fourteen signals at once on day one.',
       },
       {
         id: 'multiple-symbols',
         q: 'Can I view multiple symbols at once?',
-        a: 'Each browser tab can show one symbol. To view several side-by-side — SPY, SPX, QQQ, NDX, ES, NQ — open a tab for each. The symbol picker is in the header.',
+        a: 'Each browser tab can show one symbol. To view several side-by-side\u00a0- SPY, SPX, QQQ, NDX, ES, NQ\u00a0- open a tab for each. The symbol picker is in the header.',
       },
       {
         id: 'mobile-support',
         q: 'Does ZeroGEX work on mobile?',
-        a: 'Yes — every page is responsive. But the platform is built for desktop. The chart density assumes a wide screen. On mobile, the dashboard works for monitoring; complex multi-chart pages are denser than is ideal.',
+        a: 'Yes\u00a0- every page is responsive. But the platform is built for desktop. The chart density assumes a wide screen. On mobile, the dashboard works for monitoring; complex multi-chart pages are denser than is ideal.',
       },
       {
         id: 'browser-compat',
         q: 'Which browsers are supported?',
-        a: 'Evergreen Chrome, Edge, Firefox, and Safari. Older versions will technically work but will not get the performance optimizations. Aggressive ad blockers and script blockers sometimes break the streaming connection — allowlist zerogex.io if needed.',
+        a: 'Evergreen Chrome, Edge, Firefox, and Safari. Older versions will technically work but will not get the performance optimizations. Aggressive ad blockers and script blockers sometimes break the streaming connection\u00a0- allowlist zerogex.io if needed.',
       },
       {
         id: 'page-stale',
@@ -209,7 +209,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'options-calculator',
         q: 'How does the Strategy Builder work?',
-        a: 'The Strategy Builder lets you construct any single- or multi-leg options strategy, prices it live with Black-Scholes against the active IV surface, and shows you the greeks plus a P&L scenario surface. It is a research tool, not a broker — you take the structure and put it on yourself.',
+        a: 'The Strategy Builder lets you construct any single- or multi-leg options strategy, prices it live with Black-Scholes against the active IV surface, and shows you the greeks plus a P&L scenario surface. It is a research tool, not a broker\u00a0- you take the structure and put it on yourself.',
       },
     ],
   },
@@ -221,7 +221,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'forgot-password',
         q: 'I forgot my password.',
-        a: 'Use the Forgot Password page. A reset link is emailed; click it and set a new password. If the email does not arrive, check spam. If you signed up with Google or Apple, you do not have a password — sign in with the provider instead.',
+        a: 'Use the Forgot Password page. A reset link is emailed; click it and set a new password. If the email does not arrive, check spam. If you signed up with Google or Apple, you do not have a password\u00a0- sign in with the provider instead.',
       },
       {
         id: 'change-email',
@@ -236,12 +236,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'two-factor',
         q: 'Does ZeroGEX support two-factor authentication?',
-        a: 'For Google and Apple sign-ins, you use the provider\'s 2FA. For password sign-in, 2FA on the ZeroGEX account itself is not currently supported — using Google or Apple is the recommended path for elevated security.',
+        a: 'For Google and Apple sign-ins, you use the provider\'s 2FA. For password sign-in, 2FA on the ZeroGEX account itself is not currently supported\u00a0- using Google or Apple is the recommended path for elevated security.',
       },
       {
         id: 'email-verification',
         q: 'I never got the email-verification message.',
-        a: 'Check spam first. Click "Resend verification" on the in-app banner. If multiple resends do not arrive, the address may be misspelled or your mail server is rejecting our domain — email support@zerogex.io from the address in question.',
+        a: 'Check spam first. Click "Resend verification" on the in-app banner. If multiple resends do not arrive, the address may be misspelled or your mail server is rejecting our domain\u00a0- email support@zerogex.io from the address in question.',
       },
       {
         id: 'delete-account',
@@ -258,7 +258,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-public',
         q: 'Is the API publicly accessible?',
-        a: 'The API documentation is at api.zerogex.io/docs and requires a Pro account. API access — including key generation and usage — is a Pro-tier feature. Public and Basic users do not have programmatic access.',
+        a: 'The API documentation is at api.zerogex.io/docs and requires a Pro account. API access\u00a0- including key generation and usage\u00a0- is a Pro-tier feature. Public and Basic users do not have programmatic access.',
       },
       {
         id: 'api-docs-format',
@@ -272,13 +272,13 @@ const FAQ_DATA: FAQCategory[] = [
       },
       {
         id: 'api-keys',
-        q: 'I\'m on Pro — how do I get my API key?',
-        a: 'Generate it yourself: sign in and go to <strong>Account → API Access</strong>, then click <em>Generate API Key</em>. The key is revealed once, so copy it straight into a password manager — it can\'t be retrieved later. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. You hold one active key at a time, so rotating is just regenerating (which immediately revokes the old one). Need a key revoked out of band? Email support@zerogex.io.',
+        q: 'I\'m on Pro\u00a0- how do I get my API key?',
+        a: 'Generate it yourself: sign in and go to <strong>Account → API Access</strong>, then click <em>Generate API Key</em>. The key is revealed once, so copy it straight into a password manager\u00a0- it can\'t be retrieved later. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. You hold one active key at a time, so rotating is just regenerating (which immediately revokes the old one). Need a key revoked out of band? Email support@zerogex.io.',
       },
       {
         id: 'api-ninjatrader',
         q: 'Can I plot the levels on NinjaTrader?',
-        a: 'Yes — our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
+        a: 'Yes\u00a0- our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
         id: 'levels-not-touched',
@@ -288,7 +288,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-interactive-brokers',
         q: 'Can I use ZeroGEX with Interactive Brokers?',
-        a: 'Yes — through NinjaTrader 8 or Sierra Chart, both of which connect to an IBKR account, and both of which run one of our auto-updating studies. What we can\'t offer is an indicator for Trader Workstation itself: TWS has no scripting language and no way to draw on its charts from outside, so no indicator — ours or anyone else\'s — can be installed into it. The setup is the same whichever platform you pick: TWS or IB Gateway running with its socket API enabled, then the <a href="/ninjatrader-indicator">NinjaTrader indicator</a> or the <a href="/sierra-chart-indicator">Sierra Chart study</a> with your ZeroGEX API key. Both are included with Pro. One thing that sounds like a problem and isn\'t: IBKR\'s own market data is thin by charting standards, which is why many traders pair a dedicated feed with IBKR for execution — it makes no difference to the levels, because both studies fetch those from the ZeroGEX API rather than from the platform\'s quotes. See <a href="/integrations">all integrations</a>.',
+        a: 'Yes\u00a0- through NinjaTrader 8 or Sierra Chart, both of which connect to an IBKR account, and both of which run one of our auto-updating studies. What we can\'t offer is an indicator for Trader Workstation itself: TWS has no scripting language and no way to draw on its charts from outside, so no indicator\u00a0- ours or anyone else\'s\u00a0- can be installed into it. The setup is the same whichever platform you pick: TWS or IB Gateway running with its socket API enabled, then the <a href="/ninjatrader-indicator">NinjaTrader indicator</a> or the <a href="/sierra-chart-indicator">Sierra Chart study</a> with your ZeroGEX API key. Both are included with Pro. One thing that sounds like a problem and isn\'t: IBKR\'s own market data is thin by charting standards, which is why many traders pair a dedicated feed with IBKR for execution\u00a0- it makes no difference to the levels, because both studies fetch those from the ZeroGEX API rather than from the platform\'s quotes. See <a href="/integrations">all integrations</a>.',
       },
       {
         id: 'api-streaming',
@@ -305,32 +305,32 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'modeled-vs-observed',
         q: 'Does ZeroGEX know the actual dealer positions?',
-        a: 'No — and no vendor does. Public options data shows how many contracts are outstanding at each strike, but not who is long and who is short. ZeroGEX therefore applies a defined positioning convention: calls are signed positive and puts negative, modeling dealers as net long the calls customers overwrite and net short the puts customers buy for protection. Every dealer-positioning metric on the platform is derived under that convention. It is disclosed, applied consistently, and useful precisely because it is consistent — but it is a model, not a measurement. The Methodology & Validation page sets out the full assumptions, the limitations, and how we test them.',
+        a: 'No\u00a0- and no vendor does. Public options data shows how many contracts are outstanding at each strike, but not who is long and who is short. ZeroGEX therefore applies a defined positioning convention: calls are signed positive and puts negative, modeling dealers as net long the calls customers overwrite and net short the puts customers buy for protection. Every dealer-positioning metric on the platform is derived under that convention. It is disclosed, applied consistently, and useful precisely because it is consistent\u00a0- but it is a model, not a measurement. The Methodology & Validation page sets out the full assumptions, the limitations, and how we test them.',
       },
       {
         id: 'what-is-gex',
         q: 'What is Gamma Exposure (GEX) and why does it matter?',
-        a: 'GEX is the aggregate sensitivity of options dealers\' delta hedges to price moves in the underlying. When dealers are modeled long gamma (positive net GEX at spot), the hedging reflex is to sell rallies and buy dips — a dampening effect on volatility. When modeled short gamma, hedging chases price — an amplifying effect. Knowing the modeled GEX regime tells you whether the market is more likely to mean-revert or trend.',
+        a: 'GEX is the aggregate sensitivity of options dealers\' delta hedges to price moves in the underlying. When dealers are modeled long gamma (positive net GEX at spot), the hedging reflex is to sell rallies and buy dips\u00a0- a dampening effect on volatility. When modeled short gamma, hedging chases price\u00a0- an amplifying effect. Knowing the modeled GEX regime tells you whether the market is more likely to mean-revert or trend.',
       },
       {
         id: 'gamma-flip',
         q: 'How is the Gamma Flip level calculated?',
-        a: 'The flip is the level at which the dealer gamma curve crosses zero — calculated from a spot-shift dealer gamma profile, not a cumulative-net-GEX approximation. Above the flip, dealer hedging is stabilizing; below it, amplifying. See the Gamma Flip Calculation guide for the full methodology.',
+        a: 'The flip is the level at which the dealer gamma curve crosses zero\u00a0- calculated from a spot-shift dealer gamma profile, not a cumulative-net-GEX approximation. Above the flip, dealer hedging is stabilizing; below it, amplifying. See the Gamma Flip Calculation guide for the full methodology.',
       },
       {
         id: 'walls-explained',
         q: 'What are the call wall and put wall?',
-        a: 'The strikes with the largest call gamma and put gamma respectively. They tend to act as intraday resistance and support, especially in positive gamma. The walls migrate intraday as flow comes in — watching the migration is informative on its own.',
+        a: 'The strikes with the largest call gamma and put gamma respectively. They tend to act as intraday resistance and support, especially in positive gamma. The walls migrate intraday as flow comes in\u00a0- watching the migration is informative on its own.',
       },
       {
         id: 'max-pain-reliability',
         q: 'What is Max Pain, and how reliable is it?',
-        a: 'Max pain is the strike that minimizes total option-buyer payout at expiration. It is most reliable in the final 24–48 hours before a meaningful expiry, especially for 0DTE on SPX. The honest read is that the "gamma magnet" — the wall structure — usually drives the pin, not the buyer-payout argument by itself. See the Max Pain article for the deep dive.',
+        a: 'Max pain is the strike that minimizes total option-buyer payout at expiration. It is most reliable in the final 24-48 hours before a meaningful expiry, especially for 0DTE on SPX. The honest read is that the "gamma magnet"\u00a0- the wall structure\u00a0- usually drives the pin, not the buyer-payout argument by itself. See the Max Pain article for the deep dive.',
       },
       {
         id: 'flow-explained',
         q: 'What is "premium-weighted" flow?',
-        a: 'Premium-weighted flow multiplies contract volume by premium paid. It is the conviction read — a trader paying $500/contract is making a real bet; a trader scalping $0.05 lotto tickets is not. Raw volume treats them the same; premium-weighted flow does not.',
+        a: 'Premium-weighted flow multiplies contract volume by premium paid. It is the conviction read\u00a0- a trader paying $500/contract is making a real bet; a trader scalping $0.05 lotto tickets is not. Raw volume treats them the same; premium-weighted flow does not.',
       },
       {
         id: 'pricing-model',
@@ -347,7 +347,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'how-to-contact',
         q: 'How do I get help?',
-        a: 'Email support@zerogex.io. We answer fast — usually the same trading day. Include the page URL you were on, a screenshot if relevant, your browser and OS, and (for billing) your account email.',
+        a: 'Email support@zerogex.io. We answer fast\u00a0- usually the same trading day. Include the page URL you were on, a screenshot if relevant, your browser and OS, and (for billing) your account email.',
       },
       {
         id: 'feature-requests',
@@ -473,8 +473,8 @@ export default function FAQsClient() {
           Real questions don&apos;t always fit a category. Email{' '}
           <a className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]" href="mailto:support@zerogex.io">
             support@zerogex.io
-          </a>{' '}
-          — we usually answer the same trading day.
+          </a>{' '}
+          - we usually answer the same trading day.
         </p>
       </div>
     </div>

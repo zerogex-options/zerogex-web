@@ -489,11 +489,11 @@ const MESSAGES: Record<string, string> = {
   refund_state_unknown: "We couldn't confirm this payment's refund status automatically. Please contact support and we'll sort it out.",
   needs_manual_refund: "This payment can't be refunded automatically. Please contact support and we'll handle it.",
   in_progress: 'Your refund is already being processed.',
-  refund_failed: "We couldn't issue the refund just now. Nothing was charged or canceled — please try again in a few minutes.",
+  refund_failed: "We couldn't issue the refund just now. Nothing was charged or canceled\u00a0- please try again in a few minutes.",
   refund_disputed:
-    "This payment is under dispute with your bank, so it can't be refunded here — the dispute itself will settle it. Nothing was canceled.",
+    "This payment is under dispute with your bank, so it can't be refunded here\u00a0- the dispute itself will settle it. Nothing was canceled.",
   refund_unconfirmed:
-    "We couldn't confirm your refund went through. We've been alerted and will finish it — you'll get an email as soon as it's done.",
+    "We couldn't confirm your refund went through. We've been alerted and will finish it\u00a0- you'll get an email as soon as it's done.",
   unavailable: "Couldn't reach billing just now. Please try again in a minute.",
 };
 

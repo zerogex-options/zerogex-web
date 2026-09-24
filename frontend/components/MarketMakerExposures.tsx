@@ -2595,7 +2595,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     <div
       className={toolbarBtnClass}
       style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
-      title={`${symbol} cash is closed — showing ${futuresChartTicker ?? 'futures'} candles; gamma & OI levels are frozen at the last cash close until the next open`}
+      title={`${symbol} cash is closed\u00a0- showing ${futuresChartTicker ?? 'futures'} candles; gamma & OI levels are frozen at the last cash close until the next open`}
     >
       <span>◆ {futuresChartTicker ?? 'FUTURES'} · levels frozen</span>
     </div>
@@ -4200,32 +4200,32 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Spot</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Price where dealer net gamma flips sign — above it dealers dampen volatility, below it they amplify it">
+        <span className="flex items-center gap-1.5" title="Price where dealer net gamma flips sign&nbsp;- above it dealers dampen volatility, below it they amplify it">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={FLIP_LINE} strokeDasharray="4 4" strokeWidth="1.2" />
           </svg>
           <span style={{ color: textPrimary }}>Gamma Flip</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Strike at or above spot with the largest call gamma exposure across the selected expirations — tends to act as resistance">
+        <span className="flex items-center gap-1.5" title="Strike at or above spot with the largest call gamma exposure across the selected expirations&nbsp;- tends to act as resistance">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
           </svg>
           <span style={{ color: textPrimary }}>Call Wall</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Strike at or below spot with the largest put gamma exposure across the selected expirations — tends to act as support">
+        <span className="flex items-center gap-1.5" title="Strike at or below spot with the largest put gamma exposure across the selected expirations&nbsp;- tends to act as support">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Pin Strike — reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration; a modeled pinning level, not a target">
+        <span className="flex items-center gap-1.5" title="Pin Strike&nbsp;- reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration; a modeled pinning level, not a target">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={PIN_LINE} strokeDasharray="2 3" strokeWidth="1.2" />
           </svg>
           <span style={{ color: textPrimary }}>Pin Strike</span>
         </span>
         {!symbolIsIndex && showPmLevels && (
-          <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
+          <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00-09:30 ET)&nbsp;- live while the pre-market is in progress">
             <svg width="22" height="6" aria-hidden="true">
               <line x1="0" x2="22" y1="3" y2="3" stroke={PM_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
             </svg>
@@ -4233,7 +4233,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </span>
         )}
         {!symbolIsIndex && showPrevLevels && (
-          <span className="flex items-center gap-1.5" title="High and low of the previous regular session (09:30–16:00 ET)">
+          <span className="flex items-center gap-1.5" title="High and low of the previous regular session (09:30-16:00 ET)">
             <svg width="22" height="6" aria-hidden="true">
               <line x1="0" x2="22" y1="3" y2="3" stroke={PREV_LEVEL_LINE} strokeDasharray={SESSION_LEVEL_DASH} strokeWidth="1.2" />
             </svg>

@@ -29,10 +29,10 @@ export const dict: PageDictionary = {
     addWidgets: 'Add widgets',
     underlyingSymbol: 'Underlying symbol',
     editingHint:
-      'Drag tiles to rearrange. Each tile’s controls resize it (S / M / L / XL), copy it for a side-by-side comparison, or remove it — on touch, use the arrow buttons to reorder.',
+      'Drag tiles to rearrange. Each tile’s controls resize it (S / M / L / XL), copy it for a side-by-side comparison, or remove it\u00a0- on touch, use the arrow buttons to reorder.',
     designYourDashboard: 'Design your dashboard',
     emptyStateLead:
-      'Pull in live gamma levels, dealer positioning, options flow, proprietary signals and more — arranged exactly how you like. Start from a preset or add widgets one at a time.',
+      'Pull in live gamma levels, dealer positioning, options flow, proprietary signals and more\u00a0- arranged exactly how you like. Start from a preset or add widgets one at a time.',
     addFirstWidget: 'Add your first widget',
     quickStartPresets: 'Quick-start presets',
     proChip: 'Pro',
@@ -79,10 +79,10 @@ export const dict: PageDictionary = {
     addWidgets: 'Aggiungi widget',
     underlyingSymbol: 'Simbolo sottostante',
     editingHint:
-      'Trascina i riquadri per riordinarli. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano per un confronto affiancato o lo rimuovono — su touch, usa i pulsanti freccia per riordinare.',
+      'Trascina i riquadri per riordinarli. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano per un confronto affiancato o lo rimuovono\u00a0- su touch, usa i pulsanti freccia per riordinare.',
     designYourDashboard: 'Progetta la tua dashboard',
     emptyStateLead:
-      'Integra livelli gamma in tempo reale, posizionamento dei dealer, flusso di opzioni, segnali proprietari e altro — disposti esattamente come preferisci. Parti da un preset o aggiungi i widget uno alla volta.',
+      'Integra livelli gamma in tempo reale, posizionamento dei dealer, flusso di opzioni, segnali proprietari e altro\u00a0- disposti esattamente come preferisci. Parti da un preset o aggiungi i widget uno alla volta.',
     addFirstWidget: 'Aggiungi il tuo primo widget',
     quickStartPresets: 'Preset di avvio rapido',
     proChip: 'Pro',
@@ -129,10 +129,10 @@ export const dict: PageDictionary = {
     addWidgets: 'Widgets hinzufügen',
     underlyingSymbol: 'Basiswert-Symbol',
     editingHint:
-      'Ziehe Kacheln, um sie neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie für einen Vergleich nebeneinander oder entfernen sie — bei Touch die Pfeiltasten zum Umsortieren verwenden.',
+      'Ziehe Kacheln, um sie neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie für einen Vergleich nebeneinander oder entfernen sie\u00a0- bei Touch die Pfeiltasten zum Umsortieren verwenden.',
     designYourDashboard: 'Gestalte dein Dashboard',
     emptyStateLead:
-      'Binde Live-Gamma-Level, Dealer-Positionierung, Optionsfluss, proprietäre Signale und mehr ein — genau so angeordnet, wie du es magst. Starte mit einem Preset oder füge Widgets einzeln hinzu.',
+      'Binde Live-Gamma-Level, Dealer-Positionierung, Optionsfluss, proprietäre Signale und mehr ein\u00a0- genau so angeordnet, wie du es magst. Starte mit einem Preset oder füge Widgets einzeln hinzu.',
     addFirstWidget: 'Füge dein erstes Widget hinzu',
     quickStartPresets: 'Schnellstart-Presets',
     proChip: 'Pro',
@@ -179,10 +179,10 @@ export const dict: PageDictionary = {
     addWidgets: 'Añadir widgets',
     underlyingSymbol: 'Símbolo del subyacente',
     editingHint:
-      'Arrastra los mosaicos para reordenarlos. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian para comparar en paralelo o lo eliminan — en pantalla táctil, usa los botones de flecha para reordenar.',
+      'Arrastra los mosaicos para reordenarlos. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian para comparar en paralelo o lo eliminan\u00a0- en pantalla táctil, usa los botones de flecha para reordenar.',
     designYourDashboard: 'Diseña tu dashboard',
     emptyStateLead:
-      'Incorpora niveles gamma en tiempo real, posicionamiento de dealers, flujo de opciones, señales propietarias y más — organizados exactamente como quieras. Empieza con un preset o añade widgets uno a uno.',
+      'Incorpora niveles gamma en tiempo real, posicionamiento de dealers, flujo de opciones, señales propietarias y más\u00a0- organizados exactamente como quieras. Empieza con un preset o añade widgets uno a uno.',
     addFirstWidget: 'Añade tu primer widget',
     quickStartPresets: 'Presets de inicio rápido',
     proChip: 'Pro',
@@ -229,10 +229,10 @@ export const dict: PageDictionary = {
     addWidgets: 'Ajouter des widgets',
     underlyingSymbol: 'Symbole du sous-jacent',
     editingHint:
-      'Faites glisser les tuiles pour les réorganiser. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent pour une comparaison côte à côte ou la suppriment — sur tactile, utilisez les boutons fléchés pour réorganiser.',
+      'Faites glisser les tuiles pour les réorganiser. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent pour une comparaison côte à côte ou la suppriment\u00a0- sur tactile, utilisez les boutons fléchés pour réorganiser.',
     designYourDashboard: 'Concevez votre dashboard',
     emptyStateLead:
-      'Intégrez des niveaux gamma en temps réel, le positionnement des dealers, le flux d\'options, des signaux propriétaires et plus encore — disposés exactement comme vous le souhaitez. Partez d\'un préréglage ou ajoutez les widgets un par un.',
+      'Intégrez des niveaux gamma en temps réel, le positionnement des dealers, le flux d\'options, des signaux propriétaires et plus encore\u00a0- disposés exactement comme vous le souhaitez. Partez d\'un préréglage ou ajoutez les widgets un par un.',
     addFirstWidget: 'Ajoutez votre premier widget',
     quickStartPresets: 'Préréglages de démarrage rapide',
     proChip: 'Pro',

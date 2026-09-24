@@ -1,14 +1,14 @@
 # Trading the Close: How EOD Pressure and Trap Detection Read Dealer Hedging in Real Time
 
-*Two ZeroGEX™ Advanced Signals built for the structural inflection points of the trading day — the modeled hedge flows that can drag price into the close, and the failed breakouts that can snap back when dealers are modeled to absorb them.*
+*Two ZeroGEX™ Advanced Signals built for the structural inflection points of the trading day - the modeled hedge flows that can drag price into the close, and the failed breakouts that can snap back when dealers are modeled to absorb them.*
 
 ---
 
 ## Why These Two Signals Exist
 
-Most intraday tools tell you *where* price is. They rarely tell you *why* it's about to move — or, more usefully, *why it shouldn't move further*.
+Most intraday tools tell you *where* price is. They rarely tell you *why* it's about to move - or, more usefully, *why it shouldn't move further*.
 
-The last 90 minutes of the cash session and the moments right after a key level breaks are the two windows where modeled dealer-hedging mechanics leave the clearest footprint in the tape. EOD Pressure and Trap Detection are designed to fire at exactly those structural inflection points — and stay silent the rest of the day.
+The last 90 minutes of the cash session and the moments right after a key level breaks are the two windows where modeled dealer-hedging mechanics leave the clearest footprint in the tape. EOD Pressure and Trap Detection are designed to fire at exactly those structural inflection points - and stay silent the rest of the day.
 
 That silence is a feature, not a bug. Both signals will read **zero** through most of the trading day. When they do fire, they are telling you something specific about modeled hedge flow that the rest of the tape will not show you directly.
 
@@ -16,7 +16,7 @@ This piece is for traders who already understand gamma exposure, dealer hedging,
 
 ---
 
-# Part 1 — EOD Pressure
+# Part 1 - EOD Pressure
 
 ## What It Measures
 
@@ -26,9 +26,9 @@ EOD Pressure is a **directional bias estimator for the final ~90 minutes of the 
 
 Two physical mechanisms drive the answer:
 
-**Charm decay.** As 0DTE and short-dated options approach expiry, their delta does not stand still — holding other inputs constant, it drifts at an accelerating rate as time ticks down. Dealers running a roughly delta-neutral book tend to rebalance to keep that neutrality. The aggregate sign of modeled dealer charm exposure near spot is modeled to indicate which direction those hedge flows are pointing today.
+**Charm decay.** As 0DTE and short-dated options approach expiry, their delta does not stand still - holding other inputs constant, it drifts at an accelerating rate as time ticks down. Dealers running a roughly delta-neutral book tend to rebalance to keep that neutrality. The aggregate sign of modeled dealer charm exposure near spot is modeled to indicate which direction those hedge flows are pointing today.
 
-**Pin gravity.** In a modeled positive-gamma regime, dealers tend to buy weakness and sell strength — that modeled reflex can pull price toward the maximum-pain / maximum-gamma strike like a magnet. In a modeled negative-gamma regime, the same mechanic flips: dealers are modeled to chase moves, and the strike becomes a repulsion point instead of an attractor.
+**Pin gravity.** In a modeled positive-gamma regime, dealers tend to buy weakness and sell strength - that modeled reflex can pull price toward the maximum-pain / maximum-gamma strike like a magnet. In a modeled negative-gamma regime, the same mechanic flips: dealers are modeled to chase moves, and the strike becomes a repulsion point instead of an attractor.
 
 EOD Pressure combines those two effects, scales them by how close we are to the close, and amplifies them on calendar dates where positioning matters most.
 
@@ -64,7 +64,7 @@ charm_raw = Σ_buckets W_bucket × Σ_strikes_in_band dealer_charm_exposure
 charm_score = clip(charm_raw / 2.0e7, [-1, +1])
 ```
 
-The ATM band is **vol-scaled** — wider on volatile days, floored at ±0.5% on dead-tape days. The 30-bar projection roughly tracks the expected price range over the remainder of the session.
+The ATM band is **vol-scaled** - wider on volatile days, floored at ±0.5% on dead-tape days. The 30-bar projection roughly tracks the expected price range over the remainder of the session.
 
 The expiry-bucket weights are hand-picked to reflect charm's time-decay profile:
 
@@ -89,13 +89,13 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on.
+A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 - the magnet is above and gravity is on.
 
-The sign-flip in a modeled negative-gamma regime is the subtle but critical piece. The same pin above spot in a short-gamma book produces a *negative* pin score, because dealers are modeled to *chase* moves away from the strike instead of pulling price toward it. Pin gravity is not a fixed level on the chart — it is a sign-dependent modeled force.
+The sign-flip in a modeled negative-gamma regime is the subtle but critical piece. The same pin above spot in a short-gamma book produces a *negative* pin score, because dealers are modeled to *chase* moves away from the strike instead of pulling price toward it. Pin gravity is not a fixed level on the chart - it is a sign-dependent modeled force.
 
 ### Component 3: Time Ramp (Gate)
 
-The ramp is a multiplicative gate on the entire signal. Before **14:30 ET**, it is exactly zero — and the signal short-circuits before computing anything else.
+The ramp is a multiplicative gate on the entire signal. Before **14:30 ET**, it is exactly zero - and the signal short-circuits before computing anything else.
 
 | Time (ET) | Ramp |
 |-----------|------|
@@ -104,9 +104,9 @@ The ramp is a multiplicative gate on the entire signal. Before **14:30 ET**, it 
 | 14:45 | 0.20 |
 | 15:00 | 0.40 |
 | 15:30 | 0.80 |
-| 15:45 – 16:00 | 1.00 |
+| 15:45 - 16:00 | 1.00 |
 
-The ramp linearly scales from 0 to 1 between 14:30 and 15:45 ET, then holds at full strength into the close. This is why the signal reads zero through the bulk of the trading day — it is structurally inactive.
+The ramp linearly scales from 0 to 1 between 14:30 and 15:45 ET, then holds at full strength into the close. This is why the signal reads zero through the bulk of the trading day - it is structurally inactive.
 
 ### Component 4: Calendar Amplifier
 
@@ -118,7 +118,7 @@ The amplifier increases conviction on dates when positioning concentrates and de
 | Monthly OpEx (third Friday) | 1.5× |
 | Quad witching (third Friday of Mar/Jun/Sep/Dec) | 2.0× |
 
-The amplifier is the only point in the signal where the intermediate score can exceed ±1 — the final clamp brings it back into range.
+The amplifier is the only point in the signal where the intermediate score can exceed ±1 - the final clamp brings it back into range.
 
 ---
 
@@ -143,25 +143,25 @@ A zero reading is the most common state. The signal is *designed* to be silent o
 - No strikes inside the ATM band on a sparse or thinly-quoted chain.
 - Both `max_pain` and `max_gamma_strike` are null.
 - Pin target sitting exactly at spot.
-- Charm and pin scores exactly canceling — rare, requires opposite directions and equal magnitude.
+- Charm and pin scores exactly canceling - rare, requires opposite directions and equal magnitude.
 
 If you are watching the panel at 13:55 ET and it reads zero, that is correct and expected. The signal will populate at 14:30 ET and ramp into the close.
 
 ---
 
-# Part 2 — Trap Detection
+# Part 2 - Trap Detection
 
 ## What It Measures
 
 Trap Detection is designed to identify setups where **price has just broken past a key modeled dealer-positioning level but may fail and reverse**.
 
-The classic pattern: in a modeled long-gamma regime with strengthening dealer positioning, dealers tend to absorb breakouts. They sell the rip and buy the dip — mechanically, not because they have a view. Price pokes above resistance, runs into supply, and often snaps back into the prior range. The breakout was a trap.
+The classic pattern: in a modeled long-gamma regime with strengthening dealer positioning, dealers tend to absorb breakouts. They sell the rip and buy the dip - mechanically, not because they have a view. Price pokes above resistance, runs into supply, and often snaps back into the prior range. The breakout was a trap.
 
 The signal looks for two symmetric setups:
 
-> **Bull trap on an upside fake.** Price pokes above a resistance level — `call_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` — but the modeled structural conditions suggest the breakout may fail. Produces a *negative* score (`bearish_fade`).
+> **Bull trap on an upside fake.** Price pokes above a resistance level - `call_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` - but the modeled structural conditions suggest the breakout may fail. Produces a *negative* score (`bearish_fade`).
 
-> **Bear trap on a downside fake.** Price pokes below support — `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` — but the breakdown looks fake. Produces a *positive* score (`bullish_fade`).
+> **Bear trap on a downside fake.** Price pokes below support - `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` - but the breakdown looks fake. Produces a *positive* score (`bullish_fade`).
 
 The output sign encodes which direction to *fade*, not which direction price just broke.
 
@@ -171,7 +171,7 @@ The output sign encodes which direction to *fade*, not which direction price jus
 
 | Score | Label | Trader interpretation |
 |-------|-------|----------------------|
-| +0.5 to +1.0 | `bullish_fade` | High-magnitude bear-trap-fade. Downside break looks fake — modeled snap-back up. |
+| +0.5 to +1.0 | `bullish_fade` | High-magnitude bear-trap-fade. Downside break looks fake - modeled snap-back up. |
 | +0.25 to +0.5 | `bullish_fade` (triggered) | Moderate. Consider mean-reversion long entries. |
 | 0 to +0.25 | sub-threshold | Weak conviction; not actionable alone. |
 | 0 | none | No trap forming. The default state. |
@@ -179,7 +179,7 @@ The output sign encodes which direction to *fade*, not which direction price jus
 | −0.25 to −0.5 | `bearish_fade` (triggered) | Moderate bull-trap-fade. Fade longs, expect reversal down. |
 | −0.5 to −1.0 | `bearish_fade` | High-magnitude bull-trap-fade. Fade rallies into the breakout. |
 
-The trigger threshold here is **0.25** — deliberately stricter than EOD Pressure's 0.20. Trap setups need higher conviction to actively fire because trading against an active breakout has higher tail risk than drifting with end-of-day flow.
+The trigger threshold here is **0.25** - deliberately stricter than EOD Pressure's 0.20. Trap setups need higher conviction to actively fire because trading against an active breakout has higher tail risk than drifting with end-of-day flow.
 
 ---
 
@@ -194,7 +194,7 @@ broken_resistance = max(level for level in up_levels if level < close)
 broken_support    = min(level for level in dn_levels if level > close)
 ```
 
-Note the naming. *Broken resistance* is the level that price has just risen above — so it now sits below close. *Broken support* is the level price has just slipped beneath. The names reflect the post-breakout perspective.
+Note the naming. *Broken resistance* is the level that price has just risen above - so it now sits below close. *Broken support* is the level price has just slipped beneath. The names reflect the post-breakout perspective.
 
 ### Step 2: Vol-Scaled Breakout Buffer
 
@@ -209,14 +209,14 @@ For SPX with a typical intraday σ near 8 basis points per minute, the buffer fl
 
 ### Step 3: Continuous Strength Factors
 
-An earlier iteration of this signal used boolean ANDs and produced cliff-edge behavior — barely-met preconditions flipped the score on and off. The current design uses **continuous [0, 1] factors** that multiply together:
+An earlier iteration of this signal used boolean ANDs and produced cliff-edge behavior - barely-met preconditions flipped the score on and off. The current design uses **continuous [0, 1] factors** that multiply together:
 
 | Factor | Saturation point | What it captures |
 |--------|------------------|------------------|
 | `long_gamma_factor` | Full at net_gex ≥ $1B | Are dealers modeled to be absorbing moves? |
 | `strengthening_factor` | Full at +2% GEX delta | Is dealer positioning *building*, not unwinding? |
 | `breakout_strength` | Full at 3× buffer beyond level | Did price actually clear the level meaningfully? |
-| `wall_migration` | 0.3× if wall moved >0.05% with price | Discount if the level itself is moving — that suggests a real breakout. |
+| `wall_migration` | 0.3× if wall moved >0.05% with price | Discount if the level itself is moving - that suggests a real breakout. |
 
 The directional strength on each side is the product:
 
@@ -225,7 +225,7 @@ upside_strength   = breakout_strength_up   × long_gamma × strengthening × wal
 downside_strength = breakout_strength_dn   × long_gamma × strengthening × wall_dn
 ```
 
-Any one of these factors going to zero zeros the whole side. Negative-gamma regime? `long_gamma_factor = 0` — no trap. Gamma not strengthening? `strengthening_factor = 0` — no trap. The signal is opinionated about *when* fades work and refuses to fire outside that regime.
+Any one of these factors going to zero zeros the whole side. Negative-gamma regime? `long_gamma_factor = 0` - no trap. Gamma not strengthening? `strengthening_factor = 0` - no trap. The signal is opinionated about *when* fades work and refuses to fire outside that regime.
 
 ### Step 4: Magnitude Term
 
@@ -248,9 +248,9 @@ flow_mult = 1.1                                          if flow is decelerating
           = max(0.3, 1 − flow_delta / flow_norm)         otherwise
 ```
 
-Decelerating directional flow into a breakout is exactly the trap thesis — buyers are stepping back just as price clears the level, leaving the move unsupported. The signal *boosts* conviction by 10% in that case.
+Decelerating directional flow into a breakout is exactly the trap thesis - buyers are stepping back just as price clears the level, leaving the move unsupported. The signal *boosts* conviction by 10% in that case.
 
-Conversely, accelerating flow in the breakout direction means the move has real participants behind it. The trap thesis weakens — the multiplier shrinks toward 0.3.
+Conversely, accelerating flow in the breakout direction means the move has real participants behind it. The trap thesis weakens - the multiplier shrinks toward 0.3.
 
 ### Step 6: Final Aggregation
 
@@ -261,7 +261,7 @@ score      = clip(bull_score − bear_score, [-1, +1])
 triggered  = abs(score) >= 0.25
 ```
 
-Both side-scores are non-negative. Their difference encodes both direction and conviction continuously. In the rare case where price is wedged between two recently-broken levels, the two sides partially cancel — appropriate, because the setup is genuinely ambiguous.
+Both side-scores are non-negative. Their difference encodes both direction and conviction continuously. In the rare case where price is wedged between two recently-broken levels, the two sides partially cancel - appropriate, because the setup is genuinely ambiguous.
 
 ---
 
@@ -272,10 +272,10 @@ Most of the trading day, this signal reads zero. The conditions that zero it out
 - **No level is being broken.** Price is sitting between `call_wall` and `put_wall` without poking either, or it is poking but within the vol-scaled buffer. The default state of a quiet market.
 - **Negative-gamma regime.** `long_gamma_factor = 0`. In a short-gamma book, breakouts tend to run rather than fade. The signal correctly refuses to fire.
 - **Gamma not strengthening.** `strengthening_factor = 0`. Trap setups need dealer positioning to be building, not unwinding.
-- **Reference levels missing.** No `call_wall`, `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` data — nothing to break.
+- **Reference levels missing.** No `call_wall`, `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` data - nothing to break.
 - **Wall migration on the active side.** If the call wall is moving up alongside price, the 0.3× discount factor often pushes the score below the 0.25 trigger.
 
-A zero from Trap Detection is *informational*. It tells you the prerequisites for a fade-the-breakout trade are not in place — so if you are about to trade against a breakout, the signal is implicitly telling you to look elsewhere for evidence.
+A zero from Trap Detection is *informational*. It tells you the prerequisites for a fade-the-breakout trade are not in place - so if you are about to trade against a breakout, the signal is implicitly telling you to look elsewhere for evidence.
 
 ---
 
@@ -295,19 +295,19 @@ The two signals are designed to be read jointly. They cover different time horiz
 
 ## Hardcoded Constants Worth Knowing
 
-For traders running their own backtests or sizing trades against these signals, a few magic numbers are worth holding in mind. They are not arbitrary — but each is a ZeroGEX heuristic calibration choice, not an industry standard.
+For traders running their own backtests or sizing trades against these signals, a few magic numbers are worth holding in mind. They are not arbitrary - but each is a ZeroGEX heuristic calibration choice, not an industry standard.
 
 | Constant | Default | Where used |
 |----------|---------|------------|
-| Charm normalizer | $20M | EOD Pressure — saturates charm_score at ±1.0 |
-| Pin saturation | 0.3% | EOD Pressure — saturates pin_score at ±1.0 |
-| Long-gamma saturation | $1B net GEX | Trap Detection — `long_gamma_factor` full at this level |
-| Strengthening saturation | +2% GEX delta | Trap Detection — `strengthening_factor` full at this level |
-| GEX boost saturation | ±5% GEX delta | Trap Detection — magnitude bonus full |
-| Wall migration sensitivity | 0.05% | Trap Detection — wall-tracking-with-price discount trigger |
-| Breakout buffer floor | 0.1% | Trap Detection — minimum noise filter |
-| Time ramp start | 14:30 ET | EOD Pressure — earliest activation |
-| Time ramp full | 15:45 ET | EOD Pressure — full strength to close |
+| Charm normalizer | $20M | EOD Pressure - saturates charm_score at ±1.0 |
+| Pin saturation | 0.3% | EOD Pressure - saturates pin_score at ±1.0 |
+| Long-gamma saturation | $1B net GEX | Trap Detection - `long_gamma_factor` full at this level |
+| Strengthening saturation | +2% GEX delta | Trap Detection - `strengthening_factor` full at this level |
+| GEX boost saturation | ±5% GEX delta | Trap Detection - magnitude bonus full |
+| Wall migration sensitivity | 0.05% | Trap Detection - wall-tracking-with-price discount trigger |
+| Breakout buffer floor | 0.1% | Trap Detection - minimum noise filter |
+| Time ramp start | 14:30 ET | EOD Pressure - earliest activation |
+| Time ramp full | 15:45 ET | EOD Pressure - full strength to close |
 
 All of these are tunable via environment variables on the backend. The defaults are ZeroGEX heuristics chosen for SPX/SPY-class index products with deep, active 0DTE chains; they are not empirically optimal constants. Less-liquid underlyings may need lower thresholds.
 
@@ -319,11 +319,11 @@ A few patterns that recur often enough to be worth flagging directly:
 
 **The 15:30 inflection.** EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window, conviction tends to consolidate around that time. Pre-position before, not after.
 
-**Quad witching is not optional context.** The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unamplified signal to +0.8. Treat those days as having structurally higher conviction — and structurally higher whipsaw risk earlier in the day, before the window opens.
+**Quad witching is not optional context.** The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unamplified signal to +0.8. Treat those days as having structurally higher conviction - and structurally higher whipsaw risk earlier in the day, before the window opens.
 
-**Trap Detection without long-gamma confirmation should be ignored.** The `long_gamma_factor` zeroing the whole side is the single most important guardrail in the signal. If the broader modeled regime is short-gamma — even if the score happens to read non-zero on a missing-data edge case — the trap thesis does not hold. Verify the regime.
+**Trap Detection without long-gamma confirmation should be ignored.** The `long_gamma_factor` zeroing the whole side is the single most important guardrail in the signal. If the broader modeled regime is short-gamma - even if the score happens to read non-zero on a missing-data edge case - the trap thesis does not hold. Verify the regime.
 
-**Flow deceleration is the cleanest trap-fade tell.** When the directional flow is *drying up* into the breakout, the flow multiplier boosts conviction by 10%. That is the moment most trap-fade trades work. Accelerating flow into the breakout means real participants — the trap thesis likely does not hold even if the rest of the conditions line up.
+**Flow deceleration is the cleanest trap-fade tell.** When the directional flow is *drying up* into the breakout, the flow multiplier boosts conviction by 10%. That is the moment most trap-fade trades work. Accelerating flow into the breakout means real participants - the trap thesis likely does not hold even if the rest of the conditions line up.
 
 ---
 
@@ -331,7 +331,7 @@ A few patterns that recur often enough to be worth flagging directly:
 
 > **EOD Pressure and Trap Detection are silent most of the day. That is the point.**
 
-They are not designed to give you a continuous read. They are designed to recognize the two structural moments where modeled dealer hedging mechanics tend to dominate the tape — the closing window and the failed-breakout moment — and estimate the modeled directional bias each one produces.
+They are not designed to give you a continuous read. They are designed to recognize the two structural moments where modeled dealer hedging mechanics tend to dominate the tape - the closing window and the failed-breakout moment - and estimate the modeled directional bias each one produces.
 
 For a serious technical trader, the right use is not "watch the score." It is:
 
@@ -339,7 +339,7 @@ For a serious technical trader, the right use is not "watch the score." It is:
 - **Trust the silence.** A zero reading outside the window or outside the regime is information, not absence of information.
 - **Confirm at the inflection.** When both signals fire in the same direction inside the EOD window, the structural read is genuinely strong. When they disagree, the disagreement itself is data.
 
-Dealer hedging is not the whole market. But for the last 90 minutes of the cash session — and for the brief windows where price tests dealer-positioning levels — it can be one of the dominant forces in the tape. These two signals are the lens.
+Dealer hedging is not the whole market. But for the last 90 minutes of the cash session - and for the brief windows where price tests dealer-positioning levels - it can be one of the dominant forces in the tape. These two signals are the lens.
 
 ---
 
@@ -348,8 +348,8 @@ Dealer hedging is not the whole market. But for the last 90 minutes of the cash 
 If you want to push the framework further, the natural extensions are:
 
 - Overlay EOD Pressure against intraday VWAP deviation to spot drift-versus-mean-reversion conflicts.
-- Cross-check Trap Detection's `wall_migration` factor against your own gamma heatmap evolution — when the wall is moving, the trap thesis is fragile.
-- Track the relationship between charm-at-spot sign and 0DTE flow imbalance — they should generally agree, and divergences are diagnostic.
+- Cross-check Trap Detection's `wall_migration` factor against your own gamma heatmap evolution - when the wall is moving, the trap thesis is fragile.
+- Track the relationship between charm-at-spot sign and 0DTE flow imbalance - they should generally agree, and divergences are diagnostic.
 - On OpEx and quad-witching days, study the pre-window setup: where does charm sit at 13:00 ET, and how does it evolve into the 14:30 activation?
 
-The goal is not to mechanize the trade — it is to develop an intuition for *which kind of market regime you are in*, then let these two signals confirm or contradict your reads at the moments where dealer flow is loud enough to hear.
+The goal is not to mechanize the trade - it is to develop an intuition for *which kind of market regime you are in*, then let these two signals confirm or contradict your reads at the moments where dealer flow is loud enough to hear.

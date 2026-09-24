@@ -346,7 +346,7 @@ function RevealBox({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <ShieldCheck size={16} color={C.amber} />
         <strong style={{ fontSize: 14, color: C.light }}>
-          Save this key now — you won&apos;t be able to see it again.
+          Save this key now&nbsp;- you won&apos;t be able to see it again.
         </strong>
       </div>
       <p style={{ margin: 0, color: C.muted, fontSize: 13, lineHeight: 1.5 }}>

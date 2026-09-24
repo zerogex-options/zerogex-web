@@ -2,13 +2,13 @@
 > **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
-*Die praxisnahe Tiefenanalyse zum ZeroGEX Squeeze Setup-Signal — was es misst, die fünf Inputs, die den Score treiben, wann es auslöst und wann es still bleibt, und wie man es nutzt, um Märkte zu identifizieren, die für eine gerichtete Bewegung aufgeladen sind.*
+*Die praxisnahe Tiefenanalyse zum ZeroGEX Squeeze Setup-Signal - was es misst, die fünf Inputs, die den Score treiben, wann es auslöst und wann es still bleibt, und wie man es nutzt, um Märkte zu identifizieren, die für eine gerichtete Bewegung aufgeladen sind.*
 
 ---
 
 ## Warum es dieses Signal gibt
 
-Die meisten Options-Flow-Tools sagen dir, dass gerade *jetzt* etwas passiert. Fast nichts sagt dir, dass das Tape leise die Energie für eine Bewegung **gespeichert** hat — dass Flow, Momentum, Gamma und Volatilität sich aufeinander ausrichten, bevor die eigentliche Bewegung zündet.
+Die meisten Options-Flow-Tools sagen dir, dass gerade *jetzt* etwas passiert. Fast nichts sagt dir, dass das Tape leise die Energie für eine Bewegung **gespeichert** hat - dass Flow, Momentum, Gamma und Volatilität sich aufeinander ausrichten, bevor die eigentliche Bewegung zündet.
 
 Genau diese Lücke soll das Squeeze Setup-Signal schließen. Es sagt die Richtung nicht direkt voraus. Es zeigt dir, wann sich die Bedingungen für eine gerichtete Bewegung über mehrere strukturelle Inputs hinweg aufgebaut haben, sodass die Bewegung, wenn der Auslöser kommt, bereits Treibstoff hat.
 
@@ -20,9 +20,9 @@ Dieser Beitrag ist die traderorientierte Lektüre des Squeeze Setup-Signals. Er 
 
 Das Squeeze Setup-Signal stellt eine Frage:
 
-> Ist der Markt komprimiert — richten sich Flow, Momentum, Gamma und Volatilität so aus, dass Energie geladen wird, die noch nicht freigesetzt wurde?
+> Ist der Markt komprimiert - richten sich Flow, Momentum, Gamma und Volatilität so aus, dass Energie geladen wird, die noch nicht freigesetzt wurde?
 
-Es ist ein **Advanced**-Signal im ZeroGEX-Stack — es erzeugt sowohl einen kontinuierlichen Score auf der Zahlenlinie [-1, +1] als auch einen diskreten Trigger, wenn der absolute Score **0,25** überschreitet.
+Es ist ein **Advanced**-Signal im ZeroGEX-Stack - es erzeugt sowohl einen kontinuierlichen Score auf der Zahlenlinie [-1, +1] als auch einen diskreten Trigger, wenn der absolute Score **0,25** überschreitet.
 
 Entscheidend ist: Squeeze Setup ist ein **Continuation**-Signal, kein Fade-Signal. Wenn es auslöst, ist die praktische Neigung, *mit* der Bewegung zu handeln, sobald sie ausbricht, nicht dagegen. Das macht es zum Gegenteil von Mean-Reversion-Tools wie Positioning Trap oder Trap Detection. Zu wissen, in welche Kategorie ein Signal gehört, ist die halbe Miete, um es richtig zu lesen.
 
@@ -30,9 +30,9 @@ Entscheidend ist: Squeeze Setup ist ein **Continuation**-Signal, kein Fade-Signa
 
 ## Der Mechanismus: Wie sich Kompression aufbaut
 
-Märkte komprimieren sich nicht immer, bevor sie sich bewegen — aber wenn sie es tun, häufen sich bestimmte messbare Bedingungen:
+Märkte komprimieren sich nicht immer, bevor sie sich bewegen - aber wenn sie es tun, häufen sich bestimmte messbare Bedingungen:
 
-1. **Der Flow beginnt, sich gerichtet zu neigen.** Die Call-Prämie dominiert konsistent die Put-Prämie, oder umgekehrt — und die Neigung ist groß genug relativ zur typischen Flow-Volatilität des Symbols, um aufzufallen.
+1. **Der Flow beginnt, sich gerichtet zu neigen.** Die Call-Prämie dominiert konsistent die Put-Prämie, oder umgekehrt - und die Neigung ist groß genug relativ zur typischen Flow-Volatilität des Symbols, um aufzufallen.
 2. **Das kurzfristige Momentum beschleunigt sich.** Das 5-Bar-Momentum übertrifft das 10-Bar-Momentum. Die Steigung wird steiler, nicht nur trendend.
 3. **Die Net-Gamma ist dicht genug, dass Hedging eine Rolle spielt.** Ein flaches Dealer-Buch propagiert Bewegungen nicht; ein geladenes schon.
 4. **Der Spot ist relativ zum Gamma-Flip so positioniert, dass sich Aufwärtspotenzial öffnet.** Wenn der Spot knapp unter dem Flip liegt und der Flow bullisch ist, ist das strukturelle Setup für ein Überqueren des Flips mit anschließender Fortsetzung gegeben.
@@ -46,11 +46,11 @@ Squeeze Setup kombiniert alle fünf zu einem einzigen kontinuierlichen Score pro
 
 | Input | Was er erfasst |
 |---|---|
-| Flow-Z-Score | Call/Put-Flow-Deltas, z-standardisiert anhand der Flow-Volatilität pro Symbol — ein "großer" Flow bei einem ruhigen Symbol gilt als bedeutsam; ein "großer" Flow bei einem lauten Symbol muss eine höhere Hürde nehmen |
+| Flow-Z-Score | Call/Put-Flow-Deltas, z-standardisiert anhand der Flow-Volatilität pro Symbol - ein "großer" Flow bei einem ruhigen Symbol gilt als bedeutsam; ein "großer" Flow bei einem lauten Symbol muss eine höhere Hürde nehmen |
 | 5/10-Bar-Momentum | Zwei Zeithorizonte im Vergleich, auf der Suche nach Beschleunigung (5-Bar übertrifft 10-Bar) statt nur Richtung |
 | Gamma-Readiness | Net-Gamma durch eine geglättete tanh geführt, ergibt "ist das Buch geladen genug, um relevant zu sein?" als kontinuierlichen 0-1-Multiplikator |
 | Flip-Distanz | Wie nah der Spot am Gamma-Flip liegt, mit der Seite als Multiplikator, sodass ein Bull-Setup nahe am Flip von unten höher bewertet wird |
-| VIX-Regime | Tot / normal / erhöht / Panik — dient dazu, den Score je nach Kontext zu dämpfen oder zu verstärken |
+| VIX-Regime | Tot / normal / erhöht / Panik - dient dazu, den Score je nach Kontext zu dämpfen oder zu verstärken |
 
 Das Ergebnis ist eine einzige Zahl, aber sie trägt die gemeinsame Struktur aller fünf Inputs in sich.
 
@@ -69,8 +69,8 @@ Der Nettoscore ist `bull_score − bear_score`, begrenzt auf [-1, +1]. Der Trigg
 
 Zwei strukturelle Fakten dieser Formel sind für die Interpretation wichtig:
 
-- **Jeder Term multipliziert, nicht addiert.** Geht auch nur einer der fünf Terme auf null, wird die Seite null. Das Signal hat eine klare Haltung dazu, *wann* Squeezes funktionieren — es weigert sich auszulösen, wenn eine der Bedingungen nicht erfüllt ist, auch wenn die anderen laut schreien.
-- **Bull- und Bear-Seiten werden unabhängig berechnet, dann verrechnet.** In seltenen Fällen, in denen beide gleichzeitig auslösen (echt umkämpfte Setups), heben sie sich teilweise auf — passend, denn die Lesart ist mehrdeutig.
+- **Jeder Term multipliziert, nicht addiert.** Geht auch nur einer der fünf Terme auf null, wird die Seite null. Das Signal hat eine klare Haltung dazu, *wann* Squeezes funktionieren - es weigert sich auszulösen, wenn eine der Bedingungen nicht erfüllt ist, auch wenn die anderen laut schreien.
+- **Bull- und Bear-Seiten werden unabhängig berechnet, dann verrechnet.** In seltenen Fällen, in denen beide gleichzeitig auslösen (echt umkämpfte Setups), heben sie sich teilweise auf - passend, denn die Lesart ist mehrdeutig.
 
 ---
 
@@ -79,18 +79,18 @@ Zwei strukturelle Fakten dieser Formel sind für die Interpretation wichtig:
 | Score | Lesart |
 |---|---|
 | +0,6 bis +1,0 | Stark komprimiert nach oben |
-| +0,25 bis +0,6 | Bullisch ausgelöst — das Aufwärts-Breakout-Playbook ist aktiv |
-| -0,25 bis +0,25 | Unter der Schwelle — informativ, allein nicht handlungsrelevant |
-| -0,25 bis -0,6 | Bärisch ausgelöst — das Abwärts-Breakout-Playbook ist aktiv |
+| +0,25 bis +0,6 | Bullisch ausgelöst - das Aufwärts-Breakout-Playbook ist aktiv |
+| -0,25 bis +0,25 | Unter der Schwelle - informativ, allein nicht handlungsrelevant |
+| -0,25 bis -0,6 | Bärisch ausgelöst - das Abwärts-Breakout-Playbook ist aktiv |
 | -0,6 bis -1,0 | Stark komprimiert nach unten |
 
-Die Schwelle von 0,25 ist bewusst konservativ gewählt. Squeeze Setup legt die Messlatte hoch — richten sich *alle* strukturellen Inputs aus? — und die Schwelle spiegelt das wider. Ein Wert von 0,20 ist ein Grenzfall; nur 0,25+ zählt als ausgelöst.
+Die Schwelle von 0,25 ist bewusst konservativ gewählt. Squeeze Setup legt die Messlatte hoch - richten sich *alle* strukturellen Inputs aus? - und die Schwelle spiegelt das wider. Ein Wert von 0,20 ist ein Grenzfall; nur 0,25+ zählt als ausgelöst.
 
 ---
 
 ## Wann das Signal auslöst und wann es still bleibt
 
-Der dominante Zustand ist **Stille**. Squeeze Setup ist so konzipiert, dass es die meiste Zeit still bleibt. Bei den meisten Symbolen, an den meisten Handelstagen, häuft sich keine der fünf Bedingungen an — und diese Stille ist informativ. Sie sagt dir, dass die strukturellen Vorbedingungen für einen Breakout nicht vorhanden sind, sodass die Breakouts, die du siehst, wahrscheinlich Rauschen sind.
+Der dominante Zustand ist **Stille**. Squeeze Setup ist so konzipiert, dass es die meiste Zeit still bleibt. Bei den meisten Symbolen, an den meisten Handelstagen, häuft sich keine der fünf Bedingungen an - und diese Stille ist informativ. Sie sagt dir, dass die strukturellen Vorbedingungen für einen Breakout nicht vorhanden sind, sodass die Breakouts, die du siehst, wahrscheinlich Rauschen sind.
 
 Das Signal löst nur aus, wenn:
 
@@ -100,7 +100,7 @@ Das Signal löst nur aus, wenn:
 - Der Spot relativ zum Flip so positioniert ist, dass sich gerichtete Asymmetrie öffnet.
 - Das Vol-Regime das Signal nicht auf null dämpft.
 
-Ein paar Minuten jeder Session, bei den wenigen Symbolen, bei denen sich all das ausrichtet — dort lebt Squeeze Setup.
+Ein paar Minuten jeder Session, bei den wenigen Symbolen, bei denen sich all das ausrichtet - dort lebt Squeeze Setup.
 
 ---
 
@@ -108,25 +108,25 @@ Ein paar Minuten jeder Session, bei den wenigen Symbolen, bei denen sich all das
 
 Das kanonische Playbook-Gate:
 
-> Ein über zwei aufeinanderfolgende Sessions anhaltender Squeeze Setup-Score über der Schwelle löst das Squeeze Breakout-Playbook aus — Einstieg bei einem sauberen Durchbruch einer 30-Bar-Volatilitätshülle, in Richtung der Signalneigung.
+> Ein über zwei aufeinanderfolgende Sessions anhaltender Squeeze Setup-Score über der Schwelle löst das Squeeze Breakout-Playbook aus - Einstieg bei einem sauberen Durchbruch einer 30-Bar-Volatilitätshülle, in Richtung der Signalneigung.
 
 Die Zwei-Session-Persistenz ist ein bewusster Filter. Auslöser auf einer einzelnen Bar sind zu verrauscht; die strukturelle Kompression muss *halten*. Wenn sie das tut, sagt das Signal im Wesentlichen: Die Bedingungen für eine Bewegung sind gegeben, warte auf den Durchbruch und handle dann in Richtung des Scores.
 
 Ein paar praktische Hinweise:
 
 - **Die Richtung ergibt sich aus dem Vorzeichen des Scores, nicht aus der Einstiegstechnik.** Das Signal liefert die gerichtete Lesart; der Durchbruch der Volatilitätshülle ist der Timing-Trigger.
-- **Die Größenordnung zählt.** Ein Score von +0,55 unterscheidet sich substanziell von +0,27 — beide sind ausgelöst, aber der Trade mit der höheren Überzeugung ist der mit dem höheren Score.
+- **Die Größenordnung zählt.** Ein Score von +0,55 unterscheidet sich substanziell von +0,27 - beide sind ausgelöst, aber der Trade mit der höheren Überzeugung ist der mit dem höheren Score.
 - **Werte unter der Schwelle liefern trotzdem Informationen.** Ein anhaltender Wert von +0,20 ist allein nicht handlungsrelevant, aber wenn jedes andere Signal ebenfalls bullisch geneigt ist, trägt er zur Gesamtlesart bei.
 
 ---
 
 ## Squeeze Setup zusammen mit anderen Signalen lesen
 
-Squeeze Setup ist eines von vielen Signalen — und der echte Edge liegt in der Konfluenz. Ein paar gängige Cross-Reads:
+Squeeze Setup ist eines von vielen Signalen - und der echte Edge liegt in der Konfluenz. Ein paar gängige Cross-Reads:
 
-- **Squeeze Setup + Vol Expansion in derselben Richtung.** Zwei Continuation-Signale stimmen überein — die Bewegung hat sowohl *Kompression* als auch *Kapazität*. Das sauberste Setup.
+- **Squeeze Setup + Vol Expansion in derselben Richtung.** Zwei Continuation-Signale stimmen überein - die Bewegung hat sowohl *Kompression* als auch *Kapazität*. Das sauberste Setup.
 - **Squeeze Setup + Trap Detection im Widerspruch.** Nach Squeeze nach oben komprimiert, aber Trap Detection sagt, dass der jüngste Aufwärtsdurchbruch scheitert. Eines der beiden liegt beim aktuellen Durchbruch falsch; meist ist die richtige Reaktion, auszusetzen und abzuwarten.
-- **Squeeze Setup + Positioning Trap im Einklang.** Kompression bei einer auf derselben Seite falsch positionierten Crowd — ein Short-Cover-Squeeze, wenn die Crowd short ist, ein Flush, wenn sie long ist. Beide Signale zeigen auf denselben Trade. Der Begleitartikel zum [Positioning Trap-Signal](/education/positioning-trap-explained) behandelt diese Lesart im Detail.
+- **Squeeze Setup + Positioning Trap im Einklang.** Kompression bei einer auf derselben Seite falsch positionierten Crowd - ein Short-Cover-Squeeze, wenn die Crowd short ist, ein Flush, wenn sie long ist. Beide Signale zeigen auf denselben Trade. Der Begleitartikel zum [Positioning Trap-Signal](/education/positioning-trap-explained) behandelt diese Lesart im Detail.
 - **Squeeze Setup bei 0, während jedes andere Signal aktiv ist.** Wahrscheinlich ist strukturell nichts komprimiert; die Bewegung, die du siehst, ist reaktiv, nicht geladen.
 
 Wenn sich mehrere Continuation-Signale (Squeeze Setup, Vol Expansion, Market Pressure, Tape Flow Bias, Vanna/Charm Flow) in dieselbe Richtung ausrichten, verstärkt sich die Überzeugung. Wenn sie gegen Mean-Reversion-Signale stehen, ist das Tape umkämpft.
@@ -137,8 +137,8 @@ Wenn sich mehrere Continuation-Signale (Squeeze Setup, Vol Expansion, Market Pre
 
 Drei Fallen:
 
-- **Eine 0 als "neutral" behandeln.** Eine 0 bei Squeeze Setup bedeutet *nichts ist komprimiert* — nicht, dass der Markt ausgeglichen ist. Handle nicht danach als "ruhiges" grünes Licht.
-- **Auf einen Score unter der Schwelle handeln.** Die Schwelle von 0,25 zählt. Ein Wert von 0,18 kann sich *anfühlen* wie ein Setup, ist aber nicht ausgelöst — und der Unterschied zwischen "fühlt sich komprimiert an" und "ist strukturell komprimiert" macht den Großteil des Edge aus.
+- **Eine 0 als "neutral" behandeln.** Eine 0 bei Squeeze Setup bedeutet *nichts ist komprimiert* - nicht, dass der Markt ausgeglichen ist. Handle nicht danach als "ruhiges" grünes Licht.
+- **Auf einen Score unter der Schwelle handeln.** Die Schwelle von 0,25 zählt. Ein Wert von 0,18 kann sich *anfühlen* wie ein Setup, ist aber nicht ausgelöst - und der Unterschied zwischen "fühlt sich komprimiert an" und "ist strukturell komprimiert" macht den Großteil des Edge aus.
 - **Das Regime ignorieren.** Squeeze Setup sagt für sich genommen nichts über das Gamma-Regime aus. Ein komprimierter Markt unterhalb des Flips verhält sich anders als einer oberhalb. Prüfe immer gegen den [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip)-Workflow.
 
 ---
@@ -151,7 +151,7 @@ Das Dashboard zeigt es an mehreren Stellen:
 - **Der Composite Signal Score** integriert Squeeze Setup als einen Input neben den anderen Advanced- und Basic-Signalen.
 - **Der Trade Stream** markiert `squeeze_breakout`-gegatete Playbook-Trades, wenn sie auslösen.
 
-*[Bildplatzhalter: ZeroGEX Squeeze Setup-Karte mit Score, Trigger-Status und Input-Beiträgen — Datei ablegen unter /public/blog/zerogex-squeeze-setup-card.png]*
+*[Bildplatzhalter: ZeroGEX Squeeze Setup-Karte mit Score, Trigger-Status und Input-Beiträgen - Datei ablegen unter /public/blog/zerogex-squeeze-setup-card.png]*
 
 Ein durchgerechnetes Beispiel. Angenommen, SPX bewegt sich in der Mittwochssession seitwärts, und ZeroGEX zeigt:
 
@@ -161,7 +161,7 @@ Ein durchgerechnetes Beispiel. Angenommen, SPX bewegt sich in der Mittwochssessi
 - **Tape Flow Bias:** +0,6
 - **Trap Detection:** 0
 
-Die strukturelle Lesart: ein nach oben komprimiertes Setup mit bestätigender Flow-Neigung, kein gegenläufiges Signal für einen gescheiterten Breakout, und ein Long-Gamma-Regime, das die Bewegung dämpfen wird, sollte sie versuchen, sich zu weit auszudehnen. Praktische Neigung: wachsam bleiben für einen Durchbruch der Volatilitätshülle nach oben; wenn er kommt, sind die strukturellen Bedingungen für eine Fortsetzung gegeben. Nichts davon ist ein Trade — es ist die Regimelesart, die bestimmen sollte, welche Einstiege du ernst nimmst.
+Die strukturelle Lesart: ein nach oben komprimiertes Setup mit bestätigender Flow-Neigung, kein gegenläufiges Signal für einen gescheiterten Breakout, und ein Long-Gamma-Regime, das die Bewegung dämpfen wird, sollte sie versuchen, sich zu weit auszudehnen. Praktische Neigung: wachsam bleiben für einen Durchbruch der Volatilitätshülle nach oben; wenn er kommt, sind die strukturellen Bedingungen für eine Fortsetzung gegeben. Nichts davon ist ein Trade - es ist die Regimelesart, die bestimmen sollte, welche Einstiege du ernst nimmst.
 
 ---
 
@@ -171,7 +171,7 @@ Die strukturelle Lesart: ein nach oben komprimiertes Setup mit bestätigender Fl
 
 Die Disziplin besteht darin, es als Filter dafür zu nutzen, welche gerichteten Breakouts du ernst nimmst, statt es als den Trigger selbst zu verwenden. Wenn der Score ausgelöst ist, ist das Breakout-Setup real; wenn er bei null liegt, sind die Breakouts, die du siehst, Rauschen. Dieser Unterschied macht den Großteil des Edge aus.
 
-Nur zu Bildungszwecken — nichts davon ist eine Handelsempfehlung.
+Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 

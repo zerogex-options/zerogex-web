@@ -6,9 +6,9 @@
 
 ## Was Max Pain ist
 
-Max Pain ist der **Strike bei Verfall**, an dem der gesamte Dollarwert aller offenen Optionen minimal ist — also das Niveau, an dem Optionskäufer in Summe "am meisten verlieren".
+Max Pain ist der **Strike bei Verfall**, an dem der gesamte Dollarwert aller offenen Optionen minimal ist - also das Niveau, an dem Optionskäufer in Summe "am meisten verlieren".
 
-Das klassische Argument lautet, dass Market Maker (die natürlichen Verkäufer von Optionen an Privatanleger) ein Interesse daran haben, den Spot in Richtung Max Pain zu drücken. Das ehrlichere Argument ist differenzierter — siehe [Max Pain erklärt](/education/max-pain-explained).
+Das klassische Argument lautet, dass Market Maker (die natürlichen Verkäufer von Optionen an Privatanleger) ein Interesse daran haben, den Spot in Richtung Max Pain zu drücken. Das ehrlichere Argument ist differenzierter - siehe [Max Pain erklärt](/education/max-pain-explained).
 
 ## Was diese Seite zeigt
 
@@ -30,13 +30,13 @@ Auf der x-Achse der Strike, auf der y-Achse die Summe der Auszahlung der im Geld
 
 ### Die historische Migration
 
-Ein kleines Panel, das zeigt, wie sich der Max Pain über die letzten Handelssitzungen für den gewählten Verfall bewegt hat — nützlich, um eine Drift zum Spot hin (oder von ihm weg) zu erkennen.
+Ein kleines Panel, das zeigt, wie sich der Max Pain über die letzten Handelssitzungen für den gewählten Verfall bewegt hat - nützlich, um eine Drift zum Spot hin (oder von ihm weg) zu erkennen.
 
 ## Wann Max Pain relevant ist
 
 Max Pain ist am zuverlässigsten:
 
-- **In den letzten 24–48 Stunden vor einem bedeutenden Verfall.** Davor ist die Chain zu aktiv, als dass Max Pain stabil wäre.
+- **In den letzten 24-48 Stunden vor einem bedeutenden Verfall.** Davor ist die Chain zu aktiv, als dass Max Pain stabil wäre.
 - **Für 0DTE auf SPX.** Die 0DTE-Chain hat genug Größe, damit der Pin-Druck real ist.
 - **Wenn der Gamma-Magnet mit dem Max-Pain-Magnet übereinstimmt.** Fällt der Max-Pain-Strike mit einem starken Gamma-Strike (einer Wall) zusammen, ist der Pin-Druck real. Stimmen sie nicht überein, ist es meist Zufall.
 
@@ -55,6 +55,6 @@ Zwei Lesarten:
 
 ## Siehe auch
 
-- [Max Pain erklärt — Funktioniert es wirklich?](/education/max-pain-explained)
+- [Max Pain erklärt - Funktioniert es wirklich?](/education/max-pain-explained)
 - [Dealer-Positionierung](/help/platform/dealer-positioning)
 - [Gamma Walls erklärt](/education/gamma-walls-explained)

@@ -2,7 +2,7 @@
 > **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
-*Verfallsoptionen mit Fälligkeit am selben Tag dominieren mittlerweile den SPX-Flow. Das verändert, wie man die Dealer-Gamma liest — und wie das Tape gelesen werden muss, um Schritt zu halten. 0DTE-Dealer-Positionierung, erklärt für den praktisch orientierten Intraday-Trader.*
+*Verfallsoptionen mit Fälligkeit am selben Tag dominieren mittlerweile den SPX-Flow. Das verändert, wie man die Dealer-Gamma liest - und wie das Tape gelesen werden muss, um Schritt zu halten. 0DTE-Dealer-Positionierung, erklärt für den praktisch orientierten Intraday-Trader.*
 
 ---
 
@@ -18,11 +18,11 @@ Dieser Artikel ist die praktische Einordnung dessen, was "0DTE-Dealer-Positionie
 
 ## Was ist 0DTE-Dealer-Positionierung?
 
-0DTE-Dealer-Positionierung ist die aggregierte Gamma-Exposure, die Dealer bei Optionen mit Fälligkeit am selben Tag halten. Mechanisch unterscheidet sie sich nicht von längerfristiger Dealer-Gamma — nach der Standardkonvention werden Dealer *modelliert* als long die Calls, die Kunden im Rahmen von Overwriting schreiben, und short die Puts, die Kunden zur Absicherung kaufen, sodass ihr Long-Call-Bestand positives Gamma beiträgt, während ihr Short-Put-Bestand negatives Gamma beiträgt (das Minuszeichen ist die modellierte Short-Position, nicht etwa, dass Puts an sich negatives Gamma hätten). Der Hedging-Reflex ist derselbe: Delta neutral halten, den Basiswert handeln, während sich die Gamma ändert.
+0DTE-Dealer-Positionierung ist die aggregierte Gamma-Exposure, die Dealer bei Optionen mit Fälligkeit am selben Tag halten. Mechanisch unterscheidet sie sich nicht von längerfristiger Dealer-Gamma - nach der Standardkonvention werden Dealer *modelliert* als long die Calls, die Kunden im Rahmen von Overwriting schreiben, und short die Puts, die Kunden zur Absicherung kaufen, sodass ihr Long-Call-Bestand positives Gamma beiträgt, während ihr Short-Put-Bestand negatives Gamma beiträgt (das Minuszeichen ist die modellierte Short-Position, nicht etwa, dass Puts an sich negatives Gamma hätten). Der Hedging-Reflex ist derselbe: Delta neutral halten, den Basiswert handeln, während sich die Gamma ändert.
 
-> Dieses Dealer-Vorzeichen ist eine modellierte Konvention, kein beobachteter Bestand — die tatsächliche Positionierung ist aus öffentlichem Open Interest nicht direkt beobachtbar.
+> Dieses Dealer-Vorzeichen ist eine modellierte Konvention, kein beobachteter Bestand - die tatsächliche Positionierung ist aus öffentlichem Open Interest nicht direkt beobachtbar.
 
-Was 0DTE anders macht, ist die **Gamma-Dichte**. Optionen mit Fälligkeit am selben Tag tragen ihre größte Gamma genau am Geld, und die Gamma pro Kontrakt skaliert ungefähr mit `1/√T`. Da `T` in Bruchteilen eines Tages gemessen wird, ist dieser Nenner klein — und die Gamma pro Kontrakt wird sehr groß. Ein 0DTE-Strike nahe am Spot kann einen Monats-Strike auf demselben Niveau um eine Größenordnung übertreffen.
+Was 0DTE anders macht, ist die **Gamma-Dichte**. Optionen mit Fälligkeit am selben Tag tragen ihre größte Gamma genau am Geld, und die Gamma pro Kontrakt skaliert ungefähr mit `1/√T`. Da `T` in Bruchteilen eines Tages gemessen wird, ist dieser Nenner klein - und die Gamma pro Kontrakt wird sehr groß. Ein 0DTE-Strike nahe am Spot kann einen Monats-Strike auf demselben Niveau um eine Größenordnung übertreffen.
 
 Die praktische Konsequenz: Der 0DTE-Bucket bestimmt überproportional das Intraday-Hedging der Dealer. Selbst wenn das gesamte Open Interest von längerfristigen Strikes dominiert wird, ist die *gamma-gewichtete* Exposure nahe am Spot oft eine 0DTE-Geschichte.
 
@@ -33,23 +33,23 @@ Die praktische Konsequenz: Der 0DTE-Bucket bestimmt überproportional das Intrad
 Drei Faktoren summieren sich bei 0DTE auf eine Weise, die bei längeren Laufzeiten nicht gleichermaßen auftritt:
 
 1. **Gamma-Konzentration.** Optionen mit Fälligkeit am selben Tag tragen am Geld eine sehr hohe Gamma. Hedging-Trades gegen diese Gamma sind pro Bewegungseinheit groß, was die Kursbewegung nahe am Spot mechanisch lauter macht.
-2. **Charm-Zerfall.** Wenn sich 0DTE-Optionen dem Verfall nähern, verschiebt sich ihr Delta in Richtung 0 (aus dem Geld) oder ±1 (im Geld — +1 bei Calls, −1 bei Puts), bei konstantem Spot und konstanter Vol. Dealer, die ein delta-neutrales Buch führen, tendieren dazu, diese Drift bis zum Handelsschluss neu abzusichern. Dieser Flow hat ein modelliertes Vorzeichen — und ist im Voraus schätzbar.
+2. **Charm-Zerfall.** Wenn sich 0DTE-Optionen dem Verfall nähern, verschiebt sich ihr Delta in Richtung 0 (aus dem Geld) oder ±1 (im Geld - +1 bei Calls, −1 bei Puts), bei konstantem Spot und konstanter Vol. Dealer, die ein delta-neutrales Buch führen, tendieren dazu, diese Drift bis zum Handelsschluss neu abzusichern. Dieser Flow hat ein modelliertes Vorzeichen - und ist im Voraus schätzbar.
 3. **Pin-Physik.** Dieselbe Gamma-Konzentration, die 0DTE-Dealer pro Tick stark bewegt, lässt auch den gewichtigsten 0DTE-Strike in einem Long-Gamma-Regime als Magneten wirken. Pin-Verhalten fällt bei 0DTE tendenziell schärfer aus als bei Mehrtages-Setups.
 
-Keiner dieser Mechanismen ist exklusiv für 0DTE — sie gelten für jede kurzlaufende Option. Sie sind im 0DTE-Bucket nur ungewöhnlich ausgeprägt, weil `T` so stark komprimiert ist.
+Keiner dieser Mechanismen ist exklusiv für 0DTE - sie gelten für jede kurzlaufende Option. Sie sind im 0DTE-Bucket nur ungewöhnlich ausgeprägt, weil `T` so stark komprimiert ist.
 
 ---
 
 ## Negative-Gamma-0DTE-Regime
 
-Wenn Dealer netto short in Gamma sind — typischerweise, wenn der Spot unter dem Gamma Flip liegt — wird der 0DTE-Flow schnell unruhig.
+Wenn Dealer netto short in Gamma sind - typischerweise, wenn der Spot unter dem Gamma Flip liegt - wird der 0DTE-Flow schnell unruhig.
 
 Was der Reflex bewirkt:
 
 - Eine Aufwärtsbewegung führt tendenziell dazu, dass Dealer *kaufen*, was die Bewegung verstärkt.
 - Eine Abwärtsbewegung führt tendenziell dazu, dass Dealer *verkaufen*, was die Bewegung verstärkt.
 - Die realisierte Intraday-Volatilität tendiert zur Ausweitung.
-- Walls werden als Widerstand und Unterstützung unzuverlässiger — sie können sich in Breakout-Ziele umkehren.
+- Walls werden als Widerstand und Unterstützung unzuverlässiger - sie können sich in Breakout-Ziele umkehren.
 - Pin-Verhalten nahe dem gewichtigsten 0DTE-Strike schwächt sich ab oder kehrt sich um.
 
 Wie das Tape typischerweise aussieht:
@@ -65,7 +65,7 @@ Die praktische Tendenz in einem Short-Gamma-0DTE-Regime ist **mit der Bewegung, 
 
 ## Positive-Gamma-0DTE-Regime
 
-Wenn Dealer netto long in Gamma sind — typischerweise, wenn der Spot über dem Gamma Flip liegt — tendiert der 0DTE-Flow zur Kompression.
+Wenn Dealer netto long in Gamma sind - typischerweise, wenn der Spot über dem Gamma Flip liegt - tendiert der 0DTE-Flow zur Kompression.
 
 Was der Reflex bewirkt:
 
@@ -94,14 +94,14 @@ Ein paar Gewohnheiten, die sich zwischen den beiden Regimen ändern:
 
 - Nimm Breakouts der jüngsten Range ernster, besonders wenn Net GEX groß und negativ ist.
 - Behandle 0DTE-Walls als Ziele, nicht als Decken.
-- Sei skeptisch gegenüber "das wird pinnen"-Setups — der Dealer-Reflex zieht nicht.
+- Sei skeptisch gegenüber "das wird pinnen"-Setups - der Dealer-Reflex zieht nicht.
 - Positioniere für weitere Stops; die realisierte Volatilität ist strukturell höher.
 
 **In einem Positive-Gamma-0DTE-Regime:**
 
 - Setze standardmäßig auf das Verkaufen von Bewegungen in 0DTE-konzentrierte Strikes hinein.
 - Behandle den gewichtigsten Gamma-Strike als Magneten, besonders zum Handelsschluss hin.
-- Sei skeptisch gegenüber Breakouts — sie scheitern häufiger.
+- Sei skeptisch gegenüber Breakouts - sie scheitern häufiger.
 - Engere Stops sind eher angemessen; die Ranges sind stärker begrenzt.
 
 **In jedem Regime:**
@@ -124,7 +124,7 @@ Das Dashboard zeigt an mehreren Stellen 0DTE-spezifische Lesarten:
 
 Ein durchgerechnetes Beispiel. Angenommen, SPX steht bei 5.825, Net GEX zeigt −800 Mio. USD, der Gamma Flip liegt bei 5.840, und die Heatmap zeigt einen gewichtigen 0DTE-Put-Strike bei 5.820, der den ganzen Morgen mit dem Preis nach unten gewandert ist. Die strukturelle Lesart: Dealer sind short in Gamma, der Spot liegt unter dem Flip, und der gewichtigste 0DTE-Strike folgt der Bewegung, statt sie zu halten.
 
-Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünstigt, wobei der wandernde Put-Strike die Abwärtsbewegung bestätigt statt ihr zu widerstehen. Ein Trader, der mit einem Mean-Reversion-Bias in die Sitzung gegangen ist, sollte hier deutlich vorsichtiger sein, weil die 0DTE-Struktur aktiv in die andere Richtung zeigt. Nichts davon ist ein Handelssignal — es ist Regime-Kontext, der beeinflussen sollte, welche Einstiege man ernst nimmt.
+Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünstigt, wobei der wandernde Put-Strike die Abwärtsbewegung bestätigt statt ihr zu widerstehen. Ein Trader, der mit einem Mean-Reversion-Bias in die Sitzung gegangen ist, sollte hier deutlich vorsichtiger sein, weil die 0DTE-Struktur aktiv in die andere Richtung zeigt. Nichts davon ist ein Handelssignal - es ist Regime-Kontext, der beeinflussen sollte, welche Einstiege man ernst nimmt.
 
 ![ZeroGEX Net-GEX- und Gamma-Flip-Karten mit einer negativen Intraday-Gamma-Lesart](/blog/zerogex-net-gex-flip-card.png)
 
@@ -146,10 +146,10 @@ Eine kurze Liste, wie 0DTE-Dealer-Positionierung falsch gelesen wird:
 
 > 0DTE hat verändert, welcher Teil des Dealer-Buchs tatsächlich das Tape bewegt. Die Gesamtpositionierung zählt; der *0DTE-Bucket* dominiert die Intraday-Lesart.
 
-Die Disziplin ist dieselbe wie bei jeder Dealer-Positionierungslesart — beginne mit dem Regime, lies dann die Struktur darin — aber der 0DTE-Bucket ist der Ort, an dem mittlerweile der Großteil der Gamma während der Kassasitzung liegt, und ihn zu ignorieren bringt dich eine Sitzung ins Hintertreffen.
+Die Disziplin ist dieselbe wie bei jeder Dealer-Positionierungslesart - beginne mit dem Regime, lies dann die Struktur darin - aber der 0DTE-Bucket ist der Ort, an dem mittlerweile der Großteil der Gamma während der Kassasitzung liegt, und ihn zu ignorieren bringt dich eine Sitzung ins Hintertreffen.
 
-Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung.
+Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die heutige 0DTE-Dealer-Positionierung in Echtzeit sehen willst — das Regime, die gewichtigsten Strikes mit Fälligkeit am selben Tag, die Live-Walls und das Dealer-Gamma-Profil — zeigt das kostenlose ZeroGEX-Dashboard all das an.
+Wenn du die heutige 0DTE-Dealer-Positionierung in Echtzeit sehen willst - das Regime, die gewichtigsten Strikes mit Fälligkeit am selben Tag, die Live-Walls und das Dealer-Gamma-Profil - zeigt das kostenlose ZeroGEX-Dashboard all das an.

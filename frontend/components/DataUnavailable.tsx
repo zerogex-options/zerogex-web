@@ -47,7 +47,7 @@ export default function DataUnavailable({
         </Link>
       </div>
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-sm leading-7 text-[var(--color-text-secondary)]">
-        Couldn&rsquo;t load the {what} just now &mdash; the data service didn&rsquo;t answer. This
+        Couldn&rsquo;t load the {what} just now&nbsp;- the data service didn&rsquo;t answer. This
         is on our side, not a gap in the session. Refresh in a moment, or{' '}
         <Link href={backHref} className="underline hover:text-[var(--color-text-primary)]">
           pick another date

@@ -257,10 +257,10 @@ export default function RealTimeGexLandingClient() {
           </h1>
 
           <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.light, fontSize: 19, lineHeight: 1.65, fontWeight: 500 }}>
-            ZeroGEX is real-time gamma exposure built for the way SPX and 0DTE actually trade today — live gamma flip, call and put walls, dealer positioning, and composite signals you can read.
+            ZeroGEX is real-time gamma exposure built for the way SPX and 0DTE actually trade today&nbsp;- live gamma flip, call and put walls, dealer positioning, and composite signals you can read.
           </p>
           <p style={{ margin: '0 auto 32px', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-            No black-box scores. See the free, 15-minute-delayed gamma levels — or start a trial to read the live dealer book.
+            No black-box scores. See the free, 15-minute-delayed gamma levels&nbsp;- or start a trial to read the live dealer book.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -330,11 +330,11 @@ export default function RealTimeGexLandingClient() {
             />
             <PainPoint
               title="Static screenshots miss the migration"
-              body="Walls, the flip, and the gamma magnet all migrate intraday. A call wall that's chasing price is a very different read than one that's holding — and a screenshot can't show you which one you're looking at."
+              body="Walls, the flip, and the gamma magnet all migrate intraday. A call wall that's chasing price is a very different read than one that's holding&nbsp;- and a screenshot can't show you which one you're looking at."
             />
             <PainPoint
               title="Per-strike GEX misses sign consistency"
-              body="The retail shortcut of summing gamma × OI by strike can produce a positive headline number while the underlying curve says spot is below the flip. The headline and the regime line cannot contradict — but in some tools they do."
+              body="The retail shortcut of summing gamma × OI by strike can produce a positive headline number while the underlying curve says spot is below the flip. The headline and the regime line cannot contradict&nbsp;- but in some tools they do."
             />
             <PainPoint
               title="Aggregate gamma misses the 0DTE bucket"
@@ -364,7 +364,7 @@ export default function RealTimeGexLandingClient() {
               Real-time, methodology-first, 0DTE-aware.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 740, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Built specifically for the structural reads that matter intraday — and structurally honest about what the data can and can&apos;t say.
+              Built specifically for the structural reads that matter intraday&nbsp;- and structurally honest about what the data can and can&apos;t say.
             </p>
           </div>
 
@@ -372,7 +372,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={Activity}
               title="Real-time dealer gamma"
-              body="Live spot-shift dealer gamma profile, recalculated continuously. The headline Net GEX and the gamma flip read off one curve — they cannot contradict each other."
+              body="Live spot-shift dealer gamma profile, recalculated continuously. The headline Net GEX and the gamma flip read off one curve&nbsp;- they cannot contradict each other."
             />
             <FeatureCard
               icon={Target}
@@ -387,7 +387,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={BarChart2}
               title="Composite signal layer"
-              body="Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure — each with published methodology in the Education section, not black-box alerts."
+              body="Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure&nbsp;- each with published methodology in the Education section, not black-box alerts."
             />
             <FeatureCard
               icon={ShieldCheck}
@@ -397,7 +397,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={Sparkles}
               title="Free read on the structural stack"
-              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, QQQ, and NDX — open to anyone, no signup required, refreshed every 15 minutes."
+              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, QQQ, and NDX&nbsp;- open to anyone, no signup required, refreshed every 15 minutes."
             />
           </div>
         </div>
@@ -431,7 +431,7 @@ export default function RealTimeGexLandingClient() {
               See today&apos;s dealer book without paying for it.
             </h2>
             <p style={{ margin: 0, maxWidth: 680, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The free gamma-levels page surfaces the structural reads for SPX, SPY, QQQ, and NDX — Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
+              The free gamma-levels page surfaces the structural reads for SPX, SPY, QQQ, and NDX&nbsp;- Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, width: '100%', marginTop: 8 }}>
@@ -532,12 +532,12 @@ export default function RealTimeGexLandingClient() {
               ]}
               ctaLabel="Get Pro"
               ctaHref="/pricing?plan=pro"
-              note="7-day money-back guarantee — one refund per customer."
+              note="7-day money-back guarantee&nbsp;- one refund per customer."
             />
           </div>
 
           <p style={{ textAlign: 'center', marginTop: 22, color: C.muted, fontSize: 13 }}>
-            Longer billing periods cost less per month — see{' '}
+            Longer billing periods cost less per month&nbsp;- see{' '}
             <Link href="/pricing" style={{ color: C.amber }}>
               the pricing page
             </Link>{' '}
@@ -566,17 +566,17 @@ export default function RealTimeGexLandingClient() {
               Every read has a write-up.
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The structural reads, the signal layer, and the methodology — all documented. Pick a starting point.
+              The structural reads, the signal layer, and the methodology&nbsp;- all documented. Pick a starting point.
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             {[
-              { href: '/education/gamma-exposure-explained', title: 'Gamma Exposure (GEX) Explained', body: 'The complete guide — pillar piece.' },
+              { href: '/education/gamma-exposure-explained', title: 'Gamma Exposure (GEX) Explained', body: 'The complete guide\u00a0- pillar piece.' },
               { href: '/education/how-to-read-a-gamma-flip', title: 'What Is a Gamma Flip?', body: 'The regime line, and the practical intraday workflow.' },
               { href: '/education/gamma-walls-explained', title: 'Gamma Walls Explained', body: 'Call wall, put wall, and how price reacts.' },
               { href: '/education/0dte-dealer-positioning-explained', title: '0DTE Dealer Positioning', body: 'Why same-day expiries dominate the read.' },
-              { href: '/education/max-pain-explained', title: 'Max Pain — Does It Work?', body: 'Evidence-honest read.' },
+              { href: '/education/max-pain-explained', title: 'Max Pain\u00a0- Does It Work?', body: 'Evidence-honest read.' },
               { href: '/education/vanna-and-charm-explained', title: 'Vanna and Charm Explained', body: 'Second-order Greeks and dealer hedging.' },
             ].map((item) => (
               <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -626,7 +626,7 @@ export default function RealTimeGexLandingClient() {
             </span>
           </h2>
           <p style={{ margin: '0 auto 28px', maxWidth: 640, fontSize: 17, color: C.muted, lineHeight: 1.65 }}>
-            The free read is the same calculation paid users get — just 15 minutes behind. Try it on today&apos;s tape before you decide whether to upgrade.
+            The free read is the same calculation paid users get&nbsp;- just 15 minutes behind. Try it on today&apos;s tape before you decide whether to upgrade.
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -655,7 +655,7 @@ export default function RealTimeGexLandingClient() {
           </div>
 
           <p style={{ marginTop: 24, color: C.muted, fontSize: 13, lineHeight: 1.65, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
-            Educational content only — not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.
+            Educational content only&nbsp;- not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.
           </p>
         </div>
       </section>

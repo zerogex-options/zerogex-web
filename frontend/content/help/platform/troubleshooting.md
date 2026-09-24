@@ -1,6 +1,6 @@
 # Troubleshooting
 
-*The short list — sign-in problems, missing data, stale charts, payment issues, browser caches, and when to email support.*
+*The short list - sign-in problems, missing data, stale charts, payment issues, browser caches, and when to email support.*
 
 ---
 
@@ -10,15 +10,15 @@
 
 **You signed up with Google or Apple and don't have a password.** Sign in with the provider you used. From the Account page you can then set a password for future fallback.
 
-**The provider says "no account found".** You may have signed up with a different email. Try the other provider, or email [support@zerogex.io](mailto:support@zerogex.io) — we can look up the account.
+**The provider says "no account found".** You may have signed up with a different email. Try the other provider, or email [support@zerogex.io](mailto:support@zerogex.io) - we can look up the account.
 
 **Two-factor or device prompt won't go away.** Sign in fresh from an incognito window. If it persists, support can clear stale sessions on your account.
 
 ## Missing or stale data
 
-**The session badge says Closed.** That's the answer — markets are closed. The last computed values are shown.
+**The session badge says Closed.** That's the answer - markets are closed. The last computed values are shown.
 
-**A chart says "no data".** Usually a session-window issue (EOD Pressure outside its window, 0DTE on a non-expiration day). Hover the empty-state — the tooltip explains.
+**A chart says "no data".** Usually a session-window issue (EOD Pressure outside its window, 0DTE on a non-expiration day). Hover the empty-state - the tooltip explains.
 
 **Tile values look frozen.** Check the timestamp on the price tile. If it's older than 30 seconds during regular hours, hard reload the page (Cmd+Shift+R / Ctrl+Shift+R).
 
@@ -30,7 +30,7 @@
 
 **Subscription says "past due".** Stripe is retrying the charge. Update the payment method to resolve. Paid features stay live during the retry window.
 
-**Bill is higher than expected.** Open the invoice in the portal — line items are detailed. Common surprises: a plan or cadence change is prorated — you get a credit for the unused part of the current period plus the new-plan charge, applied to your **next invoice** rather than billed on the spot.
+**Bill is higher than expected.** Open the invoice in the portal - line items are detailed. Common surprises: a plan or cadence change is prorated - you get a credit for the unused part of the current period plus the new-plan charge, applied to your **next invoice** rather than billed on the spot.
 
 **Cancellation didn't go through.** Cancellation takes effect at the end of the billing period. Until then, you keep paid access. The portal shows the planned end date.
 
@@ -50,7 +50,7 @@
 
 ## Charts
 
-**Chart is empty when others have data.** The most common cause is a tier gate — the chart belongs to a tier you don't have. Other times: the underlying signal is intentionally idle (its window isn't open). Hover the empty-state for the explanation.
+**Chart is empty when others have data.** The most common cause is a tier gate - the chart belongs to a tier you don't have. Other times: the underlying signal is intentionally idle (its window isn't open). Hover the empty-state for the explanation.
 
 **Hover tooltips don't show.** A touch device. Use long-press, or switch to a desktop.
 
@@ -69,7 +69,7 @@ After you've tried the relevant items above. Include:
 - Browser, OS, and roughly when it happened (with timezone).
 - Your account email.
 
-Email [support@zerogex.io](mailto:support@zerogex.io). We respond fast — usually the same trading day.
+Email [support@zerogex.io](mailto:support@zerogex.io). We respond fast - usually the same trading day.
 
 ## See also
 

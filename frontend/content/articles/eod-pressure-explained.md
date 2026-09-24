@@ -1,6 +1,6 @@
 # EOD Pressure Signal Explained: Reading the Close
 
-*The practical deep-dive on the ZeroGEX EOD Pressure signal — what it asks, why the close has structural drift, how the score combines charm and pin gravity, and how to read it inside the final 90 minutes.*
+*The practical deep-dive on the ZeroGEX EOD Pressure signal - what it asks, why the close has structural drift, how the score combines charm and pin gravity, and how to read it inside the final 90 minutes.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 The final 90 minutes of the cash session is structurally different from the rest of the day. Charm decay on 0DTE positions tends to push dealers to re-hedge more actively. Pin gravity around heavy gamma strikes can intensify. The modeled dealer book is more constrained than at almost any other point in the session.
 
-Those forces are often directional and readable — *if* you know what to look for. The EOD Pressure signal is designed to surface that modeled directional drift in real time, so traders can position with the closing flow rather than fighting it.
+Those forces are often directional and readable - *if* you know what to look for. The EOD Pressure signal is designed to surface that modeled directional drift in real time, so traders can position with the closing flow rather than fighting it.
 
 This piece is the trader-facing read on the EOD Pressure signal. It covers what it measures, why the close is different, how the score is built from charm and pin gravity, and how to read it inside the window. For the deeper combined methodology piece that pairs EOD Pressure with Trap Detection, see [Trading the Close](/education/eod-pressure-and-trap-detection); for the underlying mechanics, [Vanna and Charm Explained](/education/vanna-and-charm-explained) covers how charm drives modeled hedge flows in detail.
 
@@ -20,9 +20,9 @@ The EOD Pressure signal asks one question:
 
 > Given the modeled dealer book and the proximity of a magnet strike, which way does modeled hedging lean into the close?
 
-It is an **Advanced** signal in the ZeroGEX stack — it produces both a continuous score on the [-1, +1] number line and a discrete trigger when the absolute score crosses **0.20**. The threshold is deliberately lower than other Advanced signals because the structural context (the closing window) is itself a filter — when EOD Pressure reads 0.15+ inside the active window, it is already directionally informative.
+It is an **Advanced** signal in the ZeroGEX stack - it produces both a continuous score on the [-1, +1] number line and a discrete trigger when the absolute score crosses **0.20**. The threshold is deliberately lower than other Advanced signals because the structural context (the closing window) is itself a filter - when EOD Pressure reads 0.15+ inside the active window, it is already directionally informative.
 
-Trade bias: **directional read**. The signal points which way pressure is leaning — it does not prescribe ride-versus-fade on its own. That comes from the regime context.
+Trade bias: **directional read**. The signal points which way pressure is leaning - it does not prescribe ride-versus-fade on its own. That comes from the regime context.
 
 ---
 
@@ -40,7 +40,7 @@ EOD Pressure combines the first two into a directional read. The third is implic
 
 ## The four core components
 
-The signal aggregates four components — three contribute to magnitude, one acts as a hard gate.
+The signal aggregates four components - three contribute to magnitude, one acts as a hard gate.
 
 ### Component 1: Charm at spot
 
@@ -67,13 +67,13 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because the current implementation reverses target distance when Net GEX is negative.
+A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 - the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because the current implementation reverses target distance when Net GEX is negative.
 
 **Methodology limitation:** the negative-gamma sign reversal is a ZeroGEX house heuristic, not a direct consequence of negative-gamma mechanics. Negative gamma amplifies the direction already underway; target distance alone cannot determine that direction. It is documented here rather than left implicit, and it is a candidate for revision.
 
 ### Component 3: Time ramp (the gate)
 
-The ramp is multiplicative. Before **14:30 ET**, it is exactly zero — the entire signal short-circuits.
+The ramp is multiplicative. Before **14:30 ET**, it is exactly zero - the entire signal short-circuits.
 
 | Time (ET) | Ramp |
 |---|---|
@@ -82,7 +82,7 @@ The ramp is multiplicative. Before **14:30 ET**, it is exactly zero — the enti
 | 14:45 | 0.20 |
 | 15:00 | 0.40 |
 | 15:30 | 0.80 |
-| 15:45 – 16:00 | 1.00 |
+| 15:45 - 16:00 | 1.00 |
 
 This is why EOD Pressure reads zero through most of the trading day. The signal is structurally inactive outside the window.
 
@@ -96,7 +96,7 @@ The amplifier increases conviction on dates where positioning concentrates:
 | Monthly OPEX (third Friday) | 1.5× |
 | Quad witching (third Friday of Mar/Jun/Sep/Dec) | 2.0× |
 
-This is the only point in the signal where the intermediate score can exceed ±1 — the final clamp brings it back into range.
+This is the only point in the signal where the intermediate score can exceed ±1 - the final clamp brings it back into range.
 
 ---
 
@@ -129,16 +129,16 @@ The **0.20** trigger is a hand-selected model threshold, not a calibrated probab
 
 ## When the signal fires versus stays silent
 
-The dominant state is **silent**. Most of the trading day, EOD Pressure is zero — and that zero is *informational*, not "neutral." It means the active window has not started yet.
+The dominant state is **silent**. Most of the trading day, EOD Pressure is zero - and that zero is *informational*, not "neutral." It means the active window has not started yet.
 
 The signal can also read zero inside the window when:
 
 - No strikes sit inside the vol-scaled ATM band on a sparse or thinly-quoted chain.
 - Both `max_pain` and `max_gamma_strike` are null.
 - Pin target is sitting exactly at spot.
-- Charm and pin scores happen to cancel — rare, requires opposite directions and roughly equal magnitude.
+- Charm and pin scores happen to cancel - rare, requires opposite directions and roughly equal magnitude.
 
-A 0 outside the window is normal. A 0 inside the window is informative — *EOD Pressure has nothing to add today.*
+A 0 outside the window is normal. A 0 inside the window is informative - *EOD Pressure has nothing to add today.*
 
 ---
 
@@ -148,24 +148,24 @@ Three workflow patterns:
 
 ### 1. Pre-window setup
 
-Before 14:30 ET, EOD Pressure is zero by construction. Use the pre-window time to identify what the structural setup *will* be: where is max gamma, where is the gamma flip, what regime are we in, where is spot relative to the pin target? When the window opens, the signal won't surprise you — it will confirm or contradict the read you've already built.
+Before 14:30 ET, EOD Pressure is zero by construction. Use the pre-window time to identify what the structural setup *will* be: where is max gamma, where is the gamma flip, what regime are we in, where is spot relative to the pin target? When the window opens, the signal won't surprise you - it will confirm or contradict the read you've already built.
 
 ### 2. The 15:30 inflection
 
-EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window (14:45–15:30), conviction tends to consolidate around 15:30. Treat that ramp as model timing, not an instruction to pre-position or evidence that dealer orders are scheduled.
+EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window (14:45-15:30), conviction tends to consolidate around 15:30. Treat that ramp as model timing, not an instruction to pre-position or evidence that dealer orders are scheduled.
 
 ### 3. Quad witching is structural context
 
-The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unamplified signal to +0.8 amplified. Treat those days as having structurally higher conviction — and structurally higher whipsaw risk earlier in the day, before the window opens.
+The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unamplified signal to +0.8 amplified. Treat those days as having structurally higher conviction - and structurally higher whipsaw risk earlier in the day, before the window opens.
 
 ---
 
 ## Reading EOD Pressure with other signals
 
-EOD Pressure is a **directional read** — it tells you which way pressure points without prescribing ride-versus-fade on its own. The fade-versus-ride decision comes from the regime:
+EOD Pressure is a **directional read** - it tells you which way pressure points without prescribing ride-versus-fade on its own. The fade-versus-ride decision comes from the regime:
 
-- **Modeled positive-gamma regime + positive EOD Pressure score:** modeled drift is up, dealer hedging is modeled to dampen, the read favors positioning *with* the drift toward the magnet strike — buying weakness rather than fading into it — and fading only overshoots beyond the magnet.
-- **Modeled negative-gamma regime + positive EOD Pressure score:** the signal is reading a charm-driven up-bias, but in a short-gamma regime the dealer reflex is modeled to amplify rather than absorb — momentum continuation is more likely.
+- **Modeled positive-gamma regime + positive EOD Pressure score:** modeled drift is up, dealer hedging is modeled to dampen, the read favors positioning *with* the drift toward the magnet strike - buying weakness rather than fading into it - and fading only overshoots beyond the magnet.
+- **Modeled negative-gamma regime + positive EOD Pressure score:** the signal is reading a charm-driven up-bias, but in a short-gamma regime the dealer reflex is modeled to amplify rather than absorb - momentum continuation is more likely.
 
 Combined with other signals:
 
@@ -193,7 +193,7 @@ The dashboard surfaces it in a few places:
 - **The Composite Signal Score** integrates EOD Pressure as one input.
 - **The Trade Stream** flags `eod_pressure`-gated playbook trades when they fire.
 
-*[Image placeholder: ZeroGEX EOD Pressure card with score, components, and ramp status during the active window — drop file at /public/blog/zerogex-eod-pressure-card.png]*
+*[Image placeholder: ZeroGEX EOD Pressure card with score, components, and ramp status during the active window - drop file at /public/blog/zerogex-eod-pressure-card.png]*
 
 A worked example. SPX is at 5,825 at 15:15 ET on a monthly OPEX Friday and ZeroGEX shows:
 
@@ -204,7 +204,7 @@ A worked example. SPX is at 5,825 at 15:15 ET on a monthly OPEX Friday and ZeroG
 - **Charm-at-spot:** modestly negative (sells loading)
 - **Calendar amp:** 1.5× (monthly OPEX)
 
-The structural read: modeled positive-gamma regime with a heavy magnet 15 points below spot, modeled charm-driven hedging is pointing down, and the OPEX amplifier is boosting the score. Practical lean: under the model's read, drift toward 5,810 is the path favored by the model into the close. The trade isn't EOD Pressure itself — it's positioning consistent with the drift direction, with size calibrated to the modeled OPEX read.
+The structural read: modeled positive-gamma regime with a heavy magnet 15 points below spot, modeled charm-driven hedging is pointing down, and the OPEX amplifier is boosting the score. Practical lean: under the model's read, drift toward 5,810 is the path favored by the model into the close. The trade isn't EOD Pressure itself - it's positioning consistent with the drift direction, with size calibrated to the modeled OPEX read.
 
 ---
 
@@ -214,7 +214,7 @@ The structural read: modeled positive-gamma regime with a heavy magnet 15 points
 
 The discipline is to use it as a directional read for the last 90 minutes, cross-checked against the regime to decide ride-versus-fade, and validated against the other Advanced signals for confluence. Outside the window, look elsewhere.
 
-Educational content only — none of the above is a trade recommendation.
+Educational content only - none of the above is a trade recommendation.
 
 ---
 

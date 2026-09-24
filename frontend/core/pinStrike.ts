@@ -176,6 +176,6 @@ export const PIN_STRIKE_TOOLTIP =
   'of positive dealer-gamma stabilization and the probability of price reaching ' +
   'that area before expiration. It is a modeled pinning level, not a guaranteed ' +
   'price target. Strength measures how far the winning strike DOMINATES the ' +
-  'other viable strikes, not how large its gamma is — so "Weak" means the ' +
+  'other viable strikes, not how large its gamma is\u00a0- so "Weak" means the ' +
   'gamma is spread across a neighborhood rather than concentrated on one ' +
   'strike, not that the level is insignificant.';

@@ -32,7 +32,7 @@ export const STAGE_LABELS: Record<StrategyStage, string> = {
  */
 export const STAGE_TOOLTIPS: Record<StrategyStage, string> = {
   research:
-    'In the catalog and being actively refined. No edge established yet — this is the ' +
+    'In the catalog and being actively refined. No edge established yet\u00a0- this is the ' +
     'normal resting state, not a verdict.',
   candidate:
     'A screen shows promise but has not cleared the promotion gate ' +
@@ -42,7 +42,7 @@ export const STAGE_TOOLTIPS: Record<StrategyStage, string> = {
     'once a bot implements it.',
   superseded:
     'Replaced by a better implementation of the same thesis. Not a verdict on the ' +
-    'idea — the successor carries it forward.',
+    'idea\u00a0- the successor carries it forward.',
   retired:
     'Exhausted: five years of history and repeated retuning found no edge. The only ' +
     'terminal state, and deliberately hard to reach.',
@@ -63,13 +63,13 @@ export const ENGINE_LABELS: Record<StrategyEngine, string> = {
 };
 
 export const ENGINE_TOOLTIPS: Record<StrategyEngine, string> = {
-  bot: 'A TradeWorkz bot implements this strategy — it can trade it live and be replayed over history.',
-  pattern: 'A playbook pattern implements this strategy — it emits Action Cards live.',
+  bot: 'A TradeWorkz bot implements this strategy\u00a0- it can trade it live and be replayed over history.',
+  pattern: 'A playbook pattern implements this strategy\u00a0- it emits Action Cards live.',
 };
 
 export const ROUTE_TOOLTIPS: Record<BacktestRoute, string> = {
   pattern:
-    "Measured by replaying the Action Cards this strategy actually emitted live — the " +
+    "Measured by replaying the Action Cards this strategy actually emitted live\u00a0- the " +
     'strongest claim available.',
   bot_replay:
     "Measured by replaying the bot's own entry rule against the market as it looked at " +

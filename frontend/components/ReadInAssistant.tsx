@@ -92,7 +92,7 @@ export default function ReadInAssistant({ symbol }: { symbol?: string }) {
       >
         Add <span style={code}>{MCP_URL}</span> to your AI assistant once, and you can ask
         &ldquo;where is the SPX gamma flip?&rdquo; in an ordinary conversation. It reads the same
-        delayed levels this page shows — the flip, both walls, max pain and the pin strike — instead
+        delayed levels this page shows&nbsp;- the flip, both walls, max pain and the pin strike&nbsp;- instead
         of guessing at a number. No key, no account, nothing to install.
       </p>
 

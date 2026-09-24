@@ -14,7 +14,7 @@ export const fr: Dictionary = {
   'menu.notSignedIn': 'Non connecté',
 
   'register.title': 'Créez votre compte ZeroGEX',
-  'register.referralBanner': '🎉 Un ami vous a parrainé — votre réduction est appliquée au paiement.',
+  'register.referralBanner': '🎉 Un ami vous a parrainé\u00a0- votre réduction est appliquée au paiement.',
   'register.campaignBanner': '🎯 Votre réduction est appliquée automatiquement au paiement.',
   'register.trialInfo':
     'Choisissez votre offre après la création du compte : essai gratuit de 7 jours sur Basic mensuel · garantie satisfait ou remboursé de 7 jours sur toutes les autres offres.',
@@ -23,7 +23,7 @@ export const fr: Dictionary = {
   'register.languageLabel': 'Langue',
   'register.emailLabel': 'E-mail',
   'register.passwordLabel': 'Mot de passe',
-  'register.passwordHint': 'Utilisez un mot de passe fort — 12 caractères ou plus.',
+  'register.passwordHint': 'Utilisez un mot de passe fort\u00a0- 12 caractères ou plus.',
   'register.submit': 'Créer le compte et choisir une offre',
   'register.submitting': 'Création du compte…',
   'register.nextStep': 'Étape suivante : choisissez votre offre.',

@@ -53,7 +53,7 @@ function PathLine({ path }: { path: BrokerConnectionPath }) {
       <Link href={entry.href} style={{ color: 'var(--color-brand-accent)', fontWeight: 700 }}>
         {entry.platform}
       </Link>
-      {' — '}
+      {'\u00a0- '}
       {path.how}
     </li>
   );
@@ -96,7 +96,7 @@ function BrokerBlock({
       </h2>
 
       <p style={BODY_STYLE}>
-        <strong style={STRONG}>Yes — through {platformNames(paths)}</strong>, and there is nothing extra to
+        <strong style={STRONG}>Yes&nbsp;- through {platformNames(paths)}</strong>, and there is nothing extra to
         buy: {showAllPlatforms ? 'those studies draw' : 'the study on this page draws'} the same levels
         whatever your charts are connected to. What we do <em>not</em> have is an indicator for{' '}
         {broker.short} itself: {broker.whyNoDirect}

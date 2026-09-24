@@ -271,9 +271,9 @@ const COMPONENT_DETAILS: Record<string, { bucket: string; weight: number; what: 
     why: 'Crowded consensus can reverse violently when price fails to confirm expected direction.',
     abstains: 'Generally always emits (available inputs default missing legs to 0).',
     spectrum: {
-      negative: 'Extreme negative: bullishly-crowded positioning (heavy calls / long crowd) vulnerable to a downside flush — the long crowd is the trap, so it resolves bearish.',
+      negative: 'Extreme negative: bullishly-crowded positioning (heavy calls / long crowd) vulnerable to a downside flush\u00a0- the long crowd is the trap, so it resolves bearish.',
       neutral: 'Net 0: limited crowding/trap signal.',
-      positive: 'Extreme positive: bearishly-crowded positioning (heavy puts / short crowd) vulnerable to an upside short-cover squeeze — the short crowd is the trap, so it resolves bullish.',
+      positive: 'Extreme positive: bearishly-crowded positioning (heavy puts / short crowd) vulnerable to an upside short-cover squeeze\u00a0- the short crowd is the trap, so it resolves bullish.',
     },
   },
   'Put/Call Ratio': {
@@ -478,14 +478,14 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       verdictLabel = 'WAIT';
       verdictTone = 'neutral';
       verdictHeuristic = belowScalp
-        ? 'Composite below scalp trigger — no edge worth paying the spread.'
-        : 'Composite is below trigger — stand down until alignment improves.';
+        ? 'Composite below scalp trigger\u00a0- no edge worth paying the spread.'
+        : 'Composite is below trigger\u00a0- stand down until alignment improves.';
       VerdictIcon = Clock;
     } else if (action === 'watch' || isConflicted) {
       verdictLabel = direction === 'long' ? 'WATCH · LEAN LONG' : 'WATCH · LEAN SHORT';
       verdictTone = 'amber';
       verdictHeuristic = isConflicted
-        ? 'Conflicted read — one component screams, the rest disagree. Wait for confirmation or fade the outlier.'
+        ? 'Conflicted read\u00a0- one component screams, the rest disagree. Wait for confirmation or fade the outlier.'
         : 'Modest edge. Size small or wait for a cleaner tape to confirm.';
       VerdictIcon = Eye;
     } else {
@@ -500,8 +500,8 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
         VerdictIcon = TrendingDown;
       }
       verdictHeuristic = caution
-        ? `Edge is real but ${cautionReasons[0]} — consider reduced size and tighter stops.`
-        : 'Strong edge with consensus — aligned setup, size to conviction.';
+        ? `Edge is real but ${cautionReasons[0]}\u00a0- consider reduced size and tighter stops.`
+        : 'Strong edge with consensus\u00a0- aligned setup, size to conviction.';
     }
   }
 
@@ -518,10 +518,10 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
       ? 'Long Gamma'
       : 'Neutral Gamma';
   const regimePlaybook = regime === 'short_gamma'
-    ? 'Dealer hedging amplifies moves — breakouts & momentum favored.'
+    ? 'Dealer hedging amplifies moves\u00a0- breakouts & momentum favored.'
     : regime === 'long_gamma'
-      ? 'Dealer hedging dampens moves — fades & mean-reversion favored.'
-      : 'Mixed dealer posture — no structural tailwind either way.';
+      ? 'Dealer hedging dampens moves\u00a0- fades & mean-reversion favored.'
+      : 'Mixed dealer posture\u00a0- no structural tailwind either way.';
   const regimeColor = regime === 'short_gamma'
     ? 'var(--color-warning)'
     : regime === 'long_gamma'
@@ -716,7 +716,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
                 <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-[var(--color-text-secondary)]">
                   <Target size={12} /> Calibrated Edge · History
                 </div>
-                <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest — only same direction, any regime/strength.`}>
+                <TooltipWrapper text={`Scope shows how tightly history was filtered. Regime+Strength is strictest (best match). Regime Only is medium. Direction Only is loosest\u00a0- only same direction, any regime/strength.`}>
                   <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
                 </TooltipWrapper>
               </div>
@@ -801,7 +801,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             </div>
             {isThin && (
               <div className="mt-2 flex items-center gap-1 text-[11px] text-[var(--color-warning)]">
-                <AlertTriangle size={11} /> Thin participation — composite may be unstable.
+                <AlertTriangle size={11} /> Thin participation&nbsp;- composite may be unstable.
               </div>
             )}
           </div>

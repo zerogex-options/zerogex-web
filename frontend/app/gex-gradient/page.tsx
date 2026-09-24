@@ -26,8 +26,8 @@ import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 function interpretation(score: number | null, netGex: number | null): string {
   if (score == null) return 'No reading';
   const shortGamma = netGex != null && netGex < 0;
-  if (score >= 50) return shortGamma ? 'Short-gamma upside setup — dealers chase' : 'Structural resistance above — fade rips';
-  if (score <= -50) return shortGamma ? 'Short-gamma downside setup — dealers flush' : 'Structural support below — buy dips';
+  if (score >= 50) return shortGamma ? 'Short-gamma upside setup\u00a0- dealers chase' : 'Structural resistance above\u00a0- fade rips';
+  if (score <= -50) return shortGamma ? 'Short-gamma downside setup\u00a0- dealers flush' : 'Structural support below\u00a0- buy dips';
   if (Math.abs(score) >= 25) return 'Moderate gamma gradient';
   return 'Balanced strike gamma';
 }

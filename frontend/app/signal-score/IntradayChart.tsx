@@ -223,7 +223,7 @@ function IntradayChartImpl({ history, currentScore }: Props) {
           }}
         >
           <div className="flex h-full items-center justify-center">
-            No data for today yet — markets open at 09:30 ET.
+            No data for today yet&nbsp;- markets open at 09:30 ET.
           </div>
         </div>
       </div>

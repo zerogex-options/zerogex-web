@@ -99,7 +99,7 @@ function shell(heading: string, bodyHtml: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ZeroGEX — Your subscription</title></head>
+<title>ZeroGEX\u00a0- Your subscription</title></head>
 <body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
     <div style="font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#12283c;">zerogex<span style="color:#f45854;">.io</span></div>
@@ -122,15 +122,15 @@ const INVALID_PAGE = shell(
 );
 const CLAIMED_PAGE = shell(
   'You&rsquo;re all set',
-  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You&rsquo;ve already claimed this offer — the discount is on your account, so there&rsquo;s nothing more to do.</p>`,
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You&rsquo;ve already claimed this offer\u00a0- the discount is on your account, so there&rsquo;s nothing more to do.</p>`,
 );
 const NOT_TRIALING_PAGE = shell(
   'Nothing to claim here',
-  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">This offer is for members still in their free trial. If your trial has already converted, you&rsquo;re all set — manage your plan anytime from your account page.</p>`,
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">This offer is for members still in their free trial. If your trial has already converted, you&rsquo;re all set\u00a0- manage your plan anytime from your account page.</p>`,
 );
 const ALREADY_DISCOUNTED_PAGE = shell(
   'Your rate is already locked in',
-  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You already have an introductory rate on your account, so you&rsquo;re getting the deal — no need to stack another. Your trial converts automatically at that rate, so there&rsquo;s nothing for you to do.</p>`,
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You already have an introductory rate on your account, so you&rsquo;re getting the deal\u00a0- no need to stack another. Your trial converts automatically at that rate, so there&rsquo;s nothing for you to do.</p>`,
 );
 
 export async function GET(request: NextRequest) {
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
       </button>
     </form>
     <p style="font-size:13px; line-height:1.5; color:#8a97a3; margin:16px 0 0;">
-      Not interested? Just ignore this — your subscription starts as normal at the standard rate, and you
+      Not interested? Just ignore this\u00a0- your subscription starts as normal at the standard rate, and you
       can still cancel anytime before your trial ends.
     </p>`;
   return htmlResponse(shell(`Take ${SAVE_PERCENT}% off your subscription`, body), 200);
@@ -297,8 +297,8 @@ export async function POST(request: NextRequest) {
 
   return htmlResponse(
     shell(
-      'Locked in — welcome aboard',
-      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. <strong>${SAVE_PERCENT}% off for a year</strong> is on your account, so when your trial converts you&rsquo;ll be charged the discounted rate — nothing else to do. Glad to have you staying with ZeroGEX.</p>`,
+      'Locked in\u00a0- welcome aboard',
+      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. <strong>${SAVE_PERCENT}% off for a year</strong> is on your account, so when your trial converts you&rsquo;ll be charged the discounted rate\u00a0- nothing else to do. Glad to have you staying with ZeroGEX.</p>`,
     ),
     200,
   );

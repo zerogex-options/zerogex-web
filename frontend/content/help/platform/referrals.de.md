@@ -1,6 +1,6 @@
 # Empfehlungen
 
-*So funktioniert das Empfehlungsprogramm — dein Code, dein Link, was als Empfehlung zählt und wie verdiente Monate auf deiner Rechnung gutgeschrieben werden.*
+*So funktioniert das Empfehlungsprogramm - dein Code, dein Link, was als Empfehlung zählt und wie verdiente Monate auf deiner Rechnung gutgeschrieben werden.*
 
 ---
 
@@ -8,8 +8,8 @@
 
 Wenn das Empfehlungsprogramm für dein Konto aktiviert ist, erhältst du:
 
-- Einen **Empfehlungscode** — eine kurze alphanumerische Zeichenfolge, die nur dir gehört.
-- Einen **Empfehlungslink** — die einfach zu teilende Version deines Codes.
+- Einen **Empfehlungscode** - eine kurze alphanumerische Zeichenfolge, die nur dir gehört.
+- Einen **Empfehlungslink** - die einfach zu teilende Version deines Codes.
 
 Jeder, der sich mit deinem Code (oder Link) anmeldet und zu einem kostenpflichtigen Plan wechselt, zählt als erfolgreiche Empfehlung. Jede erfolgreiche Empfehlung bringt dir eine Gutschrift für deine nächste Rechnung.
 
@@ -17,11 +17,11 @@ Jeder, der sich mit deinem Code (oder Link) anmeldet und zu einem kostenpflichti
 
 Öffne [Account](/account). Das Empfehlungs-Panel zeigt deinen Code, deinen Link und deinen aktuellen Stand:
 
-- **Anmeldungen insgesamt** — wie viele Konten deinen Code verwendet haben.
-- **Conversions insgesamt** — wie viele davon sich für Basic oder Pro angemeldet haben.
-- **Verdiente Monate** — dein gesamtes angespartes Gutschriftguthaben aus Empfehlungen.
-- **Gutgeschriebene Monate** — aktuell auf deine nächste Rechnung angewendete Gutschrift.
-- **Guthaben auf nächster Rechnung** — Dollarwert der Gutschrift zu deinem aktuellen Tarif.
+- **Anmeldungen insgesamt** - wie viele Konten deinen Code verwendet haben.
+- **Conversions insgesamt** - wie viele davon sich für Basic oder Pro angemeldet haben.
+- **Verdiente Monate** - dein gesamtes angespartes Gutschriftguthaben aus Empfehlungen.
+- **Gutgeschriebene Monate** - aktuell auf deine nächste Rechnung angewendete Gutschrift.
+- **Guthaben auf nächster Rechnung** - Dollarwert der Gutschrift zu deinem aktuellen Tarif.
 
 ## Was als erfolgreiche Empfehlung zählt
 
@@ -32,7 +32,7 @@ Jeder, der sich mit deinem Code (oder Link) anmeldet und zu einem kostenpflichti
 
 ## Wie die Gutschrift angewendet wird
 
-Gutschriften werden auf deiner **nächsten Stripe-Rechnung** als Rabatt gutgeschrieben. Sie summieren sich — mehrere Empfehlungen im selben Zyklus addieren sich.
+Gutschriften werden auf deiner **nächsten Stripe-Rechnung** als Rabatt gutgeschrieben. Sie summieren sich - mehrere Empfehlungen im selben Zyklus addieren sich.
 
 Gutschriften sind nicht übertragbar und nicht in bar erstattungsfähig. Sie verfallen, wenn dein Konto geschlossen wird.
 
@@ -40,17 +40,17 @@ Gutschriften sind nicht übertragbar und nicht in bar erstattungsfähig. Sie ver
 
 Drei Muster, die wir häufig sehen:
 
-- **Direktlink** — am einfachsten. Von der Account-Seite kopieren und einfügen.
-- **Code in einem Beitrag** — den Code selbst teilen; neue Nutzer geben ihn bei der Anmeldung ein.
-- **DM im passenden Moment** — wenn jemand in einer Trading-Community nach Gamma Exposure fragt, ist der Empfehlungslink zugleich eine Antwort.
+- **Direktlink** - am einfachsten. Von der Account-Seite kopieren und einfügen.
+- **Code in einem Beitrag** - den Code selbst teilen; neue Nutzer geben ihn bei der Anmeldung ein.
+- **DM im passenden Moment** - wenn jemand in einer Trading-Community nach Gamma Exposure fragt, ist der Empfehlungslink zugleich eine Antwort.
 
 ## Was der neue Nutzer davon hat
 
-Der neue Nutzer erhält dieselben regulären Konditionen wie alle anderen — die 7-tägige kostenlose Testphase bei Basic monatlich oder die 7-tägige Geld-zurück-Garantie bei allen anderen Plänen (keine Verlängerung durch deinen Code), und jede aktive websiteweite Promo gilt zusätzlich. Zusätzlich enthält seine erste Rechnung einen Empfehlungsbonus: **einen Monat kostenlos** bei monatlicher oder vierteljährlicher Zahlung oder **10% Rabatt auf das erste Jahr** bei jährlicher Zahlung. Er gilt nur für das erste Abonnement. Deine Gutschrift erhältst du separat, wie oben beschrieben.
+Der neue Nutzer erhält dieselben regulären Konditionen wie alle anderen - die 7-tägige kostenlose Testphase bei Basic monatlich oder die 7-tägige Geld-zurück-Garantie bei allen anderen Plänen (keine Verlängerung durch deinen Code), und jede aktive websiteweite Promo gilt zusätzlich. Zusätzlich enthält seine erste Rechnung einen Empfehlungsbonus: **einen Monat kostenlos** bei monatlicher oder vierteljährlicher Zahlung oder **10% Rabatt auf das erste Jahr** bei jährlicher Zahlung. Er gilt nur für das erste Abonnement. Deine Gutschrift erhältst du separat, wie oben beschrieben.
 
 ## Datenschutz
 
-Dein Code gehört dir. Die Account-Seite zeigt **nicht**, wer ihn verwendet hat — nur die Zahlen. Die Identität neuer Nutzer wird Werbenden gegenüber niemals offengelegt.
+Dein Code gehört dir. Die Account-Seite zeigt **nicht**, wer ihn verwendet hat - nur die Zahlen. Die Identität neuer Nutzer wird Werbenden gegenüber niemals offengelegt.
 
 ## Teilnahmeberechtigung und Programmstatus
 

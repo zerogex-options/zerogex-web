@@ -20,7 +20,7 @@ import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integra
 // page cannot fall out of date with them.
 
 const PATH = INTEGRATIONS_HUB.href;
-const TITLE = 'ZeroGEX Chart Integrations — TradingView, thinkorswim, NinjaTrader & Sierra Chart';
+const TITLE = 'ZeroGEX Chart Integrations\u00a0- TradingView, thinkorswim, NinjaTrader & Sierra Chart';
 const DESCRIPTION =
   'Plot ZeroGEX gamma levels on the platform you already trade from. Free manual-entry scripts for TradingView and thinkorswim, and auto-updating Pro studies for NinjaTrader 8 and Sierra Chart that poll the ZeroGEX API.';
 
@@ -58,7 +58,7 @@ const JSON_LD = {
   itemListElement: INTEGRATIONS.map((entry, index) => ({
     '@type': 'ListItem',
     position: index + 1,
-    name: `${entry.platform} — ${entry.cardTitle}`,
+    name: `${entry.platform}\u00a0- ${entry.cardTitle}`,
     url: `${SITE_URL}${entry.href}`,
   })),
 };
@@ -236,7 +236,7 @@ export default function IntegrationsPage() {
           }}
         >
           The Gamma Flip, Call Wall, Put Wall and Max Pain are only useful next to price. These are the
-          {' '}{INTEGRATIONS.length} ways to get them onto the platform you already trade from — the same
+          {' '}{INTEGRATIONS.length} ways to get them onto the platform you already trade from&nbsp;- the same
           levels, drawn where you are looking.
         </p>
         <p
@@ -249,7 +249,7 @@ export default function IntegrationsPage() {
             maxWidth: 760,
           }}
         >
-          The split below is not a pricing decision — it is a platform one. TradingView&apos;s Pine Script and
+          The split below is not a pricing decision&nbsp;- it is a platform one. TradingView&apos;s Pine Script and
           thinkorswim&apos;s thinkScript are sandboxed and cannot make network calls, so nothing on those
           platforms can fetch live levels. NinjaScript and ACSIL are C# and C++, so those two can, and do.
         </p>
@@ -258,7 +258,7 @@ export default function IntegrationsPage() {
       <Group
         title="Auto-updating"
         icon={<RefreshCw size={19} style={{ color: 'var(--color-brand-accent)' }} />}
-        intro="These poll the ZeroGEX API on a timer and redraw themselves — set the symbol once and the levels stay current all session, including across a futures roll. Both need a ZeroGEX API key, which comes with Pro."
+        intro="These poll the ZeroGEX API on a timer and redraw themselves&nbsp;- set the symbol once and the levels stay current all session, including across a futures roll. Both need a ZeroGEX API key, which comes with Pro."
         entries={AUTO_UPDATING}
       />
 
@@ -272,7 +272,7 @@ export default function IntegrationsPage() {
       <Group
         title="Free · manual entry"
         icon={<PencilLine size={19} style={{ color: 'var(--color-brand-primary)' }} />}
-        intro="You type today's four numbers in once, from the free gamma-levels pages below, and the script draws them. No account, no API key, nothing withheld — the levels themselves are public and delayed roughly 15 minutes."
+        intro="You type today's four numbers in once, from the free gamma-levels pages below, and the script draws them. No account, no API key, nothing withheld&nbsp;- the levels themselves are public and delayed roughly 15 minutes."
         entries={MANUAL_ENTRY}
       />
 
@@ -303,7 +303,7 @@ export default function IntegrationsPage() {
           }}
         >
           The same levels these studies draw are one REST call away, which is the form they take if your
-          rules consume them instead of your eyes — including in a strategy you publish on Collective2.
+          rules consume them instead of your eyes&nbsp;- including in a strategy you publish on Collective2.
         </p>
         <Link
           href="/collective2-strategy-data"

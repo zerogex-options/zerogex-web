@@ -65,7 +65,7 @@ import {
 import { Note, PanelHeader, PanelMessage, Zone, toneColor } from './RegimeShiftUI';
 
 const HEADER_TOOLTIP =
-  'Dealer gamma and the gap between spot and the gamma flip, plotted across the session. The top plot answers whether the book is building or decaying; the bottom answers whether the flip is closing on spot (cushion thinning) or pulling away. The two are on separate plots because they are measured in different units — putting them on one pair of axes would invent a crossing point that is not in the data.';
+  'Dealer gamma and the gap between spot and the gamma flip, plotted across the session. The top plot answers whether the book is building or decaying; the bottom answers whether the flip is closing on spot (cushion thinning) or pulling away. The two are on separate plots because they are measured in different units\u00a0- putting them on one pair of axes would invent a crossing point that is not in the data.';
 
 interface ChartRow {
   /** Position in the stored series — the x value both plots use.
@@ -302,7 +302,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
           </Zone>
 
           {/* ── Plot 2: is the flip closing on spot? ───────────────────── */}
-          <Zone label="Spot vs gamma flip — the shaded gap is the cushion">
+          <Zone label="Spot vs gamma flip&nbsp;- the shaded gap is the cushion">
             <ResponsiveContainer width="100%" height={216}>
               <ComposedChart data={rows} margin={plotMargin}>
                 <CartesianGrid stroke={chart.gridLine} opacity={0.5} vertical={false} />
@@ -387,7 +387,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
           dealer inventory is not directly observable from public option-chain data. Values shown{' '}
           {GEX_UNIT_LABEL[gexUnit]}, summed across the expirations selected above, over the{' '}
           {summary.count} five-minute buckets stored for this session. Gamma and price are plotted
-          separately because they are different units — a shared pair of axes would imply a
+          separately because they are different units&nbsp;- a shared pair of axes would imply a
           crossing point that the data does not contain. The x-axis is one slot per stored
           reading, so hours the market was shut take no width;{' '}
           {axis.breaks.length > 0

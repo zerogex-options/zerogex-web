@@ -6,7 +6,7 @@
 
 ## Qué muestra esta página
 
-La página de Flow Analysis es la **vista del tape** del mercado de opciones. Mientras que Dealer Positioning muestra el libro estático, esta página muestra el **flujo** — lo que están haciendo los agresores en tiempo real.
+La página de Flow Analysis es la **vista del tape** del mercado de opciones. Mientras que Dealer Positioning muestra el libro estático, esta página muestra el **flujo** - lo que están haciendo los agresores en tiempo real.
 
 ## Los tres enfoques del flujo
 
@@ -14,7 +14,7 @@ ZeroGEX muestra el flujo a través de tres enfoques, porque cada uno importa de 
 
 ### Volumen neto de contratos
 
-Simplemente cuenta contratos. Útil como referencia de ruido de fondo. Poco útil por sí solo como lectura de convicción — mil contratos de $0,05 y un contrato de $500 cuentan igual.
+Simplemente cuenta contratos. Útil como referencia de ruido de fondo. Poco útil por sí solo como lectura de convicción - mil contratos de $0,05 y un contrato de $500 cuentan igual.
 
 ### Flujo ponderado por prima
 
@@ -34,13 +34,13 @@ Debajo del panel principal:
 
 - Prima de **compra de calls / venta de calls**
 - Prima de **compra de puts / venta de puts**
-- **Delta neto del agresor** — la salida de Lee-Ready escalada por el delta del contrato
+- **Delta neto del agresor** - la salida de Lee-Ready escalada por el delta del contrato
 
 Cada una se representa como una serie para que puedas ver la pendiente, no solo el nivel.
 
 ## El chip de smart money
 
-Las etiquetas en operaciones individuales las marcan como smart money — típicamente bloques grandes, sweeps, prints agresivos repetidos en la misma dirección. El flujo de smart money se muestra como una subserie separada. Úsalo como verificación cruzada del panel principal.
+Las etiquetas en operaciones individuales las marcan como smart money - típicamente bloques grandes, sweeps, prints agresivos repetidos en la misma dirección. El flujo de smart money se muestra como una subserie separada. Úsalo como verificación cruzada del panel principal.
 
 ## Cómo interpretarla
 
@@ -56,9 +56,9 @@ Para una explicación más profunda de por qué el volumen bruto puede engañar,
 
 ## Cuándo esta página es más útil
 
-- **Justo después de la apertura** — los primeros 30 minutos dicen mucho sobre el sesgo del día.
-- **En cualquier nivel clave** — el flujo hacia un wall o el VWAP indica si el nivel se está defendiendo o rompiendo.
-- **Hacia el cierre** — combinado con EOD Pressure, la lectura del flujo afina la señal direccional.
+- **Justo después de la apertura** - los primeros 30 minutos dicen mucho sobre el sesgo del día.
+- **En cualquier nivel clave** - el flujo hacia un wall o el VWAP indica si el nivel se está defendiendo o rompiendo.
+- **Hacia el cierre** - combinado con EOD Pressure, la lectura del flujo afina la señal direccional.
 
 ## Ver también
 

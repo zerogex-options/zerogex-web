@@ -268,7 +268,7 @@ function matchesDelta(delta: number | null | undefined, minDelta: DeltaFilter): 
 const dteOptions: Array<{ value: DteFilter; label: string }> = [
   { value: 'all', label: 'All expiries' },
   { value: '0dte', label: '0DTE' },
-  { value: 'weekly', label: '1–7 DTE' },
+  { value: 'weekly', label: '1-7 DTE' },
   { value: 'longer', label: '8+ DTE' },
 ];
 
@@ -338,10 +338,10 @@ const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
 });
 
 const HEADER_SUB =
-  "Block-sized option trades as they print, against price — who is paying up, and where.";
+  "Block-sized option trades as they print, against price\u00a0- who is paying up, and where.";
 
 const HEADER_TOOLTIP =
-  "A screen for the trades big enough to be somebody's position rather than somebody's hedge scrap: block prints above a notional threshold, classified by which side crossed the spread and how far from the money they sit. Size is evidence, not intent — a large print can be an opening bet, a closing exit or one leg of a spread whose other leg is elsewhere in the chain, and the tape cannot tell you which. Read it for where the money is concentrating, and check the aggressor and delta columns before reading direction into it.";
+  "A screen for the trades big enough to be somebody's position rather than somebody's hedge scrap: block prints above a notional threshold, classified by which side crossed the spread and how far from the money they sit. Size is evidence, not intent\u00a0- a large print can be an opening bet, a closing exit or one leg of a spread whose other leg is elsewhere in the chain, and the tape cannot tell you which. Read it for where the money is concentrating, and check the aggressor and delta columns before reading direction into it.";
 
 export default function SmartMoneyPage() {
   const { symbol } = useTimeframe();
@@ -836,7 +836,7 @@ export default function SmartMoneyPage() {
                 <SectionHead
                   title="Blocks vs. underlying price"
                   titleClassName="zg-h3"
-                  tooltip="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."
+                  tooltip="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30-16:15 ET session timeline."
                 />
                 <ResponsiveContainer width="100%" height={isMobile ? 260 : 300}>
                   <ComposedChart data={smartMoneySessionChart} margin={isMobile ? { top: 8, right: 0, left: 0, bottom: 8 } : { top: 8, right: 12, left: 0, bottom: 8 }}>

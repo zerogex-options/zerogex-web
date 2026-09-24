@@ -36,4 +36,4 @@ Il modello Forced Flow di ZeroGEX confronta il delta modellato di portafoglio ad
 
 Per i concetti di fondo, vedi [Perché i market maker sono costretti a fare trading sull'azione](/education/why-market-makers-trade-stock) e [Delta e i suoi tre figli](/education/delta-and-its-three-children).
 
-Solo contenuto educativo — nulla di quanto sopra è una raccomandazione di trading.
+Solo contenuto educativo - nulla di quanto sopra è una raccomandazione di trading.

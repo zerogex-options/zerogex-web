@@ -85,11 +85,11 @@ export function coverageVerdict(
 export function coverageVerdictText(verdict: CoverageVerdict): string {
   switch (verdict) {
     case 'on-target':
-      return 'on target — the band is containing the day about as often as it claims to';
+      return 'on target\u00a0- the band is containing the day about as often as it claims to';
     case 'over':
-      return 'above target — the band is holding more often than advertised, which means it is currently wider than it needs to be';
+      return 'above target\u00a0- the band is holding more often than advertised, which means it is currently wider than it needs to be';
     case 'under':
-      return 'below target — the band is too narrow on this sample and is missing more days than it should';
+      return 'below target\u00a0- the band is too narrow on this sample and is missing more days than it should';
     default:
       return 'no target published for this symbol yet';
   }
@@ -148,7 +148,7 @@ export function brierVerdictText(verdict: BrierVerdict): string {
     case 'coin-flip':
       return 'no better than guessing';
     case 'worse-than-coin-flip':
-      return 'worse than guessing — the odds are miscalibrated on this sample';
+      return 'worse than guessing\u00a0- the odds are miscalibrated on this sample';
     default:
       return 'not enough graded levels yet';
   }
@@ -192,7 +192,7 @@ export function trackRecordOneLiner(
     && brierVerdict(stats.levels_brier_avg) === 'better-than-coin-flip'
     && stats.levels_n_scored >= MIN_SCORED_FOR_RATES
   ) {
-    return `${lead} Touch odds score ${stats.levels_brier_avg!.toFixed(2)} on Brier across ${stats.levels_n_scored} graded sessions — 0.25 is a coin flip.`;
+    return `${lead} Touch odds score ${stats.levels_brier_avg!.toFixed(2)} on Brier across ${stats.levels_n_scored} graded sessions\u00a0- 0.25 is a coin flip.`;
   }
 
   const range = history?.range;
@@ -238,7 +238,7 @@ export function volVerdictText(verdict: VolVerdict, baselineLabel?: string | nul
     case 'beats-baseline':
       return `better than ${naive}`;
     case 'matches-baseline':
-      return `no better than ${naive} — on this sample the call is not adding anything`;
+      return `no better than ${naive}\u00a0- on this sample the call is not adding anything`;
     case 'below-baseline':
       return `WORSE than ${naive}. On this sample the volatility call is subtracting value, and we would rather say that than leave you to notice it`;
     default:
@@ -418,10 +418,10 @@ export function historyHeadline(
   const verdict = coverageVerdict(rate, target);
   const against = ` against ${articleForPercent(target)} ${fmtRate(target)} target`;
   if (verdict === 'over') {
-    return `${base}${against} — which means the band is currently wider than it needs to be, not that the forecast is better than advertised.`;
+    return `${base}${against}\u00a0- which means the band is currently wider than it needs to be, not that the forecast is better than advertised.`;
   }
   if (verdict === 'under') {
-    return `${base}${against} — below where it should be, so the band is running too narrow on this record.`;
+    return `${base}${against}\u00a0- below where it should be, so the band is running too narrow on this record.`;
   }
   return `${base}${against}.`;
 }

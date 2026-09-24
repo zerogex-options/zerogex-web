@@ -119,10 +119,10 @@ export function componentRegime(c: MarketTideComponent): TideRegime {
 }
 
 const REGIME_PHRASE: Record<TideRegime, string> = {
-  squeeze: "Call flow into short gamma — primed to be pushed higher",
-  airpocket: "Put flow into short gamma — vulnerable to a flush",
-  capped: "Call flow, but dealers are long gamma — grind, capped",
-  supported: "Put flow, but dealers are long gamma — dips absorbed",
+  squeeze: "Call flow into short gamma\u00a0- primed to be pushed higher",
+  airpocket: "Put flow into short gamma\u00a0- vulnerable to a flush",
+  capped: "Call flow, but dealers are long gamma\u00a0- grind, capped",
+  supported: "Put flow, but dealers are long gamma\u00a0- dips absorbed",
 };
 export const regimePhrase = (c: MarketTideComponent): string => REGIME_PHRASE[componentRegime(c)];
 
@@ -166,7 +166,7 @@ export function buildRead(data: MarketTideResponse | null | undefined): MarketTi
   const emphasis = `${strength}${dir}`.trim();
   const shortGamma = comps.every((c) => (finite(c.gamma_score) ?? 0) < 0);
   const headline = shortGamma
-    ? `Options flow is ${emphasis} — and every index is short gamma, so dealer hedging will amplify the move.`
+    ? `Options flow is ${emphasis}\u00a0- and every index is short gamma, so dealer hedging will amplify the move.`
     : `Options flow is ${emphasis} across the market.`;
 
   const ranked = [...comps].sort(
@@ -180,7 +180,7 @@ export function buildRead(data: MarketTideResponse | null | undefined): MarketTi
       icon: "Γ",
       accent: "bear",
       label: `${lead.symbol} is the strongest lift`,
-      body: `biggest positive contribution (${formatSigned(lead.contribution, 2)}) — ${
+      body: `biggest positive contribution (${formatSigned(lead.contribution, 2)})\u00a0- ${
         (finite(lead.flow_score) ?? 0) > 0 ? "call" : "put"
       }-side flow ${leadShort ? "into short gamma, the setup most likely to run" : "with dealers long"}.`,
     },
@@ -197,14 +197,14 @@ export function buildRead(data: MarketTideResponse | null | undefined): MarketTi
       icon: "⇄",
       accent: "gold",
       label: "Index-vs-ETF split",
-      body: "the index options (SPX, NDX) are catching call flow while the ETFs (SPY, QQQ) show put-side hedging — institutions leaning up, hedgers leaning down.",
+      body: "the index options (SPX, NDX) are catching call flow while the ETFs (SPY, QQQ) show put-side hedging\u00a0- institutions leaning up, hedgers leaning down.",
     });
   } else if (idxBear && etfBull) {
     items.push({
       icon: "⇄",
       accent: "gold",
       label: "Index-vs-ETF split",
-      body: "index options (SPX, NDX) show put flow while the ETFs (SPY, QQQ) catch call flow — defensive institutions against dip-buying flow.",
+      body: "index options (SPX, NDX) show put flow while the ETFs (SPY, QQQ) catch call flow\u00a0- defensive institutions against dip-buying flow.",
     });
   } else {
     items.push({

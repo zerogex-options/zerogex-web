@@ -171,7 +171,7 @@ export default function FoundingLockinModal({
         >
           <p style={{ margin: '0 0 10px 0' }}>
             You&apos;re on the Founding Member list, which means you can subscribe at the
-            founding rate &mdash; locked in for life as long as your subscription stays active.
+            founding rate&nbsp;- locked in for life as long as your subscription stays active.
           </p>
           <p style={{ margin: 0 }}>
             Offer ends <strong>{FOUNDING_LOCKIN_DEADLINE_LABEL}</strong>:

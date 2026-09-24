@@ -25,9 +25,9 @@ import AutoFitValue from '@/components/AutoFitValue';
 
 function interpretation(score: number | null): string {
   if (score == null) return 'No reading';
-  if (score <= -60) return 'Fear bid — hedge / tighten longs';
+  if (score <= -60) return 'Fear bid\u00a0- hedge / tighten longs';
   if (score <= -25) return 'Elevated put skew';
-  if (score >= 50) return 'Call-skew bid — upside squeeze watch';
+  if (score >= 50) return 'Call-skew bid\u00a0- upside squeeze watch';
   if (score >= 25) return 'Calls richer than usual';
   return 'Normal skew';
 }
@@ -57,7 +57,7 @@ export default function SkewDeltaPage() {
         title="Skew Delta"
         subtitle={'"How much is fear bid into puts?"'}
         icon={Scale}
-        tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive — this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
+        tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive&nbsp;- this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}

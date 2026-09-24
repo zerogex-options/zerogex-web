@@ -513,16 +513,16 @@ export function summarizeTrend(points: readonly GammaTrendPoint[]): TrendSummary
 /** "Dealer gamma is building — +$4.1B since the start of the window." */
 export function describeGammaTrend(summary: TrendSummary): string {
   if (summary.count === 0) return 'No gamma history in this window yet.';
-  if (summary.count === 1) return 'Only one reading so far — nothing to trend against yet.';
+  if (summary.count === 1) return 'Only one reading so far\u00a0- nothing to trend against yet.';
 
   const delta = formatSignedGex(summary.gammaChange);
   switch (summary.direction) {
     case 'building':
-      return `Dealer gamma is building — ${delta} across the window.`;
+      return `Dealer gamma is building\u00a0- ${delta} across the window.`;
     case 'decaying':
-      return `Dealer gamma is decaying — ${delta} across the window.`;
+      return `Dealer gamma is decaying\u00a0- ${delta} across the window.`;
     default:
-      return 'Dealer gamma is holding flat — the book has not meaningfully changed size.';
+      return 'Dealer gamma is holding flat\u00a0- the book has not meaningfully changed size.';
   }
 }
 
@@ -538,21 +538,21 @@ export function describeCushionTrend(summary: TrendSummary): string {
 
   if (summary.crossedFlip) {
     return summary.cushionNow >= 0
-      ? 'Spot crossed above the flip — dealers are long gamma here now.'
-      : 'Spot crossed below the flip — dealers are short gamma here now.';
+      ? 'Spot crossed above the flip\u00a0- dealers are long gamma here now.'
+      : 'Spot crossed below the flip\u00a0- dealers are short gamma here now.';
   }
 
   const side = summary.cushionNow >= 0 ? 'above' : 'below';
   const gap = formatStrike(Math.abs(summary.cushionNow));
 
   if (summary.drift === 'steady') {
-    return `Spot is holding ${gap} pts ${side} the flip — the cushion is steady.`;
+    return `Spot is holding ${gap} pts ${side} the flip\u00a0- the cushion is steady.`;
   }
 
   const lead =
     summary.drift === 'converging'
-      ? `The cushion is thinning — ${gap} pts ${side} the flip and closing`
-      : `The cushion is widening — ${gap} pts ${side} the flip and opening up`;
+      ? `The cushion is thinning\u00a0- ${gap} pts ${side} the flip and closing`
+      : `The cushion is widening\u00a0- ${gap} pts ${side} the flip and opening up`;
 
   return `${lead}${attributeMove(summary)}.`;
 }

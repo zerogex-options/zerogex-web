@@ -74,7 +74,7 @@ export default async function Image() {
             display: 'flex',
           }}
         >
-          The strike where call gamma concentrates — and how dealers defend the upside.
+          The strike where call gamma concentrates - and how dealers defend the upside.
         </div>
         <div
           style={{

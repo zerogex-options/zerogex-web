@@ -6,7 +6,7 @@
 
 ## Cosa mostra questa pagina
 
-La pagina Flow Analysis è la **vista del tape** del mercato delle opzioni. Mentre Dealer Positioning mostra il book statico, questa pagina mostra il **flusso** — cosa stanno facendo gli aggressori in tempo reale.
+La pagina Flow Analysis è la **vista del tape** del mercato delle opzioni. Mentre Dealer Positioning mostra il book statico, questa pagina mostra il **flusso** - cosa stanno facendo gli aggressori in tempo reale.
 
 ## Le tre lenti del flusso
 
@@ -14,7 +14,7 @@ ZeroGEX mostra il flusso attraverso tre lenti, perché ciascuna conta in modo di
 
 ### Volume netto dei contratti
 
-Semplicemente conta i contratti. Utile come base di rumore. Inutile come lettura di convinzione da sola — mille contratti da $0,05 e un contratto da $500 contano allo stesso modo.
+Semplicemente conta i contratti. Utile come base di rumore. Inutile come lettura di convinzione da sola - mille contratti da $0,05 e un contratto da $500 contano allo stesso modo.
 
 ### Flusso ponderato per il premio
 
@@ -34,13 +34,13 @@ Sotto il riquadro principale:
 
 - Premio di **acquisto call / vendita call**
 - Premio di **acquisto put / vendita put**
-- **Delta netto dell'aggressore** — l'output di Lee-Ready scalato per il delta del contratto
+- **Delta netto dell'aggressore** - l'output di Lee-Ready scalato per il delta del contratto
 
 Ognuno è rappresentato come una serie in modo da poter vedere la pendenza, non solo il livello.
 
 ## Il chip smart money
 
-I tag sulle singole operazioni le segnalano come smart money — tipicamente blocchi di grandi dimensioni, sweep, print aggressivi ripetuti nella stessa direzione. Il flusso smart money è mostrato come una sottoserie separata. Usalo come controllo incrociato sul riquadro principale.
+I tag sulle singole operazioni le segnalano come smart money - tipicamente blocchi di grandi dimensioni, sweep, print aggressivi ripetuti nella stessa direzione. Il flusso smart money è mostrato come una sottoserie separata. Usalo come controllo incrociato sul riquadro principale.
 
 ## Come leggerla
 
@@ -56,9 +56,9 @@ Per un approfondimento sul perché il volume grezzo può trarre in inganno, perc
 
 ## Quando la pagina è più utile
 
-- **Subito dopo l'apertura** — i primi 30 minuti dicono molto sul bias della giornata.
-- **A ogni livello chiave** — il flusso verso un wall o il VWAP indica se il livello viene difeso o violato.
-- **Verso la chiusura** — combinato con EOD Pressure, la lettura del flusso affina il segnale direzionale.
+- **Subito dopo l'apertura** - i primi 30 minuti dicono molto sul bias della giornata.
+- **A ogni livello chiave** - il flusso verso un wall o il VWAP indica se il livello viene difeso o violato.
+- **Verso la chiusura** - combinato con EOD Pressure, la lettura del flusso affina il segnale direzionale.
 
 ## Vedi anche
 

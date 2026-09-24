@@ -40,14 +40,14 @@ interface ForecastDateList {
 }
 
 export const metadata: Metadata = {
-  title: 'Gamma Forecast — ZeroGEX',
+  title: 'Gamma Forecast\u00a0- ZeroGEX',
   description:
-    'Every morning we commit to a projected range, an expected-volatility call and gamma levels with touch odds — never a direction call — then grade it at 4 PM.',
+    'Every morning we commit to a projected range, an expected-volatility call and gamma levels with touch odds\u00a0- never a direction call\u00a0- then grade it at 4 PM.',
   alternates: { canonical: `${SITE_URL}/forecast` },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/forecast`,
-    title: 'Gamma Forecast — ZeroGEX',
+    title: 'Gamma Forecast\u00a0- ZeroGEX',
     description: 'Daily pre-market commitments graded against realized 4 PM close.',
     siteName: 'ZeroGEX',
   },
@@ -128,7 +128,7 @@ export default async function ForecastLanding({
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every morning before the open we commit {symbol} to a projected range, an expected-volatility
-          call, and the key gamma levels with touch odds — hashed and immutable. We never forecast
+          call, and the key gamma levels with touch odds&nbsp;- hashed and immutable. We never forecast
           direction. Every afternoon at 4:05 PM we grade ourselves against the actual low, high, and
           close. Pick a date to see the promise, the receipt, and the verdict pills.
         </p>
@@ -178,10 +178,10 @@ export default async function ForecastLanding({
       <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About the receipts</div>
         The commitment is written to <span className="font-mono">daily_forecast</span> each morning
-        before the open with a SHA-256 content hash and a database-level immutability trigger — nothing about the
+        before the open with a SHA-256 content hash and a database-level immutability trigger&nbsp;- nothing about the
         morning row can change once it lands. The 16:05 ET receipt writer joins realized L/H/C from{' '}
         <span className="font-mono">underlying_quotes</span> and flips the verdict pills. If a
-        forecast was later proven wrong, the receipt page shows it — the whole point is to grade
+        forecast was later proven wrong, the receipt page shows it&nbsp;- the whole point is to grade
         ourselves in public, not hide misses.
       </section>
     </main>

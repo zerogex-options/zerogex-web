@@ -44,7 +44,7 @@ const METRIC_DEFINITIONS: MetricDefinition[] = [
     key: 'net_gex_at_spot',
     title: 'Net GEX at Spot',
     description:
-      "Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip. Positive = dealers net long gamma here (pinning, mean-reversion). Negative = net short gamma here (trending, vol amplification).",
+      "Cumulative dealer gamma at the current spot price\u00a0- the value of the same low→high cumulative curve whose zero crossing is the gamma flip. Positive = dealers net long gamma here (pinning, mean-reversion). Negative = net short gamma here (trending, vol amplification).",
   },
   {
     key: 'total_net_gex',
@@ -280,7 +280,7 @@ function WindowCard({ metric, windowLabel, windowDisplay, trackingStartedAt }: W
 
       {stats.tod_bucket_used === -1 && (
         <div className="text-[10px] italic" style={{ color: 'var(--text-secondary)' }}>
-          Using all-day (flat) distribution — the specific time-of-day bucket had too few samples.
+          Using all-day (flat) distribution&nbsp;- the specific time-of-day bucket had too few samples.
         </div>
       )}
     </div>
@@ -352,7 +352,7 @@ export default function GammaPulsePanel({ symbol, refreshInterval = 15000 }: Gam
         </span>
         {data && !data.in_rth && (
           <span className="text-xs italic" style={{ color: 'var(--text-secondary)' }}>
-            · outside RTH — flat distribution
+            · outside RTH&nbsp;- flat distribution
           </span>
         )}
       </div>

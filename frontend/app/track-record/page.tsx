@@ -75,14 +75,14 @@ async function loadSymbol(symbol: string): Promise<SymbolRecord> {
 }
 
 export const metadata: Metadata = {
-  title: 'Track Record — ZeroGEX',
+  title: 'Track Record\u00a0- ZeroGEX',
   description:
     'Every gamma forecast we have published, graded. Coverage rates with confidence intervals, the dates we missed, and what the numbers do not say.',
   alternates: { canonical: `${SITE_URL}/track-record` },
   openGraph: {
     title: 'ZeroGEX Track Record',
     description:
-      'Every forecast, graded and dated — including the misses. Published because a forecast nobody grades is not a forecast.',
+      'Every forecast, graded and dated\u00a0- including the misses. Published because a forecast nobody grades is not a forecast.',
     url: `${SITE_URL}/track-record`,
     type: 'website',
   },
@@ -135,12 +135,12 @@ export default async function TrackRecordPage() {
       coverage: thin ? '—' : fmtRate(h.rate),
       interval: thin ? '—' : fmtCi(h.ci),
       against: thin
-        ? `fewer than ${MIN_SCORED_FOR_RATES} graded sessions — no rate published`
+        ? `fewer than ${MIN_SCORED_FOR_RATES} graded sessions\u00a0- no rate published`
         : t == null
           ? 'no target published'
-          : `${fmtRate(t)} — ${coverageVerdictText(v)}`,
+          : `${fmtRate(t)}\u00a0- ${coverageVerdictText(v)}`,
       // The phone list has no column header, so it names the target.
-      againstInline: thin || t == null ? null : `target ${fmtRate(t)} — ${coverageVerdictText(v)}`,
+      againstInline: thin || t == null ? null : `target ${fmtRate(t)}\u00a0- ${coverageVerdictText(v)}`,
     };
   });
 
@@ -154,7 +154,7 @@ export default async function TrackRecordPage() {
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--color-text-secondary)]">
           Before every open we commit each symbol to a projected range, an expected-volatility call
           and touch odds on each gamma level. After the close we grade it against what actually
-          happened. Both halves are timestamped and published — the commitment before the market can
+          happened. Both halves are timestamped and published&nbsp;- the commitment before the market can
           settle it, the receipt after.{' '}
           <strong className="text-[var(--color-text-primary)]">
             We never forecast direction.
@@ -177,7 +177,7 @@ export default async function TrackRecordPage() {
         <section className="mb-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
             Too few graded sessions to publish a rate yet. Every receipt committed so far is still
-            readable under <Link href="/forecast" className="underline">the forecast archive</Link> —
+            readable under <Link href="/forecast" className="underline">the forecast archive</Link>&nbsp;-
             we would rather show you nothing than a percentage built on a handful of days.
           </p>
         </section>
@@ -190,7 +190,7 @@ export default async function TrackRecordPage() {
           The projected range is the one claim with a published target, so it is the one that can be
           scored against something other than itself. The target is a coverage rate, not an accuracy
           score: a band advertised to contain the day {target != null ? fmtRate(target) : '80%'} of
-          the time should contain it about that often —{' '}
+          the time should contain it about that often&nbsp;-{' '}
           <strong className="text-[var(--color-text-primary)]">no more</strong>. Sitting well above
           target means the band is wider than advertised and is carrying less information, which is
           why it is reported as a fault below rather than a win.
@@ -261,7 +261,7 @@ export default async function TrackRecordPage() {
         <p className="mb-3 max-w-3xl text-sm leading-relaxed text-[var(--color-text-secondary)]">
           Every session where the day traded outside the band we published that morning. They are
           listed because a track record without its failures is advertising, and because each one
-          links to the original commitment and its receipt — you can check that we are not
+          links to the original commitment and its receipt&nbsp;- you can check that we are not
           describing them charitably.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -279,7 +279,7 @@ export default async function TrackRecordPage() {
               {r.history.range.misses.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                   No miss on record yet. With {r.history.range.graded} graded sessions that is not
-                  evidence of a perfect band — it is evidence of a band wide enough not to have been
+                  evidence of a perfect band&nbsp;- it is evidence of a band wide enough not to have been
                   tested.
                 </p>
               ) : (
@@ -301,7 +301,7 @@ export default async function TrackRecordPage() {
                 <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
                   {r.history.clustered} of these arrived in{' '}
                   {r.history.clusters.length === 1 ? 'one run' : `${r.history.clusters.length} runs`}{' '}
-                  of back-to-back sessions — the band fails on consecutive days, not at random.
+                  of back-to-back sessions&nbsp;- the band fails on consecutive days, not at random.
                 </p>
               ) : null}
             </div>
@@ -317,7 +317,7 @@ export default async function TrackRecordPage() {
         <p className="mb-3 max-w-3xl text-sm leading-relaxed text-[var(--color-text-secondary)]">
           The range is scored above, over the whole record. These two cannot be: the touch-odds Brier
           score and the volatility call are computed over a rolling 30-session window, which is the
-          only place they exist. Deliberately no range number here —{' '}
+          only place they exist. Deliberately no range number here&nbsp;-{' '}
           <strong className="text-[var(--color-text-primary)]">
             every claim is reported once, from the deepest sample that can score it
           </strong>
@@ -358,7 +358,7 @@ export default async function TrackRecordPage() {
                 </dl>
                 {s?.levels_brier_avg != null && (s?.levels_n_scored ?? 0) >= MIN_SCORED_FOR_RATES ? (
                   <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-                    Brier {brierVerdictText(bv)} — 0.25 is what you score by guessing the base rate
+                    Brier {brierVerdictText(bv)}&nbsp;- 0.25 is what you score by guessing the base rate
                     every time, and lower is better.
                   </p>
                 ) : null}
@@ -397,7 +397,7 @@ export default async function TrackRecordPage() {
             </strong>{' '}
             A band containing the day more often than{' '}
             {target != null ? `${articleForPercent(target)} ${fmtRate(target)}` : 'its'} target is a
-            band that is too wide. On the current record ours is — by roughly 20% on the live range
+            band that is too wide. On the current record ours is&nbsp;- by roughly 20% on the live range
             model, measured by asking how far each day&rsquo;s band could have been narrowed and still
             contained it.
           </li>
@@ -414,7 +414,7 @@ export default async function TrackRecordPage() {
               The sample is short and the model has changed.
             </strong>{' '}
             The range model has been revised twice over this history. Sessions graded under a retired
-            version are still counted here — removing them would be grading ourselves only on the
+            version are still counted here&nbsp;- removing them would be grading ourselves only on the
             version that is working.
           </li>
           <li>

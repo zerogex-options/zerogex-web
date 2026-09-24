@@ -27,8 +27,8 @@ import {
 
 function setupLabel(signal: string, score: number | null): string {
   if (score == null) return 'No reading';
-  if (signal === 'bearish_fade') return 'Bearish fade — failed upside breakout';
-  if (signal === 'bullish_fade') return 'Bullish fade — failed downside break';
+  if (signal === 'bearish_fade') return 'Bearish fade\u00a0- failed upside breakout';
+  if (signal === 'bullish_fade') return 'Bullish fade\u00a0- failed downside break';
   if (score <= -25) return 'Bearish fade risk';
   if (score >= 25) return 'Bullish fade risk';
   return 'No strong trap edge';
@@ -142,25 +142,25 @@ export default function TrapDetectionPage() {
                 label="Gamma strengthening"
                 on={ctx.gammaStrengthening}
                 color="var(--color-bull)"
-                tooltip="Net GEX is rising session-over-session — dealer long-gamma is intensifying. Reinforces fade-trade behavior at the wall."
+                tooltip="Net GEX is rising session-over-session&nbsp;- dealer long-gamma is intensifying. Reinforces fade-trade behavior at the wall."
               />
               <Chip
                 label="Call wall migrated ↑"
                 on={callWallMigratedUp}
                 color="var(--color-bear)"
-                tooltip="The call wall has migrated higher (call_wall > prior_call_wall) — dealers are repositioning their upside reference up with price, which invalidates the bearish-fade setup at the prior resistance."
+                tooltip="The call wall has migrated higher (call_wall > prior_call_wall)&nbsp;- dealers are repositioning their upside reference up with price, which invalidates the bearish-fade setup at the prior resistance."
               />
               <Chip
                 label="Put wall migrated ↓"
                 on={putWallMigratedDown}
                 color="var(--color-bear)"
-                tooltip="The put wall has migrated lower (put_wall < prior_put_wall) — dealers are repositioning their downside reference down with price, which invalidates the bullish-fade setup at the prior support."
+                tooltip="The put wall has migrated lower (put_wall < prior_put_wall)&nbsp;- dealers are repositioning their downside reference down with price, which invalidates the bullish-fade setup at the prior support."
               />
               <Chip
                 label="Long gamma"
                 on={ctx.longGamma}
                 color="var(--color-bull)"
-                tooltip="Net GEX > 0: dealers are net long gamma. They sell into rallies and buy dips, dampening volatility — supportive of fade behavior at walls."
+                tooltip="Net GEX > 0: dealers are net long gamma. They sell into rallies and buy dips, dampening volatility&nbsp;- supportive of fade behavior at walls."
               />
             </div>
           </div>
@@ -256,10 +256,10 @@ export default function TrapDetectionPage() {
         caveat={<>Wall migration with price (dealers repositioning) invalidates the setup. Buffer band is min(0.1%, 0.15 × realized σ × √5).</>}
       >
         <div>Detects upside / downside breakouts beyond the prior resistance / support wall by at least the buffer band.</div>
-        <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction — call wall not moving up on a bearish fade (<code>call_wall_migrated_up</code>), put wall not moving down on a bullish fade (<code>put_wall_migrated_down</code>).</div>
+        <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction&nbsp;- call wall not moving up on a bearish fade (<code>call_wall_migrated_up</code>), put wall not moving down on a bullish fade (<code>put_wall_migrated_down</code>).</div>
         <div>Optional confirmation: same-side flow decelerating into the wall.</div>
         <div><code>Score = ±Confidence × 100</code>, where Confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
-        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls — prior resistance was punched through to the upside; prior support, to the downside. The fields persist past the breakout flag, so the level can sit on either side of close as price retraces.</div>
+        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls&nbsp;- prior resistance was punched through to the upside; prior support, to the downside. The fields persist past the breakout flag, so the level can sit on either side of close as price retraces.</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />

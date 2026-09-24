@@ -41,7 +41,7 @@ const COPY: Record<Locale, Copy> = {
   en: {
     renewal: { monthly: 'every month', quarterly: 'every 3 months', annual: 'every year' },
     trial: (days, renewal) =>
-      `Free for ${days} days — you won't be charged until the trial ends. Cancel any time before then from your Account page and you pay nothing. After the trial, your plan renews automatically ${renewal} until you cancel.`,
+      `Free for ${days} days\u00a0- you won't be charged until the trial ends. Cancel any time before then from your Account page and you pay nothing. After the trial, your plan renews automatically ${renewal} until you cancel.`,
     moneyBack: (days, renewal) =>
       `${days}-day money-back guarantee: if ZeroGEX isn't for you, request a full refund from your Account page within ${days} days of your first payment. Your access ends when the refund is issued. Limit one refund per customer. Your plan renews automatically ${renewal} until you cancel; cancel any time from your Account page.`,
     none: (renewal) =>
@@ -59,7 +59,7 @@ const COPY: Record<Locale, Copy> = {
   de: {
     renewal: { monthly: 'jeden Monat', quarterly: 'alle 3 Monate', annual: 'jedes Jahr' },
     trial: (days, renewal) =>
-      `${days} Tage kostenlos – bis zum Ende der Testphase wird nichts abgebucht. Kündige vorher jederzeit über deine Kontoseite und du zahlst nichts. Nach der Testphase verlängert sich dein Plan automatisch ${renewal}, bis du kündigst.`,
+      `${days} Tage kostenlos\u00a0- bis zum Ende der Testphase wird nichts abgebucht. Kündige vorher jederzeit über deine Kontoseite und du zahlst nichts. Nach der Testphase verlängert sich dein Plan automatisch ${renewal}, bis du kündigst.`,
     moneyBack: (days, renewal) =>
       `${days}-Tage-Geld-zurück-Garantie: Wenn ZeroGEX nichts für dich ist, fordere innerhalb von ${days} Tagen nach deiner ersten Zahlung über deine Kontoseite eine volle Erstattung an. Dein Zugang endet mit der Erstattung. Maximal eine Erstattung pro Kunde. Dein Plan verlängert sich automatisch ${renewal}, bis du kündigst; kündigen kannst du jederzeit über deine Kontoseite.`,
     none: (renewal) =>

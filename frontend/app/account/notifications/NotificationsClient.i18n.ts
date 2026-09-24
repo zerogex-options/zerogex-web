@@ -19,7 +19,7 @@ export const dict: PageDictionary = {
     unfollow: 'Unfollow',
     minConviction: 'Min. conviction',
     confidenceHelper: "Suppress notifications for entries below this bot's confidence-blend score.",
-    unfollowError: 'Could not unfollow — please try again.',
+    unfollowError: 'Could not unfollow\u00a0- please try again.',
   },
   it: {
     backToAccount: 'Torna all\'Account',
@@ -39,7 +39,7 @@ export const dict: PageDictionary = {
     unfollow: 'Smetti di seguire',
     minConviction: 'Convinzione min.',
     confidenceHelper: 'Sopprimi le notifiche per gli ingressi sotto questo punteggio combinato di confidenza del bot.',
-    unfollowError: 'Impossibile smettere di seguire — riprova.',
+    unfollowError: 'Impossibile smettere di seguire\u00a0- riprova.',
   },
   de: {
     backToAccount: 'Zurück zum Konto',
@@ -59,7 +59,7 @@ export const dict: PageDictionary = {
     unfollow: 'Entfolgen',
     minConviction: 'Min. Überzeugung',
     confidenceHelper: 'Unterdrücke Benachrichtigungen für Einstiege unterhalb dieses kombinierten Konfidenzwerts des Bots.',
-    unfollowError: 'Entfolgen fehlgeschlagen — bitte erneut versuchen.',
+    unfollowError: 'Entfolgen fehlgeschlagen\u00a0- bitte erneut versuchen.',
   },
   es: {
     backToAccount: 'Volver a la cuenta',
@@ -79,7 +79,7 @@ export const dict: PageDictionary = {
     unfollow: 'Dejar de seguir',
     minConviction: 'Convicción mín.',
     confidenceHelper: 'Suprime las notificaciones de entradas por debajo de esta puntuación combinada de confianza del bot.',
-    unfollowError: 'No se pudo dejar de seguir — inténtalo de nuevo.',
+    unfollowError: 'No se pudo dejar de seguir\u00a0- inténtalo de nuevo.',
   },
   fr: {
     backToAccount: 'Retour au compte',
@@ -99,6 +99,6 @@ export const dict: PageDictionary = {
     unfollow: 'Ne plus suivre',
     minConviction: 'Conviction min.',
     confidenceHelper: 'Supprime les notifications pour les entrées en dessous de ce score combiné de confiance du bot.',
-    unfollowError: 'Impossible de ne plus suivre — veuillez réessayer.',
+    unfollowError: 'Impossible de ne plus suivre\u00a0- veuillez réessayer.',
   },
 };

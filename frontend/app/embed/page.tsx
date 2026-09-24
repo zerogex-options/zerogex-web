@@ -29,7 +29,7 @@ import EmbedBuilder from './EmbedBuilder';
 const PATH = '/embed';
 const TITLE = 'Free Gamma Levels Widget: Embed SPX, SPY & QQQ Levels on Your Site';
 const DESCRIPTION =
-  'Put today’s gamma flip, call wall, put wall and net GEX on your own site with one line of HTML. Free, no signup, no API key, no cookies — refreshed every 15 minutes for SPX, SPY, QQQ, NDX, ES and NQ.';
+  'Put today’s gamma flip, call wall, put wall and net GEX on your own site with one line of HTML. Free, no signup, no API key, no cookies\u00a0- refreshed every 15 minutes for SPX, SPY, QQQ, NDX, ES and NQ.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -62,7 +62,7 @@ const FAQ = [
   },
   {
     q: 'Does the widget track my readers?',
-    a: 'No. The widget sets no cookies, runs no analytics, and does not identify anyone who sees it. The optional "your site" field only tags the outbound link so we can see which sites send readers — it says nothing about the individual reader.',
+    a: 'No. The widget sets no cookies, runs no analytics, and does not identify anyone who sees it. The optional "your site" field only tags the outbound link so we can see which sites send readers\u00a0- it says nothing about the individual reader.',
   },
   {
     q: 'Which symbols can I embed?',
@@ -74,7 +74,7 @@ const FAQ = [
   },
   {
     q: 'Can I use it on Substack, Medium, Discord or in an email?',
-    a: 'Not the embed \u2014 none of them allow custom iframes or scripts. Use the image version instead: the builder gives you a PNG URL of the same card, and all four accept an image. One difference worth knowing: those platforms copy the file onto their own servers when you post, so the image is a snapshot of the levels at that moment rather than a card that keeps updating. The card prints its own \u201cas of\u201d time so it never reads as more current than it is.',
+    a: 'Not the embed\u00a0- none of them allow custom iframes or scripts. Use the image version instead: the builder gives you a PNG URL of the same card, and all four accept an image. One difference worth knowing: those platforms copy the file onto their own servers when you post, so the image is a snapshot of the levels at that moment rather than a card that keeps updating. The card prints its own \u201cas of\u201d time so it never reads as more current than it is.',
   },
   {
     q: 'Will the widget break my page layout?',
@@ -138,7 +138,7 @@ const PROMISES = [
   {
     icon: Zap,
     title: 'One line of HTML',
-    body: 'No build step, no npm package, no API key. It goes anywhere you can paste HTML \u2014 WordPress, Ghost, Webflow, Squarespace, Notion, or a hand-written page. Somewhere that blocks embeds? There is a PNG of the same card.',
+    body: 'No build step, no npm package, no API key. It goes anywhere you can paste HTML\u00a0- WordPress, Ghost, Webflow, Squarespace, Notion, or a hand-written page. Somewhere that blocks embeds? There is a PNG of the same card.',
   },
   {
     icon: RefreshCw,
@@ -208,7 +208,7 @@ export default function EmbedPage() {
         </h2>
         <p style={BODY_STYLE}>
           Pick a symbol and a theme, check the preview, and copy the HTML. It is the live widget
-          below &mdash; not a mockup.
+          below&nbsp;- not a mockup.
         </p>
         <EmbedBuilder />
       </section>
@@ -220,7 +220,7 @@ export default function EmbedPage() {
         <p style={BODY_STYLE}>
           The snippet includes a short line of text crediting ZeroGEX and linking to the gamma-levels
           page for the symbol you embedded. <strong style={STRONG}>Please reword it however you
-          like</strong> so it reads as your own sentence &mdash; we would rather have a credit that
+          like</strong> so it reads as your own sentence&nbsp;- we would rather have a credit that
           fits your page than a hundred identical ones.
         </p>
         <p style={{ ...BODY_STYLE, marginBottom: 0 }}>

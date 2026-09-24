@@ -256,7 +256,7 @@ export function computeBias(inp: BiasInput): BiasResult {
       bias = 'RANGE_FADE';
       biasLabel = 'Range-Bound';
       regimeLabel = 'Chop / Range Regime';
-      regimeDesc = 'Mixed signals — no dominant directional thesis.';
+      regimeDesc = 'Mixed signals\u00a0- no dominant directional thesis.';
       setup = 'Mean Reversion';
       playbook = [
         'Fade extremes of the session range',

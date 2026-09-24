@@ -1,6 +1,6 @@
 # Fehlerbehebung
 
-*Die Kurzfassung — Anmeldeprobleme, fehlende Daten, veraltete Charts, Zahlungsprobleme, Browser-Caches und wann Sie den Support kontaktieren sollten.*
+*Die Kurzfassung - Anmeldeprobleme, fehlende Daten, veraltete Charts, Zahlungsprobleme, Browser-Caches und wann Sie den Support kontaktieren sollten.*
 
 ---
 
@@ -10,15 +10,15 @@
 
 **Sie haben sich mit Google oder Apple angemeldet und haben kein Passwort.** Melden Sie sich mit dem Anbieter an, den Sie verwendet haben. Auf der Kontoseite können Sie danach ein Passwort als zukünftige Alternative festlegen.
 
-**Der Anbieter meldet „Kein Konto gefunden".** Möglicherweise haben Sie sich mit einer anderen E-Mail-Adresse registriert. Versuchen Sie den anderen Anbieter oder schreiben Sie an [support@zerogex.io](mailto:support@zerogex.io) — wir können das Konto nachschlagen.
+**Der Anbieter meldet „Kein Konto gefunden".** Möglicherweise haben Sie sich mit einer anderen E-Mail-Adresse registriert. Versuchen Sie den anderen Anbieter oder schreiben Sie an [support@zerogex.io](mailto:support@zerogex.io) - wir können das Konto nachschlagen.
 
 **Die Zwei-Faktor- oder Geräteabfrage verschwindet nicht.** Melden Sie sich neu über ein Inkognito-Fenster an. Falls das Problem weiterhin besteht, kann der Support veraltete Sitzungen auf Ihrem Konto löschen.
 
 ## Fehlende oder veraltete Daten
 
-**Das Session-Badge zeigt „Geschlossen".** Das ist die Erklärung — die Märkte sind geschlossen. Es werden die zuletzt berechneten Werte angezeigt.
+**Das Session-Badge zeigt „Geschlossen".** Das ist die Erklärung - die Märkte sind geschlossen. Es werden die zuletzt berechneten Werte angezeigt.
 
-**Ein Chart zeigt „Keine Daten".** Meist liegt das an einem Session-Fenster-Problem (EOD Pressure außerhalb ihres Zeitfensters, 0DTE an einem Tag ohne Verfall). Fahren Sie mit der Maus über den Leerzustand — der Tooltip erklärt den Grund.
+**Ein Chart zeigt „Keine Daten".** Meist liegt das an einem Session-Fenster-Problem (EOD Pressure außerhalb ihres Zeitfensters, 0DTE an einem Tag ohne Verfall). Fahren Sie mit der Maus über den Leerzustand - der Tooltip erklärt den Grund.
 
 **Kachelwerte wirken eingefroren.** Prüfen Sie den Zeitstempel auf der Preis-Kachel. Wenn er während der regulären Handelszeiten älter als 30 Sekunden ist, laden Sie die Seite mit einem harten Reload neu (Cmd+Shift+R / Ctrl+Shift+R).
 
@@ -30,7 +30,7 @@
 
 **Das Abonnement zeigt „überfällig".** Stripe versucht, die Belastung erneut durchzuführen. Aktualisieren Sie die Zahlungsmethode, um das zu beheben. Kostenpflichtige Funktionen bleiben während des Wiederholungszeitraums aktiv.
 
-**Die Rechnung ist höher als erwartet.** Öffnen Sie die Rechnung im Portal — die Posten sind detailliert aufgeführt. Häufige Überraschungen: Ein Wechsel des Plans oder des Abrechnungszyklus wird anteilig berechnet — Sie erhalten eine Gutschrift für den ungenutzten Teil der aktuellen Periode zuzüglich der Gebühr für den neuen Plan, angewendet auf Ihre **nächste Rechnung** statt sofort belastet zu werden.
+**Die Rechnung ist höher als erwartet.** Öffnen Sie die Rechnung im Portal - die Posten sind detailliert aufgeführt. Häufige Überraschungen: Ein Wechsel des Plans oder des Abrechnungszyklus wird anteilig berechnet - Sie erhalten eine Gutschrift für den ungenutzten Teil der aktuellen Periode zuzüglich der Gebühr für den neuen Plan, angewendet auf Ihre **nächste Rechnung** statt sofort belastet zu werden.
 
 **Die Kündigung wurde nicht wirksam.** Die Kündigung wird zum Ende des Abrechnungszeitraums wirksam. Bis dahin behalten Sie den kostenpflichtigen Zugang. Das Portal zeigt das geplante Enddatum an.
 
@@ -50,7 +50,7 @@
 
 ## Charts
 
-**Ein Chart ist leer, während andere Daten anzeigen.** Die häufigste Ursache ist eine Stufensperre — der Chart gehört zu einer Stufe, die Sie nicht haben. Manchmal ist das zugrunde liegende Signal auch absichtlich inaktiv (sein Zeitfenster ist nicht geöffnet). Fahren Sie mit der Maus über den Leerzustand für die Erklärung.
+**Ein Chart ist leer, während andere Daten anzeigen.** Die häufigste Ursache ist eine Stufensperre - der Chart gehört zu einer Stufe, die Sie nicht haben. Manchmal ist das zugrunde liegende Signal auch absichtlich inaktiv (sein Zeitfenster ist nicht geöffnet). Fahren Sie mit der Maus über den Leerzustand für die Erklärung.
 
 **Hover-Tooltips werden nicht angezeigt.** Ein Touch-Gerät. Nutzen Sie langes Drücken oder wechseln Sie zu einem Desktop.
 
@@ -69,7 +69,7 @@ Nachdem Sie die relevanten oben genannten Punkte ausprobiert haben. Fügen Sie F
 - Browser, Betriebssystem und ungefähr, wann es passiert ist (mit Zeitzone).
 - Ihre Konto-E-Mail-Adresse.
 
-Schreiben Sie an [support@zerogex.io](mailto:support@zerogex.io). Wir antworten schnell — meist noch am selben Handelstag.
+Schreiben Sie an [support@zerogex.io](mailto:support@zerogex.io). Wir antworten schnell - meist noch am selben Handelstag.
 
 ## Siehe auch
 

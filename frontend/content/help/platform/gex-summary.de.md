@@ -20,11 +20,11 @@ Das aggregierte Dealer-Delta. Stark negativ bedeutet, dass Dealer im Delta short
 
 ### Net VEX (Vanna)
 
-Das aggregierte Dealer-Vanna — die Sensitivität des Deltas gegenüber der IV. Positiv bedeutet, dass ein Rückgang der IV die Dealer zum Kaufen zwingt; ein Anstieg der IV zwingt sie zum Verkaufen. Das ist der Motor hinter Tagen mit "Vol-Compression-Grind".
+Das aggregierte Dealer-Vanna - die Sensitivität des Deltas gegenüber der IV. Positiv bedeutet, dass ein Rückgang der IV die Dealer zum Kaufen zwingt; ein Anstieg der IV zwingt sie zum Verkaufen. Das ist der Motor hinter Tagen mit "Vol-Compression-Grind".
 
 ### Net Charm
 
-Das aggregierte Dealer-Charm — die Sensitivität des Deltas gegenüber der Zeit. Positiv stützt strukturell die Drift zum Handelsschluss; negativ wirkt ihr entgegen. Charm-getriebene Flows nehmen in den letzten zwei Handelsstunden zu.
+Das aggregierte Dealer-Charm - die Sensitivität des Deltas gegenüber der Zeit. Positiv stützt strukturell die Drift zum Handelsschluss; negativ wirkt ihr entgegen. Charm-getriebene Flows nehmen in den letzten zwei Handelsstunden zu.
 
 ### Net Vega
 
@@ -32,7 +32,7 @@ Das aggregierte Dealer-Vega. Zeigt, wie stark Dealer einer signifikanten IV-Bewe
 
 ## Die Aufschlüsselung nach Strike
 
-Unterhalb der Totale zeigt die Seite dieselben Zahlen aufgeschlüsselt nach Strike — die Beiträge einzelner Strikes zu Gamma, Delta, Vanna und Charm. Nutze das, wenn:
+Unterhalb der Totale zeigt die Seite dieselben Zahlen aufgeschlüsselt nach Strike - die Beiträge einzelner Strikes zu Gamma, Delta, Vanna und Charm. Nutze das, wenn:
 
 - Du sehen willst, **welche Strikes** die Headline-Zahl treiben.
 - Du bestätigen willst, dass sich der Call Wall tatsächlich dort befindet, wo es das GEX-Profil angibt.
@@ -53,7 +53,7 @@ Wenn du einen anderen GEX-Anbieter liest, prüfe unbedingt die Vorzeichenkonvent
 
 Zwei Muster:
 
-1. **Gegenprüfung mit Dealer Positioning.** Wenn Net GEX deutlich positiv ist, das GEX-Profil aber zeigt, dass die Kurve knapp unter dem Spot ins Negative kippt, befindest du dich genau auf der Regimegrenze — das Risiko ist asymmetrisch.
+1. **Gegenprüfung mit Dealer Positioning.** Wenn Net GEX deutlich positiv ist, das GEX-Profil aber zeigt, dass die Kurve knapp unter dem Spot ins Negative kippt, befindest du dich genau auf der Regimegrenze - das Risiko ist asymmetrisch.
 2. **Vanna und Charm zum Handelsschluss beobachten.** Beide erreichen ihren intraday höchsten Einfluss in den letzten zwei Stunden; der Charm-Beitrag pro Strike zeigt an, wo sich der Pin einpendeln wird.
 
 ## Siehe auch

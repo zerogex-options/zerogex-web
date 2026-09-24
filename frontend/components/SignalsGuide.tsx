@@ -26,7 +26,7 @@ const SURFACES = [
     icon: Compass,
     answers: 'What should I do right now?',
     output: 'Regime + bias + confidence + a numbered playbook',
-    use: 'First glance — decide if today is tradable and which direction',
+    use: 'First glance\u00a0- decide if today is tradable and which direction',
     note: 'Synthesizes the regime + key signals into a single instruction.',
   },
   {
@@ -34,9 +34,9 @@ const SURFACES = [
     title: 'Composite Score (MSI)',
     icon: Gauge,
     answers: 'How strong is the regime?',
-    output: '0 – 100 score from six weighted components',
+    output: '0\u00a0- 100 score from six weighted components',
     use: 'Sanity-check whether trends will run before you size in',
-    note: 'High does not mean bullish — it means trends are likely to follow through.',
+    note: 'High does not mean bullish\u00a0- it means trends are likely to follow through.',
   },
   {
     key: 'basic-signals' as const,
@@ -61,7 +61,7 @@ const SURFACES = [
 const COLOR_KEY = [
   { swatch: 'var(--color-bull)', label: 'Bullish / Trend OK', body: 'Trends can run, flow leans up, MSI ≥ 40.' },
   { swatch: 'var(--color-bear)', label: 'Bearish / Reversal Risk', body: 'Trends fail, flow leans down, MSI < 20.' },
-  { swatch: 'var(--color-warning)', label: 'Chop / Neutral / Wait', body: 'Mixed signals, low conviction, MSI 20 – 40.' },
+  { swatch: 'var(--color-warning)', label: 'Chop / Neutral / Wait', body: 'Mixed signals, low conviction, MSI 20\u00a0- 40.' },
   { swatch: 'var(--color-text-secondary)', label: 'Inactive / No Data', body: 'Window closed (e.g. EOD pre-14:30 ET) or signal idle.' },
 ];
 
@@ -80,7 +80,7 @@ export default function SignalsGuide({ current, defaultOpen = false }: Props) {
           <Activity size={16} className="text-[var(--color-info)] flex-shrink-0" />
           <span className="text-sm font-semibold">How to read these signals</span>
           <span className="text-[11px] text-[var(--color-text-secondary)] hidden sm:inline truncate">
-            · Trade Bias, MSI, Basic, Advanced — what each one tells you and when to use it
+            · Trade Bias, MSI, Basic, Advanced&nbsp;- what each one tells you and when to use it
           </span>
           {open ? <ChevronUp size={16} className="flex-shrink-0" /> : <ChevronDown size={16} className="flex-shrink-0" />}
         </button>
@@ -124,7 +124,7 @@ export default function SignalsGuide({ current, defaultOpen = false }: Props) {
           {/* Surface comparison */}
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-2">
-              The four surfaces — at a glance
+              The four surfaces&nbsp;- at a glance
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
               {SURFACES.map((s) => {
@@ -176,18 +176,18 @@ export default function SignalsGuide({ current, defaultOpen = false }: Props) {
             <ol className="flex flex-col gap-1 text-[12px] text-[var(--color-text-primary)] list-decimal pl-5">
               <li>
                 <span className="font-semibold">Composite Score (MSI)</span> answers <em>is the tape tradable?</em>
-                — if it&apos;s low, prefer fades; if it&apos;s high, prefer trend trades.
+                &nbsp;- if it&apos;s low, prefer fades; if it&apos;s high, prefer trend trades.
               </li>
               <li>
                 <span className="font-semibold">Trade Bias</span> takes the MSI plus the key flow signals and turns them
                 into a single instruction (Buy Dips, Sell Rips, Sell Strength, Range-Bound, Wait).
               </li>
               <li>
-                <span className="font-semibold">Basic Signals</span> are advisory — they don&apos;t move the MSI but
+                <span className="font-semibold">Basic Signals</span> are advisory&nbsp;- they don&apos;t move the MSI but
                 can warn of a regime shift before the score reacts.
               </li>
               <li>
-                <span className="font-semibold">Advanced Signals</span> tell you <em>when</em> — wait for one to trigger
+                <span className="font-semibold">Advanced Signals</span> tell you <em>when</em>&nbsp;- wait for one to trigger
                 in agreement with the bias, then take the trade.
               </li>
             </ol>

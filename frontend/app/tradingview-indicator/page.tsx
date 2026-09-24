@@ -19,9 +19,9 @@ import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 
 const INTEGRATION = integrationById('tradingview');
 const PATH = INTEGRATION.href;
-const TITLE = 'ZeroGEX Daily Gamma Levels — Free TradingView Indicator';
+const TITLE = 'ZeroGEX Daily Gamma Levels\u00a0- Free TradingView Indicator';
 const DESCRIPTION =
-  'Free TradingView indicator that plots the ZeroGEX gamma flip, call wall, put wall, and max pain as horizontal lines on SPY, SPX, QQQ, NDX, ES or NQ — with optional cross-alerts.';
+  'Free TradingView indicator that plots the ZeroGEX gamma flip, call wall, put wall, and max pain as horizontal lines on SPY, SPX, QQQ, NDX, ES or NQ\u00a0- with optional cross-alerts.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -71,7 +71,7 @@ export default function TradingViewIndicatorPage() {
 
       <LiveLevelsCTA
         headline="Get today's numbers to type in"
-        intro="The script draws the lines; these pages are where the levels come from. Each one is free and delayed roughly 15 minutes — open the ticker you trade, then copy its four numbers into the indicator's Settings."
+        intro="The script draws the lines; these pages are where the levels come from. Each one is free and delayed roughly 15 minutes&nbsp;- open the ticker you trade, then copy its four numbers into the indicator's Settings."
       />
     </IndicatorPageShell>
   );

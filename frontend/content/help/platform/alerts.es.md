@@ -8,9 +8,9 @@
 
 ZeroGEX entrega las alertas **dentro de la app**, no por SMS ni notificación push. Hay tres lugares donde aparecen:
 
-1. **Live Bulletin** — cada disparador llega aquí con el contexto completo. Este es tu registro de auditoría.
-2. **La tarjeta de señal** — en el dashboard o en la página de lista de señales, un disparador ilumina la tarjeta y la tiñe en la dirección del score.
-3. **El panel compuesto** — cuando un disparador tiene suficiente convicción, mueve visiblemente el compuesto.
+1. **Live Bulletin** - cada disparador llega aquí con el contexto completo. Este es tu registro de auditoría.
+2. **La tarjeta de señal** - en el dashboard o en la página de lista de señales, un disparador ilumina la tarjeta y la tiñe en la dirección del score.
+3. **El panel compuesto** - cuando un disparador tiene suficiente convicción, mueve visiblemente el compuesto.
 
 Esto es intencional. ZeroGEX está diseñado para ser **observado, no interrumpido**. Las alertas al estilo push provocan overtrading; el registro dentro de la app te permite revisar cuando tú decidas.
 
@@ -56,21 +56,21 @@ Una señal puede estar en +0.7 y **no** estar disparándose. Razones:
 
 - El umbral de disparo de la señal usa un compuesto (Market Pressure también necesita loading ≥ 50).
 - La señal está condicionada a una ventana de sesión (EOD Pressure solo está activa de 14:30 a 15:45 ET).
-- La señal tiene un debounce — debe mantener el umbral durante un número mínimo de barras.
+- La señal tiene un debounce - debe mantener el umbral durante un número mínimo de barras.
 
 La tarjeta de señal en la página explicará el estado actual del disparador en lenguaje sencillo.
 
 ## Usar el bulletin como tu registro de alertas
 
-El Live Bulletin es el **sistema de referencia** para los disparadores. Si fuiste a almorzar, no necesitas abrir cada página para ver qué se activó — abres el bulletin, filtras por símbolo y familia de señales, y lees los eventos del día en orden cronológico.
+El Live Bulletin es el **sistema de referencia** para los disparadores. Si fuiste a almorzar, no necesitas abrir cada página para ver qué se activó - abres el bulletin, filtras por símbolo y familia de señales, y lees los eventos del día en orden cronológico.
 
 ## Alertas salientes
 
 La entrega de alertas es **solo dentro de la app**: el Live Bulletin, las tarjetas de señal y el panel compuesto. Las alertas de señal no se envían por correo electrónico, SMS, notificación push ni webhook.
 
-Si has visto interruptores de canal en [Cuenta → Notificaciones](/account/notifications), pertenecen a la página **Bot Trading**, que está en beta. No construyas sobre ellos todavía — el canal de webhook guarda tu preferencia pero no entrega nada. Para automatizar hoy, consulta la [API](/help/platform/api-access) en lugar de esperar un push que no llegará.
+Si has visto interruptores de canal en [Cuenta → Notificaciones](/account/notifications), pertenecen a la página **Bot Trading**, que está en beta. No construyas sobre ellos todavía - el canal de webhook guarda tu preferencia pero no entrega nada. Para automatizar hoy, consulta la [API](/help/platform/api-access) en lugar de esperar un push que no llegará.
 
-La entrega saliente está en la lista, no entregada. Si cambiaría tu forma de operar, escribe a [support@zerogex.io](mailto:support@zerogex.io) indicando el canal y las señales que querrías — los detalles concretos la suben de prioridad.
+La entrega saliente está en la lista, no entregada. Si cambiaría tu forma de operar, escribe a [support@zerogex.io](mailto:support@zerogex.io) indicando el canal y las señales que querrías - los detalles concretos la suben de prioridad.
 
 ## Ver también
 

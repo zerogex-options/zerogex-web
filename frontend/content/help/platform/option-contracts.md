@@ -18,7 +18,7 @@ For each strike and each expiry:
 - **Open Interest**
 - **Delta, Gamma, Vega, Theta, Charm**
 - **Implied Volatility**
-- **GEX contribution** — the dealer-gamma dollar value at this strike
+- **GEX contribution** - the dealer-gamma dollar value at this strike
 
 Each row is paired (call on left, put on right) with the strike in the center column. The classic chain layout.
 
@@ -26,14 +26,14 @@ Each row is paired (call on left, put on right) with the strike in the center co
 
 The filter bar lets you scope the chain:
 
-- **Expiration** — multi-select. Defaults to 0DTE if available, otherwise the nearest.
-- **Moneyness** — ATM-band (e.g., ±5% from spot) or full chain.
-- **Sort** — by strike, volume, OI, IV, GEX contribution.
-- **Show only** — non-zero volume, non-zero OI, sweeps, blocks.
+- **Expiration** - multi-select. Defaults to 0DTE if available, otherwise the nearest.
+- **Moneyness** - ATM-band (e.g., ±5% from spot) or full chain.
+- **Sort** - by strike, volume, OI, IV, GEX contribution.
+- **Show only** - non-zero volume, non-zero OI, sweeps, blocks.
 
 ## The IV surface colors
 
-Cells are color-graded by IV — cool colors (blue) for low IV, warm colors (red) for high. The scale is per-expiry, so a hot ATM in one column is not the same absolute IV as a hot ATM in another. The point is to see the **shape** of the smile, not the absolute level.
+Cells are color-graded by IV - cool colors (blue) for low IV, warm colors (red) for high. The scale is per-expiry, so a hot ATM in one column is not the same absolute IV as a hot ATM in another. The point is to see the **shape** of the smile, not the absolute level.
 
 ## How to read the chain
 

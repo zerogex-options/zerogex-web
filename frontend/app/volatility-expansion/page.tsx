@@ -32,7 +32,7 @@ function interpretation(score: number | null) {
   if (score >= 30) return 'Amplification potential';
   if (score <= -70) return 'Bearish expansion active';
   if (score <= -30) return 'Downside amplification';
-  return 'Neutral — suppressed';
+  return 'Neutral\u00a0- suppressed';
 }
 
 export default function VolatilityExpansionPage() {
@@ -70,7 +70,7 @@ export default function VolatilityExpansionPage() {
         <h1 className="text-3xl font-bold">Volatility Expansion</h1>
         <span className="text-sm italic text-[var(--color-text-secondary)]">{'"Is volatility about to break out?"'}</span>
         <TooltipWrapper
-          text="Decomposes the composite score into expansion (GEX-driven readiness, 0–100) and direction (momentum-driven, −100..+100). Score is (expansion × direction) / 100. Answers two questions: Will vol expand? And if so, which way? Short-gamma regimes elevate expansion readiness; a 5-bar z-scored momentum picks the direction."
+          text="Decomposes the composite score into expansion (GEX-driven readiness, 0-100) and direction (momentum-driven, −100..+100). Score is (expansion × direction) / 100. Answers two questions: Will vol expand? And if so, which way? Short-gamma regimes elevate expansion readiness; a 5-bar z-scored momentum picks the direction."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
@@ -132,7 +132,7 @@ export default function VolatilityExpansionPage() {
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">
               <div className="text-sm font-semibold mb-1">Magnitude</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black">{magnitude != null ? magnitude.toFixed(1) : '—'}</AutoFitValue>
-              <p className="mt-3 text-xs text-[var(--color-text-secondary)]">|expansion × direction| / 100 — absolute conviction.</p>
+              <p className="mt-3 text-xs text-[var(--color-text-secondary)]">|expansion × direction| / 100&nbsp;- absolute conviction.</p>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-3.5 sm:p-5">

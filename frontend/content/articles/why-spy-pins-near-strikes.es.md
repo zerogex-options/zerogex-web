@@ -2,15 +2,15 @@
 > **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
 
-*¿Por qué SPY se ancla cerca de strikes específicos — sobre todo los viernes y hacia el cierre? No es coincidencia. El pinning de opciones explicado: el mecanismo de cobertura de los dealers detrás de ese tirón, por qué es más fuerte en el OPEX y a final del día, y cómo saber si la sesión de hoy va a pinear.*
+*¿Por qué SPY se ancla cerca de strikes específicos - sobre todo los viernes y hacia el cierre? No es coincidencia. El pinning de opciones explicado: el mecanismo de cobertura de los dealers detrás de ese tirón, por qué es más fuerte en el OPEX y a final del día, y cómo saber si la sesión de hoy va a pinear.*
 
 ---
 
 ## El pinning no es superstición
 
-Si operas opciones semanales de SPY con regularidad, ya lo has visto suceder: SPY deriva hacia un strike de número redondo — 580, 583, 585 — y el viernes por la tarde se queda ahí, oscilando en un rango de 30 centavos, negándose a moverse. Ocurre lo mismo en torno a los vencimientos trimestrales y en el OPEX mensual. Y ocurre también en muchos miércoles y jueves normales, cuando la cadena 0DTE está muy cargada.
+Si operas opciones semanales de SPY con regularidad, ya lo has visto suceder: SPY deriva hacia un strike de número redondo - 580, 583, 585 - y el viernes por la tarde se queda ahí, oscilando en un rango de 30 centavos, negándose a moverse. Ocurre lo mismo en torno a los vencimientos trimestrales y en el OPEX mensual. Y ocurre también en muchos miércoles y jueves normales, cuando la cadena 0DTE está muy cargada.
 
-Muchos traders minoristas tratan el pinning como un fenómeno de "sensaciones" — "el mercado sabe dónde quiere liquidar" — o lo atribuyen a patrones de gráfico. El mecanismo es en realidad estructural y observable: la cobertura de los dealers en strikes con gran concentración de gamma produce flujos direccionales que empujan el precio de vuelta hacia el strike cada vez que intenta alejarse. Una vez que puedes ver el mecanismo, también puedes ver cuándo es probable que esté actuando hoy y cuándo no.
+Muchos traders minoristas tratan el pinning como un fenómeno de "sensaciones" - "el mercado sabe dónde quiere liquidar" - o lo atribuyen a patrones de gráfico. El mecanismo es en realidad estructural y observable: la cobertura de los dealers en strikes con gran concentración de gamma produce flujos direccionales que empujan el precio de vuelta hacia el strike cada vez que intenta alejarse. Una vez que puedes ver el mecanismo, también puedes ver cuándo es probable que esté actuando hoy y cuándo no.
 
 Este artículo recorre la mecánica real del pinning, por qué se intensifica cerca del vencimiento, los dos tipos de pin que más confunden los traders, y las condiciones estructurales que hacen que hoy sea un día de pin. Para la checklist orientada al trader sobre "¿está SPY pineado ahora mismo?", consulta [Cómo saber si SPY está pineado](/education/how-to-know-if-spy-is-pinned). Para la discusión relacionada sobre max pain, consulta [Max Pain explicado](/education/max-pain-explained).
 
@@ -20,11 +20,11 @@ Este artículo recorre la mecánica real del pinning, por qué se intensifica ce
 
 El mecanismo es sencillo una vez que se detalla:
 
-1. Un strike concreto — digamos SPY 583 — concentra una gran cantidad de gamma, y en términos netos el book del dealer está **long** en esa gamma.
-2. Un book long-gamma en el strike se cubre *en contra* de los movimientos que se alejan de él — el reflejo estabilizador que ancla el precio. (Es el régimen de gamma positiva manifestándose en un único strike dominante.)
+1. Un strike concreto - digamos SPY 583 - concentra una gran cantidad de gamma, y en términos netos el book del dealer está **long** en esa gamma.
+2. Un book long-gamma en el strike se cubre *en contra* de los movimientos que se alejan de él - el reflejo estabilizador que ancla el precio. (Es el régimen de gamma positiva manifestándose en un único strike dominante.)
 3. Cuando SPY sube por encima de 583, el delta de cobertura de los dealers se vuelve más positivo, así que para mantenerse neutrales **venden** SPY.
 4. Cuando SPY cae por debajo de 583, su delta de cobertura se vuelve más negativo, así que para mantenerse neutrales **compran** SPY.
-5. Cada excursión lejos de 583 obliga a una operación de cobertura *de vuelta hacia* 583. El strike actúa como un imán — no porque nadie lo esté buscando deliberadamente, sino porque la matemática de la cobertura empuja el precio hacia ahí de forma mecánica.
+5. Cada excursión lejos de 583 obliga a una operación de cobertura *de vuelta hacia* 583. El strike actúa como un imán - no porque nadie lo esté buscando deliberadamente, sino porque la matemática de la cobertura empuja el precio hacia ahí de forma mecánica.
 
 Esto es lo que ocurre estructuralmente cuando ves a SPY oscilar en un rango estrecho. No es "el mercado decidiendo pinear"; es el book agregado de los dealers corrigiéndose de vuelta a la neutralidad con cada movimiento.
 
@@ -32,33 +32,33 @@ Esto es lo que ocurre estructuralmente cuando ves a SPY oscilar en un rango estr
 
 ## Por qué el pinning se intensifica cerca del vencimiento
 
-El mecanismo descrito arriba se aplica a cualquier opción — pero la *fuerza* del pin depende de la magnitud de la gamma en el strike. Dos factores hacen que esa magnitud sea enorme cerca del vencimiento:
+El mecanismo descrito arriba se aplica a cualquier opción - pero la *fuerza* del pin depende de la magnitud de la gamma en el strike. Dos factores hacen que esa magnitud sea enorme cerca del vencimiento:
 
 ### La gamma escala con 1/√T
 
-La gamma por contrato de opción es aproximadamente inversamente proporcional a la raíz cuadrada del tiempo hasta el vencimiento. La gamma at-the-money de una opción 0DTE es aproximadamente 5 veces la de una opción del mismo strike a 5 días de vencimiento, y órdenes de magnitud mayor que la de una mensual. Cuanto más cerca del vencimiento, mayor es la gamma por contrato — y mayor la operación de cobertura que requiere cada tick de precio.
+La gamma por contrato de opción es aproximadamente inversamente proporcional a la raíz cuadrada del tiempo hasta el vencimiento. La gamma at-the-money de una opción 0DTE es aproximadamente 5 veces la de una opción del mismo strike a 5 días de vencimiento, y órdenes de magnitud mayor que la de una mensual. Cuanto más cerca del vencimiento, mayor es la gamma por contrato - y mayor la operación de cobertura que requiere cada tick de precio.
 
 Un strike 0DTE en el que todo el mundo está posicionado se convierte esencialmente en un agujero negro para el spot. Los dealers deben mover cantidades muy grandes de subyacente por cambios de precio muy pequeños. El pinning se convierte en el camino de menor resistencia.
 
 ### El open interest se concentra en strikes redondos
 
-El mercado concentra estructuralmente el open interest en números redondos — 580, 583, 585 en SPY, 5800, 5810 en SPX. El viernes por la tarde, la concentración de gamma en uno o dos de esos strikes puede dominar al resto de la cadena combinada. Ese dominio de un único strike es lo que produce el "magnetismo" visible que los traders sienten al cierre.
+El mercado concentra estructuralmente el open interest en números redondos - 580, 583, 585 en SPY, 5800, 5810 en SPX. El viernes por la tarde, la concentración de gamma en uno o dos de esos strikes puede dominar al resto de la cadena combinada. Ese dominio de un único strike es lo que produce el "magnetismo" visible que los traders sienten al cierre.
 
-Combina ambos factores — poco tiempo hasta el vencimiento más OI concentrado en strikes redondos — y los pines del viernes por la tarde se vuelven estructuralmente predecibles. Los miércoles y lunes presentan versiones más débiles del mismo patrón, a medida que el flujo 0DTE sigue creciendo.
+Combina ambos factores - poco tiempo hasta el vencimiento más OI concentrado en strikes redondos - y los pines del viernes por la tarde se vuelven estructuralmente predecibles. Los miércoles y lunes presentan versiones más débiles del mismo patrón, a medida que el flujo 0DTE sigue creciendo.
 
 ---
 
-## Dos tipos de pin — y no son lo mismo
+## Dos tipos de pin - y no son lo mismo
 
 Una fuente habitual de confusión: **max pain** frente al **imán de gamma**. Ambos se llaman "el pin", pero se calculan de forma distinta y pueden no coincidir.
 
 ### Max pain
 
-El max pain es el strike en el que el pago total a los tenedores de opciones se minimizaría al vencimiento. Es un cálculo de geometría de payoff — matemática pura de valor intrínseco. Indica el strike "estructuralmente favorable" para quienes emiten opciones.
+El max pain es el strike en el que el pago total a los tenedores de opciones se minimizaría al vencimiento. Es un cálculo de geometría de payoff - matemática pura de valor intrínseco. Indica el strike "estructuralmente favorable" para quienes emiten opciones.
 
 ### Imán de gamma
 
-El imán de gamma es el strike con la mayor concentración absoluta de gamma de los dealers — el strike donde la cobertura forzada es más intensa. Es una lectura del flujo de cobertura.
+El imán de gamma es el strike con la mayor concentración absoluta de gamma de los dealers - el strike donde la cobertura forzada es más intensa. Es una lectura del flujo de cobertura.
 
 Cuando ambos strikes coinciden, la tesis del pin está en su punto más fuerte. La cadena está equilibrada en ambos sentidos. Cuando difieren, suele ganar el imán de gamma, porque es el mecanismo que realmente produce el flujo de cobertura que arrastra el precio.
 
@@ -101,7 +101,7 @@ Un flujo de trabajo breve:
 
 1. **Identifica el strike con más gamma cerca del spot.** Este es el candidato a imán.
 2. **Revisa el Net GEX.** Un valor positivo sustancial es el requisito previo. Negativo o cercano a cero descarta el pin.
-3. **Revisa el gamma flip.** El spot debe estar por encima. Si el flip está justo en el spot, la situación está disputada — el pin podría formarse o no.
+3. **Revisa el gamma flip.** El spot debe estar por encima. Si el flip está justo en el spot, la situación está disputada - el pin podría formarse o no.
 4. **Contrasta con el max pain.** Mismo strike o dentro del 0,3% del imán → pin nítido. Materialmente distinto → tesis de pin más débil; confía en el imán.
 5. **Lee la hora del día.** Antes del mediodía ET, el charm no se ha acumulado lo suficiente como para impulsar el pin con fuerza. Después de las 14:00 ET, el tirón se intensifica. Después de las 15:30 ET, dominan las dinámicas de la ventana de cierre.
 
@@ -109,17 +109,17 @@ Un flujo de trabajo breve:
 
 ## Cómo saber si el SPY está pinneado: las cinco señales
 
-Una vez identificado el pin, el playbook de trading está en [Cómo saber si SPY está pineado](/education/how-to-know-if-spy-is-pinned) — versión corta: hacer fade a los extremos, evitar el centro, tamaño pequeño.
+Una vez identificado el pin, el playbook de trading está en [Cómo saber si SPY está pineado](/education/how-to-know-if-spy-is-pinned) - versión corta: hacer fade a los extremos, evitar el centro, tamaño pequeño.
 
-**1. El Net GEX es claramente positivo (régimen de gamma larga).** Spot por encima del gamma flip y Net GEX claramente positivo. (El Net GEX es gamma estimada de los dealers bajo la convención tradicional call-positiva/put-negativa sobre interés abierto — un modelo, no inventario observado.) ZeroGEX trata en escala SPY unos $500M+ como «sustancial», pero es una heurística propia — la magnitud importa más que cualquier cifra concreta. Un Net GEX negativo o próximo a cero argumenta en contra del pin.
+**1. El Net GEX es claramente positivo (régimen de gamma larga).** Spot por encima del gamma flip y Net GEX claramente positivo. (El Net GEX es gamma estimada de los dealers bajo la convención tradicional call-positiva/put-negativa sobre interés abierto - un modelo, no inventario observado.) ZeroGEX trata en escala SPY unos $500M+ como «sustancial», pero es una heurística propia - la magnitud importa más que cualquier cifra concreta. Un Net GEX negativo o próximo a cero argumenta en contra del pin.
 
-**2. El max pain y el imán de gamma coinciden cerca del spot.** Cuando ambos apuntan al mismo nivel y este queda dentro de aproximadamente un 0,3 % del spot, el tirón estructural es más marcado. Cuando divergen, ZeroGEX se apoya en el imán de gamma — se corresponde con el mecanismo de cobertura modelado, mientras que el max pain es geometría de pagos.
+**2. El max pain y el imán de gamma coinciden cerca del spot.** Cuando ambos apuntan al mismo nivel y este queda dentro de aproximadamente un 0,3 % del spot, el tirón estructural es más marcado. Cuando divergen, ZeroGEX se apoya en el imán de gamma - se corresponde con el mecanismo de cobertura modelado, mientras que el max pain es geometría de pagos.
 
-**3. El spot lleva una hora oscilando alrededor del imán.** Grafica el SPY contra el strike del imán de gamma en temporalidad de 5 minutos. Tres o más cruces en los últimos 60 minutos, con cada excursión más pequeña, sugiere un pin en formación. Una deriva constante alejándose del imán argumenta en contra — eso es una dirección, no un rango.
+**3. El spot lleva una hora oscilando alrededor del imán.** Grafica el SPY contra el strike del imán de gamma en temporalidad de 5 minutos. Tres o más cruces en los últimos 60 minutos, con cada excursión más pequeña, sugiere un pin en formación. Una deriva constante alejándose del imán argumenta en contra - eso es una dirección, no un rango.
 
-**4. La volatilidad realizada se ha comprimido por debajo de la implícita.** La cobertura en gamma larga amortigua la volatilidad realizada, así que un pin que funciona aparece como realizada por debajo de implícita. Si la realizada se expande, el pin no aguanta — el libro está siendo arrollado por otro flujo.
+**4. La volatilidad realizada se ha comprimido por debajo de la implícita.** La cobertura en gamma larga amortigua la volatilidad realizada, así que un pin que funciona aparece como realizada por debajo de implícita. Si la realizada se expande, el pin no aguanta - el libro está siendo arrollado por otro flujo.
 
-**5. El EOD Pressure está cerca de cero dentro de la ventana activa.** Después de las 14:30 ET, una lectura de EOD Pressure cercana a cero (aproximadamente −0,20 a +0,20) es una firma modelada de pin — los términos de charm y de gravedad del pin se cancelan en buena medida porque el precio está sobre el imán. Una lectura grande significa que el precio está *lejos* del imán. Consulta [Señal EOD Pressure explicada: cómo leer el cierre](/education/eod-pressure-explained).
+**5. El EOD Pressure está cerca de cero dentro de la ventana activa.** Después de las 14:30 ET, una lectura de EOD Pressure cercana a cero (aproximadamente −0,20 a +0,20) es una firma modelada de pin - los términos de charm y de gravedad del pin se cancelan en buena medida porque el precio está sobre el imán. Una lectura grande significa que el precio está *lejos* del imán. Consulta [Señal EOD Pressure explicada: cómo leer el cierre](/education/eod-pressure-explained).
 
 ---
 
@@ -127,9 +127,9 @@ Una vez identificado el pin, el playbook de trading está en [Cómo saber si SPY
 
 Cuando la mayoría de las cinco señales encajan, el manual es contrario y sencillo:
 
-- **Sí: opera contra los extremos del rango de compresión.** El tirón estructural va de vuelta hacia el imán, así que vender los impulsos cerca del techo del rango y comprar las caídas cerca del suelo es el único montaje en el que el reflejo del dealer está de tu lado. Tamaño pequeño — los pins son probabilísticos, no garantizados.
+- **Sí: opera contra los extremos del rango de compresión.** El tirón estructural va de vuelta hacia el imán, así que vender los impulsos cerca del techo del rango y comprar las caídas cerca del suelo es el único montaje en el que el reflejo del dealer está de tu lado. Tamaño pequeño - los pins son probabilísticos, no garantizados.
 - **No: persigas el medio.** En el medio está el imán; comprar o vender ahí es pelearse con el nivel al que el precio intenta estructuralmente volver. De ahí vienen la mayoría de las pérdidas en un tape pinneado.
-- **No: tomes montajes de momentum.** Los manuales de ruptura, expansión de volatilidad y squeeze suponen que el movimiento se extiende — lo contrario de un tape pinneado. Ejecutar el manual equivocado es la mayor parte del error.
+- **No: tomes montajes de momentum.** Los manuales de ruptura, expansión de volatilidad y squeeze suponen que el movimiento se extiende - lo contrario de un tape pinneado. Ejecutar el manual equivocado es la mayor parte del error.
 - **Sí: reduce el tamaño de la posición.** Los rangos pinneados son estrechos y los stops todavía más; un tamaño de día normal invita a saltar de la posición antes de tiempo.
 
 ---
@@ -138,7 +138,7 @@ Cuando la mayoría de las cinco señales encajan, el manual es contrario y senci
 
 SPY está en 582,95 un viernes por la tarde. ZeroGEX muestra:
 
-- **Net GEX:** +1.400 M$ (positivo — régimen long-gamma)
+- **Net GEX:** +1.400 M$ (positivo - régimen long-gamma)
 - **Gamma Flip:** 581,20 (spot bien por encima)
 - **Strike 0DTE más pesado:** 583,00 (prácticamente en el spot)
 - **Max Pain:** 583,00 (coincide con el imán de gamma)
@@ -146,16 +146,16 @@ SPY está en 582,95 un viernes por la tarde. ZeroGEX muestra:
 
 Todas las condiciones estructurales para un pin están activas. El imán está en 583; el max pain coincide en 583; el régimen es long-gamma; estamos dentro de la ventana activa de fin de día. La probabilidad de que SPY oscile dentro de un rango de unos 30 centavos alrededor de 583 hasta el cierre está claramente elevada.
 
-Lectura práctica: un rango ajustado de 582,70-583,30 es el recorrido esperado. Las excursiones hacia los bordes son candidatas a setups de fade. El centro del rango es territorio de no operar. Tamaño pequeño. Vigilar las condiciones de ruptura — sobre todo si aparece un shock de un valor individual o un titular inesperado.
+Lectura práctica: un rango ajustado de 582,70-583,30 es el recorrido esperado. Las excursiones hacia los bordes son candidatas a setups de fade. El centro del rango es territorio de no operar. Tamaño pequeño. Vigilar las condiciones de ruptura - sobre todo si aparece un shock de un valor individual o un titular inesperado.
 
-Ahora imagina el mismo escenario pero con Net GEX en −600 M$ y el gamma flip en 583,50 (spot por debajo). La tesis del "pin" está muerta. Misma cadena, mismo strike, lectura opuesta — porque la variable de régimen que decide si el imán atrae o libera está invertida.
+Ahora imagina el mismo escenario pero con Net GEX en −600 M$ y el gamma flip en 583,50 (spot por debajo). La tesis del "pin" está muerta. Misma cadena, mismo strike, lectura opuesta - porque la variable de régimen que decide si el imán atrae o libera está invertida.
 
 ---
 
 ## Conceptos erróneos habituales
 
 - **"El pinning es psicología."** Es mecánica. Los dealers cubren posiciones independientemente de quién esté mirando; el flujo ocurre crean los traders en ello o no.
-- **"SPY siempre pinea en números redondos."** Pinea en los strikes donde se concentra el posicionamiento. Los números redondos son comunes porque el OI se agrupa ahí — pero el mecanismo real es el OI, no la redondez.
+- **"SPY siempre pinea en números redondos."** Pinea en los strikes donde se concentra el posicionamiento. Los números redondos son comunes porque el OI se agrupa ahí - pero el mecanismo real es el OI, no la redondez.
 - **"Si el max pain es X, el precio cerrará en X."** A menudo es falso. El max pain por sí solo no es el mecanismo del pin; lo es el imán de gamma. Cuando difieren, gana el imán de gamma.
 - **"Los pines son alcistas/bajistas."** Ninguna de las dos cosas. Son supresores de volatilidad. Ligados a un rango. La dirección viene de otro lado; el pin trata sobre el *carácter* de la acción del precio, no sobre la dirección.
 - **"El pinning ocurre todos los viernes."** A menudo, pero no siempre. Algunos viernes tienen catalizadores, regímenes de gamma corta o imanes migrando que impiden el pin. Leer las condiciones importa.
@@ -164,12 +164,12 @@ Ahora imagina el mismo escenario pero con Net GEX en −600 M$ y el gamma flip e
 
 ## Conclusión
 
-> SPY pinea porque la cobertura de los dealers en strikes con alta concentración de gamma arrastra mecánicamente el precio de vuelta al strike. El tirón es real, observable y lo bastante predecible como para operar con él — siempre que las condiciones estructurales lo respalden.
+> SPY pinea porque la cobertura de los dealers en strikes con alta concentración de gamma arrastra mecánicamente el precio de vuelta al strike. El tirón es real, observable y lo bastante predecible como para operar con él - siempre que las condiciones estructurales lo respalden.
 
 La disciplina consiste en verificar las condiciones antes de asumir que hoy es un día de pin. Régimen long-gamma + strike pesado en el spot + coincidencia con el max pain + sesión avanzada = pin nítido. Que cualquiera de estos factores se invierta debilita la lectura. Que se inviertan todos la anula por completo.
 
-Contenido meramente educativo — nada de lo anterior es una recomendación de trading.
+Contenido meramente educativo - nada de lo anterior es una recomendación de trading.
 
 ---
 
-Si quieres ver el strike con más gamma de hoy, el max pain, el gamma flip y el Net GEX — los cuatro números que deciden si SPY pinea hoy —, la vista gratuita de gamma-levels de ZeroGEX los muestra todos.
+Si quieres ver el strike con más gamma de hoy, el max pain, el gamma flip y el Net GEX - los cuatro números que deciden si SPY pinea hoy -, la vista gratuita de gamma-levels de ZeroGEX los muestra todos.

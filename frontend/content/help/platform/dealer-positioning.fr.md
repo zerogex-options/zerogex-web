@@ -1,6 +1,6 @@
 # Dealer Positioning
 
-*La surface GEX complète — Net GEX au spot, le gamma flip, call wall et put wall, et comment lire la term structure.*
+*La surface GEX complète - Net GEX au spot, le gamma flip, call wall et put wall, et comment lire la term structure.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 La page Dealer Positioning est la **carte structurelle** du book d'options. Chaque graphique et chaque tuile répond à une seule question : où sont positionnés les dealers, et que seront-ils contraints de faire à mesure que le prix évolue ?
 
-C'est la page la plus importante pour comprendre le contexte — même si le trade lui-même est exécuté ailleurs.
+C'est la page la plus importante pour comprendre le contexte - même si le trade lui-même est exécuté ailleurs.
 
 ## Les tuiles principales
 
@@ -16,7 +16,7 @@ C'est la page la plus importante pour comprendre le contexte — même si le tra
 
 La valeur de dollar-gamma de toutes les options ouvertes, signée selon la position des dealers, évaluée **au prix spot actuel**. Positif ⇒ les dealers sont net long gamma ; négatif ⇒ les dealers sont net short.
 
-Le chiffre affiché ici est mesuré au spot, et non additionné sur toute la chaîne — c'est important car le signe au spot détermine le comportement des dealers à cet instant précis, indépendamment de ce que fait la courbe cumulée à d'autres prix.
+Le chiffre affiché ici est mesuré au spot, et non additionné sur toute la chaîne - c'est important car le signe au spot détermine le comportement des dealers à cet instant précis, indépendamment de ce que fait la courbe cumulée à d'autres prix.
 
 ### Gamma Flip
 
@@ -34,9 +34,9 @@ Le strike auquel le payout total des acheteurs d'options est minimisé. Plus per
 
 Le graphique principal. Strike en abscisse ; gamma des dealers en ordonnée. Trois éléments à lire :
 
-1. **Là où la courbe croise zéro** — le gamma flip.
-2. **La plus grande accumulation de call gamma** — le call wall.
-3. **La plus grande accumulation de put gamma** — le put wall.
+1. **Là où la courbe croise zéro** - le gamma flip.
+2. **La plus grande accumulation de call gamma** - le call wall.
+3. **La plus grande accumulation de put gamma** - le put wall.
 
 Le prix spot actuel est affiché sous forme de ligne de référence verticale. La plage visible est centrée sur le spot.
 
@@ -53,21 +53,21 @@ Le profil GEX **par échéance**. Empile 0DTE, les échéances de la semaine en 
 
 ## La heatmap strike × DTE
 
-Une heatmap 2D du gamma des dealers selon le strike (lignes) et le DTE (colonnes). Les cellules les plus « chaudes » sont les strikes qui comptent pour les échéances les plus proches. La heatmap évolue en intraday à mesure que le flux arrive — observer son mouvement est instructif.
+Une heatmap 2D du gamma des dealers selon le strike (lignes) et le DTE (colonnes). Les cellules les plus « chaudes » sont les strikes qui comptent pour les échéances les plus proches. La heatmap évolue en intraday à mesure que le flux arrive - observer son mouvement est instructif.
 
 ## L'en-tête de régime
 
-Le tout haut de la page reprend le label de régime GEX (Positif / Négatif / En transition) avec l'interprétation en une ligne. Si le label de régime et la relation spot/flip ne concordent pas, survolez le régime — l'infobulle explique pourquoi (le label « En transition » apparaît lorsque le Net GEX au spot est proche de zéro).
+Le tout haut de la page reprend le label de régime GEX (Positif / Négatif / En transition) avec l'interprétation en une ligne. Si le label de régime et la relation spot/flip ne concordent pas, survolez le régime - l'infobulle explique pourquoi (le label « En transition » apparaît lorsque le Net GEX au spot est proche de zéro).
 
 ## Lire le dealer positioning en trois étapes
 
 1. **Où se situe le spot par rapport au flip ?** Au-dessus ⇒ stabilisation structurelle ; en dessous ⇒ amplification structurelle.
 2. **Où se situent les walls ?** Le call wall est votre friction à la hausse ; le put wall est votre friction à la baisse.
-3. **Comment la heatmap évolue-t-elle ?** Si le call wall monte, les dealers sont contraints de rouler plus haut — lecture structurelle haussière.
+3. **Comment la heatmap évolue-t-elle ?** Si le call wall monte, les dealers sont contraints de rouler plus haut - lecture structurelle haussière.
 
 ## Pourquoi le calcul du gamma flip de ZeroGEX est différent
 
-Le flip est calculé à partir d'un **profil de gamma des dealers à spot décalé** — et non d'une approximation basée sur le Net GEX cumulé. Pour la méthodologie et la comparaison avant/après, voir [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
+Le flip est calculé à partir d'un **profil de gamma des dealers à spot décalé** - et non d'une approximation basée sur le Net GEX cumulé. Pour la méthodologie et la comparaison avant/après, voir [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
 
 ## Lectures courantes
 

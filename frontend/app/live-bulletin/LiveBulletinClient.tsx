@@ -217,7 +217,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
           Live Bulletin
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Pick an underlying — the dealer-gamma snapshot is pulled live from the backend. Tweak the
+          Pick an underlying&nbsp;- the dealer-gamma snapshot is pulled live from the backend. Tweak the
           copy if you like, then download or copy a share-ready PNG for social.
         </p>
       </header>
@@ -278,7 +278,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {vix != null
                 ? `1σ implied move ${HORIZONS[horizon].phrase} from ${volIndex} ${vix.toFixed(1)} (~68% band). Horizon is a ${HORIZONS[horizon].days}-trading-day span, not a calendar date.`
-                : `${volIndex} implied-vol data unavailable — the expected-range band is hidden.`}
+                : `${volIndex} implied-vol data unavailable\u00a0- the expected-range band is hidden.`}
             </p>
           </div>
 
@@ -343,7 +343,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             {(downloadState === 'error' || copyState === 'error') && (
               <p className="text-xs" style={{ color: 'var(--color-bear)' }}>
                 {copyState === 'error'
-                  ? 'Clipboard image copy isn’t supported here — use Download PNG instead.'
+                  ? 'Clipboard image copy isn’t supported here\u00a0- use Download PNG instead.'
                   : 'Could not render the image. Please try again.'}
               </p>
             )}
