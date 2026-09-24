@@ -23,6 +23,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import { omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { wheelAction } from "@/core/wheelZoom";
+import { barsPrintedSince } from "@/core/chartViewHold";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useMeasuredSize } from "./useMeasuredWidth";
 
@@ -79,6 +80,9 @@ interface CandleBar {
 
 // How many aggregated candles to render. Mirrors TimeframeContext.getMaxDataPoints().
 const MAX_POINTS = 90;
+
+// The live, self-fitting view: every bar, no pan, the price band at its fit.
+const DEFAULT_VIEW = { xZoom: 1, xPan: 0, yZoom: 1, yPan: 0 };
 
 function niceStep(value: number): number {
   if (value <= 0 || !Number.isFinite(value)) return 1;
@@ -279,16 +283,34 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const replayActive = replay?.active ?? false;
 
   // Both-axis zoom/pan view: xZoom = fraction of bars visible (1 = all), xPan =
-  // bars hidden on the right, yZoom = price-band multiplier (1 = auto-fit), yPan
-  // = fractional vertical shift. Wheel zooms time (Shift = price) toward the
-  // cursor; drag pans both.
-  const [view, setView] = useState({ xZoom: 1, xPan: 0, yZoom: 1, yPan: 0 });
+  // bars hidden on the right, yZoom = price-band multiplier (1 = the base band),
+  // yPan = vertical shift in base-band heights. Wheel zooms time (Shift = price)
+  // toward the cursor; drag pans both.
+  const [view, setView] = useState(DEFAULT_VIEW);
+  // The base price band, held still once the reader has touched the view. Null
+  // while the band fits itself to the visible bars, which it does only until
+  // the first zoom or pan (wheel, drag or button). That gesture pins the band on
+  // screen, and from then on only the reader moves it: live ticks, new bars and
+  // a pan through time no longer re-scale it under their hand. Reset, or a new
+  // symbol, timeframe or Replay, hands it back to the fit. `view`'s yZoom / yPan
+  // apply on top of it exactly as they do on top of the fit.
+  const [pinnedFit, setPinnedFit] = useState<{ center: number; half: number } | null>(null);
+  // A new symbol, timeframe or mode (live / Replay) starts from the live,
+  // self-fitting view: a held band describes prices this chart no longer shows.
+  // Adjusted during render rather than in an effect.
+  const viewKey = `${symbol}:${timeframe}:${replayActive ? "replay" : "live"}`;
+  const [seenViewKey, setSeenViewKey] = useState(viewKey);
+  if (seenViewKey !== viewKey) {
+    setSeenViewKey(viewKey);
+    setView(DEFAULT_VIEW);
+    setPinnedFit(null);
+  }
   const dragRef = useRef<{ startPx: number; startPy: number; startXPan: number; startYPan: number; moved: boolean } | null>(null);
   const wheelCleanupRef = useRef<null | (() => void)>(null);
   // Live geometry snapshot for the imperative wheel handler (so it never needs
   // to re-subscribe and never reads stale closures).
   const ctxRef = useRef({
-    total: 0, startIdx: 0, xStep: 1, effLo: 0, effHi: 1, fitCenter: 0, fitHalf: 1,
+    total: 0, startIdx: 0, xStep: 1, effLo: 0, effHi: 1, baseCenter: 0, baseHalf: 1,
     width: 1100, height: 440, padLeft: 60, padTop: 18, plotW: 1, plotH: 1, plotX0: 67, innerW: 1, minBars: 6,
   });
   const clipId = `pcc-clip-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
@@ -344,6 +366,19 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     ? buildReplayBars(replay?.candles ?? EMPTY_REPLAY_CANDLES, fullHistBars, replay?.cursorTs ?? null, intervalMinutes, MAX_POINTS)
     : EMPTY_BARS;
   const bars = replayActive ? replayBars : liveBars;
+
+  // A view panned back in time stays on the bars it is showing as new ones
+  // print (or, in Replay, as the playhead brings them in). `xPan` counts bars
+  // hidden on the right, so each print widens it by the bars that printed; the
+  // live edge still follows new bars. Adjusted during render, like the view
+  // reset above.
+  const newestBarTs = bars.length > 0 ? bars[bars.length - 1].timestamp : null;
+  const [seenNewestBarTs, setSeenNewestBarTs] = useState(newestBarTs);
+  if (seenNewestBarTs !== newestBarTs) {
+    setSeenNewestBarTs(newestBarTs);
+    const printed = barsPrintedSince(bars, seenNewestBarTs);
+    if (printed > 0) setView((v) => (Math.round(v.xPan) > 0 ? { ...v, xPan: v.xPan + printed } : v));
+  }
 
   const dateMarkers = useMemo(() => {
     const markers: Array<{ index: number; label: string; key: string }> = [];
@@ -424,7 +459,8 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const candleWidth = Math.max(2, Math.min(12, xStep * 0.6));
   const xForVis = (i: number) => plotX0 + i * xStep;
 
-  // ── Price band (auto-fit the visible bars, then apply Y zoom/pan) ──
+  // ── Price band (fit the visible bars, or hold the pinned band, then apply
+  // Y zoom/pan) ──
   let priceLo = Number.POSITIVE_INFINITY;
   let priceHi = Number.NEGATIVE_INFINITY;
   for (const b of visibleBars) {
@@ -441,8 +477,10 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const fitHi = priceHi + basePad;
   const fitCenter = (fitLo + fitHi) / 2;
   const fitHalf = (fitHi - fitLo) / 2;
-  const bandCenter = fitCenter + view.yPan * (fitHi - fitLo);
-  const bandHalf = Math.max(1e-6, fitHalf * view.yZoom);
+  const baseCenter = pinnedFit ? pinnedFit.center : fitCenter;
+  const baseHalf = pinnedFit ? pinnedFit.half : fitHalf;
+  const bandCenter = baseCenter + view.yPan * (2 * baseHalf);
+  const bandHalf = Math.max(1e-6, baseHalf * view.yZoom);
   const effLo = bandCenter - bandHalf;
   const effHi = bandCenter + bandHalf;
   const yPrice = (p: number) => padTop + (1 - (p - effLo) / Math.max(1e-9, effHi - effLo)) * plotH;
@@ -455,13 +493,23 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const hoverVis = resolvedIdx - startIdx;
   const showHoverLine = hoveredIdx !== null && hoverVis >= 0 && hoverVis < vLen;
 
+  // Also true while the band is merely held, so Reset stays available to hand
+  // it back to the fit.
   const isZoomed =
+    pinnedFit !== null ||
     view.xZoom < 0.999 || view.xPan > 0.001 || Math.abs(view.yZoom - 1) > 0.001 || Math.abs(view.yPan) > 0.001;
+
+  // The reader has taken the view over: stop fitting the price band and hold
+  // the one on screen. Every zoom and pan calls this before it moves anything,
+  // the time ones included, because a time zoom or pan changes which bars are
+  // visible and the fit would re-scale the band under the reader's hand. Only
+  // the first call pins.
+  const holdPriceBand = () => setPinnedFit((p) => p ?? { center: baseCenter, half: baseHalf });
 
   // Keep the wheel handler's geometry snapshot fresh (post-commit; wheel events
   // are user-driven, so there's no lag).
   useEffect(() => {
-    ctxRef.current = { total, startIdx, xStep, effLo, effHi, fitCenter, fitHalf, width, height, padLeft, padTop, plotW, plotH, plotX0, innerW, minBars: MIN_BARS };
+    ctxRef.current = { total, startIdx, xStep, effLo, effHi, baseCenter, baseHalf, width, height, padLeft, padTop, plotW, plotH, plotX0, innerW, minBars: MIN_BARS };
   });
 
   // Wheel zoom via a callback ref so it attaches when the SVG actually mounts
@@ -484,15 +532,18 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       const px = ((e.clientX - rect.left) / Math.max(1, rect.width)) * c.width;
       const py = ((e.clientY - rect.top) / Math.max(1, rect.height)) * c.height;
       const zoomIn = e.deltaY < 0;
+      // Hold the band on screen before zooming either axis (see holdPriceBand;
+      // reached through the snapshot, since this listener is attached once).
+      setPinnedFit((p) => p ?? { center: c.baseCenter, half: c.baseHalf });
       if (action === "zoom-price") {
         setView((prev) => {
           const factor = zoomIn ? 0.85 : 1 / 0.85;
           const newYZoom = clamp(prev.yZoom * factor, 0.05, 5);
           const frac = clamp((py - c.padTop) / Math.max(1e-9, c.plotH), 0, 1);
           const priceAtCursor = c.effHi - frac * (c.effHi - c.effLo);
-          const half2 = c.fitHalf * newYZoom;
+          const half2 = c.baseHalf * newYZoom;
           const center2 = priceAtCursor + half2 * (2 * frac - 1);
-          const newYPan = c.fitHalf > 0 ? (center2 - c.fitCenter) / (c.fitHalf * 2) : 0;
+          const newYPan = c.baseHalf > 0 ? (center2 - c.baseCenter) / (c.baseHalf * 2) : 0;
           return { ...prev, yZoom: newYZoom, yPan: clamp(newYPan, -6, 6) };
         });
       } else {
@@ -523,7 +574,13 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     if (d) {
       const dxPx = e.clientX - d.startPx;
       const dyPx = e.clientY - d.startPy;
-      if (Math.abs(dxPx) > 2 || Math.abs(dyPx) > 2) d.moved = true;
+      // A click that wobbles a pixel is not a pan: nothing moves (or gets held)
+      // until the pointer has really travelled.
+      if (!d.moved && (Math.abs(dxPx) > 2 || Math.abs(dyPx) > 2)) {
+        d.moved = true;
+        holdPriceBand();
+      }
+      if (!d.moved) return;
       const dxView = (dxPx / Math.max(1, rect.width)) * width;
       const dyView = (dyPx / Math.max(1, rect.height)) * height;
       const barsDelta = dxView / Math.max(1e-9, xStep);
@@ -581,13 +638,19 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       e.type === "pointerup" && !t.tracking && Math.abs(e.clientX - t.x0) < 8 && Math.abs(e.clientY - t.y0) < 8;
     if (tapped) crosshairAt(e);
   };
-  const resetView = () => setView({ xZoom: 1, xPan: 0, yZoom: 1, yPan: 0 });
-  const zoomTime = (dir: 1 | -1) =>
+  // Back to the live view, and the price band back to fitting itself.
+  const resetView = () => {
+    setView(DEFAULT_VIEW);
+    setPinnedFit(null);
+  };
+  const zoomTime = (dir: 1 | -1) => {
+    holdPriceBand();
     setView((prev) => {
       const factor = dir > 0 ? 0.7 : 1 / 0.7;
       const minZoom = total > 0 ? Math.min(1, MIN_BARS / total) : 1;
       return { ...prev, xZoom: clamp(prev.xZoom * factor, minZoom, 1) };
     });
+  };
 
   const heading = label ?? quote?.symbol ?? symbol;
   // Embedded charts sit inside a shell, so they drop their own card chrome and
@@ -665,7 +728,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
             <button type="button" onClick={() => zoomTime(1)} title="Zoom in (time)" aria-label="Zoom in" className="px-2 py-1 pointer-coarse:px-2.5 pointer-coarse:py-1.5 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
               <ZoomIn size={13} />
             </button>
-            <button type="button" onClick={resetView} disabled={!isZoomed} title="Reset zoom" aria-label="Reset zoom" className="px-2 py-1 pointer-coarse:px-2.5 pointer-coarse:py-1.5 transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
+            <button type="button" onClick={resetView} disabled={!isZoomed} title="Reset zoom & pan, and let the price scale fit itself again" aria-label="Reset zoom" className="px-2 py-1 pointer-coarse:px-2.5 pointer-coarse:py-1.5 transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
               <RotateCcw size={13} />
             </button>
           </div>

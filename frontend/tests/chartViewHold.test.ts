@@ -6,7 +6,9 @@
 //
 // Three layers are pinned here: the time rule (core/chartViewHold), the linked
 // dashboard axis (core/linkedPriceAxisState), and the chart's own wiring, which
-// is checked at the source the way tests/gammaTerminal.test.ts checks it.
+// is checked at the source the way tests/gammaTerminal.test.ts checks it. The
+// Pair Comparison candle chart had the same habit and follows the same rule;
+// its wiring is checked at the end.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -23,6 +25,7 @@ import {
 } from '../core/linkedPriceAxisState.ts';
 
 const chart = readFileSync(new URL('../components/GammaTerminalChart.tsx', import.meta.url), 'utf8');
+const pair = readFileSync(new URL('../components/PairCandleChart.tsx', import.meta.url), 'utf8');
 
 // ── Time: a panned-back view stays on its bars ────────────────────────────
 
@@ -150,12 +153,13 @@ test('repeated reports and views are no-ops, so nothing can loop', () => {
 
 // ── The chart's wiring ──────────────────────────────────────────────────────
 
-/** The body of a `const name = (…) => { … };` handler in the chart. */
-const handler = (name: string) => {
-  const start = chart.indexOf(`const ${name} = (`);
+/** The body of a `const name = (…) => { … };` handler in a component's source. */
+const handlerIn = (src: string, name: string) => {
+  const start = src.indexOf(`const ${name} = (`);
   assert.ok(start >= 0, `${name} exists`);
-  return chart.slice(start, chart.indexOf('\n  };\n', start));
+  return src.slice(start, src.indexOf('\n  };\n', start));
 };
+const handler = (name: string) => handlerIn(chart, name);
 
 test('the layout draws from the held window before the link or the auto-fit', () => {
   assert.match(chart, /const held = frozen \?\? \(priceLink \? null : pinnedAxis\);/);
@@ -205,4 +209,45 @@ test('a jump back to the live edge keeps the scale but always shows the latest b
 test('a panned-back view is re-anchored as bars print, and the live edge is not', () => {
   assert.match(chart, /const printed = barsPrintedSince\(allBars, seenNewestBarTs\);/);
   assert.match(chart, /setView\(\(v\) => \(v\.offset > 0 \? \{ \.\.\.v, offset: v\.offset \+ printed \} : v\)\)/);
+});
+
+// ── The Pair Comparison candle chart ────────────────────────────────────────
+// Its price band was fitted to the visible bars on every render, with the
+// reader's zoom / pan applied on top of that fit, so it re-scaled the same way.
+
+test('pair chart: the band draws from the held fit, not the live one', () => {
+  assert.match(pair, /const baseCenter = pinnedFit \? pinnedFit\.center : fitCenter;/);
+  assert.match(pair, /const baseHalf = pinnedFit \? pinnedFit\.half : fitHalf;/);
+  assert.match(pair, /const bandCenter = baseCenter \+ view\.yPan \* \(2 \* baseHalf\);/);
+  assert.match(pair, /const bandHalf = Math\.max\(1e-6, baseHalf \* view\.yZoom\);/);
+  // The wheel's cursor-anchored price zoom works in the same base, not the fit.
+  assert.match(pair, /const half2 = c\.baseHalf \* newYZoom;/);
+  assert.doesNotMatch(pair, /c\.fitHalf|c\.fitCenter/);
+});
+
+test('pair chart: every zoom and pan holds the band first', () => {
+  assert.match(pair, /const holdPriceBand = \(\) => setPinnedFit\(\(p\) => p \?\? \{ center: baseCenter, half: baseHalf \}\);/);
+  assert.match(handlerIn(pair, 'zoomTime'), /holdPriceBand\(\);\s*setView/);
+  // Drag: held once the pointer has really moved, and a one-pixel wobble on a
+  // click neither pans nor holds.
+  const move = handlerIn(pair, 'handleMove');
+  assert.match(move, /d\.moved = true;\s*holdPriceBand\(\);/);
+  assert.match(move, /if \(!d\.moved\) return;/);
+  // Wheel, either axis: held from the snapshot before the view moves.
+  assert.match(pair, /setPinnedFit\(\(p\) => p \?\? \{ center: c\.baseCenter, half: c\.baseHalf \}\);\s*if \(action === "zoom-price"\)/);
+});
+
+test('pair chart: Reset, or a new symbol, timeframe or Replay, hands the band back to the fit', () => {
+  assert.match(handlerIn(pair, 'resetView'), /setView\(DEFAULT_VIEW\);\s*setPinnedFit\(null\);/);
+  assert.match(pair, /const viewKey = `\$\{symbol\}:\$\{timeframe\}:\$\{replayActive \? "replay" : "live"\}`;/);
+  assert.match(pair, /setSeenViewKey\(viewKey\);\s*setView\(DEFAULT_VIEW\);\s*setPinnedFit\(null\);/);
+  // Reset stays enabled while the band is only held.
+  assert.match(pair, /const isZoomed =\s*pinnedFit !== null \|\|/);
+});
+
+test('pair chart: a panned-back view stays on its bars as new ones print', () => {
+  assert.match(pair, /const printed = barsPrintedSince\(bars, seenNewestBarTs\);/);
+  // Rounded the way the window rounds it, so a sub-bar drag at the live edge
+  // still follows new bars instead of being pushed a bar back.
+  assert.match(pair, /setView\(\(v\) => \(Math\.round\(v\.xPan\) > 0 \? \{ \.\.\.v, xPan: v\.xPan \+ printed \} : v\)\)/);
 });
