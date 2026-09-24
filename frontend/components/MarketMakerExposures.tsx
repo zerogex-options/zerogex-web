@@ -4176,13 +4176,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Gamma Flip</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Strike with the heaviest call OI — tends to act as resistance">
+        <span className="flex items-center gap-1.5" title="Strike at or above spot with the largest call gamma exposure across the selected expirations — tends to act as resistance">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
           </svg>
           <span style={{ color: textPrimary }}>Call Wall</span>
         </span>
-        <span className="flex items-center gap-1.5" title="Strike with the heaviest put OI — tends to act as support">
+        <span className="flex items-center gap-1.5" title="Strike at or below spot with the largest put gamma exposure across the selected expirations — tends to act as support">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
           </svg>
