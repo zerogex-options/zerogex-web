@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { formatEtTimestamp } from '@/core/etTimestamp';
 import { resolveSymbol } from '@/core/symbols';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
@@ -126,6 +127,8 @@ export default async function ActionCardPage({
   const tweetText = buildTweetText(card, `ZeroGEX Action Card #${cardId} for ${symbol}.`);
   const cardUrl = `${SITE_URL}/cards/${cardId}`;
   const issuedAt = card.timestamp ? new Date(String(card.timestamp)) : null;
+  // Eastern wall time with the offset; the exact UTC stamp stays on hover.
+  const issuedEt = formatEtTimestamp(card.timestamp ? String(card.timestamp) : null);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -146,9 +149,12 @@ export default async function ActionCardPage({
         <h1 className="mt-1 text-2xl font-bold tracking-tight">
           {symbol} · {humanizeWords(String(card.action ?? '')) || 'Action Card'}
         </h1>
-        {issuedAt && !Number.isNaN(issuedAt.getTime()) && (
+        {issuedAt && issuedEt && (
           <div className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-            Issued {issuedAt.toISOString()}
+            Issued{' '}
+            <time dateTime={issuedAt.toISOString()} title={issuedAt.toISOString()}>
+              {issuedEt}
+            </time>
           </div>
         )}
       </header>
