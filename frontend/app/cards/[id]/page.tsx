@@ -46,14 +46,14 @@ function buildTweetText(card: CardPayload | null, fallback: string): string {
   const symbol = (card.underlying || 'SPY').toUpperCase();
   const action = humanizeWords(String(card.action ?? ''));
   if (!action || action.toUpperCase() === 'STAND DOWN') {
-    return `Stand Down on ${symbol} — no tradable structure right now.`;
+    return `Stand Down on ${symbol}\u00a0- no tradable structure right now.`;
   }
   const entryPrice = typeof card.entry?.ref_price === 'number' ? `$${card.entry.ref_price.toFixed(2)}` : null;
   const targetPrice = typeof card.target?.ref_price === 'number' ? `$${card.target.ref_price.toFixed(2)}` : null;
   const confidence =
     typeof card.confidence === 'number' ? ` · conf ${card.confidence.toFixed(2)}` : '';
   if (entryPrice && targetPrice) {
-    return `${symbol} ${action} — entry ${entryPrice} → target ${targetPrice}${confidence}.`;
+    return `${symbol} ${action}\u00a0- entry ${entryPrice} → target ${targetPrice}${confidence}.`;
   }
   return `${symbol} ${action}${confidence}.`;
 }
@@ -67,7 +67,7 @@ export async function generateMetadata({
   const cardId = parseId(id);
   if (cardId == null) {
     return {
-      title: 'Action Card not found — ZeroGEX',
+      title: 'Action Card not found\u00a0- ZeroGEX',
       robots: { index: false, follow: false },
     };
   }
@@ -76,11 +76,11 @@ export async function generateMetadata({
   const action = humanizeWords(String(card?.action ?? '')) || 'Action Card';
   const pattern = humanizeWords(String(card?.pattern ?? ''));
   const title = card
-    ? `${symbol} ${action}${pattern ? ` · ${pattern}` : ''} — ZeroGEX Card #${cardId}`
-    : `Action Card #${cardId} — ZeroGEX`;
+    ? `${symbol} ${action}${pattern ? ` · ${pattern}` : ''}\u00a0- ZeroGEX Card #${cardId}`
+    : `Action Card #${cardId}\u00a0- ZeroGEX`;
   const description = card?.rationale
     ? String(card.rationale)
-    : 'A decisive Playbook trade card emitted by the ZeroGEX engine — dealer positioning + signal confluence + structural levels in one instruction.';
+    : 'A decisive Playbook trade card emitted by the ZeroGEX engine\u00a0- dealer positioning + signal confluence + structural levels in one instruction.';
   const url = `${SITE_URL}/cards/${cardId}`;
   return {
     title,
@@ -159,7 +159,7 @@ export default async function ActionCardPage({
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this card</div>
         Every cycle (~1 minute) the ZeroGEX Playbook engine fuses dealer positioning, options
         flow, the Market State Index, and live structural levels into one decisive instruction.
-        This is the permanent receipt for card <span className="font-mono">#{cardId}</span> —
+        This is the permanent receipt for card <span className="font-mono">#{cardId}</span>&nbsp;-
         the entry, stop, target, and reasoning at the moment it was emitted. Closed Action
         Cards never re-write; the engine cannot retroactively edit a published call. Live
         positioning lives on{' '}

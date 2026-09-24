@@ -1301,7 +1301,7 @@ export default function GammaHeatmapCanvas() {
         }}
         className={toolbarBtnClass}
         style={toolbarBtnStyle(selectedExpiry !== 'all')}
-        title="Filter by expiration (best-effort — depends on /api/gex/heatmap supporting the param)"
+        title="Filter by expiration (best-effort&nbsp;- depends on /api/gex/heatmap supporting the param)"
         disabled={availableExpirations.length === 0}
       >
         <span>Expiry {expiryDisplay}</span>
@@ -1540,7 +1540,7 @@ export default function GammaHeatmapCanvas() {
     </span>
   );
   const candleLagBadge = showCandleLagBadge && (
-    <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls — TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup — the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
+    <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls&nbsp;- TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup&nbsp;- the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
       <span
         className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded cursor-help"
         style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}
@@ -1769,7 +1769,7 @@ export default function GammaHeatmapCanvas() {
         >
           <span
             className="flex items-center gap-1.5"
-            title="Price where dealer net gamma flips sign — above it dealers dampen volatility, below it they amplify it"
+            title="Price where dealer net gamma flips sign&nbsp;- above it dealers dampen volatility, below it they amplify it"
           >
             <svg width="22" height="6" aria-hidden="true">
               <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2.25" />

@@ -74,7 +74,7 @@ export default async function Image() {
             display: 'flex',
           }}
         >
-          Gamma exposure explained simply — why dealer gamma pins some days and trends others.
+          Gamma exposure explained simply - why dealer gamma pins some days and trends others.
         </div>
         <div
           style={{

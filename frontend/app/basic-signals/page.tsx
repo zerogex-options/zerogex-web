@@ -196,7 +196,7 @@ export default function BasicSignalsPage() {
         href: '/positioning-trap',
         icon: AlertTriangle,
         threshold: 25,
-        description: 'Crowded positioning × flow × momentum × gamma — classic squeeze / flush setup.',
+        description: 'Crowded positioning × flow × momentum × gamma\u00a0- classic squeeze / flush setup.',
         rows: trapRows,
         hook: posTrap,
       },
@@ -224,7 +224,7 @@ export default function BasicSignalsPage() {
       <div className="flex items-center gap-2 mb-6">
         <h1 className="text-[26px] font-bold sm:text-3xl">Basic Signal Dashboard</h1>
         <TooltipWrapper
-          text="Six independent, continuous directional reads of market microstructure sitting outside the composite MSI. None dominates — the value is in their agreement (conviction) or disagreement (divergence, trap risk). Drill into any tile for detail."
+          text="Six independent, continuous directional reads of market microstructure sitting outside the composite MSI. None dominates&nbsp;- the value is in their agreement (conviction) or disagreement (divergence, trap risk). Drill into any tile for detail."
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
@@ -243,7 +243,7 @@ export default function BasicSignalsPage() {
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Microstructure Lens</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Basic signals run at weight = 0 — they do not feed the composite MSI. Use them as an early cross-check:
+              Basic signals run at weight = 0&nbsp;- they do not feed the composite MSI. Use them as an early cross-check:
               when flow-side signals diverge from structure signals, a regime shift is usually underway.
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">

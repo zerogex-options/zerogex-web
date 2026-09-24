@@ -293,7 +293,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
           <h3 className="zg-h3" style={{ color: textColor }}>
             Gamma Flip · Term Structure
           </h3>
-          <TooltipWrapper text="Today's resolved gamma-flip price across option horizons (1d → 60d), versus the persisted production flip from h days ago. The line traces today's flip; markers carry sign info via color. Diamond outlines mark the production flip that was recorded h days ago — read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where the resolver could not land an interior crossing inside the scan span.">
+          <TooltipWrapper text="Today's resolved gamma-flip price across option horizons (1d → 60d), versus the persisted production flip from h days ago. The line traces today's flip; markers carry sign info via color. Diamond outlines mark the production flip that was recorded h days ago&nbsp;- read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where the resolver could not land an interior crossing inside the scan span.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
@@ -384,7 +384,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
           {error ? (
             <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--color-bear)' }}>
               {error === 'No data available yet'
-                ? `No usable option snapshot for ${symbol} — check ingestion.`
+                ? `No usable option snapshot for ${symbol}\u00a0- check ingestion.`
                 : `Backend error: ${error}`}
             </div>
           ) : loading && !data ? (
@@ -640,7 +640,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
         {anyUnresolved && !hasHistorical && (
           <p className="mt-2 text-[11px]" style={{ color: mutedText }}>
             Red × markers flag horizons where the resolver could not land an interior crossing inside the
-            scan span — widen the chain or expand span_pct on the backend.
+            scan span&nbsp;- widen the chain or expand span_pct on the backend.
           </p>
         )}
 

@@ -505,7 +505,7 @@ function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: Expec
         <span style={{ fontSize: 22, fontWeight: 800, color: C.bull, letterSpacing: -0.3 }}>
           {fmtPrice(range.low)}
         </span>
-        <span style={{ fontSize: 16, color: C.textFaint, fontWeight: 700 }}>—</span>
+        <span style={{ fontSize: 16, color: C.textFaint, fontWeight: 700 }}>-</span>
         <span style={{ fontSize: 22, fontWeight: 800, color: C.bear, letterSpacing: -0.3 }}>
           {fmtPrice(range.high)}
         </span>

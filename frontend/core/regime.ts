@@ -66,7 +66,7 @@ export const REGIMES: Record<RegimeKey, RegimeInfo> = {
     softColor: 'color-mix(in srgb, var(--regime-controlled) 16%, transparent)',
     copy: 'Above-average forward travel, historically.',
     glyph: '●',
-    rangeLabel: '40 – 70',
+    rangeLabel: '40\u00a0- 70',
   },
   chop_range: {
     key: 'chop_range',
@@ -75,7 +75,7 @@ export const REGIMES: Record<RegimeKey, RegimeInfo> = {
     softColor: 'color-mix(in srgb, var(--regime-chop) 16%, transparent)',
     copy: 'Below-average forward travel, historically.',
     glyph: '■',
-    rangeLabel: '20 – 40',
+    rangeLabel: '20\u00a0- 40',
   },
   high_risk_reversal: {
     key: 'high_risk_reversal',

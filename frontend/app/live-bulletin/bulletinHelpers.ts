@@ -140,28 +140,28 @@ const REGIME_COPY: Record<RegimeKey, { badge: string; label: string; short: stri
     label: 'Positive GEX · pinned, low vol',
     short: 'Dealers Long Gamma',
     explain:
-      'Above the flip, dealers hedge against direction — moves get sold into, ranges compress and dips tend to mean-revert.',
+      'Above the flip, dealers hedge against direction\u00a0- moves get sold into, ranges compress and dips tend to mean-revert.',
   },
   negative: {
     badge: '− GAMMA REGIME',
     label: 'Negative GEX · trending, high vol',
     short: 'Dealers Short Gamma',
     explain:
-      'Below the flip, dealer hedging amplifies the tape — moves accelerate, ranges expand and trends extend rather than fade.',
+      'Below the flip, dealer hedging amplifies the tape\u00a0- moves accelerate, ranges expand and trends extend rather than fade.',
   },
   neutral: {
     badge: '~ GAMMA REGIME',
     label: 'At the flip · transition',
     short: 'Pinned At The Gamma Flip',
     explain:
-      'Spot is sitting on the flip — the sign of dealer hedging is unstable here and a small move tips the market into the next regime.',
+      'Spot is sitting on the flip\u00a0- the sign of dealer hedging is unstable here and a small move tips the market into the next regime.',
   },
   unresolved: {
     badge: '? GAMMA REGIME',
     label: 'Flip unresolved this snapshot',
     short: 'Gamma Flip Unresolved',
     explain:
-      'The dealer gamma flip could not be resolved from this snapshot — treat positioning levels below as provisional.',
+      'The dealer gamma flip could not be resolved from this snapshot\u00a0- treat positioning levels below as provisional.',
   },
 };
 
@@ -174,13 +174,13 @@ export function regimeCopy(regime: RegimeKey) {
 const MECHANICS_VARIANTS: Record<RegimeKey, string[]> = {
   positive: [
     REGIME_COPY.positive.explain,
-    'Expect rallies to get faded and dips to get bought as dealers hedge against direction — the net effect is range compression.',
+    'Expect rallies to get faded and dips to get bought as dealers hedge against direction\u00a0- the net effect is range compression.',
     'Dealer hedging works against momentum here: pushes stall, pullbacks recover, and the tape leans mean-reverting.',
   ],
   negative: [
     REGIME_COPY.negative.explain,
     'Dealer hedging runs with momentum here: breaks extend, dips can cascade, and intraday ranges widen out.',
-    'Expect moves to feed on themselves rather than fade — short-gamma hedging chases price and stretches the range.',
+    'Expect moves to feed on themselves rather than fade\u00a0- short-gamma hedging chases price and stretches the range.',
   ],
   neutral: [
     REGIME_COPY.neutral.explain,
@@ -477,16 +477,16 @@ function buildBandContext(args: {
   const putIn = putWall != null ? putWall >= low : null;
 
   if (callIn === true && putIn === true) {
-    return 'Both dealer walls sit inside the 1σ range — a textbook pin setup, with the walls as the magnets price gravitates toward.';
+    return 'Both dealer walls sit inside the 1σ range\u00a0- a textbook pin setup, with the walls as the magnets price gravitates toward.';
   }
   if (callIn === false && putIn === false) {
-    return 'Both walls sit outside the 1σ range — reaching either would take a larger-than-implied move.';
+    return 'Both walls sit outside the 1σ range\u00a0- reaching either would take a larger-than-implied move.';
   }
   if (callIn === false && putIn === true) {
-    return 'The put wall sits inside the 1σ range but the call wall is beyond it — upside needs a bigger-than-implied move to reach resistance.';
+    return 'The put wall sits inside the 1σ range but the call wall is beyond it\u00a0- upside needs a bigger-than-implied move to reach resistance.';
   }
   if (callIn === true && putIn === false) {
-    return 'The call wall sits inside the 1σ range but the put wall is beyond it — downside support is further than one implied move away.';
+    return 'The call wall sits inside the 1σ range but the put wall is beyond it\u00a0- downside support is further than one implied move away.';
   }
   return 'Expected range derived from index implied volatility (1σ ≈ 68%).';
 }
@@ -540,7 +540,7 @@ function describePosture(regime: RegimeKey, netGex: number | null, seed: number)
     return pick(
       [
         'Net dealer gamma did not resolve cleanly this snapshot, so the positioning below is provisional.',
-        'Net GEX is unresolved in this snapshot — read the levels below as provisional.',
+        'Net GEX is unresolved in this snapshot\u00a0- read the levels below as provisional.',
       ],
       seed,
     );
@@ -561,7 +561,7 @@ function describePosture(regime: RegimeKey, netGex: number | null, seed: number)
       [
         `Dealers are carrying ${adj} ${amt} of long gamma, positioning that leans against direction and damps intraday swings.`,
         `With ${adj} ${amt} long-gamma book, dealers are paid to fade pushes and buy dips.`,
-        `Dealer gamma is long at ${amt} — ${adj} cushion that tends to compress the range.`,
+        `Dealer gamma is long at ${amt}\u00a0- ${adj} cushion that tends to compress the range.`,
       ],
       seed,
     );
@@ -576,7 +576,7 @@ function describePosture(regime: RegimeKey, netGex: number | null, seed: number)
   );
   return pick(
     [
-      `Dealers are short ${amt} of gamma — ${adj} short book that amplifies moves instead of muting them.`,
+      `Dealers are short ${amt} of gamma\u00a0- ${adj} short book that amplifies moves instead of muting them.`,
       `With ${adj} ${amt} short-gamma position, dealer hedging adds fuel to whichever way price breaks.`,
       `Dealer gamma is short at ${amt}; ${adj} imbalance that lets moves feed on themselves.`,
     ],
@@ -604,7 +604,7 @@ function describeFlipPosition(args: {
     return pick(
       [
         `Price is pinned right on the ${flipP} flip, where the sign of dealer hedging is a coin toss.`,
-        `Spot is sitting essentially on the ${flipP} gamma flip — the knife's edge between regimes.`,
+        `Spot is sitting essentially on the ${flipP} gamma flip\u00a0- the knife's edge between regimes.`,
         `We're balanced on the ${flipP} flip; a small push tips dealers into the next regime.`,
       ],
       seed,
@@ -659,7 +659,7 @@ function describeMagnets(args: {
     return pick(
       [
         `The ${fmtPrice(putWall)} put wall and ${fmtPrice(callWall)} call wall bracket a ${corridor}-pt corridor, with the ${nearName} the nearer magnet ${nearDist} pts off.`,
-        `Resistance maps to the ${fmtPrice(callWall)} call wall and support to the ${fmtPrice(putWall)} put wall — a ${corridor}-pt band, and the ${nearName} (${nearPrice}) is closest.`,
+        `Resistance maps to the ${fmtPrice(callWall)} call wall and support to the ${fmtPrice(putWall)} put wall\u00a0- a ${corridor}-pt band, and the ${nearName} (${nearPrice}) is closest.`,
         `Walls frame a ${corridor}-pt range from the ${fmtPrice(putWall)} put wall up to the ${fmtPrice(callWall)} call wall; price leans toward the ${nearName}, ${nearDist} pts away.`,
       ],
       seed,

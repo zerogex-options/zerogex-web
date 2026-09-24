@@ -29,14 +29,14 @@ const IntradayChart = dynamic(() => import('./IntradayChart'), {
 const NEUTRAL_DELTA_THRESHOLD = 0.5;
 
 const TITLE_TOOLTIP =
-  'Composite Score, also known as the Market State Index (MSI), is a single 0–100 number that reads the current option-structure regime — not market direction. ' +
-  'It blends six independent components — net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, and dealer delta pressure — ' +
+  'Composite Score, also known as the Market State Index (MSI), is a single 0-100 number that reads the current option-structure regime\u00a0- not market direction. ' +
+  'It blends six independent components\u00a0- net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, and dealer delta pressure\u00a0- ' +
   'each weighted to a max-points cap that sums to 100. ' +
-  '50 is neutral; readings ≥70 indicate a tradable trend / expansion regime, 40–70 a controlled trend, 20–40 chop / range, and <20 high-risk reversal (mean-reversion only, fragile tape). ' +
-  'A high MSI does not mean "bullish" — it means trends can run. A low MSI does not mean "bearish" — it means trends are unlikely to work.';
+  '50 is neutral; readings ≥70 indicate a tradable trend / expansion regime, 40-70 a controlled trend, 20-40 chop / range, and <20 high-risk reversal (mean-reversion only, fragile tape). ' +
+  'A high MSI does not mean "bullish"\u00a0- it means trends can run. A low MSI does not mean "bearish"\u00a0- it means trends are unlikely to work.';
 
 const INTRADAY_TOOLTIP =
-  "The MSI's path through today's session, plotted as 0–100 with shaded regime bands at <20 (high-risk reversal), 20–40 (chop), 40–70 (controlled trend), and ≥70 (trend / expansion). " +
+  "The MSI's path through today's session, plotted as 0-100 with shaded regime bands at <20 (high-risk reversal), 20-40 (chop), 40-70 (controlled trend), and ≥70 (trend / expansion). " +
   "Hover any point for the timestamp, score, regime, and the top-3 components that drove the reading.";
 
 const CONTRIB_TOOLTIP =
@@ -160,7 +160,7 @@ function DeltaBadge({ label, value }: { label: string; value: number | null }) {
 }
 
 const IMPLIED_BIAS_TOOLTIP =
-  'A directional read layered on top of the (directionless) regime score — it drives the gauge color only. ' +
+  'A directional read layered on top of the (directionless) regime score\u00a0- it drives the gauge color only. ' +
   "It combines the underlying's recent intraday trend with the regime: a high score implies the current move continues, a low score implies a reversal. " +
   'So an uptrend + low score reads bearish (reversal), an uptrend + high score reads bullish (continuation), and vice-versa for downtrends. ' +
   'Green = implied bullish, red = implied bearish; neutral when the underlying is flat or the score sits near 50. The number itself is still a regime gauge, not a direction.';
@@ -177,7 +177,7 @@ function ImpliedBiasLine({ implied }: { implied: ImpliedDirection }) {
       </span>
       <span aria-hidden style={{ color: implied.color, fontSize: 12 }}>{glyph}</span>
       <span className="font-semibold" style={{ color: implied.color }}>{implied.label}</span>
-      <span className="text-[var(--color-text-secondary)]">— {implied.detail}</span>
+      <span className="text-[var(--color-text-secondary)]">- {implied.detail}</span>
     </div>
   );
 }
@@ -253,7 +253,7 @@ function LiveIndicator({
   let statusGlyph: '●' | '◐' | '○' = '○';
   if (connection === 'disconnected') {
     dotColor = 'var(--color-bear)';
-    statusText = 'Disconnected — retrying';
+    statusText = 'Disconnected\u00a0- retrying';
     statusGlyph = '○';
   } else if (connection === 'stale') {
     dotColor = 'var(--color-warning)';
@@ -378,7 +378,7 @@ export default function CompositeScorePage() {
               <HeroDeltas history={history} composite={composite} />
               <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
                 <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
-                <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0&nbsp;- 100</span>
                 <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
                 {/* ES and NQ have no score of their own. The backend computes the
                     composite from the SPX / NDX option chains and does not project

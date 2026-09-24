@@ -279,7 +279,7 @@ export default function TerminalSurface({
         onChange={changeSym1}
         disabled={delayed}
         disabledTitle={FROZEN_SYMBOL_TITLE}
-        ariaLabel="Underlying — drives the chart and this ladder"
+        ariaLabel="Underlying&nbsp;- drives the chart and this ladder"
       />
     ),
   };
@@ -307,7 +307,7 @@ export default function TerminalSurface({
         <div className="zg-gc-seg" role="tablist" aria-label="Dealer-gamma view beside the chart">
           {([
             ["ladders", "Gamma Ladders", "Two strike-aligned Net-GEX ladders pinned to the tape: the chart's underlying and any other symbol, both centered on spot with the Gamma Flip, Call/Put Walls and Max Pain marked."],
-            ["panel", "Strike Panel", "Net dealer gamma by price, drawn across the tape's own price band — a smoothed silhouette, or per-strike Net / Split / Combined bars."],
+            ["panel", "Strike Panel", "Net dealer gamma by price, drawn across the tape's own price band\u00a0- a smoothed silhouette, or per-strike Net / Split / Combined bars."],
           ] as Array<[TerminalView, string, string]>).map(([v, label, title]) => (
             <button
               key={v}

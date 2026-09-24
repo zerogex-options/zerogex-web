@@ -114,21 +114,21 @@ const SWITCH_FAILURE_COPY: Record<SwitchFailure, { status: number; error: string
   authentication: {
     status: 402,
     error:
-      "Your bank needs to confirm this payment, which can't be done from this page. Nothing changed — you're still on your free trial. Continue in the billing portal to approve it there.",
+      "Your bank needs to confirm this payment, which can't be done from this page. Nothing changed\u00a0- you're still on your free trial. Continue in the billing portal to approve it there.",
   },
   card: {
     status: 402,
     error:
-      "Your card was declined, so nothing changed — you're still on your free trial. Update your card from the Account page and try again.",
+      "Your card was declined, so nothing changed\u00a0- you're still on your free trial. Update your card from the Account page and try again.",
   },
   rejected: {
     status: 502,
-    error: "Couldn't switch plans just now. Nothing changed — please try again in a minute.",
+    error: "Couldn't switch plans just now. Nothing changed\u00a0- please try again in a minute.",
   },
   unknown: {
     status: 502,
     error:
-      "We couldn't confirm the switch went through. Check your plan on the Account page before trying again — it shows the change if it was made.",
+      "We couldn't confirm the switch went through. Check your plan on the Account page before trying again\u00a0- it shows the change if it was made.",
   },
 };
 
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
     const attached = readAttachedDiscounts(subscription);
     if (!attached) {
       return NextResponse.json(
-        { error: "Couldn't read your current plan just now. Nothing changed — please try again in a minute." },
+        { error: "Couldn't read your current plan just now. Nothing changed\u00a0- please try again in a minute." },
         { status: 502 },
       );
     }

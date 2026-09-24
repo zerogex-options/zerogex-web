@@ -65,7 +65,7 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
           What you get with the live dashboard
         </h2>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-          The free levels above are the map. The live dashboard is the real-time terrain &mdash; the same levels that
+          The free levels above are the map. The live dashboard is the real-time terrain&nbsp;- the same levels that
           can shape intraday price action, updating as the session moves, with the tools to see where price may pin,
           reject, accelerate, or chop.
         </p>

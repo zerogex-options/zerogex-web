@@ -448,7 +448,7 @@ export default function IntradayToolsPage() {
     <PageShell>
       <PageHeader
         title="Technicals"
-        sub="The intraday price picture the option book sits on — VWAP, opening range, volume and momentum."
+        sub="The intraday price picture the option book sits on&nbsp;- VWAP, opening range, volume and momentum."
         tooltip="The only page in this section that reads price rather than the option chain, and it is here because every gamma level is a level on this chart. VWAP is the session's volume-weighted average and the reference most institutional execution is measured against; the opening range is the first 30 minutes held flat for the rest of the day; volume spikes are minutes trading far above their own recent average, shaded by whether the volume was buying or selling; divergence flags price making a new extreme that momentum does not confirm. Context for the positioning surfaces, not signals in their own right."
         actions={
           lastUpdatedLabel ? (
@@ -484,7 +484,7 @@ export default function IntradayToolsPage() {
             </div>
             {vwapChart.length > 0 ? (
               <div className="zg-panel p-5">
-                <SectionHead title="VWAP vs. underlying price" titleClassName="zg-h3" tooltip="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below." />
+                <SectionHead title="VWAP vs. underlying price" titleClassName="zg-h3" tooltip="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP&nbsp;- green when above, red when below." />
                   <ResponsiveContainer width="100%" height={chartHeight}>
                     <ComposedChart data={vwapChart} margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 16 } : { top: 16, right: 12, left: 0, bottom: 16 }}>
                       <defs>
@@ -618,7 +618,7 @@ export default function IntradayToolsPage() {
             </div>
             {orbChart.length > 0 ? (
               <div className="zg-panel p-5">
-                <SectionHead title="ORB breakout map" titleClassName="zg-h3" tooltip="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price." />
+                <SectionHead title="ORB breakout map" titleClassName="zg-h3" tooltip="30-minute opening range (09:30-09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price." />
                   <ResponsiveContainer width="100%" height={chartHeight}>
                     <ComposedChart data={orbChart} margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 16 } : { top: 16, right: 56, left: 0, bottom: 16 }}>
                       <defs>

@@ -26,14 +26,14 @@ interface ReplaySessionList {
 }
 
 export const metadata: Metadata = {
-  title: 'GEX Replay — ZeroGEX',
+  title: 'GEX Replay\u00a0- ZeroGEX',
   description:
     'Scrub through any past session to watch dealer gamma positioning shift minute-by-minute. The historical viewer no other GEX tool ships.',
   alternates: { canonical: `${SITE_URL}/replay` },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/replay`,
-    title: 'GEX Replay — ZeroGEX',
+    title: 'GEX Replay\u00a0- ZeroGEX',
     description: 'Per-minute scrubber over historical dealer gamma surfaces.',
     siteName: 'ZeroGEX',
   },
@@ -94,7 +94,7 @@ export default async function ReplayLanding({
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every per-minute dealer gamma snapshot from the last {sessions.length || '90'} trading
           days is replayable. Drag the playhead to watch walls shift, gamma flip drift, and
-          per-strike GEX migrate. Replay the whole chain or just that day&rsquo;s 0DTE book — the
+          per-strike GEX migrate. Replay the whole chain or just that day&rsquo;s 0DTE book&nbsp;- the
           walls, flip and max pain follow the expirations you pick. Drop two pins and see the
           strike-by-strike delta between any two moments. Share the exact minute that mattered.
         </p>
@@ -133,9 +133,9 @@ export default async function ReplayLanding({
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About GEX Replay</div>
         The data layer is the same{' '}
         <span className="font-mono">gex_summary</span> and{' '}
-        <span className="font-mono">gex_by_strike</span> rows that power the live dashboard —
+        <span className="font-mono">gex_by_strike</span> rows that power the live dashboard&nbsp;-
         the replay just lets you scrub the timestamp. Per-minute resolution; cash-session
-        only (09:30–16:00 ET). Inside a session you can switch the surface between all
+        only (09:30-16:00 ET). Inside a session you can switch the surface between all
         expirations and 0DTE; on 0DTE the call wall, put wall, gamma flip and max pain are
         re-derived from that day&rsquo;s expiry alone rather than the whole chain. MP4 export of arbitrary windows is a v2 feature; today you
         can share branded snapshot cards of any specific moment via the snapshot button on

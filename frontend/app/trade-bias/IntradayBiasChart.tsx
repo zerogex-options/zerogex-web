@@ -219,7 +219,7 @@ function IntradayBiasChartImpl({ history, currentBias }: Props) {
           }}
         >
           <div className="flex h-full items-center justify-center">
-            No bias history for today yet — markets open at 09:30 ET.
+            No bias history for today yet&nbsp;- markets open at 09:30 ET.
           </div>
         </div>
       </div>

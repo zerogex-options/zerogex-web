@@ -67,7 +67,7 @@ const PALETTES: Record<CardTheme, Palette> = {
 };
 
 export function cardAlt(symbol: string): string {
-  return `${symbol} gamma levels today — gamma flip, call wall, put wall and net dealer GEX, from ZeroGEX`;
+  return `${symbol} gamma levels today - gamma flip, call wall, put wall and net dealer GEX, from ZeroGEX`;
 }
 
 function regime(data: GexSummary): { label: string; color: string | null } {

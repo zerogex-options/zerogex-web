@@ -227,7 +227,7 @@ test('unranked bands are never counted as calm ones', () => {
       point({ label: 'also none', percentile: null, sessions: 0 }),
     ],
   });
-  assert.match(surfaceReadout(body)!.meaning, /Concentrated in ranked — 1 of 1 ranked bands/);
+  assert.match(surfaceReadout(body)!.meaning, /Concentrated in ranked\u00a0- 1 of 1 ranked bands/);
 });
 
 test('a curve with nothing ranked says so instead of claiming breadth', () => {

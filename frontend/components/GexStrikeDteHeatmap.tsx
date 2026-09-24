@@ -164,7 +164,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         >
           GEX Heatmap · Strike &times; DTE
         </h3>
-        <TooltipWrapper inlineInExpanded={false} text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King — the strike with the largest net dealer gamma across the near-term (0–7 DTE) expirations shown here. (Pair Comparison's crown spans ALL expirations, so the two can point to different strikes.) Cell values follow the GEX unit toggle; colors are unaffected.">
+        <TooltipWrapper inlineInExpanded={false} text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King&nbsp;- the strike with the largest net dealer gamma across the near-term (0-7 DTE) expirations shown here. (Pair Comparison's crown spans ALL expirations, so the two can point to different strikes.) Cell values follow the GEX unit toggle; colors are unaffected.">
           <Info size={14} />
         </TooltipWrapper>
         <span
@@ -206,11 +206,11 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
                 >
                   <span className="inline-flex items-center gap-1">
                     {isKing && (
-                      <TooltipWrapper inlineInExpanded={false} text="GEX King — the strike with the largest net dealer gamma across the near-term (0–7 DTE) expirations shown here; the dominant node price tends to gravitate toward. (Spans only these expirations — Pair Comparison's crown spans the whole chain.)">
+                      <TooltipWrapper inlineInExpanded={false} text="GEX King&nbsp;- the strike with the largest net dealer gamma across the near-term (0-7 DTE) expirations shown here; the dominant node price tends to gravitate toward. (Spans only these expirations&nbsp;- Pair Comparison's crown spans the whole chain.)">
                         <Crown
                           size={13}
                           strokeWidth={2.25}
-                          aria-label="GEX King — dominant gamma node"
+                          aria-label="GEX King&nbsp;- dominant gamma node"
                           style={{ color: 'var(--color-king)', flex: '0 0 auto' }}
                         />
                       </TooltipWrapper>
@@ -255,7 +255,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: 'rgba(255, 77, 90, 0.5)' }} />
-          High &ndash; GEX
+          High&nbsp;- GEX
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)' }} />

@@ -18,13 +18,13 @@ export const dict: PageDictionary = {
     confirm: 'Refund and cancel',
     keep: 'Keep my plan',
     working: 'Processing…',
-    done: 'Refunded {amount}. Your subscription has been canceled — a confirmation email is on its way.',
+    done: 'Refunded {amount}. Your subscription has been canceled\u00a0- a confirmation email is on its way.',
     doneFollowUp:
-      "Refunded {amount} so far. We're finishing the rest on our side — you won't be charged again, and we'll email you when it's done.",
+      "Refunded {amount} so far. We're finishing the rest on our side\u00a0- you won't be charged again, and we'll email you when it's done.",
     unfinishedBody:
-      "Your earlier refund request didn't finish. You can pick it up where it left off — you'll never be refunded or charged twice.",
+      "Your earlier refund request didn't finish. You can pick it up where it left off\u00a0- you'll never be refunded or charged twice.",
     retry: 'Finish my refund',
-    failed: "Couldn't process the refund just now. Nothing was refunded or canceled — please try again in a few minutes.",
+    failed: "Couldn't process the refund just now. Nothing was refunded or canceled\u00a0- please try again in a few minutes.",
   },
   it: {
     title: 'Garanzia soddisfatti o rimborsati di 7 giorni',
@@ -60,13 +60,13 @@ export const dict: PageDictionary = {
     confirm: 'Erstatten und kündigen',
     keep: 'Plan behalten',
     working: 'Wird bearbeitet…',
-    done: '{amount} erstattet. Dein Abonnement wurde gekündigt — eine Bestätigung per E-Mail ist unterwegs.',
+    done: '{amount} erstattet. Dein Abonnement wurde gekündigt\u00a0- eine Bestätigung per E-Mail ist unterwegs.',
     doneFollowUp:
-      "Bisher {amount} erstattet. Den Rest erledigen wir auf unserer Seite – dir wird nichts mehr berechnet, und wir schicken dir eine E-Mail, sobald alles erledigt ist.",
+      "Bisher {amount} erstattet. Den Rest erledigen wir auf unserer Seite\u00a0- dir wird nichts mehr berechnet, und wir schicken dir eine E-Mail, sobald alles erledigt ist.",
     unfinishedBody:
-      'Deine frühere Erstattungsanfrage wurde nicht abgeschlossen. Du kannst sie dort fortsetzen, wo sie stehen geblieben ist — es wird nie doppelt erstattet oder abgebucht.',
+      'Deine frühere Erstattungsanfrage wurde nicht abgeschlossen. Du kannst sie dort fortsetzen, wo sie stehen geblieben ist\u00a0- es wird nie doppelt erstattet oder abgebucht.',
     retry: 'Erstattung abschließen',
-    failed: 'Die Erstattung konnte gerade nicht verarbeitet werden. Es wurde nichts erstattet oder gekündigt — bitte versuche es in ein paar Minuten erneut.',
+    failed: 'Die Erstattung konnte gerade nicht verarbeitet werden. Es wurde nichts erstattet oder gekündigt\u00a0- bitte versuche es in ein paar Minuten erneut.',
   },
   es: {
     title: 'Garantía de devolución de 7 días',
@@ -102,12 +102,12 @@ export const dict: PageDictionary = {
     confirm: 'Rembourser et annuler',
     keep: 'Garder mon offre',
     working: 'Traitement…',
-    done: 'Remboursement de {amount} effectué. Votre abonnement a été annulé — un e-mail de confirmation est en route.',
+    done: 'Remboursement de {amount} effectué. Votre abonnement a été annulé\u00a0- un e-mail de confirmation est en route.',
     doneFollowUp:
       "{amount} remboursés pour l'instant. Nous finalisons le reste de notre côté : vous ne serez plus débité, et nous vous enverrons un e-mail une fois terminé.",
     unfinishedBody:
-      "Votre précédente demande de remboursement n'a pas abouti. Vous pouvez la reprendre là où elle s'est arrêtée — vous ne serez jamais remboursé ni débité deux fois.",
+      "Votre précédente demande de remboursement n'a pas abouti. Vous pouvez la reprendre là où elle s'est arrêtée\u00a0- vous ne serez jamais remboursé ni débité deux fois.",
     retry: 'Finaliser mon remboursement',
-    failed: "Impossible de traiter le remboursement pour le moment. Rien n'a été remboursé ni annulé — réessayez dans quelques minutes.",
+    failed: "Impossible de traiter le remboursement pour le moment. Rien n'a été remboursé ni annulé\u00a0- réessayez dans quelques minutes.",
   },
 };

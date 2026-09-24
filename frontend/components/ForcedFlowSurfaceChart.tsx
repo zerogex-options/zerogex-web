@@ -1294,7 +1294,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Color is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The colored hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed gray line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field&nbsp;- price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Color is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet&nbsp;- a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot&nbsp;- an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The colored hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed gray line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -1322,7 +1322,7 @@ export default function ForcedFlowSurfaceChart({
         <span style={{ color: 'var(--color-bull)', fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
         <span style={{ color: 'var(--color-bear)', fontWeight: 600 }}>red = SELL</span>;{' '}
         candles = realized 5-min price (green up / red down); dashed gray = spot.{' '}
-        <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
+        <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot&nbsp;- zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
       {/* Line key — the one thing to remember: a Magnet PULLS price in, a Pivot
@@ -1336,7 +1336,7 @@ export default function ForcedFlowSurfaceChart({
             <line x1="0" y1="5" x2="22" y2="5" stroke="var(--color-info)" strokeWidth="2.5" />
           </svg>
           <span>
-            <strong style={{ color: 'var(--color-info)' }}>Magnet</strong> — pulls price in
+            <strong style={{ color: 'var(--color-info)' }}>Magnet</strong>&nbsp;- pulls price in
           </span>
         </span>
         <span className="inline-flex items-center gap-2">
@@ -1344,7 +1344,7 @@ export default function ForcedFlowSurfaceChart({
             <line x1="0" y1="5" x2="22" y2="5" stroke="var(--color-warning)" strokeWidth="2.5" strokeDasharray="5 3" />
           </svg>
           <span>
-            <strong style={{ color: 'var(--color-warning)' }}>Pivot</strong> — pushes price away
+            <strong style={{ color: 'var(--color-warning)' }}>Pivot</strong>&nbsp;- pushes price away
           </span>
         </span>
       </div>
@@ -1368,7 +1368,7 @@ export default function ForcedFlowSurfaceChart({
               label="Regime"
               value={regimeLabel}
               color={regimeColor}
-              title="Which zero-flow level sits nearest spot: a MAGNET (attractor — dealers sell above / buy below, pulling price in, long-gamma-like) or a PIVOT (repeller — dealers buy above / sell below, pushing price away, short gamma)."
+              title="Which zero-flow level sits nearest spot: a MAGNET (attractor&nbsp;- dealers sell above / buy below, pulling price in, long-gamma-like) or a PIVOT (repeller&nbsp;- dealers buy above / sell below, pushing price away, short gamma)."
             />
             <ReadChip label="Heading" value={`${biasArrow} ${biasWord}`} color={biasColor} />
             {read.keyLevel != null && (
@@ -1380,8 +1380,8 @@ export default function ForcedFlowSurfaceChart({
                 color={regimeColor}
                 title={
                   read.keyLevelKind === 'pivot'
-                    ? 'The pivot (short-γ tripwire) nearest spot — a level price is pushed AWAY from; a break through it accelerates.'
-                    : 'The magnet (stable pin) nearest spot — a level price is pulled TOWARD.'
+                    ? 'The pivot (short-γ tripwire) nearest spot&nbsp;- a level price is pushed AWAY from; a break through it accelerates.'
+                    : 'The magnet (stable pin) nearest spot&nbsp;- a level price is pulled TOWARD.'
                 }
               />
             )}
@@ -1392,8 +1392,8 @@ export default function ForcedFlowSurfaceChart({
                 color={regimeColor}
                 title={
                   read.reactionKind === 'amplify'
-                    ? `${read.reactionObeyed} of ${read.reactionTotal} session moves ran AWAY from the pivot — high = the field is amplifying (short gamma), moves extend.`
-                    : `${read.reactionObeyed} of ${read.reactionTotal} session moves ran TOWARD the magnet — high = price is pinning to the field.`
+                    ? `${read.reactionObeyed} of ${read.reactionTotal} session moves ran AWAY from the pivot\u00a0- high = the field is amplifying (short gamma), moves extend.`
+                    : `${read.reactionObeyed} of ${read.reactionTotal} session moves ran TOWARD the magnet\u00a0- high = price is pinning to the field.`
                 }
               />
             )}
@@ -1404,7 +1404,7 @@ export default function ForcedFlowSurfaceChart({
                   read.closeTargetPct != null ? ` (${formatSignedPct(read.closeTargetPct)})` : ''
                 }`}
                 color={biasColor}
-                title="The magnet extrapolated to the 4pm bell — the pin's projected close target — and its distance from spot."
+                title="The magnet extrapolated to the 4pm bell&nbsp;- the pin's projected close target&nbsp;- and its distance from spot."
               />
             )}
           </div>

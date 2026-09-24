@@ -51,7 +51,7 @@ export default function HedgingFlowPage() {
             Positive means the hedge <strong>buys</strong> stock.
           </>
         }
-        tooltip="For every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies: (buy - sell) x delta x 100 x spot, accumulated across the session. This is the observed counterpart to every open-interest surface on the site — Net GEX, the walls, the flip and Forced Flow all read the BOOK and ask what it would do; this reads what the tape did to that book today. The structure panel underneath shares the session window and the crosshair: flow says how hard the tape is pushing, structure says whether the book absorbs that push or amplifies it."
+        tooltip="For every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies: (buy - sell) x delta x 100 x spot, accumulated across the session. This is the observed counterpart to every open-interest surface on the site&nbsp;- Net GEX, the walls, the flip and Forced Flow all read the BOOK and ask what it would do; this reads what the tape did to that book today. The structure panel underneath shares the session window and the crosshair: flow says how hard the tape is pushing, structure says whether the book absorbs that push or amplifies it."
         actions={<ZeroDteToggle active={zeroDteOnly} onChange={setZeroDteOnly} />}
       />
 

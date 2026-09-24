@@ -463,7 +463,7 @@ export default function MaxPainPage() {
       <PageHeader
         title="Max Pain"
         sub="The strike where the most option value expires worthless, and how far price sits from it."
-        tooltip="Pool every listed contract into one payout curve and find the strike at which option holders collectively lose the most — that is max pain. It is a magnet, not a mechanism: open interest only changes at settlement, so the whole-chain figure is recomputed once a day pre-market and stays flat intraday. It tends to matter most into expiration, when the contracts pinned to it are the ones still alive, and least on a day when a catalyst supplies flow that dwarfs hedging. The nearest-expiration figure can sit a few points from the whole-chain one because it covers a single expiry rather than the pooled book."
+        tooltip="Pool every listed contract into one payout curve and find the strike at which option holders collectively lose the most&nbsp;- that is max pain. It is a magnet, not a mechanism: open interest only changes at settlement, so the whole-chain figure is recomputed once a day pre-market and stays flat intraday. It tends to matter most into expiration, when the contracts pinned to it are the ones still alive, and least on a day when a catalyst supplies flow that dwarfs hedging. The nearest-expiration figure can sit a few points from the whole-chain one because it covers a single expiry rather than the pooled book."
       />
       <RegimeSummaryBanner
         title="Max Pain Regime"
@@ -495,7 +495,7 @@ export default function MaxPainPage() {
             }
           />
           </div>
-          <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract) — the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
+          <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract)&nbsp;- the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
           <MetricCard
             title="Underlying Price"
             value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
@@ -611,7 +611,7 @@ export default function MaxPainPage() {
       <ChartPanel
         className="mb-8"
         title="Max Pain vs Underlying Price"
-        tooltip="Max pain (line) against the underlying's own candles, so you can see whether price is being drawn toward the level or simply passing through it. Max pain steps rather than drifts — it only moves when open interest is rewritten at settlement."
+        tooltip="Max pain (line) against the underlying's own candles, so you can see whether price is being drawn toward the level or simply passing through it. Max pain steps rather than drifts&nbsp;- it only moves when open interest is rewritten at settlement."
         actions={
           <ChartTimeframeSelect
             value={timeseriesTimeframe}

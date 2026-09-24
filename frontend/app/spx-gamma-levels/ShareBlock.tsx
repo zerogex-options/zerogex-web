@@ -23,7 +23,7 @@ interface ShareBlockProps {
   asOf?: string | null;
 }
 
-const SHARE_TITLE = "Today's SPX / SPY / QQQ / NDX gamma levels — ZeroGEX";
+const SHARE_TITLE = "Today's SPX / SPY / QQQ / NDX gamma levels\u00a0- ZeroGEX";
 
 function XIcon({ size = 15 }: { size?: number }) {
   return (
@@ -232,7 +232,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf }: ShareBl
               style={outlineBtn}
               className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
-              <MessageSquare size={16} /> {copied === 'stocktwits' ? 'Copied — paste in' : 'StockTwits'}
+              <MessageSquare size={16} /> {copied === 'stocktwits' ? 'Copied\u00a0- paste in' : 'StockTwits'}
             </a>
             {canNativeShare && (
               <button type="button" onClick={handleNativeShare} style={outlineBtn} className={`zg-btn zg-btn--secondary ${outlineHover}`}>
@@ -242,12 +242,12 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf }: ShareBl
           </div>
 
           <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.8 }}>
-            Copy works anywhere &mdash; paste it straight into Discord, Slack, WhatsApp, or a group chat.
+            Copy works anywhere&nbsp;- paste it straight into Discord, Slack, WhatsApp, or a group chat.
           </p>
         </>
       ) : (
         <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
-          Today&rsquo;s levels are still loading &mdash; the shareable snapshot will appear here as soon as the
+          Today&rsquo;s levels are still loading&nbsp;- the shareable snapshot will appear here as soon as the
           snapshot refreshes. Check back in a minute.
         </div>
       )}

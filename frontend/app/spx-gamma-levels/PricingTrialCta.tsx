@@ -48,7 +48,7 @@ export default function PricingTrialCta({ symbol }: { symbol: string }) {
       </h2>
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         You&rsquo;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the full GEX
-        profile, the strike-by-DTE heatmap, options-flow classification, and the 13-signal Market State Index &mdash;
+        profile, the strike-by-DTE heatmap, options-flow classification, and the 13-signal Market State Index&nbsp;-
         the context that turns these levels into a read you can trade around.
       </p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>

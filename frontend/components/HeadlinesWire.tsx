@@ -370,7 +370,7 @@ export default function HeadlinesWire({
           className="px-3 py-1 text-[9px] uppercase tracking-wider border-b"
           style={{ color: "var(--text-secondary)", borderColor: "var(--border-subtle)" }}
         >
-          No high-signal headlines yet — showing all
+          No high-signal headlines yet&nbsp;- showing all
         </div>
       )}
 

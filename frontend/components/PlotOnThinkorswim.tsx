@@ -179,15 +179,15 @@ export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOn
         On Schwab&apos;s thinkorswim? Paste our free{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{STUDY_NAME}</strong> study into the Study
         Editor. It draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal lines with a price
-        chip on each — and can fire a thinkorswim alert when price crosses one.
+        chip on each&nbsp;- and can fire a thinkorswim alert when price crosses one.
         {prefilled ? (
           <>
             {' '}
             The copy button below hands you the study with{' '}
             <strong style={{ color: 'var(--color-text-primary)' }}>
               today&apos;s {prefilledSymbol} levels already in it
-            </strong>{' '}
-            — nothing to type.
+            </strong>{' '}
+            - nothing to type.
           </>
         ) : (
           <> Then enter today&apos;s numbers {levelsSource}.</>
@@ -195,7 +195,7 @@ export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOn
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         Manual-entry only. thinkScript runs sandboxed inside thinkorswim with no network access at all, so no
-        study on that platform — ours or anyone&apos;s — can fetch live levels. For levels that update
+        study on that platform&nbsp;- ours or anyone&apos;s&nbsp;- can fetch live levels. For levels that update
         themselves, see our{' '}
         <Link href="/integrations" style={{ color: 'var(--color-brand-primary)' }}>
           NinjaTrader and Sierra Chart integrations
@@ -254,9 +254,9 @@ export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOn
         }}
       >
         {copyState === 'failed'
-          ? 'Your browser blocked the clipboard — use Download the file instead, then open it in any text editor.'
+          ? 'Your browser blocked the clipboard\u00a0- use Download the file instead, then open it in any text editor.'
           : prefilled
-            ? 'Roughly 150 lines of thinkScript, with the four levels filled in. Nothing to install and no account needed — re-copy tomorrow for the new numbers.'
+            ? 'Roughly 150 lines of thinkScript, with the four levels filled in. Nothing to install and no account needed\u00a0- re-copy tomorrow for the new numbers.'
             : 'Roughly 150 lines of thinkScript. Nothing to install and no account needed.'}
       </p>
 
@@ -282,7 +282,7 @@ export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOn
             <>
               <strong style={{ color: 'var(--color-text-primary)' }}>Add it to the chart.</strong> The levels
               are already set, so it draws immediately. To refresh them tomorrow, come back and copy again,
-              then paste over the same study — or open its settings and edit the four numbers by hand.
+              then paste over the same study&nbsp;- or open its settings and edit the four numbers by hand.
             </>
           ) : (
             <>
@@ -294,7 +294,7 @@ export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOn
         </li>
         <li>
           It follows you across{' '}
-          <strong style={{ color: 'var(--color-text-primary)' }}>desktop, web, and mobile</strong> — thinkorswim
+          <strong style={{ color: 'var(--color-text-primary)' }}>desktop, web, and mobile</strong>&nbsp;- thinkorswim
           syncs custom studies to your account, so this is a one-time paste.
         </li>
       </ol>

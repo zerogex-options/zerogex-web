@@ -50,7 +50,7 @@ const MISTAKES: Mistake[] = [
     icon: TrendingUp,
     iconColor: 'var(--color-positive)',
     mistake:
-      'Chasing a rally just as price approaches the heaviest call gamma strike — the level where dealer hedging is structurally set up to absorb the move.',
+      'Chasing a rally just as price approaches the heaviest call gamma strike\u00a0- the level where dealer hedging is structurally set up to absorb the move.',
     whatHappens:
       'In a long-gamma regime, dealers must sell into rallies to stay delta-neutral. That structural reflex caps the move. Late buyers get the worst entry; the rip fades; the trade is underwater within minutes.',
     zerogex:
@@ -67,7 +67,7 @@ const MISTAKES: Mistake[] = [
     mistake:
       'Selling into a slide right as price approaches the heaviest put gamma strike below spot.',
     whatHappens:
-      'In a long-gamma regime, dealers must buy into weakness around the put wall — the structural bid catches the decline. Late shorts get squeezed back through the level; the trade reverses violently.',
+      'In a long-gamma regime, dealers must buy into weakness around the put wall\u00a0- the structural bid catches the decline. Late shorts get squeezed back through the level; the trade reverses violently.',
     zerogex:
       'The Put Wall card shows the heaviest put gamma strike with live distance from spot. Cross-checked against the regime read, you know when the wall is likely to act as support and when (in a short-gamma regime) it can become a slippage point on the way down.',
     reference: { href: '/education/gamma-walls-explained', label: 'Gamma Walls Explained' },
@@ -84,8 +84,8 @@ const MISTAKES: Mistake[] = [
     whatHappens:
       'Pin gravity sucks price back to the magnet strike. Whichever direction you entered, the move reverses on you. Death-by-chop. The setup is unwinnable because the structural pull is against every break out of the middle.',
     zerogex:
-      'The Max Pain card and the gamma magnet strike show where the structural pull lives. When the EOD Pressure signal reads near-zero inside the closing window, that\'s the regime signature of a pin — fade extremes only; don\'t chase the middle.',
-    reference: { href: '/education/max-pain-explained', label: 'Max Pain — Does It Actually Work?' },
+      'The Max Pain card and the gamma magnet strike show where the structural pull lives. When the EOD Pressure signal reads near-zero inside the closing window, that\'s the regime signature of a pin\u00a0- fade extremes only; don\'t chase the middle.',
+    reference: { href: '/education/max-pain-explained', label: 'Max Pain\u00a0- Does It Actually Work?' },
     imagePath: '/blog/zerogex-max-pain-card.png',
     imageAlt: 'ZeroGEX Max Pain card with live distance from spot',
   },
@@ -95,11 +95,11 @@ const MISTAKES: Mistake[] = [
     icon: Activity,
     iconColor: 'var(--color-brand-primary)',
     mistake:
-      'Running the same playbook above and below the gamma flip — fading breakouts in both regimes, or chasing breakouts in both regimes.',
+      'Running the same playbook above and below the gamma flip\u00a0- fading breakouts in both regimes, or chasing breakouts in both regimes.',
     whatHappens:
       'Above the flip (long-gamma), breakouts fade and mean-reversion works. Below the flip (short-gamma), breakouts extend and mean-reversion gets crushed. Same setup, opposite results, depending on a single threshold most traders never see.',
     zerogex:
-      'The Gamma Flip card shows live distance from spot at every refresh. When spot crosses the flip, the regime has changed — and the playbook should change with it. The Net GEX magnitude tells you how sharp the regime is right now.',
+      'The Gamma Flip card shows live distance from spot at every refresh. When spot crosses the flip, the regime has changed\u00a0- and the playbook should change with it. The Net GEX magnitude tells you how sharp the regime is right now.',
     reference: { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip? The Gamma Flip Level Explained' },
     imagePath: '/blog/zerogex-gamma-flip-card.png',
     imageAlt: 'ZeroGEX Gamma Flip card showing SPX spot above the flip with live distance',
@@ -110,7 +110,7 @@ const MISTAKES: Mistake[] = [
     icon: ShieldAlert,
     iconColor: 'var(--color-negative)',
     mistake:
-      'Buying every upside break above resistance — or selling every downside break below support — without checking whether positioning supports the move.',
+      'Buying every upside break above resistance\u00a0- or selling every downside break below support\u00a0- without checking whether positioning supports the move.',
     whatHappens:
       'In a long-gamma regime with strengthening dealer positioning, dealers absorb breakouts. Price pokes above resistance, runs into supply, and snaps back into the range. The breakout was a trap. The fade entry would have worked; the chase did not.',
     zerogex:

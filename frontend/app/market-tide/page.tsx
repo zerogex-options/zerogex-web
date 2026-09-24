@@ -329,7 +329,7 @@ export default function MarketTidePage() {
         title="Market Tide"
         beta
         sub="Where market-wide option money is flowing, and whether dealer gamma will amplify or absorb it."
-        tooltip="Every other page here reads one symbol. This reads every index we track at once and scores the aggregate on a −100 to +100 scale, then adjusts that score for the dealer gamma regime behind it — the same flow means something different when dealers are short gamma and amplifying moves than when they are long it and pinning. Breadth says how much of the market agrees with the headline number; participation says how much of it is reporting at all, which is the figure to check first when a reading looks extreme. The window sets how much recent tape the score is computed over."
+        tooltip="Every other page here reads one symbol. This reads every index we track at once and scores the aggregate on a −100 to +100 scale, then adjusts that score for the dealer gamma regime behind it&nbsp;- the same flow means something different when dealers are short gamma and amplifying moves than when they are long it and pinning. Breadth says how much of the market agrees with the headline number; participation says how much of it is reporting at all, which is the figure to check first when a reading looks extreme. The window sets how much recent tape the score is computed over."
         actions={
           <FilterBar>
             <FilterGroup label="Window">
@@ -456,7 +456,7 @@ export default function MarketTidePage() {
               <div
                 className="mt-5 flex h-5 overflow-hidden rounded-full"
                 role="img"
-                aria-label={`Market breadth — bullish ${formatNumber(data.bullish_breadth_pct, 1)}%, neutral ${formatNumber(data.neutral_breadth_pct, 1)}%, bearish ${formatNumber(data.bearish_breadth_pct, 1)}%`}
+                aria-label={`Market breadth\u00a0- bullish ${formatNumber(data.bullish_breadth_pct, 1)}%, neutral ${formatNumber(data.neutral_breadth_pct, 1)}%, bearish ${formatNumber(data.bearish_breadth_pct, 1)}%`}
               >
                 <div className="bg-[var(--color-bull)]" style={{ width: `${breadth[0]}%` }} />
                 <div className="bg-[var(--border-default)]" style={{ width: `${breadth[1]}%` }} />

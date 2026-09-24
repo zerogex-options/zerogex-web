@@ -136,7 +136,7 @@ export default function PageSnapshotButton({
     phase === 'working'
       ? 'Capturing this page…'
       : phase === 'error'
-        ? 'Snapshot failed — try again'
+        ? 'Snapshot failed\u00a0- try again'
         : 'Snapshot this page as an image';
 
   return (

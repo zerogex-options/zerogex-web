@@ -25,9 +25,9 @@ import AutoFitValue from '@/components/AutoFitValue';
 
 function interpretation(score: number | null): string {
   if (score == null) return 'No reading';
-  if (score >= 60) return 'Dealers deeply short delta — chase risk';
+  if (score >= 60) return 'Dealers deeply short delta\u00a0- chase risk';
   if (score >= 25) return 'Dealers net short delta (bullish bias)';
-  if (score <= -60) return 'Dealers deeply long — rallies sold';
+  if (score <= -60) return 'Dealers deeply long\u00a0- rallies sold';
   if (score <= -25) return 'Dealers net long delta (bearish bias)';
   return 'Balanced dealer delta';
 }

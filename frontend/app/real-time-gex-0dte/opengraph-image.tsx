@@ -74,7 +74,7 @@ export default async function Image() {
             display: 'flex',
           }}
         >
-          Gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX and 0DTE intraday flow.
+          Gamma flip, call and put walls, dealer positioning, and composite signals - built for SPX and 0DTE intraday flow.
         </div>
         <div
           style={{

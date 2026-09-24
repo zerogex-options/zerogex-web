@@ -91,7 +91,7 @@ export default function GlobalError({
             }}
           >
             The page hit an unexpected error and couldn’t finish loading. This is
-            usually temporary — please try again, or reload the site.
+            usually temporary&nbsp;- please try again, or reload the site.
           </p>
           <div
             style={{

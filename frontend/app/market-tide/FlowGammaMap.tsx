@@ -163,7 +163,7 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
       <div
         className="flex h-[260px] items-center justify-center text-sm text-[var(--text-secondary)]"
         role="img"
-        aria-label="Flow versus gamma map — no eligible symbols"
+        aria-label="Flow versus gamma map&nbsp;- no eligible symbols"
       >
         No eligible symbols in this window yet.
       </div>
@@ -237,7 +237,7 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
 
         {allShort && (
           <text x={cx} y={cy + PH / 4 + 4} textAnchor="middle" fontSize={canvas.axisFont} fill="var(--text-muted)" opacity="0.85">
-            {`—${SP}no index is long-gamma right now${SP}—`}
+            {`-${SP}no index is long-gamma right now${SP}-`}
           </text>
         )}
 

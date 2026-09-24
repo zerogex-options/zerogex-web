@@ -696,7 +696,7 @@ export default function FlipSurfaceChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Horizon × Price Contour
             </h3>
-            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing — the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
+            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing&nbsp;- the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
           </div>
@@ -705,7 +705,7 @@ export default function FlipSurfaceChart({
         {error ? (
           <div className="flex-1 flex items-center justify-center text-sm" style={{ color: 'var(--color-bear)' }}>
             {error === 'No data available yet'
-              ? `No usable option snapshot for ${symbol} — check ingestion.`
+              ? `No usable option snapshot for ${symbol}\u00a0- check ingestion.`
               : `Backend error: ${error}`}
           </div>
         ) : loading && !surface ? (

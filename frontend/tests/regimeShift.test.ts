@@ -184,7 +184,7 @@ test("formatPercent rounds to whole percent by default", () => {
 });
 
 test("formatBand returns a range, a single strike, or null", () => {
-  assert.equal(formatBand({ low: 764, high: 770, share: 0.6, resolved: true }), "764–770");
+  assert.equal(formatBand({ low: 764, high: 770, share: 0.6, resolved: true }), "764-770");
   assert.equal(formatBand({ low: 765, high: 765, share: 0.7, resolved: true }), "765");
   assert.equal(formatBand({ low: 700, high: 800, share: 0.6, resolved: false }), null);
   assert.equal(formatBand(null), null);
@@ -197,7 +197,7 @@ test("formatBand returns a range, a single strike, or null", () => {
 test("headline names the state, the adverb and the band", () => {
   assert.equal(
     buildHeadline(payload()),
-    "Dealers dramatically added support into 764–770.",
+    "Dealers dramatically added support into 764-770.",
   );
 });
 
@@ -289,7 +289,7 @@ test("a flip crossing takes the subhead when it happens", () => {
   // Spot 761.2 under a 771.5 flip, then 765.4 over a 762.8 flip.
   assert.equal(
     buildSubhead(payload()),
-    "Spot crossed above the gamma flip — dealers are long gamma here now.",
+    "Spot crossed above the gamma flip\u00a0- dealers are long gamma here now.",
   );
 });
 
@@ -489,7 +489,7 @@ test("net shift is sense-flat on a quiet read even when positive", () => {
 test("roll-off sentence leads with the share and ranks it", () => {
   assert.equal(
     buildRolloffSentence(rolloff()),
-    "38% of dealer gamma expires at today’s close — heavy for SPY (94th percentile).",
+    "38% of dealer gamma expires at today’s close\u00a0- heavy for SPY (94th percentile).",
   );
 });
 

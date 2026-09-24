@@ -104,7 +104,7 @@ export async function generateMetadata({
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) {
-    return { title: 'Scorecard not found — ZeroGEX', robots: { index: false, follow: false } };
+    return { title: 'Scorecard not found\u00a0- ZeroGEX', robots: { index: false, follow: false } };
   }
   // Metadata does not need the missing/unavailable distinction: both fall back
   // to the generic copy below, which is correct either way. Unwrap to the
@@ -114,8 +114,8 @@ export async function generateMetadata({
   const data = scorecard.ok ? scorecard.data : null;
   const human = formatHumanDate(date);
   const title = data && !data.is_empty
-    ? `${sym} · ${human} Recap — ZeroGEX Scorecard`
-    : `${sym} · ${human} — ZeroGEX Scorecard`;
+    ? `${sym} · ${human} Recap\u00a0- ZeroGEX Scorecard`
+    : `${sym} · ${human}\u00a0- ZeroGEX Scorecard`;
   const description = data?.tweet_text
     ? data.tweet_text.split('\n')[0]
     : 'Daily aggregate of ZeroGEX Playbook calls + per-signal P&L. One number per day, time-stamped and shareable.';
@@ -210,7 +210,7 @@ export default async function ScorecardPage({
         {data.is_empty ? (
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Quiet tape. No Playbook calls were emitted and no signals flipped direction. Either a
-            non-trading day or a flat session — the engine refuses to manufacture a setup just to
+            non-trading day or a flat session&nbsp;- the engine refuses to manufacture a setup just to
             have something to say.
           </p>
         ) : (
@@ -395,8 +395,8 @@ export default async function ScorecardPage({
         the forward price always comes from the same regular session, so a flip inside the last{' '}
         {data.horizon_minutes} minutes has nothing to grade against and is counted but not scored.
         A signal that only fires near the bell can read &ldquo;not scorable&rdquo; for a whole
-        session — that is an absent measurement, not a flat one. The receipt is immutable once
-        written — the engine cannot retroactively edit a published scorecard.
+        session&nbsp;- that is an absent measurement, not a flat one. The receipt is immutable once
+        written&nbsp;- the engine cannot retroactively edit a published scorecard.
       </section>
     </main>
   );

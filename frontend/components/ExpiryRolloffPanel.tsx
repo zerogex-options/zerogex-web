@@ -59,7 +59,7 @@ const VERDICT_TONE: Record<string, Tone> = {
 };
 
 const HEADER_TOOLTIP =
-  "Dealer gamma grouped by expiration. The nearest tranche disappears at its close whether or not anybody trades — the largest scheduled change to the surface, and the one thing a same-day snapshot can't show you. Share is measured on absolute gamma, because all of a tranche leaves even when it nets to zero.";
+  "Dealer gamma grouped by expiration. The nearest tranche disappears at its close whether or not anybody trades\u00a0- the largest scheduled change to the surface, and the one thing a same-day snapshot can't show you. Share is measured on absolute gamma, because all of a tranche leaves even when it nets to zero.";
 
 function shortDate(iso: string): string {
   try {
@@ -186,7 +186,7 @@ export default function ExpiryRolloffPanel({
                 <Note tone="warning">
                   Only {payload.context.sessions_in_window} stored{' '}
                   {payload.context.sessions_in_window === 1 ? 'session' : 'sessions'} so far, so
-                  this isn’t ranked against history yet — the share above is still exact.
+                  this isn’t ranked against history yet&nbsp;- the share above is still exact.
                 </Note>
               </div>
             )}

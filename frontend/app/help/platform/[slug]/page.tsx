@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
   const article = getHelpArticleBySlug(slug);
   if (!article) return {};
   return {
-    title: `${article.title} — ZeroGEX Help`,
+    title: `${article.title}\u00a0- ZeroGEX Help`,
     description: article.description,
     alternates: { canonical: `/help/platform/${article.slug}` },
   };

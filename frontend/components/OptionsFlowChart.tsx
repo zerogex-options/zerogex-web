@@ -88,7 +88,7 @@ const OPTIONS_FLOW_DEFAULTS: OptionsFlowSettings = {
 };
 
 const CHART_TOOLTIP =
-  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area — on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
+  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area\u00a0- on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
 
 // ── Filter chips ─────────────────────────────────────────────────────────────
 
@@ -175,7 +175,7 @@ function FilterRow({
         {options.length === 0 ? (
           error ? (
             <span className="text-xs italic" style={{ color: "var(--color-danger, #ef4444)" }}>
-              Failed to load — {error}
+              Failed to load&nbsp;- {error}
             </span>
           ) : loading ? (
             <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
@@ -721,7 +721,7 @@ export default function OptionsFlowChart({
   const chainNote =
     chainSymbol.toUpperCase() === symbol.toUpperCase()
       ? null
-      : `${symbol} has no option chain of its own — its flow is ${chainSymbol} flow, so the strikes below are ${chainSymbol} strikes, not ${symbol} prices.`;
+      : `${symbol} has no option chain of its own\u00a0- its flow is ${chainSymbol} flow, so the strikes below are ${chainSymbol} strikes, not ${symbol} prices.`;
 
   const strikeOptions = useMemo(
     () => serverContractOptions.strikes.map((n) => String(n)),

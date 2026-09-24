@@ -27,7 +27,7 @@ const PremiumSurfacePlot = dynamic(() => import('./PremiumSurfacePlot'), {
 const TITLE_TOOLTIP =
   'A 3D surface of option time value. X = strike, Y = days to expiration, ' +
   'Z = either extrinsic dollars (premium − intrinsic, floored at $0) or the ' +
-  '% move from current spot to break even at expiry — toggle via the Z ' +
+  '% move from current spot to break even at expiry\u00a0- toggle via the Z ' +
   'dropdown. Use the symbol selector in the header to change the underlying.';
 
 type Metric = 'extrinsic' | 'breakeven_pct';
@@ -221,7 +221,7 @@ export default function PremiumHeatmapPage() {
         {metric === 'extrinsic' ? 'Extrinsic (time) value surface' : '% move from spot to breakeven at expiry'}{' '}
         for{' '}
         <span style={{ color: inputColor, fontWeight: 600 }}>{symbol}</span> {' '}
-        {optionType === 'C' ? 'calls' : 'puts'} —{' '}
+        {optionType === 'C' ? 'calls' : 'puts'} -{' '}
         {metric === 'extrinsic'
           ? 'premium minus intrinsic value across strikes and expirations.'
           : 'how far spot must move (in %) for each contract to break even at expiry.'}
@@ -323,7 +323,7 @@ export default function PremiumHeatmapPage() {
             className="flex items-center justify-center text-sm"
             style={{ height: plotHeight, color: muted }}
           >
-            Not enough strikes/expirations to render a surface — try widening Max DTE or strike count.
+            Not enough strikes/expirations to render a surface&nbsp;- try widening Max DTE or strike count.
           </div>
         ) : !plot.hasData ? (
           <div
@@ -332,7 +332,7 @@ export default function PremiumHeatmapPage() {
           >
             The snapshot returned strikes and expirations for {symbol}{' '}
             {optionType === 'C' ? 'calls' : 'puts'}, but no usable premium quotes
-            (bid/ask/mid/last) — so there are no time-value points to plot. This usually
+            (bid/ask/mid/last)&nbsp;- so there are no time-value points to plot. This usually
             means the latest option-chain snapshot has empty quotes.
           </div>
         ) : isMobile ? (

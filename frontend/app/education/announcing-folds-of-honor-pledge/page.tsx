@@ -57,7 +57,7 @@ export default async function AnnouncingFoldsOfHonorPledgePage() {
           See the live donation tally and the full mechanics
         </h3>
         <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-          Our /giving page is the running ledger — donation totals to date, the next scheduled
+          Our /giving page is the running ledger&nbsp;- donation totals to date, the next scheduled
           donation, and the FAQ covering exactly how the pledge works.
         </p>
         <Link

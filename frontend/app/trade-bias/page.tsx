@@ -35,23 +35,23 @@ const IntradayBiasChart = dynamic(() => import('./IntradayBiasChart'), {
 });
 
 const TITLE_TOOLTIP =
-  'Trade Bias is a single, signed directional call — which way to lean, how convinced, and the regime it started from. ' +
+  'Trade Bias is a single, signed directional call\u00a0- which way to lean, how convinced, and the regime it started from. ' +
   'It fuses the gamma regime and volatility (the structural baseline) with price action, order flow, tape, and momentum (the live read). ' +
-  'Most of the time the live read confirms the structure; when it disagrees loudly enough it overrides it — and the card says so. ' +
-  'Unlike the Composite Score (a directionless 0–100 regime-strength gauge), Trade Bias tells you which direction the read favors. ' +
+  'Most of the time the live read confirms the structure; when it disagrees loudly enough it overrides it\u00a0- and the card says so. ' +
+  'Unlike the Composite Score (a directionless 0-100 regime-strength gauge), Trade Bias tells you which direction the read favors. ' +
   'Computed by the Signals Engine every cycle, not in your browser.';
 
 const TENOR_TOOLTIP =
   'Which horizon this read is for. Swing is the multi-day, structural bias led by the gamma and volatility regime. ' +
-  'Intraday is the same-day (0DTE), faster read led by flow, tape, and momentum. They can — and often do — disagree.';
+  'Intraday is the same-day (0DTE), faster read led by flow, tape, and momentum. They can\u00a0- and often do\u00a0- disagree.';
 
 const INPUTS_TOOLTIP =
   'The nine signals behind the structural baseline. ' +
   'Each is shown on its −100…+100 scale; green leans bullish, red bearish.';
 
 const LIVE_READ_TOOLTIP =
-  'The tactical layer — price action (bounce/reject), order flow, tape, and momentum — fused into one signed direction and a conviction. ' +
-  'When it agrees with the structural baseline it confirms; when it leans against it, it diverges (caution); when it is loud and broad enough, it overrides — flipping the bias to a reversal/squeeze playbook.';
+  'The tactical layer\u00a0- price action (bounce/reject), order flow, tape, and momentum\u00a0- fused into one signed direction and a conviction. ' +
+  'When it agrees with the structural baseline it confirms; when it leans against it, it diverges (caution); when it is loud and broad enough, it overrides\u00a0- flipping the bias to a reversal/squeeze playbook.';
 
 const STATE_VERB: Record<string, string> = {
   confirmed: 'confirms',
@@ -96,7 +96,7 @@ function LiveIndicator({
   let statusGlyph: '●' | '◐' | '○' = '○';
   if (connection === 'disconnected') {
     dotColor = 'var(--color-bear)';
-    statusText = 'Disconnected — retrying';
+    statusText = 'Disconnected\u00a0- retrying';
   } else if (connection === 'stale') {
     dotColor = 'var(--color-warning)';
     statusText = ageSec != null ? `Stale • ${ageSec}s ago` : 'Stale';
@@ -234,7 +234,7 @@ function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
         </div>
         {tactical.map((k) => <Row key={k} k={k} />)}
         <p className="text-[11px] leading-snug text-[var(--color-text-secondary)] mt-1.5">
-          Tape Flow is shown as the <span className="font-medium text-[var(--color-text-primary)]">Tape</span> pillar in Live read above — the same signal, not a separate one.
+          Tape Flow is shown as the <span className="font-medium text-[var(--color-text-primary)]">Tape</span> pillar in Live read above&nbsp;- the same signal, not a separate one.
         </p>
       </div>
     </div>
@@ -260,7 +260,7 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
         </TooltipWrapper>
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        Price action, order flow, tape and momentum — the tactical layer that {verb} the{' '}
+        Price action, order flow, tape and momentum&nbsp;- the tactical layer that {verb} the{' '}
         {payload.structuralBiasLabel ?? 'structural'} baseline.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">

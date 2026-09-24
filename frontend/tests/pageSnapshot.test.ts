@@ -218,6 +218,10 @@ test('resolveSnapshotTitle prefers the menu label over the heading', () => {
   // its first separator rather than printed whole.
   assert.equal(resolveSnapshotTitle({ documentTitle: 'GEX Replay — ZeroGEX' }), 'GEX Replay');
   assert.equal(resolveSnapshotTitle({ documentTitle: 'Daily Scorecard | ZeroGEX' }), 'Daily Scorecard');
+  // Site copy writes the separator as a hyphen with a no-break space before it;
+  // a hyphen inside a word is not a separator.
+  assert.equal(resolveSnapshotTitle({ documentTitle: 'GEX Replay - ZeroGEX' }), 'GEX Replay');
+  assert.equal(resolveSnapshotTitle({ documentTitle: 'Real-Time 0DTE GEX - ZeroGEX' }), 'Real-Time 0DTE GEX');
   assert.equal(resolveSnapshotTitle({}), 'ZeroGEX');
 });
 

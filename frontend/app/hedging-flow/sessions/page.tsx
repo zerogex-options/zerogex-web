@@ -40,14 +40,14 @@ interface HedgingFlowSessionList {
 }
 
 export const metadata: Metadata = {
-  title: 'Hedging Flow — Past Sessions — ZeroGEX',
+  title: 'Hedging Flow\u00a0- Past Sessions\u00a0- ZeroGEX',
   description:
     'Every stored session of estimated dealer hedging pressure, bar by bar, with the dealer gamma structure on the same timeline.',
   alternates: { canonical: `${SITE_URL}/hedging-flow/sessions` },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/hedging-flow/sessions`,
-    title: 'Hedging Flow — Past Sessions — ZeroGEX',
+    title: 'Hedging Flow\u00a0- Past Sessions\u00a0- ZeroGEX',
     description: 'Dated permalinks for estimated dealer hedging pressure.',
     siteName: 'ZeroGEX',
   },
@@ -207,14 +207,14 @@ export default async function HedgingFlowSessionsPage({
         </div>
         These are stored bars, not a re-run of the live pipeline. The trades a session is
         computed from live in <span className="font-mono">flow_contract_facts</span>, which is
-        pruned at 90 days — so a recomputed permalink would quietly go blank rather than
+        pruned at 90 days&nbsp;- so a recomputed permalink would quietly go blank rather than
         missing. The finished 5-minute bars are written once per analytics cycle into{' '}
         <span className="font-mono">hedging_flow_5min</span> and kept, which is why a session
         from last spring still draws.
         <br />
         <br />
         Every number here remains an <strong>estimate</strong>. It assumes the passive side of
-        each classified print was a market maker — an assumption that has not been validated
+        each classified print was a market maker&nbsp;- an assumption that has not been validated
         against exchange-classified data. Storing a session does not promote it to an
         observation.
       </section>

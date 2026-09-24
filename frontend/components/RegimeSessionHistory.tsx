@@ -38,7 +38,7 @@ import {
 import { Note, PanelHeader, PanelMessage, Zone, toneColor } from './RegimeShiftUI';
 
 const HEADER_TOOLTIP =
-  "What each recent session read as. Bar height is the size of that day's shift; color and glyph are the state it landed in. Every bar is normalized against the same window, so they are comparable to each other — a day that reads 2σ here was genuinely twice the move of a day that reads 1σ.";
+  "What each recent session read as. Bar height is the size of that day's shift; color and glyph are the state it landed in. Every bar is normalized against the same window, so they are comparable to each other\u00a0- a day that reads 2σ here was genuinely twice the move of a day that reads 1σ.";
 
 function stateColor(state: RegimeState): string {
   return toneColor(STATE_META[state].tone);
@@ -182,7 +182,7 @@ export default function RegimeSessionHistory({
         {header}
         <PanelMessage height={160}>
           No stored sessions for {symbol} yet. One read is written per trading day, so this
-          strip fills in a bar at a time — and the card above stays on a provisional
+          strip fills in a bar at a time&nbsp;- and the card above stays on a provisional
           magnitude until about ten of them exist to measure against.
         </PanelMessage>
       </div>
@@ -277,7 +277,7 @@ export default function RegimeSessionHistory({
               <div className="mt-2.5">
                 <Note tone="warning">
                   Fewer than 10 stored sessions, so these bars carry each day’s own
-                  normalization rather than a shared one — treat their heights as
+                  normalization rather than a shared one&nbsp;- treat their heights as
                   provisional until the window fills.
                 </Note>
               </div>

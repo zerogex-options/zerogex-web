@@ -370,7 +370,7 @@ function ContractTooltipContent({ active, payload, label, binMinutes = 1 }: Tool
   // A phone's bars are 5-minute bins; the readout names the whole bin.
   const timeLabel =
     binMinutes > 1
-      ? `${safeTimeLabel(start)}–${safeTimeLabel(new Date(new Date(start).getTime() + (binMinutes - 1) * 60_000).toISOString())}`
+      ? `${safeTimeLabel(start)}-${safeTimeLabel(new Date(new Date(start).getTime() + (binMinutes - 1) * 60_000).toISOString())}`
       : safeTimeLabel(start);
   const last = typeof row.last === "number" && row.last > 0 ? row.last : null;
   const bidVol = typeof row.bidVol === "number" ? row.bidVol : null;

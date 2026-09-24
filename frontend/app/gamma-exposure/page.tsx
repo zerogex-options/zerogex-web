@@ -84,10 +84,10 @@ const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.Rea
 type SortKey = keyof StrikeAggregate;
 
 const HEADER_SUB =
-  "The whole dealer gamma surface — regime, flip, walls and term structure — off the current book.";
+  "The whole dealer gamma surface\u00a0- regime, flip, walls and term structure\u00a0- off the current book.";
 
 const HEADER_TOOLTIP =
-  "The most complete positioning view on the site, and the one the others are slices of. It reads the live option chain, models which side of each contract dealers are on, and sums the gamma that implies: the regime (long gamma dampens moves, short gamma amplifies them), the flip level where the sign changes, the strikes carrying the heaviest hedging, and how all of it is spread across expirations. Modeled from open interest, not observed — a wall is where hedging flow would be largest if price got there, not a level anyone is obliged to defend. Decision-support context, not investment advice.";
+  "The most complete positioning view on the site, and the one the others are slices of. It reads the live option chain, models which side of each contract dealers are on, and sums the gamma that implies: the regime (long gamma dampens moves, short gamma amplifies them), the flip level where the sign changes, the strikes carrying the heaviest hedging, and how all of it is spread across expirations. Modeled from open interest, not observed\u00a0- a wall is where hedging flow would be largest if price got there, not a level anyone is obliged to defend. Decision-support context, not investment advice.";
 
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
@@ -545,7 +545,7 @@ export default function GammaExposurePage() {
             title="Net GEX"
             value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
             trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
-            tooltip="Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
+            tooltip="Cumulative dealer gamma at the current spot price&nbsp;- the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
             contextBadge={
               <HistoricalContextBadge
                 metric={historicalContext?.metrics?.net_gex_at_spot}

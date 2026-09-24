@@ -159,7 +159,7 @@ export default function MarketTideChart({
       <div
         className="flex h-[220px] items-center justify-center text-sm text-[var(--text-secondary)]"
         role="img"
-        aria-label="Market Tide chart — no data yet"
+        aria-label="Market Tide chart&nbsp;- no data yet"
       >
         {live ? "Building today's tide…" : "No tide history for this window yet."}
       </div>
@@ -224,7 +224,7 @@ export default function MarketTideChart({
         style={svgStyle}
         className={measuredWidth == null ? "max-lg:invisible" : undefined}
         role="img"
-        aria-label={`Market Tide ${mode === "daily" ? "daily trend" : "today"} — latest ${fmt(lastVal)}`}
+        aria-label={`Market Tide ${mode === "daily" ? "daily trend" : "today"}\u00a0- latest ${fmt(lastVal)}`}
         onMouseMove={(e) => {
           if (touchRef.current || Date.now() - lastTouchAtRef.current < 800) return;
           onMove(e);

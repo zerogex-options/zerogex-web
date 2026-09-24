@@ -7,10 +7,10 @@ export const dict: PageDictionary = {
     signInRequired: 'You need to be signed in to view your account.',
     signIn: 'Sign in',
     accountSubtitle: 'Manage your profile, subscription tier, and membership.',
-    donationWelcome: 'Welcome aboard — and thank you.',
+    donationWelcome: 'Welcome aboard\u00a0- and thank you.',
     donationContributedPrefix: 'Your subscription just contributed',
     donationContributedTo: 'to',
-    donationContributedSuffix: '— {pct}% of every {interval} billing cycle.',
+    donationContributedSuffix: '\u00a0- {pct}% of every {interval} billing cycle.',
     donationIntervalAnnual: 'annual',
     donationIntervalMonthly: 'monthly',
     donationIntervalQuarterly: 'quarterly',
@@ -20,7 +20,7 @@ export const dict: PageDictionary = {
     upgrade: 'Upgrade',
     subscription: 'Subscription',
     paymentIssueWarning:
-        "⚠️ Your last payment didn't go through. Open the billing portal below to pay the open invoice with any card, or to update your payment method — no need to sign up again.",
+        "⚠️ Your last payment didn't go through. Open the billing portal below to pay the open invoice with any card, or to update your payment method\u00a0- no need to sign up again.",
     billingDescription:
       'Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.',
     openingPortal: 'Opening portal…',
@@ -28,7 +28,7 @@ export const dict: PageDictionary = {
     manageSubscription: 'Manage Subscription',
     cancelSubscription: 'Cancel subscription',
     subscriptionPaused:
-      'Your subscription is paused — it resumes automatically on {date}, and you won’t be charged until then.',
+      'Your subscription is paused\u00a0- it resumes automatically on {date}, and you won’t be charged until then.',
     subscriptionPausedNoDate: 'Your subscription is paused. You won’t be charged until it resumes.',
     resumeSubscription: 'Resume now',
     resuming: 'Resuming…',
@@ -39,7 +39,7 @@ export const dict: PageDictionary = {
     pricingPage: 'pricing page',
     toGetStarted: 'to get started.',
     foundingRatePreserved:
-      'Your founding-member rate is preserved. Choose the same plan again and it will be applied automatically at checkout — you will not be moved to standard pricing.',
+      'Your founding-member rate is preserved. Choose the same plan again and it will be applied automatically at checkout\u00a0- you will not be moved to standard pricing.',
     signInMethods: 'Sign-in methods',
     signInMethodsDescription:
       'Connect or disconnect the providers you use to sign in. You must keep at least one method active.',
@@ -71,14 +71,14 @@ export const dict: PageDictionary = {
     manageNotifications: 'Manage notifications',
     socialMedia: 'Social Media',
     socialMediaDescription:
-      "Add your X (formerly Twitter) handle so we can reach you there. It's optional — add, change, or remove it anytime.",
+      "Add your X (formerly Twitter) handle so we can reach you there. It's optional\u00a0- add, change, or remove it anytime.",
     loading: 'Loading…',
     xHandlePlaceholder: 'yourhandle',
     xHandleAriaLabel: 'X handle',
     save: 'Save',
     connectedAs: 'Connected as',
     clearFieldToRemove: '. Clear the field and save to remove it.',
-    xHandleHelper: '1–15 characters — letters, numbers, and underscores only.',
+    xHandleHelper: '1-15 characters\u00a0- letters, numbers, and underscores only.',
     referAFriend: 'Refer a friend',
     referralDescription:
       'Share your link. Your friend gets a month free on a monthly or quarterly plan (or 10% off their first year on annual), and you earn a free month every time a referral subscribes.',
@@ -110,7 +110,7 @@ export const dict: PageDictionary = {
     couldNotOpenBillingPortal: 'Could not open billing portal.',
     dangerZoneTitle: 'Delete account',
     deleteAccountDescription:
-      'Permanently delete your ZeroGEX account. Any active subscription is canceled and you’ll be signed out. This also stops all emails from us. This cannot be undone from here — you’d need to contact support to restore access.',
+      'Permanently delete your ZeroGEX account. Any active subscription is canceled and you’ll be signed out. This also stops all emails from us. This cannot be undone from here\u00a0- you’d need to contact support to restore access.',
     deleteAccountButton: 'Delete my account',
     deleteAccountConfirmTitle: 'Are you sure? This is permanent.',
     deleteAccountConfirmBody: 'Type {word} to confirm. Your subscription will be canceled and you’ll be signed out immediately.',
@@ -125,10 +125,10 @@ export const dict: PageDictionary = {
     signInRequired: 'Devi accedere per visualizzare il tuo account.',
     signIn: 'Accedi',
     accountSubtitle: 'Gestisci il tuo profilo, il livello di abbonamento e la membership.',
-    donationWelcome: 'Benvenuto a bordo — e grazie.',
+    donationWelcome: 'Benvenuto a bordo\u00a0- e grazie.',
     donationContributedPrefix: 'Il tuo abbonamento ha appena contribuito con',
     donationContributedTo: 'a',
-    donationContributedSuffix: '— il {pct}% di ogni ciclo di fatturazione {interval}.',
+    donationContributedSuffix: '\u00a0- il {pct}% di ogni ciclo di fatturazione {interval}.',
     donationIntervalAnnual: 'annuale',
     donationIntervalMonthly: 'mensile',
     donationIntervalQuarterly: 'trimestrale',
@@ -138,7 +138,7 @@ export const dict: PageDictionary = {
     upgrade: 'Esegui upgrade',
     subscription: 'Abbonamento',
     paymentIssueWarning:
-      "⚠️ Il tuo ultimo pagamento non è andato a buon fine. Apri il portale di fatturazione qui sotto per saldare la fattura aperta con qualsiasi carta, oppure per aggiornare il metodo di pagamento — non è necessario iscriversi di nuovo.",
+      "⚠️ Il tuo ultimo pagamento non è andato a buon fine. Apri il portale di fatturazione qui sotto per saldare la fattura aperta con qualsiasi carta, oppure per aggiornare il metodo di pagamento\u00a0- non è necessario iscriversi di nuovo.",
     billingDescription:
       'Aggiorna i metodi di pagamento, cambia piano o annulla il tuo abbonamento nel portale di fatturazione sicuro di Stripe. I cambi di livello sui piani a pagamento sono calcolati automaticamente in proporzione. Cambiare piano durante il periodo di prova termina la prova e avvia subito la fatturazione sul nuovo piano.',
     openingPortal: 'Apertura del portale…',
@@ -148,7 +148,7 @@ export const dict: PageDictionary = {
     pricingPage: 'pagina dei prezzi',
     toGetStarted: 'per iniziare.',
     foundingRatePreserved:
-      'La tua tariffa da membro fondatore è conservata. Scegli di nuovo lo stesso piano e verrà applicata automaticamente al pagamento — non passerai alla tariffa standard.',
+      'La tua tariffa da membro fondatore è conservata. Scegli di nuovo lo stesso piano e verrà applicata automaticamente al pagamento\u00a0- non passerai alla tariffa standard.',
     signInMethods: 'Metodi di accesso',
     signInMethodsDescription:
       'Collega o scollega i provider che usi per accedere. Devi mantenere attivo almeno un metodo.',
@@ -180,14 +180,14 @@ export const dict: PageDictionary = {
     manageNotifications: 'Gestisci notifiche',
     socialMedia: 'Social Media',
     socialMediaDescription:
-      "Aggiungi il tuo handle X (ex Twitter) per permetterci di contattarti lì. È facoltativo — puoi aggiungerlo, modificarlo o rimuoverlo in qualsiasi momento.",
+      "Aggiungi il tuo handle X (ex Twitter) per permetterci di contattarti lì. È facoltativo\u00a0- puoi aggiungerlo, modificarlo o rimuoverlo in qualsiasi momento.",
     loading: 'Caricamento…',
     xHandlePlaceholder: 'tuohandle',
     xHandleAriaLabel: 'Handle X',
     save: 'Salva',
     connectedAs: 'Connesso come',
     clearFieldToRemove: '. Svuota il campo e salva per rimuoverlo.',
-    xHandleHelper: '1–15 caratteri — solo lettere, numeri e trattini bassi.',
+    xHandleHelper: '1-15 caratteri\u00a0- solo lettere, numeri e trattini bassi.',
     referAFriend: 'Invita un amico',
     referralDescription:
       'Condividi il tuo link. Il tuo amico riceve un mese gratis con il piano mensile o trimestrale (o il 10% di sconto sul primo anno con il piano annuale), e tu guadagni un mese gratis ogni volta che un invitato si abbona.',
@@ -224,10 +224,10 @@ export const dict: PageDictionary = {
     signInRequired: 'Du musst angemeldet sein, um dein Konto anzuzeigen.',
     signIn: 'Anmelden',
     accountSubtitle: 'Verwalte dein Profil, deine Abonnementstufe und Mitgliedschaft.',
-    donationWelcome: 'Willkommen an Bord — und danke.',
+    donationWelcome: 'Willkommen an Bord\u00a0- und danke.',
     donationContributedPrefix: 'Dein Abonnement hat gerade',
     donationContributedTo: 'an',
-    donationContributedSuffix: 'beigetragen — {pct}% jedes {interval} Abrechnungszyklus.',
+    donationContributedSuffix: 'beigetragen\u00a0- {pct}% jedes {interval} Abrechnungszyklus.',
     donationIntervalAnnual: 'jährlichen',
     donationIntervalMonthly: 'monatlichen',
     donationIntervalQuarterly: 'vierteljährlichen',
@@ -237,7 +237,7 @@ export const dict: PageDictionary = {
     upgrade: 'Upgrade',
     subscription: 'Abonnement',
     paymentIssueWarning:
-      '⚠️ Deine letzte Zahlung ist fehlgeschlagen. Öffne unten das Abrechnungsportal, um die offene Rechnung mit einer beliebigen Karte zu bezahlen oder deine Zahlungsmethode zu aktualisieren — eine erneute Anmeldung ist nicht nötig.',
+      '⚠️ Deine letzte Zahlung ist fehlgeschlagen. Öffne unten das Abrechnungsportal, um die offene Rechnung mit einer beliebigen Karte zu bezahlen oder deine Zahlungsmethode zu aktualisieren\u00a0- eine erneute Anmeldung ist nicht nötig.',
     billingDescription:
       'Aktualisiere Zahlungsmethoden, wechsle den Plan oder kündige dein Abonnement im sicheren Stripe-Abrechnungsportal. Stufenänderungen bei kostenpflichtigen Plänen werden automatisch anteilig berechnet. Ein Planwechsel während der kostenlosen Testphase beendet die Testphase und startet die Abrechnung sofort für den neuen Plan.',
     openingPortal: 'Portal wird geöffnet…',
@@ -247,7 +247,7 @@ export const dict: PageDictionary = {
     pricingPage: 'Preisseite',
     toGetStarted: 'um loszulegen.',
     foundingRatePreserved:
-      'Dein Gründermitglied-Tarif bleibt erhalten. Wähle einfach wieder denselben Plan — er wird beim Bezahlen automatisch angewendet, und du wechselst nicht zum Standardpreis.',
+      'Dein Gründermitglied-Tarif bleibt erhalten. Wähle einfach wieder denselben Plan\u00a0- er wird beim Bezahlen automatisch angewendet, und du wechselst nicht zum Standardpreis.',
     signInMethods: 'Anmeldemethoden',
     signInMethodsDescription:
       'Verbinde oder trenne die Anbieter, die du zum Anmelden nutzt. Mindestens eine Methode muss aktiv bleiben.',
@@ -279,14 +279,14 @@ export const dict: PageDictionary = {
     manageNotifications: 'Benachrichtigungen verwalten',
     socialMedia: 'Soziale Medien',
     socialMediaDescription:
-      'Füge deinen X-Handle (ehemals Twitter) hinzu, damit wir dich dort erreichen können. Optional — jederzeit hinzufügen, ändern oder entfernen.',
+      'Füge deinen X-Handle (ehemals Twitter) hinzu, damit wir dich dort erreichen können. Optional\u00a0- jederzeit hinzufügen, ändern oder entfernen.',
     loading: 'Wird geladen…',
     xHandlePlaceholder: 'deinhandle',
     xHandleAriaLabel: 'X-Handle',
     save: 'Speichern',
     connectedAs: 'Verbunden als',
     clearFieldToRemove: '. Feld leeren und speichern, um es zu entfernen.',
-    xHandleHelper: '1–15 Zeichen — nur Buchstaben, Zahlen und Unterstriche.',
+    xHandleHelper: '1-15 Zeichen\u00a0- nur Buchstaben, Zahlen und Unterstriche.',
     referAFriend: 'Freund einladen',
     referralDescription:
       'Teile deinen Link. Dein Freund erhält einen Monat kostenlos bei monatlicher oder vierteljährlicher Zahlung (oder 10% Rabatt auf das erste Jahr bei jährlicher Zahlung), und du erhältst einen Gratismonat, jedes Mal wenn sich jemand über dich anmeldet.',
@@ -323,10 +323,10 @@ export const dict: PageDictionary = {
     signInRequired: 'Debes iniciar sesión para ver tu cuenta.',
     signIn: 'Iniciar sesión',
     accountSubtitle: 'Gestiona tu perfil, nivel de suscripción y membresía.',
-    donationWelcome: 'Bienvenido a bordo — y gracias.',
+    donationWelcome: 'Bienvenido a bordo\u00a0- y gracias.',
     donationContributedPrefix: 'Tu suscripción acaba de contribuir con',
     donationContributedTo: 'a',
-    donationContributedSuffix: '— el {pct}% de cada ciclo de facturación {interval}.',
+    donationContributedSuffix: '\u00a0- el {pct}% de cada ciclo de facturación {interval}.',
     donationIntervalAnnual: 'anual',
     donationIntervalMonthly: 'mensual',
     donationIntervalQuarterly: 'trimestral',
@@ -336,7 +336,7 @@ export const dict: PageDictionary = {
     upgrade: 'Mejorar plan',
     subscription: 'Suscripción',
     paymentIssueWarning:
-      '⚠️ Tu último pago no se procesó. Abre el portal de facturación a continuación para pagar la factura pendiente con cualquier tarjeta, o para actualizar tu método de pago — no es necesario volver a registrarte.',
+      '⚠️ Tu último pago no se procesó. Abre el portal de facturación a continuación para pagar la factura pendiente con cualquier tarjeta, o para actualizar tu método de pago\u00a0- no es necesario volver a registrarte.',
     billingDescription:
       'Actualiza los métodos de pago, cambia de plan o cancela tu suscripción en el portal de facturación seguro de Stripe. Los cambios de nivel en planes de pago se prorratean automáticamente. Cambiar de plan durante tu prueba gratuita termina la prueba e inicia la facturación de inmediato en el nuevo plan.',
     openingPortal: 'Abriendo el portal…',
@@ -378,14 +378,14 @@ export const dict: PageDictionary = {
     manageNotifications: 'Gestionar notificaciones',
     socialMedia: 'Redes sociales',
     socialMediaDescription:
-      'Añade tu identificador de X (antes Twitter) para que podamos contactarte allí. Es opcional — añádelo, cámbialo o elimínalo cuando quieras.',
+      'Añade tu identificador de X (antes Twitter) para que podamos contactarte allí. Es opcional\u00a0- añádelo, cámbialo o elimínalo cuando quieras.',
     loading: 'Cargando…',
     xHandlePlaceholder: 'tuidentificador',
     xHandleAriaLabel: 'Identificador de X',
     save: 'Guardar',
     connectedAs: 'Conectado como',
     clearFieldToRemove: '. Borra el campo y guarda para eliminarlo.',
-    xHandleHelper: '1–15 caracteres — solo letras, números y guiones bajos.',
+    xHandleHelper: '1-15 caracteres\u00a0- solo letras, números y guiones bajos.',
     referAFriend: 'Recomienda a un amigo',
     referralDescription:
       'Comparte tu enlace. Tu amigo recibe un mes gratis en un plan mensual o trimestral (o 10% de descuento en su primer año anual), y tú ganas un mes gratis cada vez que un referido se suscribe.',
@@ -422,10 +422,10 @@ export const dict: PageDictionary = {
     signInRequired: 'Vous devez être connecté pour voir votre compte.',
     signIn: 'Se connecter',
     accountSubtitle: 'Gérez votre profil, votre niveau d’abonnement et votre adhésion.',
-    donationWelcome: 'Bienvenue à bord — et merci.',
+    donationWelcome: 'Bienvenue à bord\u00a0- et merci.',
     donationContributedPrefix: 'Votre abonnement vient de contribuer',
     donationContributedTo: 'à',
-    donationContributedSuffix: '— {pct}% de chaque cycle de facturation {interval}.',
+    donationContributedSuffix: '\u00a0- {pct}% de chaque cycle de facturation {interval}.',
     donationIntervalAnnual: 'annuel',
     donationIntervalMonthly: 'mensuel',
     donationIntervalQuarterly: 'trimestriel',
@@ -435,7 +435,7 @@ export const dict: PageDictionary = {
     upgrade: 'Passer au niveau supérieur',
     subscription: 'Abonnement',
     paymentIssueWarning:
-      "⚠️ Votre dernier paiement n'est pas passé. Ouvrez le portail de facturation ci-dessous pour régler la facture en attente avec n'importe quelle carte, ou pour mettre à jour votre moyen de paiement — aucune nouvelle inscription n'est nécessaire.",
+      "⚠️ Votre dernier paiement n'est pas passé. Ouvrez le portail de facturation ci-dessous pour régler la facture en attente avec n'importe quelle carte, ou pour mettre à jour votre moyen de paiement\u00a0- aucune nouvelle inscription n'est nécessaire.",
     billingDescription:
       "Mettez à jour vos moyens de paiement, changez de forfait ou annulez votre abonnement dans le portail de facturation sécurisé de Stripe. Les changements de niveau sur les forfaits payants sont calculés automatiquement au prorata. Changer de forfait pendant votre essai gratuit met fin à l'essai et démarre immédiatement la facturation du nouveau forfait.",
     openingPortal: 'Ouverture du portail…',
@@ -445,7 +445,7 @@ export const dict: PageDictionary = {
     pricingPage: 'page des tarifs',
     toGetStarted: 'pour commencer.',
     foundingRatePreserved:
-      'Votre tarif de membre fondateur est conservé. Choisissez à nouveau la même formule et il sera appliqué automatiquement au paiement — vous ne passerez pas au tarif standard.',
+      'Votre tarif de membre fondateur est conservé. Choisissez à nouveau la même formule et il sera appliqué automatiquement au paiement\u00a0- vous ne passerez pas au tarif standard.',
     signInMethods: 'Méthodes de connexion',
     signInMethodsDescription:
       'Connectez ou déconnectez les fournisseurs que vous utilisez pour vous connecter. Vous devez conserver au moins une méthode active.',
@@ -477,14 +477,14 @@ export const dict: PageDictionary = {
     manageNotifications: 'Gérer les notifications',
     socialMedia: 'Réseaux sociaux',
     socialMediaDescription:
-      'Ajoutez votre identifiant X (anciennement Twitter) pour que nous puissions vous y joindre. Facultatif — ajoutez, modifiez ou supprimez-le à tout moment.',
+      'Ajoutez votre identifiant X (anciennement Twitter) pour que nous puissions vous y joindre. Facultatif\u00a0- ajoutez, modifiez ou supprimez-le à tout moment.',
     loading: 'Chargement…',
     xHandlePlaceholder: 'votreidentifiant',
     xHandleAriaLabel: 'Identifiant X',
     save: 'Enregistrer',
     connectedAs: 'Connecté en tant que',
     clearFieldToRemove: '. Videz le champ et enregistrez pour le supprimer.',
-    xHandleHelper: '1 à 15 caractères — lettres, chiffres et tirets bas uniquement.',
+    xHandleHelper: '1 à 15 caractères\u00a0- lettres, chiffres et tirets bas uniquement.',
     referAFriend: 'Parrainer un ami',
     referralDescription:
       'Partagez votre lien. Votre ami obtient un mois gratuit en formule mensuelle ou trimestrielle (ou 10% de réduction sur sa première année en formule annuelle), et vous gagnez un mois gratuit à chaque fois qu’un filleul s’abonne.',

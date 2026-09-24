@@ -105,7 +105,7 @@ function VerdictChip({ horizon, theme }: { horizon: ConeFire['horizons'][number]
         </span>
       </div>
       <div className="text-[10px] tabular-nums" style={{ color: theme.textDim }}>
-        {fmtPrice(horizon.band_low)}–{fmtPrice(horizon.band_high)}
+        {fmtPrice(horizon.band_low)}-{fmtPrice(horizon.band_high)}
         {horizon.hold_prob !== null ? ` · ${(horizon.hold_prob * 100).toFixed(0)}%` : ''}
       </div>
     </div>
@@ -316,7 +316,7 @@ export default function IntradayConeChart({
 
       <p className="mt-4 max-w-[68ch] text-[11px] leading-relaxed" style={{ color: theme.textMuted }}>
         The percentage on each horizon is the chance price never leaves that
-        band at any point in the window — not the chance it finishes inside.
+        band at any point in the window&nbsp;- not the chance it finishes inside.
         A path that pierces the band and comes back did not hold, and is
         graded as broken.
       </p>

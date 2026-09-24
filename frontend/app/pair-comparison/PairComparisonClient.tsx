@@ -50,16 +50,16 @@ const INFO_TEXT =
   "Compare two symbols' dealer-gamma structure side by side. The left ladder follows your header symbol; " +
   "pick any of SPY / QQQ / SPX / NDX to compare on the right. Both stay centered on spot and strike-aligned, " +
   "with the Gamma Flip, Call/Put Walls and Max Pain marked. The Expiry filter scopes both ladders (and their " +
-  "walls and flip) to one or more expirations — default All; Max Pain reads NA while filtered, as it has no " +
+  "walls and flip) to one or more expirations\u00a0- default All; Max Pain reads NA while filtered, as it has no " +
   "per-expiry-set equivalent. Session Δ overlays a small green up / red down triangle beside each strike's " +
   "Net GEX showing whether dealer gamma there has built or eroded since the 09:30 ET open, for the selected " +
   "expirations. Enter Replay to scrub the most-recent session " +
   "minute by minute (spot in replay is the underlying close for that minute; the change is vs the session open, " +
   "while live shows the day change from the prior close; replay is always the whole chain). The Strikes toggle " +
   "shows only strikes carrying " +
-  "dealer gamma (Active) or every listed strike near spot (All) — Active keeps high-priced chains like NDX, " +
+  "dealer gamma (Active) or every listed strike near spot (All)\u00a0- Active keeps high-priced chains like NDX, " +
   "which list a fine grid but concentrate open interest on the round strikes, from reading as sparse. " +
-  "Net GEX is a modeled estimate of dealer gamma by strike — decision-support context only, not investment advice.";
+  "Net GEX is a modeled estimate of dealer gamma by strike\u00a0- decision-support context only, not investment advice.";
 
 // Last replay frame at-or-before a timestamp (frames are chronological ascending).
 function frameAtOrBefore(frames: ReplayFrame[], targetTs: string | null): ReplayFrame | null {

@@ -274,7 +274,7 @@ export function describePlaybookScenario(
   const scope = `${symbol} · ${expirationLabel}`;
 
   if (!scenario.resolved) {
-    return `${scope}: not enough resolved gamma structure to place a cell — pick the read manually.`;
+    return `${scope}: not enough resolved gamma structure to place a cell\u00a0- pick the read manually.`;
   }
 
   const spot = finite(context.spot);

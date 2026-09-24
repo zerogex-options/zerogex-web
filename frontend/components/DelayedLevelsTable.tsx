@@ -43,13 +43,13 @@ export default function DelayedLevelsTable({ symbol, data, chainSymbol }: Props)
         netGex == null
           ? 'Modeled net dealer gamma, evaluated at spot'
           : netGex >= 0
-            ? 'Positive: dealers modeled net long gamma — hedging tends to dampen moves'
-            : 'Negative: dealers modeled net short gamma — hedging tends to amplify moves',
+            ? 'Positive: dealers modeled net long gamma\u00a0- hedging tends to dampen moves'
+            : 'Negative: dealers modeled net short gamma\u00a0- hedging tends to amplify moves',
     },
     {
       label: 'Gamma flip (zero gamma level)',
       value: fmtPrice(data.gamma_flip),
-      note: 'Regime line — above it positive gamma, below it negative gamma',
+      note: 'Regime line\u00a0- above it positive gamma, below it negative gamma',
     },
     { label: 'Call wall', value: fmtPrice(data.call_wall), note: 'Heaviest call-gamma strike at or above spot' },
     { label: 'Put wall', value: fmtPrice(data.put_wall), note: 'Heaviest put-gamma strike at or below spot' },

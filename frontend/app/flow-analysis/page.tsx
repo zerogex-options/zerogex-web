@@ -349,8 +349,8 @@ export default function FlowAnalysisPage() {
     <PageShell>
       <PageHeader
         title="Flow Analysis"
-        sub="What traded today — premium, net volume, and the aggressor split behind both."
-        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree — a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
+        sub="What traded today&nbsp;- premium, net volume, and the aggressor split behind both."
+        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree&nbsp;- a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
         actions={
           <FilterBar>
             <FilterSelect
@@ -676,7 +676,7 @@ export default function FlowAnalysisPage() {
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."}>
+      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity&nbsp;- this chart accounts for trade direction to distinguish buying from selling."}>
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (

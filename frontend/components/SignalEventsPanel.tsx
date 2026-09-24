@@ -57,8 +57,8 @@ type ZoomMinutes = number | null;
 // Keep ET minutes-of-day inclusive on both ends (e.g. 14:30 → 16:00 covers
 // 14:30:00–16:00:00 ET).
 const SIGNAL_SESSION_WINDOWS_ET: Partial<Record<SignalEventName, { startMin: number; endMin: number; label: string }>> = {
-  eod_pressure: { startMin: 14 * 60 + 30, endMin: 16 * 60, label: '14:30–16:00 ET' },
-  zero_dte_position_imbalance: { startMin: 9 * 60 + 30, endMin: 16 * 60, label: '09:30–16:00 ET' },
+  eod_pressure: { startMin: 14 * 60 + 30, endMin: 16 * 60, label: '14:30-16:00 ET' },
+  zero_dte_position_imbalance: { startMin: 9 * 60 + 30, endMin: 16 * 60, label: '09:30-16:00 ET' },
 };
 
 // Allowed x-axis tick increments (minutes). Picked so labels land on familiar

@@ -69,7 +69,7 @@ export default function CrossSymbolTable({
             <th className={`${HEAD_CLASS} ${STICKY_CELL}`}>Symbol</th>
             <th className={HEAD_CLASS}>Put spread</th>
             <th className={HEAD_CLASS}>Call spread</th>
-            <th className={HEAD_CLASS} title="Width in basis points of the index level — the cross-symbol comparable measure">
+            <th className={HEAD_CLASS} title="Width in basis points of the index level&nbsp;- the cross-symbol comparable measure">
               Put width vs index
             </th>
             <th className={HEAD_CLASS} title="Put width divided by call width. Above 1 means the downside is the expensive side to trade.">
@@ -157,7 +157,7 @@ export default function CrossSymbolTable({
         </tbody>
       </table>
       <p className="mt-3 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        Compare across symbols using <strong>put width vs index</strong> — spreads in dollars
+        Compare across symbols using <strong>put width vs index</strong>&nbsp;- spreads in dollars
         are not comparable between an index near 6,800 and one near 25,000.{' '}
         <span style={{ fontStyle: 'italic' }}>
           {scopeNote ??

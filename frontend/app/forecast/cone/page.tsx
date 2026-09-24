@@ -67,7 +67,7 @@ export default function ConePage() {
           Every fifteen minutes we re-anchor on the current bar, re-read the
           dealer surface, and commit a band and a probability for each horizon
           that can still finish before the bell. Then we grade every one of
-          them and publish what came back — including the horizons we get
+          them and publish what came back&nbsp;- including the horizons we get
           wrong. The daily version of the same commitment lives on{' '}
           <Link
             href="/forecast"
@@ -151,7 +151,7 @@ export default function ConePage() {
       </section>
 
       <p className="mt-6 max-w-[72ch] text-[11px] leading-relaxed" style={{ color: theme.textMuted }}>
-        Not a buy or sell signal. The cone makes no directional call — it is a
+        Not a buy or sell signal. The cone makes no directional call&nbsp;- it is a
         claim about containment, and it is graded on magnitude only.
       </p>
     </main>

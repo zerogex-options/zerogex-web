@@ -7,7 +7,7 @@ import { loadLocalizedMarkdown } from '@/core/localizedContent';
 export const metadata = {
   title: 'ZeroGEX Signals Explained: Score Reference & Trigger Guide',
   description:
-    'Every ZeroGEX signal on one page — what each asks, the timeframe, when it fires, and what a positive, negative, or zero score actually means.',
+    'Every ZeroGEX signal on one page\u00a0- what each asks, the timeframe, when it fires, and what a positive, negative, or zero score actually means.',
   alternates: { canonical: '/guides/signals-explained' },
 };
 

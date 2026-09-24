@@ -5,7 +5,7 @@ export const dict: PageDictionary = {
     eyebrowAlmostDone: 'Almost done',
     eyebrowPricing: 'Pricing',
     heroTrialTitle: "You're almost done.",
-    heroTrialSubtitle: 'Start your {days}-day free trial of Basic — or go straight to Pro.',
+    heroTrialSubtitle: 'Start your {days}-day free trial of Basic\u00a0- or go straight to Pro.',
     heroTrialNoCharge:
       'Basic trial: no charge until day {days}. Every other plan: 7-day money-back guarantee.',
     heroTrialBody:
@@ -14,21 +14,21 @@ export const dict: PageDictionary = {
     heroSubtitle:
       'ZeroGEX helps SPY/SPX/QQQ/NDX traders track gamma exposure, call/put walls, gamma flip, dealer positioning, and flow pressure in real time.',
     heroBody:
-      '{days}-day free trial on Basic monthly. Every other plan is covered by a 7-day money-back guarantee. Cancel anytime — no email or support request required.',
-    checkoutCancelledNotice: "No problem — nothing was charged. Choose a plan whenever you're ready.",
+      '{days}-day free trial on Basic monthly. Every other plan is covered by a 7-day money-back guarantee. Cancel anytime\u00a0- no email or support request required.',
+    checkoutCancelledNotice: "No problem\u00a0- nothing was charged. Choose a plan whenever you're ready.",
     referralAppliedLabel: '[ REFERRAL APPLIED ]',
-    referralAppliedBody: 'A friend referred you — your discount is applied automatically at checkout.',
+    referralAppliedBody: 'A friend referred you\u00a0- your discount is applied automatically at checkout.',
     discountAppliedLabel: '[ DISCOUNT APPLIED ]',
     discountAppliedBody: 'Your discount is applied automatically at checkout.',
-    winbackWelcome: "👋 Welcome back — your win-back discount is applied automatically at checkout.",
-    reactivateWelcome: "👋 Welcome back — your extended {days}-day free trial is ready. Start any plan below; you won't be charged until it ends.",
+    winbackWelcome: "👋 Welcome back\u00a0- your win-back discount is applied automatically at checkout.",
+    reactivateWelcome: "👋 Welcome back\u00a0- your extended {days}-day free trial is ready. Start any plan below; you won't be charged until it ends.",
     verifySuccessMessage: 'Email verified! You can now subscribe.',
     verifyExpiredMessage: 'That verification link has expired. Use Resend below to get a new one.',
     verifyInvalidMessage: 'That verification link is no longer valid. Use Resend below to get a new one.',
     verifyEmailSendFailedMessage:
       "Your account is ready, but we couldn't send the verification email. Use Resend below to try again.",
     errorAdminNoSubscribe: 'Admin accounts cannot subscribe.',
-    errorVerifyEmailFirst: 'Please verify your email first — use the Resend button in the banner above.',
+    errorVerifyEmailFirst: 'Please verify your email first\u00a0- use the Resend button in the banner above.',
     errorSomethingWrong: 'Something went wrong.',
     errorCsrfFailed: 'Could not obtain CSRF token. Refresh and try again.',
     errorBillingFailed: 'Billing request failed',
@@ -52,10 +52,10 @@ export const dict: PageDictionary = {
       "You get full access right away. Your card is collected at signup but isn't charged until the trial ends. Cancel before then and you pay nothing. One free trial per account.",
     cancelAnytimeLabel: 'Cancel anytime.',
     cancelAnytimeBody:
-      'Manage or cancel your plan yourself through the billing portal — no email or support request required.',
+      'Manage or cancel your plan yourself through the billing portal\u00a0- no email or support request required.',
     planSwitchLabel: 'Leaving the free trial for another plan.',
     planSwitchBody:
-      "Moving from the Basic trial to Pro, or to quarterly or annual billing, ends the trial and bills the new plan that day — you'll see the exact amount and confirm it first. That payment is covered by the 7-day money-back guarantee.",
+      "Moving from the Basic trial to Pro, or to quarterly or annual billing, ends the trial and bills the new plan that day\u00a0- you'll see the exact amount and confirm it first. That payment is covered by the 7-day money-back guarantee.",
     upgradesLabel: 'Upgrades & downgrades on paid plans.',
     upgradesBody:
       'Switching tiers or billing periods on a paid plan is pro-rated automatically through the Stripe-hosted billing portal; a move to a lower tier or a shorter billing period takes effect at the end of the period you have already paid for.',
@@ -71,7 +71,7 @@ export const dict: PageDictionary = {
     switchToLabel: 'Switch to {label}',
     subscribeToLabel: 'Subscribe to {label}',
     yourPickBadge: 'Your pick',
-    trialDaysNote: "{days}-day free trial — cancel anytime before it ends and you won't be charged.",
+    trialDaysNote: "{days}-day free trial\u00a0- cancel anytime before it ends and you won't be charged.",
     foldsOfHonorLink: 'Includes 3% donation to Folds of Honor',
     noChargeToday: 'No charge today.',
     perMonthSuffix: '/mo',
@@ -84,12 +84,12 @@ export const dict: PageDictionary = {
     annualToggle: 'Annual',
     moneyBackListLabel: '7-day money-back guarantee (every other plan).',
     moneyBackListBody:
-      "Pro, and every quarterly and annual plan, is billed when you subscribe. If it isn't for you, request a full refund from your Account page within 7 days of that payment — your access ends when the refund is issued. Limit one refund per customer (per account, email address, or card).",
+      "Pro, and every quarterly and annual plan, is billed when you subscribe. If it isn't for you, request a full refund from your Account page within 7 days of that payment\u00a0- your access ends when the refund is issued. Limit one refund per customer (per account, email address, or card).",
     autoRenewLabel: 'Automatic renewal.',
     autoRenewBody:
-      'Paid plans renew automatically at the end of each billing period — every month, every 3 months, or every year — until you cancel. Before a quarterly or annual plan renews, we email you a reminder.',
+      'Paid plans renew automatically at the end of each billing period\u00a0- every month, every 3 months, or every year\u00a0- until you cancel. Before a quarterly or annual plan renews, we email you a reminder.',
     moneyBackNote:
-      '{days}-day money-back guarantee — not for you? Get a full refund within {days} days of paying. One refund per customer.',
+      '{days}-day money-back guarantee\u00a0- not for you? Get a full refund within {days} days of paying. One refund per customer.',
     billedTodayNote: 'Billed today · Cancel anytime.',
     saveHighlight: 'Save {pct}%',
     quarterlyToggle: 'Quarterly',
@@ -110,7 +110,7 @@ export const dict: PageDictionary = {
     confirmSwitchBody: 'Your free trial ends today, and {amount} is charged to your card on file now.',
     confirmSwitchBodyNoAmount:
       'Your free trial ends today, and the {plan} price is charged to your card on file now.',
-    confirmSwitchGuarantee: 'Covered by our {days}-day money-back guarantee — limit one refund per customer.',
+    confirmSwitchGuarantee: 'Covered by our {days}-day money-back guarantee\u00a0- limit one refund per customer.',
     confirmSwitchCta: 'Confirm and pay',
     confirmSwitchCancel: 'Not now',
     errorOpenPortal: 'Open the billing portal',
@@ -245,7 +245,7 @@ export const dict: PageDictionary = {
     eyebrowPricing: 'Preise',
     heroTrialTitle: 'Du bist fast fertig.',
     heroTrialSubtitle:
-      'Starte deine {days}-tägige kostenlose Basic-Testphase – oder steig direkt mit Pro ein.',
+      'Starte deine {days}-tägige kostenlose Basic-Testphase\u00a0- oder steig direkt mit Pro ein.',
     heroTrialNoCharge:
       'Basic-Testphase: keine Abbuchung bis Tag {days}. Alle anderen Pläne: 7-Tage-Geld-zurück-Garantie.',
     heroTrialBody:
@@ -254,22 +254,22 @@ export const dict: PageDictionary = {
     heroSubtitle:
       'ZeroGEX hilft SPY/SPX/QQQ/NDX-Tradern, Gamma-Exposure, Call-/Put-Walls, Gamma-Flip, Dealer-Positionierung und Flow-Druck in Echtzeit zu verfolgen.',
     heroBody:
-      '{days}-tägige kostenlose Testphase für Basic monatlich. Alle anderen Pläne sind durch eine 7-Tage-Geld-zurück-Garantie abgesichert. Jederzeit kündbar — ohne E-Mail oder Support-Anfrage.',
+      '{days}-tägige kostenlose Testphase für Basic monatlich. Alle anderen Pläne sind durch eine 7-Tage-Geld-zurück-Garantie abgesichert. Jederzeit kündbar\u00a0- ohne E-Mail oder Support-Anfrage.',
     checkoutCancelledNotice:
-      'Kein Problem — es wurde nichts abgebucht. Wähle einen Plan, wann immer du bereit bist.',
+      'Kein Problem\u00a0- es wurde nichts abgebucht. Wähle einen Plan, wann immer du bereit bist.',
     referralAppliedLabel: '[ EMPFEHLUNG ANGEWENDET ]',
-    referralAppliedBody: 'Ein Freund hat dich empfohlen — dein Rabatt wird beim Checkout automatisch angewendet.',
+    referralAppliedBody: 'Ein Freund hat dich empfohlen\u00a0- dein Rabatt wird beim Checkout automatisch angewendet.',
     discountAppliedLabel: '[ RABATT ANGEWENDET ]',
     discountAppliedBody: 'Dein Rabatt wird beim Checkout automatisch angewendet.',
-    winbackWelcome: '👋 Willkommen zurück — dein Reaktivierungsrabatt wird beim Checkout automatisch angewendet.',
-    reactivateWelcome: '👋 Willkommen zurück — deine verlängerte {days}-tägige kostenlose Testphase ist bereit. Wähle unten einen Plan; keine Abbuchung bis zum Ende.',
+    winbackWelcome: '👋 Willkommen zurück\u00a0- dein Reaktivierungsrabatt wird beim Checkout automatisch angewendet.',
+    reactivateWelcome: '👋 Willkommen zurück\u00a0- deine verlängerte {days}-tägige kostenlose Testphase ist bereit. Wähle unten einen Plan; keine Abbuchung bis zum Ende.',
     verifySuccessMessage: 'E-Mail bestätigt! Du kannst jetzt abonnieren.',
     verifyExpiredMessage: 'Dieser Bestätigungslink ist abgelaufen. Nutze unten „Erneut senden“, um einen neuen zu erhalten.',
     verifyInvalidMessage: 'Dieser Bestätigungslink ist nicht mehr gültig. Nutze unten „Erneut senden“, um einen neuen zu erhalten.',
     verifyEmailSendFailedMessage:
       'Dein Konto ist bereit, aber wir konnten die Bestätigungs-E-Mail nicht senden. Nutze unten „Erneut senden“, um es erneut zu versuchen.',
     errorAdminNoSubscribe: 'Admin-Konten können kein Abonnement abschließen.',
-    errorVerifyEmailFirst: 'Bitte bestätige zuerst deine E-Mail — nutze die Schaltfläche „Erneut senden“ im Banner oben.',
+    errorVerifyEmailFirst: 'Bitte bestätige zuerst deine E-Mail\u00a0- nutze die Schaltfläche „Erneut senden“ im Banner oben.',
     errorSomethingWrong: 'Etwas ist schiefgelaufen.',
     errorCsrfFailed: 'CSRF-Token konnte nicht abgerufen werden. Seite neu laden und erneut versuchen.',
     errorBillingFailed: 'Abrechnungsanfrage fehlgeschlagen',
@@ -293,10 +293,10 @@ export const dict: PageDictionary = {
       'Du erhältst sofort vollen Zugriff. Deine Karte wird bei der Anmeldung hinterlegt, aber erst nach Ende der Testphase belastet. Kündige vorher und du zahlst nichts. Eine kostenlose Testphase pro Konto.',
     cancelAnytimeLabel: 'Jederzeit kündbar.',
     cancelAnytimeBody:
-      'Verwalte oder kündige deinen Plan selbst über das Kundenportal — ohne E-Mail oder Support-Anfrage.',
+      'Verwalte oder kündige deinen Plan selbst über das Kundenportal\u00a0- ohne E-Mail oder Support-Anfrage.',
     planSwitchLabel: 'Von der kostenlosen Testphase zu einem anderen Plan wechseln.',
     planSwitchBody:
-      'Ein Wechsel von der Basic-Testphase zu Pro oder zu vierteljährlicher bzw. jährlicher Abrechnung beendet die Testphase und berechnet den neuen Plan am selben Tag — du siehst vorher den genauen Betrag und bestätigst ihn. Diese Zahlung ist durch die 7-Tage-Geld-zurück-Garantie abgesichert.',
+      'Ein Wechsel von der Basic-Testphase zu Pro oder zu vierteljährlicher bzw. jährlicher Abrechnung beendet die Testphase und berechnet den neuen Plan am selben Tag\u00a0- du siehst vorher den genauen Betrag und bestätigst ihn. Diese Zahlung ist durch die 7-Tage-Geld-zurück-Garantie abgesichert.',
     upgradesLabel: 'Up- und Downgrades bei bezahlten Plänen.',
     upgradesBody:
       'Ein Wechsel der Stufe oder des Abrechnungszeitraums bei einem bezahlten Plan wird über das von Stripe gehostete Abrechnungsportal automatisch anteilig verrechnet; ein Wechsel zu einer niedrigeren Stufe oder einem kürzeren Zeitraum wird zum Ende des bereits bezahlten Zeitraums wirksam.',
@@ -312,7 +312,7 @@ export const dict: PageDictionary = {
     switchToLabel: 'Zu {label} wechseln',
     subscribeToLabel: '{label} abonnieren',
     yourPickBadge: 'Deine Wahl',
-    trialDaysNote: '{days}-tägige kostenlose Testphase — jederzeit vor Ablauf kündbar, ohne Kosten.',
+    trialDaysNote: '{days}-tägige kostenlose Testphase\u00a0- jederzeit vor Ablauf kündbar, ohne Kosten.',
     foldsOfHonorLink: 'Beinhaltet eine Spende von 3 % an Folds of Honor',
     noChargeToday: 'Heute keine Kosten.',
     perMonthSuffix: '/Monat',
@@ -325,12 +325,12 @@ export const dict: PageDictionary = {
     annualToggle: 'Jährlich',
     moneyBackListLabel: '7-Tage-Geld-zurück-Garantie (alle anderen Pläne).',
     moneyBackListBody:
-      'Pro sowie alle vierteljährlichen und jährlichen Pläne werden beim Abschluss berechnet. Wenn es nichts für dich ist, fordere innerhalb von 7 Tagen nach der Zahlung über deine Kontoseite eine volle Erstattung an — dein Zugang endet mit der Erstattung. Maximal eine Erstattung pro Kunde (pro Konto, E-Mail-Adresse oder Karte).',
+      'Pro sowie alle vierteljährlichen und jährlichen Pläne werden beim Abschluss berechnet. Wenn es nichts für dich ist, fordere innerhalb von 7 Tagen nach der Zahlung über deine Kontoseite eine volle Erstattung an\u00a0- dein Zugang endet mit der Erstattung. Maximal eine Erstattung pro Kunde (pro Konto, E-Mail-Adresse oder Karte).',
     autoRenewLabel: 'Automatische Verlängerung.',
     autoRenewBody:
-      'Bezahlte Pläne verlängern sich am Ende jedes Abrechnungszeitraums automatisch — jeden Monat, alle 3 Monate oder jedes Jahr —, bis du kündigst. Vor der Verlängerung eines vierteljährlichen oder jährlichen Plans senden wir dir eine Erinnerung per E-Mail.',
+      'Bezahlte Pläne verlängern sich am Ende jedes Abrechnungszeitraums automatisch\u00a0- jeden Monat, alle 3 Monate oder jedes Jahr\u00a0-, bis du kündigst. Vor der Verlängerung eines vierteljährlichen oder jährlichen Plans senden wir dir eine Erinnerung per E-Mail.',
     moneyBackNote:
-      '{days}-Tage-Geld-zurück-Garantie — nicht das Richtige? Volle Erstattung innerhalb von {days} Tagen nach der Zahlung. Eine Erstattung pro Kunde.',
+      '{days}-Tage-Geld-zurück-Garantie\u00a0- nicht das Richtige? Volle Erstattung innerhalb von {days} Tagen nach der Zahlung. Eine Erstattung pro Kunde.',
     billedTodayNote: 'Abrechnung heute · Jederzeit kündbar.',
     saveHighlight: '{pct} % sparen',
     quarterlyToggle: 'Vierteljährlich',
@@ -353,7 +353,7 @@ export const dict: PageDictionary = {
     confirmSwitchBodyNoAmount:
       'Deine kostenlose Testphase endet heute, und der Preis für {plan} wird jetzt von deiner hinterlegten Karte abgebucht.',
     confirmSwitchGuarantee:
-      'Abgesichert durch unsere {days}-Tage-Geld-zurück-Garantie — maximal eine Erstattung pro Kunde.',
+      'Abgesichert durch unsere {days}-Tage-Geld-zurück-Garantie\u00a0- maximal eine Erstattung pro Kunde.',
     confirmSwitchCta: 'Bestätigen und bezahlen',
     confirmSwitchCancel: 'Nicht jetzt',
     errorOpenPortal: 'Abrechnungsportal öffnen',
@@ -485,7 +485,7 @@ export const dict: PageDictionary = {
     eyebrowAlmostDone: 'Presque terminé',
     eyebrowPricing: 'Tarifs',
     heroTrialTitle: 'Vous y êtes presque.',
-    heroTrialSubtitle: 'Démarrez votre essai gratuit de {days} jours de Basic — ou passez directement à Pro.',
+    heroTrialSubtitle: 'Démarrez votre essai gratuit de {days} jours de Basic\u00a0- ou passez directement à Pro.',
     heroTrialNoCharge:
       'Essai Basic : aucun prélèvement avant le jour {days}. Toutes les autres offres : garantie satisfait ou remboursé de 7 jours.',
     heroTrialBody:
@@ -496,20 +496,20 @@ export const dict: PageDictionary = {
     heroBody:
       "Essai gratuit de {days} jours sur Basic mensuel. Toutes les autres offres sont couvertes par une garantie satisfait ou remboursé de 7 jours. Annulez à tout moment, sans e-mail ni demande d'assistance.",
     checkoutCancelledNotice:
-      'Pas de problème — rien ne vous a été prélevé. Choisissez une offre quand vous serez prêt.',
+      'Pas de problème\u00a0- rien ne vous a été prélevé. Choisissez une offre quand vous serez prêt.',
     referralAppliedLabel: '[ PARRAINAGE APPLIQUÉ ]',
-    referralAppliedBody: 'Un ami vous a parrainé — votre réduction est appliquée automatiquement au paiement.',
+    referralAppliedBody: 'Un ami vous a parrainé\u00a0- votre réduction est appliquée automatiquement au paiement.',
     discountAppliedLabel: '[ RÉDUCTION APPLIQUÉE ]',
     discountAppliedBody: 'Votre réduction est appliquée automatiquement au paiement.',
-    winbackWelcome: '👋 Bon retour parmi nous — votre réduction de réactivation est appliquée automatiquement au paiement.',
-    reactivateWelcome: '👋 Bon retour parmi nous — votre essai gratuit prolongé de {days} jours est prêt. Choisissez une offre ci-dessous ; aucun prélèvement avant la fin.',
+    winbackWelcome: '👋 Bon retour parmi nous\u00a0- votre réduction de réactivation est appliquée automatiquement au paiement.',
+    reactivateWelcome: '👋 Bon retour parmi nous\u00a0- votre essai gratuit prolongé de {days} jours est prêt. Choisissez une offre ci-dessous ; aucun prélèvement avant la fin.',
     verifySuccessMessage: 'E-mail vérifié ! Vous pouvez maintenant vous abonner.',
     verifyExpiredMessage: 'Ce lien de vérification a expiré. Utilisez Renvoyer ci-dessous pour en obtenir un nouveau.',
     verifyInvalidMessage: "Ce lien de vérification n'est plus valide. Utilisez Renvoyer ci-dessous pour en obtenir un nouveau.",
     verifyEmailSendFailedMessage:
       "Votre compte est prêt, mais nous n'avons pas pu envoyer l'e-mail de vérification. Utilisez Renvoyer ci-dessous pour réessayer.",
     errorAdminNoSubscribe: 'Les comptes administrateur ne peuvent pas s’abonner.',
-    errorVerifyEmailFirst: "Veuillez d'abord vérifier votre e-mail — utilisez le bouton Renvoyer dans la bannière ci-dessus.",
+    errorVerifyEmailFirst: "Veuillez d'abord vérifier votre e-mail\u00a0- utilisez le bouton Renvoyer dans la bannière ci-dessus.",
     errorSomethingWrong: "Une erreur s'est produite.",
     errorCsrfFailed: 'Impossible d’obtenir le jeton CSRF. Actualisez la page et réessayez.',
     errorBillingFailed: 'Échec de la demande de facturation',
@@ -533,10 +533,10 @@ export const dict: PageDictionary = {
       "Vous bénéficiez d'un accès complet immédiatement. Votre carte est enregistrée à l'inscription mais n'est débitée qu'à la fin de l'essai. Annulez avant et vous ne payez rien. Un essai gratuit par compte.",
     cancelAnytimeLabel: 'Annulez à tout moment.',
     cancelAnytimeBody:
-      "Gérez ou annulez votre offre vous-même depuis le portail de facturation — sans e-mail ni demande d'assistance.",
+      "Gérez ou annulez votre offre vous-même depuis le portail de facturation\u00a0- sans e-mail ni demande d'assistance.",
     planSwitchLabel: "Quitter l'essai gratuit pour une autre offre.",
     planSwitchBody:
-      "Passer de l'essai Basic à Pro, ou à une facturation trimestrielle ou annuelle, met fin à l'essai et facture la nouvelle offre le jour même — vous verrez d'abord le montant exact et le confirmerez. Ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.",
+      "Passer de l'essai Basic à Pro, ou à une facturation trimestrielle ou annuelle, met fin à l'essai et facture la nouvelle offre le jour même\u00a0- vous verrez d'abord le montant exact et le confirmerez. Ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.",
     upgradesLabel: "Montées et descentes de gamme sur les offres payantes.",
     upgradesBody:
       'Le changement de niveau ou de période de facturation sur une offre payante est calculé automatiquement au prorata via le portail de facturation hébergé par Stripe ; le passage à un niveau inférieur ou à une période plus courte prend effet à la fin de la période déjà payée.',
@@ -552,7 +552,7 @@ export const dict: PageDictionary = {
     switchToLabel: 'Passer à {label}',
     subscribeToLabel: "S'abonner à {label}",
     yourPickBadge: 'Votre choix',
-    trialDaysNote: "Essai gratuit de {days} jours — annulez à tout moment avant la fin et vous ne serez pas facturé.",
+    trialDaysNote: "Essai gratuit de {days} jours\u00a0- annulez à tout moment avant la fin et vous ne serez pas facturé.",
     foldsOfHonorLink: 'Inclut un don de 3 % à Folds of Honor',
     noChargeToday: "Aucun prélèvement aujourd'hui.",
     perMonthSuffix: '/mois',
@@ -570,7 +570,7 @@ export const dict: PageDictionary = {
     autoRenewBody:
       "Les offres payantes se renouvellent automatiquement à la fin de chaque période de facturation (chaque mois, tous les 3 mois ou chaque année) jusqu'à ce que vous les annuliez. Avant le renouvellement d'une offre trimestrielle ou annuelle, nous vous envoyons un rappel par e-mail.",
     moneyBackNote:
-      'Garantie satisfait ou remboursé de {days} jours — ça ne vous convient pas ? Remboursement intégral dans les {days} jours suivant le paiement. Un remboursement par client.',
+      'Garantie satisfait ou remboursé de {days} jours\u00a0- ça ne vous convient pas ? Remboursement intégral dans les {days} jours suivant le paiement. Un remboursement par client.',
     billedTodayNote: "Facturé aujourd'hui · Annulez à tout moment.",
     saveHighlight: 'Économisez {pct} %',
     quarterlyToggle: 'Trimestriel',
@@ -593,7 +593,7 @@ export const dict: PageDictionary = {
     confirmSwitchBodyNoAmount:
       "Votre essai gratuit se termine aujourd'hui et le prix de {plan} est prélevé maintenant sur votre carte enregistrée.",
     confirmSwitchGuarantee:
-      'Couvert par notre garantie satisfait ou remboursé de {days} jours — limité à un remboursement par client.',
+      'Couvert par notre garantie satisfait ou remboursé de {days} jours\u00a0- limité à un remboursement par client.',
     confirmSwitchCta: 'Confirmer et payer',
     confirmSwitchCancel: 'Pas maintenant',
     errorOpenPortal: 'Ouvrir le portail de facturation',

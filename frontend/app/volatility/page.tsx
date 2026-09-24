@@ -156,13 +156,13 @@ export default function VolatilityPage() {
         title="Volatility"
         beta
         sub={`Put against call implied vol across strikes, and realized vol against what the ${symbol} chain is pricing.`}
-        tooltip="Two questions about the same chain. The skew panel asks which side the market is paying up for: puts quoted above calls at the same distance from spot is downside fear being priced, calls above puts is right-tail demand. The realized-vs-implied panel asks whether that pricing has been earned — realized vol running below implied means options have been expensive relative to what the underlying actually delivered, above it means cheap. Neither is a signal on its own; both are the backdrop every gamma reading on this site sits against."
+        tooltip="Two questions about the same chain. The skew panel asks which side the market is paying up for: puts quoted above calls at the same distance from spot is downside fear being priced, calls above puts is right-tail demand. The realized-vs-implied panel asks whether that pricing has been earned&nbsp;- realized vol running below implied means options have been expensive relative to what the underlying actually delivered, above it means cheap. Neither is a signal on its own; both are the backdrop every gamma reading on this site sits against."
       />
 
       {/* Panel A — Put vs Call IV skew */}
       <ChartPanel
         className="mb-8"
-        title="Put vs Call IV — Skew"
+        title="Put vs Call IV&nbsp;- Skew"
         tooltip="Implied volatility of calls vs puts at each strike for the selected expiration. Puts trading above calls (a downside skew) is the market pricing more fear of a drop; calls above puts is upside / right-tail demand."
         actions={
           // Seventeen expiries wrapped into four rows of chips on a phone.
@@ -182,8 +182,8 @@ export default function VolatilityPage() {
             ATM skew (put − call IV):{' '}
             <span style={{ color: atmSkew >= 0 ? 'var(--color-bear)' : 'var(--color-bull)', fontWeight: 600 }}>
               {atmSkew >= 0 ? '+' : ''}{atmSkew.toFixed(1)} pts
-            </span>{' '}
-            — {atmSkew >= 0 ? 'downside fear priced richer' : 'upside demand priced richer'}
+            </span>{' '}
+            - {atmSkew >= 0 ? 'downside fear priced richer' : 'upside demand priced richer'}
           </div>
         )}
 
@@ -258,7 +258,7 @@ export default function VolatilityPage() {
             </ResponsiveContainer>
         )}
         <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
-          Realized vol is computed from daily closes; the implied reference is the chain&apos;s current ~30-day ATM IV. A full historical implied-vol line is a small backend follow-up — the daily ATM-IV series already exists in the database.
+          Realized vol is computed from daily closes; the implied reference is the chain&apos;s current ~30-day ATM IV. A full historical implied-vol line is a small backend follow-up&nbsp;- the daily ATM-IV series already exists in the database.
         </p>
       </ChartPanel>
     </PageShell>

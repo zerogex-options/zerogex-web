@@ -5,7 +5,7 @@ import ItemListJsonLd from '@/components/ItemListJsonLd';
 export const metadata = {
   title: 'Gamma Exposure Education: GEX, Gamma Flip, Walls & 0DTE',
   description:
-    'Plain-English explainers for GEX, the gamma flip, call and put walls, 0DTE dealer positioning and max pain — plus today’s live SPX, SPY and QQQ levels.',
+    'Plain-English explainers for GEX, the gamma flip, call and put walls, 0DTE dealer positioning and max pain\u00a0- plus today’s live SPX, SPY and QQQ levels.',
   alternates: { canonical: '/education' },
 };
 
@@ -14,7 +14,7 @@ const sections = [
     href: '/articles',
     title: 'Articles',
     description:
-      'Long-form, flow-focused breakdowns of market structure — gamma exposure, dealer hedging, options tape, and the signals built on top of them.',
+      'Long-form, flow-focused breakdowns of market structure\u00a0- gamma exposure, dealer hedging, options tape, and the signals built on top of them.',
     icon: Newspaper,
     available: true,
   },
@@ -22,7 +22,7 @@ const sections = [
     href: '/guides',
     title: 'Guides',
     description:
-      'Reference material you come back to. Start with "Signals: Explained" — every ZeroGEX signal, what it asks, and what its score means.',
+      'Reference material you come back to. Start with "Signals: Explained"\u00a0- every ZeroGEX signal, what it asks, and what its score means.',
     icon: GraduationCap,
     available: true,
   },
@@ -75,7 +75,7 @@ export default function EducationHubPage() {
           Options Gamma Education Hub
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical options market-structure education — gamma exposure (GEX), the gamma flip, call
+          Practical options market-structure education&nbsp;- gamma exposure (GEX), the gamma flip, call
           walls, put walls, and 0DTE dealer positioning. Browse in-depth articles, reference guides,
           and product help, then check{' '}
           <Link

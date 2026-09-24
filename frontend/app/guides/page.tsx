@@ -4,7 +4,7 @@ import { ArrowRight, GraduationCap } from 'lucide-react';
 export const metadata = {
   title: 'ZeroGEX Guides: Signals & Gamma Flip Reference',
   description:
-    'ZeroGEX Guides — reference material for the platform. Every signal explained, score interpretation, and the gamma flip calculation methodology.',
+    'ZeroGEX Guides\u00a0- reference material for the platform. Every signal explained, score interpretation, and the gamma flip calculation methodology.',
   alternates: { canonical: '/guides' },
 };
 
@@ -18,7 +18,7 @@ export default function GuidesPage() {
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Guides</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Reference material you come back to — concise, structured, and built to be scanned
+          Reference material you come back to&nbsp;- concise, structured, and built to be scanned
           while you trade.
         </p>
       </div>
@@ -30,7 +30,7 @@ export default function GuidesPage() {
             Signals: Explained
           </h2>
           <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-            Every ZeroGEX signal on one page — what each one asks, the timeframe it reads, when it fires,
+            Every ZeroGEX signal on one page&nbsp;- what each one asks, the timeframe it reads, when it fires,
             and what a positive, negative, or zero score actually means. Includes the full 30-second
             matrix and the score-sign reference for both Advanced and Basic signals.
           </p>
@@ -49,7 +49,7 @@ export default function GuidesPage() {
             Gamma Flip Calculation: Before vs. After
           </h2>
           <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-            How ZeroGEX locates the zero-gamma level — the move from a cumulative net-GEX
+            How ZeroGEX locates the zero-gamma level&nbsp;- the move from a cumulative net-GEX
             approximation to the spot-shift dealer gamma profile, why it changed, and what you
             will see on the platform. Includes the full before/after and pros/cons matrix.
           </p>

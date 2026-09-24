@@ -31,7 +31,7 @@ export const SUPPORTED_PROTOCOL_VERSIONS = [
 
 export const SERVER_INFO = {
   name: 'io.zerogex/gamma-levels',
-  title: 'ZeroGEX — SPX/SPY/QQQ/NDX gamma levels',
+  title: 'ZeroGEX - SPX/SPY/QQQ/NDX gamma levels',
   version: '1.0.0',
   websiteUrl: 'https://zerogex.io',
 } as const;
@@ -50,7 +50,7 @@ export const SERVER_INSTRUCTIONS = [
   'Every number this server returns is FREE DELAYED data, behind the live market by up to',
   '15 minutes, and each response states its own age. Quote the age whenever you quote a level.',
   'Never present these as live or real-time, and never use them to justify an entry or exit at',
-  'the current price — during a fast tape the market can be through a level well before the',
+  'the current price - during a fast tape the market can be through a level well before the',
   'snapshot shows it. ZeroGEX sells a real-time API separately; this endpoint is not it.',
   '',
   'A null level is a real answer meaning the modeled book does not support that level right now.',

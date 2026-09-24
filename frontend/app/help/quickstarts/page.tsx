@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, PlayCircle, Clock, Bookmark } from 'lucide-react
 export const metadata = {
   title: 'ZeroGEX Quick Starts: Short Video Walkthroughs',
   description:
-    'Short, focused video walkthroughs for the ZeroGEX platform — under 3 minutes each. Reading the dashboard, using signals, building a strategy, and more.',
+    'Short, focused video walkthroughs for the ZeroGEX platform\u00a0- under 3 minutes each. Reading the dashboard, using signals, building a strategy, and more.',
   alternates: { canonical: '/help/quickstarts' },
 };
 
@@ -30,12 +30,12 @@ const tracks: Track[] = [
   {
     id: 'first-trade',
     title: 'Onboarding',
-    blurb: 'Your first 15 minutes — sign up, orient, find the page you need.',
+    blurb: 'Your first 15 minutes\u00a0- sign up, orient, find the page you need.',
     walkthroughs: [
       {
         id: 'tour',
         title: 'ZeroGEX in 90 seconds',
-        blurb: 'A high-altitude tour of the platform — the sidebar, the dashboard, the signals, the bulletin. Watch this first.',
+        blurb: 'A high-altitude tour of the platform\u00a0- the sidebar, the dashboard, the signals, the bulletin. Watch this first.',
         duration: '1:30',
         level: 'New trader',
         tag: 'Orientation',
@@ -44,7 +44,7 @@ const tracks: Track[] = [
       {
         id: 'first-trade',
         title: 'Your first trade in ZeroGEX',
-        blurb: 'From the morning open to a structured trade on SPX — the workflow a working ZeroGEX user runs daily.',
+        blurb: 'From the morning open to a structured trade on SPX\u00a0- the workflow a working ZeroGEX user runs daily.',
         duration: '3:10',
         level: 'New trader',
         tag: 'Workflow',
@@ -53,7 +53,7 @@ const tracks: Track[] = [
       {
         id: 'sign-up-and-set-up',
         title: 'Sign up, verify, and configure preferences',
-        blurb: 'The account setup happy path — Google or email, email verification, theme, default symbol.',
+        blurb: 'The account setup happy path\u00a0- Google or email, email verification, theme, default symbol.',
         duration: '1:45',
         level: 'New trader',
         tag: 'Account',
@@ -69,7 +69,7 @@ const tracks: Track[] = [
       {
         id: 'reading-dashboard',
         title: 'Reading the Dashboard in 30 seconds',
-        blurb: 'The discipline of a morning read — regime, net GEX, walls, composite, trade bias. The right order.',
+        blurb: 'The discipline of a morning read\u00a0- regime, net GEX, walls, composite, trade bias. The right order.',
         duration: '2:20',
         level: 'New trader',
         tag: 'Dashboard',
@@ -87,7 +87,7 @@ const tracks: Track[] = [
       {
         id: 'regime-cues',
         title: 'Spotting regime changes early',
-        blurb: 'The cues that say "we are about to flip" — heatmap migration, vol expansion, walls drifting.',
+        blurb: 'The cues that say "we are about to flip"\u00a0- heatmap migration, vol expansion, walls drifting.',
         duration: '2:45',
         level: 'Returning',
         tag: 'Dashboard',
@@ -148,7 +148,7 @@ const tracks: Track[] = [
       {
         id: 'trap-detection',
         title: 'Trap Detection: fading failed breakouts',
-        blurb: 'Reading the score after a break of the call wall or put wall — when the snap-back is the trade.',
+        blurb: 'Reading the score after a break of the call wall or put wall\u00a0- when the snap-back is the trade.',
         duration: '2:55',
         level: 'Returning',
         tag: 'Trap Detection',
@@ -159,7 +159,7 @@ const tracks: Track[] = [
   {
     id: 'metrics',
     title: 'Metrics &amp; Structure',
-    blurb: 'The structural pages — GEX, flow, max pain, technicals.',
+    blurb: 'The structural pages\u00a0- GEX, flow, max pain, technicals.',
     walkthroughs: [
       {
         id: 'dealer-positioning-tour',
@@ -182,7 +182,7 @@ const tracks: Track[] = [
       {
         id: 'flow-analysis',
         title: 'Flow Analysis in practice',
-        blurb: 'Premium-weighted flow vs. net volume vs. directional flow — when each matters and why.',
+        blurb: 'Premium-weighted flow vs. net volume vs. directional flow\u00a0- when each matters and why.',
         duration: '2:50',
         level: 'Returning',
         tag: 'Flow',
@@ -216,7 +216,7 @@ const tracks: Track[] = [
       {
         id: 'strategy-builder',
         title: 'Strategy Builder walkthrough',
-        blurb: 'Building a vertical, a calendar, and a 1-by-2 — and reading the P&amp;L surface for each.',
+        blurb: 'Building a vertical, a calendar, and a 1-by-2\u00a0- and reading the P&amp;L surface for each.',
         duration: '3:10',
         level: 'Returning',
         tag: 'Strategy Builder',
@@ -284,7 +284,7 @@ const tracks: Track[] = [
       {
         id: 'api-keys',
         title: 'Generating an API key',
-        blurb: 'The Pro key flow — generation, scoping, rotation, and the "copy now" pitfall.',
+        blurb: 'The Pro key flow\u00a0- generation, scoping, rotation, and the "copy now" pitfall.',
         duration: '1:35',
         level: 'Advanced',
         tag: 'API',
@@ -383,7 +383,7 @@ export default function QuickStartsPage() {
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Quick Start Walkthroughs</h1>
         <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Short, focused video walkthroughs — most run under 3 minutes — that show you exactly how
+          Short, focused video walkthroughs&nbsp;- most run under 3 minutes&nbsp;- that show you exactly how
           to read a chart, run a screen, or configure a feature. The library is being recorded; new
           walkthroughs land each week.
         </p>
@@ -402,7 +402,7 @@ export default function QuickStartsPage() {
       </div>
 
       <div className="mb-8 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-5">
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Quick Start library — rolling launch</h3>
+        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Quick Start library&nbsp;- rolling launch</h3>
         <p className="text-sm leading-6 text-[var(--color-text-primary)]">
           We&apos;re publishing walkthroughs on a rolling basis. The card layouts, titles, durations, and
           tags are final; the videos themselves are being recorded. In the meantime, the full{' '}

@@ -106,7 +106,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
       </h2>
       <p className="text-[17px] leading-8 text-[var(--text-secondary)]">
         As of {fmtTimestampET(data.timestamp)}, SPX net gamma exposure at spot is{' '}
-        <strong className="text-[var(--color-text-primary)]">{fmtNetGex(netGex)}</strong> — a{' '}
+        <strong className="text-[var(--color-text-primary)]">{fmtNetGex(netGex)}</strong>&nbsp;- a{' '}
         {positive ? 'positive' : 'negative'}-gamma regime,{' '}
         {positive
           ? 'in which dealers are modeled net long gamma and hedging tends to dampen moves'
@@ -114,7 +114,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
         .
         {data.gamma_flip != null ? (
           <>
-            {' '}The zero-cross — the gamma flip, or zero gamma level — sits at {fmtPrice(data.gamma_flip)}
+            {' '}The zero-cross&nbsp;- the gamma flip, or zero gamma level&nbsp;- sits at {fmtPrice(data.gamma_flip)}
             {data.spot_price != null ? <>, with SPX spot at {fmtPrice(data.spot_price)}</> : null}.
           </>
         ) : null}
@@ -142,7 +142,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
         <Link href="/register" className={linkClass}>
           sign up
         </Link>
-        . Modeled dealer gamma under the call-positive / put-negative convention — not observed inventory.
+        . Modeled dealer gamma under the call-positive / put-negative convention&nbsp;- not observed inventory.
       </p>
     </section>
   );

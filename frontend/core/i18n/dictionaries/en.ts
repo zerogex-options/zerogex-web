@@ -20,7 +20,7 @@ export const en = {
 
   // Register / signup page
   'register.title': 'Create your ZeroGEX account',
-  'register.referralBanner': '🎉 A friend referred you — your discount is applied at checkout.',
+  'register.referralBanner': '🎉 A friend referred you\u00a0- your discount is applied at checkout.',
   'register.campaignBanner': '🎯 Your discount is applied automatically at checkout.',
   'register.trialInfo':
     'Choose your plan after account creation: 7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.',
@@ -29,7 +29,7 @@ export const en = {
   'register.languageLabel': 'Language',
   'register.emailLabel': 'Email',
   'register.passwordLabel': 'Password',
-  'register.passwordHint': 'Use a strong password — 12 or more characters.',
+  'register.passwordHint': 'Use a strong password\u00a0- 12 or more characters.',
   'register.submit': 'Create Account & Choose a Plan',
   'register.submitting': 'Creating account…',
   'register.nextStep': 'Next step: choose your plan.',

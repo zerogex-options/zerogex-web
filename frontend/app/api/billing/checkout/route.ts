@@ -695,7 +695,7 @@ function resolveDiscount(input: {
         ok: false,
         status: 409,
         error:
-          'Your founding-member rate applies to monthly and annual billing. Choose Monthly or Annual to keep it — quarterly would be billed at standard pricing.',
+          'Your founding-member rate applies to monthly and annual billing. Choose Monthly or Annual to keep it\u00a0- quarterly would be billed at standard pricing.',
       };
     }
     if (!couponId) {
@@ -710,7 +710,7 @@ function resolveDiscount(input: {
         ok: false,
         status: 409,
         error:
-          'Your founding-member rate cannot be applied to this plan automatically. Please contact support and we will restore it for you — do not subscribe at standard pricing.',
+          'Your founding-member rate cannot be applied to this plan automatically. Please contact support and we will restore it for you\u00a0- do not subscribe at standard pricing.',
       };
     }
     return {

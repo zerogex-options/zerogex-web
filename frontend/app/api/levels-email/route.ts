@@ -36,7 +36,7 @@ const APP_URL = (
 const GENERIC_OK = {
   ok: true,
   message:
-    'Check your inbox. If that address can receive mail, a confirmation link is on its way — the levels start the next trading morning after you click it.',
+    'Check your inbox. If that address can receive mail, a confirmation link is on its way\u00a0- the levels start the next trading morning after you click it.',
 } as const;
 
 function ok() {

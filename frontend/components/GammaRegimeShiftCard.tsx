@@ -486,8 +486,8 @@ function ConcentrationRibbon({
             ? `${formatBand(band)} · ${formatPercent(band.share)}`
             : `${formatBand(band)}  ·  ${formatPercent(band.share)} of the move`
           : compact
-            ? 'diffuse — no concentration'
-            : 'no concentration — change is diffuse across the chain'}
+            ? 'diffuse\u00a0- no concentration'
+            : 'no concentration\u00a0- change is diffuse across the chain'}
       </text>
     </svg>
     {compact && (
@@ -629,7 +629,7 @@ export default function GammaRegimeShiftCard({
                 and it reads as a caption to the whole row either way. */}
             <p className="mt-4 max-w-[62ch] text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               On the plane, center is no change and the arrow tip is where the book sits
-              now — its length is the size of the move, so landing past the 2σ ring is
+              now&nbsp;- its length is the size of the move, so landing past the 2σ ring is
               exactly the word “{payload.read.adverb}”. The upper half is stabilizing, the
               lower half fragile; right of center is supportive, left is capping.
             </p>
@@ -722,8 +722,8 @@ export default function GammaRegimeShiftCard({
             />
             <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               {lens === 'net'
-                ? 'Total change — every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
-                : 'Repositioning — only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate). Open interest is published once a day at settlement, so this needs a window that straddles one.'}
+                ? 'Total change\u00a0- every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
+                : 'Repositioning\u00a0- only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate). Open interest is published once a day at settlement, so this needs a window that straddles one.'}
             </p>
           </div>
           <div className="min-w-[280px] flex-1 space-y-1.5">
@@ -834,7 +834,7 @@ function LensToggle({
         'positioning',
         'Repositioning',
         positioningEmpty
-          ? 'Nothing to show in this window — open interest only republishes at settlement'
+          ? 'Nothing to show in this window\u00a0- open interest only republishes at settlement'
           : undefined,
       )}
     </div>

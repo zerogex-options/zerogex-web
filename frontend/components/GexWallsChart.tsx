@@ -514,14 +514,14 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
 
   const renderLegend = () => (
     <div className={`w-full flex flex-wrap ${isMobile ? 'justify-start text-[11px]' : 'justify-end text-xs'} items-center gap-x-4 gap-y-1`} style={{ color: textColor }}>
-      <div className="flex items-center gap-1.5" title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest">
+      <div className="flex items-center gap-1.5" title="Stacked by expiration&nbsp;- nearest (0DTE) boldest, furthest faintest">
         <span
           className="inline-block h-3 w-5 rounded-sm"
           style={{ background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
         />
         Call {modeLabel(displayMode)}
       </div>
-      <div className="flex items-center gap-1.5" title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest">
+      <div className="flex items-center gap-1.5" title="Stacked by expiration&nbsp;- nearest (0DTE) boldest, furthest faintest">
         <span
           className="inline-block h-3 w-5 rounded-sm"
           style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
@@ -652,14 +652,14 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
           borderLeft: `1px solid ${inputBorder}`,
         }}
         onClick={() => setDisplayMode('notional')}
-        title="Notional value of position (strike × 100 × OI) — dollars of underlying that would change hands at exercise"
+        title="Notional value of position (strike × 100 × OI)&nbsp;- dollars of underlying that would change hands at exercise"
       >
         Notional
       </button>
     </div>
   );
 
-  const titleTooltip = "Strike-level open interest by call/put. Calls plot above the axis, puts below, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much OI rolls off in N days. OI = open contracts outstanding (raw count); Notional = strike × 100 × OI (the dollar value of underlying that would change hands at exercise). When you filter to specific expirations, the solid bar is the selected expirations and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % and the per-expiration breakdown. The yellow dotted line marks spot at the nearest strike.";
+  const titleTooltip = "Strike-level open interest by call/put. Calls plot above the axis, puts below, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry\u00a0- the nearest expiration (0DTE) is boldest and the furthest is faintest\u00a0- so you can read how much OI rolls off in N days. OI = open contracts outstanding (raw count); Notional = strike × 100 × OI (the dollar value of underlying that would change hands at exercise). When you filter to specific expirations, the solid bar is the selected expirations and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike\u00a0- hover for the exact % and the per-expiration breakdown. The yellow dotted line marks spot at the nearest strike.";
 
   // On a phone the scrollbars only appear once there is something to scroll.
   const showValueScrollbar = !isMobile || !isYFull;

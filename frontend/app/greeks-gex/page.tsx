@@ -45,7 +45,7 @@ const HEADER_SUB =
   "The headline GEX numbers and the levels they imply, on one screen.";
 
 const HEADER_TOOLTIP =
-  "The ten numbers the rest of the Metrics section elaborates on: where net dealer gamma sits at spot, the flip level where its sign changes, the call and put walls, max pain and the pin strike, plus the call/put split behind them. Every GEX figure is a dollar amount per unit move in the underlying — the toggle switches the denominator between a 1% move and a single point; the exposure is the same either way. All of it is modeled from open interest rather than observed, so treat the levels as where hedging flow would concentrate, not as levels anyone is obliged to defend.";
+  "The ten numbers the rest of the Metrics section elaborates on: where net dealer gamma sits at spot, the flip level where its sign changes, the call and put walls, max pain and the pin strike, plus the call/put split behind them. Every GEX figure is a dollar amount per unit move in the underlying\u00a0- the toggle switches the denominator between a 1% move and a single point; the exposure is the same either way. All of it is modeled from open interest rather than observed, so treat the levels as where hedging flow would concentrate, not as levels anyone is obliged to defend.";
 
 export default function GreeksGEXPage() {
   const { theme } = useTheme();
@@ -159,7 +159,7 @@ export default function GreeksGEXPage() {
             subtitleColor={futuresTicker ? 'var(--color-brand-coral)' : undefined}
             tooltip={
               futuresTicker
-                ? `${symbol} cash is closed — showing ${futuresTicker} futures. GEX levels stay on the ${symbol} cash index.`
+                ? `${symbol} cash is closed\u00a0- showing ${futuresTicker} futures. GEX levels stay on the ${symbol} cash index.`
                 : isIndexSymbol(symbol)
                   ? `Current ${symbol} price from the real-time quote feed.`
                   : `Current ${symbol} price and volume from the real-time quote feed.`
@@ -182,7 +182,7 @@ export default function GreeksGEXPage() {
                 ? `Raw nearest: $${gexData.gamma_flip_raw.toFixed(2)}`
                 : 'Dealer positioning'
             }
-            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, computed with a horizon-occupancy weighting that down-weights near-dated 0DTE walls. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest crossing on the UN-weighted profile — the convention competitor dashboards publish; dropping the weighting lets near-dated walls pull it toward spot, so it can sit much closer to spot than the structural flip."
+            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, computed with a horizon-occupancy weighting that down-weights near-dated 0DTE walls. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest crossing on the UN-weighted profile&nbsp;- the convention competitor dashboards publish; dropping the weighting lets near-dated walls pull it toward spot, so it can sit much closer to spot than the structural flip."
             theme={theme}
           />
           <MetricCard

@@ -113,13 +113,13 @@ export default function PlotOnSierraChart({ standalone = false }: PlotOnSierraCh
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         Our <strong style={{ color: 'var(--color-text-primary)' }}>{STUDY_NAME}</strong> study for Sierra Chart
         draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and{' '}
-        <strong style={{ color: 'var(--color-text-primary)' }}>updates itself</strong> — ACSIL is C++, so it
+        <strong style={{ color: 'var(--color-text-primary)' }}>updates itself</strong>&nbsp;- ACSIL is C++, so it
         polls the ZeroGEX API on a timer and you never retype a number.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         Trading <strong style={{ color: 'var(--color-text-primary)' }}>ES</strong> or{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>NQ</strong>? Set the symbol and the levels arrive
-        already on the futures price axis — no basis offset to work out, and nothing to re-enter after a
+        already on the futures price axis&nbsp;- no basis offset to work out, and nothing to re-enter after a
         quarterly roll. Each level is a normal subgraph, so you can restyle or hide any of them from the
         Subgraphs tab and reference their values from spreadsheet studies and alert conditions.
       </p>
@@ -208,7 +208,7 @@ export default function PlotOnSierraChart({ standalone = false }: PlotOnSierraCh
           <strong style={{ color: 'var(--color-text-primary)' }}>Add it to a chart.</strong>{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>Analysis → Studies → Add Custom Study</strong>,
           pick <strong style={{ color: 'var(--color-text-primary)' }}>&ldquo;{STUDY_NAME}&rdquo;</strong>, then
-          paste your key into <em>ZeroGEX API Key</em> and set <em>Symbol</em> to match the chart —{' '}
+          paste your key into <em>ZeroGEX API Key</em> and set <em>Symbol</em> to match the chart&nbsp;-{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>ES</strong> or{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>NQ</strong> for futures, or SPX, SPY, QQQ, NDX.
         </li>

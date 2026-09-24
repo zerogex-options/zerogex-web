@@ -30,14 +30,14 @@ interface ScorecardSessionList {
 }
 
 export const metadata: Metadata = {
-  title: 'Daily Scorecard — ZeroGEX',
+  title: 'Daily Scorecard\u00a0- ZeroGEX',
   description:
     "Every session's signal receipt: how many Playbook calls fired, which signals flipped, how many of those flips could be graded, and how they resolved.",
   alternates: { canonical: `${SITE_URL}/scorecard` },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/scorecard`,
-    title: 'Daily Scorecard — ZeroGEX',
+    title: 'Daily Scorecard\u00a0- ZeroGEX',
     description: 'Per-session, per-signal receipts for the ZeroGEX engine.',
     siteName: 'ZeroGEX',
   },
@@ -115,7 +115,7 @@ export default async function ScorecardLanding({
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           One receipt per session, written after the close and never edited afterward. Each day
           lists every signal&rsquo;s direction flips, how many of those flips could be graded
-          against a price from the same session, and how they resolved — alongside the Playbook
+          against a price from the same session, and how they resolved&nbsp;- alongside the Playbook
           calls that fired and the regime the day closed in.
         </p>
       </header>
@@ -149,7 +149,7 @@ export default async function ScorecardLanding({
         A &ldquo;flip&rdquo; is a signal changing direction; it is graded on where price sat{' '}
         60 minutes later. That forward price must come from the same regular session, so a flip
         inside the last hour of trading has nothing to grade against and is counted but not
-        scored — which is why a signal that only fires near the close, like EOD Pressure, can
+        scored&nbsp;- which is why a signal that only fires near the close, like EOD Pressure, can
         read &ldquo;not scorable&rdquo; for a whole day. That is an absent measurement, not a
         flat one. Each receipt is immutable once written: the engine cannot retroactively edit a
         published scorecard.

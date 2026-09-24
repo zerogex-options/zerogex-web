@@ -212,14 +212,14 @@ export default function GammaVwapConfluencePage() {
         caveat={<>Short-gamma regime → breakout continues past the level (continuation). Long-gamma regime → reverts to the level (mean-reversion, ×0.7 conviction).</>}
       >
         <div>The <strong>Gamma Flip and VWAP are always members</strong>, which is why every card floors at <code>Members: 2</code>. Max Pain, Max Gamma and the Call Wall each join only if they sit within <strong>0.15%</strong> of the midpoint between the flip and VWAP.</div>
-        <div><code>Confluence Level = mean(qualifying members)</code>, and <code>Cluster Gap = |Flip − VWAP| ÷ Price</code> — the gap is the two core members’ distance, not the span of all five.</div>
+        <div><code>Confluence Level = mean(qualifying members)</code>, and <code>Cluster Gap = |Flip − VWAP| ÷ Price</code>&nbsp;- the gap is the two core members’ distance, not the span of all five.</div>
         <div><code>Cluster Quality = clamp(1 − Cluster Gap % ÷ 1.0%, 0.05, 1.00)</code>. That 0.05 floor is why a wide-gap card still prints a small score: a ±5 is the model reporting <em>no cluster</em>, not weak direction.</div>
-        <div><code>Members Multiplier = 1 + 0.15 × (Members − 2)</code> — four members is 1.30× on the same geometry.</div>
+        <div><code>Members Multiplier = 1 + 0.15 × (Members − 2)</code>&nbsp;- four members is 1.30× on the same geometry.</div>
         <div><code>Distance = (Price − Confluence Level) ÷ Price</code>, scaled so roughly ±0.30% saturates the reading: the model reads which side price is on, not how far it has gone.</div>
-        <div><code>Raw = Quality × Members Multiplier × scaled Distance × Regime Factor</code>, where Regime Factor is <code>+1</code> in short gamma (continuation) and <code>−0.7</code> in long gamma (mean reversion — the sign inverts).</div>
+        <div><code>Raw = Quality × Members Multiplier × scaled Distance × Regime Factor</code>, where Regime Factor is <code>+1</code> in short gamma (continuation) and <code>−0.7</code> in long gamma (mean reversion&nbsp;- the sign inverts).</div>
         <div><code>Score = clip(Raw, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 20; below that the card reads “No confluence edge” rather than naming a direction.</div>
         <div className="pt-1">
-          The long version — why the quality floor makes a small score an <em>absent</em> cluster rather than a weak one, and why two symbols can read opposite on the same afternoon:{' '}
+          The long version&nbsp;- why the quality floor makes a small score an <em>absent</em> cluster rather than a weak one, and why two symbols can read opposite on the same afternoon:{' '}
           <Link href="/education/gamma-vwap-confluence-explained" className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline">
             Gamma / VWAP Confluence explained
           </Link>.

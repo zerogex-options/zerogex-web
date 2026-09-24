@@ -552,7 +552,7 @@ function HeatmapColumn({
           style={{ color: input.positioningKind === "rewind" ? "var(--color-flip)" : "var(--color-warning)", marginTop: -2 }}
           title={
             input.positioningKind === "rewind"
-              ? "Rewind: the book, spot and levels as of this bucket — the chart's replay clock. Exit Rewind on the chart to return to live."
+              ? "Rewind: the book, spot and levels as of this bucket&nbsp;- the chart's replay clock. Exit Rewind on the chart to return to live."
               : "No live positioning in the latest analytics buckets (options closed or analytics paused). Showing the most recent bucket that carried dealer gamma; the header levels are live."
           }
         >
@@ -644,7 +644,7 @@ function HeatmapColumn({
                         {isPeak && (
                           // King node — the heaviest dealer gamma in view. Crown
                           // in currentColor so it stays readable on any cell tint.
-                          <Crown size={12} strokeWidth={2.25} aria-label="King node — heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
+                          <Crown size={12} strokeWidth={2.25} aria-label="King node&nbsp;- heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
                         )}
                         {baseline &&
                           (() => {

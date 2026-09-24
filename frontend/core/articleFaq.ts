@@ -23,7 +23,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Why does the put wall act as support?',
-      a: 'In a positive-gamma regime, aggregate dealer hedging leans against moves — tending to buy the underlying as price falls. Because the heaviest hedging clusters at the put wall, that buy-pressure can slow or stall declines as price approaches it.',
+      a: 'In a positive-gamma regime, aggregate dealer hedging leans against moves\u00a0- tending to buy the underlying as price falls. Because the heaviest hedging clusters at the put wall, that buy-pressure can slow or stall declines as price approaches it.',
     },
     {
       q: 'Does the put wall always hold?',
@@ -41,7 +41,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Why does price stall at the call wall?',
-      a: 'In a positive-gamma regime, aggregate dealer hedging leans against moves — tending to sell the underlying as price rises. Because the heaviest hedging clusters at the call wall, that sell-pressure can cap rallies as price approaches it.',
+      a: 'In a positive-gamma regime, aggregate dealer hedging leans against moves\u00a0- tending to sell the underlying as price rises. Because the heaviest hedging clusters at the call wall, that sell-pressure can cap rallies as price approaches it.',
     },
     {
       q: 'What happens if the call wall breaks?',
@@ -63,7 +63,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Do gamma walls move during the day?',
-      a: 'Yes. Walls are recomputed as the book changes. They migrate both when open interest changes and when spot, time or implied volatility reprice the gamma each existing contract carries — so the ranking of strikes can shift even with open interest unchanged. Movement is fastest on 0DTE.',
+      a: 'Yes. Walls are recomputed as the book changes. They migrate both when open interest changes and when spot, time or implied volatility reprice the gamma each existing contract carries\u00a0- so the ranking of strikes can shift even with open interest unchanged. Movement is fastest on 0DTE.',
     },
   ],
   'what-is-gex-in-trading': [
@@ -73,11 +73,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What is the difference between positive and negative GEX?',
-      a: 'In positive GEX, dealer hedging leans against moves — buying dips and selling rips — which tends to produce a calmer, mean-reverting tape. In negative GEX, hedging amplifies moves — selling lower and buying higher — which tends to produce wider ranges and more directional sessions.',
+      a: 'In positive GEX, dealer hedging leans against moves\u00a0- buying dips and selling rips\u00a0- which tends to produce a calmer, mean-reverting tape. In negative GEX, hedging amplifies moves\u00a0- selling lower and buying higher\u00a0- which tends to produce wider ranges and more directional sessions.',
     },
     {
       q: 'Is GEX the same as net GEX?',
-      a: 'Net GEX is the market-wide, signed sum of modeled dealer gamma across the whole chain — the aggregate that sets the regime. GEX is often used loosely for the same idea, but net GEX is the precise total.',
+      a: 'Net GEX is the market-wide, signed sum of modeled dealer gamma across the whole chain\u00a0- the aggregate that sets the regime. GEX is often used loosely for the same idea, but net GEX is the precise total.',
     },
   ],
   'gamma-exposure-explained': [
@@ -97,7 +97,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'how-to-read-a-gamma-flip': [
     {
       q: 'What is a gamma flip?',
-      a: 'The gamma flip is the price level where net modeled dealer gamma switches sign — from positive (stabilizing) to negative (amplifying), or vice versa. It marks the boundary between the model’s two hedging regimes.',
+      a: 'The gamma flip is the price level where net modeled dealer gamma switches sign\u00a0- from positive (stabilizing) to negative (amplifying), or vice versa. It marks the boundary between the model’s two hedging regimes.',
     },
     {
       q: 'What happens above versus below the gamma flip?',
@@ -123,7 +123,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Where can I see the current SPX net GEX value?',
-      a: 'Today’s SPX net GEX, delayed roughly 15 minutes, is shown at the top of this page with the gamma flip, call wall, put wall, and max pain — the same snapshot the free SPX gamma levels page publishes. The live, session-long value updates inside the ZeroGEX dashboard.',
+      a: 'Today’s SPX net GEX, delayed roughly 15 minutes, is shown at the top of this page with the gamma flip, call wall, put wall, and max pain\u00a0- the same snapshot the free SPX gamma levels page publishes. The live, session-long value updates inside the ZeroGEX dashboard.',
     },
     {
       q: 'What does "dollar gamma" mean for SPX net GEX?',
@@ -141,21 +141,21 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How is the Pin Strike different from max pain?',
-      a: 'Max pain uses only open interest and strikes to find the settlement price that minimizes option-holder payout — no Greeks, no volatility, no dealer-hedging model, and no notion of reachability. The Pin Strike is a hedging-mechanics level: it models where net-positive dealer gamma is concentrated and reachable. They frequently disagree, and when they agree it is usually because heavy gamma and heavy open interest happen to sit at the same strike.',
+      a: 'Max pain uses only open interest and strikes to find the settlement price that minimizes option-holder payout\u00a0- no Greeks, no volatility, no dealer-hedging model, and no notion of reachability. The Pin Strike is a hedging-mechanics level: it models where net-positive dealer gamma is concentrated and reachable. They frequently disagree, and when they agree it is usually because heavy gamma and heavy open interest happen to sit at the same strike.',
     },
     {
       q: 'Why is the Pin Strike sometimes blank?',
-      a: 'Because it is allowed to report no active pin rather than force a level. It returns nothing when there is no same-day (0DTE) expiration, when that expiration has already settled, when no reachable strike has net-positive local gamma (a short-gamma, destabilizing regime), or when there is not enough valid option or implied-volatility data to model. In those states there genuinely is no gamma pin, so the honest output is a dash — with the specific reason recorded — not the nearest strike dressed up as a magnet.',
+      a: 'Because it is allowed to report no active pin rather than force a level. It returns nothing when there is no same-day (0DTE) expiration, when that expiration has already settled, when no reachable strike has net-positive local gamma (a short-gamma, destabilizing regime), or when there is not enough valid option or implied-volatility data to model. In those states there genuinely is no gamma pin, so the honest output is a dash\u00a0- with the specific reason recorded\u00a0- not the nearest strike dressed up as a magnet.',
     },
     {
       q: 'When is the Pin Strike most useful?',
-      a: 'Late in a 0DTE session and in a positive-gamma regime — when spot is above the gamma flip and a reachable positive-gamma node exists. There, stabilizing dealer hedging tends to concentrate around the Pin Strike and price often mean-reverts around it into the close. It is best read alongside its confidence score and the call/put walls, as context rather than a standalone signal.',
+      a: 'Late in a 0DTE session and in a positive-gamma regime\u00a0- when spot is above the gamma flip and a reachable positive-gamma node exists. There, stabilizing dealer hedging tends to concentrate around the Pin Strike and price often mean-reverts around it into the close. It is best read alongside its confidence score and the call/put walls, as context rather than a standalone signal.',
     },
   ],
   'max-pain-explained': [
     {
       q: 'What is max pain?',
-      a: 'Max pain is the strike where the largest dollar amount of options would expire worthless — the price that causes the most aggregate loss to option buyers. It is often cited as a potential price magnet into expiration.',
+      a: 'Max pain is the strike where the largest dollar amount of options would expire worthless\u00a0- the price that causes the most aggregate loss to option buyers. It is often cited as a potential price magnet into expiration.',
     },
     {
       q: 'Does max pain actually move price?',
@@ -163,7 +163,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How should I use max pain?',
-      a: 'Treat it as a cross-check rather than a forecast — a rough gravity level to weigh alongside the gamma flip and the walls, not a standalone trade signal.',
+      a: 'Treat it as a cross-check rather than a forecast\u00a0- a rough gravity level to weigh alongside the gamma flip and the walls, not a standalone trade signal.',
     },
   ],
   'gamma-walls-explained': [
@@ -177,17 +177,17 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How do gamma walls behave on 0DTE?',
-      a: 'Same-day gamma is very large near spot and falls away quickly, so 0DTE walls sit tight to price and carry heavier concentration than longer-dated ones. That makes pinning stronger when the regime supports it, but also makes the walls unstable — they can migrate several times an hour purely from repricing, with no new positions opened.',
+      a: 'Same-day gamma is very large near spot and falls away quickly, so 0DTE walls sit tight to price and carry heavier concentration than longer-dated ones. That makes pinning stronger when the regime supports it, but also makes the walls unstable\u00a0- they can migrate several times an hour purely from repricing, with no new positions opened.',
     },
     {
       q: 'What does it mean when a gamma wall moves with price?',
-      a: 'A wall that migrates as price approaches it is a weaker level than one that stays put. Migration can come from repricing as spot, time and implied volatility change, or from a different strike becoming the largest eligible concentration — it does not establish that anyone opened new positions there. A wall chasing price makes a fade of that level harder to justify.',
+      a: 'A wall that migrates as price approaches it is a weaker level than one that stays put. Migration can come from repricing as spot, time and implied volatility change, or from a different strike becoming the largest eligible concentration\u00a0- it does not establish that anyone opened new positions there. A wall chasing price makes a fade of that level harder to justify.',
     },
   ],
   'what-is-negative-gamma': [
     {
       q: 'What does negative gamma mean?',
-      a: 'Negative gamma means dealer hedging amplifies price moves instead of dampening them — dealers sell as price falls and buy as it rises. The result tends to be wider ranges, extending breakouts, and broken pins.',
+      a: 'Negative gamma means dealer hedging amplifies price moves instead of dampening them\u00a0- dealers sell as price falls and buy as it rises. The result tends to be wider ranges, extending breakouts, and broken pins.',
     },
     {
       q: 'How do I know if the market is in negative gamma?',
@@ -201,15 +201,15 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'gamma-levels-in-claude': [
     {
       q: 'Can Claude or ChatGPT tell me where the SPX gamma flip is?',
-      a: 'Not on its own — with no live source it answers from training data and will state a plausible number that is not today\u2019s. Connect it to an MCP server that publishes the levels and it reads the real figure instead. ZeroGEX runs a free one at https://zerogex.io/mcp, no key and no account.',
+      a: 'Not on its own\u00a0- with no live source it answers from training data and will state a plausible number that is not today\u2019s. Connect it to an MCP server that publishes the levels and it reads the real figure instead. ZeroGEX runs a free one at https://zerogex.io/mcp, no key and no account.',
     },
     {
       q: 'Is the ZeroGEX MCP server free?',
-      a: 'Yes. Reading is free and unauthenticated — no key, no account, no per-user quota. It serves the same 15-minute-delayed levels as the public gamma levels pages. The real-time feed stays a Pro feature behind an API key.',
+      a: 'Yes. Reading is free and unauthenticated\u00a0- no key, no account, no per-user quota. It serves the same 15-minute-delayed levels as the public gamma levels pages. The real-time feed stays a Pro feature behind an API key.',
     },
     {
       q: 'How do I know the assistant is giving me a real level and not making one up?',
-      a: 'Every response from the server leads with the snapshot time and how old it is, and tells the assistant to repeat that. A gamma flip quoted with no mention of when it was computed probably came from the model rather than the server — ask it directly where the number came from and how old it is.',
+      a: 'Every response from the server leads with the snapshot time and how old it is, and tells the assistant to repeat that. A gamma flip quoted with no mention of when it was computed probably came from the model rather than the server\u00a0- ask it directly where the number came from and how old it is.',
     },
   ],
   'best-gex-tools': [
@@ -219,11 +219,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What is the best GEX tool?',
-      a: 'There is no single answer — it depends on whether you need real-time or delayed data, 0DTE coverage, and your budget. A fair comparison lays out the category on equal footing so you can match a tool to your workflow.',
+      a: 'There is no single answer\u00a0- it depends on whether you need real-time or delayed data, 0DTE coverage, and your budget. A fair comparison lays out the category on equal footing so you can match a tool to your workflow.',
     },
     {
       q: 'Are there free GEX tools?',
-      a: 'Yes. Some platforms, including ZeroGEX, publish free delayed gamma levels — gamma flip, call wall, put wall, and net GEX — with no signup, while real-time data and deeper analytics are typically paid.',
+      a: 'Yes. Some platforms, including ZeroGEX, publish free delayed gamma levels\u00a0- gamma flip, call wall, put wall, and net GEX\u00a0- with no signup, while real-time data and deeper analytics are typically paid.',
     },
   ],
   'how-to-trade-around-gamma-flip': [
@@ -233,7 +233,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What changes when price crosses the gamma flip intraday?',
-      a: 'Crossing the flip flips the sign of the modeled hedging tendency, so the tape can change character — from dip-buying and pinning above it to trend-extending, wider-range behavior below it. It is a tendency, not a switch, so many traders change playbooks and widen their range expectations when spot crosses the level.',
+      a: 'Crossing the flip flips the sign of the modeled hedging tendency, so the tape can change character\u00a0- from dip-buying and pinning above it to trend-extending, wider-range behavior below it. It is a tendency, not a switch, so many traders change playbooks and widen their range expectations when spot crosses the level.',
     },
     {
       q: 'Why is the zone right at the gamma flip so choppy?',
@@ -243,7 +243,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'spy-vs-spx-gamma-levels': [
     {
       q: 'What is the difference between SPY and SPX gamma levels?',
-      a: 'SPY and SPX track the same index but trade as two separate options books, each with its own dealer gamma. So each has its own gamma flip, call wall, and put wall — related, but not identical, and they can diverge intraday.',
+      a: 'SPY and SPX track the same index but trade as two separate options books, each with its own dealer gamma. So each has its own gamma flip, call wall, and put wall\u00a0- related, but not identical, and they can diverge intraday.',
     },
     {
       q: 'How do you convert SPX levels to SPY?',
@@ -279,7 +279,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Do these levels always hold?',
-      a: 'No — the regime decides. In a positive-gamma regime, hedging defends the levels and reversals are more likely; in a negative-gamma regime, the same levels tend to give way and breaks extend.',
+      a: 'No\u00a0- the regime decides. In a positive-gamma regime, hedging defends the levels and reversals are more likely; in a negative-gamma regime, the same levels tend to give way and breaks extend.',
     },
   ],
   'how-often-do-gamma-walls-break': [
@@ -293,7 +293,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Does the size of a gamma wall predict whether it holds?',
-      a: 'Not reliably. Across four index products, wall size points weakly in the intuitive direction — larger walls break slightly less — but the effect is too small to separate from noise in a ten-week sample. Nineteen candidate predictors were tested and none pointed the same way across products more often than chance would produce.',
+      a: 'Not reliably. Across four index products, wall size points weakly in the intuitive direction\u00a0- larger walls break slightly less\u00a0- but the effect is too small to separate from noise in a ten-week sample. Nineteen candidate predictors were tested and none pointed the same way across products more often than chance would produce.',
     },
     {
       q: 'Why do Nasdaq gamma walls break more often than S&P ones?',
@@ -321,11 +321,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How do you know if you are chasing?',
-      a: 'The tells are positional and emotional: entering only because price is already moving fast, buying into a call or put wall, or adding size so you do not miss out. Those are chase signals, not setups — and 0DTE punishes them, because the same gamma reflex that ran a contract up can reverse it just as fast.',
+      a: 'The tells are positional and emotional: entering only because price is already moving fast, buying into a call or put wall, or adding size so you do not miss out. Those are chase signals, not setups\u00a0- and 0DTE punishes them, because the same gamma reflex that ran a contract up can reverse it just as fast.',
     },
     {
       q: 'When is 0DTE momentum actually real?',
-      a: 'It tends to be real in a short-gamma (negative) regime with open room to the next wall and a supportive net-GEX backdrop — conditions where dealer hedging pushes the move along instead of absorbing it.',
+      a: 'It tends to be real in a short-gamma (negative) regime with open room to the next wall and a supportive net-GEX backdrop\u00a0- conditions where dealer hedging pushes the move along instead of absorbing it.',
     },
   ],
   '0dte-dealer-positioning-explained': [
@@ -339,7 +339,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How does 0DTE behave in different gamma regimes?',
-      a: 'In a positive-gamma regime, 0DTE hedging dampens moves — tighter ranges and pinning into the close. In a negative-gamma regime, it amplifies them — faster trends, wider ranges, and sharper reversals as dealers chase price.',
+      a: 'In a positive-gamma regime, 0DTE hedging dampens moves\u00a0- tighter ranges and pinning into the close. In a negative-gamma regime, it amplifies them\u00a0- faster trends, wider ranges, and sharper reversals as dealers chase price.',
     },
   ],
   'vanna-and-charm-explained': [
@@ -349,21 +349,21 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How does vanna move the market?',
-      a: 'When priced-in fear drains out and implied volatility falls — often after an event that did not deliver — vanna can push dealers toward a steady bid, depending on how the book is positioned. That can produce the slow "up on no news" grind, which shows up more in the drift than in obvious volume spikes.',
+      a: 'When priced-in fear drains out and implied volatility falls\u00a0- often after an event that did not deliver\u00a0- vanna can push dealers toward a steady bid, depending on how the book is positioned. That can produce the slow "up on no news" grind, which shows up more in the drift than in obvious volume spikes.',
     },
     {
       q: 'How does charm affect the close?',
-      a: 'Charm bleeds delta as expiration nears, pressuring dealers to hedge as the clock runs down. Because time passes predictably, charm is one of the few dealer flows you can anticipate — though spot and volatility moves can still override it — and it often shapes a directional drift into the final hours of the session.',
+      a: 'Charm bleeds delta as expiration nears, pressuring dealers to hedge as the clock runs down. Because time passes predictably, charm is one of the few dealer flows you can anticipate\u00a0- though spot and volatility moves can still override it\u00a0- and it often shapes a directional drift into the final hours of the session.',
     },
   ],
   'zero-gamma-level-explained': [
     {
       q: 'What is the zero gamma level?',
-      a: 'The zero gamma level is the price at which modeled net dealer gamma exposure equals zero — the boundary between a positive-gamma regime above it and a negative-gamma regime below it. It is the same level as the gamma flip.',
+      a: 'The zero gamma level is the price at which modeled net dealer gamma exposure equals zero\u00a0- the boundary between a positive-gamma regime above it and a negative-gamma regime below it. It is the same level as the gamma flip.',
     },
     {
       q: 'Is zero gamma the same as the gamma flip?',
-      a: 'Yes. "Zero gamma" names the value — net dealer gamma is zero there — and "gamma flip" names the event, the sign of dealer gamma flipping there. Tools label the same price either way; ZeroGEX labels it "gamma flip".',
+      a: 'Yes. "Zero gamma" names the value\u00a0- net dealer gamma is zero there\u00a0- and "gamma flip" names the event, the sign of dealer gamma flipping there. Tools label the same price either way; ZeroGEX labels it "gamma flip".',
     },
     {
       q: 'What happens when price crosses the zero gamma level?',
@@ -371,7 +371,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Why is there no zero gamma level today?',
-      a: 'When the modeled dealer-gamma profile has no zero crossing close enough to spot — deep inside one regime, or a thin, one-sided chain — there is no honest level to publish, so ZeroGEX leaves it blank. The sign of net GEX still shows which regime is in force.',
+      a: 'When the modeled dealer-gamma profile has no zero crossing close enough to spot\u00a0- deep inside one regime, or a thin, one-sided chain\u00a0- there is no honest level to publish, so ZeroGEX leaves it blank. The sign of net GEX still shows which regime is in force.',
     },
   ],
 };

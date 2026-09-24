@@ -51,7 +51,7 @@ async function resolveIsSubscriber(): Promise<boolean> {
 export async function generateMetadata(): Promise<Metadata> {
   if (await resolveIsSubscriber()) {
     return {
-      title: 'Gamma Terminal — Live SPY Gamma Chart + Strike Ladders | ZeroGEX',
+      title: 'Gamma Terminal\u00a0- Live SPY Gamma Chart + Strike Ladders | ZeroGEX',
       description:
         'The live ZeroGEX Gamma Terminal: SPY, QQQ, SPX, NDX, ES and NQ price with the Gamma Flip, Call/Put Walls, Max Pain and GEX ribbons, beside two strike-aligned Net GEX ladders or the dealer-gamma structure rail.',
       alternates: { canonical: '/chart' },
@@ -63,9 +63,9 @@ export async function generateMetadata(): Promise<Metadata> {
   // user-selected canonical" row in Search Console, since the same page is
   // reachable with query strings and via the symbol picker.
   return {
-    title: 'Free Gamma Chart — SPY Dealer Positioning (15-min delayed) | ZeroGEX',
+    title: 'Free Gamma Chart\u00a0- SPY Dealer Positioning (15-min delayed) | ZeroGEX',
     description:
-      'A free, ~15-minute-delayed gamma chart for SPY: price with the Gamma Flip, Call/Put Walls, Max Pain and the dealer-gamma book beside it — two Net GEX strike ladders or the structure rail. Real-time and every symbol inside ZeroGEX.',
+      'A free, ~15-minute-delayed gamma chart for SPY: price with the Gamma Flip, Call/Put Walls, Max Pain and the dealer-gamma book beside it\u00a0- two Net GEX strike ladders or the structure rail. Real-time and every symbol inside ZeroGEX.',
     alternates: { canonical: '/chart' },
   };
 }

@@ -22,9 +22,9 @@ import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 
 const INTEGRATION = integrationById('ninjatrader');
 const PATH = INTEGRATION.href;
-const TITLE = 'ZeroGEX Gamma Levels — Auto-Updating NinjaTrader 8 Indicator';
+const TITLE = 'ZeroGEX Gamma Levels\u00a0- Auto-Updating NinjaTrader 8 Indicator';
 const DESCRIPTION =
-  'A NinjaTrader 8 indicator that draws the ZeroGEX gamma flip, call wall, put wall, max pain, and pin strike on your chart and keeps them current — it polls the ZeroGEX API, so you never retype a number. Included with ZeroGEX Pro, along with the API key it needs.';
+  'A NinjaTrader 8 indicator that draws the ZeroGEX gamma flip, call wall, put wall, max pain, and pin strike on your chart and keeps them current\u00a0- it polls the ZeroGEX API, so you never retype a number. Included with ZeroGEX Pro, along with the API key it needs.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -82,7 +82,7 @@ export default function NinjaTraderIndicatorPage() {
 
       <LiveLevelsCTA
         headline="See the levels the indicator draws"
-        intro="The same Gamma Flip, Call Wall, Put Wall, and Max Pain the indicator pulls are published free on every ticker page — delayed roughly 15 minutes, no signup, and a useful sanity check while you get the key wired up."
+        intro="The same Gamma Flip, Call Wall, Put Wall, and Max Pain the indicator pulls are published free on every ticker page&nbsp;- delayed roughly 15 minutes, no signup, and a useful sanity check while you get the key wired up."
       />
     </IndicatorPageShell>
   );

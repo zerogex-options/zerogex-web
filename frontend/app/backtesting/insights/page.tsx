@@ -72,7 +72,7 @@ const ALL_SOURCE_OPTIONS: SourceOption[] = [
     label: 'Touch proxy (debug)',
     tooltip:
       "Debug view: did the underlying reach the target/stop? Ignores premium " +
-      "decay and bid/ask. NOT a measure of P&L — useful only as a sanity check.",
+      "decay and bid/ask. NOT a measure of P&L\u00a0- useful only as a sanity check.",
     adminOnly: true,
   },
 ];
@@ -92,7 +92,7 @@ const HEADERS: HeaderSpec[] = [
     label: 'Stage',
     align: 'left',
     tooltip:
-      'Research standing in the strategy catalog — evidence, not deployment. Most ' +
+      'Research standing in the strategy catalog\u00a0- evidence, not deployment. Most ' +
       'strategies sit in Research: that is the normal resting state, not a failure ' +
       'grade. Only a Validated strategy with a bot behind it can take live capital.',
   },
@@ -277,8 +277,8 @@ export default function InsightsPage() {
       </div>
 
       <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl mb-6">
-        Measured performance for every strategy in the catalog — the same
-        catalog Bot Trading and Backtesting use — on the standardized
+        Measured performance for every strategy in the catalog&nbsp;- the same
+        catalog Bot Trading and Backtesting use&nbsp;- on the standardized
         realized-P&amp;L backtest, net of bid/ask fills, slippage, and
         commission. One row per (strategy, underlying) pair, latest window per
         pair; strategies never screened in this source appear at the bottom as
@@ -403,7 +403,7 @@ export default function InsightsPage() {
           <div className="leading-snug">
             <strong>Debug view.</strong>{' '}
             The Win % column here counts whether the underlying&apos;s price reached
-            the card&apos;s target before its stop &mdash;{' '}
+            the card&apos;s target before its stop&nbsp;-{' '}
             <em>not</em> whether the trade made money. Touch and realized option P&L
             can disagree wildly (e.g. <code>overnight_trap_continuation</code>:
             ~95% touch rate, ~85% loss rate on options). Use{' '}
