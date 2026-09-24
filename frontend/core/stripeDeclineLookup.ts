@@ -108,12 +108,18 @@ function cardOf(charge: Stripe.Charge | null | undefined): DeclineCard | null {
  *
  * Step 3 costs extra reads, so it runs only when the cheap paths came back
  * empty. The webhook never reaches it.
+ *
+ * Before any of that, an invoice that names no charge and no intent is re-read
+ * through our own client — see invoiceWithPaymentRefs. That is the webhook's
+ * case, and without it every decline captured live came back empty.
  */
 export async function lookupInvoiceDecline(
   stripe: Stripe,
   invoice: unknown,
 ): Promise<InvoiceDeclineLookup> {
   try {
+    invoice = await invoiceWithPaymentRefs(stripe, invoice);
+
     const chargeId = readInvoiceChargeId(invoice);
     if (chargeId) {
       const charge = await stripe.charges.retrieve(chargeId);
@@ -145,6 +151,32 @@ export async function lookupInvoiceDecline(
     // Best-effort by design — see the module header.
   }
   return EMPTY;
+}
+
+/**
+ * The invoice to read the decline from: the one given, or — when it names no
+ * charge and no payment intent — a fresh copy from our own API client.
+ *
+ * A webhook event is rendered in the API version set on the webhook ENDPOINT
+ * (see core/stripeInvoice.ts). From 2025-03-31.basil on, an invoice there has
+ * no `charge` or `payment_intent`, and its `payments` list is only returned
+ * when asked for, which an event never is. So an event-shaped invoice names no
+ * charge at all, every lookup on the webhook path came back empty, and every
+ * live decline was stored as "unknown" — which is also what the dunning email
+ * chose its wording from. The client in core/stripe.ts is pinned to acacia,
+ * whose invoices still carry both fields, so re-reading through it recovers
+ * the charge.
+ *
+ * One extra read, and only when the object in hand has nothing to go on: an
+ * invoice fetched through our client (the backfill, the resend script) is
+ * used as it is.
+ */
+async function invoiceWithPaymentRefs(stripe: Stripe, invoice: unknown): Promise<unknown> {
+  if (readInvoiceChargeId(invoice) || readInvoicePaymentIntentId(invoice)) return invoice;
+  const id =
+    invoice && typeof invoice === 'object' ? (invoice as { id?: unknown }).id : null;
+  if (typeof id !== 'string' || !id.startsWith('in_')) return invoice;
+  return stripe.invoices.retrieve(id);
 }
 
 /**

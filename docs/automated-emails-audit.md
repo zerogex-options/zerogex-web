@@ -285,11 +285,12 @@ auth/transactional and TradeWorkz alerts.
   addresses and anyone named in `SKIP=` (people already written to by hand; the
   same flag works on `make open-invoice-recovery`). One resend per invoice
   (`payment_failed_email_resent`). Dry run by default.
-- **The bank's reason is not captured live.** Stripe renders webhook events in a
-  newer API shape that leaves out the charge the reason lives on, so the webhook's
-  decline lookup comes back empty, `payment_declines` stores `unknown`, and this
-  email falls back to its neutral wording. The resend script looks the reason up
-  again through the app's pinned API client, which does return the charge.
+- **The wording follows the bank's reason, read when the payment fails.** Stripe
+  renders webhook events in a newer API shape that leaves out the charge the
+  reason lives on, so `core/stripeDeclineLookup.ts` re-reads such an invoice
+  through the app's pinned API client, which returns it. Until that re-read
+  existed every live decline was stored as `unknown` and this email always used
+  its neutral wording; `make backfill-payment-declines` refills those rows.
 
 **Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso? })`
 - **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} — the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} — your last payment didn't go through`

@@ -57,6 +57,7 @@
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
     "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
+    "test:stripe-decline-lookup": "node --experimental-strip-types --test tests/stripeDeclineLookup.test.ts",
     "test:payment-declines": "node --experimental-strip-types --test tests/paymentDeclines.test.ts",
     "test:payment-failed-email": "node --experimental-strip-types --test tests/paymentFailedEmail.test.ts",
     "test:payment-failed-resend": "node --experimental-strip-types --test tests/paymentFailedResend.test.ts",
