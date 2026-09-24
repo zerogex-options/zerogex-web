@@ -16,6 +16,10 @@
 //     billing period has no founding rate at all (quarterly — the offer closed
 //     before it existed): the founder's discounts are left as they are rather
 //     than their intro rate silently stripped.
+//   • Campaign member (the business card's 50% off, core/campaigns.ts): also
+//     EXCLUSIVE, as at checkout. The campaign coupon is not one we manage, so
+//     it stays exactly as it is, and the public promo is never added next to
+//     it; a promo already sitting beside it is stripped.
 //   • Everyone else: a monthly promo the member already holds stays on a move
 //     to the other monthly plan, even after the window has closed (the promise
 //     is their first 12 months). Otherwise the new plan gets the ACTIVE public
@@ -34,6 +38,7 @@ import {
   type Sku,
 } from './stripe.ts';
 import { BILLABLE_TIERS, BILLING_CADENCES, isPromoAdvertised } from './billingPlans.ts';
+import { getCampaignCouponIds } from './campaigns.ts';
 import { getRefereeCouponId } from './refereeCoupon.ts';
 import { pickSwitchPromoCoupon, reconcileSwitchDiscounts } from './planSwitch.ts';
 
@@ -53,6 +58,7 @@ export function planSwitchDiscounts(input: {
   foundingLifetimeAppliedAt: string | null;
 }): SwitchDiscountPlan | null {
   // (1) Correct promo/founding coupon for the NEW plan (may be null).
+  const campaignCouponIds = new Set(getCampaignCouponIds());
   let correctPrimary: string | null;
   if (input.foundingMemberStartedAt) {
     // Founding is exclusive: never fall through to the public promo. Once the
@@ -60,6 +66,10 @@ export function planSwitchDiscounts(input: {
     if (input.foundingLifetimeAppliedAt) return null;
     correctPrimary = getFoundingIntroCouponId(input.newSku.tier, input.newSku.cadence);
     if (!correctPrimary) return null;
+  } else if (input.currentCouponIds.some((id) => campaignCouponIds.has(id))) {
+    // A campaign rate is exclusive too: the campaign coupon stays as it is (it
+    // isn't managed), and no public promo joins it.
+    correctPrimary = null;
   } else {
     const advertisedPromoCouponIds = BILLABLE_TIERS.flatMap((tier) =>
       BILLING_CADENCES.filter((cadence) => isPromoAdvertised({ tier, cadence })).map((cadence) =>

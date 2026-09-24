@@ -62,11 +62,16 @@ in `frontend/app/api/billing/checkout/route.ts`). All that's left is Stripe conf
    `duration: repeating, duration_in_months: 12`.
 2. Set the coupon IDs in env (see `frontend/.env.example`):
    ```
-   STRIPE_CAMPAIGN_TARGET_MONTHLY=<coupon id>   # 50% off, repeating 12 months
-   STRIPE_CAMPAIGN_TARGET_ANNUAL=<coupon id>    # 50% off, once
+   STRIPE_CAMPAIGN_TARGET_MONTHLY=<coupon id>     # 50% off, repeating 12 months
+   STRIPE_CAMPAIGN_TARGET_QUARTERLY=<coupon id>   # the monthly coupon again: 12 months = four quarterly bills
+   STRIPE_CAMPAIGN_TARGET_ANNUAL=<coupon id>      # 50% off, once
    ```
-   The promo is live as soon as either is set; unset = inert. New campaigns need no code
-   change — just add `STRIPE_CAMPAIGN_<CODE>_MONTHLY/ANNUAL` and print a card.
+   The promo is live as soon as any of them is set; unset = inert. A billing period left
+   unset gets no card discount, so a card holder who picks it pays full price. New
+   campaigns need no code change — just add `STRIPE_CAMPAIGN_<CODE>_<PERIOD>` and print a card.
+
+**No stacking.** The card rate is exclusive: the site-wide promo is never added on top of
+it, neither at checkout nor when a card member later switches plans.
 
 **Identifying redeemers:**
 

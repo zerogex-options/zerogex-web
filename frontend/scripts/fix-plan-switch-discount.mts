@@ -25,6 +25,8 @@
 //          cadence has no founding rate (quarterly).
 //        • Founding member WITH lifetime applied -> leave discounts untouched
 //          (lifetime isn't cadence-specific and validly persists).
+//        • Campaign member (business card) -> their campaign coupon stays and
+//          no promo is added on top; a promo already beside it is stripped.
 //        • Everyone else -> a monthly promo the member already holds stays on
 //          the other monthly plan (their first 12 months, even after the
 //          signup window closed); otherwise the ACTIVE public promo, or none.
