@@ -51,45 +51,65 @@ the reboot, so the page has to come from there.
 |---|---|
 | `maintenance.html` | The page. Fully self-contained, with no CSS, JS, fonts or images loaded from the site, because the site is down whenever it's shown. Open it in a browser to preview it. |
 | `worker.mjs` | The Worker. |
-| `wrangler.toml` | Deploy config, including the `zerogex.io/*` and `www.zerogex.io/*` routes. |
+| `wrangler.toml` | Deploy config. Code only: the routes are set in the dashboard (see below). |
 | `worker.test.mjs`, `html-loader.mjs` | Tests: `node --test deploy/cloudflare/maintenance-page/worker.test.mjs` (Node 22). |
 
-## Deploy (one-time, from a laptop)
+## Deploy (one-time)
 
-**1. Publish the Worker and its routes.**
+`wrangler` uploads the code, and you add the routes that switch it on by hand
+in the Cloudflare dashboard. That split is deliberate. When `wrangler.toml`
+lists routes, every `wrangler deploy` replaces them, and Wrangler can't set the
+Free plan's fail-open option (step 3). A routine redeploy would quietly switch
+the routes back to fail closed. With no routes in the config, a deploy never
+touches them.
+
+**1. Create an API token.** In the dashboard, go to *My Profile → API Tokens →
+Create Token* and use the **Edit Cloudflare Workers** template. Set *Account
+Resources* to your account and *Zone Resources* to zerogex.io, then create the
+token and copy it. Cloudflare shows it only once.
+
+**2. Upload the Worker.** On the EC2 box, where Node 22 is already installed:
 ```bash
-cd deploy/cloudflare/maintenance-page
-npx wrangler login        # browser OAuth; or export CLOUDFLARE_API_TOKEN instead
-npx wrangler deploy
+cd ~/zerogex-web/deploy/cloudflare/maintenance-page
+source ~/.nvm/nvm.sh && nvm use 22
+read -rs CLOUDFLARE_API_TOKEN && export CLOUDFLARE_API_TOKEN    # paste the token, press Enter
+npx --yes wrangler@4 deploy
+unset CLOUDFLARE_API_TOKEN
 ```
-An API token needs *Account → Workers Scripts: Edit* and *Zone → Workers Routes:
-Edit* on zerogex.io. This step only adds the Worker in front of the site; while
-the origin is up, visitors see no difference.
+`read -rs` keeps the token off the screen and out of your shell history. The
+deploy ends with `No targets deployed for zerogex-maintenance-page`, which is
+expected: the Worker exists, but nothing routes to it yet, so visitors see no
+change.
 
-**2. Exclude the high-volume paths (required on the Free plan).** In the
-dashboard, open the zerogex.io zone, then *Workers Routes → Add route*. Add each
-of these with *Worker: None*:
+**3. Add the routes.** In the dashboard, open the zerogex.io site, then
+*Workers Routes → Add route*. Add these four, in this order:
 
-| Route | Why |
-|---|---|
-| `zerogex.io/api/*` | The app polls live data about once a second per chart in every open tab. |
-| `zerogex.io/_next/*` | Build chunks, fonts and optimized images, dozens per page view. |
+| Route | Worker | Request limit failure mode |
+|---|---|---|
+| `zerogex.io/api/*` | None | |
+| `zerogex.io/_next/*` | None | |
+| `zerogex.io/*` | `zerogex-maintenance-page` | Fail open |
+| `www.zerogex.io/*` | `zerogex-maintenance-page` | Fail open |
 
-The Free plan includes 100,000 Worker requests a day per account, and the
-`/api/*` polling alone would use that up. Neither path needs the Worker, which
-passes both through untouched anyway, since they're never page loads. A more
-specific route wins, so these override `zerogex.io/*`.
+The two *None* routes keep the Worker off the high-volume paths. The app polls
+`/api/*` about once a second per chart in every open tab, and `/_next/*` serves
+build chunks, fonts and images, dozens per page view. The Free plan includes
+100,000 Worker requests a day, and the polling alone would use that up. Neither
+path ever needs the maintenance page, and a more specific route wins over
+`zerogex.io/*`. Adding them first means the polling never touches the Worker.
 
-**3. Fail open (Free plan).** On the `zerogex.io/*` and `www.zerogex.io/*`
-routes, set *Request limit failure mode* to **Fail open**. If the daily quota
-ever runs out, requests then skip the Worker and the site behaves as it does
-today, instead of showing Cloudflare error 1027.
+*Fail open* means that if the daily quota ever runs out, requests skip the
+Worker until the quota resets at midnight UTC, and the site behaves as it does
+today. *Fail closed* would instead answer every page load with Cloudflare error
+1027.
 
-On Workers Paid (10M requests a month included), steps 2 and 3 are optional.
+The Worker goes live as soon as you save the `zerogex.io/*` route, so check it
+straight away.
 
 ## Verify
 
-Right after deploying, a page load should still come back `200`:
+Right after saving the `zerogex.io/*` route, a page load should still come back
+`200`:
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept: text/html' https://zerogex.io/    # 200
 ```
@@ -124,8 +144,9 @@ path (nginx up, app still starting), run the same test with `make stop` /
 ## Editing the page
 
 Edit `maintenance.html`, open it in a browser to check it, run the tests, then
-`npx wrangler deploy` from this directory. Keep it self-contained: anything it
-loaded from zerogex.io would fail at exactly the moment the page is shown.
+upload it with the commands in step 2. The routes and their fail-open setting
+stay as they are. Keep the page self-contained: anything it loaded from
+zerogex.io would fail at exactly the moment the page is shown.
 
 ## Diagnosing an outage
 
@@ -144,7 +165,7 @@ returned:
 
 ## Rollback
 
-Delete the `zerogex.io/*` and `www.zerogex.io/*` routes (dashboard → *Workers
-Routes*) and traffic goes straight to the origin again, with no change on the
-box. To remove the Worker entirely, run `npx wrangler delete` from this
-directory.
+Delete the `zerogex.io/*` and `www.zerogex.io/*` routes (dashboard → zerogex.io
+→ *Workers Routes*). Within seconds, traffic goes straight to the origin again,
+with no change on the box. The two *None* routes do nothing on their own and can
+stay. To remove the Worker entirely, delete it under *Workers & Pages*.

@@ -142,6 +142,13 @@ test('a request that is not a page load and cannot reach the origin is handed ba
   assert.equal(passedThrough, true);
 });
 
+test('wrangler.toml leaves the routes to the dashboard', async () => {
+  // See the comment in wrangler.toml: routes listed there are replaced on
+  // every deploy, which resets the dashboard's fail-open setting to fail closed.
+  const toml = await readFile(new URL('./wrangler.toml', import.meta.url), 'utf8');
+  assert.doesNotMatch(toml, /^\s*(routes?\s*=|\[\[routes\]\])/m);
+});
+
 test('the maintenance page stands on its own', () => {
   // The origin is down whenever this page is shown, so it can't lean on it.
   assert.doesNotMatch(MAINTENANCE_HTML, /<link\b/i, 'no external stylesheets');

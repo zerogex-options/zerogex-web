@@ -1,6 +1,5 @@
 # Cloudflare Worker that serves maintenance.html while the zerogex.io origin is
-# down. Read README.md in this directory before deploying: the /api/* and
-# /_next/* exclusions it describes are set in the dashboard, not here.
+# down. Read README.md in this directory before deploying.
 name = "zerogex-maintenance-page"
 main = "worker.mjs"
 compatibility_date = "2026-09-01"
@@ -9,12 +8,13 @@ compatibility_date = "2026-09-01"
 # fetch(request) would have no zerogex.io origin behind it.
 workers_dev = false
 
-routes = [
-  { pattern = "zerogex.io/*", zone_name = "zerogex.io" },
-  # www is redirected to the apex by nginx on the same box, so it goes down
-  # with everything else.
-  { pattern = "www.zerogex.io/*", zone_name = "zerogex.io" },
-]
+# No routes here, on purpose: they are set once in the Cloudflare dashboard
+# (README.md). When this file lists routes, every `wrangler deploy` replaces
+# them, and Wrangler has no way to set the Free plan's "fail open" option, so
+# a routine redeploy would quietly switch the routes back to fail closed. Past
+# the daily request quota, a fail-closed route answers every page load with
+# Cloudflare error 1027. With no routes listed, `wrangler deploy` only uploads
+# the code and leaves the dashboard routes alone.
 
 # Import maintenance.html as a string. Wrangler already does this for .html by
 # default; spelled out so the bundle can't change shape under a new default.
