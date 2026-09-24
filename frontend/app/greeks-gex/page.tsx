@@ -238,7 +238,7 @@ export default function GreeksGEXPage() {
                 ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
                 : 'Most call gamma above spot'
             }
-            tooltip="Strike at or above spot with the largest call gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0–2DTE). A 0DTE-only chart can show a different strike. Tends to act as resistance as dealers sell into rallies toward it."
+            tooltip="Strike at or above spot with the largest call gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0-2DTE). A 0DTE-only chart can show a different strike. Tends to act as resistance as dealers sell into rallies toward it."
             theme={theme}
             trend="bearish"
           />
@@ -250,7 +250,7 @@ export default function GreeksGEXPage() {
                 ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
                 : 'Most put gamma below spot'
             }
-            tooltip="Strike at or below spot with the largest put gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0–2DTE). A 0DTE-only chart can show a different strike. Tends to act as support as dealers buy into selloffs toward it."
+            tooltip="Strike at or below spot with the largest put gamma exposure (gamma × open interest), summed over today’s expiration and the next two (0-2DTE). A 0DTE-only chart can show a different strike. Tends to act as support as dealers buy into selloffs toward it."
             theme={theme}
             trend="bullish"
           />
