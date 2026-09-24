@@ -144,9 +144,13 @@ export default function ExpiryRolloffPanel({
       />
 
       <Zone flush>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(300px,1fr)_minmax(260px,1fr)_minmax(280px,1fr)]">
+        {/* Three columns need ~890px, which the card only has from xl up: at a
+            1024px window it is ~690px wide and the third column ran ~190px
+            past its right edge. Between lg and xl the verdict takes the full
+            width and the two ladders sit side by side under it. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_minmax(260px,1fr)_minmax(280px,1fr)]">
           {/* ── the verdict ─────────────────────────────────────────────── */}
-          <div>
+          <div className="lg:col-span-2 xl:col-span-1">
             <div className="flex flex-wrap items-start gap-4">
               <HeroStat
                 eyebrow={`Expiring ${payload.next.dte === 0 ? 'today' : `in ${payload.next.dte}d`}`}
