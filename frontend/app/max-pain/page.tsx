@@ -132,6 +132,9 @@ const PHONE_STRIKE_LABELS = 5;
 // The compact candle canvas keeps each bar at least this many px apart, so a
 // phone shows the most recent bars that fit rather than 100 one-pixel candles.
 const PHONE_MIN_BAR_PX = 5.5;
+// The desktop candle board, in viewBox units.
+const TS_BOARD_W = 1200;
+const TS_BOARD_H = 444;
 
 export default function MaxPainPage() {
   const { symbol, getMaxDataPoints } = useTimeframe();
@@ -151,10 +154,12 @@ export default function MaxPainPage() {
   // as its card (1 unit = 1px, see GammaTerminalChart's compactCanvas) instead
   // of scaling the 1200-unit board into a 760px sideways scroller.
   const [tsMeasureRef, tsMeasuredWidth] = useMeasuredWidth<HTMLDivElement>();
-  // Tablets too (below lg): their 600-990px card scaled the 1200-unit board's
-  // labels to 5-6px.
+  // Any card narrower than the 1200-unit board, and every card below lg: a
+  // tablet's 600-990px card and a desktop one (~600px at 1024, ~950px at 1440)
+  // scaled the board's labels to 5-9px.
   const tsCompactViewport = useIsMobile(1024);
-  const tsCompact = tsCompactViewport && tsMeasuredWidth != null && tsMeasuredWidth > 0;
+  const tsCompact =
+    tsMeasuredWidth != null && tsMeasuredWidth > 0 && (tsCompactViewport || tsMeasuredWidth < TS_BOARD_W);
   // Taps end in emulated mouse events (and a mouseleave); see onTsPointer*.
   const lastTouchAtRef = useRef(0);
 
@@ -300,8 +305,9 @@ export default function MaxPainPage() {
 
   const textColor = 'var(--text-primary)';
 
-  const tsWidth = tsCompact ? Math.max(260, Math.round(tsMeasuredWidth ?? 0)) : 1200;
-  const tsHeight = tsCompact ? 300 : 444;
+  const tsWidth = tsCompact ? Math.max(260, Math.round(tsMeasuredWidth ?? 0)) : TS_BOARD_W;
+  // 300 on a phone, growing with a wider card to the board's own proportions.
+  const tsHeight = tsCompact ? Math.min(TS_BOARD_H, Math.max(300, Math.round(tsWidth * (TS_BOARD_H / TS_BOARD_W)))) : TS_BOARD_H;
   const padLeft = tsCompact ? 44 : 70;
   const padRight = tsCompact ? 8 : 25;
   const padTop = 24;
@@ -633,7 +639,7 @@ export default function MaxPainPage() {
             height={tsHeight}
             viewBox={`0 0 ${tsWidth} ${tsHeight}`}
             // Unmeasured, a phone would see the 1200-unit board for a frame.
-            className={tsCompact ? undefined : tsMeasuredWidth == null ? "min-w-[760px] md:min-w-0 max-lg:invisible" : "min-w-[760px] md:min-w-0"}
+            className={tsCompact ? undefined : tsMeasuredWidth == null ? "min-w-[760px] md:min-w-0 invisible" : "min-w-[760px] md:min-w-0"}
             style={tsCompact ? { display: "block", touchAction: "pan-y", userSelect: "none", WebkitTouchCallout: "none" } : undefined}
             onPointerDown={onTsPointerDown}
             onPointerMove={onTsPointerMove}

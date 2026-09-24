@@ -85,13 +85,17 @@ export default function MarketTideChart({
   live: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  // Phones and tablets (below lg, where the app runs its phone chrome) draw
-  // the measured canvas: a tablet card is 600-990px, which scaled the desktop
-  // board's 10-unit labels to 6-7px.
+  // Any card narrower than the 1000-unit desktop board draws the measured
+  // canvas instead of shrinking the board: a tablet card is 600-990px and a
+  // desktop one ~570px at 1280, which scaled its 10-unit labels to 4-7px.
+  // Phones and tablets (below lg) always do.
   const compactViewport = useIsMobile(1024);
   const [measureRef, measuredWidth] = useMeasuredWidth<HTMLDivElement>();
   const canvas = useMemo(
-    () => (compactViewport && measuredWidth != null && measuredWidth > 0 ? compactCanvas(measuredWidth) : DESKTOP_CANVAS),
+    () =>
+      measuredWidth != null && measuredWidth > 0 && (compactViewport || measuredWidth < DESKTOP_CANVAS.VW)
+        ? compactCanvas(measuredWidth)
+        : DESKTOP_CANVAS,
     [compactViewport, measuredWidth],
   );
   const { compact, VW, VH, L, R, T, PW, PH } = canvas;
@@ -216,13 +220,13 @@ export default function MarketTideChart({
 
   return (
     <div className="relative" ref={measureRef}>
-      {/* Until the card is measured a phone would see the desktop board at
-          3px type for a frame; it stays invisible there until then. */}
+      {/* Until the card is measured it would show the desktop board at the
+          wrong scale for a frame; it stays invisible until then. */}
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="xMidYMid meet"
         style={svgStyle}
-        className={measuredWidth == null ? "max-lg:invisible" : undefined}
+        className={measuredWidth == null ? "invisible" : undefined}
         role="img"
         aria-label={`Market Tide ${mode === "daily" ? "daily trend" : "today"} — latest ${fmt(lastVal)}`}
         onMouseMove={(e) => {

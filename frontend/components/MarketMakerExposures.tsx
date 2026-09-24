@@ -236,19 +236,36 @@ interface ProfileCanvas {
 // SVG layout constants — sized to fit on a standard desktop without scrolling.
 const DESKTOP_CW = 1200;
 const DESKTOP_CH = 648;
+// The shortest the width-aware desktop board gets (see desktopCanvas).
+const DESKTOP_MIN_CH = 460;
+// Narrowest card (CSS px) a mouse-driven desktop draws the desktop board at;
+// below it the narrow board takes over, as it does on a phone.
+const DESKTOP_MIN_CW = 640;
 
-function desktopCanvas(compact: boolean): ProfileCanvas {
-  const CW = DESKTOP_CW;
-  const CH = DESKTOP_CH;
+/**
+ * The desktop board: 1200 x 648 at full size. A card narrower than that used
+ * to get the whole board scaled down, which drew its 11-unit labels at 7px on
+ * a 700px card and 8.5px on a 940px one. Now it gets the board at its own
+ * width (1 unit = 1 CSS px): the three panels share the width in their
+ * full-size proportions (candles 540, gamma 280, positions 292), the strike
+ * column and the type keep their size, and the height steps down in
+ * proportion, to a floor. At 1200 or wider this is the full-size board.
+ */
+function desktopCanvas(compact: boolean, width: number = DESKTOP_CW): ProfileCanvas {
+  const CW = Math.min(DESKTOP_CW, Math.round(width));
+  const full = CW >= DESKTOP_CW;
+  const CH = full ? DESKTOP_CH : Math.max(DESKTOP_MIN_CH, Math.round((DESKTOP_CH * CW) / DESKTOP_CW));
+  const STRIKE_W = 64;
+  const GAP = 12;
+  // What the three panels share, 1112 at full size.
+  const flex = CW - STRIKE_W - 2 * GAP;
   // In compact mode the middle and right panels are hidden, so the candles
   // panel expands across the bulk of the viewBox. This keeps the dashboard
   // tile visually filled with chart content instead of letterboxed.
-  const LEFT_W = compact ? 1056 : 540;
+  const LEFT_W = compact ? CW - (DESKTOP_CW - 1056) : Math.round((flex * 540) / 1112);
   const LEFT_X = 0;
   const STRIKE_X = LEFT_X + LEFT_W;
-  const STRIKE_W = 64;
-  const GAP = 12;
-  const MID_W = 280;
+  const MID_W = Math.round((flex * 280) / 1112);
   const MID_X = STRIKE_X + STRIKE_W + GAP;
   const RIGHT_X = MID_X + MID_W + GAP;
   return {
@@ -270,8 +287,12 @@ function desktopCanvas(compact: boolean): ProfileCanvas {
     GAMMA_W: compact ? 0 : MID_W,
     POS_X: RIGHT_X,
     POS_W: compact ? 0 : CW - RIGHT_X,
-    VISIBLE_CANDLES: TARGET_VISIBLE_CANDLES,
-    TIME_LABEL_TARGET: 7,
+    // A narrower candle panel shows fewer candles (about 5 units apiece) and
+    // fewer clock labels, so neither crowds; full size keeps 78 and 7.
+    VISIBLE_CANDLES: full
+      ? TARGET_VISIBLE_CANDLES
+      : Math.max(40, Math.min(TARGET_VISIBLE_CANDLES, Math.floor((LEFT_W - 24) / 5))),
+    TIME_LABEL_TARGET: full ? 7 : Math.max(3, Math.min(7, Math.round(LEFT_W / 80))),
     MIN_TIME_LABEL_GAP: 50,
     TICK_DY: 18,
     TITLE_DY: 38,
@@ -557,13 +578,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const coarsePointer = useCoarsePointer();
   // Which bar panel the two-panel narrow board shows beside the candles.
   const [narrowPanel, setNarrowPanel] = useState<NarrowBarPanel>('gamma');
-  const canvas = useMemo(
-    () =>
-      box && box.w > 0 && box.w < NARROW_MAX_WIDTH && (isMobile || coarsePointer)
-        ? narrowCanvas(box.w, box.landscape, compact, narrowPanel)
-        : desktopCanvas(compact),
-    [box, isMobile, coarsePointer, compact, narrowPanel],
-  );
+  // A phone or touch screen: the gesture grammar and the touch copy apply.
+  const touchUi = isMobile || coarsePointer;
+  // Touch: the narrow board below 900px. A mouse: the desktop board at the
+  // card's width down to 640px, the narrow board below that.
+  const canvas = useMemo(() => {
+    if (!box || box.w <= 0) return desktopCanvas(compact);
+    if (box.w < (touchUi ? NARROW_MAX_WIDTH : DESKTOP_MIN_CW)) {
+      return narrowCanvas(box.w, box.landscape, compact, narrowPanel);
+    }
+    return desktopCanvas(compact, box.w);
+  }, [box, touchUi, compact, narrowPanel]);
   const {
     narrow,
     CW,
@@ -3138,7 +3163,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   touchAction: 'pan-y',
                 }
               : {
-                  ...(compact ? {} : { minWidth: 760 }),
+                  // No minimum width: the board is drawn at the card's own
+                  // width (desktopCanvas), so it never needs a sideways scroll.
                   cursor: isPanning ? 'grabbing' : 'grab',
                   // Let mobile browsers own touch scrolling here — this board
                   // sits in an ``overflow-x-auto`` scroller, so ``touch-action:
@@ -4130,7 +4156,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               <span style={{ opacity: 0.8 }}>far DTE</span>
             </span>
           )}
-          <span className="w-full">Tap for a readout · hold or drag to scrub · pinch to zoom</span>
+          <span className="w-full">
+            {touchUi
+              ? 'Tap for a readout · hold or drag to scrub · pinch to zoom'
+              : 'Hover for a readout · Ctrl + scroll or the buttons to zoom'}
+          </span>
         </div>
       )}
       {!compact && !narrow && (

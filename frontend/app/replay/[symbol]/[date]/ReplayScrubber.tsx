@@ -1207,6 +1207,27 @@ const DESKTOP_BOARD: OverlayBoard = {
   RIGHT_PAD: 8,
 };
 
+/**
+ * The desktop board at the card's own width, for a card between
+ * COMPACT_MAX_WIDTH and the board's 1200. Scaled to such a card the board's
+ * 9-10 unit labels read 7.5-9px; drawn at the card's width (1 unit = 1 CSS px)
+ * they keep their size while the tape gives up the width and the height steps
+ * down in proportion, to a floor.
+ */
+function desktopBoard(width: number): OverlayBoard {
+  const D = DESKTOP_BOARD;
+  if (width >= D.CW) return D;
+  const CW = Math.round(width);
+  const CH = Math.max(480, Math.round((D.CH * CW) / D.CW));
+  return {
+    ...D,
+    CW,
+    CH,
+    PLOT_BOTTOM: CH - (D.CH - D.PLOT_BOTTOM),
+    LEFT_W: Math.round((CW * D.LEFT_W) / D.CW),
+  };
+}
+
 function compactBoard(width: number): OverlayBoard {
   const CW = Math.max(240, Math.round(width));
   // Portrait: price resolution comes from height, which a phone has more of
@@ -1338,11 +1359,10 @@ function ReplayOverlayChart({
     ro.observe(frameEl);
     return () => ro.disconnect();
   }, [frameEl]);
-  const board = useMemo(
-    () =>
-      boxW != null && boxW > 0 && boxW < COMPACT_MAX_WIDTH ? compactBoard(boxW) : DESKTOP_BOARD,
-    [boxW],
-  );
+  const board = useMemo(() => {
+    if (boxW == null || boxW <= 0) return DESKTOP_BOARD;
+    return boxW < COMPACT_MAX_WIDTH ? compactBoard(boxW) : desktopBoard(boxW);
+  }, [boxW]);
   const { compact, CW, CH, PLOT_TOP, PLOT_BOTTOM, LEFT_X, LEFT_W, STRIKE_W, GAP, PAD_X, RIGHT_PAD } =
     board;
   const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;

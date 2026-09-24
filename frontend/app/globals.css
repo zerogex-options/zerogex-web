@@ -3107,18 +3107,14 @@ body.zg-col-resizing * {
 }
 
 /* Gamma Terminal chart canvas (components/GammaTerminalChart.tsx). Its board
-   is chosen from the card's measured width on the client; on a phone the
-   server-rendered desktop board would otherwise flash at unreadable scale for
-   a frame before the compact one replaces it, so it waits invisible until the
-   card has been measured. */
-@media (max-width: 767px) {
-  .zg-gc-canvas:not([data-measured]) { visibility: hidden; }
-}
+   is chosen from the card's measured width on the client, on a phone and on a
+   desktop alike; the server-rendered 1360-unit board would otherwise flash at
+   the wrong scale and height before the measured one replaces it, so it waits
+   invisible until the card has been measured. */
+.zg-gc-canvas:not([data-measured]) { visibility: hidden; }
 /* Same for the GEX Replay overlay (app/replay/…/ReplayScrubber.tsx), which
-   swaps to its measured board on any card narrower than 880px. */
-@media (max-width: 1023px) {
-  .zg-rp-canvas:not([data-measured]) { visibility: hidden; }
-}
+   swaps to a measured board on any card narrower than its 1200-unit board. */
+.zg-rp-canvas:not([data-measured]) { visibility: hidden; }
 /* And the Pair Comparison candles (components/PairCandleChart.tsx). */
 @media (max-width: 767px) {
   .zg-pc-canvas:not([data-measured]) { visibility: hidden; }

@@ -165,8 +165,10 @@ const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
 // so the same 10–11 unit labels are real 10–11px text. It is portrait-shaped
 // (taller than wide, capped by the viewport's height), keeps the price tags
 // inside the axis column instead of hanging an 82-unit gutter over the plot,
-// and narrows the rail. It applies to a narrow card on a phone-sized viewport
-// or a touch screen; a mouse-driven desktop keeps the board it always had.
+// and narrows the rail. It applies to a card under 900px on a phone-sized
+// viewport or a touch screen, and to one under 700px driven by a mouse; wider
+// desktop cards get the desktop board drawn at their own width (see
+// desktopCanvas).
 //
 // The field names are the SCREAMING_CASE constants they replaced, destructured
 // back into locals at the top of the component, so the drawing code reads the
@@ -220,6 +222,56 @@ const DESKTOP_CANVAS: ChartCanvas = {
   PLOT_RIGHT_NO_RAIL: 1352 - (1172 - 1092),
   AXIS_LABEL_GAP: 10,
 };
+
+// The shortest the width-aware desktop board gets (see desktopCanvas).
+const DESKTOP_MIN_VH = 460;
+// The full-width board's rail, which is the only one its title fits.
+const DESKTOP_RAIL_W = DESKTOP_CANVAS.RAIL_RIGHT - DESKTOP_CANVAS.RAIL_LEFT;
+// Narrowest card (CSS px) a mouse-driven desktop draws the desktop board at.
+// Below it the board's fixed axis column and gutters would leave the tape a
+// sliver, so the compact canvas takes over there too.
+const DESKTOP_MIN_WIDTH = 700;
+
+/**
+ * The desktop board at the card's own width. The 1360-unit board used to be
+ * scaled down to fit its card, and no desktop page gives it 1360px: beside
+ * the ladders on the Terminal page (550-1080px) and on the Dashboard
+ * (690-1210px) its 10-11 unit labels rendered at 4-9px. Narrower than the
+ * board, the frame now narrows to the card instead (1 unit = 1 CSS px): the
+ * tape and the rail give up the width, the axis column and the type keep
+ * their size, and the height steps down in proportion, to a floor. At 1360
+ * this returns the board unchanged.
+ */
+function desktopCanvas(width: number): ChartCanvas {
+  const D = DESKTOP_CANVAS;
+  if (width >= D.VW) return D;
+  const VW = Math.round(width);
+  const VH = Math.max(DESKTOP_MIN_VH, Math.round((D.VH * VW) / D.VW));
+  // The same stack as the board, measured up from its bottom edge.
+  const DATE_AXIS_Y = VH - (D.VH - D.DATE_AXIS_Y);
+  const TIME_AXIS_Y = VH - (D.VH - D.TIME_AXIS_Y);
+  const VOL_BOTTOM = VH - (D.VH - D.VOL_BOTTOM);
+  const VOL_TOP = VOL_BOTTOM - (D.VOL_BOTTOM - D.VOL_TOP);
+  const PRICE_BOTTOM = VOL_TOP - (D.VOL_TOP - D.PRICE_BOTTOM);
+  const RAIL_RIGHT = VW - (D.VW - D.RAIL_RIGHT);
+  const railW = D.RAIL_RIGHT - D.RAIL_LEFT;
+  const RAIL_LEFT = RAIL_RIGHT - Math.round(Math.min(railW, Math.max(130, (VW * railW) / D.VW)));
+  const axisW = D.RAIL_LEFT - D.PLOT_RIGHT;
+  return {
+    ...D,
+    VW,
+    VH,
+    PRICE_BOTTOM,
+    VOL_TOP,
+    VOL_BOTTOM,
+    TIME_AXIS_Y,
+    DATE_AXIS_Y,
+    PLOT_RIGHT: RAIL_LEFT - axisW,
+    RAIL_LEFT,
+    RAIL_RIGHT,
+    PLOT_RIGHT_NO_RAIL: RAIL_RIGHT - axisW,
+  };
+}
 
 // Widest card (CSS px) that still gets the compact canvas.
 const COMPACT_MAX_WIDTH = 900;
@@ -669,13 +721,13 @@ export default function GammaTerminalChart({
   }, [rootEl]);
   const isMobile = useIsMobile();
   const coarsePointer = useCoarsePointer();
-  const canvas = useMemo(
-    () =>
-      box && box.w > 0 && box.w < COMPACT_MAX_WIDTH && (isMobile || coarsePointer)
-        ? compactCanvas(box.w, box.landscape)
-        : DESKTOP_CANVAS,
-    [box, isMobile, coarsePointer],
-  );
+  // A phone or touch screen: the gesture grammar and the touch copy apply.
+  const touchUi = isMobile || coarsePointer;
+  const canvas = useMemo(() => {
+    if (!box || box.w <= 0) return DESKTOP_CANVAS;
+    if (box.w < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)) return compactCanvas(box.w, box.landscape);
+    return desktopCanvas(box.w);
+  }, [box, touchUi]);
   const {
     compact,
     VW,
@@ -2331,8 +2383,8 @@ export default function GammaTerminalChart({
   // ── PNG export ──────────────────────────────────────────────────────────
   // Snapshot the instrument exactly as it stands — same overlays, same zoom,
   // same expiry filter — the way TradingView's camera does. The raster comes
-  // off the SVG's viewBox rather than its on-screen box, so the file is the
-  // same 1360x636 (x2) whatever the window is doing.
+  // off the SVG's viewBox, so the file is the board as drawn for this card, at
+  // 2x: 1360x636 in a card at least that wide, the card's own width below it.
   const [exportState, setExportState] = useState<"idle" | "working" | "error">("idle");
 
   const downloadPng = async () => {
@@ -2803,7 +2855,11 @@ export default function GammaTerminalChart({
   const seriesColor = seriesUp ? "var(--color-bull)" : "var(--color-bear)";
 
   // About one clock label per 64 units of compact tape; nine across the board.
-  const timeLabelTarget = compact ? Math.max(3, Math.floor((plotRight - PLOT_LEFT) / 64)) : 9;
+  // About one clock label per 64 units of compact tape, and one per 110 on the
+  // desktop board, where the full-width board fits its nine.
+  const timeLabelTarget = compact
+    ? Math.max(3, Math.floor((plotRight - PLOT_LEFT) / 64))
+    : Math.min(9, Math.max(4, Math.floor((plotRight - PLOT_LEFT) / 110)));
   const timeLabelEvery = Math.max(1, Math.ceil(bars.length / timeLabelTarget));
 
   // Crosshair-price gamma context for the floating readout.
@@ -2928,7 +2984,19 @@ export default function GammaTerminalChart({
                 GAMMA
               </text>
             ) : (
-            <text x={(railLeft + railRight) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
+            // Centred over the full-width rail. A rail narrowed to its card
+            // (desktopCanvas) cannot hold the title, which ran off the board's
+            // right edge, so there it right-aligns to the rail and extends
+            // left over the empty axis column instead.
+            <text
+              x={railRight - railLeft < DESKTOP_RAIL_W ? railRight : (railLeft + railRight) / 2}
+              y={PAD_TOP - 6}
+              textAnchor={railRight - railLeft < DESKTOP_RAIL_W ? "end" : "middle"}
+              fontFamily="var(--font-mono)"
+              fontSize={10}
+              letterSpacing="0.12em"
+              fill="var(--text-muted)"
+            >
               DEALER GAMMA BY STRIKE
               {effectiveRailMode !== "silhouette" && (
                 <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
@@ -3295,7 +3363,7 @@ export default function GammaTerminalChart({
                     out of alignment. */}
                 <TooltipWrapper
                   text={
-                    compact || coarsePointer
+                    touchUi
                       ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere — or press and hold, then slide — to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control, and Reset snaps back to the live view."
                       : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view."
                   }
@@ -3814,7 +3882,7 @@ export default function GammaTerminalChart({
                     {fmtVolSigned(netVolume.last)}
                   </tspan>
                 )}
-                {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={compact ? 9.5 : 8.5}>{"   ·  PROXY (EST.)"}</tspan>}
+                {symbolIsIndex && <tspan fill="var(--color-warning)">{"   ·  PROXY (EST.)"}</tspan>}
                 {symbolIsIndex && (
                   <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
                 )}
@@ -4139,7 +4207,9 @@ export default function GammaTerminalChart({
           style={{ borderTop: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}
         >
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.04em", color: "var(--text-muted)" }}>
-            Drag to pan · pinch to zoom · tap or hold for the crosshair
+            {touchUi
+              ? "Drag to pan · pinch to zoom · tap or hold for the crosshair"
+              : "Drag to pan · Ctrl + scroll to zoom · hover for the crosshair"}
           </span>
           <div className="flex items-center gap-1.5 ml-auto">
             <ZoomCluster large label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
