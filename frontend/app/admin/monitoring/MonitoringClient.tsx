@@ -907,7 +907,7 @@ function ConveyorLane({
       className="grid items-center gap-3 py-2"
       style={{
         gridTemplateColumns: 'minmax(0, 13rem) minmax(0, 1fr) auto',
-        borderTop: `1px solid ${borderColor}33`,
+        borderTop: `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
       }}
     >
       <div className="min-w-0">
@@ -926,8 +926,8 @@ function ConveyorLane({
         <div
           className="absolute inset-x-0 top-1/2 h-3 rounded-sm -translate-y-1/2 overflow-hidden"
           style={{
-            background: `${borderColor}33`,
-            backgroundImage: `repeating-linear-gradient(115deg, ${borderColor}44 0 6px, transparent 6px 12px)`,
+            background: `color-mix(in srgb, ${borderColor} 20%, transparent)`,
+            backgroundImage: `repeating-linear-gradient(115deg, color-mix(in srgb, ${borderColor} 27%, transparent) 0 6px, transparent 6px 12px)`,
             opacity: dropped ? 0.4 : 1,
           }}
         >
@@ -1109,7 +1109,7 @@ function TrialOutcomesCard({
       </div>
 
       {decided > 0 && (
-        <div className="mt-2 h-3 rounded overflow-hidden flex" style={{ background: `${borderColor}33` }}>
+        <div className="mt-2 h-3 rounded overflow-hidden flex" style={{ background: `color-mix(in srgb, ${borderColor} 20%, transparent)` }}>
           <span style={{ width: `${convertedWidth}%`, background: CONVEYOR_COLORS.running }} />
           <span style={{ width: `${100 - convertedWidth}%`, background: CONVEYOR_COLORS.rollingOff }} />
         </div>
@@ -1122,7 +1122,7 @@ function TrialOutcomesCard({
           { label: 'Rolled off', value: outcomes.rolledOff, color: CONVEYOR_COLORS.rollingOff },
           { label: 'Charge declined', value: outcomes.stalled, color: CONVEYOR_COLORS.stalled },
         ].map((cell) => (
-          <div key={cell.label} className="rounded-lg p-2" style={{ border: `1px solid ${borderColor}55` }}>
+          <div key={cell.label} className="rounded-lg p-2" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
             <div className="text-[11px] uppercase tracking-wide" style={{ color: mutedText }}>{cell.label}</div>
             <div className="text-xl font-semibold tabular-nums" style={{ color: cell.color }}>{cell.value}</div>
           </div>
@@ -1227,7 +1227,7 @@ function SubscriberLedgerCard({
           style={{
             border: `1px solid ${borderColor}`,
             color: onlyMoves ? 'var(--color-text-primary)' : mutedText,
-            background: onlyMoves ? `${borderColor}33` : 'transparent',
+            background: onlyMoves ? `color-mix(in srgb, ${borderColor} 20%, transparent)` : 'transparent',
           }}
         >
           {onlyMoves ? 'Showing count changes only' : 'Show count changes only'}
@@ -1261,7 +1261,7 @@ function SubscriberLedgerCard({
               className="grid gap-3 py-2 items-start"
               style={{
                 gridTemplateColumns: 'minmax(0, 5rem) minmax(0, 1fr) auto',
-                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+                borderTop: idx === 0 ? undefined : `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
               }}
             >
               <span className="text-xs tabular-nums pt-0.5" style={{ color: mutedText }} title={r.at}>
@@ -1365,7 +1365,7 @@ function ScheduledDeparturesCard({
               className="grid gap-3 py-2 items-center"
               style={{
                 gridTemplateColumns: 'minmax(0, 1fr) auto',
-                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+                borderTop: idx === 0 ? undefined : `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
               }}
             >
               <div className="min-w-0">
@@ -1993,7 +1993,7 @@ function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, te
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {rates.map((rate) => (
-          <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+          <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
             <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days}-day</div>
             <div className="text-2xl font-semibold tabular-nums" style={{ color: rate.net >= 0 ? '#2c8c6a' : '#c1435b' }}>{rate.dailyRate >= 0 ? '+' : ''}{rate.dailyRate.toFixed(2)}/day</div>
             <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>{rate.signups} signups − {rate.cancellations} cancels − {rate.paymentFailures} failures = {rate.net >= 0 ? '+' : ''}{rate.net}</div>
@@ -2033,7 +2033,7 @@ function StatTile({
   textColor: string;
 }) {
   return (
-    <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+    <div className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
       <div className="text-xs uppercase tracking-wide mb-1" style={{ color: mutedText }}>{label}</div>
       <div className="text-xl font-semibold tabular-nums" style={{ color: textColor }}>{value}</div>
       {sub && <div className="text-xs mt-0.5" style={{ color: mutedText }}>{sub}</div>}
@@ -2096,7 +2096,7 @@ function IncomeReplacementCard({
       </div>
       <div
         className="h-3 rounded-full overflow-hidden mb-1"
-        style={{ backgroundColor: `${borderColor}55` }}
+        style={{ backgroundColor: `color-mix(in srgb, ${borderColor} 33%, transparent)` }}
         role="progressbar"
         aria-valuenow={Math.round(mrr.progressPct)}
         aria-valuemin={0}
@@ -2145,7 +2145,7 @@ function IncomeReplacementCard({
 
       {/* Per-plan breakdown so the estimate is auditable */}
       {mrr.breakdown.length > 0 ? (
-        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid ${borderColor}55` }}>
+        <div className="rounded-lg overflow-hidden" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
           <table className="w-full text-sm">
             <thead>
               <tr style={{ color: mutedText }} className="text-xs uppercase tracking-wide">
@@ -2159,7 +2159,7 @@ function IncomeReplacementCard({
               {mrr.breakdown.map((row) => (
                 <tr
                   key={`${row.tier}-${row.cadence}-${row.rate}-${row.state}`}
-                  style={{ borderTop: `1px solid ${borderColor}33`, color: textColor, opacity: row.state === 'trialing' ? 0.7 : 1 }}
+                  style={{ borderTop: `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`, color: textColor, opacity: row.state === 'trialing' ? 0.7 : 1 }}
                 >
                   <td className="px-3 py-1.5">
                     {TIER_LABEL[row.tier]} · {CADENCE_LABEL[row.cadence]} · {RATE_LABEL[row.rate]}
@@ -2319,7 +2319,7 @@ function MrrTrendCard({
               value={horizonMonths}
               onChange={(e) => setHorizonMonths(Number(e.target.value))}
               className="rounded border px-2 py-1 text-xs"
-              style={{ backgroundColor: cardBg, borderColor: `${axisStroke}55`, color: textColor }}
+              style={{ backgroundColor: cardBg, borderColor: `color-mix(in srgb, ${axisStroke} 33%, transparent)`, color: textColor }}
               aria-label="Projection horizon"
             >
               {MRR_PROJECTION_HORIZONS.map((h) => (
@@ -2889,10 +2889,10 @@ function CancellationReasonsCard({
                 <span className="text-xs w-40 shrink-0 truncate" style={{ color: textColor }} title={row.label}>
                   {row.label}
                 </span>
-                <span className="flex-1 h-3 rounded" style={{ background: `${borderColor}33` }}>
+                <span className="flex-1 h-3 rounded" style={{ background: `color-mix(in srgb, ${borderColor} 20%, transparent)` }}>
                   <span
                     className="block h-3 rounded"
-                    style={{ width: `${width}%`, background: isNone ? `${borderColor}88` : ROW_COLORS.webhookHealth }}
+                    style={{ width: `${width}%`, background: isNone ? `color-mix(in srgb, ${borderColor} 53%, transparent)` : ROW_COLORS.webhookHealth }}
                   />
                 </span>
                 <span className="text-xs tabular-nums w-8 text-right" style={{ color: mutedText }}>
@@ -2915,7 +2915,7 @@ function CancellationReasonsCard({
                 key={`${c.createdAt}-${idx}`}
                 className="rounded p-2 text-xs"
                 style={{
-                  border: `1px solid ${borderColor}55`,
+                  border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)`,
                   fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
                 }}
               >
@@ -3003,31 +3003,31 @@ function WebhookHealthCard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+        <div className="lg:col-span-2 rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: mutedText }}>
             Webhook events
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={eventChart} margin={{ top: 4, right: 12, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={`${borderColor}55`} vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={`color-mix(in srgb, ${borderColor} 33%, transparent)`} vertical={false} />
               <XAxis
                 dataKey="name"
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
               />
               <YAxis
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
                 allowDecimals={false}
                 domain={[0, yScale.max]}
                 ticks={yScale.ticks}
               />
               <Tooltip
-                cursor={{ fill: `${borderColor}22` }}
+                cursor={{ fill: `color-mix(in srgb, ${borderColor} 13%, transparent)` }}
                 contentStyle={{
                   backgroundColor: cardBg,
                   border: `1px solid ${borderColor}`,
@@ -3048,7 +3048,7 @@ function WebhookHealthCard({
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+        <div className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
           <div className="text-xs uppercase tracking-wide mb-2" style={{ color: mutedText }}>
             Founding cohort (all-time)
           </div>
@@ -3058,13 +3058,13 @@ function WebhookHealthCard({
               layout="vertical"
               margin={{ top: 4, right: 12, left: 8, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke={`${borderColor}55`} horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={`color-mix(in srgb, ${borderColor} 33%, transparent)`} horizontal={false} />
               <XAxis
                 type="number"
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
                 allowDecimals={false}
                 domain={[0, foundingScale.max]}
                 ticks={foundingScale.ticks}
@@ -3075,11 +3075,11 @@ function WebhookHealthCard({
                 stroke={axisStroke}
                 tick={{ fill: mutedText, fontSize: 11 }}
                 tickLine={false}
-                axisLine={{ stroke: `${borderColor}77` }}
+                axisLine={{ stroke: `color-mix(in srgb, ${borderColor} 47%, transparent)` }}
                 width={110}
               />
               <Tooltip
-                cursor={{ fill: `${borderColor}22` }}
+                cursor={{ fill: `color-mix(in srgb, ${borderColor} 13%, transparent)` }}
                 contentStyle={{
                   backgroundColor: cardBg,
                   border: `1px solid ${borderColor}`,
@@ -3105,7 +3105,7 @@ function WebhookHealthCard({
                 key={`${err.createdAt}-${idx}`}
                 className="rounded p-2 text-xs"
                 style={{
-                  border: `1px solid ${borderColor}55`,
+                  border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)`,
                   fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
                 }}
               >
@@ -3140,7 +3140,7 @@ function WebhookHealthCard({
                   key={`${row.createdAt}-${idx}`}
                   className="rounded p-2 text-xs"
                   style={{
-                    border: `1px solid ${borderColor}55`,
+                    border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)`,
                     fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
                     opacity: isNoise ? 0.55 : 1,
                   }}
@@ -3151,7 +3151,7 @@ function WebhookHealthCard({
                       <span
                         className="px-1.5 py-0.5 rounded"
                         style={{
-                          background: `${borderColor}33`,
+                          background: `color-mix(in srgb, ${borderColor} 20%, transparent)`,
                           color: textColor,
                         }}
                       >
@@ -3208,12 +3208,12 @@ function RankedBarList({ items, max, color, borderColor, mutedText, monoLabel }:
             className="grid items-center gap-3 text-sm py-1"
             style={{
               gridTemplateColumns: '2rem minmax(0, 1fr) minmax(0, 2fr) auto',
-              borderBottom: `1px solid ${borderColor}33`,
+              borderBottom: `1px solid color-mix(in srgb, ${borderColor} 20%, transparent)`,
             }}
           >
             <span className="text-xs tabular-nums" style={{ color: mutedText }}>{idx + 1}</span>
             <span className={`truncate ${monoLabel ? 'font-mono' : ''}`} title={row.label}>{row.label}</span>
-            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `${borderColor}55` }}>
+            <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
               <div
                 className="h-full rounded-full"
                 style={{ width: `${pct}%`, backgroundColor: color }}
