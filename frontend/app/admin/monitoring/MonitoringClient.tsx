@@ -219,6 +219,7 @@ type TrialConveyor = {
   truncated: number;
   departures: ConveyorRider[];
   departingValue: number;
+  paidUpFront: number;
   totals: ConveyorTotals;
   outcomes: ConveyorOutcomes;
   trialDays: number;
@@ -981,18 +982,23 @@ function ConveyorPipelineDiagram({
   mutedText: string;
 }) {
   const windowDays = conveyor.outcomes.windowDays;
-  // Accounts created but never loaded onto the belt — the leak between "made an
-  // account" and "started a trial". Floored at 0: the two counts come from
-  // different sources (the users table vs. the audit stream), so a trial that
-  // started just outside the registration window must not render as negative.
-  const neverBoarded = Math.max(0, registrations - conveyor.outcomes.boarded);
-  const stages: Array<{ label: string; value: string; caption: string; color: string; drop?: string }> = [
+  const { converted } = conveyor.outcomes;
+  const { paidUpFront } = conveyor;
+  // Accounts created that neither boarded the belt nor paid up front — the leak
+  // between "made an account" and "started paying or trialing". A plan paid up
+  // front skips the belt by design, so it is the other way in, not a drop-off.
+  // Floored at 0: the counts come from different sources (the users table vs.
+  // the audit stream), so a signup just outside the registration window must
+  // not render as negative.
+  const neverStarted = Math.max(0, registrations - conveyor.outcomes.boarded - paidUpFront);
+  const stages: Array<{ label: string; value: string; caption: string; color: string; drop?: string; note?: string }> = [
     {
       label: 'Signs up',
       value: String(registrations),
       caption: `accounts created · ${windowDays}d`,
       color: ROW_COLORS.uniqueUsers,
-      drop: neverBoarded > 0 ? `${neverBoarded} never started a trial` : undefined,
+      note: paidUpFront > 0 ? `${paidUpFront} paid up front` : undefined,
+      drop: neverStarted > 0 ? `${neverStarted} never started a trial or paid` : undefined,
     },
     {
       label: 'Boards belt',
@@ -1016,8 +1022,10 @@ function ConveyorPipelineDiagram({
     },
     {
       label: 'Paying',
-      value: String(conveyor.outcomes.converted),
-      caption: `converted · ${windowDays}d`,
+      value: String(converted + paidUpFront),
+      caption: paidUpFront > 0
+        ? `${converted} from trials · ${paidUpFront} paid up front · ${windowDays}d`
+        : `converted · ${windowDays}d`,
       color: ROW_COLORS.mrr,
     },
   ];
@@ -1025,7 +1033,7 @@ function ConveyorPipelineDiagram({
     <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
       {stages.map((stage, idx) => (
         <div key={stage.label} className="flex items-stretch gap-2 shrink-0">
-          <div className="rounded-lg px-3 py-2 min-w-[9.5rem]" style={{ border: `1px solid ${stage.color}66` }}>
+          <div className="rounded-lg px-3 py-2 min-w-[9.5rem] max-w-[10.5rem]" style={{ border: `1px solid ${stage.color}66` }}>
             <div className="text-[11px] uppercase tracking-wide" style={{ color: mutedText }}>
               {stage.label}
             </div>
@@ -1035,6 +1043,11 @@ function ConveyorPipelineDiagram({
             <div className="text-[11px]" style={{ color: mutedText }}>
               {stage.caption}
             </div>
+            {stage.note && (
+              <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.running }}>
+                ↳ {stage.note}
+              </div>
+            )}
             {stage.drop && (
               <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.rollingOff }}>
                 ↳ {stage.drop}
@@ -1697,9 +1710,10 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h2 className="text-lg font-semibold" style={{ color: textColor }}>The Conveyor</h2>
         <span className="text-xs" style={{ color: mutedText }}>
-          Every free trial is a package on a belt. It boards at signup, rides for the trial length, and comes off the
-          end as a paying subscriber — unless the member cancels (falls off) or the first charge is declined (jams at
-          the gate). Timers are live.
+          Every free trial is a package on a belt. It boards when the trial starts, rides for the trial length, and
+          comes off the end as a paying subscriber — unless the member cancels (falls off) or the first charge is
+          declined (jams at the gate). Plans paid up front at checkout skip the belt and count straight into Paying.
+          Timers are live.
         </span>
       </div>
 
@@ -1970,7 +1984,7 @@ function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, te
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
         <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
-        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks (net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each trailing window.</p>
+        <p className="text-xs" style={{ color: mutedText }}>New subscriptions (trials and plans paid up front) minus cancellations (Cancel clicks and money-back refunds, net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each trailing window.</p>
         {ledgerError && (
           <p className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.stalled }}>
             Payment failures could not be counted because the Subscriber Ledger failed to build, so they show as 0.
@@ -3445,7 +3459,7 @@ function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, muted
   const convertingColor = CONVERTING_COLOR;
   const graceTrialColor = '#ffd380';
   const convertingTitle =
-    'Free trial ended and Stripe raised the first subscription invoice, flipping the subscription to active — but it attempts the charge about an hour later, so no payment has cleared yet. These become Full Subscribers when it does, or Trial Grace when the card is declined.';
+    'Free trial ended and Stripe raised the first subscription invoice, flipping the subscription to active — but it attempts the charge about an hour later, so no payment has cleared yet. These become Full Subscribers when it does, or Trial Grace when the card is declined. A plan paid up front at checkout passes through here for a moment only, while its payment is recorded.';
   const graceTrialTitle =
     'Free trial ended, the first subscription charge failed, and access is retained during the bounded payment-recovery grace window while Stripe retries the card.';
   const projectedColor = '#2c8c6a';

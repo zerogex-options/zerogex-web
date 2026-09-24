@@ -84,10 +84,11 @@ Every monthly customer is in exactly one of four states per step:
 
 A non-renewal is attributed to a **failed payment** (a decline within 3 days
 before to 35 days after the due date), a **voluntary** decision (a cancellation
-request before the due date), or left **unattributed**.
+request or a money-back refund before the due date), or left **unattributed**.
 
-Annual subscribers are excluded from the ladder entirely. Their first renewal is
-a year out; averaging it with a 30-day question describes neither.
+Annual and quarterly subscribers are excluded from the ladder entirely. Their
+first renewal is three or twelve months out; averaging it with a 30-day question
+describes neither.
 
 ### Observability
 
@@ -124,7 +125,10 @@ happened.
 Applied only to a loss that **still stands** — a customer who lapsed and came
 back has no churn kind, because they are a current subscriber.
 
-* **Voluntary** — a `stripe_cancellation_requested` event before access ended.
+* **Voluntary** — a `stripe_cancellation_requested` event before access ended,
+  or a money-back refund (`money_back_refund_issued`). Every plan but Basic
+  monthly is paid up front under a 7-day money-back guarantee, and a refund
+  cancels on the spot, so it never writes a cancellation request of its own.
 * **Involuntary (nonpayment)** — a `stripe_payment_failed` event within the 35
   days before access ended, and no cancellation request.
 * **Other / unknown** — access ended with neither on record. The audit trail

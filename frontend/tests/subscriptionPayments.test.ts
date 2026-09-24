@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   acceptsSubscriptionPaymentStamp,
+  isPaidUpFrontSignup,
   isSubscriptionPaymentEvidence,
   SUBSCRIPTION_PAYMENT_AUDIT_TYPES,
 } from '../core/subscriptionPayments.ts';
@@ -262,4 +263,30 @@ test('a late invoice is still accepted while the current sub has never paid', ()
   // so accepting only moves the date within a subscription they have left — the
   // member stays on Converting either way, which is correct.
   assert.equal(accepts('sub_old', 'sub_new', 'sub_old'), true);
+});
+
+// ── Paid up front ──────────────────────────────────────────────────────────
+// Every plan but Basic monthly is charged at checkout with no trial. Those
+// members never board the Conversion Conveyor's belt; this is how it counts them.
+
+test('a first invoice paid for a real amount is a signup paid up front', () => {
+  assert.equal(isPaidUpFrontSignup('stripe_invoice_paid', invoicePaid({ reason: 'subscription_create', amount: 5900 })), true);
+});
+
+test('neither trial path, nor a renewal, reads as paid up front', () => {
+  // The $0 invoice that opens a trial.
+  assert.equal(isPaidUpFrontSignup('stripe_invoice_paid', invoicePaid({ reason: 'subscription_create', amount: 0 })), false);
+  // The trial's first real charge.
+  assert.equal(isPaidUpFrontSignup('stripe_invoice_paid', invoicePaid({ reason: 'subscription_cycle' })), false);
+  // A trial member switching to a paid plan mid-trial.
+  assert.equal(isPaidUpFrontSignup('stripe_invoice_paid', invoicePaid({ reason: 'subscription_update' })), false);
+  // The account-level first-payment stamp is not an invoice row.
+  assert.equal(isPaidUpFrontSignup('stripe_first_payment', firstPayment()), false);
+});
+
+test('an amount that does not parse is not claimed as a sale', () => {
+  assert.equal(
+    isPaidUpFrontSignup('stripe_invoice_paid', 'Invoice in_1 paid for sub sub_1 amount=unknown billing_reason=subscription_create'),
+    false,
+  );
 });

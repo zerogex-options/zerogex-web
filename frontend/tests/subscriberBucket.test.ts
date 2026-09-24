@@ -885,7 +885,7 @@ test('a declined trial charge is ONE payment failure, however it ends', () => {
     [],
     [],
     Date.parse('2026-09-21T00:00:00Z'),
-    [decline({ at: '2026-09-08T01:00:00Z' }), decline({ at: '2026-09-11T01:00:00Z' })],
+    { declines: [decline({ at: '2026-09-08T01:00:00Z' }), decline({ at: '2026-09-11T01:00:00Z' })] },
   );
   assert.deepEqual(failures(rows).map((r) => r.kind), ['trialChargeDeclined']);
   const ended = rows.find((r) => r.kind === 'accessEnded')!;
@@ -908,7 +908,7 @@ test('a trial charge refused and canceled in the same instant is a payment failu
     [],
     [],
     Date.parse('2026-09-23T18:00:00Z'),
-    [decline({ at: '2026-09-23T16:40:34.436Z' })],
+    { declines: [decline({ at: '2026-09-23T16:40:34.436Z' })] },
   );
   assert.deepEqual(rows.map((r) => r.kind), ['accessEnded', 'conversionPending', 'trialStarted']);
   assert.equal(rows[0].paymentFailure, true);
@@ -946,11 +946,13 @@ test('a renewal in dunning is one failure; failing again after recovering is ano
     [payment({ at: '2026-06-01T00:10:00Z' }), payment({ at: '2026-07-03T00:00:00Z' })],
     [],
     Date.parse('2026-08-02T00:00:00Z'),
-    [
-      decline({ at: '2026-07-01T00:00:00Z' }),
-      decline({ at: '2026-07-02T00:00:00Z' }),
-      decline({ at: '2026-08-01T00:00:00Z' }),
-    ],
+    {
+      declines: [
+        decline({ at: '2026-07-01T00:00:00Z' }),
+        decline({ at: '2026-07-02T00:00:00Z' }),
+        decline({ at: '2026-08-01T00:00:00Z' }),
+      ],
+    },
   );
   assert.deepEqual(
     failures(rows).map((r) => [r.kind, r.at]),
@@ -971,7 +973,7 @@ test('a renewal Stripe cancels on the first decline is a payment failure', () =>
     [payment({ at: '2026-08-01T00:05:00Z' })],
     [],
     Date.parse('2026-09-02T00:00:00Z'),
-    [decline({ at: '2026-09-01T00:00:00Z' })],
+    { declines: [decline({ at: '2026-09-01T00:00:00Z' })] },
   );
   assert.equal(rows[0].kind, 'accessEnded');
   assert.equal(rows[0].paymentFailure, true);
@@ -1007,7 +1009,7 @@ test('a scheduled cancellation taking effect is never a payment failure', () => 
     [],
     Date.parse('2026-09-02T00:00:00Z'),
     // Even with a declined charge on record (a refused plan change, say).
-    [decline({ at: '2026-08-15T00:00:00Z' })],
+    { declines: [decline({ at: '2026-08-15T00:00:00Z' })] },
   );
   assert.equal(failures(rows).length, 0);
   assert.match(rows[0].detail, /Scheduled cancellation took effect/);
@@ -1025,11 +1027,13 @@ test('declines that moved no subscriber are not payment failures', () => {
     [payment({ at: '2026-09-08T01:00:00Z' })],
     [],
     Date.parse('2026-09-09T00:00:00Z'),
-    [
-      decline({ at: '2026-09-03T10:00:00Z' }),
-      decline({ at: '2026-09-03T10:01:00Z' }),
-      decline({ at: '2026-09-03T10:02:00Z' }),
-    ],
+    {
+      declines: [
+        decline({ at: '2026-09-03T10:00:00Z' }),
+        decline({ at: '2026-09-03T10:01:00Z' }),
+        decline({ at: '2026-09-03T10:02:00Z' }),
+      ],
+    },
   );
   assert.equal(failures(refusedSwitch).length, 0);
 
@@ -1043,7 +1047,7 @@ test('declines that moved no subscriber are not payment failures', () => {
     [],
     [],
     Date.parse('2026-09-24T00:00:00Z'),
-    [decline({ at: '2026-09-22T12:00:00Z' })],
+    { declines: [decline({ at: '2026-09-22T12:00:00Z' })] },
   );
   assert.equal(refusedCheckout.length, 0);
 
@@ -1060,7 +1064,7 @@ test('declines that moved no subscriber are not payment failures', () => {
     [],
     [],
     Date.parse('2026-09-11T00:00:00Z'),
-    [decline({ at: '2026-09-08T01:00:00Z' }), decline({ at: '2026-09-10T15:00:00Z' })],
+    { declines: [decline({ at: '2026-09-08T01:00:00Z' }), decline({ at: '2026-09-10T15:00:00Z' })] },
   );
   assert.deepEqual(failures(retriedBill).map((r) => r.kind), ['trialChargeDeclined']);
 });
@@ -1093,9 +1097,80 @@ test('a cleared payment means an earlier decline no longer explains an ending', 
     [payment({ at: '2026-07-01T00:05:00Z' }), payment({ at: '2026-08-01T00:00:00Z' })],
     [],
     Date.parse('2026-08-06T00:00:00Z'),
-    [decline({ at: '2026-07-20T00:00:00Z' })],
+    { declines: [decline({ at: '2026-07-20T00:00:00Z' })] },
   );
   assert.equal(rows[0].kind, 'accessEnded');
   assert.equal(rows[0].paymentFailure, false);
   assert.match(rows[0].detail, /^Subscription ended/);
+});
+
+test('a signup paid up front is not described as a trial ending', () => {
+  // Every plan but Basic monthly is charged at checkout with no trial. The
+  // subscription turns `active` a moment before the payment is on record.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-23T15:00:00Z', status: 'active' })],
+    [],
+    [payment({ at: '2026-09-23T15:00:02Z' })],
+    [],
+    Date.parse('2026-09-23T16:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted', 'conversionPending']);
+  assert.match(rows[1].detail, /paid plan/);
+  assert.doesNotMatch(rows[1].detail, /[Tt]rial/);
+  assert.equal(summarizeLedger(rows).fullSubscriber, 1);
+});
+
+test('a paid-up-front signup that first syncs as incomplete is new, not a return', () => {
+  // Checkout creates the subscription `incomplete` (not counted) until the
+  // charge clears; the payment can be on record before the `active` sync.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-23T15:00:00Z', status: 'incomplete', tier: 'public' }),
+      sync({ at: '2026-09-23T15:00:05Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-09-23T15:00:03Z' })],
+    [],
+    Date.parse('2026-09-23T16:00:00Z'),
+  );
+  assert.deepEqual(rows.map((r) => r.kind), ['converted']);
+  assert.equal(rows[0].detail, 'New paying subscriber');
+  assert.equal(rows[0].fullSubscriberDelta, 1);
+});
+
+test('a member who really lapsed and came back still reads as a return', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-01T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-09-01T00:00:00Z', status: 'canceled', tier: 'public' }),
+      sync({ at: '2026-09-10T00:00:00Z', status: 'active' }),
+    ],
+    [],
+    [payment({ at: '2026-08-01T00:05:00Z' })],
+    [],
+    Date.parse('2026-09-11T00:00:00Z'),
+  );
+  assert.equal(rows[0].kind, 'converted');
+  assert.equal(rows[0].detail, 'Resubscribed — paying again');
+});
+
+test('a money-back refund reads as a refund, and never as a payment failure', () => {
+  // The refund's own row can land after the deletion it caused, so it is read
+  // as a fact about the subscription rather than as a step on the timeline.
+  const rows = buildSubscriberLedger(
+    [sync({ at: '2026-09-20T12:00:00Z', status: 'active' })],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: '2026-09-24T10:00:00Z', reason: 'too_expensive' }],
+    [payment({ at: '2026-09-20T12:00:02Z' })],
+    [],
+    Date.parse('2026-09-24T12:00:00Z'),
+    {
+      refunds: [{ subId: 'sub_1', at: '2026-09-24T10:00:01Z' }],
+      // A declined charge on record does not turn a refund into a failure.
+      declines: [decline({ at: '2026-09-22T00:00:00Z' })],
+    },
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].detail, 'Refunded under the money-back guarantee — access ended (too_expensive)');
+  assert.equal(rows[0].fullSubscriberDelta, -1);
+  assert.equal(rows[0].paymentFailure, false);
 });

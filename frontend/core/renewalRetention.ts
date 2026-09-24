@@ -1,5 +1,8 @@
+import { MONEY_BACK_REFUND_AUDIT_TYPES } from './cancelDecisions.ts';
 import type { AmountTable, BillableTier } from './pricing.ts';
 import type { CohortUser, PaidInvoice } from './cohortRetention.ts';
+
+const MONEY_BACK_REFUND_TYPES = new Set<string>(MONEY_BACK_REFUND_AUDIT_TYPES);
 
 // DOES THE SECOND PAYMENT HAPPEN? — the metric the business actually turns on,
 // and the one a retention dashboard is most likely to fake.
@@ -239,8 +242,9 @@ function classifyStep(
   });
   if (failedNearDue) return { kind: 'eligible', outcome: 'not_renewed_failed_payment' };
 
+  // A money-back refund is a cancellation too; it just never writes a click.
   const cancelledBeforeDue = user.auditEvents.some((event) => {
-    if (event.type !== 'stripe_cancellation_requested') return false;
+    if (event.type !== 'stripe_cancellation_requested' && !MONEY_BACK_REFUND_TYPES.has(event.type)) return false;
     const at = time(event.createdAt);
     return at != null && at <= dueAt;
   });

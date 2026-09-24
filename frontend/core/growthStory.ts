@@ -256,7 +256,10 @@ export function buildGrowthStory(
       value: trials,
       ofPrevious: rate(trials, registered),
       ofTop: rate(trials, registered),
-      droppedFromPrevious: registered - trials,
+      // Most plans are paid up front with no trial, so skipping the trial by
+      // paying is the other way in, not a drop-off. Only the registrations that
+      // did neither are lost at this step.
+      droppedFromPrevious: Math.max(0, registered - trials - directToPaid),
       eligible: null,
     },
     {
@@ -407,7 +410,7 @@ export function buildGrowthStory(
   const leakSentence = biggestLeak == null || biggestLeak.droppedFromPrevious == null
     ? null
     : biggestLeak.key === 'trial'
-      ? `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'registration')} never started a trial.`
+      ? `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'registration')} never started a trial or paid.`
       : biggestLeak.key === 'paidAfterTrial'
         ? `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'trial')} ended without a payment.`
         : `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'paying customer')} lost paid access inside 30 days.`;

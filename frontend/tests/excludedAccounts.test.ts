@@ -98,6 +98,16 @@ for (const id of ['admin', 'partner', 'comped', 'customer', 'exPartner']) {
   audit('stripe_cancellation_requested', isoDaysAgo(3), `Cancellation requested for sub_${id}`, id);
 }
 
+// …and every account's first charge is declined on the same day.
+for (const id of ['admin', 'partner', 'comped', 'customer', 'exPartner']) {
+  audit(
+    'stripe_subscription_sync',
+    isoDaysAgo(1),
+    `Subscription sub_${id} status=past_due tier=pro cancelAtPeriodEnd=false`,
+    id,
+  );
+}
+
 // …and every account browses on the same day.
 seedVisit('v_admin', isoDaysAgo(2), 'admin');
 seedVisit('v_partner', isoDaysAgo(2, 17), 'partner');
@@ -143,6 +153,7 @@ test('held-out accounts reach none of the derived daily columns', () => {
   assert.equal(rows.get(dayOf(5))?.registrations, 2, 'only the customer and the ex-partner registered');
   assert.equal(rows.get(dayOf(4))?.trialStarts, 2, 'a partner grant is not a trial start');
   assert.equal(rows.get(dayOf(3))?.cancels, 2, 'the admin cancelling is not churn');
+  assert.equal(rows.get(dayOf(1))?.paymentFailures, 2, 'a comped member declining is not a lost customer');
 });
 
 test('the operator browsing their own dashboard is not daily traffic', () => {

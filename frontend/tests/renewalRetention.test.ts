@@ -136,6 +136,42 @@ test('a renewal lost to a declined card is separated from one simply not taken',
   assert.equal(step.renewed, 0);
 });
 
+test('a money-back refund is a voluntary non-renewal, not an unexplained one', () => {
+  // A refund cancels on the spot and never writes a Cancel click. One refunded
+  // long ago (its renewal was due and never came), one refunded this week (due
+  // later, but access is already gone for good).
+  const refund = (id: string, at: string): CohortAuditInput => ({
+    userId: id,
+    type: 'money_back_refund_issued',
+    createdAt: at,
+    message: `Money-back refund (self_serve) on sub sub_${id}: refunded $59.00 [re_1], subscription canceled`,
+  });
+  const ended = (id: string, at: string): CohortAuditInput => ({
+    userId: id,
+    type: 'stripe_subscription_deleted',
+    createdAt: at,
+    message: `Subscription sub_${id} ended; tier reset to public`,
+  });
+  const users = [
+    monthly('longago', 70, { currentStatus: null, currentTier: 'public' }),
+    monthly('thisweek', 10, { currentStatus: null, currentTier: 'public' }),
+  ];
+  const events = [
+    sync('longago', ago(70)),
+    invoice('longago', ago(70), ago(40), 'subscription_create', 1),
+    refund('longago', ago(66)),
+    ended('longago', ago(66)),
+    sync('thisweek', ago(10)),
+    invoice('thisweek', ago(10), ahead(20), 'subscription_create', 1),
+    ended('thisweek', ago(6)),
+    refund('thisweek', ago(6)),
+  ];
+  const step = renewals(users, events).steps[0];
+  assert.equal(step.eligible, 2);
+  assert.equal(step.notRenewedVoluntary, 2);
+  assert.equal(step.notRenewedUnknown, 0);
+});
+
 test('a renewal due before the invoice record began is unknown, never a failure', () => {
   // The only invoice anywhere is 20 days old, so nothing before then is visible.
   const users = [monthly('ancient', 400, { currentStatus: null, currentTier: 'public' }), monthly('recent', 50)];

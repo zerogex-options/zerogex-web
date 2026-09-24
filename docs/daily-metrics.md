@@ -25,8 +25,8 @@ answerable:
 | `date` | The America/New_York calendar day. Same day boundary as every other chart on the admin page. |
 | `trial_starts` | Free trials that began. |
 | `paid_starts` | Subscriptions that started paying immediately (no trial). |
-| `cancels` | Members who clicked cancel. |
-| `payment_failures` | Invoices whose first charge attempt was declined. |
+| `cancels` | Members who clicked cancel, or were refunded under the money-back guarantee. |
+| `payment_failures` | Subscribers whose charge was declined, once per failure. The same count as the Forward-Looking Growth Rate card. |
 | `registrations` | Accounts created. |
 | `unique_users` | Distinct logged-in users who viewed a page. |
 | `pageviews` | Page views, logged-in and anonymous. |
@@ -74,9 +74,19 @@ rather than a fresh collection starting from today:
 - **`cancels`** — `stripe_cancellation_requested` / `cancellation_ack_email_sent`,
   deduped per member per day. This is the day the member *clicked cancel*, not
   the later day their access lapsed, because the decision is what a weekday
-  effect would live in.
-- **`payment_failures`** — `stripe_payment_failed … (attempt 1)`, deduped per
-  invoice. Stripe's Smart Retries emit a row per attempt; only the first counts.
+  effect would live in. A money-back refund (`money_back_refund_issued`) counts
+  on the day it was issued: it cancels on the spot, so it never writes a Cancel
+  click. A refund on a subscription whose member already clicked Cancel is the
+  same decision and is not counted again (`frontend/core/cancelDecisions.ts`).
+- **`payment_failures`** — the Subscriber Ledger's rows flagged as payment
+  failures (`LedgerRow.paymentFailure`, `frontend/core/subscriberBucket.ts`): a
+  declined charge that hits a subscriber, counted once per failure on the day it
+  hit, however many retries follow. These are the same rows the monitoring
+  page's Forward-Looking Growth Rate card counts, so the two agree. A decline
+  that moved no subscriber (a trial member's refused switch to paid, a card
+  refused at checkout, another try at a bill that had already failed) is not a
+  failure here; Admin → Monitoring → Stripe → Payment Declines counts every
+  attempt.
 - **`registrations`** — rows in `users`, by `created_at`. One row per account, so
   it cannot double-count the way an audit stream can.
 - **`pageviews` / `unique_users`** — `page_view_events`, bucketed by UTC hour in

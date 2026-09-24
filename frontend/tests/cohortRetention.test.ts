@@ -221,6 +221,26 @@ test('voluntary, nonpayment and unattributed losses stay distinct', () => {
   });
 });
 
+test('a money-back refund is a voluntary exit, though no Cancel click exists', () => {
+  // Every plan but Basic monthly is paid up front under a 7-day guarantee. A
+  // refund cancels on the spot, so the only rows are the deletion and the
+  // refund's own, which is written after the cancel has gone through.
+  const result = only(
+    [churned('refunded', ago(10), ago(9))],
+    [
+      sync('refunded', ago(9), 'active', 'pro'),
+      event('refunded', 'stripe_subscription_deleted', ago(5),
+        'Subscription sub_refunded ended; tier reset to public | cancel_feedback=too_expensive'),
+      event('refunded', 'money_back_refund_issued', ago(5, 0.01),
+        'Money-back refund (self_serve) on sub sub_refunded: refunded $59.00 [re_1], subscription canceled, reason=too_expensive'),
+    ],
+  );
+  assert.equal(result.churnKind, 'voluntary', 'not "unattributed"');
+  assert.equal(result.paidCustomerState, 'voluntarily_churned');
+  assert.equal(result.cancellationReason, 'Too expensive', 'read off the deletion the refund caused');
+  assert.match(result.classificationExplanation ?? '', /money-back/);
+});
+
 test('the four current states always reconcile to the ever-paid count', () => {
   const result = report(
     [
