@@ -6,7 +6,7 @@
 
 ## What this page shows
 
-The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the static book, this page shows you the **flow** — what aggressors are doing in real time.
+The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the static book, this page shows you the **flow** - what aggressors are doing in real time.
 
 ## The three flow lenses
 
@@ -14,7 +14,7 @@ ZeroGEX shows flow through three lenses, because each one matters differently.
 
 ### Net contract volume
 
-Just count contracts. Useful as a noise baseline. Useless as a conviction read on its own — a thousand $0.05 contracts and one $500 contract count the same.
+Just count contracts. Useful as a noise baseline. Useless as a conviction read on its own - a thousand $0.05 contracts and one $500 contract count the same.
 
 ### Premium-weighted flow
 
@@ -34,13 +34,13 @@ Below the headline:
 
 - **Call buy / call sell** premium
 - **Put buy / put sell** premium
-- **Net aggressor delta** — the Lee-Ready output scaled by contract delta
+- **Net aggressor delta** - the Lee-Ready output scaled by contract delta
 
 Each is plotted as a series so you can see the slope, not just the level.
 
 ## The smart-money chip
 
-Tags on individual trades flag them as smart-money — typically large blocks, sweeps, repeated aggressive prints in the same direction. Smart-money flow is shown as a separate subseries. Use it as a cross-check on the headline.
+Tags on individual trades flag them as smart-money - typically large blocks, sweeps, repeated aggressive prints in the same direction. Smart-money flow is shown as a separate subseries. Use it as a cross-check on the headline.
 
 ## How to read it
 
@@ -56,9 +56,9 @@ For the deeper read on why raw volume can mislead, why directional flow adds sig
 
 ## When the page is most useful
 
-- **Right after the open** — the first 30 minutes tell you a lot about the day's bias.
-- **At any key level** — the flow into a wall or VWAP tells you whether the level is being defended or broken.
-- **Into the close** — combined with EOD Pressure, the flow read sharpens the directional cue.
+- **Right after the open** - the first 30 minutes tell you a lot about the day's bias.
+- **At any key level** - the flow into a wall or VWAP tells you whether the level is being defended or broken.
+- **Into the close** - combined with EOD Pressure, the flow read sharpens the directional cue.
 
 ## See also
 

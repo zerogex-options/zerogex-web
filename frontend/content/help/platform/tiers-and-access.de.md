@@ -1,6 +1,6 @@
 # Tiers, Zugang & was wo freigeschaltet wird
 
-*Eine klare Übersicht, welche Seiten öffentlich, Basic oder Pro sind — und was sich zwischen den Tiers auf jeder Seite ändert.*
+*Eine klare Übersicht, welche Seiten öffentlich, Basic oder Pro sind - und was sich zwischen den Tiers auf jeder Seite ändert.*
 
 ---
 
@@ -21,46 +21,46 @@ Die aktuelle Aufschlüsselung findest du auf der Seite [Pricing](/pricing). Basi
 ### Public (kein Konto nötig)
 
 - Die Marketing-Site (Landing, About, Education Hub, Articles, Guides)
-- Kostenlose SPX-, SPY-, QQQ- und NDX-Gamma-Level-Seiten — etwa 15 Minuten verzögert
+- Kostenlose SPX-, SPY-, QQQ- und NDX-Gamma-Level-Seiten - etwa 15 Minuten verzögert
 - Help Center, FAQs, Quick Starts
 - Datenschutz, AGB
 
 ### Basic-Tier
 
-- **Dashboard** — vollständige Echtzeit-Metriken
-- **Live Bulletin** — ein teilbereiter Live-Snapshot der Dealer-Gamma-Positionierung
-- **Alle Metrics-Seiten** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
-- **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
-- **Strategy Builder** — vollständiges Options-Pricing und P&L
-- **Live Options Quotes** — die Live-Chain
+- **Dashboard** - vollständige Echtzeit-Metriken
+- **Live Bulletin** - ein teilbereiter Live-Snapshot der Dealer-Gamma-Positionierung
+- **Alle Metrics-Seiten** - Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
+- **Basic Signals** - Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
+- **Strategy Builder** - vollständiges Options-Pricing und P&L
+- **Live Options Quotes** - die Live-Chain
 
 ### Pro-Tier
 
 - Alles aus Basic, plus:
-- **Composite Score** — die kombinierte Einschätzung über alle Signale hinweg
-- **Alle Advanced Signals** — Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
-- **Backtesting** — historische Signal-Backtests
-- **API-Zugang** — dieselben Daten über `api.zerogex.io`
+- **Composite Score** - die kombinierte Einschätzung über alle Signale hinweg
+- **Alle Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
+- **Backtesting** - historische Signal-Backtests
+- **API-Zugang** - dieselben Daten über `api.zerogex.io`
 
 ## Was sich zwischen Tiers auf derselben Seite ändert
 
 Einige Seiten existieren für alle Tiers, verhalten sich aber unterschiedlich je nachdem, welchen Zugang du hast:
 
 - Das **Dashboard** ist für Basic und Pro vollständig befüllt. Public-Nutzer sehen eine Teaser-Ansicht, die nach der Anmeldung zur Live-Seite verlinkt.
-- Der Bereich **Signals** in der Seitenleiste ist immer sichtbar — jeder kann auf einen Signalnamen klicken. Ohne Zugang führt der Klick zur Seite [Pricing](/pricing), damit du siehst, was ihn freischaltet.
+- Der Bereich **Signals** in der Seitenleiste ist immer sichtbar - jeder kann auf einen Signalnamen klicken. Ohne Zugang führt der Klick zur Seite [Pricing](/pricing), damit du siehst, was ihn freischaltet.
 
 ## So upgradest du oder wechselst den Tier
 
 Kontoänderungen erfolgen an zwei Stellen:
 
-1. **[Account](/account)** — zeigt deinen aktuellen Tier, den aktuellen Plan-Status und den Link zum Billing-Portal.
-2. **[Stripe Billing Portal](/account)** — erreichbar über die Account-Seite. Wechsle zwischen Basic und Pro, wechsle zwischen monatlicher, vierteljährlicher und jährlicher Abrechnung, ändere die Zahlungsmethode, sieh dir Rechnungen an.
+1. **[Account](/account)** - zeigt deinen aktuellen Tier, den aktuellen Plan-Status und den Link zum Billing-Portal.
+2. **[Stripe Billing Portal](/account)** - erreichbar über die Account-Seite. Wechsle zwischen Basic und Pro, wechsle zwischen monatlicher, vierteljährlicher und jährlicher Abrechnung, ändere die Zahlungsmethode, sieh dir Rechnungen an.
 
 Eine Schritt-für-Schritt-Anleitung findest du unter [Billing & Stripe Portal](/help/platform/billing).
 
 ## Wenn du dich in einer Testphase befindest
 
-Die 7-tägige kostenlose Testphase gibt es nur für Basic monatlich (eine pro Konto). Solange sie läuft, zeigt die Account-Seite einen Chip „Trial active — X days left". Endet die Testphase, läuft das Abonnement automatisch zu dem Tarif weiter, zu dem du dich angemeldet hast. Um das zu verhindern, kündige im Billing-Portal, bevor die Testphase abläuft — dann wird dir nichts berechnet.
+Die 7-tägige kostenlose Testphase gibt es nur für Basic monatlich (eine pro Konto). Solange sie läuft, zeigt die Account-Seite einen Chip „Trial active - X days left". Endet die Testphase, läuft das Abonnement automatisch zu dem Tarif weiter, zu dem du dich angemeldet hast. Um das zu verhindern, kündige im Billing-Portal, bevor die Testphase abläuft - dann wird dir nichts berechnet.
 
 Wechselst du während der Testphase zu Pro oder zu einem vierteljährlichen oder jährlichen Plan, endet die Testphase und der neue Plan wird noch am selben Tag abgerechnet; die Seite [Pricing](/pricing) zeigt dir den genauen Betrag und bittet um Bestätigung, und diese Zahlung ist durch die 7-tägige Geld-zurück-Garantie abgedeckt.
 
@@ -70,6 +70,6 @@ Du wirst zur Seite [Pricing](/pricing) weitergeleitet, statt blockiert oder mit 
 
 ## Siehe auch
 
-- [Pricing](/pricing) — die aktuelle Tier-Aufschlüsselung und die Planoptionen
+- [Pricing](/pricing) - die aktuelle Tier-Aufschlüsselung und die Planoptionen
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

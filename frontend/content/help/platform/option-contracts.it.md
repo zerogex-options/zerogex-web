@@ -18,7 +18,7 @@ Per ogni strike e ogni scadenza:
 - **Open Interest**
 - **Delta, Gamma, Vega, Theta, Charm**
 - **Volatilità Implicita**
-- **Contributo al GEX** — il valore in dollari del gamma dei dealer a questo strike
+- **Contributo al GEX** - il valore in dollari del gamma dei dealer a questo strike
 
 Ogni riga è accoppiata (call a sinistra, put a destra) con lo strike nella colonna centrale. Il classico layout a catena.
 
@@ -26,14 +26,14 @@ Ogni riga è accoppiata (call a sinistra, put a destra) con lo strike nella colo
 
 La barra dei filtri ti permette di delimitare la catena:
 
-- **Scadenza** — selezione multipla. Di default 0DTE se disponibile, altrimenti la più vicina.
-- **Moneyness** — banda ATM (ad es. ±5% dallo spot) o catena completa.
-- **Ordina** — per strike, volume, OI, IV, contributo al GEX.
-- **Mostra solo** — volume diverso da zero, OI diverso da zero, sweep, block.
+- **Scadenza** - selezione multipla. Di default 0DTE se disponibile, altrimenti la più vicina.
+- **Moneyness** - banda ATM (ad es. ±5% dallo spot) o catena completa.
+- **Ordina** - per strike, volume, OI, IV, contributo al GEX.
+- **Mostra solo** - volume diverso da zero, OI diverso da zero, sweep, block.
 
 ## I colori della superficie di IV
 
-Le celle sono colorate in gradazione in base alla IV — colori freddi (blu) per IV bassa, colori caldi (rosso) per IV alta. La scala è per singola scadenza, quindi un ATM "caldo" in una colonna non corrisponde allo stesso livello assoluto di IV di un ATM "caldo" in un'altra. L'obiettivo è vedere la **forma** dello smile, non il livello assoluto.
+Le celle sono colorate in gradazione in base alla IV - colori freddi (blu) per IV bassa, colori caldi (rosso) per IV alta. La scala è per singola scadenza, quindi un ATM "caldo" in una colonna non corrisponde allo stesso livello assoluto di IV di un ATM "caldo" in un'altra. L'obiettivo è vedere la **forma** dello smile, non il livello assoluto.
 
 ## Come leggere la catena
 

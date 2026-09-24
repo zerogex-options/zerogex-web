@@ -8,9 +8,9 @@
 
 ZeroGEX délivre les alertes **dans l'application**, pas par SMS ni notification push. Elles apparaissent à trois endroits :
 
-1. **Live Bulletin** — chaque déclenchement y atterrit avec le contexte complet. C'est votre journal d'audit.
-2. **La carte de signal** — sur le dashboard ou la page de liste des signaux, un déclenchement illumine la carte et la teinte dans la direction du score.
-3. **Le panneau composite** — lorsqu'un déclenchement a une conviction suffisamment élevée, il déplace visiblement le composite.
+1. **Live Bulletin** - chaque déclenchement y atterrit avec le contexte complet. C'est votre journal d'audit.
+2. **La carte de signal** - sur le dashboard ou la page de liste des signaux, un déclenchement illumine la carte et la teinte dans la direction du score.
+3. **Le panneau composite** - lorsqu'un déclenchement a une conviction suffisamment élevée, il déplace visiblement le composite.
 
 C'est intentionnel. ZeroGEX est conçu pour être **observé, pas interrompu**. Les alertes de type push provoquent de l'overtrading ; le journal in-app vous permet de consulter quand vous le décidez.
 
@@ -56,21 +56,21 @@ Un signal peut être à +0.7 et **ne pas** être en état de déclenchement. Rai
 
 - Le seuil de déclenchement du signal utilise un composite (Market Pressure nécessite aussi loading ≥ 50).
 - Le signal est conditionné par une fenêtre de session (EOD Pressure n'est actif que de 14:30 à 15:45 ET).
-- Le signal a un debounce — il doit maintenir le seuil pendant un nombre minimum de barres.
+- Le signal a un debounce - il doit maintenir le seuil pendant un nombre minimum de barres.
 
 La carte de signal sur la page explique l'état actuel du déclenchement en langage clair.
 
 ## Utiliser le bulletin comme journal de vos alertes
 
-Le Live Bulletin est le **système de référence** pour les déclenchements. Si vous étiez parti déjeuner, vous n'ouvrez pas chaque page pour voir ce qui s'est déclenché — vous ouvrez le bulletin, filtrez par symbole et famille de signaux, et lisez les événements de la journée dans l'ordre chronologique.
+Le Live Bulletin est le **système de référence** pour les déclenchements. Si vous étiez parti déjeuner, vous n'ouvrez pas chaque page pour voir ce qui s'est déclenché - vous ouvrez le bulletin, filtrez par symbole et famille de signaux, et lisez les événements de la journée dans l'ordre chronologique.
 
 ## Alertes sortantes
 
 Les alertes sont distribuées **uniquement dans l'application** : le Live Bulletin, les cartes de signal et le panneau composite. Les alertes de signal ne sont pas envoyées par e-mail, SMS, notification push ou webhook.
 
-Si vous avez vu des commutateurs de canaux dans [Compte → Notifications](/account/notifications), ils appartiennent à la page **Bot Trading**, qui est en bêta. Ne construisez rien dessus pour l'instant — le canal webhook enregistre votre préférence mais ne distribue rien. Pour automatiser aujourd'hui, interrogez l'[API](/help/platform/api-access) plutôt que d'attendre un push qui n'arrivera pas.
+Si vous avez vu des commutateurs de canaux dans [Compte → Notifications](/account/notifications), ils appartiennent à la page **Bot Trading**, qui est en bêta. Ne construisez rien dessus pour l'instant - le canal webhook enregistre votre préférence mais ne distribue rien. Pour automatiser aujourd'hui, interrogez l'[API](/help/platform/api-access) plutôt que d'attendre un push qui n'arrivera pas.
 
-La distribution sortante est sur la liste, pas livrée. Si elle changeait votre façon de trader, écrivez à [support@zerogex.io](mailto:support@zerogex.io) en précisant le canal et les signaux souhaités — les détails concrets la font remonter.
+La distribution sortante est sur la liste, pas livrée. Si elle changeait votre façon de trader, écrivez à [support@zerogex.io](mailto:support@zerogex.io) en précisant le canal et les signaux souhaités - les détails concrets la font remonter.
 
 ## Voir aussi
 

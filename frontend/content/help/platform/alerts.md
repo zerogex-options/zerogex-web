@@ -8,9 +8,9 @@
 
 ZeroGEX delivers alerts **in-app**, not by SMS or push notification. There are three places they surface:
 
-1. **Live Bulletin** — every trigger lands here with full context. This is your audit log.
-2. **The signal card** — on the dashboard or signal-list page, a trigger lights the card and tints it in the score direction.
-3. **The composite panel** — when a trigger has high enough conviction, it shifts the composite visibly.
+1. **Live Bulletin** - every trigger lands here with full context. This is your audit log.
+2. **The signal card** - on the dashboard or signal-list page, a trigger lights the card and tints it in the score direction.
+3. **The composite panel** - when a trigger has high enough conviction, it shifts the composite visibly.
 
 This is intentional. ZeroGEX is built to be **watched, not interrupted**. Push-style alerts cause overtrading; the in-app log lets you scan when you choose to.
 
@@ -55,22 +55,22 @@ If a signal stays in trigger state across multiple bars, only the **first** trig
 A signal can be at +0.7 and **not** be firing. Reasons:
 
 - The signal's trigger threshold uses a composite (Market Pressure needs loading ≥ 50 too).
-- The signal is gated by a session window (EOD Pressure only active 14:30–15:45 ET).
-- The signal has a debounce — it must hold the threshold for some minimum number of bars.
+- The signal is gated by a session window (EOD Pressure only active 14:30-15:45 ET).
+- The signal has a debounce - it must hold the threshold for some minimum number of bars.
 
 The signal card on the page will explain the current trigger state in plain English.
 
 ## Using the bulletin as your alert log
 
-The Live Bulletin is the **system of record** for triggers. If you went to lunch, you don't open every page to see what fired — you open the bulletin, filter by symbol and signal family, and read the day's events in chronological order.
+The Live Bulletin is the **system of record** for triggers. If you went to lunch, you don't open every page to see what fired - you open the bulletin, filter by symbol and signal family, and read the day's events in chronological order.
 
 ## Outbound alerts
 
 Alert delivery is **in-app only**: the Live Bulletin, the signal cards, and the composite panel. Signal Alerts are not sent by email, SMS, push notification, or webhook.
 
-If you've seen channel toggles under [Account → Notifications](/account/notifications), those belong to the **Bot Trading** page, which is in beta. Don't build against them yet — the webhook channel stores your preference but doesn't deliver anything. To automate today, poll the [API](/help/platform/api-access) rather than wait on a push that won't arrive.
+If you've seen channel toggles under [Account → Notifications](/account/notifications), those belong to the **Bot Trading** page, which is in beta. Don't build against them yet - the webhook channel stores your preference but doesn't deliver anything. To automate today, poll the [API](/help/platform/api-access) rather than wait on a push that won't arrive.
 
-Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want — specifics move it up.
+Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want - specifics move it up.
 
 ## See also
 

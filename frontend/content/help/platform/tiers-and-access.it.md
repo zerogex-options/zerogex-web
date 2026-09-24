@@ -1,6 +1,6 @@
 # Livelli, accesso e cosa si sblocca dove
 
-*Una mappa chiara di quali pagine sono pubbliche, Basic e Pro — e cosa cambia tra i livelli su ogni pagina.*
+*Una mappa chiara di quali pagine sono pubbliche, Basic e Pro - e cosa cambia tra i livelli su ogni pagina.*
 
 ---
 
@@ -21,46 +21,46 @@ Consulta il confronto in tempo reale nella pagina [Pricing](/pricing). Basic men
 ### Public (nessun account necessario)
 
 - Il sito marketing (landing, About, Education Hub, Articles, Guides)
-- Pagine gratuite dei livelli gamma di SPX, SPY, QQQ e NDX — ritardate di circa 15 minuti
+- Pagine gratuite dei livelli gamma di SPX, SPY, QQQ e NDX - ritardate di circa 15 minuti
 - Help Center, FAQ, Quick Starts
 - Privacy, Termini
 
 ### Livello Basic
 
-- **Dashboard** — metriche complete in tempo reale
-- **Live Bulletin** — un'istantanea dealer-gamma in tempo reale e pronta da condividere
-- **Tutte le pagine Metrics** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
-- **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
-- **Strategy Builder** — pricing completo delle opzioni e P&L
-- **Live Options Quotes** — la chain in tempo reale
+- **Dashboard** - metriche complete in tempo reale
+- **Live Bulletin** - un'istantanea dealer-gamma in tempo reale e pronta da condividere
+- **Tutte le pagine Metrics** - Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
+- **Basic Signals** - Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
+- **Strategy Builder** - pricing completo delle opzioni e P&L
+- **Live Options Quotes** - la chain in tempo reale
 
 ### Livello Pro
 
 - Tutto ciò che è incluso in Basic, più:
-- **Composite Score** — la lettura combinata di tutti i segnali
-- **Tutti gli Advanced Signals** — Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
-- **Backtesting** — backtest storici dei segnali
-- **Accesso API** — gli stessi dati tramite `api.zerogex.io`
+- **Composite Score** - la lettura combinata di tutti i segnali
+- **Tutti gli Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
+- **Backtesting** - backtest storici dei segnali
+- **Accesso API** - gli stessi dati tramite `api.zerogex.io`
 
 ## Cosa cambia tra i livelli sulla stessa pagina
 
 Alcune pagine esistono per tutti i livelli ma si comportano diversamente a seconda dell'accesso di cui disponi:
 
 - La **Dashboard** è completamente popolata per Basic e Pro. Gli utenti Public vedono una vista teaser che rimanda alla pagina live dopo l'accesso.
-- La sezione **Signals** nella sidebar è sempre visibile — chiunque può cliccare sul nome di un segnale. Se non hai accesso, il clic ti reindirizza alla pagina [Pricing](/pricing) così puoi vedere cosa lo sblocca.
+- La sezione **Signals** nella sidebar è sempre visibile - chiunque può cliccare sul nome di un segnale. Se non hai accesso, il clic ti reindirizza alla pagina [Pricing](/pricing) così puoi vedere cosa lo sblocca.
 
 ## Come effettuare l'upgrade o cambiare livello
 
 Le modifiche all'account avvengono in due punti:
 
-1. **[Account](/account)** — vedi il tuo livello attuale, lo stato del piano attuale e il link al portale di fatturazione.
-2. **[Stripe Billing Portal](/account)** — accessibile dalla pagina Account. Cambia tra Basic e Pro, passa tra fatturazione mensile, trimestrale e annuale, modifica il metodo di pagamento, visualizza le fatture.
+1. **[Account](/account)** - vedi il tuo livello attuale, lo stato del piano attuale e il link al portale di fatturazione.
+2. **[Stripe Billing Portal](/account)** - accessibile dalla pagina Account. Cambia tra Basic e Pro, passa tra fatturazione mensile, trimestrale e annuale, modifica il metodo di pagamento, visualizza le fatture.
 
 Per la procedura passo passo, vedi [Billing & Stripe Portal](/help/platform/billing).
 
 ## Quando sei in prova gratuita
 
-La prova gratuita di 7 giorni è disponibile solo con Basic mensile (una per account). Finché è attiva, la pagina Account mostra un chip "Trial active — X days left". Al termine della prova, l'abbonamento continua automaticamente alla tariffa a cui ti sei iscritto. Per evitarlo, annulla nel portale di fatturazione prima della scadenza della prova — non ti verrà addebitato nulla.
+La prova gratuita di 7 giorni è disponibile solo con Basic mensile (una per account). Finché è attiva, la pagina Account mostra un chip "Trial active - X days left". Al termine della prova, l'abbonamento continua automaticamente alla tariffa a cui ti sei iscritto. Per evitarlo, annulla nel portale di fatturazione prima della scadenza della prova - non ti verrà addebitato nulla.
 
 Se durante la prova passi a Pro o a un piano trimestrale o annuale, la prova termina e il nuovo piano viene addebitato il giorno stesso; la pagina [Pricing](/pricing) mostra l'importo esatto e ti chiede di confermare, e quel pagamento è coperto dalla garanzia soddisfatti o rimborsati di 7 giorni.
 
@@ -70,6 +70,6 @@ Vieni reindirizzato alla pagina [Pricing](/pricing) invece di essere bloccato o 
 
 ## Vedi anche
 
-- [Pricing](/pricing) — il confronto in tempo reale tra i livelli e le opzioni di piano
+- [Pricing](/pricing) - il confronto in tempo reale tra i livelli e le opzioni di piano
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

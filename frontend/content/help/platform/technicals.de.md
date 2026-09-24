@@ -1,12 +1,12 @@
 # Technicals
 
-*Der Intraday-Technical-Snapshot — Preis, Kerzen, Volatilitätsanzeigen und wie die Levels sich mit den GEX-Wänden überlagern.*
+*Der Intraday-Technical-Snapshot - Preis, Kerzen, Volatilitätsanzeigen und wie die Levels sich mit den GEX-Wänden überlagern.*
 
 ---
 
 ## Was diese Seite zeigt
 
-Die Technicals-Seite ist die **price-first**-Lesart des aktiven Symbols. Sie ist die einzige Seite, die **nicht** mit optionsbasierten Kennzahlen beginnt — sie startet mit Preisverlauf, Volatilität und dem klassischen technischen Kontext.
+Die Technicals-Seite ist die **price-first**-Lesart des aktiven Symbols. Sie ist die einzige Seite, die **nicht** mit optionsbasierten Kennzahlen beginnt - sie startet mit Preisverlauf, Volatilität und dem klassischen technischen Kontext.
 
 Das ist die Seite, die du öffnest, wenn du prüfen willst, was das Dealer-Positioning nahelegt im Verhältnis zu dem, was der Preis tatsächlich tut.
 
@@ -25,9 +25,9 @@ Der Zweck der Overlays ist es, dir zu ermöglichen, die Preisbewegung durch die 
 
 Drei Anzeigen:
 
-- **Implied Volatility** — aktuelle ATM-IV mit dem Rang gegenüber den letzten 60 Tagen.
-- **Realized Volatility** — realisierte Volatilität über ein kurzes Fenster mit einer Baseline über ein längeres Fenster.
-- **IV / RV-Verhältnis** — wenn das Verhältnis deutlich über 1 liegt, ist die Vol teuer (Prämie verkaufen); darunter ist die Vol günstig (Prämie kaufen).
+- **Implied Volatility** - aktuelle ATM-IV mit dem Rang gegenüber den letzten 60 Tagen.
+- **Realized Volatility** - realisierte Volatilität über ein kurzes Fenster mit einer Baseline über ein längeres Fenster.
+- **IV / RV-Verhältnis** - wenn das Verhältnis deutlich über 1 liegt, ist die Vol teuer (Prämie verkaufen); darunter ist die Vol günstig (Prämie kaufen).
 
 ## Der Session-Streifen
 
@@ -49,7 +49,7 @@ Drei Muster:
 
 ## Die Intraday-Tools-Ansicht
 
-Die Intraday-Tools-Seite ist ein gepaartes Layout — der Candle-Chart oben, ein komprimierter Dealer-Positioning-Header darunter — für Trader, die beide Ansichten nebeneinander sehen wollen.
+Die Intraday-Tools-Seite ist ein gepaartes Layout - der Candle-Chart oben, ein komprimierter Dealer-Positioning-Header darunter - für Trader, die beide Ansichten nebeneinander sehen wollen.
 
 ## Siehe auch
 

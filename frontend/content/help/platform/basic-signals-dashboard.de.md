@@ -1,6 +1,6 @@
 # Basic Signal Dashboard
 
-*Die sechs kontinuierlichen Messwerte, die in das Composite einfließen — was sie sind, wie man sie liest und wo man tiefer einsteigt.*
+*Die sechs kontinuierlichen Messwerte, die in das Composite einfließen - was sie sind, wie man sie liest und wo man tiefer einsteigt.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 Das Basic Signal Dashboard ist das **Übersichtsraster** aller sechs Basic-Signale. Jede Karte zeigt den aktuellen Score auf der [-1, +1]-Linie, den Beitrag zum Composite und eine Sparkline.
 
-Basic-Signale sind **kontinuierlich**. Sie lösen keine diskreten Alerts aus — sie schieben das Composite bei jeder Aktualisierung nach oben (Richtung Trend) oder nach unten (Richtung Chop).
+Basic-Signale sind **kontinuierlich**. Sie lösen keine diskreten Alerts aus - sie schieben das Composite bei jeder Aktualisierung nach oben (Richtung Trend) oder nach unten (Richtung Chop).
 
 ## Die sechs Signale
 
@@ -35,11 +35,11 @@ Der Spread aus OTM-Put-IV minus OTM-Call-IV gegenüber seiner Baseline, vorzeich
 
 ### Vanna/Charm Flow
 
-Aggregiertes Dealer-Vanna und -Charm. Vanna modelliert, was Dealer *möglicherweise* hedgen, wenn sich die Vol bewegt; Charm modelliert die Delta-Drift durch das Verstreichen der Zeit (bei konstantem Spot und konstanter IV). Ein positiver Wert modelliert Hedge-Flow, der höhere Preise stützen *kann*; ein negativer das Gegenteil — Richtung und Größe hängen weiterhin von der Zusammensetzung des Buchs ab und davon, wer die Optionen hält. Charm-Druck baut sich tendenziell zum Handelsschluss hin auf.
+Aggregiertes Dealer-Vanna und -Charm. Vanna modelliert, was Dealer *möglicherweise* hedgen, wenn sich die Vol bewegt; Charm modelliert die Delta-Drift durch das Verstreichen der Zeit (bei konstantem Spot und konstanter IV). Ein positiver Wert modelliert Hedge-Flow, der höhere Preise stützen *kann*; ein negativer das Gegenteil - Richtung und Größe hängen weiterhin von der Zusammensetzung des Buchs ab und davon, wer die Optionen hält. Charm-Druck baut sich tendenziell zum Handelsschluss hin auf.
 
 ### Dealer Delta Pressure
 
-Das Netto-Delta der Dealer aus der Optionskette (call_delta_oi + put_delta_oi) — eine eigene modellierte Lesart, getrennt vom Gamma. Stark negativ modelliert Dealer short Delta, die *tendenziell* höher kaufen würden, um abgesichert zu bleiben; stark positiv modelliert sie long und tendenziell höher verkaufend. Das Signal fragt: „Werden Dealer dieser Bewegung wahrscheinlich hinterherjagen?"
+Das Netto-Delta der Dealer aus der Optionskette (call_delta_oi + put_delta_oi) - eine eigene modellierte Lesart, getrennt vom Gamma. Stark negativ modelliert Dealer short Delta, die *tendenziell* höher kaufen würden, um abgesichert zu bleiben; stark positiv modelliert sie long und tendenziell höher verkaufend. Das Signal fragt: „Werden Dealer dieser Bewegung wahrscheinlich hinterherjagen?"
 
 ### GEX Gradient
 
@@ -47,15 +47,15 @@ Gamma oberhalb des Spot im Vergleich zu Gamma unterhalb des Spot, mit einer ATM-
 
 ### Positioning Trap
 
-PCR + vorzeichenbehaftetes Smart-Money-Ungleichgewicht + 5-Bar-Momentum + Flip-Neigung + Regime-Kontext. Fragt, ob die Crowd falsch positioniert ist — und es fadet die Crowd, nicht den Preis. Ein hoher **positiver** Score kennzeichnet eine short-geneigte Crowd (viele Puts), die nach oben herausgesqueezt werden kann — ein Aufwärts-Short-Cover-Squeeze; ein hoher **negativer** Score kennzeichnet eine long-geneigte Crowd (viele Calls), die für einen **Abwärts**-Flush anfällig ist. Das Vorzeichen ist als Squeeze-/Flush-Richtung zu lesen, nicht als schlichter „long/short gehen"-Hinweis.
+PCR + vorzeichenbehaftetes Smart-Money-Ungleichgewicht + 5-Bar-Momentum + Flip-Neigung + Regime-Kontext. Fragt, ob die Crowd falsch positioniert ist - und es fadet die Crowd, nicht den Preis. Ein hoher **positiver** Score kennzeichnet eine short-geneigte Crowd (viele Puts), die nach oben herausgesqueezt werden kann - ein Aufwärts-Short-Cover-Squeeze; ein hoher **negativer** Score kennzeichnet eine long-geneigte Crowd (viele Calls), die für einen **Abwärts**-Flush anfällig ist. Das Vorzeichen ist als Squeeze-/Flush-Richtung zu lesen, nicht als schlichter „long/short gehen"-Hinweis.
 
 ## Das Dashboard lesen
 
 Drei Muster:
 
 1. **Auf Konfluenz achten.** Wenn drei oder vier der sechs Signale mit nennenswerter Stärke in dieselbe Richtung zeigen, bewegt sich das Composite entsprechend in Richtung eines Trend- oder Chop-Regimes.
-2. **Auf Divergenz achten.** Wenn Tape Flow Bias stark positiv ist, der GEX Gradient aber deutlich negativ, werden Dealer gegen die Käufe faden — das Tape irrt sich darüber, wo der strukturelle Pin liegt.
-3. **Positioning Trap gesondert betrachten.** Es ist das einzige Basic-Signal mit Mean-Reversion-Bias. Eine hohe **negative** Trap-Lesart (eine long-geneigte Crowd, der ein Abwärts-Flush droht) bei gleichzeitig stark long stehendem Tape ist eine Warnung, keine Bestätigung — die Crowd, der sich das Tape anschließt, ist genau die, die die Trap als falsch positioniert markiert.
+2. **Auf Divergenz achten.** Wenn Tape Flow Bias stark positiv ist, der GEX Gradient aber deutlich negativ, werden Dealer gegen die Käufe faden - das Tape irrt sich darüber, wo der strukturelle Pin liegt.
+3. **Positioning Trap gesondert betrachten.** Es ist das einzige Basic-Signal mit Mean-Reversion-Bias. Eine hohe **negative** Trap-Lesart (eine long-geneigte Crowd, der ein Abwärts-Flush droht) bei gleichzeitig stark long stehendem Tape ist eine Warnung, keine Bestätigung - die Crowd, der sich das Tape anschließt, ist genau die, die die Trap als falsch positioniert markiert.
 
 ## Was nicht im Basic-Dashboard enthalten ist
 

@@ -6,7 +6,7 @@
 
 ## Come funziona lo streaming
 
-ZeroGEX invia dati live al tuo browser tramite una connessione persistente — apri la dashboard e i dati iniziano ad arrivare entro un secondo dal caricamento della pagina. Non c'è polling lato client.
+ZeroGEX invia dati live al tuo browser tramite una connessione persistente - apri la dashboard e i dati iniziano ad arrivare entro un secondo dal caricamento della pagina. Non c'è polling lato client.
 
 La connessione si aggiorna automaticamente se cade. Se un aggiornamento fallisce ripetutamente, l'interfaccia mostra un'etichetta "Riconnessione…" e avvia un nuovo tentativo con backoff.
 
@@ -16,8 +16,8 @@ La connessione si aggiorna automaticamente se cade. Se un aggiornamento fallisce
 | --- | --- |
 | Quotazione prezzo | ~1 secondo |
 | Flow / tape | ~1 secondo |
-| Punteggi dei segnali | 1–5 secondi a seconda del segnale |
-| Superficie GEX | 5–15 secondi (collo di bottiglia: snapshot della chain) |
+| Punteggi dei segnali | 1-5 secondi a seconda del segnale |
+| Superficie GEX | 5-15 secondi (collo di bottiglia: snapshot della chain) |
 | Composite Score | ~5 secondi |
 
 Quando la pagina è in una scheda in background, il browser potrebbe limitare gli aggiornamenti. Riporta la scheda in primo piano e gli aggiornamenti riprendono immediatamente.
@@ -35,9 +35,9 @@ Le cause più comuni, in ordine di frequenza:
 
 Quando qualcosa sembra non funzionare, la diagnostica in quattro passaggi:
 
-1. Guarda il **badge di sessione** — il mercato è aperto?
-2. Guarda il **riquadro del prezzo** — il timestamp è recente?
-3. Guarda l'**indicatore di connessione** nell'intestazione — è verde?
+1. Guarda il **badge di sessione** - il mercato è aperto?
+2. Guarda il **riquadro del prezzo** - il timestamp è recente?
+3. Guarda l'**indicatore di connessione** nell'intestazione - è verde?
 4. Ricarica forzatamente la pagina (Cmd+Shift+R o Ctrl+Shift+R).
 
 Questo copre circa il 95% delle situazioni in cui "sembra tutto rotto".
@@ -58,7 +58,7 @@ Le estensioni per la privacy e il blocco degli annunci generalmente non danno pr
 
 ### La modalità chiara è leggermente più veloce
 
-Il tema chiaro si renderizza leggermente più velocemente del tema scuro sulla maggior parte delle configurazioni, per via di come vengono composte ombre e tinte. È una differenza marginale — ma se usi un dispositivo poco potente, vale la pena saperlo.
+Il tema chiaro si renderizza leggermente più velocemente del tema scuro sulla maggior parte delle configurazioni, per via di come vengono composte ombre e tinte. È una differenza marginale - ma se usi un dispositivo poco potente, vale la pena saperlo.
 
 ### Cambiare simbolo è più pesante che cambiare timeframe
 
@@ -66,7 +66,7 @@ Cambiare simbolo recupera nuovamente tutti i dati; cambiare timeframe riutilizza
 
 ## Mobile
 
-ZeroGEX funziona anche su smartphone — ogni pagina è responsive — ma la piattaforma è **pensata per il desktop**. La densità dei grafici presuppone uno schermo più largo di 1024px. Su mobile, scorri orizzontalmente sui grafici; i dati sono tutti presenti, ma il layout è più denso.
+ZeroGEX funziona anche su smartphone - ogni pagina è responsive - ma la piattaforma è **pensata per il desktop**. La densità dei grafici presuppone uno schermo più largo di 1024px. Su mobile, scorri orizzontalmente sui grafici; i dati sono tutti presenti, ma il layout è più denso.
 
 ## Quando scrivere al supporto
 
@@ -76,7 +76,7 @@ Se la piattaforma stessa sembra bloccata (non la tua connessione, non una scheda
 - L'orario in cui è successo (con fuso orario)
 - Il tuo browser e sistema operativo
 
-I log dal nostro lato sono marcati temporalmente — questo è sufficiente per rintracciare il problema.
+I log dal nostro lato sono marcati temporalmente - questo è sufficiente per rintracciare il problema.
 
 ## Vedi anche
 

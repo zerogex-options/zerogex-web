@@ -6,7 +6,7 @@
 
 ## Pourquoi la ligne de score est fixe
 
-Chaque signal ZeroGEX — Advanced ou Basic — exprime sa lecture sur la même échelle **[-1, +1]**. L'avantage est évident : la confluence entre signaux devient une comparaison équitable. Un +0.5 sur Squeeze Setup et un +0.5 sur EOD Pressure expriment conceptuellement des niveaux de confiance similaires.
+Chaque signal ZeroGEX - Advanced ou Basic - exprime sa lecture sur la même échelle **[-1, +1]**. L'avantage est évident : la confluence entre signaux devient une comparaison équitable. Un +0.5 sur Squeeze Setup et un +0.5 sur EOD Pressure expriment conceptuellement des niveaux de confiance similaires.
 
 Le coût : chaque signal a un **biais de trade** différent, donc la signification d'un +0.5 dépend du signal dont il provient.
 
@@ -17,10 +17,10 @@ Pour les signaux directionnels, le signe correspond à la direction de prix atte
 - **Positif ⇒ biais haussier** (le biais de trade est long)
 - **Négatif ⇒ biais baissier**
 
-Pour les signaux de mean-reversion (Positioning Trap, Trap Detection), le signe indique le **biais directionnel résolu** — le trade se joue *contre* la foule mal positionnée ou la cassure avortée, de sorte que le signe pointe dans le même sens que pour les signaux directionnels ci-dessus :
+Pour les signaux de mean-reversion (Positioning Trap, Trap Detection), le signe indique le **biais directionnel résolu** - le trade se joue *contre* la foule mal positionnée ou la cassure avortée, de sorte que le signe pointe dans le même sens que pour les signaux directionnels ci-dessus :
 
-- **Positif ⇒ biais haussier** — p. ex. une foule short/baissière menacée d'un squeeze vers le haut, ou une cassure baissière avortée que vous achèteriez
-- **Négatif ⇒ biais baissier** — p. ex. une foule long/haussière menacée d'un flush vers le bas, ou une cassure haussière avortée que vous vendriez
+- **Positif ⇒ biais haussier** - p. ex. une foule short/baissière menacée d'un squeeze vers le haut, ou une cassure baissière avortée que vous achèteriez
+- **Négatif ⇒ biais baissier** - p. ex. une foule long/haussière menacée d'un flush vers le bas, ou une cassure haussière avortée que vous vendriez
 
 La carte du signal sur chaque page précise laquelle des deux lectures s'applique. Lisez le badge de biais de trade avant de lire le score.
 
@@ -30,11 +30,11 @@ Plus on se rapproche de ±1, plus la conviction est élevée. Repère pratique :
 
 | Plage | Lecture |
 | --- | --- |
-| 0.0 – 0.2 | Dans le bruit. Aucune lecture exploitable. |
-| 0.2 – 0.4 | Biais léger. Filtre, pas un déclencheur. |
-| 0.4 – 0.6 | Lecture solide. Combinée à la confluence, exploitable. |
-| 0.6 – 0.8 | Lecture forte. Le signal exprime une affirmation réelle. |
-| 0.8 – 1.0 | Conviction maximale. Rare. À surveiller attentivement. |
+| 0.0 - 0.2 | Dans le bruit. Aucune lecture exploitable. |
+| 0.2 - 0.4 | Biais léger. Filtre, pas un déclencheur. |
+| 0.4 - 0.6 | Lecture solide. Combinée à la confluence, exploitable. |
+| 0.6 - 0.8 | Lecture forte. Le signal exprime une affirmation réelle. |
+| 0.8 - 1.0 | Conviction maximale. Rare. À surveiller attentivement. |
 
 ## Un score de 0 n'est presque jamais neutre
 
@@ -44,9 +44,9 @@ Un score de 0 signifie généralement :
 
 - Les données sont **insuffisantes** pour la question que pose ce signal.
 - La question ne s'applique pas en ce moment (par exemple, EOD Pressure pendant l'ouverture).
-- Les inputs **s'annulent proprement** — également haussiers et baissiers.
+- Les inputs **s'annulent proprement** - également haussiers et baissiers.
 
-Chacun de ces cas est une "absence de lecture", pas un "marché neutre". Un marché structurellement neutre se manifeste habituellement par des scores qui oscillent autour de ±0.1 — pas par un zéro net.
+Chacun de ces cas est une "absence de lecture", pas un "marché neutre". Un marché structurellement neutre se manifeste habituellement par des scores qui oscillent autour de ±0.1 - pas par un zéro net.
 
 Quand vous voyez un vrai 0, survolez la carte du signal. L'infobulle explique pourquoi.
 
@@ -55,7 +55,7 @@ Quand vous voyez un vrai 0, survolez la carte du signal. L'infobulle explique po
 Certains signaux Advanced possèdent un état supplémentaire en plus du score :
 
 - Un **déclencheur** discret (oui/non) qui s'active lorsque le score franchit un seuil.
-- Une métrique secondaire (loading 0–100 pour Market Pressure, imminence 0–100 pour Range Break) qui conditionne le déclencheur indépendamment du score.
+- Une métrique secondaire (loading 0-100 pour Market Pressure, imminence 0-100 pour Range Break) qui conditionne le déclencheur indépendamment du score.
 
 Le score est la **lecture** ; le déclencheur est l'**événement**. Vous pouvez utiliser le score comme filtre sans attendre le déclencheur.
 
@@ -63,8 +63,8 @@ Le score est la **lecture** ; le déclencheur est l'**événement**. Vous pouvez
 
 La pente compte autant que le niveau.
 
-- Un score à +0.4 en tendance **haussière** est une lecture en développement — le momentum est de son côté.
-- Un score à +0.4 en tendance **baissière** depuis +0.7 est une lecture qui s'estompe — le signal avait raison plus tôt, moins maintenant.
+- Un score à +0.4 en tendance **haussière** est une lecture en développement - le momentum est de son côté.
+- Un score à +0.4 en tendance **baissière** depuis +0.7 est une lecture qui s'estompe - le signal avait raison plus tôt, moins maintenant.
 - Un score qui change de signe dans une courte fenêtre traduit de la volatilité, pas de la conviction. Attendez que cela se stabilise.
 
 ## Quand agir
@@ -73,7 +73,7 @@ Une règle simple qui a fait ses preuves :
 
 > Agissez sur la **confluence**, pas sur des scores individuels.
 
-Un seul +0.7 sur un signal est intéressant. Un +0.5 sur trois signaux issus de dimensions indépendantes (par exemple, deux signaux Basic et un signal Advanced) est un trade. Le composite ne fait pas partie de ce décompte de ±0.5 — c'est une jauge de régime 0–100, pas un score directionnel [-1, +1], donc ne lisez pas son niveau comme haussier/baissier.
+Un seul +0.7 sur un signal est intéressant. Un +0.5 sur trois signaux issus de dimensions indépendantes (par exemple, deux signaux Basic et un signal Advanced) est un trade. Le composite ne fait pas partie de ce décompte de ±0.5 - c'est une jauge de régime 0-100, pas un score directionnel [-1, +1], donc ne lisez pas son niveau comme haussier/baissier.
 
 ## Ce qui change si le régime change
 
@@ -83,7 +83,7 @@ En franchissant le gamma flip, l'**interprétation** de certains scores change :
 - Trap Detection est plus tranché en gamma négative.
 - EOD Pressure pine plus fortement en gamma positive.
 
-Les cartes de signal en tiennent déjà compte — mais le savoir explique pourquoi le même score peut vouloir dire des choses différentes selon les jours.
+Les cartes de signal en tiennent déjà compte - mais le savoir explique pourquoi le même score peut vouloir dire des choses différentes selon les jours.
 
 ## Voir aussi
 

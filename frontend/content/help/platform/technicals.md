@@ -1,12 +1,12 @@
 # Technicals
 
-*The intraday technical snapshot — price, candles, volatility gauges, and how the levels overlay the GEX walls.*
+*The intraday technical snapshot - price, candles, volatility gauges, and how the levels overlay the GEX walls.*
 
 ---
 
 ## What this page shows
 
-The Technicals page is the **price-first read** of the active symbol. It is the only page that does **not** lead with options-derived numbers — it leads with price action, volatility, and the standard technical context.
+The Technicals page is the **price-first read** of the active symbol. It is the only page that does **not** lead with options-derived numbers - it leads with price action, volatility, and the standard technical context.
 
 It's the page you open when you need to confirm what dealers' positioning is implying with what price is actually doing.
 
@@ -25,9 +25,9 @@ The point of the overlays is to let you read the price action through the dealer
 
 Three gauges:
 
-- **Implied Volatility** — current ATM IV with the rank versus the last 60 days.
-- **Realized Volatility** — short-window realized vol with a longer-window baseline.
-- **IV / RV ratio** — when ratio is meaningfully above 1, vol is rich (sell premium); below, vol is cheap (buy premium).
+- **Implied Volatility** - current ATM IV with the rank versus the last 60 days.
+- **Realized Volatility** - short-window realized vol with a longer-window baseline.
+- **IV / RV ratio** - when ratio is meaningfully above 1, vol is rich (sell premium); below, vol is cheap (buy premium).
 
 ## The session strip
 
@@ -49,7 +49,7 @@ Three patterns:
 
 ## The intraday-tools view
 
-The intraday-tools page is a paired layout — the candle chart on top, a compressed dealer-positioning header underneath — for traders who want both views side-by-side.
+The intraday-tools page is a paired layout - the candle chart on top, a compressed dealer-positioning header underneath - for traders who want both views side-by-side.
 
 ## See also
 

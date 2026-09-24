@@ -1,12 +1,12 @@
 # Technicals
 
-*Lo snapshot tecnico intraday — prezzo, candele, indicatori di volatilità e come i livelli si sovrappongono ai muri GEX.*
+*Lo snapshot tecnico intraday - prezzo, candele, indicatori di volatilità e come i livelli si sovrappongono ai muri GEX.*
 
 ---
 
 ## Cosa mostra questa pagina
 
-La pagina Technicals è la **lettura price-first** del simbolo attivo. È l'unica pagina che **non** parte dai numeri derivati dalle opzioni — parte dall'azione del prezzo, dalla volatilità e dal contesto tecnico standard.
+La pagina Technicals è la **lettura price-first** del simbolo attivo. È l'unica pagina che **non** parte dai numeri derivati dalle opzioni - parte dall'azione del prezzo, dalla volatilità e dal contesto tecnico standard.
 
 È la pagina da aprire quando devi verificare cosa il posizionamento dei dealer implica rispetto a quello che il prezzo sta effettivamente facendo.
 
@@ -25,9 +25,9 @@ Lo scopo degli overlay è permetterti di leggere l'azione del prezzo attraverso 
 
 Tre indicatori:
 
-- **Implied Volatility** — IV ATM attuale con il rank rispetto agli ultimi 60 giorni.
-- **Realized Volatility** — volatilità realizzata su finestra breve con un baseline su finestra più lunga.
-- **Rapporto IV / RV** — quando il rapporto è significativamente sopra 1, la vol è cara (vendere premio); sotto, la vol è economica (comprare premio).
+- **Implied Volatility** - IV ATM attuale con il rank rispetto agli ultimi 60 giorni.
+- **Realized Volatility** - volatilità realizzata su finestra breve con un baseline su finestra più lunga.
+- **Rapporto IV / RV** - quando il rapporto è significativamente sopra 1, la vol è cara (vendere premio); sotto, la vol è economica (comprare premio).
 
 ## La striscia di sessione
 
@@ -49,7 +49,7 @@ Tre pattern:
 
 ## La vista intraday-tools
 
-La pagina intraday-tools è un layout abbinato — il grafico a candele sopra, un header compresso di posizionamento dealer sotto — per i trader che vogliono entrambe le viste affiancate.
+La pagina intraday-tools è un layout abbinato - il grafico a candele sopra, un header compresso di posizionamento dealer sotto - per i trader che vogliono entrambe le viste affiancate.
 
 ## Vedi anche
 

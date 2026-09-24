@@ -1,6 +1,6 @@
 # Why our futures price can differ from another platform
 
-*Why an ES or NQ quote here can sit a few hundred points away from the same ticker on another chart — and why both numbers are right.*
+*Why an ES or NQ quote here can sit a few hundred points away from the same ticker on another chart - and why both numbers are right.*
 
 ---
 
@@ -12,11 +12,11 @@ ES and NQ do not have a single price. They trade as separate contracts expiring 
 
 That is not a quirk of our data. It is how the exchange lists them: an S&P 500 future settling three months from now and one settling next week are two distinct contracts with two distinct order books, and nothing forces their prices together until the near one expires.
 
-We quote the contract carrying the volume — the one actively traded.
+We quote the contract carrying the volume - the one actively traded.
 
 ## Contracts roll every quarter
 
-About a week before a contract expires, trading volume migrates to the next one. Data providers switch their feeds across at that point — but **not all on the same day**. Each provider picks its own trigger: a fixed number of days before expiry, a volume or open-interest crossover, or a calendar rule set years ago.
+About a week before a contract expires, trading volume migrates to the next one. Data providers switch their feeds across at that point - but **not all on the same day**. Each provider picks its own trigger: a fixed number of days before expiry, a volume or open-interest crossover, or a calendar rule set years ago.
 
 For the week or so between one provider's switch and another's, two platforms both labelled "NQ" are showing different contracts. Neither is broken. They are answering slightly different questions about what "NQ" means today.
 
@@ -28,7 +28,7 @@ A contract settling three months out is worth more than one settling this week. 
 
 On a quarterly roll that is typically about **1% on NQ** and **0.8% on ES**. NQ is larger because the Nasdaq-100 pays less dividend than the S&P 500, so its carry is higher.
 
-On NQ that is a few hundred points — big enough to look like a broken feed, which is exactly why we label the contract directly rather than leaving you to work it out.
+On NQ that is a few hundred points - big enough to look like a broken feed, which is exactly why we label the contract directly rather than leaving you to work it out.
 
 The same arithmetic explains a step in a multi-day chart. A range that spans a roll genuinely contains two contracts, so the price jumps where one ends and the next begins. That step is carry, not a market move, and charts that cross a roll say so.
 
@@ -38,7 +38,7 @@ The same arithmetic explains a step in a multi-day chart. A range that spans a r
 2. Set your other platform to that same contract.
 3. The prices should line up.
 
-If your other feed is delayed — many free feeds run 10–15 minutes behind — you will still see a small gap from the delay itself. That one is a few points, not a few hundred.
+If your other feed is delayed - many free feeds run 10-15 minutes behind - you will still see a small gap from the delay itself. That one is a few points, not a few hundred.
 
 ## When it resolves
 

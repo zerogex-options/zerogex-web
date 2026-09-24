@@ -1,6 +1,6 @@
 # Come leggere i grafici di ZeroGEX
 
-*Un linguaggio visivo condiviso — colori, scale, comportamento al passaggio del mouse, legende e le note specifiche per il grafico del profilo GEX, i wall e le heatmap.*
+*Un linguaggio visivo condiviso - colori, scale, comportamento al passaggio del mouse, legende e le note specifiche per il grafico del profilo GEX, i wall e le heatmap.*
 
 ---
 
@@ -8,11 +8,11 @@
 
 ZeroGEX utilizza una tavolozza piccola e coerente in tutti i grafici. Una volta compresa, ogni grafico si legge più velocemente.
 
-- **Ambra / arancione caldo** — colore di accento; usato per gli avvisi, l'enfasi del brand e la traccia della score-line.
-- **Verde** — rialzista, positivo, direzione long, guadagno.
-- **Rosso** — ribassista, negativo, direzione short, perdita.
-- **Blu / blu navy scuro** — informazione strutturale neutra; linee di riferimento, assi, baseline.
-- **Corallo / rosa** — informativo secondario; tag smart-money, evidenziazioni speciali.
+- **Ambra / arancione caldo** - colore di accento; usato per gli avvisi, l'enfasi del brand e la traccia della score-line.
+- **Verde** - rialzista, positivo, direzione long, guadagno.
+- **Rosso** - ribassista, negativo, direzione short, perdita.
+- **Blu / blu navy scuro** - informazione strutturale neutra; linee di riferimento, assi, baseline.
+- **Corallo / rosa** - informativo secondario; tag smart-money, evidenziazioni speciali.
 
 Il **significato** dei colori è stabile in tutti i grafici. Lo stesso verde è "rialzista" ovunque.
 
@@ -20,12 +20,12 @@ Il **significato** dei colori è stabile in tutti i grafici. Lo stesso verde è 
 
 Quattro livelli hanno un colore proprio ovunque vengano disegnati, tenuto distinto dal linguaggio rialzista/ribassista qui sopra perché un livello non venga mai letto come una direzione:
 
-- **Azzurro** — il **gamma flip**. È il confine tra la zona di gamma lunga e quella di gamma corta, quindi non è deliberatamente né verde né rosso.
-- **Oro** — il **max pain**.
-- **Verde acqua** — il **pin strike**.
-- **Viola** — il **GEX king**, il nodo di gamma dominante.
+- **Azzurro** - il **gamma flip**. È il confine tra la zona di gamma lunga e quella di gamma corta, quindi non è deliberatamente né verde né rosso.
+- **Oro** - il **max pain**.
+- **Verde acqua** - il **pin strike**.
+- **Viola** - il **GEX king**, il nodo di gamma dominante.
 
-**Call wall** e **put wall** prendono invece i colori direzionali, e l'**ultimo prezzo scambiato** prende l'accento caldo di ciascun tema — sempre un colore caldo, mai l'azzurro del flip.
+**Call wall** e **put wall** prendono invece i colori direzionali, e l'**ultimo prezzo scambiato** prende l'accento caldo di ciascun tema - sempre un colore caldo, mai l'azzurro del flip.
 
 ## La score line
 
@@ -41,14 +41,14 @@ Per un approfondimento, vedi [Come leggere la Score Line [-1, +1]](/help/platfor
 
 Un elemento cardine della pagina Dealer Positioning.
 
-- **Asse X** — prezzo di strike.
-- **Asse Y** — gamma del dealer in dollari, con segno.
-- **Linea verticale** — spot attuale.
-- **Punto in cui la curva attraversa lo zero** — il gamma flip.
-- **Barre positive alte** — candidati a call wall.
-- **Barre negative alte** — candidati a put wall.
+- **Asse X** - prezzo di strike.
+- **Asse Y** - gamma del dealer in dollari, con segno.
+- **Linea verticale** - spot attuale.
+- **Punto in cui la curva attraversa lo zero** - il gamma flip.
+- **Barre positive alte** - candidati a call wall.
+- **Barre negative alte** - candidati a put wall.
 
-Il grafico si centra automaticamente sullo spot. L'intervallo predefinito è di circa ±5% rispetto allo spot — abbastanza ampio da mostrare i wall strutturali, abbastanza stretto da mantenere leggibili gli strike rilevanti.
+Il grafico si centra automaticamente sullo spot. L'intervallo predefinito è di circa ±5% rispetto allo spot - abbastanza ampio da mostrare i wall strutturali, abbastanza stretto da mantenere leggibili gli strike rilevanti.
 
 ## Il grafico dei wall
 
@@ -58,43 +58,43 @@ Stessi dati del profilo GEX ma con la struttura dei wall evidenziata: il call wa
 
 Una heatmap 2D nella pagina Dealer Positioning.
 
-- **Righe** — strike (ordinati intorno allo spot).
-- **Colonne** — DTE (0DTE, 1DTE, settimanale, mensile).
-- **Colore della cella** — gamma del dealer per quella combinazione strike/scadenza.
+- **Righe** - strike (ordinati intorno allo spot).
+- **Colonne** - DTE (0DTE, 1DTE, settimanale, mensile).
+- **Colore della cella** - gamma del dealer per quella combinazione strike/scadenza.
 
-Le celle più "calde" sono gli strike che contano per le scadenze più vicine. Osserva come la heatmap si sposta durante la giornata — se la cella più luminosa salta di strike, il wall si sta muovendo.
+Le celle più "calde" sono gli strike che contano per le scadenze più vicine. Osserva come la heatmap si sposta durante la giornata - se la cella più luminosa salta di strike, il wall si sta muovendo.
 
 ## Il grafico a candele
 
 Candele OHLC standard con VWAP e gli overlay gamma. Gli overlay sono il tocco distintivo di ZeroGEX:
 
-- La linea del **gamma flip** — tratteggio lungo, azzurra, con l'etichetta `FLIP` sul bordo sinistro.
+- La linea del **gamma flip** - tratteggio lungo, azzurra, con l'etichetta `FLIP` sul bordo sinistro.
 - Le linee del **call wall** e del **put wall**.
 - **Max pain** (dove rilevante).
 
-La linea a puntini fini nell'accento caldo del tema è l'**ultimo prezzo scambiato**, non un livello gamma — nella legenda sotto il grafico compare come "Last".
+La linea a puntini fini nell'accento caldo del tema è l'**ultimo prezzo scambiato**, non un livello gamma - nella legenda sotto il grafico compare come "Last".
 
 Gli overlay ti permettono di leggere il price action attraverso la lente del dealer positioning senza uscire dal grafico.
 
 ### Quando manca la linea del flip
 
-Un livello viene disegnato solo finché rientra nell'intervallo di prezzo visibile: su un sottostante a prezzo elevato il cui flip è lontano dallo spot — NDX in particolare — la linea del flip può quindi finire fuori scala. Il grafico lo dice invece di lasciartelo indovinare: un chip sul bordo dell'area di disegno riporta `FLIP ↓ 22,600.00` con direzione e prezzo, e l'asse dei prezzi a destra porta un tag con la freccia corrispondente. Riduci lo zoom dell'asse dei prezzi (il pulsante **Price −**, Maiusc+scroll, o trascinando la scala dei prezzi a destra) per riportare la linea in vista.
+Un livello viene disegnato solo finché rientra nell'intervallo di prezzo visibile: su un sottostante a prezzo elevato il cui flip è lontano dallo spot - NDX in particolare - la linea del flip può quindi finire fuori scala. Il grafico lo dice invece di lasciartelo indovinare: un chip sul bordo dell'area di disegno riporta `FLIP ↓ 22,600.00` con direzione e prezzo, e l'asse dei prezzi a destra porta un tag con la freccia corrispondente. Riduci lo zoom dell'asse dei prezzi (il pulsante **Price −**, Maiusc+scroll, o trascinando la scala dei prezzi a destra) per riportare la linea in vista.
 
-Ogni tanto non è possibile risolvere alcun flip. Il resolver pubblica solo un attraversamento dello zero abbastanza vicino allo spot da essere negoziabile e sostenuto da open interest reale; quando lo spot è ben dentro un regime di gamma, o la catena è sottile o a senso unico (orario esteso, un picco di volatilità implicita), nessun attraversamento supera quella soglia. In quel caso il chip riporta `FLIP UNAVAILABLE` con un `?` ambra accanto — passa il mouse sul segno per il motivo e, su ES / NQ, per sapere su quale catena è mancato il flip — e il badge "Dealer Gamma @ Spot" mostra un semplice `—`. Preferiamo non disegnare nulla piuttosto che un livello di cui non ci fidiamo; di norma il flip torna a risolversi in uno snapshot successivo.
+Ogni tanto non è possibile risolvere alcun flip. Il resolver pubblica solo un attraversamento dello zero abbastanza vicino allo spot da essere negoziabile e sostenuto da open interest reale; quando lo spot è ben dentro un regime di gamma, o la catena è sottile o a senso unico (orario esteso, un picco di volatilità implicita), nessun attraversamento supera quella soglia. In quel caso il chip riporta `FLIP UNAVAILABLE` con un `?` ambra accanto - passa il mouse sul segno per il motivo e, su ES / NQ, per sapere su quale catena è mancato il flip - e il badge "Dealer Gamma @ Spot" mostra un semplice `—`. Preferiamo non disegnare nulla piuttosto che un livello di cui non ci fidiamo; di norma il flip torna a risolversi in uno snapshot successivo.
 
-Un flip vuoto significa un’altra cosa quando il filtro **Scadenza** contiene un sottoinsieme della catena. Il grafico disegna allora i livelli delle scadenze che hai scelto, e il loro flip viene ricostruito da quei soli strike; ma un sottoinsieme è spesso di un solo segno (un book 0DTE pomeridiano con gamma negativa su ogni strike non attraversa mai lo zero), quindi non c’è alcun attraversamento da disegnare. Il chip lo dice direttamente: `NO FLIP IN SELECTED EXPIRIES`. A differenza del caso precedente, quello *non* si risolverà in uno snapshot successivo, perché non manca nulla. Riporta **Scadenza** su **Tutte** per vedere il flip dell’intera catena — lo stesso livello riportato dalla pagina Dealer Positioning, che legge la catena completa e continua perciò a mostrare un numero mentre il grafico è ristretto.
+Un flip vuoto significa un’altra cosa quando il filtro **Scadenza** contiene un sottoinsieme della catena. Il grafico disegna allora i livelli delle scadenze che hai scelto, e il loro flip viene ricostruito da quei soli strike; ma un sottoinsieme è spesso di un solo segno (un book 0DTE pomeridiano con gamma negativa su ogni strike non attraversa mai lo zero), quindi non c’è alcun attraversamento da disegnare. Il chip lo dice direttamente: `NO FLIP IN SELECTED EXPIRIES`. A differenza del caso precedente, quello *non* si risolverà in uno snapshot successivo, perché non manca nulla. Riporta **Scadenza** su **Tutte** per vedere il flip dell’intera catena - lo stesso livello riportato dalla pagina Dealer Positioning, che legge la catena completa e continua perciò a mostrare un numero mentre il grafico è ristretto.
 
 ## Comportamento al passaggio del mouse
 
-La maggior parte dei grafici mostra un tooltip al passaggio del mouse con i valori precisi alla coordinata x del cursore. Il tooltip rispetta il linguaggio dei colori del grafico — il colore del chip del valore corrisponde alla serie.
+La maggior parte dei grafici mostra un tooltip al passaggio del mouse con i valori precisi alla coordinata x del cursore. Il tooltip rispetta il linguaggio dei colori del grafico - il colore del chip del valore corrisponde alla serie.
 
 ## Legende
 
-Le legende sono cliccabili nella maggior parte dei grafici — clicca su una serie per nasconderla. Utile per isolare un singolo segnale o un singolo greek.
+Le legende sono cliccabili nella maggior parte dei grafici - clicca su una serie per nasconderla. Utile per isolare un singolo segnale o un singolo greek.
 
 ## Sparkline
 
-Le card dei segnali nelle dashboard utilizzano le sparkline — piccoli mini-grafici inline dello score nella finestra recente. La pendenza della sparkline è più informativa del suo livello assoluto: uno score a +0.4 in salita è una lettura diversa rispetto a +0.4 in discesa.
+Le card dei segnali nelle dashboard utilizzano le sparkline - piccoli mini-grafici inline dello score nella finestra recente. La pendenza della sparkline è più informativa del suo livello assoluto: uno score a +0.4 in salita è una lettura diversa rispetto a +0.4 in discesa.
 
 ## Modalità chiara
 
@@ -104,7 +104,7 @@ Ogni grafico funziona sia nel tema scuro che in quello chiaro. Le **identità** 
 
 - **Leggere l'asse sbagliato.** I grafici degli score sono [-1, +1]; i grafici GEX sono in dollari. Non confrontarli tra loro.
 - **Trattare una sparkline come un grafico operativo.** Le sparkline sono contesto, non segnali di ingresso.
-- **Leggere la heatmap da lontano.** Il punto centrale della heatmap è la texture — ingrandisci se le celle sono piccole.
+- **Leggere la heatmap da lontano.** Il punto centrale della heatmap è la texture - ingrandisci se le celle sono piccole.
 
 ## Vedi anche
 

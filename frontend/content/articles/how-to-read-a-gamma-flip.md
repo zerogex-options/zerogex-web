@@ -1,12 +1,12 @@
 # What Is a Gamma Flip? The Gamma Flip Level Explained
 
-*Gamma flip explained without the hand-waving — what the level actually is, how it is found, what changes above versus below it, and how to read it intraday. Also called the zero gamma level.*
+*Gamma flip explained without the hand-waving - what the level actually is, how it is found, what changes above versus below it, and how to read it intraday. Also called the zero gamma level.*
 
 ---
 
 ## Why the gamma flip matters
 
-Most traders read price action against support and resistance. The gamma flip is something different: it is a **regime boundary**, not a target. When spot is above the flip, dealer-hedging mechanics tend to *dampen* volatility. When spot is below it, those same mechanics tend to *amplify* it. The setups that work in one regime are usually the wrong setups in the other — and recognizing which regime you are in is most of the edge.
+Most traders read price action against support and resistance. The gamma flip is something different: it is a **regime boundary**, not a target. When spot is above the flip, dealer-hedging mechanics tend to *dampen* volatility. When spot is below it, those same mechanics tend to *amplify* it. The setups that work in one regime are usually the wrong setups in the other - and recognizing which regime you are in is most of the edge.
 
 This piece is the trader-facing read. We will cover what the flip level actually is, what changes when spot crosses it, and how to use it inside a session. If you want the underlying market structure in more depth, start with the [Gamma Exposure pillar](/education/gamma-exposure-explained); for the calculation methodology, see the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
 
@@ -14,7 +14,7 @@ This piece is the trader-facing read. We will cover what the flip level actually
 
 ## What is a gamma flip?
 
-The gamma flip is the price level at which the *modeled* aggregate dealer gamma exposure crosses zero. Above the flip, the model has dealers net long gamma; below it, net short. It is not a fixed strike — it is the spot level at which the modeled gamma profile changes sign, and as the chain reweights through the day, that price moves. The same level is also called the [zero gamma level](/education/zero-gamma-level-explained): "zero gamma" names the value, "gamma flip" names the sign change. Because it comes out of a model, it depends on the sign convention and the modeling choices behind it (which expirations, how they're weighted, the IV and open-interest inputs), and it can occasionally be non-unique, absent, or ambiguous.
+The gamma flip is the price level at which the *modeled* aggregate dealer gamma exposure crosses zero. Above the flip, the model has dealers net long gamma; below it, net short. It is not a fixed strike - it is the spot level at which the modeled gamma profile changes sign, and as the chain reweights through the day, that price moves. The same level is also called the [zero gamma level](/education/zero-gamma-level-explained): "zero gamma" names the value, "gamma flip" names the sign change. Because it comes out of a model, it depends on the sign convention and the modeling choices behind it (which expirations, how they're weighted, the IV and open-interest inputs), and it can occasionally be non-unique, absent, or ambiguous.
 
 A few things worth being explicit about:
 
@@ -22,7 +22,7 @@ A few things worth being explicit about:
 - It is a **regime indicator, not a directional one.** Spot above the flip is not bullish. Spot below it is not bearish. The regime tells you about realized *volatility character*, not direction.
 - It is **dynamic.** As open interest rolls, expiries decay, and fresh flow hits the book, the flip drifts. A stale flip is a misleading flip.
 
-Treat it the way a meteorologist treats a weather front — knowing which side you are on tells you what kind of weather to expect, not where the storm is going.
+Treat it the way a meteorologist treats a weather front - knowing which side you are on tells you what kind of weather to expect, not where the storm is going.
 
 ---
 
@@ -52,7 +52,7 @@ Practical consequences:
 - **Trend-continuation has a higher hit rate.** Momentum tends to extend rather than fade.
 - **Mean-reversion gets dangerous.** Catching a falling knife in a deep negative-gamma regime tends to compound losses, because the dealer reflex you would be counting on (buying weakness) is the reflex that just inverted.
 
-This is also a probabilistic lean, not a forecast. A single calm headline can quiet the tape inside the same regime. But knowing you are in short-gamma territory should change which trades you take and — more importantly — which trades you skip.
+This is also a probabilistic lean, not a forecast. A single calm headline can quiet the tape inside the same regime. But knowing you are in short-gamma territory should change which trades you take and - more importantly - which trades you skip.
 
 ---
 
@@ -61,7 +61,7 @@ This is also a probabilistic lean, not a forecast. A single calm headline can qu
 Reading the gamma flip in real time is a short set of habits:
 
 1. **Check the regime first.** Before any setup, know whether spot is above or below the flip. That single read filters out a meaningful share of bad trades.
-2. **Watch the distance to the flip.** Spot clear of the flip by a healthy margin is a stable regime read. Spot wedged within a few tenths of a percent is a contested regime — both sides of the book are partially active, and behavior is unstable. Tighten size or stand aside.
+2. **Watch the distance to the flip.** Spot clear of the flip by a healthy margin is a stable regime read. Spot wedged within a few tenths of a percent is a contested regime - both sides of the book are partially active, and behavior is unstable. Tighten size or stand aside.
 3. **Watch for migration.** Flip levels shift as positioning rebalances. A flip that drifts up alongside price has a different meaning than one anchored while price moves toward it.
 4. **Pair the flip with the walls.** The flip tells you the regime; the [call wall and put wall](/education/gamma-walls-explained) tell you the structural boundaries inside it. Read them together.
 5. **Respect 0DTE concentration.** When same-day expiries dominate the chain, the flip becomes especially reactive. See [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained) for the regime-specific reads.
@@ -75,7 +75,7 @@ The discipline is to use the flip as a **filter**, not a signal. It tells you wh
 The ZeroGEX dashboard surfaces the flip in two places:
 
 - **The Gamma Flip metric card** shows the current flip level alongside live dollar and percent distance from spot.
-- **The dealer gamma profile chart** plots the curve across strikes, with the zero crossing — the flip — visible directly.
+- **The dealer gamma profile chart** plots the curve across strikes, with the zero crossing - the flip - visible directly.
 
 ![ZeroGEX dashboard Gamma Flip card showing SPX spot above the flip with live distance](/blog/zerogex-gamma-flip-card.png)
 
@@ -85,11 +85,11 @@ A worked example. Suppose SPX is trading at 5,830 and the dashboard shows:
 - **Gamma Flip:** 5,815
 - **Distance:** +15 / +0.26%
 
-The read: spot is in modeled long-gamma territory, comfortably above the flip. The headline Net GEX figure — estimated dealer gamma under the traditional call-positive/put-negative convention, not observed inventory — is consistent with the regime: positive, because it is the value of the same modeled gamma curve evaluated at spot, and in this book that curve turns positive above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, breakouts more likely to fade, pin behavior toward heavy-gamma strikes on the table into the close.
+The read: spot is in modeled long-gamma territory, comfortably above the flip. The headline Net GEX figure - estimated dealer gamma under the traditional call-positive/put-negative convention, not observed inventory - is consistent with the regime: positive, because it is the value of the same modeled gamma curve evaluated at spot, and in this book that curve turns positive above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, breakouts more likely to fade, pin behavior toward heavy-gamma strikes on the table into the close.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 
-Now imagine the same dashboard 30 minutes later: SPX 5,810, gamma flip 5,818. Spot has crossed below, and the flip has actually drifted up toward where spot was. Crossing the modeled flip suggests the aggregate hedging tendency has changed sign — a trader who was fading rallies above the flip should be much more cautious about fading the next selloff, though realized behavior still depends on flow, liquidity, vol, and catalysts, not the flip alone.
+Now imagine the same dashboard 30 minutes later: SPX 5,810, gamma flip 5,818. Spot has crossed below, and the flip has actually drifted up toward where spot was. Crossing the modeled flip suggests the aggregate hedging tendency has changed sign - a trader who was fading rallies above the flip should be much more cautious about fading the next selloff, though realized behavior still depends on flow, liquidity, vol, and catalysts, not the flip alone.
 
 ---
 
@@ -101,7 +101,7 @@ A few patterns that catch traders out:
 - **Ignoring how dynamic it is.** The flip can move several points in a few hours as positioning shifts. Reading yesterday's flip on today's tape is reading a stale book.
 - **Mistaking proximity for confirmation.** Spot sitting *at* the flip is the least informative state, not the most. Positive and negative modeled gamma contributions are approximately offset; the net hedging tendency is weak and can change sign with small input changes.
 - **Reading the flip without checking the Net GEX magnitude.** A flip with $2B of dealer gamma above it is a much sharper regime than a flip with $200M. Magnitude matters as much as sign.
-- **Confusing the flip with max pain.** Max pain is a payoff-geometry strike — where option-holder payout is minimized at expiry — not a hedging force. The flip is a modeled hedging-regime line based on dealer gamma. They often disagree, and they answer different questions.
+- **Confusing the flip with max pain.** Max pain is a payoff-geometry strike - where option-holder payout is minimized at expiry - not a hedging force. The flip is a modeled hedging-regime line based on dealer gamma. They often disagree, and they answer different questions.
 
 ---
 
@@ -109,9 +109,9 @@ A few patterns that catch traders out:
 
 > Above the flip is generally a long-gamma, vol-dampening regime. Below is generally a short-gamma, vol-amplifying one. Spot at the flip is contested, not neutral.
 
-Used as a filter — not as a signal — the gamma flip is the closest thing dealer-positioning analysis has to a single, durable read. It will not tell you which way the market is going. It will tell you which trades have the dealer reflex behind them and which ones are fighting it.
+Used as a filter - not as a signal - the gamma flip is the closest thing dealer-positioning analysis has to a single, durable read. It will not tell you which way the market is going. It will tell you which trades have the dealer reflex behind them and which ones are fighting it.
 
-Educational content only — none of the above is a trade recommendation.
+Educational content only - none of the above is a trade recommendation.
 
 ---
 

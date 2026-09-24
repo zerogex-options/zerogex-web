@@ -2,13 +2,13 @@
 > **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
-*Die praxisnahe Lesart des Gamma Flip — was dieses Level wirklich ist, was sich oberhalb und unterhalb davon ändert, und wie man intraday darauf reagiert. Der Gamma Flip erklärt, ohne Schönrederei.*
+*Die praxisnahe Lesart des Gamma Flip - was dieses Level wirklich ist, was sich oberhalb und unterhalb davon ändert, und wie man intraday darauf reagiert. Der Gamma Flip erklärt, ohne Schönrederei.*
 
 ---
 
 ## Warum der Gamma Flip wichtig ist
 
-Die meisten Trader lesen Preisbewegungen anhand von Support und Resistance. Der Gamma Flip ist etwas anderes: Er ist eine **Regimegrenze**, kein Kursziel. Wenn der Spot über dem Flip liegt, tendieren die Hedging-Mechanismen der Dealer dazu, die Volatilität zu *dämpfen*. Liegt der Spot darunter, tendieren dieselben Mechanismen dazu, sie zu *verstärken*. Setups, die in einem Regime funktionieren, sind im anderen meist die falschen — und zu erkennen, in welchem Regime man sich befindet, ist der größte Teil des Vorteils.
+Die meisten Trader lesen Preisbewegungen anhand von Support und Resistance. Der Gamma Flip ist etwas anderes: Er ist eine **Regimegrenze**, kein Kursziel. Wenn der Spot über dem Flip liegt, tendieren die Hedging-Mechanismen der Dealer dazu, die Volatilität zu *dämpfen*. Liegt der Spot darunter, tendieren dieselben Mechanismen dazu, sie zu *verstärken*. Setups, die in einem Regime funktionieren, sind im anderen meist die falschen - und zu erkennen, in welchem Regime man sich befindet, ist der größte Teil des Vorteils.
 
 Dieser Beitrag liefert die Lesart aus Trader-Perspektive. Wir behandeln, was das Flip-Level tatsächlich ist, was sich ändert, wenn der Spot es durchquert, und wie man es innerhalb einer Session einsetzt. Wer die zugrundeliegende Marktstruktur tiefer verstehen möchte, beginnt am besten mit dem [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained); zur Berechnungsmethodik siehe den [Leitfaden zur Gamma-Flip-Berechnung](/guides/gamma-flip-calculation-before-vs-after).
 
@@ -16,7 +16,7 @@ Dieser Beitrag liefert die Lesart aus Trader-Perspektive. Wir behandeln, was das
 
 ## Was ist ein Gamma Flip?
 
-Der Gamma Flip ist das Preisniveau, an dem die aggregierte Gamma-Exposure der Dealer die Nulllinie kreuzt. Oberhalb des Flips sind Dealer typischerweise net long Gamma; darunter typischerweise net short. Es handelt sich nicht um einen fixen Strike. Es ist der Preis, an dem das Gamma-Profil der Dealer das Vorzeichen wechselt — und während sich die Optionskette im Tagesverlauf neu gewichtet, bewegt sich dieser Preis mit.
+Der Gamma Flip ist das Preisniveau, an dem die aggregierte Gamma-Exposure der Dealer die Nulllinie kreuzt. Oberhalb des Flips sind Dealer typischerweise net long Gamma; darunter typischerweise net short. Es handelt sich nicht um einen fixen Strike. Es ist der Preis, an dem das Gamma-Profil der Dealer das Vorzeichen wechselt - und während sich die Optionskette im Tagesverlauf neu gewichtet, bewegt sich dieser Preis mit.
 
 Ein paar Dinge, die es klar zu benennen gilt:
 
@@ -24,7 +24,7 @@ Ein paar Dinge, die es klar zu benennen gilt:
 - Er ist ein **Regimeindikator, kein Richtungsindikator.** Spot über dem Flip ist nicht bullisch. Spot darunter ist nicht bärisch. Das Regime sagt etwas über den Charakter der realisierten *Volatilität* aus, nicht über die Richtung.
 - Er ist **dynamisch.** Während sich das Open Interest verschiebt, Laufzeiten verfallen und neuer Order-Flow ins Buch kommt, driftet der Flip. Ein veralteter Flip ist ein irreführender Flip.
 
-Behandeln Sie ihn so, wie ein Meteorologe eine Wetterfront behandelt — zu wissen, auf welcher Seite man steht, verrät, welches Wetter zu erwarten ist, nicht wohin der Sturm zieht.
+Behandeln Sie ihn so, wie ein Meteorologe eine Wetterfront behandelt - zu wissen, auf welcher Seite man steht, verrät, welches Wetter zu erwarten ist, nicht wohin der Sturm zieht.
 
 ---
 
@@ -54,7 +54,7 @@ Praktische Konsequenzen:
 - **Trendfortsetzung hat eine höhere Trefferquote.** Momentum tendiert dazu, sich fortzusetzen, statt abzuflauen.
 - **Mean-Reversion wird gefährlich.** Ein fallendes Messer in einem tiefen Negativ-Gamma-Regime aufzufangen, tendiert dazu, Verluste zu verstärken, weil der Dealer-Reflex, auf den man sich verlassen würde (Kaufen in Schwäche hinein), genau der Reflex ist, der sich soeben umgekehrt hat.
 
-Auch das ist eine probabilistische Tendenz, keine Prognose. Eine einzelne beruhigende Schlagzeile kann das Tape innerhalb desselben Regimes glätten. Aber zu wissen, dass man sich in Short-Gamma-Territorium befindet, sollte beeinflussen, welche Trades man eingeht und — noch wichtiger — welche man auslässt.
+Auch das ist eine probabilistische Tendenz, keine Prognose. Eine einzelne beruhigende Schlagzeile kann das Tape innerhalb desselben Regimes glätten. Aber zu wissen, dass man sich in Short-Gamma-Territorium befindet, sollte beeinflussen, welche Trades man eingeht und - noch wichtiger - welche man auslässt.
 
 ---
 
@@ -63,7 +63,7 @@ Auch das ist eine probabilistische Tendenz, keine Prognose. Eine einzelne beruhi
 Den Gamma Flip in Echtzeit zu lesen, ist eine kurze Reihe von Gewohnheiten:
 
 1. **Zuerst das Regime prüfen.** Vor jedem Setup wissen, ob der Spot über oder unter dem Flip liegt. Allein diese Lesart filtert einen erheblichen Anteil schlechter Trades heraus.
-2. **Den Abstand zum Flip beobachten.** Ein Spot, der mit gesundem Abstand klar vom Flip entfernt ist, ist eine stabile Regime-Lesart. Ein Spot, der innerhalb weniger Zehntel Prozent eingeklemmt ist, kennzeichnet ein umkämpftes Regime — beide Seiten des Buchs sind teilweise aktiv, und das Verhalten ist instabil. Positionsgröße reduzieren oder aussetzen.
+2. **Den Abstand zum Flip beobachten.** Ein Spot, der mit gesundem Abstand klar vom Flip entfernt ist, ist eine stabile Regime-Lesart. Ein Spot, der innerhalb weniger Zehntel Prozent eingeklemmt ist, kennzeichnet ein umkämpftes Regime - beide Seiten des Buchs sind teilweise aktiv, und das Verhalten ist instabil. Positionsgröße reduzieren oder aussetzen.
 3. **Auf Migration achten.** Flip-Level verschieben sich, während sich das Positioning neu ausbalanciert. Ein Flip, der zusammen mit dem Preis nach oben driftet, hat eine andere Bedeutung als einer, der verankert bleibt, während sich der Preis darauf zubewegt.
 4. **Den Flip mit den Walls kombinieren.** Der Flip verrät das Regime; [Call Wall und Put Wall](/education/gamma-walls-explained) verraten die strukturellen Grenzen darin. Beide zusammen lesen.
 5. **0DTE-Konzentration respektieren.** Wenn Verfallstermine desselben Tages die Kette dominieren, wird der Flip besonders reaktiv. Siehe [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained) für die regimespezifischen Lesarten.
@@ -77,7 +77,7 @@ Die Disziplin besteht darin, den Flip als **Filter** zu nutzen, nicht als Signal
 Das ZeroGEX-Dashboard zeigt den Flip an zwei Stellen:
 
 - Die **Gamma-Flip-Metric-Card** zeigt das aktuelle Flip-Level zusammen mit der Live-Distanz zum Spot in Dollar und Prozent.
-- Das **Dealer-Gamma-Profil-Chart** stellt die Kurve über die Strikes hinweg dar, wobei der Nulldurchgang — der Flip — direkt sichtbar ist.
+- Das **Dealer-Gamma-Profil-Chart** stellt die Kurve über die Strikes hinweg dar, wobei der Nulldurchgang - der Flip - direkt sichtbar ist.
 
 ![ZeroGEX dashboard Gamma Flip card showing SPX spot above the flip with live distance](/blog/zerogex-gamma-flip-card.png)
 
@@ -87,11 +87,11 @@ Ein Beispiel aus der Praxis. Angenommen, SPX notiert bei 5.830 und das Dashboard
 - **Gamma Flip:** 5.815
 - **Distanz:** +15 / +0,26 %
 
-Die Lesart: Der Spot befindet sich in Long-Gamma-Territorium, komfortabel oberhalb des Flips. Der ausgewiesene Net-GEX-Wert ist konsistent mit dem Regime — positiv, weil es sich um den Wert derselben Dealer-Gamma-Kurve handelt, ausgewertet am Spot, und diese Kurve wird erst positiv, sobald man den Flip nach oben überschritten hat. (Diese Vorzeichen-Konsistenz ist strukturell in der Art verankert, wie ZeroGEX das Profil berechnet.) Praktische Tendenz: gedämpfte Volatilität, Ausbrüche mit höherer Wahrscheinlichkeit, gefadet zu werden, Pin-Verhalten zum Handelsschluss hin in Richtung der stark besetzten Gamma-Strikes.
+Die Lesart: Der Spot befindet sich in Long-Gamma-Territorium, komfortabel oberhalb des Flips. Der ausgewiesene Net-GEX-Wert ist konsistent mit dem Regime - positiv, weil es sich um den Wert derselben Dealer-Gamma-Kurve handelt, ausgewertet am Spot, und diese Kurve wird erst positiv, sobald man den Flip nach oben überschritten hat. (Diese Vorzeichen-Konsistenz ist strukturell in der Art verankert, wie ZeroGEX das Profil berechnet.) Praktische Tendenz: gedämpfte Volatilität, Ausbrüche mit höherer Wahrscheinlichkeit, gefadet zu werden, Pin-Verhalten zum Handelsschluss hin in Richtung der stark besetzten Gamma-Strikes.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 
-Nun stellen Sie sich dasselbe Dashboard 30 Minuten später vor: SPX 5.810, Gamma Flip 5.818. Der Spot ist darunter gerutscht, und der Flip ist tatsächlich nach oben gedriftet, in Richtung dort, wo der Spot zuvor stand. Das ist der strukturelle Wendepunkt, an dem sich der Intraday-Charakter ändert — und ein Trader, der Rallyes oberhalb des Flips gefadet hat, sollte beim Faden des nächsten Ausverkaufs im neuen Regime deutlich vorsichtiger sein.
+Nun stellen Sie sich dasselbe Dashboard 30 Minuten später vor: SPX 5.810, Gamma Flip 5.818. Der Spot ist darunter gerutscht, und der Flip ist tatsächlich nach oben gedriftet, in Richtung dort, wo der Spot zuvor stand. Das ist der strukturelle Wendepunkt, an dem sich der Intraday-Charakter ändert - und ein Trader, der Rallyes oberhalb des Flips gefadet hat, sollte beim Faden des nächsten Ausverkaufs im neuen Regime deutlich vorsichtiger sein.
 
 ---
 
@@ -111,9 +111,9 @@ Ein paar Muster, die Trader auf dem falschen Fuß erwischen:
 
 > Oberhalb des Flips herrscht in der Regel ein Long-Gamma-Regime, das die Volatilität dämpft. Darunter herrscht in der Regel ein Short-Gamma-Regime, das sie verstärkt. Spot am Flip ist umkämpft, nicht neutral.
 
-Als Filter eingesetzt — nicht als Signal — kommt der Gamma Flip einer einzelnen, belastbaren Lesart, die die Analyse des Dealer-Positioning zu bieten hat, am nächsten. Er verrät nicht, in welche Richtung sich der Markt bewegt. Er verrät, welche Trades den Dealer-Reflex im Rücken haben und welche gegen ihn ankämpfen.
+Als Filter eingesetzt - nicht als Signal - kommt der Gamma Flip einer einzelnen, belastbaren Lesart, die die Analyse des Dealer-Positioning zu bieten hat, am nächsten. Er verrät nicht, in welche Richtung sich der Markt bewegt. Er verrät, welche Trades den Dealer-Reflex im Rücken haben und welche gegen ihn ankämpfen.
 
-Nur zu Bildungszwecken — nichts von alledem ist eine Handelsempfehlung.
+Nur zu Bildungszwecken - nichts von alledem ist eine Handelsempfehlung.
 
 ---
 

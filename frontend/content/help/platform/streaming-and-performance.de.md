@@ -6,7 +6,7 @@
 
 ## So funktioniert das Streaming
 
-ZeroGEX sendet Live-Daten über eine dauerhafte Verbindung an deinen Browser — öffne das Dashboard, und die Daten fließen innerhalb einer Sekunde nach dem Laden der Seite. Clientseitig gibt es kein Polling.
+ZeroGEX sendet Live-Daten über eine dauerhafte Verbindung an deinen Browser - öffne das Dashboard, und die Daten fließen innerhalb einer Sekunde nach dem Laden der Seite. Clientseitig gibt es kein Polling.
 
 Die Verbindung erneuert sich selbst, wenn sie abbricht. Schlägt eine Erneuerung wiederholt fehl, zeigt die Benutzeroberfläche ein "Verbindung wird wiederhergestellt…"-Label an und startet einen neuen Versuch mit Backoff.
 
@@ -16,8 +16,8 @@ Die Verbindung erneuert sich selbst, wenn sie abbricht. Schlägt eine Erneuerung
 | --- | --- |
 | Kursnotierung | ~1 Sekunde |
 | Flow / Tape | ~1 Sekunde |
-| Signal-Scores | 1–5 Sekunden je nach Signal |
-| GEX-Oberfläche | 5–15 Sekunden (Engpass: Chain-Snapshot) |
+| Signal-Scores | 1-5 Sekunden je nach Signal |
+| GEX-Oberfläche | 5-15 Sekunden (Engpass: Chain-Snapshot) |
 | Composite Score | ~5 Sekunden |
 
 Wenn sich die Seite in einem Hintergrund-Tab befindet, kann der Browser die Updates drosseln. Bringe den Tab in den Vordergrund, und die Updates werden sofort fortgesetzt.
@@ -35,9 +35,9 @@ Die häufigsten Ursachen, geordnet danach, wie oft wir sie sehen:
 
 Wenn etwas nicht richtig aussieht, die vierstufige Diagnose:
 
-1. Sieh dir das **Session-Badge** an — ist der Markt geöffnet?
-2. Sieh dir die **Preis-Kachel** an — ist der Zeitstempel aktuell?
-3. Sieh dir das **Verbindungssymbol** im Header an — ist es grün?
+1. Sieh dir das **Session-Badge** an - ist der Markt geöffnet?
+2. Sieh dir die **Preis-Kachel** an - ist der Zeitstempel aktuell?
+3. Sieh dir das **Verbindungssymbol** im Header an - ist es grün?
 4. Erzwinge ein Neuladen der Seite (Cmd+Shift+R oder Ctrl+Shift+R).
 
 Das deckt etwa 95 % der Fälle ab, in denen "irgendetwas kaputt wirkt".
@@ -58,7 +58,7 @@ Datenschutz- und Werbeblocker-Erweiterungen sind in der Regel unproblematisch. A
 
 ### Der helle Modus ist etwas schneller
 
-Das helle Theme rendert auf den meisten Systemen etwas schneller als das dunkle Theme, aufgrund der Art, wie Schatten und Farbtöne zusammengesetzt werden. Marginal — aber auf einem leistungsschwachen Gerät durchaus erwähnenswert.
+Das helle Theme rendert auf den meisten Systemen etwas schneller als das dunkle Theme, aufgrund der Art, wie Schatten und Farbtöne zusammengesetzt werden. Marginal - aber auf einem leistungsschwachen Gerät durchaus erwähnenswert.
 
 ### Symbolwechsel ist aufwendiger als Zeitrahmenwechsel
 
@@ -66,7 +66,7 @@ Beim Wechsel des Symbols werden alle Daten neu abgerufen; beim Wechsel des Zeitr
 
 ## Mobil
 
-ZeroGEX läuft auch auf Smartphones — jede Seite ist responsiv — aber die Plattform ist **für den Desktop konzipiert**. Die Chartdichte geht von einem Bildschirm breiter als 1024px aus. Scrolle auf Mobilgeräten horizontal über die Charts; alle Daten sind vorhanden, das Layout ist nur dichter.
+ZeroGEX läuft auch auf Smartphones - jede Seite ist responsiv - aber die Plattform ist **für den Desktop konzipiert**. Die Chartdichte geht von einem Bildschirm breiter als 1024px aus. Scrolle auf Mobilgeräten horizontal über die Charts; alle Daten sind vorhanden, das Layout ist nur dichter.
 
 ## Wann du dich an den Support wenden solltest
 
@@ -76,7 +76,7 @@ Wenn die Plattform selbst festzuhängen scheint (nicht deine Verbindung, nicht e
 - Dem Zeitpunkt des Vorfalls (mit Zeitzone)
 - Deinem Browser und Betriebssystem
 
-Unsere Logs sind zeitgestempelt — das reicht aus, um dem Problem nachzugehen.
+Unsere Logs sind zeitgestempelt - das reicht aus, um dem Problem nachzugehen.
 
 ## Siehe auch
 

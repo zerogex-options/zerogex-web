@@ -8,7 +8,7 @@
 
 Pin Strike is the **reachable same-day (0DTE) strike with the strongest modeled positive dealer gamma into expiration**.
 
-It answers a question none of the other levels ask: *if price drifted to strike K, would dealer hedging there be locally stabilizing — and can price actually get to K before the close?*
+It answers a question none of the other levels ask: *if price drifted to strike K, would dealer hedging there be locally stabilizing - and can price actually get to K before the close?*
 
 That makes it a distinct metric, not a rename of one you already have:
 
@@ -30,11 +30,11 @@ For every candidate strike `K`:
 pin_score(K) = restoring_gamma(K) × reachability(K)
 ```
 
-**`restoring_gamma(K)`** — dealer gamma re-priced **as if spot were at K**. Every contract's gamma is recomputed with Black-Scholes at `S = K` using that contract's own implied vol and time to expiration, signed with the standard dealer convention (calls `+`, puts `−`), scaled to dollar gamma per 1% move on an open-interest basis, then weighted by a Gaussian kernel in strike space so only gamma *concentrated around K* contributes. The result is floored at zero: a neighborhood dominated by dealer-short put gamma scores zero and cannot pin.
+**`restoring_gamma(K)`** - dealer gamma re-priced **as if spot were at K**. Every contract's gamma is recomputed with Black-Scholes at `S = K` using that contract's own implied vol and time to expiration, signed with the standard dealer convention (calls `+`, puts `−`), scaled to dollar gamma per 1% move on an open-interest basis, then weighted by a Gaussian kernel in strike space so only gamma *concentrated around K* contributes. The result is floored at zero: a neighborhood dominated by dealer-short put gamma scores zero and cannot pin.
 
 The kernel bandwidth is **one median strike interval** of the nearby chain, so it adapts automatically across SPY (~$1 grid), SPX (~5pt) and NDX (coarser).
 
-**`reachability(K)`** — how plausibly price gets there:
+**`reachability(K)`** - how plausibly price gets there:
 
 ```
 z = ln(K / spot) / (σ · √τ)
@@ -79,7 +79,7 @@ A worked example. Suppose the 0DTE chain shows this net gamma by strike, with a 
 | 29,510 | 62m |
 | 29,520 | −3m |
 
-That looks like a sharp, isolated peak — roughly 3× its neighbors on the way up, collapsing by over 90% immediately after. Intuitively, a strong pin.
+That looks like a sharp, isolated peak - roughly 3× its neighbors on the way up, collapsing by over 90% immediately after. Intuitively, a strong pin.
 
 But the kernel bandwidth here is one strike interval (10 points), so a neighbor 10 points away carries about 61% weight and one 20 points away about 14%. After smoothing, the *candidates around the peak inherit most of the peak's own gamma*:
 
@@ -90,9 +90,9 @@ But the kernel bandwidth here is one strike interval (10 points), so a neighbor 
 | **29,500** | **1,209m** | **32%** |
 | 29,510 | 681m | 18% |
 
-29,500 still wins — but at roughly 32% it lands just under the Moderate threshold and labels **Weak**. The very neighbors that make the peak look isolated in raw terms are the ones diluting its share, because each of them is itself a candidate borrowing that peak through the kernel. And this is the generous version: the real denominator spans every strike within ±2.5 expected moves, so the true share is lower still.
+29,500 still wins - but at roughly 32% it lands just under the Moderate threshold and labels **Weak**. The very neighbors that make the peak look isolated in raw terms are the ones diluting its share, because each of them is itself a candidate borrowing that peak through the kernel. And this is the generous version: the real denominator spans every strike within ±2.5 expected moves, so the true share is lower still.
 
-The practical reading: a Weak label next to a visibly heavy strike is telling you **the gamma is spread across a neighborhood rather than concentrated on one strike**. That is useful information — it means the pin is a zone, not a point — but it is not a statement that the level is insignificant.
+The practical reading: a Weak label next to a visibly heavy strike is telling you **the gamma is spread across a neighborhood rather than concentrated on one strike**. That is useful information - it means the pin is a zone, not a point - but it is not a statement that the level is insignificant.
 
 ### It reads stronger into the close
 
@@ -100,28 +100,28 @@ The candidate band is measured in vol·√time units, so as `τ → 0` into the 
 
 ## Where to see the numbers
 
-- **Key Levels strip and the Gamma Terminal chart** — the Pin Strike line and tile, with the strength bucket and confidence percent.
-- **Replay snapshot permalinks** — `/replay/{symbol}/{date}/snapshot/{HHMM}` (time in ET) renders any historical moment with its stored confidence.
-- **API** — `GET /api/v1/levels/{symbol}` returns `pin_strike`, `pin_score`, `pin_confidence` (0–1) and `pin_strike_reason` as top-level fields. `GET /api/gex/summary` carries the same fields.
+- **Key Levels strip and the Gamma Terminal chart** - the Pin Strike line and tile, with the strength bucket and confidence percent.
+- **Replay snapshot permalinks** - `/replay/{symbol}/{date}/snapshot/{HHMM}` (time in ET) renders any historical moment with its stored confidence.
+- **API** - `GET /api/v1/levels/{symbol}` returns `pin_strike`, `pin_score`, `pin_confidence` (0-1) and `pin_strike_reason` as top-level fields. `GET /api/gex/summary` carries the same fields.
 
 ## When there is no pin
 
-Pin Strike is nullable by design — we hide it rather than showing a misleading zero. When there is no active pin, `pin_strike_reason` says why:
+Pin Strike is nullable by design - we hide it rather than showing a misleading zero. When there is no active pin, `pin_strike_reason` says why:
 
 | Reason | Meaning |
 | --- | --- |
 | `NO_0DTE_EXPIRATION` | No same-day expiration exists for this symbol today. |
-| `NO_POSITIVE_RESTORING_GAMMA` | No neighborhood has net-positive restoring gamma — nothing can pin. |
+| `NO_POSITIVE_RESTORING_GAMMA` | No neighborhood has net-positive restoring gamma - nothing can pin. |
 | `INSUFFICIENT_OPTION_DATA` | Not enough structurally valid contracts (positive OI, IV, time, strike). |
 | `INSUFFICIENT_IV_DATA` | No ATM contract carries a usable implied vol. We never substitute a default vol. |
-| `EXPIRED` | Past the settlement instant — reachability is undefined. |
+| `EXPIRED` | Past the settlement instant - reachability is undefined. |
 | `PIN_SCORE_TOO_WEAK` | The best candidate fell below the configured magnitude floor. |
 
-## Pin stability — a separate read
+## Pin stability - a separate read
 
 The strength label is computed from a **single snapshot**, fresh each cycle, with no smoothing across time. A near-tie between two strikes can flip the label between adjacent minutes.
 
-Separately, we track what the pin has *done* across the session — how long it has held, how far it has migrated, how many strikes it has genuinely occupied. That surfaces as its own line beneath the Pin tile ("Held since 09:41", or "−30 pts today · held since 14:05"). Single-minute excursions are pruned as scoring near-ties rather than reported as migrations.
+Separately, we track what the pin has *done* across the session - how long it has held, how far it has migrated, how many strikes it has genuinely occupied. That surfaces as its own line beneath the Pin tile ("Held since 09:41", or "−30 pts today · held since 14:05"). Single-minute excursions are pruned as scoring near-ties rather than reported as migrations.
 
 Those are deliberately two different reads, and **stability does not feed the strength bucket**. A pin can be Weak but rock-steady all session, or Strong and migrating.
 
@@ -134,7 +134,7 @@ Stated plainly, because they affect how you should read the number:
 - **Confidence is time-of-day sensitive.** The candidate band narrows into the close, mechanically raising confidence.
 - **Strikes at the edge of the listed range are not explicitly flagged.** A candidate with no listed strikes on one side collects a one-sided kernel sum and so scores lower than a comparable interior strike. That is directionally sensible but it is a side effect of the kernel, not a designed low-confidence rule, and it is not surfaced to you.
 - **0DTE only.** If you are comparing against strike-level gamma figures pulled from the full chain, you are looking at a different input set.
-- **Modeled, not observed.** Pin Strike rests on the dealer-positioning convention described in [Methodology & Validation](/methodology) — that customers are net long calls and net short puts against dealers. Where that assumption is wrong, the sign is wrong.
+- **Modeled, not observed.** Pin Strike rests on the dealer-positioning convention described in [Methodology & Validation](/methodology) - that customers are net long calls and net short puts against dealers. Where that assumption is wrong, the sign is wrong.
 
 ## See also
 

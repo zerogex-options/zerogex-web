@@ -13,15 +13,15 @@ It's where you go after the dashboard tells you "the structure is bullish" and y
 ## Building a strategy
 
 1. **Pick a symbol** (SPY, SPX, QQQ, NDX).
-2. **Add a leg** — buy or sell, call or put, strike, expiration. The chain is live.
+2. **Add a leg** - buy or sell, call or put, strike, expiration. The chain is live.
 3. **Repeat** for multi-leg structures (verticals, condors, calendars, ratios, straddles, strangles).
-4. **Set the spot for analysis** — defaults to live spot but you can scenario-test any price.
+4. **Set the spot for analysis** - defaults to live spot but you can scenario-test any price.
 
 The aggregate price, the breakevens, and the greeks update on every change.
 
 ## The pricing model
 
-The Builder uses **Black-Scholes** with the live implied volatility surface for each leg. The IV surface is pulled from our data pipeline — same surface that powers the chain on the [Live Options Quotes](/help/platform/option-contracts) page.
+The Builder uses **Black-Scholes** with the live implied volatility surface for each leg. The IV surface is pulled from our data pipeline - same surface that powers the chain on the [Live Options Quotes](/help/platform/option-contracts) page.
 
 For American-style exercise considerations (relevant for ETFs like SPY and QQQ), the model approximates with an early-exercise premium on deep ITM legs near expiry. The cash-settled indices SPX and NDX are European-exercise so no adjustment is applied.
 
@@ -29,13 +29,13 @@ For American-style exercise considerations (relevant for ETFs like SPY and QQQ),
 
 For each leg and for the aggregate:
 
-- **Delta** — directional exposure
-- **Gamma** — how delta moves with spot
-- **Theta** — time decay (per day)
-- **Vega** — IV sensitivity (per 1% change)
-- **Charm** — delta decay (per day)
+- **Delta** - directional exposure
+- **Gamma** - how delta moves with spot
+- **Theta** - time decay (per day)
+- **Vega** - IV sensitivity (per 1% change)
+- **Charm** - delta decay (per day)
 
-Aggregate greeks let you read a multi-leg structure in one glance — e.g., a long calendar is net long vega and net long theta, collecting decay on the short near-dated leg faster than it pays it on the long far-dated leg.
+Aggregate greeks let you read a multi-leg structure in one glance - e.g., a long calendar is net long vega and net long theta, collecting decay on the short near-dated leg faster than it pays it on the long far-dated leg.
 
 ## The P&L surface
 
@@ -49,7 +49,7 @@ You can also see the breakevens highlighted on the x-axis.
 
 ## Scenario testing
 
-The scenario panel lets you sweep two variables at once — typically spot and IV — and see the resulting P&L grid. Useful for:
+The scenario panel lets you sweep two variables at once - typically spot and IV - and see the resulting P&L grid. Useful for:
 
 - A long-vol structure: how much do you make on a 2-vol shock?
 - A pin trade: how much can you lose if spot diverges from max pain by 1%?

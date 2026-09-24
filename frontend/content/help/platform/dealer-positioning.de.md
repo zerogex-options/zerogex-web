@@ -1,6 +1,6 @@
 # Dealer Positioning
 
-*Die vollständige GEX-Oberfläche — Net GEX am Spot, der Gamma Flip, Call Wall und Put Wall, sowie das Lesen der Term Structure.*
+*Die vollständige GEX-Oberfläche - Net GEX am Spot, der Gamma Flip, Call Wall und Put Wall, sowie das Lesen der Term Structure.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 Die Dealer-Positioning-Seite ist die **strukturelle Landkarte** des Optionsbuchs. Jedes Chart und jede Kachel beantwortet eine einzige Frage: Wo sind die Dealer positioniert, und was werden sie tun müssen, wenn sich der Preis bewegt?
 
-Sie ist die wichtigste Seite, um den Kontext zu verstehen — auch wenn der eigentliche Trade anderswo ausgeführt wird.
+Sie ist die wichtigste Seite, um den Kontext zu verstehen - auch wenn der eigentliche Trade anderswo ausgeführt wird.
 
 ## Die Haupt-Kacheln
 
@@ -16,7 +16,7 @@ Sie ist die wichtigste Seite, um den Kontext zu verstehen — auch wenn der eige
 
 Der Dollar-Gamma-Wert aller offenen Optionen, vorzeichenbehaftet nach Dealer-Position, ausgewertet **zum aktuellen Spotpreis**. Positiv ⇒ Dealer sind netto long Gamma; negativ ⇒ Dealer sind netto short.
 
-Die hier angezeigte Zahl wird am Spot gemessen, nicht über die gesamte Kette summiert — das ist wichtig, weil das Vorzeichen am Spot das Dealer-Verhalten jetzt gerade bestimmt, unabhängig davon, was die kumulative Kurve bei anderen Preisen macht.
+Die hier angezeigte Zahl wird am Spot gemessen, nicht über die gesamte Kette summiert - das ist wichtig, weil das Vorzeichen am Spot das Dealer-Verhalten jetzt gerade bestimmt, unabhängig davon, was die kumulative Kurve bei anderen Preisen macht.
 
 ### Gamma Flip
 
@@ -28,15 +28,15 @@ Die Strikes mit dem größten Call Gamma bzw. Put Gamma. Sie fungieren tendenzie
 
 ### Max Pain
 
-Der Strike, bei dem die Gesamtauszahlung an Optionskäufer minimal ist. Am relevantesten in den letzten 24–48 Stunden vor einem bedeutenden Verfall.
+Der Strike, bei dem die Gesamtauszahlung an Optionskäufer minimal ist. Am relevantesten in den letzten 24-48 Stunden vor einem bedeutenden Verfall.
 
 ## Das GEX-Profil-Chart
 
 Das Hauptchart. Strike auf der x-Achse; Dealer-Gamma auf der y-Achse. Drei Dinge sind zu lesen:
 
-1. **Wo die Kurve die Null kreuzt** — der Gamma Flip.
-2. **Der größte Call-Gamma-Stapel** — die Call Wall.
-3. **Der größte Put-Gamma-Stapel** — die Put Wall.
+1. **Wo die Kurve die Null kreuzt** - der Gamma Flip.
+2. **Der größte Call-Gamma-Stapel** - die Call Wall.
+3. **Der größte Put-Gamma-Stapel** - die Put Wall.
 
 Der aktuelle Spotpreis wird als vertikale Referenzlinie angezeigt. Der sichtbare Bereich ist auf den Spot zentriert.
 
@@ -53,21 +53,21 @@ Das GEX-Profil **pro Verfall**. Stapelt 0DTE, die Verfälle dieser Woche, der n�
 
 ## Die Strike-×-DTE-Heatmap
 
-Eine 2D-Heatmap des Dealer-Gammas über Strike (Zeilen) und DTE (Spalten). Die heißesten Zellen sind die Strikes, die für die nächstliegenden Verfälle am wichtigsten sind. Die Heatmap wandert im Tagesverlauf, wenn Flow hereinkommt — ihre Bewegung zu beobachten ist aufschlussreich.
+Eine 2D-Heatmap des Dealer-Gammas über Strike (Zeilen) und DTE (Spalten). Die heißesten Zellen sind die Strikes, die für die nächstliegenden Verfälle am wichtigsten sind. Die Heatmap wandert im Tagesverlauf, wenn Flow hereinkommt - ihre Bewegung zu beobachten ist aufschlussreich.
 
 ## Der Regime-Header
 
-Ganz oben auf der Seite wird das GEX-Regime-Label (Positiv / Negativ / Im Übergang) mit der einzeiligen Interpretation wiederholt. Wenn das Regime-Label und die Spot/Flip-Beziehung nicht übereinstimmen, fahre mit der Maus über das Regime — der Tooltip erklärt warum (das Label „Im Übergang" erscheint, wenn das Net GEX am Spot nahe null liegt).
+Ganz oben auf der Seite wird das GEX-Regime-Label (Positiv / Negativ / Im Übergang) mit der einzeiligen Interpretation wiederholt. Wenn das Regime-Label und die Spot/Flip-Beziehung nicht übereinstimmen, fahre mit der Maus über das Regime - der Tooltip erklärt warum (das Label „Im Übergang" erscheint, wenn das Net GEX am Spot nahe null liegt).
 
 ## Dealer Positioning in drei Schritten lesen
 
 1. **Wo liegt der Spot relativ zum Flip?** Darüber ⇒ strukturelle Stabilisierung; darunter ⇒ strukturelle Verstärkung.
 2. **Wo liegen die Walls?** Die Call Wall ist deine Aufwärtsreibung; die Put Wall ist deine Abwärtsreibung.
-3. **Wie wandert die Heatmap?** Wandert die Call Wall nach oben, werden die Dealer gezwungen, höher zu rollen — bullishe strukturelle Lesart.
+3. **Wie wandert die Heatmap?** Wandert die Call Wall nach oben, werden die Dealer gezwungen, höher zu rollen - bullishe strukturelle Lesart.
 
 ## Warum sich ZeroGEX' Gamma-Flip-Berechnung unterscheidet
 
-Der Flip wird aus einem **Spot-Shift-Dealer-Gamma-Profil** berechnet — nicht aus einer Näherung über das kumulative Net GEX. Zur Methodik und zum Vorher/Nachher-Vergleich siehe [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
+Der Flip wird aus einem **Spot-Shift-Dealer-Gamma-Profil** berechnet - nicht aus einer Näherung über das kumulative Net GEX. Zur Methodik und zum Vorher/Nachher-Vergleich siehe [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
 
 ## Häufige Lesarten
 

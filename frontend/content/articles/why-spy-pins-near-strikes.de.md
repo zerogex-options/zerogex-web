@@ -2,15 +2,15 @@
 > **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
-*Warum pinnt SPY in der Nähe bestimmter Strikes — besonders freitags und zum Handelsschluss? Das ist kein Zufall. Options-Pinning erklärt: der Dealer-Hedging-Mechanismus hinter diesem Sog, warum er am OPEX und am Ende des Handelstages am stärksten ist, und wie man erkennt, ob der heutige Handel pinnen wird.*
+*Warum pinnt SPY in der Nähe bestimmter Strikes - besonders freitags und zum Handelsschluss? Das ist kein Zufall. Options-Pinning erklärt: der Dealer-Hedging-Mechanismus hinter diesem Sog, warum er am OPEX und am Ende des Handelstages am stärksten ist, und wie man erkennt, ob der heutige Handel pinnen wird.*
 
 ---
 
 ## Pinning ist keine Aberglaube
 
-Wer regelmäßig SPY-Wochenoptionen handelt, hat es schon beobachtet: SPY driftet zu einem runden Strike — 580, 583, 585 — und am Freitagnachmittag bleibt der Kurs dort, oszilliert in einer Spanne von 30 Cent und weigert sich, diesen Bereich zu verlassen. Dasselbe passiert rund um Quartalsverfälle und am monatlichen OPEX. Und dasselbe geschieht auch an vielen ganz normalen Mittwochen und Donnerstagen, wenn die 0DTE-Kette stark besetzt ist.
+Wer regelmäßig SPY-Wochenoptionen handelt, hat es schon beobachtet: SPY driftet zu einem runden Strike - 580, 583, 585 - und am Freitagnachmittag bleibt der Kurs dort, oszilliert in einer Spanne von 30 Cent und weigert sich, diesen Bereich zu verlassen. Dasselbe passiert rund um Quartalsverfälle und am monatlichen OPEX. Und dasselbe geschieht auch an vielen ganz normalen Mittwochen und Donnerstagen, wenn die 0DTE-Kette stark besetzt ist.
 
-Viele Retail-Trader behandeln Pinning als reines Bauchgefühl-Phänomen — "der Markt weiß, wo er sich einpendeln will" — oder schieben es auf Chartmuster. Der Mechanismus ist tatsächlich strukturell und beobachtbar: Dealer-Hedging an Strikes mit hoher Gamma-Konzentration erzeugt gerichtete Flüsse, die den Kurs immer dann zum Strike zurückziehen, wenn er sich davon entfernen will. Sobald man den Mechanismus erkennt, sieht man auch, wann er heute wahrscheinlich aktiv ist und wann nicht.
+Viele Retail-Trader behandeln Pinning als reines Bauchgefühl-Phänomen - "der Markt weiß, wo er sich einpendeln will" - oder schieben es auf Chartmuster. Der Mechanismus ist tatsächlich strukturell und beobachtbar: Dealer-Hedging an Strikes mit hoher Gamma-Konzentration erzeugt gerichtete Flüsse, die den Kurs immer dann zum Strike zurückziehen, wenn er sich davon entfernen will. Sobald man den Mechanismus erkennt, sieht man auch, wann er heute wahrscheinlich aktiv ist und wann nicht.
 
 Dieser Artikel geht die tatsächliche Mechanik des Pinnings durch, erklärt, warum sie sich nahe dem Verfall verstärkt, beschreibt die beiden Pin-Typen, die die meisten Trader verwechseln, sowie die strukturellen Bedingungen, die aus dem heutigen Tag einen Pin-Tag machen. Für die trader-taugliche Checkliste "Ist SPY gerade gepinnt?" siehe [Wie man erkennt, ob SPY gepinnt ist](/education/how-to-know-if-spy-is-pinned). Zur verwandten Max-Pain-Diskussion siehe [Max Pain erklärt](/education/max-pain-explained).
 
@@ -20,11 +20,11 @@ Dieser Artikel geht die tatsächliche Mechanik des Pinnings durch, erklärt, war
 
 Der Mechanismus ist einfach, sobald man ihn ausschreibt:
 
-1. Ein bestimmter Strike — sagen wir SPY 583 — trägt eine große Gamma-Konzentration, und per Saldo ist das Dealer-Buch **long** in dieser Gamma.
-2. Ein Long-Gamma-Buch am Strike hedgt *gegen* Bewegungen von ihm weg — der stabilisierende Reflex, der den Preis pinnt. (Es ist das Positiv-Gamma-Regime, das sich an einem einzelnen dominanten Strike abspielt.)
+1. Ein bestimmter Strike - sagen wir SPY 583 - trägt eine große Gamma-Konzentration, und per Saldo ist das Dealer-Buch **long** in dieser Gamma.
+2. Ein Long-Gamma-Buch am Strike hedgt *gegen* Bewegungen von ihm weg - der stabilisierende Reflex, der den Preis pinnt. (Es ist das Positiv-Gamma-Regime, das sich an einem einzelnen dominanten Strike abspielt.)
 3. Steigt SPY über 583, wird das Hedge-Delta der Dealer positiver, sodass sie zum Neutralbleiben SPY **verkaufen**.
 4. Fällt SPY unter 583, wird ihr Hedge-Delta negativer, sodass sie zum Neutralbleiben SPY **kaufen**.
-5. Jede Bewegung weg von 583 erzwingt einen Hedging-Trade *zurück* Richtung 583. Der Strike wirkt wie ein Magnet — nicht weil ihn jemand gezielt ansteuert, sondern weil die Hedging-Mathematik den Preis mechanisch dorthin lenkt.
+5. Jede Bewegung weg von 583 erzwingt einen Hedging-Trade *zurück* Richtung 583. Der Strike wirkt wie ein Magnet - nicht weil ihn jemand gezielt ansteuert, sondern weil die Hedging-Mathematik den Preis mechanisch dorthin lenkt.
 
 Genau das passiert strukturell, wenn man SPY in einer engen Spanne oszillieren sieht. Es ist nicht "der Markt, der sich entscheidet zu pinnen"; es ist das aggregierte Dealer-Buch, das sich bei jeder Bewegung zurück zur Neutralität korrigiert.
 
@@ -32,33 +32,33 @@ Genau das passiert strukturell, wenn man SPY in einer engen Spanne oszillieren s
 
 ## Warum sich das Pinning nahe dem Verfall verstärkt
 
-Der oben beschriebene Mechanismus gilt für jede Option — aber die *Stärke* des Pins hängt von der Gamma-Größenordnung am jeweiligen Strike ab. Zwei Faktoren lassen diese Größenordnung nahe dem Verfall stark anwachsen:
+Der oben beschriebene Mechanismus gilt für jede Option - aber die *Stärke* des Pins hängt von der Gamma-Größenordnung am jeweiligen Strike ab. Zwei Faktoren lassen diese Größenordnung nahe dem Verfall stark anwachsen:
 
 ### Gamma skaliert mit 1/√T
 
-Das Gamma pro Optionskontrakt ist ungefähr umgekehrt proportional zur Quadratwurzel der Restlaufzeit. Das Gamma einer 0DTE-Option am Geld ist etwa 5-mal so groß wie das einer Option mit gleichem Strike und 5 Tagen Restlaufzeit, und um Größenordnungen höher als bei einer Monatsoption. Je näher der Verfall rückt, desto größer wird das Gamma pro Kontrakt — und desto größer der Hedging-Trade, den jeder Kurs-Tick erfordert.
+Das Gamma pro Optionskontrakt ist ungefähr umgekehrt proportional zur Quadratwurzel der Restlaufzeit. Das Gamma einer 0DTE-Option am Geld ist etwa 5-mal so groß wie das einer Option mit gleichem Strike und 5 Tagen Restlaufzeit, und um Größenordnungen höher als bei einer Monatsoption. Je näher der Verfall rückt, desto größer wird das Gamma pro Kontrakt - und desto größer der Hedging-Trade, den jeder Kurs-Tick erfordert.
 
 Ein 0DTE-Strike, um den herum sich alle positioniert haben, wird im Grunde zu einem schwarzen Loch für den Spot. Dealer müssen extrem große Mengen des Basiswerts für sehr kleine Kursbewegungen bewegen. Pinning wird zum Weg des geringsten Widerstands.
 
 ### Open Interest konzentriert sich an runden Strikes
 
-Der Markt konzentriert Open Interest strukturell bei runden Zahlen — 580, 583, 585 bei SPY, 5800, 5810 bei SPX. Am Freitagnachmittag kann die Gamma-Konzentration an einem oder zwei dieser Strikes die restliche Kette zusammengenommen dominieren. Diese Dominanz eines einzelnen Strikes erzeugt den sichtbaren "Magnetismus", den Trader zum Handelsschluss spüren.
+Der Markt konzentriert Open Interest strukturell bei runden Zahlen - 580, 583, 585 bei SPY, 5800, 5810 bei SPX. Am Freitagnachmittag kann die Gamma-Konzentration an einem oder zwei dieser Strikes die restliche Kette zusammengenommen dominieren. Diese Dominanz eines einzelnen Strikes erzeugt den sichtbaren "Magnetismus", den Trader zum Handelsschluss spüren.
 
-Kombiniert man beides — kurze Restlaufzeit plus konzentriertes OI an runden Strikes —, werden Freitagnachmittags-Pins strukturell vorhersehbar. Mittwoch und Montag zeigen schwächere Varianten desselben Musters, da der 0DTE-Flow stetig wächst.
+Kombiniert man beides - kurze Restlaufzeit plus konzentriertes OI an runden Strikes -, werden Freitagnachmittags-Pins strukturell vorhersehbar. Mittwoch und Montag zeigen schwächere Varianten desselben Musters, da der 0DTE-Flow stetig wächst.
 
 ---
 
-## Zwei Pin-Typen — und sie sind nicht dasselbe
+## Zwei Pin-Typen - und sie sind nicht dasselbe
 
 Eine häufige Quelle der Verwirrung: **Max Pain** vs. der **Gamma-Magnet**. Beide werden "der Pin" genannt, aber sie werden unterschiedlich berechnet und können voneinander abweichen.
 
 ### Max Pain
 
-Max Pain ist der Strike, bei dem die Gesamtauszahlung an Optionshalter am Verfall minimiert wäre. Es ist eine Berechnung der Payoff-Geometrie — reine Mathematik des inneren Werts. Sie zeigt den Strike, der für Optionsschreiber "strukturell günstig" ist.
+Max Pain ist der Strike, bei dem die Gesamtauszahlung an Optionshalter am Verfall minimiert wäre. Es ist eine Berechnung der Payoff-Geometrie - reine Mathematik des inneren Werts. Sie zeigt den Strike, der für Optionsschreiber "strukturell günstig" ist.
 
 ### Gamma-Magnet
 
-Der Gamma-Magnet ist der Strike mit der größten absoluten Dealer-Gamma-Konzentration — der Strike, an dem das erzwungene Hedging am lautesten ist. Es ist eine Ablesung des Hedging-Flows.
+Der Gamma-Magnet ist der Strike mit der größten absoluten Dealer-Gamma-Konzentration - der Strike, an dem das erzwungene Hedging am lautesten ist. Es ist eine Ablesung des Hedging-Flows.
 
 Stimmen beide Strikes überein, ist die Pin-These am schärfsten. Die Kette ist in beide Richtungen ausgeglichen. Weichen sie voneinander ab, gewinnt meist der Gamma-Magnet, weil er der Mechanismus ist, der den preistreibenden Hedging-Flow tatsächlich erzeugt.
 
@@ -101,7 +101,7 @@ Ein kurzer Ablauf:
 
 1. **Den Strike mit dem stärksten Gamma nahe am Spot identifizieren.** Das ist der Magnet-Kandidat.
 2. **Net GEX prüfen.** Ein substanziell positiver Wert ist die Voraussetzung. Negativ oder nahe null schließt den Pin aus.
-3. **Den Gamma-Flip prüfen.** Der Spot muss darüber liegen. Liegt der Flip genau am Spot, ist die Lage umkämpft — der Pin könnte sich bilden, muss aber nicht.
+3. **Den Gamma-Flip prüfen.** Der Spot muss darüber liegen. Liegt der Flip genau am Spot, ist die Lage umkämpft - der Pin könnte sich bilden, muss aber nicht.
 4. **Max Pain gegenprüfen.** Gleicher Strike oder innerhalb von 0,3 % des Magneten → scharfer Pin. Deutlich abweichend → schwächere Pin-These; dem Magneten vertrauen.
 5. **Die Tageszeit lesen.** Vor 12 Uhr ET hat sich Charm noch nicht genug aufgebaut, um den Pin stark zu treiben. Nach 14:00 ET verstärkt sich der Sog. Nach 15:30 ET dominieren die Dynamiken des Schlussfensters.
 
@@ -109,17 +109,17 @@ Ein kurzer Ablauf:
 
 ## Woran du erkennst, ob SPY gepinnt ist: die fünf Anzeichen
 
-Sobald der Pin identifiziert ist, findet sich das Trading-Playbook in [Wie man erkennt, ob SPY gepinnt ist](/education/how-to-know-if-spy-is-pinned) — Kurzfassung: Extreme fade-n, die Mitte auslassen, klein positionieren.
+Sobald der Pin identifiziert ist, findet sich das Trading-Playbook in [Wie man erkennt, ob SPY gepinnt ist](/education/how-to-know-if-spy-is-pinned) - Kurzfassung: Extreme fade-n, die Mitte auslassen, klein positionieren.
 
-**1. Das Net GEX ist deutlich positiv (Long-Gamma-Regime).** Spot über dem Gamma Flip und Net GEX klar positiv. (Net GEX ist geschätztes Dealer-Gamma unter der traditionellen Call-positiv/Put-negativ-Konvention auf Open Interest — ein Modell, kein beobachteter Bestand.) ZeroGEX behandelt auf SPY-Größenordnung grob 500 Mio. $+ als „substanziell“, aber das ist eine Hausheuristik — die Größenordnung zählt mehr als irgendeine konkrete Zahl. Negatives oder nahe null liegendes Net GEX spricht gegen den Pin.
+**1. Das Net GEX ist deutlich positiv (Long-Gamma-Regime).** Spot über dem Gamma Flip und Net GEX klar positiv. (Net GEX ist geschätztes Dealer-Gamma unter der traditionellen Call-positiv/Put-negativ-Konvention auf Open Interest - ein Modell, kein beobachteter Bestand.) ZeroGEX behandelt auf SPY-Größenordnung grob 500 Mio. $+ als „substanziell“, aber das ist eine Hausheuristik - die Größenordnung zählt mehr als irgendeine konkrete Zahl. Negatives oder nahe null liegendes Net GEX spricht gegen den Pin.
 
-**2. Max Pain und der Gamma-Magnet stimmen nahe am Spot überein.** Wenn beide auf dasselbe Level zeigen und dieses innerhalb von etwa 0,3 % des Spot liegt, ist der strukturelle Zug am schärfsten. Wenn sie auseinandergehen, stützt sich ZeroGEX auf den Gamma-Magneten — er bildet den modellierten Hedging-Mechanismus ab, während Max Pain Auszahlungsgeometrie ist.
+**2. Max Pain und der Gamma-Magnet stimmen nahe am Spot überein.** Wenn beide auf dasselbe Level zeigen und dieses innerhalb von etwa 0,3 % des Spot liegt, ist der strukturelle Zug am schärfsten. Wenn sie auseinandergehen, stützt sich ZeroGEX auf den Gamma-Magneten - er bildet den modellierten Hedging-Mechanismus ab, während Max Pain Auszahlungsgeometrie ist.
 
-**3. Der Spot pendelt seit einer Stunde um den Magneten.** Trage SPY gegen den Gamma-Magnet-Strike im 5-Minuten-Chart ab. Drei oder mehr Kreuzungen in den letzten 60 Minuten, jede Auslenkung kleiner, deutet auf einen sich bildenden Pin hin. Ein stetiges Wegdriften vom Magneten spricht dagegen — das ist eine Richtung, keine Spanne.
+**3. Der Spot pendelt seit einer Stunde um den Magneten.** Trage SPY gegen den Gamma-Magnet-Strike im 5-Minuten-Chart ab. Drei oder mehr Kreuzungen in den letzten 60 Minuten, jede Auslenkung kleiner, deutet auf einen sich bildenden Pin hin. Ein stetiges Wegdriften vom Magneten spricht dagegen - das ist eine Richtung, keine Spanne.
 
-**4. Die realisierte Volatilität ist unter die implizite gefallen.** Long-Gamma-Hedging dämpft die realisierte Vol, daher zeigt sich ein funktionierender Pin als realisierte unter impliziter Vol. Wenn die realisierte expandiert, hält der Pin nicht — das Buch wird von anderem Flow überrollt.
+**4. Die realisierte Volatilität ist unter die implizite gefallen.** Long-Gamma-Hedging dämpft die realisierte Vol, daher zeigt sich ein funktionierender Pin als realisierte unter impliziter Vol. Wenn die realisierte expandiert, hält der Pin nicht - das Buch wird von anderem Flow überrollt.
 
-**5. EOD Pressure liegt im aktiven Fenster nahe null.** Nach 14:30 ET ist ein EOD-Pressure-Wert nahe null (grob −0,20 bis +0,20) eine modellierte Pin-Signatur — die Charm- und Pin-Gravitations-Terme heben sich weitgehend auf, weil der Preis am Magneten sitzt. Ein großer Wert bedeutet, dass der Preis *weg* vom Magneten ist. Siehe [EOD Pressure Signal erklärt: den Schluss richtig lesen](/education/eod-pressure-explained).
+**5. EOD Pressure liegt im aktiven Fenster nahe null.** Nach 14:30 ET ist ein EOD-Pressure-Wert nahe null (grob −0,20 bis +0,20) eine modellierte Pin-Signatur - die Charm- und Pin-Gravitations-Terme heben sich weitgehend auf, weil der Preis am Magneten sitzt. Ein großer Wert bedeutet, dass der Preis *weg* vom Magneten ist. Siehe [EOD Pressure Signal erklärt: den Schluss richtig lesen](/education/eod-pressure-explained).
 
 ---
 
@@ -127,9 +127,9 @@ Sobald der Pin identifiziert ist, findet sich das Trading-Playbook in [Wie man e
 
 Wenn die meisten der fünf Anzeichen zusammenpassen, ist das Playbook konträr und einfach:
 
-- **Tu es: fade die Extreme der Kompressionsspanne.** Der strukturelle Zug geht zurück zum Magneten, daher ist das Verkaufen von Schüben nahe dem oberen Rand und das Kaufen von Dips nahe dem unteren Rand das eine Setup, bei dem der Dealer-Reflex auf deiner Seite ist. Klein positionieren — Pins sind probabilistisch, nicht garantiert.
+- **Tu es: fade die Extreme der Kompressionsspanne.** Der strukturelle Zug geht zurück zum Magneten, daher ist das Verkaufen von Schüben nahe dem oberen Rand und das Kaufen von Dips nahe dem unteren Rand das eine Setup, bei dem der Dealer-Reflex auf deiner Seite ist. Klein positionieren - Pins sind probabilistisch, nicht garantiert.
 - **Tu es nicht: der Mitte hinterherjagen.** In der Mitte sitzt der Magnet; dort zu kaufen oder zu verkaufen kämpft gegen das Level, zu dem der Preis strukturell zurückkehren will. Von hier stammen die meisten Verluste auf gepinnter Tape.
-- **Tu es nicht: Momentum-Setups nehmen.** Breakout-, Vol-Expansions- und Squeeze-Playbooks setzen voraus, dass die Bewegung sich fortsetzt — das Gegenteil einer gepinnten Tape. Das falsche Playbook zu fahren ist der größte Teil des Fehlers.
+- **Tu es nicht: Momentum-Setups nehmen.** Breakout-, Vol-Expansions- und Squeeze-Playbooks setzen voraus, dass die Bewegung sich fortsetzt - das Gegenteil einer gepinnten Tape. Das falsche Playbook zu fahren ist der größte Teil des Fehlers.
 - **Tu es: die Positionsgröße verkleinern.** Gepinnte Spannen sind eng und Stops noch enger; eine Normaltagsgröße lädt zu vorzeitigen Ausstoppungen ein.
 
 ---
@@ -138,7 +138,7 @@ Wenn die meisten der fünf Anzeichen zusammenpassen, ist das Playbook konträr u
 
 SPY notiert an einem Freitagnachmittag bei 582,95. ZeroGEX zeigt:
 
-- **Net GEX:** +1,4 Mrd. $ (positiv — Long-Gamma-Regime)
+- **Net GEX:** +1,4 Mrd. $ (positiv - Long-Gamma-Regime)
 - **Gamma Flip:** 581,20 (Spot deutlich darüber)
 - **Stärkster 0DTE-Strike:** 583,00 (praktisch am Spot)
 - **Max Pain:** 583,00 (stimmt mit dem Gamma-Magneten überein)
@@ -146,16 +146,16 @@ SPY notiert an einem Freitagnachmittag bei 582,95. ZeroGEX zeigt:
 
 Jede strukturelle Bedingung für einen Pin ist erfüllt. Der Magnet liegt bei 583; Max Pain stimmt bei 583 überein; das Regime ist long-gamma; wir befinden uns im aktiven EOD-Fenster. Die Wahrscheinlichkeit, dass SPY bis zum Handelsschluss innerhalb einer Spanne von rund 30 Cent um 583 oszilliert, ist spürbar erhöht.
 
-Praktische Einschätzung: eine enge Spanne von 582,70-583,30 ist der erwartete Verlauf. Ausschläge an die Ränder sind Fade-Setup-Kandidaten. Die Mitte der Spanne ist No-Trade-Territorium. Klein positionieren. Auf die Bruchbedingungen achten — besonders bei einem Einzeltitel-Schock oder einer unerwarteten Schlagzeile.
+Praktische Einschätzung: eine enge Spanne von 582,70-583,30 ist der erwartete Verlauf. Ausschläge an die Ränder sind Fade-Setup-Kandidaten. Die Mitte der Spanne ist No-Trade-Territorium. Klein positionieren. Auf die Bruchbedingungen achten - besonders bei einem Einzeltitel-Schock oder einer unerwarteten Schlagzeile.
 
-Nun stelle man sich dasselbe Setup vor, aber mit Net GEX bei −600 Mio. $ und dem Gamma-Flip bei 583,50 (Spot darunter). Die "Pin"-These ist tot. Gleiche Kette, gleicher Strike, entgegengesetzte Lesart — weil die Regime-Variable, die entscheidet, ob der Magnet anzieht oder freigibt, invertiert ist.
+Nun stelle man sich dasselbe Setup vor, aber mit Net GEX bei −600 Mio. $ und dem Gamma-Flip bei 583,50 (Spot darunter). Die "Pin"-These ist tot. Gleiche Kette, gleicher Strike, entgegengesetzte Lesart - weil die Regime-Variable, die entscheidet, ob der Magnet anzieht oder freigibt, invertiert ist.
 
 ---
 
 ## Verbreitete Missverständnisse
 
 - **"Pinning ist Psychologie."** Es ist Mechanik. Dealer hedgen unabhängig davon, wer zusieht; der Flow passiert, egal ob Trader daran glauben oder nicht.
-- **"SPY pinnt immer an runden Zahlen."** Es pinnt an Strikes, an denen sich Positionierung konzentriert. Runde Zahlen sind häufig, weil sich OI dort ballt — aber der eigentliche Mechanismus ist das OI, nicht die Rundheit der Zahl.
+- **"SPY pinnt immer an runden Zahlen."** Es pinnt an Strikes, an denen sich Positionierung konzentriert. Runde Zahlen sind häufig, weil sich OI dort ballt - aber der eigentliche Mechanismus ist das OI, nicht die Rundheit der Zahl.
 - **"Wenn Max Pain X ist, schließt der Preis bei X."** Oft falsch. Max Pain allein ist nicht der Pin-Mechanismus; das ist der Gamma-Magnet. Weichen sie voneinander ab, gewinnt der Gamma-Magnet.
 - **"Pins sind bullisch/bärisch."** Keins von beidem. Sie wirken volatilitätsdämpfend. Range-gebunden. Die Richtung kommt von anderswo; beim Pin geht es um den *Charakter* der Preisbewegung, nicht um die Richtung.
 - **"Pinning passiert jeden Freitag."** Oft, aber nicht immer. Manche Freitage haben Katalysatoren, Short-Gamma-Regime oder wandernde Magnete, die den Pin verhindern. Das Lesen der Bedingungen ist entscheidend.
@@ -164,12 +164,12 @@ Nun stelle man sich dasselbe Setup vor, aber mit Net GEX bei −600 Mio. $ und d
 
 ## Fazit
 
-> SPY pinnt, weil Dealer-Hedging an Strikes mit hoher Gamma-Konzentration den Preis mechanisch zum Strike zurückzieht. Der Sog ist real, beobachtbar und vorhersehbar genug, um genutzt zu werden — solange die strukturellen Bedingungen ihn stützen.
+> SPY pinnt, weil Dealer-Hedging an Strikes mit hoher Gamma-Konzentration den Preis mechanisch zum Strike zurückzieht. Der Sog ist real, beobachtbar und vorhersehbar genug, um genutzt zu werden - solange die strukturellen Bedingungen ihn stützen.
 
 Die Disziplin besteht darin, die Bedingungen zu prüfen, bevor man annimmt, heute sei ein Pin-Tag. Long-Gamma-Regime + starker Strike am Spot + Max-Pain-Übereinstimmung + späte Sitzungsphase = scharfer Pin. Kippt auch nur einer dieser Faktoren, schwächt das die Lesart. Kippen sie alle, ist die These hinfällig.
 
-Nur redaktioneller Bildungsinhalt — nichts davon ist eine Handelsempfehlung.
+Nur redaktioneller Bildungsinhalt - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wer den heutigen stärksten Gamma-Strike, Max Pain, Gamma-Flip und Net GEX sehen möchte — die vier Zahlen, die entscheiden, ob SPY heute pinnt —, findet sie alle in der kostenlosen Gamma-Levels-Ansicht von ZeroGEX.
+Wer den heutigen stärksten Gamma-Strike, Max Pain, Gamma-Flip und Net GEX sehen möchte - die vier Zahlen, die entscheiden, ob SPY heute pinnt -, findet sie alle in der kostenlosen Gamma-Levels-Ansicht von ZeroGEX.
