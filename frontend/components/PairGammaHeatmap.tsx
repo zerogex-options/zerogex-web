@@ -552,7 +552,7 @@ function HeatmapColumn({
           style={{ color: input.positioningKind === "rewind" ? "var(--color-flip)" : "var(--color-warning)", marginTop: -2 }}
           title={
             input.positioningKind === "rewind"
-              ? "Rewind: the book, spot and levels as of this bucket&nbsp;- the chart's replay clock. Exit Rewind on the chart to return to live."
+              ? "Rewind: the book, spot and levels as of this bucket\u00a0- the chart's replay clock. Exit Rewind on the chart to return to live."
               : "No live positioning in the latest analytics buckets (options closed or analytics paused). Showing the most recent bucket that carried dealer gamma; the header levels are live."
           }
         >

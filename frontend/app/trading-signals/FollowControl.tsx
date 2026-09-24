@@ -492,7 +492,7 @@ export default function FollowControl({
         }
         aria-expanded={followed ? open : undefined}
         aria-haspopup={followed ? 'menu' : undefined}
-        title={followed ? 'Following&nbsp;- click to manage' : 'Follow this bot'}
+        title={followed ? 'Following\u00a0- click to manage' : 'Follow this bot'}
         className="inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors"
         style={{
           backgroundColor: followed ? botColorSoft(botId, paletteIndex) : 'transparent',

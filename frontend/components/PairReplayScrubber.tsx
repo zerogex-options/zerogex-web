@@ -196,7 +196,7 @@ export default function PairReplayScrubber({
             style={{ ["--pill-color" as string]: "var(--color-bull)", padding: 6 }}
             aria-label="Loop playback"
             aria-pressed={loop}
-            title={loop ? "Looping&nbsp;- restarts at the session open" : "Play once&nbsp;- stops at the last frame"}
+            title={loop ? "Looping\u00a0- restarts at the session open" : "Play once\u00a0- stops at the last frame"}
           >
             <Repeat size={14} />
           </button>
