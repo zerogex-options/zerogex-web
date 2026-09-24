@@ -54,6 +54,7 @@
     "test:terms-gate": "node --experimental-strip-types --test tests/termsGate.test.ts",
     "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts",
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
+    "test:technicals-charts": "node --experimental-strip-types --test tests/technicalsCharts.test.ts",
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
     "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
