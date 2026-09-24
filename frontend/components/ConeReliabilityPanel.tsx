@@ -107,6 +107,14 @@ function BucketRow({ bucket, theme }: { bucket: ReliabilityBucket; theme: Return
 }
 
 /** The verdict line. Deliberately capable of saying "we lose". */
+/** Brier skill as a signed percentage. Kept to one decimal because the
+ *  interesting cases sit near zero, where "0%" and "+0.0%" say different
+ *  things about whether a number was computed at all. */
+function skillPct(skill: number | null | undefined): string {
+  if (skill === null || skill === undefined) return '\u2014';
+  return `${skill >= 0 ? '+' : ''}${(skill * 100).toFixed(1)}%`;
+}
+
 function BaselineVerdict({ block, theme }: { block: ConeScoreBlock; theme: ReturnType<typeof useChartTheme> }) {
   const min = block.min_sample ?? 40;
 
@@ -127,14 +135,20 @@ function BaselineVerdict({ block, theme }: { block: ConeScoreBlock; theme: Retur
   if (block.beats_baseline) {
     return (
       <span style={{ color: theme.bull }}>
-        Beats the base-rate baseline ({score(block.brier)} vs {score(block.baseline_brier)}).
+        Beats the base-rate baseline ({score(block.brier)} vs {score(block.baseline_brier)}),
+        removing {skillPct(block.brier_skill)} of its error.
       </span>
     );
   }
+  // The margin has to be spelled out here, not just the two scores. When the
+  // cone lands level with its baseline both round to the same four decimals,
+  // so "does not beat (0.1551 vs 0.1551)" reads as a typo rather than as the
+  // finding it is — that the per-claim confidence added nothing.
   return (
     <span style={{ color: theme.warning }}>
       Does not beat the base-rate baseline ({score(block.brier)} vs{' '}
-      {score(block.baseline_brier)}) — published, not counted as a win.
+      {score(block.baseline_brier)}, a {skillPct(block.brier_skill)} margin) —
+      published, not counted as a win.
     </span>
   );
 }
@@ -150,6 +164,11 @@ function ScoreTiles({ block, theme }: { block: ConeScoreBlock; theme: ReturnType
       label: 'Baseline to beat',
       value: score(block.baseline_brier),
       hint: 'Always predicting the base rate. The cone must score below this.',
+    },
+    {
+      label: 'Skill vs baseline',
+      value: skillPct(block.brier_skill),
+      hint: 'How much of the baseline\u2019s error the cone removes. Near zero means calibrated but uninformative.',
     },
     {
       label: 'Calibration error',

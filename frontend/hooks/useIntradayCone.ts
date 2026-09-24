@@ -84,6 +84,8 @@ export interface ConeScoreBlock {
    */
   baseline_brier: number | null;
   /** Null until the sample can support a verdict — never a hopeful default. */
+  brier_skill: number | null;
+  min_brier_skill?: number;
   beats_baseline: boolean | null;
   calibration_error: number | null;
   reliability: ReliabilityBucket[];
