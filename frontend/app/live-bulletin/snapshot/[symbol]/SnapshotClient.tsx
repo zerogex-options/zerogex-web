@@ -146,13 +146,17 @@ export default function SnapshotClient({
   );
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
     rasterizeImage(BRAND_TITLE.dark.src, 960)
       .then((url) => {
         if (!cancelled) setLogoUrl(url);
       })
-      .catch((err) => console.error('Failed to rasterize brand logo', err));
+      .catch((err) => {
+        console.error('Failed to rasterize brand logo', err);
+        if (!cancelled) setLogoFailed(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -176,6 +180,9 @@ export default function SnapshotClient({
     <div
       data-bulletin-ready={ready ? 'true' : 'false'}
       data-bulletin-levels={levelsAttr}
+      // What the card is still waiting on, so a failed screenshot can say why.
+      data-bulletin-data={summary != null ? 'ok' : 'missing'}
+      data-bulletin-logo={logoUrl != null ? 'ok' : logoFailed ? 'failed' : 'loading'}
       style={{
         display: 'flex',
         justifyContent: 'center',

@@ -56,6 +56,12 @@ const getProWelcomeGateClient = () => {
 // Routes that render their own full-page layout (no app chrome)
 const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/embed', '/collective2-strategy-data', ...integrationRoutes()];
 
+// Path prefixes that render bare too. The Live Bulletin snapshot is a
+// screenshot target for the X-post job, which captures only the card: the
+// header's once-a-second price poll and live quote socket would load there for
+// nothing and keep the headless browser busy.
+const STANDALONE_PREFIXES = ['/live-bulletin/snapshot/'];
+
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
 // full legal text). /pricing and /founding are suppressed so a new
@@ -271,7 +277,7 @@ export default function ClientLayout({
     />
   ) : null;
 
-  if (STANDALONE_ROUTES.includes(pathname)) {
+  if (STANDALONE_ROUTES.includes(pathname) || STANDALONE_PREFIXES.some((p) => pathname.startsWith(p))) {
     return (
       <>
         {children}
