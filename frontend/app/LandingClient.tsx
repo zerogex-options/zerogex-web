@@ -413,10 +413,10 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
               the headline. The full note, including how AI fits into the
               development work, is on /about#founder. */}
           <div style={{ marginTop: 20 }}>
-            <Link href="/about#founder" className="zg-small" style={{ color: subtext, textDecoration: 'none' }}>
+            <Link href="/about#founder" className="zg-body" style={{ color: subtext, textDecoration: 'none' }}>
               {t('heroFounder')}
               <ArrowRight
-                size={14}
+                size={16}
                 aria-hidden="true"
                 style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 6, color: C.amber }}
               />
