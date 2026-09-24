@@ -2,8 +2,9 @@
 
 /**
  * My Dashboard — a customizable board a member assembles from the pieces of the
- * site they have access to under their plan. Layout persists per-member in the
- * browser; widgets are tier-gated (Pro-only pieces show an upgrade prompt for
+ * site they have access to under their plan. Layout persists per-member on the
+ * account, with a copy in the browser (see useAccountBoard); widgets are
+ * tier-gated (Pro-only pieces show an upgrade prompt for
  * Basic members). Reordering is drag-and-drop on desktop and button-driven on
  * touch.
  *
@@ -20,6 +21,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { notePresetApplied, reportPresetRetention } from '@/core/presetAdoption';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import BoardSwitcher from './BoardSwitcher';
+import { useAccountBoard } from './useAccountBoard';
 import {
   LayoutGrid,
   Pencil,
@@ -54,7 +56,6 @@ import {
   emptyLayout,
   getPane,
   isLayoutEmpty,
-  loadLayout,
   moveWidget,
   moveWidgetToPane,
   otherPaneId,
@@ -99,29 +100,39 @@ export default function MyDashboardPage() {
   // split board "3 placed" means three on THIS side.
   const [galleryPane, setGalleryPane] = useState<PaneId | null>(null);
 
-  // Load the saved board once auth resolves (so we key storage by member id).
-  // localStorage is client-only, so this runs post-mount to avoid a hydration
-  // mismatch. The state updates happen inside a microtask callback (not the
-  // effect body) to satisfy react-hooks/set-state-in-effect.
+  // A signed-in member's board lives on their account; this browser keeps a
+  // copy. See useAccountBoard.
+  const { load: loadBoard, noteChange: noteBoardChange } = useAccountBoard(
+    scope,
+    WIDGET_IDS,
+    t('boardKeptName'),
+  );
+
+  // Load the saved board once auth resolves (so we key storage by member id,
+  // and know whether there is an account to read it from). localStorage is
+  // client-only, so this runs post-mount to avoid a hydration mismatch. The
+  // state updates happen inside a promise callback (not the effect body) to
+  // satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
     if (authLoading) return;
     let cancelled = false;
-    void Promise.resolve().then(() => {
+    void loadBoard(() => cancelled).then((loaded) => {
       if (cancelled) return;
-      const loaded = loadLayout(scope, WIDGET_IDS);
-      setLayout(loaded ?? emptyLayout());
+      setLayout(loaded);
       setHydrated(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [authLoading, scope]);
+  }, [authLoading, loadBoard]);
 
-  // Persist on every change once hydrated.
+  // Persist on every change once hydrated: to this browser at once, and to
+  // the account shortly after.
   useEffect(() => {
     if (!hydrated) return;
     saveLayout(layout, scope);
-  }, [layout, hydrated, scope]);
+    noteBoardChange(layout);
+  }, [layout, hydrated, scope, noteBoardChange]);
 
   // Copies per widget id in the pane the gallery is targeting — the gallery
   // shows a count and can add another copy.

@@ -17,6 +17,7 @@ import {
   PALETTES,
   normalizePalette,
   normalizeTheme,
+  resolveAppearance,
 } from '../core/appearance.ts';
 
 test('every live palette round-trips unchanged', () => {
@@ -73,4 +74,87 @@ test('palette ids are safe to interpolate into a CSS class', () => {
   for (const id of PALETTES) {
     assert.match(id, /^[a-z0-9-]+$/, `palette id ${id} must be class-name safe`);
   }
+});
+
+// ── resolveAppearance ────────────────────────────────────────────────────────
+// What a request paints. The contract: a signed-in member's account copy wins
+// over whatever this browser kept — a lost cookie, a default written back after
+// losing it, or a stale choice from before a change made on another device —
+// except while this browser holds a change the account has not confirmed.
+
+const SAVED = { theme: 'light', palette: 'monochrome-madison' };
+
+test('signed out, the cookies are all there is', () => {
+  assert.deepEqual(
+    resolveAppearance({ cookieTheme: 'light', cookiePalette: 'kyoto', account: null }),
+    { theme: 'light', palette: 'kyoto', fromAccount: false, syncToAccount: false },
+  );
+  assert.deepEqual(
+    resolveAppearance({}),
+    { theme: DEFAULT_THEME, palette: DEFAULT_PALETTE, fromAccount: false, syncToAccount: false },
+  );
+});
+
+test('a signed-in member whose browser lost the cookies gets their saved look back', () => {
+  const resolved = resolveAppearance({ account: SAVED });
+  assert.equal(resolved.theme, 'light');
+  assert.equal(resolved.palette, 'monochrome-madison');
+  assert.equal(resolved.fromAccount, true);
+  assert.equal(resolved.syncToAccount, false);
+});
+
+test('the account copy also beats a default the browser wrote back after the loss', () => {
+  const resolved = resolveAppearance({
+    cookieTheme: DEFAULT_THEME,
+    cookiePalette: DEFAULT_PALETTE,
+    account: SAVED,
+  });
+  assert.equal(resolved.palette, 'monochrome-madison');
+  assert.equal(resolved.fromAccount, true);
+});
+
+test('a change made on another device carries over to this one', () => {
+  const resolved = resolveAppearance({ cookieTheme: 'dark', cookiePalette: 'kyoto', account: SAVED });
+  assert.equal(resolved.theme, 'light');
+  assert.equal(resolved.palette, 'monochrome-madison');
+});
+
+test('an unconfirmed change in this browser stands, and is saved again', () => {
+  const resolved = resolveAppearance({
+    cookieTheme: 'dark',
+    cookiePalette: 'kyoto',
+    pending: true,
+    account: SAVED,
+  });
+  assert.deepEqual(resolved, { theme: 'dark', palette: 'kyoto', fromAccount: false, syncToAccount: true });
+});
+
+test('a look picked before it moved onto the account is kept and copied up', () => {
+  const resolved = resolveAppearance({
+    cookieTheme: 'dark',
+    cookiePalette: 'monochrome-madison',
+    account: { theme: null, palette: null },
+  });
+  assert.deepEqual(resolved, {
+    theme: 'dark',
+    palette: 'monochrome-madison',
+    fromAccount: false,
+    syncToAccount: true,
+  });
+});
+
+test('an untouched default is not copied up to an empty account', () => {
+  for (const cookies of [{}, { cookieTheme: DEFAULT_THEME, cookiePalette: DEFAULT_PALETTE }]) {
+    const resolved = resolveAppearance({ ...cookies, account: { theme: null, palette: null } });
+    assert.equal(resolved.syncToAccount, false);
+    assert.equal(resolved.palette, DEFAULT_PALETTE);
+  }
+});
+
+test('account values are normalized like cookie values', () => {
+  const retired = resolveAppearance({ account: { theme: 'dark', palette: 'monaco' } });
+  assert.equal(retired.palette, 'monochrome-madison', 'a retired id resolves to its successor');
+  const partial = resolveAppearance({ cookiePalette: 'kyoto', account: { theme: 'light', palette: null } });
+  assert.equal(partial.theme, 'light', 'the saved field wins');
+  assert.equal(partial.palette, 'kyoto', 'the unsaved field keeps the cookie');
 });

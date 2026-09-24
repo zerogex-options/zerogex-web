@@ -227,9 +227,11 @@ export const WIDGETS: WidgetDef[] = [
     category: 'gamma',
     tier: 'basic',
     icon: Crosshair,
-    // Wide enough for the whole row on a desktop board; the cards reflow to
-    // whatever footprint a resize hands it, down to two across at S.
-    defaultSize: 'lg',
+    // Full width, so all six cards sit in one strip like the Gamma Chart
+    // pages' Key Levels. At L the sixth card wraps onto a second row on
+    // ordinary desktop widths. The cards reflow to whatever footprint a resize
+    // hands it, down to two across at S.
+    defaultSize: 'xl',
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <KeyLevelsPanel />,

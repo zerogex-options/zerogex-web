@@ -78,9 +78,17 @@ function LoginPageContent() {
     const next = searchParams.get('next');
     // Only honor same-origin app paths, and never a path back to an auth page:
     // a ?next=/login (or /register) would make the already-authenticated
-    // forward below bounce back to this page and loop. Fall through to the
-    // dashboard for anything unusable.
-    if (!next || !next.startsWith('/') || next.startsWith('/login') || next.startsWith('/register')) {
+    // forward below bounce back to this page and loop. "//host" and "/\host"
+    // start with a slash but name another site, so they are refused too. Fall
+    // through to the dashboard for anything unusable.
+    if (
+      !next ||
+      !next.startsWith('/') ||
+      next.startsWith('//') ||
+      next.startsWith('/\\') ||
+      next.startsWith('/login') ||
+      next.startsWith('/register')
+    ) {
       return '/dashboard';
     }
     return next;
@@ -153,7 +161,12 @@ function LoginPageContent() {
         return;
       }
 
-      router.replace(nextPath);
+      // A full page load, not a client-side route change. Signing in restores
+      // the member's theme from their account, but the theme provider sits in
+      // the root layout, which a client-side navigation keeps mounted with
+      // this page's signed-out look. The member saw the site default until
+      // they happened to refresh.
+      window.location.replace(nextPath);
     } finally {
       setLoading(false);
     }
