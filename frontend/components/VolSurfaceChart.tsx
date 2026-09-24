@@ -343,15 +343,16 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
-            {/* A phone cannot fit a label per strike — ~100 of them at 8px
-                overprinted into one solid bar — so it thins them to what fits;
-                the tooltip names the exact strike. */}
+            {/* No width fits a label per strike: ~100 of them overprinted
+                into one solid bar on a phone and into overlapping pairs on a
+                desktop card. The axis thins them to what fits; the tooltip
+                names the exact strike. */}
             <XAxis
               dataKey="xLabel"
               stroke={axisStroke}
               tick={{ fontSize: 10, fill: axisStroke }}
-              interval={isMobile ? 'preserveStartEnd' : 0}
-              minTickGap={isMobile ? 24 : undefined}
+              interval="preserveStartEnd"
+              minTickGap={isMobile ? 24 : 14}
               tickMargin={isMobile ? 6 : 10}
             />
             <YAxis
