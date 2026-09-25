@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useState, useCallback } from 'react';
 import { useTheme } from '@/core/ThemeContext';
+import { readableLevelInk, toHex } from '@/core/levelInk';
 
 /**
  * Reads chart-relevant CSS variables from the document root at runtime.
@@ -214,15 +215,17 @@ function relativeLuminance([r, g, b]: Rgba): number {
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 
+// Custom properties resolve to their authored token text, so a value may
+// itself be another var() -- --color-positive: var(--color-bull), say.
+function derefToken(root: CSSStyleDeclaration, v: string, depth = 0): string {
+  const m = v?.trim().match(/^var\(\s*(--[a-z0-9-]+)\s*\)$/i);
+  return m && depth < 8 ? derefToken(root, root.getPropertyValue(m[1]), depth + 1) : (v ?? '').trim();
+}
+
 function resolveInk(chip: string): string {
   if (typeof window === 'undefined') return INK_FALLBACK;
   const root = getComputedStyle(document.documentElement);
-  // Custom properties resolve to their authored token text, so a value may
-  // itself be another var() -- --color-positive: var(--color-bull), say.
-  const deref = (v: string, depth = 0): string => {
-    const m = v?.trim().match(/^var\(\s*(--[a-z0-9-]+)\s*\)$/i);
-    return m && depth < 8 ? deref(root.getPropertyValue(m[1]), depth + 1) : (v ?? '').trim();
-  };
+  const deref = (v: string) => derefToken(root, v);
   const colour = parseColor(deref(chip));
   if (!colour) return INK_FALLBACK;
   let solid = colour;
@@ -264,4 +267,64 @@ export function useChipInk(): (chipColor: string) => string {
       return ink;
     };
   }, [generation]);
+}
+
+/* ── Ink for a level's name, in the level's own color ────────────────────────
+ *
+ * The Gamma Chart's level name chips are --bg-card boxes with the name painted
+ * in the level's color. That color is the fastest way to tell the labels
+ * apart, but some palettes' level colors are too pale (or, on a dark card, too
+ * deep) to read at 9.5px. readableLevelInk keeps the color where it clears
+ * 4.5:1 on the card and otherwise shades it, same hue, until it does; see
+ * core/levelInk for the measurements behind that.
+ */
+function resolveLevelInk(levelColor: string, opacity: number): string {
+  if (typeof window === 'undefined') return levelColor;
+  const root = getComputedStyle(document.documentElement);
+  const level = parseColor(derefToken(root, levelColor));
+  const card = parseColor(derefToken(root, 'var(--bg-card)'));
+  // Anything unreadable here keeps the level's own color: never worse than
+  // painting the token directly.
+  if (!level || !card || level[3] < 1 || card[3] < 1) return levelColor;
+  const rgb = (c: Rgba): [number, number, number] => [c[0], c[1], c[2]];
+  return toHex(readableLevelInk(rgb(level), rgb(card), opacity));
+}
+
+/**
+ * Returns a function giving the color to paint a level's name in, for a
+ * name drawn in `levelColor` (a hex literal or a `var(--token)`) on a
+ * --bg-card chip. Pass `opacity` when the text is drawn translucent, so the
+ * shade is judged as it is seen.
+ *
+ * Same timing as useChipInk: resolution starts one frame after mount and after
+ * every theme or palette change. Until then it returns the level color as
+ * given. On the default dark theme that is already the answer for every level
+ * but one, so the first frame there looks the same as every frame after it.
+ *
+ * The resolver, and the per-palette cache inside it, is built in the effect and
+ * held in state rather than memoized, so the cache is never created or
+ * replaced during render.
+ */
+type LevelInk = (levelColor: string, opacity?: number) => string;
+const levelColorAsGiven: LevelInk = (levelColor) => levelColor;
+
+export function useLevelInk(): LevelInk {
+  const { theme, palette } = useTheme();
+  const [resolver, setResolver] = useState<LevelInk>(() => levelColorAsGiven);
+  useEffect(() => {
+    // One frame, so the root element's variables have actually flipped.
+    const raf = requestAnimationFrame(() => {
+      const cache = new Map<string, string>();
+      setResolver(() => (levelColor: string, opacity = 1) => {
+        const key = `${levelColor}@${opacity}`;
+        const hit = cache.get(key);
+        if (hit !== undefined) return hit;
+        const ink = resolveLevelInk(levelColor, opacity);
+        cache.set(key, ink);
+        return ink;
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [theme, palette]);
+  return resolver;
 }
