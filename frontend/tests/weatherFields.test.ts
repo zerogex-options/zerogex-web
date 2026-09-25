@@ -14,6 +14,7 @@ import {
   commentAt,
   fieldSeries,
   fieldSpec,
+  stateLine,
   trailingMean,
 } from '../core/weatherFields.ts';
 
@@ -49,9 +50,15 @@ const changes = [
 ];
 
 const bars = [
-  { bar_start: t(0), sentence: 'Stable bid. Everything is calm.' },
-  { bar_start: t(1), sentence: 'Stable bid. Pressure has turned.' },
-  { bar_start: t(2), sentence: 'Unstable. It broke.' },
+  { bar_start: t(0), label: 'Stable bid', age_label: 'New', age_minutes: 5, pending_label: null },
+  {
+    bar_start: t(1),
+    label: 'Stable bid',
+    age_label: 'New',
+    age_minutes: 10,
+    pending_label: 'Unstable',
+  },
+  { bar_start: t(2), label: 'Unstable', age_label: 'New', age_minutes: 5, pending_label: null },
 ] as never;
 
 test('every field has a spec, and an unknown one is refused', () => {
@@ -111,9 +118,32 @@ test('the comment at a time is the one in force, not only one printed then', () 
   // quiet stretches it exists to compress.
   const comment = commentAt(bars, changes, 'pressure', t(2));
 
-  assert.equal(comment.sentence, 'Unstable. It broke.');
+  assert.equal(comment.state, 'Unstable · New 5m');
   assert.equal(comment.line, 'Flipped to selling');
   assert.equal(comment.fresh, false);
+});
+
+test('the weather context is the state, never the panel sentence', () => {
+  // The sentence opens with "Hedging pressure is ..." and therefore reads as
+  // the Pressure field's comment when it sits under the Lean chart. Barrie
+  // caught that in the live drawer.
+  const comment = commentAt(bars, changes, 'lean', t(2));
+
+  assert.ok(!/hedging pressure/i.test(comment.state ?? ''));
+  assert.equal(comment.state, 'Unstable · New 5m');
+});
+
+test('a candidate still forming is carried in the state line', () => {
+  // The spec asks for the Weather line in force "including forming chips".
+  const comment = commentAt(bars, changes, 'pressure', t(1));
+
+  assert.equal(comment.state, 'Stable bid · Unstable forming · New 10m');
+});
+
+test('the state line survives a bar with no age yet', () => {
+  const line = stateLine({ label: 'Mixed', age_label: null, age_minutes: null } as never);
+
+  assert.equal(line, 'Mixed');
 });
 
 test('a line that printed on the hovered bar is marked fresh', () => {
@@ -134,14 +164,14 @@ test('the field line is the field\'s own, never the state line', () => {
 test('a time before anything printed yields no line', () => {
   const comment = commentAt(bars, changes, 'pressure', '2026-09-21T13:00:00Z');
 
-  assert.equal(comment.sentence, null);
+  assert.equal(comment.state, null);
   assert.equal(comment.line, null);
 });
 
 test('no hovered time yields nothing rather than guessing', () => {
   const comment = commentAt(bars, changes, 'pressure', null);
 
-  assert.equal(comment.sentence, null);
+  assert.equal(comment.state, null);
   assert.equal(comment.fresh, false);
 });
 

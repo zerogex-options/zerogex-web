@@ -186,8 +186,13 @@ function atOrBefore<T extends { bar_start: string }>(rows: T[], time: string): T
 }
 
 export interface WeatherComment {
-  /** The panel sentence in force at that time, forming chip included. */
-  sentence: string | null;
+  /**
+   * The Weather state in force at that time, compact: the label, any candidate
+   * still forming, and how long it had held. Deliberately NOT the full panel
+   * sentence, which opens with "Hedging pressure is ..." and therefore reads
+   * as the Pressure field's comment when it sits under the Lean chart.
+   */
+  state: string | null;
   /** The most recent line for the open field, and when it printed. */
   line: string | null;
   lineAt: string | null;
@@ -196,7 +201,29 @@ export interface WeatherComment {
 }
 
 /**
+ * The Weather line as it stood, short enough to sit under any field's chart.
+ *
+ * "Stable bid · Confirmed 41m", or with a candidate waiting, "Stable bid ·
+ * Fragile rally forming · Confirmed 41m". This is what the banner would have
+ * said at that moment, which is the thing scrubbing is for; the banner itself
+ * only ever shows now.
+ */
+export function stateLine(bar: GammaWeatherSeriesBar | null): string | null {
+  if (!bar) return null;
+  const parts = [bar.label];
+  if (bar.pending_label) parts.push(`${bar.pending_label} forming`);
+  if (bar.age_label && bar.age_minutes != null) {
+    parts.push(`${bar.age_label} ${Math.round(bar.age_minutes)}m`);
+  }
+  return parts.join(' · ');
+}
+
+/**
  * What to show as the cursor passes a time.
+ *
+ * Two things: the field's own most recent line, and the Weather state as it
+ * stood. Not the full panel sentence, which is about the whole read and reads
+ * as Pressure commentary under any other field's chart.
  *
  * "The comment that was printed at that time" means the most recent one at or
  * before it, not one that only exists on that exact bar. A trail that went
@@ -212,7 +239,7 @@ export function commentAt(
   key: WeatherFieldKey,
   time: string | null,
 ): WeatherComment {
-  const empty: WeatherComment = { sentence: null, line: null, lineAt: null, fresh: false };
+  const empty: WeatherComment = { state: null, line: null, lineAt: null, fresh: false };
   if (!time) return empty;
 
   const bar = atOrBefore(bars, time);
@@ -220,7 +247,7 @@ export function commentAt(
   const line = atOrBefore(own, time);
 
   return {
-    sentence: bar?.sentence ?? null,
+    state: stateLine(bar),
     line: line?.text ?? null,
     lineAt: line?.bar_start ?? null,
     fresh: line != null && line.bar_start === time,

@@ -94,7 +94,7 @@ export default function WeatherFieldDrawer({
 
   // Named for what it is on this field. On Pressure the 3-bar average IS the
   // 15-minute clock, and calling it by the name the panel has always used
-  // keeps it recognisable as the same line the chart below draws.
+  // keeps it recognizable as the same line the chart below draws.
   const smootherName = field === 'pressure' ? '3-bar average' : '15-minute average';
 
   // Reuses the structure panel's rule so one spike cannot flatten the session.
@@ -261,50 +261,43 @@ export default function WeatherFieldDrawer({
         </ResponsiveContainer>
       )}
 
-      {/* At the live end the panel sentence only repeats the banner three
-          inches above, and putting it first buries the field line, which is
-          the one thing here the banner does not already say. So now leads
-          with the stamp and the sentence is kept for scrubbing, where "what
-          was in force then" is exactly the question being asked. */}
+      {/* The field's own line leads in both modes. At the live end that is
+          all there is, because the banner three inches above already says the
+          rest. Scrubbing adds the Weather state as it stood, which is the one
+          thing the banner cannot show, in the compact form rather than the
+          full sentence: the sentence opens with "Hedging pressure is ..." and
+          reads as Pressure's comment when it sits under the Lean chart. */}
       <div
         className="mt-2 border-t pt-2 text-xs"
         style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
       >
-        {!comment.sentence && (
+        {!comment.state && (
           <p className="italic">{loading ? 'Loading the session trail…' : 'No trail yet.'}</p>
         )}
 
-        {comment.sentence && scrubbing && (
+        {comment.state && (
           <>
-            <p style={{ color: 'var(--color-text-primary)' }}>{comment.sentence}</p>
-            {comment.line && (
-              <p className="mt-1">
-                <span style={{ color: comment.fresh ? 'var(--color-pin)' : undefined }}>
-                  {comment.line}
-                </span>
-                {comment.lineAt && ` · ${safeTimeLabel(comment.lineAt)}`}
-              </p>
-            )}
-          </>
-        )}
-
-        {comment.sentence && !scrubbing && (
-          <p style={{ color: 'var(--color-text-primary)' }}>
-            {comment.line ? (
-              <>
-                {comment.line}
-                {comment.lineAt && (
-                  <span style={{ color: 'var(--color-text-secondary)' }}>
-                    {` · ${safeTimeLabel(comment.lineAt)}`}
+            <p style={{ color: 'var(--color-text-primary)' }}>
+              {comment.line ? (
+                <>
+                  <span style={{ color: comment.fresh ? 'var(--color-pin)' : undefined }}>
+                    {comment.line}
                   </span>
-                )}
-              </>
-            ) : (
-              <span className="italic" style={{ color: 'var(--color-text-secondary)' }}>
-                Nothing has changed on this field yet. Hover the chart for the read at a time.
-              </span>
-            )}
-          </p>
+                  {comment.lineAt && (
+                    <span style={{ color: 'var(--color-text-secondary)' }}>
+                      {` · ${safeTimeLabel(comment.lineAt)}`}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="italic" style={{ color: 'var(--color-text-secondary)' }}>
+                  Nothing has changed on this field yet.
+                  {!scrubbing && ' Hover the chart for the read at a time.'}
+                </span>
+              )}
+            </p>
+            {scrubbing && <p className="mt-1">Weather: {comment.state}</p>}
+          </>
         )}
       </div>
     </div>
