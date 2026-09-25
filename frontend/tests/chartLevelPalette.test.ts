@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+import { contrastRatio, readableLevelInk, toHex, type Rgb } from '../core/levelInk.ts';
+
 // The gamma chart's level overlays must stay tellable apart in every theme.
 //
 // GammaTerminalChart draws up to nine reference lines at once — FLIP, the two
@@ -371,8 +373,15 @@ test('pair-view level tag text clears AA on its tinted chip, in every theme', ()
 // to paint their text in the level's (or the bar's) own colour, at 9.5px and
 // 8.5px, against --bg-card. That cleared 4.5:1 in 105 of 192 combinations for
 // the level chips, 12 of 24 for the flip chip and 24 of 48 for the rail labels,
-// worst 2.36:1. All three are --text-primary now; the chip borders and, for the
-// rail, the bar the label is drawn against still carry the colour.
+// worst 2.36:1, so all three went to --text-primary.
+//
+// That went too far for the two chips. The name's color is how members tell
+// the levels apart at a glance, and with every name in one ink they had to read
+// each 9.5px word instead; a member wrote in to say so. The chips now paint the
+// name in the level's color through levelInk, which leaves a readable color
+// alone and shades an unreadable one, same hue, until it clears 4.5:1. The rail
+// labels stay --text-primary: each is drawn against the end of its own bar,
+// calls right and puts left, so the color was never what identified them.
 const terminalSrc = readFileSync(new URL('../components/GammaTerminalChart.tsx', import.meta.url), 'utf8');
 
 const between = (src: string, from: string, to: string) => {
@@ -383,19 +392,95 @@ const between = (src: string, from: string, to: string) => {
   return src.slice(i, j);
 };
 
-test('the gamma chart does not paint on-plot label text in the mark colour', () => {
+// Mirrors GammaTerminalChart's FLIP_CHIP_OPACITY, which the next test pins.
+const FLIP_CHIP_OPACITY = 0.9;
+
+test('the gamma chart names each level in its own color, made readable', () => {
   const nameChip = between(terminalSrc, '{chipPlacements.map(', '</text>');
-  assert.match(nameChip, /fill="var\(--text-primary\)"/, 'level name chips should use --text-primary');
-  assert.doesNotMatch(nameChip, /fill=\{c\.color\}/, 'level name chips should not paint text in the level colour');
+  assert.match(nameChip, /fill=\{levelInk\(c\.color\)\}/,
+    'level name chips should paint the name in the level color, through levelInk');
+  assert.doesNotMatch(nameChip, /fill="var\(--text-primary\)"/,
+    'level name chips should not go back to one ink for every level');
+  assert.doesNotMatch(nameChip, /fill=\{c\.color\}/,
+    'level name chips should not paint the raw level color, which is unreadable in light palettes');
 
   const flip = between(terminalSrc, '{flipChip && (', '</text>');
-  assert.doesNotMatch(flip, /fill=\{flipChip\.color\}/, 'the flip chip should not paint text in the level colour');
-  assert.match(flip, /fill=\{flipChip\.drawn \? "var\(--text-primary\)" : "var\(--text-muted\)"\}/,
-    'the flip chip should be readable when drawn and stay muted when unresolved');
+  assert.match(flip, /opacity=\{FLIP_CHIP_OPACITY\}/, 'the flip chip should be drawn at FLIP_CHIP_OPACITY');
+  assert.match(flip, /fill=\{flipChip\.drawn \? levelInk\(flipChip\.color, FLIP_CHIP_OPACITY\) : "var\(--text-muted\)"\}/,
+    'a drawn flip chip should name the flip in its color, shaded for the chip opacity, and stay muted when unresolved');
+  const opacity = terminalSrc.match(/const FLIP_CHIP_OPACITY = ([\d.]+);/);
+  assert.ok(opacity, 'FLIP_CHIP_OPACITY should be a numeric literal');
+  assert.equal(Number(opacity[1]), FLIP_CHIP_OPACITY, 'the test should judge the flip chip at the opacity it is drawn at');
 
   const rail = between(terminalSrc, 'function RailBarLabel(', '</text>');
   assert.match(rail, /fill="var\(--text-primary\)"/, 'rail bar labels should use --text-primary');
-  assert.doesNotMatch(rail, /\bcolor\b\s*:\s*string/, 'RailBarLabel should no longer take a colour prop');
+  assert.doesNotMatch(rail, /\bcolor\b\s*:\s*string/, 'RailBarLabel should not take a color prop');
+});
+
+test('every level name clears AA on its chip, in every theme', () => {
+  const weak: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const card = parse(pal['--bg-card']);
+      assert.ok(card, `${p} should define --bg-card as a hex color`);
+      const where = `${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}`;
+      for (const [name, tok] of LEVELS) {
+        const color = parse(pal[tok]);
+        assert.ok(color, `${where} ${tok} should resolve to a hex color`);
+        const cr = contrastRatio(readableLevelInk(color, card), card);
+        if (cr < 4.5) weak.push(`${where} ${name} — ${cr.toFixed(2)}:1`);
+      }
+      // The flip status chip is drawn translucent, so judge what is seen.
+      const flip = readableLevelInk(parse(pal['--color-flip'])!, card, FLIP_CHIP_OPACITY);
+      const seen = flip.map((v, i) => Math.round(v * FLIP_CHIP_OPACITY + card[i] * (1 - FLIP_CHIP_OPACITY))) as Rgb;
+      const cr = contrastRatio(seen, card);
+      if (cr < 4.5) weak.push(`${where} FLIP status chip — ${cr.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(weak, [], `level names below 4.5:1:\n  ${weak.join('\n  ')}`);
+});
+
+// OKLCH hue, in degrees, computed here rather than borrowed from the module
+// under test.
+function oklchHue([r, g, b]: Rgb): { chroma: number; hue: number } {
+  const f = (v: number) => ((v /= 255), v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [R, G, B] = [f(r), f(g), f(b)];
+  const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+  const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+  const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const Bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return { chroma: Math.hypot(A, Bb), hue: ((Math.atan2(Bb, A) * 180) / Math.PI + 360) % 360 };
+}
+
+test('a level name keeps its level color, and only shades it where it must', () => {
+  const problems: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const card = parse(pal['--bg-card'])!;
+      const where = `${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}`;
+      for (const [name, tok] of LEVELS) {
+        const color = parse(pal[tok])!;
+        const ink = readableLevelInk(color, card);
+        // Already readable: painted exactly as the line is, so on the default
+        // dark theme the names look the way members knew them.
+        if (contrastRatio(color, card) >= 4.5) {
+          if (toHex(ink) !== toHex(color)) problems.push(`${where} ${name} ${toHex(color)} is readable but was shaded to ${toHex(ink)}`);
+          continue;
+        }
+        // Shaded: a deeper or brighter version of the same color, never a
+        // different one. Hue is only meaningful with some chroma behind it.
+        const before = oklchHue(color);
+        const after = oklchHue(ink);
+        if (before.chroma < 0.02) continue;
+        const drift = Math.min(Math.abs(before.hue - after.hue), 360 - Math.abs(before.hue - after.hue));
+        if (drift > 5) problems.push(`${where} ${name} ${toHex(color)} → ${toHex(ink)} drifts ${drift.toFixed(1)}° in hue`);
+      }
+    }
+  }
+  assert.deepEqual(problems, [], `level name ink:\n  ${problems.join('\n  ')}`);
 });
 
 test('--text-primary is readable on the chip and plot background, in every theme', () => {

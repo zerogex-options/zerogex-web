@@ -54,7 +54,7 @@ import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
 import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
-import { useChipInk } from "@/hooks/useChartTheme";
+import { useChipInk, useLevelInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
@@ -400,6 +400,9 @@ const RAIL_BAR_OPACITY = 0.85;
 // Below this per-strike vertical slot (px) the on-bar $ labels are suppressed;
 // zoom the price axis to spread the strikes apart and they reappear.
 const RAIL_LABEL_MIN_SLOT = 12;
+// The flip status chip is drawn a touch translucent. Its label's ink is shaded
+// for this opacity, so the two have to come from the same number.
+const FLIP_CHIP_OPACITY = 0.9;
 
 // ── Numeric helpers (shared shape with UnderlyingCandlesChart) ───────────────
 function niceStep(value: number): number {
@@ -779,6 +782,9 @@ export default function GammaTerminalChart({
   // Price tags are filled with a level's own colour, so their text is picked
   // per chip rather than from the theme's inverse ink.
   const chipInk = useChipInk();
+  // Level names are painted in their level's color, shaded where a palette's
+  // color is too faint to read on the name chip.
+  const levelInk = useLevelInk();
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
@@ -3849,15 +3855,18 @@ export default function GammaTerminalChart({
             })}
 
             {/* ── Level name chips, de-collided so they never overlap ──────
-                 The label is --text-primary, not the level colour: a 9.5px
-                 glyph in the level's own colour on a --bg-card chip cleared
-                 4.5:1 in only 105 of 192 palette/level combinations, down to
-                 2.36:1. The border keeps the colour, and the chip sits on the
-                 level's own line, so nothing about the association is lost. */}
+                 The name is painted in the level's color, which is how a
+                 reader tells CALL WALL from PIN at a glance, before reading
+                 the 9.5px word. It was --text-primary for a while, because the
+                 raw color cleared 4.5:1 on this chip in only 105 of 192
+                 palette/level combinations, down to 2.36:1; that made every
+                 name the same ink, and members read them by color. levelInk
+                 keeps the color where it is readable and shades it, same
+                 hue, where it is not (core/levelInk). */}
             {chipPlacements.map((c) => (
               <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
                 <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill="var(--text-primary)" fontWeight={600}>
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={levelInk(c.color)} fontWeight={600}>
                   {c.label}
                 </text>
               </g>
@@ -3868,12 +3877,14 @@ export default function GammaTerminalChart({
                  story is there even where the HTML "?" mark beside it is not
                  (a PNG export, a still). */}
             {flipChip && (
-              <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
+              <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={FLIP_CHIP_OPACITY}>
                 <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.drawn ? undefined : "2 2"} opacity={0.95} />
-                {/* Same as the level chips: the border carries the colour and
-                    the dash carries the drawn/unresolved state, so the label
-                    itself can be legible. Unresolved stays muted on purpose. */}
-                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.drawn ? "var(--text-primary)" : "var(--text-muted)"} fontWeight={600}>
+                {/* Same as the level chips: a drawn (off-scale) flip names
+                    itself in the flip's color, shaded to stay readable at the
+                    chip's opacity, so FLIP is one color whether its line is on
+                    screen or not. Unresolved stays muted on purpose, and the
+                    dash carries the same state. */}
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.drawn ? levelInk(flipChip.color, FLIP_CHIP_OPACITY) : "var(--text-muted)"} fontWeight={600}>
                   {flipChip.label}
                 </text>
                 <title>{flipChip.tooltip}</title>
