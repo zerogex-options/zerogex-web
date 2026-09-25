@@ -76,7 +76,7 @@ test('every payable decline offers the link below, which takes any card', () => 
   for (const category of ['insufficient_funds', 'issuer_block', 'try_again', 'unknown'] as const) {
     for (const nextAttemptLabel of ['March 3', null]) {
       const { remedy } = buildDeclineEmailCopy(input({ category, nextAttemptLabel }));
-      assert.match(remedy, /pay the open invoice yourself with the link below — it takes any card/i, category);
+      assert.match(remedy, /pay the open invoice yourself with the link below\u00a0- it takes any card/i, category);
       assert.doesNotMatch(remedy, /stripe\.com/i, category);
     }
   }

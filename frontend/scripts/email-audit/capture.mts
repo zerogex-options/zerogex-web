@@ -61,7 +61,7 @@ const WINBACK_LABEL = (process.env.WINBACK_DISCOUNT_LABEL || '').trim() || '25% 
 const HIGHLIGHTS = [
   { title: 'Trade Bias', body: 'One signed directional call that fuses the gamma and volatility regime with live flow, tape and momentum.' },
   { title: 'Session rewind', body: 'Replay any session on the gamma chart and watch how a level actually held.' },
-  { title: 'TradeWorkz bots', body: 'Automated strategies with a fully public trade audit — every entry and exit on the record.' },
+  { title: 'TradeWorkz bots', body: 'Automated strategies with a fully public trade audit\u00a0- every entry and exit on the record.' },
 ];
 
 // The operator digests embed the REAL member draft they are reviewing, so build

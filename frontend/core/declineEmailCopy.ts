@@ -71,8 +71,8 @@ function retrySentence(input: DeclineEmailInput): string {
  */
 function payTail(input: DeclineEmailInput): string {
   return input.nextAttemptLabel
-    ? ' If you would rather not wait, or want to use a different card, you can pay the open invoice yourself with the link below — it takes any card.'
-    : ' You can pay the open invoice yourself with the link below — it takes any card.';
+    ? ' If you would rather not wait, or want to use a different card, you can pay the open invoice yourself with the link below\u00a0- it takes any card.'
+    : ' You can pay the open invoice yourself with the link below\u00a0- it takes any card.';
 }
 
 /**
@@ -110,7 +110,7 @@ function buildDeclineEmailCopyInner(input: DeclineEmailInput): DeclineEmailCopy 
         // States the bank's answer and immediately removes the wrong conclusion.
         // "Nothing to fix" is the load-bearing clause: without it the member goes
         // looking for a fault in a card that does not have one.
-        reason: `Your bank returned ${opener} as insufficient funds at that moment — so ${card} itself is fine, and there is nothing to fix or re-enter.`,
+        reason: `Your bank returned ${opener} as insufficient funds at that moment\u00a0- so ${card} itself is fine, and there is nothing to fix or re-enter.`,
         remedy: `${retrySentence(input)}${payTail(input)}`,
         ctaLabel: 'Complete the payment',
         preferInvoice: true,
@@ -119,7 +119,7 @@ function buildDeclineEmailCopyInner(input: DeclineEmailInput): DeclineEmailCopy 
     case 'card_problem':
       return {
         // The one category where the account page really is the answer.
-        reason: `${card} could not be used for ${opener} — it looks expired, mistyped or no longer accepted.`,
+        reason: `${card} could not be used for ${opener}\u00a0- it looks expired, mistyped or no longer accepted.`,
         remedy: 'Updating the card on file takes about a minute and picks the subscription straight back up.',
         ctaLabel: 'Update your card',
         preferInvoice: false,
@@ -136,14 +136,14 @@ function buildDeclineEmailCopyInner(input: DeclineEmailInput): DeclineEmailCopy 
     case 'authentication_required':
       return {
         reason: `Your bank asked for an extra confirmation step on ${opener} and it was not completed, so the charge did not go through.`,
-        remedy: 'Paying the open invoice with the link below walks you through that step — it only takes a moment.',
+        remedy: 'Paying the open invoice with the link below walks you through that step\u00a0- it only takes a moment.',
         ctaLabel: 'Confirm the payment',
         preferInvoice: true,
       };
 
     case 'try_again':
       return {
-        reason: `${opener === 'the first charge' ? 'The first charge' : 'The payment'} did not go through on ${card} — the processor returned a temporary error rather than a refusal.`,
+        reason: `${opener === 'the first charge' ? 'The first charge' : 'The payment'} did not go through on ${card}\u00a0- the processor returned a temporary error rather than a refusal.`,
         remedy: `${retrySentence(input)}${payTail(input)}`,
         ctaLabel: 'Complete the payment',
         preferInvoice: true,
@@ -154,7 +154,7 @@ function buildDeclineEmailCopyInner(input: DeclineEmailInput): DeclineEmailCopy 
       // declined" would send the member to an issuer that never saw it, and
       // core/declineReason.ts forbids the bank framing outright for this case.
       return {
-        reason: `${opener === 'the first charge' ? 'The first charge' : 'The payment'} did not complete — our automated payment checks stopped it, which is on our side rather than yours.`,
+        reason: `${opener === 'the first charge' ? 'The first charge' : 'The payment'} did not complete\u00a0- our automated payment checks stopped it, which is on our side rather than yours.`,
         remedy: 'Reply to this email and I will sort it out personally; it is usually a quick fix.',
         ctaLabel: 'Complete the payment',
         preferInvoice: true,
