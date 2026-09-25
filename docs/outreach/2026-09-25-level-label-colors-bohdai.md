@@ -29,22 +29,23 @@ paragraph in the draft, so it pastes straight into a mail client.
   theme, 7 of 8 level colors were already fine. So the fix solved a light-mode
   problem by taking the color cue away from everyone, dark-mode members
   included. Bohdai says the labels went "white", so they are on dark mode.
-- **The fix is on `claude/level-label-colors` (`fd3ad30`).** The names go back
-  to their level's color. A color that is already readable is used exactly
-  as-is. One that is too faint is deepened (light mode) or brightened (dark
-  mode), same hue, just enough to clear 4.5:1. On the default dark theme that
-  is the pre-change look. Every label now clears 4.5:1 in every theme.
-- **Left alone on purpose:** the small dollar figures at the ends of the gamma
-  bars went white in the same commit. Each sits against its own colored bar, so
-  color never identified them, and nobody has asked.
+- **The fix is on `claude/level-label-colors`.** The level names and the
+  gamma bars' dollar figures go back to their own colors. A color that is
+  already readable is used exactly as-is. One that is too faint is deepened
+  (light mode) or brightened (dark mode), same hue, just enough to clear 4.5:1.
+  On the default dark theme that is the pre-change look. Every label and figure
+  now clears 4.5:1 in every theme.
+- **Framing.** The reply gives the reason as the theme count: 12 palettes, each
+  in light and dark, with a few label colors hard to read in some of them. Keep
+  any follow-up to that.
 
 ## Verify first
 
-- **Send after the deploy.** The draft says "it's live now". Open
-  https://zerogex.io/chart in dark mode, hard-refresh, and check the level names
-  are in color before sending.
-- If you would rather reply before deploying, swap "It's live now, so a refresh
-  should bring them back." for "It goes out with the next update."
+- **This goes out before the deploy.** The draft says the fix "goes out with
+  the next update", so there is nothing to check before sending.
+- **After the deploy**, open https://zerogex.io/chart in dark mode, hard-refresh,
+  and check that the level names and the gamma bars' dollar figures are in
+  color.
 
 ## Draft
 
@@ -52,13 +53,13 @@ paragraph in the draft, so it pastes straight into a mail client.
 
 Hi Bohdai,
 
-You're right, and thanks for telling me. No other user asked for it. It came from a readability change I made this week.
+You're right, and thanks for telling me. No other user asked for it.
 
-In the light theme, a few of those label colors were genuinely hard to read: the yellow Max Pain and the teal Pin were faint against the pale background. My change went too far, though. It turned every label the same plain color in every theme, including dark mode, where the colors were fine. And you've put your finger on why that matters: at that size, the color is how you tell the labels apart at a glance.
+The chart has 12 color themes, each with a light and a dark version, and in some of those combinations a few of the label colors were hard to read against the background. Switching every label to plain text made them readable everywhere, but you've put your finger on what that cost: at that size, the color is how you tell the labels apart at a glance.
 
-So the colors are back. In dark mode the labels look the way they did before. In light mode they keep their colors too, just a shade deeper so they stay readable. The font stays small, like you said.
+So I'm putting the colors back, tuned for each theme so they stay readable in all of them. The dollar figures on the gamma bars get their colors back too, and the font stays small, like you said.
 
-It's live now, so a refresh should bring them back. If anything else on the chart changed in a way that slows you down, just reply and tell me.
+It goes out with the next update. If anything else on the chart changed in a way that slows you down, just reply and tell me.
 
 Best,
 Michael
@@ -71,6 +72,3 @@ Founder, ZeroGEX
   it used to.** Expected. In a few dark palettes, a color that was below the
   readability bar (Call Wall on Mars or Monochrome Madison, for example) is now
   brightened slightly. Same hue.
-- **They want the bar figures in color too.** Small change, same helper.
-  `RailBarLabel` in `frontend/components/GammaTerminalChart.tsx` would take its
-  color back as a prop, passed through `levelInk`.
