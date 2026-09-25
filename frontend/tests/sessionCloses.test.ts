@@ -41,11 +41,11 @@ test("after-hours carrying today's close → fresh", () => {
   assert.equal(sessionClosesLagBehind("after-hours", WED_CLOSE, WED_1604), false);
 });
 
-test("only after-hours is judged — every other session passes through", () => {
-  // Pre-market legitimately carries the previous day's close, the cash session
-  // always does, and the overnight 'closed' state crosses midnight (where an
-  // earlier date is expected, not late). None is decidable from the calendar.
-  for (const session of ["open", "pre-market", "closed", "closed-weekend", "closed-holiday", null]) {
+test("only after-hours and closed are judged — every other session passes through", () => {
+  // Pre-market legitimately carries the previous day's close and the cash session
+  // always does. The weekend / holiday labels come from the viewer's clock alone,
+  // with no print behind them to judge by.
+  for (const session of ["open", "pre-market", "closed-weekend", "closed-holiday", null]) {
     assert.equal(sessionClosesLagBehind(session, TUE_CLOSE, WED_1604), false, `${session}`);
   }
 });
@@ -57,6 +57,114 @@ test("a close stamped ahead of the reference is clock skew, not a stale payload"
 test("missing / unparseable timestamps never flag lagging", () => {
   assert.equal(sessionClosesLagBehind("after-hours", null, WED_1604), false);
   assert.equal(sessionClosesLagBehind("after-hours", "not-a-date", WED_1604), false);
+});
+
+// ── Cash indexes: 'closed', judged from the last print ─────────────────────
+//
+// SPX and NDX have no after-hours tape, so the quote endpoint takes them from
+// 'open' straight to 'closed' at 16:00:30 ET and the after-hours branch never saw
+// them. The reported screen, 16:05 ET Fri 2026-09-25: SPX header "$7,704.23 −2.16"
+// — Thursday's close (7,704.13 official) carrying Thursday's change against
+// Wednesday (7,706.03) — while the real close was 7,739.23 (+0.46%).
+
+const WED_SEP23_CLOSE = "2026-09-23T20:00:00Z"; // Wed Sep 23 16:00 ET
+const THU_SEP24_CLOSE = "2026-09-24T20:00:00Z"; // Thu Sep 24 16:00 ET
+const FRI_SEP25_CLOSE = "2026-09-25T20:00:00Z"; // Fri Sep 25 16:00 ET
+const FRI_SEP25_LAST_BAR = "2026-09-25T19:59:00Z"; // the index's last print, 15:59 bucket
+
+function indexCloses(
+  currentTs: string,
+  current: number,
+  priorTs: string,
+  prior: number,
+): SessionClosesData {
+  return {
+    symbol: "SPX",
+    current_session_close: current,
+    current_session_close_ts: currentTs,
+    prior_session_close: prior,
+    prior_session_close_ts: priorTs,
+  };
+}
+
+test("closed: the last print is from a later session than the close → lagging", () => {
+  assert.equal(sessionClosesLagBehind("closed", THU_SEP24_CLOSE, FRI_SEP25_LAST_BAR), true);
+  assert.equal(sessionClosesLagBehind("closed", THU_SEP24_CLOSE, FRI_SEP25_CLOSE), true);
+});
+
+test("closed: the close has rolled to the last print's day → fresh", () => {
+  assert.equal(sessionClosesLagBehind("closed", FRI_SEP25_CLOSE, FRI_SEP25_LAST_BAR), false);
+  assert.equal(sessionClosesLagBehind("closed", FRI_SEP25_CLOSE, FRI_SEP25_CLOSE), false);
+});
+
+test("closed overnight and over a weekend: the last print sits on the close's own day", () => {
+  // Why 'closed' could not be judged by the clock: it crosses midnight and the
+  // weekend. The print does not move, so a rolled payload stays fresh all the way
+  // to Monday's open.
+  assert.equal(sessionClosesLagBehind("closed", FRI_SEP25_CLOSE, FRI_SEP25_LAST_BAR), false);
+  // And there is no wall-clock fallback: without a print there is no verdict.
+  assert.equal(sessionClosesLagBehind("closed", THU_SEP24_CLOSE, null), false);
+  assert.equal(sessionClosesLagBehind("closed", THU_SEP24_CLOSE, undefined), false);
+});
+
+test("closed: a print before the 09:30 open owes no close", () => {
+  // An overnight ETF bar after midnight is dated a day past yesterday's close,
+  // and that is expected, not late.
+  assert.equal(sessionClosesLagBehind("closed", TUE_CLOSE, "2026-09-02T05:00:00Z"), false); // 01:00
+  assert.equal(sessionClosesLagBehind("closed", TUE_CLOSE, "2026-09-02T13:29:00Z"), false); // 09:29
+  assert.equal(sessionClosesLagBehind("closed", TUE_CLOSE, "2026-09-02T13:30:00Z"), true); // 09:30
+});
+
+test("closed: an ETF's evening print still flags a close that never rolled", () => {
+  // From 20:00:30 an ETF is 'closed' too; a 19:59 print a session past the close
+  // on offer is the same stale payload, later in the evening.
+  const FRI_1959 = "2026-09-25T23:59:00Z";
+  assert.equal(sessionClosesLagBehind("closed", THU_SEP24_CLOSE, FRI_1959), true);
+  assert.equal(sessionClosesLagBehind("closed", FRI_SEP25_CLOSE, FRI_1959), false);
+});
+
+test("closed: missing / unparseable timestamps never flag lagging", () => {
+  assert.equal(sessionClosesLagBehind("closed", null, FRI_SEP25_LAST_BAR), false);
+  assert.equal(sessionClosesLagBehind("closed", "not-a-date", FRI_SEP25_LAST_BAR), false);
+  assert.equal(sessionClosesLagBehind("closed", THU_SEP24_CLOSE, "not-a-date"), false);
+});
+
+test("regression: SPX at 16:05 with lagging closes shows today's close vs yesterday's", () => {
+  // Served pair at the time of the report: Thursday's close as "current", Wednesday's
+  // as "prior". The quote is the index's frozen last print.
+  const lagging = indexCloses(THU_SEP24_CLOSE, 7704.23, WED_SEP23_CLOSE, 7706.39);
+  const quoteClose = 7739.33;
+
+  const before = getPrimaryPriceChangeSummary({
+    quoteClose,
+    quoteSession: "closed",
+    sessionCloses: lagging,
+  });
+  // What the header did: Thursday's close billed as today's, with Thursday's change.
+  assert.equal(before.displayPrice, 7704.23);
+  assert.equal(Number(before.change?.toFixed(2)), -2.16);
+
+  const after = getPrimaryPriceChangeSummary({
+    quoteClose,
+    quoteSession: resolvePriceSession("closed", lagging, FRI_SEP25_LAST_BAR),
+    sessionCloses: lagging,
+  });
+  assert.equal(after.displayPrice, 7739.33);
+  assert.equal(Number(after.change?.toFixed(2)), 35.1);
+  assert.equal(Number(after.changePercent?.toFixed(2)), 0.46);
+  assert.equal(after.isPositive, true);
+
+  // Once the payload rolls, the frozen-close reading returns with the same numbers:
+  // the index's last print IS its close.
+  const rolled = indexCloses(FRI_SEP25_CLOSE, 7739.33, THU_SEP24_CLOSE, 7704.23);
+  assert.equal(resolvePriceSession("closed", rolled, FRI_SEP25_LAST_BAR), "closed");
+  const settled = getPrimaryPriceChangeSummary({
+    quoteClose,
+    quoteSession: "closed",
+    sessionCloses: rolled,
+  });
+  assert.equal(settled.displayPrice, 7739.33);
+  assert.equal(Number(settled.change?.toFixed(2)), 35.1);
 });
 
 // ── resolvePriceSession ─────────────────────────────────────────────────────
