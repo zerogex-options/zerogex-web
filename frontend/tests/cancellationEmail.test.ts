@@ -18,7 +18,7 @@ const PERIOD_END = new Date(Date.UTC(2026, 9, 14, 10, 3, 14)).toISOString();
 test('the ordinary cancel keeps its reassuring copy', () => {
   const { subject, text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END });
 
-  assert.equal(subject, 'Sorry to see you go — mind sharing why?');
+  assert.equal(subject, 'Sorry to see you go - mind sharing why?');
   assert.match(text, /nothing changes yet on your end/);
   assert.match(html, /nothing changes yet on your end/);
   assert.match(text, /full access until October 14, 2026/);

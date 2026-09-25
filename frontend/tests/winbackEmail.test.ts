@@ -33,7 +33,7 @@ test('the promo variant names its deadline and auto-applies too', () => {
     highlights: HIGHLIGHTS,
   });
 
-  assert.match(subject, /intro rate is open again — through October 1, 2026/);
+  assert.match(subject, /intro rate is open again - through October 1, 2026/);
   for (const body of [text, html]) {
     assert.match(body, /applies automatically at checkout/);
     assert.match(body, /October 1, 2026/);

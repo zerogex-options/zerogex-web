@@ -287,7 +287,7 @@ function hasMissingPasteLevel(rows: DigestRow[]): boolean {
 }
 
 const PASTE_ZERO_NOTE =
-  'A 0 means no level was published for that ticker today — the script hides any level set to 0.';
+  'A 0 means no level was published for that ticker today\u00a0- the script hides any level set to 0.';
 
 /**
  * What the asterisk beside a missing gamma flip means.
@@ -303,7 +303,7 @@ const PASTE_ZERO_NOTE =
  * other five columns more, not less.
  */
 const FLIP_UNRESOLVED_NOTE =
-  '* Gamma flip unresolved — the chain had no qualifying zero-crossing, so no level is printed rather than an invented one.';
+  '* Gamma flip unresolved\u00a0- the chain had no qualifying zero-crossing, so no level is printed rather than an invented one.';
 const FLIP_UNRESOLVED_PATH = '/methodology';
 
 /**
@@ -368,7 +368,7 @@ export function renderDailyLevelsEmail(
     ...(model.trackRecord
       ? [`${model.trackRecord}`, `  ${site}/track-record`, '']
       : []),
-    ...FOOTER_LINKS.map((l) => `  ${l.label} — ${l.blurb}\n    ${site}${l.path}`),
+    ...FOOTER_LINKS.map((l) => `  ${l.label}\u00a0- ${l.blurb}\n    ${site}${l.path}`),
     '',
     `Live intraday levels, dealer flow and signals are what the paid plans add. Start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee: ${site}/pricing`,
     '',
@@ -423,7 +423,7 @@ export function renderDailyLevelsEmail(
       }
       <a href="${escapeHtml(`${site}/${model.primary.toLowerCase()}-gamma-levels`)}" style="display:block; margin:0 0 20px;">
         <img src="${escapeHtml(`${site}/embed/image/${model.primary}.png`)}"
-             alt="${escapeHtml(`${model.primary} gamma levels — gamma flip, call wall, put wall`)}"
+             alt="${escapeHtml(`${model.primary} gamma levels\u00a0- gamma flip, call wall, put wall`)}"
              width="600" style="width:100%; max-width:600px; height:auto; border:1px solid #e2e6ea; border-radius:8px; display:block;" />
       </a>
 
@@ -469,7 +469,7 @@ export function renderDailyLevelsEmail(
         ${FOOTER_LINKS.map(
           (l) => `<p style="margin:0 0 7px; font-size:13px; line-height:1.45;">
             <a href="${escapeHtml(`${site}${l.path}`)}" style="color:#12283c; font-weight:600; text-decoration:none;">${escapeHtml(l.label)}</a>
-            <span style="color:#6b7680;"> &mdash; ${escapeHtml(l.blurb)}</span>
+            <span style="color:#6b7680;">\u00a0- ${escapeHtml(l.blurb)}</span>
           </p>`,
         ).join('')}
       </div>

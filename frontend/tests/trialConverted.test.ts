@@ -126,7 +126,7 @@ test('an already-canceled member gets a receipt, not a welcome', () => {
     alreadyCanceled: true,
   });
 
-  assert.equal(subject, 'Your ZeroGEX trial ended — your receipt, and your cancellation');
+  assert.equal(subject, 'Your ZeroGEX trial ended - your receipt, and your cancellation');
   assert.doesNotMatch(subject, /full membership/);
   assert.doesNotMatch(text, /You're now a full ZeroGEX member/);
   assert.doesNotMatch(html, /You're now a full ZeroGEX member/);

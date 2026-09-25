@@ -175,7 +175,7 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
 // outcome / not-financial-advice point, which applies platform-wide including
 // the alerts. Kept verbatim across emails on purpose.
 const TRIAL_DISCLAIMER_LINE =
-  "ZeroGEX is built to give you better market-structure context before price gets there. It isn't financial advice, and no tool can promise a guaranteed outcome — how you trade the levels is always your call.";
+  "ZeroGEX is built to give you better market-structure context before price gets there. It isn't financial advice, and no tool can promise a guaranteed outcome\u00a0- how you trade the levels is always your call.";
 
 // The single most common way a trial fails is a expectation mismatch, not a
 // product gap: someone reads the gamma flip as a mechanical trigger, watches it
@@ -193,10 +193,10 @@ function methodologyUrl(): string {
 
 function methodologyTextLine(): string {
   return (
-    'What it is, and what it is not: dealer positioning is MODELED, not observed — ' +
+    'What it is, and what it is not: dealer positioning is MODELED, not observed\u00a0- ' +
     'no public dataset says who is long and who is short at a strike. So the levels ' +
     'are probabilistic context, not mechanical triggers. Exactly what is derived, ' +
-    `what is assumed, and where the model is weakest: ${methodologyUrl()} — worth ` +
+    `what is assumed, and where the model is weakest: ${methodologyUrl()}\u00a0- worth ` +
     'five minutes before you judge a level.'
   );
 }
@@ -206,23 +206,23 @@ function methodologyHtmlBlock(): string {
   return `
     <p style="font-size: 13px; color: #555; border-left: 3px solid #e8e8e8; padding: 2px 0 2px 12px; margin: 16px 0;">
       <strong style="color: #1a1a1a;">What it is, and what it isn't.</strong>
-      Dealer positioning is <em>modeled</em>, not observed &mdash; no public dataset says who is long
+      Dealer positioning is <em>modeled</em>, not observed\u00a0- no public dataset says who is long
       and who is short at a strike. So the levels are probabilistic context, not mechanical triggers.
       Exactly what's derived, what's assumed, and where the model is weakest is written down in
-      <a href="${url}" style="color: #f5b400; font-weight: 600;">Methodology &amp; Validation</a>
-      &mdash; worth five minutes before you judge a level.
+      <a href="${url}" style="color: #f5b400; font-weight: 600;">Methodology &amp; Validation</a>\u00a0-
+      worth five minutes before you judge a level.
     </p>
   `.trim();
 }
 
 function startHereTextLines(): string[] {
-  return TRIAL_START_HERE.map((s) => `  • ${s.title} — ${s.body}`);
+  return TRIAL_START_HERE.map((s) => `  • ${s.title}\u00a0- ${s.body}`);
 }
 
 function startHereHtmlList(): string {
   const items = TRIAL_START_HERE.map(
     (s) =>
-      `<li style="margin: 0 0 8px;"><strong>${escapeHtml(s.title)}</strong> &mdash; ${escapeHtml(s.body)}</li>`,
+      `<li style="margin: 0 0 8px;"><strong>${escapeHtml(s.title)}</strong>\u00a0- ${escapeHtml(s.body)}</li>`,
   ).join('');
   return `<ul style="padding-left: 20px; margin: 12px 0;">${items}</ul>`;
 }
@@ -239,12 +239,12 @@ function startHereHtmlList(): string {
 // the modal and the account page's API Access section (components/AccountApiKeys).
 const API_KEY_STEPS: ReadonlyArray<string> = [
   'Open Account → API Access.',
-  'Click "Generate API Key" and copy the secret — it\'s shown only once.',
+  'Click "Generate API Key" and copy the secret\u00a0- it\'s shown only once.',
   'Send it on your requests as the header: Authorization: Bearer <your key>',
 ];
 
 const API_KEY_INTRO =
-  'One more thing worth knowing about: your Pro plan includes self-service API keys, so you can call the ZeroGEX data API straight from your own scripts, spreadsheets, and integrations — no waiting on support. If you ever need one:';
+  'One more thing worth knowing about: your Pro plan includes self-service API keys, so you can call the ZeroGEX data API straight from your own scripts, spreadsheets, and integrations\u00a0- no waiting on support. If you ever need one:';
 
 // Returning members need the same steps for a different reason: dropping below
 // Pro revokes every key the account held (revokeApiKeysIfTierDropped), so any
@@ -263,7 +263,7 @@ function apiKeyTextLines(intro: string = API_KEY_INTRO): string[] {
     ...API_KEY_STEPS.map((step, i) => `  ${i + 1}. ${step}`),
     '',
     `Generate a key here: ${apiKeyUrl}`,
-    "You can generate or regenerate a key anytime from your account page — regenerating immediately deactivates the previous key.",
+    "You can generate or regenerate a key anytime from your account page\u00a0- regenerating immediately deactivates the previous key.",
   ];
 }
 
@@ -277,7 +277,7 @@ function apiKeyHtmlBlock(intro: string = API_KEY_INTRO): string {
       <p>${escapeHtml(intro)}</p>
       <ol style="padding-left: 20px; margin: 12px 0;">${items}</ol>
       <p style="margin: 0 0 8px;"><a href="${safeApiKeyUrl}" style="color: #f5b400; font-weight: 600;">Generate an API key</a></p>
-      <p style="font-size: 13px; color: #555; margin: 0 0 16px;">You can generate or regenerate a key anytime from your account page &mdash; regenerating immediately deactivates the previous key.</p>`;
+      <p style="font-size: 13px; color: #555; margin: 0 0 16px;">You can generate or regenerate a key anytime from your account page\u00a0- regenerating immediately deactivates the previous key.</p>`;
 }
 
 export async function sendEmailVerification(to: string, verifyUrl: string) {
@@ -334,7 +334,7 @@ export async function sendReferralRewardEmail(
   const rewardSentence =
     opts.kind === 'credited'
       ? `We've added ${opts.amountFormatted ?? 'a free month'} of account credit, which will be applied automatically to your next invoice.`
-      : "You've earned a free month — we'll apply it as account credit automatically the next time you subscribe.";
+      : "You've earned a free month\u00a0- we'll apply it as account credit automatically the next time you subscribe.";
 
   const text = [
     'Great news!',
@@ -418,16 +418,16 @@ export async function sendPaidWelcomeEmail(
   const safeDashboardUrl = escapeHtml(dashboardUrl);
   const trialLength = describeTrialLength(opts?.trialDays);
   const trialLineText = trialEndDate
-    ? `Your ${trialLength} is now active, so you have full access right away — dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your ${trialLength} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away &mdash; dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
-    ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
+    ? `You're on our limited-time introductory rate for the ${promoLabel}\u00a0- it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
     : null;
   const promoLineHtml = promoLabel
-    ? `You're on our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)} &mdash; it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
+    ? `You're on our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}\u00a0- it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
     : null;
   // The guarantee, restated at the moment it starts running, with the exact
   // deadline and the one-refund limit — the same terms the pricing page and the
@@ -470,7 +470,7 @@ export async function sendPaidWelcomeEmail(
     '',
     "Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
-    'Thanks again — I really appreciate your support.',
+    'Thanks again\u00a0- I really appreciate your support.',
     '',
     'Best,',
     'Michael',
@@ -498,7 +498,7 @@ export async function sendPaidWelcomeEmail(
       ${apiKeyHtmlBlock()}
       <p>${growthLine}</p>
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
-      <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Thanks again\u00a0- I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="font-size: 13px; color: #555;">P.S. Curious what we've shipped lately? See the latest product updates at <a href="${escapeHtml(`${getAppUrl()}/updates`)}" style="color: #f5b400; font-weight: 600;">${escapeHtml(`${getAppUrl()}/updates`)}</a>.</p>
       ${renderFohFooterHtml()}
@@ -619,10 +619,10 @@ export async function sendFoundingWelcomeEmail(
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
   const trialLineText = trialEndDate
-    ? `Your founding rate is locked in — but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your founding rate is locked in\u00a0- but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your founding rate is locked in &mdash; but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your founding rate is locked in\u00a0- but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
 
   const text = [
@@ -637,7 +637,7 @@ export async function sendFoundingWelcomeEmail(
     '',
     "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
-    'Thanks again — I really appreciate your support.',
+    'Thanks again\u00a0- I really appreciate your support.',
     '',
     'Best,',
     'Michael',
@@ -654,7 +654,7 @@ export async function sendFoundingWelcomeEmail(
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
       ${apiKeyHtmlBlock()}
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
-      <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Thanks again\u00a0- I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       ${renderFohFooterHtml()}
     </div>
@@ -782,17 +782,17 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // that no action is needed — "a quick check" implied one was, which for a
   // member who has not used the product reads as a prompt to cancel.
   const subject = dormant
-    ? 'Before your ZeroGEX trial converts — nothing you need to do'
+    ? 'Before your ZeroGEX trial converts - nothing you need to do'
     : 'Your ZeroGEX free trial ends in 2 days';
 
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
 
   const promoLineText = promoLabel
-    ? `Good news on the price: you locked in our limited-time introductory rate for the ${promoLabel}, so that's what your card will be charged after the trial — not the standard rate.`
+    ? `Good news on the price: you locked in our limited-time introductory rate for the ${promoLabel}, so that's what your card will be charged after the trial\u00a0- not the standard rate.`
     : null;
   const promoLineHtml = promoLabel
-    ? `Good news on the price: you locked in our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}, so that's what your card will be charged after the trial &mdash; not the standard rate.`
+    ? `Good news on the price: you locked in our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}, so that's what your card will be charged after the trial\u00a0- not the standard rate.`
     : null;
 
   // "Your subscription will begin at $X/month using your Visa card ending in
@@ -857,7 +857,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       ? null
       : [
           descriptor
-            ? `On your statement it will read ${descriptor}. If your bank queries it, that is us — confirming it rather than declining it keeps your access uninterrupted.`
+            ? `On your statement it will read ${descriptor}. If your bank queries it, that is us\u00a0- confirming it rather than declining it keeps your access uninterrupted.`
             : null,
           needsFunds
             ? 'One practical note: your card on file is a debit card, so the funds need to be available on the day the charge runs. Banks decline these for timing far more often than for anything else.'
@@ -870,7 +870,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       ? null
       : [
           descriptor
-            ? `On your statement it will read <strong>${escapeHtml(descriptor)}</strong>. If your bank queries it, that's us &mdash; confirming it rather than declining it keeps your access uninterrupted.`
+            ? `On your statement it will read <strong>${escapeHtml(descriptor)}</strong>. If your bank queries it, that's us\u00a0- confirming it rather than declining it keeps your access uninterrupted.`
             : null,
           needsFunds
             ? 'One practical note: your card on file is a debit card, so the funds need to be available on the day the charge runs. Banks decline these for timing far more often than for anything else.'
@@ -895,11 +895,11 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // both variants. That is the part that makes an unrecognized statement line
   // impossible, and it is not the part that was reading as a cancel prompt.
   const openerText = dormant
-    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically. There's nothing you need to do — your access simply carries on.`
-    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically — your first payment will be charged then unless you cancel before that.`;
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically. There's nothing you need to do\u00a0- your access simply carries on.`
+    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically\u00a0- your first payment will be charged then unless you cancel before that.`;
   const openerHtml = dormant
-    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>. There's nothing you need to do &mdash; your access simply carries on.`
-    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>. There's nothing you need to do\u00a0- your access simply carries on.`
+    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>\u00a0- your first payment will be charged then unless you cancel before that.`;
 
   // The "you don't have to do anything" line. It sits directly under the price
   // so the two facts a member needs — what you'll be charged, and that you need
@@ -911,12 +911,12 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   const continuationText = dormant
     ? []
     : [
-        "If ZeroGEX is working for you, there's nothing you need to do — your access carries straight on and the subscription renews by itself.",
+        "If ZeroGEX is working for you, there's nothing you need to do\u00a0- your access carries straight on and the subscription renews by itself.",
         '',
       ];
   const continuationHtml = dormant
     ? ''
-    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; your access carries straight on and the subscription renews by itself.</p>`;
+    : `<p>If ZeroGEX is working for you, there's nothing you need to do\u00a0- your access carries straight on and the subscription renews by itself.</p>`;
 
   // Closing. For a dormant member the offer of help comes first and the exit
   // last, which is the reverse of how this used to read.
@@ -933,7 +933,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // signed up meaning to use it and never found their way in.
   const closingText = dormant
     ? [
-        "If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
+        "If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade\u00a0- I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
         '',
         `And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't be charged.`,
       ]
@@ -941,7 +941,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
         `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
-    ? `<p>If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>
+    ? `<p>If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade\u00a0- I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>
       <p>And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> before ${escapeHtml(trialEndDate)} and you won't be charged.</p>`
     : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
@@ -956,7 +956,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ...continuationText,
     ...closingText,
     '',
-    "Either way, thanks for giving ZeroGEX a try — if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
+    "Either way, thanks for giving ZeroGEX a try\u00a0- if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
     '',
     'Best,',
     'Michael',
@@ -982,7 +982,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
         : `<p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Manage subscription</a>
       </p>`}
-      <p>Either way, thanks for giving ZeroGEX a try &mdash; if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
+      <p>Either way, thanks for giving ZeroGEX a try\u00a0- if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -1048,23 +1048,23 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
     'Hello,',
     '',
     "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through " +
-      `${trialEndDate}). Almost everyone who sticks around got one clear read early — so here's the fastest path to it:`,
+      `${trialEndDate}). Almost everyone who sticks around got one clear read early\u00a0- so here's the fastest path to it:`,
     '',
-    "  1. Start on the Main Dashboard — it's the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.",
-    '  2. Pull up the Gamma Chart — SPY/QQQ/SPX/NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on it: the support/resistance map dealers actually defend. Use session rewind to replay how a level held.',
-    '  3. Check Trade Bias for a single, signed directional call — it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.',
+    "  1. Start on the Main Dashboard\u00a0- it's the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.",
+    '  2. Pull up the Gamma Chart\u00a0- SPY/QQQ/SPX/NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on it: the support/resistance map dealers actually defend. Use session rewind to replay how a level held.',
+    '  3. Check Trade Bias for a single, signed directional call\u00a0- it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.',
     '',
     `Open your dashboard: ${dashboardUrl}`,
     '',
     `Want the model behind it? The 5-minute read is Gamma Exposure Explained: ${gexUrl}`,
     '',
-    'And if you want to know what the model does NOT claim — what is measured, what is ' +
-      'assumed, and where it is weakest — that is Methodology & Validation: ' +
+    'And if you want to know what the model does NOT claim\u00a0- what is measured, what is ' +
+      'assumed, and where it is weakest\u00a0- that is Methodology & Validation: ' +
       `${methodologyUrl()}. Dealer positioning is modeled, not observed, and the levels ` +
       'are probabilistic context rather than mechanical triggers. I would rather you read ' +
       'that and push back than guess at what the numbers are promising.',
     '',
-    "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.",
+    "If anything's confusing, not what you expected, or just not clicking yet\u00a0- reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.",
     '',
     'Best,',
     'Michael',
@@ -1076,18 +1076,18 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). Almost everyone who sticks around got one clear read early &mdash; so here's the fastest path to it:</p>
+      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). Almost everyone who sticks around got one clear read early\u00a0- so here's the fastest path to it:</p>
       <ol style="padding-left: 20px; margin: 12px 0;">
-        <li style="margin: 0 0 10px;">Start on the <a href="${safeDashboardUrl}" style="${linkStyle}">Main Dashboard</a> &mdash; the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.</li>
-        <li style="margin: 0 0 10px;">Pull up the <a href="${safeChartUrl}" style="${linkStyle}">Gamma Chart</a> &mdash; SPY/QQQ/SPX/NDX price with the <strong>Gamma Flip</strong>, <strong>Call/Put Walls</strong>, and <strong>Max Pain</strong> drawn right on it: the support/resistance map dealers actually defend. Session rewind lets you replay how a level held.</li>
-        <li style="margin: 0 0 10px;">Check <a href="${safeBiasUrl}" style="${linkStyle}">Trade Bias</a> for a single, signed directional call &mdash; it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.</li>
+        <li style="margin: 0 0 10px;">Start on the <a href="${safeDashboardUrl}" style="${linkStyle}">Main Dashboard</a>\u00a0- the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.</li>
+        <li style="margin: 0 0 10px;">Pull up the <a href="${safeChartUrl}" style="${linkStyle}">Gamma Chart</a>\u00a0- SPY/QQQ/SPX/NDX price with the <strong>Gamma Flip</strong>, <strong>Call/Put Walls</strong>, and <strong>Max Pain</strong> drawn right on it: the support/resistance map dealers actually defend. Session rewind lets you replay how a level held.</li>
+        <li style="margin: 0 0 10px;">Check <a href="${safeBiasUrl}" style="${linkStyle}">Trade Bias</a> for a single, signed directional call\u00a0- it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.</li>
       </ol>
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
       </p>
       <p style="font-size: 14px; color: #3a4650;">Want the model behind it? The 5-minute read is <a href="${safeGexUrl}" style="${linkStyle}">Gamma Exposure Explained</a>.</p>
-      <p style="font-size: 14px; color: #3a4650;">And if you want to know what the model <em>doesn't</em> claim &mdash; what's measured, what's assumed, and where it's weakest &mdash; that's <a href="${escapeHtml(`${getAppUrl()}/methodology`)}" style="${linkStyle}">Methodology &amp; Validation</a>. Dealer positioning is modeled, not observed, and the levels are probabilistic context rather than mechanical triggers. I'd rather you read that and push back than guess at what the numbers are promising.</p>
-      <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.</p>
+      <p style="font-size: 14px; color: #3a4650;">And if you want to know what the model <em>doesn't</em> claim\u00a0- what's measured, what's assumed, and where it's weakest\u00a0- that's <a href="${escapeHtml(`${getAppUrl()}/methodology`)}" style="${linkStyle}">Methodology &amp; Validation</a>. Dealer positioning is modeled, not observed, and the levels are probabilistic context rather than mechanical triggers. I'd rather you read that and push back than guess at what the numbers are promising.</p>
+      <p>If anything's confusing, not what you expected, or just not clicking yet\u00a0- reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${safeUnsubUrl}" style="color: #888;">Unsubscribe</a>.</p>
     </div>
@@ -1301,9 +1301,9 @@ export async function sendCheckoutRecoveryEmail(
     : ' The discounted intro rate applies automatically at checkout on monthly plans.';
 
   const subject = founding
-    ? `Your ZeroGEX founding rate is still available — only until ${founding}`
+    ? `Your ZeroGEX founding rate is still available - only until ${founding}`
     : promo
-      ? `Your ZeroGEX limited-time offer is still open — only until ${promo}`
+      ? `Your ZeroGEX limited-time offer is still open - only until ${promo}`
       : 'Pick up where you left off at ZeroGEX';
 
   const pricingUrl = `${getAppUrl()}/pricing`;
@@ -1313,11 +1313,11 @@ export async function sendCheckoutRecoveryEmail(
     ? [
         'Hello,',
         '',
-        `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but as a founding member you're still eligible for the locked-in founding rate, and that offer closes ${founding}.`,
+        `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way\u00a0- but as a founding member you're still eligible for the locked-in founding rate, and that offer closes ${founding}.`,
         '',
         `If you'd like to pick it back up, the same plan is one click away here: ${pricingUrl}`,
         '',
-        `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it.`,
+        `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this\u00a0- you won't hear from me again about it.`,
         '',
         'Best,',
         'Michael',
@@ -1327,11 +1327,11 @@ export async function sendCheckoutRecoveryEmail(
       ? [
           'Hello,',
           '',
-          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but our limited-time introductory pricing is still live and closes ${promo}.${promoRatesText}`,
+          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way\u00a0- but our limited-time introductory pricing is still live and closes ${promo}.${promoRatesText}`,
           '',
           `If you'd like to pick it back up at the intro rate, the same plan is one click away here: ${pricingUrl}`,
           '',
-          `Once the offer closes the standard rates come back, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it.`,
+          `Once the offer closes the standard rates come back, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this\u00a0- you won't hear from me again about it.`,
           '',
           'Best,',
           'Michael',
@@ -1340,11 +1340,11 @@ export async function sendCheckoutRecoveryEmail(
       : [
           'Hello,',
           '',
-          "I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — sometimes a tab just gets closed.",
+          "I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way\u00a0- sometimes a tab just gets closed.",
           '',
           `If you'd like to pick it back up, the same plan is one click away here: ${pricingUrl}`,
           '',
-          `If ZeroGEX isn't the right fit, just ignore this — you won't hear from me again about it. And if anything stopped you from finishing (a pricing question, a missing feature, a confusing step), feel free to reply to this email. I read every message.`,
+          `If ZeroGEX isn't the right fit, just ignore this\u00a0- you won't hear from me again about it. And if anything stopped you from finishing (a pricing question, a missing feature, a confusing step), feel free to reply to this email. I read every message.`,
           '',
           'Best,',
           'Michael',
@@ -1357,15 +1357,15 @@ export async function sendCheckoutRecoveryEmail(
       ? 'Claim the intro rate'
       : 'Resume checkout';
   const intro = founding
-    ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but as a founding member you're still eligible for the locked-in founding rate, and that offer closes <strong>${escapeHtml(founding)}</strong>.`
+    ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way\u00a0- but as a founding member you're still eligible for the locked-in founding rate, and that offer closes <strong>${escapeHtml(founding)}</strong>.`
     : promo
-      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>.${promoRatesHtml}`
-      : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; sometimes a tab just gets closed.`;
+      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way\u00a0- but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>.${promoRatesHtml}`
+      : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way\u00a0- sometimes a tab just gets closed.`;
   const closer = founding
-    ? `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
+    ? `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this\u00a0- you won't hear from me again about it.`
     : promo
-      ? `Once the offer closes the standard rates come back, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
-      : `If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it. And if anything stopped you from finishing, feel free to reply to this email. I read every message.`;
+      ? `Once the offer closes the standard rates come back, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this\u00a0- you won't hear from me again about it.`
+      : `If ZeroGEX isn't the right fit, just ignore this\u00a0- you won't hear from me again about it. And if anything stopped you from finishing, feel free to reply to this email. I read every message.`;
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
@@ -1399,7 +1399,7 @@ export async function sendWelcomeBackEmail(to: string) {
   const text = [
     'Hello,',
     '',
-    'I just wanted to personally thank you for coming back to ZeroGEX — it really does mean a lot to have you here again.',
+    'I just wanted to personally thank you for coming back to ZeroGEX\u00a0- it really does mean a lot to have you here again.',
     '',
     "ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.",
     '',
@@ -1407,7 +1407,7 @@ export async function sendWelcomeBackEmail(to: string) {
     '',
     "Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
-    'Thanks again — I really appreciate your support.',
+    'Thanks again\u00a0- I really appreciate your support.',
     '',
     'Best,',
     'Michael',
@@ -1419,11 +1419,11 @@ export async function sendWelcomeBackEmail(to: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I just wanted to personally thank you for coming back to ZeroGEX &mdash; it really does mean a lot to have you here again.</p>
+      <p>I just wanted to personally thank you for coming back to ZeroGEX\u00a0- it really does mean a lot to have you here again.</p>
       <p>ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.</p>
       ${apiKeyHtmlBlock(API_KEY_INTRO_RETURNING)}
       <p>Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
-      <p>Thanks again &mdash; I really appreciate your support.</p>
+      <p>Thanks again\u00a0- I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       ${renderFohFooterHtml()}
     </div>
@@ -1485,10 +1485,10 @@ export function buildCardExpiringEmail(opts: CardExpiringEmailOptions): {
     ? `your ${escapeHtml(opts.cardBrand)} card ending in <strong>${escapeHtml(opts.cardLast4)}</strong>`
     : `the card ending in <strong>${escapeHtml(opts.cardLast4)}</strong>`;
 
-  const lead = `Just a friendly heads-up: ${cardPhrase} — the one on file for your ZeroGEX subscription — expires ${opts.expiryLabel}. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
-  const leadHtml = `Just a friendly heads-up: ${cardPhraseHtml} — the one on file for your ZeroGEX subscription — expires <strong>${escapeHtml(opts.expiryLabel)}</strong>. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
+  const lead = `Just a friendly heads-up: ${cardPhrase}\u00a0- the one on file for your ZeroGEX subscription\u00a0- expires ${opts.expiryLabel}. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
+  const leadHtml = `Just a friendly heads-up: ${cardPhraseHtml}\u00a0- the one on file for your ZeroGEX subscription\u00a0- expires <strong>${escapeHtml(opts.expiryLabel)}</strong>. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
   const fix =
-    'Updating it takes about a minute from your account page and keeps everything running without a hitch — nothing else changes.';
+    'Updating it takes about a minute from your account page and keeps everything running without a hitch\u00a0- nothing else changes.';
 
   const text = [
     'Hello,',
@@ -1499,7 +1499,7 @@ export function buildCardExpiringEmail(opts: CardExpiringEmailOptions): {
     '',
     accountUrl,
     '',
-    "If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply — I'm happy to help.",
+    "If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply\u00a0- I'm happy to help.",
     '',
     'Best,',
     'Michael',
@@ -1514,7 +1514,7 @@ export function buildCardExpiringEmail(opts: CardExpiringEmailOptions): {
       <p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
       </p>
-      <p>If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply &mdash; I'm happy to help.</p>
+      <p>If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply\u00a0- I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -1626,10 +1626,10 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
   // where the past_due sync hasn't landed) or has already dropped (the no-grace
   // trial-conversion case). Retry timing is covered separately by retrySentence.
   const accessSentence = opts?.graceUntilIso
-    ? `Your Pro access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. If the payment still can't be collected by then, your account moves to the free Public tier — and full Pro switches back on automatically the moment a charge succeeds.`
+    ? `Your Pro access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. If the payment still can't be collected by then, your account moves to the free Public tier\u00a0- and full Pro switches back on automatically the moment a charge succeeds.`
     : copy.preferInvoice
       ? 'If the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.'
-      : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
+      : 'Updating your payment method is the fastest way to keep your Pro access from lapsing\u00a0- and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
 
   // Concrete next-retry date when Stripe still has attempts left; a firmer note
   // when this was the final automatic attempt and cancellation is imminent.
@@ -1648,11 +1648,11 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
     payHref
       ? "If you'd rather settle it now, that page takes any card:"
       : copy.preferInvoice
-        ? "If you'd rather settle it now, open the billing portal from your account page — the open invoice is listed there:"
+        ? "If you'd rather settle it now, open the billing portal from your account page\u00a0- the open invoice is listed there:"
         : "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
     payHref ?? accountUrl,
     '',
-    "And if you have any questions, just reply to this email — I'm happy to help.",
+    "And if you have any questions, just reply to this email\u00a0- I'm happy to help.",
     '',
     'Best,',
     'Michael',
@@ -1668,13 +1668,13 @@ export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
         safePayHref
           ? `If you'd rather settle it now, <a href="${safePayHref}" style="color: #f5b400; font-weight: 600;">this page</a> takes any card.`
           : copy.preferInvoice
-            ? `If you'd rather settle it now, open the billing portal from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; the open invoice is listed there.`
+            ? `If you'd rather settle it now, open the billing portal from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>\u00a0- the open invoice is listed there.`
             : `If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
       }</p>
       <p style="margin: 24px 0;">
         <a href="${safeButtonHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
-      <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
+      <p>And if you have any questions, just reply to this email\u00a0- I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -1740,8 +1740,8 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
   // The subject promised a card fix to everybody. For an empty account that is
   // the wrong instruction in the one line a member is guaranteed to read.
   const subject = copy.preferInvoice
-    ? 'Your ZeroGEX trial ended — the first payment did not go through'
-    : 'Your ZeroGEX trial ended — a quick card fix to keep your access';
+    ? 'Your ZeroGEX trial ended - the first payment did not go through'
+    : 'Your ZeroGEX trial ended - a quick card fix to keep your access';
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
 
@@ -1756,13 +1756,13 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
   // access is held through it; otherwise stay tense-neutral (the account may have
   // dropped to Public, and re-grants automatically the moment a charge clears).
   const accessSentence = opts?.graceUntilIso
-    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. ${copy.preferInvoice ? 'Settle it' : 'Update your card'} before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
+    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. ${copy.preferInvoice ? 'Settle it' : 'Update your card'} before then and you won't miss a beat\u00a0- if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
     : copy.preferInvoice
       // Saying "updating your card is the fastest way" immediately after "there
       // is nothing to fix or re-enter" is the same self-contradiction the
       // worklist had: two sentences in a row telling the reader opposite things.
       ? `If the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`
-      : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
+      : `Updating your card is the fastest way to keep your access going\u00a0- and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
 
   const retrySentence = copy.remedy;
   // Same button rule as the renewal email: the signed /pay link unless the
@@ -1785,7 +1785,7 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
         : 'You can update your card in about a minute from your account page:',
     payHref ?? accountUrl,
     '',
-    "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
+    "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email\u00a0- I read every one and I'm happy to help.",
     '',
     'Best,',
     'Michael',
@@ -1799,7 +1799,7 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
       <p>${escapeHtml(retrySentence)}</p>
       <p>${
         safePayHref
-          ? `You can <a href="${safePayHref}" style="color: #f5b400; font-weight: 600;">complete it here</a> &mdash; that page takes any card.`
+          ? `You can <a href="${safePayHref}" style="color: #f5b400; font-weight: 600;">complete it here</a>\u00a0- that page takes any card.`
           : copy.preferInvoice
             ? `You can complete it from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>, where the open invoice is listed.`
             : `You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
@@ -1807,7 +1807,7 @@ export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmai
       <p style="margin: 24px 0;">
         <a href="${safeButtonHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
-      <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
+      <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email\u00a0- I read every one and I&rsquo;m happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -1884,8 +1884,8 @@ export function buildGraceExpiryWarningEmail(opts: GraceExpiryWarningEmailOption
 
   const subject =
     opts.reason === 'trial'
-      ? `Your ZeroGEX access ends ${deadlineLabel} — the first charge didn't go through`
-      : `Your ZeroGEX access ends ${deadlineLabel} — your last payment didn't go through`;
+      ? `Your ZeroGEX access ends ${deadlineLabel} - the first charge didn't go through`
+      : `Your ZeroGEX access ends ${deadlineLabel} - your last payment didn't go through`;
 
   // Identical card phrasing to sendPaymentFailedEmail / the trial-conversion
   // nudge, so a member who receives both reads one consistent voice.
@@ -1898,8 +1898,8 @@ export function buildGraceExpiryWarningEmail(opts: GraceExpiryWarningEmailOption
   const cardClause = cardPhrase ? ` on ${cardPhrase}` : '';
   const openerSentence =
     opts.reason === 'trial'
-      ? `Your free trial has ended and the first subscription charge${cardClause} still hasn't gone through. I've kept your full access switched on while the card is retried — but that runs out on ${deadlineLabel}.`
-      : `Your most recent ZeroGEX payment${cardClause} still hasn't gone through. I've kept your full access switched on while the card is retried — but that runs out on ${deadlineLabel}.`;
+      ? `Your free trial has ended and the first subscription charge${cardClause} still hasn't gone through. I've kept your full access switched on while the card is retried\u00a0- but that runs out on ${deadlineLabel}.`
+      : `Your most recent ZeroGEX payment${cardClause} still hasn't gone through. I've kept your full access switched on while the card is retried\u00a0- but that runs out on ${deadlineLabel}.`;
 
   const retrySentence = opts.nextAttemptIso
     ? `Stripe will try again automatically on ${formatTrialEndDate(opts.nextAttemptIso)}, so an expired-or-replaced card or a momentary hold from your bank may still clear on its own.`
@@ -1910,10 +1910,10 @@ export function buildGraceExpiryWarningEmail(opts: GraceExpiryWarningEmailOption
   // plainly that they aren't — and that access returns by itself on the next
   // successful charge — is both true and the version most likely to get the
   // card updated.
-  const consequenceSentence = `If nothing clears by then, the account simply moves to the free Public tier. Nothing is deleted — your account, your settings and your history all stay exactly as they are, and full access switches back on automatically the moment a charge succeeds.`;
+  const consequenceSentence = `If nothing clears by then, the account simply moves to the free Public tier. Nothing is deleted\u00a0- your account, your settings and your history all stay exactly as they are, and full access switches back on automatically the moment a charge succeeds.`;
 
   const closingSentence =
-    "Updating your card takes about a minute. And if something's holding you back, or the timing is just bad, reply to this email and tell me — I read every one and I'd rather sort it out with you than lose you over a card.";
+    "Updating your card takes about a minute. And if something's holding you back, or the timing is just bad, reply to this email and tell me\u00a0- I read every one and I'd rather sort it out with you than lose you over a card.";
 
   const text = [
     'Hello,',
@@ -2033,7 +2033,7 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
   const alreadyCanceled = opts?.alreadyCanceled === true;
 
   const subject = alreadyCanceled
-    ? 'Your ZeroGEX trial ended — your receipt, and your cancellation'
+    ? 'Your ZeroGEX trial ended - your receipt, and your cancellation'
     : 'Your ZeroGEX trial just became a full membership';
 
   const accountUrl = `${getAppUrl()}/account`;
@@ -2052,23 +2052,23 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
   const amount = opts?.amountFormatted ?? null;
   const chargeClause = amount
     ? cardPhrase
-      ? `the first payment went through — ${amount} on ${cardPhrase}`
-      : `the first payment went through — ${amount} on your payment method on file`
+      ? `the first payment went through\u00a0- ${amount} on ${cardPhrase}`
+      : `the first payment went through\u00a0- ${amount} on your payment method on file`
     : cardPhrase
       ? `the first payment went through on ${cardPhrase}`
       : 'the first payment went through';
 
   const openerSentence = opts?.fullyCredited
     ? alreadyCanceled
-      ? 'Your free trial ran to the end of its term, and a credit on your account covered this final period in full — so there was nothing to pay.'
-      : 'Your free trial just wrapped up and your membership rolled straight on — a credit on your account covered this first period in full, so there was nothing to pay.'
+      ? 'Your free trial ran to the end of its term, and a credit on your account covered this final period in full\u00a0- so there was nothing to pay.'
+      : 'Your free trial just wrapped up and your membership rolled straight on\u00a0- a credit on your account covered this first period in full, so there was nothing to pay.'
     : alreadyCanceled
       ? `Your free trial ran to the end of its term, so ${chargeClause}.`
       : `Your free trial just wrapped up and ${chargeClause}. You're now a full ZeroGEX member.`;
 
   const accessSentence = alreadyCanceled
-    ? 'I can see you canceled just after that, and your cancellation is confirmed — this is the last time you will be billed.'
-    : "Nothing changes on your end and there's nothing to do — your full access simply carries on uninterrupted.";
+    ? 'I can see you canceled just after that, and your cancellation is confirmed\u00a0- this is the last time you will be billed.'
+    : "Nothing changes on your end and there's nothing to do\u00a0- your full access simply carries on uninterrupted.";
 
   // Same input (the conversion invoice's period end), opposite meaning: for a
   // continuing member it is the next charge date, for a canceled one it is the
@@ -2085,7 +2085,7 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
 
   const manageSentenceText = alreadyCanceled
     ? `Your invoices and receipts stay on your account page for as long as you need them: ${accountUrl}`
-    : `Your invoices, your card, and the cancel button all live on your account page — you're free to change or cancel any of it at any time: ${accountUrl}`;
+    : `Your invoices, your card, and the cancel button all live on your account page\u00a0- you're free to change or cancel any of it at any time: ${accountUrl}`;
 
   const thanksSentence = alreadyCanceled
     ? 'Thank you for giving ZeroGEX a run. If you ever want to pick it back up, your account and your API keys will be here waiting.'
@@ -2095,8 +2095,8 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
   // For someone who just watched a charge land after canceling it is the most
   // important line in it, so it asks directly rather than hedging.
   const questionsSentence = alreadyCanceled
-    ? 'If this charge is not what you expected, just reply to this email — I read every one, and I would much rather sort it out with you directly.'
-    : "If anything about this charge looks off, or you have a question about your plan, just reply to this email — I read every one and I'm happy to sort it out.";
+    ? 'If this charge is not what you expected, just reply to this email\u00a0- I read every one, and I would much rather sort it out with you directly.'
+    : "If anything about this charge looks off, or you have a question about your plan, just reply to this email\u00a0- I read every one and I'm happy to sort it out.";
 
   const text = [
     'Hello,',
@@ -2126,7 +2126,7 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
       ${nextChargeSentence ? `<p>${escapeHtml(nextChargeSentence)}</p>` : ''}
       ${alreadyCanceled
         ? `<p>Your invoices and receipts stay on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> for as long as you need them.</p>`
-        : `<p>Your invoices, your card, and the cancel button all live on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; you're free to change or cancel any of it at any time.</p>`}
+        : `<p>Your invoices, your card, and the cancel button all live on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>\u00a0- you're free to change or cancel any of it at any time.</p>`}
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
       </p>
@@ -2224,20 +2224,20 @@ export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOpti
   const text = [
     'Hello,',
     '',
-    `A payment for ${plan} did not complete${raised}, so your access lapsed. I am not writing to chase you — ` +
+    `A payment for ${plan} did not complete${raised}, so your access lapsed. I am not writing to chase you\u00a0- ` +
       'I am writing because that invoice is still open, and most people in this position never found out it happened.',
     '',
     `The invoice is for ${opts.amountFormatted}. If you want to pick your subscription back up, you can settle it here:`,
     '',
     payUrl,
     '',
-    'That page takes any card — if the one on file has changed, or you would rather use a different one, ' +
+    'That page takes any card\u00a0- if the one on file has changed, or you would rather use a different one, ' +
       'you can enter it there. Access comes back as soon as the payment clears.',
     '',
     'If you would rather leave it, that is completely fine and you do not need to do anything at all. ' +
       'Nothing further will be charged and this is the only email you will get about it.',
     '',
-    'If something about the product was the reason, I would genuinely like to know — just reply.',
+    'If something about the product was the reason, I would genuinely like to know\u00a0- just reply.',
     '',
     'Best,',
     'Michael',
@@ -2247,14 +2247,14 @@ export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOpti
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>A payment for ${escapeHtml(plan)} did not complete${escapeHtml(raised)}, so your access lapsed. I'm not writing to chase you &mdash; I'm writing because that invoice is still open, and most people in this position never found out it happened.</p>
+      <p>A payment for ${escapeHtml(plan)} did not complete${escapeHtml(raised)}, so your access lapsed. I'm not writing to chase you\u00a0- I'm writing because that invoice is still open, and most people in this position never found out it happened.</p>
       <p>The invoice is for <strong>${safeAmount}</strong>. If you'd like to pick your subscription back up:</p>
       <p style="margin: 24px 0;">
         <a href="${safeUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Settle the invoice</a>
       </p>
-      <p>That page takes any card &mdash; if the one on file has changed, or you'd rather use a different one, you can enter it there. Access comes back as soon as the payment clears.</p>
+      <p>That page takes any card\u00a0- if the one on file has changed, or you'd rather use a different one, you can enter it there. Access comes back as soon as the payment clears.</p>
       <p>If you'd rather leave it, that's completely fine and you don't need to do anything at all. Nothing further will be charged, and this is the only email you'll get about it.</p>
-      <p>If something about the product was the reason, I'd genuinely like to know &mdash; just reply.</p>
+      <p>If something about the product was the reason, I'd genuinely like to know\u00a0- just reply.</p>
       <p style="margin-top: 24px;">Best,<br />Michael<br />Founder, ZeroGEX</p>
     </div>
   `;
@@ -2272,19 +2272,19 @@ export async function sendOpenInvoiceRecoveryEmail(to: string, opts: OpenInvoice
 }
 
 export async function sendPaymentRecoveredEmail(to: string) {
-  const subject = "You're all set — your ZeroGEX payment went through";
+  const subject = "You're all set - your ZeroGEX payment went through";
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
 
   const text = [
     'Hello,',
     '',
-    "Good news — the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.",
+    "Good news\u00a0- the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.",
     '',
     "If your access was interrupted while the charge sorted itself out, it's all restored now, and you can jump straight back into the data:",
     dashboardUrl,
     '',
-    "Sorry for the small bump. If you have any questions about the charge, just reply to this email — I'm happy to help.",
+    "Sorry for the small bump. If you have any questions about the charge, just reply to this email\u00a0- I'm happy to help.",
     '',
     'Best,',
     'Michael',
@@ -2296,12 +2296,12 @@ export async function sendPaymentRecoveredEmail(to: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>Good news &mdash; the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.</p>
+      <p>Good news\u00a0- the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.</p>
       <p>If your access was interrupted while the charge sorted itself out, it's all restored now, and you can jump straight back into the data.</p>
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
       </p>
-      <p>Sorry for the small bump. If you have any questions about the charge, just reply to this email &mdash; I'm happy to help.</p>
+      <p>Sorry for the small bump. If you have any questions about the charge, just reply to this email\u00a0- I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       ${renderFohFooterHtml()}
     </div>
@@ -2365,7 +2365,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   html: string;
   text: string;
 } {
-  const subject = 'Sorry to see you go — mind sharing why?';
+  const subject = 'Sorry to see you go - mind sharing why?';
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
@@ -2376,28 +2376,28 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   // is already in flight, leading with it is the whole point — the member finds
   // out from us, before their bank, and knows it is the last one.
   const billingSentenceText = chargePending
-    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge — nothing renews after it — and you keep full access until ${periodEndDate}.`
+    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge\u00a0- nothing renews after it\u00a0- and you keep full access until ${periodEndDate}.`
     : `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
 
   const billingSentenceHtml = chargePending
-    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong> &mdash; nothing renews after it &mdash; and you keep full access until <strong>${escapeHtml(periodEndDate)}</strong>.`
+    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong>\u00a0- nothing renews after it\u00a0- and you keep full access until <strong>${escapeHtml(periodEndDate)}</strong>.`
     : `You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
 
   const text = [
     'Hello,',
     '',
-    'I saw you just canceled your ZeroGEX subscription — first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
+    'I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
     '',
     billingSentenceText,
     '',
     ...(saveUrl
       ? [
-          'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access — no re-subscribe, no re-entering a card:',
+          'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:',
           saveUrl,
           '',
         ]
       : []),
-    "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot — I read every reply. Common ones I hear:",
+    "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:",
     '',
     "  - The data wasn't what I expected",
     '  - Price is too high for how I trade',
@@ -2407,7 +2407,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     '',
     "Whatever the reason, I'd genuinely like to hear it.",
     '',
-    'Either way — thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
+    'Either way\u00a0- thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
     '',
     'Best,',
     'Michael',
@@ -2417,15 +2417,15 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I saw you just canceled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
+      <p>I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
       <p>${billingSentenceHtml}</p>
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
-        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price &mdash; keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price\u00a0- keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
         <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim 25% off</a>
       </div>`
         : ''}
-      <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot &mdash; I read every reply. Common ones I hear:</p>
+      <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">
         <li>The data wasn't what I expected</li>
         <li>Price is too high for how I trade</li>
@@ -2434,7 +2434,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         <li>Just trying it out for a stretch</li>
       </ul>
       <p>Whatever the reason, I'd genuinely like to hear it.</p>
-      <p>Either way &mdash; thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
+      <p>Either way\u00a0- thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -2502,17 +2502,17 @@ export const DEFAULT_WINBACK_HIGHLIGHTS: WinbackHighlight[] = [
   {
     title: 'Gamma Chart',
     body:
-      'a live price-and-dealer-gamma terminal with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on SPY, QQQ, SPX, and NDX — plus session rewind to replay how a level held.',
+      'a live price-and-dealer-gamma terminal with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on SPY, QQQ, SPX, and NDX\u00a0- plus session rewind to replay how a level held.',
   },
   {
     title: 'My Dashboard',
     body:
-      'a customizable board you build from the pieces of ZeroGEX you use most — arrange the charts and cards how you like, and it saves your layout, settings, and symbols.',
+      'a customizable board you build from the pieces of ZeroGEX you use most\u00a0- arrange the charts and cards how you like, and it saves your layout, settings, and symbols.',
   },
   {
     title: 'Trade Bias',
     body:
-      'a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum — for a multi-day swing or a same-day 0DTE read.',
+      'a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum\u00a0- for a multi-day swing or a same-day 0DTE read.',
   },
   {
     title: 'NDX coverage',
@@ -2555,29 +2555,29 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
   const safeAccountUrl = escapeHtml(accountUrl);
 
   const subject = auto
-    ? `A lot has changed at ZeroGEX — and your discount's ready`
+    ? `A lot has changed at ZeroGEX - and your discount's ready`
     : promo
-      ? `Your ZeroGEX intro rate is open again — through ${promo}`
+      ? `Your ZeroGEX intro rate is open again - through ${promo}`
       : 'A lot has changed at ZeroGEX since you left';
 
   // Null when neither coupon is configured — see the variant note above. Both
   // surviving variants describe a discount that applies itself at checkout.
   const discountLineText = auto
-    ? `And to make coming back easy, I've set aside ${label} for you — it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
+    ? `And to make coming back easy, I've set aside ${label} for you\u00a0- it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
-      ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
+      ? `And on price: our limited-time introductory pricing is open again right now\u00a0- the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
       : null;
 
   const discountLineHtml = auto
-    ? `And to make coming back easy, I've set aside <strong>${escapeHtml(label)}</strong> for you &mdash; it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
+    ? `And to make coming back easy, I've set aside <strong>${escapeHtml(label)}</strong> for you\u00a0- it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
-      ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
+      ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now\u00a0- the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
       : null;
 
   const ctaLabel = auto
     ? 'Come back at a discount'
     : promo
-      ? 'Come back — see the new pricing'
+      ? 'Come back\u00a0- see the new pricing'
       : 'See what you\'ve missed';
 
   const footerText =
@@ -2586,18 +2586,18 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
   const text = [
     'Hello,',
     '',
-    "It's been about a month since your ZeroGEX subscription ended, and I wanted to reach out personally — no hard sell, just a genuine note. I don't like losing people, and I'd rather hear from you than not.",
+    "It's been about a month since your ZeroGEX subscription ended, and I wanted to reach out personally\u00a0- no hard sell, just a genuine note. I don't like losing people, and I'd rather hear from you than not.",
     '',
     "A fair amount has changed since you left. A few of the bigger ones:",
     '',
-    ...highlights.map((h) => `  • ${h.title} — ${h.body}`),
+    ...highlights.map((h) => `  • ${h.title}\u00a0- ${h.body}`),
     '',
     "I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.",
     '',
     ...(discountLineText ? [discountLineText, ''] : []),
     "No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.",
     '',
-    'If anything specific pushed you away — a missing feature, a bug, a pricing thing — just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
+    'If anything specific pushed you away\u00a0- a missing feature, a bug, a pricing thing\u00a0- just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
     '',
     `Come back whenever you're ready: ${ctaHref}`,
     '',
@@ -2613,14 +2613,14 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
   const highlightsHtml = highlights
     .map(
       (h) =>
-        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong> &mdash; ${escapeHtml(h.body)}</li>`,
+        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong>\u00a0- ${escapeHtml(h.body)}</li>`,
     )
     .join('');
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
       <p>Hello,</p>
-      <p>It's been about a month since your ZeroGEX subscription ended, and I wanted to reach out personally &mdash; no hard sell, just a genuine note. I don't like losing people, and I'd rather hear from you than not.</p>
+      <p>It's been about a month since your ZeroGEX subscription ended, and I wanted to reach out personally\u00a0- no hard sell, just a genuine note. I don't like losing people, and I'd rather hear from you than not.</p>
       <p>A fair amount has changed since you left. A few of the bigger ones:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
       <p>I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.</p>
@@ -2631,10 +2631,10 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
       </p>
       <p>No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.</p>
-      <p>If anything specific pushed you away &mdash; a missing feature, a bug, a pricing thing &mdash; just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
+      <p>If anything specific pushed you away\u00a0- a missing feature, a bug, a pricing thing\u00a0- just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
-        You're receiving this because you created a ZeroGEX account. If you'd rather not hear from us, you can <a href="${safeAccountUrl}" style="color: #999; text-decoration: underline;">delete your account</a> &mdash; that cancels any subscription and closes the account.
+        You're receiving this because you created a ZeroGEX account. If you'd rather not hear from us, you can <a href="${safeAccountUrl}" style="color: #999; text-decoration: underline;">delete your account</a>\u00a0- that cancels any subscription and closes the account.
       </p>
     </div>
   `.trim();
@@ -2939,11 +2939,11 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
   const text = [
     'Hello,',
     '',
-    "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet — wanted to reach out personally rather than route you through a generic marketing flow.",
+    "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet\u00a0- wanted to reach out personally rather than route you through a generic marketing flow.",
     '',
     "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.",
     '',
-    "If you have a question, a hesitation, or feedback on what's missing — just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
+    "If you have a question, a hesitation, or feedback on what's missing\u00a0- just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
     '',
     "If you're ready to get started:",
     pricingUrl,
@@ -2958,9 +2958,9 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet &mdash; wanted to reach out personally rather than route you through a generic marketing flow.</p>
+      <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet\u00a0- wanted to reach out personally rather than route you through a generic marketing flow.</p>
       <p>If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.</p>
-      <p>If you have a question, a hesitation, or feedback on what's missing &mdash; just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
+      <p>If you have a question, a hesitation, or feedback on what's missing\u00a0- just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
       <p style="margin: 24px 0;">
         <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Choose your plan</a>
       </p>
@@ -3020,21 +3020,21 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
   const text = [
     'Hello,',
     '',
-    "It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial — no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.",
+    "It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial\u00a0- no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.",
     '',
     `So I've set your trial to a full ${trialDays} days.`,
     '',
-    'Same full access — every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz bots with their fully public trade audit — just a lot more room to see whether it earns a place in your routine.',
+    'Same full access\u00a0- every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz bots with their fully public trade audit\u00a0- just a lot more room to see whether it earns a place in your routine.',
     '',
     'How the trial works, so nothing catches you off guard:',
     `  • ${trialDays} days of full access, starting the moment you activate.`,
     `  • Your card is on file but is NOT charged until day ${chargeDay}.`,
-    '  • We email you 48 hours before that first charge — it is never a surprise.',
+    '  • We email you 48 hours before that first charge\u00a0- it is never a surprise.',
     "  • If it's not for you, one click in the billing portal cancels it and you won't be charged a cent.",
     '',
     `Start your ${trialDays}-day trial: ${ctaHref}`,
     '',
-    "And if something specific held you back — a missing feature, a question, price, or it just wasn't the right week — hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.",
+    "And if something specific held you back\u00a0- a missing feature, a question, price, or it just wasn't the right week\u00a0- hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.",
     '',
     'Either way, thanks for giving ZeroGEX a look.',
     '',
@@ -3050,20 +3050,20 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
       <p>Hello,</p>
-      <p>It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial &mdash; no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.</p>
+      <p>It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial\u00a0- no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.</p>
       <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0; font-size: 17px;">So I've set your trial to a full <strong>${trialDays} days</strong>.</p>
-      <p>Same full access &mdash; every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz&trade; bots with their fully public trade audit &mdash; just a lot more room to see whether it earns a place in your routine.</p>
+      <p>Same full access\u00a0- every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz&trade; bots with their fully public trade audit\u00a0- just a lot more room to see whether it earns a place in your routine.</p>
       <p style="margin: 16px 0 4px;">How the trial works, so nothing catches you off guard:</p>
       <ul style="padding-left: 20px; margin: 4px 0 16px;">
         <li style="margin: 0 0 8px;"><strong>${trialDays} days</strong> of full access, starting the moment you activate.</li>
         <li style="margin: 0 0 8px;">Your card is on file but is <strong>not charged until day ${chargeDay}</strong>.</li>
-        <li style="margin: 0 0 8px;">We email you <strong>48 hours before</strong> that first charge &mdash; it is never a surprise.</li>
+        <li style="margin: 0 0 8px;">We email you <strong>48 hours before</strong> that first charge\u00a0- it is never a surprise.</li>
         <li style="margin: 0 0 8px;">If it's not for you, <strong>one click</strong> in the billing portal cancels it and you won't be charged a cent.</li>
       </ul>
       <p style="margin: 24px 0;">
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start my ${trialDays}-day trial</a>
       </p>
-      <p>And if something specific held you back &mdash; a missing feature, a question, price, or it just wasn't the right week &mdash; hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
+      <p>And if something specific held you back\u00a0- a missing feature, a question, price, or it just wasn't the right week\u00a0- hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
       <p>Either way, thanks for giving ZeroGEX a look.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="margin: 28px 0 0; padding-top: 14px; border-top: 1px solid #e8e8e8; font-size: 12px; color: #8a8a8a; line-height: 1.5;">
@@ -3188,14 +3188,14 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
   const text = [
     'Hello,',
     '',
-    "I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up — and right now that's the one thing standing between you and the product.",
+    "I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up\u00a0- and right now that's the one thing standing between you and the product.",
     '',
     'Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.',
     '',
     'Confirm your email with this link (it expires in 24 hours):',
     verifyUrl,
     '',
-    "If you didn't create a ZeroGEX account, you can safely ignore this — nothing further will happen. And if something went wrong or you have a question, just hit reply; I read every message myself.",
+    "If you didn't create a ZeroGEX account, you can safely ignore this\u00a0- nothing further will happen. And if something went wrong or you have a question, just hit reply; I read every message myself.",
     '',
     'Best,',
     'Michael',
@@ -3205,14 +3205,14 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up &mdash; and right now that's the one thing standing between you and the product.</p>
+      <p>I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up\u00a0- and right now that's the one thing standing between you and the product.</p>
       <p>Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.</p>
       <p style="margin: 24px 0;">
         <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm my email</a>
       </p>
       <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
       <p style="font-size: 13px; color: #555;">This link expires in 24 hours.</p>
-      <p>If you didn't create a ZeroGEX account, you can safely ignore this &mdash; nothing further will happen. And if something went wrong or you have a question, just hit reply; I read every message myself.</p>
+      <p>If you didn't create a ZeroGEX account, you can safely ignore this\u00a0- nothing further will happen. And if something went wrong or you have a question, just hit reply; I read every message myself.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -3298,7 +3298,7 @@ export async function sendLevelsConfirmationEmail(to: string, confirmUrl: string
     '',
     'What you get: one email each trading morning before the open, with the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ. Free, and you can unsubscribe from the bottom of any one of them.',
     '',
-    "If this wasn't you, ignore this email. Nothing was subscribed and nothing further will be sent — the address is only added once the link above is clicked.",
+    "If this wasn't you, ignore this email. Nothing was subscribed and nothing further will be sent\u00a0- the address is only added once the link above is clicked.",
     '',
     'Michael',
     'Founder, ZeroGEX',
@@ -3313,7 +3313,7 @@ export async function sendLevelsConfirmationEmail(to: string, confirmUrl: string
       </p>
       <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
       <p><strong>What you get:</strong> one email each trading morning before the open, with the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ. Free, and you can unsubscribe from the bottom of any one of them.</p>
-      <p style="font-size: 13px; color: #555;">If this wasn't you, ignore this email. Nothing was subscribed and nothing further will be sent &mdash; the address is only added once the link above is clicked.</p>
+      <p style="font-size: 13px; color: #555;">If this wasn't you, ignore this email. Nothing was subscribed and nothing further will be sent\u00a0- the address is only added once the link above is clicked.</p>
       <p>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -3336,7 +3336,7 @@ export async function sendPasswordResetEmail(to: string, link: string) {
     '',
     'This link expires in 30 minutes and can only be used once.',
     '',
-    "If you didn't request this, you can safely ignore this email — your password will not change.",
+    "If you didn't request this, you can safely ignore this email\u00a0- your password will not change.",
   ].join('\n');
 
   const html = `
@@ -3349,7 +3349,7 @@ export async function sendPasswordResetEmail(to: string, link: string) {
       </p>
       <p style="font-size: 13px; color: #555;">Or copy this URL into your browser:<br><span style="word-break: break-all;">${safeLink}</span></p>
       <p style="font-size: 13px; color: #555;">This link expires in 30 minutes and can only be used once.</p>
-      <p style="font-size: 13px; color: #555;">If you didn't request this, you can safely ignore this email — your password will not change.</p>
+      <p style="font-size: 13px; color: #555;">If you didn't request this, you can safely ignore this email\u00a0- your password will not change.</p>
     </div>
   `.trim();
 
@@ -3451,7 +3451,7 @@ export async function sendTradeworkzNotification(
     ? `${botDisplayName} closed ${dirText} ${underlying} ${tw_fmtMoneySigned(payload.realized_pnl ?? null)} (${tw_fmtPct(payload.pnl_percent ?? null)})`
     : isEntry
       ? `${botDisplayName} opened ${dirText} ${underlying} · ${payload.contracts ?? '?'} contracts @ ${tw_fmtPrice(payload.entry_price ?? null)}`
-      : `${botDisplayName} — ${eventType.toUpperCase()} on ${underlying}`;
+      : `${botDisplayName} - ${eventType.toUpperCase()} on ${underlying}`;
 
   const textLines: string[] = [];
   textLines.push(`${botDisplayName} · ${eventType.toUpperCase()}`);
@@ -3492,7 +3492,7 @@ export async function sendTradeworkzNotification(
     ? `${safeBotName} closed a ${dirText} ${escapeHtml(underlying)} trade`
     : isEntry
       ? `${safeBotName} opened a ${dirText} ${escapeHtml(underlying)} trade`
-      : `${safeBotName} — ${eventType.toUpperCase()} on ${escapeHtml(underlying)}`;
+      : `${safeBotName}\u00a0- ${eventType.toUpperCase()} on ${escapeHtml(underlying)}`;
   const headerColor = isExit && payload.outcome
     ? payload.outcome === 'win' ? '#0F7A3A' : payload.outcome === 'loss' ? '#A31226' : '#374151'
     : '#003F5C';
@@ -3618,30 +3618,30 @@ function returnAngleParagraph(angle: ReturnAngle): { text: string; html: string 
     case 'features':
       return {
         text:
-          "You left because something you needed wasn't there. Some of it may be now — the list below is what's shipped since. If the specific thing you wanted still isn't on it, hit reply and tell me what it is. That's not a courtesy line; it is genuinely how I pick what to build next.",
+          "You left because something you needed wasn't there. Some of it may be now\u00a0- the list below is what's shipped since. If the specific thing you wanted still isn't on it, hit reply and tell me what it is. That's not a courtesy line; it is genuinely how I pick what to build next.",
         html:
-          "You left because something you needed wasn't there. Some of it may be now &mdash; the list below is what's shipped since. If the specific thing you wanted still isn't on it, <strong>hit reply and tell me what it is</strong>. That's not a courtesy line; it is genuinely how I pick what to build next.",
+          "You left because something you needed wasn't there. Some of it may be now\u00a0- the list below is what's shipped since. If the specific thing you wanted still isn't on it, <strong>hit reply and tell me what it is</strong>. That's not a courtesy line; it is genuinely how I pick what to build next.",
       };
     case 'complexity':
       return {
         text:
-          "You said it was more than you needed, and that's fair — there is a lot on the screen. If you do come back, start with Today's Read on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
+          "You said it was more than you needed, and that's fair\u00a0- there is a lot on the screen. If you do come back, start with Today's Read on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
         html:
-          "You said it was more than you needed, and that's fair &mdash; there is a lot on the screen. If you do come back, start with <strong>Today's Read</strong> on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
+          "You said it was more than you needed, and that's fair\u00a0- there is a lot on the screen. If you do come back, start with <strong>Today's Read</strong> on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
       };
     case 'unused':
       return {
         text:
-          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the Daily Gamma Forecast — it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
+          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the Daily Gamma Forecast\u00a0- it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
         html:
-          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the <strong>Daily Gamma Forecast</strong> &mdash; it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
+          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the <strong>Daily Gamma Forecast</strong>\u00a0- it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
       };
     case 'switched':
       return {
         text:
-          "You moved to something else. If it's working, genuinely — stay. I'd rather you had the right tool than the loyal one. If it's only mostly working, here's what's changed on our side since you left.",
+          "You moved to something else. If it's working, genuinely\u00a0- stay. I'd rather you had the right tool than the loyal one. If it's only mostly working, here's what's changed on our side since you left.",
         html:
-          "You moved to something else. If it's working, genuinely &mdash; stay. I'd rather you had the right tool than the loyal one. If it's only <em>mostly</em> working, here's what's changed on our side since you left.",
+          "You moved to something else. If it's working, genuinely\u00a0- stay. I'd rather you had the right tool than the loyal one. If it's only <em>mostly</em> working, here's what's changed on our side since you left.",
       };
     default:
       return null;
@@ -3669,10 +3669,10 @@ export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
   const angle = returnAngleParagraph(opts.angle);
 
   const foundingText = opts.foundingMember
-    ? "One thing you may not know: you're a Founding Member, and that rate is still yours. It re-applies automatically if you resubscribe — founding pricing closed to new members, but it never closed to the people who took it."
+    ? "One thing you may not know: you're a Founding Member, and that rate is still yours. It re-applies automatically if you resubscribe\u00a0- founding pricing closed to new members, but it never closed to the people who took it."
     : null;
   const foundingHtml = opts.foundingMember
-    ? "One thing you may not know: <strong>you're a Founding Member, and that rate is still yours.</strong> It re-applies automatically if you resubscribe &mdash; founding pricing closed to new members, but it never closed to the people who took it."
+    ? "One thing you may not know: <strong>you're a Founding Member, and that rate is still yours.</strong> It re-applies automatically if you resubscribe\u00a0- founding pricing closed to new members, but it never closed to the people who took it."
     : null;
 
   const listHeadingText = hasFresh
@@ -3684,17 +3684,17 @@ export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
     '',
     "I noticed your ZeroGEX account was active again recently, and I'd rather reach out myself than let you bump into a paywall and quietly leave.",
     '',
-    "Your account is exactly as you left it — the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.",
+    "Your account is exactly as you left it\u00a0- the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.",
     ...(angle ? ['', angle.text] : []),
     ...(foundingText ? ['', foundingText] : []),
     '',
     listHeadingText,
     '',
-    ...opts.highlights.map((h) => `  • ${h.title} — ${h.body}`),
+    ...opts.highlights.map((h) => `  • ${h.title}\u00a0- ${h.body}`),
     '',
     `Pick up where you left off: ${ctaHref}`,
     '',
-    "And if the answer is no, that's completely fine — no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.",
+    "And if the answer is no, that's completely fine\u00a0- no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.",
     '',
     'Best,',
     'Michael',
@@ -3708,7 +3708,7 @@ export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
   const highlightsHtml = opts.highlights
     .map(
       (h) =>
-        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong> &mdash; ${escapeHtml(h.body)}</li>`,
+        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong>\u00a0- ${escapeHtml(h.body)}</li>`,
     )
     .join('');
 
@@ -3716,7 +3716,7 @@ export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
       <p>Hello,</p>
       <p>I noticed your ZeroGEX account was active again recently, and I'd rather reach out myself than let you bump into a paywall and quietly leave.</p>
-      <p>Your account is exactly as you left it &mdash; the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.</p>
+      <p>Your account is exactly as you left it\u00a0- the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.</p>
       ${angle ? `<p>${angle.html}</p>` : ''}
       ${foundingHtml ? `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${foundingHtml}</p>` : ''}
       <p>${escapeHtml(listHeadingText)}</p>
@@ -3724,7 +3724,7 @@ export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
       <p style="margin: 24px 0;">
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Pick up where you left off</a>
       </p>
-      <p>And if the answer is no, that's completely fine &mdash; no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.</p>
+      <p>And if the answer is no, that's completely fine\u00a0- no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
         You're receiving this because you have a ZeroGEX account.
@@ -3854,10 +3854,10 @@ export function buildMoneyBackRefundEmail(opts: MoneyBackRefundEmailOptions): {
   const brand = opts.cardBrand ? opts.cardBrand.charAt(0).toUpperCase() + opts.cardBrand.slice(1) : null;
   const card = opts.cardLast4 ? `your ${brand ?? 'card'} ending in ${opts.cardLast4}` : 'your original payment method';
   const subject = 'Your ZeroGEX refund is on its way';
-  const refundLine = `We've refunded ${opts.amountFormatted} to ${card} under our 7-day money-back guarantee. Depending on your bank it usually appears within 5–10 business days.`;
+  const refundLine = `We've refunded ${opts.amountFormatted} to ${card} under our 7-day money-back guarantee. Depending on your bank it usually appears within 5-10 business days.`;
   const cancelLine = `Your ${opts.planLabel} subscription has been canceled and your paid access has ended. Nothing further will be charged.`;
   const onceLine = "The guarantee is one refund per customer, so if you subscribe again in the future that plan won't include it. You're always welcome back, and the free public pages stay open to you in the meantime.";
-  const askLine = "If you have a minute, I'd genuinely like to know what didn't work for you — just reply to this email. I read every message myself.";
+  const askLine = "If you have a minute, I'd genuinely like to know what didn't work for you\u00a0- just reply to this email. I read every message myself.";
 
   const text = [
     'Hello,',
@@ -3994,7 +3994,7 @@ export function buildRenewalReminderEmail(opts: RenewalReminderEmailOptions): {
   const renewLine = opts.amountFormatted
     ? `Your ZeroGEX ${opts.planLabel} subscription renews automatically on ${when}, and ${opts.amountFormatted} will be charged to your payment method on file.`
     : `Your ZeroGEX ${opts.planLabel} subscription renews automatically on ${when}, at your plan's current rate, charged to your payment method on file.`;
-  const keepLine = "If you'd like to keep it, there's nothing to do — your access simply continues.";
+  const keepLine = "If you'd like to keep it, there's nothing to do\u00a0- your access simply continues.";
   const changeLine = `To cancel or switch plans, open the billing portal from your account page (${accountUrl}) any time before then. Cancelling stops the renewal; you keep access until the end of the period you've already paid for.`;
 
   const text = [
