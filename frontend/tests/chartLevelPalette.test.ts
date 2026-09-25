@@ -375,13 +375,13 @@ test('pair-view level tag text clears AA on its tinted chip, in every theme', ()
 // the level chips, 12 of 24 for the flip chip and 24 of 48 for the rail labels,
 // worst 2.36:1, so all three went to --text-primary.
 //
-// That went too far for the two chips. The name's color is how members tell
-// the levels apart at a glance, and with every name in one ink they had to read
-// each 9.5px word instead; a member wrote in to say so. The chips now paint the
-// name in the level's color through levelInk, which leaves a readable color
-// alone and shades an unreadable one, same hue, until it clears 4.5:1. The rail
-// labels stay --text-primary: each is drawn against the end of its own bar,
-// calls right and puts left, so the color was never what identified them.
+// That went too far. The color is how members tell the labels apart at a
+// glance, and with everything in one ink they had to read each tiny word or
+// figure instead; a member wrote in to say so. All three now paint in their
+// own color through levelInk, which leaves a readable color alone and shades
+// an unreadable one, same hue, until it clears 4.5:1. --text-primary still
+// has to read on the card and page in every theme (the test at the end of
+// this section), since the rest of the chart's text is drawn in it.
 const terminalSrc = readFileSync(new URL('../components/GammaTerminalChart.tsx', import.meta.url), 'utf8');
 
 const between = (src: string, from: string, to: string) => {
@@ -413,11 +413,19 @@ test('the gamma chart names each level in its own color, made readable', () => {
   assert.equal(Number(opacity[1]), FLIP_CHIP_OPACITY, 'the test should judge the flip chip at the opacity it is drawn at');
 
   const rail = between(terminalSrc, 'function RailBarLabel(', '</text>');
-  assert.match(rail, /fill="var\(--text-primary\)"/, 'rail bar labels should use --text-primary');
-  assert.doesNotMatch(rail, /\bcolor\b\s*:\s*string/, 'RailBarLabel should not take a color prop');
+  assert.match(rail, /\bcolor\b\s*:\s*string/, 'RailBarLabel should take the color of its bar');
+  assert.match(rail, /fill=\{color\}/, 'RailBarLabel should paint its figure in that color');
+  const railCalls = [...terminalSrc.matchAll(/<RailBarLabel\b[^>]*\/>/g)].map((m) => m[0]);
+  assert.equal(railCalls.length, 3, 'expected the net, call and put figures to be the three RailBarLabels');
+  for (const call of railCalls) {
+    assert.match(call, /color=\{levelInk\(/, `every bar figure should pass its color through levelInk:\n  ${call}`);
+  }
 });
 
-test('every level name clears AA on its chip, in every theme', () => {
+// The gamma bars' $ figures are painted in their bar's bull or bear.
+const RAIL_FIGURES: [string, string][] = [['CALL / NET+ FIGURE', '--color-bull'], ['PUT / NET- FIGURE', '--color-bear']];
+
+test('every level name and bar figure clears AA on the card, in every theme', () => {
   const weak: string[] = [];
   for (const p of PALETTES) {
     for (const isDark of [false, true]) {
@@ -425,7 +433,7 @@ test('every level name clears AA on its chip, in every theme', () => {
       const card = parse(pal['--bg-card']);
       assert.ok(card, `${p} should define --bg-card as a hex color`);
       const where = `${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}`;
-      for (const [name, tok] of LEVELS) {
+      for (const [name, tok] of [...LEVELS, ...RAIL_FIGURES]) {
         const color = parse(pal[tok]);
         assert.ok(color, `${where} ${tok} should resolve to a hex color`);
         const cr = contrastRatio(readableLevelInk(color, card), card);
@@ -438,7 +446,7 @@ test('every level name clears AA on its chip, in every theme', () => {
       if (cr < 4.5) weak.push(`${where} FLIP status chip — ${cr.toFixed(2)}:1`);
     }
   }
-  assert.deepEqual(weak, [], `level names below 4.5:1:\n  ${weak.join('\n  ')}`);
+  assert.deepEqual(weak, [], `level names or bar figures below 4.5:1:\n  ${weak.join('\n  ')}`);
 });
 
 // OKLCH hue, in degrees, computed here rather than borrowed from the module

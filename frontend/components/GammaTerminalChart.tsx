@@ -782,8 +782,8 @@ export default function GammaTerminalChart({
   // Price tags are filled with a level's own colour, so their text is picked
   // per chip rather than from the theme's inverse ink.
   const chipInk = useChipInk();
-  // Level names are painted in their level's color, shaded where a palette's
-  // color is too faint to read on the name chip.
+  // Level names and the gamma bars' $ figures are painted in their own color,
+  // shaded where a palette's color is too faint to read on the card.
   const levelInk = useLevelInk();
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
@@ -3131,7 +3131,7 @@ export default function GammaTerminalChart({
                 <g key={`bar-${s.price}`}>
                   <rect x={pos ? railCenter : railCenter - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
                   {railBars.showLabels && s.netGex !== 0 && (
-                    <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} text={fmtGex(s.netGex)} />
+                    <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} color={levelInk(c)} text={fmtGex(s.netGex)} />
                   )}
                 </g>
               );
@@ -3166,10 +3166,10 @@ export default function GammaTerminalChart({
                   <rect x={netPos ? railCenter : railCenter - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
                 )}
                 {railBars.showLabels && s.callGex !== 0 && (
-                  <RailBarLabel x={clamp(railCenter + cw + 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="start" text={fmtGex(s.callGex)} />
+                  <RailBarLabel x={clamp(railCenter + cw + 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="start" color={levelInk("var(--color-bull)")} text={fmtGex(s.callGex)} />
                 )}
                 {railBars.showLabels && s.putGex !== 0 && (
-                  <RailBarLabel x={clamp(railCenter - pw - 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="end" text={fmtGex(s.putGex)} />
+                  <RailBarLabel x={clamp(railCenter - pw - 3, railLeft + 2, railRight - 2)} y={y + 3} anchor="end" color={levelInk("var(--color-bear)")} text={fmtGex(s.putGex)} />
                 )}
               </g>
             );
@@ -4586,12 +4586,12 @@ function sessionLabel(session: string | null | undefined): { label: string; colo
 // On-bar $ gamma label for the per-strike rail bars. A halo (stroke painted
 // under the fill) keeps it legible over the bars and the plot grid alike.
 //
-// The text is --text-primary rather than the bar's own bull/bear: at 8.5px on
-// the halo's --bg-card that colour cleared 4.5:1 in only 24 of 48 palette/side
-// combinations, down to 2.36:1. The label is drawn hard against the end of the
-// bar it belongs to, and calls sit right of the rail centre while puts sit
-// left, so which bar a number belongs to was never the colour's job.
-function RailBarLabel({ x, y, anchor, text }: { x: number; y: number; anchor: "start" | "end"; text: string }) {
+// The figure is painted in its bar's color, bull for calls and positive net,
+// bear for puts and negative net, so the side reads at a glance. Callers pass
+// that color through levelInk: the raw bull/bear cleared 4.5:1 on the halo's
+// --bg-card in only 24 of 48 palette/side combinations, down to 2.36:1, and
+// levelInk shades only those, same hue, until they clear it.
+function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anchor: "start" | "end"; color: string; text: string }) {
   return (
     <text
       x={x}
@@ -4600,7 +4600,7 @@ function RailBarLabel({ x, y, anchor, text }: { x: number; y: number; anchor: "s
       fontFamily="var(--font-mono)"
       fontSize={8.5}
       fontWeight={600}
-      fill="var(--text-primary)"
+      fill={color}
       style={{ paintOrder: "stroke", stroke: "var(--bg-card)", strokeWidth: 2.5, fontVariantNumeric: "tabular-nums" } as CSSProperties}
     >
       {text}

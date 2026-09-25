@@ -269,14 +269,15 @@ export function useChipInk(): (chipColor: string) => string {
   }, [generation]);
 }
 
-/* ── Ink for a level's name, in the level's own color ────────────────────────
+/* ── Ink for text in a mark's own color ───────────────────────────────────────
  *
- * The Gamma Chart's level name chips are --bg-card boxes with the name painted
- * in the level's color. That color is the fastest way to tell the labels
- * apart, but some palettes' level colors are too pale (or, on a dark card, too
- * deep) to read at 9.5px. readableLevelInk keeps the color where it clears
- * 4.5:1 on the card and otherwise shades it, same hue, until it does; see
- * core/levelInk for the measurements behind that.
+ * The Gamma Chart paints its level names (FLIP, CALL WALL, ...) in the level's
+ * color on a --bg-card chip, and its gamma bars' $ figures in the bar's
+ * bull/bear on a --bg-card halo. That color is the fastest way to tell the
+ * labels apart, but some palettes' colors are too pale (or, on a dark card,
+ * too deep) to read at 8.5-9.5px. readableLevelInk keeps the color where it
+ * clears 4.5:1 on the card and otherwise shades it, same hue, until it does;
+ * see core/levelInk for the measurements behind that.
  */
 function resolveLevelInk(levelColor: string, opacity: number): string {
   if (typeof window === 'undefined') return levelColor;
@@ -291,10 +292,10 @@ function resolveLevelInk(levelColor: string, opacity: number): string {
 }
 
 /**
- * Returns a function giving the color to paint a level's name in, for a
- * name drawn in `levelColor` (a hex literal or a `var(--token)`) on a
- * --bg-card chip. Pass `opacity` when the text is drawn translucent, so the
- * shade is judged as it is seen.
+ * Returns a function giving the color to paint text in, for text drawn in
+ * `levelColor` (a hex literal or a `var(--token)`) on --bg-card. Pass
+ * `opacity` when the text is drawn translucent, so the shade is judged as it
+ * is seen.
  *
  * Same timing as useChipInk: resolution starts one frame after mount and after
  * every theme or palette change. Until then it returns the level color as
