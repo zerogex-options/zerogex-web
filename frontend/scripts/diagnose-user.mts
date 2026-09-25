@@ -20,6 +20,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
+import { buildPayUrl } from '../core/payLink.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
 import { classifySubscriberBucket, subscriptionPaidAt } from '../core/subscriberBucket.ts';
 import { previewNextInvoice, isNoUpcomingInvoiceError } from '../core/stripeInvoicePreview.ts';
@@ -107,13 +108,15 @@ Stripe state (customer, subscription, last 5 invoices) for one user. Read-only.
 
 A failed invoice also prints WHY the card was declined and what that implies
 for the follow-up — an issuer block and an empty account need opposite advice.
+An open invoice also prints its signed /pay link, the one to use in an email.
 
 Options:
   -e, --email <email>   Target user. Required.
   -h, --help            Show this help.
 
 Reads STRIPE_SECRET_KEY and AUTH_DB_PATH from env or .env.local. Stripe data
-is skipped (with a note) if STRIPE_SECRET_KEY is not set.`);
+is skipped (with a note) if STRIPE_SECRET_KEY is not set. The pay link also
+needs NEXT_PUBLIC_APP_URL and ZEROGEX_END_USER_TOKEN_SECRET.`);
 }
 
 function ensureSqlite3Cli() {
@@ -159,6 +162,22 @@ const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 function envOrLocal(key: string): string | undefined {
   return process.env[key] || envLocal[key] || undefined;
+}
+
+// The link to put in a hand-written email about an unpaid invoice: ours,
+// signed, one click to that invoice's current Stripe page (core/payLink.ts).
+// The hosted_invoice_url printed above it is minted per fetch, and it is the
+// invoice.stripe.com link the dunning emails stopped carrying.
+function payLinkFor(invoiceId: string): string {
+  const appUrl = envOrLocal('NEXT_PUBLIC_APP_URL');
+  const secret = envOrLocal('ZEROGEX_END_USER_TOKEN_SECRET');
+  if (!appUrl || !secret) {
+    return '(unavailable: set NEXT_PUBLIC_APP_URL and ZEROGEX_END_USER_TOKEN_SECRET in .env.local)';
+  }
+  // payLink.ts reads the secret from process.env, and this script reads
+  // .env.local without loading it there.
+  if (!process.env.ZEROGEX_END_USER_TOKEN_SECRET) process.env.ZEROGEX_END_USER_TOKEN_SECRET = secret;
+  return buildPayUrl(appUrl, invoiceId);
 }
 
 const dbPath =
@@ -870,6 +889,9 @@ try {
     );
     if (inv.hosted_invoice_url) {
       console.log(`    hosted_invoice_url: ${inv.hosted_invoice_url}`);
+    }
+    if (inv.status === 'open' && inv.id) {
+      console.log(`    pay link (for emails): ${payLinkFor(inv.id)}`);
     }
     // The decline reason, and what it means for the follow-up. This is the
     // difference between "ask them to approve it with their bank" and "wait for
