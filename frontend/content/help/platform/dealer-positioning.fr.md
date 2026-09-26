@@ -40,7 +40,7 @@ Le chiffre affiché ici est mesuré au spot, et non additionné sur toute la cha
 
 ### IV Rank
 
-La position de la volatilité implicite sur une échelle de 0 à 100 %, lue à partir du VIX (VXN pour QQQ et NDX). 0 % correspond à un calme historique ; 100 % à une peur extrême.
+La position de la volatilité implicite sur une échelle de 0 à 100 %, lue à partir du VIX (VXN pour QQQ, NDX et NQ). 0 % correspond à un calme historique ; 100 % à une peur extrême.
 
 ### Vanna Flow et Charm Decay
 

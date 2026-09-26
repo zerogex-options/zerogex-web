@@ -14,10 +14,10 @@ That makes it a distinct metric, not a rename of one you already have:
 
 | Level | What it measures |
 | --- | --- |
-| **Call / Put Wall** | The strike above / below spot with the largest *current* dollar call / put gamma. A concentration, measured at today's spot. |
+| **Call / Put Wall** | The strike at or above / at or below spot with the largest *current* dollar call / put gamma, summed over today's expiration and the next two. A concentration, measured at today's spot. |
 | **Gamma Flip** | The hypothetical spot at which *aggregate* dealer gamma changes sign. |
 | **Max Pain** | The strike minimizing aggregate option-holder intrinsic payout at settlement. |
-| **GEX King** | The strike with the largest current `|net GEX|`, across the whole chain. |
+| **GEX King** | The strike with the largest current `\|net GEX\|`, across the whole chain. |
 | **Pin Strike** | The reachable 0DTE strike with the strongest *locally restoring* dealer gamma, priced as if spot were already there. |
 
 Pin Strike deliberately does **not** just pick the largest-gamma strike. A huge far-OTM gamma node that price cannot plausibly reach into the close scores near zero.
@@ -100,9 +100,9 @@ The candidate band is measured in vol·√time units, so as `τ → 0` into the 
 
 ## Where to see the numbers
 
-- **Key Levels strip and the Gamma Terminal chart** - the Pin Strike line and tile, with the strength bucket and confidence percent.
+- **Key Levels strip, the Gamma Terminal chart, and GEX Summary** - the Pin Strike tile and line. The chart labels the line with its strength bucket (`PIN · STRONG`); the GEX Summary card, and the Key Levels tile on hover, add the confidence percent.
 - **Replay snapshot permalinks** - `/replay/{symbol}/{date}/snapshot/{HHMM}` (time in ET) renders any historical moment with its stored confidence.
-- **API** - `GET /api/v1/levels/{symbol}` returns `pin_strike`, `pin_score`, `pin_confidence` (0-1) and `pin_strike_reason` as top-level fields. `GET /api/gex/summary` carries the same fields.
+- **API** - `GET /api/v1/levels/{symbol}` returns `pin_strike` inside its `levels` object, with `pin_score`, `pin_confidence` (0-1) and `pin_strike_reason` as top-level fields. `GET /api/gex/summary` carries all four as top-level fields.
 
 ## When there is no pin
 
@@ -134,7 +134,7 @@ Stated plainly, because they affect how you should read the number:
 - **Confidence is time-of-day sensitive.** The candidate band narrows into the close, mechanically raising confidence.
 - **Strikes at the edge of the listed range are not explicitly flagged.** A candidate with no listed strikes on one side collects a one-sided kernel sum and so scores lower than a comparable interior strike. That is directionally sensible but it is a side effect of the kernel, not a designed low-confidence rule, and it is not surfaced to you.
 - **0DTE only.** If you are comparing against strike-level gamma figures pulled from the full chain, you are looking at a different input set.
-- **Modeled, not observed.** Pin Strike rests on the dealer-positioning convention described in [Methodology & Validation](/methodology) - that customers are net long calls and net short puts against dealers. Where that assumption is wrong, the sign is wrong.
+- **Modeled, not observed.** Pin Strike rests on the dealer-positioning convention described in [Methodology & Validation](/methodology) - that dealers are net long the calls customers overwrite and net short the puts customers buy for protection. Where that assumption is wrong, the sign is wrong.
 
 ## See also
 

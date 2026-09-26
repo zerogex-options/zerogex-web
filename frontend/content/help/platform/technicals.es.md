@@ -34,11 +34,11 @@ Tres patrones - los walls y el flip vienen de Dealer Positioning o del Gamma Ter
 2. **Precio que rompe por debajo del put wall** en gamma negativa con la IV en expansión ⇒ la continuación de tendencia *se vuelve más probable*. Los technicals muestran la ruptura; la página de dealers explica la amplificación modelada.
 3. **El VWAP y el gamma flip se apilan en el mismo nivel** ⇒ un pivote estructural a vigilar. Las reacciones allí *pueden* tener más convicción que en cualquiera de los dos por separado.
 
-Para ver el flip, los walls, el max pain y el VWAP dibujados sobre las propias velas, usa el gráfico del Gamma Terminal - consulta [How to Read ZeroGEX Charts](/help/platform/reading-charts).
+Para ver el flip, los walls, el max pain y el VWAP dibujados sobre las propias velas, usa el gráfico del Gamma Terminal - consulta [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts).
 
 ## Ver también
 
 - [Cómo leer el Dashboard](/help/platform/dashboard)
 - [Posicionamiento de los Dealers](/help/platform/dealer-positioning)
-- [How to Read ZeroGEX Charts](/help/platform/reading-charts)
+- [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts)
 - [Cómo leer un Gamma Flip](/education/how-to-read-a-gamma-flip)

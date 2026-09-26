@@ -40,7 +40,7 @@ El número que ves aquí se mide en el spot, no se suma a lo largo de toda la ca
 
 ### IV Rank
 
-Dónde se sitúa la volatilidad implícita en una escala de 0-100%, a partir del VIX (VXN para QQQ y NDX). 0% es históricamente tranquilo; 100% es miedo extremo.
+Dónde se sitúa la volatilidad implícita en una escala de 0-100%, a partir del VIX (VXN para QQQ, NDX y NQ). 0% es históricamente tranquilo; 100% es miedo extremo.
 
 ### Vanna Flow y Charm Decay
 

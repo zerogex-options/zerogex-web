@@ -34,11 +34,11 @@ Drei Muster - die Walls und der Flip kommen von Dealer Positioning oder vom Gamm
 2. **Preis bricht unter die Put Wall** in negativem Gamma bei steigender IV ⇒ eine Trendfortsetzung *wird wahrscheinlicher*. Die Technicals zeigen den Bruch; die Dealer-Seite erklärt die modellierte Verstärkung.
 3. **VWAP und Gamma Flip stapeln sich auf demselben Level** ⇒ ein struktureller Pivot, den man beobachten sollte. Reaktionen dort *können* mehr Überzeugungskraft haben als an einem der beiden allein.
 
-Wenn du Flip, Walls, Max Pain und VWAP direkt auf den Kerzen sehen willst, nutze das Gamma-Terminal-Chart - siehe [How to Read ZeroGEX Charts](/help/platform/reading-charts).
+Wenn du Flip, Walls, Max Pain und VWAP direkt auf den Kerzen sehen willst, nutze das Gamma-Terminal-Chart - siehe [So liest du ZeroGEX-Charts](/help/platform/reading-charts).
 
 ## Siehe auch
 
 - [Das Dashboard lesen](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
-- [How to Read ZeroGEX Charts](/help/platform/reading-charts)
+- [So liest du ZeroGEX-Charts](/help/platform/reading-charts)
 - [Wie man einen Gamma Flip liest](/education/how-to-read-a-gamma-flip)

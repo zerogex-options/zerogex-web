@@ -30,7 +30,7 @@ The cross-symbol measure, and the **only** one you should use to compare SPX aga
 
 The most severe liquidity failure doesn't show up in any width statistic, because a width can't be computed for it. A contract quoted **0.00 x 2.40** has no bid: there is nothing to sell into, at any price.
 
-Averaging that in as "240% wide" would be a fabrication. Dropping it silently would be worse - a chain would appear to *tighten* as its wings went untradeable, because only the still-quoted contracts would remain in the sample. So those contracts are counted in their own column and excluded from every median.
+Averaging that in as "240% wide" would be a fabrication. Dropping it silently would be worse - a chain would appear to *tighten* as its wings went untradeable, because only the still-quoted contracts would remain in the sample. So those contracts are counted in their own column and excluded from every median. The **No market at all** card also counts locked and crossed quotes, which have no usable width either.
 
 A chain whose median width is unchanged but whose no-bid share has doubled has got worse, and only that column says so.
 
@@ -56,7 +56,7 @@ Both are needed, and they answer different questions. The complaint that starts 
 
 There is no universal "wide" for a quoted spread. SPX puts are structurally wider than SPY puts on the calmest day of the year, so any fixed threshold would be wrong for one of them at all times.
 
-So this page never calls a reading wide in the abstract. It ranks today against the same symbol's own trailing sessions - "wider than 96% of the last 60 sessions" - and when it doesn't have that history yet, it shows the measurement and says **no baseline yet** rather than inventing a verdict.
+So this page never calls a reading wide in the abstract. It ranks today against the same symbol's own trailing sessions - "wider than roughly 85% of the last 60 sessions" - and when it doesn't have that history yet, it shows the measurement and says **no baseline yet** rather than inventing a verdict.
 
 **The ranking is scope-bound, and the filters at the top of the page are not.** The daily record is written at one fixed scope - through 7DTE, ±5% of spot - so that every session in the window measures the same population. Move the expiry or strike-band pills off that scope and this tile stops giving a verdict and says **no baseline at this scope** instead, naming the scope the history is in.
 
@@ -92,13 +92,15 @@ Today's curve is drawn on top of two things: the median of the symbol's own comp
 
 **Puts and calls are a toggle, not an overlay.** Two ranked curves on one plot is four lines plus two envelopes, and the reading it exists to support - the puts widened and the calls did not - is easier to see by flipping between two clean charts.
 
+**Spread % or Percentile.** The strike curve can show widths against the normal band, or each strike band as its own percentile, with guides at 80 and 20 - the same thresholds the header cards use for "wider than usual" and "tighter than usual". Bands with too little history to rank are left out rather than plotted at zero, which would read as the tightest market on the chart.
+
 **Coverage is ranked too, and read the other way round.** The two-sided figure is the share of contracts in range carrying a real market, so a *high* percentile is the good outcome - the opposite of every width on this page. It gets its own baseline because it is the number that matches the complaint: "untradeable" usually means a contract with no bid rather than a wide one, and a contract with no bid has no width, so it leaves every median by construction. A chain can read *tighter* as more of it becomes impossible to sell, and this is the only figure that says so.
 
 It also needs a baseline to be readable at all. A 0DTE book at 51% two-sided into the close sounds alarming and is an ordinary afternoon; without the comparison there is no way to tell those apart from the number alone.
 
 **Compared at the same time of day.** Spreads have a shape through the session: the open and the close are structurally wider than midday. Ranking a 3:40pm reading against whole prior sessions would make every late-afternoon reading look like a deterioration and every lunchtime one look calm. So history is stored in half-hour buckets and matched to the current one, and the panel names the bucket it matched. Outside market hours the comparison falls back to the session's last bucket and says that it did.
 
-**The scope choices are limited on purpose.** The expiry and strike-band pills here offer fewer options than the ones at the top of the page, because a percentile is only meaningful inside a scope that history was actually stored for. Ranking a ±3% reading against ±5% history would call it extreme for no reason other than that ±5% reaches further into the wings.
+**The scope choices are the stored ones.** The expiry and strike-band pills here are exactly the scopes the history is stored at, and nothing else is offered, because a percentile is only meaningful inside a scope that history was actually stored for. Ranking a ±2% reading against ±5% history would rank the two bands against each other rather than the sessions.
 
 #### Where current spreads rank by expiry
 
@@ -106,7 +108,7 @@ It also needs a baseline to be readable at all. A 0DTE book at 51% two-sided int
 
 The distortion was never confined to Fridays. Counting forward from each weekday, the 4-7 calendar-day bucket held contracts 4-5 sessions out from a Monday, 3-5 from a Wednesday and 2-5 from a Thursday: three sessions in five measuring something different from the other two, with no way for the baseline to tell which it was looking at.
 
-Each bar is that expiry bucket's own percentile, not its width. Plotted as widths, 0DTE wins every day of the year and the chart says nothing. Plotted as ranks, a single tall bar beside four ordinary ones is the thing worth knowing: the chain is broadly normal and the front expiry is not. Buckets with too little stored history say "insufficient history" rather than drawing a bar at some default height - on a percentile axis the shortest bar is the strong claim that an expiry is unusually *tight*.
+Each bar is that expiry bucket's own percentile, not its width. Plotted as widths, 0DTE wins every day of the year and the chart says nothing. Plotted as ranks, a single tall bar beside four ordinary ones is the thing worth knowing: the chain is broadly normal and the front expiry is not. Buckets with too little stored history say "insufficient history" rather than drawing a bar at some default height - on a percentile axis the shortest bar is the strong claim that an expiry is unusually *tight*. A bucket where nothing expires today says **No expiry here today** instead - 2-3 DTE empties out from Thursday and Friday, which is the calendar, not a gap in the data.
 
 #### What it refuses to say
 

@@ -40,7 +40,7 @@ Die hier angezeigte Zahl wird am Spot gemessen, nicht über die gesamte Kette su
 
 ### IV Rank
 
-Wo die implizite Volatilität auf einer Skala von 0-100 % steht, abgeleitet aus dem VIX (VXN für QQQ und NDX). 0 % ist historisch ruhig; 100 % ist extreme Angst.
+Wo die implizite Volatilität auf einer Skala von 0-100 % steht, abgeleitet aus dem VIX (VXN für QQQ, NDX und NQ). 0 % ist historisch ruhig; 100 % ist extreme Angst.
 
 ### Vanna Flow und Charm Decay
 

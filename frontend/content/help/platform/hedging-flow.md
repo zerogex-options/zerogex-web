@@ -76,7 +76,7 @@ Two lines, because collapsing them would lose the distinction that matters:
 
 A book can firm up symmetrically (stability up, lean flat), or roll its gamma from below spot to above without changing near-spot totals at all (lean down, stability flat). One line cannot say both.
 
-The pair is labelled as a four-way read:
+The pair is labeled as a four-way read:
 
 | | **Lean positive** | **Lean negative** |
 |---|---|---|
@@ -85,7 +85,7 @@ The pair is labelled as a four-way read:
 
 The view toggle drives this panel too, and the two lenses are matched on purpose: **Pressure rate** reads structure against a rolling lookback ("how is it changing right now"), **Session cumulative** reads it against the session's first bar ("how has it changed today"). Two independent toggles would let you compare a 30-minute flow rate against a since-the-open structure change and believe they lined up.
 
-The two structure lenses do **not** sum. Both are proximity-weighted around each bar's own spot, so the kernel re-centres every bar; treating the anchored reading as a running total of the rolling one would produce a number matching neither.
+The two structure lenses do **not** sum. Both are proximity-weighted around each bar's own spot, so the kernel re-centers every bar; treating the anchored reading as a running total of the rolling one would produce a number matching neither.
 
 This series is written once per Analytics Engine cycle rather than accumulated per trade. On a live session an empty panel means *not written yet*, and the page says exactly that instead of showing an error.
 
@@ -99,11 +99,21 @@ This series is written once per Analytics Engine cycle rather than accumulated p
 
 All four read the most recent bar carrying real flow. When the latest bar is carried forward rather than measured, the cards skip back to the last real one rather than reporting a repeat as new.
 
+## Gamma Weather
+
+The strip above the header cards is the combined read of everything below it: one headline state - **Stable bid**, **Supported dip**, **Fragile rally**, **Unstable**, or **Mixed** - a sentence saying what it amounts to, and the components that produced it: **Pressure now**, **Lean**, **Stability**, **Gamma trend**, and **Flip cushion**. Click a component to open its chart for the session. The charts stay directly underneath, so the claim can always be checked against the evidence.
+
+It classifies market health - whether a condition is healthy enough to persist - not direction. It is not an entry, an exit, or a recommendation, which is why settled states are teal and fragile ones amber, and nothing is green or red. It inherits the estimated-not-observed caveat from the hedging flow it reads. A new state has to hold for a few completed bars before the headline changes - the strip says how many - so it doesn't chase a single noisy bar; until then it shows the new state as forming. The strip appears once a bar carries both hedging flow and gamma structure.
+
 ## The 0DTE toggle
 
 **0DTE only** is the expirations filter carrying today's date - which is also why it can honestly report that there is no 0DTE book to show. On a day that is not an expiry for the symbol, the filter resolves to nothing and the page says so, rather than silently substituting Friday.
 
 The structure panel below is deliberately **not** filtered by the toggle. Dealer gamma structure is a property of the whole book, and scoping it to 0DTE would answer a different question from the one the flow panel above it appears to be asking.
+
+## Past sessions
+
+The **Past sessions** link at the bottom of the page lists every stored session that has data. Each one opens a dated page with the same panels - Gamma Weather, the header cards, the flow chart with its structure panel, and the 0DTE toggle - for that day.
 
 ## What this page does not claim
 

@@ -40,7 +40,7 @@ The number you see here is measured at spot, not summed across the chain - that'
 
 ### IV Rank
 
-Where implied volatility sits on a 0-100% scale, read from VIX (VXN for QQQ and NDX). 0% is historically calm; 100% is extreme fear.
+Where implied volatility sits on a 0-100% scale, read from VIX (VXN for QQQ, NDX, and NQ). 0% is historically calm; 100% is extreme fear.
 
 ### Vanna Flow and Charm Decay
 

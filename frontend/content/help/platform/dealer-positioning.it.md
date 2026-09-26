@@ -40,7 +40,7 @@ Il numero che vedi qui è misurato allo spot, non sommato lungo tutta la catena 
 
 ### IV Rank
 
-Dove si colloca la volatilità implicita su una scala da 0 a 100%, letta dal VIX (VXN per QQQ e NDX). 0% è storicamente calmo; 100% è paura estrema.
+Dove si colloca la volatilità implicita su una scala da 0 a 100%, letta dal VIX (VXN per QQQ, NDX e NQ). 0% è storicamente calmo; 100% è paura estrema.
 
 ### Vanna Flow e Charm Decay
 
