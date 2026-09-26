@@ -41,9 +41,10 @@ HTTPS call made from the Node process that decides to send it.
   (referral reward, paid/founding welcome, welcome-back, payment recovered) and
   **omitted from urgent/transactional ones** (verify, password reset, payment failed,
   checkout recovery) so those read urgent, not decorated.
-- **`TRIAL_START_HERE`** — the shared "start here" card list (Today's Read, GEX Strike
-  Profile, Gamma Flip, Call/Put Wall, Net GEX, SPY/SPX/QQQ/NDX). Reused by the trial
-  welcome and the trial-quickstart bridge so onboarding guidance stays in lockstep.
+- **`TRIAL_START_HERE`** — the shared "start here" card list, in Main Dashboard order
+  (Key Levels, Gamma Flip, Call/Put Wall, Today's Read, Gamma Chart,
+  SPY/SPX/QQQ/NDX/ES/NQ). Every item is in Basic. Reused by the trial welcome and the
+  trial-quickstart bridge so onboarding guidance stays in lockstep.
 - **`TRIAL_DISCLAIMER_LINE`** — the "not financial advice / no guaranteed outcome"
   framing carried verbatim by every trial-facing email.
 - **`API_KEY_STEPS` / `API_KEY_INTRO`** (`apiKeyTextLines` / `apiKeyHtmlBlock`) — the

@@ -135,36 +135,39 @@ export function describeTrialLength(trialDays?: number | null): string {
 
 // The "start here" focus list — the most relevant pieces of ZeroGEX for a
 // first session, named to match the live dashboard's actual card/section
-// titles so a new user can find each one. Today's Read leads because it's the
-// plain-English regime summary that sits at the very top of the board. Shared
-// by the automated trial welcome (sendPaidWelcomeEmail) and the one-time
+// titles so a new user can find each one, in the order the page shows them.
+// Key Levels leads because it is the strip at the very top of the board; the
+// Net GEX and GEX Strike Profile cards this list used to name are gone from
+// the dashboard (the Long γ / Short γ chip and the Gamma Chart replaced them).
+// Every item is in Basic, because most trials are on Basic. Shared by the
+// automated trial welcome (sendPaidWelcomeEmail) and the one-time
 // trial-quickstart bridge (sendTrialQuickstartEmail) so the guidance stays in
 // lockstep between them. Keep this in sync if the dashboard's headline
 // cards/labels change.
 const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
   {
-    title: "Today's Read",
-    body: 'the plain-English summary at the top of the dashboard telling you whether conditions currently favor stability or bigger moves.',
-  },
-  {
-    title: 'GEX Strike Profile',
-    body: 'the at-a-glance chart of how much dealer gamma sits at each strike, with the key walls and flip marked right on price, so the levels that matter jump out and are easy to act on.',
+    title: 'Key Levels',
+    body: 'the strip across the top of the dashboard: the Gamma Flip, Pin Strike, Call Wall, Put Wall and Max Pain, each with how far price is from it.',
   },
   {
     title: 'Gamma Flip',
-    body: 'the line between more stabilizing and more volatile dealer positioning.',
+    body: 'the line between more stabilizing and more volatile dealer positioning. The Long γ / Short γ chip next to the symbol tells you which side of it price is on.',
   },
   {
     title: 'Call Wall / Put Wall',
     body: 'the key upside and downside options levels where price may pin, reject, or react.',
   },
   {
-    title: 'Net GEX',
-    body: 'whether the broader options structure is more stabilizing or more unstable right now.',
+    title: "Today's Read",
+    body: 'the plain-English summary just below the strip, telling you whether conditions currently favor stability or bigger moves. It starts folded in Simple view, so click it open.',
+  },
+  {
+    title: 'Gamma Chart',
+    body: 'live price with those levels drawn right on it, plus a rail of dealer gamma by price beside the candles, so the walls show up as literal bars.',
   },
   {
     title: 'SPY / SPX / QQQ / NDX / ES / NQ',
-    body: 'the same read across the cash indices and the ES / NQ futures, for intraday context wherever you trade it.',
+    body: 'the same read across the cash indices and the ES / NQ futures, for intraday context wherever you trade it. Switch with the symbol picker in the header.',
   },
 ];
 
@@ -2953,6 +2956,11 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
   // signed in, found no trial on the account, and wrote in asking where it was.
   // Say plainly that nothing runs until they activate, and that the card is
   // added at that step.
+  //
+  // The feature list names only what Basic includes. The extended trial
+  // attaches to whichever plan they pick, so a Pro-only feature here (the
+  // backtester and the TradeWorkz bots used to be) is a promise a Basic
+  // trialer finds locked. Names match the Main Dashboard's own labels.
   const text = [
     'Hello,',
     '',
@@ -2960,7 +2968,7 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
     '',
     `So I've extended your free trial to a full ${trialDays} days. It hasn't started yet\u00a0- the clock starts only when you activate it below.`,
     '',
-    'Same full access\u00a0- every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz bots with their fully public trade audit\u00a0- just a lot more room to see whether it earns a place in your routine.',
+    "Same full access\u00a0- the live gamma flip, pin strike, and call and put walls for SPY, SPX, QQQ, NDX, ES and NQ; the Gamma Chart that draws them right on price; live options flow; and Today's Read, which tells you in plain English whether dealer hedging is likely to pin price or amplify its moves\u00a0- just a lot more room to see whether it earns a place in your routine.",
     '',
     'How the trial works, so nothing catches you off guard:',
     `  • ${trialDays} days of full access, starting the moment you activate.`,
@@ -2988,7 +2996,7 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
       <p>Hello,</p>
       <p>It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial\u00a0- no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.</p>
       <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0; font-size: 17px;">So I've extended your free trial to a full <strong>${trialDays} days</strong>.<br><span style="font-size: 15px;">It hasn't started yet\u00a0- the clock starts only when you activate it below.</span></p>
-      <p>Same full access\u00a0- every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz&trade; bots with their fully public trade audit\u00a0- just a lot more room to see whether it earns a place in your routine.</p>
+      <p>Same full access\u00a0- the live gamma flip, pin strike, and call and put walls for SPY, SPX, QQQ, NDX, ES and NQ; the Gamma Chart that draws them right on price; live options flow; and Today's Read, which tells you in plain English whether dealer hedging is likely to pin price or amplify its moves\u00a0- just a lot more room to see whether it earns a place in your routine.</p>
       <p style="margin: 16px 0 4px;">How the trial works, so nothing catches you off guard:</p>
       <ul style="padding-left: 20px; margin: 4px 0 16px;">
         <li style="margin: 0 0 8px;"><strong>${trialDays} days</strong> of full access, starting the moment you activate.</li>

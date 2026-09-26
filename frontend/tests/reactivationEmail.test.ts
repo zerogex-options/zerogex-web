@@ -7,6 +7,10 @@ import { renderReactivationEmail } from '../core/mailer.ts';
 // and "your card is on file", which read as already done: a recipient signed
 // in, found no trial on the account, and wrote in asking where it was. The copy
 // must say the trial is waiting to be activated and that the card is added then.
+//
+// The extended trial attaches to whichever plan the recipient picks, so the
+// feature list may only name what Basic includes. It used to promise the
+// backtester and the TradeWorkz bots, both Pro-only.
 
 const OPTS = { trialDays: 30, unsubUrl: 'https://zerogex.test/unsubscribe?u=user_x&t=token' };
 
@@ -24,6 +28,17 @@ test('never claims a card is already on file', () => {
   for (const body of [text, html]) {
     assert.doesNotMatch(body, /on file/i);
     assert.match(body, /You add a card when you activate/);
+  }
+});
+
+test('promises only features Basic includes', () => {
+  const { text, html } = renderReactivationEmail(OPTS);
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /backtest/i);
+    assert.doesNotMatch(body, /TradeWorkz/i);
+    assert.match(body, /gamma flip, pin strike, and call and put walls/);
+    assert.match(body, /the Gamma Chart/);
+    assert.match(body, /Today's Read/);
   }
 });
 
