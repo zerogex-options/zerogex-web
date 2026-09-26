@@ -1,53 +1,60 @@
 # Smart Money
 
-*La schermata smart-money - cosa qualifica un trade come smart-money, come si calcola il rapporto C/P e come usare il bias intraday.*
+*La schermata smart money - cosa qualifica un trade come smart money, come si legge la ripartizione tra call e put e come usare il bias intraday.*
 
 ---
 
 ## Cosa significa "smart money" qui
 
-Smart money è un'euristica - un'etichetta che applichiamo ai trade in opzioni che hanno l'impronta strutturale di una scommessa informata:
+Smart money è un'euristica - un filtro per i print di opzioni abbastanza grandi o insoliti da essere la posizione di qualcuno e non scarti di copertura. Ogni riga è l'attività di un contratto in un minuto, e si qualifica quando supera una di queste soglie:
 
-- **Dimensione** - premio e dimensione del contratto significativamente sopra la media per strike/scadenza.
-- **Aggressività** - pagato al prezzo dell'offerta o oltre (acquisto) oppure venduto al bid (vendita), non a prezzi mid.
-- **Ripetizione** - più stampe aggressive nella stessa direzione in una finestra temporale breve.
-- **Premio di convinzione** - il trade paga una percentuale non trascurabile del valore del contratto.
+- **Dimensione** - 50 contratti o più.
+- **Premio** - $50K o più.
+- **Print più piccoli ma insoliti** - 20 contratti o più su un contratto con IV elevata (sopra il 40%) o molto fuori dal denaro (|delta| sotto 0,15).
 
-Un singolo blocco da solo non basta a qualificarsi. Un pattern di trade di convinzione su uno strike sì.
+Ogni print qualificato riporta il suo **lato aggressore** - **Buy** quando ha prevalso il premio avviato dall'acquirente, **Sell** quando ha prevalso quello avviato dal venditore, **Neutral** quando nessuno ha prevalso - e una **classe di nozionale** da $500K+ fino a meno di $50K. La pagina conserva i 50 print più grandi della sessione per nozionale.
 
 ## Cosa mostra questa pagina
 
-### Il rapporto C/P smart-money
+### Il banner di regime
 
-Il rapporto tra il premio call smart-money e il premio put smart-money. Una lettura ben sopra 1 indica che il flusso smart-money è strutturalmente orientato verso le call; ben sotto 1 indica le put. Questo **non** è lo stesso del PCR (put/call ratio) principale - filtra solo le stampe ad alta convinzione.
+**Smart Money Regime** somma il nozionale delle call e quello delle put dei blocchi che superano i tuoi filtri: **Call Buyers in Control** quando le call sono avanti di $250K o più, **Put Buyers in Control** quando lo sono le put, e **Balanced Positioning** altrimenti. Conta il nozionale di entrambi i lati del tape - imposta **Side** su **Buy** se vuoi che legga solo gli acquirenti. Questo **non** è lo stesso del PCR (put/call ratio) principale - conta solo i blocchi filtrati.
 
-### Il tape smart-money
+### I filtri
 
-Un feed live di trade etichettati come smart-money - dimensione, premio, strike, scadenza, direzione, orario. Clicca per vedere il trade nel suo contesto.
+- **Session** - la sessione corrente o quella precedente.
+- **Min class** - il nozionale minimo mostrato, da $500K+ (predefinito) fino a meno di $50K.
+- **Side** - solo print Buy, Sell o Neutral.
+- **Min |Δ|** - esclude i print con delta inferiore a 0,10, 0,25 o 0,40, eliminando i biglietti della lotteria molto fuori dal denaro.
+- **Expiry** - 0DTE, 1-7 DTE o 8+ DTE.
 
-### Il bias smart-money
+### Blocks vs. underlying price
 
-Un chip di bias combinato - rialzista, ribassista, neutrale - costruito dal rapporto C/P più il flusso netto ponderato per premio sul sottoinsieme smart-money.
+I blocchi filtrati come barre impilate per minuto - verde per le call, rosso per le put - rispetto al prezzo del sottostante durante la sessione. Passa il mouse su una barra per vedere i contratti che la compongono; le loro righe si evidenziano nella tabella sotto.
 
-### La mappa di concentrazione per strike
+### Block detail
 
-Dove il flusso smart-money si è concentrato per strike, colorato per direzione. Utile per individuare "dove sta pendendo il grande capitale".
+Gli stessi blocchi in tabella: orario, contratto, strike, scadenza, DTE, tipo, lato, delta, contratti, nozionale e classe. Clicca un'intestazione per ordinare (una seconda intestazione diventa il criterio di spareggio, fino a tre livelli), e usa l'imbuto su Strike, Expiration o Type per filtrare su un valore.
 
 ## Come usarla
 
 Tre pattern:
 
-1. **Smart-money fortemente long su call + MSI in regime di trend (≥ 70) + gradiente GEX di supporto** ⇒ la lettura strutturale si allinea con il flusso smart-money. Direzionale ad alta convinzione.
-2. **Smart-money fortemente long su put al put wall** ⇒ difesa o fading. Combinato con una lettura di Positioning Trap, può essere un counter-bias tradabile.
-3. **Flusso smart-money neutrale, flusso principale forte** ⇒ il flusso principale è probabilmente partecipazione ampia e a bassa convinzione più che posizionamento informato; trattare con cautela.
+1. **Smart money che compra call con forza + MSI in regime di trend (≥ 70) + gradiente GEX di supporto** ⇒ la lettura strutturale si allinea con il flusso smart money. Direzionale ad alta convinzione.
+2. **Smart money che compra put con forza al put wall** ⇒ difesa o fading. Combinato con una lettura di Positioning Trap, può essere un counter-bias tradabile.
+3. **Flusso smart money neutrale, flusso principale forte** ⇒ il flusso principale è probabilmente partecipazione ampia e a bassa convinzione più che posizionamento informato; trattare con cautela.
 
 ## Cosa non è
 
-L'etichetta smart-money è un'**euristica probabilistica**. Non ogni stampa smart-money è informata; non ogni trade informato viene segnalato. La pagina è più utile a **livello di bias** - qual è l'inclinazione cumulativa? - piuttosto che come segnale di trading su singole stampe.
+L'etichetta smart money è un'**euristica probabilistica**. Non ogni print smart money è informato; non ogni trade informato viene segnalato. La dimensione è un indizio, non un'intenzione: un print grande può essere una scommessa in apertura, un'uscita o una gamba di uno spread la cui altra gamba è altrove nella catena, e il tape non può dirti quale. La pagina è più utile a **livello di bias** - qual è l'inclinazione cumulativa? - piuttosto che come segnale di trading su singoli print.
+
+## ES e NQ
+
+Smart money non è disponibile per ES e NQ. Qui non hanno una catena di opzioni propria - i loro livelli di gamma derivano dalle opzioni su SPX e NDX -, quindi passa a SPX o NDX per vedere la schermata.
 
 ## Il quadro d'insieme
 
-Il flusso smart-money è uno dei diversi input nel segnale base di Positioning Trap (che usa lo sbilanciamento smart-money con segno) e nel Market Pressure Index (skew del flusso smart-money). La pagina smart-money è la lettura autonoma; i segnali sono le interpretazioni.
+Il flusso smart money è uno dei diversi input nel segnale base di Positioning Trap (che usa lo sbilanciamento smart money con segno) e nel Market Pressure Index (skew del flusso smart money). La pagina smart money è la lettura autonoma; i segnali sono le interpretazioni.
 
 ## Vedi anche
 

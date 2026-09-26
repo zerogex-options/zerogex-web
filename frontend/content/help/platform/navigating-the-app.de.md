@@ -1,6 +1,6 @@
 # Navigation in der App
 
-*Die Seitenleiste, die Symbolauswahl, die Zeitrahmen-Auswahl, die Theme-Umschalter und die Tastenkombinationen, die den Alltag beschleunigen.*
+*Die Seitenleiste, die Kopfzeile, die Symbolauswahl, die Zeitrahmen-Auswahl und die Theme-Umschalter.*
 
 ---
 
@@ -8,72 +8,66 @@
 
 Die linke Seitenleiste ist der Hauptweg, um sich in der App zu bewegen. Sie ist gruppiert:
 
-- **Main** - Dashboard, Live Bulletin
-- **Signals** - Composite Score, Signaled Trades, das Basic Signal Dashboard und das Advanced Signal Dashboard (jeweils erweiterbar zu den einzelnen Signalseiten)
-- **Metrics** - Dealer Positioning, GEX Summary, Flow Analysis, Smart Money, Max Pain, Technicals
-- **Strategy Tools** - Strategy Builder, Live Options Quotes, Backtesting
-- **Education** - Hub, Help, Guides (erweiterbar), Articles (erweiterbar)
-- **More** - About, API Specs, Account
+- **Start** - Haupt-Dashboard, Mein Dashboard, Gamma Terminal, Live-Bulletin
+- **Signale** - Trade Bias, Gesamtscore, das Basis-Signal-Dashboard und das Erweiterte Signal-Dashboard (jeweils erweiterbar zu den einzelnen Signalseiten)
+- **TradeWorkz™** - Bot-Trading, Backtesting, Muster-Einblicke
+- **Kennzahlen** - Positioning, Options Flow und Market Context, jeweils erweiterbar zu ihren Seiten
+- **Strategie-Tools** - Strategie-Builder, Live-Optionskurse, Premium Surface
+- **Belege** - die Tages- und die Intraday-Prognose, die Gesamtbilanz der Prognosen, die Signal-Scorecard eines Tages und das Session-Replay
+- **Wissen** - Hub, Anleitungen, Artikel und Hilfe (jeweils erweiterbar)
+- **Mehr** - Über uns, Integrationen, API Specs, Support, Konto
 
-Jede Gruppe lässt sich ein- und ausklappen. Klicke auf die Gruppenüberschrift, um sie umzuschalten.
+Jede Gruppe lässt sich ein- und ausklappen. Klicke auf die Gruppenüberschrift, um sie umzuschalten. Seiten, die sich noch in Entwicklung befinden, tragen ein **Beta**-Badge.
+
+### Favoriten
+
+Fahre mit der Maus über eine Seite in der Seitenleiste und klicke auf das Pin-Symbol daneben, um sie zu den **Favoriten** hinzuzufügen - einer Gruppe oben in der Seitenleiste für die Seiten, die du am häufigsten nutzt. Ein erneuter Klick auf den Pin entfernt sie wieder. Favoriten werden in deinem Browser gespeichert.
 
 ### Seitenleiste ein- und ausblenden
 
-Die gesamte Seitenleiste kann ausgeblendet werden. Fahre mit der Maus über den rechten Rand der Seitenleiste - ein Pfeil-Tab erscheint; klicke darauf, um sie auszublenden. Klicke auf den kleinen Pfeil-Tab am linken Rand, um sie wieder einzublenden. Die Einstellung wird sitzungsübergreifend gespeichert.
+Die gesamte Seitenleiste kann ausgeblendet werden. Fahre mit der Maus über den rechten Rand der Seitenleiste - ein Pfeil-Tab erscheint; klicke darauf, um sie auszublenden. Klicke auf den kleinen Pfeil-Tab am linken Rand, um sie wieder einzublenden. Die Einstellung wird sitzungsübergreifend gespeichert.
 
 ## Die Kopfzeile
 
 Die Kopfzeile bleibt oben auf jeder Analyseseite sichtbar und zeigt:
 
 - Das Logo und einen Link zurück zur Startseite
-- Das aktive Symbol und dessen Live-Kurs
-- Ein Sitzungs-Badge - Pre-market, Open, After-Hours oder Closed
-- Theme-Umschalter (Sonne / Mond)
+- Die Symbolauswahl und den Live-Kurs des aktiven Symbols mit seiner Veränderung am Tag
+- Ein Sitzungs-Badge - Pre-market, Market Open, After Hours, Closed oder Futures, solange SPX oder NDX über Nacht ihren Future zeigen. Ein Klick darauf zeigt einen Countdown bis zur Eröffnung oder zum Handelsschluss.
+- Theme-Umschalter (Sonne / Mond) und das Paletten-Menü
+- Uhren für New York, London und Tokio, einen Optionskalender und die wichtigsten Schlagzeilen
+- Einen Kamera-Button, der einen PNG-Schnappschuss der aktuellen Seite speichert
+- Das Sprachmenü, die Suche und dein Profilmenü (Konto, Upgrade, Abmelden)
 
-Du kannst die Kopfzeile einklappen, um vertikalen Platz zu gewinnen - die Einstellung wird mit der kompakten Übersichtskarte der Seitenleiste synchronisiert.
+Du kannst die Kopfzeile einklappen, um vertikalen Platz zu gewinnen - die Einstellung wird mit der kompakten Übersichtskarte der Seitenleiste synchronisiert.
 
 ## Die Symbolauswahl
 
-ZeroGEX deckt **SPY**, **SPX**, **QQQ** und **NDX** ab. Die Symbolauswahl befindet sich in der Kopfzeile. Die Wahl eines Symbols aktualisiert jede Seite der Plattform - Dashboard-Kacheln, Signale, Charts - auf dieses Symbol.
+ZeroGEX deckt **SPY**, **SPX**, **QQQ** und **NDX** ab, dazu die Futures **ES** und **NQ**. Die Symbolauswahl befindet sich in der Kopfzeile. Die Wahl eines Symbols aktualisiert jede Seite der Plattform - Dashboard, Signale, Charts - auf dieses Symbol, und deine Wahl wird in diesem Browser gespeichert. ES und NQ werden aus den Optionsbüchern von SPX und NDX abgeleitet, daher bieten die wenigen Seiten, die einzelne Optionskontrakte auflisten, sie nicht an.
 
 ## Die Zeitrahmen-Auswahl
 
-Die meisten chartbasierten Seiten verfügen über eine Zeitrahmen-Auswahl - 1 Min / 5 Min / 15 Min / 1 Std / 1 Tag. Sie steuert das rollierende Fenster, das für den Chart verwendet wird, nicht die zugrunde liegende Signal-Logik. Der Signal-Score selbst wird fortlaufend berechnet.
+Die Preis-Charts - das Gamma Terminal, der Gamma Chart auf dem Haupt-Dashboard und einige weitere - verfügen über eine Zeitrahmen-Auswahl: 1 Min / 5 Min / 15 Min / 1 Std / 1 Tag. Sie steuert das rollierende Fenster, das für den Chart verwendet wird, nicht die zugrunde liegende Signal-Logik. Der Signal-Score selbst wird fortlaufend berechnet.
 
 ## Theme
 
-ZeroGEX gibt es in Dunkel und Hell. Standard ist Dunkel. Der Umschalter befindet sich in der Kopfzeile. Die Einstellung wird pro Browser gespeichert.
-
-## Tastenkombinationen
-
-Ein kleines Set an Tastenkombinationen beschleunigt die tägliche Nutzung:
-
-- `/` - fokussiert die Symbolauswahl
-- `t` - Theme umschalten
-- `b` - Seitenleiste umschalten
-- `?` - Übersicht der Tastenkombinationen anzeigen
-
-Die Tastenkombinationen überschreiben absichtlich nicht die Standardkombinationen des Browsers (Cmd/Strg + beliebige Taste).
-
-## Der Live-Bulletin-Button
-
-Der Live-Bulletin-Link in der Seitenleiste zeigt ein kleines Badge, wenn es seit dem letzten Öffnen ungelesene Ereignisse gibt. Klicke ihn an, und das Badge verschwindet.
+ZeroGEX gibt es in Dunkel und Hell. Standard ist Dunkel. Der Sonne/Mond-Umschalter in der Kopfzeile wechselt zwischen beiden, und das Paletten-Menü daneben bietet eine Reihe von Farbpaletten. Angemeldet wird deine Wahl in deinem Konto gespeichert und folgt dir auf andere Geräte; ohne Anmeldung wird sie im Browser gespeichert.
 
 ## Tarifabhängige Menüpunkte
 
-Wenn du keinen Zugriff auf eine Seite hast, leitet dich der Menüpunkt beim Klick zu [Pricing](/pricing) weiter statt zur gesperrten Seite. Nur für Admins bestimmte Einträge werden komplett ausgeblendet.
+Angemeldet tragen Seiten, die dein Plan nicht enthält, ein Schloss-Badge (🔒 Basic oder 🔒 Pro); ein Klick darauf führt dich zu [Pricing](/pricing) statt zur gesperrten Seite. Ohne Anmeldung oder ohne Plan listet das Menü nur die Seiten, die du öffnen kannst. Nur für Admins bestimmte Einträge werden komplett ausgeblendet.
 
 ## Kurzer Überblick über den Seitenaufbau
 
-Jede Analyseseite auf ZeroGEX folgt demselben Aufbau:
+Die Kennzahlen-Seiten teilen sich denselben Seitenkopf - hast du einen gelesen, lassen sich die übrigen schnell überfliegen:
 
-1. **Titelzeile** - der Seitenname und ein kurzer Untertitel.
-2. **Hauptmetrik oder -chart** - die zentrale Aussage.
-3. **Kontextleiste** - Regime-Label, Trade-Bias-Chip, Status ausgelöst/inaktiv.
-4. **Unterstützende Panels** - die Eingaben, die die Hauptaussage antreiben.
-5. **„How it's built"** - eine allgemeinverständliche Erklärung der zugrunde liegenden Mathematik.
+1. **Dachzeile** - die Menü-Untergruppe, unter der die Seite abgelegt ist: Positioning, Options Flow oder Market Context.
+2. **Titel** - der Seitenname, passend zum Menüeintrag, mit einem Beta-Badge, wenn die Seite in der Beta ist.
+3. **Info-Symbol** - fahre mit der Maus darüber für die ausführliche Erklärung: was die Zahl ist, wie sie aufgebaut ist und wie man sie nutzt.
+4. **Vorspann** - eine Zusammenfassung in ein bis zwei Sätzen unter dem Titel.
+5. **Filter** - die eigenen Steuerelemente der Seite, rechts.
 
-Sobald du eine Seite nach diesem Aufbau gelesen hast, lässt sich jede andere Seite schnell überfliegen.
+Die einzelnen Signalseiten schließen mit einem Abschnitt **„How it's built"** - einer allgemeinverständlichen Erklärung der zugrunde liegenden Mathematik.
 
 ## Siehe auch
 

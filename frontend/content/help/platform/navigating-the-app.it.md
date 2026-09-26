@@ -1,6 +1,6 @@
 # Navigare nell'app
 
-*La barra laterale, il selettore di simboli, il selettore del timeframe, gli interruttori del tema e le scorciatoie da tastiera che velocizzano il lavoro.*
+*La barra laterale, l'intestazione, il selettore di simboli, il selettore del timeframe e gli interruttori del tema.*
 
 ---
 
@@ -8,72 +8,66 @@
 
 La barra laterale sinistra è il modo principale per spostarsi nell'app. È organizzata in gruppi:
 
-- **Main** - Dashboard, Live Bulletin
-- **Signals** - Composite Score, Signaled Trades, la Basic Signal Dashboard e la Advanced Signal Dashboard (ciascuna espandibile nelle singole pagine dei segnali)
-- **Metrics** - Dealer Positioning, GEX Summary, Flow Analysis, Smart Money, Max Pain, Technicals
-- **Strategy Tools** - Strategy Builder, Live Options Quotes, Backtesting
-- **Education** - Hub, Help, Guides (espandibile), Articles (espandibile)
-- **More** - About, API Specs, Account
+- **Principale** - Dashboard principale, La mia dashboard, Gamma Terminal, Bollettino live
+- **Segnali** - Trade Bias, Punteggio composito, la Dashboard segnali base e la Dashboard segnali avanzati (ciascuna espandibile nelle singole pagine dei segnali)
+- **TradeWorkz™** - Trading con bot, Backtesting, Analisi dei pattern
+- **Metriche** - Positioning, Options Flow e Market Context, ciascuno espandibile nelle sue pagine
+- **Strumenti di strategia** - Generatore di strategie, Quotazioni opzioni live, Premium Surface
+- **Riscontri** - le previsioni giornaliera e intraday, lo storico delle previsioni, lo scorecard giornaliero dei segnali e il replay della sessione
+- **Formazione** - Hub, Guide, Articoli e Aiuto (ciascuno espandibile)
+- **Altro** - Chi siamo, Integrazioni, API Specs, Supporto, Account
 
-Ogni gruppo può essere compresso ed espanso. Clicca sull'intestazione del gruppo per attivarlo/disattivarlo.
+Ogni gruppo può essere compresso ed espanso. Clicca sull'intestazione del gruppo per attivarlo/disattivarlo. Le pagine ancora in sviluppo hanno un badge **Beta**.
+
+### Preferiti
+
+Passa il mouse su una pagina della barra laterale e clicca sull'icona della puntina accanto per aggiungerla ai **Preferiti**, un gruppo in cima alla barra laterale per le pagine che usi di più. Clicca di nuovo sulla puntina per rimuoverla. I preferiti vengono salvati nel tuo browser.
 
 ### Mostrare e nascondere la barra laterale
 
-L'intera barra laterale può essere nascosta. Passa il mouse sul bordo destro della barra laterale: apparirà una linguetta a forma di freccetta - cliccala per nasconderla. Clicca sulla piccola linguetta a freccetta sul bordo sinistro per farla ricomparire. La preferenza viene ricordata tra una sessione e l'altra.
+L'intera barra laterale può essere nascosta. Passa il mouse sul bordo destro della barra laterale: apparirà una linguetta a forma di freccetta - cliccala per nasconderla. Clicca sulla piccola linguetta a freccetta sul bordo sinistro per farla ricomparire. La preferenza viene ricordata tra una sessione e l'altra.
 
 ## L'intestazione
 
 L'intestazione resta fissa nella parte superiore di ogni pagina di analisi e mostra:
 
 - Il logo e un link per tornare alla home
-- Il simbolo attivo e il suo prezzo in tempo reale
-- Un badge di sessione - Pre-market, Open, After-Hours o Closed
-- L'interruttore del tema (sole / luna)
+- Il selettore di simboli e il prezzo in tempo reale del simbolo attivo, con la variazione del giorno
+- Un badge di sessione - Pre-market, Market Open, After Hours, Closed o Futures, mentre SPX o NDX mostrano il loro future durante la notte. Cliccalo per vedere il conto alla rovescia fino all'apertura o alla chiusura.
+- L'interruttore del tema (sole / luna) e il menu delle palette
+- Orologi di New York, Londra e Tokyo, un calendario delle opzioni e i titoli principali
+- Un pulsante fotocamera che salva un'istantanea PNG della pagina su cui ti trovi
+- Il menu della lingua, la ricerca e il tuo menu profilo (Account, Fai l'upgrade, Esci)
 
-Puoi comprimere l'intestazione per recuperare spazio verticale - la preferenza si sincronizza con la scheda riepilogativa compatta della barra laterale.
+Puoi comprimere l'intestazione per recuperare spazio verticale - la preferenza si sincronizza con la scheda riepilogativa compatta della barra laterale.
 
 ## Il selettore di simboli
 
-ZeroGEX copre **SPY**, **SPX**, **QQQ** e **NDX**. Il selettore di simboli si trova nell'intestazione. Scegliere un simbolo aggiorna ogni pagina della piattaforma - riquadri della dashboard, segnali, grafici - con quel simbolo.
+ZeroGEX copre **SPY**, **SPX**, **QQQ** e **NDX**, più i future **ES** e **NQ**. Il selettore di simboli si trova nell'intestazione. Scegliere un simbolo aggiorna ogni pagina della piattaforma - la dashboard, i segnali, i grafici - con quel simbolo, e la tua scelta viene ricordata in quel browser. ES e NQ sono ricavati dai book di opzioni di SPX e NDX, quindi le poche pagine che elencano singoli contratti di opzioni non li offrono.
 
 ## Il selettore del timeframe
 
-La maggior parte delle pagine basate su grafici ha un selettore del timeframe - 1 min / 5 min / 15 min / 1 h / 1 giorno. Controlla la finestra mobile usata per il grafico, non la logica sottostante dei segnali. Il punteggio del segnale viene calcolato continuamente.
+I grafici dei prezzi - il Gamma Terminal, il Gamma Chart della Dashboard principale e pochi altri - hanno un selettore del timeframe: 1 min / 5 min / 15 min / 1 h / 1 giorno. Controlla la finestra mobile usata per il grafico, non la logica sottostante dei segnali. Il punteggio del segnale viene calcolato continuamente.
 
 ## Tema
 
-ZeroGEX è disponibile in versione scura e chiara. Il predefinito è quello scuro. L'interruttore si trova nell'intestazione. La preferenza viene memorizzata per browser.
-
-## Scorciatoie da tastiera
-
-Un piccolo set di scorciatoie velocizza l'uso quotidiano:
-
-- `/` - porta il focus sul selettore di simboli
-- `t` - cambia tema
-- `b` - mostra/nasconde la barra laterale
-- `?` - mostra il pannello delle scorciatoie
-
-Le scorciatoie non sovrascrivono intenzionalmente quelle predefinite del browser (Cmd/Ctrl + qualsiasi tasto).
-
-## Il pulsante Live Bulletin
-
-Il link Live Bulletin nella barra laterale mostra un piccolo badge quando ci sono eventi non letti da quando l'hai aperto l'ultima volta. Cliccandolo il badge scompare.
+ZeroGEX è disponibile in versione scura e chiara. Il predefinito è quello scuro. L'interruttore sole / luna nell'intestazione passa dall'una all'altra, e il menu delle palette accanto offre diverse palette di colori. Con l'accesso effettuato, la tua scelta viene salvata nel tuo account e ti segue sugli altri dispositivi; senza accesso, viene memorizzata nel browser.
 
 ## Voci di menu in base al piano
 
-Se non hai accesso a una pagina, la voce di menu ti reindirizza a [Pricing](/pricing) al click, invece che alla pagina riservata. Le voci riservate agli admin sono completamente nascoste.
+Con l'accesso effettuato, le pagine non incluse nel tuo piano mostrano un badge con lucchetto (🔒 Basic o 🔒 Pro); cliccandone una vai a [Pricing](/pricing) invece che alla pagina riservata. Senza accesso, o senza un piano, il menu elenca solo le pagine che puoi aprire. Le voci riservate agli admin sono completamente nascoste.
 
 ## Panoramica rapida della struttura delle pagine
 
-Ogni pagina di analisi su ZeroGEX ha la stessa struttura:
+Le pagine Metriche condividono la stessa intestazione, quindi una volta letta una, le altre si scorrono rapidamente:
 
-1. **Riga del titolo** - il nome della pagina e un breve sottotitolo.
-2. **Metrica o grafico principale** - la lettura più importante.
-3. **Barra di contesto** - etichetta del regime, chip del bias di trading, stato attivato/inattivo.
-4. **Pannelli di supporto** - gli input che alimentano la metrica principale.
-5. **"How it's built"** - una spiegazione in linguaggio semplice della matematica sottostante.
+1. **Occhiello** - il sottogruppo del menu in cui è archiviata la pagina: Positioning, Options Flow o Market Context.
+2. **Titolo** - il nome della pagina, uguale alla sua voce di menu, con un badge Beta se la pagina è in beta.
+3. **Icona informazioni** - passaci sopra con il mouse per la spiegazione completa: cos'è il numero, come è costruito e come usarlo.
+4. **Sommario** - un riassunto di una o due frasi sotto il titolo.
+5. **Filtri** - i controlli propri della pagina, a destra.
 
-Una volta letta una pagina secondo questa struttura, ogni altra pagina si scorre rapidamente.
+Le singole pagine dei segnali si chiudono con una sezione **"How it's built"** - una spiegazione in linguaggio semplice della matematica sottostante.
 
 ## Vedi anche
 

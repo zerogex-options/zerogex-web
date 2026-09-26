@@ -1,33 +1,33 @@
 # Advanced Signal Dashboard
 
-*I segnali event-driven - cosa chiede ciascuno, quando scatta e come usarlo.*
+*I segnali event-driven - cosa chiede ciascuno, quando scatta e come usarlo.*
 
 ---
 
 ## Cos'è l'Advanced Signal Dashboard
 
-L'Advanced Signal Dashboard è la **griglia di trigger** per tutti e otto i segnali Advanced. Ogni scheda mostra il punteggio su [-1, +1], lo stato del trigger (idle, hot, appena scattato) e uno sparkline.
+L'Advanced Signal Dashboard (Pro) è la **griglia di trigger** per tutti e otto i segnali Advanced. Una striscia in alto mostra gli otto punteggi. Sotto ci sono tre schede - **Signal Grid**, **Confluence Matrix** ed **Event Timelines**. Ogni scheda della griglia mostra il punteggio da -100 a +100, il livello a cui si attiva, uno stato *Triggered* o *Stand by*, uno sparkline e i **Context values** espandibili. EOD Pressure e 0DTE Position Imbalance mostrano *Inactive* finché la loro finestra oraria è chiusa.
 
-I segnali Advanced sono **event-driven**. Ognuno produce un punteggio continuo, ma il momento interessante è quando il punteggio attraversa la soglia di trigger del segnale.
+I segnali Advanced sono **event-driven**. Ognuno produce un punteggio continuo e modellato - una lettura derivata, non una previsione garantita -, ma il momento interessante è quando il punteggio attraversa la soglia di trigger del segnale. Nessuno degli otto fa parte del Composite Score (MSI).
 
 ## Gli otto segnali
 
 | Segnale | Chiede | Bias di trading | Trigger |
 | --- | --- | --- | --- |
-| EOD Pressure | "La chiusura si sta fissando (pinning)?" | Direzionale | abs(score) ≥ 0.20 |
-| Gamma/VWAP Confluence | "I livelli chiave si stanno sovrapponendo qui?" | Mean-rev (long gamma) / Continuation (short gamma) | abs(score) ≥ 0.20 |
+| EOD Pressure | "La chiusura si sta fissando (pinning)?" | Direzionale | \|score\| ≥ 20 |
+| Gamma/VWAP Confluence | "I livelli chiave si stanno sovrapponendo qui?" | Mean-rev (long gamma) / Continuation (short gamma) | \|score\| ≥ 20 |
 | Market Pressure Index | "Il mercato è carico per muoversi?" | Continuation | loading ≥ 50 AND \|dir\| ≥ 0.20 |
 | Range Break Imminence | "Questo range sta per rompersi?" | Cambio di regime / playbook | imminence ≥ 65 |
-| Squeeze Setup | "Il mercato è compresso a molla?" | Continuation | abs(score) ≥ 0.25 |
-| Trap Detection | "Questo breakout è appena fallito?" | Mean-reversion (vs. rottura di prezzo) | abs(score) ≥ 0.25 |
-| Volatility Expansion | "La volatilità sta per esplodere?" | Continuation | abs(score) ≥ 0.25 |
-| 0DTE Position Imbalance | "I trader 0DTE stanno pendendo da un lato?" | Direzionale | abs(score) ≥ 0.25 |
+| Squeeze Setup | "Il mercato è compresso a molla?" | Continuation | \|score\| ≥ 25 |
+| Trap Detection | "Questo breakout è appena fallito?" | Mean-reversion (vs. rottura di prezzo) | \|score\| ≥ 25 |
+| Volatility Expansion | "La volatilità sta per esplodere?" | Continuation | \|score\| ≥ 25 |
+| 0DTE Position Imbalance | "I trader 0DTE stanno pendendo da un lato?" | Direzionale | \|score\| ≥ 25 |
 
 ## Lettura rapida di ciascuno
 
 ### EOD Pressure
 
-Attivo negli ultimi 90 minuti. Sale a partire dalle 14:30 ET, con picco intorno alle 15:45 ET. Costruito su dealer charm allo spot, pin gravity, volatilità realizzata e flag di witching. Legge "la chiusura viene fissata su X" con una direzione.
+Attivo negli ultimi 90 minuti. Sale a partire dalle 14:30 ET, con picco intorno alle 15:45 ET. Costruito su dealer charm allo spot, pin gravity, volatilità realizzata e flag di witching. Legge "la chiusura *potrebbe* fissarsi verso X" con una direzione - un'inclinazione modellata, perché il pinning è probabilistico.
 
 ### Gamma/VWAP Confluence
 
@@ -39,15 +39,15 @@ La lettura complessiva "il mercato è carico". Combina wall pinch, prossimità a
 
 ### Range Break Imminence
 
-Lettura di compressione a 20 barre. Skew delta + dealer delta + trap pressure + rapporto di compressione a 10/60 barre. Produce sia un punteggio sia un'imminence da 0 a 100. Scatta a imminence ≥ 65 - il che significa che il range è realmente stretto rispetto alla sua storia recente.
+Lettura di compressione a 20 barre. Skew delta + dealer delta + trap pressure + rapporto di compressione a 10/60 barre. Produce sia un punteggio sia un'imminence da 0 a 100. Scatta a imminence ≥ 65 - l'inizio della fascia Break Watch (da 80 in su è Breakout Mode), dove la pagina consiglia di smettere di fare fade del range alla cieca.
 
 ### Squeeze Setup
 
-Rilevatore di setup multi-day. Z-score del flow, momentum a 5/10 barre, prontezza del gamma, distanza dal flip, regime del VIX. Bias di continuation - legge "il mercato è compresso a molla, la prossima gamba è X".
+Rilevatore di setup multi-day. Z-score del flow, momentum a 5/10 barre, prontezza del gamma, distanza dal flip, regime del VIX. Bias di continuation - una lettura derivata secondo cui il mercato *potrebbe* essere compresso verso X, non una prossima gamba garantita.
 
 ### Trap Detection
 
-Il rilevatore di breakout falliti. Wall (attuali + precedenti), VWAP, flip, net GEX e ΔGEX, delta del flow. Bias di mean-reversion - scatta quando una rottura sopra il call wall o sotto il put wall torna indietro di scatto.
+Il rilevatore di breakout falliti. Wall (attuali + precedenti), VWAP, flip, net GEX e ΔGEX, delta del flow. Bias di mean-reversion - segnala come probabile fallimento una rottura di un livello chiave (un wall, il VWAP, il gamma flip o lo strike a max gamma) quando i dealer sono modellati long gamma e il gamma si sta rafforzando; un wall che migra insieme alla rottura indebolisce la lettura. In gamma negativo resta a 0.
 
 ### Volatility Expansion
 
@@ -61,26 +61,25 @@ Lettura sulla finestra 0DTE. Ponderata per le ore alla chiusura. Squilibrio del 
 
 Quando il trigger di un segnale scatta:
 
-1. La scheda del segnale sul dashboard si illumina nella direzione del punteggio.
-2. Una voce compare nel [Live Bulletin](/help/platform/live-bulletin) con il punteggio, la soglia di trigger e un contesto di una riga.
-3. Il composite riflette la convinzione più alta.
+1. La sua scheda viene bordata e colorata nella direzione del punteggio, e il suo stato passa da *Stand by* a *Triggered*.
+2. Il Composite Score non cambia - i segnali Advanced non fanno parte dell'MSI.
 
-Un segnale può rimanere in stato "hot" per più barre. La voce del bulletin mostra il **primo** attraversamento del trigger; le barre successive nello stesso stato hot vengono aggregate.
+Non c'è alcun avviso né voce di registro: non ti viene inviato nulla e nel Bollettino live non arriva nulla. Una scheda resta *Triggered* finché il punteggio si mantiene oltre la sua soglia. Per vedere cosa è successo prima, apri la scheda **Event Timelines** o la pagina del segnale - la timeline traccia il punteggio delle ultime due sessioni con i cambi di direzione segnati.
 
 ## Leggere il dashboard
 
 Due pattern:
 
-1. **Cerca i trigger attivi.** Le schede hot risalgono in cima nel layout predefinito.
-2. **Cerca i trigger sovrapposti.** Due o più segnali Advanced che scattano nella stessa direzione rappresentano la lettura a più alta confluenza sulla piattaforma. Aggiungi il composite per la lettura strutturale.
+1. **Cerca i trigger attivi.** Le schede scattate sono bordate e colorate nella griglia. Le schede mantengono un ordine fisso, quindi cerca il colore.
+2. **Cerca i trigger sovrapposti.** Due o più segnali Advanced che scattano nella stessa direzione rappresentano la lettura a più alta confluenza sulla piattaforma. La scheda **Confluence Matrix** mostra quali coppie tendono a concordare. Aggiungi il composite per la lettura strutturale.
 
 ## Ogni scheda ha una pagina di approfondimento
 
-Cliccando su una scheda si accede alla pagina dedicata del singolo segnale, con lo sparkline del punteggio, gli input, la cronologia dei trigger e la spiegazione "Come è costruito".
+Cliccando su una scheda si accede alla pagina dedicata del singolo segnale, con il punteggio e il suo storico, gli input, la spiegazione "How it's built" e la Event Timeline.
 
 ## Importante: il bias di trading conta
 
-Alcuni segnali Advanced sono di continuation, altri di mean-reversion. Trap Detection che scatta positivo **non** significa "vai long" - significa "fai fade del breakout fallito al ribasso". Controlla sempre il chip del bias di trading sulla scheda.
+Alcuni segnali Advanced sono di continuation, altri di mean-reversion. Trap Detection fa fade di una *rottura di prezzo fallita*, non di un breakout: un punteggio **positivo** significa che è fallita una rottura al ribasso (il fade è al rialzo - compra il breakdown fallito), un punteggio **negativo** che è fallita una rottura al rialzo (il fade è al ribasso) - l'immagine speculare di un segnale di continuation come Squeeze Setup. Controlla sempre che tipo di segnale stai leggendo - [Signals: Explained](/guides/signals-explained) elenca il bias di trading di ogni segnale.
 
 ## Vedi anche
 

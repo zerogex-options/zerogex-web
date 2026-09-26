@@ -6,55 +6,55 @@
 
 ## Ce qu'est le max pain
 
-Le max pain est le **strike à l'expiration** auquel la valeur totale en dollars de toutes les options ouvertes est minimale - c'est-à-dire le niveau où, globalement, les acheteurs d'options "perdent le plus".
+Le max pain est le **strike à l'expiration** auquel la valeur totale en dollars de toutes les options ouvertes est minimale - c'est-à-dire le niveau où, globalement, les acheteurs d'options "perdent le plus".
 
-L'argument classique veut que les market makers (les vendeurs naturels d'options aux particuliers) aient intérêt à pousser le spot vers le max pain. L'argument plus honnête est plus nuancé - voir [Max Pain Expliqué](/education/max-pain-explained).
+C'est une géométrie de paiement, pas une preuve de manipulation : il marque l'endroit où la plus grande part de la prime d'options expire sans valeur, et il ne mesure pas à lui seul le hedging des dealers. La vieille idée selon laquelle les market makers (les vendeurs naturels d'options aux clients) pousseraient activement le spot vers le max pain est bien plus nuancée qu'il n'y paraît - voir [Max Pain Expliqué](/education/max-pain-explained).
+
+Le max pain est calculé à partir de l'open interest, qui est compensé et publié par séance plutôt que mis à jour tick par tick en intraday - traitez-le donc comme une structure de contexte, et non comme une cible prédictive en temps réel.
 
 ## Ce que montre cette page
 
-### La tuile principale
+### Le bandeau de régime
 
-Le strike de max pain actuel pour la prochaine échéance majeure, avec la distance par rapport au spot.
+**Max Pain Regime** résume la position du spot par rapport au max pain : **Pin Risk Elevated** lorsque le spot est à moins de 0,4 % de celui-ci, sinon **Upside Magnet** (max pain au-dessus du spot) ou **Downside Magnet** (max pain en dessous), avec une courte lecture en dessous.
 
-### Le sélecteur d'échéance
+### Les cartes de synthèse
 
-Le max pain est calculé par échéance. Le sélecteur permet de choisir 0DTE, les échéances de cette semaine, de la semaine prochaine et la prochaine échéance mensuelle.
+- **Current Max Pain (All Expirations)** - le max pain de toute la chaîne : toutes les échéances listées réunies en une seule courbe de paiement, recalculée une fois par jour avant l'ouverture. Le badge à côté est le mouvement implicite - max pain moins spot, en points et en pourcentage.
+- **Nearest-Expiration Max Pain** - le max pain de l'échéance la plus proche uniquement. Comme il ne couvre qu'une seule échéance, il peut se situer à quelques points du chiffre de toute la chaîne.
+- **Underlying Price** - le dernier prix.
 
-### Le graphique
+### Notional Open Interest by Strike
 
-En abscisse, le strike ; en ordonnée, la somme des payouts des options in-the-money (call + put). Le point minimum de la courbe est le max pain. Le graphique montre également :
+Le notionnel des calls et des puts à chaque strike pour l'échéance choisie dans le menu **Expiration**, avec le max pain et le spot marqués. Le max pain est propre à chaque échéance : la ligne pointillée du max pain se déplace donc avec le menu. Les barres montrent où se trouve l'argent ; le max pain est l'endroit où les deux blocs s'équilibrent.
 
-- Le spot actuel.
-- Le call wall et le put wall issus du profil GEX.
-- Le gamma profile spécifique à l'échéance, en dessous.
+### Max Pain vs Underlying Price
 
-### La migration historique
-
-Un petit panneau montrant comment le max pain a évolué au cours des dernières séances pour l'échéance sélectionnée - utile pour repérer une dérive vers (ou à l'écart de) le spot.
+Le max pain sous forme de ligne au-dessus des bougies du sous-jacent, avec son propre menu de timeframe - utile pour repérer une dérive vers (ou à l'écart de) le spot. Attendez-vous à des paliers plutôt qu'à une dérive régulière : le max pain ne bouge que lorsque l'open interest est réécrit au moment de la compensation.
 
 ## Quand le max pain compte
 
 Le max pain est le plus fiable :
 
 - **Dans les 24 à 48 dernières heures avant une échéance significative.** Avant cela, la chaîne est trop active pour que le max pain soit stable.
-- **Pour le 0DTE sur SPX.** La chaîne 0DTE a une taille suffisante pour que la pression de pinning soit réelle.
-- **Quand l'aimant gamma s'aligne avec l'aimant du max pain.** Lorsque le strike de max pain coïncide aussi avec un strike à gamma élevé (un wall), la pression de pinning est réelle. Lorsqu'ils ne s'alignent pas, il s'agit surtout d'une coïncidence.
+- **Pour le 0DTE sur SPX.** La chaîne 0DTE est assez grande pour que des effets de pin *puissent* apparaître - même si le pinning reste probabiliste, pas mécanique.
+- **Quand l'aimant gamma s'aligne avec l'aimant du max pain.** Lorsque le strike de max pain est aussi un strike à gamma élevé (un wall), un pin est *plus probable*. Lorsqu'ils ne s'alignent pas, le max pain relève plus probablement de la coïncidence - mais aucune des deux lectures n'est garantie.
 
 ## Quand il ne compte pas
 
 - **Sur des marchés activement en tendance.** Les catalyseurs macro l'emportent sur le comportement de pin.
 - **Pour les échéances minces ou les weeklies peu liquides.** Il n'y a pas assez d'open interest pour créer une pression de pinning.
-- **Loin de l'expiration.** Le "temps avant l'expiration" est le facteur déterminant.
+- **Loin de l'expiration.** Le temps restant avant l'expiration est l'un des principaux facteurs - au début de la vie d'un contrat, la chaîne est trop active pour que le max pain se stabilise.
 
 ## Comment le lire aux côtés du gamma
 
 Deux lectures :
 
-1. **Max pain très proche d'un wall** ⇒ pin structurel vers la clôture. Le wall est le niveau ; le max pain est l'appât.
+1. **Max pain très proche d'un wall** ⇒ une pression de pin vers la clôture est plus probable. Le wall est le niveau structurel ; le max pain apporte du contexte, pas une garantie.
 2. **Max pain éloigné des walls et du spot** ⇒ ignorez le max pain. La pression structurelle se situe ailleurs.
 
 ## Voir aussi
 
-- [Max Pain Expliqué - Est-ce Vraiment Efficace ?](/education/max-pain-explained)
+- [Max Pain Expliqué - Est-ce Vraiment Efficace ?](/education/max-pain-explained)
 - [Positionnement des Dealers](/help/platform/dealer-positioning)
 - [Gamma Walls Expliqués](/education/gamma-walls-explained)

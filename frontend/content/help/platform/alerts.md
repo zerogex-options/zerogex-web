@@ -1,79 +1,78 @@
 # Signal Alerts
 
-*How signal triggers surface inside the platform, what fires versus what stays quiet, and how to use the Live Bulletin as your alert log.*
+*How signal triggers surface inside the platform, what fires versus what stays quiet, and how to look back at what fired.*
 
 ---
 
 ## Where alerts show up
 
-ZeroGEX delivers alerts **in-app**, not by SMS or push notification. There are three places they surface:
+ZeroGEX shows signal triggers **in-app**, not by email, SMS, or push notification. They surface in two places:
 
-1. **Live Bulletin** - every trigger lands here with full context. This is your audit log.
-2. **The signal card** - on the dashboard or signal-list page, a trigger lights the card and tints it in the score direction.
-3. **The composite panel** - when a trigger has high enough conviction, it shifts the composite visibly.
+1. **The signal card** - on the Advanced Signal Dashboard (Pro), a trigger outlines the card, tints it in the score's direction, and switches its status from *Stand by* to *Triggered*.
+2. **The Event Timeline** - on the dashboard's Event Timelines tab and at the bottom of each signal's page: the score's recent path, with direction flips marked.
 
-This is intentional. ZeroGEX is built to be **watched, not interrupted**. Push-style alerts cause overtrading; the in-app log lets you scan when you choose to.
+Triggers don't land in the Live Bulletin - that's a share-ready card of the current dealer-gamma snapshot - and they don't move the Composite Score.
+
+This is intentional. ZeroGEX is built to be **watched, not interrupted**. Push-style alerts cause overtrading; the in-app views let you scan when you choose to.
 
 ## What fires
 
-Only Advanced signal triggers and structural events fire:
+Only the eight Advanced signals fire, each when its trigger threshold is crossed (see the table below).
 
-- The eight Advanced signals when their trigger thresholds are crossed.
-- Gamma flip crosses.
-- Regime transitions (positive ↔ negative gamma at spot).
-- Wall migrations of more than 0.5% from the prior level.
-- Flow notables (block prints, sweep clusters, smart-money runs).
+Basic signals do **not** fire. They're continuous, advisory reads, and they carry no weight in the Composite Score. Their cards are outlined and marked *Triggered* past ±25, but that only highlights a strong read.
 
-Basic signals do **not** fire. They're continuous inputs to the composite.
+Structural changes - price crossing the gamma flip, a wall moving - aren't alerts either. You read those on the Gamma Chart and the Metrics pages.
 
 ## How a trigger lands
 
 When a trigger crosses:
 
-1. The signal score is logged at the cross.
-2. The Live Bulletin row is created with timestamp, direction, score, threshold, and context.
-3. The signal card on every page reflects the new state.
-4. The composite updates.
+1. The signal engine marks the signal as triggered on the cycle where its score crosses the threshold.
+2. The card on the Advanced Signal Dashboard switches to *Triggered* and takes the direction's color. The page checks for new values every few seconds, so there's no need to reload.
+3. The Composite Score is unaffected.
 
-If a signal stays in trigger state across multiple bars, only the **first** trigger event is logged in the bulletin. Subsequent bars are aggregated into the existing entry.
+A card stays *Triggered* while the score holds past the threshold, and goes back to *Stand by* when it drops back inside. There's no separate list of trigger events - the Event Timeline is the record.
 
 ## Trigger thresholds reference
 
 | Signal | Threshold |
 | --- | --- |
-| EOD Pressure | abs(score) ≥ 0.20 |
-| Gamma/VWAP Confluence | abs(score) ≥ 0.20 |
+| EOD Pressure | \|score\| ≥ 20 |
+| Gamma/VWAP Confluence | \|score\| ≥ 20 |
 | Market Pressure Index | loading ≥ 50 AND \|direction\| ≥ 0.20 |
 | Range Break Imminence | imminence ≥ 65 |
-| Squeeze Setup | abs(score) ≥ 0.25 |
-| Trap Detection | abs(score) ≥ 0.25 |
-| Volatility Expansion | abs(score) ≥ 0.25 |
-| 0DTE Position Imbalance | abs(score) ≥ 0.25 |
+| Squeeze Setup | \|score\| ≥ 25 |
+| Trap Detection | \|score\| ≥ 25 |
+| Volatility Expansion | \|score\| ≥ 25 |
+| 0DTE Position Imbalance | \|score\| ≥ 25 |
+
+Scores run from -100 to +100. See [Reading the -100 to +100 Score Line](/help/platform/score-line).
 
 ## Why some signals don't fire
 
-A signal can be at +0.7 and **not** be firing. Reasons:
+A signal can show a sizable score and not be firing, or sit at 0 when you expect a read. Reasons:
 
-- The signal's trigger threshold uses a composite (Market Pressure needs loading ≥ 50 too).
-- The signal is gated by a session window (EOD Pressure only active 14:30-15:45 ET).
-- The signal has a debounce - it must hold the threshold for some minimum number of bars.
+- Its trigger isn't the score alone: Market Pressure Index needs loading ≥ 50 as well as a clear direction, and Range Break Imminence fires on imminence ≥ 65.
+- It's gated by a session window: EOD Pressure only runs from 14:30 to 16:00 ET and is forced to 0 outside it, and 0DTE Position Imbalance reads *Inactive* when its window is closed.
 
-The signal card on the page will explain the current trigger state in plain English.
+The card shows its current state: *Triggered*, *Stand by*, or *Inactive* with the reason.
 
-## Using the bulletin as your alert log
+## Looking back at what fired
 
-The Live Bulletin is the **system of record** for triggers. If you went to lunch, you don't open every page to see what fired - you open the bulletin, filter by symbol and signal family, and read the day's events in chronological order.
+There's no trigger log. To see what a signal did while you were away, open the **Event Timelines** tab on the Advanced Signal Dashboard, or the Event Timeline at the bottom of the signal's page. It plots the score over the last two sessions with direction flips marked, next to how far the underlying moved over the following 30, 60 or 120 minutes, and you can zoom from 30 minutes out to the full range.
+
+For a graded look back at a whole session, the public **Signals - one day** scorecard (under Receipts in the sidebar) shows which signals flipped, how many of those flips could be graded, and how they resolved.
 
 ## Outbound alerts
 
-Alert delivery is **in-app only**: the Live Bulletin, the signal cards, and the composite panel. Signal Alerts are not sent by email, SMS, push notification, or webhook.
+Signal triggers are shown **in-app only** - on the signal cards and in the Event Timelines. They are not sent by email, SMS, push notification, or webhook.
 
-If you've seen channel toggles under [Account → Notifications](/account/notifications), those belong to the **Bot Trading** page, which is in beta. Don't build against them yet - the webhook channel stores your preference but doesn't deliver anything. To automate today, poll the [API](/help/platform/api-access) rather than wait on a push that won't arrive.
+The channel toggles under [Account → Notifications](/account/notifications) belong to **TradeWorkz™ Bot Trading** (Pro, beta), not to signal triggers: they cover entry and exit notifications from bots you follow. In-app (the bell on the Bot Trading page) and email deliver today; the webhook channel stores your preference but doesn't deliver anything yet, so don't build against it. To automate on signals today, poll the [API](/help/platform/api-access) (Pro) rather than wait on a push that won't arrive.
 
-Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want - specifics move it up.
+Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want - specifics move it up.
 
 ## See also
 
-- [Using the Live Bulletin](/help/platform/live-bulletin)
 - [How Signals Work End-to-End](/help/platform/signals-overview)
+- [Advanced Signal Dashboard](/help/platform/advanced-signals-dashboard)
 - [Email Preferences](/help/platform/email-preferences)

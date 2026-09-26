@@ -1,58 +1,44 @@
 # Technicals
 
-*Der Intraday-Technical-Snapshot - Preis, Kerzen, Volatilitätsanzeigen und wie die Levels sich mit den GEX-Wänden überlagern.*
+*Das Intraday-Kursbild, auf dem das Optionsbuch sitzt - VWAP, Opening Range, Volumenspitzen und Momentum-Divergenz.*
 
 ---
 
 ## Was diese Seite zeigt
 
-Die Technicals-Seite ist die **price-first**-Lesart des aktiven Symbols. Sie ist die einzige Seite, die **nicht** mit optionsbasierten Kennzahlen beginnt - sie startet mit Preisverlauf, Volatilität und dem klassischen technischen Kontext.
+Die Technicals-Seite ist die **price-first**-Lesart des aktiven Symbols. Sie ist die einzige Metrics-Seite, die den Preis liest statt der Optionskette - VWAP, die Opening Range, ungewöhnliches Volumen und Momentum im Abgleich mit dem Optionsflow.
 
 Das ist die Seite, die du öffnest, wenn du prüfen willst, was das Dealer-Positioning nahelegt im Verhältnis zu dem, was der Preis tatsächlich tut.
 
-## Der Candle-Chart
+## VWAP Analysis
 
-Der Hauptchart. Standard-OHLC-Kerzen mit Timeframe-Auswahl (1m / 5m / 15m / 1h / 1d). Overlays:
+Vier Kacheln - **Current Price**, **VWAP**, **Deviation** (wie weit der Preis prozentual vom VWAP entfernt ist) und **Position** (darüber oder darunter) - und ein Chart des Preises gegen den VWAP im Sitzungsverlauf. Der schattierte Kanal zwischen beiden wird breiter, je weiter sich der Preis vom VWAP entfernt: grün, wenn der Preis darüber liegt, rot, wenn darunter.
 
-- **VWAP** (verankert am Session-Open).
-- **Der gamma flip** als horizontale Linie.
-- **Call wall und put wall** als horizontale Linien.
-- **Max pain** als horizontale Linie (wo relevant).
+## Opening Range Breakout
 
-Der Zweck der Overlays ist es, dir zu ermöglichen, die Preisbewegung durch die Linse des Dealer-Positioning zu lesen, ohne zwischen Tabs wechseln zu müssen.
+Die Opening Range ist das Hoch und Tief der ersten 30 Minuten der regulären Sitzung (09:30-09:59 ET), für den Rest des Tages fest. Die Kacheln zeigen **ORB High** und **ORB Low** mit dem jeweiligen Abstand sowie die **ORB Range**; **Position Within Range** zeigt, wo der Preis dazwischen steht, und die **ORB breakout map** stellt den Preis gegen beide Linien dar.
 
-## Die Volatilitätsanzeigen
+## Unusual Volume Spikes
 
-Drei Anzeigen:
+Die 5-Minuten-Balken, deren Volumen mindestens eine Standardabweichung über ihrem eigenen jüngsten Durchschnitt lag - markiert als Moderate, High oder Extreme Spike -, dargestellt gegen den Kurs des Basiswerts. Jeder Balken ist von Rot (nur Abwärtsvolumen) über neutral bis Grün (nur Aufwärtsvolumen) eingefärbt. Fahre über einen Balken, um sein Volumen, das Vielfache des Durchschnitts und die Aufteilung des Kaufdrucks zu sehen.
 
-- **Implied Volatility** - aktuelle ATM-IV mit dem Rang gegenüber den letzten 60 Tagen.
-- **Realized Volatility** - realisierte Volatilität über ein kurzes Fenster mit einer Baseline über ein längeres Fenster.
-- **IV / RV-Verhältnis** - wenn das Verhältnis deutlich über 1 liegt, ist die Vol teuer (Prämie verkaufen); darunter ist die Vol günstig (Prämie kaufen).
+## Momentum Divergence Signals
 
-## Der Session-Streifen
-
-Ein kleiner Streifen, der zeigt:
-
-- Die aktuelle Session (Pre-market, Open, After-hours, Closed)
-- Den Session-Eröffnungskurs
-- Session-Hoch und -Tief
-- Den Abstand vom Spot zum VWAP
-- Die Zeit bis zum nächsten wichtigen Session-Ereignis (Open, Mittagspause, Close)
+Eine laufende Liste, neueste zuerst, die jede 5-Minuten-Kursbewegung mit dem Optionsflow und dem Auf- und Abwärtsvolumen dahinter abgleicht: **Bearish Divergence** (Preis steigt, während Puts gekauft werden), **Bullish Divergence** (Preis fällt, während Calls gekauft werden), **Bullish** oder **Bearish Confirmation**, wenn Preis und Optionsflow übereinstimmen, und **Weak Rally** oder **Weak Selloff**, wenn das Volumen gegen die Bewegung läuft.
 
 ## So liest du sie
 
-Drei Muster:
+Drei Muster - die Walls und der Flip kommen von Dealer Positioning oder vom Gamma Terminal:
 
-1. **Preis zwischen call wall und put wall gefangen** in positivem Gamma ⇒ Mean-Reversion innerhalb der Range. Die Technicals bestätigen die Range; die Dealer-Seite erklärt dir das Warum.
-2. **Preis bricht unter die put wall** in negativem Gamma bei steigender IV ⇒ Trendfortsetzung. Die Technicals zeigen den Bruch; die Dealer-Seite erklärt die Verstärkung.
-3. **VWAP und der gamma flip stapeln sich auf demselben Level** ⇒ struktureller Pivot. Reaktionen an diesem Level haben eine höhere Überzeugungskraft als an einem der beiden allein.
+1. **Preis zwischen Call Wall und Put Wall gefangen** in positivem Gamma ⇒ *Tendenz* zu Mean Reversion innerhalb der Range. Die Technicals bestätigen die Range; die Dealer-Seite legt das Warum nahe.
+2. **Preis bricht unter die Put Wall** in negativem Gamma bei steigender IV ⇒ eine Trendfortsetzung *wird wahrscheinlicher*. Die Technicals zeigen den Bruch; die Dealer-Seite erklärt die modellierte Verstärkung.
+3. **VWAP und Gamma Flip stapeln sich auf demselben Level** ⇒ ein struktureller Pivot, den man beobachten sollte. Reaktionen dort *können* mehr Überzeugungskraft haben als an einem der beiden allein.
 
-## Die Intraday-Tools-Ansicht
-
-Die Intraday-Tools-Seite ist ein gepaartes Layout - der Candle-Chart oben, ein komprimierter Dealer-Positioning-Header darunter - für Trader, die beide Ansichten nebeneinander sehen wollen.
+Wenn du Flip, Walls, Max Pain und VWAP direkt auf den Kerzen sehen willst, nutze das Gamma-Terminal-Chart - siehe [How to Read ZeroGEX Charts](/help/platform/reading-charts).
 
 ## Siehe auch
 
 - [Das Dashboard lesen](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
+- [How to Read ZeroGEX Charts](/help/platform/reading-charts)
 - [Wie man einen Gamma Flip liest](/education/how-to-read-a-gamma-flip)

@@ -1,6 +1,6 @@
 # Dealer Positioning
 
-*La superficie GEX completa - Net GEX en el spot, el gamma flip, call wall y put wall, y cómo leer la term structure.*
+*La superficie GEX completa - Net GEX en el spot, el gamma flip, call wall y put wall, y cómo leer la term structure.*
 
 ---
 
@@ -10,64 +10,91 @@ La página Dealer Positioning es el **mapa estructural** del libro de opciones. 
 
 Es la página más importante para entender el contexto, incluso si el trade en sí se ejecuta en otro lugar.
 
-## Los tiles principales
-
-### Net GEX en el spot
-
-El valor de dollar-gamma de todas las opciones abiertas, con signo según la posición de los dealers, evaluado **al precio spot actual**. Positivo ⇒ los dealers están net long gamma; negativo ⇒ los dealers están net short.
-
-El número que ves aquí se mide en el spot, no se suma a lo largo de toda la cadena - esto es importante porque el signo en el spot determina el comportamiento de los dealers en este momento, independientemente de lo que haga la curva acumulada en otros precios.
-
-### Gamma Flip
-
-El nivel de precio en el que la curva de gamma de los dealers cruza cero. El flip es la línea de régimen: por encima, el hedging es estabilizador; por debajo, es amplificador. El tile muestra tanto el nivel absoluto como la distancia porcentual respecto al spot.
-
-### Call Wall / Put Wall
-
-Los strikes con el mayor call gamma y put gamma. Tienden a actuar como resistencia y soporte intradía. Que el wall funcione realmente como un "muro" es más fiable en gamma positivo.
-
-### Max Pain
-
-El strike en el que el payout total de los compradores de opciones se minimiza. Más relevante en las últimas 24-48 horas de un vencimiento significativo.
-
-## El gráfico de perfil GEX
-
-El gráfico principal. Strike en el eje x; gamma de los dealers en el eje y. Tres cosas a leer:
-
-1. **Dónde cruza la curva el cero** - el gamma flip.
-2. **La mayor acumulación de call gamma** - el call wall.
-3. **La mayor acumulación de put gamma** - el put wall.
-
-El precio spot actual se muestra como una línea de referencia vertical. El rango visible está centrado en el spot.
-
-## El gráfico de walls
-
-Una vista separada y de mayor formato de la estructura de walls, con el call wall, put wall, max pain y gamma flip superpuestos. Útil cuando quieres ver cómo ha migrado la estructura desde la apertura.
-
-## El gráfico de term structure
-
-El perfil GEX **por vencimiento**. Apila 0DTE, los vencimientos de esta semana, los de la próxima y los mensuales en una sola vista. Útil para:
-
-- Detectar el **comportamiento de pin en 0DTE** aislado del libro más amplio.
-- Detectar si un wall está concentrado en mensuales (persistente) o en semanales (transitorio).
-
-## El heatmap de strike × DTE
-
-Un heatmap 2D del gamma de los dealers a lo largo de strike (filas) y DTE (columnas). Las celdas más "calientes" son los strikes que importan para los vencimientos más cercanos. El heatmap migra a lo largo del día a medida que llega flujo - observar su movimiento es informativo.
+El selector **GEX unit** del encabezado cambia todas las cifras en dólares de la página entre gamma por movimiento del 1% y por 1 punto. La exposición es la misma en ambos casos; solo cambia la unidad.
 
 ## El encabezado de régimen
 
-La parte superior de la página repite la etiqueta de régimen GEX (Positivo / Negativo / En transición) con la interpretación en una línea. Si la etiqueta de régimen y la relación spot/flip no coinciden, pasa el cursor sobre el régimen - el tooltip explica por qué (la etiqueta "En transición" aparece cuando el Net GEX en el spot está cerca de cero).
+La parte superior de la página resume el régimen en una línea:
+
+- **El badge** - **+ Gamma Regime** cuando el spot está por encima del gamma flip, **- Gamma Regime** cuando está por debajo, **~ Gamma Regime** cuando el spot está a menos de un 0,25% aproximado del flip, y **? Gamma Regime** cuando en este snapshot no se pudo resolver ningún flip.
+- **El gamma flip** - el nivel y cuántos puntos está el spot por encima o por debajo de él.
+- **El escenario** - **Positive GEX (pinned, low vol)**, **Negative GEX (trending, high vol)**, **At the Flip (neutral, transition)** o **Flip unresolved this snapshot**.
+- **Una etiqueta de postura** - **Aggressive**, **Balanced** o **Defensive** - construida a partir del signo del gamma en el spot, el IV rank y la vanna.
+- **Market Context** - la misma lectura en lenguaje llano, con selector entre **Intraday** y **Swing**.
+
+El régimen se lee únicamente a partir del spot frente al flip, no del signo del total de toda la cadena, así que el badge y el flip no pueden contradecirse.
+
+### Gamma Flip
+
+El nivel de precio en el que la curva modelada de gamma de los dealers cruza cero. Es la línea de régimen: por encima, el hedging modelado *tiende* a ser estabilizador; por debajo, amplificador. Como es el cruce por cero de un perfil modelado, puede desplazarse con la convención de signos, los vencimientos y la IV - interpreta un cruce como un cambio en la tendencia agregada de hedging del modelo, no como un paso garantizado de la reversión a la media a la tendencia.
+
+## Los tiles principales
+
+### Net GEX
+
+El valor de dollar-gamma de todas las opciones abiertas, con el signo de la convención de posicionamiento de dealers modelada por ZeroGEX (calls +, puts −), evaluado **al precio spot actual**. Positivo ⇒ los dealers están *según el modelo* net long gamma; negativo ⇒ *según el modelo* net short.
+
+> Es una estimación: el gamma de los dealers se modela con la convención tradicional de open interest (calls positivas, puts negativas). El inventario real de los dealers no es directamente observable a partir de los datos públicos de la cadena de opciones.
+
+El número que ves aquí se mide en el spot, no se suma a lo largo de toda la cadena - esto es importante porque el signo en el spot marca la tendencia de hedging modelada de los dealers en este momento, independientemente de lo que haga la curva acumulada en otros precios. El badge de al lado sitúa la lectura frente a los últimos 30 días (NORMAL, ELEVATED, EXTREME HIGH, etc.).
+
+### IV Rank
+
+Dónde se sitúa la volatilidad implícita en una escala de 0-100%, a partir del VIX (VXN para QQQ y NDX). 0% es históricamente tranquilo; 100% es miedo extremo.
+
+### Vanna Flow y Charm Decay
+
+La vanna neta y el charm neto sumados en todos los strikes, mostrados como etiqueta - **+Tailwind**, **-Headwind** o **Neutral** para la vanna; **Bullish**, **Bearish** o **Neutral** para el charm. Indican si los movimientos de la volatilidad implícita y el paso del tiempo, según el modelo, añaden o restan presión direccional de delta.
+
+El max pain y el pin strike no están en esta página - consulta [GEX Summary](/help/platform/gex-summary) y [Max Pain](/help/platform/max-pain).
+
+## El gráfico Gamma Exposure by Strike
+
+El gráfico principal. Strike en el eje x; el gamma modelado de los dealers por strike como barras - calls hacia arriba, puts hacia abajo - con la curva **GEX Profile** superpuesta en su propio eje. Tres cosas a leer:
+
+1. **Dónde cruza cero la curva GEX Profile** - el gamma flip.
+2. **La mayor acumulación de call gamma en el spot o por encima** - el call wall.
+3. **La mayor acumulación de put gamma en el spot o por debajo** - el put wall.
+
+Las líneas de referencia marcan el spot, el flip y los dos walls. Cada barra se apila por vencimiento - el más cercano (0DTE) más intenso, el más lejano más tenue - para que veas cuánto gamma de un strike vence pronto. El selector de vencimientos limita las barras, la curva, los walls y el flip a los vencimientos que elijas, y la elección se aplica también a los demás gráficos que comparten el filtro de vencimientos. El gráfico se abre con el zoom al mínimo, mostrando todos los strikes cargados; los botones de zoom X e Y y las barras de desplazamiento lo acotan.
+
+### Call Wall / Put Wall
+
+Los strikes con el mayor gamma del lado call y del lado put. A menudo actúan como fricción intradía - pero el tipo de opción por sí solo no fija la dirección; que un wall actúe como resistencia, soporte, imán o acelerador depende del signo modelado del gamma de los dealers y del flujo que lo rodea. El comportamiento de "muro" es más marcado cuando los dealers están, según el modelo, long gamma.
+
+## El gráfico Open Interest by Strike
+
+Los contratos detrás del gamma: el open interest en cada strike, calls por encima del eje y puts por debajo, apilado por vencimiento de la misma forma. Alterna entre **OI** (contratos abiertos) y **Notional** (strike × 100 × OI). Una gran acumulación de open interest lejos del spot puede tener poco gamma - por eso los walls se clasifican por gamma, no por open interest.
+
+## Los heatmaps de GEX
+
+Dos heatmaps muestran cómo se reparte el gamma en el tiempo y entre vencimientos:
+
+- **GEX Heatmap Timeseries** - el gamma neto de los dealers por strike a lo largo de la sesión, naranja para positivo y azul para negativo, con las velas del precio y el gamma flip dibujados encima. Es el mismo gráfico que la página independiente GEX Heatmap.
+- **GEX Heatmap · Strike × DTE** - el gamma neto de los dealers para los strikes con más gamma en la próxima semana (filas, el strike más alto arriba) frente a los días al vencimiento (columnas, hasta 7DTE). Verde es positivo, rojo negativo, y cuanto más intenso, mayor. Una corona marca el **GEX King** - el strike con el mayor gamma neto de los dealers en esos vencimientos cercanos.
+
+Útil para:
+
+- Detectar el **comportamiento de pin en 0DTE** aislado del libro más amplio.
+- Detectar si un wall está concentrado en el vencimiento más cercano (transitorio) o repartido en los posteriores (más persistente).
+
+Los heatmaps se actualizan durante la sesión a medida que el spot, el tiempo y la IV desplazan el gamma modelado - observar su movimiento es informativo.
+
+## El resto de la página
+
+- **Charm & Vanna Flows** - vanna y charm agregados en toda la cadena, una estimación del charm de fin de día para la presión de hedging hacia el cierre y una lectura del riesgo de expansión de volatilidad.
+- **Volatility Surface** - la volatilidad implícita por strike para vencimientos cercanos frente a vencimientos más lejanos.
+- **GEX Metrics Snapshot** - la tabla strike por strike: net GEX, vanna, charm, open interest y volumen, centrada en el spot y con el flip y los walls marcados. Fíltrala por vencimiento; el selector **Strikes** oculta los strikes sin open interest.
 
 ## Cómo leer el dealer positioning en tres pasos
 
-1. **¿Dónde está el spot respecto al flip?** Por encima ⇒ estabilización estructural; por debajo ⇒ amplificación estructural.
+1. **¿Dónde está el spot respecto al flip?** Por encima ⇒ tendencia modelada a la estabilización; por debajo ⇒ tendencia modelada a la amplificación.
 2. **¿Dónde están los walls?** El call wall es tu fricción al alza; el put wall es tu fricción a la baja.
-3. **¿Cómo migra el heatmap?** Si el call wall sube, los dealers se ven forzados a rolar más arriba - lectura estructural alcista.
+3. **¿Cómo migra el heatmap?** Si el call wall sube, el strike del call wall modelado (donde el gamma del lado call alcanza su máximo) está subiendo a medida que se desplazan el spot, el gamma, el tiempo y la IV - una inclinación estructural alcista. El wall puede moverse sin nuevo open interest: sigue el punto donde culmina la exposición modelada, no un OI intradía verificado.
 
 ## Por qué el cálculo del gamma flip de ZeroGEX es diferente
 
-El flip se calcula a partir de un **perfil de gamma de dealers con spot desplazado** - no de una aproximación basada en el Net GEX acumulado. Para la metodología y la comparación antes/después, consulta [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
+El flip se calcula a partir de un **perfil de gamma de dealers con spot desplazado** - no de una aproximación basada en el Net GEX acumulado. Para la metodología y la comparación antes/después, consulta [Gamma Flip Calculation: Before vs After](/guides/gamma-flip-calculation-before-vs-after).
 
 ## Lecturas comunes
 
@@ -78,7 +105,7 @@ El flip se calcula a partir de un **perfil de gamma de dealers con spot desplaza
 
 ## Ver también
 
-- [GEX Summary & Greeks](/help/platform/gex-summary)
+- [GEX Summary](/help/platform/gex-summary)
 - [Reading the Dashboard](/help/platform/dashboard)
 - [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained)
 - [Gamma Walls Explained](/education/gamma-walls-explained)

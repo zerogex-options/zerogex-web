@@ -1,6 +1,6 @@
 # Niveaux, accès et ce qui se débloque où
 
-*Une carte claire des pages publiques, Basic et Pro - et de ce qui change entre les niveaux sur chaque page.*
+*Une carte claire des pages publiques, Basic et Pro - et de ce qui change entre les niveaux sur chaque page.*
 
 ---
 
@@ -10,9 +10,9 @@ ZeroGEX propose trois niveaux de compte. Ils déterminent quelles données et qu
 
 | Niveau | Pour qui | Ce que vous obtenez |
 | --- | --- | --- |
-| Public | Consultation, formation | Le site vitrine, l'espace éducatif, les guides, les articles, les pages gratuites de niveaux gamma SPX / SPY / QQQ / NDX (décalées de 15 minutes) |
-| Basic | Traders intraday actifs | Dashboard, Live Bulletin, tous les Metrics, Strategy Builder, Live Options Quotes, tous les Basic Signals |
-| Pro | Opérateurs sérieux | Tout ce qui est inclus dans Basic + tous les Advanced Signals + Composite Score + Backtesting + accès API |
+| Public | Consultation, formation | Le site vitrine, l'espace éducatif, les guides, les articles, le Gamma Terminal et les pages gratuites de niveaux gamma SPX / SPY / QQQ / NDX / ES / NQ (décalées d'environ 15 minutes), ainsi que les pages Justificatifs |
+| Basic | Traders intraday actifs | Tableau de bord principal, Mon tableau de bord, le Gamma Terminal en direct, Bulletin en direct, tous les Indicateurs, Générateur de stratégies, Cotations d'options en direct, Premium Surface, tous les Basic Signals |
+| Pro | Opérateurs sérieux | Tout ce qui est inclus dans Basic + Trade Bias + Score composite + tous les Advanced Signals + TradeWorkz™ (bots et backtesting) + accès API |
 
 Consultez la répartition en direct sur la page [Pricing](/pricing). Basic mensuel inclut un essai gratuit de 7 jours ; toutes les autres formules bénéficient d'une garantie satisfait ou remboursé de 7 jours.
 
@@ -21,55 +21,64 @@ Consultez la répartition en direct sur la page [Pricing](/pricing). Basic mensu
 ### Public (aucun compte requis)
 
 - Le site marketing (landing, About, Education Hub, Articles, Guides)
-- Pages gratuites de niveaux gamma SPX, SPY, QQQ et NDX - décalées d'environ 15 minutes
+- Le [Gamma Terminal](/chart) - une vue SPY décalée d'environ 15 minutes
+- Pages gratuites de niveaux gamma SPX, SPY, QQQ, NDX, ES et NQ - décalées d'environ 15 minutes
+- Les pages Justificatifs - la prévision du jour et son cône intrajournalier, l'historique des prévisions, le bilan quotidien des signaux et la relecture de séance
+- Les pages Intégrations pour les plateformes de graphiques - les scripts TradingView et thinkorswim sont gratuits
 - Help Center, FAQ, Quick Starts
 - Confidentialité, Conditions
 
 ### Niveau Basic
 
-- **Dashboard** - métriques complètes en temps réel
-- **Live Bulletin** - un instantané dealer-gamma en direct et prêt à partager
-- **Toutes les pages Metrics** - Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
-- **Basic Signals** - Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
-- **Strategy Builder** - pricing d'options complet et P&L
-- **Live Options Quotes** - la chaîne d'options en direct
+- **Tableau de bord principal** - métriques complètes en temps réel
+- **Mon tableau de bord** - votre propre tableau, composé de widgets
+- **Gamma Terminal** - en direct, sur tous les symboles
+- **Bulletin en direct** - un instantané dealer-gamma en direct et prêt à partager
+- **Toutes les pages Indicateurs** - Positioning (Dealer Positioning, GEX Summary, GEX Strike Profile, GEX Heatmap, Gamma Shift, Pair Comparison, Max Pain), Options Flow (Flow Analysis, Hedging Flow, Forced Flow, Smart Money, Market Tide) et Market Context (Volatility, Technicals, Spread Monitor)
+- **Basic Signals** - Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
+- **Générateur de stratégies** - pricing d'options complet et P&L
+- **Cotations d'options en direct** - la chaîne d'options en direct
+- **Premium Surface** - la valeur temps des options et la distance au point mort, par strike et par échéance
 
 ### Niveau Pro
 
 - Tout ce qui est inclus dans Basic, plus :
-- **Composite Score** - la lecture combinée de tous les signaux
-- **Tous les Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
-- **Backtesting** - backtests historiques des signaux
-- **Accès API** - les mêmes données via `api.zerogex.io`
+- **Trade Bias** - le détail complet et le playbook derrière la carte Trade Bias du tableau de bord
+- **Score composite** - la page complète du MSI, la lecture de 0 à 100 du régime de marché (Basic voit le MSI lui-même sur le Tableau de bord principal)
+- **Tous les Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
+- **TradeWorkz™** (bêta) - Trading par bots, Backtesting et Analyse des motifs
+- **Accès API** - des clés API personnelles pour les mêmes données via `api.zerogex.io`, qui alimentent aussi les indicateurs NinjaTrader et Sierra Chart à mise à jour automatique
 
 ## Ce qui change entre niveaux sur une même page
 
 Certaines pages existent pour tous les niveaux mais se comportent différemment selon l'accès dont vous disposez :
 
-- Le **Dashboard** est entièrement renseigné pour Basic et Pro. Les utilisateurs Public voient un aperçu qui renvoie vers la page en direct après connexion.
-- La section **Signals** de la barre latérale est toujours visible - n'importe qui peut cliquer sur le nom d'un signal. Sans accès, le clic redirige vers la page [Pricing](/pricing) afin que vous voyiez ce qui le débloque.
+- Le **Gamma Terminal** est ouvert à tous. Les visiteurs voient une vue SPY décalée d'environ 15 minutes ; Basic et Pro le voient en direct, sur tous les symboles.
+- Le **Tableau de bord principal** nécessite Basic. Sans connexion, l'ouvrir vous mène à la place vers la page gratuite des niveaux gamma SPX. Avec Basic, la carte Regime Triggers, réservée à Pro, affiche un bouton **Unlock with Pro**.
+- **Mon tableau de bord** nécessite Basic. Avec Basic, les widgets réservés à Pro affichent une carte de mise à niveau à leur place.
+- La **barre latérale** suit votre formule. Connecté, les pages au-dessus de votre formule portent un badge cadenas (par exemple 🔒 Pro), et un clic sur l'une d'elles ouvre [Pricing](/pricing). Sans connexion, ou sans formule, le menu ne liste que ce que vous pouvez ouvrir.
 
 ## Comment passer à un niveau supérieur ou en changer
 
 Les modifications de compte se font à deux endroits :
 
-1. **[Account](/account)** - affiche votre niveau actuel, le statut de votre forfait actuel et le lien vers le portail de facturation.
-2. **[Stripe Billing Portal](/account)** - accessible depuis la page Account. Changez entre Basic et Pro, passez d'une facturation mensuelle, trimestrielle ou annuelle à une autre, modifiez le moyen de paiement, consultez les factures.
+1. **[Account](/account)** - affiche votre niveau actuel, le statut de votre forfait actuel et le lien vers le portail de facturation.
+2. **[Stripe Billing Portal](/account)** - accessible depuis la page Account. Changez entre Basic et Pro, passez d'une facturation mensuelle, trimestrielle ou annuelle à une autre, modifiez le moyen de paiement, consultez les factures.
 
 Pour un guide pas à pas, consultez [Billing & Stripe Portal](/help/platform/billing).
 
 ## Lorsque vous êtes en période d'essai
 
-L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Pendant l'essai, la page Account affiche une puce « Trial active - X days left ». À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez dans le portail de facturation avant l'expiration de l'essai - vous ne serez pas facturé.
+L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Environ 48 heures avant sa fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez avant l'expiration de l'essai - dans le portail de facturation ou via **Cancel subscription** sur la page Account - et vous ne serez pas facturé.
 
 Passer à Pro, ou à une formule trimestrielle ou annuelle, pendant l'essai met fin à l'essai et facture la nouvelle formule le jour même ; la page [Pricing](/pricing) affiche le montant exact et vous demande de confirmer, et ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.
 
 ## Que se passe-t-il si vous cliquez sur quelque chose auquel vous n'avez pas accès ?
 
-Vous êtes redirigé vers la page [Pricing](/pricing) plutôt que bloqué ou confronté à une erreur. La landing page de Pricing vous indique exactement quel niveau débloque la page que vous avez tenté d'ouvrir.
+Depuis le menu, une page verrouillée vous mène à [Pricing](/pricing) plutôt qu'à une erreur. Si vous ouvrez directement une page restreinte - depuis un favori ou un lien partagé -, vous verrez un écran de déverrouillage qui indique la formule qui l'inclut, avec un bouton pour obtenir cette formule. Sans connexion, il vous sera d'abord demandé de vous connecter.
 
 ## Voir aussi
 
-- [Pricing](/pricing) - la répartition en direct des niveaux et les formules
+- [Pricing](/pricing) - la répartition en direct des niveaux et les formules
 - [Account Settings](/help/platform/account)
 - [Billing & Stripe Portal](/help/platform/billing)

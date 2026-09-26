@@ -6,22 +6,24 @@
 
 ## Qué es el Live Bulletin
 
-El Live Bulletin es una **tarjeta en vivo de posicionamiento gamma**, para un subyacente a la vez. Elige un símbolo y trae la instantánea de posicionamiento actual directamente desde el backend y la presenta en una sola tarjeta: el régimen gamma, los niveles clave (gamma flip, call wall, put wall, max pain), el Net GEX, el ratio put/call, una banda de rango esperado (expected range) y un mapa de posicionamiento que sitúa el spot respecto a esos niveles.
+El Live Bulletin es una **tarjeta en vivo de posicionamiento gamma**, para un subyacente a la vez. Elige un símbolo y trae la instantánea de posicionamiento actual directamente desde el backend y la presenta en una sola tarjeta: el régimen gamma, los niveles clave (gamma flip, pin strike, call wall, put wall, max pain), el Net GEX, una banda de rango esperado (expected range) y un mapa de posicionamiento que sitúa el spot respecto a esos niveles.
 
 Está pensada para leerse de un vistazo - y para compartirse. Puedes ajustar el titular y el resumen, y luego descargar o copiar un PNG limpio de la tarjeta para tus notas, un chat de trading o redes sociales.
 
+El resumen **Lectura de Hoy** del Panel principal se basa en el mismo modelo - haz clic en él para abrir el boletín completo.
+
 ## Qué contiene la tarjeta
 
-- **Insignia de régimen gamma** - positivo (dealers largos en gamma; mercado anclado, baja volatilidad), negativo (dealers cortos en gamma; mercado en tendencia, alta volatilidad), en el flip (transición), o sin resolver cuando la cadena es demasiado fina para determinar un flip con fiabilidad.
+- **Insignia de régimen gamma** - positivo (dealers largos en gamma; mercado anclado, baja volatilidad), negativo (dealers cortos en gamma; mercado en tendencia, alta volatilidad), en el flip (transición), o sin resolver cuando el flip no puede determinarse a partir de la instantánea actual.
 - **Titular + resumen** - una lectura en lenguaje claro generada automáticamente a partir de los números en vivo: la postura de los dealers, dónde se sitúa el spot respecto al flip, el corredor entre los walls y qué implica el régimen para la cinta (tape). Editable - ver más abajo.
-- **Spot** - el precio del subyacente y su variación en el día. Cuando un índice cash está fuera de su sesión (p. ej. el SPX durante la noche), el spot es **implícito desde los futuros** (ES/NQ) y se señala claramente como tal - nunca se muestra como una cotización cash en vivo.
-- **Cuadrícula de métricas** - Gamma Flip, Net GEX, ratio Put/Call, Call Wall, Put Wall y Max Pain.
-- **Expected Range** - una banda de movimiento implícito de 1σ (~68 %) para el horizonte elegido, derivada del VIX (SPX/SPY) o del VXN (QQQ/NDX), con una nota sobre dónde se sitúan los walls de los dealers respecto a esa banda.
-- **Mapa de posicionamiento** - put wall, gamma flip, spot y call wall colocados en un mismo eje de precios, con la banda de rango esperado sombreada, para ver de un vistazo dónde está el precio entre los imanes.
+- **Spot** - el precio del subyacente y su variación en el día. Cuando un índice cash está fuera de su sesión (p. ej. el SPX durante la noche), el spot es **implícito desde los futuros** (ES/NQ) y se señala claramente como tal - nunca se muestra como una cotización cash en vivo. La señal indica el contrato de futuros desde el que se proyectó el spot.
+- **Cuadrícula de métricas** - Gamma Flip, Net GEX, Pin Strike, Call Wall, Put Wall y Max Pain.
+- **Expected Range** - una banda de movimiento implícito de 1σ (~68 %) para el horizonte elegido, derivada del VIX (SPX, SPY, ES) o del VXN (QQQ, NDX, NQ), con una nota sobre dónde se sitúan los walls de los dealers respecto a esa banda.
+- **Mapa de posicionamiento** - put wall, gamma flip, spot, call wall, max pain y pin strike colocados en un mismo eje de precios, con la banda de rango esperado sombreada, para ver de un vistazo dónde está el precio entre los imanes.
 
 ## Controles
 
-- **Subyacente** - SPX, SPY, QQQ o NDX.
+- **Subyacente** - SPX, SPY, QQQ, NDX, ES o NQ. El boletín tiene su propio selector, independiente del selector de símbolos de la cabecera.
 - **Horizonte del rango esperado** - Daily, Weekly o Monthly. «Daily» es una sesión de trading de volatilidad implícita (el Expected Daily Range), no un día natural; Weekly son 5 sesiones, Monthly ~21. Si el índice de volatilidad implícita no está disponible, la banda se oculta en lugar de estimarse.
 - **Titular / Resumen** - el texto generado automáticamente es un punto de partida; edita cualquiera de los dos campos y la tarjeta se actualiza en vivo. «Reset to auto» restaura el texto generado.
 - **Download PNG / Copy to clipboard** - exporta la tarjeta como una imagen lista para compartir (la tarjeta lleva una marca de agua zerogex.io).
@@ -38,15 +40,11 @@ La tarjeta es **en vivo**. Consulta el backend a lo largo de la sesión - el sp
 
 ## Qué no es
 
-El Live Bulletin **no es un feed de señales de trading**. Es una instantánea de posicionamiento/contexto - te muestra *dónde* se sitúa el gamma de los dealers y qué régimen implica, no *cuándo* actuar. Para las señales y los disparos, usa los dashboards Basic y Advanced Signals y las [Signal Alerts](/help/platform/alerts); para una lectura direccional, consulta el Trade Bias y el [Composite Score](/help/platform/composite-score).
+El Live Bulletin **no es un feed de señales de trading**. Es una instantánea de posicionamiento/contexto - te muestra *dónde* se sitúa el gamma de los dealers y qué régimen implica, no *cuándo* actuar. Para las señales y los disparos, usa los dashboards Basic y Advanced Signals y las [Signal Alerts](/help/platform/alerts); para una lectura direccional, consulta el Trade Bias, y para la lectura del régimen, el [Composite Score](/help/platform/composite-score).
 
 ## Visibilidad por nivel
 
 El Live Bulletin es una función **Basic** - incluida en Basic y Pro. Las señales Advanced hacia las que te orienta están reservadas por separado al nivel Pro.
-
-## El espejo de administración
-
-Existe una versión de administración sin marca de agua de la misma tarjeta, empleada para capturas de pantalla y demostraciones. Se trata de una ruta exclusivamente interna.
 
 ## Ver también
 

@@ -6,55 +6,55 @@
 
 ## Qué es el max pain
 
-El max pain es el **strike al vencimiento** en el que el valor total en dólares de todas las opciones abiertas es mínimo - es decir, el nivel donde, en conjunto, los compradores de opciones "pierden más".
+El max pain es el **strike al vencimiento** en el que el valor total en dólares de todas las opciones abiertas es mínimo - es decir, el nivel donde, en conjunto, los compradores de opciones "pierden más".
 
-El argumento clásico es que los market makers (los vendedores naturales de opciones al retail) tienen incentivo para empujar el spot hacia el max pain. El argumento más honesto es más matizado - ver [Max Pain Explicado](/education/max-pain-explained).
+Es geometría de pagos, no una prueba de manipulación: marca dónde expira sin valor la mayor parte de la prima de opciones, y por sí solo no mide el hedging de los dealers. La vieja historia de que los market makers (los vendedores naturales de opciones a los clientes) empujan activamente el spot hacia el max pain es mucho más matizada de lo que parece - ver [Max Pain Explicado](/education/max-pain-explained).
+
+El max pain se calcula a partir del open interest, que se liquida y se publica por sesión en lugar de actualizarse tick a tick durante el día - así que trátalo como estructura de contexto, no como un objetivo predictivo en vivo.
 
 ## Qué muestra esta página
 
-### El panel principal
+### El banner de régimen
 
-El strike de max pain actual para el próximo vencimiento relevante, con la distancia respecto al spot.
+**Max Pain Regime** resume dónde está el spot respecto al max pain: **Pin Risk Elevated** cuando el spot está a menos de un 0,4% de él; si no, **Upside Magnet** (max pain por encima del spot) o **Downside Magnet** (max pain por debajo), con una breve lectura debajo.
 
-### El selector de vencimiento
+### Las tarjetas del snapshot
 
-El max pain se calcula por vencimiento. El selector permite elegir 0DTE, los vencimientos de esta semana, de la próxima semana y el próximo mensual.
+- **Current Max Pain (All Expirations)** - el max pain de toda la cadena: todos los vencimientos listados reunidos en una sola curva de pagos, recalculada una vez al día antes de la apertura. El chip de al lado es el movimiento implícito - max pain menos spot, en puntos y en porcentaje.
+- **Nearest-Expiration Max Pain** - el max pain solo del vencimiento más cercano. Como cubre un único vencimiento, puede quedar a unos puntos de la cifra de toda la cadena.
+- **Underlying Price** - el último precio.
 
-### El gráfico
+### Notional Open Interest by Strike
 
-En el eje x, el strike; en el eje y, la suma del payout de las opciones in-the-money (call + put). El punto mínimo de la curva es el max pain. El gráfico también muestra:
+El notional de calls y puts en cada strike para el vencimiento que elijas en el menú **Expiration**, con el max pain y el spot marcados. El max pain es por vencimiento, así que la línea discontinua del max pain se mueve con el menú. Las barras muestran dónde está el dinero; el max pain está donde las dos acumulaciones se equilibran.
 
-- El spot actual.
-- El call wall y el put wall del perfil GEX.
-- El gamma profile específico del vencimiento, debajo.
+### Max Pain vs Underlying Price
 
-### La migración histórica
-
-Un pequeño panel que muestra cómo se ha movido el max pain en las últimas sesiones para el vencimiento seleccionado - útil para detectar una deriva hacia (o alejándose de) el spot.
+El max pain como línea sobre las velas del subyacente, con su propio menú de timeframe - útil para detectar una deriva hacia (o alejándose de) el spot. Espera escalones en lugar de una deriva suave: el max pain solo se mueve cuando el open interest se reescribe en la liquidación.
 
 ## Cuándo importa el max pain
 
 El max pain es más fiable:
 
 - **En las últimas 24-48 horas antes de un vencimiento significativo.** Antes de eso, la cadena está demasiado activa como para que el max pain sea estable.
-- **Para 0DTE en SPX.** La cadena 0DTE tiene tamaño suficiente para que la presión de pinning sea real.
-- **Cuando el imán gamma se alinea con el imán del max pain.** Cuando el strike de max pain coincide también con un strike de gamma elevada (un wall), la presión de pinning es real. Cuando no se alinean, es en su mayoría coincidencia.
+- **Para 0DTE en SPX.** La cadena 0DTE es lo bastante grande como para que *puedan* aparecer efectos de pin - aunque el pinning es probabilístico, no mecánico.
+- **Cuando el imán gamma se alinea con el imán del max pain.** Cuando el strike de max pain es también un strike de gamma elevada (un wall), un pin es *más probable*. Cuando no se alinean, el max pain es más probablemente una coincidencia - pero ninguna de las dos lecturas está garantizada.
 
 ## Cuándo no importa
 
 - **En mercados con tendencia activa.** Los catalizadores macro anulan el comportamiento de pin.
 - **En vencimientos pequeños o weeklies ilíquidos.** No hay suficiente open interest para generar presión de pinning.
-- **Lejos del vencimiento.** El "tiempo hasta el vencimiento" es el factor determinante.
+- **Lejos del vencimiento.** El tiempo hasta el vencimiento es uno de los factores principales - al principio de la vida de un contrato, la cadena está demasiado activa para que el max pain se asiente.
 
 ## Cómo leerlo junto al gamma
 
 Dos lecturas:
 
-1. **Max pain muy cerca de un wall** ⇒ pin estructural hacia el cierre. El wall es el nivel; el max pain es el cebo.
+1. **Max pain muy cerca de un wall** ⇒ la presión de pin hacia el cierre es más probable. El wall es el nivel estructural; el max pain aporta contexto, no una garantía.
 2. **Max pain lejos de los walls y del spot** ⇒ ignora el max pain. La presión estructural está en otro lugar.
 
 ## Ver también
 
-- [Max Pain Explicado - ¿Funciona Realmente?](/education/max-pain-explained)
+- [Max Pain Explicado - ¿Funciona Realmente?](/education/max-pain-explained)
 - [Posicionamiento de los Dealers](/help/platform/dealer-positioning)
 - [Gamma Walls Explicados](/education/gamma-walls-explained)
