@@ -96,6 +96,7 @@ import {
   classifyChurnEvent,
   buildAlertLatchMessage,
   parseAlertLatchEventId,
+  parseChurnSubscriptionId,
   buildChurnAlert,
   selectBatch,
   shouldAlertOnChurn,
@@ -406,6 +407,26 @@ async function main(): Promise<void> {
   await run(db, batch, to);
 }
 
+// When the subscription on a churn row began: the first Stripe event the webhook
+// recorded for it. The table is missing only on a database the webhook never
+// ran against, and then tenure counts from the account, as it always did.
+function subscriptionStartLookup(db: DatabaseSync): (auditMessage: string) => string | null {
+  const hasWebhookEvents = Boolean(
+    db
+      .prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'stripe_webhook_events'`)
+      .get(),
+  );
+  const firstEvent = hasWebhookEvents
+    ? db.prepare(`SELECT MIN(created) AS first FROM stripe_webhook_events WHERE subscription_id = ?`)
+    : null;
+  return (auditMessage) => {
+    const subscriptionId = parseChurnSubscriptionId(auditMessage);
+    if (!subscriptionId || !firstEvent) return null;
+    const found = firstEvent.get(subscriptionId) as { first: number | null } | undefined;
+    return found?.first != null ? new Date(found.first * 1000).toISOString() : null;
+  };
+}
+
 async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Promise<void> {
   const insertLatch = args.dryRun
     ? null
@@ -443,6 +464,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
 
   let sent = 0;
   let failed = 0;
+  const subscriptionStartedAt = subscriptionStartLookup(db);
 
   for (const row of batch) {
     const kind = classifyChurnEvent(row.type);
@@ -457,6 +479,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
         auditMessage: row.message,
         churnedAtIso: row.created_at,
         accountCreatedAtIso: row.account_created_at,
+        subscriptionStartedAtIso: subscriptionStartedAt(row.message),
         tier: row.tier,
         // Only a pending cancel has a live period end to report; the lapse path
         // NULLs it in the same transaction that drops the tier, so reading it
@@ -541,6 +564,7 @@ async function sendPreview(to: string): Promise<void> {
         'cancel_comment="I want data for FUTURES, ES, MES, NASDAQ"',
       churnedAtIso: churnedAt,
       accountCreatedAtIso: new Date(Date.now() - 87 * 86_400_000).toISOString(),
+      subscriptionStartedAtIso: new Date(Date.now() - 34 * 86_400_000).toISOString(),
       tier: 'pro',
       currentPeriodEndIso: new Date(Date.now() + 26 * 86_400_000).toISOString(),
     },
