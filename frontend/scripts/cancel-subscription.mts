@@ -29,9 +29,21 @@
 //      subscription mirror + grace/recovery latches cleared, subscription_lapsed=1
 //      — the SAME columns clearSubscriptionFromUser writes in the webhook
 //      (app/api/webhooks/stripe/route.ts). The webhook reconciles to identical
-//      values when the deleted event lands (idempotent), and it — not this script
-//      — is what revokes any personal API keys on the pro->public drop.
+//      values when the deleted event lands (idempotent).
 //   4. Record an audit_events row (type billing_subscription_canceled).
+//   5. Revoke the member's personal API keys. The webhook cannot be relied on for
+//      this: it revokes only on a drop OUT of an API tier, judged against the
+//      row as it finds it, and step 3 often lands before
+//      customer.subscription.deleted does. It then sees public -> public and
+//      leaves the key live. Revoking here closes that race; the webhook's later
+//      check is a harmless no-op. Same audit types as the webhook
+//      (api_key_auto_revoked / api_key_auto_revoke_error /
+//      api_key_revoke_skipped_unconfigured), so diagnose-user reads alike.
+//
+// With the subscription already gone (no id on file), a --yes run still revokes
+// any key left on an account whose tier has no API access, so re-running this
+// finishes a cancel whose keys survived. An account whose tier still includes the
+// API (a partner or founding grant) is never touched.
 //
 // The account is KEPT (login, email, Stripe customer, history all survive). To
 // remove the account entirely, cancel here first, then `make delete-user`.
@@ -130,10 +142,12 @@ Options:
                       Without it, those are refused (use set-cancellation for a
                       graceful at-period-end cancel that keeps access).
       --dry-run       Print the plan; no Stripe or DB writes.
-  -y, --yes           Apply: cancel in Stripe, mirror the row, write an audit row.
+  -y, --yes           Apply: cancel in Stripe, mirror the row, write an audit row,
+                      and revoke the member's API keys.
   -h, --help          Show this help.
 
-The account itself is kept. Sends NO email. Reads STRIPE_SECRET_KEY from env or
+The account itself is kept. Sends NO email. Reads STRIPE_SECRET_KEY and the key
+service credentials (ZEROGEX_API_TOKEN, ZEROGEX_ADMIN_TOKEN) from env or
 .env.local; set AUTH_DB_PATH to override the default DB path (data/auth.db).`);
 }
 
@@ -172,6 +186,23 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
 
 function execSqlite(dbPath: string, sql: string) {
   runSqlite(dbPath, sql);
+}
+
+function insertAudit(dbPath: string, row: { type: string; userId: string; email: string; message: string }) {
+  execSqlite(
+    dbPath,
+    `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+     VALUES (
+       '${escapeSqlLiteral(`audit_${crypto.randomBytes(12).toString('hex')}`)}',
+       '${escapeSqlLiteral(row.type)}',
+       '${escapeSqlLiteral(row.userId)}',
+       NULL,
+       '${escapeSqlLiteral(row.email)}',
+       'manual-script',
+       '${escapeSqlLiteral(row.message)}',
+       '${escapeSqlLiteral(nowIso())}'
+     );`,
+  );
 }
 
 function nowIso() {
@@ -227,6 +258,68 @@ const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 function envOrLocal(key: string): string | undefined {
   return process.env[key] || envLocal[key] || undefined;
+}
+
+// core/apiKeyAdmin.ts reads its credentials from process.env only, and this
+// script keeps .env.local in its own map. Seed the keys it needs BEFORE the
+// dynamic import: the module captures ZEROGEX_API_BASE_URL at load time.
+// (Same approach as scripts/expire-partner-grants.mjs.)
+for (const key of ['ZEROGEX_API_BASE_URL', 'ZEROGEX_API_TOKEN', 'ZEROGEX_API_KEY', 'ZEROGEX_ADMIN_TOKEN']) {
+  if (!process.env[key] && envLocal[key]) process.env[key] = envLocal[key];
+}
+const { isApiKeyAdminConfigured, revokeAllApiKeys } = await import('../core/apiKeyAdmin.ts');
+const { isApiKeyEligibleTier, normalizeTier } = await import('../core/auth.ts');
+
+type KeyRevocation =
+  | { status: 'revoked'; revoked: number }
+  | { status: 'unconfigured' }
+  | { status: 'failed'; error: string };
+
+// Never throws: by the time this runs the cancel is done, and a key-service
+// failure must not hide that. reportKeyRevocation says what happened.
+async function revokeKeys(email: string): Promise<KeyRevocation> {
+  if (!isApiKeyAdminConfigured()) return { status: 'unconfigured' };
+  try {
+    return { status: 'revoked', revoked: await revokeAllApiKeys(email) };
+  } catch (err) {
+    return { status: 'failed', error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// Prints the outcome and records it under the webhook's own audit types.
+// Returns false when a key may still be live, so the run can exit non-zero.
+function reportKeyRevocation(
+  target: { id: string; email: string },
+  context: string,
+  result: KeyRevocation,
+): boolean {
+  if (result.status === 'revoked') {
+    if (result.revoked === 0) {
+      console.log('API keys:           none were active');
+      return true;
+    }
+    console.log(`API keys:           revoked ${result.revoked}`);
+    insertAudit(dbPath, {
+      type: 'api_key_auto_revoked',
+      userId: target.id,
+      email: target.email,
+      message: `Revoked ${result.revoked} API key(s): ${context}`,
+    });
+    return true;
+  }
+  const why =
+    result.status === 'unconfigured'
+      ? 'key administration is not configured (ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN)'
+      : result.error;
+  console.error(`\nWARNING: API keys NOT revoked: ${why}.`);
+  console.error('Any key this member holds still works. Fix that, then re-run the same command with YES=1.');
+  insertAudit(dbPath, {
+    type: result.status === 'unconfigured' ? 'api_key_revoke_skipped_unconfigured' : 'api_key_auto_revoke_error',
+    userId: target.id,
+    email: target.email,
+    message: `API keys NOT revoked (${context}): ${why}`,
+  });
+  return false;
 }
 
 const STRIPE_SECRET_KEY = envOrLocal('STRIPE_SECRET_KEY');
@@ -302,16 +395,40 @@ if (!user.stripe_subscription_id) {
     process.exit(1);
   }
 
+  // A tier without API access should hold no key, and one can survive an earlier
+  // cancel whose webhook saw no tier drop (step 5 in the header). A tier that
+  // includes the API (a partner or founding grant) is left alone.
+  const tierNow = normalizeTier(user.tier);
+  const revokeHere = !isApiKeyEligibleTier(tierNow);
+
   console.log(`Auth DB:            ${dbPath}`);
   console.log(`User:               ${user.email} (${user.id})`);
   console.log(`Subscription:       none on file (status=${user.subscription_status ?? 'none'})`);
   console.log(`Stripe customer:    ${user.stripe_customer_id}`);
   console.log(`Open invoices:      ${strays.length}`);
 
+  // Keys first when applying: they don't depend on the invoices, and a void that
+  // fails below must not leave a live key behind.
+  let keysOk = true;
+  if (!revokeHere) {
+    console.log(`API keys:           left alone (tier ${tierNow} includes API access)`);
+  } else if (cliArgs.yes) {
+    keysOk = reportKeyRevocation(
+      user,
+      `cancel-subscription found them on ${tierNow}, which has no API access`,
+      await revokeKeys(user.email),
+    );
+  } else {
+    console.log(`API keys:           any still active are revoked with YES=1 (tier ${tierNow} has no API access)`);
+  }
+
   if (strays.length === 0) {
     console.log('\nNothing to cancel and no open invoice to void.');
+    if (revokeHere && !cliArgs.yes) {
+      console.log('Re-run with YES=1 to revoke any API key still active on this account.');
+    }
     console.log('If you want to remove the account itself, use: make delete-user EMAIL=' + user.email);
-    process.exit(0);
+    process.exit(keysOk ? 0 : 1);
   }
 
   const nowUnix = Math.floor(Date.now() / 1000);
@@ -339,11 +456,13 @@ if (!user.stripe_subscription_id) {
     console.log('\nNothing to cancel — the subscription is already gone.');
     console.log('To retire the open invoice(s) above so nobody can pay for nothing:');
     console.log(`  make cancel-subscription EMAIL=${user.email} VOID_INVOICE=1 YES=1`);
-    process.exit(0);
+    process.exit(keysOk ? 0 : 1);
   }
 
   if (!cliArgs.yes) {
-    console.log('\nDRY RUN — nothing was changed. Re-run with YES=1 to void. Voiding is final.');
+    console.log(
+      `\nDRY RUN — nothing was changed. Re-run with YES=1 to void${revokeHere ? ' and revoke any API key' : ''}. Voiding is final.`,
+    );
     process.exit(0);
   }
 
@@ -382,7 +501,7 @@ if (!user.stripe_subscription_id) {
   console.log(
     `\nDone. Voided ${strayVoided.length} invoice(s)${strayFailed.length ? `, ${strayFailed.length} failed` : ''}.`,
   );
-  process.exit(strayFailed.length > 0 ? 1 : 0);
+  process.exit(strayFailed.length > 0 || !keysOk ? 1 : 0);
 }
 
 let subscription: Stripe.Subscription;
@@ -432,6 +551,7 @@ const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString(
 console.log(`Auth DB:            ${dbPath}`);
 console.log(`Customer:           ${user.email} (id=${user.id})`);
 console.log(`Tier (DB):          ${user.tier ?? '—'}  →  public`);
+console.log('API keys:           any active key is revoked (public has no API access)');
 console.log(`Subscription:       ${subscription.id}`);
 console.log(`Status:             ${status}${periodEndIso ? ` (current period end ${periodEndIso})` : ''}`);
 console.log(`Open invoices:      ${openInvoices.length}`);
@@ -553,10 +673,20 @@ if (cliArgs.voidInvoice) {
     voided.length ? `Voided invoice(s): ${voided.join(', ')} — no further charge attempts.` : 'No open invoices to void.',
   );
 }
-console.log('The Stripe webhook will reconcile the row and revoke any API keys on the pro→public drop.');
+
+// 5. Revoke the member's API keys here rather than leaving it to the webhook,
+//    which judges the tier drop against the row that step 3 has often already
+//    set to public (see the header).
+const keysOk = reportKeyRevocation(
+  user,
+  `cancel-subscription dropped the account from ${normalizeTier(user.tier)} to public`,
+  await revokeKeys(user.email),
+);
+console.log('The Stripe webhook will reconcile the row to the same values.');
 
 if (voidFailures.length) {
   console.error(`\nWARNING: these invoices could NOT be voided and may still retry: ${voidFailures.join(', ')}`);
   console.error('Void them by hand in the Stripe Dashboard to stop the attempts.');
   process.exit(1);
 }
+if (!keysOk) process.exit(1);
