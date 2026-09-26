@@ -2947,18 +2947,24 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
 
   const subject = `I extended your ZeroGEX free trial to ${trialDays} days`;
 
+  // Every recipient has never started a trial and never entered a card, so the
+  // copy must not read as if either were already done. It used to say "I've set
+  // your trial to a full 30 days" and "your card is on file", and a recipient
+  // signed in, found no trial on the account, and wrote in asking where it was.
+  // Say plainly that nothing runs until they activate, and that the card is
+  // added at that step.
   const text = [
     'Hello,',
     '',
     "It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial\u00a0- no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.",
     '',
-    `So I've set your trial to a full ${trialDays} days.`,
+    `So I've extended your free trial to a full ${trialDays} days. It hasn't started yet\u00a0- the clock starts only when you activate it below.`,
     '',
     'Same full access\u00a0- every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz bots with their fully public trade audit\u00a0- just a lot more room to see whether it earns a place in your routine.',
     '',
     'How the trial works, so nothing catches you off guard:',
     `  • ${trialDays} days of full access, starting the moment you activate.`,
-    `  • Your card is on file but is NOT charged until day ${chargeDay}.`,
+    `  • You add a card when you activate, but it is NOT charged until day ${chargeDay}.`,
     '  • We email you 48 hours before that first charge\u00a0- it is never a surprise.',
     "  • If it's not for you, one click in the billing portal cancels it and you won't be charged a cent.",
     '',
@@ -2981,12 +2987,12 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
       <p>Hello,</p>
       <p>It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial\u00a0- no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.</p>
-      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0; font-size: 17px;">So I've set your trial to a full <strong>${trialDays} days</strong>.</p>
+      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0; font-size: 17px;">So I've extended your free trial to a full <strong>${trialDays} days</strong>.<br><span style="font-size: 15px;">It hasn't started yet\u00a0- the clock starts only when you activate it below.</span></p>
       <p>Same full access\u00a0- every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz&trade; bots with their fully public trade audit\u00a0- just a lot more room to see whether it earns a place in your routine.</p>
       <p style="margin: 16px 0 4px;">How the trial works, so nothing catches you off guard:</p>
       <ul style="padding-left: 20px; margin: 4px 0 16px;">
         <li style="margin: 0 0 8px;"><strong>${trialDays} days</strong> of full access, starting the moment you activate.</li>
-        <li style="margin: 0 0 8px;">Your card is on file but is <strong>not charged until day ${chargeDay}</strong>.</li>
+        <li style="margin: 0 0 8px;">You add a card when you activate, but it is <strong>not charged until day ${chargeDay}</strong>.</li>
         <li style="margin: 0 0 8px;">We email you <strong>48 hours before</strong> that first charge\u00a0- it is never a surprise.</li>
         <li style="margin: 0 0 8px;">If it's not for you, <strong>one click</strong> in the billing portal cancels it and you won't be charged a cent.</li>
       </ul>

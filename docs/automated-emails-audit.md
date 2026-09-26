@@ -400,6 +400,10 @@ auth/transactional and TradeWorkz alerts.
 - Second-touch for cold signups; the *offer* is a longer trial (granted server-side at
   `?reactivate=1`), no discount. Carries a real marketing unsubscribe footer **and** the
   one-click `List-Unsubscribe` / `List-Unsubscribe-Post` headers (RFC 8058).
+- Says plainly that the trial hasn't started and that a card is added when they
+  activate. Recipients have never started a trial or entered a card, so copy that reads
+  as already done ("I've set your trial", "your card is on file") sends them looking for
+  a trial that isn't on their account.
 
 ### 3.5 Retention / churn
 
