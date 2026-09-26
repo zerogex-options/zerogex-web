@@ -94,7 +94,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 | `reactivation_email_sent_at` | ~3-week extended-trial nudge | nudge sent | **never** |
 | `verify_reminder_email_sent_at` | "finish verifying" nudge | nudge sent | **never** |
 | `founding_final_call_email_sent_at` | Founding final-call | email sent | **never** (deadline crosses once) |
-| `cancel_ack_email_sent_at` | Cancellation acknowledgment | Stripe flips `cancel_at_period_end`→true | on reactivation (re-cancel can re-fire) |
+| `cancel_ack_email_sent_at` | Cancellation acknowledgment | Stripe flips `cancel_at_period_end`→true | on reactivation, and when the subscription ends (re-cancel, or a cancel after resubscribing, can re-fire) |
 | `winback_email_sent_at` | ~1-month-after-churn win-back | win-back sent | on welcome-back (`subscription_lapsed` 1→0) |
 | `return_intent_email_sent_at` | Return-intent reply to a churned member who logged back in | reply sent | **never cleared — it is a COOLDOWN anchor, not a latch** (see below) |
 | `marketing_unsubscribed_at` | **opt-out** — excludes from marketing sends | user unsubscribes | (opt back in only manually) |

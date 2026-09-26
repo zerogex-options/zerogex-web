@@ -29,11 +29,13 @@ import {
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
 import { decideStaleInvoice, hoursOfValueRemaining } from '@/core/staleInvoice';
-// The customer lookup and its soft-delete guard live in core/ so the guard is
-// unit-testable against a real schema — see tests/billingUser.test.ts.
+// The customer lookup and its soft-delete guard, and the row clear when a
+// subscription ends, live in core/ so they are unit-testable against a real
+// schema — see tests/billingUser.test.ts.
 import {
   findUserByCustomerId,
   findUserByCustomerIdIncludingDeleted,
+  markSubscriptionEnded,
   type BillingUserRow as UserRow,
 } from '@/core/billingUser';
 import {
@@ -2346,40 +2348,16 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const user = findUserByCustomerIdIncludingDeleted(customerId);
   if (!user) return;
 
-  // subscription_lapsed = 1 is the signal maybeSendPaidWelcomeEmail consumes
-  // (race-safely, via CAS) to fire a welcome-back if and when the customer
-  // resubscribes. Cleared back to 0 atomically in that send path.
-  //
-  // payment_recovery_pending is disarmed here: if a past_due sub exhausts its
-  // retries and is deleted, any pending recovery email must NOT survive to
-  // fire on a later resubscribe — that return should read as a welcome-back,
-  // not a spurious "your payment went through."
-  //
-  // Only when the row still points at THIS subscription (or at none). The
-  // ordering guard compares events per subscription, so a deletion delivered
-  // late — Stripe retrying an event that failed during a deploy restart — for
-  // a subscription the member has since replaced (bought again after a
-  // money-back refund, or a recovery re-created it) must not clear the new one.
-  const cleared = getDb()
-    .prepare(
-      `UPDATE users SET
-         tier = 'public',
-         stripe_subscription_id = NULL,
-         stripe_price_id = NULL,
-         last_paid_subscription_id = NULL,
-         last_paid_invoice_at = NULL,
-         subscription_status = ?,
-         current_period_end = NULL,
-         cancel_at_period_end = 0,
-         subscription_lapsed = 1,
-         payment_recovery_pending = 0,
-         payment_grace_started_at = NULL,
-         payment_grace_reason = NULL,
-         updated_at = ?
-       WHERE id = ? AND (stripe_subscription_id IS NULL OR stripe_subscription_id = ?)`,
-    )
-    .run(subscription.status, nowIso(), user.id, subscription.id) as { changes: number | bigint };
-  if (Number(cleared.changes) === 0) {
+  // What this clears, and why each piece, is documented on markSubscriptionEnded.
+  // It changes nothing, and returns false, when the row has since moved on to a
+  // different subscription: a late deletion must not clear the new one.
+  const cleared = markSubscriptionEnded({
+    userId: user.id,
+    subscriptionId: subscription.id,
+    status: subscription.status,
+    nowIso: nowIso(),
+  });
+  if (!cleared) {
     logAudit({
       type: 'stripe_subscription_deleted_superseded',
       userId: user.id,
