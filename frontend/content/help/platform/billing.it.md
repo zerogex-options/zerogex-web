@@ -19,7 +19,7 @@ Due livelli - **Basic** e **Pro** - ciascuno disponibile su base **mensile**, 
 
 Basic mensile inizia con una **prova gratuita di 7 giorni**: accesso completo da subito, la tua carta registrata e nessun addebito fino al termine della prova. Circa 48 ore prima della fine ti inviamo un promemoria via email con l'importo che verrà addebitato. Al termine della prova, l'abbonamento continua automaticamente al prezzo con cui ti sei iscritto - senza un secondo passaggio di conferma.
 
-Per evitare questo rinnovo automatico: annulla prima che la prova termini - nel portale o con **Cancel subscription** nella tua pagina Account. Manterrai l'accesso fino alla fine della prova. Una prova gratuita per account.
+Per evitare questo rinnovo automatico: annulla prima che la prova termini - nel portale o con **Cancel subscription** nella tua pagina Account. Manterrai l'accesso fino alla fine della prova. Una prova gratuita per account.
 
 ## Garanzia soddisfatti o rimborsati di 7 giorni (tutti gli altri piani)
 
@@ -32,7 +32,7 @@ Pro, e ogni piano trimestrale e annuale, viene addebitato al momento dell'iscriz
 ## Come gestire il tuo abbonamento
 
 1. Apri [Account](/account).
-2. Clicca su **Gestisci abbonamento** - questo apre il portale di fatturazione Stripe.
+2. Clicca su **Gestisci abbonamento** - questo apre il portale di fatturazione Stripe.
 
 Dal portale puoi:
 
@@ -51,7 +51,7 @@ Dal portale puoi:
 
 ## Annullamento
 
-- Annulla nel portale o con il link **Cancel subscription** sotto Gestisci abbonamento nella tua pagina Account. Quel link ti propone anche, in alternativa, di mettere in pausa l'abbonamento da uno a tre mesi - nessun addebito e nessun accesso durante la pausa, poi riprende automaticamente.
+- Annulla nel portale o con il link **Cancel subscription** sotto Gestisci abbonamento nella tua pagina Account. Quel link ti propone anche, in alternativa, di mettere in pausa l'abbonamento da uno a tre mesi - nessun addebito e nessun accesso durante la pausa, poi riprende automaticamente.
 - L'annullamento ha effetto alla **fine del periodo di fatturazione corrente**. Mantieni l'accesso a pagamento fino ad allora, e la tua pagina Account mostra la data.
 - Al termine del periodo, il tuo livello torna a Public. Il tuo account non viene eliminato; i dati di referral e le impostazioni salvate rimangono.
 - Puoi riabbonarti in qualsiasi momento.
@@ -68,7 +68,7 @@ Ogni addebito genera una fattura Stripe. Il portale elenca tutte le fatture pass
 
 Se un addebito fallisce, Stripe riprova automaticamente nell'arco di diversi giorni. Durante la finestra di ritentativo, il tuo abbonamento è in stato "past due" - le funzionalità a pagamento restano disponibili temporaneamente. Se tutti i tentativi falliscono, l'abbonamento viene annullato e il livello torna indietro.
 
-La tua pagina Account segnala il pagamento non riuscito, e il suo pulsante **Apri il portale di fatturazione** ti permette di saldare la fattura aperta con qualsiasi carta - non è necessario iscriversi di nuovo. Le cause di fallimento più comuni: carta scaduta, mancata corrispondenza nella verifica dell'indirizzo, restrizioni regionali. Aggiorna il metodo di pagamento nel portale per risolvere.
+La tua pagina Account segnala il pagamento non riuscito, e il suo pulsante **Apri il portale di fatturazione** ti permette di saldare la fattura aperta con qualsiasi carta - non è necessario iscriversi di nuovo. Le cause di fallimento più comuni: carta scaduta, mancata corrispondenza nella verifica dell'indirizzo, restrizioni regionali. Aggiorna il metodo di pagamento nel portale per risolvere.
 
 ## Rimborsi
 
@@ -92,6 +92,6 @@ La **tariffa founding-member** era un'offerta di lancio riservata agli invitati 
 
 ## Vedi anche
 
-- [Account Settings](/help/platform/account)
-- [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)
+- [Impostazioni account](/help/platform/account)
+- [Livelli, accesso e cosa si sblocca dove](/help/platform/tiers-and-access)
 - [Pricing](/pricing)

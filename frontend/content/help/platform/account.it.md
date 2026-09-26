@@ -15,7 +15,7 @@ Mostra la tua email e il tuo livello (Public, Basic, Pro o Admin). Sotto Pro, un
 ## Email e verifica
 
 - L'indirizzo email con cui ti sei registrato è l'ID del tuo account. Non può essere modificato senza passare dall'assistenza.
-- I nuovi account devono verificare l'email - un link di verifica viene inviato al momento della registrazione e scade dopo 24 ore. Finché non la verifichi, non puoi avviare una prova né abbonarti.
+- I nuovi account devono verificare l'email - un link di verifica viene inviato al momento della registrazione e scade dopo 24 ore. Finché non la verifichi, non puoi avviare una prova né abbonarti.
 - Se non hai ricevuto il messaggio originale, clicca su **Resend** nel banner di verifica in cima alla pagina Account.
 
 ## Password
@@ -29,8 +29,8 @@ Mostra la tua email e il tuo livello (Public, Basic, Pro o Admin). Sotto Pro, un
 
 Puoi collegare **Google** e **Apple** allo stesso account. La sezione Metodi di accesso mostra quali provider sono connessi. Se accanto ad Apple compare «Prossimamente», l'accesso con Apple non è ancora attivo.
 
-- **Collegare un nuovo provider** - clicca su **Connetti** accanto al provider, oppure accedi una volta con il provider; il sistema lo collega automaticamente al tuo account esistente se l'email corrisponde.
-- **Scollegare un provider** - clicca su **Disconnetti**. È possibile solo se hai almeno un altro modo per accedere (un altro provider O una password). La pagina impone questa regola per evitare che tu resti bloccato fuori dall'account.
+- **Collegare un nuovo provider** - clicca su **Connetti** accanto al provider, oppure accedi una volta con il provider; il sistema lo collega automaticamente al tuo account esistente se l'email corrisponde.
+- **Scollegare un provider** - clicca su **Disconnetti**. È possibile solo se hai almeno un altro modo per accedere (un altro provider O una password). La pagina impone questa regola per evitare che tu resti bloccato fuori dall'account.
 
 ## Livello e abbonamento
 
@@ -44,7 +44,7 @@ Per la procedura dettagliata, vedi [Fatturazione e portale Stripe](/help/platfor
 
 ## Accesso API (Pro)
 
-Con Pro, nella sezione **API Access** crei e revochi le tue chiavi API personali. Le chiavi vengono revocate automaticamente se il tuo piano scende sotto Pro. Vedi [API Access & Keys (Pro)](/help/platform/api-access).
+Con Pro, nella sezione **API Access** crei e revochi le tue chiavi API personali. Le chiavi vengono revocate automaticamente se il tuo piano scende sotto Pro. Vedi [Accesso API e chiavi (Pro)](/help/platform/api-access).
 
 ## Notifiche
 
@@ -54,7 +54,7 @@ Con Pro, nella sezione **API Access** crei e revochi le tue chiavi API personali
 
 Puoi aggiungere facoltativamente il tuo **handle X (ex Twitter)** nella sezione Social Media, in modo che il team ZeroGEX possa contattarti lì. Non è mai obbligatorio: non ti viene richiesto in fase di registrazione e puoi aggiungerlo, modificarlo o rimuoverlo in qualsiasi momento dal tuo account.
 
-- Inserisci l'handle con o senza la `@` iniziale - 1-15 caratteri, solo lettere, numeri e underscore.
+- Inserisci l'handle con o senza la `@` iniziale - 1-15 caratteri, solo lettere, numeri e underscore.
 - Svuota il campo e salva per rimuovere un handle aggiunto in precedenza.
 
 ## Pannello referral
@@ -62,10 +62,10 @@ Puoi aggiungere facoltativamente il tuo **handle X (ex Twitter)** nella sezione 
 Se il programma referral è attivo, la sezione **Invita un amico** mostra:
 
 - Il tuo link referral, con un pulsante **Copia link**
-- **Iscritti** - quante persone si sono iscritte tramite il tuo link (passa il mouse per vedere i loro indirizzi email)
-- **Abbonati** - quante di loro hanno sottoscritto un piano a pagamento (passa il mouse per vedere chi)
+- **Iscritti** - quante persone si sono iscritte tramite il tuo link (passa il mouse per vedere i loro indirizzi email)
+- **Abbonati** - quante di loro hanno sottoscritto un piano a pagamento (passa il mouse per vedere chi)
 - **Mesi gratuiti guadagnati**
-- **Mesi accumulati** - mesi gratuiti in attesa di essere applicati al tuo prossimo abbonamento (visibile solo se ne hai)
+- **Mesi accumulati** - mesi gratuiti in attesa di essere applicati al tuo prossimo abbonamento (visibile solo se ne hai)
 - Il credito che verrà applicato alla tua prossima fattura, quando presente
 
 Per le regole del programma, vedi [Referral](/help/platform/referrals).

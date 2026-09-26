@@ -8,14 +8,14 @@
 
 La barra lateral izquierda es la forma principal de moverse por la app. Está organizada en grupos:
 
-- **Principal** - Panel principal, Mi panel, Gamma Terminal, Boletín en vivo
-- **Señales** - Trade Bias, Puntuación compuesta, el Panel de señales básico y el Panel de señales avanzado (cada uno desplegable en las páginas individuales de señales)
-- **TradeWorkz™** - Trading con bots, Backtesting, Análisis de patrones
-- **Métricas** - Positioning, Options Flow y Market Context, cada uno desplegable en sus páginas
-- **Herramientas de estrategia** - Creador de estrategias, Cotizaciones de opciones en vivo, Premium Surface
-- **Comprobantes** - las previsiones de un día e intradía, el histórico de previsiones, el scorecard de señales de un día y la repetición de sesión
-- **Formación** - Centro, Guías, Artículos y Ayuda (cada uno desplegable)
-- **Más** - Acerca de, Integraciones, API Specs, Soporte, Cuenta
+- **Principal** - Panel principal, Mi panel, Gamma Terminal, Boletín en vivo
+- **Señales** - Trade Bias, Puntuación compuesta, el Panel de señales básico y el Panel de señales avanzado (cada uno desplegable en las páginas individuales de señales)
+- **TradeWorkz™** - Trading con bots, Backtesting, Análisis de patrones
+- **Métricas** - Positioning, Options Flow y Market Context, cada uno desplegable en sus páginas
+- **Herramientas de estrategia** - Creador de estrategias, Cotizaciones de opciones en vivo, Premium Surface
+- **Comprobantes** - las previsiones de un día e intradía, el histórico de previsiones, el scorecard de señales de un día y la repetición de sesión
+- **Formación** - Centro, Guías, Artículos y Ayuda (cada uno desplegable)
+- **Más** - Acerca de, Integraciones, API Specs, Soporte, Cuenta
 
 Cada grupo se puede contraer y expandir. Haz clic en el encabezado del grupo para alternarlo. Las páginas que siguen en desarrollo llevan una insignia **Beta**.
 
@@ -25,7 +25,7 @@ Pasa el cursor sobre una página de la barra lateral y haz clic en el icono de c
 
 ### Mostrar y ocultar la barra lateral
 
-Toda la barra lateral se puede ocultar. Pasa el cursor por el borde derecho de la barra lateral y aparecerá una pestaña con una flecha - haz clic en ella para ocultarla. Haz clic en la pequeña pestaña con flecha del borde izquierdo para volver a mostrarla. La preferencia se recuerda entre sesiones.
+Toda la barra lateral se puede ocultar. Pasa el cursor por el borde derecho de la barra lateral y aparecerá una pestaña con una flecha - haz clic en ella para ocultarla. Haz clic en la pequeña pestaña con flecha del borde izquierdo para volver a mostrarla. La preferencia se recuerda entre sesiones.
 
 ## La cabecera
 
@@ -33,21 +33,21 @@ La cabecera permanece fija en la parte superior de cada página de análisis y m
 
 - El logo y un enlace de vuelta al inicio
 - El selector de símbolos y el precio en tiempo real del símbolo activo, con su variación del día
-- Una insignia de sesión - Pre-market, Market Open, After Hours, Closed o Futures, mientras SPX o NDX muestran su futuro durante la noche. Haz clic en ella para ver una cuenta atrás hasta la apertura o el cierre.
+- Una insignia de sesión - Pre-market, Market Open, After Hours, Closed o Futures, mientras SPX o NDX muestran su futuro durante la noche. Haz clic en ella para ver una cuenta atrás hasta la apertura o el cierre.
 - Interruptor de tema (sol / luna) y el menú de paletas
 - Relojes de Nueva York, Londres y Tokio, un calendario de opciones y los titulares principales
 - Un botón de cámara que guarda una captura PNG de la página en la que estás
 - El menú de idioma, la búsqueda y tu menú de perfil (Cuenta, Mejorar plan, Cerrar sesión)
 
-Puedes contraer la cabecera para recuperar espacio vertical - la preferencia se sincroniza con la tarjeta resumen compacta de la barra lateral.
+Puedes contraer la cabecera para recuperar espacio vertical - la preferencia se sincroniza con la tarjeta resumen compacta de la barra lateral.
 
 ## El selector de símbolos
 
-ZeroGEX cubre **SPY**, **SPX**, **QQQ** y **NDX**, además de los futuros **ES** y **NQ**. El selector de símbolos está en la cabecera. Al elegir un símbolo se actualiza cada página de la plataforma - el panel, las señales, los gráficos - con ese símbolo, y tu elección se recuerda en ese navegador. ES y NQ se leen a partir de los libros de opciones de SPX y NDX, por lo que las pocas páginas que listan contratos de opciones individuales no los ofrecen.
+ZeroGEX cubre **SPY**, **SPX**, **QQQ** y **NDX**, además de los futuros **ES** y **NQ**. El selector de símbolos está en la cabecera. Al elegir un símbolo se actualiza cada página de la plataforma - el panel, las señales, los gráficos - con ese símbolo, y tu elección se recuerda en ese navegador. ES y NQ se leen a partir de los libros de opciones de SPX y NDX, por lo que las pocas páginas que listan contratos de opciones individuales no los ofrecen.
 
 ## El selector de intervalo temporal
 
-Los gráficos de precio - el Gamma Terminal, el Gamma Chart del Panel principal y algunos más - tienen un selector de intervalo temporal: 1 min / 5 min / 15 min / 1 h / 1 día. Controla la ventana móvil usada para el gráfico, no la lógica subyacente de las señales. El propio puntaje de la señal se calcula de forma continua.
+Los gráficos de precio - el Gamma Terminal, el Gamma Chart del Panel principal y algunos más - tienen un selector de intervalo temporal: 1 min / 5 min / 15 min / 1 h / 1 día. Controla la ventana móvil usada para el gráfico, no la lógica subyacente de las señales. El propio puntaje de la señal se calcula de forma continua.
 
 ## Tema
 
@@ -61,13 +61,13 @@ Con sesión iniciada, las páginas que tu plan no incluye muestran una insignia 
 
 Las páginas de Métricas comparten la misma cabecera, así que una vez que hayas leído una, el resto se recorre rápidamente:
 
-1. **Antetítulo** - el subgrupo del menú en el que está la página: Positioning, Options Flow o Market Context.
-2. **Título** - el nombre de la página, igual que en el menú, con una insignia Beta si la página está en beta.
-3. **Icono de información** - pasa el cursor por encima para la explicación completa: qué es la cifra, cómo se construye y cómo usarla.
-4. **Entradilla** - un resumen de una o dos frases bajo el título.
-5. **Filtros** - los controles propios de la página, a la derecha.
+1. **Antetítulo** - el subgrupo del menú en el que está la página: Positioning, Options Flow o Market Context.
+2. **Título** - el nombre de la página, igual que en el menú, con una insignia Beta si la página está en beta.
+3. **Icono de información** - pasa el cursor por encima para la explicación completa: qué es la cifra, cómo se construye y cómo usarla.
+4. **Entradilla** - un resumen de una o dos frases bajo el título.
+5. **Filtros** - los controles propios de la página, a la derecha.
 
-Las páginas individuales de señales terminan con una sección **"How it's built"** - una explicación en lenguaje sencillo de las matemáticas subyacentes.
+Las páginas individuales de señales terminan con una sección **"How it's built"** - una explicación en lenguaje sencillo de las matemáticas subyacentes.
 
 ## Ver también
 

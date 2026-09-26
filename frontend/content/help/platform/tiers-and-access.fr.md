@@ -1,6 +1,6 @@
 # Niveaux, accès et ce qui se débloque où
 
-*Une carte claire des pages publiques, Basic et Pro - et de ce qui change entre les niveaux sur chaque page.*
+*Une carte claire des pages publiques, Basic et Pro - et de ce qui change entre les niveaux sur chaque page.*
 
 ---
 
@@ -21,33 +21,33 @@ Consultez la répartition en direct sur la page [Pricing](/pricing). Basic mensu
 ### Public (aucun compte requis)
 
 - Le site marketing (landing, About, Education Hub, Articles, Guides)
-- Le [Gamma Terminal](/chart) - une vue SPY décalée d'environ 15 minutes
-- Pages gratuites de niveaux gamma SPX, SPY, QQQ, NDX, ES et NQ - décalées d'environ 15 minutes
-- Les pages Justificatifs - la prévision du jour et son cône intrajournalier, l'historique des prévisions, le bilan quotidien des signaux et la relecture de séance
-- Les pages Intégrations pour les plateformes de graphiques - les scripts TradingView et thinkorswim sont gratuits
+- Le [Gamma Terminal](/chart) - une vue SPY décalée d'environ 15 minutes
+- Pages gratuites de niveaux gamma SPX, SPY, QQQ, NDX, ES et NQ - décalées d'environ 15 minutes
+- Les pages Justificatifs - la prévision du jour et son cône intrajournalier, l'historique des prévisions, le bilan quotidien des signaux et la relecture de séance
+- Les pages Intégrations pour les plateformes de graphiques - les scripts TradingView et thinkorswim sont gratuits
 - Help Center, FAQ, Quick Starts
 - Confidentialité, Conditions
 
 ### Niveau Basic
 
-- **Tableau de bord principal** - métriques complètes en temps réel
-- **Mon tableau de bord** - votre propre tableau, composé de widgets
-- **Gamma Terminal** - en direct, sur tous les symboles
-- **Bulletin en direct** - un instantané dealer-gamma en direct et prêt à partager
-- **Toutes les pages Indicateurs** - Positioning (Dealer Positioning, GEX Summary, GEX Strike Profile, GEX Heatmap, Gamma Shift, Pair Comparison, Max Pain), Options Flow (Flow Analysis, Hedging Flow, Forced Flow, Smart Money, Market Tide) et Market Context (Volatility, Technicals, Spread Monitor)
-- **Basic Signals** - Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
-- **Générateur de stratégies** - pricing d'options complet et P&L
-- **Cotations d'options en direct** - la chaîne d'options en direct
-- **Premium Surface** - la valeur temps des options et la distance au point mort, par strike et par échéance
+- **Tableau de bord principal** - métriques complètes en temps réel
+- **Mon tableau de bord** - votre propre tableau, composé de widgets
+- **Gamma Terminal** - en direct, sur tous les symboles
+- **Bulletin en direct** - un instantané dealer-gamma en direct et prêt à partager
+- **Toutes les pages Indicateurs** - Positioning (Dealer Positioning, GEX Summary, GEX Strike Profile, GEX Heatmap, Gamma Shift, Pair Comparison, Max Pain), Options Flow (Flow Analysis, Hedging Flow, Forced Flow, Smart Money, Market Tide) et Market Context (Volatility, Technicals, Spread Monitor)
+- **Basic Signals** - Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
+- **Générateur de stratégies** - pricing d'options complet et P&L
+- **Cotations d'options en direct** - la chaîne d'options en direct
+- **Premium Surface** - la valeur temps des options et la distance au point mort, par strike et par échéance
 
 ### Niveau Pro
 
 - Tout ce qui est inclus dans Basic, plus :
-- **Trade Bias** - le détail complet et le playbook derrière la carte Trade Bias du tableau de bord
-- **Score composite** - la page complète du MSI, la lecture de 0 à 100 du régime de marché (Basic voit le MSI lui-même sur le Tableau de bord principal)
-- **Tous les Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
-- **TradeWorkz™** (bêta) - Trading par bots, Backtesting et Analyse des motifs
-- **Accès API** - des clés API personnelles pour les mêmes données via `api.zerogex.io`, qui alimentent aussi les indicateurs NinjaTrader et Sierra Chart à mise à jour automatique
+- **Trade Bias** - le détail complet et le playbook derrière la carte Trade Bias du tableau de bord
+- **Score composite** - la page complète du MSI, la lecture de 0 à 100 du régime de marché (Basic voit le MSI lui-même sur le Tableau de bord principal)
+- **Tous les Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
+- **TradeWorkz™** (bêta) - Trading par bots, Backtesting et Analyse des motifs
+- **Accès API** - des clés API personnelles pour les mêmes données via `api.zerogex.io`, qui alimentent aussi les indicateurs NinjaTrader et Sierra Chart à mise à jour automatique
 
 ## Ce qui change entre niveaux sur une même page
 
@@ -62,23 +62,23 @@ Certaines pages existent pour tous les niveaux mais se comportent différemment 
 
 Les modifications de compte se font à deux endroits :
 
-1. **[Account](/account)** - affiche votre niveau actuel, le statut de votre forfait actuel et le lien vers le portail de facturation.
-2. **[Stripe Billing Portal](/account)** - accessible depuis la page Account. Changez entre Basic et Pro, passez d'une facturation mensuelle, trimestrielle ou annuelle à une autre, modifiez le moyen de paiement, consultez les factures.
+1. **[Compte](/account)** - affiche votre niveau actuel, le statut de votre forfait actuel et le lien vers le portail de facturation.
+2. **[Stripe Billing Portal](/account)** - accessible depuis la page Compte. Changez entre Basic et Pro, passez d'une facturation mensuelle, trimestrielle ou annuelle à une autre, modifiez le moyen de paiement, consultez les factures.
 
-Pour un guide pas à pas, consultez [Billing & Stripe Portal](/help/platform/billing).
+Pour un guide pas à pas, consultez [Facturation et portail Stripe](/help/platform/billing).
 
 ## Lorsque vous êtes en période d'essai
 
-L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Environ 48 heures avant sa fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez avant l'expiration de l'essai - dans le portail de facturation ou via **Cancel subscription** sur la page Account - et vous ne serez pas facturé.
+L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Environ 48 heures avant sa fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez avant l'expiration de l'essai - dans le portail de facturation ou via **Cancel subscription** sur la page Compte - et vous ne serez pas facturé.
 
 Passer à Pro, ou à une formule trimestrielle ou annuelle, pendant l'essai met fin à l'essai et facture la nouvelle formule le jour même ; la page [Pricing](/pricing) affiche le montant exact et vous demande de confirmer, et ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.
 
 ## Que se passe-t-il si vous cliquez sur quelque chose auquel vous n'avez pas accès ?
 
-Depuis le menu, une page verrouillée vous mène à [Pricing](/pricing) plutôt qu'à une erreur. Si vous ouvrez directement une page restreinte - depuis un favori ou un lien partagé -, vous verrez un écran de déverrouillage qui indique la formule qui l'inclut, avec un bouton pour obtenir cette formule. Sans connexion, il vous sera d'abord demandé de vous connecter.
+Depuis le menu, une page verrouillée vous mène à [Pricing](/pricing) plutôt qu'à une erreur. Si vous ouvrez directement une page restreinte - depuis un favori ou un lien partagé -, vous verrez un écran de déverrouillage qui indique la formule qui l'inclut, avec un bouton pour obtenir cette formule. Sans connexion, il vous sera d'abord demandé de vous connecter.
 
 ## Voir aussi
 
-- [Pricing](/pricing) - la répartition en direct des niveaux et les formules
-- [Account Settings](/help/platform/account)
-- [Billing & Stripe Portal](/help/platform/billing)
+- [Pricing](/pricing) - la répartition en direct des niveaux et les formules
+- [Paramètres du compte](/help/platform/account)
+- [Facturation et portail Stripe](/help/platform/billing)

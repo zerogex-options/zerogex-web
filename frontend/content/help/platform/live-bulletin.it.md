@@ -10,7 +10,7 @@ Il Live Bulletin è una **scheda in tempo reale del posizionamento gamma dei dea
 
 È pensata per essere letta a colpo d'occhio - e per essere condivisa. Puoi modificare il titolo e il riepilogo, poi scaricare o copiare un PNG pulito della scheda per i tuoi appunti, una chat di trading o i social.
 
-Il riepilogo **Lettura di Oggi** nella Dashboard principale si basa sullo stesso modello - cliccalo per aprire il bollettino completo.
+Il riepilogo **Lettura di Oggi** nella Dashboard principale si basa sullo stesso modello - cliccalo per aprire il bollettino completo.
 
 ## Cosa contiene la scheda
 
@@ -23,7 +23,7 @@ Il riepilogo **Lettura di Oggi** nella Dashboard principale si basa sullo stesso
 
 ## Controlli
 
-- **Sottostante** - SPX, SPY, QQQ, NDX, ES o NQ. Il bollettino ha un proprio selettore, separato dal selettore di simboli nell'intestazione.
+- **Sottostante** - SPX, SPY, QQQ, NDX, ES o NQ. Il bollettino ha un proprio selettore, separato dal selettore di simboli nell'intestazione.
 - **Orizzonte del range atteso** - Daily, Weekly o Monthly. «Daily» è una sessione di trading di volatilità implicita (l'Expected Daily Range), non un giorno di calendario; Weekly sono 5 sessioni, Monthly ~21. Se l'indice di volatilità implicita non è disponibile, la banda viene nascosta anziché stimata.
 - **Titolo / Riepilogo** - il testo generato automaticamente è un punto di partenza; modifica uno dei due campi e la scheda si aggiorna in tempo reale. «Reset to auto» ripristina il testo generato.
 - **Download PNG / Copy to clipboard** - esporta la scheda come immagine pronta da condividere (la scheda riporta un watermark zerogex.io).
@@ -40,7 +40,7 @@ La scheda è **in tempo reale**. Interroga il backend per tutta la sessione - l
 
 ## Cosa non è
 
-Il Live Bulletin **non è un feed di segnali di trading**. È un'istantanea di posizionamento/contesto - ti mostra *dove* si trova il gamma dei dealer e quale regime implica, non *quando* agire. Per i segnali e gli inneschi, usa i dashboard Basic e Advanced Signals e i [Signal Alerts](/help/platform/alerts); per una lettura direzionale, consulta il Trade Bias, e per la lettura del regime il [Composite Score](/help/platform/composite-score).
+Il Live Bulletin **non è un feed di segnali di trading**. È un'istantanea di posizionamento/contesto - ti mostra *dove* si trova il gamma dei dealer e quale regime implica, non *quando* agire. Per i segnali e gli inneschi, usa i dashboard Basic e Advanced Signals e gli [Avvisi sui segnali](/help/platform/alerts); per una lettura direzionale, consulta il Trade Bias, e per la lettura del regime il [Composite Score](/help/platform/composite-score).
 
 ## Visibilità per livello
 

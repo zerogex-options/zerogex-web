@@ -6,7 +6,7 @@
 
 ## Cómo funciona la facturación
 
-ZeroGEX factura a través de **Stripe**. No vemos ni almacenamos los datos de tu tarjeta de pago - Stripe se encarga de todo eso. Cada acción de facturación se realiza en el portal de facturación alojado por Stripe, al que se accede desde tu página de [Account](/account).
+ZeroGEX factura a través de **Stripe**. No vemos ni almacenamos los datos de tu tarjeta de pago - Stripe se encarga de todo eso. Cada acción de facturación se realiza en el portal de facturación alojado por Stripe, al que se accede desde tu página de [Cuenta](/account).
 
 ## Planes y periodicidades
 
@@ -19,11 +19,11 @@ Dos niveles - **Basic** y **Pro** - cada uno disponible en modalidad **mensual
 
 Basic mensual empieza con una **prueba gratuita de 7 días**: acceso completo desde el primer momento, tu tarjeta registrada y ningún cargo hasta que termine la prueba. Unas 48 horas antes de que termine, te enviamos un recordatorio por correo con el importe que se cobrará. Al final de la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste - sin un segundo paso de confirmación.
 
-Para evitar esa renovación automática: cancela antes de que finalice la prueba - en el portal o con **Cancel subscription** en tu página Account. Conservarás el acceso hasta el final de la prueba. Una prueba gratuita por cuenta.
+Para evitar esa renovación automática: cancela antes de que finalice la prueba - en el portal o con **Cancel subscription** en tu página Cuenta. Conservarás el acceso hasta el final de la prueba. Una prueba gratuita por cuenta.
 
 ## Garantía de devolución del dinero de 7 días (todos los demás planes)
 
-Pro, y todos los planes trimestrales y anuales, se facturan al suscribirte - y en lugar de una prueba están cubiertos por una **garantía de devolución del dinero de 7 días**. Si no es lo que buscas, abre [Account](/account) en los 7 días siguientes a tu primer pago y haz clic en **Solicitar un reembolso completo**:
+Pro, y todos los planes trimestrales y anuales, se facturan al suscribirte - y en lugar de una prueba están cubiertos por una **garantía de devolución del dinero de 7 días**. Si no es lo que buscas, abre [Cuenta](/account) en los 7 días siguientes a tu primer pago y haz clic en **Solicitar un reembolso completo**:
 
 - El pago se reembolsa íntegramente a la tarjeta con la que pagaste (normalmente aparece en 5-10 días hábiles).
 - Tu suscripción se cancela y el acceso de pago termina en cuanto se emite el reembolso.
@@ -31,8 +31,8 @@ Pro, y todos los planes trimestrales y anuales, se facturan al suscribirte - y 
 
 ## Cómo gestionar tu suscripción
 
-1. Abre [Account](/account).
-2. Haz clic en **Gestionar suscripción** - esto abre el portal de facturación de Stripe.
+1. Abre [Cuenta](/account).
+2. Haz clic en **Gestionar suscripción** - esto abre el portal de facturación de Stripe.
 
 Desde el portal puedes:
 
@@ -51,8 +51,8 @@ Desde el portal puedes:
 
 ## Cancelación
 
-- Cancela en el portal o con el enlace **Cancel subscription** bajo Gestionar suscripción, en tu página Account. Ese enlace también te ofrece pausar la suscripción de uno a tres meses en su lugar - sin cargos y sin acceso mientras está en pausa, y se reanuda automáticamente.
-- La cancelación entra en vigor al **final del periodo de facturación actual**. Conservas el acceso de pago hasta entonces, y tu página Account muestra la fecha.
+- Cancela en el portal o con el enlace **Cancel subscription** bajo Gestionar suscripción, en tu página Cuenta. Ese enlace también te ofrece pausar la suscripción de uno a tres meses en su lugar - sin cargos y sin acceso mientras está en pausa, y se reanuda automáticamente.
+- La cancelación entra en vigor al **final del periodo de facturación actual**. Conservas el acceso de pago hasta entonces, y tu página Cuenta muestra la fecha.
 - Una vez finalizado el periodo, tu nivel vuelve a Public. Tu cuenta no se elimina; tus datos de referidos y tu configuración guardada permanecen intactos.
 - Puedes volver a suscribirte en cualquier momento.
 
@@ -68,7 +68,7 @@ Cada cargo genera una factura de Stripe. El portal enumera todas las facturas an
 
 Si un cargo falla, Stripe reintenta automáticamente durante varios días. Durante la ventana de reintento, tu suscripción está en estado "past due" - las funciones de pago siguen disponibles temporalmente. Si todos los reintentos fallan, la suscripción se cancela y el nivel vuelve al anterior.
 
-Tu página Account avisa del pago fallido, y su botón **Abrir el portal de facturación** te permite pagar la factura pendiente con cualquier tarjeta - no es necesario volver a registrarte. Los motivos de fallo más habituales: tarjeta caducada, discrepancia en la verificación de dirección, restricciones regionales. Actualiza el método de pago en el portal para resolverlo.
+Tu página Cuenta avisa del pago fallido, y su botón **Abrir el portal de facturación** te permite pagar la factura pendiente con cualquier tarjeta - no es necesario volver a registrarte. Los motivos de fallo más habituales: tarjeta caducada, discrepancia en la verificación de dirección, restricciones regionales. Actualiza el método de pago en el portal para resolverlo.
 
 ## Reembolsos
 
@@ -92,6 +92,6 @@ La **tarifa de miembro fundador (founding-member)** fue una oferta de lanzamient
 
 ## Ver también
 
-- [Account Settings](/help/platform/account)
-- [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)
+- [Configuración de la cuenta](/help/platform/account)
+- [Niveles, acceso y qué se desbloquea dónde](/help/platform/tiers-and-access)
 - [Pricing](/pricing)

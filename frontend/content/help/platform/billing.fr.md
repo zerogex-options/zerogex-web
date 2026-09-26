@@ -6,7 +6,7 @@
 
 ## Comment fonctionne la facturation
 
-ZeroGEX facture via **Stripe**. Nous ne voyons ni ne stockons les informations de votre carte de paiement - Stripe s'occupe entièrement de cela. Chaque action de facturation s'effectue dans le portail de facturation hébergé par Stripe, accessible depuis votre page [Account](/account).
+ZeroGEX facture via **Stripe**. Nous ne voyons ni ne stockons les informations de votre carte de paiement - Stripe s'occupe entièrement de cela. Chaque action de facturation s'effectue dans le portail de facturation hébergé par Stripe, accessible depuis votre page [Compte](/account).
 
 ## Formules et périodicités
 
@@ -19,11 +19,11 @@ Deux niveaux - **Basic** et **Pro** - chacun disponible en **mensuel**, en **t
 
 Basic mensuel commence par un **essai gratuit de 7 jours** : accès complet immédiat, votre carte enregistrée, et aucun prélèvement avant la fin de l'essai. Environ 48 heures avant la fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit - sans étape de confirmation supplémentaire.
 
-Pour empêcher ce renouvellement automatique : annulez avant la fin de l'essai - dans le portail ou via **Cancel subscription** sur votre page Account. Vous conservez l'accès jusqu'à la fin de l'essai. Un essai gratuit par compte.
+Pour empêcher ce renouvellement automatique : annulez avant la fin de l'essai - dans le portail ou via **Cancel subscription** sur votre page Compte. Vous conservez l'accès jusqu'à la fin de l'essai. Un essai gratuit par compte.
 
 ## Garantie satisfait ou remboursé de 7 jours (toutes les autres formules)
 
-Pro, ainsi que toutes les formules trimestrielles et annuelles, est facturé dès la souscription - et couvert par une **garantie satisfait ou remboursé de 7 jours** au lieu d'un essai. Si la formule ne vous convient pas, ouvrez [Account](/account) dans les 7 jours suivant votre premier paiement et cliquez sur **Demander un remboursement intégral** :
+Pro, ainsi que toutes les formules trimestrielles et annuelles, est facturé dès la souscription - et couvert par une **garantie satisfait ou remboursé de 7 jours** au lieu d'un essai. Si la formule ne vous convient pas, ouvrez [Compte](/account) dans les 7 jours suivant votre premier paiement et cliquez sur **Demander un remboursement intégral** :
 
 - Le paiement est intégralement remboursé sur la carte utilisée (il apparaît généralement sous 5 à 10 jours ouvrés).
 - Votre abonnement est annulé et l'accès payant prend fin dès l'émission du remboursement.
@@ -31,8 +31,8 @@ Pro, ainsi que toutes les formules trimestrielles et annuelles, est facturé dè
 
 ## Comment gérer votre abonnement
 
-1. Ouvrez [Account](/account).
-2. Cliquez sur **Gérer l'abonnement** - cela ouvre le portail de facturation Stripe.
+1. Ouvrez [Compte](/account).
+2. Cliquez sur **Gérer l'abonnement** - cela ouvre le portail de facturation Stripe.
 
 Depuis le portail, vous pouvez :
 
@@ -51,8 +51,8 @@ Depuis le portail, vous pouvez :
 
 ## Annulation
 
-- Annulez dans le portail, ou via le lien **Cancel subscription** sous Gérer l'abonnement sur votre page Account. Ce lien vous propose aussi de mettre votre abonnement en pause pendant un à trois mois à la place - aucun prélèvement et aucun accès pendant la pause, puis reprise automatique.
-- L'annulation prend effet à la **fin de la période de facturation en cours**. Vous conservez l'accès payant jusque-là, et votre page Account affiche la date.
+- Annulez dans le portail, ou via le lien **Cancel subscription** sous Gérer l'abonnement sur votre page Compte. Ce lien vous propose aussi de mettre votre abonnement en pause pendant un à trois mois à la place - aucun prélèvement et aucun accès pendant la pause, puis reprise automatique.
+- L'annulation prend effet à la **fin de la période de facturation en cours**. Vous conservez l'accès payant jusque-là, et votre page Compte affiche la date.
 - Une fois la période terminée, votre niveau revient à Public. Votre compte n'est pas supprimé ; vos données de parrainage et vos paramètres enregistrés sont conservés.
 - Vous pouvez vous réabonner à tout moment.
 
@@ -68,7 +68,7 @@ Chaque prélèvement génère une facture Stripe. Le portail répertorie toutes 
 
 Si un prélèvement échoue, Stripe effectue automatiquement de nouvelles tentatives sur plusieurs jours. Pendant cette période de nouvelles tentatives, votre abonnement est à l'état "past due" - les fonctionnalités payantes restent temporairement disponibles. Si toutes les tentatives échouent, l'abonnement est annulé et le niveau revient en arrière.
 
-Votre page Account signale l'échec du paiement, et son bouton **Ouvrir le portail de facturation** vous permet de régler la facture en attente avec n'importe quelle carte - aucune nouvelle inscription n'est nécessaire. Les causes d'échec les plus courantes : carte expirée, non-concordance lors de la vérification d'adresse, restrictions régionales. Mettez à jour le moyen de paiement dans le portail pour résoudre le problème.
+Votre page Compte signale l'échec du paiement, et son bouton **Ouvrir le portail de facturation** vous permet de régler la facture en attente avec n'importe quelle carte - aucune nouvelle inscription n'est nécessaire. Les causes d'échec les plus courantes : carte expirée, non-concordance lors de la vérification d'adresse, restrictions régionales. Mettez à jour le moyen de paiement dans le portail pour résoudre le problème.
 
 ## Remboursements
 
@@ -92,6 +92,6 @@ Le **tarif founding-member** était une offre de lancement réservée sur invita
 
 ## Voir aussi
 
-- [Account Settings](/help/platform/account)
-- [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)
+- [Paramètres du compte](/help/platform/account)
+- [Niveaux, accès et ce qui se débloque où](/help/platform/tiers-and-access)
 - [Pricing](/pricing)

@@ -6,7 +6,7 @@
 
 ## How live updates work
 
-Every page keeps itself current - there's nothing to reload. The price in the header updates about once a second, and each panel fetches fresh numbers on its own short timer, every few seconds for most surfaces. Data starts arriving as soon as the page loads.
+Every page keeps itself current - there's nothing to reload. The price in the header updates about once a second, and each panel fetches fresh numbers on its own short timer, every few seconds for most surfaces. Data starts arriving as soon as the page loads.
 
 If a request fails, the page keeps showing the last good values and tries again on its next cycle. The Composite Score and Trade Bias pages also show a live indicator, with a "Reconnecting…" notice if updates stop arriving.
 
@@ -37,8 +37,8 @@ The common culprits, in order of how often we see them:
 
 When something looks wrong, the three-step diagnostic:
 
-1. Look at the **session badge** - is the market open?
-2. Hover the **price in the header** - does its "as of" time look recent?
+1. Look at the **session badge** - is the market open?
+2. Hover the **price in the header** - does its "as of" time look recent?
 3. Hard reload (Cmd+Shift+R or Ctrl+Shift+R).
 
 That covers most "this looks broken" situations.
@@ -63,7 +63,7 @@ Switching symbols re-fetches every panel on the page; switching a chart's timefr
 
 ## Mobile
 
-ZeroGEX runs on phones - every page is responsive - but the platform is **built for desktop**. The chart density assumes a screen wider than 1024px. On a phone, charts fit the screen and thin out their labels; the data is all there but the layout is denser. Swipe up or down to scroll the page - charts only take sideways drags.
+ZeroGEX runs on phones - every page is responsive - but the platform is **built for desktop**. The chart density assumes a screen wider than 1024px. On a phone, charts fit the screen and thin out their labels; the data is all there but the layout is denser. Swipe up or down to scroll the page - charts only take sideways drags.
 
 ## When to email support
 
@@ -73,7 +73,7 @@ If the platform itself feels stuck (not your connection, not a stale tab) and ha
 - The time it happened (with timezone)
 - Your browser and OS
 
-Logs on our side are timestamped - that's enough to trace it.
+Logs on our side are timestamped - that's enough to trace it.
 
 ## See also
 

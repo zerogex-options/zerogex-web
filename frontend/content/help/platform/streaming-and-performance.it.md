@@ -4,21 +4,23 @@
 
 ---
 
-## Come funziona lo streaming
+## Come funzionano gli aggiornamenti in tempo reale
 
-ZeroGEX invia dati live al tuo browser tramite una connessione persistente - apri la dashboard e i dati iniziano ad arrivare entro un secondo dal caricamento della pagina. Non c'è polling lato client.
+Ogni pagina si aggiorna da sola - non c'è niente da ricaricare. Il prezzo nell'intestazione si aggiorna circa una volta al secondo, e ogni pannello recupera dati nuovi con un proprio breve intervallo, ogni pochi secondi per la maggior parte degli elementi. I dati iniziano ad arrivare non appena la pagina si carica.
 
-La connessione si aggiorna automaticamente se cade. Se un aggiornamento fallisce ripetutamente, l'interfaccia mostra un'etichetta "Riconnessione…" e avvia un nuovo tentativo con backoff.
+Se una richiesta non va a buon fine, la pagina continua a mostrare gli ultimi valori validi e riprova al ciclo successivo. Le pagine Punteggio composito e Trade Bias mostrano inoltre un indicatore live, con l'avviso "Reconnecting…" se gli aggiornamenti smettono di arrivare.
 
 ## Cosa significa davvero "live"
 
-| Elemento | Frequenza di aggiornamento |
+Le pagine cercano nuovi dati ogni pochi secondi, ma ogni valore cambia solo con la frequenza con cui viene calcolato:
+
+| Elemento | Con che frequenza cambia |
 | --- | --- |
-| Quotazione prezzo | ~1 secondo |
-| Flow / tape | ~1 secondo |
-| Punteggi dei segnali | 1-5 secondi a seconda del segnale |
-| Superficie GEX | 5-15 secondi (collo di bottiglia: snapshot della chain) |
-| Composite Score | ~5 secondi |
+| Quotazione prezzo | Circa ogni secondo |
+| Posizionamento dei dealer (GEX, wall, flip, max pain) | Ricalcolato circa una volta al minuto |
+| Punteggi dei segnali e Punteggio composito | Circa una volta al minuto; le pagine dei segnali controllano ogni 5 secondi |
+| Flusso delle opzioni | Barre da cinque minuti |
+| Indicatori di volatilità (VIX / VXN) | Barre da cinque minuti |
 
 Quando la pagina è in una scheda in background, il browser potrebbe limitare gli aggiornamenti. Riporta la scheda in primo piano e gli aggiornamenti riprendono immediatamente.
 
@@ -26,51 +28,46 @@ Quando la pagina è in una scheda in background, il browser potrebbe limitare gl
 
 Le cause più comuni, in ordine di frequenza:
 
-1. **La scheda è rimasta in background per ore.** La connessione potrebbe essersi interrotta. Ricarica la pagina.
-2. **Sei su una connessione lenta.** I messaggi WebSocket si accumulano; l'ultimo dato ricevuto prevale, ma gli aggiornamenti risultano lenti. Cambia rete o chiudi altre schede pesanti.
-3. **Un ad blocker o un'estensione sta interferendo.** Alcuni blocker troppo aggressivi scartano i frame WebSocket. Prova in una finestra privata con le estensioni disattivate.
+1. **La scheda è rimasta in background per ore.** Gli aggiornamenti potrebbero essersi fermati. Ricarica la pagina.
+2. **Sei su una connessione lenta.** Le richieste si accumulano; l'ultimo dato ricevuto prevale, ma gli aggiornamenti risultano lenti. Cambia rete o chiudi altre schede pesanti.
+3. **Un ad blocker o un'estensione sta interferendo.** Alcuni blocker troppo aggressivi bloccano le richieste in background che recuperano i dati aggiornati. Prova in una finestra privata con le estensioni disattivate.
 4. **Il mercato è chiuso.** Il badge di sessione lo indica. Vengono mostrati gli ultimi valori calcolati.
 
 ## Cosa controllare per prima cosa
 
-Quando qualcosa sembra non funzionare, la diagnostica in quattro passaggi:
+Quando qualcosa sembra non funzionare, la diagnostica in tre passaggi:
 
 1. Guarda il **badge di sessione** - il mercato è aperto?
-2. Guarda il **riquadro del prezzo** - il timestamp è recente?
-3. Guarda l'**indicatore di connessione** nell'intestazione - è verde?
-4. Ricarica forzatamente la pagina (Cmd+Shift+R o Ctrl+Shift+R).
+2. Passa il mouse sul **prezzo nell'intestazione** - l'orario "as of" è recente?
+3. Ricarica forzatamente la pagina (Cmd+Shift+R o Ctrl+Shift+R).
 
-Questo copre circa il 95% delle situazioni in cui "sembra tutto rotto".
+Questo copre la maggior parte delle situazioni in cui "sembra tutto rotto".
 
 ## Consigli sulle prestazioni
 
 ### Usa un browser recente
 
-ZeroGEX è pensato per le versioni evergreen di Chrome, Edge, Firefox e Safari (Tech Preview). Versioni più datate di browser funzioneranno tecnicamente, ma non beneficeranno delle ottimizzazioni sulle prestazioni.
+ZeroGEX è pensato per le versioni attuali di Chrome, Edge, Firefox e Safari. Se qualcosa non funziona bene in un browser datato, aggiornalo prima di tutto.
 
 ### Chiudi altre schede pesanti
 
-La dashboard trasmette diversi grafici in tempo reale. Se hai una scheda YouTube in streaming e tre finestre di TradingView aperte, il browser deve condividere la CPU tra tutte. Chiudi ciò che non ti serve.
+La dashboard aggiorna diversi grafici in tempo reale. Se hai una scheda YouTube in streaming e tre finestre di TradingView aperte, il browser deve condividere la CPU tra tutte. Chiudi ciò che non ti serve.
 
 ### Disattiva le estensioni non necessarie
 
 Le estensioni per la privacy e il blocco degli annunci generalmente non danno problemi. I blocker di script aggressivi (NoScript con impostazioni predefinite restrittive) richiedono che i domini di ZeroGEX siano inseriti in una allowlist.
 
-### La modalità chiara è leggermente più veloce
-
-Il tema chiaro si renderizza leggermente più velocemente del tema scuro sulla maggior parte delle configurazioni, per via di come vengono composte ombre e tinte. È una differenza marginale - ma se usi un dispositivo poco potente, vale la pena saperlo.
-
 ### Cambiare simbolo è più pesante che cambiare timeframe
 
-Cambiare simbolo recupera nuovamente tutti i dati; cambiare timeframe riutilizza lo stream sottostante. Se ti muovi velocemente, preferisci il selettore del timeframe.
+Cambiare simbolo ricarica i dati di tutti i pannelli della pagina; cambiare il timeframe di un grafico ricarica solo quel grafico.
 
 ## Mobile
 
-ZeroGEX funziona anche su smartphone - ogni pagina è responsive - ma la piattaforma è **pensata per il desktop**. La densità dei grafici presuppone uno schermo più largo di 1024px. Su mobile, scorri orizzontalmente sui grafici; i dati sono tutti presenti, ma il layout è più denso.
+ZeroGEX funziona anche su smartphone - ogni pagina è responsive - ma la piattaforma è **pensata per il desktop**. La densità dei grafici presuppone uno schermo più largo di 1024px. Su smartphone i grafici si adattano allo schermo e mostrano meno etichette; i dati sono tutti presenti, ma il layout è più denso. Scorri verso l'alto o verso il basso per far scorrere la pagina - i grafici rispondono solo al trascinamento laterale.
 
 ## Quando scrivere al supporto
 
-Se la piattaforma stessa sembra bloccata (non la tua connessione, non una scheda non aggiornata), controlla l'indicatore di connessione in basso a destra. Se resta rosso dopo più ricariche forzate, scrivi a [support@zerogex.io](mailto:support@zerogex.io) con:
+Se la piattaforma stessa sembra bloccata (non la tua connessione, non una scheda non aggiornata) e le ricariche forzate non risolvono, scrivi a [support@zerogex.io](mailto:support@zerogex.io) con:
 
 - La pagina su cui ti trovavi
 - L'orario in cui è successo (con fuso orario)

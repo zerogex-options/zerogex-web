@@ -142,7 +142,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'monthly-vs-annual',
         q: 'Should I pay monthly, quarterly, or annual?',
-        a: 'The longer the billing period, the less you pay per month\u00a0- the Pricing page shows every plan as a monthly equivalent so you can compare directly. You can switch in the Stripe billing portal at any time; proration handles the math.',
+        a: 'The longer the billing period, the less you pay per month\u00a0- the Pricing page shows what each plan bills, with its monthly equivalent underneath, so you can compare directly. You can switch in the Stripe billing portal at any time; proration handles the math.',
       },
       {
         id: 'switch-plan',

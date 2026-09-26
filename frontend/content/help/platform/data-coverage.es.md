@@ -34,7 +34,7 @@ ZeroGEX utiliza en todo momento la hora del Este de EE. UU. (ET):
 
 El indicador de sesión en la cabecera confirma en qué franja horaria te encuentras.
 
-**ES y NQ funcionan en cambio con la sesión electrónica de CME**, mucho más amplia: desde el domingo a las 18:00 ET de forma continua hasta el viernes a las 17:00 ET, con una pausa diaria de mantenimiento de 17:00 a 18:00 ET. Eso cubre por completo las sesiones asiática y europea, y las cotizaciones de ES/NQ son de CME en tiempo real. Cuando un índice de contado está cerrado pero su futuro cotiza, el indicador de sesión muestra «Futuros» y la ficha de precio muestra el futuro - con la variación medida frente a su propio cierre de las 16:00 ET - en lugar del índice de contado congelado.
+**ES y NQ funcionan en cambio con la sesión electrónica de CME**, mucho más amplia: desde el domingo a las 18:00 ET de forma continua hasta el viernes a las 17:00 ET, con una pausa diaria de mantenimiento de 17:00 a 18:00 ET. Eso cubre por completo las sesiones asiática y europea, y las cotizaciones de ES/NQ son de CME en tiempo real. Durante la noche - desde las 18:00 ET hasta la apertura de las 9:30, mientras cotizan los futuros - SPX y NDX muestran su futuro en lugar del índice de contado congelado: el indicador de sesión muestra "Futures" y el precio de la cabecera muestra el futuro, con la variación medida frente a su propio precio de las 16:00 ET.
 
 Los niveles de dealers en un gráfico de futuros siguen procediendo del libro de opciones del índice, que cotiza durante el horario estadounidense. Así que de noche estás viendo cotizar en vivo el ES/NQ frente a los niveles tal como quedaron al cierre estadounidense, actualizados a medida que se publican los datos nocturnos de la cadena (véase *Pre-market y after-hours* más abajo); no se recalculan tick a tick a las 3:00 ET. Si una cotización de futuros se queda obsoleta, el precio lleva una etiqueta que indica el retraso medido.
 
@@ -42,52 +42,58 @@ Los niveles de dealers en un gráfico de futuros siguen procediendo del libro de
 
 | Sección | Cadencia |
 | --- | --- |
-| Cotización de precio | 1 segundo |
-| Resumen GEX | 5-15 segundos |
-| Mapa de calor GEX por strike/DTE | 5-15 segundos |
-| Flow / tape | 1 segundo |
-| Puntuaciones de señales | 1-5 segundos según la señal |
-| Composite Score | 5 segundos |
-| Live Bulletin | basado en eventos, en tiempo real |
-| Datos de backtesting | instantánea EOD (fin de jornada) |
+| Cotización de precio | Aproximadamente cada segundo |
+| Resumen GEX, walls, flip y max pain | Se recalculan aproximadamente una vez por minuto |
+| Mapa de calor GEX por strike/DTE | Se recalcula aproximadamente una vez por minuto |
+| Flujo de opciones | Barras de cinco minutos |
+| Puntuaciones de señales | Aproximadamente una vez por minuto |
+| Puntuación compuesta | Aproximadamente una vez por minuto |
+| Medidores de volatilidad (VIX / VXN) | Barras de cinco minutos |
+| Boletín en vivo | Precio cada 5 segundos, niveles cada ~10 segundos, volatilidad cada ~30 segundos |
+| Datos de backtesting | Datos históricos por minuto, no en vivo |
 
-No es necesario actualizar la página. Todo se transmite en streaming.
+No es necesario actualizar la página. Las páginas buscan cifras nuevas cada pocos segundos (cada 5 segundos en las páginas de señales), así que un valor nuevo aparece a los pocos segundos de calcularse.
+
+Una nota sobre las secciones de GEX: "actualizar" significa que la exposición se **recalcula**, no que el interés abierto se vuelva a consultar tick a tick. El interés abierto de las opciones cotizadas lo contabiliza la cámara de compensación después de la sesión y se publica para el *siguiente* día de negociación - no se va formando en vivo durante el día. Por eso los cambios intradía del resumen GEX y del mapa de calor proceden de revalorar el libro existente a medida que se mueven el spot, el tiempo y la volatilidad implícita - no de nuevo interés abierto confirmado. Las estimaciones de la cobertura que generan las operaciones del día son una lectura aparte en la página [Hedging Flow](/help/platform/hedging-flow), *inferida* a partir de la clasificación de las operaciones y no de interés abierto confirmado.
 
 ## Pre-market y after-hours
 
 Durante el horario extendido:
 
-- El panel de precio muestra la cotización del horario extendido junto con el cierre de la sesión regular anterior.
+- La cabecera muestra el último cierre de la sesión regular y su variación, y en una segunda línea el precio en vivo del horario extendido y su movimiento desde ese cierre.
 - Las puntuaciones de señales siguen actualizándose donde los datos son suficientes. Algunas señales (EOD Pressure, 0DTE Position Imbalance) se calculan intencionadamente solo durante la sesión regular.
-- La superficie GEX refleja el estado del cierre de la sesión regular más las actualizaciones nocturnas de la cadena de opciones.
+- La superficie GEX refleja el estado del cierre de la sesión regular más las actualizaciones nocturnas de la cadena de opciones - incluido el interés abierto compensado de la siguiente sesión, en cuanto se publica.
 
 ## Cuando el mercado está cerrado
 
-Cuando el mercado está cerrado, la plataforma muestra los valores de cierre de la última sesión regular en todas las secciones. El indicador de sesión muestra "Closed". Las páginas de señales muestran marcas de tiempo de "último cálculo".
+Cuando el mercado está cerrado, la plataforma muestra los valores de cierre de la última sesión regular en todas las secciones. El indicador de sesión muestra "Closed".
 
 ## Festivos
 
-Festivos de mercado de día completo (con la excepción de la víspera de fin de año) - sin datos en vivo; la plataforma muestra la sesión anterior.
+Festivos de mercado de día completo - sin datos en vivo; la plataforma muestra la sesión anterior.
 
-Jornadas reducidas (cierre anticipado a la 1:00 PM ET algunos viernes cercanos a festivos) - la plataforma respeta el cierre anticipado. La ventana de EOD Pressure se ajusta a una rampa desde las 11:30 AM ET en las jornadas reducidas.
+Jornadas reducidas (cierre anticipado a la 1:00 PM ET en torno a algunos festivos) - la plataforma respeta el cierre anticipado. EOD Pressure mantiene su ventana habitual de 2:30 a 4:00 PM ET, así que permanece inactiva en una jornada reducida.
 
 ## Profundidad histórica
 
-- **Cotizaciones y flow** - varios años de barras históricas.
-- **Puntuaciones de señales** - reconstruidas retroactivamente hasta el origen de cada señal.
-- **Superficies GEX** - historial de instantáneas diarias; el historial intradía está limitado a la ventana reciente.
-
-La página de Backtesting muestra el horizonte histórico disponible para la señal que selecciones.
+- **Datos intradía detallados** - las instantáneas completas de la cadena de opciones, el GEX por strike y el flujo por contrato se conservan durante una ventana móvil de aproximadamente dos a tres meses, no años.
+- **Series más ligeras** - las barras de precio por minuto y el resumen GEX principal se conservan durante más tiempo.
+- **Backtesting** - se apoya en un archivo aparte de la cadena de opciones. El rango de fechas de la página de Backtesting muestra exactamente lo que está disponible para una prueba.
 
 ## Fuentes de datos
 
-ZeroGEX utiliza datos de mercado profesionales en tiempo real de opciones y subyacentes, bajo licencias comerciales. No se trata de un único tape: las **opciones sobre SPY y QQQ** se difunden por OPRA (el tape consolidado de opciones de EE. UU.), mientras que **SPX, SPXW y NDX** son opciones sobre índices, cuyos entitlements se licencian por separado a través de la bolsa de cotización y *no* circulan por el tape de OPRA. Los precios de ES y NQ provienen del feed en tiempo real de CME. El interés abierto es una cifra separada de cierre de sesión procedente del clearing, no un valor en tiempo real. Las griegas y todas las métricas de posicionamiento de dealers las calcula ZeroGEX a partir de esos insumos - ver [Metodología y validación](/methodology).
+ZeroGEX utiliza datos de mercado profesionales en tiempo real de opciones y subyacentes, bajo licencias comerciales. Conviene ser preciso sobre lo que eso significa, porque no se trata de un único tape:
 
-No revelamos públicamente los nombres específicos de los proveedores, pero el nivel de calidad es institucional - los mismos feeds de datos que utilizan las mesas cuantitativas.
+- **Las cotizaciones y operaciones de opciones** de SPY, QQQ, SPX y NDX proceden de OPRA, el tape consolidado de las opciones cotizadas en EE. UU.
+- **Los valores de los índices SPX y NDX** se licencian por separado con sus proveedores de índices.
+- Los precios de **ES y NQ** provienen del feed en tiempo real de CME.
+- El **interés abierto** es una cifra separada de cierre de sesión procedente del clearing, no un valor en tiempo real.
+
+Las griegas y todas las métricas de posicionamiento de dealers las calcula ZeroGEX a partir de esos insumos, en lugar de recibirlas ya hechas de un proveedor - ver [Metodología y validación](/methodology). No revelamos públicamente los nombres específicos de los proveedores.
 
 ## Latencia
 
-La latencia de extremo a extremo desde que una operación se imprime en el tape hasta que llega a tu navegador suele ser inferior a un segundo durante el horario regular. El cuello de botella rara vez son los datos - normalmente es tu red y tu navegador. Consulta [Streaming y rendimiento](/help/platform/streaming-and-performance).
+Durante el horario regular, los precios suelen llegar a tu navegador pocos segundos después de imprimirse en el tape. Las cifras de posicionamiento de los dealers y las señales llegan con cierto retraso por diseño, porque se recalculan en los ciclos indicados arriba y no con cada operación. Si las actualizaciones parecen más lentas, consulta [Streaming y rendimiento](/help/platform/streaming-and-performance).
 
 ## Por qué solo el complejo de índices
 

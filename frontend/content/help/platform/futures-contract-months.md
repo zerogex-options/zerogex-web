@@ -18,7 +18,7 @@ We quote the contract carrying the volume - the one actively traded.
 
 About a week before a contract expires, trading volume migrates to the next one. Data providers switch their feeds across at that point - but **not all on the same day**. Each provider picks its own trigger: a fixed number of days before expiry, a volume or open-interest crossover, or a calendar rule set years ago.
 
-For the week or so between one provider's switch and another's, two platforms both labelled "NQ" are showing different contracts. Neither is broken. They are answering slightly different questions about what "NQ" means today.
+For the week or so between one provider's switch and another's, two platforms both labeled "NQ" are showing different contracts. Neither is broken. They are answering slightly different questions about what "NQ" means today.
 
 This is the whole cause of the mismatch, and it is why we do not publish a single roll date: there isn't one.
 
@@ -46,7 +46,7 @@ Once the old contract expires, every platform is on the new one and the differen
 
 ## Does this affect the dealer levels?
 
-No. The gamma flip, the walls, max pain and the rest are computed from the SPX and NDX options chains and then carried onto the futures price axis, using a ratio measured off the tape rather than modelled from carry. The projection re-measures itself through each roll, so the levels track whichever contract we are quoting without a basis offset to configure. See [Data Coverage & Refresh](/help/platform/data-coverage) for how ES and NQ are served.
+No. The gamma flip, the walls, max pain and the rest are computed from the SPX and NDX options chains and then carried onto the futures price axis, using a ratio measured off the tape rather than modeled from carry. The projection re-measures itself through each roll, so the levels track whichever contract we are quoting without a basis offset to configure. See [Data Coverage & Refresh](/help/platform/data-coverage) for how ES and NQ are served.
 
 ## Still not matching?
 

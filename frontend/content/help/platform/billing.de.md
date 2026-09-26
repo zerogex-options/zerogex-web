@@ -6,7 +6,7 @@
 
 ## Wie die Abrechnung funktioniert
 
-ZeroGEX rechnet über **Stripe** ab. Wir sehen oder speichern keine Zahlungskartendaten - das übernimmt vollständig Stripe. Jede Abrechnungsaktion erfolgt im von Stripe gehosteten Abrechnungsportal, das du über deine [Account](/account)-Seite erreichst.
+ZeroGEX rechnet über **Stripe** ab. Wir sehen oder speichern keine Zahlungskartendaten - das übernimmt vollständig Stripe. Jede Abrechnungsaktion erfolgt im von Stripe gehosteten Abrechnungsportal, das du über deine [Konto](/account)-Seite erreichst.
 
 ## Tarife und Zahlungsrhythmen
 
@@ -19,11 +19,11 @@ Zwei Stufen - **Basic** und **Pro** - jeweils verfügbar mit **monatlicher**, 
 
 Basic monatlich beginnt mit einer **7-tägigen kostenlosen Testphase**: voller Zugang sofort, deine Karte ist hinterlegt, und bis zum Ende der Testphase wird nichts berechnet. Etwa 48 Stunden vor ihrem Ende schicken wir dir eine Erinnerung per E-Mail mit dem Betrag, der abgebucht wird. Am Ende der Testphase läuft das Abonnement automatisch zu dem Satz weiter, zu dem du dich angemeldet hast - ohne einen zweiten Bestätigungsschritt.
 
-Um diese automatische Verlängerung zu verhindern: kündige, bevor die Testphase endet - im Portal oder über **Cancel subscription** auf deiner Account-Seite. Du behältst den Zugang bis zum Ende der Testphase. Eine kostenlose Testphase pro Konto.
+Um diese automatische Verlängerung zu verhindern: kündige, bevor die Testphase endet - im Portal oder über **Cancel subscription** auf deiner Kontoseite. Du behältst den Zugang bis zum Ende der Testphase. Eine kostenlose Testphase pro Konto.
 
 ## 7-tägige Geld-zurück-Garantie (alle anderen Pläne)
 
-Pro sowie jeder vierteljährliche und jährliche Plan wird beim Abschluss abgerechnet - und ist statt durch eine Testphase durch eine **7-tägige Geld-zurück-Garantie** abgedeckt. Wenn es nicht passt, öffne innerhalb von 7 Tagen nach deiner ersten Zahlung [Account](/account) und klicke auf **Volle Erstattung anfordern**:
+Pro sowie jeder vierteljährliche und jährliche Plan wird beim Abschluss abgerechnet - und ist statt durch eine Testphase durch eine **7-tägige Geld-zurück-Garantie** abgedeckt. Wenn es nicht passt, öffne innerhalb von 7 Tagen nach deiner ersten Zahlung [Konto](/account) und klicke auf **Volle Erstattung anfordern**:
 
 - Die Zahlung wird vollständig auf die Karte erstattet, mit der du bezahlt hast (in der Regel innerhalb von 5-10 Werktagen sichtbar).
 - Dein Abonnement wird gekündigt, und der kostenpflichtige Zugang endet, sobald die Erstattung ausgestellt ist.
@@ -31,8 +31,8 @@ Pro sowie jeder vierteljährliche und jährliche Plan wird beim Abschluss abgere
 
 ## So verwaltest du dein Abonnement
 
-1. Öffne [Account](/account).
-2. Klicke auf **Abonnement verwalten** - dies öffnet das Stripe-Billing-Portal.
+1. Öffne [Konto](/account).
+2. Klicke auf **Abonnement verwalten** - dies öffnet das Stripe-Billing-Portal.
 
 Im Portal kannst du:
 
@@ -51,8 +51,8 @@ Im Portal kannst du:
 
 ## Kündigung
 
-- Kündige im Portal oder über den Link **Cancel subscription** unter Abonnement verwalten auf deiner Account-Seite. Dieser Link bietet dir stattdessen auch an, dein Abonnement für ein bis drei Monate zu pausieren - während der Pause wird nichts berechnet und du hast keinen Zugang, danach läuft es automatisch weiter.
-- Die Kündigung wird zum **Ende des aktuellen Abrechnungszeitraums** wirksam. Bis dahin behältst du den kostenpflichtigen Zugang, und deine Account-Seite zeigt das Datum an.
+- Kündige im Portal oder über den Link **Cancel subscription** unter Abonnement verwalten auf deiner Kontoseite. Dieser Link bietet dir stattdessen auch an, dein Abonnement für ein bis drei Monate zu pausieren - während der Pause wird nichts berechnet und du hast keinen Zugang, danach läuft es automatisch weiter.
+- Die Kündigung wird zum **Ende des aktuellen Abrechnungszeitraums** wirksam. Bis dahin behältst du den kostenpflichtigen Zugang, und deine Kontoseite zeigt das Datum an.
 - Nach Ablauf des Zeitraums fällt deine Stufe auf Public zurück. Dein Konto wird nicht gelöscht; deine Empfehlungsdaten und gespeicherten Einstellungen bleiben erhalten.
 - Du kannst jederzeit erneut abonnieren.
 
@@ -68,7 +68,7 @@ Jede Abbuchung erzeugt eine Stripe-Rechnung. Das Portal listet alle bisherigen R
 
 Wenn eine Abbuchung fehlschlägt, versucht Stripe es automatisch über mehrere Tage hinweg erneut. Während dieses Wiederholungszeitraums befindet sich dein Abonnement im Status "past due" - kostenpflichtige Funktionen bleiben vorübergehend verfügbar. Schlagen alle Versuche fehl, wird das Abonnement gekündigt und die Stufe fällt zurück.
 
-Deine Account-Seite weist auf die fehlgeschlagene Zahlung hin, und mit ihrem Button **Abrechnungsportal öffnen** kannst du die offene Rechnung mit einer beliebigen Karte bezahlen - eine erneute Anmeldung ist nicht nötig. Die häufigsten Fehlerursachen: abgelaufene Karte, Nichtübereinstimmung bei der Adressprüfung, regionale Einschränkungen. Aktualisiere die Zahlungsmethode im Portal, um das Problem zu beheben.
+Deine Kontoseite weist auf die fehlgeschlagene Zahlung hin, und mit ihrem Button **Abrechnungsportal öffnen** kannst du die offene Rechnung mit einer beliebigen Karte bezahlen - eine erneute Anmeldung ist nicht nötig. Die häufigsten Fehlerursachen: abgelaufene Karte, Nichtübereinstimmung bei der Adressprüfung, regionale Einschränkungen. Aktualisiere die Zahlungsmethode im Portal, um das Problem zu beheben.
 
 ## Rückerstattungen
 
@@ -78,7 +78,7 @@ Für Ausnahmen schreibe eine E-Mail an [support@zerogex.io](mailto:support@zerog
 
 ## Wechsel zu einem längeren Abrechnungszeitraum
 
-Die Rechnung geht zu deinen Gunsten auf - je länger der Zeitraum, desto niedriger der monatliche Gegenwert. Das Portal übernimmt den Wechsel: Er wird sofort wirksam und anteilig berechnet, mit einer Gutschrift für den ungenutzten Teil deines aktuellen Zeitraums. Befindest du dich noch in der kostenlosen Testphase von Basic, beendet der Wechsel die Testphase und der neue Plan wird noch am selben Tag abgerechnet (siehe oben).
+Die Rechnung geht zu deinen Gunsten auf - je länger der Zeitraum, desto niedriger der monatliche Gegenwert. Das Portal übernimmt den Wechsel: Er wird sofort wirksam und anteilig berechnet, mit einer Gutschrift für den ungenutzten Teil deines aktuellen Zeitraums. Befindest du dich noch in der kostenlosen Testphase von Basic, beendet der Wechsel die Testphase und der neue Plan wird noch am selben Tag abgerechnet (siehe oben).
 
 ## Verlängerungserinnerungen
 
@@ -92,6 +92,6 @@ Der **Founding-Member-Satz** war ein Einführungsangebot nur auf Einladung und s
 
 ## Siehe auch
 
-- [Account Settings](/help/platform/account)
-- [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)
+- [Kontoeinstellungen](/help/platform/account)
+- [Tiers, Zugang & was wo freigeschaltet wird](/help/platform/tiers-and-access)
 - [Pricing](/pricing)
