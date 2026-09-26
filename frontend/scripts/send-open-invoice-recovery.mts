@@ -61,6 +61,7 @@
 import { loadEnvLocal, warnIfPricesUnconfigured } from './env-local.mts';
 import crypto from 'node:crypto';
 import Stripe from 'stripe';
+import type { DeclineCategory } from '../core/declineReason.ts';
 
 // Load the WHOLE of .env.local — see scripts/env-local.mts for why an
 // allowlist of keys cannot be kept correct here.
@@ -81,6 +82,7 @@ if (!secretKey) {
 }
 
 const { getDb } = await import('../core/db.ts');
+const { categoryFromStoredDeclines } = await import('../core/declineReason.ts');
 const { sendOpenInvoiceRecoveryEmail, buildOpenInvoiceRecoveryEmail } = await import('../core/mailer.ts');
 const { buildPayUrl } = await import('../core/payLink.ts');
 const { parseSkipList, skipArg, skipEntryFor, suspectSkipEntries } = await import('../core/emailSkipList.ts');
@@ -148,7 +150,36 @@ type Candidate = {
   alreadyEmailed: boolean;
   /** Named in SKIP by the operator. */
   skipped: boolean;
+  /**
+   * What the bank said, from the decline ledger. Picks the email's instruction:
+   * a different card, the bank, or (for our own Radar block) neither. Null when
+   * the ledger has nothing usable, which gets both instructions.
+   */
+  category: DeclineCategory | null;
 };
+
+// The invoice's recorded declines, latest first, for categoryFromStoredDeclines.
+const declinesForInvoice = db.prepare(
+  `SELECT category, failure_code, decline_code, network_decline_code FROM payment_declines
+    WHERE invoice_id = ?
+    ORDER BY failed_at DESC, attempt_count DESC`,
+);
+function recordedCategory(invoiceId: string): DeclineCategory | null {
+  const rows = declinesForInvoice.all(invoiceId) as Array<{
+    category: string | null;
+    failure_code: string | null;
+    decline_code: string | null;
+    network_decline_code: string | null;
+  }>;
+  return categoryFromStoredDeclines(
+    rows.map((row) => ({
+      category: row.category,
+      failureCode: row.failure_code,
+      declineCode: row.decline_code,
+      networkDeclineCode: row.network_decline_code,
+    })),
+  );
+}
 
 const userByCustomer = new Map<
   string,
@@ -252,6 +283,7 @@ for await (const invoice of stripe.invoices.list({
     verified: user.verified,
     alreadyEmailed: emailed.has(invoice.id),
     skipped: skippedBy !== null,
+    category: recordedCategory(invoice.id),
   });
 }
 
@@ -328,7 +360,7 @@ for (const c of candidates.slice(0, 200)) {
     .filter(Boolean)
     .join(', ');
   console.log(
-    `  ${money(c.amountDue, c.currency).padStart(9)}  ${c.email.padEnd(34)} ${c.raisedAt.slice(0, 10)}  ${c.planLabel ?? 'plan unknown'}${flags ? `  [${flags}]` : ''}`,
+    `  ${money(c.amountDue, c.currency).padStart(9)}  ${c.email.padEnd(34)} ${c.raisedAt.slice(0, 10)}  ${(c.planLabel ?? 'plan unknown').padEnd(12)}  ${(c.category ?? 'no reason on record').padEnd(19)}${flags ? `  [${flags}]` : ''}`,
   );
 }
 
@@ -372,6 +404,7 @@ for (const [index, c] of sendable.slice(0, limit).entries()) {
       payUrl: buildPayUrl(appUrl, c.invoiceId),
       planLabel: c.planLabel,
       raisedLabel: null,
+      declineCategory: c.category,
     });
     db.prepare(
       `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
@@ -396,6 +429,7 @@ for (const [index, c] of sendable.slice(0, limit).entries()) {
           payUrl: buildPayUrl(appUrl, c.invoiceId),
           planLabel: c.planLabel,
           raisedLabel: null,
+          declineCategory: c.category,
         });
         db.prepare(
           `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)

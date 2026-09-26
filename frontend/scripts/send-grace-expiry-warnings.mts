@@ -48,10 +48,9 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
-import type { DeclineCategory } from '../core/declineReason.ts';
+import { categoryFromStoredDeclines, type DeclineCategory } from '../core/declineReason.ts';
 import { sendGraceExpiryWarningEmail } from '../core/mailer.ts';
 import { buildPayUrl } from '../core/payLink.ts';
-import { toDeclineCategory } from '../core/paymentFailedResend.ts';
 import { resolveSubscriptionCard } from '../core/stripeCard.ts';
 import {
   decideGraceExpiryWarning,
@@ -491,20 +490,31 @@ async function resolveRetryDetails(
 }
 
 // What the bank said about this invoice, as the webhook recorded it
-// (payment_declines, classified by core/declineReason.ts), so this email gives
-// the same instruction the first one did: a short balance is told to use a
-// different card, a bank refusal to call the bank. The latest attempt with a
-// usable reason wins; null (no row, or only `unknown`) gets the copy that
+// (payment_declines), so this email gives the same instruction the first one
+// did: a short balance is told to use a different card, a bank refusal to call
+// the bank, our own Radar block never to call anyone. The latest attempt with a
+// usable reason wins (categoryFromStoredDeclines); null gets the copy that
 // offers both.
 function recordedDeclineCategory(invoiceId: string): DeclineCategory | null {
-  const rows = querySqlite<{ category: string }>(
+  const rows = querySqlite<{
+    category: string | null;
+    failure_code: string | null;
+    decline_code: string | null;
+    network_decline_code: string | null;
+  }>(
     dbPath,
-    `SELECT category FROM payment_declines
-     WHERE invoice_id = '${escapeSqlLiteral(invoiceId)}' AND category != 'unknown'
-     ORDER BY failed_at DESC, attempt_count DESC
-     LIMIT 1;`,
+    `SELECT category, failure_code, decline_code, network_decline_code FROM payment_declines
+     WHERE invoice_id = '${escapeSqlLiteral(invoiceId)}'
+     ORDER BY failed_at DESC, attempt_count DESC;`,
   );
-  return toDeclineCategory(rows[0]?.category);
+  return categoryFromStoredDeclines(
+    rows.map((row) => ({
+      category: row.category,
+      failureCode: row.failure_code,
+      declineCode: row.decline_code,
+      networkDeclineCode: row.network_decline_code,
+    })),
+  );
 }
 
 let successCount = 0;

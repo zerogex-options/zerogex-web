@@ -165,3 +165,26 @@ test('only a real card fault is told to update the card instead of paying', () =
     );
   }
 });
+
+test('a lapsed subscription is only ever asked to pay the invoice', () => {
+  // The open-invoice recovery email: Stripe stopped retrying and canceled the
+  // subscription, so no card is left on file to update and no retry is coming.
+  for (const category of CATEGORIES) {
+    const copy = buildDeclineEmailCopy(
+      input({ category, lapsed: true, trialConversion: false, nextAttemptLabel: null, retriesExhausted: false }),
+    );
+    assert.equal(copy.preferInvoice, true, String(category));
+    assert.equal(copy.followUp, null, String(category));
+    assert.match(copy.subject, /^Your ZeroGEX access ended - /, String(category));
+    assert.doesNotMatch(copy.remedy, /update your card/i, String(category));
+  }
+  const dead = buildDeclineEmailCopy(input({ category: 'card_problem', lapsed: true }));
+  assert.match(dead.remedy, /pay with a different card/i);
+  assert.match(dead.ctaLabel, /different card/i);
+  // Even when a caller hands over a retry date or an exhausted schedule, neither
+  // "we'll try it again" nor "will be canceled" is true of a canceled plan.
+  const funds = buildDeclineEmailCopy(
+    input({ category: 'insufficient_funds', lapsed: true, nextAttemptLabel: 'March 3', retriesExhausted: true }),
+  );
+  assert.equal(funds.followUp, null);
+});

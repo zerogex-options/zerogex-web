@@ -192,7 +192,9 @@ are opposite problems with opposite remedies.
                              issuer_block because the remedy is the opposite one:
                              nothing the member does can help, and the decision is
                              ours to review. A false positive here is revenue
-                             turned away by our own rules.
+                             turned away by our own rules. Includes `rule` (one of
+                             our Radar rules fired) and Stripe's
+                             `low_probability_of_authorization`.
     unknown                  no usable decline code. Never guessed.
 
 Three alphabets feed this, read most-specific first: Stripe's normalized

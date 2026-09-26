@@ -85,6 +85,13 @@ export type DeclineEmailInput = {
   retriesExhausted: boolean;
   /** A first charge after a trial gets a trial-framed subject. */
   trialConversion: boolean;
+  /**
+   * The subscription has already ended: the open-invoice recovery email, sent
+   * after Stripe stopped retrying and canceled it. There is no card on file left
+   * to fix, so every button pays the invoice, and no retry is coming, so nothing
+   * is said about one.
+   */
+  lapsed?: boolean;
 };
 
 /**
@@ -94,24 +101,22 @@ export type DeclineEmailInput = {
 const NO_RETRIES_LEFT =
   'There are no automatic retries left, so unless the payment is made, the subscription will be canceled.';
 
-function subjectFor(category: DeclineCategory | null, trialConversion: boolean): string {
+function subjectFor(input: DeclineEmailInput): string {
   // Subjects take a plain space before the hyphen, never the no-break space the
   // body uses: they do not wrap, and unusual spacing characters in a subject can
   // count against a message with spam filters.
-  if (category === 'authentication_required') {
-    return trialConversion
-      ? 'Your ZeroGEX trial ended - please confirm your payment'
-      : 'Please confirm your ZeroGEX payment';
-  }
-  if (category === 'blocked_by_risk') {
-    // "Declined" would read as the member's bank refusing, which it did not.
-    return trialConversion
-      ? "Your ZeroGEX trial ended - your payment didn't go through"
-      : "Your ZeroGEX payment didn't go through";
-  }
-  return trialConversion
-    ? 'Your ZeroGEX trial ended - your payment was declined'
-    : 'Your ZeroGEX payment was declined';
+  const tail =
+    input.category === 'authentication_required'
+      ? 'please confirm your payment'
+      : input.category === 'blocked_by_risk'
+        ? // "Declined" would read as the member's bank refusing, which it did not.
+          "your payment didn't go through"
+        : 'your payment was declined';
+  if (input.lapsed) return `Your ZeroGEX access ended - ${tail}`;
+  if (input.trialConversion) return `Your ZeroGEX trial ended - ${tail}`;
+  if (input.category === 'authentication_required') return 'Please confirm your ZeroGEX payment';
+  if (input.category === 'blocked_by_risk') return "Your ZeroGEX payment didn't go through";
+  return 'Your ZeroGEX payment was declined';
 }
 
 /**
@@ -122,8 +127,10 @@ function subjectFor(category: DeclineCategory | null, trialConversion: boolean):
  * already does, and naming it twice in three lines reads as a template.
  */
 export function buildDeclineEmailCopy(input: DeclineEmailInput): DeclineEmailCopy {
-  const subject = subjectFor(input.category, input.trialConversion);
-  const finalFollowUp = input.retriesExhausted ? NO_RETRIES_LEFT : null;
+  const subject = subjectFor(input);
+  // A lapsed subscription is already canceled and has no retry left to wait
+  // for, so neither "will be canceled" nor a retry date is true of it.
+  const finalFollowUp = input.retriesExhausted && !input.lapsed ? NO_RETRIES_LEFT : null;
 
   switch (input.category) {
     case 'insufficient_funds':
@@ -134,14 +141,27 @@ export function buildDeclineEmailCopy(input: DeclineEmailInput): DeclineEmailCop
         // Waiting is a real option here, unlike for any other reason: the same
         // card clears once the money is in the account. It is offered as a
         // deadline to meet, not as a reason to do nothing.
-        followUp: input.nextAttemptLabel
-          ? `If you'd rather keep using this card, make sure the funds are in the account before ${input.nextAttemptLabel}, when we'll try it again.`
-          : finalFollowUp,
+        followUp:
+          input.nextAttemptLabel && !input.lapsed
+            ? `If you'd rather keep using this card, make sure the funds are in the account before ${input.nextAttemptLabel}, when we'll try it again.`
+            : finalFollowUp,
         ctaLabel: 'Pay with a different card',
         preferInvoice: true,
       };
 
     case 'card_problem':
+      if (input.lapsed) {
+        // No subscription is left to put a new card on: the way back is paying
+        // the open invoice, which takes any card.
+        return {
+          subject,
+          reason: "The card couldn't be charged. It looks expired, entered incorrectly, or no longer active.",
+          remedy: 'Please pay with a different card using the button below.',
+          followUp: null,
+          ctaLabel: 'Pay with a different card',
+          preferInvoice: true,
+        };
+      }
       return {
         subject,
         // The one category where the account page really is the answer.

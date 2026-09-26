@@ -343,6 +343,19 @@ auth/transactional and TradeWorkz alerts.
   `past_due`, so every warned member eventually reaches the elapsed state, and
   counting them would make the alarm climb forever and bury the real misses.
 
+**Open-invoice recovery** — `sendOpenInvoiceRecoveryEmail(to, { amountFormatted, payUrl, planLabel, raisedLabel, declineCategory? })`
+- **Subject:** `Your ZeroGEX access ended - your payment was declined` (a 3DS step-up:
+  `- please confirm your payment`; a Radar block: `- your payment didn't go through`)
+- Operator-run (`make open-invoice-recovery`, dry run by default), not automatic: a
+  lapsed member whose invoice Stripe stopped retrying but never voided, and whose
+  paid-for period is still ahead, so paying restores access by itself. One email per
+  invoice, ever.
+- Same opening as the dunning emails: what happened, the instruction for the bank's
+  reason as the decline ledger recorded it, then the `/pay` button. A dead card is told
+  to pay with a different card, since no subscription is left to put a new card on.
+  Still no invented deadline and no implied debt: it says nothing more will be charged
+  and that someone who does not want to come back need do nothing.
+
 **Payment recovered** — `sendPaymentRecoveredEmail(to)`
 - **Subject:** `You're all set — your ZeroGEX payment went through`
 - Reassurance bookend to payment-failed. Dashboard CTA. FOH footer.

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  categoryFromStoredDeclines,
   classifyDecline,
   declineGuidance,
   transientClaimExpired,
@@ -263,6 +264,66 @@ test('a Radar rule firing on a postcode or CVC mismatch is OUR block, not the ca
     assert.equal(classifyDecline(decline({ declineCode: code })), 'blocked_by_risk', code);
   }
   assert.notEqual(classifyDecline(decline({ declineCode: 'requested_block_on_incorrect_zip' })), 'card_problem');
+});
+
+test('a charge our Radar rules or Stripe itself stopped is OUR block, not the bank', () => {
+  // `rule` is outcome.reason for one of our Radar rules; it reached the dunning
+  // emails as "unknown", whose copy tells the member to call their bank.
+  // `low_probability_of_authorization` is Stripe declining to send it at all.
+  for (const code of ['rule', 'low_probability_of_authorization']) {
+    assert.equal(classifyDecline(decline({ code: 'card_declined', declineCode: code })), 'blocked_by_risk', code);
+  }
+  // Read off the wire the way the webhook sees it: outcome.reason is the field.
+  const charge = {
+    status: 'failed',
+    failure_code: 'card_declined',
+    failure_message: 'Your card was declined.',
+    outcome: { type: 'blocked', reason: 'rule', seller_message: 'Stripe blocked this payment.' },
+  };
+  assert.equal(classifyDecline(readChargeDecline(charge)), 'blocked_by_risk');
+});
+
+// --- reading the ledger back -----------------------------------------------
+
+const stored = (over: Partial<Parameters<typeof categoryFromStoredDeclines>[0][number]> = {}) => ({
+  category: null,
+  failureCode: null,
+  declineCode: null,
+  networkDeclineCode: null,
+  ...over,
+});
+
+test('a stored category stands, and the latest usable row wins', () => {
+  assert.equal(
+    categoryFromStoredDeclines([stored({ category: 'issuer_block' }), stored({ category: 'insufficient_funds' })]),
+    'issuer_block',
+  );
+  // A later attempt that said nothing usable does not erase an earlier reason.
+  assert.equal(
+    categoryFromStoredDeclines([stored({ category: 'unknown' }), stored({ category: 'insufficient_funds' })]),
+    'insufficient_funds',
+  );
+});
+
+test('an unknown row is asked again from its stored codes', () => {
+  // Recorded before `rule` was mapped: stored as unknown, codes intact. Every
+  // email reading the ledger must see the block for what it is, without waiting
+  // on a backfill to rewrite the row.
+  assert.equal(
+    categoryFromStoredDeclines([stored({ category: 'unknown', failureCode: 'card_declined', declineCode: 'rule' })]),
+    'blocked_by_risk',
+  );
+  assert.equal(
+    categoryFromStoredDeclines([stored({ category: 'unknown', networkDeclineCode: '51' })]),
+    'insufficient_funds',
+  );
+});
+
+test('nothing usable on record reads as no reason, never a guess', () => {
+  assert.equal(categoryFromStoredDeclines([]), null);
+  assert.equal(categoryFromStoredDeclines([stored({ category: 'unknown', failureCode: 'card_declined' })]), null);
+  // A value that is not a category at all is not trusted either.
+  assert.equal(categoryFromStoredDeclines([stored({ category: 'constructor' })]), null);
 });
 
 // ---------------------------------------------------------------------------

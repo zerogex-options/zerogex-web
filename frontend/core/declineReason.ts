@@ -214,6 +214,14 @@ const BY_DECLINE_CODE: Record<string, DeclineCategory> = {
   requested_block_on_incorrect_zip: 'blocked_by_risk',
   requested_block_on_incorrect_cvc: 'blocked_by_risk',
   requested_block: 'blocked_by_risk',
+  // Stripe's outcome.reason when one of our Radar rules made the call; the rule
+  // itself is not named in the payload. It sat in 'unknown' until the dunning
+  // copy started telling 'unknown' declines to call their bank, which for this
+  // code sends the member to a bank that never saw the charge.
+  rule: 'blocked_by_risk',
+  // Stripe declined to send the charge to the issuer at all, predicting a
+  // decline. Also never seen by the bank.
+  low_probability_of_authorization: 'blocked_by_risk',
 
   processing_error: 'try_again',
   // A dropped wallet connection is transient by definition.
@@ -242,6 +250,57 @@ const BY_CODE: Record<string, DeclineCategory> = {
   authentication_required: 'authentication_required',
   insufficient_funds: 'insufficient_funds',
 };
+
+// Every category, as a value: lets a stored string be checked against the union
+// without this module importing anything. Record<DeclineCategory, …> makes the
+// compiler refuse a list that drifts from the type.
+const KNOWN_CATEGORIES: Record<DeclineCategory, true> = {
+  insufficient_funds: true,
+  issuer_block: true,
+  card_problem: true,
+  authentication_required: true,
+  try_again: true,
+  blocked_by_risk: true,
+  unknown: true,
+};
+
+/** One stored decline row (payment_declines), as far as naming its reason goes. */
+export type StoredDecline = {
+  category: string | null;
+  failureCode: string | null;
+  declineCode: string | null;
+  networkDeclineCode: string | null;
+};
+
+/**
+ * What an invoice's stored declines say its reason is, for a sender that reads
+ * the ledger rather than asking Stripe. Rows come latest first; the first one
+ * with a usable reason wins.
+ *
+ * A stored category other than 'unknown' stands. An 'unknown' row is asked
+ * again from its stored codes, the same rule recategorizeFromStoredCodes applies
+ * (core/paymentDeclinesServer.ts), so a mapping added after the row was written
+ * already counts. Otherwise a decline recorded before `rule` was mapped would
+ * still be sent the "call your bank" copy by every email that reads it.
+ *
+ * Null when no row says anything usable: the caller's copy for "no reason".
+ */
+export function categoryFromStoredDeclines(rows: StoredDecline[]): DeclineCategory | null {
+  for (const row of rows) {
+    const stored =
+      row.category && Object.hasOwn(KNOWN_CATEGORIES, row.category) ? (row.category as DeclineCategory) : null;
+    if (stored && stored !== 'unknown') return stored;
+    const asked = classifyDecline({
+      code: row.failureCode,
+      declineCode: row.declineCode,
+      networkDeclineCode: row.networkDeclineCode,
+      message: null,
+      sellerMessage: null,
+    });
+    if (asked !== 'unknown') return asked;
+  }
+  return null;
+}
 
 export function classifyDecline(decline: ChargeDecline | null): DeclineCategory {
   if (!decline) return 'unknown';

@@ -2102,6 +2102,12 @@ export type OpenInvoiceRecoveryEmailOptions = {
   planLabel: string | null;
   /** How long ago the invoice was raised, e.g. "in July". Null omits it. */
   raisedLabel: string | null;
+  /**
+   * What the bank said, from the decline ledger (categoryFromStoredDeclines in
+   * core/declineReason.ts). Null when it is not known, which gets both
+   * instructions and no stated reason.
+   */
+  declineCategory?: DeclineCategory | null;
 };
 
 /**
@@ -2110,27 +2116,23 @@ export type OpenInvoiceRecoveryEmailOptions = {
  * retrying but has not voided — so it is still sitting there, payable, on a
  * hosted page that stays live indefinitely.
  *
- * COPY RULES, because this email is about somebody's money and a failure they
- * may not know happened:
+ * It says what the dunning emails say, for the same reason: the version before
+ * this opened with "I'm not writing to chase you" and closed with "you don't
+ * need to do anything at all", which is an email nobody acts on. So it opens
+ * with what happened and the instruction the bank's reason calls for
+ * (core/declineEmailCopy.ts, in its `lapsed` form: no card is left on file to
+ * fix, so every button pays the invoice), then the button.
  *
- *   • It never says why the payment failed. We frequently do not know, and a
- *     wrong guess ("your bank declined it") sends someone to argue with a bank
- *     that did nothing wrong. It says only that it did not complete.
- *   • It never implies they did something wrong, and never manufactures
- *     urgency. The invoice has been sitting there for weeks; pretending it
- *     expires tonight would be a lie.
- *   • It leads with the ONE thing that makes it actionable — the link — and
- *     mentions that a different card can be used there, which is the actual
- *     remedy for most of these without asserting that their card is the problem.
- *   • It offers a way out. Somebody who does not want the product back should
- *     not have to pay to make the email stop.
+ * What it still never does: guess a reason it does not have, invent a deadline
+ * (the invoice has been sitting there for weeks), or imply a debt. The
+ * subscription has ended and nothing more will be charged, so it says so, and
+ * that somebody who does not want the product back need do nothing at all.
  */
 export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOptions): {
   subject: string;
   html: string;
   text: string;
 } {
-  const subject = 'Your ZeroGEX invoice is still open';
   const plan = opts.planLabel ? `your ${opts.planLabel} subscription` : 'your subscription';
   const raised = opts.raisedLabel ? ` ${opts.raisedLabel}` : '';
   // No fallback, unlike the dunning emails: a lapsed member's account page never
@@ -2140,26 +2142,33 @@ export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOpti
   if (!payUrl) {
     throw new Error('Open-invoice recovery email needs a /pay link on our own domain (buildPayUrl).');
   }
-  const safeUrl = escapeHtml(payUrl);
-  const safeAmount = escapeHtml(opts.amountFormatted);
+
+  const copy = buildDeclineEmailCopy({
+    category: opts.declineCategory ?? null,
+    nextAttemptLabel: null,
+    retriesExhausted: false,
+    trialConversion: false,
+    lapsed: true,
+  });
+  const opener = `The ${opts.amountFormatted} payment for ${plan} didn't go through${raised}, so your ZeroGEX access ended.`;
+  const headline = [opener, copy.reason, copy.remedy].filter(Boolean).join(' ');
+  const restoreSentence = 'Your access comes back as soon as the payment goes through.';
+  const leaveSentence =
+    "If you'd rather not come back, there's nothing you need to do: nothing more will be charged, and this is the only email you'll get about it.";
 
   const text = [
     'Hello,',
     '',
-    `A payment for ${plan} did not complete${raised}, so your access lapsed. I am not writing to chase you\u00a0- ` +
-      'I am writing because that invoice is still open, and most people in this position never found out it happened.',
+    headline,
     '',
-    `The invoice is for ${opts.amountFormatted}. If you want to pick your subscription back up, you can settle it here:`,
-    '',
+    `${copy.ctaLabel}:`,
     payUrl,
     '',
-    'That page takes any card\u00a0- if the one on file has changed, or you would rather use a different one, ' +
-      'you can enter it there. Access comes back as soon as the payment clears.',
+    restoreSentence,
     '',
-    'If you would rather leave it, that is completely fine and you do not need to do anything at all. ' +
-      'Nothing further will be charged and this is the only email you will get about it.',
+    leaveSentence,
     '',
-    'If something about the product was the reason, I would genuinely like to know\u00a0- just reply.',
+    DUNNING_QUESTIONS_LINE,
     '',
     'Best,',
     'Michael',
@@ -2169,19 +2178,18 @@ export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOpti
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>A payment for ${escapeHtml(plan)} did not complete${escapeHtml(raised)}, so your access lapsed. I'm not writing to chase you\u00a0- I'm writing because that invoice is still open, and most people in this position never found out it happened.</p>
-      <p>The invoice is for <strong>${safeAmount}</strong>. If you'd like to pick your subscription back up:</p>
+      <p>${escapeHtml(headline)}</p>
       <p style="margin: 24px 0;">
-        <a href="${safeUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Settle the invoice</a>
+        ${dunningButtonHtml(payUrl, copy.ctaLabel)}
       </p>
-      <p>That page takes any card\u00a0- if the one on file has changed, or you'd rather use a different one, you can enter it there. Access comes back as soon as the payment clears.</p>
-      <p>If you'd rather leave it, that's completely fine and you don't need to do anything at all. Nothing further will be charged, and this is the only email you'll get about it.</p>
-      <p>If something about the product was the reason, I'd genuinely like to know\u00a0- just reply.</p>
-      <p style="margin-top: 24px;">Best,<br />Michael<br />Founder, ZeroGEX</p>
+      <p>${escapeHtml(restoreSentence)}</p>
+      <p>${escapeHtml(leaveSentence)}</p>
+      <p>${escapeHtml(DUNNING_QUESTIONS_LINE)}</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
-  `;
+  `.trim();
 
-  return { subject, html, text };
+  return { subject: copy.subject, html, text };
 }
 
 export async function sendOpenInvoiceRecoveryEmail(to: string, opts: OpenInvoiceRecoveryEmailOptions) {

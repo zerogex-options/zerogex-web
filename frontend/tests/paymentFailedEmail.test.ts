@@ -229,6 +229,37 @@ test('the open-invoice recovery email links our /pay page and nothing else', () 
   assert.ok(email.text.includes(PAY_URL));
 });
 
+test('the recovery email says what happened and what to do, and still offers a way out', () => {
+  const base = { amountFormatted: '$59.00', payUrl: PAY_URL, planLabel: 'Pro monthly', raisedLabel: null };
+  const funds = buildOpenInvoiceRecoveryEmail({ ...base, declineCategory: 'insufficient_funds' });
+  assert.match(funds.subject, /access ended/i);
+  const lines = funds.text.split('\n');
+  assert.match(lines[2], /didn't go through, so your ZeroGEX access ended/);
+  assert.match(lines[2], /insufficient funds/);
+  assert.match(lines[2], /Please pay with a different card/);
+  // The soft wording this replaced, and the retry talk a canceled plan has no use for.
+  assert.doesNotMatch(funds.text, /chase you|you don't need to do anything at all|try it again|will be canceled/i);
+  // Honest about the lapse: nothing is owed and nothing more will be charged.
+  assert.match(funds.text, /nothing more will be charged/i);
+
+  // No reason on record: both instructions, no guessed cause.
+  const unknown = buildOpenInvoiceRecoveryEmail({ ...base });
+  assert.match(unknown.text, /different card/i);
+  assert.match(unknown.text, /call your bank/i);
+  assert.doesNotMatch(unknown.text, /insufficient|expired/i);
+
+  // Our own Radar block never sends anyone to their bank.
+  const radar = buildOpenInvoiceRecoveryEmail({ ...base, declineCategory: 'blocked_by_risk' });
+  assert.doesNotMatch(radar.text, /bank/i);
+
+  // A dead card still pays the invoice here: there is no subscription left to
+  // put a new card on, and the only link is /pay.
+  const dead = buildOpenInvoiceRecoveryEmail({ ...base, declineCategory: 'card_problem' });
+  assert.match(dead.text, /pay with a different card/i);
+  assert.doesNotMatch(dead.text, /update your card/i);
+  assertOnSite('recovery / card_problem', dead);
+});
+
 test('the recovery email refuses a link that is not ours', () => {
   // No fallback here: a lapsed member's account page never mentions the
   // invoice, so without a working pay link the email is not worth sending.
