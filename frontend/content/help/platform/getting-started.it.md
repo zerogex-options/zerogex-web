@@ -6,15 +6,16 @@
 
 ## Cos'è ZeroGEX, in una frase
 
-ZeroGEX trasforma il mercato delle opzioni in una vista in tempo reale del **posizionamento dei dealer** - dove si trova il gamma, dove sta virando, e quali segnali stanno scattando al di sopra di esso - così puoi leggere l'andamento intraday dei prezzi con la stessa lente che userebbe un market maker.
+ZeroGEX trasforma il mercato delle opzioni in un modello in tempo reale del **posizionamento dei dealer** - dove si trova il gamma, dove vira, e quali segnali stanno scattando al di sopra di esso - così puoi leggere l'andamento intraday dei prezzi con la stessa lente che userebbe un market maker.
 
 ## Cosa fare nei tuoi primi 15 minuti
 
-1. **Crea un account.** Un account pubblico gratuito è sufficiente per esplorare la piattaforma - i piani Basic e Pro sbloccano le funzionalità live. Vedi [Livelli, Accesso e Cosa Si Sblocca Dove](/help/platform/tiers-and-access).
-2. **Apri la Dashboard.** È la pagina che aprirai ogni mattina. Dedica due minuti a passare il mouse su ogni riquadro. Vedi [Leggere la Dashboard](/help/platform/dashboard).
-3. **Apri il Live Bulletin in una seconda scheda.** È un'istantanea in tempo reale e pronta da condividere del posizionamento gamma dei dealer: il regime, i livelli chiave e il range atteso su un'unica scheda. Vedi [Usare il Live Bulletin](/help/platform/live-bulletin).
-4. **Apri una pagina di segnale** - il Composite Score è un buon punto di partenza. Osserva come il punteggio si muove in tempo reale e leggi il pannello "Come è costruito" sotto il grafico. Vedi [Come Funzionano i Segnali dall'Inizio alla Fine](/help/platform/signals-overview).
-5. **Visita l'Education Hub.** L'articolo [Gamma Exposure Explained](/education/gamma-exposure-explained) è la lettura centrale per tutto ciò che alimenta la piattaforma.
+1. **Crea un account e scegli un piano.** Un account gratuito ti permette di esplorare le pagine pubbliche. Basic sblocca la piattaforma live: la Dashboard principale, le pagine Metriche, i segnali Basic e gli Strumenti di strategia. Pro aggiunge i segnali Advanced, Trade Bias, la pagina Punteggio composito, i bot TradeWorkz™ e il backtesting, e l'accesso API. Vedi [Livelli, accesso e cosa si sblocca dove](/help/platform/tiers-and-access).
+2. **Apri la Dashboard principale e inizia da Key Levels.** È la pagina che aprirai ogni mattina. La striscia in alto mostra Gamma Flip, Pin Strike, Call Wall, Put Wall e Max Pain, ciascuno con la distanza tra il prezzo e quel livello. Il chip **Long γ / Short γ** accanto al simbolo ti dice da quale lato del flip si trova il prezzo. Vedi [Come leggere la Dashboard](/help/platform/dashboard).
+3. **Apri la Lettura di Oggi.** Subito sotto la striscia c'è una sintesi del regime in linguaggio semplice: se è probabile che l'hedging dei dealer smorzi i movimenti o li amplifichi. La dashboard parte in vista **Simple**, che chiude la Lettura di Oggi e le sezioni più lunghe. Fai clic sul titolo di una sezione per aprirla, oppure passa a **Detailed** in alto a destra per aprirle tutte. Facendo clic sulla Lettura stessa si apre il [Bollettino live](/help/platform/live-bulletin) completo.
+4. **Leggi il Gamma Chart.** Il prezzo in tempo reale con il flip, i wall e il max pain disegnati sopra, più il Gamma Rail accanto alle candele, che mostra il gamma dei dealer per prezzo così che i wall appaiano come barre. Alterna tra SPY, SPX, QQQ, NDX, ES e NQ con il selettore del simbolo nell'intestazione. Vedi [Come leggere i grafici di ZeroGEX](/help/platform/reading-charts).
+5. **Apri una pagina di segnale.** Con Basic, inizia dal [Basic Signal Dashboard](/help/platform/basic-signals-dashboard) - Tape Flow Bias è una buona prima pagina. Con Pro, la pagina [Composite Score](/help/platform/composite-score) è il punto di partenza naturale. Osserva come il punteggio si muove in tempo reale e leggi il pannello "How it's built". Vedi [Come funzionano i Signals, dall'inizio alla fine](/help/platform/signals-overview).
+6. **Visita l'Education Hub.** L'articolo [Gamma Exposure spiegata](/education/gamma-exposure-explained) è la lettura centrale per tutto ciò che alimenta la piattaforma.
 
 ## Le due domande a cui ogni pagina risponde
 
@@ -27,15 +28,15 @@ Se riesci a rispondere a entrambe con un solo sguardo alla pagina, la stai legge
 
 ## Tre cose da interiorizzare fin da subito
 
-- **I punteggi vivono su una linea fissa [-1, +1].** Il segno indica la direzione; la magnitudine indica la convinzione. Un punteggio di 0 non è quasi mai "neutro" - di solito significa che i dati sono insufficienti. Vedi [Leggere la Linea del Punteggio [-1, +1]](/help/platform/score-line).
-- **I segnali Advanced scattano (trigger); i segnali Basic pesano.** Il dashboard Advanced Signals e i Signal Alerts ti mostrano i trigger. I segnali Basic spingono il composite in modo continuo sullo sfondo.
-- **Essere sopra o sotto il gamma flip cambia tutto.** Sopra significa "mean-revert e grind"; sotto significa "trend e amplificazione." Controlla sempre la relazione con il flip prima di leggere qualsiasi altra cosa.
+- **I punteggi dei segnali vanno da -100 a +100.** Il segno indica la direzione; la magnitudine indica la convinzione. Vedi [Leggere la linea del punteggio](/help/platform/score-line). Il **Composite MSI** della dashboard è diverso: un indicatore di regime 0-100. Un MSI alto non significa rialzista - significa che è probabile che i trend proseguano.
+- **I segnali Advanced scattano (trigger); i segnali Basic avvisano in anticipo.** Ogni segnale Advanced (Pro) mostra *Triggered* o *Stand by* rispetto a una soglia esplicita. I sei segnali Basic sono letture consultive che non hanno alcun peso nel Composite MSI - quando non concordano con esso, trattalo come un preavviso di un cambio di regime.
+- **Essere sopra o sotto il gamma flip cambia tutto.** Sopra significa "mean-revert e grind"; sotto significa "trend e amplificazione." Il chip Long γ / Short γ nella striscia Key Levels ti dice da che lato sei - controllalo prima di leggere qualsiasi altra cosa.
 
 ## Dove andare dopo
 
-- Sei un nuovo trader? Inizia con [Come Leggere i Grafici di ZeroGEX](/help/platform/reading-charts).
-- Vuoi i dati, non l'interfaccia? Vai a [Accesso API e Chiavi (Pro)](/help/platform/api-access).
-- Devi sapere cosa è supportato? Leggi [Copertura Dati e Aggiornamento](/help/platform/data-coverage).
+- Sei un nuovo trader? Inizia con [Come leggere i grafici di ZeroGEX](/help/platform/reading-charts).
+- Vuoi i dati, non l'interfaccia? Vai a [Accesso API e chiavi (Pro)](/help/platform/api-access).
+- Devi sapere cosa è supportato? Leggi [Copertura dati e aggiornamento](/help/platform/data-coverage).
 - Bloccato su qualcosa di specifico? La pagina delle [FAQ](/help/faqs) è ricercabile da tastiera.
 
 ## In caso di dubbio

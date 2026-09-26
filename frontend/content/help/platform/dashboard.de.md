@@ -1,88 +1,91 @@
 # Das Dashboard lesen
 
-*Die Seite, die du jeden Morgen als Erstes öffnest. Jede Kachel, jedes Chart, jeder Hinweis erklärt.*
+*Die Seite, die du jeden Morgen als Erstes öffnest. Jede Leiste, jeder Chart und jede Karte erklärt.*
 
 ---
 
 ## Wozu das Dashboard dient
 
-Das Dashboard ist der **Überblick auf einem Bildschirm** über den aktuellen Markt. Es beantwortet in 30 Sekunden drei Fragen:
+Das Haupt-Dashboard ist der **Überblick auf einem Bildschirm** über den aktuellen Markt. Es beantwortet in 30 Sekunden drei Fragen:
 
-1. **Wie sind die Dealer positioniert?** (das GEX-Regime)
-2. **Was sagt das Tape?** (Flow + Technik)
-3. **Wie lautet die Composite-Lesart?** (die zusammengeführte Regime-Lesart - Trend vs. Chop)
+1. **Wie sind die Dealer positioniert?** (das Gamma-Regime und die wichtigsten Levels)
+2. **Was sagt das Tape?** (Flow und Volatilität)
+3. **Wie lautet die zusammengeführte Lesart?** (Trade Bias und der Composite MSI)
 
 Auf dem Dashboard triffst du keine Entscheidungen. Du orientierst dich. Von dort aus gehst du auf die passende Seite, um tiefer einzusteigen.
 
+## Simple und Detailed
+
+Der Umschalter **Simple / Detailed** oben rechts legt fest, wie viel die Seite zeigt. **Simple** ist die Voreinstellung und hält die Seite auf den schnellen Blick ausgelegt: Heutige Einschätzung, Proprietäre Signale & Volatilität sowie Positionierung & Flow starten eingeklappt - klicke auf den Titel eines Bereichs, um ihn zu öffnen. **Detailed** öffnet alle Bereiche. Deine Auswahl wird gespeichert.
+
 ## Der Aufbau
 
-### 1. Die Regime-Kopfzeile
+### 1. Key Levels
 
-Am oberen Rand der Seite steht das **GEX-Regime-Label** - Positive Gamma, Negative Gamma oder Transitioning - zusammen mit einer kurzen Einschätzung, was das gerade für das Marktverhalten bedeutet. Wenn du heute nur Zeit für eine einzige Information hast, dann für diese.
+Die Leiste ganz oben. Ihre Kopfzeile zeigt das Symbol, die Verfallstermine, aus denen die Levels stammen, und den Chip **Long γ / Short γ**: Long Gamma bedeutet, dass das Hedging der Dealer Bewegungen tendenziell dämpft (Pinning); Short Gamma bedeutet, dass es sie tendenziell verstärkt (Trend). Darunter folgt eine Karte pro Level, jeweils mit dem Abstand zwischen Preis und Level:
 
-### 2. Die Preis-Kachel
+- **Spot** - der Live-Preis und seine Veränderung.
+- **Gamma Flip** - das Level, an dem das modellierte Dealer-Gamma das Vorzeichen wechselt. Darüber dämpft das Hedging Bewegungen; darunter verstärkt es sie. Je näher der Preis am Flip liegt, desto höher das Risiko eines Regimewechsels.
+- **Pin Strike** - der nahe gelegene 0DTE-Strike, an dem positives Dealer-Gamma und die Wahrscheinlichkeit, dass der Preis ihn erreicht, am stärksten zusammenkommen, mit einem Label Strong / Moderate / Weak. Das ist ein modelliertes Pinning-Level, kein Kursziel, und wenn kein Strike infrage kommt, sagt die Karte das auch. Siehe [Pin Strike](/help/platform/pin-strike).
+- **Call Wall** und **Put Wall** - die Strikes mit dem meisten Call-Gamma bzw. Put-Gamma. Sie wirken tendenziell als Widerstand und Unterstützung, besonders bei positivem Gamma. Siehe [Gamma Walls erklärt](/education/gamma-walls-explained).
+- **Max Pain** - der Strike, der den Gesamtwert der ausstehenden Optionen bei Verfall minimiert. Am relevantesten in den letzten ein, zwei Tagen vor einem bedeutenden Verfall. Siehe [Max Pain erklärt](/education/max-pain-explained).
 
-Die Preis-Kachel oben zeigt den aktuellen letzten Kurs, die Veränderung gegenüber dem Schlusskurs der vorherigen Sitzung und das Sitzungs-Badge. Vorbörsliche und nachbörsliche Kurse werden mit dem vorherigen Schlusskurs als Basis angezeigt; während der regulären Handelszeit ist die Eröffnung derselben Sitzung die Basis.
+Die Leiste zeigt genau die Levels, die der Gamma Chart einzeichnet, einschließlich eines Verfallsfilters, den du im Chart gesetzt hast. Um das Symbol direkt in der Leiste zu wechseln, fahre am Computer mit der Maus darüber, um Pfeile einzublenden, oder wische auf dem Smartphone darüber.
 
-### 3. Die Net-GEX-Kachel
+### 2. Heutige Einschätzung
 
-Die Net-GEX-Kachel zeigt die zentrale Gamma-Exposure-Zahl - berechnet **am Spot**, damit sie die richtige Seite des Gamma Flip abbildet. Eine positive Zahl bedeutet, dass die Dealer netto long gamma sind; eine negative, dass sie netto short sind. Farbe und Trend-Chip unterstreichen Vorzeichen und Richtung.
+Eine automatisch erstellte Schlagzeile und ein kurzer Absatz zum Regime des gewählten Symbols: Long Gamma (Pinning, geringere Volatilität), Short Gamma (Trend, höhere Volatilität), direkt am Flip (ein Übergang) oder ungeklärt, wenn sich der Flip aus dem aktuellen Snapshot nicht berechnen lässt. Die Einschätzung basiert auf demselben Modell wie das [Live-Bulletin](/help/platform/live-bulletin), und ein Klick darauf öffnet das vollständige Bulletin.
 
-### 4. Die Gamma-Flip-Kachel
+### 3. Der Gamma Chart
 
-Abstand zum Flip - sowohl als Strike als auch als Prozentsatz vom Spot. Der Flip ist das Niveau, an dem die Dealer-Gamma-Kurve die Nulllinie kreuzt. Oberhalb des Flips dämpft das Hedging der Dealer Bewegungen; darunter verstärkt es sie. Je näher du am Flip bist, desto höher das strukturelle Risiko eines Regimewechsels.
+Der ZeroGEX Gamma Chart ist das Herzstück: Live-Kerzen und die Dealer-Gamma-Struktur, auf derselben Preisachse eingezeichnet. Das Overlay **Gamma Levels** markiert den Flip, die Call- und Put-Walls und Max Pain. Die **Gamma Rail** neben den Kerzen zeigt das Netto-Dealer-Gamma nach Preis, sodass die Walls buchstäblich als Balken erscheinen. Die Kopfzeile des Charts zeigt den Live-Preis, seine Veränderung, die Sitzung und das Dealer-Gamma-Regime. Mit den Bedienelementen des Charts änderst du Zeitrahmen und Chart-Stil und filterst, welche Verfallstermine in die Levels einfließen. Siehe [So liest du ZeroGEX-Charts](/help/platform/reading-charts).
 
-### 5. Die Call-Wall-/Put-Wall-Kacheln
+### 4. Trade Bias
 
-Die Strikes mit dem größten Call-Gamma beziehungsweise Put-Gamma. Sie wirken tendenziell als intraday Widerstand und Unterstützung, besonders wenn der Markt im positiven Gamma steht. Siehe [Gamma Walls Explained](/education/gamma-walls-explained) für die strukturelle Einordnung.
+Eine einzelne Karte mit dem Regime, dem Bias (etwa *Buy Dips*, *Sell Rips*, *Range-Bound* oder *Neutral*) und einem Konfidenzwert auf einer Skala bis 10. Dies ist eine von oben gelesene Synthese, **kein** Handelssignal. **Open Trade Bias** führt zur vollständigen Aufschlüsselung und zum Playbook auf der Seite Trade Bias, die zu Pro gehört. Bei Basic wird die Karte ohne die Signal-Eingangsgrößen gebildet, die Pro vorbehalten sind.
 
-### 6. Die Max-Pain-Kachel
+Unter der Karte erklärt **How to read these signals** (eingeklappt), wie Trade Bias, der Composite MSI, die Basic-Signale und die Advanced-Signale zusammenhängen.
 
-Der Strike, der den gesamten Dollarwert der ausstehenden Optionen bei Verfall minimiert. Am relevantesten in den letzten 24-48 Stunden vor einem bedeutenden Verfall. Siehe [Max Pain Explained](/education/max-pain-explained).
+### 5. Proprietäre Signale & Volatilität
 
-### 7. Die Volatilitäts-Kacheln
+- **Composite MSI** - eine Regime-Anzeige von 0-100: 70 und mehr ist **Trend / Expansion**, 40-70 **Controlled Trend**, 20-40 **Chop / Range** und unter 20 **Compression**, das Band, in dem Kursbewegungen am wenigsten weit gelaufen sind. Ein hoher MSI bedeutet nicht bullish - er bedeutet, dass Trends laufen können. Die Richtung liest du an Trade Bias oder an den einzelnen Signalen ab.
+- **Signal Breadth** - wie viele Signale bullish, neutral oder bearish tendieren, mit dem jeweils stärksten auf jeder Seite.
+- **Regime Triggers** (Pro) - wie bereit der Markt für einen Regimewechsel ist, abgeleitet aus Volatility Expansion, Range Break Imminence und Market Pressure. Lies die Größe jedes Scores, nicht sein Vorzeichen.
+- **Volatilitäts-Monitor** - zwei Anzeigen: **Level** (VIX bzw. VXN für QQQ und NDX) und **Momentum** (ob die Volatilität einbricht, nachlässt, stabil ist, steigt oder sprunghaft ansteigt).
 
-Live-IV, IV-Rank und realisierte Volatilität mit Sparklines. Nützlich für die Positionsgrößenbestimmung - ein Squeeze Setup bei niedriger realisierter Volatilität ist ein anderer Trade als bei hoher.
+### 6. Positionierung & Flow
 
-### 8. Der Trade-Bias-Bereich
+- **Call GEX** und **Put GEX** - die gesamte Gamma-Exposition aus Calls bzw. aus Puts.
+- **Call Wall (Widerstand)** und **Put Wall (Unterstützung)** - das größte Call-Gamma auf oder über dem Spot und das größte Put-Gamma auf oder unter dem Spot, jeweils mit dem Abstand zum Spot. Sie werden über den heutigen Verfallstermin und die zwei folgenden (0-2DTE) ermittelt; hast du den Chart nur auf 0DTE gefiltert, kann die Leiste Key Levels deshalb einen anderen Strike zeigen.
+- **Netto-Flow**, **Netto-Prämie** und **Put/Call-Verhältnis** - für die aktuelle Sitzung: Call-Volumen minus Put-Volumen, Call-Prämie minus Put-Prämie und Put-Volumen geteilt durch Call-Volumen.
 
-Ein zusammengeführter Bias-Chip ("Long bias", "Short bias", "Neutral") mit den zugrunde liegenden Eingangsgrößen darunter. Dies ist eine von oben gelesene Synthese - **kein** Handelssignal.
-
-### 9. Das Composite-Score-Panel
-
-Der MSI-Composite-Score, der Trigger-Status und die beitragenden Signalgewichte. Für die vollständige Aufschlüsselung, klicke weiter zu [Composite Score](/help/platform/composite-score).
-
-### 10. Der Flow-Snapshot
-
-Eine kurze Einschätzung zu premium-gewichtetem Flow, Smart-Money-Bias und Nettovolumen - drei unterschiedliche Blickwinkel auf das Tape. Die vollständigen Seiten findest du unter [Flow Analysis](/help/platform/flow-analysis) und [Smart Money](/help/platform/smart-money).
+Ganz unten auf der Seite stehen der Hinweis, dass die Dealer-Positionierung modelliert und nicht direkt beobachtet wird, und die Uhrzeit der letzten Aktualisierung.
 
 ## Wie das Dashboard aktualisiert wird
 
-Die Kacheln aktualisieren sich live. Die meisten aktualisieren sich während der regulären Handelszeit jede Sekunde. Die GEX-Oberfläche aktualisiert sich in einem etwas langsameren Takt - typischerweise alle 5-15 Sekunden -, weil der zugrunde liegende Chain-Snapshot der Flaschenhals ist. Ein Neuladen der Seite ist nicht nötig.
+Alles aktualisiert sich live, ein Neuladen der Seite ist also nicht nötig. Der Preis aktualisiert sich jede Sekunde. Levels und Signale werden etwa einmal pro Minute neu berechnet, und die Seite übernimmt jede neue Berechnung innerhalb weniger Sekunden. Die Volatilitätsanzeigen aktualisieren sich etwa alle 30 Sekunden.
 
 ## Vorbörslich, nachbörslich und bei geschlossenem Markt
 
-Das Dashboard passt sich an die jeweilige Sitzung an:
-
-- **Vorbörslich / Nachbörslich** - der Extended-Hours-Kurs wird zusammen mit dem Schlusskurs der vorherigen regulären Sitzung angezeigt.
-- **Geschlossen** - der jüngste Schlusskurs der regulären Sitzung wird angezeigt; die Signale spiegeln den zuletzt berechneten Zustand wider.
-
-Schau dir das Sitzungs-Badge in der Preiszeile an, um das zu bestätigen.
+Die Sitzung, die in der Kopfzeile des Gamma Charts angezeigt wird, sagt dir, aus welcher Sitzung der Preis stammt. Außerhalb der regulären Handelszeit spiegeln Levels und Signale die jüngste Berechnung wider.
 
 ## Das Dashboard in 30 Sekunden lesen
 
 Die Disziplin:
 
-1. Lies das **Regime-Label**.
-2. Lies **Net GEX** und den **Abstand zum Flip**.
-3. Lies **Call Wall und Put Wall** - das sind deine Levels.
-4. Lies den **Trade Bias** und den **Composite Score**.
+1. Lies den Chip **Long γ / Short γ** und wo Spot im Verhältnis zum **Gamma Flip** steht.
+2. Lies **Call Wall** und **Put Wall** - das sind deine Levels. Prüfe nahe am Verfall auch den **Pin Strike**.
+3. Wirf einen Blick auf die Karte **Trade Bias**.
+4. Öffne die **Heutige Einschätzung**, wenn du sie in Worten willst.
 5. Entscheide, welche Seite du für den eigentlichen Trade öffnest.
 
 Das war's. Wenn du merkst, dass du hier länger als 30 Sekunden verbringst, hast du aufgehört, dich zu orientieren, und angefangen zu analysieren - geh auf die relevante Signal-Seite.
 
+Du willst dein eigenes Layout? Mit [Mein Dashboard](/my-dashboard) stellst du dir ein Board aus Widgets zusammen, darunter Key Levels, und am Computer kannst du es teilen, um zwei Symbole nebeneinander zu verfolgen.
+
 ## Siehe auch
 
-- [How Signals Work End-to-End](/help/platform/signals-overview)
+- [Wie Signals von Anfang bis Ende funktionieren](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
-- [Using the Live Bulletin](/help/platform/live-bulletin)
+- [Das Live Bulletin nutzen](/help/platform/live-bulletin)
+- [Pin Strike](/help/platform/pin-strike)
