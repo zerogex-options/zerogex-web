@@ -790,7 +790,7 @@ function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColo
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
-        <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
+        <span className="text-xs" style={{ color: mutedText }}>Paying MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
       </div>
       <div className="grid grid-cols-1 gap-4">
         <IncomeReplacementCard mrr={data.mrr} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
@@ -2067,13 +2067,13 @@ function IncomeReplacementCard({
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-end justify-between flex-wrap gap-3 mb-3">
         <div>
-          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Estimated MRR</div>
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Paying MRR</div>
           <div className="text-3xl font-bold tabular-nums" style={{ color: brandColor }}>
             {formatUsd(mrr.estMrr)}
             <span className="text-sm font-normal ml-2" style={{ color: mutedText }}>/mo</span>
           </div>
           <div className="text-xs mt-0.5" style={{ color: mutedText }}>
-            ≈ {formatUsd(estArr)} ARR · {formatUsd(mrr.committedMrr)}/mo committed (incl. trials)
+            ≈ {formatUsd(estArr)} ARR · {formatUsd(mrr.committedMrr)}/mo paying + trials
           </div>
         </div>
         <div className="text-right">
@@ -2309,8 +2309,8 @@ function MrrTrendCard({
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: axisStroke }}>MRR Trend</h3>
         <div className="flex items-center gap-3 text-xs flex-wrap" style={{ color: mutedText }}>
-          <span><span style={{ color: brandColor }}>●</span> Est. MRR</span>
-          <span><span style={{ color: committedColor }}>●</span> Committed</span>
+          <span><span style={{ color: brandColor }}>●</span> Paying</span>
+          <span><span style={{ color: committedColor }}>●</span> Paying + trials</span>
           <span><span style={{ color: brandColor }}>▬</span> Projected</span>
           {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
           <label className="flex items-center gap-1">
@@ -2399,8 +2399,8 @@ function MrrTrendCard({
                       <div className="font-semibold mb-1">{formatProjTooltipLabel(String(label))}</div>
                       {isHistorical ? (
                         <>
-                          <div>Est. MRR: {formatUsd(Number(estRaw))}</div>
-                          <div>Committed: {formatUsd(Number(committedRaw ?? 0))}</div>
+                          <div>Paying: {formatUsd(Number(estRaw))}</div>
+                          <div>Paying + trials: {formatUsd(Number(committedRaw ?? 0))}</div>
                         </>
                       ) : (
                         projRaw != null && <div>Projected: {formatUsd(Number(projRaw))}</div>
@@ -2412,7 +2412,7 @@ function MrrTrendCard({
               <Area
                 type="monotone"
                 dataKey="estMrr"
-                name="Est. MRR"
+                name="Paying"
                 stroke={brandColor}
                 fill={brandColor}
                 fillOpacity={0.4}
@@ -2423,7 +2423,7 @@ function MrrTrendCard({
               <Line
                 type="monotone"
                 dataKey="committedMrr"
-                name="Committed"
+                name="Paying + trials"
                 stroke={committedColor}
                 strokeWidth={2}
                 strokeDasharray="4 3"
