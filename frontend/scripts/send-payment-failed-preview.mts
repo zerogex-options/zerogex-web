@@ -1,30 +1,38 @@
 #!/usr/bin/env node
 // Run from the frontend/ directory:
 //   node --experimental-strip-types scripts/send-payment-failed-preview.mts \
-//     --to <email> [--final] [--no-card] [--no-amount] \
+//     --to <email> [--category <reason>] [--trial] [--final] [--no-card] [--no-amount] \
 //     [--amount <label>] [--brand <Brand>] [--last4 <NNNN>] [--next <ISO>]
 //
 // Renders the payment-failed dunning email (core/mailer.ts
-// sendPaymentFailedEmail) with representative sample data and sends ONE copy to
-// --to, so the live copy can be eyeballed before/after a deploy. That email is
-// otherwise webhook-only — fired from invoice.payment_failed (attempt 1) with no
-// batch/cron path — so this script exists purely for previewing and touches
-// neither the DB nor Stripe; every value is sample data (all overridable).
+// sendPaymentFailedEmail, or sendTrialConversionFailedEmail with --trial) with
+// representative sample data and sends ONE copy to --to, so the live copy can
+// be eyeballed before/after a deploy. That email is otherwise webhook-only —
+// fired from invoice.payment_failed (attempt 1) with no batch/cron path — so
+// this script exists purely for previewing and touches neither the DB nor
+// Stripe; every value is sample data (all overridable).
 //
 // Variants worth checking:
-//   (default)    amount + named card + a scheduled next-retry date
+//   (default)    amount + named card + a scheduled next-retry date, no usable
+//                decline reason (the "different card or call your bank" copy)
+//   --category   the wording for one bank reason, e.g. insufficient_funds
+//   --trial      the trial-ended framing most declines actually get
 //   --final      Stripe's retries exhausted (no next-retry date; cancel imminent)
-//   --no-card    the neutral "declined by your card issuer" fallback
+//   --no-card    names no card
 //
 // Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from env or
 // .env.local (same resolution as the other mailer scripts).
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { sendPaymentFailedEmail } from '../core/mailer.ts';
+import { sendPaymentFailedEmail, sendTrialConversionFailedEmail } from '../core/mailer.ts';
+import { buildPayUrl } from '../core/payLink.ts';
+import { toDeclineCategory } from '../core/paymentFailedResend.ts';
 
 type Args = {
   to: string | null;
+  category: string | null;
+  trial: boolean;
   amount: string | null;
   brand: string | null;
   last4: string | null;
@@ -62,6 +70,8 @@ function parseEnvFile(filePath: string): Record<string, string> {
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     to: null,
+    category: null,
+    trial: false,
     amount: null,
     brand: null,
     last4: null,
@@ -74,6 +84,8 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--to' || arg === '--preview-to') args.to = argv[++i] ?? null;
+    else if (arg === '--category') args.category = argv[++i] ?? null;
+    else if (arg === '--trial') args.trial = true;
     else if (arg === '--amount') args.amount = argv[++i] ?? null;
     else if (arg === '--brand') args.brand = argv[++i] ?? null;
     else if (arg === '--last4') args.last4 = argv[++i] ?? null;
@@ -89,7 +101,7 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-payment-failed-preview.mts \\
-    --to <email> [--final] [--no-card] [--no-amount] \\
+    --to <email> [--category <reason>] [--trial] [--final] [--no-card] [--no-amount] \\
     [--amount <label>] [--brand <Brand>] [--last4 <NNNN>] [--next <ISO>]
 
 Renders the payment-failed dunning email and sends ONE sample copy to --to.
@@ -97,8 +109,12 @@ No DB or Stripe access; every value is sample data (overridable).
 
 Options:
       --to <email>        Recipient for the sample (required). --preview-to also works.
+      --category <reason> The bank's reason the wording follows: insufficient_funds,
+                          issuer_block, card_problem, authentication_required,
+                          try_again, blocked_by_risk. Default: no usable reason.
+      --trial             The trial-ended framing (sendTrialConversionFailedEmail).
       --final             Preview the exhausted-retries variant (no next-retry date).
-      --no-card           Preview the neutral "declined by your card issuer" fallback.
+      --no-card           Name no card.
       --no-amount         Drop the dollar amount from the copy.
       --amount <label>    Override the charge label (default "$59.00").
       --brand <Brand>     Override the display card brand (default "Mastercard").
@@ -106,7 +122,10 @@ Options:
       --next <ISO>        Override the next-retry timestamp (default ~3 days out).
   -h, --help              Show this help.
 
-Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from env or .env.local.`);
+Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL and
+ZEROGEX_END_USER_TOKEN_SECRET from env or .env.local. With the secret the button
+is a /pay link, as members get, for a placeholder invoice: clicking it in the
+preview shows an error page, which is expected.`);
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -127,6 +146,8 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
 const NEXT_PUBLIC_APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '';
+const END_USER_TOKEN_SECRET =
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET || envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
 
 if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
@@ -138,6 +159,14 @@ if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
 process.env.RESEND_API_KEY = RESEND_API_KEY;
 process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
+if (END_USER_TOKEN_SECRET) process.env.ZEROGEX_END_USER_TOKEN_SECRET = END_USER_TOKEN_SECRET;
+
+const declineCategory = cliArgs.category ? toDeclineCategory(cliArgs.category) : null;
+if (cliArgs.category && !declineCategory) {
+  console.error(`Error: --category "${cliArgs.category}" is not a decline reason.`);
+  usage();
+  process.exit(1);
+}
 
 const amountFormatted = cliArgs.noAmount ? null : cliArgs.amount ?? '$59.00';
 const cardBrand = cliArgs.noCard ? null : cliArgs.brand ?? 'Mastercard';
@@ -148,14 +177,28 @@ const nextAttemptIso = cliArgs.final
   ? null
   : cliArgs.nextIso ?? new Date(Date.now() + 3 * 86400_000).toISOString();
 
-const variant = cliArgs.final ? 'final-attempt' : 'retry-scheduled';
+// Members get a /pay button whenever the link can be signed. The preview does
+// too, so it shows what they see; its placeholder invoice only fails on click.
+const payUrl =
+  NEXT_PUBLIC_APP_URL && END_USER_TOKEN_SECRET ? buildPayUrl(NEXT_PUBLIC_APP_URL, 'in_preview') : null;
+
+const variant = [
+  cliArgs.trial ? 'trial' : 'renewal',
+  declineCategory ?? 'no usable reason',
+  cliArgs.final ? 'final-attempt' : 'retry-scheduled',
+].join(', ');
 console.log(`Sending payment-failed preview (${variant}) to ${cliArgs.to}...`);
 
-await sendPaymentFailedEmail(cliArgs.to, {
+const send = cliArgs.trial ? sendTrialConversionFailedEmail : sendPaymentFailedEmail;
+await send(cliArgs.to, {
   amountFormatted,
   cardBrand,
   cardLast4,
   nextAttemptIso,
+  // A real send quotes the member's grace window; ~3 days out is the default.
+  graceUntilIso: new Date(Date.now() + 3 * 86400_000).toISOString(),
+  declineCategory,
+  payUrl,
 });
 
 console.log('Preview sent.');

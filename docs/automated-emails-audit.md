@@ -264,11 +264,25 @@ auth/transactional and TradeWorkz alerts.
 - Pure builder `buildTrialConvertedEmail` + thin sender, locked down in
   `tests/trialConverted.test.ts`.
 
-**Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso?, declineCategory?, payUrl? })`
-- **Subject:** `We couldn't process your ZeroGEX payment`
-- Names the failed card, states the access state (grace window vs. dropped to Public),
-  gives Stripe's next retry date, links the billing portal. Each enrichment degrades to
-  neutral wording if unresolved. No FOH footer (urgent).
+**Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso?, declineCategory?, payUrl? })`, and its trial-conversion twin `sendTrialConversionFailedEmail` (same options)
+- **Subject:** renewal → `Your ZeroGEX payment was declined`; trial conversion →
+  `Your ZeroGEX trial ended - your payment was declined`. Two exceptions, each in both
+  framings: a 3DS step-up asks them to `confirm your payment`, and a Radar block says the
+  payment `didn't go through` (our check stopped it, not their bank).
+- **Opens with what happened and one instruction, then the button.** The instruction
+  follows the bank's reason (`core/declineEmailCopy.ts`): insufficient funds → pay with a
+  different card; a bank refusal → call the bank to approve the charge, or use a
+  different card; a card fault → update the card; no usable reason → a different card
+  or call the bank. Then the date access ends (the grace window) or, with no window
+  confirmed yet, that the account moves to Public until it is paid. A short balance with
+  a retry scheduled also gets "have the funds there before {retry date}"; an exhausted
+  retry schedule gets "the subscription will be canceled". Names the failed card and
+  the amount when resolved. No FOH footer (urgent).
+- **It never says there is nothing to do.** The wording before this one opened with
+  "your card itself is fine, there is nothing to fix", "good news: nothing changes right
+  now" and "Stripe will try again automatically", which reads as "ignore this email".
+  `tests/declineEmailCopy.test.ts` and `tests/paymentFailedEmail.test.ts` fail on any of
+  those phrases returning.
 - **Every link stays on our domain, never Stripe's `hosted_invoice_url`.** A tokenized
   `invoice.stripe.com` payment link in a "payment failed" email looks like phishing to
   spam filters. Unless the decline is a card fault, the button is the signed `/pay`
@@ -292,16 +306,20 @@ auth/transactional and TradeWorkz alerts.
   existed every live decline was stored as `unknown` and this email always used
   its neutral wording; `make backfill-payment-declines` refills those rows.
 
-**Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso? })`
-- **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} — the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} — your last payment didn't go through`
+**Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso?, declineCategory?, payUrl? })`
+- **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} - the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} - your last payment didn't go through`
 - The **second dunning touch**, ~24h before the payment-recovery grace window
-  closes and access drops to Public. Leads with the deadline (the first nudge
-  already explained the failure), names Stripe's next retry or says the schedule
-  is exhausted, and states plainly that the downgrade is non-destructive and
-  reverses automatically on the next successful charge — the member's real fear
-  at this point is losing the account, and the honest answer is also the one most
-  likely to get the card fixed. No FOH footer (urgent), same trial/renewal copy
-  split the first nudge makes.
+  closes and access drops to Public. Leads with the deadline, repeats the bank's
+  reason, and gives the same instruction and button as the first email: the sweeper
+  reads the reason the webhook recorded for the open invoice (`payment_declines`)
+  and signs a `/pay` link for it. With no reason on record it offers both
+  instructions; with no open invoice, Stripe key or signing secret the button falls
+  back to `/account`. A short balance with a retry scheduled gets "have the funds
+  there before {retry date}"; "no automatic retries left" is said only when
+  Stripe's own invoice says so, never because Stripe could not be reached. States
+  that the downgrade is non-destructive and reverses automatically on the next
+  successful charge. No FOH footer (urgent), same trial/renewal copy split the first
+  nudge makes.
 - **Sweeper, not a webhook send**, on purpose: no Stripe event fires at "24h
   before the window closes", and the `past_due` syncs that do arrive follow
   Stripe's retry schedule, which is unrelated to `graceDays`. Runs from

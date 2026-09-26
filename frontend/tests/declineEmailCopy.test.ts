@@ -3,136 +3,165 @@ import assert from 'node:assert/strict';
 
 import { buildDeclineEmailCopy, type DeclineEmailInput } from '../core/declineEmailCopy.ts';
 
-// What the member READS when a charge fails. Every case below is a sentence the
-// old single-message version got wrong for somebody, and two of them are wrong
-// in ways that send a person to an institution that cannot help them.
+// What the member READS when a charge fails, and what it asks them to DO. Two
+// wordings failed before this one. The first told everybody to update their
+// card, which is wrong for an empty account, whose card works. The second was
+// so reassuring it asked nobody to do anything ("nothing to fix", "nothing
+// changes right now", "we'll try again automatically"). Each test below pins
+// one of those lessons.
+
+const CATEGORIES = [
+  'insufficient_funds', 'issuer_block', 'card_problem',
+  'authentication_required', 'try_again', 'blocked_by_risk', 'unknown', null,
+] as const;
 
 const base: DeclineEmailInput = {
   category: 'insufficient_funds',
-  cardPhrase: 'your Visa card ending in 4242',
   nextAttemptLabel: 'March 3',
+  retriesExhausted: false,
   trialConversion: true,
 };
 
 const input = (overrides: Partial<DeclineEmailInput> = {}): DeclineEmailInput => ({ ...base, ...overrides });
 
-test('an empty account is never told to fix a card that works', () => {
-  // 60 first payments got "update your card" for this. The card was fine every
-  // time; the instruction was not just useless but actively misleading, because
-  // the member goes and finds nothing wrong.
+test('an empty account is told to pay with a different card', () => {
   const copy = buildDeclineEmailCopy(input({ category: 'insufficient_funds' }));
   assert.match(copy.reason, /insufficient funds/i);
-  assert.match(copy.reason, /nothing to fix|is fine/i);
-  assert.doesNotMatch(copy.reason, /update your card|expired|re-?enter it/i);
-  assert.doesNotMatch(copy.ctaLabel, /update/i);
-  // And it must point at the thing that can actually collect the money.
+  assert.match(copy.remedy, /different card/i);
+  assert.match(copy.ctaLabel, /different card/i);
+  // Not a card fault: never sent to "update" a card that works, and paying the
+  // open invoice is what collects the money.
+  assert.doesNotMatch(`${copy.reason} ${copy.remedy} ${copy.ctaLabel}`, /update|expired|re-?enter/i);
   assert.equal(copy.preferInvoice, true);
 });
 
-test('a genuine card fault still sends them to the account page', () => {
-  // The fix must not overshoot: when the card really is the problem, paying the
-  // open invoice would collect this one payment and leave the next renewal to
-  // fail against the same dead card.
+test('an empty account is not sent to its bank', () => {
+  // There is nothing for the bank to approve: the money was not there.
+  const copy = buildDeclineEmailCopy(input({ category: 'insufficient_funds' }));
+  assert.doesNotMatch(copy.remedy, /bank/i);
+});
+
+test('a bank refusal is told to call the bank, or use a different card', () => {
+  const copy = buildDeclineEmailCopy(input({ category: 'issuer_block' }));
+  assert.match(copy.reason, /your bank declined/i);
+  assert.match(copy.remedy, /call your bank/i);
+  assert.match(copy.remedy, /different card/i);
+  // Lost-card and "fraudulent" codes land in this category too, and are never
+  // repeated back to the member.
+  assert.doesNotMatch(`${copy.reason} ${copy.remedy}`, /fraud|stolen|lost/i);
+});
+
+test('no usable reason gets both instructions and no guessed cause', () => {
+  // `try_again` belongs here on evidence: its codes read like a glitch and did
+  // not clear on retry, so promising that a retry will fix it is off the table.
+  for (const category of [null, 'unknown', 'try_again'] as const) {
+    const copy = buildDeclineEmailCopy(input({ category }));
+    assert.equal(copy.reason, '', String(category));
+    assert.match(copy.remedy, /different card/i, String(category));
+    assert.match(copy.remedy, /call your bank/i, String(category));
+  }
+});
+
+test('a genuine card fault is sent to update the card', () => {
   const copy = buildDeclineEmailCopy(input({ category: 'card_problem' }));
-  assert.match(copy.reason, /expired|mistyped|no longer accepted/i);
+  assert.match(copy.reason, /expired|entered incorrectly|no longer active/i);
+  assert.match(copy.remedy, /update your card/i);
   assert.match(copy.ctaLabel, /update/i);
   assert.equal(copy.preferInvoice, false);
 });
 
-test('a Radar block is never reported to the member as their bank refusing', () => {
-  // Our own automated check stopped it. Telling them their bank declined sends
-  // them to an issuer that never saw the charge — the same rule
-  // core/declineReason.ts already enforces for the operator-facing guidance.
+test('a Radar block is never put on the member or their bank', () => {
+  // Our own automated check stopped it. Sending the member to a bank that
+  // never saw the charge makes the email look like the scam.
   const copy = buildDeclineEmailCopy(input({ category: 'blocked_by_risk' }));
-  assert.doesNotMatch(copy.reason, /your bank|card issuer|declined by/i);
   assert.match(copy.reason, /our (automated )?payment checks|on our side/i);
+  assert.doesNotMatch(`${copy.reason} ${copy.remedy}`, /bank|card issuer/i);
+  assert.doesNotMatch(copy.subject, /declined/i);
   assert.match(copy.remedy, /reply/i);
 });
 
-test('an unknown reason states only what we observed', () => {
-  // Guessing a cause in customer-facing mail is how somebody ends up phoning a
-  // bank about a charge it never saw.
-  for (const category of [null, 'unknown'] as const) {
-    const copy = buildDeclineEmailCopy(input({ category }));
-    assert.match(copy.reason, /did not go through/i);
-    assert.doesNotMatch(copy.reason, /insufficient funds|expired|your bank (declined|blocked)/i);
-  }
-});
-
-test('the retry line tells the truth about whether Stripe will try again', () => {
-  const more = buildDeclineEmailCopy(input({ nextAttemptLabel: 'March 3' }));
-  assert.match(more.remedy, /try again automatically on March 3/i);
-
-  const done = buildDeclineEmailCopy(input({ nextAttemptLabel: null }));
-  assert.match(done.remedy, /last automatic attempt|will not retry/i);
-  assert.doesNotMatch(done.remedy, /will try again automatically on/i);
-});
-
-test('every payable decline offers the link below, which takes any card', () => {
-  // "The link below" is our signed /pay link, or the account page when no
-  // signed link could be built; both reach the open invoice. What the copy must
-  // never carry is a Stripe URL — tests/paymentFailedEmail.test.ts checks the
-  // rendered hrefs.
-  for (const category of ['insufficient_funds', 'issuer_block', 'try_again', 'unknown'] as const) {
+test('no branch tells the member there is nothing to do', () => {
+  // Every phrase below reads as "ignore this email", and members read it so.
+  for (const category of CATEGORIES) {
     for (const nextAttemptLabel of ['March 3', null]) {
-      const { remedy } = buildDeclineEmailCopy(input({ category, nextAttemptLabel }));
-      assert.match(remedy, /pay the open invoice yourself with the link below\u00a0- it takes any card/i, category);
-      assert.doesNotMatch(remedy, /stripe\.com/i, category);
+      const copy = buildDeclineEmailCopy(input({ category, nextAttemptLabel }));
+      const all = [copy.subject, copy.reason, copy.remedy, copy.followUp ?? ''].join(' ');
+      assert.doesNotMatch(
+        all,
+        /nothing to (fix|do)|nothing changes|is fine|good news|no action|try again automatically|on its own/i,
+        String(category),
+      );
+      assert.match(copy.remedy, /^Please /, `${category}: the remedy is not an instruction`);
     }
   }
-  const auth = buildDeclineEmailCopy(input({ category: 'authentication_required' }));
-  assert.match(auth.remedy, /open invoice with the link below/i);
-  assert.doesNotMatch(auth.remedy, /stripe\.com/i);
 });
 
-test('trial conversions and renewals are described as what they are', () => {
-  const trial = buildDeclineEmailCopy(input({ trialConversion: true }));
-  assert.match(trial.reason, /first charge/i);
-  const renewal = buildDeclineEmailCopy(input({ trialConversion: false }));
-  assert.doesNotMatch(renewal.reason, /first charge/i);
+test('the keep-this-card route is offered only for a short balance, as a deadline', () => {
+  const funds = buildDeclineEmailCopy(input({ category: 'insufficient_funds', nextAttemptLabel: 'March 3' }));
+  assert.match(funds.followUp ?? '', /funds are in the account before March 3/);
+  for (const category of CATEGORIES.filter((c) => c !== 'insufficient_funds')) {
+    const copy = buildDeclineEmailCopy(input({ category, nextAttemptLabel: 'March 3' }));
+    assert.equal(copy.followUp, null, String(category));
+    assert.doesNotMatch(copy.remedy, /March 3/, String(category));
+  }
 });
 
-test('every category produces usable copy', () => {
-  const categories = [
-    'insufficient_funds', 'issuer_block', 'card_problem',
-    'authentication_required', 'try_again', 'blocked_by_risk', 'unknown',
-  ] as const;
-  for (const category of categories) {
+test('"no retries left" is said only when Stripe says so', () => {
+  for (const category of CATEGORIES) {
+    const exhausted = buildDeclineEmailCopy(input({ category, nextAttemptLabel: null, retriesExhausted: true }));
+    assert.match(exhausted.followUp ?? '', /no automatic retries left/i, String(category));
+    assert.match(exhausted.followUp ?? '', /canceled/i, String(category));
+
+    // A missing date alone can mean the caller never reached Stripe.
+    const unknown = buildDeclineEmailCopy(input({ category, nextAttemptLabel: null, retriesExhausted: false }));
+    assert.equal(unknown.followUp, null, String(category));
+  }
+});
+
+test('subjects state the failure, framed as a trial or a renewal', () => {
+  assert.equal(
+    buildDeclineEmailCopy(input({ trialConversion: true })).subject,
+    'Your ZeroGEX trial ended - your payment was declined',
+  );
+  assert.equal(buildDeclineEmailCopy(input({ trialConversion: false })).subject, 'Your ZeroGEX payment was declined');
+  assert.match(
+    buildDeclineEmailCopy(input({ category: 'authentication_required', trialConversion: false })).subject,
+    /confirm/i,
+  );
+  for (const category of CATEGORIES) {
+    for (const trialConversion of [true, false]) {
+      const { subject } = buildDeclineEmailCopy(input({ category, trialConversion }));
+      assert.equal(/trial/i.test(subject), trialConversion, `${category}: trial framing`);
+      // A subject takes a plain space before its hyphen, never a no-break
+      // space and never a long dash.
+      assert.doesNotMatch(subject, /[ –—]/, `${category}: subject spacing`);
+    }
+  }
+});
+
+test('every category produces finished sentences', () => {
+  for (const category of CATEGORIES) {
     const copy = buildDeclineEmailCopy(input({ category }));
-    assert.ok(copy.reason.length > 25, `${category} reason is too thin`);
+    assert.ok(copy.remedy.length > 25, `${category} remedy is too thin`);
     assert.ok(copy.ctaLabel.length > 3, `${category} has no button label`);
-    // A sentence that trails off mid-clause reads as a broken template.
-    assert.match(copy.reason.trim(), /[.!?]$/, `${category} reason is unterminated`);
-    if (copy.remedy) assert.match(copy.remedy.trim(), /[.!?]$/, `${category} remedy is unterminated`);
+    for (const sentence of [copy.reason, copy.remedy, copy.followUp].filter(Boolean) as string[]) {
+      assert.match(sentence, /^[A-Z]/, `${category}: starts lower-case: ${sentence.slice(0, 40)}`);
+      assert.match(sentence.trim(), /[.!?]$/, `${category}: unterminated: ${sentence.slice(-40)}`);
+      // Member emails use hyphens, never long dashes.
+      assert.doesNotMatch(sentence, /[–—]/, `${category}: long dash`);
+    }
   }
 });
 
 test('only a real card fault is told to update the card instead of paying', () => {
-  // Stated as an invariant rather than case by case: the open invoice takes any
-  // card and settles the debt in one step, so paying it is the right instruction
-  // everywhere except where re-saving the card is itself the fix.
-  const categories = [
-    'insufficient_funds', 'issuer_block', 'authentication_required',
-    'try_again', 'blocked_by_risk', 'unknown',
-  ] as const;
-  for (const category of categories) {
-    assert.equal(buildDeclineEmailCopy(input({ category })).preferInvoice, true, category);
-  }
-  assert.equal(buildDeclineEmailCopy(input({ category: 'card_problem' })).preferInvoice, false);
-});
-
-test('the reason always opens a sentence properly', () => {
-  // It follows "…start your subscription ($49.00)." in both emails, and two
-  // branches lead with the card phrase, which is lower-case by construction.
-  // Rendering the real email caught this; no assertion on the fragment did.
-  const categories = [
-    'insufficient_funds', 'issuer_block', 'card_problem',
-    'authentication_required', 'try_again', 'blocked_by_risk', 'unknown',
-  ] as const;
-  for (const category of categories) {
-    for (const cardPhrase of ['your Visa card ending in 4242', null]) {
-      const { reason } = buildDeclineEmailCopy(input({ category, cardPhrase }));
-      assert.match(reason, /^[A-Z]/, `${category} reason starts lower-case: ${reason.slice(0, 40)}`);
-    }
+  // The open invoice takes any card and settles the debt in one step, so paying
+  // it is the right button everywhere except where re-saving the card is itself
+  // the fix.
+  for (const category of CATEGORIES) {
+    assert.equal(
+      buildDeclineEmailCopy(input({ category })).preferInvoice,
+      category !== 'card_problem',
+      String(category),
+    );
   }
 });

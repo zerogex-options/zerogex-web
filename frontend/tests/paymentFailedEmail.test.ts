@@ -114,7 +114,7 @@ test('without a signed link the email still reaches the invoice, via the account
   }
 });
 
-test('an empty account is sent to pay the open invoice, not to fix its card', () => {
+test('an empty account is told to pay with a different card, not to fix its card', () => {
   // The rendered-email half of the rule core/declineEmailCopy.ts enforces on
   // its fragments: the sentences mailer.ts adds around them must not undo it.
   for (const [kind, build] of BUILDERS) {
@@ -126,10 +126,82 @@ test('an empty account is sent to pay the open invoice, not to fix its card', ()
           graceUntilIso,
           payUrl,
         });
-        assert.match(text, /open invoice/i, kind);
-        assert.doesNotMatch(`${subject}\n${text}`, /update your (card|payment method)|card fix/i, kind);
+        assert.match(text, /pay with a different card/i, kind);
+        assert.doesNotMatch(`${subject}\n${text}`, /update your (card|payment method)|card fix|call your bank/i, kind);
       }
     }
+  }
+});
+
+test('a bank refusal is told to call the bank', () => {
+  for (const [kind, build] of BUILDERS) {
+    const { text } = build({ declineCategory: 'issuer_block', payUrl: PAY_URL });
+    assert.match(text, /call your bank/i, kind);
+    assert.match(text, /different card/i, kind);
+  }
+});
+
+test('the email opens with what happened and what to do, then the button', () => {
+  // An inbox shows the subject and the start of the body. The old wording
+  // spent that space on reassurance; now the failure and the instruction come
+  // first, the link straight after, and the access date only then.
+  for (const { label, email } of everyVariant()) {
+    const lines = email.text.split('\n');
+    assert.equal(lines[0], 'Hello,', label);
+    const headline = lines[2];
+    assert.match(headline, /didn't go through/, label);
+    assert.match(headline, /Please /, `${label}: no instruction in the opening paragraph`);
+    const link = email.text.search(/https?:\/\//);
+    const access = email.text.search(/Your access stays on until|Without this payment/);
+    assert.ok(link > email.text.indexOf(headline), `${label}: link before the instruction`);
+    assert.ok(access > link, `${label}: access sentence before the link`);
+  }
+});
+
+test('no rendered variant tells the member there is nothing to do', () => {
+  for (const { label, email } of everyVariant()) {
+    assert.doesNotMatch(
+      `${email.subject}\n${email.text}`,
+      /nothing to (fix|do)|nothing changes|is fine|good news|try again automatically|on its own|won't miss a beat/i,
+      label,
+    );
+    // Hyphens with a no-break space in the body, a plain space in the subject,
+    // and no long dashes anywhere.
+    assert.doesNotMatch(`${email.subject}\n${email.text}\n${email.html}`, /[–—]|&mdash;|&ndash;/, label);
+    assert.doesNotMatch(email.subject, / /, label);
+  }
+});
+
+test('trial conversions and renewals are framed as what they are', () => {
+  const trial = buildTrialConversionFailedEmail({ declineCategory: 'insufficient_funds', payUrl: PAY_URL });
+  assert.match(trial.subject, /trial ended/i);
+  assert.match(trial.text, /free trial has ended, and the first payment/);
+  const renewal = buildPaymentFailedEmail({ declineCategory: 'insufficient_funds', payUrl: PAY_URL });
+  assert.doesNotMatch(`${renewal.subject}\n${renewal.text}`, /trial/i);
+  assert.match(renewal.text, /Your ZeroGEX payment/);
+});
+
+test('names the date access ends when a grace window is open', () => {
+  for (const [kind, build] of BUILDERS) {
+    const open = build({ declineCategory: 'insufficient_funds', graceUntilIso: '2026-09-30T16:00:00.000Z' });
+    assert.match(open.text, /Your access stays on until September 30, 2026\./, kind);
+    assert.match(open.text, /moves to the free Public tier/, kind);
+    // Without a confirmed window the access line must be true whether or not
+    // the past_due sync has already dropped the account.
+    const unknown = build({ declineCategory: 'insufficient_funds', graceUntilIso: null });
+    assert.doesNotMatch(unknown.text, /stays on until/, kind);
+    assert.match(unknown.text, /switches back on automatically/, kind);
+  }
+});
+
+test('says the retries have run out only when Stripe says so', () => {
+  for (const [kind, build] of BUILDERS) {
+    const exhausted = build({ declineCategory: 'issuer_block', nextAttemptIso: null });
+    assert.match(exhausted.text, /no automatic retries left/i, kind);
+    const unknown = build({ declineCategory: 'issuer_block' });
+    assert.doesNotMatch(unknown.text, /retries left/i, kind);
+    const pending = build({ declineCategory: 'issuer_block', nextAttemptIso: '2026-10-01T12:00:00.000Z' });
+    assert.doesNotMatch(pending.text, /retries left/i, kind);
   }
 });
 

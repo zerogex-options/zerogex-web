@@ -8,6 +8,7 @@ import {
 } from '../core/graceExpiryWarning.ts';
 import { graceWindowEndIso } from '../core/paymentGrace.ts';
 import { buildGraceExpiryWarningEmail } from '../core/mailer.ts';
+import { buildPayUrl } from '../core/payLink.ts';
 
 // The grace-expiry warning is the SECOND dunning touch — the one that closed the
 // gap where a member got a single email on day 0 and then silently lost access
@@ -195,16 +196,121 @@ test('names the card when one is resolvable, stays neutral when not', () => {
   assert.doesNotMatch(neutral.text, /ending in/);
 });
 
-test('a pending retry reads as recoverable; an exhausted schedule does not', () => {
-  const pending = buildGraceExpiryWarningEmail({
+// A pending retry used to be sold as a reason to wait ("may still clear on its
+// own"). Now it is mentioned only where waiting can work, a short balance, and
+// then as a date to have the money in by.
+test('a pending retry is a deadline for a short balance, not a reason to wait', () => {
+  const funds = buildGraceExpiryWarningEmail({
     reason: 'trial',
     graceUntilIso: DEADLINE,
     nextAttemptIso: RETRY,
+    declineCategory: 'insufficient_funds',
   });
-  assert.match(pending.text, /try again automatically on July 26, 2026/);
+  assert.match(funds.text, /funds are in the account before July 26, 2026/);
 
-  const exhausted = buildGraceExpiryWarningEmail({ reason: 'trial', graceUntilIso: DEADLINE });
-  assert.match(exhausted.text, /final automatic attempt/);
+  for (const declineCategory of ['issuer_block', 'card_problem', null] as const) {
+    const { text } = buildGraceExpiryWarningEmail({
+      reason: 'trial',
+      graceUntilIso: DEADLINE,
+      nextAttemptIso: RETRY,
+      declineCategory,
+    });
+    assert.doesNotMatch(text, /July 26, 2026|try again automatically|on its own/, String(declineCategory));
+  }
+});
+
+test('says the retries have run out only when Stripe says so', () => {
+  const exhausted = buildGraceExpiryWarningEmail({ reason: 'trial', graceUntilIso: DEADLINE, nextAttemptIso: null });
+  assert.match(exhausted.text, /no automatic retries left/i);
+  assert.match(exhausted.text, /canceled/);
+
+  // The sweeper runs without a Stripe key too. Not knowing is not "none left".
+  const unknown = buildGraceExpiryWarningEmail({ reason: 'trial', graceUntilIso: DEADLINE });
+  assert.doesNotMatch(unknown.text, /retries left|canceled/i);
+});
+
+test('repeats the bank\'s reason and gives the same instruction as the first email', () => {
+  const funds = buildGraceExpiryWarningEmail({
+    reason: 'renewal',
+    graceUntilIso: DEADLINE,
+    declineCategory: 'insufficient_funds',
+  });
+  assert.match(funds.text, /insufficient funds/);
+  assert.match(funds.text, /pay with a different card/i);
+  assert.doesNotMatch(funds.text, /call your bank|update your card/i);
+
+  const bank = buildGraceExpiryWarningEmail({ reason: 'renewal', graceUntilIso: DEADLINE, declineCategory: 'issuer_block' });
+  assert.match(bank.text, /call your bank/i);
+
+  // Nothing recorded: both instructions, and no guessed reason.
+  const neutral = buildGraceExpiryWarningEmail({ reason: 'renewal', graceUntilIso: DEADLINE });
+  assert.match(neutral.text, /different card/i);
+  assert.match(neutral.text, /call your bank/i);
+  assert.doesNotMatch(neutral.text, /insufficient|expired|declined the charge/i);
+});
+
+test('the deadline and the instruction come before the reassurance', () => {
+  const { text } = buildGraceExpiryWarningEmail({
+    reason: 'trial',
+    graceUntilIso: DEADLINE,
+    declineCategory: 'insufficient_funds',
+  });
+  const lines = text.split('\n');
+  assert.match(lines[2], /Your access ends on July 27, 2026 unless it's paid\./);
+  assert.match(lines[4], /^Please /);
+  assert.ok(text.indexOf('Please ') < text.indexOf('Nothing is deleted'));
+  assert.doesNotMatch(text, /nothing to fix|nothing changes|is fine|good news|simply moves/i);
+});
+
+test('the button pays the invoice in one click, or falls back to the account page', () => {
+  const appUrl = 'https://zerogex.test';
+  const previous = {
+    appUrl: process.env.NEXT_PUBLIC_APP_URL,
+    secret: process.env.ZEROGEX_END_USER_TOKEN_SECRET,
+  };
+  process.env.NEXT_PUBLIC_APP_URL = appUrl;
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET = 'test-secret-for-pay-links';
+  try {
+    const payUrl = buildPayUrl(appUrl, 'in_test123');
+    const paid = buildGraceExpiryWarningEmail({
+      reason: 'trial',
+      graceUntilIso: DEADLINE,
+      declineCategory: 'insufficient_funds',
+      payUrl,
+    });
+    assert.ok(paid.html.includes(`href="${payUrl.replace(/&/g, '&amp;')}"`), 'button is not the pay link');
+    assert.ok(paid.text.includes(payUrl), 'plain text lacks the pay link');
+    assert.match(paid.html, />Pay with a different card</);
+
+    // A card fault updates the card instead, even with a pay link to hand.
+    const dead = buildGraceExpiryWarningEmail({
+      reason: 'trial',
+      graceUntilIso: DEADLINE,
+      declineCategory: 'card_problem',
+      payUrl,
+    });
+    assert.ok(dead.html.includes(`href="${appUrl}/account"`));
+    assert.match(dead.html, />Update your card</);
+    assert.doesNotMatch(dead.html + dead.text, /\/pay\?/);
+
+    // No signed link, or somebody else's: the account page, never Stripe.
+    for (const bad of [null, 'https://invoice.stripe.com/i/acct_123/live_abc']) {
+      const fallback = buildGraceExpiryWarningEmail({
+        reason: 'trial',
+        graceUntilIso: DEADLINE,
+        declineCategory: 'insufficient_funds',
+        payUrl: bad,
+      });
+      assert.ok(fallback.html.includes(`href="${appUrl}/account"`), String(bad));
+      assert.match(fallback.text, /billing portal/, String(bad));
+      assert.doesNotMatch(fallback.html + fallback.text, /stripe\.com/, String(bad));
+    }
+  } finally {
+    if (previous.appUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previous.appUrl;
+    if (previous.secret === undefined) delete process.env.ZEROGEX_END_USER_TOKEN_SECRET;
+    else process.env.ZEROGEX_END_USER_TOKEN_SECRET = previous.secret;
+  }
 });
 
 // The member's real fear here is losing their account, not their tier. The

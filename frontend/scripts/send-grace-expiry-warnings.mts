@@ -30,6 +30,12 @@
 //     left, has been open at least MIN_OPEN_HOURS, and this exact window has not
 //     already been warned about.
 //
+// What the email says: the same instruction as the first dunning email, picked
+// by the bank's reason for this invoice as the webhook recorded it
+// (payment_declines), and a button to the signed /pay link for the open invoice
+// (core/payLink.ts). Either falls back quietly: no reason on record gets the
+// both-ways instruction, no invoice or signing secret gets the account page.
+//
 // Side effects on send:
 //   - Resend email via core/mailer.ts sendGraceExpiryWarningEmail().
 //   - Stamps users.payment_grace_warning_sent_for = the window's own anchor
@@ -42,7 +48,10 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+import type { DeclineCategory } from '../core/declineReason.ts';
 import { sendGraceExpiryWarningEmail } from '../core/mailer.ts';
+import { buildPayUrl } from '../core/payLink.ts';
+import { toDeclineCategory } from '../core/paymentFailedResend.ts';
 import { resolveSubscriptionCard } from '../core/stripeCard.ts';
 import {
   decideGraceExpiryWarning,
@@ -163,8 +172,11 @@ Options:
 
 Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL and
 BILLING_PAYMENT_GRACE_DAYS from env or .env.local. STRIPE_SECRET_KEY (optional)
-names the failing card and Stripe's next retry date; without it, warnings still
-send minus those details. Set AUTH_DB_PATH to override the default DB path.`);
+names the failing card and Stripe's next retry date, and finds the open invoice
+whose recorded decline reason picks the wording; without it, warnings still
+send minus those details. ZEROGEX_END_USER_TOKEN_SECRET (optional) signs the
+one-click pay link; without it the button goes to the account page. Set
+AUTH_DB_PATH to override the default DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -226,6 +238,10 @@ const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUB
 // Optional: used only to name the failing card and Stripe's next retry date.
 // Absent key => warnings still send, minus those details.
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || envLocal.STRIPE_SECRET_KEY;
+// Optional: signs the one-click /pay link (core/payLink.ts). Absent => the
+// button falls back to the account page, as the webhook's first email does.
+const END_USER_TOKEN_SECRET =
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET || envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
 
 if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
@@ -237,6 +253,8 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
+// payLink.ts reads this lazily too, inside buildPayUrl().
+if (END_USER_TOKEN_SECRET) process.env.ZEROGEX_END_USER_TOKEN_SECRET = END_USER_TOKEN_SECRET;
 
 // Window length, mirroring core/stripe.ts getPaymentGraceDays (default 3,
 // clamped [0,14]). Inlined rather than imported for the same reason mailer.ts
@@ -420,7 +438,7 @@ if (!cliArgs.yes) {
 const stripe: Stripe | null = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 if (!stripe) {
   console.warn(
-    '\nWarning: STRIPE_SECRET_KEY is not set — warnings will send WITHOUT naming the card or the next retry date.',
+    '\nWarning: STRIPE_SECRET_KEY is not set — warnings will send WITHOUT the card, the retry date, the bank\'s reason or the one-click pay link.',
   );
 }
 
@@ -435,12 +453,25 @@ if (!stripe) {
 // of the latest_invoice read below; at this cohort's size — members currently
 // inside a grace window — that is a rounding error next to having two emails
 // about one failure disagree about which card failed.
+type RetryDetails = {
+  cardBrand: string | null;
+  cardLast4: string | null;
+  // Null only when Stripe's own invoice says no retry is left; undefined when
+  // there was no invoice to ask. The email says "no retries left" on null alone.
+  nextAttemptIso: string | null | undefined;
+  // The unpaid invoice, when it is still open: the one the /pay button settles
+  // and the one whose decline reason the email repeats.
+  openInvoiceId: string | null;
+};
+
 async function resolveRetryDetails(
   client: Stripe,
   subscriptionId: string | null,
   customerId: string | null,
-): Promise<{ cardBrand: string | null; cardLast4: string | null; nextAttemptIso: string | null }> {
-  if (!subscriptionId) return { cardBrand: null, cardLast4: null, nextAttemptIso: null };
+): Promise<RetryDetails> {
+  if (!subscriptionId) {
+    return { cardBrand: null, cardLast4: null, nextAttemptIso: undefined, openInvoiceId: null };
+  }
 
   const card = await resolveSubscriptionCard(client, subscriptionId, customerId);
 
@@ -448,13 +479,32 @@ async function resolveRetryDetails(
   const sub = await client.subscriptions.retrieve(subscriptionId, {
     expand: ['latest_invoice'],
   });
-  const invoice = sub.latest_invoice;
-  const nextAttemptIso =
-    invoice && typeof invoice === 'object' && typeof invoice.next_payment_attempt === 'number'
+  const invoice = sub.latest_invoice && typeof sub.latest_invoice === 'object' ? sub.latest_invoice : null;
+  const nextAttemptIso = !invoice
+    ? undefined
+    : typeof invoice.next_payment_attempt === 'number'
       ? new Date(invoice.next_payment_attempt * 1000).toISOString()
       : null;
+  const openInvoiceId = invoice?.status === 'open' && invoice.id ? invoice.id : null;
 
-  return { cardBrand: card?.brand ?? null, cardLast4: card?.last4 ?? null, nextAttemptIso };
+  return { cardBrand: card?.brand ?? null, cardLast4: card?.last4 ?? null, nextAttemptIso, openInvoiceId };
+}
+
+// What the bank said about this invoice, as the webhook recorded it
+// (payment_declines, classified by core/declineReason.ts), so this email gives
+// the same instruction the first one did: a short balance is told to use a
+// different card, a bank refusal to call the bank. The latest attempt with a
+// usable reason wins; null (no row, or only `unknown`) gets the copy that
+// offers both.
+function recordedDeclineCategory(invoiceId: string): DeclineCategory | null {
+  const rows = querySqlite<{ category: string }>(
+    dbPath,
+    `SELECT category FROM payment_declines
+     WHERE invoice_id = '${escapeSqlLiteral(invoiceId)}' AND category != 'unknown'
+     ORDER BY failed_at DESC, attempt_count DESC
+     LIMIT 1;`,
+  );
+  return toDeclineCategory(rows[0]?.category);
 }
 
 let successCount = 0;
@@ -462,11 +512,7 @@ let failCount = 0;
 
 for (const { user, graceUntilIso } of due) {
   try {
-    let details: {
-      cardBrand: string | null;
-      cardLast4: string | null;
-      nextAttemptIso: string | null;
-    } = { cardBrand: null, cardLast4: null, nextAttemptIso: null };
+    let details: RetryDetails | null = null;
     if (stripe) {
       try {
         details = await resolveRetryDetails(
@@ -489,12 +535,32 @@ for (const { user, graceUntilIso } of due) {
     // convention monitoring uses for unattributed windows.
     const reason = user.payment_grace_reason === 'trial' ? 'trial' : 'renewal';
 
+    // Both best-effort, like the card: without them the email still goes out,
+    // with the both-ways instruction and a button to the account page.
+    let declineCategory: DeclineCategory | null = null;
+    let payUrl: string | null = null;
+    if (details?.openInvoiceId) {
+      try {
+        declineCategory = recordedDeclineCategory(details.openInvoiceId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        console.warn(`  WARN ${user.email}: could not read the decline reason (${message}); sending without it.`);
+      }
+      if (NEXT_PUBLIC_APP_URL && END_USER_TOKEN_SECRET) {
+        payUrl = buildPayUrl(NEXT_PUBLIC_APP_URL, details.openInvoiceId);
+      }
+    }
+
     await sendGraceExpiryWarningEmail(user.email, {
       reason,
       graceUntilIso,
-      cardBrand: details.cardBrand,
-      cardLast4: details.cardLast4,
-      nextAttemptIso: details.nextAttemptIso,
+      cardBrand: details?.cardBrand ?? null,
+      cardLast4: details?.cardLast4 ?? null,
+      // Left undefined when Stripe was not reached, so the email does not claim
+      // the retries have run out.
+      nextAttemptIso: details?.nextAttemptIso,
+      declineCategory,
+      payUrl,
     });
 
     const nowIso = new Date().toISOString();

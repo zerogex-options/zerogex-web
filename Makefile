@@ -673,10 +673,13 @@ card-expiry-reminders:
 # Preview-only sender for the payment-failed dunning email (core/mailer.ts
 # sendPaymentFailedEmail), which is otherwise webhook-only (fired from
 # invoice.payment_failed, attempt 1). Pass PREVIEW_TO=<email> to send one sample.
-# FINAL=1 previews the retries-exhausted variant; NO_CARD=1 the neutral
-# "declined by your card issuer" fallback; NO_AMOUNT=1 drops the dollar amount.
+# CATEGORY=<reason> picks the bank's reason the wording follows
+# (insufficient_funds, issuer_block, card_problem, authentication_required,
+# try_again, blocked_by_risk; unset = no usable reason); TRIAL=1 sends the
+# trial-ended framing. FINAL=1 previews the retries-exhausted variant; NO_CARD=1
+# names no card; NO_AMOUNT=1 drops the dollar amount.
 payment-failed-preview:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-payment-failed-preview.mts $(if $(PREVIEW_TO),--to $(PREVIEW_TO),) $(if $(FINAL),--final,) $(if $(NO_CARD),--no-card,) $(if $(NO_AMOUNT),--no-amount,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-payment-failed-preview.mts $(if $(PREVIEW_TO),--to $(PREVIEW_TO),) $(if $(CATEGORY),--category $(CATEGORY),) $(if $(TRIAL),--trial,) $(if $(FINAL),--final,) $(if $(NO_CARD),--no-card,) $(if $(NO_AMOUNT),--no-amount,)'
 
 # Grace-expiry warning: the SECOND dunning touch. Warns members whose
 # payment-recovery grace window closes within ~24h and whose card still hasn't
