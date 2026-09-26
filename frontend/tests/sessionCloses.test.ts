@@ -65,7 +65,8 @@ test("missing / unparseable timestamps never flag lagging", () => {
 // 'open' straight to 'closed' at 16:00:30 ET and the after-hours branch never saw
 // them. The reported screen, 16:05 ET Fri 2026-09-25: SPX header "$7,704.23 −2.16"
 // — Thursday's close (7,704.13 official) carrying Thursday's change against
-// Wednesday (7,706.03) — while the real close was 7,739.23 (+0.46%).
+// Wednesday (7,706.03) — while the real close was 7,743.41 (+0.51%), which the
+// site had already stored as 7,743.50.
 
 const WED_SEP23_CLOSE = "2026-09-23T20:00:00Z"; // Wed Sep 23 16:00 ET
 const THU_SEP24_CLOSE = "2026-09-24T20:00:00Z"; // Thu Sep 24 16:00 ET
@@ -133,7 +134,7 @@ test("regression: SPX at 16:05 with lagging closes shows today's close vs yester
   // Served pair at the time of the report: Thursday's close as "current", Wednesday's
   // as "prior". The quote is the index's frozen last print.
   const lagging = indexCloses(THU_SEP24_CLOSE, 7704.23, WED_SEP23_CLOSE, 7706.39);
-  const quoteClose = 7739.33;
+  const quoteClose = 7743.5;
 
   const before = getPrimaryPriceChangeSummary({
     quoteClose,
@@ -149,22 +150,22 @@ test("regression: SPX at 16:05 with lagging closes shows today's close vs yester
     quoteSession: resolvePriceSession("closed", lagging, FRI_SEP25_LAST_BAR),
     sessionCloses: lagging,
   });
-  assert.equal(after.displayPrice, 7739.33);
-  assert.equal(Number(after.change?.toFixed(2)), 35.1);
-  assert.equal(Number(after.changePercent?.toFixed(2)), 0.46);
+  assert.equal(after.displayPrice, 7743.5);
+  assert.equal(Number(after.change?.toFixed(2)), 39.27);
+  assert.equal(Number(after.changePercent?.toFixed(2)), 0.51);
   assert.equal(after.isPositive, true);
 
   // Once the payload rolls, the frozen-close reading returns with the same numbers:
   // the index's last print IS its close.
-  const rolled = indexCloses(FRI_SEP25_CLOSE, 7739.33, THU_SEP24_CLOSE, 7704.23);
+  const rolled = indexCloses(FRI_SEP25_CLOSE, 7743.5, THU_SEP24_CLOSE, 7704.23);
   assert.equal(resolvePriceSession("closed", rolled, FRI_SEP25_LAST_BAR), "closed");
   const settled = getPrimaryPriceChangeSummary({
     quoteClose,
     quoteSession: "closed",
     sessionCloses: rolled,
   });
-  assert.equal(settled.displayPrice, 7739.33);
-  assert.equal(Number(settled.change?.toFixed(2)), 35.1);
+  assert.equal(settled.displayPrice, 7743.5);
+  assert.equal(Number(settled.change?.toFixed(2)), 39.27);
 });
 
 // ── resolvePriceSession ─────────────────────────────────────────────────────
