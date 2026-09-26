@@ -62,18 +62,26 @@ this note.
   generated an API key within 30 seconds of the welcome email.
 - Canceled Friday night with "too expensive", before the trial-end reminder
   would have gone out.
-- He turned down $44.25 a month (25% off Pro monthly). The only prices below
-  that are **Pro annual, $299, about $25 a month**, and **Basic at $39**.
-  Neither has been put in front of him.
-- Which one fits depends on whether he uses the API: Basic drops the API, the
-  advanced signals and backtesting. The draft names both and lets him pick, so
-  you don't need to check the key first.
-- **He can switch to annual himself** on /pricing while his trial is still
-  running. The page quotes $299 and asks him to confirm, then charges it, ends
-  the trial, clears the cancel and marks the payment for the 7-day money-back
-  guarantee (`in_app_start_paid`, `app/api/billing/change-plan/route.ts`).
-  After Monday it still works as a fresh checkout, but his API key will have
-  been revoked by then.
+- He turned down $44.25 a month (25% off Pro monthly), in the cancel modal and
+  again in the ack email.
+- **Revised 2026-09-26: offer him 50% off Pro for his first year**, $29.50 a
+  month for 12 months and then $59. That is below anything he has been shown,
+  and it goes onto his current trial: same account, same API key, nothing to
+  re-subscribe. The first version of the draft offered Pro annual ($299) and
+  Basic ($39) instead. Discounted Pro is cheaper per month than Basic, so both
+  lines came out.
+- **Use the win-back coupon, not the business card's `TARGET` coupon.**
+  `make honor-winback-discount` applies your standing win-back coupon
+  (`STRIPE_COUPON_WINBACK_PRO_MONTHLY`), and `PERCENT=50` makes it refuse
+  anything but 50% off for a year. `COUPON=<TARGET coupon id>` would work too,
+  but every use adds to that coupon's redemption count in Stripe, which is how
+  you measure the card. And if the standing coupon is 50%, it is the same offer
+  the automatic win-back email (`make winback`) would send him about a month
+  after his trial lapses, so this brings it forward rather than inventing a
+  new deal.
+- **The tool also turns his cancel off**, so the trial converts Monday at
+  $29.50 on Link. Run it only after he says yes. It only works on a trialing or
+  active subscription, so it has to happen before Mon 3:31 PM ET.
 
 ## Verify first
 
@@ -85,6 +93,13 @@ this note.
   ET. Cut the line if you send later.
 - **Chenyu's name.** Stripe has "Chenyu"; the address says Desmond. The draft
   uses Chenyu, the name on his payment details.
+- **Dry-run the discount before sending Chenyu's note**, so the 50% is backed
+  before you promise it. This writes nothing:
+  `make honor-winback-discount EMAIL=desmondqi93@gmail.com PERCENT=50 DRY_RUN=1`.
+  The `Coupon to apply` line should read 50% off for 12 months, and
+  `cancel_at_period_end` should show `true → false`. If it refuses because
+  there is no standing win-back coupon, or it isn't 50%, add `CREATE_COUPON=1`,
+  which makes (or reuses) a 50%-for-a-year coupon.
 
 ## Draft: Oliver
 
@@ -104,20 +119,20 @@ Founder, ZeroGEX
 
 ## Draft: Chenyu
 
-**Subject:** Quick question about the price
+*Revised 2026-09-26 to lead with 50% off Pro for the first year. The first
+version asked "compared to what?" and offered Pro annual and Basic.*
+
+**Subject:** About the price
 
 Hi Chenyu,
 
-I saw you canceled your ZeroGEX trial because it was too expensive. That's fair, and I won't argue with it.
+I saw you canceled your ZeroGEX trial because it was too expensive. That's fair.
 
-Can I ask one thing? Too expensive compared to what: the size of the account you trade, how often you'd use it, or another tool that does the job for less? One line is plenty.
+If price is what's in the way, I can do 50% off Pro for your first year: $29.50 a month for 12 months, then the regular $59. Same account, same API key, nothing to set up again.
 
-There are also two cheaper ways to keep it, in case they didn't stand out during the trial:
+Just reply before your trial ends on Monday afternoon and I'll set it up.
 
-- Pro billed yearly is $299, about $25 a month. You can switch on the pricing page, and it comes with a 7-day money-back guarantee.
-- If you don't need the API, the advanced signals or backtesting, Basic is $39 a month. Reply and I'll switch you over.
-
-If neither fits, there's nothing you need to do. Your access stays on until Monday afternoon.
+And if it's more than the price, I'd like to know what. One line is plenty.
 
 Best,
 Michael
@@ -126,21 +141,24 @@ Founder, ZeroGEX
 ## If they reply
 
 - **Oliver names a service.** Nothing to do but read it.
-- **Chenyu switches to annual.** Nothing to do. The switch clears the cancel
-  and the webhook moves him to Pro annual.
-- **Chenyu wants Basic before Monday 3:31 PM ET.** Stop the cancel with
-  `make set-cancellation EMAIL=desmondqi93@gmail.com OFF=1 DRY_RUN=1`, then the
-  same with `YES=1` in place of `DRY_RUN=1`. Then, in the Stripe Dashboard,
-  update the price on `sub_1UICvZ4AOiqteMYYfMeg5YvM` to Basic monthly with no
-  proration. The trial still ends Monday and Basic is billed from then. The
-  webhook moves him to Basic, which revokes his API key, so say so in your
-  reply.
-- **Chenyu wants Basic after his trial has ended.** Send him to /pricing. Until
-  October 1, checkout applies the best offer on its own, which brings Basic to
-  about $29 a month for the first year. It is charged up front, since he has
-  already had a trial.
-- **Chenyu names a monthly price near $44.** He has already declined that.
-  Anything lower is your call.
+- **Chenyu says yes before Mon 3:31 PM ET.** Run the same command as the dry
+  run with `YES=1` in place of `DRY_RUN=1` (plus `CREATE_COUPON=1` if the dry
+  run needed it). It adds the coupon and turns the cancel off in one step, and
+  sends no email, so reply to confirm: $29.50 is charged Monday when the trial
+  ends, then monthly. His API key keeps working.
+- **Chenyu says yes after his trial has ended.** The tool won't touch a
+  subscription that has ended, so he re-subscribes through checkout, which
+  applies the win-back coupon once his account is marked as sent the win-back
+  offer:
+  `sqlite3 /var/lib/zerogex/auth.db "UPDATE users SET winback_email_sent_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE email = 'desmondqi93@gmail.com';"`
+  Then send him https://zerogex.io/pricing?winback=1. He pays $29.50 up front
+  (no second trial), and he needs a new API key, because the old one is revoked
+  when the trial ends. The stamp also stops the automatic win-back email from
+  offering it again later. Checkout can only apply the standing win-back
+  coupon, so this path gives 50% only if the dry run passed without
+  `CREATE_COUPON=1`. If it needed that flag, tell him to reply before Monday
+  instead of relying on this.
+- **Chenyu names something other than price.** Nothing to set up. Read it.
 
 ## Worth fixing later (not urgent)
 
