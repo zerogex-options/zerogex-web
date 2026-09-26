@@ -6,39 +6,43 @@
 
 ## What email you'll get from ZeroGEX
 
-ZeroGEX sends three categories of email:
+ZeroGEX sends three kinds of email:
 
-1. **Transactional** - sign-up confirmation, email verification link, password reset, billing receipts, subscription state changes. These are essential - you can't disable them while you have an active account.
-2. **Account & security** - sign-in from a new device, suspicious activity alerts, plan-change confirmations. Also essential.
-3. **Product & education** - release notes, new article notifications, occasional research notes. These are optional and can be turned off.
+1. **Account and billing** - email verification, password resets, your welcome email, trial-ending and renewal reminders, payment problems, and confirmations of cancellations, refunds, and referral credit. These are essential - you can't turn them off while you have an account.
+2. **Product updates and offers** - occasional product news and a few one-time reminders or offers. These are optional.
+3. **Email you sign up for** - the free daily levels email and TradeWorkz™ bot alerts. You only get these if you opt in, and you can stop them anytime (see below).
 
 We do not send daily-digest marketing email. We do not share your email with third parties.
 
 ## Verifying your email
 
-When you sign up, a verification email lands within a minute or two. Click the verification link to confirm.
+When you sign up with an email and password, we send a verification email right away. Click the link to confirm - it expires after 24 hours. If you signed up with Google or Apple, your email is already verified.
 
-- If it doesn't arrive, check spam - it's usually there.
-- The verification banner on the platform has a "Resend" button.
+- If it doesn't arrive, check spam - it's usually there.
+- The verification banner on the Account and Pricing pages has a **Resend** button, which sends a fresh link.
 - If multiple resends don't help, email [support@zerogex.io](mailto:support@zerogex.io).
 
-Until verified, some features are gated - referrals being the main one.
+Until you verify, you can't start a trial or subscribe.
 
 ## Turning off optional email
 
-The unsubscribe link is at the bottom of every optional email. One click removes you from that category. Transactional and security email continue regardless - that's a requirement of running a paid account.
+- **Product updates and offers** - click the unsubscribe link at the bottom of the email, or your mail app's unsubscribe button. One click stops product updates and offers. A few one-time reminders don't carry the link, but each is sent only once.
+- **The daily levels email** - unsubscribe from the bottom of any one of them.
+- **TradeWorkz™ bot alerts** - open **Manage notifications** on the [Account](/account) page to turn email off for any bot (or **Turn off all email** at once), or unfollow the bot.
+
+Account and billing email continue regardless - that's a requirement of running a paid account.
 
 ## When you stop hearing from us
 
-If you cancel your subscription, transactional email continues until the end of the billing period, then stops. Security emails continue as long as the account exists.
+If you cancel your subscription, billing email stops once the subscription ends, apart from confirming the cancellation. Account email, like password resets, continues as long as the account exists.
 
-To stop all email, email [support@zerogex.io](mailto:support@zerogex.io) and request account deletion. That removes your account entirely.
+To stop all email, delete your account from the [Account](/account) page (**Delete account**, at the bottom). That permanently deletes your account and stops all email from us.
 
 ## Phishing watch
 
-We send from `zerogex.io` and `noreply@zerogex.io` (and occasionally `support@zerogex.io`). We will **never** ask for your password by email, and we will never ask you to forward a billing portal link or a session token.
+Our email comes from `zerogex.io` addresses. We will **never** ask for your password by email, and we will never ask you to forward a billing portal link or a session token.
 
-If something looks off, forward it to [support@zerogex.io](mailto:support@zerogex.io) - we'll confirm or flag.
+If something looks off, forward it to [support@zerogex.io](mailto:support@zerogex.io) - we'll confirm or flag.
 
 ## See also
 

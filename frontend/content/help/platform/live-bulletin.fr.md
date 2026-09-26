@@ -48,6 +48,6 @@ Le Live Bulletin est une fonctionnalité **Basic** - incluse dans Basic et Pro.
 
 ## Voir aussi
 
-- [Lire le Dashboard](/help/platform/dashboard)
+- [Lire le Tableau de bord](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Max Pain](/help/platform/max-pain)

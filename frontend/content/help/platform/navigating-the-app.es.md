@@ -72,5 +72,5 @@ Las páginas individuales de señales terminan con una sección **"How it's buil
 ## Ver también
 
 - [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts)
-- [Leer el Dashboard](/help/platform/dashboard)
+- [Cómo leer el Panel](/help/platform/dashboard)
 - [Usar el Live Bulletin](/help/platform/live-bulletin)

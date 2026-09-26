@@ -48,6 +48,6 @@ El Live Bulletin es una función **Basic** - incluida en Basic y Pro. Las seña
 
 ## Ver también
 
-- [Leer el Dashboard](/help/platform/dashboard)
+- [Cómo leer el Panel](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Max Pain](/help/platform/max-pain)

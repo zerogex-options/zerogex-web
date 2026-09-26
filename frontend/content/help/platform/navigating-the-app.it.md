@@ -71,6 +71,6 @@ Le singole pagine dei segnali si chiudono con una sezione **"How it's built"** -
 
 ## Vedi anche
 
-- [Come leggere i grafici ZeroGEX](/help/platform/reading-charts)
-- [Leggere la Dashboard](/help/platform/dashboard)
+- [Come leggere i grafici di ZeroGEX](/help/platform/reading-charts)
+- [Come leggere la Dashboard](/help/platform/dashboard)
 - [Usare il Live Bulletin](/help/platform/live-bulletin)

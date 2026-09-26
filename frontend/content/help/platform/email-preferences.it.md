@@ -6,39 +6,43 @@
 
 ## Quali email riceverai da ZeroGEX
 
-ZeroGEX invia tre categorie di email:
+ZeroGEX invia tre tipi di email:
 
-1. **Transazionali** - conferma di registrazione, link di verifica email, reset della password, ricevute di fatturazione, variazioni dello stato dell'abbonamento. Sono essenziali - non puoi disattivarle finché hai un account attivo.
-2. **Account e sicurezza** - accesso da un nuovo dispositivo, avvisi di attività sospette, conferme di cambio piano. Anch'esse essenziali.
-3. **Prodotto e formazione** - note di rilascio, notifiche di nuovi articoli, occasionali note di ricerca. Queste sono opzionali e possono essere disattivate.
+1. **Account e fatturazione** - verifica dell'email, reset della password, la tua email di benvenuto, promemoria prima della fine della prova e prima dei rinnovi, problemi di pagamento e conferme di annullamenti, rimborsi e crediti referral. Sono essenziali - non puoi disattivarle finché hai un account.
+2. **Novità del prodotto e offerte** - notizie occasionali sul prodotto e alcuni promemoria od offerte una tantum. Sono opzionali.
+3. **Email a cui ti iscrivi** - l'email giornaliera gratuita con i livelli e gli avvisi dei bot TradeWorkz™. Le ricevi solo se ti iscrivi, e puoi interromperle in qualsiasi momento (vedi sotto).
 
 Non inviamo email di marketing con riepilogo giornaliero. Non condividiamo la tua email con terze parti.
 
 ## Verificare la tua email
 
-Al momento della registrazione, un'email di verifica arriva entro un minuto o due. Clicca sul link di verifica per confermare.
+Se ti registri con email e password, ti inviamo subito un'email di verifica. Clicca sul link per confermare - scade dopo 24 ore. Se ti sei registrato con Google o Apple, la tua email è già verificata.
 
-- Se non arriva, controlla la posta indesiderata - di solito è lì.
-- Il banner di verifica sulla piattaforma ha un pulsante "Reinvia".
+- Se non arriva, controlla la posta indesiderata - di solito è lì.
+- Il banner di verifica delle pagine Account e Pricing ha un pulsante **Resend**, che invia un nuovo link.
 - Se più invii non risolvono il problema, scrivi a [support@zerogex.io](mailto:support@zerogex.io).
 
-Finché non verifichi l'email, alcune funzionalità restano bloccate - i referral sono la principale.
+Finché non verifichi l'email, non puoi avviare una prova né abbonarti.
 
 ## Disattivare le email opzionali
 
-Il link per annullare l'iscrizione si trova in fondo a ogni email opzionale. Un clic ti rimuove da quella categoria. Le email transazionali e di sicurezza continuano comunque - è un requisito per gestire un account a pagamento.
+- **Novità del prodotto e offerte** - clicca sul link per annullare l'iscrizione in fondo all'email, o sul pulsante di disiscrizione della tua app di posta. Un clic interrompe novità e offerte. Alcuni promemoria una tantum non contengono il link, ma ciascuno viene inviato una sola volta.
+- **L'email giornaliera dei livelli** - annulla l'iscrizione dal fondo di una qualsiasi di esse.
+- **Avvisi dei bot TradeWorkz™** - apri **Gestisci notifiche** nella pagina [Account](/account) per disattivare l'email di un bot (o tutte insieme con **Disattiva tutte le email**), oppure smetti di seguire il bot.
+
+Le email di account e fatturazione continuano comunque - è un requisito per gestire un account a pagamento.
 
 ## Quando smetterai di ricevere nostre comunicazioni
 
-Se annulli il tuo abbonamento, le email transazionali continuano fino alla fine del periodo di fatturazione, poi si interrompono. Le email di sicurezza continuano finché l'account esiste.
+Se annulli il tuo abbonamento, le email di fatturazione si interrompono quando l'abbonamento termina, a parte la conferma dell'annullamento. Le email relative all'account, come il reset della password, continuano finché l'account esiste.
 
-Per interrompere tutte le email, scrivi a [support@zerogex.io](mailto:support@zerogex.io) e richiedi l'eliminazione dell'account. Questo rimuove completamente il tuo account.
+Per interrompere tutte le email, elimina il tuo account dalla pagina [Account](/account) (**Delete account**, in fondo). In questo modo l'account viene eliminato definitivamente e tutte le nostre email si interrompono.
 
 ## Attenzione al phishing
 
-Inviamo email da `zerogex.io` e `noreply@zerogex.io` (e occasionalmente da `support@zerogex.io`). Non ti chiederemo **mai** la password via email, e non ti chiederemo mai di inoltrare un link del portale di fatturazione o un token di sessione.
+Le nostre email arrivano da indirizzi `zerogex.io`. Non ti chiederemo **mai** la password via email, e non ti chiederemo mai di inoltrare un link del portale di fatturazione o un token di sessione.
 
-Se qualcosa ti sembra sospetto, inoltralo a [support@zerogex.io](mailto:support@zerogex.io) - confermeremo o segnaleremo il problema.
+Se qualcosa ti sembra sospetto, inoltralo a [support@zerogex.io](mailto:support@zerogex.io) - confermeremo o segnaleremo il problema.
 
 ## Vedi anche
 
