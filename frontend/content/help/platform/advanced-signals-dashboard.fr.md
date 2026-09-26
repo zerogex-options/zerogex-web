@@ -1,14 +1,14 @@
 # Advanced Signal Dashboard
 
-*Les signaux event-driven - ce que chacun demande, quand chacun se déclenche et comment les utiliser.*
+*Les signaux event-driven - ce que chacun demande, quand chacun se déclenche et comment les utiliser.*
 
 ---
 
 ## Ce qu'est l'Advanced Signal Dashboard
 
-L'Advanced Signal Dashboard (Pro) est la **grille de triggers** pour les huit signaux Advanced. Un bandeau en haut affiche les huit scores. En dessous se trouvent trois onglets - **Signal Grid**, **Confluence Matrix** et **Event Timelines**. Chaque carte de la grille affiche le score de -100 à +100, le niveau auquel elle s'active, un état *Triggered* ou *Stand by*, un sparkline et des **Context values** dépliables. EOD Pressure et 0DTE Position Imbalance affichent *Inactive* tant que leur fenêtre horaire est fermée.
+L'Advanced Signal Dashboard (Pro) est la **grille de triggers** pour les huit signaux Advanced. Un bandeau en haut affiche les huit scores. En dessous se trouvent trois onglets - **Signal Grid**, **Confluence Matrix** et **Event Timelines**. Chaque carte de la grille affiche le score de -100 à +100, le niveau auquel elle s'active, un état *Triggered* ou *Stand by*, un sparkline et des **Context values** dépliables. EOD Pressure et 0DTE Position Imbalance affichent *Inactive* tant que leur fenêtre horaire est fermée.
 
-Les signaux Advanced sont **event-driven**. Chacun produit un score continu et modélisé - une lecture dérivée, pas une prévision garantie -, mais le moment intéressant est celui où le score franchit le seuil de trigger du signal. Aucun des huit ne fait partie du Composite Score (MSI).
+Les signaux Advanced sont **event-driven**. Chacun produit un score continu et modélisé - une lecture dérivée, pas une prévision garantie -, mais le moment intéressant est celui où le score franchit le seuil de trigger du signal. Aucun des huit ne fait partie du Composite Score (MSI).
 
 ## Les huit signaux
 
@@ -27,7 +27,7 @@ Les signaux Advanced sont **event-driven**. Chacun produit un score continu et m
 
 ### EOD Pressure
 
-Actif durant les 90 dernières minutes. Monte en puissance à partir de 14h30 ET, avec un pic vers 15h45 ET. Construit à partir du dealer charm au spot, de la pin gravity, de la volatilité réalisée et des flags de witching. Traduit « la clôture *pourrait* se fixer vers X » avec une direction - un biais modélisé, car le pinning reste probabiliste.
+Actif durant les 90 dernières minutes. Monte en puissance à partir de 14h30 ET, avec un pic vers 15h45 ET. Construit à partir du dealer charm au spot, de la pin gravity, de la volatilité réalisée et des flags de witching. Traduit « la clôture *pourrait* se fixer vers X » avec une direction - un biais modélisé, car le pinning reste probabiliste.
 
 ### Gamma/VWAP Confluence
 
@@ -39,15 +39,15 @@ La lecture globale « le marché est-il chargé ». Combine le wall pinch, la pr
 
 ### Range Break Imminence
 
-Lecture de compression sur 20 barres. Skew delta + dealer delta + trap pressure + ratio de compression 10/60 barres. Produit à la fois un score et une imminence de 0 à 100. Se déclenche à imminence ≥ 65 - le début de la bande Break Watch (à partir de 80, c'est Breakout Mode), où la page conseille d'arrêter de fader le range à l'aveugle.
+Lecture de compression sur 20 barres. Skew delta + dealer delta + trap pressure + ratio de compression 10/60 barres. Produit à la fois un score et une imminence de 0 à 100. Se déclenche à imminence ≥ 65 - le début de la bande Break Watch (à partir de 80, c'est Breakout Mode), où la page conseille d'arrêter de fader le range à l'aveugle.
 
 ### Squeeze Setup
 
-Détecteur de setup pluri-journalier. Z-score du flux, momentum 5/10 barres, préparation du gamma, distance au flip, régime du VIX. Biais de continuation - une lecture dérivée selon laquelle le marché *pourrait* être comprimé vers X, pas une prochaine jambe garantie.
+Détecteur de setup pluri-journalier. Z-score du flux, momentum 5/10 barres, préparation du gamma, distance au flip, régime du VIX. Biais de continuation - une lecture dérivée selon laquelle le marché *pourrait* être comprimé vers X, pas une prochaine jambe garantie.
 
 ### Trap Detection
 
-Le détecteur de breakouts échoués. Walls (actuelle + précédente), VWAP, flip, net GEX et ΔGEX, deltas de flux. Biais de mean-reversion - signale qu'une cassure d'un niveau clé (une wall, le VWAP, le gamma flip ou le strike de gamma maximal) a de bonnes chances d'échouer lorsque les dealers sont modélisés long gamma et que le gamma se renforce ; une wall qui migre avec la cassure affaiblit la lecture. En gamma négatif, il reste à 0.
+Le détecteur de breakouts échoués. Walls (actuelle + précédente), VWAP, flip, net GEX et ΔGEX, deltas de flux. Biais de mean-reversion - signale qu'une cassure d'un niveau clé (une wall, le VWAP, le gamma flip ou le strike de gamma maximal) a de bonnes chances d'échouer lorsque les dealers sont modélisés long gamma et que le gamma se renforce ; une wall qui migre avec la cassure affaiblit la lecture. En gamma négatif, il reste à 0.
 
 ### Volatility Expansion
 
@@ -62,9 +62,9 @@ Lecture sur la fenêtre 0DTE. Pondérée par les heures restantes avant la clôt
 Lorsque le trigger d'un signal se déclenche :
 
 1. Sa carte est encadrée et teintée dans la direction du score, et son état passe de *Stand by* à *Triggered*.
-2. Le Composite Score ne change pas - les signaux Advanced ne font pas partie du MSI.
+2. Le Composite Score ne change pas - les signaux Advanced ne font pas partie du MSI.
 
-Il n'y a ni alerte ni entrée de journal : rien ne vous est envoyé et rien n'arrive dans le Bulletin en direct. Une carte reste *Triggered* tant que le score se maintient au-delà de son seuil. Pour voir ce qui s'est passé plus tôt, ouvrez l'onglet **Event Timelines** ou la page du signal - la timeline trace le score sur les deux dernières sessions, avec les changements de direction marqués.
+Il n'y a ni alerte ni entrée de journal : rien ne vous est envoyé et rien n'arrive dans le Bulletin en direct. Une carte reste *Triggered* tant que le score se maintient au-delà de son seuil. Pour voir ce qui s'est passé plus tôt, ouvrez l'onglet **Event Timelines** ou la page du signal - la timeline trace le score sur les deux dernières sessions, avec les changements de direction marqués.
 
 ## Lire le dashboard
 
@@ -79,7 +79,7 @@ Cliquez sur n'importe quelle carte pour accéder à la page dédiée du signal, 
 
 ## Important : le biais de trading compte
 
-Certains signaux Advanced sont de continuation, d'autres de mean-reversion. Trap Detection fade une *cassure de prix échouée*, pas un breakout : un score **positif** signifie qu'une cassure à la baisse a échoué (le fade est à la hausse - achetez la cassure baissière échouée), un score **négatif** qu'une cassure à la hausse a échoué (le fade est à la baisse) - l'image inversée d'un signal de continuation comme Squeeze Setup. Vérifiez toujours quel type de signal vous lisez - [Signals: Explained](/guides/signals-explained) répertorie le biais de trading de chaque signal.
+Certains signaux Advanced sont de continuation, d'autres de mean-reversion. Trap Detection fade une *cassure de prix échouée*, pas un breakout : un score **positif** signifie qu'une cassure à la baisse a échoué (le fade est à la hausse - achetez la cassure baissière échouée), un score **négatif** qu'une cassure à la hausse a échoué (le fade est à la baisse) - l'image inversée d'un signal de continuation comme Squeeze Setup. Vérifiez toujours quel type de signal vous lisez - [Signals: Explained](/guides/signals-explained) répertorie le biais de trading de chaque signal.
 
 ## Voir aussi
 

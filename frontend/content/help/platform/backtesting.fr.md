@@ -1,6 +1,6 @@
 # Backtesting
 
-*Rejouez n'importe quel signal ZeroGEX ou une règle personnalisée sur des données d'options historiques, valorisées comme de véritables allers-retours sur jambes d'options - nets du slippage et de la commission - avec un tearsheet complet ajusté du risque, un cône de résultats Monte Carlo et des résultats ventilés par régime de gamma.*
+*Rejouez une stratégie ZeroGEX ou une règle personnalisée sur des données d'options historiques, valorisées comme de véritables allers-retours sur jambes d'options - nets du slippage et de la commission - avec un tearsheet complet ajusté du risque, un cône de résultats Monte Carlo et des résultats ventilés par régime de gamma.*
 
 ---
 
@@ -10,19 +10,19 @@ La page Backtesting vous permet de tester comment une règle se serait comporté
 
 ## Ce que vous pouvez backtester
 
-- **Patterns du Playbook** - n'importe lequel des patterns de signal intégrés qui pilotent les Action Cards en direct (cassure du gamma flip, fade sur le call wall, rebond sur le put wall, dérive de pression en fin de séance, et plus), seuls ou en panier.
+- **Strategy catalog** - les mêmes stratégies que celles utilisées par Trading par bots et Analyse des motifs (fades sur le call wall, rebonds sur le put wall, cassures du gamma flip, dérive de couverture en fin de séance, et plus), regroupées par famille, seules ou en panier. Chacune affiche son stade de recherche et un résumé de ses preuves. Les stratégies liées à un pattern du Playbook sont mesurées en rejouant les Action Cards que ce pattern a émises en direct ; une stratégie marquée **Replay** rejoue plutôt la règle d'entrée de son bot sur l'historique. Une stratégie qui ne peut pas encore être backtestée apparaît grisée, avec la raison.
 - **Stratégies personnalisées** - un constructeur de conditions sur la structure de marché à la minute (net GEX / net GEX au spot, distance au gamma flip, distances au call/put wall, put-call ratio, MSI et régime MSI, convexity, …) compilé en entrées.
 - **Structures d'options réelles** - options ATM simples, verticales à risque défini, et straddles, strangles et iron condors neutres.
 
 ## Les paramètres réglables
 
 - **Symbole** - SPY / SPX / QQQ / NDX
-- **Plage de dates** - jusqu'à la profondeur d'historique disponible (indiquée sur le formulaire)
-- **Entrée** - un panier de patterns, ou une règle conditionnelle personnalisée en ET
+- **Plage de dates** - jusqu'à la profondeur d'historique disponible (le formulaire s'ouvre sur toute la période disponible)
+- **Entrée** - un panier de stratégies du catalogue, ou une règle conditionnelle personnalisée en ET
 - **Sortie** - objectifs/stops sur le niveau du sous-jacent, un overlay take-profit / stop-loss sur la prime de l'option, et un stop de durée maximale de détention (le premier déclenché l'emporte)
 - **Modèle d'exécution** - % de slippage et commission par contrat (les deux sont appliqués - voir ci-dessous)
 - **Dimensionnement** - capital, risque par trade, nombre maximal de positions simultanées, et plafonds optionnels de net-delta / net-vega
-- **Balayages de paramètres** - exécutez une grille sur un ou deux axes pour comparer des réglages côte à côte
+- **Balayages de paramètres** - exécutez une grille sur un ou deux axes (jusqu'à 24 runs) pour comparer des réglages côte à côte
 
 ## Les résultats produits
 
@@ -36,21 +36,32 @@ La batterie de métriques ajustées du risque qu'un lecteur sérieux consulte en
 
 - **Sharpe, Sortino, Calmar** et **CAGR**
 - **Volatilité annualisée**, **exposition**, et la **plus longue série de pertes**
-- **Expectancy par trade**, **payoff ratio**, gain et perte moyens et maximaux
+- **Expectancy par trade**, **payoff ratio**, **gain moyen** et **perte moyenne**
 - Un **edge t-stat** - le résultat moyen du trade est-il distinguable du bruit (|t| ≥ 2) ?
 - Un **benchmark** : votre rendement comparé au simple achat-conservation du sous-jacent sur la même période, et le surplus de rendement.
 
 ### Le cône de résultats Monte Carlo
 
-Votre séquence de trades rééchantillonnée de mille façons différentes, parce qu'une seule courbe d'equity ressemble à une fatalité alors qu'elle n'en est pas une. Vous obtenez la **probabilité de terminer profitable**, le **risque de ruine** (probabilité d'un drawdown ≥50 %), la plage **p5 / p50 / p95** des rendements et des drawdowns maximaux, ainsi qu'un **cône d'equity** ombré indiquant où le compte pourrait plausiblement atterrir.
+Votre séquence de trades rééchantillonnée de mille façons différentes, parce qu'une seule courbe d'equity ressemble à une fatalité alors qu'elle n'en est pas une. Vous obtenez la **probabilité de terminer profitable**, le **risque de ruine** (probabilité d'un drawdown ≥50 %), la **médiane et la plage p5-p95** des rendements, la **médiane et le p95 du drawdown maximal**, ainsi qu'un **cône d'equity** ombré indiquant où le compte pourrait plausiblement atterrir.
 
 ### Résultats par régime de marché
 
 La ventilation propre à ZeroGEX : les mêmes règles réparties selon le **contexte de dealer-gamma** (positif/suppresseur vs négatif/amplificateur) et selon le **régime MSI**, avec le win rate, le P&L net et l'expectancy pour chacun. Une règle qui performe en séances de gamma négatif et saigne en gamma positif est un pari de régime - c'est ici que vous le voyez.
 
+### Pourquoi N trades ?
+
+Le panneau **Why N trades?** montre un entonnoir des cards chargées jusqu'aux trades pris - chargées, dans vos stratégies sélectionnées, après le cooldown, valorisées, tradées - avec les raisons pour lesquelles des cards ont été écartées en chemin. Si un run revient maigre ou vide, commencez par là.
+
 ### Le journal des trades
 
-Chaque aller-retour avec la prime d'entrée/sortie, les contrats, le net Δ/vega, le régime à l'entrée, le P&L net et le résultat. Exportez le journal complet en CSV.
+Chaque aller-retour avec la prime d'entrée/sortie, les contrats, le net Δ/vega, le P&L net, le rendement et le résultat. Exportez le journal complet en CSV - l'export contient aussi le régime de gamma et le régime MSI à l'entrée. Un tableau **By Pattern** au-dessus ventile les trades, le win rate et le P&L net par stratégie.
+
+## Enregistrer et partager
+
+- **Recent Runs** liste vos derniers runs ; cliquez sur l'un d'eux pour rouvrir ses résultats.
+- **Saved configurations** - nommez la configuration actuelle et enregistrez-la. Depuis la liste, vous pouvez la charger, la supprimer ou copier un lien qui ouvre la page Backtesting avec cette configuration déjà remplie (la personne qui l'ouvre doit avoir Pro).
+- **Share result** - pour un run terminé avec des trades, crée un rapport public en lecture seule : les chiffres clés, la courbe d'equity, la plage Monte Carlo et la ventilation par régime. Toute personne disposant du lien peut l'ouvrir, sans compte.
+- **Featured strategies** chargent en un clic dans le formulaire une stratégie aux preuves mesurées.
 
 ## Comment les exécutions sont modélisées
 
@@ -74,9 +85,10 @@ Un win rate élevé avec un payoff ratio inférieur à 1 et un cône Monte Carlo
 
 ## Note sur le palier
 
-Le Backtesting est une fonctionnalité Pro.
+Le Backtesting est une fonctionnalité Pro, actuellement en bêta. Il se trouve dans la barre latérale sous **TradeWorkz™**, à côté de Trading par bots et Analyse des motifs. Les liens de résultats partagés font exception : tout le monde peut les ouvrir.
 
 ## Voir aussi
 
+- [Analyse des motifs](/backtesting/insights) - la performance mesurée de chaque stratégie du catalogue (Pro)
 - [Composite Score](/help/platform/composite-score)
 - [Comment fonctionnent les signaux de bout en bout](/help/platform/signals-overview)

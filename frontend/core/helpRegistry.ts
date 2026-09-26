@@ -48,19 +48,19 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'signals-overview',
     title: 'How Signals Work End-to-End',
-    description: 'Advanced vs. Basic signals, how scores combine, and what the cards show.',
+    description: 'Advanced vs. Basic signals, triggers, how they relate to the Composite Score, and what the cards show.',
     section: 'Signals',
   },
   {
     slug: 'composite-score',
     title: 'Composite Score',
-    description: 'How the composite blends all signals and how to use it.',
+    description: 'The 0-100 regime gauge: its six components, what it measures, and how to use it.',
     section: 'Signals',
   },
   {
     slug: 'basic-signals-dashboard',
     title: 'Basic Signal Dashboard',
-    description: 'The six continuous reads that feed the composite.',
+    description: 'The six continuous, advisory reads that sit alongside the composite.',
     section: 'Signals',
   },
   {
@@ -149,7 +149,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'backtesting',
     title: 'Backtesting',
-    description: 'Running a backtest against historical signal scores.',
+    description: 'Testing a catalog strategy or custom rule on historical option data, net of costs.',
     section: 'Strategy Tools',
   },
   {
@@ -223,8 +223,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     slug: 'score-line',
-    title: 'Reading the [-1, +1] Score Line',
-    description: 'Sign, magnitude, and the meaning of a 0 score.',
+    title: 'Reading the -100 to +100 Score Line',
+    description: 'Sign, magnitude, trigger thresholds, and what a 0 score means.',
     section: 'Charts & Reading the Data',
   },
   {

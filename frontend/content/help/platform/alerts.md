@@ -8,10 +8,10 @@
 
 ZeroGEX shows signal triggers **in-app**, not by email, SMS, or push notification. They surface in two places:
 
-1. **The signal card** - on the Advanced Signal Dashboard (Pro), a trigger outlines the card, tints it in the score's direction, and switches its status from *Stand by* to *Triggered*.
-2. **The Event Timeline** - on the dashboard's Event Timelines tab and at the bottom of each signal's page: the score's recent path, with direction flips marked.
+1. **The signal card** - on the Advanced Signal Dashboard (Pro), a trigger outlines the card, tints it in the score's direction, and switches its status from *Stand by* to *Triggered*.
+2. **The Event Timeline** - on the dashboard's Event Timelines tab and at the bottom of each signal's page: the score's recent path, with direction flips marked.
 
-Triggers don't land in the Live Bulletin - that's a share-ready card of the current dealer-gamma snapshot - and they don't move the Composite Score.
+Triggers don't land in the Live Bulletin - that's a share-ready card of the current dealer-gamma snapshot - and they don't move the Composite Score.
 
 This is intentional. ZeroGEX is built to be **watched, not interrupted**. Push-style alerts cause overtrading; the in-app views let you scan when you choose to.
 
@@ -21,7 +21,7 @@ Only the eight Advanced signals fire, each when its trigger threshold is crossed
 
 Basic signals do **not** fire. They're continuous, advisory reads, and they carry no weight in the Composite Score. Their cards are outlined and marked *Triggered* past ±25, but that only highlights a strong read.
 
-Structural changes - price crossing the gamma flip, a wall moving - aren't alerts either. You read those on the Gamma Chart and the Metrics pages.
+Structural changes - price crossing the gamma flip, a wall moving - aren't alerts either. You read those on the Gamma Chart and the Metrics pages.
 
 ## How a trigger lands
 
@@ -31,7 +31,7 @@ When a trigger crosses:
 2. The card on the Advanced Signal Dashboard switches to *Triggered* and takes the direction's color. The page checks for new values every few seconds, so there's no need to reload.
 3. The Composite Score is unaffected.
 
-A card stays *Triggered* while the score holds past the threshold, and goes back to *Stand by* when it drops back inside. There's no separate list of trigger events - the Event Timeline is the record.
+A card stays *Triggered* while the score holds past the threshold, and goes back to *Stand by* when it drops back inside. There's no separate list of trigger events - the Event Timeline is the record.
 
 ## Trigger thresholds reference
 
@@ -61,15 +61,15 @@ The card shows its current state: *Triggered*, *Stand by*, or *Inactive* with th
 
 There's no trigger log. To see what a signal did while you were away, open the **Event Timelines** tab on the Advanced Signal Dashboard, or the Event Timeline at the bottom of the signal's page. It plots the score over the last two sessions with direction flips marked, next to how far the underlying moved over the following 30, 60 or 120 minutes, and you can zoom from 30 minutes out to the full range.
 
-For a graded look back at a whole session, the public **Signals - one day** scorecard (under Receipts in the sidebar) shows which signals flipped, how many of those flips could be graded, and how they resolved.
+For a graded look back at a whole session, the public **Signals - one day** scorecard (under Receipts in the sidebar) shows which signals flipped, how many of those flips could be graded, and how they resolved.
 
 ## Outbound alerts
 
-Signal triggers are shown **in-app only** - on the signal cards and in the Event Timelines. They are not sent by email, SMS, push notification, or webhook.
+Signal triggers are shown **in-app only** - on the signal cards and in the Event Timelines. They are not sent by email, SMS, push notification, or webhook.
 
 The channel toggles under [Account → Notifications](/account/notifications) belong to **TradeWorkz™ Bot Trading** (Pro, beta), not to signal triggers: they cover entry and exit notifications from bots you follow. In-app (the bell on the Bot Trading page) and email deliver today; the webhook channel stores your preference but doesn't deliver anything yet, so don't build against it. To automate on signals today, poll the [API](/help/platform/api-access) (Pro) rather than wait on a push that won't arrive.
 
-Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want - specifics move it up.
+Outbound delivery is on the list, not shipped. If it would change how you trade, email [support@zerogex.io](mailto:support@zerogex.io) with the channel and the signals you'd want - specifics move it up.
 
 ## See also
 

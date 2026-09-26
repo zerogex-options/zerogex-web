@@ -22,13 +22,13 @@ ZeroGEX transforme le marché des options en un modèle en temps réel du **posi
 Chaque page d'analyse sur ZeroGEX est conçue pour répondre à deux questions à la fois :
 
 - **Où en sommes-nous ?** - la métrique, le score, le niveau, le régime.
-- **Qu'est-ce que cela signifie en ce moment ?** - le chip de trade-bias, l'état du trigger, l'étiquette de régime, l'indice directionnel.
+- **Qu'est-ce que cela signifie en ce moment ?** - l'état du trigger, l'étiquette de régime, l'indice directionnel.
 
 Si vous pouvez répondre aux deux d'un seul coup d'œil sur une page, c'est que vous la lisez correctement.
 
 ## Trois choses à intérioriser dès le début
 
-- **Les scores des signaux vont de -100 à +100.** Le signe indique la direction ; l'amplitude indique la conviction. Voir [Lire la ligne de score](/help/platform/score-line). Le **Composite MSI** du tableau de bord est différent : une jauge de régime 0-100. Un MSI élevé ne signifie pas haussier - il signifie que les tendances ont de bonnes chances de se prolonger.
+- **Les scores des signaux vont de -100 à +100.** Le signe indique la direction ; l'amplitude indique la conviction. Voir [Lire la ligne de score de -100 à +100](/help/platform/score-line). Le **Composite MSI** du tableau de bord est différent : une jauge de régime 0-100. Un MSI élevé ne signifie pas haussier - il signifie que les tendances ont de bonnes chances de se prolonger.
 - **Les signaux Advanced se déclenchent ; les signaux Basic préviennent tôt.** Chaque signal Advanced (Pro) affiche *Triggered* ou *Stand by* par rapport à un seuil explicite. Les six signaux Basic sont des lectures consultatives qui n'ont aucun poids dans le Composite MSI - lorsqu'ils le contredisent, voyez-y une alerte précoce d'un changement de régime.
 - **Être au-dessus du gamma flip par rapport à en dessous change tout.** Au-dessus, c'est "mean-revert et grind" ; en dessous, c'est "trend et amplification." Le chip Long γ / Short γ du bandeau Key Levels vous indique de quel côté vous êtes - vérifiez-le avant de lire quoi que ce soit d'autre.
 

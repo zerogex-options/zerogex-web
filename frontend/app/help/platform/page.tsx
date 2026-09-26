@@ -119,19 +119,19 @@ const sections: Section[] = [
         href: '/help/platform/signals-overview',
         title: 'How Signals Work End-to-End',
         blurb:
-          'The full signal model\u00a0- Advanced (event-driven, triggers) vs. Basic (continuous, weight the composite). How scores combine and what the cards show you.',
+          'The full signal model\u00a0- Advanced (Pro; event-driven, with triggers) vs. Basic (continuous, advisory, outside the composite). How they relate to the Composite Score and what the cards show you.',
       },
       {
         href: '/help/platform/composite-score',
         title: 'Composite Score',
         blurb:
-          'How the composite blends all signals, how to read its sign and magnitude, and how to use it as a filter rather than a forecast.',
+          'The 0-100 regime gauge built from six components\u00a0- what each band means, why a high reading is not a bullish call, and how to use it as a filter rather than a forecast.',
       },
       {
         href: '/help/platform/basic-signals-dashboard',
         title: 'Basic Signal Dashboard',
         blurb:
-          'The six continuous reads\u00a0- Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap\u00a0- and how they feed the composite.',
+          'The six continuous reads\u00a0- Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap\u00a0- continuous, advisory reads that sit alongside the composite rather than feeding it.',
       },
       {
         href: '/help/platform/advanced-signals-dashboard',
@@ -238,7 +238,7 @@ const sections: Section[] = [
         href: '/help/platform/backtesting',
         title: 'Backtesting',
         blurb:
-          'How to run a backtest against historical signal scores, the parameter knobs, and how to read the equity curve and trade log.',
+          'How to test a catalog strategy or your own rule on historical option data, the parameter knobs, and how to read the results and trade log.',
       },
     ],
   },
@@ -276,7 +276,7 @@ const sections: Section[] = [
         href: '/help/platform/alerts',
         title: 'Signal Alerts',
         blurb:
-          'How signal triggers surface inside the platform, what fires versus what stays quiet, and how to use the Live Bulletin as your alert log.',
+          'How signal triggers surface inside the platform, what fires versus what stays quiet, and where to look back at past triggers.',
       },
       {
         href: '/help/platform/email-preferences',
@@ -336,7 +336,7 @@ const sections: Section[] = [
       },
       {
         href: '/help/platform/score-line',
-        title: 'Reading the [-1, +1] Score Line',
+        title: 'Reading the -100 to +100 Score Line',
         blurb:
           'Every signal score lives on the same number line. What sign and magnitude mean, when a 0 is a non-answer, and when to act.',
       },

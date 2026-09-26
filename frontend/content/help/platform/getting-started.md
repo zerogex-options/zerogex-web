@@ -22,13 +22,13 @@ ZeroGEX turns the options market into a real-time model of **dealer positioning*
 Every analytics page on ZeroGEX is built to answer two questions at once:
 
 - **Where are we?** - the metric, the score, the level, the regime.
-- **What does it mean right now?** - the trade-bias chip, the trigger state, the regime label, the directional cue.
+- **What does it mean right now?** - the trigger state, the regime label, the directional cue.
 
 If you can answer both from a single glance at a page, you're reading it correctly.
 
 ## Three things to internalize early
 
-- **Signal scores run from -100 to +100.** Sign tells you direction; magnitude tells you conviction. See [Reading the Score Line](/help/platform/score-line). The **Composite MSI** on the dashboard is different: a 0-100 regime gauge. A high MSI doesn't mean bullish - it means trends are likely to follow through.
+- **Signal scores run from -100 to +100.** Sign tells you direction; magnitude tells you conviction. See [Reading the -100 to +100 Score Line](/help/platform/score-line). The **Composite MSI** on the dashboard is different: a 0-100 regime gauge. A high MSI doesn't mean bullish - it means trends are likely to follow through.
 - **Advanced signals trigger; Basic signals warn early.** Each Advanced signal (Pro) shows *Triggered* or *Stand by* against an explicit threshold. The six Basic signals are advisory reads that carry no weight in the Composite MSI - when they disagree with it, treat that as an early warning of a regime shift.
 - **Above the gamma flip vs. below it changes everything.** Above is "mean-revert and grind"; below is "trend and amplify." The Long γ / Short γ chip on the Key Levels strip tells you which side you're on - check it before reading anything else.
 

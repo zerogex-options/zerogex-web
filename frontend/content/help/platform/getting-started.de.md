@@ -22,13 +22,13 @@ ZeroGEX verwandelt den Optionsmarkt in ein Echtzeitmodell des **Dealer-Positioni
 Jede Analyseseite auf ZeroGEX ist so aufgebaut, dass sie zwei Fragen gleichzeitig beantwortet:
 
 - **Wo stehen wir?** - die Kennzahl, der Score, das Level, das Regime.
-- **Was bedeutet das gerade?** - der Trade-Bias-Chip, der Trigger-Status, die Regime-Bezeichnung, der Richtungshinweis.
+- **Was bedeutet das gerade?** - der Trigger-Status, die Regime-Bezeichnung, der Richtungshinweis.
 
 Wenn du beide Fragen mit einem einzigen Blick auf eine Seite beantworten kannst, liest du sie richtig.
 
 ## Drei Dinge, die du früh verinnerlichen solltest
 
-- **Signal-Scores reichen von -100 bis +100.** Das Vorzeichen zeigt die Richtung an; die Größe zeigt die Überzeugung an. Siehe [Die Score-Linie lesen](/help/platform/score-line). Der **Composite MSI** auf dem Dashboard ist etwas anderes: eine Regime-Anzeige von 0-100. Ein hoher MSI bedeutet nicht bullish - er bedeutet, dass Trends sich wahrscheinlich fortsetzen.
+- **Signal-Scores reichen von -100 bis +100.** Das Vorzeichen zeigt die Richtung an; die Größe zeigt die Überzeugung an. Siehe [Die Score-Linie von -100 bis +100 lesen](/help/platform/score-line). Der **Composite MSI** auf dem Dashboard ist etwas anderes: eine Regime-Anzeige von 0-100. Ein hoher MSI bedeutet nicht bullish - er bedeutet, dass Trends sich wahrscheinlich fortsetzen.
 - **Advanced-Signale lösen aus; Basic-Signale warnen früh.** Jedes Advanced-Signal (Pro) zeigt *Triggered* oder *Stand by*, gemessen an einer expliziten Schwelle. Die sechs Basic-Signale sind beratende Lesarten, die im Composite MSI kein Gewicht haben - wenn sie ihm widersprechen, behandle das als Frühwarnung vor einem Regimewechsel.
 - **Oberhalb des Gamma Flip vs. unterhalb davon verändert alles.** Oberhalb bedeutet "Mean-Revert und Grind"; unterhalb bedeutet "Trend und Verstärkung." Der Chip Long γ / Short γ in der Leiste Key Levels zeigt dir, auf welcher Seite du bist - prüfe ihn, bevor du irgendetwas anderes liest.
 
