@@ -1,88 +1,91 @@
 # Reading the Dashboard
 
-*The page you open first every morning. Every tile, every chart, every cue explained.*
+*The page you open first every morning. Every strip, chart and card explained.*
 
 ---
 
 ## What the Dashboard is for
 
-The Dashboard is the **single-screen read** of the current market. It answers, in 30 seconds, three questions:
+The Main Dashboard is the **single-screen read** of the current market. It answers, in 30 seconds, three questions:
 
-1. **Where are dealers positioned?** (the GEX regime)
-2. **What is the tape saying?** (flow + technicals)
-3. **What is the composite read?** (the blended regime read - trend vs chop)
+1. **Where are dealers positioned?** (the gamma regime and the key levels)
+2. **What is the tape saying?** (flow and volatility)
+3. **What is the blended read?** (Trade Bias and the Composite MSI)
 
 You're not making decisions on the Dashboard. You're orienting. From there you drill into the right page.
 
+## Simple and Detailed
+
+The **Simple / Detailed** toggle at the top right sets how much the page shows. **Simple** is the default and keeps the page glance-first: Today's Read, Proprietary Signals & Volatility, and Positioning & Flow start folded - click a section's title to open it. **Detailed** opens every section. Your choice is remembered.
+
 ## The anatomy
 
-### 1. The regime header
+### 1. Key Levels
 
-The top of the page shows the **GEX regime label** - Positive Gamma, Negative Gamma, or Transitioning - alongside a short read of what that means for behavior right now. If you only have time for one piece of information today, this is the one.
+The strip across the top. Its header shows the symbol, the expirations the levels come from, and the **Long γ / Short γ** chip: long gamma means dealer hedging tends to dampen moves (pinning); short gamma means it tends to amplify them (trending). Below it is one card per level, each with how far price is from it:
 
-### 2. The price tile
+- **Spot** - the live price and its change.
+- **Gamma Flip** - the level where modeled dealer gamma changes sign. Above it, hedging dampens moves; below it, hedging amplifies them. The closer price is to the flip, the higher the risk of a regime change.
+- **Pin Strike** - the nearby 0DTE strike where positive dealer gamma and the odds of price getting there combine most strongly, with a Strong / Moderate / Weak label. It's a modeled pinning level, not a price target, and the card says so when no strike qualifies. See [Pin Strike](/help/platform/pin-strike).
+- **Call Wall** and **Put Wall** - the strikes with the most call gamma and put gamma. They tend to act as resistance and support, especially in positive gamma. See [Gamma Walls Explained](/education/gamma-walls-explained).
+- **Max Pain** - the strike that minimizes the total value of outstanding options at expiration. Most relevant in the last day or two before a meaningful expiration. See [Max Pain Explained](/education/max-pain-explained).
 
-The headline price tile shows the live last price, the change versus the previous session close, and the session badge. Pre-market and after-hours quotes are shown with the prior close as the baseline; during regular hours the same-session open is the baseline.
+The strip shows exactly the levels the Gamma Chart draws, including any expiration filter you set on the chart. To switch symbols from the strip, hover it for arrows on a computer, or swipe it on a phone.
 
-### 3. The Net GEX tile
+### 2. Today's Read
 
-The Net GEX tile is the headline gamma exposure number - calculated **at spot** so it reads the right side of the gamma flip. A positive number means dealers are net long gamma; negative means they're net short. The color and trend chip reinforce sign and direction.
+An auto-generated headline and short paragraph on the regime for the selected symbol: long gamma (pinned, lower volatility), short gamma (trending, higher volatility), sitting at the flip (a transition), or unresolved when the flip can't be computed from the current snapshot. It's built from the same model as the [Live Bulletin](/help/platform/live-bulletin), and clicking it opens the full bulletin.
 
-### 4. The Gamma Flip tile
+### 3. The Gamma Chart
 
-Distance to the flip - both as a strike and as a percent of spot. The flip is the level at which the dealer gamma curve crosses zero. Above the flip, dealer hedging dampens moves; below, it amplifies them. The closer you are to the flip, the higher the structural risk of a regime change.
+The ZeroGEX Gamma Chart is the centerpiece: live candles with the dealer-gamma structure drawn on the same price axis. The **Gamma Levels** overlay marks the flip, the call and put walls, and max pain. The **Gamma Rail** beside the candles shows net dealer gamma by price, so the walls show up as literal bars. The chart's header carries the live price, its change, the session and the dealer-gamma regime. Use the chart's controls to change the timeframe and chart style and to filter which expirations feed the levels. See [How to Read ZeroGEX Charts](/help/platform/reading-charts).
 
-### 5. The Call Wall / Put Wall tiles
+### 4. Trade Bias
 
-The strikes with the largest call gamma and put gamma respectively. These tend to act as intraday resistance and support, especially when the market is in positive gamma. See [Gamma Walls Explained](/education/gamma-walls-explained) for the structural read.
+A single card with the regime, the bias (such as *Buy Dips*, *Sell Rips*, *Range-Bound* or *Neutral*) and a confidence score out of 10. It's a read-from-the-top synthesis, **not** a trade signal. **Open Trade Bias** goes to the full breakdown and playbook on the Trade Bias page, which is part of Pro. On Basic, the card is built without the Pro-only signal inputs.
 
-### 6. The Max Pain tile
+Under the card, **How to read these signals** (folded) explains how Trade Bias, the Composite MSI, the Basic signals and the Advanced signals fit together.
 
-The strike that minimizes the total dollar value of outstanding options at expiration. Most relevant inside the last 24-48 hours before a meaningful expiration. See [Max Pain Explained](/education/max-pain-explained).
+### 5. Proprietary Signals & Volatility
 
-### 7. The Volatility tiles
+- **Composite MSI** - a 0-100 regime gauge: 70 and up is trend or expansion, 40-70 a controlled trend, 20-40 chop or range, under 20 a high-risk reversal. A high MSI doesn't mean bullish - it means trends can run. Read direction from Trade Bias or the individual signals.
+- **Signal Breadth** - how many signals lean bullish, neutral or bearish, with the strongest on each side.
+- **Regime Triggers** (Pro) - how ready the market is for a regime shift, from Volatility Expansion, Range Break Imminence and Market Pressure. Read the size of each score, not its sign.
+- **Volatility Monitor** - two gauges: **Level** (VIX, or VXN for QQQ and NDX) and **Momentum** (whether volatility is collapsing, easing, stable, rising or surging).
 
-Live IV, IV rank, and realized vol with sparklines. Useful for sizing - a Squeeze Setup at low realized vol is a different trade than at high.
+### 6. Positioning & Flow
 
-### 8. The Trade Bias section
+- **Call GEX** and **Put GEX** - total gamma exposure from calls and from puts.
+- **Call Wall (Resistance)** and **Put Wall (Support)** - the largest call gamma at or above spot and the largest put gamma at or below it, with the distance from spot. These are ranked across today's expiration and the next two (0-2DTE), so if you've filtered the chart to 0DTE only, the Key Levels strip can show a different strike.
+- **Net Flow**, **Net Premium** and **Put/Call Ratio** - for the current session: call volume minus put volume, call premium minus put premium, and put volume divided by call volume.
 
-A blended bias chip ("Long bias", "Short bias", "Neutral") with the contributing inputs underneath. This is a read-from-the-top synthesis - it is **not** a trade signal.
-
-### 9. The Composite Score panel
-
-The MSI composite score, the trigger state, and the contributing signal weights. For the full breakdown, click through to [Composite Score](/help/platform/composite-score).
-
-### 10. The Flow snapshot
-
-A short read on premium-weighted flow, smart-money bias, and net volume - three different ways of looking at the tape. The full pages live under [Flow Analysis](/help/platform/flow-analysis) and [Smart Money](/help/platform/smart-money).
+At the bottom of the page are the reminder that dealer positioning is modeled, not directly observed, and the time of the last update.
 
 ## How the dashboard refreshes
 
-Tiles update live. Most refresh every second during regular trading hours. The GEX surface refreshes on a slightly slower cadence - typically every 5-15 seconds - because the underlying chain snapshot is the bottleneck. There is no need to reload the page.
+Everything updates live, so there's no need to reload the page. The price updates every second, the positioning data every few seconds, and the volatility gauges about every 30 seconds.
 
 ## Pre-market, after-hours, and closed
 
-The Dashboard adapts to the session:
-
-- **Pre-market / After-hours** - extended-hours quote is shown alongside the prior regular-session close.
-- **Closed** - the most recent regular-session close is shown; signals reflect the last computed state.
-
-Look at the session badge in the price row to confirm.
+The session shown in the Gamma Chart's header tells you which session the price is from. Outside regular hours, the levels and signals reflect the most recent computation.
 
 ## Reading the Dashboard in 30 seconds
 
 The discipline:
 
-1. Read the **regime label**.
-2. Read **Net GEX** and the **distance to the flip**.
-3. Read **call wall and put wall** - these are your levels.
-4. Read **trade bias** and the **composite score**.
+1. Read the **Long γ / Short γ** chip and where Spot sits against the **Gamma Flip**.
+2. Read the **Call Wall** and **Put Wall** - these are your levels. Near expiration, check the **Pin Strike** too.
+3. Glance at the **Trade Bias** card.
+4. Open **Today's Read** if you want it in words.
 5. Decide which page to open for the actual trade.
 
-That's it. If you find yourself spending more than 30 seconds here, you've stopped orienting and started analyzing - go to the signal page that's relevant.
+That's it. If you find yourself spending more than 30 seconds here, you've stopped orienting and started analyzing - go to the signal page that's relevant.
+
+Want your own layout? [My Dashboard](/my-dashboard) lets you build a board from widgets, including Key Levels, and on a computer you can split it to watch two symbols side by side.
 
 ## See also
 
 - [How Signals Work End-to-End](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Using the Live Bulletin](/help/platform/live-bulletin)
+- [Pin Strike](/help/platform/pin-strike)
