@@ -33,6 +33,7 @@ import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
+import { futuresFeedBehind } from "@/core/futuresDataStatus";
 import WorldClocks from "./WorldClocks";
 import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import { UI_COOKIE } from "@/core/uiCookies";
@@ -355,8 +356,10 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   // ES/NQ only: the feed is behind but the market is open, so the price shown
   // is the last observed futures print rather than a live one. Say so — the
   // alternative (reporting the session closed) swapped in the last cash close
-  // and published its day change as today's.
-  const row1PriceLabel = quoteData?.stale
+  // and published its day change as today's. With CME genuinely closed the
+  // price shown IS that close, and an old last print is expected rather than a
+  // delay (futuresFeedBehind).
+  const row1PriceLabel = futuresFeedBehind(quoteData?.stale, quoteSession)
     ? `${row1PriceBaseLabel}\u00a0- feed delayed, last observed print`
     : closesLagBehind
       // Say why the official close is not on screen yet, rather than letting the live
@@ -546,6 +549,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                         symbol={symbol}
                         stale={quoteData?.stale}
                         dataAgeSeconds={quoteData?.data_age_seconds}
+                        session={quoteSession}
                       />
                       {row1Change !== null && row1ChangePercent !== null && (
                         <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `color-mix(in srgb, ${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'} 12%, transparent)`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
@@ -792,6 +796,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                     symbol={symbol}
                     stale={quoteData?.stale}
                     dataAgeSeconds={quoteData?.data_age_seconds}
+                    session={quoteSession}
                   />
                 </div>
               ) : null}

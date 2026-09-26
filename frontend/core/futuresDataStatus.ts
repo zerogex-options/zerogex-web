@@ -76,6 +76,30 @@ export function futuresDelayTitle(symbol: string, ageSeconds: number | null | un
 }
 
 /**
+ * Whether a `stale` ES / NQ quote means the feed is actually behind.
+ *
+ * `stale` is measured from the newest print alone, so it cannot tell a feed
+ * that stopped from a market that stopped. Once CME closes (the 17:00-18:00 ET
+ * daily break, the weekend, a holiday) the last print ages by the minute with
+ * nothing wrong: at 20:10 ET on a Friday it is three hours old, and the badge
+ * read "~190 MIN DELAY" beside a CLOSED session pill, its tooltip calling the
+ * feed stalled. A closed market has nothing to be behind, and `session`
+ * follows the CME calendar rather than the feed, so it decides whether the
+ * age is news.
+ *
+ * Fails toward disclosure: only a session that says the market is closed
+ * clears the flag. A quote with no session keeps it, so a feed that dies is
+ * never hidden by a payload that simply did not say.
+ */
+export function futuresFeedBehind(
+  stale: boolean | null | undefined,
+  session: string | null | undefined,
+): boolean {
+  if (stale !== true) return false;
+  return !(typeof session === 'string' && /closed/i.test(session));
+}
+
+/**
  * Coarse, human label for a measured feed lag.
  *
  * Rounded to 5-minute buckets on purpose: bar timestamps are start-of-minute,

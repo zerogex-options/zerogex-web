@@ -28,6 +28,7 @@ import {
   futuresDelayLabel,
   futuresDelayNote,
   futuresDelayTitle,
+  futuresFeedBehind,
 } from "../core/futuresDataStatus.ts";
 
 test("a steady ~10 minute lag reads as one stable label", () => {
@@ -111,5 +112,35 @@ test("the tooltip reports the measured age, and survives not having one", () => 
     const title = futuresDelayTitle("ES", age);
     assert.ok(/an unknown amount/.test(title), title);
     assert.ok(!/NaN/.test(title), title);
+  }
+});
+
+test("a closed market is not a delayed feed", () => {
+  // The shipped false alarm, pinned: Friday 20:10 ET, CME shut since 17:00, so
+  // the newest NQ bar (16:59) is 191 minutes old. The label alone would say so;
+  // the session is what keeps it off screen.
+  const fridayEvening = 191 * 60;
+  assert.equal(futuresDelayLabel(fridayEvening), "~190 MIN DELAY");
+  for (const session of ["closed", "closed-weekend", "closed-holiday"]) {
+    assert.equal(futuresFeedBehind(true, session), false, session);
+  }
+});
+
+test("an open market with an old print is still flagged", () => {
+  // The case the badge exists for: CME is trading and the newest print is
+  // not keeping up. Clearing on "closed" must not clear this.
+  assert.equal(futuresFeedBehind(true, "open"), true);
+});
+
+test("a quote that does not say its session still discloses", () => {
+  // Fails toward the badge: a payload missing `session` cannot hide a stall.
+  assert.equal(futuresFeedBehind(true, null), true);
+  assert.equal(futuresFeedBehind(true, undefined), true);
+});
+
+test("a fresh feed is never flagged, open or closed", () => {
+  for (const stale of [false, null, undefined]) {
+    assert.equal(futuresFeedBehind(stale, "open"), false, String(stale));
+    assert.equal(futuresFeedBehind(stale, "closed"), false, String(stale));
   }
 });

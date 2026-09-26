@@ -1,7 +1,7 @@
 "use client";
 
 import { isFuturesSymbol } from "@/core/symbols";
-import { futuresDelayLabel, futuresDelayTitle } from "@/core/futuresDataStatus";
+import { futuresDelayLabel, futuresDelayTitle, futuresFeedBehind } from "@/core/futuresDataStatus";
 
 /**
  * Discloses that an ES / NQ quote is running behind the futures market.
@@ -25,19 +25,24 @@ import { futuresDelayLabel, futuresDelayTitle } from "@/core/futuresDataStatus";
  *
  * Only ES / NQ carry `stale` / `data_age_seconds` — the cash index and ETF
  * quote paths never set them, so this renders for futures alone.
+ *
+ * The quote's `session` rides along because `stale` is only the newest
+ * print's age: with CME closed that age grows for hours with nothing wrong,
+ * and futuresFeedBehind keeps a closed market from reading as a stalled feed.
  */
 
 interface Props {
   symbol: string | null | undefined;
   stale?: boolean | null;
   dataAgeSeconds?: number | null;
+  session?: string | null;
 }
 
-export default function FuturesDelayBadge({ symbol, stale, dataAgeSeconds }: Props) {
+export default function FuturesDelayBadge({ symbol, stale, dataAgeSeconds, session }: Props) {
   // The leading `!symbol` is redundant at runtime — isFuturesSymbol already
   // rejects null and undefined — but it is what narrows the prop to `string`
   // for futuresDelayTitle, which takes one.
-  if (!symbol || !isFuturesSymbol(symbol) || !stale) return null;
+  if (!symbol || !isFuturesSymbol(symbol) || !futuresFeedBehind(stale, session)) return null;
 
   const age = typeof dataAgeSeconds === "number" ? dataAgeSeconds : null;
   const label = futuresDelayLabel(age);

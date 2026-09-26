@@ -31,7 +31,7 @@ import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { resolvePriceSession } from "@/core/sessionCloses";
-import { futuresDelayLabel } from "@/core/futuresDataStatus";
+import { futuresDelayLabel, futuresFeedBehind } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { wheelAction } from "@/core/wheelZoom";
@@ -1115,6 +1115,11 @@ export default function GammaTerminalChart({
   // has to read it, or the chart claims to be live while the header beside it
   // says the same tape is ten minutes old. Absent on every cash symbol.
   const feedStale = !snapshot && quote?.stale === true;
+  // An old print always means "not live", but it only means "delayed" while
+  // CME is trading: with the market closed the last print is old by
+  // definition, so the chip reads CLOSED rather than "~190 MIN DELAY"
+  // (futuresFeedBehind). The live dot and bar timer keep reading feedStale.
+  const feedBehind = !snapshot && futuresFeedBehind(quote?.stale, session);
   const feedAgeSeconds = !snapshot && typeof quote?.data_age_seconds === "number"
     ? quote.data_age_seconds
     : null;
@@ -2988,7 +2993,7 @@ export default function GammaTerminalChart({
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : feedStale
+      : feedBehind
         ? { label: `◷ ${futuresDelayLabel(feedAgeSeconds)}`, color: "var(--color-warning)" }
         : futuresSwap
           ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
@@ -4436,7 +4441,7 @@ export default function GammaTerminalChart({
             Dealer gamma computed by ZeroGEX ·{" "}
             {delayed
               ? "delayed ~15 min"
-              : feedStale
+              : feedBehind
                 ? `price feed ${futuresDelayLabel(feedAgeSeconds).toLowerCase()}`
                 : "updates live"}
           </span>
