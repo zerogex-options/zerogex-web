@@ -38,7 +38,7 @@ Eine automatisch erstellte Schlagzeile und ein kurzer Absatz zum Regime des gew�
 
 ### 3. Der Gamma Chart
 
-Der ZeroGEX Gamma Chart ist das Herzstück: Live-Kerzen und die Dealer-Gamma-Struktur, auf derselben Preisachse eingezeichnet. Das Overlay **Gamma Levels** markiert den Flip, die Call- und Put-Walls und Max Pain. Die **Gamma Rail** neben den Kerzen zeigt das Netto-Dealer-Gamma nach Preis, sodass die Walls buchstäblich als Balken erscheinen. Die Kopfzeile des Charts zeigt den Live-Preis, seine Veränderung, die Sitzung und das Dealer-Gamma-Regime. Mit den Bedienelementen des Charts änderst du Zeitrahmen und Chart-Stil und filterst, welche Verfallstermine in die Levels einfließen. Siehe [So liest du ZeroGEX-Charts](/help/platform/reading-charts).
+Der ZeroGEX Gamma Chart ist das Herzstück: Live-Kerzen und die Dealer-Gamma-Struktur, auf derselben Preisachse eingezeichnet. Standardmäßig zeigt er den Flip und die Call- und Put-Walls (**Gamma Levels**), **Max Pain**, **Pin Strike** und **VWAP** und schattiert die Long- und Short-Gamma-Zonen (**Regime**) - jedes davon ein Schalter über dem Chart. Die **Gamma Rail** neben den Kerzen zeigt das Netto-Dealer-Gamma nach Preis, sodass die Walls buchstäblich als Balken erscheinen. Die Kopfzeile des Charts zeigt den Live-Preis, seine Veränderung, die Sitzung und das Dealer-Gamma-Regime. Mit den Bedienelementen des Charts änderst du Zeitrahmen und Chart-Stil und filterst, welche Verfallstermine in die Levels einfließen. Siehe [So liest du ZeroGEX-Charts](/help/platform/reading-charts).
 
 ### 4. Trade Bias
 

@@ -38,7 +38,7 @@ Un titolo e un breve paragrafo generati automaticamente sul regime del simbolo s
 
 ### 3. Il Gamma Chart
 
-Lo ZeroGEX Gamma Chart è il fulcro: candele in tempo reale con la struttura del gamma dei dealer disegnata sullo stesso asse dei prezzi. L'overlay **Gamma Levels** segna il flip, i call e put wall e il max pain. Il **Gamma Rail** accanto alle candele mostra il gamma netto dei dealer per prezzo, così i wall appaiono letteralmente come barre. L'intestazione del grafico riporta il prezzo in tempo reale, la sua variazione, la sessione e il regime gamma dei dealer. Usa i controlli del grafico per cambiare il timeframe e lo stile del grafico e per filtrare quali scadenze alimentano i livelli. Vedi [Come leggere i grafici di ZeroGEX](/help/platform/reading-charts).
+Lo ZeroGEX Gamma Chart è il fulcro: candele in tempo reale con la struttura del gamma dei dealer disegnata sullo stesso asse dei prezzi. Di default disegna il flip e i call e put wall (**Gamma Levels**), **Max Pain**, **Pin Strike** e **VWAP**, e ombreggia le zone di gamma lungo e corto (**Regime**) - ognuno è un interruttore sopra il grafico. Il **Gamma Rail** accanto alle candele mostra il gamma netto dei dealer per prezzo, così i wall appaiono letteralmente come barre. L'intestazione del grafico riporta il prezzo in tempo reale, la sua variazione, la sessione e il regime gamma dei dealer. Usa i controlli del grafico per cambiare il timeframe e lo stile del grafico e per filtrare quali scadenze alimentano i livelli. Vedi [Come leggere i grafici di ZeroGEX](/help/platform/reading-charts).
 
 ### 4. Trade Bias
 

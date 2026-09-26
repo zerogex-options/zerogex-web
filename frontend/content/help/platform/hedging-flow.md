@@ -101,9 +101,9 @@ All four read the most recent bar carrying real flow. When the latest bar is car
 
 ## Gamma Weather
 
-The strip above the header cards is the combined read of everything below it: one headline state - **Stable bid**, **Supported dip**, **Fragile rally**, **Unstable**, or **Mixed** - a sentence saying what it amounts to, and the components that produced it: **Pressure now**, **Lean**, **Stability**, **Gamma trend**, and **Flip cushion**. Click a component to open its chart for the session. The charts stay directly underneath, so the claim can always be checked against the evidence.
+The strip above the header cards is the combined read of everything below it: one headline state - **Stable bid**, **Supported dip**, **Fragile rally**, **Unstable**, or **Mixed** - a sentence saying what it amounts to, and the components that produced it: **Pressure now**, **Lean**, **Stability**, **Gamma trend**, and **Flip cushion**. Click a component to open its chart for the session. The charts stay directly underneath, so the claim can always be checked against the evidence.
 
-It classifies market health - whether a condition is healthy enough to persist - not direction. It is not an entry, an exit, or a recommendation, which is why settled states are teal and fragile ones amber, and nothing is green or red. It inherits the estimated-not-observed caveat from the hedging flow it reads. A new state has to hold for a few completed bars before the headline changes - the strip says how many - so it doesn't chase a single noisy bar; until then it shows the new state as forming. The strip appears once a bar carries both hedging flow and gamma structure.
+It classifies market health - whether a condition is healthy enough to persist - not direction. It is not an entry, an exit, or a recommendation, which is why settled states are teal and fragile ones amber, and nothing is green or red. It inherits the estimated-not-observed caveat from the hedging flow it reads. A new state has to hold for a few completed bars before the headline changes - the strip says how many - so it doesn't chase a single noisy bar; until then it shows the new state as forming. The strip appears once a bar carries both hedging flow and gamma structure.
 
 ## The 0DTE toggle
 
@@ -113,7 +113,7 @@ The structure panel below is deliberately **not** filtered by the toggle. Dealer
 
 ## Past sessions
 
-The **Past sessions** link at the bottom of the page lists every stored session that has data. Each one opens a dated page with the same panels - Gamma Weather, the header cards, the flow chart with its structure panel, and the 0DTE toggle - for that day.
+The **Past sessions** link at the bottom of the page lists every stored session that has data. Each one opens a dated page with the same panels - Gamma Weather, the header cards, the flow chart with its structure panel, and the 0DTE toggle - for that day.
 
 ## What this page does not claim
 

@@ -38,7 +38,7 @@ Un titre et un court paragraphe générés automatiquement sur le régime du sym
 
 ### 3. Le Gamma Chart
 
-Le ZeroGEX Gamma Chart est la pièce maîtresse : des bougies en direct, avec la structure de gamma des dealers tracée sur le même axe de prix. La surcouche **Gamma Levels** marque le flip, les call et put walls, et le max pain. Le **Gamma Rail**, à côté des bougies, montre le gamma net des dealers par prix, de sorte que les walls apparaissent littéralement comme des barres. L'en-tête du graphique affiche le prix en direct, sa variation, la session et le régime de gamma des dealers. Utilise les contrôles du graphique pour changer l'unité de temps et le style du graphique, et pour filtrer les expirations qui alimentent les niveaux. Voir [Comment lire les graphiques ZeroGEX](/help/platform/reading-charts).
+Le ZeroGEX Gamma Chart est la pièce maîtresse : des bougies en direct, avec la structure de gamma des dealers tracée sur le même axe de prix. Par défaut, il trace le flip et les call et put walls (**Gamma Levels**), **Max Pain**, **Pin Strike** et **VWAP**, et ombre les zones de gamma long et court (**Regime**) - chacun est un bouton au-dessus du graphique. Le **Gamma Rail**, à côté des bougies, montre le gamma net des dealers par prix, de sorte que les walls apparaissent littéralement comme des barres. L'en-tête du graphique affiche le prix en direct, sa variation, la session et le régime de gamma des dealers. Utilise les contrôles du graphique pour changer l'unité de temps et le style du graphique, et pour filtrer les expirations qui alimentent les niveaux. Voir [Comment lire les graphiques ZeroGEX](/help/platform/reading-charts).
 
 ### 4. Trade Bias
 

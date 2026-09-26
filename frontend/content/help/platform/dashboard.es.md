@@ -38,7 +38,7 @@ Un titular y un párrafo breve, generados automáticamente, sobre el régimen de
 
 ### 3. El Gamma Chart
 
-El ZeroGEX Gamma Chart es la pieza central: velas en vivo con la estructura de gamma de los dealers dibujada sobre el mismo eje de precios. La capa **Gamma Levels** marca el flip, los call y put walls, y el max pain. El **Gamma Rail**, junto a las velas, muestra el gamma neto de los dealers por precio, de modo que los walls aparecen literalmente como barras. El encabezado del gráfico muestra el precio en vivo, su variación, la sesión y el régimen de gamma de los dealers. Usa los controles del gráfico para cambiar el marco temporal y el estilo del gráfico, y para filtrar qué vencimientos alimentan los niveles. Consulta [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts).
+El ZeroGEX Gamma Chart es la pieza central: velas en vivo con la estructura de gamma de los dealers dibujada sobre el mismo eje de precios. Por defecto dibuja el flip y los call y put walls (**Gamma Levels**), **Max Pain**, **Pin Strike** y **VWAP**, y sombrea las zonas de gamma largo y corto (**Regime**) - cada uno es un interruptor sobre el gráfico. El **Gamma Rail**, junto a las velas, muestra el gamma neto de los dealers por precio, de modo que los walls aparecen literalmente como barras. El encabezado del gráfico muestra el precio en vivo, su variación, la sesión y el régimen de gamma de los dealers. Usa los controles del gráfico para cambiar el marco temporal y el estilo del gráfico, y para filtrar qué vencimientos alimentan los niveles. Consulta [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts).
 
 ### 4. Trade Bias
 

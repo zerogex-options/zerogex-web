@@ -164,7 +164,7 @@ const tracks: Track[] = [
       {
         id: 'dealer-positioning-tour',
         title: 'Dealer Positioning tour',
-        blurb: 'The GEX profile, the walls chart, the strike × DTE heatmap, and what the regime header tells you.',
+        blurb: 'Gamma exposure and open interest by strike, the strike × DTE heatmap, and what the regime header tells you.',
         duration: '3:00',
         level: 'New trader',
         tag: 'Dealer Positioning',

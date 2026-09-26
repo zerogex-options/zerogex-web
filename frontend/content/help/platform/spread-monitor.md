@@ -24,7 +24,7 @@ The headline. It answers "how much of what I pay is the toll?" and it is what ma
 
 `10,000 × (ask − bid) ÷ spot`
 
-The cross-symbol measure, and the **only** one you should use to compare SPX against NDX. SPX trades near 6,800 and NDX near 25,000 - a $1.00-wide market means something completely different on each, and comparing their dollar widths compares their index levels rather than their liquidity.
+The cross-symbol measure, and the **only** one you should use to compare SPX against NDX. SPX and NDX trade at index levels thousands of points apart - a $1.00-wide market means something completely different on each, and comparing their dollar widths compares their index levels rather than their liquidity.
 
 ### Share of the chain with no market at all
 
@@ -92,7 +92,7 @@ Today's curve is drawn on top of two things: the median of the symbol's own comp
 
 **Puts and calls are a toggle, not an overlay.** Two ranked curves on one plot is four lines plus two envelopes, and the reading it exists to support - the puts widened and the calls did not - is easier to see by flipping between two clean charts.
 
-**Spread % or Percentile.** The strike curve can show widths against the normal band, or each strike band as its own percentile, with guides at 80 and 20 - the same thresholds the header cards use for "wider than usual" and "tighter than usual". Bands with too little history to rank are left out rather than plotted at zero, which would read as the tightest market on the chart.
+**Spread % or Percentile.** The strike curve can show widths against the normal band, or each strike band as its own percentile, with guides at 80 and 20 - the same thresholds the header cards use for "wider than usual" and "tighter than usual". Bands with too little history to rank are left out rather than plotted at zero, which would read as the tightest market on the chart.
 
 **Coverage is ranked too, and read the other way round.** The two-sided figure is the share of contracts in range carrying a real market, so a *high* percentile is the good outcome - the opposite of every width on this page. It gets its own baseline because it is the number that matches the complaint: "untradeable" usually means a contract with no bid rather than a wide one, and a contract with no bid has no width, so it leaves every median by construction. A chain can read *tighter* as more of it becomes impossible to sell, and this is the only figure that says so.
 
@@ -108,7 +108,7 @@ It also needs a baseline to be readable at all. A 0DTE book at 51% two-sided int
 
 The distortion was never confined to Fridays. Counting forward from each weekday, the 4-7 calendar-day bucket held contracts 4-5 sessions out from a Monday, 3-5 from a Wednesday and 2-5 from a Thursday: three sessions in five measuring something different from the other two, with no way for the baseline to tell which it was looking at.
 
-Each bar is that expiry bucket's own percentile, not its width. Plotted as widths, 0DTE wins every day of the year and the chart says nothing. Plotted as ranks, a single tall bar beside four ordinary ones is the thing worth knowing: the chain is broadly normal and the front expiry is not. Buckets with too little stored history say "insufficient history" rather than drawing a bar at some default height - on a percentile axis the shortest bar is the strong claim that an expiry is unusually *tight*. A bucket where nothing expires today says **No expiry here today** instead - 2-3 DTE empties out from Thursday and Friday, which is the calendar, not a gap in the data.
+Each bar is that expiry bucket's own percentile, not its width. Plotted as widths, 0DTE wins every day of the year and the chart says nothing. Plotted as ranks, a single tall bar beside four ordinary ones is the thing worth knowing: the chain is broadly normal and the front expiry is not. Buckets with too little stored history say "insufficient history" rather than drawing a bar at some default height - on a percentile axis the shortest bar is the strong claim that an expiry is unusually *tight*. A bucket where nothing expires today says **No expiry here today** instead - 2-3 DTE empties out from Thursday and Friday, which is the calendar, not a gap in the data.
 
 #### What it refuses to say
 

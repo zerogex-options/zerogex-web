@@ -6,9 +6,9 @@
 
 ## What this page shows
 
-The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the static book, this page shows you the **flow** - what traded today, and which side crossed the spread to trade it.
+The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the static book, this page shows you the **flow** - what traded today, and which side crossed the spread to trade it.
 
-Two menus in the header apply to the whole page: **Session** (the current session or the prior one, so you can see whether today is unusual at all) and **Volume basis** (**Directional** or **Total Traded** - see below).
+Two menus in the header apply to the whole page: **Session** (the current session or the prior one, so you can see whether today is unusual at all) and **Volume basis** (**Directional** or **Total Traded** - see below).
 
 ## The three flow lenses
 
@@ -16,7 +16,7 @@ ZeroGEX shows flow through three lenses, because each one matters differently.
 
 ### Net contract volume
 
-Just count contracts. Useful as a noise baseline. Useless as a conviction read on its own - a thousand $0.05 contracts and one $500 contract count the same. The **Total Traded** basis counts every contract that changed hands, so it only ever rises.
+Just count contracts. Useful as a noise baseline. Useless as a conviction read on its own - a thousand $0.05 contracts and one $500 contract count the same. The **Total Traded** basis counts every contract that changed hands, so it only ever rises.
 
 ### Premium-weighted flow
 
@@ -34,23 +34,23 @@ Classify each trade as buyer-initiated or seller-initiated using the Lee-Ready a
 
 Session totals as of the latest bar:
 
-- **Call Volume** and **Put Volume** - contracts traded, with the net premium on each side underneath
-- **Net Flow** - net call contracts minus net put contracts, each signed by the aggressor
-- **Net Premium** - net call premium minus net put premium. Positive ⇒ aggressors paying for calls / selling puts on net; negative ⇒ aggressors paying for puts / selling calls.
-- **Put/Call Ratio** - put volume divided by call volume
+- **Call Volume** and **Put Volume** - contracts traded, with the net premium on each side underneath
+- **Net Flow** - net call contracts minus net put contracts, each signed by the aggressor
+- **Net Premium** - net call premium minus net put premium. Positive ⇒ aggressors paying for calls / selling puts on net; negative ⇒ aggressors paying for puts / selling calls.
+- **Put/Call Ratio** - put volume divided by call volume
 
 ## The charts
 
-- **Options Flow** - net call premium and net put premium through the session against the underlying price, with a volume area underneath on the basis you picked. Filter it by strike or expiration.
-- **Net Directional Premium** - the running session total of net premium, shaded above and below zero.
-- **Put/Call Ratio** - the session-cumulative ratio at each 5-minute bar.
-- **Net Position (Buys vs. Sells)** - running net call and net put volume, so you can tell buying from selling, which the ratio can't.
+- **Options Flow** - net call premium and net put premium through the session against the underlying price, with a volume area underneath on the basis you picked. Filter it by strike or expiration.
+- **Net Directional Premium** - the running session total of net premium, shaded above and below zero.
+- **Put/Call Ratio** - the session-cumulative ratio at each 5-minute bar.
+- **Net Position (Buys vs. Sells)** - running net call and net put volume, so you can tell buying from selling, which the ratio can't.
 
 Each is plotted as a series so you can see the slope, not just the level.
 
 ## Smart money
 
-Smart-money prints have their own page - see [Smart Money](/help/platform/smart-money). Use it as a cross-check on the headline flow here.
+Smart-money prints have their own page - see [Smart Money](/help/platform/smart-money). Use it as a cross-check on the headline flow here.
 
 ## How to read it
 
@@ -66,9 +66,9 @@ For the deeper read on why raw volume can mislead, why directional flow adds sig
 
 ## When the page is most useful
 
-- **Right after the open** - the first 30 minutes tell you a lot about the day's bias.
-- **At any key level** - the flow into a wall or VWAP tells you whether the level is being defended or broken.
-- **Into the close** - combined with EOD Pressure, the flow read sharpens the directional cue.
+- **Right after the open** - the first 30 minutes tell you a lot about the day's bias.
+- **At any key level** - the flow into a wall or VWAP tells you whether the level is being defended or broken.
+- **Into the close** - combined with EOD Pressure, the flow read sharpens the directional cue.
 
 ## See also
 

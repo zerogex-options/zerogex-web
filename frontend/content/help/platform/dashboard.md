@@ -38,7 +38,7 @@ An auto-generated headline and short paragraph on the regime for the selected sy
 
 ### 3. The Gamma Chart
 
-The ZeroGEX Gamma Chart is the centerpiece: live candles with the dealer-gamma structure drawn on the same price axis. The **Gamma Levels** overlay marks the flip, the call and put walls, and max pain. The **Gamma Rail** beside the candles shows net dealer gamma by price, so the walls show up as literal bars. The chart's header carries the live price, its change, the session and the dealer-gamma regime. Use the chart's controls to change the timeframe and chart style and to filter which expirations feed the levels. See [How to Read ZeroGEX Charts](/help/platform/reading-charts).
+The ZeroGEX Gamma Chart is the centerpiece: live candles with the dealer-gamma structure drawn on the same price axis. By default it draws the flip and the call and put walls (**Gamma Levels**), **Max Pain**, **Pin Strike** and **VWAP**, and shades the long- and short-gamma zones (**Regime**) - each one a toggle above the chart. The **Gamma Rail** beside the candles shows net dealer gamma by price, so the walls show up as literal bars. The chart's header carries the live price, its change, the session and the dealer-gamma regime. Use the chart's controls to change the timeframe and chart style and to filter which expirations feed the levels. See [How to Read ZeroGEX Charts](/help/platform/reading-charts).
 
 ### 4. Trade Bias
 
