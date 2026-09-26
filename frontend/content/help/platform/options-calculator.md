@@ -1,62 +1,51 @@
 # Strategy Builder
 
-*Build any single- or multi-leg options strategy. How the calculator prices, how greeks are computed, and how to read the P&L scenarios.*
+*Price a single- or multi-leg options strategy at live quotes. Picking a strategy, adjusting its legs, and reading the profit/loss-at-expiration chart.*
 
 ---
 
 ## What the Strategy Builder is
 
-The Strategy Builder is the **per-trade modeling tool**. You build a strategy leg by leg, the page prices it live, and you read the P&L surface and the aggregate greeks.
+The Strategy Builder is the **per-trade modeling tool**. You pick a strategy and adjust its legs, the page prices it at live quotes, and you read its profit or loss at expiration across a range of prices.
 
 It's where you go after the dashboard tells you "the structure is bullish" and you need to pick the actual instrument.
 
 ## Building a strategy
 
-1. **Pick a symbol** (SPY, SPX, QQQ, NDX).
-2. **Add a leg** - buy or sell, call or put, strike, expiration. The chain is live.
-3. **Repeat** for multi-leg structures (verticals, condors, calendars, ratios, straddles, strangles).
-4. **Set the spot for analysis** - defaults to live spot but you can scenario-test any price.
+1. **Pick a symbol** (SPY, SPX, QQQ, NDX) with the symbol picker.
+2. **Pick a strategy** from the **Strategy** menu - over 40 presets, from single calls and puts through verticals, straddles, strangles, iron condors, butterflies, ratios, backspreads, calendars, diagonals, collars and synthetics. Each leg starts on a sensible default strike and expiration.
+3. **Adjust the legs** - every option leg has its own **Exp** and **Strike** menu, filled from the live chain.
+4. **Set Contracts** - the number of contracts, applied to every leg; a ratio leg keeps its ratio.
 
-The aggregate price, the breakevens, and the greeks update on every change.
+The leg prices, the total, the chart and the breakevens update on every change.
 
-## The pricing model
+ES and NQ have no option chain of their own, so the Strategy Builder isn't available for them - switch to SPX or NDX.
 
-The Builder uses **Black-Scholes** with the live implied volatility surface for each leg. The IV surface is pulled from our data pipeline - same surface that powers the chain on the [Live Options Quotes](/help/platform/option-contracts) page.
+## How legs are priced
 
-For American-style exercise considerations (relevant for ETFs like SPY and QQQ), the model approximates with an early-exercise premium on deep ITM legs near expiry. The cash-settled indices SPX and NDX are European-exercise so no adjustment is applied.
+Each option leg is priced at its **live quote**, refreshed every few seconds: a long leg at the **ask**, a short leg at the **bid** - what you would actually pay or collect crossing the spread. Each leg shows its contract, that price, and which side it used. Stock legs (in covered calls, collars, conversions and the like) are 100 shares per contract, entered at the current spot.
 
-## The greeks panel
+**Total position** adds it all up across every leg and contract: **debit** is what the structure costs to put on, **credit** is what it collects.
 
-For each leg and for the aggregate:
+## The P&L chart
 
-- **Delta** - directional exposure
-- **Gamma** - how delta moves with spot
-- **Theta** - time decay (per day)
-- **Vega** - IV sensitivity (per 1% change)
-- **Charm** - delta decay (per day)
+**Profit / Loss at Expiration** shows what the structure is worth on expiration day, net of what it cost or collected to open:
 
-Aggregate greeks let you read a multi-leg structure in one glance - e.g., a long calendar is net long vega and net long theta, collecting decay on the short near-dated leg faster than it pays it on the long far-dated leg.
+- Underlying price on the x-axis - by default ±5% around spot. The **+** and **-** buttons zoom in and out, **RESET** goes back to the default, and the **%** / **$** toggle labels each gridline as a percent or dollar move from spot.
+- Dollar P&L on the y-axis, for the number of contracts you set.
+- A dashed line at the current spot, and a **BE** line at each breakeven in view.
 
-## The P&L surface
+Hover anywhere on the curve for the P&L at that price and its distance from spot.
 
-The 2D P&L chart shows:
+## Calendars and diagonals
 
-- Spot price on the x-axis.
-- P&L value on the y-axis.
-- Multiple curves: at expiration (the payoff), and at various dates between now and expiry.
-
-You can also see the breakevens highlighted on the x-axis.
-
-## Scenario testing
-
-The scenario panel lets you sweep two variables at once - typically spot and IV - and see the resulting P&L grid. Useful for:
-
-- A long-vol structure: how much do you make on a 2-vol shock?
-- A pin trade: how much can you lose if spot diverges from max pain by 1%?
+When the legs expire on different dates, the chart still values every leg at its intrinsic value, as if they all expired together. That understates what the far-dated leg is still worth, so the page flags it - read the curve as a rough guide only.
 
 ## What it doesn't do
 
 The Strategy Builder is a **pricing tool**, not a trade-routing tool. It does not connect to your broker. You take the structure and put it on yourself.
+
+It also shows only the payoff at expiration - there are no greeks and no curves for dates before expiry.
 
 ## Tier note
 

@@ -1,62 +1,51 @@
 # Strategy Builder
 
-*Baue jede ein- oder mehrschenklige Optionsstrategie. Wie der Rechner bepreist, wie die Greeks berechnet werden und wie man die P&L-Szenarien liest.*
+*Bepreise eine ein- oder mehrschenklige Optionsstrategie zu Live-Kursen. Eine Strategie wählen, ihre Schenkel anpassen und das Chart für Gewinn/Verlust bei Verfall lesen.*
 
 ---
 
 ## Was der Strategy Builder ist
 
-Der Strategy Builder ist das **Modellierungswerkzeug pro Trade**. Du baust eine Strategie Schenkel für Schenkel auf, die Seite bepreist sie live, und du liest die P&L-Fläche und die aggregierten Greeks.
+Der Strategy Builder ist das **Modellierungswerkzeug pro Trade**. Du wählst eine Strategie und passt ihre Schenkel an, die Seite bepreist sie zu Live-Kursen, und du liest ihren Gewinn oder Verlust bei Verfall über eine Spanne von Kursen.
 
 Hierher gehst du, nachdem dir das Dashboard sagt "die Struktur ist bullish" und du das konkrete Instrument auswählen musst.
 
 ## Eine Strategie aufbauen
 
-1. **Wähle ein Symbol** (SPY, SPX, QQQ, NDX).
-2. **Füge einen Schenkel hinzu** - Kauf oder Verkauf, Call oder Put, Strike, Verfall. Die Kette ist live.
-3. **Wiederhole** für mehrschenklige Strukturen (Verticals, Condors, Calendars, Ratios, Straddles, Strangles).
-4. **Lege den Spot für die Analyse fest** - standardmäßig der Live-Spot, aber du kannst jeden beliebigen Preis als Szenario testen.
+1. **Wähle ein Symbol** (SPY, SPX, QQQ, NDX) über die Symbolauswahl.
+2. **Wähle eine Strategie** im Menü **Strategy** - über 40 Vorlagen, von einzelnen Calls und Puts über Verticals, Straddles, Strangles, Iron Condors, Butterflies, Ratios, Backspreads, Calendars, Diagonals und Collars bis zu synthetischen Positionen. Jeder Schenkel startet mit einem sinnvollen Standard-Strike und -Verfall.
+3. **Passe die Schenkel an** - jeder Optionsschenkel hat sein eigenes Menü **Exp** und **Strike**, gefüllt aus der Live-Kette.
+4. **Stelle Contracts ein** - die Anzahl der Kontrakte; sie gilt für jeden Schenkel, und ein Ratio-Schenkel behält sein Verhältnis.
 
-Der Gesamtpreis, die Breakevens und die Greeks aktualisieren sich bei jeder Änderung.
+Die Schenkelpreise, die Summe, das Chart und die Breakevens aktualisieren sich bei jeder Änderung.
 
-## Das Pricing-Modell
+ES und NQ haben keine eigene Optionskette, daher ist der Strategy Builder für sie nicht verfügbar - wechsle zu SPX oder NDX.
 
-Der Builder nutzt **Black-Scholes** mit der live impliziten Volatilitätsfläche für jeden Schenkel. Die IV-Fläche wird aus unserer Datenpipeline bezogen - dieselbe Fläche, die die Kette auf der Seite [Live-Optionsnotierungen](/help/platform/option-contracts) speist.
+## Wie die Schenkel bepreist werden
 
-Für amerikanische Ausübungsbedingungen (relevant für ETFs wie SPY und QQQ) approximiert das Modell mit einer Vorzeitausübungsprämie bei tief im Geld liegenden Schenkeln nahe dem Verfall. Die bar abgerechneten Indizes SPX und NDX haben europäische Ausübung, daher wird keine Anpassung vorgenommen.
+Jeder Optionsschenkel wird zu seinem **Live-Kurs** bepreist, der alle paar Sekunden aktualisiert wird: ein Long-Schenkel zum **Ask**, ein Short-Schenkel zum **Bid** - das, was du beim Überqueren des Spreads tatsächlich zahlen oder einnehmen würdest. Jeder Schenkel zeigt seinen Kontrakt, diesen Preis und die verwendete Seite. Aktienschenkel (in Covered Calls, Collars, Conversions und Ähnlichem) sind 100 Aktien pro Kontrakt, eingegangen zum aktuellen Spot.
 
-## Das Greeks-Panel
+**Total position** summiert alles über jeden Schenkel und Kontrakt: Steht dort **debit**, kostet dich die Struktur beim Eröffnen diesen Betrag; bei **credit** nimmt sie ihn ein.
 
-Für jeden Schenkel und für die Aggregation:
+## Das P&L-Chart
 
-- **Delta** - Richtungsexposure
-- **Gamma** - wie sich das Delta mit dem Spot bewegt
-- **Theta** - Zeitwertverfall (pro Tag)
-- **Vega** - IV-Sensitivität (pro 1 % Veränderung)
-- **Charm** - Delta-Verfall (pro Tag)
+**Profit / Loss at Expiration** zeigt, was die Struktur am Verfallstag wert ist, abzüglich dessen, was sie beim Eröffnen gekostet oder eingebracht hat:
 
-Aggregierte Greeks lassen dich eine mehrschenklige Struktur auf einen Blick lesen - z. B. ist ein langer Calendar netto long vega und netto long theta und vereinnahmt den Zeitwertverfall auf dem kurzlaufenden Short-Schenkel schneller, als er ihn auf dem langlaufenden Long-Schenkel zahlt.
+- Kurs des Basiswerts auf der x-Achse - standardmäßig ±5 % um den Spot. Die Schaltflächen **+** und **-** zoomen hinein und heraus, **RESET** stellt die Standardansicht wieder her, und der Umschalter **%** / **$** beschriftet jede Gitterlinie als prozentuale oder Dollar-Bewegung vom Spot.
+- Dollar-P&L auf der y-Achse, für die eingestellte Anzahl an Kontrakten.
+- Eine gestrichelte Linie beim aktuellen Spot und eine **BE**-Linie bei jedem sichtbaren Breakeven.
 
-## Die P&L-Fläche
+Fahre mit der Maus über die Kurve, um den P&L bei diesem Kurs und den Abstand zum Spot zu sehen.
 
-Das 2D-P&L-Chart zeigt:
+## Calendars und Diagonals
 
-- Spotpreis auf der x-Achse.
-- P&L-Wert auf der y-Achse.
-- Mehrere Kurven: bei Verfall (die Auszahlung) sowie an verschiedenen Terminen zwischen jetzt und dem Verfall.
-
-Du siehst außerdem die Breakevens auf der x-Achse hervorgehoben.
-
-## Szenario-Tests
-
-Das Szenario-Panel lässt dich zwei Variablen gleichzeitig durchfahren - typischerweise Spot und IV - und das resultierende P&L-Raster betrachten. Nützlich für:
-
-- Eine Long-Vol-Struktur: Wie viel verdienst du bei einem Volatilitätsschock von 2 Vol-Punkten?
-- Einen Pin-Trade: Wie viel kannst du verlieren, wenn der Spot um 1 % vom Max Pain abweicht?
+Wenn die Schenkel an unterschiedlichen Terminen verfallen, bewertet das Chart trotzdem jeden Schenkel mit seinem inneren Wert, als würden alle gemeinsam verfallen. Das unterschätzt, was der länger laufende Schenkel noch wert ist, deshalb weist die Seite darauf hin - lies die Kurve nur als grobe Orientierung.
 
 ## Was er nicht tut
 
 Der Strategy Builder ist ein **Pricing-Werkzeug**, kein Order-Routing-Werkzeug. Er verbindet sich nicht mit deinem Broker. Du übernimmst die Struktur und setzt sie selbst um.
+
+Er zeigt außerdem nur die Auszahlung bei Verfall - es gibt keine Greeks und keine Kurven für Termine vor dem Verfall.
 
 ## Hinweis zu den Tiers
 
@@ -64,5 +53,5 @@ Der Strategy Builder steht für Basic und Pro zur Verfügung.
 
 ## Siehe auch
 
-- [Live-Optionsnotierungen](/help/platform/option-contracts)
+- [Live-Optionskurse](/help/platform/option-contracts)
 - [Backtesting](/help/platform/backtesting)

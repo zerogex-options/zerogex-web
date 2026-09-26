@@ -31,22 +31,22 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'who-its-for',
         q: 'Who is ZeroGEX built for?',
-        a: 'Active intraday traders who trade SPY, SPX, QQQ, or NDX and want a structural read of the options market. Day traders, swing traders with intraday timing, quants who want signal data via API, and option-selling strategists for whom dealer positioning is the daily input. We are not a single-name equity research tool.',
+        a: 'Active intraday traders who trade SPY, SPX, QQQ, NDX, or the ES and NQ futures and want a structural read of the options market. Day traders, swing traders with intraday timing, quants who want signal data via API, and option-selling strategists for whom dealer positioning is the daily input. We are not a single-name equity research tool.',
       },
       {
         id: 'do-i-need-to-sign-up',
         q: 'Do I need to sign up to use ZeroGEX?',
-        a: 'The free Gamma Levels pages\u00a0- SPX, SPY, QQQ, and NDX\u00a0- are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
+        a: 'Not for the free tools. The Gamma Terminal and the free Gamma Levels pages\u00a0- SPX, SPY, QQQ, NDX, ES, and NQ\u00a0- are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The Receipts pages (the daily forecasts, the all-time track record, the daily signal scorecard, and session replay), the Education Hub, articles, and guides are open too. The real-time Main Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
       },
       {
         id: 'free-trial',
         q: 'Is there a free trial?',
-        a: 'Yes\u00a0- Basic monthly comes with a 7-day free trial: full access right away, no charge until the trial ends, and the subscription then continues automatically at the rate you signed up at. Cancel before it ends and you pay nothing. Every other plan (Pro, and any quarterly or annual plan) is billed when you subscribe and covered by a 7-day money-back guarantee instead: request a full refund from the Account page within 7 days of paying, limited to one refund per customer.',
+        a: 'Yes\u00a0- Basic monthly comes with a 7-day free trial (one per account): full access right away, no charge until the trial ends, and the subscription then continues automatically at the rate you signed up at. Cancel before it ends and you pay nothing. Every other plan (Pro, and any quarterly or annual plan) is billed when you subscribe and covered by a 7-day money-back guarantee instead: request a full refund from the Account page within 7 days of paying, limited to one refund per customer.',
       },
       {
         id: 'first-page',
         q: 'What page should I open first?',
-        a: 'The Dashboard. It surfaces the regime label, net GEX, the gamma flip, the walls, max pain, the composite score, and the day\'s trade-bias chip\u00a0- everything you need to orient. From there, drill into the signal page that matches what you\'re looking for.',
+        a: 'The Main Dashboard. The Key Levels strip across the top gives you spot, the gamma flip, the pin strike, the call and put walls, and max pain, each with its distance from price, plus a Long γ / Short γ chip for the modeled regime. Below it are Today\'s Read (a plain-English summary of the regime), the live Gamma Chart, and a compact Trade Bias card. The page opens in Simple mode, which folds the longer signal and flow sections; switch to Detailed to open them. From there, drill into the page that matches what you\'re looking for. No plan yet? Start with the free Gamma Terminal.',
       },
     ],
   },
@@ -73,22 +73,22 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'refresh-cadence',
         q: 'How often does the data refresh?',
-        a: 'Quotes and flow refresh every ~1 second during regular hours. Signal scores refresh every 1-5 seconds depending on the signal. The GEX surface refreshes every 5-15 seconds (the chain snapshot is the bottleneck). Everything streams\u00a0- you do not need to reload the page.',
+        a: 'It depends on the data. The live price updates about once a second during market hours. The dealer-positioning analytics\u00a0- GEX, the gamma flip, the walls, max pain, and the strike profile\u00a0- are recomputed about once a minute. Signal scores update as their inputs change, which in practice means about once a minute, and options-flow totals build in five-minute bars. Pages update in place, so you do not need to reload.',
       },
       {
         id: 'pre-market',
         q: 'Does ZeroGEX show pre-market and after-hours data?',
-        a: 'Yes. The price tile shows extended-hours quotes alongside the prior regular-session close for context. Some signals (EOD Pressure, 0DTE Position Imbalance) only compute during the regular session by design.',
+        a: 'Yes. During pre-market and after-hours, the header (and the Gamma Chart) show the extended-hours price alongside the last regular-session close for context. Some signals (EOD Pressure, 0DTE Position Imbalance) only compute during the regular session by design.',
       },
       {
         id: 'data-source',
         q: 'Where does the data come from?',
-        a: 'ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise, because it is not all one tape: SPY and QQQ options are OPRA-disseminated (the consolidated U.S. options tape), while SPX, SPXW, and NDX are index options licensed separately through their listing exchanges rather than carried on OPRA. ES and NQ prices come from the real-time CME feed. Open interest is a separate end-of-session figure from clearing, not a real-time value. We don\'t disclose specific vendor names publicly.',
+        a: 'ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise, because it is not all one tape: option quotes and trades come from OPRA, the consolidated U.S. options tape, while the SPX and NDX index values themselves are licensed separately from their index publishers. ES and NQ prices come from the real-time CME feed. Open interest is a separate end-of-session figure from clearing, not a real-time value. We don\'t disclose specific vendor names publicly.',
       },
       {
         id: 'history-depth',
         q: 'How far back does historical data go?',
-        a: 'Quotes and flow have several years of historical bars. Signal scores are backfilled to the inception of each signal. GEX surfaces have daily snapshot history; intraday GEX history is shorter. The Backtesting page surfaces the available range for whatever signal you select.',
+        a: 'It varies by data type, and the most detailed data is kept for a limited window. Full option-chain snapshots, per-strike GEX, and trade-level flow are kept for a rolling window of roughly two to three months. Lighter series, such as per-minute price bars and the headline GEX summary, are kept longer, and a separate option-chain archive backs the backtester. The Backtesting page\'s date range shows exactly what is available for a test.',
       },
     ],
   },
@@ -100,32 +100,32 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'how-many-signals',
         q: 'How many signals does ZeroGEX run?',
-        a: 'Fourteen total\u00a0- eight Advanced (event-driven, with discrete triggers) and six Basic (continuous, feeding the composite). See the Signals: Explained guide for the full reference matrix.',
+        a: 'Fourteen total\u00a0- eight Advanced (event-driven, with discrete triggers) and six Basic (continuous, advisory reads). See the Signals: Explained guide for the full reference matrix.',
       },
       {
         id: 'advanced-vs-basic',
         q: 'What is the difference between Advanced and Basic signals?',
-        a: 'Advanced signals ask a sharp situational question and fire a discrete trigger when their score crosses a threshold. Basic signals are continuous reads that feed the composite score with a fixed weight. Advanced signals trigger; Basic signals weight.',
+        a: 'Advanced signals ask a sharp situational question and fire a discrete trigger when their score crosses a threshold\u00a0- each card reads Triggered or Stand by. Basic signals are continuous, advisory reads: they carry no weight in the Composite Score (MSI), but when they diverge from it they can warn of a regime shift before the MSI moves. Advanced signals trigger; Basic signals warn early. Basic signals come with the Basic plan; Advanced signals need Pro.',
       },
       {
         id: 'score-zero',
         q: 'What does a signal score of 0 mean?',
-        a: 'Almost never "neutral market". For most signals it means the data is insufficient or this specific question has no answer right now. Read a 0 as "no read", not "no trade". A truly neutral market typically shows scores meandering around ±0.1, not a clean zero.',
+        a: 'Almost never "neutral market". Signal scores run from −100 to +100, and for most signals a flat 0 means the data is insufficient or this specific question has no answer right now. Read a 0 as "no read", not "no trade". A truly neutral market typically shows scores meandering around ±10, not a clean zero.',
       },
       {
         id: 'composite-score',
         q: 'What is the Composite Score?',
-        a: 'The Composite Score (internally MSI) is the blended read across all signals on the active symbol. It lives on the same [-1, +1] line as every individual signal. Positive ⇒ structural bullish lean; negative ⇒ bearish. Magnitude is conviction. Use it as a filter, not a forecast.',
+        a: 'The Composite Score, also called the Market State Index (MSI), is a single 0-100 reading of the options-structure regime on the active symbol\u00a0- not a direction call. It blends six weighted components: net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, and dealer delta pressure. 50 is neutral; 70 and up reads Trend / Expansion, 40-70 Controlled Trend, 20-40 Chop / Range, and under 20 Compression. A high reading means moves have historically traveled further, not that the market is bullish, so read direction from Trade Bias or the individual signals. Use it as a filter, not a forecast. The full Composite Score page is a Pro feature; on Basic, the Main Dashboard shows the MSI.',
       },
       {
         id: 'signal-alerts',
         q: 'Do I get alerts when signals fire?',
-        a: 'In-app, yes. Every trigger lands in the Live Bulletin and lights the corresponding signal card. ZeroGEX does not currently send signal alerts by SMS, push, or email\u00a0- the in-app log is the system of record. We may add more channels if there is demand.',
+        a: 'In-app. When an Advanced signal crosses its threshold, its card on the Advanced Signal Dashboard switches from Stand by to Triggered, and each signal\'s Event Timeline charts its history. ZeroGEX does not currently send signal alerts by SMS, push, or email. The one exception is TradeWorkz™ (Pro, beta): follow a bot and you can get its entry and exit notifications in-app or by email, managed from Account → Notifications.',
       },
       {
         id: 'signal-accuracy',
         q: 'How accurate are the signals?',
-        a: 'It depends on the signal, the regime, and how you use it. Signals are not standalone trade tickets\u00a0- they are filters and triggers inside a process. The Backtesting page lets you replay any signal against historical data with your own rules. We strongly recommend out-of-sample validation before deploying any rule.',
+        a: 'It depends on the signal, the regime, and how you use it. Signals are not standalone trade tickets\u00a0- they are filters and triggers inside a process. The free Daily Scorecard (under Receipts) publishes every session\'s signal receipt, including how the gradable signal flips resolved. On Pro, the Backtesting page (beta) lets you test strategy patterns, or your own rules built on the Composite MSI and the dealer levels, against historical option data. We strongly recommend out-of-sample validation before deploying any rule.',
       },
     ],
   },
@@ -137,27 +137,27 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'tiers',
         q: 'What are the tier differences?',
-        a: 'Public is the free, browse-only experience (marketing site + education). Basic unlocks the Dashboard, Live Bulletin, all Metrics, Strategy Tools, and all Basic Signals. Pro adds all Advanced Signals, the Composite Score, Backtesting, and API access. The Pricing page has the live breakdown.',
+        a: 'Public, with no plan, gets the free tools: the Gamma Terminal and the Gamma Levels pages (both delayed about 15 minutes), the Receipts pages, Education, and this Help Center. Basic unlocks the real-time data: the live Gamma Terminal, the Main Dashboard, My Dashboard, the Live Bulletin, the Basic Signal Dashboard, every Metrics page, and the Strategy Tools. Pro adds Trade Bias, the Composite Score page, the Advanced Signal Dashboard, TradeWorkz™ (Bot Trading, Backtesting, and Pattern Insights, all in beta), and API access, including the NinjaTrader and Sierra Chart indicators. The Pricing page has the live breakdown.',
       },
       {
         id: 'monthly-vs-annual',
         q: 'Should I pay monthly, quarterly, or annual?',
-        a: 'The longer the billing period, the less you pay per month\u00a0- the Pricing page shows every plan as a monthly equivalent so you can compare directly. Most active users move to a longer period after a couple of months. You can switch in the Stripe billing portal at any time; proration handles the math.',
+        a: 'The longer the billing period, the less you pay per month\u00a0- the Pricing page shows every plan as a monthly equivalent so you can compare directly. You can switch in the Stripe billing portal at any time; proration handles the math.',
       },
       {
         id: 'switch-plan',
         q: 'How do I switch my plan (tier or billing period)?',
-        a: 'Open the Account page and click "Manage subscription" to open the Stripe billing portal\u00a0- you can move between Basic and Pro and between monthly, quarterly and annual right there. Upgrades (and moves to a longer billing period) take effect immediately; downgrades and moves to a shorter period take effect at the end of your current period, so you keep what you paid for until then. Proration is applied and shows up on your next invoice, not as an upfront charge. If you’re still in the Basic free trial, moving to Pro or to a quarterly or annual plan ends the trial and bills the new plan that day\u00a0- the Pricing page shows the exact amount and asks you to confirm\u00a0- and that payment is covered by the 7-day money-back guarantee.',
+        a: 'Open the Account page and click "Manage Subscription" to open the Stripe billing portal\u00a0- you can move between Basic and Pro and between monthly, quarterly and annual right there. Upgrades (and moves to a longer billing period) take effect immediately; downgrades and moves to a shorter period take effect at the end of your current period, so you keep what you paid for until then. Proration is handled automatically. If you’re still in the Basic free trial, moving to Pro or to a quarterly or annual plan ends the trial and bills the new plan that day\u00a0- the Pricing page shows the exact amount and asks you to confirm\u00a0- and that payment is covered by the 7-day money-back guarantee.',
       },
       {
         id: 'tier-upgrade',
         q: 'How do I upgrade from Basic to Pro?',
-        a: 'Open the Account page, click "Manage subscription" to open the Stripe billing portal, and switch tiers there. Tier access updates immediately; the prorated difference is applied to your next invoice.',
+        a: 'Open the Account page, click "Manage Subscription" to open the Stripe billing portal, and switch tiers there. Tier access updates immediately; the prorated difference is applied to your next invoice. Still on the Basic free trial? Upgrading ends the trial and bills Pro that day, and that payment is covered by the 7-day money-back guarantee.',
       },
       {
         id: 'cancellation',
         q: 'How do I cancel?',
-        a: 'Through the Stripe billing portal, accessed from the Account page. Cancellation takes effect at the end of the current billing period\u00a0- you keep paid access until then. After that, your tier reverts to Public; your account is not deleted.',
+        a: 'From the Account page: click Cancel subscription (you will also be offered a pause, if a break suits you better), or cancel in the Stripe billing portal via Manage Subscription. Either way, cancellation takes effect at the end of the current billing period\u00a0- you keep paid access until then. After that, your tier reverts to Public; your account is not deleted.',
       },
       {
         id: 'refunds',
@@ -167,12 +167,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'billing-issue',
         q: 'My payment failed. What now?',
-        a: 'Stripe retries automatically over several days. During the retry window, your subscription is "past due" and paid features stay available. Update the payment method in the portal to resolve. The most common failures are expired cards and address-verification mismatches.',
+        a: 'Stripe retries the card automatically over several days. You keep access for a short grace period while it retries; after that, paid features pause until the payment goes through. To fix it, use the pay link in the payment-failed email, or open the Account page and click Open billing portal to pay the open invoice with any card or update your payment method\u00a0- no need to sign up again. Typical causes are an expired card, insufficient funds, or a bank hold.',
       },
       {
         id: 'referrals',
         q: 'How does the referral program work?',
-        a: 'If enabled for your account, the Account page shows a Referrals panel with your code, link, and standings. Anyone who signs up using your code and converts to a paid plan earns you a credit on your next bill. Credits stack across referrals and apply automatically.',
+        a: 'When the referral program is running, the Account page shows a Refer a friend panel with your link and your standings (sign-ups, subscribers, and free months earned). Your friend gets a month free on a monthly or quarterly plan (or 10% off their first year on annual), and you earn a free month every time a referral subscribes, applied as a credit on your next bill. Free months stack; if you have no active subscription, they are banked and applied when you next subscribe.',
       },
     ],
   },
@@ -184,12 +184,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'dashboard-workflow',
         q: 'What is the right workflow for using ZeroGEX during a trading day?',
-        a: 'Start simple. On the Dashboard, read the three levels that matter most first: the Gamma Flip (stabilizing vs. amplifying regime), then the Call Wall and Put Wall (your likely upside and downside friction). Pull up the GEX Strike Profile to see how that structure sits on price, then confirm with your own price action\u00a0- VWAP, the opening-range break, whatever you already trust. Keep the Live Bulletin open in a second tab for trigger events. The levels tell you where to pay attention; your execution triggers tell you when. Don\'t try to watch all fourteen signals at once on day one.',
+        a: 'Start simple. On the Main Dashboard, read the three levels that matter most first\u00a0- they sit in the Key Levels strip at the top: the Gamma Flip (stabilizing vs. amplifying regime), then the Call Wall and Put Wall (your likely upside and downside friction). Pull up the GEX Strike Profile to see how that structure sits on price, then confirm with your own price action\u00a0- VWAP, the opening-range break, whatever you already trust. On Pro, keep the Advanced Signal Dashboard open in a second tab: a card switching to Triggered is your trigger event. The levels tell you where to pay attention; your execution triggers tell you when. Don\'t try to watch all fourteen signals at once on day one.',
       },
       {
         id: 'multiple-symbols',
         q: 'Can I view multiple symbols at once?',
-        a: 'Each browser tab can show one symbol. To view several side-by-side\u00a0- SPY, SPX, QQQ, NDX, ES, NQ\u00a0- open a tab for each. The symbol picker is in the header.',
+        a: 'Yes, in a few ways. My Dashboard can split into two halves, each pinned to its own symbol, so you can read, say, SPY against QQQ in one view. Pair Comparison (under Metrics) lines up the dealer-gamma structure of any two of SPY, QQQ, SPX, and NDX side by side. Everywhere else, the page follows the symbol picker in the header, one symbol per tab\u00a0- to watch several of SPY, SPX, QQQ, NDX, ES, and NQ at once, open a tab for each.',
       },
       {
         id: 'mobile-support',
@@ -204,12 +204,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'page-stale',
         q: 'A page looks stale or frozen. What do I do?',
-        a: 'Check the connection chip in the header. If it stays red across reloads, hard reload (Cmd+Shift+R / Ctrl+Shift+R). If still stuck, try an incognito window. If still stuck, email support with the page URL, your browser, and the timestamp.',
+        a: 'First check the session badge in the header: outside market hours (CLOSED, PRE-MARKET, AFTER HOURS) many numbers legitimately stop moving. During the session, most pages show when they last updated; if that time stops advancing, hard reload (Cmd+Shift+R / Ctrl+Shift+R). If still stuck, try an incognito window. If still stuck, email support with the page URL, your browser, and the timestamp.',
       },
       {
         id: 'options-calculator',
         q: 'How does the Strategy Builder work?',
-        a: 'The Strategy Builder lets you construct any single- or multi-leg options strategy, prices it live with Black-Scholes against the active IV surface, and shows you the greeks plus a P&L scenario surface. It is a research tool, not a broker\u00a0- you take the structure and put it on yourself.',
+        a: 'Pick one of 44 preset strategies\u00a0- from single legs to spreads, condors, butterflies, ratios, and calendars\u00a0- then choose each leg\'s expiration and strike and the number of contracts. Each leg is priced off the live quote (long legs at the ask, short legs at the bid, refreshed every 5 seconds), and the builder shows your net credit or debit, the profit/loss curve at expiration, and the breakevens. For legs on different expirations, such as a calendar, the curve treats every leg as expiring together, so read it as a rough guide. It is a research tool, not a broker\u00a0- you take the structure and put it on yourself. It is not available for ES and NQ.',
       },
     ],
   },
@@ -231,7 +231,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'google-apple',
         q: 'Can I sign in with Google or Apple?',
-        a: 'Yes. Both Google and Apple sign-in are supported. You can link multiple providers to the same account from the Account page. If you want a password as a fallback, set one from the Account page too.',
+        a: 'Google, yes. Apple sign-in is available when the button on the sign-in page reads "Continue with Apple"; while it reads "Continue with Apple (coming soon)", it is not switched on yet. Under Sign-in methods on the Account page you can connect or disconnect providers (you must keep at least one method active) and set a password as a fallback.',
       },
       {
         id: 'two-factor',
@@ -241,12 +241,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'email-verification',
         q: 'I never got the email-verification message.',
-        a: 'Check spam first. Click "Resend verification" on the in-app banner. If multiple resends do not arrive, the address may be misspelled or your mail server is rejecting our domain\u00a0- email support@zerogex.io from the address in question.',
+        a: 'Check spam first. Click "Resend" on the verify-your-email banner. If multiple resends do not arrive, the address may be misspelled or your mail server is rejecting our domain\u00a0- email support@zerogex.io from the address in question.',
       },
       {
         id: 'delete-account',
         q: 'How do I delete my account?',
-        a: 'Email support@zerogex.io. Account deletion cancels any active subscription and removes account data per the Privacy policy. We confirm by email before processing.',
+        a: 'From the Account page: scroll to Delete account, click Delete my account, and type DELETE to confirm. It cancels any active subscription, signs you out, revokes any API key, and stops all email from us. It can\'t be undone from the app\u00a0- restoring access takes a request to support@zerogex.io.',
       },
     ],
   },
@@ -258,17 +258,17 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-public',
         q: 'Is the API publicly accessible?',
-        a: 'The API documentation is at api.zerogex.io/docs and requires a Pro account. API access\u00a0- including key generation and usage\u00a0- is a Pro-tier feature. Public and Basic users do not have programmatic access.',
+        a: 'API access to the real-time data\u00a0- including key generation and usage\u00a0- is a Pro-tier feature; the reference docs are at api.zerogex.io/docs. Public and Basic accounts cannot generate a key. The one exception is the free MCP server at zerogex.io/mcp, which serves the same ~15-minute-delayed levels as the free Gamma Levels pages to AI assistants, with no key or account\u00a0- see <a href="/help/platform/mcp-server">The ZeroGEX MCP Server</a>.',
       },
       {
         id: 'api-docs-format',
         q: 'What format are the API docs in?',
-        a: 'OpenAPI 3.0. Both Swagger UI (interactive) and ReDoc (read-only) views are available. Responses are JSON.',
+        a: 'OpenAPI 3.1. Both Swagger UI (interactive) and ReDoc (read-only) views are available. Responses are JSON.',
       },
       {
         id: 'api-rate-limits',
         q: 'What are the API rate limits?',
-        a: 'Pro accounts get generous per-minute and per-day caps, sufficient for production dashboards and bots that respect normal request hygiene. Over-limit responses return 429 with a Retry-After header.',
+        a: 'Requests are rate-limited per minute, with room for production dashboards and bots that poll at a sensible cadence (the dealer levels recompute about once a minute, so polling them faster buys nothing). Over-limit responses return 429 with a Retry-After header.',
       },
       {
         id: 'api-keys',
@@ -278,12 +278,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-ninjatrader',
         q: 'Can I plot the levels on NinjaTrader?',
-        a: 'Yes\u00a0- our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
+        a: 'Yes\u00a0- our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), import it into NinjaTrader 8, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
         id: 'levels-not-touched',
         q: 'Price stopped just short of a level and my limit order never filled. Is the data late?',
-        a: 'Almost certainly not, and the near miss is usually the signal rather than a fault. These levels are option <strong>strikes</strong>, not lines drawn off the chart, so they sit where the option chain puts them regardless of where price happens to turn. On ES and NQ they are the index strike carried onto the futures price axis, which is why they rarely land on a round futures number. More importantly, a big wall is where dealer hedging concentrates: as price walks into a heavy call strike the hedging flow leans against it, so the last couple of ticks into the level are the hardest ones to get. A resting order exactly on the number is the least likely fill of the whole approach. Treat a wall as a <strong>zone</strong> and work the order a few ticks in front of it rather than on it. Two things that would be a real data problem and look different: the info panel showing <em>&#9888; not updating</em> with a reason, or an <em>updated</em> age that keeps climbing past a couple of minutes during the session.',
+        a: 'Almost certainly not, and the near miss is usually the signal rather than a fault. These levels are option <strong>strikes</strong>, not lines drawn off the chart, so they sit where the option chain puts them regardless of where price happens to turn. On ES and NQ they are the index strike carried onto the futures price axis, which is why they rarely land on a round futures number. More importantly, a big wall is where dealer hedging concentrates: as price walks into a heavy call strike the hedging flow leans against it, so the last couple of ticks into the level are the hardest ones to get. A resting order exactly on the number is the least likely fill of the whole approach. Treat a wall as a <strong>zone</strong> and work the order a few ticks in front of it rather than on it. Two things that would be a real data problem and look different: the NinjaTrader indicator\'s info panel showing <em>&#9888; not updating</em> with a reason, or an <em>updated</em> age that keeps climbing past a couple of minutes during the session.',
       },
       {
         id: 'api-interactive-brokers',
@@ -293,7 +293,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-streaming',
         q: 'Is there a streaming endpoint or websocket?',
-        a: 'Not currently exposed publicly. The web platform uses an internal channel. For most use cases, polling at a sane cadence (every few seconds for live metrics) is sufficient.',
+        a: 'Not currently exposed publicly. The web platform uses an internal channel. For most use cases, polling is sufficient: the dealer levels and GEX analytics recompute about once a minute, so polling them every 30-60 seconds is plenty.',
       },
     ],
   },
@@ -315,12 +315,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'gamma-flip',
         q: 'How is the Gamma Flip level calculated?',
-        a: 'The flip is the level at which the dealer gamma curve crosses zero\u00a0- calculated from a spot-shift dealer gamma profile, not a cumulative-net-GEX approximation. Above the flip, dealer hedging is stabilizing; below it, amplifying. See the Gamma Flip Calculation guide for the full methodology.',
+        a: 'The flip is the level at which the dealer gamma curve crosses zero\u00a0- calculated from a spot-shift dealer gamma profile, not a cumulative-net-GEX approximation. Above the flip, modeled dealer hedging is stabilizing; below it, amplifying. See the Gamma Flip Calculation guide for the full methodology.',
       },
       {
         id: 'walls-explained',
         q: 'What are the call wall and put wall?',
-        a: 'The strikes with the largest call gamma and put gamma respectively. They tend to act as intraday resistance and support, especially in positive gamma. The walls migrate intraday as flow comes in\u00a0- watching the migration is informative on its own.',
+        a: 'The call wall is the strike at or above spot with the largest call gamma exposure; the put wall is the strike at or below spot with the largest put gamma exposure. They tend to act as intraday resistance and support, especially in positive gamma, but a wall is a concentration of modeled hedging, not a level anyone is obliged to defend. The walls can migrate intraday\u00a0- watching the migration is informative on its own.',
       },
       {
         id: 'max-pain-reliability',
@@ -335,7 +335,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'pricing-model',
         q: 'What pricing model does the Strategy Builder use?',
-        a: 'Black-Scholes with the live implied volatility surface. For SPX and NDX (European exercise) no adjustment is applied. For SPY and QQQ (American exercise) we add an early-exercise premium on deep-ITM legs near expiry.',
+        a: 'It doesn\'t use a theoretical pricing model. Each leg is priced at the live market quote\u00a0- long legs at the ask, short legs at the bid\u00a0- and the chart shows profit and loss at expiration from intrinsic value, so the exercise style of the underlying doesn\'t come into it. For strategies whose legs expire on different dates, such as calendars and diagonals, the chart treats every leg as expiring together, which understates the far leg\'s remaining time value.',
       },
     ],
   },

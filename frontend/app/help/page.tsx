@@ -12,7 +12,7 @@ import {
 export const metadata = {
   title: 'ZeroGEX Help Center: Platform Guide, FAQs & Quick Starts',
   description:
-    'ZeroGEX Help Center\u00a0- feature-by-feature platform walkthroughs, FAQs covering data, billing, signals, and account, plus short Quick Start video tutorials.',
+    'ZeroGEX Help Center\u00a0- feature-by-feature platform walkthroughs, FAQs covering data, billing, signals, and account, plus Quick Start video tutorials on the way.',
   alternates: { canonical: '/help' },
 };
 
@@ -21,7 +21,7 @@ const sections = [
     href: '/help/platform',
     title: 'Platform Guide',
     description:
-      'A complete tour of every page in ZeroGEX\u00a0- Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and more. Built so a new user can learn the platform without ever having to ask.',
+      'A page-by-page tour of ZeroGEX\u00a0- Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and more. Built so a new user can learn the platform without ever having to ask.',
     icon: BookOpenCheck,
     badge: 'Walkthroughs',
   },
@@ -37,7 +37,7 @@ const sections = [
     href: '/help/quickstarts',
     title: 'Quick Starts',
     description:
-      'Short, focused video walkthroughs\u00a0- 60-to-180-second clips that show you exactly how to read a chart, run a screen, or configure a feature. Watch and trade.',
+      'Short, focused video walkthroughs, now being recorded\u00a0- clips of a few minutes or less that show you exactly how to read a chart, run a screen, or configure a feature.',
     icon: PlayCircle,
     badge: 'Video tutorials',
   },
@@ -47,9 +47,9 @@ const popular = [
   { href: '/help/platform/dashboard', label: 'Reading the Dashboard' },
   { href: '/help/platform/signals-overview', label: 'How signals work end-to-end' },
   { href: '/help/faqs#data-refresh', label: 'How often does data refresh?' },
-  { href: '/help/faqs#billing', label: 'Billing, refunds & cancellation' },
+  { href: '/help/faqs#tiers-billing', label: 'Billing, refunds & cancellation' },
   { href: '/help/platform/options-calculator', label: 'Using the Strategy Builder' },
-  { href: '/help/quickstarts#first-trade', label: 'Your first trade in ZeroGEX' },
+  { href: '/help/platform/tiers-and-access', label: 'What each plan unlocks' },
 ];
 
 export default function HelpCenterPage() {
@@ -62,9 +62,9 @@ export default function HelpCenterPage() {
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Help Center</h1>
         <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Everything you need to get the most out of ZeroGEX. Step-by-step walkthroughs for every
-          page on the platform, plain-English answers to the questions traders ask most often, and
-          short Quick Start videos for when you want to learn by watching.
+          Everything you need to get the most out of ZeroGEX. Step-by-step walkthroughs of the
+          platform&apos;s main pages, plain-English answers to the questions traders ask most often,
+          and, coming soon, short Quick Start videos for when you want to learn by watching.
         </p>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -120,7 +120,7 @@ export default function HelpCenterPage() {
           </span>
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Popular topics</div>
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Most-visited help pages</h2>
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Good places to start</h2>
           </div>
         </div>
         <ul className="grid gap-2 sm:grid-cols-2">

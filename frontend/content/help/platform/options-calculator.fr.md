@@ -1,62 +1,51 @@
 # Strategy Builder
 
-*Construisez n'importe quelle stratégie d'options à une ou plusieurs jambes. Comment le calculateur détermine les prix, comment les greeks sont calculées et comment lire les scénarios de P&L.*
+*Valorisez une stratégie d'options à une ou plusieurs jambes aux cotations en direct. Choisir une stratégie, ajuster ses jambes et lire le graphique de profit/perte à l'échéance.*
 
 ---
 
 ## Qu'est-ce que le Strategy Builder
 
-Le Strategy Builder est l'**outil de modélisation par opération**. Vous construisez une stratégie jambe par jambe, la page la valorise en direct, et vous lisez la surface de P&L ainsi que les greeks agrégées.
+Le Strategy Builder est l'**outil de modélisation par opération**. Vous choisissez une stratégie et ajustez ses jambes, la page la valorise aux cotations en direct, et vous lisez son profit ou sa perte à l'échéance sur une plage de prix.
 
 C'est l'endroit où vous allez après que le dashboard vous dit « la structure est haussière » et que vous devez choisir l'instrument concret.
 
 ## Construire une stratégie
 
-1. **Choisissez un symbole** (SPY, SPX, QQQ, NDX).
-2. **Ajoutez une jambe** - achat ou vente, call ou put, strike, échéance. La chaîne est en direct.
-3. **Répétez** pour les structures multi-jambes (verticales, condors, calendars, ratios, straddles, strangles).
-4. **Définissez le spot pour l'analyse** - par défaut le spot en direct, mais vous pouvez tester n'importe quel prix en scénario.
+1. **Choisissez un symbole** (SPY, SPX, QQQ, NDX) avec le sélecteur de symbole.
+2. **Choisissez une stratégie** dans le menu **Strategy** - plus de 40 modèles, des calls et puts simples aux verticales, straddles, strangles, iron condors, butterflies, ratios, backspreads, calendars, diagonales, collars et synthétiques. Chaque jambe démarre avec un strike et une échéance par défaut cohérents.
+3. **Ajustez les jambes** - chaque jambe d'option a son propre menu **Exp** et **Strike**, alimenté par la chaîne en direct.
+4. **Réglez Contracts** - le nombre de contrats, appliqué à chaque jambe ; une jambe à ratio conserve son ratio.
 
-Le prix agrégé, les breakevens et les greeks se mettent à jour à chaque modification.
+Les prix des jambes, le total, le graphique et les breakevens se mettent à jour à chaque modification.
 
-## Le modèle de valorisation
+ES et NQ n'ont pas de chaîne d'options propre, le Strategy Builder n'est donc pas disponible pour eux - passez à SPX ou NDX.
 
-Le Builder utilise **Black-Scholes** avec la surface de volatilité implicite en direct pour chaque jambe. La surface d'IV est extraite de notre pipeline de données - la même surface qui alimente la chaîne sur la page [Cotations d'Options en Direct](/help/platform/option-contracts).
+## Comment les jambes sont valorisées
 
-Pour les considérations d'exercice de type américain (pertinentes pour les ETF comme SPY et QQQ), le modèle approxime avec une prime d'exercice anticipé sur les jambes deep ITM proches de l'échéance. Les indices réglés en espèces SPX et NDX sont à exercice de type européen, donc aucun ajustement n'est appliqué.
+Chaque jambe d'option est valorisée à sa **cotation en direct**, rafraîchie toutes les quelques secondes : une jambe achetée à l'**ask**, une jambe vendue au **bid** - ce que vous paieriez ou encaisseriez réellement en traversant le spread. Chaque jambe affiche son contrat, ce prix et le côté utilisé. Les jambes en actions (dans les covered calls, collars, conversions, etc.) représentent 100 actions par contrat, prises au spot actuel.
 
-## Le panneau des greeks
+**Total position** additionne le tout sur chaque jambe et chaque contrat : **debit** indique ce que coûte l'ouverture de la structure, **credit** ce qu'elle encaisse.
 
-Pour chaque jambe et pour l'agrégat :
+## Le graphique de P&L
 
-- **Delta** - exposition directionnelle
-- **Gamma** - comment le delta évolue avec le spot
-- **Theta** - décroissance temporelle (par jour)
-- **Vega** - sensibilité à l'IV (par variation de 1 %)
-- **Charm** - décroissance du delta (par jour)
+**Profit / Loss at Expiration** montre ce que vaut la structure le jour de l'échéance, net de ce qu'elle a coûté ou rapporté à l'ouverture :
 
-Les greeks agrégées vous permettent de lire une structure multi-jambes d'un seul coup d'œil - par exemple, un calendar long est net long vega et net long theta, encaissant la décroissance temporelle sur la jambe vendue à échéance proche plus vite qu'il ne la paie sur la jambe achetée à échéance lointaine.
+- Le prix du sous-jacent sur l'axe des x - par défaut ±5 % autour du spot. Les boutons **+** et **-** zooment et dézooment, **RESET** revient à la vue par défaut, et le sélecteur **%** / **$** étiquette chaque ligne de la grille en variation en pourcentage ou en dollars par rapport au spot.
+- Le P&L en dollars sur l'axe des y, pour le nombre de contrats choisi.
+- Une ligne pointillée au spot actuel, et une ligne **BE** à chaque breakeven visible.
 
-## La surface de P&L
+Survolez la courbe pour voir le P&L à ce prix et son écart par rapport au spot.
 
-Le graphique de P&L en 2D affiche :
+## Calendars et diagonales
 
-- Le prix spot sur l'axe des x.
-- La valeur de P&L sur l'axe des y.
-- Plusieurs courbes : à l'échéance (le payoff), et à diverses dates entre aujourd'hui et l'échéance.
-
-Vous pouvez également voir les breakevens mis en évidence sur l'axe des x.
-
-## Test de scénarios
-
-Le panneau de scénarios vous permet de balayer deux variables à la fois - typiquement le spot et l'IV - et de voir la grille de P&L résultante. Utile pour :
-
-- Une structure long-vol : combien gagnez-vous avec un choc de 2 points de volatilité ?
-- Un pin trade : combien pouvez-vous perdre si le spot s'écarte de 1 % du max pain ?
+Quand les jambes expirent à des dates différentes, le graphique valorise quand même chaque jambe à sa valeur intrinsèque, comme si toutes expiraient ensemble. Cela sous-estime ce que vaut encore la jambe à échéance lointaine, et la page le signale - ne lisez la courbe que comme une indication approximative.
 
 ## Ce qu'il ne fait pas
 
 Le Strategy Builder est un **outil de valorisation**, pas un outil d'acheminement d'ordres. Il ne se connecte pas à votre broker. Vous récupérez la structure et la mettez en place vous-même.
+
+Il n'affiche par ailleurs que le payoff à l'échéance - pas de greeks, ni de courbes pour des dates antérieures à l'échéance.
 
 ## Note sur les niveaux
 

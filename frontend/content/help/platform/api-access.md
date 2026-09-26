@@ -16,12 +16,12 @@ Everything the web platform shows you is computed from the same backend that pow
 
 ## The docs
 
-Full reference lives at **[api.zerogex.io/docs](https://api.zerogex.io/docs)**. The docs are OpenAPI 3.0 compliant and available in two views:
+Full reference lives at **[api.zerogex.io/docs](https://api.zerogex.io/docs)**. The docs are OpenAPI 3.1 compliant and available in two views:
 
-- **Swagger UI** - interactive; try requests from the browser
+- **Swagger UI** - interactive; click **Authorize**, paste your key, and try requests from the browser
 - **ReDoc** - read-only; faster for scanning the full surface
 
-The docs require a Pro account. Public users are routed to the Pricing page on click.
+Sending requests - from the docs or anywhere else - takes a Pro key. In the app, the **API Specs** link sends Public and Basic accounts to the Pricing page instead.
 
 ## Authentication
 
@@ -35,21 +35,18 @@ Personal API keys are a Pro feature; Basic and Public accounts are routed to Pri
 
 ## Rate limits
 
-The API enforces rate limits per key. Limits scale with tier:
-
-- **Pro** - generous per-minute and per-day caps, sufficient for production dashboards and bots that respect normal request hygiene.
-
-Over-limit requests return `429 Too Many Requests` with a `Retry-After` header.
+The API rate-limits per key, on a per-minute window set well above what production dashboards and bots need when they respect normal request hygiene. Over-limit requests return `429 Too Many Requests` with a `Retry-After` header.
 
 ## Response format
 
-All endpoints return JSON. Standard fields:
+All endpoints return JSON, in two versions:
 
-- `data` - the payload
-- `meta` - pagination, timestamps, request ID
-- `error` - on error responses; omitted on success
+- **v1** (`/api/...` and `/api/v1/levels/...`) - the payload itself is the response body.
+- **v2** (`/api/v2/...`) - the same payload under `data`, plus a `freshness` block: when the underlying data was observed, the market session, when to treat the response as stale, and a rolled-up `freshness_status` (`fresh`, `aging`, `stale`, `session_closed`, ...). Recommended for new integrations - replace the leading `/api` (or `/api/v1`) with `/api/v2` and read the payload from `data`.
 
-Numeric fields are typed precisely - gamma values are signed dollars, scores are floats in [-1, +1], timestamps are ISO 8601 UTC.
+Errors return the matching HTTP status with a `{"detail": ...}` body, on both versions.
+
+Numeric fields are typed precisely - gamma values are signed dollars, per-signal scores (`clamped_score`) are floats in [-1, +1], timestamps are ISO 8601 UTC.
 
 ## Common patterns
 
@@ -59,49 +56,38 @@ For most use cases, polling on a sane cadence (every few seconds for live metric
 
 ### Caching
 
-Most endpoints set sensible HTTP cache headers - respect them. The signal endpoints are stamped with the most recent score timestamp so you can skip identical responses.
+Responses are cached server-side for about five seconds, and the analytics behind most endpoints recompute about once a minute, so a tighter poll mostly returns the same body. The signal endpoints are stamped with the most recent score timestamp so you can skip identical responses.
 
 ### Backfill
 
-The derived history endpoints - GEX (`/api/gex/historical`), max pain, and signal history - support multi-day windows. Options data is the exception: per-contract quotes are served as the latest quote or a single intraday session (`/api/option/contract`), **not** a multi-day historical series - and the raw option and underlying endpoints aren't part of the standard tier anyway (see *What's gated*). If you need a longer options-quote history, contact support with the specifics.
+The derived history endpoints - GEX (`/api/gex/historical`), max pain, and signal history - support multi-day windows. Options data is the exception: per-contract quotes are served as the latest quote or a single intraday session (`/api/option/contract`), **not** a multi-day historical series - and per-contract quotes aren't part of the standard tier anyway (see *What's gated*). If you need a longer options-quote history, contact support with the specifics.
 
 ## What's gated
 
 - API access requires a **Pro** account. Basic and Public accounts cannot generate keys.
-- Raw upstream market data - per-contract option quotes (both the latest quote and intraday contract history) and underlying price bars - isn't part of the standard API tier. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. Need raw options or underlying data for a specific use case? Email support and we'll talk through the options.
+- Raw upstream market data - per-contract option quotes (both the latest quote and intraday contract history) - isn't part of the standard API tier. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. Need raw options data for a specific use case? Email support and we'll talk through the options.
 
 ## Best practices
 
-- One key per environment (dev, prod). Rotate them on a schedule.
+- You hold one active key, so every environment (dev, prod) shares it. Rotate it on a schedule by regenerating - the old key stops working immediately, so update everywhere it's used.
 - Don't put a key in client-side code. The platform is built for server-side consumption.
 - Set a sensible `User-Agent` - it helps us help you when a request goes wrong.
 
 ## Charting integrations
 
-If all you want is our levels on your own chart, you may not need to write
-anything:
+If all you want is our levels on your own chart, you may not need to write anything. All four are on the [Integrations](/integrations) page:
 
-- **NinjaTrader 8** - a NinjaScript indicator included with Pro that polls
-  `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip,
-  Call Wall, Put Wall, Max Pain, and Pin Strike. Signed in to Pro, download it
-  from any free gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)),
-  compile it in the NinjaScript Editor, and paste in your key. On an ES or NQ chart set
-  the symbol to `ES` / `NQ` and the levels arrive already on the futures price
-  axis - there is no basis offset to apply.
-- **TradingView** - a free Pine script. Manual entry only: Pine Script can't
-  make HTTP calls, so you type today's numbers in yourself.
-- **thinkorswim** - nothing to install. thinkScript is sandboxed the same way
-  Pine Script is, so no study can pull the levels; manual entry is the only
-  route on the platform itself.
+- **NinjaTrader 8** - a NinjaScript indicator included with Pro that polls `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike. Signed in to Pro, download it from any free gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)), import it in NinjaTrader (**File → Utilities → Import NinjaScript…**), and paste in your key. On an ES or NQ chart set the symbol to `ES` / `NQ` and the levels arrive already on the futures price axis - there is no basis offset to apply.
+- **Sierra Chart** - an ACSIL study included with Pro that polls the same endpoint with your key and draws the same five levels. Signed in to Pro, download it from [/sierra-chart-indicator](/sierra-chart-indicator) and build it with Sierra Chart's own compiler (**Analysis → Build Custom Studies DLL**).
+- **TradingView** - a free Pine script. Manual entry only: Pine Script can't make HTTP calls, so you type today's numbers in yourself.
+- **thinkorswim** - a free thinkScript study. Manual entry only: thinkScript is sandboxed the same way Pine Script is, so you re-copy the study each day - it comes with that day's numbers already filled in.
 
-If your platform can't reach the network - or you'd rather ask for the levels
-than read them - see
-[Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration),
-which covers wiring the API into an AI assistant.
+If your platform can't reach the network - or you'd rather ask for the levels than read them - connect an AI assistant to our free [MCP server](/help/platform/mcp-server) (delayed levels, no key), or see [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration), which covers wiring the API into one.
 
 ## See also
 
 - [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)
 - [Data Coverage & Refresh](/help/platform/data-coverage)
+- [The ZeroGEX MCP Server (free, no key)](/help/platform/mcp-server)
 - [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration)
 - [API Docs (external)](https://api.zerogex.io/docs)

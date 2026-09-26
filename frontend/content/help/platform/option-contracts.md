@@ -1,52 +1,53 @@
 # Live Options Quotes
 
-*Browse the live chain. Filtering by expiry and moneyness, sorting columns, and how the IV surface lights the colors.*
+*Follow one option contract through the session. Picking the contract, reading the bid/mid/ask volume bars, and the stats above the chart.*
 
 ---
 
 ## What this page shows
 
-The Live Options Quotes page is the **live options chain** for the active symbol. Every column updates in real time during market hours.
+The Live Options Quotes page follows **one option contract** on the active symbol through the trading session: its last trade price, and each minute's volume split by where it traded - at the ask, at the mid, or at the bid. It refreshes every 30 seconds.
 
-## The columns
+## Picking a contract
 
-For each strike and each expiry:
+Three menus above the chart choose the contract:
 
-- **Strike**
-- **Bid / Ask / Mid**
-- **Last** and **Volume**
-- **Open Interest**
-- **Delta, Gamma, Vega, Theta, Charm**
-- **Implied Volatility**
-- **GEX contribution** - the dealer-gamma dollar value at this strike
+- **Expiration** - the expirations trading this session, today or later. Defaults to today's (0DTE) if there is one, otherwise the nearest.
+- **Strike** - defaults to the strike closest to the live price.
+- **Type** - **Call** or **Put**. Defaults to Call.
 
-Each row is paired (call on left, put on right) with the strike in the center column. The classic chain layout.
+The contract's name appears under the menus - e.g. `SPY 600 C 10/02/2026` - with its days to expiration.
 
-## Filters
+## The stats above the chart
 
-The filter bar lets you scope the chain:
+For the session shown:
 
-- **Expiration** - multi-select. Defaults to 0DTE if available, otherwise the nearest.
-- **Moneyness** - ATM-band (e.g., ±5% from spot) or full chain.
-- **Sort** - by strike, volume, OI, IV, GEX contribution.
-- **Show only** - non-zero volume, non-zero OI, sweeps, blocks.
+- **Vol** - contracts traded so far.
+- **OI** - open interest.
+- **Avg** - the average trade price, weighted by volume.
+- **Prem** - premium traded: Vol × Avg × 100.
+- **IV**, **Δ** (delta) and **Θ** (theta) - from the latest quote.
 
-## The IV surface colors
+## The chart
 
-Cells are color-graded by IV - cool colors (blue) for low IV, warm colors (red) for high. The scale is per-expiry, so a hot ATM in one column is not the same absolute IV as a hot ATM in another. The point is to see the **shape** of the smile, not the absolute level.
+- **Bars** (left axis) - volume per minute, stacked by where it traded: **Ask Vol**, **Mid Vol** and **Bid Vol**.
+- **Line** (right axis) - the **Last** trade price.
 
-## How to read the chain
+The time axis spans the session, 9:30 AM to 4:15 PM ET. Before today's session opens, the page shows the most recent one. On a phone the bars are grouped into 5-minute bins so they stay readable.
+
+Hover a bar for the time, the last price, and how many contracts traded at the bid, mid and ask.
+
+## How to read it
 
 Three patterns:
 
-1. **Where is the OI stacked?** The chain is the raw data underlying the GEX profile. The biggest OI strikes are usually where the walls are.
-2. **Where is the volume?** Volume tells you what's being traded **right now**, which can diverge from OI sharply intraday.
-3. **Where is the IV skew?** Steeper OTM-put IV vs OTM-call IV is the skew read.
+1. **Who is crossing the spread?** Ask-side volume is trades that printed at or near the ask - buyers paying up to get filled. Bid-side volume is sellers hitting the bid. Mid volume is trades in between.
+2. **Does the price agree?** Ask-side volume with the Last line rising is buyers in control of this contract. Heavy ask-side volume while the price goes nowhere is worth a closer look.
+3. **How big is today next to OI?** When Vol is large relative to OI, today's trading is big next to the positions already open - new positioning may be building.
 
-## Quick actions
+## ES and NQ
 
-- **Click a row** to open the Strategy Builder with that leg pre-filled.
-- **Hover a cell** for the full details (bid/ask size, last trade time, exchange).
+ES and NQ have no option chain of their own - their levels are derived from SPX and NDX options. This page isn't available for them; switch to SPX or NDX.
 
 ## Tier note
 

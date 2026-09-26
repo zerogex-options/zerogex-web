@@ -17,7 +17,7 @@ import {
 export const metadata = {
   title: 'ZeroGEX Platform Guide: Feature-by-Feature Walkthroughs',
   description:
-    'Step-by-step help for the ZeroGEX platform\u00a0- every page, panel and chart explained: Dashboard, Live Bulletin, Signals, Metrics and Strategy Tools.',
+    'Step-by-step help for the ZeroGEX platform\u00a0- the main pages, panels and charts explained: Dashboard, Live Bulletin, Signals, Metrics and Strategy Tools.',
   alternates: { canonical: '/help/platform' },
 };
 
@@ -75,7 +75,7 @@ const sections: Section[] = [
         href: '/help/platform/getting-started',
         title: 'Your First 15 Minutes with ZeroGEX',
         blurb:
-          'A guided tour from sign-up to your first read of the dashboard. What every tile means and which page to open first.',
+          'A guided tour from sign-up to your first read of the dashboard: where to look first, and which page to open next.',
       },
       {
         href: '/help/platform/tiers-and-access',
@@ -87,7 +87,7 @@ const sections: Section[] = [
         href: '/help/platform/navigating-the-app',
         title: 'Navigating the App',
         blurb:
-          'The sidebar, the symbol picker, the timeframe selector, theme toggles, and the keyboard shortcuts that speed things up.',
+          'The sidebar, the symbol picker, the timeframe selector, and the theme toggles.',
       },
     ],
   },
@@ -100,7 +100,7 @@ const sections: Section[] = [
         href: '/help/platform/dashboard',
         title: 'Reading the Dashboard',
         blurb:
-          'The first page you open every morning. Every metric tile explained, how to read the GEX regime header, and what changes between sessions.',
+          "The first page you open every morning. The Key Levels strip, Today's Read, the Gamma Chart and every card below them, and how to read it all in 30 seconds.",
       },
       {
         href: '/help/platform/live-bulletin',
@@ -157,9 +157,9 @@ const sections: Section[] = [
           },
           {
             href: '/help/platform/gex-summary',
-            title: 'GEX Summary &amp; Greeks',
+            title: 'GEX Summary',
             blurb:
-              'Headline GEX numbers plus delta, gamma, vanna and charm aggregates. What each tile is, why it matters, and what changes intraday.',
+              'The headline GEX numbers and the levels they imply\u00a0- net GEX at spot, the flip, the walls, max pain, the pin strike, and the call/put split. What each tile is, why it matters, and what changes intraday.',
           },
           {
             href: '/help/platform/max-pain',
@@ -182,7 +182,7 @@ const sections: Section[] = [
             href: '/help/platform/flow-analysis',
             title: 'Flow Analysis',
             blurb:
-              'Premium-weighted and net-volume flow, smart-money buckets, the Lee-Ready aggressor split, and how to spot real conviction in the tape.',
+              'Premium-weighted and net-volume flow, the Lee-Ready aggressor split, and how to spot real conviction in the tape.',
           },
           {
             href: '/help/platform/hedging-flow',
@@ -194,7 +194,7 @@ const sections: Section[] = [
             href: '/help/platform/smart-money',
             title: 'Smart Money',
             blurb:
-              'The smart-money screen\u00a0- what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.',
+              'The smart-money screen\u00a0- what qualifies a trade as smart-money, how the call/put notional split is computed, and how to use the bias intraday.',
           },
         ],
       },
@@ -205,7 +205,7 @@ const sections: Section[] = [
             href: '/help/platform/technicals',
             title: 'Technicals',
             blurb:
-              'The intraday technical snapshot\u00a0- price, candles, volatility gauges, and how the levels overlay the GEX walls.',
+              'The intraday price picture the option book sits on\u00a0- VWAP, the opening range, unusual volume spikes, and momentum divergence.',
           },
           {
             href: '/help/platform/spread-monitor',
@@ -226,13 +226,13 @@ const sections: Section[] = [
         href: '/help/platform/options-calculator',
         title: 'Strategy Builder',
         blurb:
-          'Build any single- or multi-leg options strategy. How the calculator prices, how greeks are computed, and how to read the P&amp;L scenarios.',
+          'Price any of 44 preset single- and multi-leg strategies at live quotes. How each leg is priced, and how to read the profit/loss-at-expiration chart and the breakevens.',
       },
       {
         href: '/help/platform/option-contracts',
         title: 'Live Options Quotes',
         blurb:
-          'Browse the live chain. Filtering by expiry and moneyness, sorting columns, and how the IV surface lights the colors.',
+          'Look up any single contract by expiration, strike, and call/put: its intraday price, volume traded at the bid, mid, and ask, open interest, IV, delta, and theta.',
       },
       {
         href: '/help/platform/backtesting',
@@ -257,7 +257,7 @@ const sections: Section[] = [
         href: '/help/platform/billing',
         title: 'Billing &amp; Stripe Portal',
         blurb:
-          'How billing works through Stripe, the difference between monthly and annual, switching tiers, payment methods, and invoices.',
+          'How billing works through Stripe, the difference between monthly, quarterly, and annual, switching tiers, payment methods, and invoices.',
       },
       {
         href: '/help/platform/referrals',
@@ -298,6 +298,12 @@ const sections: Section[] = [
           'How to read the API docs, what your Pro tier unlocks, and the basic auth + rate-limit model.',
       },
       {
+        href: '/help/platform/mcp-server',
+        title: 'The ZeroGEX MCP Server (free, no key)',
+        blurb:
+          'Connect Claude, ChatGPT, Cursor or any other MCP client to the free delayed gamma levels\u00a0- no key, no account, nothing to install.',
+      },
+      {
         href: '/help/platform/mcp-integration',
         title: 'Building an MCP Server on the ZeroGEX API',
         blurb:
@@ -313,7 +319,7 @@ const sections: Section[] = [
         href: '/help/platform/futures-contract-months',
         title: 'Why Our Futures Price Can Differ From Another Platform',
         blurb:
-          'ES and NQ trade as dated contracts that roll every quarter, and providers roll on their own schedules. Why two charts both labelled &ldquo;NQ&rdquo; can sit a few hundred points apart, and how to line them up.',
+          'ES and NQ trade as dated contracts that roll every quarter, and providers roll on their own schedules. Why two charts both labeled &ldquo;NQ&rdquo; can sit a few hundred points apart, and how to line them up.',
       },
     ],
   },
@@ -371,7 +377,7 @@ export default function PlatformGuidePage() {
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Platform Guide</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Feature-by-feature walkthroughs of every page on the platform. Start at the top if you&apos;re
+          Feature-by-feature walkthroughs of the platform&apos;s main pages. Start at the top if you&apos;re
           new&nbsp;- the order roughly mirrors how a working day flows on ZeroGEX. Already know what you
           need? Skip straight to the right section.
         </p>

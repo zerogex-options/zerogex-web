@@ -30,13 +30,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'navigating-the-app',
     title: 'Navigating the App',
-    description: 'The sidebar, the symbol picker, the timeframe selector, and keyboard shortcuts.',
+    description: 'The sidebar, the symbol picker, the timeframe selector, and theme toggles.',
     section: 'Getting Started',
   },
   {
     slug: 'dashboard',
     title: 'Reading the Dashboard',
-    description: 'Every metric tile on the dashboard explained.',
+    description: 'Every strip, chart and card on the Main Dashboard explained.',
     section: 'Core Pages',
   },
   {
@@ -78,8 +78,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     slug: 'gex-summary',
-    title: 'GEX Summary & Greeks',
-    description: 'Headline GEX numbers plus delta, gamma, vanna and charm.',
+    title: 'GEX Summary',
+    description: 'The headline GEX numbers and the levels they imply, on one screen.',
     section: 'Metrics',
     subsection: 'Positioning',
   },
@@ -101,7 +101,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'flow-analysis',
     title: 'Flow Analysis',
-    description: 'Premium-weighted and net-volume flow, smart-money buckets, aggressor split.',
+    description: 'Premium-weighted and net-volume flow, and the aggressor split behind both.',
     section: 'Metrics',
     subsection: 'Options Flow',
   },
@@ -115,14 +115,14 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'smart-money',
     title: 'Smart Money',
-    description: 'The smart-money screen and the C/P ratio.',
+    description: 'The smart-money screen\u00a0- block trades as they print and the call/put notional split.',
     section: 'Metrics',
     subsection: 'Options Flow',
   },
   {
     slug: 'technicals',
     title: 'Technicals',
-    description: 'The intraday technical snapshot\u00a0- price, candles, volatility gauges.',
+    description: 'The intraday price picture\u00a0- VWAP, opening range, volume spikes, momentum divergence.',
     section: 'Metrics',
     subsection: 'Market Context',
   },
@@ -137,13 +137,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'options-calculator',
     title: 'Strategy Builder',
-    description: 'Build and price any single- or multi-leg options strategy.',
+    description: 'Price one of 44 preset options strategies at live quotes and read its profit/loss at expiration.',
     section: 'Strategy Tools',
   },
   {
     slug: 'option-contracts',
     title: 'Live Options Quotes',
-    description: 'Browse the live chain\u00a0- filtering, sorting, and reading the surface.',
+    description: 'One contract at a time\u00a0- intraday price, bid/ask volume, open interest, IV, delta and theta.',
     section: 'Strategy Tools',
   },
   {

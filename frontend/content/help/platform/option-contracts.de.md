@@ -1,52 +1,53 @@
 # Live-Optionskurse
 
-*Durchsuchen Sie die Live-Kette. Filtern nach Verfall und Moneyness, Sortieren von Spalten und wie die IV-Oberfläche die Farben zum Leuchten bringt.*
+*Verfolgen Sie einen einzelnen Optionskontrakt durch die Sitzung. Den Kontrakt auswählen, die Volumenbalken nach Bid/Mid/Ask lesen und die Kennzahlen über dem Chart verstehen.*
 
 ---
 
 ## Was diese Seite zeigt
 
-Die Seite Live-Optionskurse ist die **Live-Optionskette** für das aktive Symbol. Jede Spalte aktualisiert sich während der Handelszeiten in Echtzeit.
+Die Seite Live-Optionskurse verfolgt **einen Optionskontrakt** auf das aktive Symbol durch die Handelssitzung: den Preis des letzten Trades und das Volumen jeder Minute, aufgeteilt danach, wo es gehandelt wurde - am Ask, am Mid oder am Bid. Sie aktualisiert sich alle 30 Sekunden.
 
-## Die Spalten
+## Einen Kontrakt auswählen
 
-Für jeden Strike und jeden Verfall:
+Drei Menüs über dem Chart bestimmen den Kontrakt:
 
-- **Strike**
-- **Bid / Ask / Mid**
-- **Last** und **Volume**
-- **Open Interest**
-- **Delta, Gamma, Vega, Theta, Charm**
-- **Implizite Volatilität**
-- **GEX-Beitrag** - der Dollarwert des Dealer-Gammas an diesem Strike
+- **Expiration** - die Verfallstermine, die in dieser Sitzung gehandelt werden, heute oder später. Standardmäßig der heutige (0DTE), falls vorhanden, sonst der nächstgelegene.
+- **Strike** - standardmäßig der Strike, der dem Live-Kurs am nächsten liegt.
+- **Type** - **Call** oder **Put**. Standardmäßig Call.
 
-Jede Zeile ist gepaart (Call links, Put rechts) mit dem Strike in der mittleren Spalte. Das klassische Ketten-Layout.
+Der Name des Kontrakts erscheint unter den Menüs - z. B. `SPY 600 C 10/02/2026` - zusammen mit den Tagen bis zum Verfall.
 
-## Filter
+## Die Kennzahlen über dem Chart
 
-Mit der Filterleiste können Sie die Kette eingrenzen:
+Für die angezeigte Sitzung:
 
-- **Verfall** - Mehrfachauswahl. Standardmäßig 0DTE, falls verfügbar, sonst der nächstgelegene.
-- **Moneyness** - ATM-Band (z. B. ±5 % vom Spot) oder vollständige Kette.
-- **Sortieren** - nach Strike, Volume, OI, IV, GEX-Beitrag.
-- **Nur anzeigen** - Volume ungleich null, OI ungleich null, Sweeps, Blocks.
+- **Vol** - bisher gehandelte Kontrakte.
+- **OI** - Open Interest.
+- **Avg** - der durchschnittliche Handelspreis, gewichtet nach Volumen.
+- **Prem** - gehandelte Prämie: Vol × Avg × 100.
+- **IV**, **Δ** (Delta) und **Θ** (Theta) - aus der jüngsten Notierung.
 
-## Die Farben der IV-Oberfläche
+## Der Chart
 
-Zellen werden nach IV farblich abgestuft - kühle Farben (Blau) für niedrige IV, warme Farben (Rot) für hohe IV. Die Skala gilt pro Verfall, sodass ein "heißer" ATM in einer Spalte nicht demselben absoluten IV-Wert entspricht wie ein "heißer" ATM in einer anderen. Es geht darum, die **Form** des Smiles zu erkennen, nicht das absolute Niveau.
+- **Balken** (linke Achse) - Volumen pro Minute, gestapelt danach, wo es gehandelt wurde: **Ask Vol**, **Mid Vol** und **Bid Vol**.
+- **Linie** (rechte Achse) - der Preis des letzten Trades (**Last**).
 
-## So liest man die Kette
+Die Zeitachse umfasst die Sitzung von 9:30 bis 16:15 Uhr ET. Bevor die heutige Sitzung beginnt, zeigt die Seite die letzte vorangegangene. Auf dem Smartphone werden die Balken zu 5-Minuten-Blöcken zusammengefasst, damit sie lesbar bleiben.
+
+Bewegen Sie den Mauszeiger über einen Balken, um die Uhrzeit, den letzten Preis und die Anzahl der am Bid, Mid und Ask gehandelten Kontrakte zu sehen.
+
+## So liest man ihn
 
 Drei Muster:
 
-1. **Wo stapelt sich das OI?** Die Kette ist der Rohdatensatz, auf dem das GEX-Profil basiert. Die Strikes mit dem größten OI sind meist dort, wo die Walls liegen.
-2. **Wo befindet sich das Volume?** Das Volume zeigt, was **gerade jetzt** gehandelt wird, was untertägig stark vom OI abweichen kann.
-3. **Wo liegt der IV-Skew?** Ein steilerer OTM-Put-IV im Vergleich zum OTM-Call-IV ist die Skew-Ablesung.
+1. **Wer überquert den Spread?** Ask-seitiges Volumen sind Trades, die am oder nahe dem Ask ausgeführt wurden - Käufer, die den Ask bezahlen, um ausgeführt zu werden. Bid-seitiges Volumen sind Verkäufer, die in den Bid verkaufen. Mid-Volumen sind Trades dazwischen.
+2. **Bestätigt der Preis es?** Ask-seitiges Volumen bei steigender Last-Linie heißt, dass die Käufer diesen Kontrakt kontrollieren. Starkes Ask-seitiges Volumen, während der Preis nicht vorankommt, verdient einen genaueren Blick.
+3. **Wie groß ist der heutige Handel im Vergleich zum OI?** Wenn Vol im Verhältnis zum OI groß ist, ist der heutige Handel groß gemessen an den bereits offenen Positionen - möglicherweise baut sich eine neue Positionierung auf.
 
-## Schnellaktionen
+## ES und NQ
 
-- **Klicken Sie auf eine Zeile**, um den Strategy Builder mit diesem Leg vorausgefüllt zu öffnen.
-- **Bewegen Sie den Mauszeiger über eine Zelle** für alle Details (Bid/Ask-Größe, Zeitpunkt des letzten Trades, Börse).
+ES und NQ haben keine eigene Optionskette - ihre Levels werden aus SPX- und NDX-Optionen abgeleitet. Diese Seite ist für sie nicht verfügbar; wechseln Sie zu SPX oder NDX.
 
 ## Hinweis zum Tarif
 

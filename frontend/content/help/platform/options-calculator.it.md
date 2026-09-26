@@ -1,62 +1,51 @@
 # Strategy Builder
 
-*Costruisci qualsiasi strategia in opzioni, a singola o multipla gamba. Come il calcolatore effettua il pricing, come vengono calcolate le greche e come leggere gli scenari di P&L.*
+*Valuta una strategia in opzioni, a singola o multipla gamba, ai prezzi live. Come scegliere una strategia, regolarne le gambe e leggere il grafico di profitti e perdite a scadenza.*
 
 ---
 
 ## Cos'è lo Strategy Builder
 
-Lo Strategy Builder è lo **strumento di modellazione per singola operazione**. Costruisci una strategia gamba per gamba, la pagina la valuta in tempo reale e tu leggi la superficie di P&L e le greche aggregate.
+Lo Strategy Builder è lo **strumento di modellazione per singola operazione**. Scegli una strategia e ne regoli le gambe, la pagina la valuta ai prezzi live e tu leggi il suo profitto o la sua perdita a scadenza su un intervallo di prezzi.
 
 È il posto in cui vai dopo che la dashboard ti dice "la struttura è rialzista" e devi scegliere lo strumento effettivo.
 
 ## Costruire una strategia
 
-1. **Scegli un simbolo** (SPY, SPX, QQQ, NDX).
-2. **Aggiungi una gamba** - acquisto o vendita, call o put, strike, scadenza. La catena è live.
-3. **Ripeti** per strutture multi-gamba (verticali, condor, calendar, ratio, straddle, strangle).
-4. **Imposta lo spot per l'analisi** - di default è lo spot live, ma puoi testare qualsiasi prezzo come scenario.
+1. **Scegli un simbolo** (SPY, SPX, QQQ, NDX) con il selettore dei simboli.
+2. **Scegli una strategia** dal menu **Strategy** - oltre 40 modelli, dalle singole call e put a verticali, straddle, strangle, iron condor, butterfly, ratio, backspread, calendar, diagonali, collar e sintetici. Ogni gamba parte da uno strike e una scadenza di default sensati.
+3. **Regola le gambe** - ogni gamba in opzioni ha i propri menu **Exp** e **Strike**, alimentati dalla catena live.
+4. **Imposta Contracts** - il numero di contratti, applicato a ogni gamba; una gamba con ratio mantiene il suo rapporto.
 
-Il prezzo aggregato, i breakeven e le greche si aggiornano a ogni modifica.
+I prezzi delle gambe, il totale, il grafico e i breakeven si aggiornano a ogni modifica.
 
-## Il modello di pricing
+ES e NQ non hanno una catena di opzioni propria, quindi lo Strategy Builder non è disponibile per loro - passa a SPX o NDX.
 
-Il Builder utilizza **Black-Scholes** con la superficie di volatilità implicita live per ogni gamba. La superficie IV viene estratta dalla nostra pipeline dati - la stessa superficie che alimenta la catena nella pagina [Quotazioni Opzioni Live](/help/platform/option-contracts).
+## Come vengono prezzate le gambe
 
-Per le considerazioni relative all'esercizio di tipo americano (rilevanti per ETF come SPY e QQQ), il modello approssima con un premio da esercizio anticipato sulle gambe deep ITM vicine alla scadenza. Gli indici regolati in contanti SPX e NDX hanno esercizio di tipo europeo, quindi non viene applicato alcun aggiustamento.
+Ogni gamba in opzioni è prezzata alla sua **quotazione live**, aggiornata ogni pochi secondi: una gamba lunga all'**ask**, una gamba corta al **bid** - ciò che pagheresti o incasseresti davvero attraversando lo spread. Ogni gamba mostra il suo contratto, quel prezzo e il lato usato. Le gambe in azioni (in covered call, collar, conversion e simili) valgono 100 azioni per contratto, aperte allo spot attuale.
 
-## Il pannello delle greche
+**Total position** somma tutto su ogni gamba e contratto: **debit** indica quanto costa aprire la struttura, **credit** quanto incassa.
 
-Per ogni gamba e per l'aggregato:
+## Il grafico P&L
 
-- **Delta** - esposizione direzionale
-- **Gamma** - quanto si muove il delta rispetto allo spot
-- **Theta** - decadimento temporale (al giorno)
-- **Vega** - sensibilità alla IV (per variazione dell'1%)
-- **Charm** - decadimento del delta (al giorno)
+**Profit / Loss at Expiration** mostra quanto vale la struttura il giorno della scadenza, al netto di quanto è costata o ha incassato all'apertura:
 
-Le greche aggregate ti permettono di leggere una struttura multi-gamba con un solo colpo d'occhio - ad esempio, un calendar lungo è net long vega e net long theta, poiché incassa il decadimento sulla gamba a scadenza più vicina più velocemente di quanto lo paghi sulla gamba a scadenza più lontana.
+- Prezzo del sottostante sull'asse x - di default ±5% intorno allo spot. I pulsanti **+** e **-** ingrandiscono e riducono, **RESET** torna alla vista di default, e il selettore **%** / **$** etichetta ogni linea della griglia come movimento percentuale o in dollari dallo spot.
+- P&L in dollari sull'asse y, per il numero di contratti impostato.
+- Una linea tratteggiata allo spot attuale e una linea **BE** a ogni breakeven visibile.
 
-## La superficie di P&L
+Passa il mouse sulla curva per vedere il P&L a quel prezzo e la sua distanza dallo spot.
 
-Il grafico P&L 2D mostra:
+## Calendar e diagonali
 
-- Prezzo spot sull'asse x.
-- Valore del P&L sull'asse y.
-- Curve multiple: a scadenza (il payoff), e in varie date tra oggi e la scadenza.
-
-Puoi anche vedere i breakeven evidenziati sull'asse x.
-
-## Test degli scenari
-
-Il pannello degli scenari ti permette di far variare due variabili contemporaneamente - tipicamente spot e IV - e vedere la griglia di P&L risultante. Utile per:
-
-- Una struttura long-vol: quanto guadagni con uno shock di 2 punti di volatilità?
-- Un pin trade: quanto puoi perdere se lo spot diverge dell'1% dal max pain?
+Quando le gambe scadono in date diverse, il grafico valuta comunque ogni gamba al suo valore intrinseco, come se scadessero tutte insieme. Questo sottostima quanto vale ancora la gamba a scadenza più lontana, quindi la pagina lo segnala - usa la curva solo come indicazione di massima.
 
 ## Cosa non fa
 
 Lo Strategy Builder è uno **strumento di pricing**, non uno strumento di instradamento ordini. Non si connette al tuo broker. Prendi la struttura e la implementi tu stesso.
+
+Inoltre mostra solo il payoff a scadenza - non ci sono greche né curve per date precedenti alla scadenza.
 
 ## Nota sui livelli
 

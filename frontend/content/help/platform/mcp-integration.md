@@ -26,32 +26,36 @@ Accept: application/json
 
 One call returns every dealer-positioning level plus the per-strike gamma profile. It is the only endpoint most MCP servers need, and it is the same endpoint our NinjaTrader indicator polls.
 
-`strikes` is optional and bounded **1-200** - outside that range the API returns `422`, so clamp the value in your client rather than trusting a number the model produced. It controls how many strikes come back in `profile`, ranked nearest spot. Everything else in the response is fixed cost, so ask for a small profile unless you actually need the curve.
+`strikes` is optional and bounded **1-200** - outside that range the API returns `422`, so clamp the value in your client rather than trusting a number the model produced. It controls how many strikes come back in `profile` (default 40): the ones nearest spot, returned in strike order. Everything else in the response is fixed cost, so ask for a small profile unless you actually need the curve.
 
 ### What comes back
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `symbol` | string | Echoes the underlying you asked for. |
-| `spot` | number | Underlying price the levels were computed against. |
-| `gamma_flip` | number \| null | Where modeled dealer gamma changes sign. |
-| `call_wall` | number \| null | Heaviest call gamma - the level that tends to cap. |
-| `put_wall` | number \| null | Heaviest put gamma - the level that tends to support. |
-| `max_pain` | number \| null | Expiration magnet across the chain. |
-| `pin_strike` | number \| null | The reachable same-day strike with the strongest modeled restoring gamma into the close. |
-| `pin_strike_reason` | string \| null | A `REASON_*` code explaining a null pin. |
+| `spot` | number \| null | Underlying price the levels were computed against. |
 | `net_gex_at_spot` | number \| null | Signed dealer gamma at spot. The sign is the regime. |
-| `as_of` | string | ISO 8601 UTC - when the snapshot was computed, not when you asked. |
-| `age_seconds` | number | Seconds since `as_of`. See [Staleness](#staleness-is-the-whole-game) below. |
-| `profile[]` | array | Per-strike objects carrying `strike` and `net_gex`, nearest spot first. |
+| `levels.gamma_flip` | number \| null | Where modeled dealer gamma changes sign. |
+| `levels.gamma_flip_reason` | string \| null | A code explaining a null flip. |
+| `levels.call_wall` | number \| null | Heaviest call gamma - the level that tends to cap. |
+| `levels.put_wall` | number \| null | Heaviest put gamma - the level that tends to support. |
+| `levels.max_pain` | number \| null | Expiration magnet across the chain. |
+| `levels.pin_strike` | number \| null | The reachable same-day strike with the strongest modeled restoring gamma into the close. |
+| `pin_strike_reason` | string \| null | A code (e.g. `NO_0DTE_EXPIRATION`) explaining a null pin. |
+| `as_of` | string | ISO 8601 UTC - the minute the snapshot is filed under, not when you asked. |
+| `data_as_of` | string \| null | ISO 8601 UTC - when the newest quote behind the snapshot was written. |
+| `age_seconds` | number | Seconds since `data_as_of` (or `as_of` when that is null). See *Staleness is the whole game* below. |
+| `profile[]` | array | Per-strike objects carrying `strike`, `net_gex`, `call_gex` and `put_gex`, in ascending strike order. |
 
-Field names on this endpoint are its own: it returns `spot`, where `/api/gex/summary` returns `spot_price`. The two are separate contracts, not one renamed. The [OpenAPI reference](https://api.zerogex.io/docs) is authoritative for both.
+Field names on this endpoint are its own: it returns `spot`, where `/api/gex/summary` returns `spot_price`. The two are separate contracts, not one renamed. The [OpenAPI reference](https://api.zerogex.io/docs) is authoritative for both, including the fields not listed here (`levels.gamma_flip_label`, `pin_score`, `pin_confidence`, `computed_at`).
 
 ### A null level is a level's absence, not zero
 
 Any level can come back `null`, and that is a real answer: the book does not support one right now. Do not coalesce to `0` anywhere in your pipeline. A gamma flip rendered as zero is a price, and a model handed it will reason about it as one.
 
-`pin_strike` is the field most likely to be null, and deliberately so - it returns nothing when there is no same-day expiry, when that expiry has already settled, when no reachable strike has net-positive local gamma, or when there isn't enough data to model. `pin_strike_reason` tells you which. Surface it: it is the difference between *"no pin today"* and *"something is broken"*.
+`levels.pin_strike` is the field most likely to be null, and deliberately so - it returns nothing when there is no same-day expiry, when that expiry has already settled, when no reachable strike has net-positive local gamma, or when there isn't enough data to model. `pin_strike_reason` tells you which. Surface it: it is the difference between *"no pin today"* and *"something is broken"*.
+
+A null gamma flip explains itself the same way, in `levels.gamma_flip_reason`: `ONE_SIDED` or `BEYOND_MAX_DISTANCE`, for example, mean the chain was read correctly and there is simply no flip near price, while `NO_PROFILE` means the chain could not be read at all.
 
 ### Supported underlyings
 
@@ -83,7 +87,7 @@ Two schema decisions do most of the work. **Enumerate the symbols** - the close
         "type": "integer",
         "minimum": 1,
         "maximum": 200,
-        "description": "How many strikes of gamma profile to include, nearest spot first. Omit unless the profile curve is actually needed."
+        "description": "How many strikes of gamma profile to include, the ones nearest spot. Omit unless the profile curve is actually needed."
       }
     },
     "required": ["symbol"],
@@ -99,7 +103,7 @@ Backed by `GET /api/signals/trade-bias?underlying={symbol}&tenor={swing|intraday
 ```json
 {
   "name": "get_trade_bias",
-  "description": "ZeroGEX's directional bias for one underlying at one horizon, as a signed score with a confidence and the regime behind it. The horizon changes the answer, and the two are allowed to disagree: 'swing' is the multi-day read led by the gamma and volatility regime; 'intraday' is the same-day (0DTE) read led by flow, tape and momentum. Always pass the horizon the user is actually trading, and say which one you used. Returns no data when the engine has not computed that pairing yet — a normal state outside market hours, not an error.",
+  "description": "ZeroGEX's directional bias for one underlying at one horizon, as a signed score with a confidence and the regime behind it. The horizon changes the answer, and the two are allowed to disagree: 'swing' is the multi-day read led by the gamma and volatility regime; 'intraday' is the same-day (0DTE) read led by flow, tape and momentum. Always pass the horizon the user is actually trading, and say which one you used. Returns no data when the engine has not computed that pairing yet - a normal state outside market hours, not an error.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -169,11 +173,11 @@ function freshnessLine(asOf: string, ageSeconds: number): string {
   // Open: the analytics cycle is ~60s, so ~120s is a missed cycle and
   // anything past ~300s should not be quoted as current.
   if (ageSeconds > 300) {
-    return `STALE — ${stamp}. The market has likely moved through these ` +
+    return `STALE - ${stamp}. The market has likely moved through these ` +
            `levels. Say they are stale; do not present them as current.`;
   }
   if (ageSeconds > 120) {
-    return `Slightly behind — ${stamp}. Mention the age when quoting these.`;
+    return `Slightly behind - ${stamp}. Mention the age when quoting these.`;
   }
   return `Live, ${stamp}.`;
 }
@@ -190,24 +194,27 @@ return {
 
 Note that the stale branch doesn't only report an age - it tells the model how to behave. Tool output is one of the few places where instructions are followed reliably, because they arrive attached to the thing the model just asked for. A bare `age_seconds: 412` leaves the judgment call to something that has no idea what your cycle time is.
 
+If you would rather not maintain that judgment yourself, call `/api/v2/levels/{symbol}` instead. The body is the same, under `data`, next to a `freshness` block whose `freshness_status` already weighs age against the session - `stale` only when an update was due and did not arrive, `session_closed` when the market is shut - and whose `stale_after` says when to stop trusting the snapshot. Put that verdict in the text, the same as the age.
+
 ## Failures worth handling by name
 
 | Status | What it means | What your tool should return |
 | --- | --- | --- |
-| `401` / `403` | Almost always: the key was regenerated somewhere else. You hold **one active key per account**, so minting a new one in the browser silently retires the one in your server. | `isError: true` and say exactly that. Don't retry - retrying a retired key just burns rate limit. |
+| `401` | Almost always: the key was regenerated somewhere else, or the account left Pro, which revokes it. You hold **one active key per account**, so minting a new one in the browser silently retires the one in your server. | `isError: true` and say exactly that. Don't retry - retrying a retired key just burns rate limit. |
+| `403` | The key is valid, but that endpoint isn't in the Pro API tier - per-contract option quotes, for example. | `isError: true` and say so. Retrying won't change it. |
 | `429` | Polling too fast. There's a `Retry-After` header. | `isError: true`, quote the retry delay. Back off in the client; never let the model drive a retry loop. |
 | `422` | `strikes` outside 1-200. | Clamp in the client so it never happens. |
 | `404` on trade-bias | The engine has no rows for that (symbol, horizon) yet. Normal outside market hours. | **Not** an error. Return plain text, so the model says "no intraday bias computed yet" rather than "the tool failed". |
 
 ## Polling, caching and limits
 
-There is no streaming channel on the public API. Levels recompute on roughly a 60-second analytics cycle, so polling faster buys nothing but rate limit. Most endpoints set real cache headers - respect them. For a long-running server, cache per symbol and serve tool calls from that cache rather than hitting the API once per question.
+There is no streaming channel on the public API. Levels recompute on roughly a 60-second analytics cycle, so polling faster buys nothing but rate limit. Responses are also cached server-side for about five seconds. For a long-running server, cache per symbol and serve tool calls from that cache rather than hitting the API once per question.
 
-Your Pro key's tier covers GEX, flow, max pain, technicals and signals - every derived analytic. It does **not** include raw per-contract option quotes or underlying price bars. If your integration needs those, email [support@zerogex.io](mailto:support@zerogex.io) with the use case.
+Your Pro key's tier covers GEX, flow, max pain, technicals and signals - every derived analytic. It does **not** include raw per-contract option quotes. If your integration needs those, email [support@zerogex.io](mailto:support@zerogex.io) with the use case.
 
 ## Publishing what you build
 
-The code is yours. Publish it, open-source it, put it on a registry - our own NinjaTrader indicator and TradingView script are both public on exactly that model: **the code is free, the data is gated by the key.**
+The code is yours. Publish it, open-source it, put it on a registry. The model is simple: **the code is free, the data is gated by the key.**
 
 The one thing that isn't allowed is running your integration as a hosted service on *your* key for other people. That's reselling paid access, and it's the line in our [Terms](/terms). Anyone using what you build should bring their own key.
 

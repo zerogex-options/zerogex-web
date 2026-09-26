@@ -1,52 +1,53 @@
 # Quotazioni Live delle Opzioni
 
-*Consulta la catena in tempo reale. Filtro per scadenza e moneyness, ordinamento delle colonne e come la superficie di IV illumina i colori.*
+*Segui un singolo contratto di opzioni per tutta la sessione. Come scegliere il contratto, leggere le barre di volume a bid/mid/ask e i dati sopra il grafico.*
 
 ---
 
 ## Cosa mostra questa pagina
 
-La pagina Quotazioni Live delle Opzioni è la **catena di opzioni live** per il simbolo attivo. Ogni colonna si aggiorna in tempo reale durante l'orario di mercato.
+La pagina Quotazioni Live delle Opzioni segue **un contratto di opzioni** sul simbolo attivo per tutta la sessione: il prezzo dell'ultimo scambio e il volume di ogni minuto, suddiviso in base a dove è stato scambiato - all'ask, al mid o al bid. Si aggiorna ogni 30 secondi.
 
-## Le colonne
+## Scegliere un contratto
 
-Per ogni strike e ogni scadenza:
+Tre menu sopra il grafico scelgono il contratto:
 
-- **Strike**
-- **Bid / Ask / Mid**
-- **Last** e **Volume**
-- **Open Interest**
-- **Delta, Gamma, Vega, Theta, Charm**
-- **Volatilità Implicita**
-- **Contributo al GEX** - il valore in dollari del gamma dei dealer a questo strike
+- **Expiration** - le scadenze negoziate in questa sessione, da oggi in poi. Di default quella di oggi (0DTE) se c'è, altrimenti la più vicina.
+- **Strike** - di default lo strike più vicino al prezzo live.
+- **Type** - **Call** o **Put**. Di default Call.
 
-Ogni riga è accoppiata (call a sinistra, put a destra) con lo strike nella colonna centrale. Il classico layout a catena.
+Il nome del contratto compare sotto i menu - ad es. `SPY 600 C 10/02/2026` - insieme ai giorni alla scadenza.
 
-## Filtri
+## I dati sopra il grafico
 
-La barra dei filtri ti permette di delimitare la catena:
+Per la sessione mostrata:
 
-- **Scadenza** - selezione multipla. Di default 0DTE se disponibile, altrimenti la più vicina.
-- **Moneyness** - banda ATM (ad es. ±5% dallo spot) o catena completa.
-- **Ordina** - per strike, volume, OI, IV, contributo al GEX.
-- **Mostra solo** - volume diverso da zero, OI diverso da zero, sweep, block.
+- **Vol** - contratti scambiati finora.
+- **OI** - open interest.
+- **Avg** - il prezzo medio degli scambi, ponderato per volume.
+- **Prem** - premio scambiato: Vol × Avg × 100.
+- **IV**, **Δ** (delta) e **Θ** (theta) - dall'ultima quotazione.
 
-## I colori della superficie di IV
+## Il grafico
 
-Le celle sono colorate in gradazione in base alla IV - colori freddi (blu) per IV bassa, colori caldi (rosso) per IV alta. La scala è per singola scadenza, quindi un ATM "caldo" in una colonna non corrisponde allo stesso livello assoluto di IV di un ATM "caldo" in un'altra. L'obiettivo è vedere la **forma** dello smile, non il livello assoluto.
+- **Barre** (asse sinistro) - volume al minuto, impilato in base a dove è stato scambiato: **Ask Vol**, **Mid Vol** e **Bid Vol**.
+- **Linea** (asse destro) - il prezzo dell'ultimo scambio (**Last**).
 
-## Come leggere la catena
+L'asse del tempo copre la sessione, dalle 9:30 alle 16:15 ET. Prima che apra la sessione di oggi, la pagina mostra la più recente. Sullo smartphone le barre sono raggruppate in blocchi da 5 minuti per restare leggibili.
+
+Passa il mouse su una barra per vedere l'orario, l'ultimo prezzo e quanti contratti sono stati scambiati al bid, al mid e all'ask.
+
+## Come leggerlo
 
 Tre pattern:
 
-1. **Dove si concentra l'OI?** La catena è il dato grezzo alla base del profilo GEX. Gli strike con l'OI maggiore sono di solito dove si trovano i wall.
-2. **Dove si concentra il volume?** Il volume indica cosa si sta scambiando **in questo momento**, il che può divergere nettamente dall'OI durante la giornata.
-3. **Dove si trova lo skew di IV?** Uno skew più ripido della IV dei put OTM rispetto alla IV dei call OTM è la lettura dello skew.
+1. **Chi attraversa lo spread?** Il volume lato ask sono scambi eseguiti all'ask o vicino a esso - compratori che pagano l'ask pur di essere eseguiti. Il volume lato bid sono venditori che vendono al bid. Il volume mid sono gli scambi a metà strada.
+2. **Il prezzo conferma?** Volume lato ask con la linea Last in salita significa che i compratori controllano questo contratto. Un forte volume lato ask mentre il prezzo non si muove merita un'occhiata più attenta.
+3. **Quanto pesa oggi rispetto all'OI?** Quando Vol è grande rispetto all'OI, gli scambi di oggi sono consistenti rispetto alle posizioni già aperte - potrebbe formarsi un nuovo posizionamento.
 
-## Azioni rapide
+## ES e NQ
 
-- **Clicca su una riga** per aprire lo Strategy Builder con quella gamba già precompilata.
-- **Passa il mouse su una cella** per i dettagli completi (dimensione bid/ask, orario dell'ultimo scambio, exchange).
+ES e NQ non hanno una catena di opzioni propria - i loro livelli derivano dalle opzioni su SPX e NDX. Questa pagina non è disponibile per loro; passa a SPX o NDX.
 
 ## Nota sul piano
 

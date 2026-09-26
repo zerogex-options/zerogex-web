@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, PlayCircle, Clock, Bookmark } from 'lucide-react
 export const metadata = {
   title: 'ZeroGEX Quick Starts: Short Video Walkthroughs',
   description:
-    'Short, focused video walkthroughs for the ZeroGEX platform\u00a0- under 3 minutes each. Reading the dashboard, using signals, building a strategy, and more.',
+    'Short, focused video walkthroughs for the ZeroGEX platform, now being recorded\u00a0- reading the dashboard, using signals, building a strategy, and more.',
   alternates: { canonical: '/help/quickstarts' },
 };
 
@@ -28,7 +28,7 @@ type Track = {
 
 const tracks: Track[] = [
   {
-    id: 'first-trade',
+    id: 'onboarding',
     title: 'Onboarding',
     blurb: 'Your first 15 minutes\u00a0- sign up, orient, find the page you need.',
     walkthroughs: [
@@ -53,7 +53,7 @@ const tracks: Track[] = [
       {
         id: 'sign-up-and-set-up',
         title: 'Sign up, verify, and configure preferences',
-        blurb: 'The account setup happy path\u00a0- Google or email, email verification, theme, default symbol.',
+        blurb: 'The account setup happy path\u00a0- Google or email, email verification, theme and palette, and the symbol picker.',
         duration: '1:45',
         level: 'New trader',
         tag: 'Account',
@@ -69,7 +69,7 @@ const tracks: Track[] = [
       {
         id: 'reading-dashboard',
         title: 'Reading the Dashboard in 30 seconds',
-        blurb: 'The discipline of a morning read\u00a0- regime, net GEX, walls, composite, trade bias. The right order.',
+        blurb: 'The discipline of a morning read\u00a0- the Key Levels strip, the gamma regime, Today\'s Read, the Trade Bias card. The right order.',
         duration: '2:20',
         level: 'New trader',
         tag: 'Dashboard',
@@ -78,7 +78,7 @@ const tracks: Track[] = [
       {
         id: 'bulletin-tour',
         title: 'Live Bulletin tour',
-        blurb: 'Filtering by symbol and signal family, reading a trigger row, using it as your day\'s audit log.',
+        blurb: 'Picking a symbol and horizon, reading the regime, key levels, and expected-range band, and exporting the card to share.',
         duration: '2:00',
         level: 'New trader',
         tag: 'Live Bulletin',
@@ -102,8 +102,8 @@ const tracks: Track[] = [
     walkthroughs: [
       {
         id: 'score-line',
-        title: 'Reading the [-1, +1] score line',
-        blurb: 'Sign, magnitude, when a 0 is a non-answer, and the trade-bias chip that changes the meaning of the score.',
+        title: 'Reading the −100 to +100 score line',
+        blurb: 'Sign, magnitude, when a 0 is a non-answer, and the Trade Bias card that changes the meaning of the score.',
         duration: '2:30',
         level: 'New trader',
         tag: 'Signals',
@@ -112,7 +112,7 @@ const tracks: Track[] = [
       {
         id: 'basic-vs-advanced',
         title: 'Basic vs Advanced signals',
-        blurb: 'Why some signals trigger and some just weight the composite. How the distinction changes how you use them.',
+        blurb: 'Why some signals trigger and others are advisory early warnings that stay out of the composite. How the distinction changes how you use them.',
         duration: '2:15',
         level: 'New trader',
         tag: 'Signals',
@@ -121,7 +121,7 @@ const tracks: Track[] = [
       {
         id: 'composite-walkthrough',
         title: 'Using the Composite Score',
-        blurb: 'How to read the MSI gauge, the contributing-signals panel, and when the composite is unhelpful.',
+        blurb: 'How to read the 0-100 MSI gauge, the six-component contribution bar, and when the composite is unhelpful.',
         duration: '2:50',
         level: 'Returning',
         tag: 'Composite Score',
@@ -130,7 +130,7 @@ const tracks: Track[] = [
       {
         id: 'eod-pressure',
         title: 'Trading the close with EOD Pressure',
-        blurb: 'The 14:30 → 15:45 ramp, the trigger, and the trade bias chip in the final 90 minutes.',
+        blurb: 'The 14:30 → 15:45 ramp, the trigger, and the Trade Bias card in the final 90 minutes.',
         duration: '3:00',
         level: 'Returning',
         tag: 'EOD Pressure',
@@ -139,7 +139,7 @@ const tracks: Track[] = [
       {
         id: 'squeeze-setup',
         title: 'Squeeze Setup: coiled markets',
-        blurb: 'What "coiled" means, the five inputs that drive the score, and when to use it as a precondition filter.',
+        blurb: 'What "coiled" means, the inputs that drive the score, and when to use it as a precondition filter.',
         duration: '2:40',
         level: 'Returning',
         tag: 'Squeeze Setup',
@@ -191,7 +191,7 @@ const tracks: Track[] = [
       {
         id: 'smart-money',
         title: 'Reading the Smart Money screen',
-        blurb: 'What qualifies as smart money, the C/P ratio, and how to use the bias intraday.',
+        blurb: 'What qualifies as smart money, the call/put notional split, and how to use the bias intraday.',
         duration: '2:30',
         level: 'Returning',
         tag: 'Smart Money',
@@ -216,7 +216,7 @@ const tracks: Track[] = [
       {
         id: 'strategy-builder',
         title: 'Strategy Builder walkthrough',
-        blurb: 'Building a vertical, a calendar, and a 1-by-2\u00a0- and reading the P&amp;L surface for each.',
+        blurb: 'Building a vertical, a calendar, and a 1-by-2\u00a0- and reading the P&amp;L-at-expiration chart for each.',
         duration: '3:10',
         level: 'Returning',
         tag: 'Strategy Builder',
@@ -224,8 +224,8 @@ const tracks: Track[] = [
       },
       {
         id: 'live-chain',
-        title: 'Browsing the live options chain',
-        blurb: 'Filtering, sorting, IV-surface coloring, and how to spot where OI is stacked.',
+        title: 'Reading a live options quote',
+        blurb: 'Picking a contract by expiration, strike, and type, then reading its intraday price, bid/ask volume, open interest, IV, delta, and theta.',
         duration: '2:15',
         level: 'New trader',
         tag: 'Live Options Quotes',
@@ -234,7 +234,7 @@ const tracks: Track[] = [
       {
         id: 'backtest-a-rule',
         title: 'Running your first backtest',
-        blurb: 'Setting up a single-signal rule, reading the equity curve, and the out-of-sample discipline.',
+        blurb: 'Setting up a single-condition rule, reading the equity curve, and the out-of-sample discipline.',
         duration: '3:20',
         level: 'Advanced',
         tag: 'Backtesting',
@@ -258,8 +258,8 @@ const tracks: Track[] = [
       },
       {
         id: 'linked-providers',
-        title: 'Linking Google or Apple sign-in',
-        blurb: 'Adding a sign-in provider, setting a password as fallback, and safely unlinking.',
+        title: 'Linking a sign-in provider',
+        blurb: 'Connecting Google, setting a password as fallback, and safely unlinking.',
         duration: '1:30',
         level: 'New trader',
         tag: 'Account',
@@ -284,7 +284,7 @@ const tracks: Track[] = [
       {
         id: 'api-keys',
         title: 'Generating an API key',
-        blurb: 'The Pro key flow\u00a0- generation, scoping, rotation, and the "copy now" pitfall.',
+        blurb: 'The Pro key flow\u00a0- generation, rotation, and the "copy now" pitfall.',
         duration: '1:35',
         level: 'Advanced',
         tag: 'API',
@@ -384,12 +384,12 @@ export default function QuickStartsPage() {
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Quick Start Walkthroughs</h1>
         <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
           Short, focused video walkthroughs&nbsp;- most run under 3 minutes&nbsp;- that show you exactly how
-          to read a chart, run a screen, or configure a feature. The library is being recorded; new
-          walkthroughs land each week.
+          to read a chart, run a screen, or configure a feature. The library is being recorded;
+          walkthroughs will appear here as they&apos;re published.
         </p>
         <div className="flex flex-wrap gap-3 text-xs">
           <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
-            {totalCount} walkthroughs in total
+            {totalCount} walkthroughs planned
           </div>
           <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
             {tracks.length} tracks
@@ -404,12 +404,12 @@ export default function QuickStartsPage() {
       <div className="mb-8 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-5">
         <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Quick Start library&nbsp;- rolling launch</h3>
         <p className="text-sm leading-6 text-[var(--color-text-primary)]">
-          We&apos;re publishing walkthroughs on a rolling basis. The card layouts, titles, durations, and
-          tags are final; the videos themselves are being recorded. In the meantime, the full{' '}
+          We&apos;ll publish walkthroughs on a rolling basis. The cards below show what&apos;s planned;
+          the videos themselves are being recorded. In the meantime, the{' '}
           <Link href="/help/platform" className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
             Platform Guide
           </Link>{' '}
-          covers every page in writing and the{' '}
+          covers the platform in writing and the{' '}
           <Link href="/help/faqs" className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
             FAQs
           </Link>{' '}
