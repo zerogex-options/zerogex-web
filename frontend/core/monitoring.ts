@@ -1281,20 +1281,28 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // and a second try at an already-failed bill on a later day (a member's own
 // retry does not advance Stripe's attempt count, so it can arrive as attempt 1
 // again). Those are still in Stripe → Payment Declines, which counts attempts.
+//
+// The 1-day window is the last 24 hours, not today on the calendar. "Today" at
+// noon is half a day of events divided by a whole one, and on a Saturday
+// morning that read as a collapse. The 7-, 14- and 30-day windows stay on New
+// York calendar days (today included), so they still add up with the Growth
+// tab's daily rows.
 function buildGrowthRates(now: Date, ledger: LedgerBuild): GrowthRatePoint[] {
   const horizons = [1, 7, 14, 30] as const;
   const days = generateDailyKeys(now, 30);
-  const signups = new Set<string>();
-  const cancellations = new Set<string>();
-  const paymentFailures = new Set<string>();
-  const winbacks = new Set<string>();
+  // Keyed `${ET day}:${who}`, valued with the latest moment it happened: the
+  // calendar windows read the day, the 24-hour one the time.
+  const signups = new Map<string, number>();
+  const cancellations = new Map<string, number>();
+  const paymentFailures = new Map<string, number>();
+  const winbacks = new Map<string, number>();
 
   ledger.rows.forEach((row, index) => {
     if (!row.paymentFailure) return;
     const at = new Date(row.at);
     if (Number.isNaN(at.getTime())) return;
     const day = etBucketKeys(at).day;
-    if (days.includes(day)) paymentFailures.add(`${day}:${index}`);
+    if (days.includes(day)) paymentFailures.set(`${day}:${index}`, at.getTime());
   });
 
   try {
@@ -1319,7 +1327,7 @@ function buildGrowthRates(now: Date, ledger: LedgerBuild): GrowthRatePoint[] {
         const tier = parseSyncTierStrict(row.message);
         if (subId && tier && tier !== 'public' && !seenSubscriptions.has(subId)) {
           seenSubscriptions.add(subId);
-          if (days.includes(day)) signups.add(`${day}:${subId}`);
+          if (days.includes(day)) signups.set(`${day}:${subId}`, parsed.getTime());
         }
       } else if (!days.includes(day)) {
         continue;
@@ -1329,19 +1337,27 @@ function buildGrowthRates(now: Date, ledger: LedgerBuild): GrowthRatePoint[] {
         // exactly on that path, so --keep-cancellation runs (coupon pre-load
         // only, member still canceling) are skipped.
         if (/cleared cancel_at_period_end/.test(row.message)) {
-          winbacks.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+          winbacks.set(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`, parsed.getTime());
         }
       } else if (decisions.has(row)) {
-        cancellations.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+        cancellations.set(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`, parsed.getTime());
       }
     }
   } catch {
     // Keep the monitoring response available if audit history is unavailable.
   }
 
-  const countSince = (values: Set<string>, windowDays: number) => {
+  const countSince = (values: Map<string, number>, windowDays: number) => {
+    if (windowDays === 1) {
+      // Deduped on who rather than day:who, so one Cancel click whose two rows
+      // straddle midnight still counts once.
+      const cutoffMs = now.getTime() - 86_400_000;
+      const who = new Set<string>();
+      for (const [key, atMs] of Array.from(values)) if (atMs > cutoffMs) who.add(key.slice(11));
+      return who.size;
+    }
     const included = new Set(generateDailyKeys(now, windowDays));
-    return Array.from(values).filter((value) => included.has(value.slice(0, 10))).length;
+    return Array.from(values.keys()).filter((value) => included.has(value.slice(0, 10))).length;
   };
   return horizons.map((windowDays) => {
     const signupCount = countSince(signups, windowDays);

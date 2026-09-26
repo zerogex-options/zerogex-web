@@ -1984,7 +1984,7 @@ function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, te
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
         <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
-        <p className="text-xs" style={{ color: mutedText }}>New subscriptions (trials and plans paid up front) minus cancellations (Cancel clicks and money-back refunds, net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each trailing window.</p>
+        <p className="text-xs" style={{ color: mutedText }}>New subscriptions (trials and plans paid up front) minus cancellations (Cancel clicks and money-back refunds, net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each window: the last 24 hours, then the last 7, 14 and 30 calendar days (New York time, today included).</p>
         {ledgerError && (
           <p className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.stalled }}>
             Payment failures could not be counted because the Subscriber Ledger failed to build, so they show as 0.
@@ -1994,7 +1994,7 @@ function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, te
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {rates.map((rate) => (
           <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid color-mix(in srgb, ${borderColor} 33%, transparent)` }}>
-            <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days}-day</div>
+            <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days === 1 ? 'Last 24 hours' : `${rate.days}-day`}</div>
             <div className="text-2xl font-semibold tabular-nums" style={{ color: rate.net >= 0 ? '#2c8c6a' : '#c1435b' }}>{rate.dailyRate >= 0 ? '+' : ''}{rate.dailyRate.toFixed(2)}/day</div>
             <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>{rate.signups} signups − {rate.cancellations} cancels − {rate.paymentFailures} failures = {rate.net >= 0 ? '+' : ''}{rate.net}</div>
           </div>
