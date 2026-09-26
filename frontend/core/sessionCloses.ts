@@ -95,7 +95,7 @@ function etMinuteOfDay(ts: string | null | undefined): number | null {
  * and a lagging pair used to render a whole session late on exactly the symbols
  * whose close traders check first: at 16:05 on 2026-09-25 the SPX header read
  * "$7,704.23 −2.16", Thursday's close carrying Thursday's change, against a real
- * close of 7,739.23 (+0.46%). The clock cannot judge 'closed' (it spans midnight and
+ * close of 7,743.41 (+0.51%). The clock cannot judge 'closed' (it spans midnight and
  * weekends, where an earlier close is expected), but the tape can: the quote IS the
  * last print. A print made at or after the 09:30 open of a LATER ET day than the
  * close on offer means that day's session traded and its close is missing. Overnight,
