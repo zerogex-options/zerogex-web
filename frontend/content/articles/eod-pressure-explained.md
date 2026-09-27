@@ -20,7 +20,7 @@ The EOD Pressure signal asks one question:
 
 > Given the modeled dealer book and the proximity of a magnet strike, which way does modeled hedging lean into the close?
 
-It is an **Advanced** signal in the ZeroGEX stack - it produces both a continuous score on the [-1, +1] number line and a discrete trigger when the absolute score crosses **0.20**. The threshold is deliberately lower than other Advanced signals because the structural context (the closing window) is itself a filter - when EOD Pressure reads 0.15+ inside the active window, it is already directionally informative.
+It is an **Advanced** signal in the ZeroGEX stack - it produces both a continuous score on the -100 to +100 line and a discrete trigger when the score crosses **±20**. The threshold is deliberately lower than most Advanced signals (±25) because the structural context (the closing window) is itself a filter - when EOD Pressure reads 15 or more either way inside the active window, it is already directionally informative. Like all Advanced signals, it is part of Pro.
 
 Trade bias: **directional read**. The signal points which way pressure is leaning - it does not prescribe ride-versus-fade on its own. That comes from the regime context.
 
@@ -57,19 +57,21 @@ The aggregate is normalized so ±$20M of bucketed dealer charm saturates the sub
 
 ### Component 2: Pin gravity
 
-The pin term encodes the regime-dependent pull of the magnet strike:
+The pin term depends on the modeled gamma regime:
 
 ```
-pin_target   = max_pain  OR  max_gamma_strike
-distance_pct = (pin_target − close) / close
-normalized   = clip(distance_pct / 0.003, [-1, +1])
-sign         = +1 if net_gex >= 0 else -1
-pin_score    = sign × normalized
+if net_gex >= 0:   # zero or positive gamma: pull toward the magnet
+    pin_target   = max_pain  OR  max_gamma_strike
+    distance_pct = (pin_target − close) / close
+    pin_score    = clip(distance_pct / 0.003, [-1, +1])
+else:              # negative gamma: follow the move already underway
+    trailing_ret = (latest_close − earliest_close) / earliest_close
+    pin_score    = clip(trailing_ret / 0.003, [-1, +1])
 ```
 
-A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 - the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because the current implementation reverses target distance when Net GEX is negative.
+A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 - the magnet is above and gravity is on. In a modeled negative-gamma regime the target distance carries no directional information, so the term ignores it and reads the recent trailing return instead: a 0.3% rise over the recent closes also scores +1.0, and a 0.3% fall scores -1.0. If Net GEX is missing, or there are fewer than two usable closes, the pin term is 0.
 
-**Methodology limitation:** the negative-gamma sign reversal is a ZeroGEX house heuristic, not a direct consequence of negative-gamma mechanics. Negative gamma amplifies the direction already underway; target distance alone cannot determine that direction. It is documented here rather than left implicit, and it is a candidate for revision.
+**Methodology limitation:** both branches are ZeroGEX house heuristics with hand-picked saturation points, not calibrated probabilities. The negative-gamma branch encodes the idea that short gamma amplifies the direction already underway; it does not predict that direction.
 
 ### Component 3: Time ramp (the gate)
 
@@ -109,6 +111,8 @@ combined = (0.6 × charm_score + 0.4 × pin_score) × amp × ramp
 score    = clip(combined, [-1, +1])
 ```
 
+The math runs on -1 to +1; the card and the signal page show the result multiplied by 100, so a score of 0.55 here reads as 55 on screen.
+
 The 60/40 weighting is a hand-picked design choice, not a fitted one: it reflects the view that **charm is the more direct modeled measure of hedge flow**, while **pin gravity is the indirect, regime-dependent pull**. Both matter in the model. Charm leads.
 
 ---
@@ -117,13 +121,13 @@ The 60/40 weighting is a hand-picked design choice, not a fitted one: it reflect
 
 | Score | Reading |
 |---|---|
-| +0.6 to +1.0 | Strong modeled upward drift into the close |
-| +0.2 to +0.6 | Positive model lean |
-| -0.2 to +0.2 | Weak or offsetting model components |
-| -0.2 to -0.6 | Negative model lean |
-| -0.6 to -1.0 | Strong modeled downward drift into the close |
+| +60 to +100 | Strong modeled upward drift into the close |
+| +20 to +60 | Positive model lean |
+| -20 to +20 | Weak or offsetting model components |
+| -20 to -60 | Negative model lean |
+| -60 to -100 | Strong modeled downward drift into the close |
 
-The **0.20** trigger is a hand-selected model threshold, not a calibrated probability or expected win rate. Historical validation is required before treating it as a performance edge.
+The **±20** trigger is a hand-selected model threshold, not a calibrated probability or expected win rate. Historical validation is required before treating it as a performance edge.
 
 ---
 
@@ -156,7 +160,7 @@ EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have bee
 
 ### 3. Quad witching is structural context
 
-The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unamplified signal to +0.8 amplified. Treat those days as having structurally higher conviction - and structurally higher whipsaw risk earlier in the day, before the window opens.
+The 2.0× amplifier on quad-witching days is large enough to push a +40 unamplified signal to +80 amplified. Treat those days as having structurally higher conviction - and structurally higher whipsaw risk earlier in the day, before the window opens.
 
 ---
 
@@ -165,7 +169,7 @@ The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unampli
 EOD Pressure is a **directional read** - it tells you which way pressure points without prescribing ride-versus-fade on its own. The fade-versus-ride decision comes from the regime:
 
 - **Modeled positive-gamma regime + positive EOD Pressure score:** modeled drift is up, dealer hedging is modeled to dampen, the read favors positioning *with* the drift toward the magnet strike - buying weakness rather than fading into it - and fading only overshoots beyond the magnet.
-- **Modeled negative-gamma regime + positive EOD Pressure score:** the signal is reading a charm-driven up-bias, but in a short-gamma regime the dealer reflex is modeled to amplify rather than absorb - momentum continuation is more likely.
+- **Modeled negative-gamma regime + positive EOD Pressure score:** the score blends a charm-driven lean with the recent move (in short gamma the pin term follows the direction already underway), and the dealer reflex is modeled to amplify rather than absorb - momentum continuation is more likely.
 
 Combined with other signals:
 
@@ -180,8 +184,8 @@ Combined with other signals:
 Three traps:
 
 - **Treating a pre-window zero as "no signal today."** The window has not opened yet. The signal is *structurally inactive*, not absent of information.
-- **Ignoring the regime sign flip in pin gravity.** Positive-gamma attraction toward the target is a model heuristic. In negative gamma, the implemented distance-sign reversal is a house heuristic; do not interpret it as mechanically necessary repulsion.
-- **Trading the raw score without the ramp.** A +0.4 reading at 14:45 (ramp 0.20) is actually a +0.08 effective score. Read the ramp-adjusted magnitude, not the raw input score.
+- **Ignoring the regime switch in pin gravity.** Positive-gamma attraction toward the target is a model heuristic. In negative gamma the pin term stops looking at the target and follows the recent move instead - also a house heuristic, not a mechanical certainty.
+- **Trading the raw score without the ramp.** A +40 reading at 14:45 (ramp 0.20) is actually a +8 effective score. Read the ramp-adjusted magnitude, not the raw input score.
 
 ---
 
@@ -190,14 +194,14 @@ Three traps:
 The dashboard surfaces it in a few places:
 
 - **The EOD Pressure card** shows the live score, the trigger state, and the component breakdown (charm vs. pin contributions).
-- **The Composite Signal Score** integrates EOD Pressure as one input.
-- **The Trade Stream** flags `eod_pressure`-gated playbook trades when they fire.
+- **The Event Timeline** on the signal's page charts the score's recent path, with direction flips marked.
+- **Signal Breadth** on the dashboard's Proprietary Signals panel counts it as one of the directional votes. (It is not an input to the Composite MSI, which is built from its own six components.)
 
 *[Image placeholder: ZeroGEX EOD Pressure card with score, components, and ramp status during the active window - drop file at /public/blog/zerogex-eod-pressure-card.png]*
 
 A worked example. SPX is at 5,825 at 15:15 ET on a monthly OPEX Friday and ZeroGEX shows:
 
-- **EOD Pressure:** -0.55 (triggered bearish)
+- **EOD Pressure:** -55 (triggered bearish)
 - **Net GEX:** +$1.2B (positive)
 - **Gamma Flip:** spot is +15 (above flip)
 - **Max Pain:** 5,810 (below spot)
@@ -218,4 +222,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's EOD Pressure read in real time during the active window, alongside Trap Detection and the regime context, the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's EOD Pressure read in real time during the active window, alongside Trap Detection and the regime context, ZeroGEX Pro surfaces all of it on the Advanced Signal Dashboard.

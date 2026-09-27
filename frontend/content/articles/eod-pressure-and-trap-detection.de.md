@@ -12,7 +12,7 @@ Die letzten 90 Minuten der Kassasession und die Momente unmittelbar nach dem Bru
 
 Diese Stille ist ein Feature, kein Bug. Beide Signale zeigen die meiste Zeit des Handelstages **null** an. Wenn sie auslösen, sagen sie dir etwas Spezifisches über erzwungenen Flow, das der Rest des Tapes dir nicht direkt zeigt.
 
-Dieser Artikel richtet sich an Trader, die bereits Gamma Exposure, Dealer-Hedging und den Unterschied zwischen einem Positive-Gamma- und einem Negative-Gamma-Regime verstehen. Falls dir diese Begriffe neu sind, beginne mit unserem Begleitartikel **Decoding Gamma Exposure** und komm dann zurück.
+Dieser Artikel richtet sich an Trader, die bereits Gamma Exposure, Dealer-Hedging und den Unterschied zwischen einem Positive-Gamma- und einem Negative-Gamma-Regime verstehen. Falls dir diese Begriffe neu sind, beginne mit unserem Begleitartikel [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained) und komm dann zurück.
 
 ---
 
@@ -28,7 +28,7 @@ Zwei physikalische Mechanismen treiben die Antwort:
 
 **Charm-Zerfall.** Wenn sich 0DTE- und kurzlaufende Optionen dem Verfall nähern, bleibt ihr Delta nicht stehen - es zerfällt mit zunehmender Geschwindigkeit, je näher der Zeitpunkt rückt. Dealer, die ein deltaneutrales Buch führen, müssen kontinuierlich neu ausbalancieren, um diese Neutralität zu halten. Das aggregierte Vorzeichen der Charm-Exposure der Dealer nahe dem Spot verrät dir, in welche Richtung diese Hedge-Flows heute zeigen.
 
-**Pin-Gravitation.** In einem Positive-Gamma-Regime kaufen Dealer Schwäche und verkaufen Stärke - dieser mechanische Reflex zieht den Kurs wie ein Magnet zum Strike des maximalen Schmerzes / maximalen Gammas. In einem Negative-Gamma-Regime kehrt sich dieselbe Mechanik um: Dealer jagen Bewegungen hinterher, und der Strike wird zum Abstoßungspunkt statt zum Anziehungspunkt.
+**Pin-Gravitation.** In einem Positive-Gamma-Regime kaufen Dealer Schwäche und verkaufen Stärke - dieser mechanische Reflex zieht den Kurs wie ein Magnet zum Strike des maximalen Schmerzes / maximalen Gammas. In einem Negative-Gamma-Regime jagen Dealer Bewegungen dagegen hinterher: Das Modell behandelt den Strike dann nicht mehr als Magneten, sondern folgt der bereits laufenden Bewegung.
 
 EOD Pressure kombiniert diese beiden Effekte, skaliert sie danach, wie nahe wir am Handelsschluss sind, und verstärkt sie an Kalendertagen, an denen Positionierung am meisten zählt.
 
@@ -36,17 +36,17 @@ EOD Pressure kombiniert diese beiden Effekte, skaliert sie danach, wie nahe wir 
 
 ## Interpretation des Scores
 
-Der Output ist ein kontinuierlicher Score im Bereich **[−1,0, +1,0]**.
+Der Output ist ein kontinuierlicher Score von **−100 bis +100**. (Die Formeln unten rechnen auf −1 bis +1; Karte und Signalseite zeigen das Ergebnis mal 100.)
 
 | Score | Interpretation für den Trader |
 |-------|----------------------|
-| +0,6 bis +1,0 | Starke Aufwärtstendenz bis zum Handelsschluss erwartet. Der Magnet liegt über dem Spot und Dealer sind zum Kaufen gezwungen. |
-| +0,2 bis +0,6 | Leichte Aufwärtstendenz. Intraday-Bias bleibt long, aber nicht aggressiv positionieren. |
-| −0,2 bis +0,2 | Kein Edge. Entweder zu früh im Zeitfenster, oder Charm- und Pin-Terme heben sich gegenseitig auf. |
-| −0,2 bis −0,6 | Leichte Abwärtstendenz. Bias short oder Longs schließen. |
-| −0,6 bis −1,0 | Starke Abwärtstendenz bis zum Handelsschluss erwartet. |
+| +60 bis +100 | Starke Aufwärtstendenz bis zum Handelsschluss erwartet. Der Magnet liegt über dem Spot und Dealer sind zum Kaufen gezwungen. |
+| +20 bis +60 | Leichte Aufwärtstendenz. Intraday-Bias bleibt long, aber nicht aggressiv positionieren. |
+| −20 bis +20 | Kein Edge. Entweder zu früh im Zeitfenster, oder Charm- und Pin-Terme heben sich gegenseitig auf. |
+| −20 bis −60 | Leichte Abwärtstendenz. Bias short oder Longs schließen. |
+| −60 bis −100 | Starke Abwärtstendenz bis zum Handelsschluss erwartet. |
 
-Das Signal markiert sich selbst als **ausgelöst**, wenn der absolute Score 0,2 überschreitet. Alles darunter wird zur Kontextinformation erfasst, löst aber keine nachgelagerten Playbook-Muster aus.
+Das Signal markiert sich selbst als **ausgelöst**, wenn der Score **±20** überschreitet. Alles darunter wird zur Kontextinformation erfasst, löst aber keine nachgelagerten Playbook-Muster aus.
 
 ---
 
@@ -79,19 +79,23 @@ Bei ±20 Mio. $ gebündeltem Dealer-Charm pegelt sich der Sub-Score bei ±1,0 ei
 
 ### Komponente 2: Pin-Gravitation
 
-Der Pin-Term kodiert den **regimeabhängigen Zug** des Magnet-Strikes:
+Der Pin-Term hängt vom Gamma-Regime ab:
 
 ```
-pin_target   = max_pain  OR  max_gamma_strike
-distance_pct = (pin_target − close) / close
-normalized   = clip(distance_pct / 0.003, [-1, +1])
-sign         = +1 if net_gex >= 0 else -1
-pin_score    = sign × normalized
+if net_gex >= 0:   # zero or positive gamma: pull toward the magnet
+    pin_target   = max_pain  OR  max_gamma_strike
+    distance_pct = (pin_target − close) / close
+    pin_score    = clip(distance_pct / 0.003, [-1, +1])
+else:              # negative gamma: follow the move already underway
+    trailing_ret = (latest_close − earliest_close) / earliest_close
+    pin_score    = clip(trailing_ret / 0.003, [-1, +1])
 ```
 
 Ein Pin-Ziel 0,3 % über dem Spot in einem Positive-Gamma-Regime ergibt einen Pin-Score von +1,0 - der Magnet liegt oben, und die Gravitation wirkt.
 
-Die Vorzeichenumkehr in einem Negative-Gamma-Regime ist der subtile, aber entscheidende Punkt. Derselbe Pin über dem Spot in einem Short-Gamma-Buch erzeugt einen *negativen* Pin-Score, weil Dealer gezwungen sind, Bewegungen *weg* vom Strike zu jagen, statt den Kurs dorthin zu ziehen. Pin-Gravitation ist kein fester Level im Chart - sie ist eine vorzeichenabhängige Kraft.
+In einem Negative-Gamma-Regime trägt die Zielentfernung keine Richtungsinformation, deshalb ignoriert der Term sie und liest stattdessen die jüngste Rendite: Ein Anstieg um 0,3 % über die letzten Schlusskurse ergibt ebenfalls +1,0, ein Rückgang um 0,3 % ergibt −1,0. Fehlt Net GEX oder gibt es weniger als zwei verwertbare Schlusskurse, ist der Pin-Term 0.
+
+**Methodische Einschränkung:** Beide Zweige sind ZeroGEX-Heuristiken mit von Hand gewählten Sättigungspunkten, keine kalibrierten Wahrscheinlichkeiten. Der Negative-Gamma-Zweig bildet die Idee ab, dass negatives Gamma eine bereits laufende Richtung verstärkt; er sagt diese Richtung nicht voraus.
 
 ### Komponente 3: Zeitrampe (Gate)
 
@@ -171,15 +175,15 @@ Das Vorzeichen des Outputs kodiert, in welche Richtung man *faden* sollte - nic
 
 | Score | Label | Interpretation für den Trader |
 |-------|-------|----------------------|
-| +0,5 bis +1,0 | `bullish_fade` | Hochüberzeugter Bear-Trap-Fade. Der Abwärtsbruch ist fake - Rückschnappen nach oben erwartet. |
-| +0,25 bis +0,5 | `bullish_fade` (ausgelöst) | Moderat. Mean-Reversion-Long-Einstiege erwägen. |
-| 0 bis +0,25 | unter Schwelle | Schwache Überzeugung; allein nicht handelbar. |
+| +50 bis +100 | `bullish_fade` | Hochüberzeugter Bear-Trap-Fade. Der Abwärtsbruch ist fake - Rückschnappen nach oben erwartet. |
+| +25 bis +50 | `bullish_fade` (ausgelöst) | Moderat. Mean-Reversion-Long-Einstiege erwägen. |
+| 0 bis +25 | unter Schwelle | Schwache Überzeugung; allein nicht handelbar. |
 | 0 | keine | Keine Falle im Entstehen. Der Standardzustand. |
-| 0 bis −0,25 | unter Schwelle | Schwache Überzeugung. |
-| −0,25 bis −0,5 | `bearish_fade` (ausgelöst) | Moderater Bull-Trap-Fade. Longs faden, Abwärtsumkehr erwarten. |
-| −0,5 bis −1,0 | `bearish_fade` | Hochüberzeugter Bull-Trap-Fade. Rallyes in den Breakout hinein faden. |
+| 0 bis −25 | unter Schwelle | Schwache Überzeugung. |
+| −25 bis −50 | `bearish_fade` (ausgelöst) | Moderater Bull-Trap-Fade. Longs faden, Abwärtsumkehr erwarten. |
+| −50 bis −100 | `bearish_fade` | Hochüberzeugter Bull-Trap-Fade. Rallyes in den Breakout hinein faden. |
 
-Die Auslöseschwelle liegt hier bei **0,25** - bewusst strenger als die 0,20 von EOD Pressure. Trap-Setups brauchen eine höhere Überzeugung, um aktiv auszulösen, weil das Traden gegen einen aktiven Breakout ein höheres Tail-Risk birgt als das Mitziehen mit dem Flow am Handelsschluss.
+Die Auslöseschwelle liegt hier bei **±25** - bewusst strenger als die ±20 von EOD Pressure. Trap-Setups brauchen eine höhere Überzeugung, um aktiv auszulösen, weil das Traden gegen einen aktiven Breakout ein höheres Tail-Risk birgt als das Mitziehen mit dem Flow am Handelsschluss.
 
 ---
 
@@ -261,6 +265,8 @@ score      = clip(bull_score − bear_score, [-1, +1])
 triggered  = abs(score) >= 0.25
 ```
 
+Die Engine rechnet auf −1 bis +1; die Karte zeigt den Score mal 100, `abs(score) >= 0.25` ist also der Trigger bei ±25, den du auf dem Bildschirm siehst.
+
 Beide Seiten-Scores sind nicht negativ. Ihre Differenz kodiert sowohl Richtung als auch Überzeugung kontinuierlich. In dem seltenen Fall, in dem der Kurs zwischen zwei kürzlich gebrochenen Levels eingeklemmt ist, heben sich die beiden Seiten teilweise auf - passend, weil das Setup tatsächlich mehrdeutig ist.
 
 ---
@@ -273,7 +279,7 @@ An den meisten Handelstagen zeigt dieses Signal null an. Die Bedingungen, die es
 - **Negative-Gamma-Regime.** `long_gamma_factor = 0`. In einem Short-Gamma-Buch laufen Breakouts durch - sie faden nicht. Das Signal weigert sich zu Recht auszulösen.
 - **Gamma verstärkt sich nicht.** `strengthening_factor = 0`. Trap-Setups brauchen eine sich aufbauende, nicht abwickelnde Dealer-Positionierung.
 - **Referenzlevel fehlen.** Keine Daten zu `call_wall`, `put_wall`, `max_gamma_strike`, `vwap` oder `gamma_flip` - nichts, was gebrochen werden könnte.
-- **Wall-Migration auf der aktiven Seite.** Bewegt sich der Call Wall zusammen mit dem Kurs nach oben, drückt der 0,3×-Abschlagfaktor den Score oft unter die Auslöseschwelle von 0,25.
+- **Wall-Migration auf der aktiven Seite.** Bewegt sich der Call Wall zusammen mit dem Kurs nach oben, drückt der 0,3×-Abschlagfaktor den Score oft unter die Auslöseschwelle von ±25.
 
 Eine Null von Trap Detection ist *informativ*. Sie sagt dir, dass die Voraussetzungen für einen Fade-the-Breakout-Trade nicht gegeben sind - wenn du also gerade gegen einen Breakout traden willst, sagt dir das Signal implizit, anderswo nach Belegen zu suchen.
 
@@ -285,10 +291,10 @@ Die beiden Signale sind darauf ausgelegt, gemeinsam gelesen zu werden. Sie decke
 
 | EOD Pressure | Trap Detection | Was es bedeutet |
 |--------------|----------------|---------------|
-| +0,5 (bullisch) | +0,4 (`bullish_fade`) | Hohe Überzeugung für Long-bis-zum-Handelsschluss. Die Tendenz zeigt nach oben, und der aktuelle Dip wirkt fake. Intraday-Schwäche faden, ein starkes Schlusskursniveau erwarten. |
-| +0,5 (bullisch) | −0,4 (`bearish_fade`) | Gemischt, aber taktisch nützlich. EOD sagt Tendenz nach oben; Trap sagt, der aktuelle Aufwärts-Breakout ist überzogen. Warten, bis der Fade abgeschlossen ist, dann für den Handelsschluss wieder long einsteigen. |
-| −0,5 (bearisch) | 0 | Sauberstes bearisches Setup. EOD-Tendenz zeigt nach unten, ohne gegenläufiges Fade-Signal. |
-| 0 (aus) | +0,3 (`bullish_fade`) | Eigenständiger Trap-Trade vor dem Zeitfenster. Taktisch, nicht strategisch. Kleinere Size, engerer Stop. |
+| +50 (bullisch) | +40 (`bullish_fade`) | Hohe Überzeugung für Long-bis-zum-Handelsschluss. Die Tendenz zeigt nach oben, und der aktuelle Dip wirkt fake. Intraday-Schwäche faden, ein starkes Schlusskursniveau erwarten. |
+| +50 (bullisch) | −40 (`bearish_fade`) | Gemischt, aber taktisch nützlich. EOD sagt Tendenz nach oben; Trap sagt, der aktuelle Aufwärts-Breakout ist überzogen. Warten, bis der Fade abgeschlossen ist, dann für den Handelsschluss wieder long einsteigen. |
+| −50 (bearisch) | 0 | Sauberstes bearisches Setup. EOD-Tendenz zeigt nach unten, ohne gegenläufiges Fade-Signal. |
+| 0 (aus) | +30 (`bullish_fade`) | Eigenständiger Trap-Trade vor dem Zeitfenster. Taktisch, nicht strategisch. Kleinere Size, engerer Stop. |
 | 0 | 0 | Der Standardzustand für den Großteil des Handelstages. Beide Signale sind so konzipiert, dass sie nur an spezifischen strukturellen Wendepunkten auslösen. |
 
 ---
@@ -317,9 +323,9 @@ Alle diese Werte sind über Umgebungsvariablen im Backend konfigurierbar, aber d
 
 Ein paar Muster, die häufig genug wiederkehren, um direkt erwähnenswert zu sein:
 
-**Die Inflexion um 15:30.** EOD Pressure überschreitet um 15:30 ET die 0,8×-Rampe. Wenn Charm- und Pin-Terme während des frühen Rampenfensters übereingestimmt haben, tendiert die Überzeugung dazu, sich um diese Zeit zu konsolidieren. Vorher positionieren, nicht nachher.
+**Die Inflexion um 15:30.** EOD Pressure überschreitet um 15:30 ET die 0,8×-Rampe. Wenn Charm- und Pin-Terme während des frühen Rampenfensters übereingestimmt haben, tendiert die Überzeugung dazu, sich um diese Zeit zu konsolidieren. Behandle diese Rampe als Modell-Timing, nicht als Aufforderung, dich vorher zu positionieren, und nicht als Beleg dafür, dass Dealer-Orders zeitlich geplant sind.
 
-**Quad Witching ist kein optionaler Kontext.** Der 2,0×-Verstärker an Quad-Witching-Tagen ist groß genug, um ein nicht verstärktes Signal von +0,4 auf +0,8 zu treiben. Solche Tage sollten als strukturell höher überzeugt behandelt werden - und mit strukturell höherem Whipsaw-Risiko früher am Tag, bevor sich das Zeitfenster öffnet.
+**Quad Witching ist kein optionaler Kontext.** Der 2,0×-Verstärker an Quad-Witching-Tagen ist groß genug, um ein nicht verstärktes Signal von +40 auf +80 zu treiben. Solche Tage sollten als strukturell höher überzeugt behandelt werden - und mit strukturell höherem Whipsaw-Risiko früher am Tag, bevor sich das Zeitfenster öffnet.
 
 **Trap Detection ohne Long-Gamma-Bestätigung sollte ignoriert werden.** Dass `long_gamma_factor` die gesamte Seite auf null setzt, ist die wichtigste einzelne Sicherung im Signal. Wenn das übergeordnete Regime Short-Gamma ist - selbst wenn der Score bei einem Randfall mit fehlenden Daten zufällig ungleich null anzeigt -, hält die Trap-These nicht stand. Regime verifizieren.
 

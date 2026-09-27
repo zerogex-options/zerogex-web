@@ -1,5 +1,5 @@
 # EOD Pressure Signal erklärt: den Schluss richtig lesen
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
 *Der praxisnahe Deep-Dive zum ZeroGEX EOD Pressure Signal - was es misst, warum der Schluss strukturell driftet, wie sich der Score aus Charm und Pin Gravity zusammensetzt, und wie man ihn innerhalb der letzten 90 Minuten liest.*
@@ -22,7 +22,7 @@ Das EOD Pressure Signal stellt eine einzige Frage:
 
 > In welche Richtung drückt das forcierte Hedging den Preis Richtung Schluss, gegeben das aktuelle Dealer-Buch und die Nähe eines Magnet-Strikes?
 
-Es ist ein **Advanced**-Signal im ZeroGEX-Stack - es liefert sowohl einen kontinuierlichen Score auf der Zahlengeraden [-1, +1] als auch einen diskreten Trigger, wenn der absolute Score **0,20** überschreitet. Die Schwelle liegt bewusst niedriger als bei anderen Advanced-Signalen, weil der strukturelle Kontext (das Schlussfenster) selbst schon ein Filter ist - wenn EOD Pressure innerhalb des aktiven Fensters 0,15+ anzeigt, ist das bereits richtungsweisend.
+Es ist ein **Advanced**-Signal im ZeroGEX-Stack - es liefert sowohl einen kontinuierlichen Score auf der Linie von -100 bis +100 als auch einen diskreten Trigger, sobald der Score **±20** überschreitet. Die Schwelle liegt bewusst unter der der meisten Advanced-Signale (±25), weil der strukturelle Kontext (das Schlussfenster) selbst schon ein Filter ist - wenn EOD Pressure im aktiven Fenster 15 oder mehr in eine der beiden Richtungen anzeigt, ist das bereits richtungsweisend. Wie alle Advanced-Signale gehört es zu Pro.
 
 Trade-Bias: **gerichtete Lesart**. Das Signal zeigt an, in welche Richtung der Druck geht - es schreibt für sich genommen nicht vor, ob man mitreiten oder dagegen faden soll. Das ergibt sich aus dem Regime-Kontext.
 
@@ -59,19 +59,21 @@ Das Aggregat ist so normiert, dass ±20 Mio. USD an gebucketem Dealer-Charm den 
 
 ### Komponente 2: Pin Gravity
 
-Der Pin-Term bildet den regimeabhängigen Sog des Magnet-Strikes ab:
+Der Pin-Term hängt vom modellierten Gamma-Regime ab:
 
 ```
-pin_target   = max_pain  OR  max_gamma_strike
-distance_pct = (pin_target − close) / close
-normalized   = clip(distance_pct / 0.003, [-1, +1])
-sign         = +1 if net_gex >= 0 else -1
-pin_score    = sign × normalized
+if net_gex >= 0:   # zero or positive gamma: pull toward the magnet
+    pin_target   = max_pain  OR  max_gamma_strike
+    distance_pct = (pin_target − close) / close
+    pin_score    = clip(distance_pct / 0.003, [-1, +1])
+else:              # negative gamma: follow the move already underway
+    trailing_ret = (latest_close − earliest_close) / earliest_close
+    pin_score    = clip(trailing_ret / 0.003, [-1, +1])
 ```
 
-Ein Pin-Ziel 0,3 % über Spot ergibt in einem modellierten Positiv-Gamma-Regime einen Pin-Score von +1,0 - der Magnet liegt oben und die Anziehung wirkt. In einem modellierten Negativ-Gamma-Regime erzeugt derselbe Pin über Spot einen *negativen* Pin-Score, weil die aktuelle Implementierung die Zielentfernung umkehrt, wenn Net GEX negativ ist.
+Ein Pin-Ziel 0,3 % über Spot ergibt in einem modellierten Positiv-Gamma-Regime einen Pin-Score von +1,0 - der Magnet liegt oben und die Anziehung wirkt. In einem modellierten Negativ-Gamma-Regime trägt die Zielentfernung keine Richtungsinformation, deshalb ignoriert der Term sie und liest stattdessen die jüngste Rendite: Ein Anstieg um 0,3 % über die letzten Schlusskurse ergibt ebenfalls +1,0, ein Rückgang um 0,3 % ergibt -1,0. Fehlt Net GEX oder gibt es weniger als zwei verwertbare Schlusskurse, ist der Pin-Term 0.
 
-**Methodische Einschränkung:** Die Umkehr bei negativem Gamma ist eine ZeroGEX-Heuristik, keine mechanische Folge. Negatives Gamma verstärkt eine bereits laufende Richtung; die Zielentfernung allein bestimmt diese Richtung nicht.
+**Methodische Einschränkung:** Beide Zweige sind ZeroGEX-Heuristiken mit von Hand gewählten Sättigungspunkten, keine kalibrierten Wahrscheinlichkeiten. Der Negativ-Gamma-Zweig bildet die Idee ab, dass negatives Gamma eine bereits laufende Richtung verstärkt; er sagt diese Richtung nicht voraus.
 
 ### Komponente 3: Zeitrampe (die Sperre)
 
@@ -111,6 +113,8 @@ combined = (0.6 × charm_score + 0.4 × pin_score) × amp × ramp
 score    = clip(combined, [-1, +1])
 ```
 
+Die Rechnung läuft auf -1 bis +1; Karte und Signalseite zeigen das Ergebnis mal 100, ein Score von 0,55 erscheint dort also als 55.
+
 Die 60/40-Gewichtung spiegelt eine bewusste Haltung wider: **Charm ist das direkte Maß für erzwungenen Hedge-Flow**, während **Pin Gravity der indirekte, regimeabhängige Sog ist**. Beides zählt. Charm führt.
 
 ---
@@ -119,13 +123,13 @@ Die 60/40-Gewichtung spiegelt eine bewusste Haltung wider: **Charm ist das direk
 
 | Score | Lesart |
 |---|---|
-| +0,6 bis +1,0 | Starke Aufwärtsdrift Richtung Schluss erwartet |
-| +0,2 bis +0,6 | Leichte Aufwärtsdrift - Intraday-Bias spricht für Long halten, aber nicht aggressiv aufstocken |
-| -0,2 bis +0,2 | Kein Edge - entweder noch zu früh im Fenster, oder die Terme heben sich auf |
-| -0,2 bis -0,6 | Leichte Abwärtsdrift |
-| -0,6 bis -1,0 | Starke Abwärtsdrift Richtung Schluss erwartet |
+| +60 bis +100 | Starke Aufwärtsdrift Richtung Schluss erwartet |
+| +20 bis +60 | Leichte Aufwärtsdrift - Intraday-Bias spricht für Long halten, aber nicht aggressiv aufstocken |
+| -20 bis +20 | Kein Edge - entweder noch zu früh im Fenster, oder die Terme heben sich auf |
+| -20 bis -60 | Leichte Abwärtsdrift |
+| -60 bis -100 | Starke Abwärtsdrift Richtung Schluss erwartet |
 
-Die Trigger-Schwelle liegt bei **0,20** - niedriger als das übliche 0,25 - weil das Fenster selbst schon die Filterung übernimmt.
+Die Trigger-Schwelle liegt bei **±20** - niedriger als das übliche ±25 - weil das Fenster selbst schon die Filterung übernimmt.
 
 ---
 
@@ -154,11 +158,11 @@ Vor 14:30 ET ist EOD Pressure per Konstruktion null. Nutze die Zeit vor dem Fens
 
 ### 2. Der 15:30-Wendepunkt
 
-EOD Pressure überschreitet um 15:30 ET die 0,8×-Rampe. Wenn Charm- und Pin-Term während des frühen Rampenfensters (14:45-15:30) übereingestimmt haben, verdichtet sich die Überzeugung tendenziell um 15:30. Positioniere dich vorher, nicht nachher.
+EOD Pressure überschreitet um 15:30 ET die 0,8×-Rampe. Wenn Charm- und Pin-Term während des frühen Rampenfensters (14:45-15:30) übereingestimmt haben, verdichtet sich die Überzeugung tendenziell um 15:30. Behandle diese Rampe als Modell-Timing, nicht als Aufforderung, dich vorher zu positionieren, und nicht als Beleg dafür, dass Dealer-Orders zeitlich geplant sind.
 
 ### 3. Quad Witching ist struktureller Kontext
 
-Der 2,0×-Verstärker an Quad-Witching-Tagen ist groß genug, um ein unverstärktes Signal von +0,4 auf verstärkte +0,8 zu heben. Behandle diese Tage als strukturell überzeugungsstärker - und mit strukturell höherem Whipsaw-Risiko früher am Tag, bevor das Fenster öffnet.
+Der 2,0×-Verstärker an Quad-Witching-Tagen ist groß genug, um ein unverstärktes Signal von +40 auf verstärkte +80 zu heben. Behandle diese Tage als strukturell überzeugungsstärker - und mit strukturell höherem Whipsaw-Risiko früher am Tag, bevor das Fenster öffnet.
 
 ---
 
@@ -167,7 +171,7 @@ Der 2,0×-Verstärker an Quad-Witching-Tagen ist groß genug, um ein unverstärk
 EOD Pressure ist eine **gerichtete Lesart** - sie zeigt, wohin der Druck zeigt, ohne für sich genommen mitreiten-versus-faden vorzuschreiben. Die Fade-versus-Ride-Entscheidung kommt aus dem Regime:
 
 - **Positive-Gamma-Regime + positiver EOD-Pressure-Score:** Die Drift geht nach oben, das Dealer-Hedging dämpft - die Lesart spricht dafür, sich *mit* der Drift zum Magnet-Strike zu positionieren (Schwäche kaufen, statt in sie hinein zu faden) und nur Überschüsse jenseits des Magneten zu faden.
-- **Negative-Gamma-Regime + positiver EOD-Pressure-Score:** Das Signal liest einen charm-getriebenen Aufwärts-Bias, aber in einem Short-Gamma-Regime verstärkt der Dealer-Reflex, statt zu dämpfen - eine Momentum-Fortsetzung ist wahrscheinlicher.
+- **Negative-Gamma-Regime + positiver EOD-Pressure-Score:** Der Score verbindet eine charm-getriebene Neigung mit der jüngsten Bewegung (bei negativem Gamma folgt der Pin-Term der bereits laufenden Richtung), und der Dealer-Reflex wird als verstärkend statt dämpfend modelliert - eine Fortsetzung des Momentums ist wahrscheinlicher.
 
 Kombiniert mit anderen Signalen:
 
@@ -182,8 +186,8 @@ Kombiniert mit anderen Signalen:
 Drei Fallen:
 
 - **Eine Null vor dem Fenster als "heute kein Signal" interpretieren.** Das Fenster hat noch nicht geöffnet. Das Signal ist *strukturell inaktiv*, nicht informationslos.
-- **Den regimeabhängigen Vorzeichenwechsel bei Pin Gravity ignorieren.** Ein schwerer Strike über dem Spot zieht in einem Long-Gamma-Regime *nach oben* und stößt in einem Short-Gamma-Regime *nach unten ab*. Dasselbe Chartlevel bedeutet in den beiden Regimen das Gegenteil.
-- **Den Rohscore ohne die Rampe traden.** Ein Wert von +0,4 um 14:45 (Rampe 0,20) entspricht in Wirklichkeit einem effektiven Score von +0,08. Lies die rampenbereinigte Magnitude, nicht den rohen Eingabewert.
+- **Den Regimewechsel bei Pin Gravity ignorieren.** Die Anziehung zum Ziel bei positivem Gamma ist eine Modellheuristik. Bei negativem Gamma betrachtet der Pin-Term das Ziel gar nicht mehr und folgt stattdessen der jüngsten Bewegung - ebenfalls eine Hausheuristik, keine mechanische Gewissheit.
+- **Den Rohscore ohne die Rampe traden.** Ein Wert von +40 um 14:45 (Rampe 0,20) entspricht in Wirklichkeit einem effektiven Score von +8. Lies die rampenbereinigte Magnitude, nicht den rohen Eingabewert.
 
 ---
 
@@ -192,14 +196,14 @@ Drei Fallen:
 Das Dashboard zeigt es an mehreren Stellen:
 
 - **Die EOD-Pressure-Karte** zeigt den Live-Score, den Trigger-Status und die Komponenten-Aufschlüsselung (Charm- vs. Pin-Beiträge).
-- **Der Composite Signal Score** integriert EOD Pressure als einen Input.
-- **Der Trade Stream** markiert `eod_pressure`-gegatete Playbook-Trades, wenn sie auslösen.
+- **Die Event Timeline** auf der Seite des Signals zeigt den jüngsten Verlauf des Scores, Richtungswechsel sind markiert.
+- **Signal Breadth** im Bereich Proprietäre Signale des Dashboards zählt es als eine der Richtungsstimmen. (Es ist kein Input des Composite MSI, der aus seinen eigenen sechs Komponenten besteht.)
 
 *[Bild-Platzhalter: ZeroGEX EOD-Pressure-Karte mit Score, Komponenten und Rampenstatus während des aktiven Fensters - Datei ablegen unter /public/blog/zerogex-eod-pressure-card.png]*
 
 Ein durchgerechnetes Beispiel. Der SPX steht um 15:15 ET an einem monatlichen OPEX-Freitag bei 5.825, und ZeroGEX zeigt:
 
-- **EOD Pressure:** -0,55 (bearish ausgelöst)
+- **EOD Pressure:** -55 (bearish ausgelöst)
 - **Net GEX:** +1,2 Mrd. USD (positiv)
 - **Gamma Flip:** Spot liegt bei +15 (über dem Flip)
 - **Max Pain:** 5.810 (unter Spot)
@@ -220,4 +224,4 @@ Nur Bildungsinhalt - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die heutige EOD-Pressure-Lesart während des aktiven Fensters in Echtzeit sehen möchtest, zusammen mit Trap Detection und dem Regime-Kontext, zeigt dir das kostenlose ZeroGEX-Dashboard das alles.
+Wenn du die heutige EOD-Pressure-Lesart während des aktiven Fensters in Echtzeit sehen möchtest, zusammen mit Trap Detection und dem Regime-Kontext, zeigt dir ZeroGEX Pro das alles im Advanced Signal Dashboard.

@@ -1,5 +1,5 @@
 # Warum scheitern Breakouts? Der strukturelle Grund hinter fehlgeschlagenen Breakouts
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
 *Warum scheitern Breakouts so oft? Das Muster ist kein Zufall - gescheiterte Breakouts haben eine strukturelle Ursache, die im Dealer-Hedging, im Gamma-Regime und darin verwurzelt ist, wie sich Positionierung genau an dem Level konzentriert, das der Preis zu durchbrechen versucht. Darauf solltest du achten, bevor du dem Move hinterherjagst.*
@@ -90,13 +90,13 @@ Wenn die meisten dieser Bedingungen zutreffen, ist es die Lesart mit der höhere
 
 ## Wie man das bei ZeroGEX in Echtzeit liest
 
-Die kostenlose `/spx-gamma-levels`-Ansicht zeigt die drei Bedingungen nebeneinander:
+Die kostenlose `/spx-gamma-levels`-Ansicht, rund 15 Minuten verzögert, zeigt die drei Bedingungen nebeneinander:
 
 - **Gamma Flip Card** - zeigt dir, in welchem Regime du dich befindest.
 - **Net GEX Card** - zeigt dir die Größenordnung und (im Zeitverlauf) die Entwicklung der Dealer-Positionierung.
-- **Call Wall Card** - zeigt dir den aktuell gewichtigsten Call-Strike mit Live-Abstand zum Spot.
+- **Call Wall Card** - zeigt dir den aktuell gewichtigsten Call-Strike mit seinem Abstand zum Spot.
 
-Bezahlte Pläne ergänzen das **Trap Detection**-Signal, das mit einem Score von [-1, +1] bewertet, wie strukturell wahrscheinlich es ist, dass der aktuelle Ausbruch scheitert. Eine ausgelöste Bearish-Fade-Lesart bedeutet, dass sich *alle drei* der oben genannten Bedingungen auf der Seite des Scheiterns stapeln.
+Beide bezahlten Pläne zeigen diese Levels in Echtzeit, und ZeroGEX Pro ergänzt das **Trap Detection**-Signal, das mit einem Score von -100 bis +100 bewertet, wie strukturell wahrscheinlich es ist, dass der aktuelle Ausbruch scheitert. Eine ausgelöste Bearish-Fade-Lesart bedeutet, dass sich *alle drei* der oben genannten Bedingungen auf der Seite des Scheiterns stapeln.
 
 Ein Beispiel aus der Praxis. SPY steht bei 583,20 und ZeroGEX zeigt:
 
@@ -131,4 +131,4 @@ Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Gamma Flip, das Net GEX und die Live-Positionierung der Wall sehen möchtest, bevor du deinen nächsten Breakout-Trade eingehst, zeigt dir die kostenlose ZeroGEX-Gamma-Levels-Ansicht alle drei für SPY, SPX, QQQ und NDX.
+Wenn du den heutigen Gamma Flip, das Net GEX und die Positionierung der Wall sehen möchtest, bevor du deinen nächsten Breakout-Trade eingehst, zeigen dir die kostenlosen ZeroGEX-Gamma-Levels-Seiten alle drei für SPY, SPX, QQQ und NDX, mit rund 15 Minuten Verzögerung.

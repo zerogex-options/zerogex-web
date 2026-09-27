@@ -1,5 +1,5 @@
 # Le signal Positioning Trap expliqué : parier contre la foule
-> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. Qu’en gamma négatif le terme de pin d’EOD Pressure suive le mouvement récent est une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
 
 *L'analyse approfondie et pratique du signal Positioning Trap de ZeroGEX - ce qu'il mesure, pourquoi les trades d'options surpeuplés se cassent, comment le score est construit, et comment l'utiliser pour parier contre la foule au lieu de se faire piéger avec elle.*
@@ -22,7 +22,7 @@ Le signal Positioning Trap pose une seule question :
 
 > La foule d'options est-elle mal positionnée - et le tape commence-t-il à se retourner contre le pari surpeuplé ?
 
-C'est un signal **Basic** dans la pile ZeroGEX - il produit un score continu sur la droite numérique [-1, +1], pondéré dans le composite MSI à **0,06**, et il ne génère pas de déclenchements discrets comme le font les signaux Advanced. (Plus de détails sur cette distinction ci-dessous.)
+C'est un signal **Basic** dans la pile ZeroGEX - il produit un score continu sur une échelle de -100 à +100, n'a aucun poids dans le Composite MSI, et ne génère pas de déclenchements discrets comme le font les signaux Advanced. (Plus de détails sur cette distinction ci-dessous.) Il est inclus dans Basic et dans Pro.
 
 Biais de trade : **retour à la moyenne (mean-reversion)**. Lorsque Positioning Trap est actif, il pointe vers le *fade* - trader contre le côté surpeuplé, en pariant que le tape se retourne contre lui.
 
@@ -66,7 +66,7 @@ side_score = 0.45 × crowding
            + 0.05 × negative_GEX_regime
 ```
 
-Les deux côtés sont ensuite nettés en un seul score dans [-1, +1].
+Les deux côtés sont ensuite nettés en un seul score dans [-1, +1], que la carte et la page du signal affichent multiplié par 100 (-100 à +100).
 
 Quelques remarques sur les pondérations :
 
@@ -81,11 +81,11 @@ Le score est continu. Il ne se déclenche pas. Cela nous amène à la distinctio
 
 ## Pourquoi Positioning Trap est un signal Basic
 
-La plupart des signaux de la pile ZeroGEX sont **Advanced** - ils déclenchent des événements discrets lorsque le score franchit un seuil, et ces déclenchements débloquent des playbooks. Positioning Trap est **Basic** - il ne se déclenche jamais. Il alimente à la place le composite MSI en continu avec une pondération fixe de 0,06.
+La plupart des signaux de la pile ZeroGEX sont **Advanced** - ils déclenchent des événements discrets lorsque le score franchit un seuil, et ces déclenchements débloquent des playbooks. Positioning Trap est **Basic** - le moteur ne le déclenche jamais, et il n'a aucun poids dans le Composite MSI. C'est une lecture indicative : sa carte s'allume en *Triggered* à partir de ±25, mais ce n'est qu'une mise en évidence sur la carte, pas un déclenchement du moteur.
 
-Pourquoi cette différence ? Parce que Positioning Trap est une *condition*, pas un événement. Un trade surpeuplé est une toile de fond qui dure des heures ou des jours - pas un instant. La bonne façon de le faire ressortir est comme une impulsion continue à la lecture du composite, pas comme une alerte ponctuelle.
+Pourquoi cette différence ? Parce que Positioning Trap est une *condition*, pas un événement. Un trade surpeuplé est une toile de fond qui dure des heures ou des jours - pas un instant. La bonne façon de le faire ressortir est comme une lecture continue et indicative, pas comme une alerte ponctuelle.
 
-Conséquence pratique : n'attendez pas que Positioning Trap « se déclenche ». Surveillez le score. Une lecture persistante de +0,5 est le setup structurel - le trade arrive quand un *autre* signal (typiquement Trap Detection ou une rupture de niveau de prix) se déclenche pendant que Positioning Trap est chargé.
+Conséquence pratique : n'attendez pas que Positioning Trap « se déclenche ». Surveillez le score. Une lecture persistante de +50 est le setup structurel - le trade arrive quand un *autre* signal (typiquement Trap Detection ou une rupture de niveau de prix) se déclenche pendant que Positioning Trap est chargé.
 
 ---
 
@@ -93,13 +93,13 @@ Conséquence pratique : n'attendez pas que Positioning Trap « se déclenche ».
 
 | Score | Lecture |
 |---|---|
-| +0,5 à +1,0 | Foule short à risque significatif - squeeze haussier de short-cover en cours de chargement |
-| +0,2 à +0,5 | Foule short légèrement mal positionnée - informatif, pas encore pressant |
-| -0,2 à +0,2 | Aucun extrême de foule clair |
-| -0,2 à -0,5 | Foule long légèrement mal positionnée - informatif, pas encore pressant |
-| -0,5 à -1,0 | Foule long à risque significatif - flush baissier en cours de chargement |
+| +50 à +100 | Foule short à risque significatif - squeeze haussier de short-cover en cours de chargement |
+| +20 à +50 | Foule short légèrement mal positionnée - informatif, pas encore pressant |
+| -20 à +20 | Aucun extrême de foule clair |
+| -20 à -50 | Foule long légèrement mal positionnée - informatif, pas encore pressant |
+| -50 à -100 | Foule long à risque significatif - flush baissier en cours de chargement |
 
-Le playbook `positioning_trap_squeeze` se débloque à **abs(score) ≥ 0,5** - plus élevé que le déclenchement Advanced typique. Positioning Trap nécessite une conviction plus profonde pour agir, car trader contre la foule est structurellement plus risqué que suivre le momentum.
+Le playbook `positioning_trap_squeeze` se débloque à **±50** - plus élevé que le déclenchement Advanced typique (±25). Positioning Trap nécessite une conviction plus profonde pour agir, car trader contre la foule est structurellement plus risqué que suivre le momentum.
 
 ---
 
@@ -107,10 +107,10 @@ Le playbook `positioning_trap_squeeze` se débloque à **abs(score) ≥ 0,5** -
 
 Une courte liste d'états :
 
-- **Silencieux (-0,2 à +0,2) :** La plupart du temps, sur la plupart des symboles, la foule n'est pas assez déséquilibrée pour compter. Traitez le signal comme éteint.
-- **Chargé mais pas pressant (0,2-0,5) :** La foule penche, mais pas encore au niveau où un côté est clairement mal positionné. Surveillez les changements.
-- **Pressant (0,5+) :** La foule est au seuil où un flush ou un squeeze est structurellement en place. Le piège est chargé ; il manque l'étincelle.
-- **Renversement sous le seuil :** Un +0,5 persistant qui retombe à +0,1 suggère que le crowding a déjà commencé à se dénouer - probablement trop tard pour le fade.
+- **Silencieux (-20 à +20) :** La plupart du temps, sur la plupart des symboles, la foule n'est pas assez déséquilibrée pour compter. Traitez le signal comme éteint.
+- **Chargé mais pas pressant (20-50) :** La foule penche, mais pas encore au niveau où un côté est clairement mal positionné. Surveillez les changements.
+- **Pressant (50+) :** La foule est au seuil où un flush ou un squeeze est structurellement en place. Le piège est chargé ; il manque l'étincelle.
+- **Renversement sous le seuil :** Un +50 persistant qui retombe à +10 suggère que le crowding a déjà commencé à se dénouer - probablement trop tard pour le fade.
 
 ---
 
@@ -142,7 +142,7 @@ Quelques lectures croisées :
 
 Trois pièges :
 
-- **Traiter Positioning Trap comme un déclencheur.** Ce n'est pas le cas. Le seuil de 0,5 débloque un playbook, mais le signal lui-même ne « se déclenche » pas - il n'y a pas d'événement. Lisez le score en continu.
+- **Traiter Positioning Trap comme un déclencheur.** Ce n'est pas le cas. Le seuil de ±50 débloque un playbook et la carte s'allume à partir de ±25, mais le moteur ne déclenche jamais le signal lui-même - il n'y a pas d'événement. Lisez le score en continu.
 - **Trader uniquement sur la base de Positioning Trap.** Les trades surpeuplés se cassent, mais ils persistent aussi. Sans une étincelle provenant d'un autre signal ou une rupture de niveau, le fade n'est pas calibré.
 - **Ignorer le régime.** Un piège chargé dans un régime short-gamma profond est un fade bien plus risqué - la couverture des dealers amplifie les mouvements, donc la foule pourrait ne pas se casser de la manière que suggère la réflexivité structurelle.
 
@@ -153,17 +153,17 @@ Trois pièges :
 Le signal alimente plusieurs panneaux :
 
 - **La carte Positioning Trap** affiche le score en direct et le côté qui est mal positionné.
-- **Le MSI Composite Score** intègre Positioning Trap avec une pondération de 0,06 aux côtés des autres signaux Basic.
-- **Le playbook `positioning_trap_squeeze`** débloque l'entrée lorsque abs(score) franchit 0,5.
+- **Signal Breadth**, dans le panneau Signaux Propriétaires du tableau de bord, le compte comme l'un des votes directionnels. (Ce n'est pas un input du Composite MSI.)
+- **Le playbook `positioning_trap_squeeze`** débloque l'entrée lorsque le score franchit ±50.
 
 *[Emplacement image : carte Positioning Trap de ZeroGEX avec score en direct et lecture du côté mal positionné - déposer le fichier à /public/blog/zerogex-positioning-trap-card.png]*
 
 Un exemple concret. Le SPX glisse lentement vers le bas et ZeroGEX affiche :
 
-- **Positioning Trap :** +0,62 (foule short mal positionnée)
+- **Positioning Trap :** +62 (foule short mal positionnée)
 - **Net GEX :** +1,4 Md$
 - **Trap Detection :** 0
-- **Squeeze Setup :** +0,31
+- **Squeeze Setup :** +31
 
 La lecture structurelle : la foule short est chargée, le régime est long-gamma (les dealers s'opposent à la poussée de la foule, soutenant un retournement), Squeeze Setup penche haussier, et Trap Detection est silencieux (pas de rupture baissière échouée récente à fader *pour l'instant*). Inclinaison pratique : le squeeze haussier de short-cover est le chemin le plus probable ; attendez l'étincelle, puis tradez dans la direction que pointe Positioning Trap.
 
@@ -179,4 +179,4 @@ Contenu éducatif uniquement - rien de ce qui précède ne constitue une recomm
 
 ---
 
-Si vous voulez voir la lecture du jour de Positioning Trap en temps réel aux côtés de Trap Detection, Squeeze Setup et du contexte de régime, le tableau de bord gratuit de ZeroGEX affiche tout cela.
+Si vous voulez voir la lecture du jour de Positioning Trap en temps réel aux côtés de Trap Detection, Squeeze Setup et du contexte de régime, ZeroGEX Pro affiche tout cela.

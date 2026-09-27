@@ -1,5 +1,5 @@
 # La señal Positioning Trap explicada: operar contra la masa
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
 
 *El análisis práctico en profundidad de la señal Positioning Trap de ZeroGEX - qué mide, por qué las operaciones de opciones masificadas se rompen, cómo se construye el score y cómo usarla para operar contra la masa en lugar de quedar atrapado con ella.*
@@ -22,7 +22,7 @@ La señal Positioning Trap plantea una sola pregunta:
 
 > ¿Está la masa de opciones mal posicionada - y está la cinta empezando a girar contra la apuesta masificada?
 
-Es una señal **Basic** dentro del stack de ZeroGEX - produce un score continuo en la recta numérica [-1, +1], ponderado dentro del compuesto MSI con un **0.06**, y no genera triggers discretos como sí lo hacen las señales Advanced. (Más sobre esta distinción más abajo.)
+Es una señal **Basic** dentro del stack de ZeroGEX - produce un score continuo en la escala de -100 a +100, no tiene peso en el Composite MSI y no genera triggers discretos como sí lo hacen las señales Advanced. (Más sobre esta distinción más abajo.) Está incluida en Basic y en Pro.
 
 Sesgo de la operación: **reversión a la media**. Cuando Positioning Trap está activa, apunta al *fade* - operar contra el lado masificado, apostando a que la cinta gire en su contra.
 
@@ -66,7 +66,7 @@ side_score = 0.45 × crowding
            + 0.05 × negative_GEX_regime
 ```
 
-Luego los dos lados se netean en un único score dentro de [-1, +1].
+Luego los dos lados se netean en un único score dentro de [-1, +1], que la tarjeta y la página de la señal muestran multiplicado por 100 (-100 a +100).
 
 Algunas cosas a notar sobre las ponderaciones:
 
@@ -81,11 +81,11 @@ El score es continuo. No genera triggers. Eso nos lleva a la distinción clave d
 
 ## Por qué Positioning Trap es una señal Basic
 
-La mayoría de las señales del stack de ZeroGEX son **Advanced** - generan triggers discretos cuando el score cruza un umbral, y esos triggers habilitan playbooks. Positioning Trap es **Basic** - nunca genera un trigger. En cambio, alimenta el compuesto MSI de forma continua con un peso fijo de 0.06.
+La mayoría de las señales del stack de ZeroGEX son **Advanced** - generan triggers discretos cuando el score cruza un umbral, y esos triggers habilitan playbooks. Positioning Trap es **Basic** - el motor nunca genera un trigger con ella, y no tiene peso en el Composite MSI. Es una lectura orientativa: su tarjeta se ilumina como *Triggered* a partir de ±25, pero eso es solo un resaltado en la tarjeta, no un trigger del motor.
 
-¿Por qué la diferencia? Porque Positioning Trap es una *condición*, no un evento. Una operación masificada es un trasfondo que dura horas o días - no un instante. La forma correcta de ponerla en la superficie es como un empujón continuo a la lectura del compuesto, no como una alerta puntual.
+¿Por qué la diferencia? Porque Positioning Trap es una *condición*, no un evento. Una operación masificada es un trasfondo que dura horas o días - no un instante. La forma correcta de ponerla en la superficie es como una lectura continua y orientativa, no como una alerta puntual.
 
-Consecuencia práctica: no esperes a que Positioning Trap "se dispare". Observa el score. Una lectura persistente de +0.5 es el setup estructural - la operación llega cuando *otra* señal (típicamente Trap Detection o una ruptura de nivel de precio) se dispara mientras Positioning Trap está cargada.
+Consecuencia práctica: no esperes a que Positioning Trap "se dispare". Observa el score. Una lectura persistente de +50 es el setup estructural - la operación llega cuando *otra* señal (típicamente Trap Detection o una ruptura de nivel de precio) se dispara mientras Positioning Trap está cargada.
 
 ---
 
@@ -93,13 +93,13 @@ Consecuencia práctica: no esperes a que Positioning Trap "se dispare". Observa 
 
 | Score | Lectura |
 |---|---|
-| +0.5 a +1.0 | Masa short en riesgo significativo - squeeze alcista de short-cover cargándose |
-| +0.2 a +0.5 | Masa short ligeramente mal posicionada - informativo, aún no apremiante |
-| -0.2 a +0.2 | Sin extremo de masa claro |
-| -0.2 a -0.5 | Masa long ligeramente mal posicionada - informativo, aún no apremiante |
-| -0.5 a -1.0 | Masa long en riesgo significativo - flush bajista cargándose |
+| +50 a +100 | Masa short en riesgo significativo - squeeze alcista de short-cover cargándose |
+| +20 a +50 | Masa short ligeramente mal posicionada - informativo, aún no apremiante |
+| -20 a +20 | Sin extremo de masa claro |
+| -20 a -50 | Masa long ligeramente mal posicionada - informativo, aún no apremiante |
+| -50 a -100 | Masa long en riesgo significativo - flush bajista cargándose |
 
-El playbook `positioning_trap_squeeze` habilita en **abs(score) ≥ 0.5** - más alto que el trigger Advanced típico. Positioning Trap necesita una convicción más profunda para actuar, porque operar contra la masa es estructuralmente más arriesgado que ir con el momentum.
+El playbook `positioning_trap_squeeze` habilita en **±50** - más alto que el trigger Advanced típico (±25). Positioning Trap necesita una convicción más profunda para actuar, porque operar contra la masa es estructuralmente más arriesgado que ir con el momentum.
 
 ---
 
@@ -107,10 +107,10 @@ El playbook `positioning_trap_squeeze` habilita en **abs(score) ≥ 0.5** - má
 
 Una breve lista de estados:
 
-- **En silencio (-0.2 a +0.2):** La mayor parte del tiempo, en la mayoría de los símbolos, la masa no está lo suficientemente desequilibrada como para importar. Trata la señal como apagada.
-- **Cargada pero no apremiante (0.2-0.5):** La masa se está inclinando, pero aún no al nivel en que un lado esté claramente mal posicionado. Observa los cambios.
-- **Apremiante (0.5+):** La masa está en el umbral en el que un flush o squeeze está estructuralmente montado. La trampa está cargada; falta la chispa.
-- **Reversión por debajo del umbral:** Un +0.5 persistente que cae a +0.1 sugiere que la masificación ya ha empezado a deshacerse - probablemente demasiado tarde para el fade.
+- **En silencio (-20 a +20):** La mayor parte del tiempo, en la mayoría de los símbolos, la masa no está lo suficientemente desequilibrada como para importar. Trata la señal como apagada.
+- **Cargada pero no apremiante (20-50):** La masa se está inclinando, pero aún no al nivel en que un lado esté claramente mal posicionado. Observa los cambios.
+- **Apremiante (50+):** La masa está en el umbral en el que un flush o squeeze está estructuralmente montado. La trampa está cargada; falta la chispa.
+- **Reversión por debajo del umbral:** Un +50 persistente que cae a +10 sugiere que la masificación ya ha empezado a deshacerse - probablemente demasiado tarde para el fade.
 
 ---
 
@@ -142,7 +142,7 @@ Algunas lecturas cruzadas:
 
 Tres trampas:
 
-- **Tratar Positioning Trap como un trigger.** No lo es. El umbral de 0.5 habilita un playbook, pero la señal en sí no "se dispara" - no hay evento. Lee el score de forma continua.
+- **Tratar Positioning Trap como un trigger.** No lo es. El umbral de ±50 habilita un playbook y la tarjeta se ilumina a partir de ±25, pero el motor nunca dispara la señal en sí - no hay evento. Lee el score de forma continua.
 - **Operar solo con base en Positioning Trap.** Las operaciones masificadas se rompen, pero también persisten. Sin una chispa de otra señal o una ruptura de nivel, el fade no está calibrado.
 - **Ignorar el régimen.** Una trampa cargada en un régimen short-gamma profundo es un fade mucho más arriesgado - la cobertura de los dealers está amplificando los movimientos, por lo que la masa puede no romperse de la forma que sugiere la reflexividad estructural.
 
@@ -153,17 +153,17 @@ Tres trampas:
 La señal alimenta varios paneles:
 
 - **La tarjeta Positioning Trap** muestra el score en vivo y el lado que está mal posicionado.
-- **El MSI Composite Score** integra Positioning Trap con un peso de 0.06 junto con las demás señales Basic.
-- **El playbook `positioning_trap_squeeze`** habilita la entrada cuando abs(score) cruza 0.5.
+- **Signal Breadth** en el panel Señales Propietarias del dashboard la cuenta como uno de los votos direccionales. (No es un input del Composite MSI.)
+- **El playbook `positioning_trap_squeeze`** habilita la entrada cuando el score cruza ±50.
 
 *[Marcador de imagen: tarjeta Positioning Trap de ZeroGEX con score en vivo y lectura del lado mal posicionado - colocar el archivo en /public/blog/zerogex-positioning-trap-card.png]*
 
 Un ejemplo desarrollado. El SPX está cayendo lentamente y ZeroGEX muestra:
 
-- **Positioning Trap:** +0.62 (masa short mal posicionada)
+- **Positioning Trap:** +62 (masa short mal posicionada)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
-- **Squeeze Setup:** +0.31
+- **Squeeze Setup:** +31
 
 La lectura estructural: la masa short está cargada, el régimen es long-gamma (los dealers contrarrestan el empuje de la masa, favoreciendo una reversión), Squeeze Setup se inclina alcista, y Trap Detection está en silencio (sin ruptura bajista fallida reciente que fadear *todavía*). Inclinación práctica: el squeeze alcista de short-cover es el camino de mayor probabilidad; espera la chispa y luego opera en la dirección hacia la que apunta Positioning Trap.
 
@@ -179,4 +179,4 @@ Solo contenido educativo - nada de lo anterior es una recomendación de inversi
 
 ---
 
-Si quieres ver la lectura de hoy de Positioning Trap en tiempo real junto con Trap Detection, Squeeze Setup y el contexto de régimen, el panel gratuito de ZeroGEX muestra todo esto.
+Si quieres ver la lectura de hoy de Positioning Trap en tiempo real junto con Trap Detection, Squeeze Setup y el contexto de régimen, ZeroGEX Pro muestra todo esto.

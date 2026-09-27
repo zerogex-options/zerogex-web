@@ -8,7 +8,7 @@
 
 ZeroGEX runs two families of signals, and they behave differently by design.
 
-**Advanced signals** answer a sharp, situational question ("is the close getting pinned?", "did this breakout just fail?"). Each one produces a score on a **-100 to +100** line *and* a discrete **trigger**: when the signal's trigger condition is met - usually the score crossing a threshold - its card switches from *Stand by* to *Triggered*, and the trigger is logged on the signal's Event Timeline. They are event-driven, and they are part of Pro.
+**Advanced signals** answer a sharp, situational question ("is the close getting pinned?", "did this breakout just fail?"). Each one produces a score on a **-100 to +100** line *and* a discrete **trigger**: when the signal's trigger condition is met - usually the score crossing a threshold - its card switches from *Stand by* to *Triggered* for as long as the condition holds. They are event-driven, and they are part of Pro.
 
 **Basic signals** are continuous, advisory reads. They carry no weight in the **Composite MSI**, which is built from six components of its own, and the engine never triggers on them. Their value is as an early warning: when they disagree with the MSI, a regime shift may be coming before the MSI moves. They are in Basic and Pro.
 
@@ -103,7 +103,7 @@ When several signals from the **same** bucket align, conviction compounds. When 
 
 Advanced and Basic signals are not just "harder" and "easier" versions of each other - they are wired into the system differently.
 
-- **Advanced signals fire discrete triggers.** Most trigger when the score crosses ±25 (±20 for EOD Pressure and Gamma/VWAP Confluence); Range Break Imminence and Market Pressure trigger on imminence and loading instead. The card switches to *Triggered* and the trigger goes on the signal's Event Timeline. Between triggers the score is informational.
+- **Advanced signals fire discrete triggers.** Most trigger when the score crosses ±25 (±20 for EOD Pressure and Gamma/VWAP Confluence); Range Break Imminence and Market Pressure trigger on imminence and loading instead. The card switches to *Triggered* while the condition holds, and the signal's Event Timeline charts the score's recent path, so you can see when it crossed. Between triggers the score is informational.
 - **Basic signals never trigger in the engine.** They are continuous, advisory reads with no weight in the Composite MSI. Watch them for divergence: flow reads turning against the structure is the early warning they exist for.
 
-Triggers show in the app - on the Advanced cards and their Event Timelines - not by email, SMS or push.
+Triggers show in the app only, on the Advanced cards; each signal's Event Timeline charts its score history. Nothing is sent by email, SMS or push.

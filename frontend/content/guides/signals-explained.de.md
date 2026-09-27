@@ -8,7 +8,7 @@
 
 ZeroGEX betreibt zwei Signalfamilien, und sie verhalten sich absichtlich unterschiedlich.
 
-**Advanced-Signale** beantworten eine scharfe, situative Frage ("wird der Schlusskurs gerade gepinnt?", "ist dieser Breakout gerade gescheitert?"). Jedes erzeugt einen Score auf einer Linie von **-100 bis +100** *und* einen diskreten **Trigger**: Sobald die Trigger-Bedingung des Signals erfüllt ist - meist, weil der Score eine Schwelle überschreitet -, springt seine Karte von *Stand by* auf *Triggered*, und der Trigger wird in der Event Timeline des Signals festgehalten. Sie sind ereignisgesteuert und gehören zu Pro.
+**Advanced-Signale** beantworten eine scharfe, situative Frage ("wird der Schlusskurs gerade gepinnt?", "ist dieser Breakout gerade gescheitert?"). Jedes erzeugt einen Score auf einer Linie von **-100 bis +100** *und* einen diskreten **Trigger**: Sobald die Trigger-Bedingung des Signals erfüllt ist - meist, weil der Score eine Schwelle überschreitet -, springt seine Karte von *Stand by* auf *Triggered*, solange die Bedingung erfüllt ist. Sie sind ereignisgesteuert und gehören zu Pro.
 
 **Basic-Signale** sind kontinuierliche, beratende Lesarten. Sie haben kein Gewicht im **Composite MSI**, der aus sechs eigenen Komponenten besteht, und die Engine löst bei ihnen nie einen Trigger aus. Ihr Wert liegt in der Frühwarnung: Wenn sie dem MSI widersprechen, kündigt sich womöglich ein Regimewechsel an, bevor sich der MSI bewegt. Sie sind in Basic und Pro enthalten.
 
@@ -103,7 +103,7 @@ Wenn mehrere Signale aus demselben Bucket sich ausrichten, verstärkt sich die �
 
 Advanced- und Basic-Signale sind nicht einfach "schwierigere" und "einfachere" Versionen voneinander - sie sind unterschiedlich ins System verdrahtet.
 
-- **Advanced-Signale lösen diskrete Trigger aus.** Die meisten triggern, wenn der Score ±25 überschreitet (±20 bei EOD Pressure und Gamma/VWAP Confluence); Range Break Imminence und Market Pressure triggern stattdessen auf Imminence und Loading. Die Karte springt auf *Triggered*, und der Trigger landet in der Event Timeline des Signals. Zwischen den Triggern ist der Score informativ.
+- **Advanced-Signale lösen diskrete Trigger aus.** Die meisten triggern, wenn der Score ±25 überschreitet (±20 bei EOD Pressure und Gamma/VWAP Confluence); Range Break Imminence und Market Pressure triggern stattdessen auf Imminence und Loading. Die Karte steht auf *Triggered*, solange die Bedingung erfüllt ist; die Event Timeline des Signals zeigt den jüngsten Verlauf des Scores, sodass du siehst, wann er die Schwelle überschritten hat. Zwischen den Triggern ist der Score informativ.
 - **Basic-Signale triggern in der Engine nie.** Sie sind kontinuierliche, beratende Lesarten ohne Gewicht im Composite MSI. Achte auf Divergenzen: Wenn Flow-Lesarten sich gegen die Struktur wenden, ist das die Frühwarnung, für die sie da sind.
 
-Trigger erscheinen in der App - auf den Advanced-Karten und in ihren Event Timelines -, nicht per E-Mail, SMS oder Push.
+Trigger erscheinen nur in der App, auf den Advanced-Karten; die Event Timeline jedes Signals zeigt den Verlauf seines Scores. Nichts wird per E-Mail, SMS oder Push verschickt.

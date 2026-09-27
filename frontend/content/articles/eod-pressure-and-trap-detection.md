@@ -12,7 +12,7 @@ The last 90 minutes of the cash session and the moments right after a key level 
 
 That silence is a feature, not a bug. Both signals will read **zero** through most of the trading day. When they do fire, they are telling you something specific about modeled hedge flow that the rest of the tape will not show you directly.
 
-This piece is for traders who already understand gamma exposure, dealer hedging, and the difference between a positive-gamma and negative-gamma regime. If those terms are new, start with our companion piece on **Decoding Gamma Exposure** and circle back.
+This piece is for traders who already understand gamma exposure, dealer hedging, and the difference between a positive-gamma and negative-gamma regime. If those terms are new, start with [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained) and circle back.
 
 ---
 
@@ -28,7 +28,7 @@ Two physical mechanisms drive the answer:
 
 **Charm decay.** As 0DTE and short-dated options approach expiry, their delta does not stand still - holding other inputs constant, it drifts at an accelerating rate as time ticks down. Dealers running a roughly delta-neutral book tend to rebalance to keep that neutrality. The aggregate sign of modeled dealer charm exposure near spot is modeled to indicate which direction those hedge flows are pointing today.
 
-**Pin gravity.** In a modeled positive-gamma regime, dealers tend to buy weakness and sell strength - that modeled reflex can pull price toward the maximum-pain / maximum-gamma strike like a magnet. In a modeled negative-gamma regime, the same mechanic flips: dealers are modeled to chase moves, and the strike becomes a repulsion point instead of an attractor.
+**Pin gravity.** In a modeled positive-gamma regime, dealers tend to buy weakness and sell strength - that modeled reflex can pull price toward the maximum-pain / maximum-gamma strike like a magnet. In a modeled negative-gamma regime, dealers are modeled to chase moves instead, so the model stops treating the strike as a magnet and leans with the move already underway.
 
 EOD Pressure combines those two effects, scales them by how close we are to the close, and amplifies them on calendar dates where positioning matters most.
 
@@ -36,17 +36,17 @@ EOD Pressure combines those two effects, scales them by how close we are to the 
 
 ## Score Interpretation
 
-The output is a continuous score in **[−1.0, +1.0]**.
+The output is a continuous score from **−100 to +100**. (The formulas below run on −1 to +1; the card and the signal page show the result multiplied by 100.)
 
 | Score | Trader interpretation |
 |-------|----------------------|
-| +0.6 to +1.0 | Strong modeled upward drift into the close. The magnet sits above spot and dealers are modeled to buy. |
-| +0.2 to +0.6 | Mild upside drift. Bias intraday holds long but don't size aggressively. |
-| −0.2 to +0.2 | No edge. Either too early in the window or charm and pin terms are canceling. |
-| −0.2 to −0.6 | Mild downside drift. Bias short or close longs. |
-| −0.6 to −1.0 | Strong modeled downward drift into the close. |
+| +60 to +100 | Strong modeled upward drift into the close. The magnet sits above spot and dealers are modeled to buy. |
+| +20 to +60 | Mild upside drift. Bias intraday holds long but don't size aggressively. |
+| −20 to +20 | No edge. Either too early in the window or charm and pin terms are canceling. |
+| −20 to −60 | Mild downside drift. Bias short or close longs. |
+| −60 to −100 | Strong modeled downward drift into the close. |
 
-The signal flags itself **triggered** when the absolute score crosses **0.2**. Anything below that is recorded for context but will not fire downstream playbook patterns.
+The signal flags itself **triggered** when the score crosses **±20**. Anything below that is recorded for context but will not fire downstream playbook patterns.
 
 ---
 
@@ -79,19 +79,23 @@ At ±$20M of bucketed dealer charm, the sub-score pegs at ±1.0. Below that, res
 
 ### Component 2: Pin Gravity
 
-The pin term encodes the **regime-dependent pull** of the magnet strike:
+The pin term depends on the modeled gamma regime:
 
 ```
-pin_target   = max_pain  OR  max_gamma_strike
-distance_pct = (pin_target − close) / close
-normalized   = clip(distance_pct / 0.003, [-1, +1])
-sign         = +1 if net_gex >= 0 else -1
-pin_score    = sign × normalized
+if net_gex >= 0:   # zero or positive gamma: pull toward the magnet
+    pin_target   = max_pain  OR  max_gamma_strike
+    distance_pct = (pin_target − close) / close
+    pin_score    = clip(distance_pct / 0.003, [-1, +1])
+else:              # negative gamma: follow the move already underway
+    trailing_ret = (latest_close − earliest_close) / earliest_close
+    pin_score    = clip(trailing_ret / 0.003, [-1, +1])
 ```
 
 A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 - the magnet is above and gravity is on.
 
-The sign-flip in a modeled negative-gamma regime is the subtle but critical piece. The same pin above spot in a short-gamma book produces a *negative* pin score, because dealers are modeled to *chase* moves away from the strike instead of pulling price toward it. Pin gravity is not a fixed level on the chart - it is a sign-dependent modeled force.
+In a modeled negative-gamma regime the target distance carries no directional information, so the term ignores it and reads the recent trailing return instead: a 0.3% rise over the recent closes also scores +1.0, and a 0.3% fall scores −1.0. If Net GEX is missing, or there are fewer than two usable closes, the pin term is 0.
+
+**Methodology limitation:** both branches are ZeroGEX house heuristics with hand-picked saturation points, not calibrated probabilities. The negative-gamma branch encodes the idea that short gamma amplifies the direction already underway; it does not predict that direction.
 
 ### Component 3: Time Ramp (Gate)
 
@@ -171,15 +175,15 @@ The output sign encodes which direction to *fade*, not which direction price jus
 
 | Score | Label | Trader interpretation |
 |-------|-------|----------------------|
-| +0.5 to +1.0 | `bullish_fade` | High-magnitude bear-trap-fade. Downside break looks fake - modeled snap-back up. |
-| +0.25 to +0.5 | `bullish_fade` (triggered) | Moderate. Consider mean-reversion long entries. |
-| 0 to +0.25 | sub-threshold | Weak conviction; not actionable alone. |
+| +50 to +100 | `bullish_fade` | High-magnitude bear-trap-fade. Downside break looks fake - modeled snap-back up. |
+| +25 to +50 | `bullish_fade` (triggered) | Moderate. Consider mean-reversion long entries. |
+| 0 to +25 | sub-threshold | Weak conviction; not actionable alone. |
 | 0 | none | No trap forming. The default state. |
-| 0 to −0.25 | sub-threshold | Weak conviction. |
-| −0.25 to −0.5 | `bearish_fade` (triggered) | Moderate bull-trap-fade. Fade longs, expect reversal down. |
-| −0.5 to −1.0 | `bearish_fade` | High-magnitude bull-trap-fade. Fade rallies into the breakout. |
+| 0 to −25 | sub-threshold | Weak conviction. |
+| −25 to −50 | `bearish_fade` (triggered) | Moderate bull-trap-fade. Fade longs, expect reversal down. |
+| −50 to −100 | `bearish_fade` | High-magnitude bull-trap-fade. Fade rallies into the breakout. |
 
-The trigger threshold here is **0.25** - deliberately stricter than EOD Pressure's 0.20. Trap setups need higher conviction to actively fire because trading against an active breakout has higher tail risk than drifting with end-of-day flow.
+The trigger threshold here is **±25** - deliberately stricter than EOD Pressure's ±20. Trap setups need higher conviction to actively fire because trading against an active breakout has higher tail risk than drifting with end-of-day flow.
 
 ---
 
@@ -261,6 +265,8 @@ score      = clip(bull_score − bear_score, [-1, +1])
 triggered  = abs(score) >= 0.25
 ```
 
+The engine works on −1 to +1; the card shows the score multiplied by 100, so `abs(score) >= 0.25` is the ±25 trigger you see on screen.
+
 Both side-scores are non-negative. Their difference encodes both direction and conviction continuously. In the rare case where price is wedged between two recently-broken levels, the two sides partially cancel - appropriate, because the setup is genuinely ambiguous.
 
 ---
@@ -273,7 +279,7 @@ Most of the trading day, this signal reads zero. The conditions that zero it out
 - **Negative-gamma regime.** `long_gamma_factor = 0`. In a short-gamma book, breakouts tend to run rather than fade. The signal correctly refuses to fire.
 - **Gamma not strengthening.** `strengthening_factor = 0`. Trap setups need dealer positioning to be building, not unwinding.
 - **Reference levels missing.** No `call_wall`, `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` data - nothing to break.
-- **Wall migration on the active side.** If the call wall is moving up alongside price, the 0.3× discount factor often pushes the score below the 0.25 trigger.
+- **Wall migration on the active side.** If the call wall is moving up alongside price, the 0.3× discount factor often pushes the score below the ±25 trigger.
 
 A zero from Trap Detection is *informational*. It tells you the prerequisites for a fade-the-breakout trade are not in place - so if you are about to trade against a breakout, the signal is implicitly telling you to look elsewhere for evidence.
 
@@ -285,10 +291,10 @@ The two signals are designed to be read jointly. They cover different time horiz
 
 | EOD Pressure | Trap Detection | What it means |
 |--------------|----------------|---------------|
-| +0.5 (bullish) | +0.4 (`bullish_fade`) | High-conviction long-into-close. Modeled drift is up and the current dip looks fake. Fade intraday weakness, lean toward a close-strong day. |
-| +0.5 (bullish) | −0.4 (`bearish_fade`) | Mixed but tactically useful. EOD says drift up; trap says the current upside breakout is overdone. Wait for the fade to complete, then reload long for the close. |
-| −0.5 (bearish) | 0 | Cleanest bearish setup. EOD drift is down with no countervailing fade signal. |
-| 0 (off) | +0.3 (`bullish_fade`) | Standalone trap trade pre-window. Tactical, not strategic. Smaller size, tighter stop. |
+| +50 (bullish) | +40 (`bullish_fade`) | High-conviction long-into-close. Modeled drift is up and the current dip looks fake. Fade intraday weakness, lean toward a close-strong day. |
+| +50 (bullish) | −40 (`bearish_fade`) | Mixed but tactically useful. EOD says drift up; trap says the current upside breakout is overdone. Wait for the fade to complete, then reload long for the close. |
+| −50 (bearish) | 0 | Cleanest bearish setup. EOD drift is down with no countervailing fade signal. |
+| 0 (off) | +30 (`bullish_fade`) | Standalone trap trade pre-window. Tactical, not strategic. Smaller size, tighter stop. |
 | 0 | 0 | The default state for most of the trading day. Both signals are designed to fire only at specific structural inflection points. |
 
 ---
@@ -317,9 +323,9 @@ All of these are tunable via environment variables on the backend. The defaults 
 
 A few patterns that recur often enough to be worth flagging directly:
 
-**The 15:30 inflection.** EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window, conviction tends to consolidate around that time. Pre-position before, not after.
+**The 15:30 inflection.** EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window, conviction tends to consolidate around that time. Treat that ramp as model timing, not an instruction to pre-position or evidence that dealer orders are scheduled.
 
-**Quad witching is not optional context.** The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unamplified signal to +0.8. Treat those days as having structurally higher conviction - and structurally higher whipsaw risk earlier in the day, before the window opens.
+**Quad witching is not optional context.** The 2.0× amplifier on quad-witching days is large enough to push a +40 unamplified signal to +80. Treat those days as having structurally higher conviction - and structurally higher whipsaw risk earlier in the day, before the window opens.
 
 **Trap Detection without long-gamma confirmation should be ignored.** The `long_gamma_factor` zeroing the whole side is the single most important guardrail in the signal. If the broader modeled regime is short-gamma - even if the score happens to read non-zero on a missing-data edge case - the trap thesis does not hold. Verify the regime.
 

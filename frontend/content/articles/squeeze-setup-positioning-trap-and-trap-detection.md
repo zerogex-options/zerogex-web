@@ -1,6 +1,6 @@
 # Squeeze Setup, Positioning Trap & Trap Detection: Three Signals, Three Stories
 
-If you've spent any time in the Signals tab, you've probably noticed three names that sound like they're measuring the same thing: Squeeze Setup, Positioning Trap, and Trap Detection. They all output a tidy number between −1 and +1. They all flip sign depending on direction. And they all light up around the same kinds of pivots.
+If you've spent any time in the Signals tab, you've probably noticed three names that sound like they're measuring the same thing: Squeeze Setup, Positioning Trap, and Trap Detection. They all output a tidy number between −100 and +100. They all flip sign depending on direction. And they all light up around the same kinds of pivots.
 
 But under the hood, they're answering three very different questions about the tape. Understanding which question each one is asking is the difference between front-running a breakout and getting steamrolled by one.
 
@@ -16,7 +16,7 @@ This article breaks down what each signal actually measures, how to read it, and
 | Trade Bias | Continuation (with the move) | Mean-reversion (against the crowd) | Mean-reversion (back through the broken level) |
 | Timeframe | Multi-day setup | Intraday (5-10 min) | Intraday → overnight |
 | Headline Inputs | Flow, momentum acceleration, gamma readiness | Put/call ratio, smart-money imbalance | Wall proximity, gamma regime, wall migration |
-| Output | [-1, +1], triggered at ±0.25 | [-1, +1], continuous | [-1, +1], triggered at ±0.25 |
+| Output | -100 to +100, triggers at ±25 | -100 to +100, advisory (no engine trigger) | -100 to +100, triggers at ±25 |
 
 Three signals. Three theses. Same number line.
 
@@ -34,7 +34,7 @@ Three signals. Three theses. Same number line.
 - Distance from the modeled gamma flip strike
 - VIX regime (dead / normal / elevated / panic)
 
-**How it scores:** For each side (bull and bear), the signal multiplies normalized flow × directional momentum strength × gamma readiness × acceleration multiplier × flip-side multiplier. The net score is bull minus bear, clamped to [-1, +1]. Triggers fire at abs(score) ≥ 0.25.
+**How it scores:** For each side (bull and bear), the signal multiplies normalized flow × directional momentum strength × gamma readiness × acceleration multiplier × flip-side multiplier. The net score is bull minus bear, clamped to [-1, +1], which the card shows multiplied by 100. It triggers at ±25.
 
 **What a trader does with it:** A positive Squeeze Setup that persists for two consecutive sessions is the trigger gate for the Squeeze Breakout playbook - entry on a clean break of a 30-bar volatility envelope, in the direction the signal is leaning. Negative scores mirror this on the downside.
 
@@ -56,7 +56,7 @@ Three signals. Three theses. Same number line.
 
 **How it scores:** A weighted sum - 0.45 on crowding, 0.25 on imbalance skew, 0.15 on momentum, 0.10 on flip lean, 0.05 on negative-GEX regime - computed independently for the squeeze side (short crowd at risk) and flush side (long crowd at risk). The two are netted to a single score.
 
-Unlike the other two, Positioning Trap has no triggered flag - it feeds the MSI composite as a continuous component (weight 0.06) and gates the `positioning_trap_squeeze` playbook at abs(score) ≥ 0.5.
+Unlike the other two, Positioning Trap is a Basic signal: the engine never triggers on it and it carries no weight in the Composite MSI. It is an advisory read, and it gates the `positioning_trap_squeeze` playbook at ±50.
 
 **What a trader does with it:** Identify the crowded side, then wait for the tape to turn against it. A crowded long doesn't get flushed until sellers show up. The signal tells you the fuel is there; the tape has to provide the spark.
 
@@ -88,7 +88,7 @@ The wall-migration check is what makes this signal different: if the modeled wal
 
 ## Same Number, Different Meaning
 
-Here's the trap that traps traders: all three signals print a [-1, +1] score, and a +0.6 on one is not the same trade as a +0.6 on another.
+Here's the trap that traps traders: all three signals print a -100 to +100 score, and a +60 on one is not the same trade as a +60 on another.
 
 | Score Sign | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
@@ -106,11 +106,11 @@ Three signals are reading the same tape through three different lenses. Treat th
 
 A few patterns to look for:
 
-**Confluence (strong positive model output):** Squeeze Setup +0.5 and Trap Detection +0.4 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
+**Confluence (strong positive model output):** Squeeze Setup +50 and Trap Detection +40 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
 
-**Sequence (better entries):** Positioning Trap flags a long crowd at −0.7 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
+**Sequence (better entries):** Positioning Trap flags a long crowd at −70 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
 
-**Contradiction (stand down):** Squeeze Setup says +0.6 (go long with the break). Trap Detection says −0.5 (the upside break is failing). One of them is wrong. Skip it.
+**Contradiction (stand down):** Squeeze Setup says +60 (go long with the break). Trap Detection says −50 (the upside break is failing). One of them is wrong. Skip it.
 
 The signals are independent for a reason - when they agree, listen. When they fight, the smartest trade is usually no trade.
 

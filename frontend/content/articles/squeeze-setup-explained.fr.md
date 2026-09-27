@@ -1,5 +1,5 @@
 # Signal Squeeze Setup expliqué : lire les marchés comprimés
-> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. Qu’en gamma négatif le terme de pin d’EOD Pressure suive le mouvement récent est une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
 
 *L'analyse approfondie et pratique du signal Squeeze Setup de ZeroGEX - ce qu'il mesure, les cinq inputs qui déterminent le score, quand il se déclenche et quand il reste silencieux, et comment l'utiliser pour repérer les marchés comprimés prêts pour un mouvement directionnel.*
@@ -22,7 +22,7 @@ Le signal Squeeze Setup pose une question :
 
 > Le marché est-il comprimé - le flow, le momentum, la gamma et la volatilité s'alignent-ils pour charger une énergie qui n'a pas encore été libérée ?
 
-C'est un signal **Avancé** dans la pile ZeroGEX - il produit à la fois un score continu sur l'échelle [-1, +1] et un déclenchement discret lorsque le score absolu dépasse **0,25**.
+C'est un signal **Avancé** dans la pile ZeroGEX - il produit à la fois un score continu sur une échelle de -100 à +100 et un déclenchement discret lorsque le score franchit **±25**. Comme tous les signaux Avancés, il fait partie de Pro.
 
 Point essentiel, Squeeze Setup est un signal de **Continuation**, pas de fade. Lorsqu'il se déclenche, l'inclinaison pratique consiste à trader *dans le sens* du mouvement une fois qu'il casse, pas contre lui. Cela en fait l'opposé d'outils de mean-reversion comme Positioning Trap ou Trap Detection. Savoir dans quelle catégorie se situe un signal représente la moitié du travail pour bien le lire.
 
@@ -65,7 +65,7 @@ side_score = normalized_flow × directional_momentum_strength
            × gamma_readiness × acceleration_multiplier × flip_side_multiplier
 ```
 
-Le score net est `bull_score − bear_score`, borné à [-1, +1]. Le déclenchement se produit lorsque le score absolu est ≥ **0,25**.
+Le score net est `bull_score − bear_score`, borné à [-1, +1] ; la carte et la page du signal l'affichent multiplié par 100. Le déclenchement se produit à **±25** sur cette échelle.
 
 Deux faits structurels de cette formule comptent pour la lecture :
 
@@ -78,13 +78,13 @@ Deux faits structurels de cette formule comptent pour la lecture :
 
 | Score | Lecture |
 |---|---|
-| +0,6 à +1,0 | Fortement comprimé à la hausse |
-| +0,25 à +0,6 | Déclenché haussier - le playbook de breakout haussier est actif |
-| -0,25 à +0,25 | Sous le seuil - informatif, non actionnable à lui seul |
-| -0,25 à -0,6 | Déclenché baissier - le playbook de breakout baissier est actif |
-| -0,6 à -1,0 | Fortement comprimé à la baisse |
+| +60 à +100 | Fortement comprimé à la hausse |
+| +25 à +60 | Déclenché haussier - le playbook de breakout haussier est actif |
+| -25 à +25 | Sous le seuil - informatif, non actionnable à lui seul |
+| -25 à -60 | Déclenché baissier - le playbook de breakout baissier est actif |
+| -60 à -100 | Fortement comprimé à la baisse |
 
-Le seuil de 0,25 est délibérément conservateur. Squeeze Setup pose une exigence élevée - *tous* les inputs structurels s'alignent-ils ? - et le seuil reflète cela. Une lecture de 0,20 est limite ; seul 0,25+ compte comme déclenché.
+Le seuil de ±25 est délibérément conservateur. Squeeze Setup pose une exigence élevée - *tous* les inputs structurels s'alignent-ils ? - et le seuil reflète cela. Une lecture de 20 est limite ; seul un score de 25 ou plus, dans un sens ou dans l'autre, compte comme déclenché.
 
 ---
 
@@ -115,8 +115,8 @@ La persistance sur deux sessions est un filtre délibéré. Les déclenchements 
 Quelques remarques pratiques :
 
 - **La direction vient du signe du score, pas de la technique d'entrée.** Le signal fournit la lecture directionnelle ; la cassure de l'enveloppe de volatilité est le déclencheur de timing.
-- **L'amplitude compte.** Un score de +0,55 est nettement différent de +0,27 - tous deux déclenchés, mais le trade avec la plus forte conviction est celui au score le plus élevé.
-- **Les scores sous le seuil restent informatifs.** Une lecture persistante de +0,20 n'est pas actionnable à elle seule, mais si tous les autres signaux penchent également haussier, elle s'ajoute à la lecture composite.
+- **L'amplitude compte.** Un score de +55 est nettement différent de +27 - tous deux déclenchés, mais le trade avec la plus forte conviction est celui au score le plus élevé.
+- **Les scores sous le seuil restent informatifs.** Une lecture persistante de +20 n'est pas actionnable à elle seule, mais si tous les autres signaux penchent également haussier, elle s'ajoute à la lecture d'ensemble.
 
 ---
 
@@ -138,7 +138,7 @@ Lorsque plusieurs signaux de Continuation (Squeeze Setup, Vol Expansion, Market 
 Trois pièges :
 
 - **Traiter un 0 comme "neutre".** Un 0 sur Squeeze Setup signifie que *rien n'est comprimé* - pas que le marché est équilibré. Ne tradez pas en le considérant comme un feu vert "calme".
-- **Trader sur un score sous le seuil.** Le seuil de 0,25 compte. Une lecture de 0,18 peut *sembler* être un setup, mais elle n'est pas déclenchée - et la différence entre "sensation de compression" et "compression structurelle réelle" représente l'essentiel de l'edge.
+- **Trader sur un score sous le seuil.** Le seuil de ±25 compte. Une lecture de 18 peut *sembler* être un setup, mais elle n'est pas déclenchée - et la différence entre "sensation de compression" et "compression structurelle réelle" représente l'essentiel de l'edge.
 - **Ignorer le régime.** Squeeze Setup ne dit rien à lui seul sur le régime de gamma. Un marché comprimé sous le flip se comporte différemment d'un marché au-dessus. Vérifiez toujours avec le workflow [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 
 ---
@@ -148,17 +148,17 @@ Trois pièges :
 Le dashboard l'affiche à plusieurs endroits :
 
 - **La carte Squeeze Setup** affiche le score en direct, l'état du déclenchement et la décomposition des inputs.
-- **Le Composite Signal Score** intègre Squeeze Setup comme un input parmi les autres signaux Avancés et de Base.
-- **Le Trade Stream** signale les trades du playbook conditionnés par `squeeze_breakout` lorsqu'ils se déclenchent.
+- **L'Event Timeline** sur la page du signal retrace le parcours récent du score, avec les changements de direction signalés.
+- **Signal Breadth**, dans le panneau Signaux Propriétaires du tableau de bord, le compte comme l'un des votes directionnels. (Ce n'est pas un input du Composite MSI, qui repose sur ses six composantes propres.)
 
 *[Emplacement d'image : carte Squeeze Setup de ZeroGEX avec score, état du déclenchement et contributions des inputs - déposer le fichier à /public/blog/zerogex-squeeze-setup-card.png]*
 
 Un exemple concret. Supposons que SPX évolue latéralement pendant la session de mercredi et que ZeroGEX affiche :
 
-- **Squeeze Setup :** +0,42 (déclenché haussier)
+- **Squeeze Setup :** +42 (déclenché haussier)
 - **Net GEX :** +$800M
 - **Gamma Flip :** le spot est 0,2 % au-dessus
-- **Tape Flow Bias :** +0,6
+- **Tape Flow Bias :** +60
 - **Trap Detection :** 0
 
 La lecture structurelle : un setup comprimé à la hausse avec une inclinaison de flow confirmante, aucun signal contraire de breakout raté, et un régime de gamma longue qui atténuera le mouvement s'il tente de s'étendre trop loin. Inclinaison pratique : rester attentif à une cassure haussière de l'enveloppe de volatilité ; lorsqu'elle survient, les conditions structurelles pour un suivi sont réunies. Rien de tout cela n'est un trade - c'est la lecture du régime qui devrait remodeler les entrées que vous prenez au sérieux.
@@ -175,4 +175,4 @@ Contenu à but éducatif uniquement - rien de ce qui précède ne constitue une
 
 ---
 
-Si vous souhaitez suivre en temps réel la lecture Squeeze Setup du jour aux côtés du gamma flip, des walls et des autres signaux Avancés et de Base, le dashboard gratuit de ZeroGEX affiche tout cela.
+Si vous souhaitez suivre en temps réel la lecture Squeeze Setup du jour aux côtés du gamma flip, des walls et des autres signaux Avancés et de Base, ZeroGEX Pro affiche tout cela.
