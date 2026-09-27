@@ -85,7 +85,8 @@ Demi-journées (clôture anticipée à 13h00 ET autour de certains jours férié
 ZeroGEX utilise des données de marché professionnelles en temps réel sur les options et les sous-jacents, sous licences commerciales. Il vaut la peine d'être précis sur ce que cela signifie, car il ne s'agit pas d'un tape unique :
 
 - **Les cotations et transactions d'options** sur SPY, QQQ, SPX et NDX proviennent d'OPRA, le tape consolidé des options cotées aux États-Unis.
-- **Les valeurs des indices SPX et NDX** elles-mêmes sont licenciées séparément auprès de leurs éditeurs d'indices.
+- **Les valeurs des indices SPX et NDX** proviennent d'un flux d'indices distinct, et non du tape des options.
+- **Les prix de SPY et QQQ** proviennent de Nasdaq Basic, un flux en temps réel de Nasdaq.
 - Les prix **ES et NQ** proviennent du flux CME en temps réel.
 - L'**open interest** est une donnée distincte de fin de séance issue du clearing, et non une valeur en temps réel.
 

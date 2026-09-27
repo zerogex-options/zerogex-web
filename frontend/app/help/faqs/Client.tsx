@@ -83,7 +83,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'data-source',
         q: 'Where does the data come from?',
-        a: 'ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise, because it is not all one tape: option quotes and trades come from OPRA, the consolidated U.S. options tape, while the SPX and NDX index values themselves are licensed separately from their index publishers. ES and NQ prices come from the real-time CME feed. Open interest is a separate end-of-session figure from clearing, not a real-time value. We don\'t disclose specific vendor names publicly.',
+        a: 'ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise, because it is not all one tape: option quotes and trades come from OPRA, the consolidated U.S. options tape; the SPX and NDX index values come from a separate index feed; SPY and QQQ prices come from Nasdaq Basic, a real-time feed from Nasdaq; and ES and NQ prices come from the real-time CME feed. Open interest is a separate end-of-session figure from clearing, not a real-time value. We don\'t disclose specific vendor names publicly.',
       },
       {
         id: 'history-depth',
