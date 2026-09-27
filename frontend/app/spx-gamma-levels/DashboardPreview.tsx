@@ -12,7 +12,7 @@ import { TrialButton } from './TrialCtaButtons';
 // that matter" — no performance or profit claims.
 
 const FEATURES: { label: string; detail: string }[] = [
-  { label: 'Real-time SPY/SPX/QQQ/NDX gamma levels', detail: 'Sub-second refresh, not a 15-minute snapshot' },
+  { label: 'Real-time SPY/SPX/QQQ/NDX gamma levels', detail: 'Live data, recomputed about once a minute, not a 15-minute-delayed snapshot' },
   { label: 'Gamma Flip', detail: 'The regime line, live as spot moves across it' },
   { label: 'Call Wall & Put Wall', detail: 'Where price may pin, reject, or accelerate' },
   { label: 'Max Pain', detail: 'The expiration magnet, tracked intraday' },
@@ -20,7 +20,7 @@ const FEATURES: { label: string; detail: string }[] = [
   { label: 'Strike-level GEX profile', detail: 'The full dealer-gamma curve, strike by strike' },
   { label: 'GEX heatmaps', detail: 'Strike-by-DTE gamma, visualized' },
   { label: 'Options flow classification', detail: 'Live tape sorted into directional pressure' },
-  { label: 'Market State / signal tools', detail: 'The 13-signal composite regime read' },
+  { label: 'Market State / signal tools', detail: 'The composite regime read and the proprietary signals' },
 ];
 
 export default function DashboardPreview({ symbol }: { symbol: string }) {

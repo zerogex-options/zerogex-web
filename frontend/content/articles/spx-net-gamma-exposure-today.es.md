@@ -8,7 +8,7 @@
 
 ## Dónde ver la net gamma exposure de SPX hoy
 
-Si estás aquí por el número actual, empieza por aquí: ZeroGEX publica el **net GEX de SPX** de hoy - con el gamma flip, call wall, put wall y max pain - gratis y con un retraso de unos 15 minutos en la [página de niveles gamma de SPX](/spx-gamma-levels). La misma lectura está disponible para [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels). Para el valor en vivo, actualizado al segundo, el [dashboard GEX 0DTE en tiempo real](/real-time-gex-0dte) se actualiza durante toda la sesión. El resto de esta página explica qué significa ese número y cómo usarlo.
+Si estás aquí por el número actual, empieza por aquí: ZeroGEX publica el **net GEX de SPX** de hoy - con el gamma flip, call wall, put wall y max pain - gratis y con un retraso de unos 15 minutos en la [página de niveles gamma de SPX](/spx-gamma-levels). La misma lectura está disponible para [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels). Para el valor en vivo, el [dashboard GEX 0DTE en tiempo real](/real-time-gex-0dte) se actualiza durante toda la sesión. El resto de esta página explica qué significa ese número y cómo usarlo.
 
 ---
 
@@ -79,4 +79,4 @@ Solo contenido educativo - nada de lo anterior es una recomendación de trading
 
 ---
 
-¿Quieres verlo en tiempo real? Consulta el net GEX de SPX de hoy en la [página de niveles gamma de SPX](/spx-gamma-levels) gratuita (también [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels)), profundiza con [Gamma Exposure Explained](/education/gamma-exposure-explained), o abre el [dashboard GEX 0DTE en tiempo real](/real-time-gex-0dte) - [inicia una prueba gratuita](/register) para la lectura en vivo, actualizada al segundo.
+¿Quieres ver el número de hoy? Consulta el net GEX de SPX de hoy en la [página de niveles gamma de SPX](/spx-gamma-levels) gratuita (también [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels)), profundiza con [Gamma Exposure Explained](/education/gamma-exposure-explained), o abre el [dashboard GEX 0DTE en tiempo real](/real-time-gex-0dte) - [inicia una prueba gratuita](/register) para la lectura en vivo.

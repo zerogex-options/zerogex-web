@@ -37,7 +37,7 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
         id="live-read-heading"
         style={{ margin: 0, fontSize: 'clamp(24px, 3.2vw, 30px)', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.15 }}
       >
-        Want the live, sub-second version?
+        Want the live version?
       </h2>
 
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
