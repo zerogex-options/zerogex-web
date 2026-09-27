@@ -85,7 +85,7 @@ function Chip({
   onToggle?: (field: WeatherFieldKey) => void;
 }) {
   const body = (
-    <>
+    <span className="flex min-w-0 flex-col gap-0.5">
       <span
         className="text-[10px] uppercase tracking-wide"
         style={{ color: 'var(--color-text-secondary)' }}
@@ -98,11 +98,17 @@ function Chip({
       >
         {value}
       </span>
-    </>
+    </span>
   );
 
+  // A non-expandable field keeps the same box metrics behind a transparent
+  // border, so one plain field in the row cannot knock the others out of line.
   if (!field || !onToggle) {
-    return <div className="flex flex-col gap-0.5">{body}</div>;
+    return (
+      <div className="flex items-center rounded-lg border border-transparent px-2.5 py-1.5">
+        {body}
+      </div>
+    );
   }
 
   return (
@@ -111,15 +117,64 @@ function Chip({
       onClick={() => onToggle(field)}
       aria-expanded={open}
       title={`${open ? 'Hide' : 'Show'} this session's ${label.toLowerCase()} chart`}
-      className="flex flex-col gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors"
-      style={{
-        marginLeft: '-0.375rem',
-        backgroundColor: open ? 'var(--color-surface-subtle)' : 'transparent',
-        boxShadow: open ? 'inset 0 -2px 0 0 var(--color-king)' : undefined,
-      }}
+      // Classes, not an inline style: an inline borderColor outranks the
+      // stylesheet, so setting the resting border that way silently disables
+      // the hover state it is supposed to sit under.
+      //
+      // No focus ring here. globals.css already puts one on every button in
+      // the app, and a local outline-none would have turned it off for the
+      // keyboard readers it exists for.
+      className={[
+        'group flex cursor-pointer items-center justify-between gap-2 rounded-lg border',
+        'px-2.5 py-1.5 text-left transition-colors',
+        open
+          ? 'border-[var(--color-king)] bg-[var(--color-king-soft)]'
+          : [
+              'border-[var(--color-border)] bg-transparent',
+              'hover:border-[var(--color-king)] hover:bg-[var(--color-king-soft)]',
+            ].join(' '),
+      ].join(' ')}
     >
       {body}
+      <Chevron open={open} />
     </button>
+  );
+}
+
+/**
+ * The affordance. A bordered box says "control" and the caret says "this one
+ * opens", which between them are the only two things a reader who has not been
+ * told about the drawer has to go on: the row used to be plain text with an
+ * accent appearing only on the field already open, so nothing on a closed
+ * field said it could be clicked at all.
+ *
+ * Rotates rather than swapping glyphs, so the open state is the same mark
+ * turned over and reads as one control in two positions.
+ */
+function Chevron({ open }: { open?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 10 6"
+      width="10"
+      height="6"
+      aria-hidden
+      focusable="false"
+      className={[
+        'shrink-0 transition-transform duration-150',
+        open
+          ? 'rotate-180 text-[var(--color-king)]'
+          : 'text-[var(--color-text-secondary)] group-hover:text-[var(--color-king)]',
+      ].join(' ')}
+    >
+      <path
+        d="M1 1l4 4 4-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -148,8 +203,13 @@ export default function GammaWeatherStrip({
   // clicking the open one closes it. Five charts at once is the wall of
   // numbers this is meant to replace.
   const [openField, setOpenField] = useState<WeatherFieldKey | null>(null);
-  const toggleField = (field: WeatherFieldKey) =>
+  // Set the first time a drawer is opened and never cleared, so the hint below
+  // retires itself once the reader has demonstrated they no longer need it.
+  const [hasOpened, setHasOpened] = useState(false);
+  const toggleField = (field: WeatherFieldKey) => {
+    setHasOpened(true);
     setOpenField((current) => (current === field ? null : field));
+  };
 
   // Only while a drawer is open. Most visits never open one, and the header
   // does not need a session of sentences to say what the read is now.
@@ -246,8 +306,11 @@ export default function GammaWeatherStrip({
         {payload.sentence}
       </p>
 
+      {/* Tighter than the plain text row it replaces: five bordered boxes six
+          rems apart read as five unrelated cards, and they are one control
+          set. */}
       <div
-        className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 border-t pt-3 sm:grid-cols-3 lg:grid-cols-5"
+        className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2 border-t pt-3 sm:grid-cols-3 lg:grid-cols-5"
         style={{ borderColor: 'var(--color-border)' }}
       >
         {/* "now", because the metric card below reads Session pressure and the
@@ -296,6 +359,19 @@ export default function GammaWeatherStrip({
           alert={transitionRisk}
         />
       </div>
+
+      {/* Says out loud what the boxes imply, then gets out of the way. Someone
+          who has opened a field knows the row is clickable and does not need
+          telling again, so the line goes for the rest of the visit rather than
+          returning every time a drawer is closed. Deliberately not stored: a
+          reader who comes back tomorrow gets told once more, which costs one
+          line and is cheaper than a returning reader who never finds the
+          feature because a flag said they already had. */}
+      {!hasOpened && (
+        <p className="mt-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+          Each field above opens a chart of this session.
+        </p>
+      )}
 
       {payload.cushion_summary && (
         <p className="mt-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
