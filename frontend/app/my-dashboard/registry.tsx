@@ -548,7 +548,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'vol-expansion-events',
     title: 'Volatility Expansion\u00a0- Events',
-    blurb: 'Timeline of volatility-expansion signal triggers vs price.',
+    blurb: 'Timeline of the volatility-expansion score vs price, with direction flips marked.',
     category: 'signals',
     tier: 'pro',
     icon: Activity,
@@ -560,7 +560,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'eod-pressure-events',
     title: 'EOD Pressure\u00a0- Events',
-    blurb: 'Timeline of end-of-day pressure signal triggers vs price.',
+    blurb: 'Timeline of the end-of-day pressure score vs price, with direction flips marked.',
     category: 'signals',
     tier: 'pro',
     icon: Activity,
