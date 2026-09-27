@@ -22,8 +22,9 @@ seconds, and had no notion of a date.
 It is now handled the way Replay and the Scorecard are — a session list, dated
 permalinks, ISR, an OG card — and the reason it can be is **retention**, not
 performance. The page's own pipeline reads `flow_contract_facts`, which
-`make db-prune` deletes at `DATA_RETENTION_DAYS` (90). Recomputing a past
-session from it answers for a quarter and then returns an empty series that a
+`make db-prune` deletes at `DATA_RETENTION_DAYS` (90 by default, 60 here).
+Recomputing a past
+session from it answers for that window and then returns an empty series that a
 reader cannot tell from a quiet day. The finished bars are now written once per
 analytics cycle into a retention-exempt table and kept.
 
@@ -108,12 +109,13 @@ The obvious implementation — accept a `date`, re-run the hedging-flow
 computation over that day's trades — works for about a quarter and then
 quietly stops.
 
-`make db-prune` deletes rows older than `DATA_RETENTION_DAYS` (90) from
+`make db-prune` deletes rows older than `DATA_RETENTION_DAYS` (90 by default,
+60 on this deployment) from
 `DB_MAINTAIN_TABLES`, and `flow_contract_facts` is on that list. That is the
 table a from-scratch hedging-flow computation reads — and it has to be that
 one, not `flow_by_contract`, because `flow_by_contract` does not carry `delta`
-at all (the column was dropped) so the notional cannot be formed there. So a recompute endpoint would answer for the last 90 days
-and return an empty session for day 91 — the worst failure mode available,
+at all (the column was dropped) so the notional cannot be formed there. So a recompute endpoint would answer for the retention window
+and return an empty session for the day past it — the worst failure mode available,
 because it looks exactly like a quiet day.
 
 The backend has already made this decision twice, in the same direction:
@@ -170,7 +172,7 @@ one filter, a 0DTE toggle resolving to the session's own date, so that closed
 set of two is materialised and the toggle picks a scope. A session that was not
 an expiry simply has no `0dte` rows, which is the same honest answer the live
 page gives rather than a fabricated flat line. Any other filter still falls
-through to the CTE and still inherits the 90-day horizon.
+through to the CTE and still inherits the retention horizon.
 
 **The table is deliberately absent from `DB_MAINTAIN_TABLES`** and present in
 `DB_VACUUM_EXTRA_TABLES` instead — vacuumed, never pruned. Adding it to the
@@ -219,7 +221,7 @@ under someone else's permalink.
 payload is self-describing.
 
 The sessions listing reads `hedging_flow_5min` and nothing else — listing from
-the live tables would advertise exactly the 90 days the prune window keeps and
+the live tables would advertise exactly the days the prune window keeps and
 hide every older session that is still perfectly readable. Each entry carries
 `bar_count`, `real_bar_count` (carry-forward bars excluded, so "thin" is
 distinguishable from "short"), `had_0dte`, and the session's closing
@@ -297,8 +299,9 @@ Two arguments on step 2 are easy to leave off and both cost history:
   futures middleware refuses the per-contract flow endpoints outright, because
   an SPX contract with its strike scaled by the basis is not a contract anyone
   can trade. The pickers hide them.)
-* **`DAYS`** defaults to `DATA_RETENTION_DAYS`, which is an *env var* and may
-  be lower than 90 on a given deployment. If `flow_contract_facts` happens to
+* **`DAYS`** defaults to `DATA_RETENTION_DAYS`, which is an *env var*: the code
+  default is 90 but this deployment sets **60**, so don't reason from the
+  constant. If `flow_contract_facts` happens to
   hold more than that — `db-prune` runs on a timer, not continuously — the
   default silently leaves the extra days behind. `DAYS=0` means no lower bound
   and takes everything that is there. Check what is actually reachable first:
@@ -311,11 +314,20 @@ Two arguments on step 2 are easy to leave off and both cost history:
 **Step 2 is a one-way door with a clock on it.** The engine writes only the
 current session each cycle, so on the day this ships the table holds one day.
 Everything before that exists solely in `flow_contract_facts`, and once a day
-falls out of the 90-day prune window it is gone — the snapshot is the only
-thing that would have outlived it. Run the backfill and ~90 days of history
+falls out of the prune window it is gone — the snapshot is the only
+thing that would have outlived it. Run the backfill and that history
 exists permanently; don't, and it ages out a day at a time while nobody
 notices. It is idempotent, commits per session, and takes `DRY_RUN=1` and
 `DAYS=<n>`.
+
+**This door is now closed.** The backfill ran on 2026-09-17 for SPY, QQQ, SPX
+and NDX with `DAYS=0`. It reached 2026-07-20 for the first three and 2026-07-24
+for NDX, which the audit query above confirms was the whole of
+`flow_contract_facts` — nothing was left behind. A re-run the same day rewrote
+zero rows, which is the upsert's `IS DISTINCT FROM` guard reporting that the
+snapshot is a pure function of its source. As of 2026-09-27 the oldest stored
+session is 69 days old against a 60-day retention window, so the exemption is
+confirmed in production: these rows outlive the trades they came from.
 
 Verification. Note this harness SEEDS data, so unlike `flow-series-parity` it
 refuses to run without an explicit DSN rather than inheriting the one in

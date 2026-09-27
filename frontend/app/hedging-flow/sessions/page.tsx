@@ -207,10 +207,11 @@ export default async function HedgingFlowSessionsPage({
         </div>
         These are stored bars, not a re-run of the live pipeline. The trades a session is
         computed from live in <span className="font-mono">flow_contract_facts</span>, which is
-        pruned at 90 days&nbsp;- so a recomputed permalink would quietly go blank rather than
-        missing. The finished 5-minute bars are written once per analytics cycle into{' '}
-        <span className="font-mono">hedging_flow_5min</span> and kept, which is why a session
-        from last spring still draws.
+        pruned on a rolling retention window&nbsp;- 60 days on this deployment&nbsp;- so a
+        recomputed permalink would quietly go blank rather than missing. The finished 5-minute
+        bars are written once per analytics cycle into{' '}
+        <span className="font-mono">hedging_flow_5min</span> and kept past that window, which is
+        why a session from months ago still draws.
         <br />
         <br />
         Every number here remains an <strong>estimate</strong>. It assumes the passive side of

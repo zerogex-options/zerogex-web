@@ -21,9 +21,10 @@ import DatedHedgingFlow from './DatedHedgingFlow';
 // it reads is retention-exempt, so the page is as stable as the day it names.
 //
 // The reason this route can exist at all is hedging_flow_5min. The live
-// pipeline reads flow_contract_facts, which `make db-prune` empties at 90
-// days — a permalink recomputed from it would quietly become an empty chart
-// rather than a missing one. See docs/hedging-flow-history.md.
+// pipeline reads flow_contract_facts, which `make db-prune` empties at
+// DATA_RETENTION_DAYS (60 on this deployment) — a permalink recomputed from it
+// would quietly become an empty chart rather than a missing one. See
+// docs/hedging-flow-history.md.
 
 const REVALIDATE_SECONDS = 3600;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').replace(/\/+$/, '');
@@ -83,8 +84,8 @@ async function loadFlow(symbol: string, date: string) {
  * The 0DTE view of the same session.
  *
  * Fetched up front rather than on demand because the toggle has nothing to
- * query later: the trades a live page re-filters are pruned at 90 days, which
- * is why the snapshot materialises this scope at all. `null` back means the
+ * query later: the trades a live page re-filters are pruned at the retention
+ * window, which is why the snapshot materialises this scope. `null` back means the
  * day was not an expiry, and the toggle hides rather than offering a view that
  * would resolve to nothing.
  */
