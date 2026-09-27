@@ -587,7 +587,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | `grace-expiry-warnings` | `00/4:35:00` | every 4h | Grace-expiry warning | yes |
 | `trial-reminders` | `00/6:15:00` | every 6h | 48h trial-end reminder | yes |
 | `checkout-recovery` | `00/6:45:00` | every 6h | Abandoned-checkout recovery | yes |
-| `trial-value-nudge` | `00/6:45:00` | every 6h | Mid-trial value nudge | yes |
+| `trial-value-nudge` | `00/6:45:00` | every 6h | Mid-trial value nudge, or its comeback variant for a trialer who has not been back | yes |
 | `card-expiry` | `04:20:00` | daily | Card expiring | yes |
 | `renewal-reminders` | `14:20:00` | daily | Renewal reminder (quarterly 7 days / annual 30 days out) | yes |
 | `money-back-sweep` | `*:25:00` | hourly | Money-back refund alert (stalled request) | operator only |
@@ -630,6 +630,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | Verified, never paid | `created_at` | 2h–7d after signup, verified, no checkout |
 | Abandoned-checkout recovery | `billing_checkout_started` audit row | 24h–7d after, still no subscription |
 | Mid-trial value nudge | `current_period_end` | 120h before trial end, ±3h |
+| Day-two comeback (the value nudge's dormant variant) | same slot and latch as the value nudge | sent instead of it when `last_seen_at` shows no visit after the first 24h of the trial (`core/trialEngagement.ts`); carries the latest levels for the market the member picked in the first-run welcome (SPX if none) and the last graded forecast. Falls back to the value nudge when `ZEROGEX_API_TOKEN` is unset or the levels are older than 96h |
 | 48h trial-end reminder | `current_period_end` | 48h before trial end, ±3h |
 | Grace-expiry warning | `payment_grace_started_at` | ≤24h left **and** ≥12h open |
 | Card expiring | card `exp_month`/`exp_year` from Stripe | within 45 days, once per calendar month |

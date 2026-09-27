@@ -52,7 +52,11 @@ export default function ProWelcomeModal({ theme, tier, onClose }: ProWelcomeModa
 
   useEffect(() => {
     const releaseScroll = lockPageScroll();
-    ctaRef.current?.focus();
+    // preventScroll: on a phone the modal scrolls internally, and a plain
+    // focus() scrolled it to the CTA at the bottom, so the greeting and the
+    // market question opened out of view. Focus stays on the CTA for keyboard
+    // users; the modal opens at the top.
+    ctaRef.current?.focus({ preventScroll: true });
     return releaseScroll;
   }, []);
 

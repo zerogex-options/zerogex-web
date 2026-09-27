@@ -5,6 +5,7 @@ import { onSitePayUrl } from './payLink.ts';
 import type { DeclineCategory } from './declineReason.ts';
 import type { ChurnAlert } from './cancellationAlert.ts';
 import type { ReturnAngle } from './returnIntent.ts';
+import { regimeSentence, sessionDateLabel, type ComebackLevels, type LatestGrade } from './trialComeback.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -1114,6 +1115,129 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
 // wire copy and any preview never drift.
 export async function sendTrialValueEmail(to: string, opts: TrialValueEmailOptions) {
   const { subject, html, text } = buildTrialValueEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+export type TrialComebackEmailOptions = TrialValueEmailOptions & {
+  // The latest levels for the member's market (core/trialComeback.ts
+  // comebackLevels). Required: without them this variant has nothing to say,
+  // and the sender falls back to buildTrialValueEmail instead.
+  levels: ComebackLevels;
+  // The most recent graded forecast for that market, or null to leave the
+  // "how the forecast did" line out.
+  latestGrade: LatestGrade | null;
+  // core/trackRecord.ts trackRecordOneLiner for that market, or null.
+  trackRecordLine: string | null;
+};
+
+// Pure builder for the day-two email's DORMANT variant: the trialer who looked
+// once on signup day and has not been back (core/trialEngagement.ts). The
+// ordinary day-two email lists pages to open, which assumes they will open the
+// app; this one brings the product to them. The latest levels for their market,
+// what the flip means in one sentence, and how the last forecast was graded,
+// all in the email itself. Same latch as the ordinary version, so a trial gets
+// exactly one of the two. Every link is a public or Basic page.
+export function buildTrialComebackEmail(opts: TrialComebackEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { levels } = opts;
+  const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  const subject = `The latest ${levels.symbol} levels, in plain English`;
+  const appUrl = getAppUrl();
+  const signalsUrl = `${appUrl}/basic-signals`;
+  const trackRecordUrl = `${appUrl}/track-record`;
+  const forecastUrl = opts.latestGrade
+    ? `${appUrl}/forecast/${encodeURIComponent(levels.symbol)}/${encodeURIComponent(opts.latestGrade.date)}`
+    : null;
+  const linkStyle = 'color: #f5b400; font-weight: 600;';
+  const regime = regimeSentence(levels.aboveFlip);
+  const priceVsFlip =
+    levels.aboveFlip === null ? null : `Price was ${levels.aboveFlip ? 'above' : 'below'} the flip.`;
+  const gradeLine = opts.latestGrade
+    ? `On ${sessionDateLabel(opts.latestGrade.date)}, the ${levels.symbol} forecast range ${opts.latestGrade.held ? 'held' : 'was broken, and that miss is published too'}.`
+    : null;
+
+  const levelRows: Array<[string, string, string | null]> = [
+    ['Price', levels.spot, null],
+    ...(levels.flip ? ([['Gamma flip', levels.flip, 'where dealer hedging switches from calming moves to feeding them']] as Array<[string, string, string | null]>) : []),
+    ['Call wall', levels.callWall, 'where dealer hedging tends to lean against a rally'],
+    ['Put wall', levels.putWall, 'where it tends to lean against a drop'],
+  ];
+
+  const text = [
+    'Hello,',
+    '',
+    "You started a ZeroGEX trial a couple of days ago and haven't been back since, so here's what you would have seen if you'd opened it.",
+    '',
+    `${levels.symbol}, as of ${levels.asOf}:`,
+    ...levelRows.map(([label, value, note]) => `  ${`${label}:`.padEnd(12)}${value}${note ? `  (${note})` : ''}`),
+    '',
+    ...(priceVsFlip && regime ? [`${priceVsFlip} ${regime}`, ''] : []),
+    ...(gradeLine ? [`${gradeLine} See the graded call: ${forecastUrl}`, ''] : []),
+    ...(opts.trackRecordLine ? [`${opts.trackRecordLine} The full record: ${trackRecordUrl}`, ''] : []),
+    `That's the whole idea: a live map of where dealer hedging tends to push back. Your trial runs through ${trialEndDate}. The quickest way in is the Signal Dashboard, which reads the same positioning as six plain signals, each explained in a sentence: ${signalsUrl}`,
+    '',
+    "If it still isn't clicking, reply and tell me what you trade. I'll point you at the one page that matters for it.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    `Prefer fewer emails like this? Unsubscribe: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const rowsHtml = levelRows
+    .map(
+      ([label, value, note]) => `
+          <tr>
+            <td style="padding: 6px 12px 6px 0; color: #3a4650; white-space: nowrap;">${escapeHtml(label)}</td>
+            <td style="padding: 6px 12px 6px 0; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;">${escapeHtml(value)}</td>
+            <td style="padding: 6px 0; font-size: 13px; color: #666;">${note ? escapeHtml(note) : ''}</td>
+          </tr>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>You started a ZeroGEX trial a couple of days ago and haven't been back since, so here's what you would have seen if you'd opened it.</p>
+      <p style="margin: 20px 0 6px; font-weight: 700;">${escapeHtml(levels.symbol)}, as of ${escapeHtml(levels.asOf)}</p>
+      <table role="presentation" style="border-collapse: collapse; margin: 0 0 16px;">${rowsHtml}
+      </table>
+      ${priceVsFlip && regime ? `<p><strong>${escapeHtml(priceVsFlip)}</strong> ${escapeHtml(regime)}</p>` : ''}
+      ${gradeLine && forecastUrl ? `<p>${escapeHtml(gradeLine)} <a href="${escapeHtml(forecastUrl)}" style="${linkStyle}">See the graded call</a>.</p>` : ''}
+      ${opts.trackRecordLine ? `<p style="font-size: 14px; color: #3a4650;">${escapeHtml(opts.trackRecordLine)} <a href="${escapeHtml(trackRecordUrl)}" style="${linkStyle}">The full record</a>.</p>` : ''}
+      <p>That's the whole idea: a live map of where dealer hedging tends to push back. Your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>. The quickest way in is the Signal Dashboard, which reads the same positioning as six plain signals, each explained in a sentence.</p>
+      <p style="margin: 24px 0;">
+        <a href="${escapeHtml(signalsUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the Signal Dashboard</a>
+      </p>
+      <p>If it still isn't clicking, reply and tell me what you trade. I'll point you at the one page that matters for it.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${escapeHtml(opts.unsubUrl)}" style="color: #888;">Unsubscribe</a>.</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the dormant variant. Thin wrapper over buildTrialComebackEmail so the
+// wire copy and any preview never drift.
+export async function sendTrialComebackEmail(to: string, opts: TrialComebackEmailOptions) {
+  const { subject, html, text } = buildTrialComebackEmail(opts);
 
   const client = getClient();
   const result = await client.emails.send({

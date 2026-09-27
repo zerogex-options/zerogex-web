@@ -1,5 +1,7 @@
 import type { TranslationKey } from '@/core/i18n';
-import { HAS_LIVE_QUICK_STARTS } from '@/core/quickStarts';
+// Relative with the extension: tests/navigation*.test.ts load this file under
+// bare node --test, which cannot resolve the '@/' alias.
+import { HAS_LIVE_QUICK_STARTS } from './quickStarts.ts';
 
 // `label` is the stable English string — used as a fallback AND as the key for
 // expand/collapse state, so it must never change per-locale. `labelKey`, when
