@@ -102,6 +102,7 @@
     "test:winback-highlights": "node --experimental-strip-types --test tests/winbackHighlights.test.ts",
     "test:winback-email": "node --experimental-strip-types --test tests/winbackEmail.test.ts",
     "test:reactivation-email": "node --experimental-strip-types --test tests/reactivationEmail.test.ts",
+    "test:trial-value-email": "node --experimental-strip-types --test tests/trialValueEmail.test.ts",
     "test:return-intent": "node --experimental-strip-types --test tests/returnIntent.test.ts",
     "test:trial-dunning": "node --experimental-strip-types --test tests/trialDunning.test.ts",
     "test:trial-converted": "node --experimental-strip-types --test tests/trialConverted.test.ts",
