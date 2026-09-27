@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 
 export const runtime = 'nodejs';
 export const alt = '3% of every ZeroGEX subscription supports Folds of Honor';
@@ -173,6 +174,6 @@ export default async function Image() {
         </div>
       </div>
     ),
-    { ...size },
+    { ...size, fonts: OG_FONTS },
   );
 }

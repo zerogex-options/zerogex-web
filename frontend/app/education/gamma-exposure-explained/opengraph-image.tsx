@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 
 export const runtime = 'nodejs';
 export const alt = 'Gamma Exposure (GEX) Explained: The Complete Guide';
@@ -111,6 +112,6 @@ export default async function Image() {
         </div>
       </div>
     ),
-    { ...size },
+    { ...size, fonts: OG_FONTS },
   );
 }

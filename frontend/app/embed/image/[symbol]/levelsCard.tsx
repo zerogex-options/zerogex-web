@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 import { optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
 import { longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
@@ -274,6 +275,6 @@ export function renderLevelsCard(
         </div>
       </div>
     ),
-    { ...CARD_SIZE, headers },
+    { ...CARD_SIZE, headers, fonts: OG_FONTS },
   );
 }

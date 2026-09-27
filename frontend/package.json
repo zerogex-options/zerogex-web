@@ -158,6 +158,7 @@
     "test:rewind-bucket": "node --experimental-strip-types --test tests/rewindBucket.test.ts",
     "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
     "test:embed-widget": "node --experimental-strip-types --test tests/embedWidget.test.ts",
+    "test:og-fonts": "node --experimental-strip-types --test tests/ogFonts.test.ts",
     "test:page-shell": "node --experimental-strip-types --test tests/pageShell.test.ts",
     "test:page-snapshot": "node --experimental-strip-types --test tests/pageSnapshot.test.ts",
     "test:hedging-flow-history": "node --experimental-strip-types --test tests/hedgingFlowHistory.test.ts",
@@ -182,7 +183,7 @@
   "dependencies": {
     "jose": "^5.9.6",
     "lucide-react": "^0.575.0",
-    "next": "16.1.6",
+    "next": "16.3.6",
     "next-sitemap": "^4.2.3",
     "plotly.js-dist-min": "^3.0.1",
     "posthog-js": "^1.386.8",
@@ -200,7 +201,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.3.6",
     "playwright-core": "1.63.0",
     "tailwindcss": "^4",
     "typescript": "5.9.3"

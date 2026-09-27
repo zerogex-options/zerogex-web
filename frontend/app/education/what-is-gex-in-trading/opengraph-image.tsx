@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 
 export const runtime = 'nodejs';
 export const alt = 'What Is GEX in Trading? Gamma Exposure Explained Simply';
@@ -94,6 +95,6 @@ export default async function Image() {
         </div>
       </div>
     ),
-    { ...size },
+    { ...size, fonts: OG_FONTS },
   );
 }

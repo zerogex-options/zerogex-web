@@ -138,6 +138,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  experimental: {
+    // Next 16.3 turned on a Turbopack build cache in .next/cache/turbopack.
+    // `make deploy` and `make rebuild` delete .next before every build, so the
+    // cache would be written on every deploy and never read. Off, as the Next
+    // docs advise for builds that do not keep .next/cache.
+    turbopackFileSystemCacheForBuild: false,
+  },
 };
 
 export default nextConfig;
