@@ -196,7 +196,7 @@ Drei Fallen:
 Das Dashboard zeigt es an mehreren Stellen:
 
 - **Die EOD-Pressure-Karte** zeigt den Live-Score, den Trigger-Status und die Komponenten-Aufschlüsselung (Charm- vs. Pin-Beiträge).
-- **Die Event Timeline** auf der Seite des Signals protokolliert jeden Trigger.
+- **Die Event Timeline** auf der Seite des Signals zeigt den jüngsten Verlauf des Scores, Richtungswechsel sind markiert.
 - **Signal Breadth** im Bereich Proprietäre Signale des Dashboards zählt es als eine der Richtungsstimmen. (Es ist kein Input des Composite MSI, der aus seinen eigenen sechs Komponenten besteht.)
 
 *[Bild-Platzhalter: ZeroGEX EOD-Pressure-Karte mit Score, Komponenten und Rampenstatus während des aktiven Fensters - Datei ablegen unter /public/blog/zerogex-eod-pressure-card.png]*

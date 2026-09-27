@@ -196,7 +196,7 @@ Trois pièges :
 Le tableau de bord l'affiche à plusieurs endroits :
 
 - **La carte EOD Pressure** affiche le score en direct, l'état du déclenchement et la répartition par composante (contributions charm vs. pin).
-- **L'Event Timeline** sur la page du signal consigne chaque déclenchement.
+- **L'Event Timeline** sur la page du signal retrace le parcours récent du score, avec les changements de direction signalés.
 - **Signal Breadth**, dans le panneau Signaux Propriétaires du tableau de bord, le compte comme l'un des votes directionnels. (Ce n'est pas un input du Composite MSI, qui repose sur ses six composantes propres.)
 
 *[Emplacement d'image : carte ZeroGEX EOD Pressure avec score, composantes et statut de la rampe pendant la fenêtre active - déposer le fichier dans /public/blog/zerogex-eod-pressure-card.png]*

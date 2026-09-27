@@ -8,7 +8,7 @@
 
 ZeroGEX fait tourner deux familles de signaux, et elles se comportent différemment par conception.
 
-Les **signaux Advanced** répondent à une question précise et situationnelle ("la clôture est-elle en train de se figer sur un niveau ?", "ce breakout vient-il d'échouer ?"). Chacun produit un score sur une échelle de **-100 à +100** *et* un **trigger** discret : quand la condition de déclenchement du signal est remplie - le plus souvent, quand le score franchit un seuil -, sa carte passe de *Stand by* à *Triggered*, et le trigger est enregistré dans l'Event Timeline du signal. Ils sont pilotés par les événements et font partie de Pro.
+Les **signaux Advanced** répondent à une question précise et situationnelle ("la clôture est-elle en train de se figer sur un niveau ?", "ce breakout vient-il d'échouer ?"). Chacun produit un score sur une échelle de **-100 à +100** *et* un **trigger** discret : quand la condition de déclenchement du signal est remplie - le plus souvent, quand le score franchit un seuil -, sa carte passe de *Stand by* à *Triggered* tant que la condition est remplie. Ils sont pilotés par les événements et font partie de Pro.
 
 Les **signaux Basic** sont des lectures continues et consultatives. Ils n'ont aucun poids dans le **Composite MSI**, construit à partir de six composantes qui lui sont propres, et le moteur ne les déclenche jamais. Leur valeur est celle d'une alerte précoce : quand ils contredisent le MSI, un changement de régime peut s'annoncer avant que le MSI ne bouge. Ils sont inclus dans Basic et Pro.
 
@@ -103,7 +103,7 @@ Quand plusieurs signaux du **même** bucket s'alignent, la conviction se démult
 
 Les signaux Advanced et Basic ne sont pas simplement des versions "plus difficiles" et "plus faciles" l'un de l'autre - ils sont câblés différemment dans le système.
 
-- **Les signaux Advanced déclenchent des triggers discrets.** La plupart se déclenchent quand le score franchit ±25 (±20 pour EOD Pressure et Gamma/VWAP Confluence) ; Range Break Imminence et Market Pressure se déclenchent plutôt sur l'imminence et le loading. La carte passe à *Triggered* et le trigger s'inscrit dans l'Event Timeline du signal. Entre deux triggers, le score est informatif.
+- **Les signaux Advanced déclenchent des triggers discrets.** La plupart se déclenchent quand le score franchit ±25 (±20 pour EOD Pressure et Gamma/VWAP Confluence) ; Range Break Imminence et Market Pressure se déclenchent plutôt sur l'imminence et le loading. La carte reste sur *Triggered* tant que la condition est remplie ; l'Event Timeline du signal retrace le parcours récent du score, ce qui vous permet de voir quand il a franchi le seuil. Entre deux triggers, le score est informatif.
 - **Les signaux Basic ne se déclenchent jamais dans le moteur.** Ce sont des lectures continues et consultatives, sans poids dans le Composite MSI. Surveillez les divergences : des lectures de flux qui se retournent contre la structure, c'est l'alerte précoce pour laquelle ils existent.
 
-Les triggers s'affichent dans l'application - sur les cartes Advanced et dans leurs Event Timelines -, pas par e-mail, SMS ou notification push.
+Les triggers ne s'affichent que dans l'application, sur les cartes Advanced ; l'Event Timeline de chaque signal retrace l'historique de son score. Rien n'est envoyé par e-mail, SMS ou notification push.

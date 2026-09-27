@@ -8,7 +8,7 @@
 
 ZeroGEX opera con dos familias de señales, y por diseño se comportan de forma distinta.
 
-Las **señales Advanced** responden a una pregunta concreta y situacional ("¿se está fijando el cierre?", "¿acaba de fallar este breakout?"). Cada una produce una puntuación en una escala de **-100 a +100** *y* un **trigger** discreto: cuando se cumple la condición de activación de la señal - normalmente, que la puntuación cruce un umbral -, su tarjeta pasa de *Stand by* a *Triggered* y el trigger queda registrado en el Event Timeline de la señal. Se rigen por eventos y forman parte de Pro.
+Las **señales Advanced** responden a una pregunta concreta y situacional ("¿se está fijando el cierre?", "¿acaba de fallar este breakout?"). Cada una produce una puntuación en una escala de **-100 a +100** *y* un **trigger** discreto: cuando se cumple la condición de activación de la señal - normalmente, que la puntuación cruce un umbral -, su tarjeta pasa de *Stand by* a *Triggered* mientras se mantenga la condición. Se rigen por eventos y forman parte de Pro.
 
 Las **señales Basic** son lecturas continuas y orientativas. No tienen peso en el **Composite MSI**, que se construye a partir de seis componentes propios, y el motor nunca las activa. Su valor es el de una alerta temprana: cuando contradicen al MSI, puede avecinarse un cambio de régimen antes de que el MSI se mueva. Están incluidas en Basic y Pro.
 
@@ -103,7 +103,7 @@ Cuando varias señales del **mismo** bucket se alinean, la convicción se multip
 
 Las señales Advanced y Basic no son simplemente versiones "más difíciles" y "más fáciles" entre sí - están conectadas al sistema de forma distinta.
 
-- **Las señales Advanced disparan triggers discretos.** La mayoría se activa cuando la puntuación cruza ±25 (±20 en EOD Pressure y Gamma/VWAP Confluence); Range Break Imminence y Market Pressure se activan en cambio con la imminence y el loading. La tarjeta pasa a *Triggered* y el trigger queda en el Event Timeline de la señal. Entre triggers, la puntuación es informativa.
+- **Las señales Advanced disparan triggers discretos.** La mayoría se activa cuando la puntuación cruza ±25 (±20 en EOD Pressure y Gamma/VWAP Confluence); Range Break Imminence y Market Pressure se activan en cambio con la imminence y el loading. La tarjeta queda en *Triggered* mientras se mantenga la condición; el Event Timeline de la señal muestra la trayectoria reciente de la puntuación, así que puedes ver cuándo cruzó. Entre triggers, la puntuación es informativa.
 - **Las señales Basic nunca se activan en el motor.** Son lecturas continuas y orientativas, sin peso en el Composite MSI. Vigila las divergencias: que las lecturas de flujo se vuelvan contra la estructura es la alerta temprana para la que existen.
 
-Los triggers se muestran en la app - en las tarjetas Advanced y en sus Event Timelines -, no por email, SMS ni notificaciones push.
+Los triggers solo se muestran en la app, en las tarjetas Advanced; el Event Timeline de cada señal muestra el historial de su puntuación. No se envía nada por email, SMS ni notificaciones push.

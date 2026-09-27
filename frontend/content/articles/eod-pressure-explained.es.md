@@ -196,7 +196,7 @@ Tres trampas:
 El dashboard la muestra en varios lugares:
 
 - **La tarjeta de EOD Pressure** muestra el score en vivo, el estado del disparo y el desglose por componentes (contribuciones de charm frente a pin).
-- **El Event Timeline** en la página de la señal registra cada disparo.
+- **El Event Timeline** en la página de la señal muestra la trayectoria reciente del score, con los cambios de dirección marcados.
 - **Signal Breadth** en el panel Señales Propietarias del dashboard lo cuenta como uno de los votos direccionales. (No es un input del Composite MSI, que se construye a partir de sus propios seis componentes.)
 
 *[Marcador de imagen: tarjeta de EOD Pressure de ZeroGEX con score, componentes y estado de la rampa durante la ventana activa - colocar el archivo en /public/blog/zerogex-eod-pressure-card.png]*

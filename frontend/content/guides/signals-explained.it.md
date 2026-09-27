@@ -8,7 +8,7 @@
 
 ZeroGEX gestisce due famiglie di segnali, e per progettazione si comportano in modo diverso.
 
-I **segnali Advanced** rispondono a una domanda precisa e situazionale ("la chiusura si sta impuntando?", "questo breakout è appena fallito?"). Ognuno produce un punteggio su una scala da **-100 a +100** *e* un **trigger** discreto: quando la condizione di attivazione del segnale è soddisfatta - di solito, quando il punteggio supera una soglia -, la sua scheda passa da *Stand by* a *Triggered* e il trigger viene registrato nell'Event Timeline del segnale. Sono guidati dagli eventi e fanno parte di Pro.
+I **segnali Advanced** rispondono a una domanda precisa e situazionale ("la chiusura si sta impuntando?", "questo breakout è appena fallito?"). Ognuno produce un punteggio su una scala da **-100 a +100** *e* un **trigger** discreto: quando la condizione di attivazione del segnale è soddisfatta - di solito, quando il punteggio supera una soglia -, la sua scheda passa da *Stand by* a *Triggered* finché la condizione resta soddisfatta. Sono guidati dagli eventi e fanno parte di Pro.
 
 I **segnali Basic** sono letture continue e consultive. Non hanno alcun peso nel **Composite MSI**, costruito da sei componenti proprie, e il motore non li attiva mai. Il loro valore è quello di un'allerta precoce: quando contraddicono il MSI, un cambio di regime potrebbe arrivare prima che il MSI si muova. Sono inclusi in Basic e Pro.
 
@@ -103,7 +103,7 @@ Quando più segnali dello **stesso** bucket si allineano, la convinzione si molt
 
 I segnali Advanced e Basic non sono semplicemente versioni "più difficili" e "più facili" l'uno dell'altro - sono collegati al sistema in modo diverso.
 
-- **I segnali Advanced generano trigger discreti.** La maggior parte scatta quando il punteggio supera ±25 (±20 per EOD Pressure e Gamma/VWAP Confluence); Range Break Imminence e Market Pressure scattano invece su imminence e loading. La scheda passa a *Triggered* e il trigger finisce nell'Event Timeline del segnale. Tra un trigger e l'altro il punteggio è informativo.
+- **I segnali Advanced generano trigger discreti.** La maggior parte scatta quando il punteggio supera ±25 (±20 per EOD Pressure e Gamma/VWAP Confluence); Range Break Imminence e Market Pressure scattano invece su imminence e loading. La scheda resta su *Triggered* finché la condizione è soddisfatta; l'Event Timeline del segnale mostra il percorso recente del punteggio, così puoi vedere quando ha superato la soglia. Tra un trigger e l'altro il punteggio è informativo.
 - **I segnali Basic non scattano mai nel motore.** Sono letture continue e consultive, senza peso nel Composite MSI. Osserva le divergenze: letture di flusso che si rivoltano contro la struttura sono l'allerta precoce per cui esistono.
 
-I trigger compaiono nell'app - sulle schede Advanced e nelle loro Event Timeline -, non via email, SMS o push.
+I trigger compaiono solo nell'app, sulle schede Advanced; l'Event Timeline di ogni segnale mostra lo storico del suo punteggio. Nulla viene inviato via email, SMS o push.

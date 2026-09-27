@@ -196,7 +196,7 @@ Tre trappole:
 La dashboard lo mostra in diversi punti:
 
 - **La card EOD Pressure** mostra il punteggio live, lo stato del trigger e la scomposizione per componente (contributi charm vs. pin).
-- **L'Event Timeline** nella pagina del segnale registra ogni trigger.
+- **L'Event Timeline** nella pagina del segnale mostra il percorso recente del punteggio, con i cambi di direzione evidenziati.
 - **Signal Breadth**, nel pannello Segnali Proprietari della dashboard, lo conta come uno dei voti direzionali. (Non è un input del Composite MSI, che è costruito dalle sue sei componenti.)
 
 *[Segnaposto immagine: card ZeroGEX EOD Pressure con punteggio, componenti e stato della rampa durante la finestra attiva - inserire il file in /public/blog/zerogex-eod-pressure-card.png]*
