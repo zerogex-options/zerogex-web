@@ -454,3 +454,110 @@ test('mildly contradicting GEX gradient does not block long-gamma regime', () =>
   });
   assert.equal(result.marketState, 'TREND_UP');
 });
+
+// The copy describes where positioning and flow stand; it gives no trade
+// instruction and makes no forecast (see the note in core/tradeBias.ts). The
+// same table is pinned against the backend port in zerogex-oa
+// tests/test_trade_bias.py, so the two copies cannot drift apart without a
+// test failing on one side.
+const NOT_A_FORECAST = 'A description of the current read, not a forecast';
+
+const STATE_INPUTS: Record<string, Partial<BiasInput>> = {
+  TREND_UP: { netGEX: 50, gexGradient: 60, tapeFlow: 80, vannaCharm: 60, odtePositioning: 60, msi: 50 },
+  TREND_DOWN: { netGEX: 50, gexGradient: 60, tapeFlow: -80, vannaCharm: -60, odtePositioning: -60, msi: 50 },
+  TRAP_REVERSAL: {
+    netGEX: -50, gexGradient: -60, tapeFlow: 80, vannaCharm: 60, odtePositioning: 60,
+    positioningTrap: -40, trapDetection: -60, gammaVWAP: -40,
+  },
+  TRAP_SQUEEZE: {
+    netGEX: -50, gexGradient: -60, tapeFlow: -80, vannaCharm: -60, odtePositioning: -60,
+    positioningTrap: 40, trapDetection: 60, gammaVWAP: 40,
+  },
+  CHOP: { netGEX: 50, gexGradient: 0, tapeFlow: 0, vannaCharm: 0, odtePositioning: 0, msi: 50 },
+  UNKNOWN: { netGEX: 50, tapeFlow: 0, msi: 50 },
+};
+
+const STATE_COPY: Record<string, {
+  code: string; regime: string; desc: string; lean: string; state: string; shows: string[]; changes: string[];
+}> = {
+  TREND_UP: {
+    code: 'BUY_DIPS',
+    regime: 'Long Gamma · Bullish Flow',
+    desc: 'Dealers are net long gamma, and most flow signals lean bullish.',
+    lean: 'Flow Bullish',
+    state: 'Aligned Flow',
+    shows: ['Net GEX positive: dealers net long gamma', 'Tape, vanna/charm and 0DTE flow: majority bullish', NOT_A_FORECAST],
+    changes: ['Flow losing its bullish majority', 'Net GEX turning negative, or the gradient strongly against it'],
+  },
+  TREND_DOWN: {
+    code: 'SELL_RIPS',
+    regime: 'Long Gamma · Bearish Flow',
+    desc: 'Dealers are net long gamma, and most flow signals lean bearish.',
+    lean: 'Flow Bearish',
+    state: 'Aligned Flow',
+    shows: ['Net GEX positive: dealers net long gamma', 'Tape, vanna/charm and 0DTE flow: majority bearish', NOT_A_FORECAST],
+    changes: ['Flow losing its bearish majority', 'Net GEX turning negative, or the gradient strongly against it'],
+  },
+  TRAP_REVERSAL: {
+    code: 'FADE_STRENGTH',
+    regime: 'Short Gamma · Flow vs. Structure',
+    desc: 'Dealers are net short gamma. Flow leans bullish while the structure signals lean bearish.',
+    lean: 'Structure Bearish',
+    state: 'Flow/Structure Split',
+    shows: ['Net GEX negative: dealers net short gamma', 'Flow majority bullish; structure majority bearish', NOT_A_FORECAST],
+    changes: ['Flow or structure losing its majority', 'Net GEX turning positive, or the gradient strongly against it'],
+  },
+  TRAP_SQUEEZE: {
+    code: 'FADE_WEAKNESS',
+    regime: 'Short Gamma · Flow vs. Structure',
+    desc: 'Dealers are net short gamma. Flow leans bearish while the structure signals lean bullish.',
+    lean: 'Structure Bullish',
+    state: 'Flow/Structure Split',
+    shows: ['Net GEX negative: dealers net short gamma', 'Flow majority bearish; structure majority bullish', NOT_A_FORECAST],
+    changes: ['Flow or structure losing its majority', 'Net GEX turning positive, or the gradient strongly against it'],
+  },
+  CHOP: {
+    code: 'RANGE_FADE',
+    regime: 'Mixed Signals',
+    desc: 'The gamma regime, flow and structure signals do not line up into a defined state.',
+    lean: 'Mixed',
+    state: 'No Defined State',
+    shows: [
+      'No flow majority in long gamma, and no flow/structure split in short gamma',
+      'Most minutes read this way; it does not mean the market is quiet',
+      NOT_A_FORECAST,
+    ],
+    changes: ['Flow forming a majority while dealers are long gamma', 'Flow and structure splitting while dealers are short gamma'],
+  },
+  UNKNOWN: {
+    code: 'WAIT',
+    regime: 'Not Enough Data',
+    desc: 'Fewer than four of the nine inputs are reporting.',
+    lean: 'No Read',
+    state: 'No Defined State',
+    shows: ['Waiting on more inputs to report', NOT_A_FORECAST],
+    changes: ['More of the nine inputs reporting'],
+  },
+};
+
+// Trade instructions and movement promises the copy used to make.
+const INSTRUCTION =
+  /\b(buy|sell|enter|entry|target|trail|stops?|fade|favor|avoid|dips|rips|longs|shorts|puts|calls|theta|expansion|squeeze|reversal|grind|drift|pin|magnet|chop|range-bound|breakout)\b/i;
+
+for (const [state, inputs] of Object.entries(STATE_INPUTS)) {
+  test(`${state} copy describes where things stand and does not instruct`, () => {
+    const r = computeBias({ ...empty, ...inputs });
+    const expected = STATE_COPY[state];
+    assert.equal(r.marketState, state);
+    assert.equal(r.bias, expected.code); // TradeWorkz and the API key off the codes
+    assert.deepEqual(
+      [r.regimeLabel, r.regimeDesc, r.biasLabel, r.setup],
+      [expected.regime, expected.desc, expected.lean, expected.state],
+    );
+    assert.deepEqual(r.expectedBehavior, expected.shows);
+    assert.deepEqual(r.playbook, expected.changes);
+    for (const line of [r.regimeLabel, r.regimeDesc, r.biasLabel, r.setup, ...r.playbook, ...r.expectedBehavior]) {
+      assert.doesNotMatch(line, INSTRUCTION, `${state}: ${line}`);
+    }
+  });
+}

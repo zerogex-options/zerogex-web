@@ -43,7 +43,7 @@ Consultez la répartition en direct sur la page [Pricing](/pricing). Basic mensu
 ### Niveau Pro
 
 - Tout ce qui est inclus dans Basic, plus :
-- **Trade Bias** - le détail complet et le playbook derrière la carte Trade Bias du tableau de bord
+- **Trade Bias** - le détail complet derrière la carte Trade Bias du tableau de bord
 - **Score composite** - la page complète du MSI, la lecture de 0 à 100 du régime de marché (Basic voit le MSI lui-même sur le Tableau de bord principal)
 - **Tous les Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (bêta) - Trading par bots, Backtesting et Analyse des motifs

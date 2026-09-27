@@ -43,7 +43,7 @@ Die aktuelle Aufschlüsselung findest du auf der Seite [Pricing](/pricing). Basi
 ### Pro-Tier
 
 - Alles aus Basic, plus:
-- **Trade Bias** - die vollständige Aufschlüsselung und das Playbook hinter der Trade-Bias-Karte des Dashboards
+- **Trade Bias** - die vollständige Aufschlüsselung hinter der Trade-Bias-Karte des Dashboards
 - **Gesamtscore** - die vollständige Seite zum MSI, der 0-100-Einschätzung des Marktregimes (Basic sieht den MSI selbst auf dem Haupt-Dashboard)
 - **Alle Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (Beta) - Bot-Trading, Backtesting und Muster-Einblicke

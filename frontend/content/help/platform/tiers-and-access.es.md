@@ -43,7 +43,7 @@ Consulta el desglose en vivo en la página [Pricing](/pricing). Basic mensual in
 ### Nivel Pro
 
 - Todo lo de Basic, más:
-- **Trade Bias** - el desglose completo y el playbook detrás de la tarjeta Trade Bias del panel
+- **Trade Bias** - el desglose completo detrás de la tarjeta Trade Bias del panel
 - **Puntuación compuesta** - la página completa del MSI, la lectura de 0 a 100 del régimen de mercado (Basic ve el propio MSI en el Panel principal)
 - **Todos los Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (beta) - Trading con bots, Backtesting y Análisis de patrones

@@ -42,7 +42,7 @@ Lo ZeroGEX Gamma Chart è il fulcro: candele in tempo reale con la struttura del
 
 ### 4. Trade Bias
 
-Una singola scheda con il regime, il bias (per esempio *Buy Dips*, *Sell Rips*, *Range-Bound* o *Neutral*) e un punteggio di confidenza su 10. È una sintesi di lettura dall'alto, **non** un segnale di trading. **Open Trade Bias** porta all'analisi completa e al playbook nella pagina Trade Bias, che fa parte di Pro. Con Basic, la scheda viene costruita senza gli input dei segnali riservati a Pro.
+Una singola scheda con lo stato di posizionamento (per esempio *Long Gamma · Bullish Flow* o *Mixed Signals*), la direzione verso cui pendono i suoi input e un punteggio di accordo su 10. Descrive posizionamento e flusso così come sono; **non** è un segnale di trading né una previsione. **Open Trade Bias** porta all'analisi completa nella pagina Trade Bias, che fa parte di Pro. Con Basic, la scheda viene costruita senza gli input dei segnali riservati a Pro.
 
 Sotto la scheda, **How to read these signals** (chiuso) spiega come si combinano Trade Bias, il Composite MSI, i segnali Basic e i segnali Advanced.
 

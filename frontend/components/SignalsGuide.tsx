@@ -24,10 +24,10 @@ const SURFACES = [
     key: 'trade-bias' as const,
     title: 'Trade Bias',
     icon: Compass,
-    answers: 'What should I do right now?',
-    output: 'Regime + bias + confidence + a numbered playbook',
-    use: 'First glance\u00a0- decide if today is tradable and which direction',
-    note: 'Synthesizes the regime + key signals into a single instruction.',
+    answers: 'Where do positioning and flow stand?',
+    output: 'Positioning state + lean + agreement score',
+    use: 'First glance\u00a0- see the gamma regime and which way flow leans',
+    note: 'Summarizes the regime and key signals. It describes; it does not instruct.',
   },
   {
     key: 'composite-score' as const,
@@ -179,16 +179,17 @@ export default function SignalsGuide({ current, defaultOpen = false }: Props) {
                 &nbsp;- if it&apos;s low, prefer fades; if it&apos;s high, prefer trend trades.
               </li>
               <li>
-                <span className="font-semibold">Trade Bias</span> takes the MSI plus the key flow signals and turns them
-                into a single instruction (Buy Dips, Sell Rips, Sell Strength, Range-Bound, Wait).
+                <span className="font-semibold">Trade Bias</span> sums up the gamma regime and the key flow and structure
+                signals as one positioning state (for example Long Gamma · Bullish Flow, or Mixed Signals). It describes
+                where things stand; it is not a trade instruction.
               </li>
               <li>
                 <span className="font-semibold">Basic Signals</span> are advisory&nbsp;- they don&apos;t move the MSI but
                 can warn of a regime shift before the score reacts.
               </li>
               <li>
-                <span className="font-semibold">Advanced Signals</span> tell you <em>when</em>&nbsp;- wait for one to trigger
-                in agreement with the bias, then take the trade.
+                <span className="font-semibold">Advanced Signals</span> tell you <em>when</em>&nbsp;- each one triggers on its
+                own threshold.
               </li>
             </ol>
           </div>

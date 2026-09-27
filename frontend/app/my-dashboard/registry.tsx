@@ -477,17 +477,17 @@ export const WIDGETS: WidgetDef[] = [
   },
   {
     // The id stays 'trade-bias' though the widget is now called Regime &
-    // Playbook: ids are what persisted boards store, and an unknown id is
+    // Flow: ids are what persisted boards store, and an unknown id is
     // dropped on load (see sanitizeLayout), so renaming it would silently
     // delete this widget from every board already carrying it.
     id: 'trade-bias',
-    title: 'Regime & Playbook',
+    title: 'Regime & Flow',
     // Renamed off "Trade Bias" because two widgets under that name were two
     // different calculations — this composite, and the engine's signed call in
     // Trade Bias · Horizon — which are allowed to disagree. Naming this one for
     // what it actually leads with settles which is which.
     blurb:
-      'Glance-first regime read, directional bias and the playbook for it, composited in your browser from the proprietary signals.',
+      'Glance-first read of the gamma regime and which way flow leans, composited in your browser from the proprietary signals.',
     category: 'signals',
     tier: 'basic',
     icon: Signal,
@@ -500,7 +500,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'trade-bias-horizon',
     title: 'Trade Bias · Horizon',
     blurb:
-      "The Signals Engine's signed directional call for a horizon you pick\u00a0- Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarized: bias, conviction and the regime behind it.",
+      "The Signals Engine's signed read of positioning and flow for a horizon you pick\u00a0- Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarized: the lean, the score and the regime behind it.",
     category: 'signals',
     tier: 'basic',
     icon: Compass,

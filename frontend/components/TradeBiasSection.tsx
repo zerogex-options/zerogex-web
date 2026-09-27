@@ -79,14 +79,16 @@ function BiasCard({
   );
 }
 
+// The panel describes where positioning and flow stand. It gives no trade
+// instruction and makes no forecast; see the note in core/tradeBias.ts.
 const REGIME_TOOLTIP =
-  'Market State derived from the confluence of net GEX, gradient, tape flow, vanna/charm, 0DTE positioning, and trap signals. Possible regimes: Trend Up (long gamma + bullish flow), Trend Down (long gamma + bearish flow), Trap / Reversal (short gamma + bullish flow into crowded structure → sell into strength), Trap / Squeeze (short gamma + bearish flow into trapped shorts → buy into weakness), Chop / Range (mixed signals → mean reversion), or Awaiting confluence (insufficient data). The checklist below shows which key conditions are currently met.';
+  'Where dealer positioning and flow stand right now, from net GEX, the GEX gradient, the flow signals (tape, vanna/charm, 0DTE positioning) and the structure signals (positioning trap, trap detection, gamma/VWAP). States: Long Gamma \u00b7 Bullish or Bearish Flow (dealers long gamma, with most flow signals leaning one way), Short Gamma \u00b7 Flow vs. Structure (dealers short gamma, with flow and structure leaning opposite ways), Mixed Signals (no defined state), or Not Enough Data. It describes the current read; it does not predict what price will do. The checklist below shows which key conditions are met.';
 
 const BIAS_TOOLTIP =
-  'Directional bias suggested by the active regime. Possible values: Buy Dips (Trend Up), Sell Rips (Trend Down), Sell Strength (Trap / Reversal), Buy Weakness (Trap / Squeeze), Range-Bound (Chop), or Neutral / Wait (low confluence). Confidence is scored 0-10 based on how aligned the underlying signals are with the active regime\u00a0- higher = more signals agree, lower = more mixed. The bar shows confidence as a percentage of the maximum. A “Conviction” badge appears when a regime was triggered by a single dominant signal rather than broad consensus. While in Chop, “Watching: …” chips appear for any individual signal at conviction levels\u00a0- early warning that a regime swap may be brewing.';
+  'Which way the inputs behind the state lean: the flow signals in a long-gamma state, the structure signals in a short-gamma split, Mixed otherwise. Agreement is scored 0-10 by how closely the underlying signals line up with the state\u00a0- higher means more of them agree. It measures agreement, not the odds of a move. A “Single Signal” badge appears when one very strong reading carried the state on its own. In Mixed, “Strong” chips flag any one signal at a strong reading that has not changed the state.';
 
-const PLAYBOOK_TOOLTIP =
-  'Suggested setup and step-by-step plan tailored to the active regime. The Setup name (e.g. Trend Continuation (Up), Trap / Squeeze, Mean Reversion) summarizes the trade thesis; the numbered steps describe how to execute it\u00a0- entry trigger, level to watch, target, and risk management. Use this as a checklist, not a guarantee: confirm with the regime checklist and confidence score before sizing in.';
+const CHANGE_TOOLTIP =
+  'What would move the panel out of its current state. The panel describes positioning and flow as they stand; it is not a trade plan. Use it alongside price action, levels and your own risk rules.';
 
 export default function TradeBiasSection({ compact = false }: { compact?: boolean } = {}) {
   const { symbol } = useTimeframe();
@@ -232,7 +234,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
   const confidencePct = (bias.confidence / bias.maxConfidence) * 100;
 
   // Compact mode — a single glance-first card for the dashboard. The full
-  // three-card breakdown + playbook now lives on the dedicated /trade-bias page.
+  // three-card breakdown now lives on the dedicated /trade-bias page.
   if (compact) {
     const CompactIcon = biasIcon;
     return (
@@ -260,7 +262,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
               {bias.confidence.toFixed(1)}
             </span>
             <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">
-              Conf / {bias.maxConfidence}
+              Agreement / {bias.maxConfidence}
             </span>
           </div>
           <Link
@@ -279,8 +281,8 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
     <section className="mb-8">
       <h2 className="text-2xl font-semibold mb-4">Trade Bias</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {/* Regime card */}
-        <BiasCard title="Regime" icon={Compass} color={color} loading={anyLoading && !bias.hasData} tooltip={REGIME_TOOLTIP}>
+        {/* Positioning card */}
+        <BiasCard title="Positioning" icon={Compass} color={color} loading={anyLoading && !bias.hasData} tooltip={REGIME_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
               <div className="text-2xl sm:text-3xl font-black leading-tight break-words" style={{ color }}>
@@ -312,8 +314,8 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
           </div>
         </BiasCard>
 
-        {/* Bias card */}
-        <BiasCard title="Bias" icon={biasIcon} color={color} loading={anyLoading && !bias.hasData} tooltip={BIAS_TOOLTIP}>
+        {/* Lean card */}
+        <BiasCard title="Lean" icon={biasIcon} color={color} loading={anyLoading && !bias.hasData} tooltip={BIAS_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
               <div className="text-2xl sm:text-3xl md:text-4xl font-black leading-none break-words" style={{ color }}>
@@ -325,9 +327,9 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
                   <span
                     className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border"
                     style={{ borderColor: color, color }}
-                    title="Regime triggered by a single dominant signal rather than broad consensus."
+                    title="This state rests on one very strong reading rather than broad agreement."
                   >
-                    Conviction
+                    Single Signal
                   </span>
                 ) : null}
                 {bias.watching.map((w) => {
@@ -337,9 +339,9 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
                       key={w.key}
                       className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border"
                       style={{ borderColor: watchColor, color: watchColor }}
-                      title={`${w.label} is at conviction levels (${w.direction}). No regime swap yet\u00a0- watch for one if other signals align.`}
+                      title={`${w.label} is at a strong ${w.direction} reading on its own; the other inputs have not formed a state.`}
                     >
-                      Watching: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
+                      Strong: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
                     </span>
                   );
                 })}
@@ -350,7 +352,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
                 {bias.confidence.toFixed(1)}
               </div>
               <div className="text-[10px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">
-                Confidence / {bias.maxConfidence}
+                Agreement / {bias.maxConfidence}
               </div>
             </div>
           </div>
@@ -365,7 +367,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
           </div>
           <div className="mt-auto">
             <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mb-1.5">
-              Expected Behavior
+              What the Inputs Show
             </div>
             <ul className="flex flex-col gap-1 text-xs text-[var(--color-text-primary)]">
               {bias.expectedBehavior.map((line, idx) => (
@@ -381,15 +383,15 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
           </div>
         </BiasCard>
 
-        {/* Playbook card */}
-        <BiasCard title="Playbook" icon={ListChecks} color={color} loading={anyLoading && !bias.hasData} tooltip={PLAYBOOK_TOOLTIP}>
+        {/* What-would-change-it card */}
+        <BiasCard title="What Would Change It" icon={ListChecks} color={color} loading={anyLoading && !bias.hasData} tooltip={CHANGE_TOOLTIP}>
           <div className="flex items-end justify-between gap-3">
             <div>
               <div className="text-2xl sm:text-3xl font-black leading-tight break-words" style={{ color }}>
                 {bias.setup}
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide">
-                Setup
+                Current State
               </div>
             </div>
           </div>

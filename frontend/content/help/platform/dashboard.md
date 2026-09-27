@@ -42,7 +42,7 @@ The ZeroGEX Gamma Chart is the centerpiece: live candles with the dealer-gamma s
 
 ### 4. Trade Bias
 
-A single card with the regime, the bias (such as *Buy Dips*, *Sell Rips*, *Range-Bound* or *Neutral*) and a confidence score out of 10. It's a read-from-the-top synthesis, **not** a trade signal. **Open Trade Bias** goes to the full breakdown and playbook on the Trade Bias page, which is part of Pro. On Basic, the card is built without the Pro-only signal inputs.
+A single card with the positioning state (such as *Long Gamma · Bullish Flow* or *Mixed Signals*), which way its inputs lean, and an agreement score out of 10. It describes positioning and flow as they stand; it is **not** a trade signal or a forecast. **Open Trade Bias** goes to the full breakdown on the Trade Bias page, which is part of Pro. On Basic, the card is built without the Pro-only signal inputs.
 
 Under the card, **How to read these signals** (folded) explains how Trade Bias, the Composite MSI, the Basic signals and the Advanced signals fit together.
 

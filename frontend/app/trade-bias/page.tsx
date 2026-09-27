@@ -20,10 +20,10 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { BIAS_TENOR_OPTIONS, type BiasTenor } from '@/core/tradeBiasTenor';
 import { useBiasTenor } from '@/hooks/useBiasTenor';
 import { getMarketSession } from '@/core/utils';
-import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
+import { SignalTrend, trendColor } from '@/core/signalHelpers';
 import BiasTape from './BiasTape';
 import { useTradeBiasData } from './useTradeBiasData';
-import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload } from './data';
+import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload, leanLabel } from './data';
 
 // Recharts is heavy and the chart is the last section on the page — code-split
 // it (ssr:false) so the hero + cards paint without waiting on the chart bundle.
@@ -34,15 +34,18 @@ const IntradayBiasChart = dynamic(() => import('./IntradayBiasChart'), {
   ),
 });
 
+// Describes where positioning and flow stand; no trade instruction and no
+// forecast (see the note in core/tradeBias.ts).
 const TITLE_TOOLTIP =
-  'Trade Bias is a single, signed directional call\u00a0- which way to lean, how convinced, and the regime it started from. ' +
-  'It fuses the gamma regime and volatility (the structural baseline) with price action, order flow, tape, and momentum (the live read). ' +
-  'Most of the time the live read confirms the structure; when it disagrees loudly enough it overrides it\u00a0- and the card says so. ' +
-  'Unlike the Composite Score (a directionless 0-100 regime-strength gauge), Trade Bias tells you which direction the read favors. ' +
+  'Trade Bias summarizes where dealer positioning and flow stand, on one signed −100…+100 scale. ' +
+  'It combines the gamma and volatility regime (the structural read) with price action, order flow, tape, and momentum (the live read). ' +
+  'Most of the time the two agree; when the live read is strong and broad enough it outweighs the structure\u00a0- and the card says so. ' +
+  'Unlike the Composite Score (a 0-100 regime gauge), it is signed: it shows which way the inputs lean. ' +
+  'It describes the current read; it is not a forecast or a trade signal. ' +
   'Computed by the Signals Engine every cycle, not in your browser.';
 
 const TENOR_TOOLTIP =
-  'Which horizon this read is for. Swing is the multi-day, structural bias led by the gamma and volatility regime. ' +
+  'Which horizon this read is for. Swing is the multi-day read led by the gamma and volatility regime. ' +
   'Intraday is the same-day (0DTE), faster read led by flow, tape, and momentum. They can\u00a0- and often do\u00a0- disagree.';
 
 const INPUTS_TOOLTIP =
@@ -50,8 +53,8 @@ const INPUTS_TOOLTIP =
   'Each is shown on its −100…+100 scale; green leans bullish, red bearish.';
 
 const LIVE_READ_TOOLTIP =
-  'The tactical layer\u00a0- price action (bounce/reject), order flow, tape, and momentum\u00a0- fused into one signed direction and a conviction. ' +
-  'When it agrees with the structural baseline it confirms; when it leans against it, it diverges (caution); when it is loud and broad enough, it overrides\u00a0- flipping the bias to a reversal/squeeze playbook.';
+  'The tactical layer\u00a0- price action (bounce/reject), order flow, tape, and momentum\u00a0- fused into one signed lean and a strength. ' +
+  'When it agrees with the structural read it confirms; when it leans against it, it diverges; when it is strong and broad enough, it outweighs the structural read (an override).';
 
 const STATE_VERB: Record<string, string> = {
   confirmed: 'confirms',
@@ -246,7 +249,7 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
   const dirTrend: SignalTrend =
     t.direction == null ? 'neutral' : t.direction > 0.15 ? 'bullish' : t.direction < -0.15 ? 'bearish' : 'neutral';
   const dirColor = trendColor(dirTrend);
-  const dirLabel = dirTrend === 'bullish' ? 'Long' : dirTrend === 'bearish' ? 'Short' : 'Neutral';
+  const dirLabel = leanLabel(dirTrend);
   const convPct = t.conviction != null ? Math.round(t.conviction * 100) : null;
   const verb = STATE_VERB[payload.state] ?? 'sits on';
 
@@ -260,8 +263,8 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
         </TooltipWrapper>
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        Price action, order flow, tape and momentum&nbsp;- the tactical layer that {verb} the{' '}
-        {payload.structuralBiasLabel ?? 'structural'} baseline.
+        Price action, order flow, tape and momentum&nbsp;- the tactical layer that {verb} the structural read
+        {payload.structuralBiasLabel ? ` (${payload.structuralBiasLabel})` : ''}.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
         {TACTICAL_PILLAR_META.map((p) => {
@@ -282,10 +285,10 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
         <span className="text-[var(--color-text-secondary)]">
-          Tactical direction <span className="font-semibold" style={{ color: dirColor }}>{dirLabel}</span>
+          Live lean <span className="font-semibold" style={{ color: dirColor }}>{dirLabel}</span>
         </span>
         <span className="text-[var(--color-text-secondary)]">
-          Conviction <span className="font-semibold font-mono text-[var(--color-text-primary)]">{convPct == null ? '—' : `${convPct}%`}</span>
+          Strength <span className="font-semibold font-mono text-[var(--color-text-primary)]">{convPct == null ? '—' : `${convPct}%`}</span>
         </span>
         <span className="text-[var(--color-text-secondary)]">
           <span className="font-semibold font-mono text-[var(--color-text-primary)]">{t.alignedCount ?? '—'}/{t.availableCount ?? '—'}</span> pillars aligned
@@ -380,16 +383,16 @@ export default function TradeBiasPage() {
                   </span>
                   <StateChip state={payload.state} overrideActive={payload.overrideActive} />
                   {payload.convictionDriven && (
-                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ borderColor: color, color }} title="Regime triggered by a single dominant signal rather than broad consensus.">
-                      <Zap size={11} /> Conviction
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ borderColor: color, color }} title="This state rests on one very strong reading rather than broad agreement.">
+                      <Zap size={11} /> Single Signal
                     </span>
                   )}
                 </div>
                 <BiasTape biasScore={payload.biasScore} />
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Direction</span>
-                    <span className="text-sm font-semibold" style={{ color }}>{humanize(payload.directionRaw) || 'Neutral'}</span>
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Lean</span>
+                    <span className="text-sm font-semibold" style={{ color }}>{leanLabel(payload.direction)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Gamma</span>
@@ -409,7 +412,7 @@ export default function TradeBiasPage() {
                 </div>
                 <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">Bias · −100 … +100</div>
                 <div className="mt-3 flex items-center gap-2 justify-center lg:justify-end">
-                  <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">Conf</span>
+                  <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">Agreement</span>
                   <span className="text-sm font-semibold font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {confidence == null ? '—' : Math.round(confidence)}
                   </span>
@@ -426,8 +429,8 @@ export default function TradeBiasPage() {
                   <Zap size={14} /> Override active
                 </div>
                 <p className="text-xs text-[var(--color-text-primary)] mt-1">
-                  {payload.overrideReason ?? 'The live read overruled the structural posture.'}
-                  {payload.overruledPosture ? ` (overruled: ${payload.overruledPosture})` : ''}
+                  {payload.overrideReason ?? 'The live read outweighed the structural read.'}
+                  {payload.overruledPosture ? ` (structural read: ${payload.overruledPosture})` : ''}
                 </p>
               </div>
             )}
@@ -438,10 +441,10 @@ export default function TradeBiasPage() {
       {/* Live read — the tactical layer that confirms / diverges / overrides */}
       {payload && !noData && <TacticalPanel payload={payload} />}
 
-      {/* Regime / Bias / Playbook — the read, its behavior, and the plan */}
+      {/* Positioning / Lean / What would change it — the read, what it rests on, and what ends it */}
       {payload && !noData && (
         <section className="mt-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <Card title="Regime" icon={Compass} color={color}>
+          <Card title="Positioning" icon={Compass} color={color}>
             <div className="text-2xl font-black leading-tight break-words" style={{ color }}>{payload.regimeLabel}</div>
             <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{payload.regimeDesc}</p>
             <div className="mt-auto grid grid-cols-1 gap-1.5 text-xs">
@@ -456,23 +459,23 @@ export default function TradeBiasPage() {
             </div>
           </Card>
 
-          <Card title="Bias" icon={biasIcon} color={color}>
+          <Card title="Lean" icon={biasIcon} color={color}>
             <div className="text-3xl font-black leading-none break-words" style={{ color }}>{payload.biasLabel}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">{humanize(payload.biasCode)}</div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">{payload.setup}</div>
             {payload.watching.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {payload.watching.map((w) => {
                   const wc = w.direction === 'bullish' ? 'var(--color-bull)' : 'var(--color-bear)';
                   return (
                     <span key={w.key} className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border" style={{ borderColor: wc, color: wc }}>
-                      Watching: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
+                      Strong: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
                     </span>
                   );
                 })}
               </div>
             )}
             <div className="mt-auto">
-              <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mb-1.5">Expected Behavior</div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mb-1.5">What the Inputs Show</div>
               <ul className="flex flex-col gap-1 text-xs">
                 {payload.expectedBehavior.map((line, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -484,9 +487,9 @@ export default function TradeBiasPage() {
             </div>
           </Card>
 
-          <Card title="Playbook" icon={ListChecks} color={color}>
+          <Card title="What Would Change It" icon={ListChecks} color={color}>
             <div className="text-2xl font-black leading-tight break-words" style={{ color }}>{payload.setup}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">Setup</div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">Current State</div>
             <ol className="mt-1 flex flex-col gap-1.5 text-xs">
               {payload.playbook.map((step, i) => (
                 <li key={i} className="flex items-start gap-2">

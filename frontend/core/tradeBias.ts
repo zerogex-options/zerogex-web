@@ -57,6 +57,14 @@ export const STRONG = 25;
 export const MODERATE = 12;
 export const DOMINANT = 65;
 
+// The copy below describes where positioning and flow stand; it gives no
+// trade instruction and makes no forecast. ZeroGEX's own replays of every
+// minute since 2026-07-17 (zerogex-oa research/short_gamma_trend,
+// trade_bias_inputs, trade_bias_movement) found that no state predicted the
+// direction or the size of the next move, and no input predicted its direction.
+// src/signals/trade_bias/bias.py carries the same strings; keep them in step.
+const NOT_A_FORECAST = 'A description of the current read, not a forecast';
+
 // `msi` is the 0-100 composite: regime strength, not direction. Both trend
 // states treat it identically -- it adds to a trend call's confidence and
 // never gates it. It used to gate them as if it ran -100..+100 (`msi >= -10`
@@ -134,33 +142,34 @@ export function computeBias(inp: BiasInput): BiasResult {
     biasScores.push(Math.max(0, (v * expectedSign) / 100));
   };
 
+  // Defaults are the UNKNOWN state's copy: fewer than four inputs reporting.
   let trend: SignalTrend = 'neutral';
-  let biasLabel = 'Neutral';
+  let biasLabel = 'No Read';
   let bias = 'WAIT';
-  let regimeLabel = 'Awaiting confluence';
-  let regimeDesc = 'Signals mixed. Wait for alignment.';
-  let setup = 'No defined setup';
-  let playbook: string[] = ['Wait for signal alignment', 'Avoid premium decay exposure', 'Re-assess every 15m'];
-  let expectedBehavior: string[] = ['Range-bound / choppy', 'Low directional conviction'];
+  let regimeLabel = 'Not Enough Data';
+  let regimeDesc = 'Fewer than four of the nine inputs are reporting.';
+  let setup = 'No Defined State';
+  // `playbook` is what would move the panel out of its current state;
+  // `expectedBehavior` is what the inputs show. Field names are the API's.
+  let playbook: string[] = ['More of the nine inputs reporting'];
+  let expectedBehavior: string[] = ['Waiting on more inputs to report', NOT_A_FORECAST];
 
   switch (marketState) {
     case 'TRAP_REVERSAL':
       trend = 'bearish';
       bias = 'FADE_STRENGTH';
-      biasLabel = 'Sell Strength';
-      regimeLabel = 'Trap / Reversal Regime';
-      regimeDesc = 'Short gamma + bullish flow + crowded structure = reversal setup.';
-      setup = 'Trap / Reversal';
+      biasLabel = 'Structure Bearish';
+      regimeLabel = 'Short Gamma \u00b7 Flow vs. Structure';
+      regimeDesc = 'Dealers are net short gamma. Flow leans bullish while the structure signals lean bearish.';
+      setup = 'Flow/Structure Split';
       playbook = [
-        'Wait for upside push to stall',
-        'Watch for rejection at resistance / VWAP',
-        'Enter puts on failure confirmation',
-        'Target liquidity sweep / downside expansion',
+        'Flow or structure losing its majority',
+        'Net GEX turning positive, or the gradient strongly against it',
       ];
       expectedBehavior = [
-        'Early strength fails',
-        'Choppy rejection at resistance',
-        'Short-gamma expansion lower',
+        'Net GEX negative: dealers net short gamma',
+        'Flow majority bullish; structure majority bearish',
+        NOT_A_FORECAST,
       ];
       push(tapeFlow, 1);
       push(vannaCharm, 1);
@@ -174,20 +183,18 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'TRAP_SQUEEZE':
       trend = 'bullish';
       bias = 'FADE_WEAKNESS';
-      biasLabel = 'Buy Weakness';
-      regimeLabel = 'Trap / Squeeze Regime';
-      regimeDesc = 'Short gamma + bearish flow + trapped shorts = squeeze setup.';
-      setup = 'Trap / Squeeze';
+      biasLabel = 'Structure Bullish';
+      regimeLabel = 'Short Gamma \u00b7 Flow vs. Structure';
+      regimeDesc = 'Dealers are net short gamma. Flow leans bearish while the structure signals lean bullish.';
+      setup = 'Flow/Structure Split';
       playbook = [
-        'Wait for downside flush to stall',
-        'Watch for reclaim of VWAP / support',
-        'Enter calls on reversal confirmation',
-        'Target short-cover squeeze / upside expansion',
+        'Flow or structure losing its majority',
+        'Net GEX turning positive, or the gradient strongly against it',
       ];
       expectedBehavior = [
-        'Early weakness fails',
-        'Flush reclaims support',
-        'Short-gamma expansion higher',
+        'Net GEX negative: dealers net short gamma',
+        'Flow majority bearish; structure majority bullish',
+        NOT_A_FORECAST,
       ];
       push(tapeFlow, -1);
       push(vannaCharm, -1);
@@ -201,19 +208,18 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'TREND_UP':
       trend = 'bullish';
       bias = 'BUY_DIPS';
-      biasLabel = 'Buy Dips';
-      regimeLabel = 'Trend Up Regime';
-      regimeDesc = 'Long gamma + aligned bullish flow.';
-      setup = 'Trend Continuation (Up)';
+      biasLabel = 'Flow Bullish';
+      regimeLabel = 'Long Gamma \u00b7 Bullish Flow';
+      regimeDesc = 'Dealers are net long gamma, and most flow signals lean bullish.';
+      setup = 'Aligned Flow';
       playbook = [
-        'Buy dips toward VWAP / gamma support',
-        'Target prior highs & call-wall magnet',
-        'Trail stops under rising support',
+        'Flow losing its bullish majority',
+        'Net GEX turning negative, or the gradient strongly against it',
       ];
       expectedBehavior = [
-        'Steady grind higher',
-        'Shallow pullbacks bought',
-        'Call-wall pin effect',
+        'Net GEX positive: dealers net long gamma',
+        'Tape, vanna/charm and 0DTE flow: majority bullish',
+        NOT_A_FORECAST,
       ];
       push(tapeFlow, 1);
       push(vannaCharm, 1);
@@ -227,19 +233,18 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'TREND_DOWN':
       trend = 'bearish';
       bias = 'SELL_RIPS';
-      biasLabel = 'Sell Rips';
-      regimeLabel = 'Trend Down Regime';
-      regimeDesc = 'Long gamma + aligned bearish flow.';
-      setup = 'Trend Continuation (Down)';
+      biasLabel = 'Flow Bearish';
+      regimeLabel = 'Long Gamma \u00b7 Bearish Flow';
+      regimeDesc = 'Dealers are net long gamma, and most flow signals lean bearish.';
+      setup = 'Aligned Flow';
       playbook = [
-        'Short rips into VWAP / resistance',
-        'Target prior lows & put-wall magnet',
-        'Trail stops above declining resistance',
+        'Flow losing its bearish majority',
+        'Net GEX turning negative, or the gradient strongly against it',
       ];
       expectedBehavior = [
-        'Steady drift lower',
-        'Shallow bounces sold',
-        'Put-wall pin effect',
+        'Net GEX positive: dealers net long gamma',
+        'Tape, vanna/charm and 0DTE flow: majority bearish',
+        NOT_A_FORECAST,
       ];
       push(tapeFlow, -1);
       push(vannaCharm, -1);
@@ -254,19 +259,18 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'CHOP': {
       trend = 'neutral';
       bias = 'RANGE_FADE';
-      biasLabel = 'Range-Bound';
-      regimeLabel = 'Chop / Range Regime';
-      regimeDesc = 'Mixed signals\u00a0- no dominant directional thesis.';
-      setup = 'Mean Reversion';
+      biasLabel = 'Mixed';
+      regimeLabel = 'Mixed Signals';
+      regimeDesc = 'The gamma regime, flow and structure signals do not line up into a defined state.';
+      setup = 'No Defined State';
       playbook = [
-        'Fade extremes of the session range',
-        'Avoid premium breakout trades',
-        'Favor theta / defined-risk structures',
+        'Flow forming a majority while dealers are long gamma',
+        'Flow and structure splitting while dealers are short gamma',
       ];
       expectedBehavior = [
-        'Two-way chop',
-        'VWAP magnetism',
-        'Failed breakout attempts',
+        'No flow majority in long gamma, and no flow/structure split in short gamma',
+        'Most minutes read this way; it does not mean the market is quiet',
+        NOT_A_FORECAST,
       ];
       // Chop confidence rises as directional signals sit near zero; extreme
       // readings on either side reduce conviction in the range thesis.

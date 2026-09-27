@@ -3,8 +3,8 @@
 /**
  * The Signals Engine's Trade Bias, compressed to a board widget.
  *
- * This is the SAME read the /trade-bias page shows — one signed directional
- * call from the engine, for a chosen horizon — not the browser-computed
+ * This is the SAME read the /trade-bias page shows — one signed read from the
+ * engine, for a chosen horizon — not the browser-computed
  * composite in components/TradeBiasSection. The two are different calculations
  * and are allowed to disagree, which is exactly why a same-day trader could not
  * previously put the bias they actually trade on their board: the only Trade
@@ -14,18 +14,19 @@
  * here switches it on the page too, and two copies of this widget on one board
  * can never show two different answers for the same symbol.
  *
- * Deliberately a summary, not a second Trade Bias page: the bias, how strongly,
- * how confident, and the regime it came from. The playbook, checklist, tactical
+ * Deliberately a summary, not a second Trade Bias page: the lean, how strongly,
+ * how much the inputs agree, and the regime it came from. The checklist, tactical
  * pillars and history chart stay on the page, one click away via the widget's
  * header link.
  */
 
 import { AlertTriangle, TrendingDown, TrendingUp, Zap } from 'lucide-react';
-import { humanize, trendColor } from '@/core/signalHelpers';
+import { trendColor } from '@/core/signalHelpers';
 import { BIAS_TENOR_OPTIONS } from '@/core/tradeBiasTenor';
 import { useBiasTenor } from '@/hooks/useBiasTenor';
 import { useTimeframe } from '@/core/TimeframeContext';
 import BiasTape from './BiasTape';
+import { leanLabel } from './data';
 import { useTradeBiasData } from './useTradeBiasData';
 
 function HorizonToggle() {
@@ -157,7 +158,7 @@ export default function BiasHorizonCard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <Stat label="Dir" value={humanize(payload.directionRaw) || 'Neutral'} color={color} />
+            <Stat label="Lean" value={leanLabel(payload.direction)} color={color} />
             <Stat label="Gamma" value={payload.gammaRegime ?? '—'} />
             <Stat label="Vol" value={payload.volatilityRegime ?? '—'} />
           </div>

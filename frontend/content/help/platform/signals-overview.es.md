@@ -49,11 +49,11 @@ No se te envía nada y no se añade nada al Boletín en vivo. Para revisar lo qu
 
 El Composite Score (Market State Index, MSI) es una lectura aparte, construida a partir de **seis componentes de la estructura de opciones**: signo del net GEX, gamma anchor, put/call ratio, régimen de volatilidad, desequilibrio del order flow smart-money y dealer delta pressure. Los signals Basic y Advanced no están entre sus insumos.
 
-El composite es un **puntaje de régimen de 0 a 100**, donde 50 es neutral - no un punto en la línea de -100 a +100. Una lectura alta (≥ 70) indica un régimen de tendencia / expansión donde las tendencias pueden correr; una lectura baja (< 20) es la banda Compression, donde históricamente el precio ha recorrido menos. Te dice el régimen, no la dirección - para saber hacia qué lado, consulta Trade Bias.
+El composite es un **puntaje de régimen de 0 a 100**, donde 50 es neutral - no un punto en la línea de -100 a +100. Una lectura alta (≥ 70) indica un régimen de tendencia / expansión donde las tendencias pueden correr; una lectura baja (< 20) es la banda Compression, donde históricamente el precio ha recorrido menos. Te dice el régimen, no la dirección - para ver hacia dónde se inclina el flujo, consulta Trade Bias.
 
 Dónde sí se juntan los signals:
 
-- **Trade Bias** combina el MSI y varios signals Basic y Advanced en una sola lectura direccional. La página completa es Pro; en el Panel principal hay una tarjeta compacta.
+- **Trade Bias** combina el MSI y varios signals Basic y Advanced en una lectura del posicionamiento de los dealers y de hacia dónde se inclina el flujo. Describe; no pronostica. La página completa es Pro; en el Panel principal hay una tarjeta compacta.
 - **Signal Breadth**, en el Panel principal, cuenta cuántos signals se inclinan alcistas, neutrales o bajistas.
 
 Consulta [Composite Score](/help/platform/composite-score) para el desglose completo.

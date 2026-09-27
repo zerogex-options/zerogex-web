@@ -49,11 +49,11 @@ Rien ne vous est envoyé et rien n'est ajouté au Bulletin en direct. Pour revoi
 
 Le Composite Score (Market State Index, MSI) est une lecture distincte, construite à partir de **six composantes de la structure d'options** : signe du net GEX, gamma anchor, put/call ratio, régime de volatilité, déséquilibre du flux d'ordres smart-money et dealer delta pressure. Les signals Basic et Advanced ne font pas partie de ses intrants.
 
-Le composite est un **score de régime 0-100**, où 50 est neutre - pas un point sur la ligne de -100 à +100. Une lecture élevée (≥ 70) signale un régime de tendance / expansion où les tendances peuvent se prolonger ; une lecture basse (< 20) correspond à la bande Compression, où les mouvements ont historiquement parcouru le moins de distance. Il vous indique le régime, pas la direction - pour le sens, consultez le Trade Bias.
+Le composite est un **score de régime 0-100**, où 50 est neutre - pas un point sur la ligne de -100 à +100. Une lecture élevée (≥ 70) signale un régime de tendance / expansion où les tendances peuvent se prolonger ; une lecture basse (< 20) correspond à la bande Compression, où les mouvements ont historiquement parcouru le moins de distance. Il vous indique le régime, pas la direction - pour voir dans quel sens penche le flux, consultez le Trade Bias.
 
 Là où les signals se rejoignent vraiment :
 
-- **Trade Bias** combine le MSI et plusieurs signals Basic et Advanced en une seule lecture directionnelle. La page complète est Pro ; une carte compacte figure sur le Tableau de bord principal.
+- **Trade Bias** combine le MSI et plusieurs signals Basic et Advanced en une lecture du positionnement des dealers et du sens dans lequel penche le flux. Il décrit ; il ne prévoit pas. La page complète est Pro ; une carte compacte figure sur le Tableau de bord principal.
 - **Signal Breadth**, sur le Tableau de bord principal, compte combien de signals penchent du côté haussier, neutre ou baissier.
 
 Voir [Composite Score](/help/platform/composite-score) pour le détail complet.

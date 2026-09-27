@@ -43,7 +43,7 @@ See the live breakdown on the [Pricing](/pricing) page. Basic monthly comes with
 ### Pro tier
 
 - Everything in Basic, plus:
-- **Trade Bias** - the full breakdown and playbook behind the dashboard's Trade Bias card
+- **Trade Bias** - the full breakdown behind the dashboard's Trade Bias card
 - **Composite Score** - the full page for the MSI, the 0-100 read of the market regime (Basic sees the MSI itself on the Main Dashboard)
 - **All Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (beta) - Bot Trading, Backtesting, and Pattern Insights

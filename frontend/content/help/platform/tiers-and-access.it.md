@@ -43,7 +43,7 @@ Consulta il confronto in tempo reale nella pagina [Pricing](/pricing). Basic men
 ### Livello Pro
 
 - Tutto ciò che è incluso in Basic, più:
-- **Trade Bias** - il dettaglio completo e il playbook dietro la scheda Trade Bias della dashboard
+- **Trade Bias** - il dettaglio completo dietro la scheda Trade Bias della dashboard
 - **Punteggio composito** - la pagina completa dell'MSI, la lettura da 0 a 100 del regime di mercato (con Basic vedi l'MSI stesso sulla Dashboard principale)
 - **Tutti gli Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (beta) - Trading con bot, Backtesting e Analisi dei pattern

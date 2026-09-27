@@ -176,6 +176,16 @@ function parseInputs(raw: unknown): Record<BiasInputKey, number | null> {
   return out;
 }
 
+/**
+ * Which way the read leans, in words that describe rather than instruct:
+ * "Bullish" / "Bearish", never the engine's "long" / "short" position terms.
+ */
+export function leanLabel(direction: SignalTrend): string {
+  if (direction === 'bullish') return 'Bullish';
+  if (direction === 'bearish') return 'Bearish';
+  return 'Neutral';
+}
+
 export function parseBiasPayload(raw: unknown): TradeBiasPayload {
   const obj = asObject(raw) ?? {};
   const biasObj = asObject(obj.bias) ?? {};
@@ -203,7 +213,7 @@ export function parseBiasPayload(raw: unknown): TradeBiasPayload {
     regimeLabel: typeof obj.regime_label === 'string' ? obj.regime_label : '—',
     regimeDesc: typeof obj.regime_desc === 'string' ? obj.regime_desc : '',
     biasCode: typeof biasObj.code === 'string' ? biasObj.code : 'WAIT',
-    biasLabel: typeof biasObj.label === 'string' ? biasObj.label : 'Neutral',
+    biasLabel: typeof biasObj.label === 'string' ? biasObj.label : 'No Read',
     setup: typeof obj.setup === 'string' ? obj.setup : '',
     playbook: parseStringList(obj.playbook),
     expectedBehavior: parseStringList(obj.expected_behavior),

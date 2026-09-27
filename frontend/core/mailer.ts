@@ -2582,7 +2582,7 @@ export const DEFAULT_WINBACK_HIGHLIGHTS: WinbackHighlight[] = [
   {
     title: 'Trade Bias',
     body:
-      'a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum\u00a0- for a multi-day swing or a same-day 0DTE read.',
+      'one signed read of dealer positioning and flow that combines the gamma and volatility regime with live price action, flow, tape, and momentum\u00a0- for a multi-day swing or a same-day 0DTE read.',
   },
   {
     title: 'NDX coverage',

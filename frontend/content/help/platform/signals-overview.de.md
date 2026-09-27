@@ -49,11 +49,11 @@ Dir wird nichts zugestellt, und im Live-Bulletin erscheint nichts. Um nachzusehe
 
 Der Composite Score (Market State Index, MSI) ist eine eigene Lesart, gebaut aus **sechs Komponenten der Optionsstruktur**: Net-GEX-Vorzeichen, Gamma Anchor, Put/Call Ratio, Volatilitätsregime, Smart-Money-Order-Flow-Ungleichgewicht und Dealer Delta Pressure. Die Basic und Advanced Signals gehören nicht zu seinen Inputs.
 
-Der Composite ist ein 0-100-Regime-Score, wobei 50 neutral ist - kein Punkt auf der Linie von -100 bis +100. Ein hoher Wert (≥ 70) bedeutet ein Trend-/Expansions-Regime, in dem Trends laufen können; ein niedriger Wert (< 20) ist das Compression-Band, in dem sich der Kurs historisch am wenigsten weit bewegt hat. Er sagt dir das Regime, nicht die Richtung - für die Richtung liest du den Trade Bias.
+Der Composite ist ein 0-100-Regime-Score, wobei 50 neutral ist - kein Punkt auf der Linie von -100 bis +100. Ein hoher Wert (≥ 70) bedeutet ein Trend-/Expansions-Regime, in dem Trends laufen können; ein niedriger Wert (< 20) ist das Compression-Band, in dem sich der Kurs historisch am wenigsten weit bewegt hat. Er sagt dir das Regime, nicht die Richtung - wohin der Flow tendiert, zeigt der Trade Bias.
 
 Wo die Signals tatsächlich zusammenkommen:
 
-- **Trade Bias** fasst den MSI und mehrere Basic und Advanced Signals zu einer einzigen Richtungsaussage zusammen. Die vollständige Seite ist Pro; eine kompakte Karte steht auf dem Haupt-Dashboard.
+- **Trade Bias** fasst den MSI und mehrere Basic und Advanced Signals zu einer Lesart der Dealer-Positionierung und der Richtung des Flows zusammen. Er beschreibt; er prognostiziert nicht. Die vollständige Seite ist Pro; eine kompakte Karte steht auf dem Haupt-Dashboard.
 - **Signal Breadth** auf dem Haupt-Dashboard zählt, wie viele Signals bullisch, neutral oder bärisch tendieren.
 
 Siehe [Composite Score](/help/platform/composite-score) für die vollständige Aufschlüsselung.

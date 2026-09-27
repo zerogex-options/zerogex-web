@@ -42,7 +42,7 @@ El ZeroGEX Gamma Chart es la pieza central: velas en vivo con la estructura de g
 
 ### 4. Trade Bias
 
-Una única tarjeta con el régimen, el bias (como *Buy Dips*, *Sell Rips*, *Range-Bound* o *Neutral*) y una puntuación de confianza sobre 10. Es una síntesis de lectura de arriba hacia abajo, **no** una señal de trading. **Open Trade Bias** lleva al desglose completo y al playbook en la página Trade Bias, que forma parte de Pro. En Basic, la tarjeta se construye sin los inputs de señales exclusivos de Pro.
+Una única tarjeta con el estado de posicionamiento (como *Long Gamma · Bullish Flow* o *Mixed Signals*), hacia dónde se inclinan sus inputs y una puntuación de acuerdo sobre 10. Describe el posicionamiento y el flujo tal como están; **no** es una señal de trading ni un pronóstico. **Open Trade Bias** lleva al desglose completo en la página Trade Bias, que forma parte de Pro. En Basic, la tarjeta se construye sin los inputs de señales exclusivos de Pro.
 
 Debajo de la tarjeta, **How to read these signals** (contraído) explica cómo encajan Trade Bias, el Composite MSI, las señales Basic y las señales Advanced.
 
