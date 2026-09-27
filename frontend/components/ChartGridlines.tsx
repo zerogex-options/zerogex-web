@@ -2,37 +2,16 @@
 
 import { ReferenceLine } from 'recharts';
 
-import { is30MinBoundary } from '@/core/flowSeriesCharts';
+import {
+  is30MinBoundary,
+  isHourBoundary,
+  onTimeTickGrid,
+  safeTimeLabel,
+  type TimeTickEvery,
+} from '@/core/flowSeriesCharts';
 
 const GRID_STROKE_DASHARRAY = '2 4';
 const GRID_OPACITY = 0.28;
-
-/** True when `ts` lands on a whole hour. ET sits a whole number of hours off
- *  UTC, so a UTC :00 is an ET :00 (DST-safe without a zone lookup). */
-function isHourBoundary(ts: string): boolean {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return false;
-  return d.getUTCMinutes() === 0;
-}
-
-const MAJOR_TICK_ET_HOURS = new Set([10, 12, 14, 16]);
-
-/** True when `ts` lands exactly on 10:00, 12:00, 14:00, or 16:00 ET — used
- *  to thin an intraday axis down to a handful of major markers: always on the
- *  compact /flow-analysis charts, and on a phone for the Options Flow chart,
- *  whose half-hour labels overprint below ~500px of plot. DST-safe via Intl. */
-export function isMajorTwoHourTick(ts: string): boolean {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return false;
-  if (d.getUTCMinutes() !== 0) return false;
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hourCycle: 'h23',
-    hour: '2-digit',
-  }).formatToParts(d);
-  const etHour = Number(parts.find((p) => p.type === 'hour')?.value);
-  return MAJOR_TICK_ET_HOURS.has(etHour);
-}
 
 /**
  * Returns an array of ReferenceLine elements, one vertical dotted line at each
@@ -64,4 +43,42 @@ export function buildThirtyMinGridlines<T extends { timestamp: string }>(
         opacity={GRID_OPACITY}
       />
     ));
+}
+
+/**
+ * A Recharts `tick` renderer for an intraday axis keyed on an ISO timestamp:
+ * the clock on round boundaries, nothing at all on the bars in between.
+ *
+ * Recharts' own `minTickGap` picks evenly spaced *indices*, so a session that
+ * opens at 09:30 on a five-minute grid gets labeled 09:45, 10:15, 10:45 — the
+ * right cadence on the wrong phase. That makes "was that before 11:00?" into
+ * arithmetic, and it lets two stacked charts pick different starting indices
+ * and so disagree about where 11:00 falls, which is the one thing a shared
+ * crosshair is supposed to guarantee.
+ *
+ * Requires `interval={0}` on the axis so every bar is offered to the renderer;
+ * the ones that are not on the grid draw nothing. Every cadence here is a
+ * subset of buildThirtyMinGridlines' 30- and 60-minute slots, so a label always
+ * lands on a gridline; on a phone, where the labels thin to the 2-hour marks,
+ * the hourly gridlines in between stay unlabeled.
+ */
+export function sessionTimeTick(stroke: string, everyMinutes: TimeTickEvery = 30) {
+  return function SessionTimeTick(props: {
+    x?: number | string;
+    y?: number | string;
+    payload?: { value?: string | number };
+  }) {
+    const x = Number(props?.x ?? 0);
+    const y = Number(props?.y ?? 0);
+    const ts = String(props?.payload?.value ?? '');
+    if (!onTimeTickGrid(ts, everyMinutes)) return <g transform={`translate(${x},${y})`} />;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <line x1={0} y1={0} x2={0} y2={4} stroke={stroke} strokeWidth={1} opacity={0.6} />
+        <text dy={14} textAnchor="middle" fill={stroke} fontSize={10}>
+          {safeTimeLabel(ts)}
+        </text>
+      </g>
+    );
+  };
 }

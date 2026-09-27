@@ -37,7 +37,7 @@ import {
 import SectionHead from '@/components/layout/SectionHead';
 import FadeScrollRow from '@/components/FadeScrollRow';
 import { compactUsdReadout, compactUsdTick } from '@/components/phoneAxisFormat';
-import { buildThirtyMinGridlines, isMajorTwoHourTick } from '@/components/ChartGridlines';
+import { buildThirtyMinGridlines } from '@/components/ChartGridlines';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -60,6 +60,7 @@ import {
   getFiveMinuteSessionTimeline,
   getUnderlyingDomain,
   is30MinBoundary,
+  isMajorTwoHourTick,
   optionsFlowSeries,
   roundToStep,
   safeTimeLabel,

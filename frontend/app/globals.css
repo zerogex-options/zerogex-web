@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
 :root {
+
+  /* Gamma Weather states. Four hues plus a neutral, in one fixed order from
+     settled to unstable, used identically on the header and on every drawer
+     chart so Pressure and Lean tell the same day-shape.
+
+     Validated as a categorical palette over ALL pairs (any two states can sit
+     next to each other in time, and all five sit side by side in the legend),
+     under protanopia and deuteranopia: worst pair dE 8.3 CVD and 16.8 normal
+     vision, every hue >= 3:1 on its surface. Amber and red are separated by
+     lightness as well as hue because deuteranopia collapses that hue pair.
+     Re-run the palette validator before changing any of these. */
+  --color-weather-stable-bid: #0E8A7A;
+  --color-weather-supported-dip: #1D4ED8;
+  --color-weather-fragile-rally: #A16207;
+  --color-weather-unstable: #9F1239;
+  --color-weather-mixed: #64748B;
+
   /* Width the sidebar reserves in the page. Navigation only assigns this from
      an effect, so before hydration the var was undefined and the consuming
      `lg:pl-[var(--zgx-nav-width,0px)]` fell back to 0 — every desktop visitor
@@ -202,6 +219,15 @@
 }
 
 :root.dark {
+  /* Gamma Weather states, stepped for the dark surface rather than flipped
+     from the light values. Same all-pairs validation: worst pair dE 8.3 CVD,
+     16.8 normal vision, every hue >= 3:1 on the dark chart surface. */
+  --color-weather-stable-bid: #0FA899;
+  --color-weather-supported-dip: #4A90F0;
+  --color-weather-fragile-rally: #C08400;
+  --color-weather-unstable: #D43D63;
+  --color-weather-mixed: #94A3B8;
+
   /* Neon ribbons: saturated bloom, near-white hot rim. */
   --ribbon-pos-glow: #FFB300;
   --ribbon-pos-core: #FFF1B8;

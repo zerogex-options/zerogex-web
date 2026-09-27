@@ -170,6 +170,51 @@ export function is30MinBoundary(ts: string): boolean {
   return m === 0 || m === 30;
 }
 
+/** True when `ts` lands on a whole hour. ET sits a whole number of hours off
+ *  UTC, so a UTC :00 is an ET :00 (DST-safe without a zone lookup). */
+export function isHourBoundary(ts: string): boolean {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return false;
+  return d.getUTCMinutes() === 0;
+}
+
+const MAJOR_TICK_ET_HOURS = new Set([10, 12, 14, 16]);
+
+/** True when `ts` lands exactly on 10:00, 12:00, 14:00, or 16:00 ET — used
+ *  to thin an intraday axis down to a handful of major markers: always on the
+ *  compact /flow-analysis charts, and on a phone anywhere half-hour labels
+ *  overprint below ~500px of plot. DST-safe via Intl. */
+export function isMajorTwoHourTick(ts: string): boolean {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return false;
+  if (d.getUTCMinutes() !== 0) return false;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hourCycle: 'h23',
+    hour: '2-digit',
+  }).formatToParts(d);
+  const etHour = Number(parts.find((p) => p.type === 'hour')?.value);
+  return MAJOR_TICK_ET_HOURS.has(etHour);
+}
+
+/** How often an intraday axis prints the clock. 120 is the phone rule: the
+ *  major 10/12/14/16 ET marks only, because half-hour labels overprint below
+ *  roughly 500px of plot. */
+export type TimeTickEvery = 30 | 60 | 120;
+
+/**
+ * True when `ts` should carry a clock label at the requested cadence.
+ *
+ * Every cadence is a subset of the 30- and 60-minute gridline slots, so a
+ * label always lands on a gridline; at 120 the hourly gridlines between the
+ * labels stay unlabeled, which is a minor/major axis rather than a mismatch.
+ */
+export function onTimeTickGrid(ts: string, everyMinutes: TimeTickEvery): boolean {
+  if (everyMinutes === 120) return isMajorTwoHourTick(ts);
+  if (everyMinutes === 60) return isHourBoundary(ts);
+  return is30MinBoundary(ts);
+}
+
 /**
  * Maps the index of the FIRST row of each calendar date to that date's label,
  * so a chart spanning more than one session can print the date under the time.
