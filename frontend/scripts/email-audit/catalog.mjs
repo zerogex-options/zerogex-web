@@ -256,13 +256,13 @@ export const CATALOG = {
   // --------------------------------------------------------------- churn ----
   'cancellation-ack': {
     group: 'churn', title: 'Cancellation acknowledgment', channel: 'member', autoSends: true,
-    trigger: 'Stripe webhook', triggerDetail: 'subscription sync → cancel_at_period_end false→true → maybeHandleCancelAckTransition',
+    trigger: 'Stripe webhook', triggerDetail: 'subscription sync → cancel_at_period_end false→true → maybeHandleCancelAckTransition → core/cancelAck.ts',
     when: 'Seconds after the member clicks Cancel — while they still have access through period end.',
     cadence: 'Once per cancellation (re-arms if they reactivate, or resubscribe after it ends, then cancel again)',
     cohort: 'cancel_at_period_end flipped to true.',
     latch: 'cancel_ack_email_sent_at — cleared on reactivation and when the subscription ends',
     optOut: 'None (transactional)', foh: false,
-    source: 'core/mailer.ts:2073 · app/api/webhooks/stripe/route.ts:1006',
+    source: 'core/mailer.ts:2377 · core/cancelAck.ts:60',
     notes: 'Carries the signed one-click /save link — 25% off for a year, self-serve, no operator.',
   },
   'money-back-refund': {

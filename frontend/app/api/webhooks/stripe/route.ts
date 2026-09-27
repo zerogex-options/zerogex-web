@@ -86,7 +86,8 @@ import { subscriptionPaidAt } from '@/core/subscriberBucket';
 import { acceptsSubscriptionPaymentStamp } from '@/core/subscriptionPayments';
 import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
-import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
+import { formatCancellationReasonSuffix } from '@/core/cancellationReason';
+import { handleCancelAckTransition, type CancelAckTransition } from '@/core/cancelAck';
 import { buildSaveUrl } from '@/core/retentionToken';
 import { buildPayUrl } from '@/core/payLink';
 import {
@@ -1201,87 +1202,18 @@ async function syncSubscriptionToUser(
 // the send-latch on the reverse 1→0 (reactivation) so a future re-cancel
 // can re-fire. Idempotent via CAS-claim on cancel_ack_email_sent_at, so
 // webhook redeliveries can't double-send. Best-effort: failures never
-// unwind the tier sync.
+// unwind the tier sync. The logic, and the latch's full lifecycle, live in
+// core/cancelAck.ts.
 async function maybeHandleCancelAckTransition(
   user: UserRow,
-  opts: {
-    previous: number;
-    next: number;
-    periodEndIso: string | null;
-    subscriptionId: string;
-    // True when a trial-conversion charge for this period is already in flight
-    // (see core/trialDunning.hasConversionChargeInFlight). Decided at the call
-    // site, where the live subscription is in scope.
-    conversionChargePending: boolean;
-    // Typed with our own structurally-compatible shape (Stripe's enum fields
-    // widen to string) so this doesn't depend on the Stripe nested type path.
-    cancellationDetails?: CancellationDetails;
-  },
+  transition: CancelAckTransition,
 ): Promise<void> {
-  if (opts.previous === 0 && opts.next === 1) {
-    // Fold the portal cancellation survey into the audit message (empty suffix
-    // when nothing was collected, so a silent cancel keeps a clean message).
-    const reasonSuffix = formatCancellationReasonSuffix(opts.cancellationDetails);
-    logAudit({
-      type: 'stripe_cancellation_requested',
-      userId: user.id,
-      email: user.email,
-      message: `Cancellation requested for sub ${opts.subscriptionId}${reasonSuffix}`,
-    });
-    const stamp = nowIso();
-    const claim = getDb()
-      .prepare(
-        `UPDATE users SET cancel_ack_email_sent_at = ?, updated_at = ?
-         WHERE id = ? AND cancel_ack_email_sent_at IS NULL`,
-      )
-      .run(stamp, stamp, user.id) as { changes: number | bigint };
-
-    if (Number(claim.changes) === 0) return;
-
-    try {
-      // One-click self-serve save link (25% off + un-cancel via app/save).
-      // Best-effort: if the token secret is unset, buildSaveUrl throws and the
-      // email goes out with NO discount offer at all — there is no manual
-      // fallback any more (see buildCancellationEmail). The acknowledgment and
-      // the cancellation survey still send, which is the part that must not be
-      // lost to a config problem.
-      let saveUrl: string | null = null;
-      try {
-        saveUrl = buildSaveUrl(getAppUrl(), user.id);
-      } catch {
-        saveUrl = null;
-      }
-      await sendCancellationEmail(user.email, {
-        periodEndIso: opts.periodEndIso,
-        saveUrl,
-        conversionChargePending: opts.conversionChargePending,
-      });
-      logAudit({
-        type: 'cancellation_ack_email_sent',
-        userId: user.id,
-        email: user.email,
-        message: `Sent cancellation ack email for sub ${opts.subscriptionId}`,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'cancellation ack email send failed';
-      logAudit({
-        type: 'cancellation_ack_email_error',
-        userId: user.id,
-        email: user.email,
-        message: `Cancellation ack email send failed for sub ${opts.subscriptionId}: ${message}`,
-      });
-    }
-    return;
-  }
-
-  if (opts.previous === 1 && opts.next === 0) {
-    getDb()
-      .prepare(
-        `UPDATE users SET cancel_ack_email_sent_at = NULL, updated_at = ?
-         WHERE id = ? AND cancel_ack_email_sent_at IS NOT NULL`,
-      )
-      .run(nowIso(), user.id);
-  }
+  await handleCancelAckTransition(user, transition, {
+    send: sendCancellationEmail,
+    buildSaveUrl: (userId) => buildSaveUrl(getAppUrl(), userId),
+    audit: logAudit,
+    nowIso,
+  });
 }
 
 // Fires the payment-recovered confirmation email — the bookend to the
