@@ -134,6 +134,7 @@
     "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts",
     "test:regime-domain": "node --experimental-strip-types --test tests/regimeDomain.test.ts",
     "test:weather-fields": "node --experimental-strip-types --test tests/weatherFields.test.ts",
+    "test:weather-colors": "node --experimental-strip-types --test tests/weatherStateColors.test.ts",
     "test:gamma-playbook": "node --experimental-strip-types --test tests/gammaPlaybook.test.ts",
     "test:regime-triggers": "node --experimental-strip-types --test tests/regimeTriggers.test.ts",
     "test:hold-rate": "node --experimental-strip-types --test tests/holdRate.test.ts",

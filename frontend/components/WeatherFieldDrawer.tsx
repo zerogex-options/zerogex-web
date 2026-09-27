@@ -15,6 +15,12 @@ import {
 
 import { robustDomain } from '@/core/regimeDomain';
 import {
+  WEATHER_STATE_LEGEND,
+  segmentStops,
+  stateSegments,
+  weatherStateColor,
+} from '@/core/weatherStateColors';
+import {
   changesForField,
   commentAt,
   fieldSeries,
@@ -105,6 +111,23 @@ export default function WeatherFieldDrawer({
     [points],
   );
 
+  // The confirmed headline per bar, which is what colors the line. Using the
+  // headline rather than the raw read is what stops a forming candidate from
+  // recoloring anything before it confirms: pending lives on its own field.
+  const stateByBar = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const bar of series?.bars ?? []) out.set(bar.bar_start, bar.state);
+    return out;
+  }, [series]);
+
+  const segments = useMemo(
+    () => stateSegments(points.map((p) => stateByBar.get(p.bar_start) ?? null)),
+    [points, stateByBar],
+  );
+
+  const stops = useMemo(() => segmentStops(segments, points.length), [segments, points.length]);
+  const gradientId = `weather-field-${field}`;
+
   const barByLabel = useMemo(() => {
     const out = new Map<string, string>();
     for (const r of rows) out.set(r.label, r.bar_start);
@@ -150,9 +173,8 @@ export default function WeatherFieldDrawer({
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
             {spec.caption}
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-3 text-[10px]">
-            <span style={{ color: 'var(--color-king)' }}>— This bar</span>
-            <span style={{ color: 'var(--color-info)' }}>— {smootherName}</span>
+          <p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+            Line colored by Weather state. The dimmer line is the {smootherName.toLowerCase()}.
           </p>
         </div>
         <button
@@ -214,11 +236,22 @@ export default function WeatherFieldDrawer({
             />
             {spec.zeroLine && <ReferenceLine y={0} stroke="var(--color-text-secondary)" />}
             <Tooltip content={() => null} cursor={{ stroke: 'var(--color-text-secondary)' }} />
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+                {stops.map((stop, i) => (
+                  <stop
+                    key={`${stop.offset}-${i}`}
+                    offset={`${(stop.offset * 100).toFixed(4)}%`}
+                    stopColor={stop.color}
+                  />
+                ))}
+              </linearGradient>
+            </defs>
             <Line
               type="monotone"
               dataKey="value"
               name="This bar"
-              stroke="var(--color-king)"
+              stroke={stops.length ? `url(#${gradientId})` : 'var(--color-king)'}
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
@@ -251,7 +284,7 @@ export default function WeatherFieldDrawer({
                   x={safeTimeLabel(c.bar_start)}
                   y={y}
                   r={3.5}
-                  fill={c.field === 'state' ? 'var(--color-pin)' : 'var(--color-king)'}
+                  fill={weatherStateColor(stateByBar.get(c.bar_start))}
                   stroke="var(--color-bg)"
                   strokeWidth={1}
                 />
@@ -267,6 +300,26 @@ export default function WeatherFieldDrawer({
           thing the banner cannot show, in the compact form rather than the
           full sentence: the sentence opens with "Hedging pressure is ..." and
           reads as Pressure's comment when it sits under the Lean chart. */}
+      {/* Always all five, in one fixed order, even when the session only
+          visited two of them. A legend that shrank to what happened would make
+          two days incomparable at a glance. Text stays in ink; the swatch
+          beside it carries the identity. */}
+      <ul
+        className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-2 text-[10px]"
+        style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+      >
+        {WEATHER_STATE_LEGEND.map((entry) => (
+          <li key={entry.state} className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ backgroundColor: weatherStateColor(entry.state) }}
+            />
+            {entry.label}
+          </li>
+        ))}
+      </ul>
+
       <div
         className="mt-2 border-t pt-2 text-xs"
         style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}

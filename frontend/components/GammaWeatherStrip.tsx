@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import WeatherFieldDrawer from '@/components/WeatherFieldDrawer';
 import type { WeatherFieldKey } from '@/core/weatherFields';
+import { weatherStateColor } from '@/core/weatherStateColors';
 import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
 import { useGammaWeatherSeries } from '@/hooks/useGammaWeatherSeries';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
@@ -26,21 +27,13 @@ import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
  * rather than calling direction.
  */
 
-type Tone = 'settled' | 'fragile' | 'neutral';
 
-const STATE_TONE: Record<string, Tone> = {
-  STABLE_BID: 'settled',
-  SUPPORTED_DIP: 'settled',
-  FRAGILE_RALLY: 'fragile',
-  UNSTABLE: 'fragile',
-  MIXED: 'neutral',
-};
-
-const TONE_COLOR: Record<Tone, string> = {
-  settled: 'var(--color-pin)',
-  fragile: 'var(--color-warning)',
-  neutral: 'var(--color-text-secondary)',
-};
+// The banner used to group the five states into three tones, which meant
+// Stable bid and Supported dip shared a color and so did Fragile rally and
+// Unstable. Once the drawers color a line by state, three here against five
+// there would have the two halves of the page disagreeing about what a color
+// means, which is worse than no color at all. One palette now, in
+// core/weatherStateColors.
 
 const PRESSURE_LABEL: Record<string, string> = {
   BUYING: 'Buying',
@@ -165,8 +158,7 @@ export default function GammaWeatherStrip({
     { enabled: openField != null, date },
   );
 
-  const tone = STATE_TONE[payload.state] ?? 'neutral';
-  const color = TONE_COLOR[tone];
+  const color = weatherStateColor(payload.state);
   const transitionRisk = payload.cushion === 'TRANSITION_RISK';
 
   const cushionValue = payload.components.cushion_pts != null
