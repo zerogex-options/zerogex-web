@@ -29,6 +29,7 @@ import {
   planHasFreeTrial,
   type BillingCadence,
 } from '@/core/billingPlans';
+import { planRegisterHref } from '@/core/pricingLinks';
 import { dict } from './Client.i18n';
 
 const C = {
@@ -1239,8 +1240,14 @@ function PricingClientInner({
       const { startsTrial } = cardTerms(tier);
       const primaryLabel = startsTrial ? t('startTrialLabel', { label }) : t('subscribeToLabel', { label });
       // Tier- and cadence-specific register link so a logged-out plan click
-      // returns to the pricing page with THIS plan and billing period selected.
-      const registerHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}&cadence=${cadence}${cameFromReactivate ? '&reactivate=1' : ''}`)}`;
+      // returns to the pricing page with THIS plan and billing period selected,
+      // and with the win-back or reactivation offer it arrived with.
+      const registerHref = planRegisterHref({
+        tier,
+        cadence,
+        winback: cameFromWinback,
+        reactivate: cameFromReactivate,
+      });
       if (authLoading) return { kind: 'link', href: registerHref, label: primaryLabel };
       if (!isAuthed) {
         return { kind: 'link', href: registerHref, label: primaryLabel };
@@ -1261,7 +1268,7 @@ function PricingClientInner({
 
       return { kind: 'subscribe', tier, label: primaryLabel };
     },
-    [authLoading, cadence, cameFromReactivate, cardTerms, currentPlan, currentTier, hasActiveSubscription, isAuthed, planName, t],
+    [authLoading, cadence, cameFromReactivate, cameFromWinback, cardTerms, currentPlan, currentTier, hasActiveSubscription, isAuthed, planName, t],
   );
 
   // "Limited Time" pill omitted from the per-card highlights when the global

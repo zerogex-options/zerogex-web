@@ -100,6 +100,7 @@
     "test:cancel-decisions": "node --experimental-strip-types --test tests/cancelDecisions.test.ts",
     "test:cancellation-alert": "node --experimental-strip-types --test tests/cancellationAlert.test.ts",
     "test:cancel-ack": "node --experimental-strip-types --test tests/cancelAck.test.ts",
+    "test:pricing-links": "node --experimental-strip-types --test tests/pricingLinks.test.ts",
     "test:returning-member": "node --experimental-strip-types --test tests/returningMember.test.ts",
     "test:winback-highlights": "node --experimental-strip-types --test tests/winbackHighlights.test.ts",
     "test:winback-email": "node --experimental-strip-types --test tests/winbackEmail.test.ts",
