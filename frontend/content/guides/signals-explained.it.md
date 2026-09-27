@@ -8,15 +8,15 @@
 
 ZeroGEX gestisce due famiglie di segnali, e per progettazione si comportano in modo diverso.
 
-I **segnali Advanced** rispondono a una domanda precisa e situazionale ("la chiusura si sta impuntando?", "questo breakout è appena fallito?"). Ciascuno produce un punteggio su una linea numerica **[-1, +1]** *e* un **trigger** discreto: quando il punteggio supera la soglia del segnale, scatta un alert e può abilitare un playbook. Sono guidati dagli eventi.
+I **segnali Advanced** rispondono a una domanda precisa e situazionale ("la chiusura si sta impuntando?", "questo breakout è appena fallito?"). Ognuno produce un punteggio su una scala da **-100 a +100** *e* un **trigger** discreto: quando la condizione di attivazione del segnale è soddisfatta - di solito, quando il punteggio supera una soglia -, la sua scheda passa da *Stand by* a *Triggered* e il trigger viene registrato nell'Event Timeline del segnale. Sono guidati dagli eventi e fanno parte di Pro.
 
-I **segnali Basic** sono continui. Non "scattano" - al contrario alimentano il **composito MSI** con un peso fisso, spingendo la lettura combinata del regime più in alto (verso il trend) o più in basso (verso il chop) a ogni aggiornamento. Li vedi come input per il quadro d'insieme, non come alert autonomi.
+I **segnali Basic** sono letture continue e consultive. Non hanno alcun peso nel **Composite MSI**, costruito da sei componenti proprie, e il motore non li attiva mai. Il loro valore è quello di un'allerta precoce: quando contraddicono il MSI, un cambio di regime potrebbe arrivare prima che il MSI si muova. Sono inclusi in Basic e Pro.
 
 Prima di passare alle tabelle, tre cose vale la pena interiorizzarle:
 
-- La linea del punteggio è sempre **[-1, +1]**. Il segno indica la direzione; la magnitudine indica la convinzione.
+- La scala del punteggio va sempre da **-100 a +100**. Il segno indica la direzione; la magnitudine indica la convinzione.
 - Un punteggio di **0 quasi mai significa "mercato neutro".** Per la maggior parte dei segnali significa che *i dati sono insufficienti* oppure che *questa specifica domanda al momento non ha risposta*. Non leggere uno 0 come un via libera.
-- I segnali Advanced **scattano**; i segnali Basic **pesano**. Ecco perché vedi alert in stile "BULLISH FADE" per alcuni segnali e mai per altri.
+- I segnali Advanced **scattano (trigger)**; i segnali Basic **avvisano in anticipo**. Una scheda Basic si illumina come *Triggered* a ±25, ma è solo un'evidenziazione sulla scheda, non un trigger del motore.
 
 ---
 
@@ -28,25 +28,25 @@ Cosa chiede ciascun segnale, la direzione verso cui pende, la finestra che legge
 
 | Segnale | Chiede | Trade Bias | Timeframe | Input principali | Trigger / Output |
 | --- | --- | --- | --- | --- | --- |
-| EOD Pressure | "La chiusura si sta impuntando?" | Lettura direzionale | Ultimi 90 min (sale 14:30-15:45 ET) | Charm del dealer sullo spot, gravità del pin, volatilità realizzata, flag di witching | Punteggio [-1, +1]; scatta ad abs(score) ≥ 0.20 |
-| Gamma/VWAP Confluence | "I livelli chiave si stanno sovrapponendo qui?" | Mean-rev (long gamma) / Continuation (short gamma) | Intraday continuo | Gamma flip, VWAP, max pain, strike a max-gamma, call wall | Punteggio [-1, +1]; scatta ad abs(score) ≥ 0.20 |
-| Market Pressure | "Il mercato è carico per muoversi, e in che direzione romperà?" | Continuation | Prospettico; mix vanna→charm pesato sulla sessione | Wall pinch, prossimità al flip, regime di net-GEX, vanna/charm del dealer, DNI, skew tra premium e flow smart-money, IV rank, squeeze di vol realizzata | Punteggio [-1, +1] più loading 0-100; scatta a loading ≥ 50 E \|direction\| ≥ 0.20 |
-| Range Break Imminence | "Questo range sta per rompersi?" | Cambio di regime / playbook | Finestra a 20 barre | Skew delta, delta del dealer, trap pressure, rapporto di compressione 10/60 barre | Punteggio [-1, +1] più imminence 0-100; scatta a imminence ≥ 65 |
-| Squeeze Setup | "Il mercato è compresso a molla?" | Continuation | Setup multi-giorno | Flow z-score, momentum a 5/10 barre, gamma readiness, distanza dal flip, regime VIX | Punteggio [-1, +1]; scatta ad abs(score) ≥ 0.25 |
-| Trap Detection | "Questo breakout è appena fallito?" | Mean-reversion (vs. rottura del prezzo) | Da intraday a overnight | Wall (attuali + precedenti), VWAP, flip, net GEX e ΔGEX, delta di flow | Punteggio [-1, +1]; scatta ad abs(score) ≥ 0.25 |
-| Vol Expansion | "La volatilità sta per esplodere?" | Continuation | Finestra di momentum a 5 barre | Net GEX, z-score del momentum normalizzato per vol, volatilità realizzata | Punteggio [-1, +1]; scatta ad abs(score) ≥ 0.25 |
-| Zero DTE Position Imbalance | "I trader 0DTE stanno pendendo da una parte?" | Lettura direzionale | Sessione 0DTE (pesata per ore alla chiusura) | Squilibrio call/put flow, rapporto C/P smart-money, PCR, bucket di moneyness | Punteggio [-1, +1]; scatta ad abs(score) ≥ 0.25 |
+| EOD Pressure | "La chiusura si sta impuntando?" | Lettura direzionale | Ultimi 90 min (sale 14:30-15:45 ET) | Charm del dealer sullo spot, gravità del pin, volatilità realizzata, flag di witching | Punteggio da -100 a +100; scatta a ±20 |
+| Gamma/VWAP Confluence | "I livelli chiave si stanno sovrapponendo qui?" | Mean-rev (long gamma) / Continuation (short gamma) | Intraday continuo | Gamma flip, VWAP, max pain, strike a max-gamma, call wall | Punteggio da -100 a +100; scatta a ±20 |
+| Market Pressure | "Il mercato è carico per muoversi, e in che direzione romperà?" | Continuation | Prospettico; mix vanna→charm pesato sulla sessione | Wall pinch, prossimità al flip, regime di net-GEX, vanna/charm del dealer, DNI, skew tra premium e flow smart-money, IV rank, squeeze di vol realizzata | Punteggio da -100 a +100 più loading 0-100; scatta a loading ≥ 50 E \|direction\| ≥ 0.20 |
+| Range Break Imminence | "Questo range sta per rompersi?" | Cambio di regime / playbook | Finestra a 20 barre | Skew delta, delta del dealer, trap pressure, rapporto di compressione 10/60 barre | Punteggio da -100 a +100 più imminence 0-100; scatta a imminence ≥ 65 |
+| Squeeze Setup | "Il mercato è compresso a molla?" | Continuation | Setup multi-giorno | Flow z-score, momentum a 5/10 barre, gamma readiness, distanza dal flip, regime VIX | Punteggio da -100 a +100; scatta a ±25 |
+| Trap Detection | "Questo breakout è appena fallito?" | Mean-reversion (vs. rottura del prezzo) | Da intraday a overnight | Wall (attuali + precedenti), VWAP, flip, net GEX e ΔGEX, delta di flow | Punteggio da -100 a +100; scatta a ±25 |
+| Vol Expansion | "La volatilità sta per esplodere?" | Continuation | Finestra di momentum a 5 barre | Net GEX, z-score del momentum normalizzato per vol, volatilità realizzata | Punteggio da -100 a +100; scatta a ±25 |
+| Zero DTE Position Imbalance | "I trader 0DTE stanno pendendo da una parte?" | Lettura direzionale | Sessione 0DTE (pesata per ore alla chiusura) | Squilibrio call/put flow, rapporto C/P smart-money, PCR, bucket di moneyness | Punteggio da -100 a +100; scatta a ±25 |
 
 ### Segnali Basic
 
-| Segnale | Chiede | Trade Bias | Timeframe | Input principali | Peso nel Composite |
+| Segnale | Chiede | Trade Bias | Timeframe | Input principali | Output |
 | --- | --- | --- | --- | --- | --- |
-| Dealer Delta Pressure | "I dealer sono costretti a inseguire questo movimento?" | Lettura direzionale | Intraday immediato | Delta netto del dealer (call_delta_oi + put_delta_oi), distribuzione OI per strike | Peso MSI 0.08 |
-| GEX Gradient | "Il gamma è accumulato da un lato?" | Lettura direzionale | Snapshot per strike (al refresh del GEX) | Gamma sopra lo spot, gamma sotto lo spot, concentrazione ATM, frazione sulle ali, volatilità realizzata | Peso MSI 0.08 |
-| Positioning Trap | "La folla è fuori posizione?" | Mean-reversion (vs. folla) | Intraday (5-10 min) | PCR, squilibrio smart-money con segno, momentum a 5 barre, inclinazione al flip, regime di net GEX | Peso MSI 0.06 |
-| Skew Delta | "Quanto la paura è scommessa sulle put?" | Lettura direzionale | Intraday (al refresh delle quote) | IV delle put OTM, IV delle call OTM, spread vs. baseline | Peso MSI 0.04 |
-| Tape Flow Bias | "Da che parte pende il tape?" | Continuation | Finestra rolling breve (Lee-Ready) | Premium in acquisto/vendita sulle call, premium in acquisto/vendita sulle put, flow totale di premium | Peso MSI 0.08 |
-| Vanna/Charm Flow | "Vol o tempo costringeranno i dealer a ri-coprirsi?" | Continuation | Intraday (charm sale nelle ultime 2 ore) | Vanna aggregata del dealer, charm aggregato del dealer, moltiplicatore charm legato all'orario di sessione | Peso MSI 0.04 |
+| Dealer Delta Pressure | "I dealer sono costretti a inseguire questo movimento?" | Lettura direzionale | Intraday immediato | Delta netto del dealer (call_delta_oi + put_delta_oi), distribuzione OI per strike | Punteggio da -100 a +100; consultivo, fuori dal MSI |
+| GEX Gradient | "Il gamma è accumulato da un lato?" | Lettura direzionale | Snapshot per strike (al refresh del GEX) | Gamma sopra lo spot, gamma sotto lo spot, concentrazione ATM, frazione sulle ali, volatilità realizzata | Punteggio da -100 a +100; consultivo, fuori dal MSI |
+| Positioning Trap | "La folla è fuori posizione?" | Mean-reversion (vs. folla) | Intraday (5-10 min) | PCR, squilibrio smart-money con segno, momentum a 5 barre, inclinazione al flip, regime di net GEX | Punteggio da -100 a +100; consultivo, fuori dal MSI |
+| Skew Delta | "Quanto la paura è scommessa sulle put?" | Lettura direzionale | Intraday (al refresh delle quote) | IV delle put OTM, IV delle call OTM, spread vs. baseline | Punteggio da -100 a +100; consultivo, fuori dal MSI |
+| Tape Flow Bias | "Da che parte pende il tape?" | Continuation | Finestra rolling breve (Lee-Ready) | Premium in acquisto/vendita sulle call, premium in acquisto/vendita sulle put, flow totale di premium | Punteggio da -100 a +100; consultivo, fuori dal MSI |
+| Vanna/Charm Flow | "Vol o tempo costringeranno i dealer a ri-coprirsi?" | Continuation | Intraday (charm sale nelle ultime 2 ore) | Vanna aggregata del dealer, charm aggregato del dealer, moltiplicatore charm legato all'orario di sessione | Punteggio da -100 a +100; consultivo, fuori dal MSI |
 
 ---
 
@@ -71,8 +71,8 @@ Stessa linea numerica, domande molto diverse. Ecco cosa significano positivo, ne
 
 | Segnale | Punteggio positivo | Punteggio negativo | Zero |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealer short delta - devono comprare i dip (rialzista) | Dealer long delta - devono vendere i rally (ribassista) | Book del dealer bilanciato o OI insufficiente |
-| GEX Gradient | Gamma accumulato sotto lo spot - supporto sotto, stabilizzante al rialzo (inclinazione rialzista) | Gamma accumulato sopra lo spot - supporto sotto scarso, amplificante al ribasso (inclinazione ribassista) | Gradiente piatto o OI insufficiente |
+| Dealer Delta Pressure | Dealer modellati short delta - tendono a comprare durante un rally per restare coperti (inclinazione rialzista) | Dealer modellati long delta - tendono a vendere nei rally (inclinazione ribassista) | Book del dealer bilanciato o OI insufficiente |
+| GEX Gradient | Inclinazione rialzista. In gamma corta: più gamma sopra lo spot (i dealer inseguirebbero un rally). In gamma lunga: più gamma sotto lo spot (un pavimento di supporto) | Inclinazione ribassista. In gamma corta: più gamma sotto lo spot (i dealer inseguirebbero un ribasso). In gamma lunga: più gamma sopra lo spot (resistenza sopra) | Gradiente piatto o OI insufficiente |
 | Positioning Trap | Folla short fuori posizione - loading di short-cover squeeze al rialzo | Folla long fuori posizione - loading di flush al ribasso | Nessun estremo di folla rilevato |
 | Skew Delta | Skew delle put *sotto* la baseline - la paura si sta sciogliendo (inclinazione rialzista) | Skew delle put elevato - la paura è scommessa (inclinazione ribassista) | Skew sulla baseline, o dati mancanti |
 | Tape Flow Bias | Domina l'acquisto aggressivo di call sul tape (convinzione rialzista) | Domina l'acquisto aggressivo di put sul tape (convinzione ribassista) | Flow di premium bilanciato o volume insufficiente |
@@ -99,11 +99,11 @@ Il "Trade Bias" di ogni segnale rientra in una di quattro famiglie. Sapere in qu
 
 Quando più segnali dello **stesso** bucket si allineano, la convinzione si moltiplica. Quando i segnali di Continuation e Mean-reversion sono in disaccordo, quel conflitto è di per sé informazione: il tape è conteso.
 
-## Trigger booleani vs. pesi nel composito
+## Trigger contro letture consultive
 
 I segnali Advanced e Basic non sono semplicemente versioni "più difficili" e "più facili" l'uno dell'altro - sono collegati al sistema in modo diverso.
 
-- **I segnali Advanced fanno scattare trigger discreti.** Quando il punteggio supera la soglia (es. abs(score) ≥ 0.25 per Squeeze Setup), il segnale *scatta*: fa scattare un alert e può abilitare un playbook. Tra un trigger e l'altro è informativo.
-- **I segnali Basic non scattano mai.** Sono input continui per il composito MSI, ciascuno con un peso fisso (da 0.04 a 0.08). Contribuiscono sempre, non generano mai alert.
+- **I segnali Advanced generano trigger discreti.** La maggior parte scatta quando il punteggio supera ±25 (±20 per EOD Pressure e Gamma/VWAP Confluence); Range Break Imminence e Market Pressure scattano invece su imminence e loading. La scheda passa a *Triggered* e il trigger finisce nell'Event Timeline del segnale. Tra un trigger e l'altro il punteggio è informativo.
+- **I segnali Basic non scattano mai nel motore.** Sono letture continue e consultive, senza peso nel Composite MSI. Osserva le divergenze: letture di flusso che si rivoltano contro la struttura sono l'allerta precoce per cui esistono.
 
-Ecco *perché* vedi alert in stile "BULLISH FADE" solo per alcuni segnali e non per altri - i segnali Basic fanno il loro lavoro silenziosamente dentro il composito per tutto il tempo.
+I trigger compaiono nell'app - sulle schede Advanced e nelle loro Event Timeline -, non via email, SMS o push.

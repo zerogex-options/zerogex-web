@@ -114,7 +114,7 @@ const MISTAKES: Mistake[] = [
     whatHappens:
       'In a long-gamma regime with strengthening dealer positioning, dealers absorb breakouts. Price pokes above resistance, runs into supply, and snaps back into the range. The breakout was a trap. The fade entry would have worked; the chase did not.',
     zerogex:
-      'The Trap Detection signal scores [-1, +1] for whether the current break is structurally likely to fail. When it triggers in the opposite direction of a recent break, the read is "fade, don\'t chase." Cross-checked against the regime, that\'s the cleanest fade-the-breakout setup in the stack.',
+      'The Trap Detection signal scores -100 to +100 for whether the current break is structurally likely to fail. When it triggers in the opposite direction of a recent break, the read is "fade, don\'t chase." Cross-checked against the regime, that\'s the cleanest fade-the-breakout setup in the stack.',
     reference: { href: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
     imagePath: '/blog/zerogex-strike-profile-overview.png',
     imageAlt: 'ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted',

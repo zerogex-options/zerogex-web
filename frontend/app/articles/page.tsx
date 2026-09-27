@@ -248,7 +248,7 @@ const ARTICLES: Article[] = [
     kind: 'Published • May 13, 2026 • 16:00 UTC',
     title: 'Squeeze Setup, Positioning Trap & Trap Detection: Three Signals, Three Stories',
     blurb:
-      'Three ZeroGEX™ Advanced Signals that look almost identical at a glance\u00a0- same [-1, +1] number line, same kinds of pivots\u00a0- but answer entirely different questions: when the market is coiled, when the crowd is offside, and when a breakout just failed. Learn which trade each signal is actually pointing at, and how to read them together.',
+      'Three ZeroGEX™ signals that look almost identical at a glance\u00a0- same -100 to +100 number line, same kinds of pivots\u00a0- but answer entirely different questions: when the market is coiled, when the crowd is offside, and when a breakout just failed. Learn which trade each signal is actually pointing at, and how to read them together.',
   },
   {
     href: '/education/eod-pressure-and-trap-detection',

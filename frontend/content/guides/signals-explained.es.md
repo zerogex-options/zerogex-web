@@ -8,15 +8,15 @@
 
 ZeroGEX opera con dos familias de señales, y por diseño se comportan de forma distinta.
 
-Las **señales Advanced** responden a una pregunta concreta y situacional ("¿se está fijando el cierre?", "¿acaba de fallar este breakout?"). Cada una produce una puntuación en una línea numérica **[-1, +1]** *y* un **trigger** discreto: en cuanto la puntuación cruza el umbral de la señal, dispara una alerta y puede habilitar un playbook. Son señales impulsadas por eventos.
+Las **señales Advanced** responden a una pregunta concreta y situacional ("¿se está fijando el cierre?", "¿acaba de fallar este breakout?"). Cada una produce una puntuación en una escala de **-100 a +100** *y* un **trigger** discreto: cuando se cumple la condición de activación de la señal - normalmente, que la puntuación cruce un umbral -, su tarjeta pasa de *Stand by* a *Triggered* y el trigger queda registrado en el Event Timeline de la señal. Se rigen por eventos y forman parte de Pro.
 
-Las **señales Basic** son continuas. No "se disparan" - en su lugar alimentan el **compuesto MSI** con un peso fijo, empujando la lectura de régimen combinada hacia arriba (hacia tendencia) o hacia abajo (hacia lateralización) en cada actualización. Se ven como inputs para el panorama general, no como alertas independientes.
+Las **señales Basic** son lecturas continuas y orientativas. No tienen peso en el **Composite MSI**, que se construye a partir de seis componentes propios, y el motor nunca las activa. Su valor es el de una alerta temprana: cuando contradicen al MSI, puede avecinarse un cambio de régimen antes de que el MSI se mueva. Están incluidas en Basic y Pro.
 
 Antes de pasar a las tablas, conviene interiorizar tres cosas:
 
-- La línea de puntuación siempre es **[-1, +1]**. El signo indica dirección; la magnitud indica convicción.
+- La escala de puntuación siempre va de **-100 a +100**. El signo indica la dirección; la magnitud indica la convicción.
 - Una puntuación de **0 casi nunca significa "mercado neutral".** Para la mayoría de las señales significa que *los datos son insuficientes* o que *esta pregunta concreta no tiene respuesta en este momento*. No interpretes un 0 como luz verde.
-- Las señales Advanced **disparan**; las señales Basic **ponderan**. Por eso ves alertas estilo "BULLISH FADE" en algunas señales y nunca en otras.
+- Las señales Advanced **se activan**; las señales Basic **avisan con antelación**. Una tarjeta Basic se ilumina como *Triggered* en ±25, pero es solo un resaltado en la tarjeta, no un trigger del motor.
 
 ---
 
@@ -28,25 +28,25 @@ Qué pregunta cada señal, hacia qué sesgo se inclina, la ventana que lee, los 
 
 | Señal | Pregunta | Trade Bias | Timeframe | Inputs Principales | Trigger / Output |
 | --- | --- | --- | --- | --- | --- |
-| EOD Pressure | "¿Se está fijando el cierre?" | Lectura direccional | Últimos 90 min (aumenta 14:30-15:45 ET) | Charm del dealer en el spot, gravedad de pin, volatilidad realizada, flags de witching | Puntuación [-1, +1]; se dispara con abs(score) ≥ 0.20 |
-| Gamma/VWAP Confluence | "¿Se están apilando aquí niveles clave?" | Mean-rev (long gamma) / Continuation (short gamma) | Intradía continuo | Gamma flip, VWAP, max pain, strike de max-gamma, call wall | Puntuación [-1, +1]; se dispara con abs(score) ≥ 0.20 |
-| Market Pressure | "¿Está el mercado cargado para moverse, y hacia dónde romperá?" | Continuation | Prospectivo; mezcla vanna→charm ponderada por sesión | Wall pinch, proximidad al flip, régimen de net-GEX, vanna/charm del dealer, DNI, sesgo entre premium y flow de smart-money, IV rank, squeeze de vol realizada | Puntuación [-1, +1] más loading 0-100; se dispara con loading ≥ 50 Y \|direction\| ≥ 0.20 |
-| Range Break Imminence | "¿Está este rango a punto de romperse?" | Cambio de régimen / playbook | Ventana de 20 barras | Skew delta, delta del dealer, trap pressure, ratio de compresión 10/60 barras | Puntuación [-1, +1] más imminence 0-100; se dispara con imminence ≥ 65 |
-| Squeeze Setup | "¿Está el mercado enroscado?" | Continuation | Setup multi-día | Z-score del flow, momentum de 5/10 barras, gamma readiness, distancia al flip, régimen de VIX | Puntuación [-1, +1]; se dispara con abs(score) ≥ 0.25 |
-| Trap Detection | "¿Acaba de fallar este breakout?" | Mean-reversion (vs. rotura del precio) | De intradía a overnight | Walls (actuales + previos), VWAP, flip, net GEX y ΔGEX, deltas de flow | Puntuación [-1, +1]; se dispara con abs(score) ≥ 0.25 |
-| Vol Expansion | "¿Está la volatilidad a punto de estallar?" | Continuation | Ventana de momentum de 5 barras | Net GEX, z-score de momentum normalizado por vol, volatilidad realizada | Puntuación [-1, +1]; se dispara con abs(score) ≥ 0.25 |
-| Zero DTE Position Imbalance | "¿Se están inclinando los traders 0DTE hacia un lado?" | Lectura direccional | Sesión 0DTE (ponderada por horas hasta el cierre) | Desequilibrio de flow call/put, ratio C/P de smart-money, PCR, buckets de moneyness | Puntuación [-1, +1]; se dispara con abs(score) ≥ 0.25 |
+| EOD Pressure | "¿Se está fijando el cierre?" | Lectura direccional | Últimos 90 min (aumenta 14:30-15:45 ET) | Charm del dealer en el spot, gravedad de pin, volatilidad realizada, flags de witching | Puntuación de -100 a +100; se dispara con ±20 |
+| Gamma/VWAP Confluence | "¿Se están apilando aquí niveles clave?" | Mean-rev (long gamma) / Continuation (short gamma) | Intradía continuo | Gamma flip, VWAP, max pain, strike de max-gamma, call wall | Puntuación de -100 a +100; se dispara con ±20 |
+| Market Pressure | "¿Está el mercado cargado para moverse, y hacia dónde romperá?" | Continuation | Prospectivo; mezcla vanna→charm ponderada por sesión | Wall pinch, proximidad al flip, régimen de net-GEX, vanna/charm del dealer, DNI, sesgo entre premium y flow de smart-money, IV rank, squeeze de vol realizada | Puntuación de -100 a +100 más loading 0-100; se dispara con loading ≥ 50 Y \|direction\| ≥ 0.20 |
+| Range Break Imminence | "¿Está este rango a punto de romperse?" | Cambio de régimen / playbook | Ventana de 20 barras | Skew delta, delta del dealer, trap pressure, ratio de compresión 10/60 barras | Puntuación de -100 a +100 más imminence 0-100; se dispara con imminence ≥ 65 |
+| Squeeze Setup | "¿Está el mercado enroscado?" | Continuation | Setup multi-día | Z-score del flow, momentum de 5/10 barras, gamma readiness, distancia al flip, régimen de VIX | Puntuación de -100 a +100; se dispara con ±25 |
+| Trap Detection | "¿Acaba de fallar este breakout?" | Mean-reversion (vs. rotura del precio) | De intradía a overnight | Walls (actuales + previos), VWAP, flip, net GEX y ΔGEX, deltas de flow | Puntuación de -100 a +100; se dispara con ±25 |
+| Vol Expansion | "¿Está la volatilidad a punto de estallar?" | Continuation | Ventana de momentum de 5 barras | Net GEX, z-score de momentum normalizado por vol, volatilidad realizada | Puntuación de -100 a +100; se dispara con ±25 |
+| Zero DTE Position Imbalance | "¿Se están inclinando los traders 0DTE hacia un lado?" | Lectura direccional | Sesión 0DTE (ponderada por horas hasta el cierre) | Desequilibrio de flow call/put, ratio C/P de smart-money, PCR, buckets de moneyness | Puntuación de -100 a +100; se dispara con ±25 |
 
 ### Señales Basic
 
-| Señal | Pregunta | Trade Bias | Timeframe | Inputs Principales | Peso en el Composite |
+| Señal | Pregunta | Trade Bias | Timeframe | Inputs Principales | Salida |
 | --- | --- | --- | --- | --- | --- |
-| Dealer Delta Pressure | "¿Están los dealers obligados a perseguir este movimiento?" | Lectura direccional | Intradía inmediato | Delta neto del dealer (call_delta_oi + put_delta_oi), distribución de OI por strike | Peso MSI 0.08 |
-| GEX Gradient | "¿Está el gamma apilado en un lado?" | Lectura direccional | Snapshot por strike (al refrescar el GEX) | Gamma por encima del spot, gamma por debajo del spot, concentración ATM, fracción en las alas, volatilidad realizada | Peso MSI 0.08 |
-| Positioning Trap | "¿Está la multitud mal posicionada?" | Mean-reversion (vs. multitud) | Intradía (5-10 min) | PCR, desequilibrio con signo de smart-money, momentum de 5 barras, inclinación al flip, régimen de net GEX | Peso MSI 0.06 |
-| Skew Delta | "¿Cuánto miedo está apostado en las puts?" | Lectura direccional | Intradía (al refrescar las cotizaciones) | IV de puts OTM, IV de calls OTM, spread vs. baseline | Peso MSI 0.04 |
-| Tape Flow Bias | "¿Hacia dónde se inclina el tape?" | Continuation | Ventana rodante corta (Lee-Ready) | Premium de compra/venta en calls, premium de compra/venta en puts, flow total de premium | Peso MSI 0.08 |
-| Vanna/Charm Flow | "¿Forzarán la vol o el tiempo a los dealers a recubrirse?" | Continuation | Intradía (charm aumenta en las últimas 2 horas) | Vanna agregada del dealer, charm agregado del dealer, multiplicador de charm según el horario de sesión | Peso MSI 0.04 |
+| Dealer Delta Pressure | "¿Están los dealers obligados a perseguir este movimiento?" | Lectura direccional | Intradía inmediato | Delta neto del dealer (call_delta_oi + put_delta_oi), distribución de OI por strike | Puntuación de -100 a +100; orientativa, fuera del MSI |
+| GEX Gradient | "¿Está el gamma apilado en un lado?" | Lectura direccional | Snapshot por strike (al refrescar el GEX) | Gamma por encima del spot, gamma por debajo del spot, concentración ATM, fracción en las alas, volatilidad realizada | Puntuación de -100 a +100; orientativa, fuera del MSI |
+| Positioning Trap | "¿Está la multitud mal posicionada?" | Mean-reversion (vs. multitud) | Intradía (5-10 min) | PCR, desequilibrio con signo de smart-money, momentum de 5 barras, inclinación al flip, régimen de net GEX | Puntuación de -100 a +100; orientativa, fuera del MSI |
+| Skew Delta | "¿Cuánto miedo está apostado en las puts?" | Lectura direccional | Intradía (al refrescar las cotizaciones) | IV de puts OTM, IV de calls OTM, spread vs. baseline | Puntuación de -100 a +100; orientativa, fuera del MSI |
+| Tape Flow Bias | "¿Hacia dónde se inclina el tape?" | Continuation | Ventana rodante corta (Lee-Ready) | Premium de compra/venta en calls, premium de compra/venta en puts, flow total de premium | Puntuación de -100 a +100; orientativa, fuera del MSI |
+| Vanna/Charm Flow | "¿Forzarán la vol o el tiempo a los dealers a recubrirse?" | Continuation | Intradía (charm aumenta en las últimas 2 horas) | Vanna agregada del dealer, charm agregado del dealer, multiplicador de charm según el horario de sesión | Puntuación de -100 a +100; orientativa, fuera del MSI |
 
 ---
 
@@ -71,8 +71,8 @@ Misma línea numérica, preguntas muy distintas. Aquí está lo que significan p
 
 | Señal | Puntuación positiva | Puntuación negativa | Cero |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealers short delta - deben comprar los dips (alcista) | Dealers long delta - deben vender los rallies (bajista) | Book del dealer equilibrado u OI insuficiente |
-| GEX Gradient | Gamma apilado por debajo del spot - soporte por debajo, estabilizador al alza (sesgo alcista) | Gamma apilado por encima del spot - poco soporte por debajo, amplificador a la baja (sesgo bajista) | Gradiente plano u OI insuficiente |
+| Dealer Delta Pressure | Dealers modelados cortos en delta - tienden a comprar durante un rally para mantenerse cubiertos (sesgo alcista) | Dealers modelados largos en delta - tienden a vender en los rallies (sesgo bajista) | Book del dealer equilibrado u OI insuficiente |
+| GEX Gradient | Sesgo alcista. En gamma corta: más gamma por encima del spot (los dealers perseguirían un rally). En gamma larga: más gamma por debajo del spot (un suelo de soporte) | Sesgo bajista. En gamma corta: más gamma por debajo del spot (los dealers perseguirían una caída). En gamma larga: más gamma por encima del spot (resistencia arriba) | Gradiente plano u OI insuficiente |
 | Positioning Trap | Multitud short mal posicionada - loading de short-cover squeeze alcista | Multitud long mal posicionada - loading de flush bajista | No se detecta ningún extremo de multitud |
 | Skew Delta | Skew de puts *por debajo* de la baseline - el miedo se está deshaciendo (inclinación alcista) | Skew de puts elevado - el miedo está apostado (inclinación bajista) | Skew en la baseline, o datos faltantes |
 | Tape Flow Bias | Domina la compra agresiva de calls en el tape (convicción alcista) | Domina la compra agresiva de puts en el tape (convicción bajista) | Flow de premium equilibrado o volumen insuficiente |
@@ -99,11 +99,11 @@ El "Trade Bias" de cada señal se agrupa en una de cuatro familias. Saber en qu�
 
 Cuando varias señales del **mismo** bucket se alinean, la convicción se multiplica. Cuando las señales de Continuation y Mean-reversion discrepan, ese conflicto es en sí mismo información: el tape está disputado.
 
-## Booleanos disparados vs. pesos del composite
+## Triggers frente a lecturas orientativas
 
 Las señales Advanced y Basic no son simplemente versiones "más difíciles" y "más fáciles" entre sí - están conectadas al sistema de forma distinta.
 
-- **Las señales Advanced disparan triggers discretos.** En cuanto la puntuación cruza el umbral (p. ej., abs(score) ≥ 0.25 para Squeeze Setup), la señal *se dispara*: activa una alerta y puede habilitar un playbook. Entre disparos es puramente informativa.
-- **Las señales Basic nunca se disparan.** Son inputs continuos para el compuesto MSI, cada una con un peso fijo (de 0.04 a 0.08). Siempre están contribuyendo, nunca alertando.
+- **Las señales Advanced disparan triggers discretos.** La mayoría se activa cuando la puntuación cruza ±25 (±20 en EOD Pressure y Gamma/VWAP Confluence); Range Break Imminence y Market Pressure se activan en cambio con la imminence y el loading. La tarjeta pasa a *Triggered* y el trigger queda en el Event Timeline de la señal. Entre triggers, la puntuación es informativa.
+- **Las señales Basic nunca se activan en el motor.** Son lecturas continuas y orientativas, sin peso en el Composite MSI. Vigila las divergencias: que las lecturas de flujo se vuelvan contra la estructura es la alerta temprana para la que existen.
 
-Por eso solo ves alertas estilo "BULLISH FADE" en algunas señales y no en otras - las señales Basic hacen su trabajo en silencio dentro del composite todo el tiempo.
+Los triggers se muestran en la app - en las tarjetas Advanced y en sus Event Timelines -, no por email, SMS ni notificaciones push.
