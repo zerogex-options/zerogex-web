@@ -107,7 +107,7 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
         <Link href="/real-time-gex-0dte" className={linkClass}>
           real-time 0DTE GEX dashboard
         </Link>{' '}
-        - the full gamma flip, call and put walls, dealer positioning, and the 13-signal composite.{' '}
+        - the full gamma flip, call and put walls, dealer positioning, and the Market State Index.{' '}
         <Link href="/register" className={linkClass}>
           Sign up
         </Link>{' '}

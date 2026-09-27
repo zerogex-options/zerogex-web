@@ -61,7 +61,7 @@ Le GEX ne vous dira pas *ce qui* va se passer ensuite. Il vous indique dans quel
 
 ## Où consulter le GEX par vous-même
 
-Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le Net GEX du jour, le gamma flip, le call wall et le put wall - gratuitement et avec environ 15 minutes de décalage - pour [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour une lecture en direct, à la sous-seconde, avec le profil gamma complet, une heatmap strike par DTE et le composite à 13 signaux, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le Net GEX du jour, le gamma flip, le call wall et le put wall - gratuitement et avec environ 15 minutes de décalage - pour [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour une lecture en direct, avec le profil gamma complet, une heatmap strike par DTE et le Market State Index, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
 
 ---
 

@@ -228,9 +228,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     // 86 characters before; Google was truncating it mid-list. 62 now.
     title: 'Real-Time 0DTE GEX Dashboard: SPX, SPY, QQQ & NDX Gamma Levels',
     blurb:
-      'Live gamma flip, call and put walls, dealer positioning, and composite signals\u00a0- built for SPX/0DTE intraday flow. Free dashboard, no signup required.',
+      'Live gamma flip, call and put walls, dealer positioning, and composite signals\u00a0- built for SPX/0DTE intraday flow. Free 15-minute-delayed levels, no signup required.',
     description:
-      'Real-time 0DTE GEX for SPX, SPY, QQQ and NDX\u00a0- live gamma flip, call and put walls, dealer positioning, and a 13-signal composite. Free, no signup.',
+      'Real-time 0DTE GEX for SPX, SPY, QQQ and NDX\u00a0- live gamma flip, call and put walls, dealer positioning, and signals. Free 15-min-delayed levels, no signup.',
     datePublished: '2026-06-11',
     readMinutes: 0,
     kind: 'landing',
