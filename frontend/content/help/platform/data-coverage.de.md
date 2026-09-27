@@ -85,7 +85,8 @@ An verkürzten Handelstagen (früherer Handelsschluss um 13:00 Uhr ET rund um ma
 ZeroGEX nutzt professionelle Echtzeit-Marktdaten zu Optionen und Basiswerten unter kommerziellen Lizenzen. Es lohnt sich, genau zu sein, denn es handelt sich nicht um ein einziges Tape:
 
 - **Optionsquotes und -trades** für SPY, QQQ, SPX und NDX stammen von OPRA, dem konsolidierten Tape für börsengehandelte US-Optionen.
-- **Die Indexwerte von SPX und NDX** selbst werden separat bei ihren Indexanbietern lizenziert.
+- **Die Indexwerte von SPX und NDX** stammen aus einem separaten Index-Feed, nicht aus dem Options-Tape.
+- **Die Kurse von SPY und QQQ** stammen aus Nasdaq Basic, einem Echtzeit-Feed von Nasdaq.
 - Die Kurse für **ES und NQ** stammen aus dem Echtzeit-CME-Feed.
 - Das **Open Interest** ist eine separate Größe vom Ende der Sitzung aus dem Clearing und kein Echtzeitwert.
 
