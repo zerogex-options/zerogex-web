@@ -22,7 +22,7 @@ Das Positioning-Trap-Signal stellt eine Frage:
 
 > Ist die Optionsmasse falsch positioniert - und beginnt das Tape, sich gegen die überfüllte Wette zu drehen?
 
-Es ist ein **Basic**-Signal im ZeroGEX-Stack - es erzeugt einen kontinuierlichen Score auf der Zahlengeraden [-1, +1], gewichtet mit **0,06** in das MSI-Composite eingebracht, und löst keine diskreten Trigger aus, wie es Advanced-Signale tun. (Mehr zu dieser Unterscheidung weiter unten.)
+Es ist ein **Basic**-Signal im ZeroGEX-Stack - es erzeugt einen kontinuierlichen Score auf der Linie von -100 bis +100, hat kein Gewicht im Composite MSI und löst keine diskreten Trigger aus, wie es Advanced-Signale tun. (Mehr zu dieser Unterscheidung weiter unten.) Es ist in Basic und Pro enthalten.
 
 Trade-Bias: **Mean-Reversion**. Wenn Positioning Trap aktiv ist, deutet es auf den *Fade* hin - gegen die überfüllte Seite zu traden, mit der Wette, dass sich das Tape gegen sie dreht.
 
@@ -66,7 +66,7 @@ side_score = 0.45 × crowding
            + 0.05 × negative_GEX_regime
 ```
 
-Anschließend werden die beiden Seiten zu einem einzigen Score in [-1, +1] verrechnet.
+Anschließend werden die beiden Seiten zu einem einzigen Score in [-1, +1] verrechnet, den Karte und Signalseite mal 100 zeigen (-100 bis +100).
 
 Ein paar Dinge zu den Gewichtungen:
 
@@ -81,11 +81,11 @@ Der Score ist kontinuierlich. Er löst nicht aus. Damit kommen wir zur zentralen
 
 ## Warum Positioning Trap ein Basic-Signal ist
 
-Die meisten Signale im ZeroGEX-Stack sind **Advanced** - sie lösen diskrete Trigger aus, wenn der Score eine Schwelle überschreitet, und diese Trigger schalten Playbooks frei. Positioning Trap ist **Basic** - es löst nie aus. Stattdessen fließt es kontinuierlich mit einem festen Gewicht von 0,06 in das MSI-Composite ein.
+Die meisten Signale im ZeroGEX-Stack sind **Advanced** - sie lösen diskrete Trigger aus, wenn der Score eine Schwelle überschreitet, und diese Trigger schalten Playbooks frei. Positioning Trap ist **Basic** - die Engine löst darauf nie aus, und es hat kein Gewicht im Composite MSI. Es ist eine beratende Lesart: Seine Karte leuchtet ab ±25 als *Triggered* auf, aber das ist nur eine Hervorhebung auf der Karte, kein Engine-Trigger.
 
-Warum dieser Unterschied? Weil Positioning Trap eine *Bedingung* ist, kein Ereignis. Ein überfüllter Trade ist ein Hintergrund, der Stunden oder Tage andauert - kein Moment. Der richtige Weg, ihn sichtbar zu machen, ist als kontinuierlicher Impuls für die Composite-Lesung, nicht als einmaliger Alert.
+Warum dieser Unterschied? Weil Positioning Trap eine *Bedingung* ist, kein Ereignis. Ein überfüllter Trade ist ein Hintergrund, der Stunden oder Tage andauert - kein Moment. Der richtige Weg, ihn sichtbar zu machen, ist als kontinuierliche, beratende Lesart, nicht als einmaliger Alert.
 
-Praktische Konsequenz: Warte nicht darauf, dass Positioning Trap "auslöst". Beobachte den Score. Eine anhaltende Lesung von +0,5 ist das strukturelle Setup - der Trade kommt, wenn ein *anderes* Signal (typischerweise Trap Detection oder ein Preisniveau-Bruch) auslöst, während Positioning Trap geladen ist.
+Praktische Konsequenz: Warte nicht darauf, dass Positioning Trap "auslöst". Beobachte den Score. Eine anhaltende Lesung von +50 ist das strukturelle Setup - der Trade kommt, wenn ein *anderes* Signal (typischerweise Trap Detection oder ein Preisniveau-Bruch) auslöst, während Positioning Trap geladen ist.
 
 ---
 
@@ -93,13 +93,13 @@ Praktische Konsequenz: Warte nicht darauf, dass Positioning Trap "auslöst". Beo
 
 | Score | Lesart |
 |---|---|
-| +0,5 bis +1,0 | Short-Masse in erheblicher Gefahr - Aufwärts-Short-Cover-Squeeze lädt sich auf |
-| +0,2 bis +0,5 | Short-Masse leicht fehlpositioniert - informativ, noch nicht drängend |
-| -0,2 bis +0,2 | Kein klares Massenextrem |
-| -0,2 bis -0,5 | Long-Masse leicht fehlpositioniert - informativ, noch nicht drängend |
-| -0,5 bis -1,0 | Long-Masse in erheblicher Gefahr - Abwärts-Flush lädt sich auf |
+| +50 bis +100 | Short-Masse in erheblicher Gefahr - Aufwärts-Short-Cover-Squeeze lädt sich auf |
+| +20 bis +50 | Short-Masse leicht fehlpositioniert - informativ, noch nicht drängend |
+| -20 bis +20 | Kein klares Massenextrem |
+| -20 bis -50 | Long-Masse leicht fehlpositioniert - informativ, noch nicht drängend |
+| -50 bis -100 | Long-Masse in erheblicher Gefahr - Abwärts-Flush lädt sich auf |
 
-Das `positioning_trap_squeeze`-Playbook schaltet frei bei **abs(score) ≥ 0,5** - höher als der typische Advanced-Trigger. Positioning Trap benötigt tiefere Überzeugung, um darauf zu handeln, weil gegen die Masse zu traden strukturell riskanter ist, als mit dem Momentum zu laufen.
+Das `positioning_trap_squeeze`-Playbook schaltet frei bei **±50** - höher als der typische Advanced-Trigger (±25). Positioning Trap benötigt tiefere Überzeugung, um darauf zu handeln, weil gegen die Masse zu traden strukturell riskanter ist, als mit dem Momentum zu laufen.
 
 ---
 
@@ -107,10 +107,10 @@ Das `positioning_trap_squeeze`-Playbook schaltet frei bei **abs(score) ≥ 0,5**
 
 Eine kurze Liste von Zuständen:
 
-- **Ruhig (-0,2 bis +0,2):** Die meiste Zeit, bei den meisten Symbolen, ist die Masse nicht einseitig genug, um relevant zu sein. Behandle das Signal als aus.
-- **Geladen, aber nicht drängend (0,2-0,5):** Die Masse neigt sich, ist aber noch nicht auf dem Niveau, auf dem eine Seite klar fehlpositioniert ist. Auf Veränderungen achten.
-- **Drängend (0,5+):** Die Masse ist an der Schwelle, an der ein Flush oder Squeeze strukturell angelegt ist. Die Falle ist geladen; es fehlt der Funke.
-- **Umkehr unter der Schwelle:** Ein anhaltendes +0,5, das auf +0,1 fällt, deutet darauf hin, dass sich das Crowding bereits aufzulösen begonnen hat - wahrscheinlich zu spät für den Fade.
+- **Ruhig (-20 bis +20):** Die meiste Zeit, bei den meisten Symbolen, ist die Masse nicht einseitig genug, um relevant zu sein. Behandle das Signal als aus.
+- **Geladen, aber nicht drängend (20-50):** Die Masse neigt sich, ist aber noch nicht auf dem Niveau, auf dem eine Seite klar fehlpositioniert ist. Auf Veränderungen achten.
+- **Drängend (50+):** Die Masse ist an der Schwelle, an der ein Flush oder Squeeze strukturell angelegt ist. Die Falle ist geladen; es fehlt der Funke.
+- **Umkehr unter der Schwelle:** Ein anhaltendes +50, das auf +10 fällt, deutet darauf hin, dass sich das Crowding bereits aufzulösen begonnen hat - wahrscheinlich zu spät für den Fade.
 
 ---
 
@@ -142,7 +142,7 @@ Ein paar Cross-Reads:
 
 Drei Fallen:
 
-- **Positioning Trap als Trigger behandeln.** Ist es nicht. Die 0,5-Schwelle schaltet ein Playbook frei, aber das Signal selbst "löst nicht aus" - es gibt kein Ereignis. Den Score kontinuierlich lesen.
+- **Positioning Trap als Trigger behandeln.** Ist es nicht. Die ±50-Schwelle schaltet ein Playbook frei, und die Karte leuchtet ab ±25 auf, aber die Engine löst das Signal selbst nie aus - es gibt kein Ereignis. Den Score kontinuierlich lesen.
 - **Nur auf Basis von Positioning Trap traden.** Überfüllte Trades brechen, aber sie halten auch an. Ohne einen Funken von einem anderen Signal oder einen Niveau-Bruch ist der Fade unkalibriert.
 - **Das Regime ignorieren.** Eine geladene Falle in einem tiefen Short-Gamma-Regime ist ein deutlich riskanterer Fade - das Dealer-Hedging verstärkt Bewegungen, sodass die Masse möglicherweise nicht so bricht, wie die strukturelle Reflexivität nahelegt.
 
@@ -153,17 +153,17 @@ Drei Fallen:
 Das Signal speist mehrere Panels:
 
 - **Die Positioning-Trap-Karte** zeigt den Live-Score und die Seite, die fehlpositioniert ist.
-- **Der MSI Composite Score** integriert Positioning Trap mit Gewicht 0,06 zusammen mit den anderen Basic-Signalen.
-- **Das `positioning_trap_squeeze`-Playbook** schaltet den Einstieg frei, wenn abs(score) 0,5 überschreitet.
+- **Signal Breadth** im Bereich Proprietäre Signale des Dashboards zählt es als eine der Richtungsstimmen. (Es ist kein Input des Composite MSI.)
+- **Das `positioning_trap_squeeze`-Playbook** schaltet den Einstieg frei, wenn der Score ±50 überschreitet.
 
 *[Bildplatzhalter: ZeroGEX-Positioning-Trap-Karte mit Live-Score und Fehlpositionierungs-Lesung - Datei ablegen unter /public/blog/zerogex-positioning-trap-card.png]*
 
 Ein durchgerechnetes Beispiel. SPX bewegt sich langsam abwärts, und ZeroGEX zeigt:
 
-- **Positioning Trap:** +0,62 (Short-Masse fehlpositioniert)
+- **Positioning Trap:** +62 (Short-Masse fehlpositioniert)
 - **Net GEX:** +$1,4 Mrd.
 - **Trap Detection:** 0
-- **Squeeze Setup:** +0,31
+- **Squeeze Setup:** +31
 
 Die strukturelle Lesart: Die Short-Masse ist geladen, das Regime ist Long-Gamma (Dealer stemmen sich gegen den Druck der Masse und stützen eine Umkehr), Squeeze Setup neigt bullisch, und Trap Detection ist still (kein jüngster gescheiterter Abwärtsbruch, den man *noch* fadeln könnte). Praktische Tendenz: Der Aufwärts-Short-Cover-Squeeze ist der wahrscheinlichere Pfad; auf den Funken warten, dann in die Richtung traden, auf die Positioning Trap zeigt.
 
@@ -179,4 +179,4 @@ Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wer die heutige Positioning-Trap-Lesung in Echtzeit zusammen mit Trap Detection, Squeeze Setup und dem Regimekontext sehen möchte, findet all das im kostenlosen ZeroGEX-Dashboard.
+Wer die heutige Positioning-Trap-Lesung in Echtzeit zusammen mit Trap Detection, Squeeze Setup und dem Regimekontext sehen möchte, findet all das in ZeroGEX Pro.

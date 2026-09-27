@@ -20,7 +20,7 @@ The Positioning Trap signal asks one question:
 
 > Is the options crowd offside - and is the tape starting to turn against the crowded bet?
 
-It is a **Basic** signal in the ZeroGEX stack - it produces a continuous score on the [-1, +1] number line, weighted into the MSI composite at **0.06**, and it does not fire discrete triggers the way Advanced signals do. (More on that distinction below.)
+It is a **Basic** signal in the ZeroGEX stack - it produces a continuous score on the -100 to +100 line, carries no weight in the Composite MSI, and does not fire discrete triggers the way Advanced signals do. (More on that distinction below.) It is included in both Basic and Pro.
 
 Trade bias: **mean-reversion**. When Positioning Trap is active, it points to the *fade* - trading against the crowded side, betting on the tape turning against them.
 
@@ -64,7 +64,7 @@ side_score = 0.45 × crowding
            + 0.05 × negative_GEX_regime
 ```
 
-Then the two sides are netted to a single score in [-1, +1].
+Then the two sides are netted to a single score in [-1, +1], which the card and the signal page show multiplied by 100 (-100 to +100).
 
 A few things to notice about the weights:
 
@@ -79,11 +79,11 @@ These weights are hand-picked design choices, not coefficients fitted to outcome
 
 ## Why Positioning Trap is a Basic signal
 
-Most signals in the ZeroGEX stack are **Advanced** - they fire discrete triggers when the score crosses a threshold, and those triggers gate playbooks. Positioning Trap is **Basic** - it never triggers. Instead, it feeds the MSI composite continuously at a fixed weight of 0.06.
+Most signals in the ZeroGEX stack are **Advanced** - they fire discrete triggers when the score crosses a threshold, and those triggers gate playbooks. Positioning Trap is **Basic** - the engine never triggers on it, and it carries no weight in the Composite MSI. It is an advisory read: its card lights up *Triggered* at ±25, but that is only a highlight on the card, not an engine trigger.
 
-Why the difference? Because Positioning Trap is a *condition*, not an event. A crowded trade is a backdrop that lasts for hours or days - not a moment. The right way to surface it is as a continuous nudge to the composite read, not a one-time alert.
+Why the difference? Because Positioning Trap is a *condition*, not an event. A crowded trade is a backdrop that lasts for hours or days - not a moment. The right way to surface it is as a continuous, advisory read, not a one-time alert.
 
-Practical consequence: don't wait for Positioning Trap to "fire." Watch the score. A persistent +0.5 reading is the structural setup - the trade comes when *another* signal (typically Trap Detection or a price-level break) fires while Positioning Trap is loaded.
+Practical consequence: don't wait for Positioning Trap to "fire." Watch the score. A persistent +50 reading is the structural setup - the trade comes when *another* signal (typically Trap Detection or a price-level break) fires while Positioning Trap is loaded.
 
 ---
 
@@ -91,13 +91,13 @@ Practical consequence: don't wait for Positioning Trap to "fire." Watch the scor
 
 | Score | Reading |
 |---|---|
-| +0.5 to +1.0 | Short crowd at meaningful risk - upside short-cover squeeze loading |
-| +0.2 to +0.5 | Short crowd mildly offside - informational, not yet pressing |
-| -0.2 to +0.2 | No clear crowd extreme |
-| -0.2 to -0.5 | Long crowd mildly offside - informational, not yet pressing |
-| -0.5 to -1.0 | Long crowd at meaningful risk - downside flush loading |
+| +50 to +100 | Short crowd at meaningful risk - upside short-cover squeeze loading |
+| +20 to +50 | Short crowd mildly offside - informational, not yet pressing |
+| -20 to +20 | No clear crowd extreme |
+| -20 to -50 | Long crowd mildly offside - informational, not yet pressing |
+| -50 to -100 | Long crowd at meaningful risk - downside flush loading |
 
-The `positioning_trap_squeeze` playbook gates at **abs(score) ≥ 0.5** - higher than the typical Advanced trigger. Positioning Trap needs deeper conviction to act on, because trading against the crowd can be riskier than running with momentum.
+The `positioning_trap_squeeze` playbook gates at **±50** - higher than the typical Advanced trigger (±25). Positioning Trap needs deeper conviction to act on, because trading against the crowd can be riskier than running with momentum.
 
 ---
 
@@ -105,10 +105,10 @@ The `positioning_trap_squeeze` playbook gates at **abs(score) ≥ 0.5** - highe
 
 A short list of states:
 
-- **Quiet (-0.2 to +0.2):** Most of the time, on most symbols, the crowd isn't lopsided enough to matter. Treat the signal as off.
-- **Loaded but not pressing (0.2-0.5):** The crowd is leaning, but not yet at the level where one side is clearly offside. Watch for changes.
-- **Pressing (0.5+):** The crowd is at the threshold where a flush or squeeze is structurally set up. The trap is loaded; the spark is what's missing.
-- **Sub-threshold reversal:** A persistent +0.5 dropping to +0.1 suggests the crowding has already started to unwind - likely too late to fade.
+- **Quiet (-20 to +20):** Most of the time, on most symbols, the crowd isn't lopsided enough to matter. Treat the signal as off.
+- **Loaded but not pressing (20-50):** The crowd is leaning, but not yet at the level where one side is clearly offside. Watch for changes.
+- **Pressing (50+):** The crowd is at the threshold where a flush or squeeze is structurally set up. The trap is loaded; the spark is what's missing.
+- **Sub-threshold reversal:** A persistent +50 dropping to +10 suggests the crowding has already started to unwind - likely too late to fade.
 
 ---
 
@@ -140,7 +140,7 @@ A few cross-reads:
 
 Three traps:
 
-- **Treating Positioning Trap as a trigger.** It isn't. The 0.5 threshold gates a playbook, but the signal itself does not "fire" - there's no event. Read the score continuously.
+- **Treating Positioning Trap as a trigger.** It isn't. The ±50 threshold gates a playbook and the card lights up at ±25, but the engine never fires the signal itself - there's no event. Read the score continuously.
 - **Trading off Positioning Trap alone.** Crowded trades break, but they also persist. Without a spark from another signal or a level break, the fade is uncalibrated.
 - **Ignoring the regime.** A loaded trap in a deep short-gamma regime can be a much riskier fade - dealer hedging is modeled to amplify moves, so the crowd may not break the way structural reflexivity suggests.
 
@@ -151,17 +151,17 @@ Three traps:
 The signal feeds multiple panels:
 
 - **The Positioning Trap card** shows the live score and the side that is offside.
-- **The MSI Composite Score** integrates Positioning Trap at weight 0.06 alongside the other Basic signals.
-- **The `positioning_trap_squeeze` playbook** gates entry when abs(score) crosses 0.5.
+- **Signal Breadth** on the dashboard's Proprietary Signals panel counts it as one of the directional votes. (It is not an input to the Composite MSI.)
+- **The `positioning_trap_squeeze` playbook** gates entry when the score crosses ±50.
 
 *[Image placeholder: ZeroGEX Positioning Trap card with live score and crowd-offside read - drop file at /public/blog/zerogex-positioning-trap-card.png]*
 
 A worked example. SPX is grinding lower and ZeroGEX shows:
 
-- **Positioning Trap:** +0.62 (short crowd offside)
+- **Positioning Trap:** +62 (short crowd offside)
 - **Net GEX:** +$1.4B (modeled)
 - **Trap Detection:** 0
-- **Squeeze Setup:** +0.31
+- **Squeeze Setup:** +31
 
 The structural read: the short crowd is loaded, the modeled regime is long-gamma (dealers are modeled to lean against the crowd's push, which can support a reversal), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the modeled read favors the upside short-cover squeeze; wait for the spark, then trade in the direction Positioning Trap is pointing.
 
@@ -177,4 +177,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's Positioning Trap read in real time alongside Trap Detection, Squeeze Setup, and the regime context, the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's Positioning Trap read in real time alongside Trap Detection, Squeeze Setup, and the regime context, ZeroGEX Pro surfaces all of it.
