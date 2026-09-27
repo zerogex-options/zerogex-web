@@ -158,7 +158,7 @@ Avant 14h30 ET, EOD Pressure est nul par construction. Utilisez ce temps avant l
 
 ### 2. L'inflexion de 15h30
 
-EOD Pressure franchit la rampe à 0,8× à 15h30 ET. Si les termes charm et pin ont été en accord pendant la première partie de la fenêtre de rampe (14h45-15h30), la conviction tend à se consolider vers 15h30. Prenez position avant, pas après.
+EOD Pressure franchit la rampe à 0,8× à 15h30 ET. Si les termes charm et pin ont été en accord pendant la première partie de la fenêtre de rampe (14h45-15h30), la conviction tend à se consolider vers 15h30. Considérez cette rampe comme un repère temporel du modèle, pas comme une consigne de prendre position à l'avance ni comme la preuve que des ordres de dealers sont programmés.
 
 ### 3. Le quad witching est un contexte structurel
 

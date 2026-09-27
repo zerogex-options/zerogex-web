@@ -158,7 +158,7 @@ Vor 14:30 ET ist EOD Pressure per Konstruktion null. Nutze die Zeit vor dem Fens
 
 ### 2. Der 15:30-Wendepunkt
 
-EOD Pressure überschreitet um 15:30 ET die 0,8×-Rampe. Wenn Charm- und Pin-Term während des frühen Rampenfensters (14:45-15:30) übereingestimmt haben, verdichtet sich die Überzeugung tendenziell um 15:30. Positioniere dich vorher, nicht nachher.
+EOD Pressure überschreitet um 15:30 ET die 0,8×-Rampe. Wenn Charm- und Pin-Term während des frühen Rampenfensters (14:45-15:30) übereingestimmt haben, verdichtet sich die Überzeugung tendenziell um 15:30. Behandle diese Rampe als Modell-Timing, nicht als Aufforderung, dich vorher zu positionieren, und nicht als Beleg dafür, dass Dealer-Orders zeitlich geplant sind.
 
 ### 3. Quad Witching ist struktureller Kontext
 

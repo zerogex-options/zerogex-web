@@ -158,7 +158,7 @@ Prima delle 14:30 ET, EOD Pressure è zero per costruzione. Usa il tempo pre-fin
 
 ### 2. L'inflessione delle 15:30
 
-EOD Pressure attraversa la rampa allo 0.8× alle 15:30 ET. Se i termini charm e pin sono stati concordi durante la prima parte della rampa (14:45-15:30), la convinzione tende a consolidarsi intorno alle 15:30. Preposizionati prima, non dopo.
+EOD Pressure attraversa la rampa allo 0.8× alle 15:30 ET. Se i termini charm e pin sono stati concordi durante la prima parte della rampa (14:45-15:30), la convinzione tende a consolidarsi intorno alle 15:30. Considera quella rampa come timing del modello, non come un invito a posizionarti in anticipo né come prova che gli ordini dei dealer siano programmati.
 
 ### 3. Il quad witching è contesto strutturale
 
