@@ -85,7 +85,8 @@ Half-days (early close at 1:00 PM ET around some holidays) - the platform respe
 ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise about what that means, because it is not all one tape:
 
 - **Option quotes and trades** for SPY, QQQ, SPX, and NDX come from OPRA, the consolidated tape for U.S. listed options.
-- **The SPX and NDX index values** themselves are licensed separately from their index publishers.
+- **The SPX and NDX index values** come from a separate index feed, not from the options tape.
+- **SPY and QQQ prices** come from Nasdaq Basic, a real-time feed from Nasdaq.
 - **ES and NQ** prices come from the real-time CME feed.
 - **Open interest** is a separate, end-of-session figure from clearing rather than a real-time value.
 

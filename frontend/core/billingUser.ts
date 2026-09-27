@@ -2,7 +2,8 @@
 // it safe. Extracted from the Stripe webhook so the guard is unit-tested against
 // a real SQLite schema (tests/billingUser.test.ts) instead of resting on a
 // typecheck and a call-site audit — it is the only thing standing between a
-// deleted account and being re-granted a paid tier or emailed.
+// deleted account and being re-granted a paid tier or emailed. The row clear on
+// a subscription's end (markSubscriptionEnded) lives here for the same reason.
 //
 // Loadable outside Next on purpose: no `server-only`, no '@/' alias, so a plain
 // `node --experimental-strip-types` test or operator script can import it. Same
@@ -107,4 +108,60 @@ export function findUserByCustomerIdIncludingDeleted(customerId: string): Billin
     )
     .get(customerId) as BillingUserRow | undefined;
   return row ?? null;
+}
+
+// What customer.subscription.deleted does to the member's row: drop them to
+// public and clear everything that belonged to the subscription that ended.
+//
+// subscription_lapsed = 1 is the signal the webhook's maybeSendPaidWelcomeEmail
+// consumes (race-safely, via CAS) to fire a welcome-back if and when the
+// customer resubscribes. Cleared back to 0 atomically in that send path.
+//
+// payment_recovery_pending is disarmed here: if a past_due sub exhausts its
+// retries and is deleted, any pending recovery email must NOT survive to fire on
+// a later resubscribe — that return should read as a welcome-back, not a
+// spurious "your payment went through."
+//
+// cancel_ack_email_sent_at goes with cancel_at_period_end. It latches the
+// acknowledgment of THIS subscription's pending cancel (core/cancelAck.ts), so
+// it ends with the subscription. Left set, it outlived the lapse, and when a
+// returning member later canceled their new subscription the claim found it
+// taken and sent nothing: no acknowledgment, no one-click save offer.
+//
+// Only when the row still points at THIS subscription (or at none). The
+// webhook's ordering guard compares events per subscription, so a deletion
+// delivered late — Stripe retrying an event that failed during a deploy restart
+// — for a subscription the member has since replaced (bought again after a
+// money-back refund, or a recovery re-created it) must not clear the new one.
+// Returns false, having changed nothing, in that case.
+export function markSubscriptionEnded(input: {
+  userId: string;
+  subscriptionId: string;
+  // Stripe's status for the ended subscription, mirrored as-is.
+  status: string;
+  nowIso: string;
+}): boolean {
+  const result = getDb()
+    .prepare(
+      `UPDATE users SET
+         tier = 'public',
+         stripe_subscription_id = NULL,
+         stripe_price_id = NULL,
+         last_paid_subscription_id = NULL,
+         last_paid_invoice_at = NULL,
+         subscription_status = ?,
+         current_period_end = NULL,
+         cancel_at_period_end = 0,
+         cancel_ack_email_sent_at = NULL,
+         subscription_lapsed = 1,
+         payment_recovery_pending = 0,
+         payment_grace_started_at = NULL,
+         payment_grace_reason = NULL,
+         updated_at = ?
+       WHERE id = ? AND (stripe_subscription_id IS NULL OR stripe_subscription_id = ?)`,
+    )
+    .run(input.status, input.nowIso, input.userId, input.subscriptionId) as {
+    changes: number | bigint;
+  };
+  return Number(result.changes) > 0;
 }

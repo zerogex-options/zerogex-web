@@ -77,6 +77,7 @@ const CHURN_ALERT = buildChurnAlert(
       'Subscription sub_1ABC set to cancel at period end; feedback=too_expensive; comment=Great product, just cannot justify it this quarter.',
     churnedAtIso: '2026-09-15T18:20:00.000Z',
     accountCreatedAtIso: '2026-05-12T14:02:00.000Z',
+    subscriptionStartedAtIso: '2026-05-12T14:05:00.000Z',
     tier: 'pro',
     currentPeriodEndIso: PERIOD_END,
   },
