@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 
 // Shared social-card generator for the three gamma-levels routes. Each route's
 // opengraph-image.tsx calls this with its own symbol so a shared /spy- or
@@ -118,6 +119,6 @@ export function renderGammaOgImage(symbol: string) {
         </div>
       </div>
     ),
-    { ...OG_SIZE },
+    { ...OG_SIZE, fonts: OG_FONTS },
   );
 }

@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 
 export const runtime = 'nodejs';
 export const alt = 'Real-Time GEX for 0DTE Traders';
@@ -111,6 +112,6 @@ export default async function Image() {
         </div>
       </div>
     ),
-    { ...size },
+    { ...size, fonts: OG_FONTS },
   );
 }

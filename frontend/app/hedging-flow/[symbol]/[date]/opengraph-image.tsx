@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { OG_FONTS } from '@/core/ogFonts';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
@@ -277,6 +278,6 @@ export default async function Image({
         </div>
       </div>
     ),
-    size,
+    { ...size, fonts: OG_FONTS },
   );
 }
