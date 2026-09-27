@@ -1038,11 +1038,14 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
   const appUrl = getAppUrl();
   const dashboardUrl = `${appUrl}/dashboard`;
   const chartUrl = `${appUrl}/chart`;
-  const biasUrl = `${appUrl}/trade-bias`;
+  // Every step has to be in Basic: the only plan with a free trial is Basic
+  // monthly, so most people reading this are on Basic, and a Pro-only page is a
+  // locked door on day two. Step 3 used to send them to Trade Bias (Pro).
+  const smartMoneyUrl = `${appUrl}/smart-money`;
   const gexUrl = `${appUrl}/education/gamma-exposure-explained`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
   const safeChartUrl = escapeHtml(chartUrl);
-  const safeBiasUrl = escapeHtml(biasUrl);
+  const safeSmartMoneyUrl = escapeHtml(smartMoneyUrl);
   const safeGexUrl = escapeHtml(gexUrl);
   const safeUnsubUrl = escapeHtml(opts.unsubUrl);
   const linkStyle = 'color: #f5b400; font-weight: 600;';
@@ -1055,7 +1058,7 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
     '',
     "  1. Start on the Main Dashboard\u00a0- it's the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.",
     '  2. Pull up the Gamma Chart\u00a0- SPY/QQQ/SPX/NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on it: the support/resistance map dealers actually defend. Use session rewind to replay how a level held.',
-    '  3. Check Trade Bias for a single, signed directional call\u00a0- it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.',
+    "  3. Watch the flow on Smart Money\u00a0- the session's biggest options trades as they print, tagged buy or sell, and whether the money is leaning to calls or puts: the quickest way to see if the tape agrees with the levels.",
     '',
     `Open your dashboard: ${dashboardUrl}`,
     '',
@@ -1083,7 +1086,7 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
       <ol style="padding-left: 20px; margin: 12px 0;">
         <li style="margin: 0 0 10px;">Start on the <a href="${safeDashboardUrl}" style="${linkStyle}">Main Dashboard</a>\u00a0- the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.</li>
         <li style="margin: 0 0 10px;">Pull up the <a href="${safeChartUrl}" style="${linkStyle}">Gamma Chart</a>\u00a0- SPY/QQQ/SPX/NDX price with the <strong>Gamma Flip</strong>, <strong>Call/Put Walls</strong>, and <strong>Max Pain</strong> drawn right on it: the support/resistance map dealers actually defend. Session rewind lets you replay how a level held.</li>
-        <li style="margin: 0 0 10px;">Check <a href="${safeBiasUrl}" style="${linkStyle}">Trade Bias</a> for a single, signed directional call\u00a0- it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.</li>
+        <li style="margin: 0 0 10px;">Watch the flow on <a href="${safeSmartMoneyUrl}" style="${linkStyle}">Smart Money</a>\u00a0- the session's biggest options trades as they print, tagged buy or sell, and whether the money is leaning to calls or puts: the quickest way to see if the tape agrees with the levels.</li>
       </ol>
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
