@@ -71,10 +71,14 @@ export function parseAlertLatchEventId(message: string): string | null {
 }
 
 // ── Tenure ───────────────────────────────────────────────────────────────────
-// How long they were a member before leaving. The single most diagnostic number
-// on the alert: a churn at day 3 of a 7-day trial is an activation failure, a
-// churn at month 5 is a value failure, and they want completely different
-// replies. Returns null when either timestamp is unusable rather than guessing.
+// How long they were on the subscription they are leaving. The single most
+// diagnostic number on the alert: a churn at day 3 of a 7-day trial is an
+// activation failure, a churn at month 5 is a value failure, and they want
+// completely different replies. Counted from when the subscription began, not
+// from the account: a member who let an earlier trial lapse and came back
+// months later, or who signed up a week before starting a trial, would
+// otherwise read as months into a subscription that is days old. Returns null
+// when either timestamp is unusable rather than guessing.
 
 export function tenureDays(createdAtIso: string | null, churnedAtIso: string): number | null {
   if (!createdAtIso) return null;
@@ -82,6 +86,14 @@ export function tenureDays(createdAtIso: string | null, churnedAtIso: string): n
   const end = Date.parse(churnedAtIso);
   if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
   return Math.floor((end - start) / 86_400_000);
+}
+
+// The subscription a churn row is about. Both writers name it:
+// `Cancellation requested for sub sub_…` (pending) and `Subscription sub_… ended`
+// (lapsed). The first match is the writer's; a typed comment comes after it.
+export function parseChurnSubscriptionId(message: string): string | null {
+  const m = message.match(/\b(?:for sub|Subscription) (sub_[A-Za-z0-9]+)/);
+  return m ? m[1] : null;
 }
 
 export function describeTenure(days: number | null): string {
@@ -174,6 +186,9 @@ export type ChurnAlertInput = {
   auditMessage: string;
   churnedAtIso: string;
   accountCreatedAtIso: string | null;
+  // When the subscription being left began, or null when unknown. Tenure counts
+  // from here, falling back to the account's creation.
+  subscriptionStartedAtIso: string | null;
   tier: string | null;
   // Period end for a pending cancel: the deadline on the save window. Null for a
   // lapse (already past) or when the DB row has been cleared.
@@ -228,7 +243,9 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
   const reason = parseCancellationReasonFromMessage(input.auditMessage);
   const reasonLabel = cancellationFeedbackLabel(reason.feedback);
   const hasSignal = hasCancellationSignal(reason);
-  const days = tenureDays(input.accountCreatedAtIso, input.churnedAtIso);
+  const days =
+    tenureDays(input.subscriptionStartedAtIso, input.churnedAtIso) ??
+    tenureDays(input.accountCreatedAtIso, input.churnedAtIso);
   const tenure = describeTenure(days);
 
   // The subject line is the whole product for anyone reading on a phone: it has
@@ -262,6 +279,7 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     { label: 'Tier at churn', value: input.tier ?? 'unknown' },
     { label: 'Tenure', value: tenure },
     { label: 'Signed up', value: formatEt(input.accountCreatedAtIso) },
+    { label: 'Subscribed', value: formatEt(input.subscriptionStartedAtIso) },
     { label: 'Canceled', value: formatEt(input.churnedAtIso) },
     { label: 'Access ends', value: formatEt(input.currentPeriodEndIso) },
     { label: 'User id', value: input.userId ?? 'unknown' },

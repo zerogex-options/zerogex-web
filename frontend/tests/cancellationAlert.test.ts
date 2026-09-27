@@ -7,6 +7,7 @@ import {
   classifyChurnEvent,
   buildAlertLatchMessage,
   parseAlertLatchEventId,
+  parseChurnSubscriptionId,
   tenureDays,
   describeTenure,
   daysUntil,
@@ -35,6 +36,7 @@ const BASE: ChurnAlertInput = {
   auditMessage: 'Cancellation requested for sub sub_123',
   churnedAtIso: '2026-08-28T14:00:00.000Z',
   accountCreatedAtIso: '2026-08-24T03:21:07.556Z',
+  subscriptionStartedAtIso: null,
   tier: 'pro',
   currentPeriodEndIso: '2026-09-28T10:00:00.000Z',
 };
@@ -193,6 +195,48 @@ test('tenure: days between signup and churn, and how it reads', () => {
   // Past ~6 weeks the raw day count stops being readable, so a month figure
   // rides along — that is the trial-vs-tenured distinction at a glance.
   assert.equal(describeTenure(87), '87 days (~3 months)');
+});
+
+// A member whose first trial lapsed, who came back weeks later, paid, and
+// canceled four weeks into the new subscription. Counted from the account, the
+// alert said "69 days (~2 months)".
+test('tenure counts from when the subscription began, not from the account', () => {
+  const alert = buildChurnAlert(
+    {
+      ...BASE,
+      churnedAtIso: '2026-09-17T15:00:00.000Z',
+      accountCreatedAtIso: '2026-07-10T12:00:00.000Z',
+      subscriptionStartedAtIso: '2026-08-20T12:00:00.000Z',
+      currentPeriodEndIso: '2026-09-20T12:00:00.000Z',
+    },
+    '2026-09-17T15:10:00.000Z',
+  );
+  assert.equal(alert.tenureDays, 28);
+  assert.equal(alert.tenure, '28 days');
+  const byLabel = new Map(alert.facts.map((f) => [f.label, f.value]));
+  assert.equal(byLabel.get('Tenure'), '28 days');
+  // The account's age is still on the alert, next to the subscription's.
+  assert.match(byLabel.get('Signed up') as string, /^Jul 10, 2026/);
+  assert.match(byLabel.get('Subscribed') as string, /^Aug 20, 2026/);
+});
+
+test('tenure falls back to the account when the subscription start is unknown', () => {
+  const alert = buildChurnAlert(BASE, NOW);
+  assert.equal(alert.tenureDays, 4);
+  const byLabel = new Map(alert.facts.map((f) => [f.label, f.value]));
+  assert.equal(byLabel.get('Subscribed'), '—');
+});
+
+test('parseChurnSubscriptionId reads both churn rows, and nothing else', () => {
+  assert.equal(parseChurnSubscriptionId('Cancellation requested for sub sub_1AbC9'), 'sub_1AbC9');
+  assert.equal(
+    parseChurnSubscriptionId(
+      'Subscription sub_1AbC9 ended; tier reset to public' +
+        formatCancellationReasonSuffix({ feedback: 'other', comment: 'Subscription sub_OTHER was fine' }),
+    ),
+    'sub_1AbC9',
+  );
+  assert.equal(parseChurnSubscriptionId('Login successful'), null);
 });
 
 test('daysUntil: the save window, rounded up so a partial day still counts', () => {
