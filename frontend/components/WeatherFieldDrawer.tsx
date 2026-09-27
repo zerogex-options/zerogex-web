@@ -310,7 +310,17 @@ export default function WeatherFieldDrawer({
             />
             {/* Only real changes are marked. A dot on every bar would be the
                 comment spam the spec rules out, and would hide the moments
-                that matter among the ones that do not. */}
+                that matter among the ones that do not.
+
+                Half the radius they were drawn at before the line carried the
+                Weather state. A dot that had to announce a change on its own
+                needs to be bigger than one sitting on the color boundary that
+                already announces it, and at the old size it read as a blob on
+                a 2px line. The ring is halved with it: left at 1px it takes a
+                third of the dot's width and the mark reads hollow instead of
+                solid. It still earns its keep, because the dot is the new
+                state's color and would otherwise dissolve into the segment it
+                opens. */}
             {marks.map((c) => {
               const y = valueByBar.get(c.bar_start);
               if (y == null) return null;
@@ -319,10 +329,10 @@ export default function WeatherFieldDrawer({
                   key={`${c.field}-${c.kind}-${c.bar_start}`}
                   x={c.bar_start}
                   y={y}
-                  r={3.5}
+                  r={1.75}
                   fill={weatherStateColor(stateByBar.get(c.bar_start))}
                   stroke="var(--color-bg)"
-                  strokeWidth={1}
+                  strokeWidth={0.5}
                 />
               );
             })}
