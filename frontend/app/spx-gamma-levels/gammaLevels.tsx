@@ -26,7 +26,8 @@ import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
 import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
-import { volatilityIndexFor } from '@/core/symbols';
+import { futuresLevelsLabel, volatilityIndexFor } from '@/core/symbols';
+import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import DelayedLevelsTable from '@/components/DelayedLevelsTable';
 import LevelsEmailSignup from '@/components/LevelsEmailSignup';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
@@ -103,7 +104,7 @@ function derivationNote(primary: Symbol): string {
   if (chain === primary) return '';
   // futuresDelayNote is empty once the real-time CME entitlement is live —
   // see core/futuresDataStatus.ts, which is the single switch.
-  return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices using the live futures basis, so they line up with the ${primary} contract you actually trade.${futuresDelayNote(primary)}`;
+  return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices at fair value (the cost of carry to the contract's expiry), so they sit on the ${primary} contract you actually trade and can be slightly off when ${primary} trades rich or cheap to fair value.${futuresDelayNote(primary)}`;
 }
 
 /**
@@ -560,6 +561,11 @@ function SymbolCard({
             {regime.label}
           </span>
         </div>
+        {futuresLevelsLabel(symbol) && (
+          <div style={{ marginTop: 8 }}>
+            <FuturesLevelsChip symbol={symbol} />
+          </div>
+        )}
         <p style={{ margin: '10px 0 0 0', fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
           {regime.body}
         </p>

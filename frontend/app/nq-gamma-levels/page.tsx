@@ -5,8 +5,8 @@ import GammaLevelsView, { gammaMetadata } from '../spx-gamma-levels/gammaLevels'
 // self-canonical to /nq-gamma-levels. Shared view lives in ../spx-gamma-levels.
 //
 // NQ carries no options chain of its own here: the levels are NDX
-// option-derived and converted to NQ prices by the API using the live
-// futures basis, which the page's intro and FAQ disclose.
+// option-derived and converted to NQ prices by the API at fair value
+// (cost of carry), which the page's intro and FAQ disclose.
 export const dynamic = 'force-static';
 export const revalidate = 900;
 

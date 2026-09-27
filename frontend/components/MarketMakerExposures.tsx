@@ -52,6 +52,7 @@ import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersist
 import { isZoomGesture } from '@/core/wheelZoom';
 import ChartCaption from './ChartCaption';
 import FuturesContractBadge from './FuturesContractBadge';
+import FuturesLevelsChip from './FuturesLevelsChip';
 
 interface StrikeAggregation {
   strike: number;
@@ -3105,6 +3106,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" style={{ color: subtle }}>
             {futuresChip}
             {contractBadge}
+            <FuturesLevelsChip symbol={symbol} />
             {liveStateBadge}
             <span>
               {todayLabel} · DTE {dteLabel} · Updated {updatedLabel}
@@ -3116,6 +3118,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         {dateChip}
         {futuresChip}
         {contractBadge}
+        <FuturesLevelsChip symbol={symbol} />
         {expiryControl}
         {dteChipEl}
         {gexModeCycle}

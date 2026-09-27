@@ -18,6 +18,8 @@ import {
   SYMBOLS,
   FUTURES_BACKING_INDEX,
   isFuturesSymbol,
+  futuresLevelsLabel,
+  futuresLevelsExplainer,
   optionChainSymbolFor,
   volatilityIndexFor,
   resolveSymbol,
@@ -155,4 +157,25 @@ test('overnight ES bars survive the chart filter but SPX bars do not', () => {
   // coincidence — it happens to fall inside equity extended hours — which is
   // exactly why the bug was easy to miss by eye.
   assert.equal(omitClosedMarketTimes(bars, (b) => b.timestamp).length, 2);
+});
+
+// The levels on an ES / NQ view are the SPX / NDX levels carried onto the
+// futures axis at fair value (cost of carry). The backend's licensing rule is
+// that anything published from that projection says it is implied from the
+// index, so every levels surface mounts a chip built from these two helpers.
+test('futures levels are labeled as implied from their backing index', () => {
+  assert.equal(futuresLevelsLabel('ES'), 'Implied from SPX');
+  assert.equal(futuresLevelsLabel('nq'), 'Implied from NDX');
+  const es = futuresLevelsExplainer('ES') ?? '';
+  assert.match(es, /SPX option levels/);
+  assert.match(es, /fair value/);
+  assert.match(es, /cost of carry/);
+  assert.match(futuresLevelsExplainer('NQ') ?? '', /NDX option levels carried onto the NQ price axis/);
+});
+
+test('cash symbols carry no futures levels label', () => {
+  for (const s of ['SPX', 'SPY', 'QQQ', 'NDX', '', null, undefined]) {
+    assert.equal(futuresLevelsLabel(s), null, String(s));
+    assert.equal(futuresLevelsExplainer(s), null, String(s));
+  }
 });

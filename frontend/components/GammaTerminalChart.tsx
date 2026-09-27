@@ -23,6 +23,7 @@ import { createPortal } from "react-dom";
 import { Activity, Camera, ChevronDown, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
+import FuturesLevelsChip from "./FuturesLevelsChip";
 import SymbolSelect from "./SymbolSelect";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
@@ -3489,6 +3490,10 @@ export default function GammaTerminalChart({
                     style={FUTURES_CHIP_STYLE}
                   />
                 )}
+                {/* Every level drawn on an ES / NQ chart is the SPX / NDX level
+                    carried across at fair value; the chip says so. Nothing for
+                    a cash symbol, including SPX showing ES candles overnight. */}
+                <FuturesLevelsChip symbol={symbol} style={{ alignSelf: "center" }} />
                 {!rewindActive && headline.change != null && (
                   <span
                     style={{

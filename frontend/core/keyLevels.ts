@@ -287,7 +287,7 @@ function emptyNoteFor(hasLevel: boolean, hasSpot: boolean): string {
  *
  * ES and NQ carry no chain of their own — the backend answers them by running
  * the SPX / NDX handler and converting the price-space fields onto the futures
- * axis with the live basis (src/api/futures_middleware.py). That indirection is
+ * axis at the cost-of-carry ratio (src/api/futures_middleware.py). That indirection is
  * invisible on a card, and it is the whole reason "/NQ has no gamma flip" is
  * asked as if NQ were broken: the level that failed to resolve is NDX's.
  *
