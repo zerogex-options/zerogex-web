@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import { robustDomain } from '@/core/regimeDomain';
+import { nonNegativeDomain, robustDomain } from '@/core/regimeDomain';
 import {
   WEATHER_STATE_LEGEND,
   segmentStops,
@@ -31,18 +31,30 @@ import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
 import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 import type { GammaWeatherSeriesPayload } from '@/hooks/useGammaWeatherSeries';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
-import { compactUsdTick } from '@/components/phoneAxisFormat';
+import { buildThirtyMinGridlines, sessionTimeTick } from '@/components/ChartGridlines';
+import { compactUsdTick, niceTicksWithin } from '@/components/phoneAxisFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 const HEIGHT = 200;
 
+/**
+ * An axis label for one field's unit.
+ *
+ * The minus sign goes before the dollar sign, not after it: dividing a negative
+ * value and then prefixing "$" produced "$-1.00B", which is not how anyone
+ * writes money and did not match the two charts below the header.
+ *
+ * Points print the decimals they need and no more. The cushion axis ticks on
+ * whole points, so a fixed decimal made every label "10.0 pts".
+ */
 function compact(value: number, unit: 'usd' | 'points'): string {
-  if (unit === 'points') return `${value.toFixed(1)} pts`;
+  if (unit === 'points') return `${parseFloat(value.toFixed(1))} pts`;
   const abs = Math.abs(value);
-  if (abs >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `$${(value / 1e3).toFixed(0)}K`;
-  return `$${value.toFixed(0)}`;
+  const sign = value < 0 ? '-' : '';
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
 }
 
 export interface WeatherFieldDrawerProps {
@@ -87,11 +99,12 @@ export default function WeatherFieldDrawer({
     [series, field],
   );
 
+  // `timestamp`, not `bar_start`, so a row is the same shape the two charts
+  // below the header plot and the shared gridline builder already takes.
   const rows = useMemo(
     () =>
       points.map((p) => ({
-        bar_start: p.bar_start,
-        label: safeTimeLabel(p.bar_start),
+        timestamp: p.bar_start,
         value: p.value,
         smoothed: p.smoothed,
       })),
@@ -106,9 +119,24 @@ export default function WeatherFieldDrawer({
   // Reuses the structure panel's rule so one spike cannot flatten the session.
   // The smoother is inside the raw series' range by construction, so it cannot
   // widen the domain and does not need to be fed in.
-  const { domain } = useMemo(
-    () => robustDomain(points.map((p) => ({ stability: p.value, lean: null }))),
-    [points],
+  //
+  // Only for the fields where crossing zero is the story, though: that rule is
+  // symmetric about zero, and Flip Cushion is absolute room before crossing
+  // and never prints below it. See nonNegativeDomain.
+  const domain = useMemo(
+    () =>
+      spec.zeroLine
+        ? robustDomain(points.map((p) => ({ stability: p.value, lean: null }))).domain
+        : nonNegativeDomain(points.map((p) => p.value)),
+    [points, spec.zeroLine],
+  );
+
+  // Round gridlines. The domain is padded data, so Recharts would otherwise
+  // divide it into five equal parts and label them $70.2M and -$79.8M: numbers
+  // nobody can hold in their head or compare between two sessions.
+  const yTicks = useMemo(
+    () => niceTicksWithin(domain[0], domain[1], isMobile ? 3 : 5),
+    [domain, isMobile],
   );
 
   // The confirmed headline per bar, which is what colors the line. Using the
@@ -127,12 +155,6 @@ export default function WeatherFieldDrawer({
 
   const stops = useMemo(() => segmentStops(segments, points.length), [segments, points.length]);
   const gradientId = `weather-field-${field}`;
-
-  const barByLabel = useMemo(() => {
-    const out = new Map<string, string>();
-    for (const r of rows) out.set(r.label, r.bar_start);
-    return out;
-  }, [rows]);
 
   const valueByBar = useMemo(() => {
     const out = new Map<string, number>();
@@ -200,9 +222,7 @@ export default function WeatherFieldDrawer({
             // activeLabel, matching the two charts below the header, so all
             // three read a hover the same way.
             onMouseMove={(state: { activeLabel?: string | number }) =>
-              setHovered(
-                state?.activeLabel != null ? barByLabel.get(String(state.activeLabel)) ?? null : null,
-              )
+              setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)
             }
             // A dragging finger fires no mouse events, so the trail line under
             // the chart would otherwise stay on the tapped bar.
@@ -211,23 +231,39 @@ export default function WeatherFieldDrawer({
             }}
             onTouchMove={(state: { activeLabel?: string | number }) => {
               lastTouchAtRef.current = Date.now();
-              setHovered(
-                state?.activeLabel != null ? barByLabel.get(String(state.activeLabel)) ?? null : null,
-              );
+              setHovered(state?.activeLabel != null ? String(state.activeLabel) : null);
             }}
             onMouseLeave={() => {
               if (Date.now() - lastTouchAtRef.current < 1000) return;
               setHovered(null);
             }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.35} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
-              minTickGap={40}
+            {/* Horizontals only. The verticals are drawn below at the same
+                clock boundaries the axis labels, because CartesianGrid would
+                otherwise put one on every bar: interval={0} offers the axis all
+                eighty-one of them so the tick renderer can pick. */}
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--color-border)"
+              opacity={0.35}
+              vertical={false}
             />
+            <XAxis
+              dataKey="timestamp"
+              interval={0}
+              tickLine={false}
+              tick={sessionTimeTick('var(--color-text-secondary)', isMobile ? 120 : 30)}
+            />
+            {buildThirtyMinGridlines(
+              rows,
+              'var(--color-border)',
+              `weather-field-${field}`,
+              undefined,
+              isMobile ? 60 : 30,
+            )}
             <YAxis
               domain={domain}
+              {...(yTicks.length > 1 ? { ticks: yTicks } : {})}
               width={isMobile ? 46 : 64}
               tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
               tickFormatter={(v: number) =>
@@ -281,7 +317,7 @@ export default function WeatherFieldDrawer({
               return (
                 <ReferenceDot
                   key={`${c.field}-${c.kind}-${c.bar_start}`}
-                  x={safeTimeLabel(c.bar_start)}
+                  x={c.bar_start}
                   y={y}
                   r={3.5}
                   fill={weatherStateColor(stateByBar.get(c.bar_start))}

@@ -73,3 +73,33 @@ export function robustDomain(rows: DomainRow[]): RegimeDomain {
   const clipped = values.filter((v) => Math.abs(v) > cap).length;
   return { domain: [-cap, cap], clipped };
 }
+
+/**
+ * A y-domain for a measure that cannot go negative, anchored at zero.
+ *
+ * Flip cushion is the absolute room before crossing, so it never prints below
+ * zero. Handing it the symmetric domain above puts the whole session in the
+ * top half of the panel and reserves the bottom half for a mirror image the
+ * series can never visit, which halves the height available to the one thing
+ * the chart is read for: how close the cushion came to the boundary.
+ *
+ * Zero stays on the axis rather than being cropped to the data, because on
+ * this field zero IS the boundary; a cushion chart whose floor floated up to
+ * the session's minimum would hide how much room was actually left.
+ *
+ * No quantile cap here. The question is the distance to zero, which stays
+ * legible at the bottom of the axis however tall the top gets, so a spike can
+ * simply compress the chart instead of being clipped out of it.
+ */
+export function nonNegativeDomain(values: (number | null | undefined)[]): [number, number] {
+  const finite = values.filter(
+    (v): v is number => typeof v === 'number' && Number.isFinite(v),
+  );
+  if (finite.length === 0) return [0, 1];
+
+  const hi = Math.max(1, Math.max(...finite) * DOMAIN_HEADROOM);
+  // Defensive: a field that turned out to be signed after all would otherwise
+  // have its negative half clipped away without a word.
+  const lo = Math.min(0, Math.min(...finite) * DOMAIN_HEADROOM);
+  return [lo, hi];
+}

@@ -16,12 +16,13 @@ import { robustDomain } from '@/core/regimeDomain';
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
+import { sessionTimeTick } from '@/components/ChartGridlines';
 import {
   HEDGING_PHONE_LEFT_AXIS,
   HEDGING_PHONE_MARGIN,
   HEDGING_PHONE_RIGHT_AXIS,
 } from '@/components/HedgingFlowChart';
-import { compactUsdTick } from '@/components/phoneAxisFormat';
+import { compactUsdTick, niceAxisAround, niceTicksWithin } from '@/components/phoneAxisFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { GammaRegimeBar, GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
@@ -115,6 +116,31 @@ export default function GammaRegimeChart({
   const rows = useMemo(() => alignToTimeline(payload.bars, mode), [payload.bars, mode]);
   const { domain, clipped } = useMemo(() => robustDomain(rows), [rows]);
 
+  // Round gridlines. Left to itself Recharts cuts whatever range it is given
+  // into five equal parts and labels the result: "-$229.8M, -$79.8M, $70.2M"
+  // clipped, "-$1.05B, $1.05B, $2.10B, $3.15B" at full range. Those are
+  // numbers nobody can place at a glance or compare with yesterday's chart.
+  //
+  // The two modes round in opposite directions, and it matters which. The
+  // clipped domain is a deliberate decision about what to show, so its ticks
+  // stay inside it. The full-range domain exists precisely so that nothing is
+  // cut off, so it is rounded outward from the data — see niceAxisAround.
+  const yAxis = useMemo((): {
+    domain: readonly [number, number] | readonly ['auto', 'auto'];
+    ticks: number[];
+  } => {
+    if (!fullRange) {
+      return { domain, ticks: niceTicksWithin(domain[0], domain[1], isMobile ? 3 : 5) };
+    }
+    const values = rows
+      .flatMap((r) => [r.stability, r.lean])
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+    const axis = values.length
+      ? niceAxisAround(Math.min(...values), Math.max(...values), isMobile ? 3 : 5)
+      : null;
+    return axis ?? { domain: ['auto', 'auto'] as const, ticks: [] };
+  }, [rows, domain, fullRange, isMobile]);
+
   const hoverIndex = hoveredLabel ? rows.findIndex((r) => r.timestamp === hoveredLabel) : -1;
   const hovered = hoverIndex >= 0 ? rows[hoverIndex] : null;
   const readoutRows: ReadoutRow[] = hovered
@@ -180,12 +206,16 @@ export default function GammaRegimeChart({
           setHovered(null);
         }}
       >
+        {/* Labeled on the clock rather than on every nth bar: see
+            sessionTimeTick. This is the page's only visible time axis, and the
+            crosshair it shares with the flow chart above means a label that
+            lands on :15 mislabels both plots at once. */}
         <XAxis
           dataKey="timestamp"
-          tickFormatter={safeTimeLabel}
           stroke={axisStroke}
-          tick={{ fontSize: 10 }}
-          minTickGap={40}
+          interval={0}
+          tickLine={false}
+          tick={sessionTimeTick(axisStroke, isMobile ? 120 : 30)}
         />
         <YAxis
           yAxisId="score"
@@ -193,7 +223,8 @@ export default function GammaRegimeChart({
           stroke={axisStroke}
           tick={{ fontSize: 10 }}
           width={isMobile ? HEDGING_PHONE_LEFT_AXIS : 62}
-          domain={fullRange ? ['auto', 'auto'] : domain}
+          domain={yAxis.domain}
+          {...(yAxis.ticks.length > 1 ? { ticks: yAxis.ticks } : {})}
           allowDataOverflow={!fullRange}
         />
         {/* Mirrors the flow chart's price axis so the two plot areas are the

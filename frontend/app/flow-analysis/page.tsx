@@ -31,7 +31,7 @@ import ExpandableCard from "@/components/ExpandableCard";
 import MetricCard from "@/components/MetricCard";
 import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import OptionsFlowChart from "@/components/OptionsFlowChart";
-import { buildThirtyMinGridlines, isMajorTwoHourTick } from "@/components/ChartGridlines";
+import { buildThirtyMinGridlines } from "@/components/ChartGridlines";
 import { compactUsdReadout, compactUsdTick } from "@/components/phoneAxisFormat";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
@@ -46,6 +46,7 @@ import {
   getDateMarkerMeta,
   getFiveMinuteSessionTimeline,
   isBarWindowComplete,
+  isMajorTwoHourTick,
   latestRowMs,
   safeTimeLabel,
   type NetVolumeMode,

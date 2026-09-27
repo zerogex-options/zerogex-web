@@ -17,7 +17,13 @@ import {
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
-import { compactUsdTick, niceTicksWithin, tickDecimals } from '@/components/phoneAxisFormat';
+import { sessionTimeTick } from '@/components/ChartGridlines';
+import {
+  compactUsdTick,
+  niceAxisAround,
+  niceTicksWithin,
+  tickDecimals,
+} from '@/components/phoneAxisFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type {
@@ -198,13 +204,45 @@ export default function HedgingFlowChart({
     return [min - padding, max + padding] as const;
   }, [rows]);
 
-  // A phone's 40px price axis gets round ticks ("656 … 662"); left to
-  // Recharts they tick the padded bounds ("655.134, 657.134, …").
-  const phonePriceTicks = useMemo(
+  // Round price ticks ("697 … 703"). The domain is the data padded by 3%, so
+  // left to itself Recharts labels the padded bounds — "696.82, 698.82,
+  // 700.82" on a desktop axis and worse on a phone's 40px one. The ticks stay
+  // inside the padded domain, so rounding the labels cannot move the line.
+  const priceTicks = useMemo(
     () => (priceDomain[0] === 'auto' ? [] : niceTicksWithin(priceDomain[0], priceDomain[1] as number, 4)),
     [priceDomain],
   );
-  const phonePriceDecimals = tickDecimals(phonePriceTicks);
+  const priceDecimals = tickDecimals(priceTicks);
+
+  // The pressure axis has no domain of its own, and Recharts' own bounds gave
+  // it "-$1.30B, -$650.0M, $0" — a gridline nobody can place at a glance or
+  // compare with yesterday's chart. Rounded OUTWARD from the plotted extent
+  // (see niceAxisAround) so tidying the labels cannot clip a series.
+  //
+  // The extent is the stack's, not each field's: call- and put-driven pressure
+  // are stacked, so the top of the chart is their sum on the tallest bar, and
+  // taking the larger of the two on its own would cut the top off.
+  const flowAxis = useMemo(() => {
+    let lo = 0;
+    let hi = 0;
+    let seen = false;
+    const finite = (v: number | null): v is number => typeof v === 'number' && Number.isFinite(v);
+    for (const r of rows) {
+      const stacked = [r.callFlow, r.putFlow].filter(finite);
+      if (stacked.length > 0) {
+        seen = true;
+        hi = Math.max(hi, stacked.reduce((a, v) => a + Math.max(0, v), 0));
+        lo = Math.min(lo, stacked.reduce((a, v) => a + Math.min(0, v), 0));
+      }
+      for (const v of [r.netFlow, r.netFlowMa]) {
+        if (!finite(v)) continue;
+        seen = true;
+        hi = Math.max(hi, v);
+        lo = Math.min(lo, v);
+      }
+    }
+    return seen ? niceAxisAround(lo, hi, 5) : null;
+  }, [rows]);
 
   // Rate-view flips only (see the component docstring for why).
   const flipMarkers = useMemo(() => {
@@ -320,13 +358,21 @@ export default function HedgingFlowChart({
             setHovered(null);
           }}
         >
+          {/* Labeled on the clock rather than on every nth bar: see
+              sessionTimeTick. On the Hedging Flow page this axis is hidden and
+              the structure chart below carries the labels for both, so the two
+              can only agree if they tick by the same rule. A compact copy — a
+              My Dashboard tile — gets the 2-hour marks like every other compact
+              intraday chart, because its plot is narrow at any viewport. */}
           <XAxis
             dataKey="timestamp"
-            tickFormatter={safeTimeLabel}
             stroke={axisStroke}
-            tick={hideTimeAxis ? false : { fontSize: 10 }}
+            interval={0}
+            tickLine={!hideTimeAxis}
+            tick={
+              hideTimeAxis ? false : sessionTimeTick(axisStroke, compact || isMobile ? 120 : 30)
+            }
             height={hideTimeAxis ? 8 : undefined}
-            minTickGap={40}
           />
           <YAxis
             yAxisId="flow"
@@ -334,6 +380,7 @@ export default function HedgingFlowChart({
             stroke={axisStroke}
             tick={{ fontSize: 10 }}
             width={isMobile ? HEDGING_PHONE_LEFT_AXIS : 62}
+            {...(flowAxis ? { domain: flowAxis.domain, ticks: flowAxis.ticks } : {})}
           />
           <YAxis
             yAxisId="price"
@@ -342,8 +389,8 @@ export default function HedgingFlowChart({
             stroke={axisStroke}
             tick={{ fontSize: 10 }}
             width={isMobile ? HEDGING_PHONE_RIGHT_AXIS : 56}
-            {...(isMobile && phonePriceTicks.length > 1
-              ? { ticks: phonePriceTicks, tickFormatter: (v: number) => Number(v).toFixed(phonePriceDecimals) }
+            {...(priceTicks.length > 1
+              ? { ticks: priceTicks, tickFormatter: (v: number) => Number(v).toFixed(priceDecimals) }
               : {})}
           />
 

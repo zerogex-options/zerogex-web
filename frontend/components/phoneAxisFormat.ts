@@ -64,3 +64,39 @@ export function tickDecimals(ticks: number[]): number {
 export function pctTick(v: number): string {
   return `${parseFloat(Number(v).toFixed(2))}%`;
 }
+
+/**
+ * A round domain and its ticks for an axis with no domain of its own.
+ *
+ * The counterpart to niceTicksWithin. That one keeps a domain it was handed —
+ * a deliberate clip, like the structure panel's quantile cap — and only labels
+ * round values inside it. This one is for an axis whose bounds are nobody's
+ * decision: it rounds the data extent OUTWARD to the tick step, so the domain
+ * is guaranteed to contain every value plotted and no series can be clipped by
+ * tidying the labels. Zero is always a tick, because the step divides it.
+ *
+ * Returns nulls for an empty or unusable extent, which the caller passes over
+ * so Recharts keeps its own behavior.
+ */
+export function niceAxisAround(
+  lo: number,
+  hi: number,
+  count = 5,
+): { domain: [number, number]; ticks: number[] } | null {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi < lo) return null;
+  const span = hi - lo;
+  if (span <= 0) return null;
+
+  const raw = span / Math.max(1, count);
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10) * mag;
+
+  const min = Math.floor(lo / step) * step;
+  const max = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let t = min; t <= max + step * 1e-9; t += step) {
+    ticks.push(Number(t.toPrecision(12)));
+  }
+  return { domain: [ticks[0], ticks[ticks.length - 1]], ticks };
+}
