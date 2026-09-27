@@ -57,7 +57,7 @@ Sotto la scheda, **How to read these signals** (chiuso) spiega come si combinano
 
 - **Call GEX** e **Put GEX** - l'esposizione gamma totale delle call e delle put.
 - **Call Wall (Resistenza)** e **Put Wall (Supporto)** - il gamma call più alto in corrispondenza dello spot o al di sopra e il gamma put più alto in corrispondenza dello spot o al di sotto, con la distanza dallo spot. Sono classificati sulla scadenza di oggi e sulle due successive (0-2DTE), quindi se hai filtrato il grafico solo sullo 0DTE, la striscia Key Levels può mostrare uno strike diverso.
-- **Flusso Netto**, **Premio Netto** e **Rapporto Put/Call** - per la sessione corrente: volume call meno volume put, premio call meno premio put, e volume put diviso per volume call.
+- **Flusso Netto**, **Premio Netto** e **Rapporto Put/Call** - per la sessione corrente: contratti call netti meno contratti put netti, lo stesso in dollari di premio, e volume put diviso per volume call. "Netto" significa avviato dal compratore meno avviato dal venditore, quindi un Flusso Netto positivo è un flusso orientato alle call.
 
 In fondo alla pagina ci sono il promemoria che il posizionamento dei dealer è modellato, non osservato direttamente, e l'ora dell'ultimo aggiornamento.
 

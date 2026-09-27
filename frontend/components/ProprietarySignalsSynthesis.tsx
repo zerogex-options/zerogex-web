@@ -109,7 +109,7 @@ function CompositeMsiCard({ score }: CompositeMsiCardProps) {
   return (
     <CardShell
       title="Composite MSI · Weighted Synthesis"
-      tooltip="Market State Index: a single 0-100 regime gauge built from six option-structure components (net GEX sign, gamma anchor, P/C ratio, vol regime, smart-money flow, dealer delta pressure). 50 is neutral. ≥70 trend / expansion, 40-70 controlled trend, 20-40 chop / range, <20 high-risk reversal. A high MSI does NOT mean bullish&nbsp;- it means trends can run. Read direction from the Bias panel or individual signal scores."
+      tooltip="Market State Index: a single 0-100 regime gauge built from six option-structure components (net GEX sign, gamma anchor, P/C ratio, vol regime, smart-money flow, dealer delta pressure). 50 is neutral. ≥70 trend / expansion, 40-70 controlled trend, 20-40 chop / range, <20 compression. A high MSI does NOT mean bullish&nbsp;- it means trends can run. Read direction from the Bias panel or individual signal scores."
     >
       <div className="mb-4 flex items-baseline justify-between gap-3 flex-wrap">
         <div

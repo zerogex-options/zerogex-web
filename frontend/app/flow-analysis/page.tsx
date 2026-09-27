@@ -416,14 +416,14 @@ export default function FlowAnalysisPage() {
             value={Number(latestSnapshot?.netFlow || 0).toLocaleString()}
             subtitle="contracts"
             trend={Number(latestSnapshot?.netFlow || 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Cumulative call volume minus put volume across the selected date."
+            tooltip="Net call contracts minus net put contracts across the selected date, each counted as buyer-initiated minus seller-initiated volume. Positive means flow leaning to calls."
             theme="dark"
           />
           <MetricCard
             title="Net Premium"
             value={`${Number(latestSnapshot?.netPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.netPremium || 0)) / 1_000_000).toFixed(2)}M`}
             trend={Number(latestSnapshot?.netPremium || 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Cumulative call premium minus put premium across the selected date."
+            tooltip="Net call premium minus net put premium across the selected date, each counted as buyer-initiated minus seller-initiated premium."
             theme="dark"
           />
           <div className="col-span-2 md:col-span-1">

@@ -60,7 +60,7 @@ const SURFACES = [
 
 const COLOR_KEY = [
   { swatch: 'var(--color-bull)', label: 'Bullish / Trend OK', body: 'Trends can run, flow leans up, MSI ≥ 40.' },
-  { swatch: 'var(--color-bear)', label: 'Bearish / Reversal Risk', body: 'Trends fail, flow leans down, MSI < 20.' },
+  { swatch: 'var(--color-bear)', label: 'Bearish / Compression', body: 'Flow leans down, or MSI < 20: the regime with the least follow-through.' },
   { swatch: 'var(--color-warning)', label: 'Chop / Neutral / Wait', body: 'Mixed signals, low conviction, MSI 20\u00a0- 40.' },
   { swatch: 'var(--color-text-secondary)', label: 'Inactive / No Data', body: 'Window closed (e.g. EOD pre-14:30 ET) or signal idle.' },
 ];

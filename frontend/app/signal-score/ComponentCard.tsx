@@ -92,7 +92,7 @@ function ComponentCardImpl({ entry }: Props) {
           <h3 className="text-base font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
             {label.title}
             <TooltipWrapper
-              text={`${label.description}\n\n+1 score: ${label.positive}\n−1 score: ${label.negative}\n\nIn the MSI, +score pushes the composite toward the trend / expansion regime; −score pushes it toward chop / pinning / high-risk reversal.`}
+              text={`${label.description}\n\n+1 score: ${label.positive}\n−1 score: ${label.negative}\n\nIn the MSI, +score pushes the composite toward the trend / expansion regime; −score pushes it toward chop / pinning / compression.`}
               placement="bottom"
             >
               <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />

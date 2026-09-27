@@ -32,11 +32,11 @@ const TITLE_TOOLTIP =
   'Composite Score, also known as the Market State Index (MSI), is a single 0-100 number that reads the current option-structure regime\u00a0- not market direction. ' +
   'It blends six independent components\u00a0- net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, and dealer delta pressure\u00a0- ' +
   'each weighted to a max-points cap that sums to 100. ' +
-  '50 is neutral; readings ≥70 indicate a tradable trend / expansion regime, 40-70 a controlled trend, 20-40 chop / range, and <20 high-risk reversal (mean-reversion only, fragile tape). ' +
+  '50 is neutral; readings ≥70 indicate a tradable trend / expansion regime, 40-70 a controlled trend, 20-40 chop / range, and <20 compression (historically the least forward travel of the four bands). ' +
   'A high MSI does not mean "bullish"\u00a0- it means trends can run. A low MSI does not mean "bearish"\u00a0- it means trends are unlikely to work.';
 
 const INTRADAY_TOOLTIP =
-  "The MSI's path through today's session, plotted as 0-100 with shaded regime bands at <20 (high-risk reversal), 20-40 (chop), 40-70 (controlled trend), and ≥70 (trend / expansion). " +
+  "The MSI's path through today's session, plotted as 0-100 with shaded regime bands at <20 (compression), 20-40 (chop), 40-70 (controlled trend), and ≥70 (trend / expansion). " +
   "Hover any point for the timestamp, score, regime, and the top-3 components that drove the reading.";
 
 const CONTRIB_TOOLTIP =

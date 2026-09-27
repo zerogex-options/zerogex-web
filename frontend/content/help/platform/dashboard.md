@@ -57,7 +57,7 @@ Under the card, **How to read these signals** (folded) explains how Trade Bias, 
 
 - **Call GEX** and **Put GEX** - total gamma exposure from calls and from puts.
 - **Call Wall (Resistance)** and **Put Wall (Support)** - the largest call gamma at or above spot and the largest put gamma at or below it, with the distance from spot. These are ranked across today's expiration and the next two (0-2DTE), so if you've filtered the chart to 0DTE only, the Key Levels strip can show a different strike.
-- **Net Flow**, **Net Premium** and **Put/Call Ratio** - for the current session: call volume minus put volume, call premium minus put premium, and put volume divided by call volume.
+- **Net Flow**, **Net Premium** and **Put/Call Ratio** - for the current session: net call contracts minus net put contracts, the same in premium dollars, and put volume divided by call volume. "Net" means buyer-initiated minus seller-initiated, so a positive Net Flow is flow leaning to calls.
 
 At the bottom of the page are the reminder that dealer positioning is modeled, not directly observed, and the time of the last update.
 

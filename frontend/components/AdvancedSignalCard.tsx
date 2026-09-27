@@ -27,6 +27,9 @@ interface AdvancedSignalCardProps {
   icon: LucideIcon;
   snapshot: unknown;
   triggerThreshold?: number;
+  /** What the trigger is measured on when it isn't the score, e.g.
+   *  "imminence ≥ 65". Defaults to "±{triggerThreshold}". */
+  triggerLabel?: string;
   signalLabel?: string;
   inactiveLabel?: string | null;
   contextRows: AdvancedSignalContextRow[];
@@ -41,6 +44,7 @@ export default function AdvancedSignalCard({
   icon: Icon,
   snapshot,
   triggerThreshold = 25,
+  triggerLabel,
   signalLabel,
   inactiveLabel,
   contextRows,
@@ -54,7 +58,15 @@ export default function AdvancedSignalCard({
   const score = getNumber(payload.score);
   const directionRaw = String(payload.direction ?? 'neutral').toLowerCase();
   const signalStr = String(payload.signal ?? signalLabel ?? '—');
-  const triggered = payload.triggered === true || (score != null && Math.abs(score) >= triggerThreshold);
+  // The engine's own flag wins whenever the endpoint sends one. The score
+  // threshold is only the fallback for payloads that carry none (EOD Pressure,
+  // Volatility Expansion, the Basic cards). OR-ing the two let a score over the
+  // fallback read Triggered while the engine said no: Market Pressure triggers
+  // on loading and direction, and its score can clear 22 without either.
+  const triggered =
+    typeof payload.triggered === 'boolean'
+      ? payload.triggered
+      : score != null && Math.abs(score) >= triggerThreshold;
   const trend: SignalTrend = score != null && Math.abs(score) >= triggerThreshold
     ? scoreTrend(score, triggerThreshold)
     : (directionRaw === 'bullish' ? 'bullish' : directionRaw === 'bearish' ? 'bearish' : 'neutral');
@@ -126,7 +138,7 @@ export default function AdvancedSignalCard({
             <div className="col-span-2 row-start-2 text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
               <span>Score −100 to +100</span>
               {!inactiveLabel ? (
-                <span className="opacity-70">· activates at ±{triggerThreshold}</span>
+                <span className="opacity-70">· activates at {triggerLabel ?? `±${triggerThreshold}`}</span>
               ) : null}
               {effectiveTriggered ? (
                 <span

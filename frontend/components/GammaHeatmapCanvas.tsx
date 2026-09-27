@@ -1540,7 +1540,7 @@ export default function GammaHeatmapCanvas() {
     </span>
   );
   const candleLagBadge = showCandleLagBadge && (
-    <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls&nbsp;- TradeStation stream-cap pressure, single-symbol bar outage, vendor reset hiccup&nbsp;- the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
+    <TooltipWrapper text="The heatmap is sourced from analytics (gex_summary) while candles come from the underlying bar feed (underlying_quotes). When the bar feed stalls&nbsp;- a data-vendor rate limit, single-symbol bar outage, vendor reset hiccup&nbsp;- the heatmap keeps advancing while candles freeze. This badge surfaces that gap so the chart's right edge asymmetry is named instead of mysterious. Gap closes automatically once the bar feed recovers.">
       <span
         className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded cursor-help"
         style={{ color: 'var(--color-warning)', backgroundColor: 'rgba(245, 158, 11, 0.16)' }}

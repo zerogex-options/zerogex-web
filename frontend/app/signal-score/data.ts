@@ -104,7 +104,7 @@ export function parseHistory(raw: unknown): CompositeHistoryRow[] {
 
 // Each component returns a raw score in [-1, +1]. By the MSI's convention
 // (see scoring_engine.py): +1 pushes the composite toward the trending /
-// expansion regime; -1 pushes it toward chop / pinning / high-risk reversal.
+// expansion regime; -1 pushes it toward chop / pinning / compression.
 // The MSI is a regime gauge, not a directional (bull/bear) gauge — except
 // for order_flow_imbalance, which is the one truly directional input.
 const COMPONENT_LABELS: Record<ComponentKey, { title: string; description: string; positive: string; negative: string }> = {

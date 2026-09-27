@@ -197,13 +197,13 @@ export default function AdvancedSignalsPage() {
 
     return [
       { payload: volPayload, title: 'Volatility Expansion', href: '/volatility-expansion', icon: Zap, threshold: 25, description: 'Short-gamma vol readiness × momentum direction.', rows: volRows, hook: volExpansion },
-      { payload: eodPayload, title: 'EOD Pressure', href: '/eod-pressure', icon: CalendarClock, threshold: 25, description: 'Late-session pin/drift: charm + gamma-gated pin × time ramp.', rows: eodRows, hook: eodPressure, inactive: isEodInactive(eodPayload) },
+      { payload: eodPayload, title: 'EOD Pressure', href: '/eod-pressure', icon: CalendarClock, threshold: 20, description: 'Late-session pin/drift: charm + gamma-gated pin × time ramp.', rows: eodRows, hook: eodPressure, inactive: isEodInactive(eodPayload) },
       { payload: squeezePayload, title: 'Squeeze Setup', href: '/squeeze-setup', icon: Rocket, threshold: 25, description: 'Directional flow z × momentum × dealer-gamma posture.', rows: squeezeRows, hook: squeezeSetup },
       { payload: trapPayload, title: 'Trap Detection', href: '/trap-detection', icon: AlertTriangle, threshold: 25, description: 'Failed-breakout fades when dealer gamma reinforces reversal.', rows: trapRows, hook: trapDetection },
       { payload: zeroDtePayload, title: '0DTE Position Imbalance', href: '/0dte-position-imbalance', icon: Activity, threshold: 25, description: 'Same-day bucket-weighted flow tilt × time-of-day ramp.', rows: zeroDteRows, hook: zeroDte, inactive: isZeroDteInactive(zeroDtePayload) },
       { payload: gvcPayload, title: 'Gamma/VWAP Confluence', href: '/gamma-vwap-confluence', icon: Compass, threshold: 20, description: 'Multi-level magnet: flip + VWAP + max pain + max gamma + call wall.', rows: gvcRows, hook: gammaVwap },
-      { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0-100 imminence.', rows: rbiRows, hook: rangeBreak },
-      { payload: mpPayload, title: 'Market Pressure Index', href: '/market-pressure', icon: Gauge, threshold: 22, description: 'Forward-looking coiled-spring: compression × hedging × flow × tension loading + direction.', rows: mpRows, hook: marketPressure },
+      { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, triggerLabel: 'imminence ≥ 65', description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0-100 imminence.', rows: rbiRows, hook: rangeBreak },
+      { payload: mpPayload, title: 'Market Pressure Index', href: '/market-pressure', icon: Gauge, threshold: 22, triggerLabel: 'loading ≥ 50, direction beyond ±0.20', description: 'Forward-looking coiled-spring: compression × hedging × flow × tension loading + direction.', rows: mpRows, hook: marketPressure },
     ];
   }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak, marketPressure]);
 
@@ -297,6 +297,7 @@ export default function AdvancedSignalsPage() {
                 icon={c.icon}
                 snapshot={c.payload}
                 triggerThreshold={c.threshold}
+                triggerLabel={'triggerLabel' in c ? c.triggerLabel : undefined}
                 contextRows={c.rows}
                 description={c.description}
                 inactiveLabel={('inactive' in c ? c.inactive : null) ?? null}

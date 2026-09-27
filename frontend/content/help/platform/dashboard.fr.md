@@ -57,7 +57,7 @@ Sous la carte, **How to read these signals** (replié) explique comment Trade Bi
 
 - **Call GEX** et **Put GEX** - l'exposition gamma totale des calls et des puts.
 - **Call Wall (Résistance)** et **Put Wall (Support)** - le plus fort gamma call au niveau du spot ou au-dessus, et le plus fort gamma put au niveau du spot ou en dessous, avec la distance au spot. Ils sont classés sur l'expiration du jour et les deux suivantes (0-2DTE) : si tu as filtré le graphique sur le 0DTE seul, le bandeau Key Levels peut donc afficher un autre strike.
-- **Flux Net**, **Prime Nette** et **Ratio Put/Call** - pour la session en cours : volume call moins volume put, prime call moins prime put, et volume put divisé par volume call.
+- **Flux Net**, **Prime Nette** et **Ratio Put/Call** - pour la session en cours : contrats call nets moins contrats put nets, la même chose en dollars de prime, et volume put divisé par volume call. "Net" signifie initié par l'acheteur moins initié par le vendeur : un Flux Net positif est donc un flux orienté vers les calls.
 
 En bas de la page figurent le rappel que le positionnement des dealers est modélisé, pas observé directement, et l'heure de la dernière mise à jour.
 
