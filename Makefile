@@ -62,7 +62,7 @@ help:
 	@echo "  make setup-pricing - Create the quarterly Stripe prices (Basic 75 USD / Pro 115 USD every 3 months, on the existing products) and the 10-USD-off-monthly-for-12-months promo coupon, and print the .env.local lines. Dry run by default; YES=1 creates. VERIFY=1 instead checks every configured price and coupon against what the pricing page shows and fails loudly on any mismatch — run it before and after changing billing env"
 	@echo "  make money-back-sweep - List money-back refund requests that stopped part-way (still pending 30+ minutes after their last activity), e.g. the app restarted between the refund and the cancel. Dry run by default; YES=1 emails the operator once per stall. Hourly systemd timer (step 099)"
 	@echo "  make setup-billing-portal - Point the Stripe billing portal at every configured plan (monthly, quarterly, annual; both tiers) and make a plan switch during the free trial end the trial. Dry run by default; YES=1 applies. Run it AFTER make restart when prices change: the webhook maps prices to tiers through the same env"
-	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, WINDOW_HOURS=N to tune the window)"
+	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, add PREVIEW_VARIANT=comeback for the version sent to trialers who have not been back, WINDOW_HOURS=N to tune the window)"
 	@echo "  make card-expiry-reminders - Email active subscribers whose card on file expires within ~45 days so they update it before a renewal fails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, THRESHOLD_DAYS=N / LIMIT=N to tune)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
@@ -661,7 +661,7 @@ renewal-engagement:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-renewal-engagement.mts $(if $(DORMANT_ONLY),--dormant-only,) $(if $(DORMANCY_DAYS),--dormancy-days $(DORMANCY_DAYS),) $(if $(LEAD_HOURS),--lead-hours $(LEAD_HOURS),)'
 
 trial-value-nudge:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-value-nudge.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(WINDOW_HOURS),--window-hours $(WINDOW_HOURS),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-value-nudge.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_VARIANT),--preview-variant $(PREVIEW_VARIANT),) $(if $(WINDOW_HOURS),--window-hours $(WINDOW_HOURS),)'
 
 # Proactive card-expiry reminder: emails active subscribers whose card on file
 # expires within ~45 days so they update it before a renewal fails. DRY_RUN=1
