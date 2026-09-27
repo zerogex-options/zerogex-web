@@ -123,4 +123,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's gamma flip with live distance from spot, the regime check, and Net GEX magnitude - the three numbers that decide which playbook the structural force in the tape is supporting right now - the free ZeroGEX gamma-levels view surfaces all of them.
+If you want to see today's gamma flip with its distance from spot, the regime check, and Net GEX magnitude - the three numbers that decide which playbook the structural force in the tape is supporting right now - [the free ZeroGEX gamma-levels view](/spx-gamma-levels) surfaces all of them, delayed about 15 minutes; the paid plans show them [in real time](/real-time-gex-0dte).

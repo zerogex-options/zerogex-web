@@ -204,6 +204,6 @@ Solo a scopo educativo - nulla di quanto sopra è una raccomandazione di tradin
 
 ---
 
-Se volete vedere in tempo reale i flussi vanna e charm di oggi, insieme al regime gamma che determina se produrranno deriva o verranno sopraffatti, la dashboard gratuita di ZeroGEX mostra tutto questo.
+Se volete vedere il regime gamma di oggi, quello che determina se i flussi vanna e charm produrranno deriva o verranno sopraffatti, [le pagine gratuite gamma-levels di ZeroGEX](/spx-gamma-levels) lo mostrano per SPX, SPY, QQQ e NDX, con un ritardo di circa 15 minuti. La lettura vanna e charm vera e propria si trova nelle pagine Vanna/Charm Flow e Dealer Positioning, in entrambi i piani a pagamento e [in tempo reale](/real-time-gex-0dte).
 
 > I punteggi dei segnali ZeroGEX sono output derivati che usano input, pesi e soglie selezionati a mano, salvo diversa indicazione. Non sono probabilità calibrate né garanzie; è necessaria una validazione storica prima di interpretarli come un vantaggio di performance.

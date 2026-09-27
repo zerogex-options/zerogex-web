@@ -152,4 +152,4 @@ Solo contenido educativo - nada de lo anterior es una recomendación de trading
 
 ---
 
-Si quieres ver el posicionamiento de dealers en 0DTE de hoy en tiempo real - el régimen, los strikes del mismo día más pesados, los walls en vivo y el perfil de gamma de los dealers - el dashboard gratuito de ZeroGEX muestra todo esto.
+Si quieres ver el posicionamiento de los dealers de hoy (el régimen, los call y put walls y el perfil de gamma de los dealers), [las páginas gratuitas de gamma-levels de ZeroGEX](/spx-gamma-levels) lo muestran para SPX, SPY, QQQ y NDX, con unos 15 minutos de retraso. Los planes de pago muestran la misma lectura [en tiempo real](/real-time-gex-0dte), y el filtro Expirations de la página Dealer Positioning aísla los strikes del mismo día más pesados.

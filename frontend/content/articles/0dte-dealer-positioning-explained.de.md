@@ -152,4 +152,4 @@ Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die heutige 0DTE-Dealer-Positionierung in Echtzeit sehen willst - das Regime, die gewichtigsten Strikes mit Fälligkeit am selben Tag, die Live-Walls und das Dealer-Gamma-Profil - zeigt das kostenlose ZeroGEX-Dashboard all das an.
+Wenn du die heutige Dealer-Positionierung sehen willst - das Regime, die Call- und Put-Walls und das Dealer-Gamma-Profil -, zeigen dir [die kostenlosen ZeroGEX-Gamma-Levels-Seiten](/spx-gamma-levels) das für SPX, SPY, QQQ und NDX, rund 15 Minuten verzögert. Die bezahlten Pläne zeigen dieselbe Lesart [in Echtzeit](/real-time-gex-0dte), und der Expirations-Filter auf der Seite Dealer Positioning isoliert die gewichtigsten Strikes mit Fälligkeit am selben Tag.

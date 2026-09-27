@@ -117,4 +117,4 @@ Nur zu Bildungszwecken - nichts von alledem ist eine Handelsempfehlung.
 
 ---
 
-Wer die [heutige Gamma-Flip-Lesart in Echtzeit](/real-time-gex-0dte) sehen möchte: [Das kostenlose ZeroGEX-Dashboard](/spx-gamma-levels) zeigt sie zusammen mit Net GEX, Call und Put Wall sowie dem Dealer-Gamma-Profil-Chart an. Für einen Vergleich, wie verschiedene Plattformen diese Lesart berechnen und darstellen, siehe den [Leitfaden zu den besten GEX-Tools](/education/best-gex-tools).
+Wer die heutige Gamma-Flip-Lesart sehen möchte: [Die kostenlosen ZeroGEX-Gamma-Levels-Seiten](/spx-gamma-levels) zeigen sie zusammen mit Net GEX, Call und Put Wall sowie dem Dealer-Gamma-Profil-Chart, rund 15 Minuten verzögert; die bezahlten Pläne zeigen sie [in Echtzeit](/real-time-gex-0dte). Für einen Vergleich, wie verschiedene Plattformen diese Lesart berechnen und darstellen, siehe den [Leitfaden zu den besten GEX-Tools](/education/best-gex-tools).

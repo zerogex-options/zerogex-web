@@ -125,4 +125,4 @@ Contenido solo con fines educativos - nada de lo anterior es una recomendación
 
 ---
 
-Si quieres ver el gamma flip de hoy con la distancia en vivo respecto al spot, la verificación del régimen y la magnitud del Net GEX - los tres números que deciden qué playbook está respaldando ahora mismo la fuerza estructural en el tape - la vista gratuita de gamma-levels de ZeroGEX los muestra todos.
+Si quieres ver el gamma flip de hoy con su distancia respecto al spot, la verificación del régimen y la magnitud del Net GEX - los tres números que deciden qué playbook está respaldando ahora mismo la fuerza estructural en el tape - [la vista gratuita de gamma-levels de ZeroGEX](/spx-gamma-levels) los muestra todos, con unos 15 minutos de retraso; los planes de pago los muestran [en tiempo real](/real-time-gex-0dte).

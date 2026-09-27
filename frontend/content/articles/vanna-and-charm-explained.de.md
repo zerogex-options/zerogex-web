@@ -204,6 +204,6 @@ Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn Sie die heutigen Vanna- und Charm-Flows in Echtzeit sehen möchten, zusammen mit dem Gamma-Regime, das darüber entscheidet, ob sie Drift erzeugen oder überrollt werden - das kostenlose ZeroGEX-Dashboard zeigt das alles.
+Wenn Sie das heutige Gamma-Regime sehen möchten, das darüber entscheidet, ob Vanna- und Charm-Flows Drift erzeugen oder überrollt werden, zeigen [die kostenlosen ZeroGEX-Gamma-Levels-Seiten](/spx-gamma-levels) es für SPX, SPY, QQQ und NDX, rund 15 Minuten verzögert. Die Vanna- und Charm-Lesart selbst finden Sie auf den Seiten Vanna/Charm Flow und Dealer Positioning, in beiden bezahlten Plänen und [in Echtzeit](/real-time-gex-0dte).
 
 > ZeroGEX-Signalwerte sind abgeleitete Ergebnisse auf Basis handverlesener Inputs, Gewichte und Schwellenwerte, sofern nicht anders angegeben. Sie sind keine kalibrierten Wahrscheinlichkeiten und keine Garantien; bevor man sie als Performance-Vorteil interpretiert, ist eine historische Validierung erforderlich.

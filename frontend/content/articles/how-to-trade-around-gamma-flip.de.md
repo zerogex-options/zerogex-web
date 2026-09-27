@@ -125,4 +125,4 @@ Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Gamma-Flip mit der Live-Distanz zum Spot, dem Regime-Check und der Net-GEX-Größenordnung sehen willst - den drei Zahlen, die entscheiden, welches Playbook die strukturelle Kraft im Tape gerade unterstützt - die kostenlose Gamma-Levels-Ansicht von ZeroGEX zeigt sie alle.
+Wenn du den heutigen Gamma-Flip mit seiner Distanz zum Spot, dem Regime-Check und der Net-GEX-Größenordnung sehen willst - den drei Zahlen, die entscheiden, welches Playbook die strukturelle Kraft im Tape gerade unterstützt - [die kostenlose Gamma-Levels-Ansicht von ZeroGEX](/spx-gamma-levels) zeigt sie alle, rund 15 Minuten verzögert; die bezahlten Pläne zeigen sie [in Echtzeit](/real-time-gex-0dte).

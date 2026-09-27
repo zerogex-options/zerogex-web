@@ -128,4 +128,4 @@ Contenu éducatif uniquement - rien de ce qui précède ne constitue une recomm
 
 ---
 
-Si vous voulez voir le Net GEX du jour, le gamma flip et la lecture de régime en direct pour SPY, SPX, QQQ et NDX - les trois chiffres qui vous disent si les dealers sont actuellement long gamma ou short gamma - la vue gratuite gamma-levels de ZeroGEX les affiche tous.
+Si vous voulez voir le Net GEX du jour, le gamma flip et la lecture de régime pour SPY, SPX, QQQ et NDX - les trois chiffres qui vous disent si les dealers sont actuellement long gamma ou short gamma - [la vue gratuite gamma-levels de ZeroGEX](/spx-gamma-levels) les affiche tous, avec un décalage d'environ 15 minutes ; les formules payantes les affichent [en temps réel](/real-time-gex-0dte).

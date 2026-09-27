@@ -150,4 +150,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's 0DTE dealer positioning in real time - the regime, the heaviest same-day strikes, the live walls, and the dealer gamma profile - the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's dealer positioning - the regime, the call and put walls, and the dealer gamma profile - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The paid plans show the same read [in real time](/real-time-gex-0dte), and the Expirations filter on the Dealer Positioning page isolates the heaviest same-day strikes.

@@ -275,4 +275,4 @@ Contenu purement pédagogique - rien de ce qui précède ne constitue une recom
 
 ---
 
-Si vous voulez consulter aujourd'hui la [lecture complète de la gamma exposure en temps réel](/real-time-gex-0dte) - Net GEX, le gamma flip, les call et put walls, et le profil de gamma des dealers - [le tableau de bord gratuit ZeroGEX](/spx-gamma-levels) met tout cela à disposition. Pour une comparaison côte à côte entre ZeroGEX et d'autres plateformes de gamma exposure, voir [le guide des meilleurs outils GEX](/education/best-gex-tools).
+Si vous voulez consulter la lecture complète de la gamma exposure du jour (Net GEX, le gamma flip, les call et put walls, et le profil de gamma des dealers), [les pages gratuites gamma-levels de ZeroGEX](/spx-gamma-levels) mettent tout cela à disposition avec un décalage d'environ 15 minutes, et les formules payantes l'affichent [en temps réel](/real-time-gex-0dte). Pour une comparaison côte à côte entre ZeroGEX et d'autres plateformes de gamma exposure, voir [le guide des meilleurs outils GEX](/education/best-gex-tools).
