@@ -22,7 +22,7 @@ Das Squeeze Setup-Signal stellt eine Frage:
 
 > Ist der Markt komprimiert - richten sich Flow, Momentum, Gamma und Volatilität so aus, dass Energie geladen wird, die noch nicht freigesetzt wurde?
 
-Es ist ein **Advanced**-Signal im ZeroGEX-Stack - es erzeugt sowohl einen kontinuierlichen Score auf der Zahlenlinie [-1, +1] als auch einen diskreten Trigger, wenn der absolute Score **0,25** überschreitet.
+Es ist ein **Advanced**-Signal im ZeroGEX-Stack - es erzeugt sowohl einen kontinuierlichen Score auf der Linie von -100 bis +100 als auch einen diskreten Trigger, sobald der Score **±25** überschreitet. Wie alle Advanced-Signale gehört es zu Pro.
 
 Entscheidend ist: Squeeze Setup ist ein **Continuation**-Signal, kein Fade-Signal. Wenn es auslöst, ist die praktische Neigung, *mit* der Bewegung zu handeln, sobald sie ausbricht, nicht dagegen. Das macht es zum Gegenteil von Mean-Reversion-Tools wie Positioning Trap oder Trap Detection. Zu wissen, in welche Kategorie ein Signal gehört, ist die halbe Miete, um es richtig zu lesen.
 
@@ -65,7 +65,7 @@ side_score = normalized_flow × directional_momentum_strength
            × gamma_readiness × acceleration_multiplier × flip_side_multiplier
 ```
 
-Der Nettoscore ist `bull_score − bear_score`, begrenzt auf [-1, +1]. Der Trigger löst aus bei einem absoluten Score ≥ **0,25**.
+Der Nettoscore ist `bull_score − bear_score`, begrenzt auf [-1, +1]; Karte und Signalseite zeigen ihn mal 100. Der Trigger löst auf dieser Skala bei **±25** aus.
 
 Zwei strukturelle Fakten dieser Formel sind für die Interpretation wichtig:
 
@@ -78,13 +78,13 @@ Zwei strukturelle Fakten dieser Formel sind für die Interpretation wichtig:
 
 | Score | Lesart |
 |---|---|
-| +0,6 bis +1,0 | Stark komprimiert nach oben |
-| +0,25 bis +0,6 | Bullisch ausgelöst - das Aufwärts-Breakout-Playbook ist aktiv |
-| -0,25 bis +0,25 | Unter der Schwelle - informativ, allein nicht handlungsrelevant |
-| -0,25 bis -0,6 | Bärisch ausgelöst - das Abwärts-Breakout-Playbook ist aktiv |
-| -0,6 bis -1,0 | Stark komprimiert nach unten |
+| +60 bis +100 | Stark komprimiert nach oben |
+| +25 bis +60 | Bullisch ausgelöst - das Aufwärts-Breakout-Playbook ist aktiv |
+| -25 bis +25 | Unter der Schwelle - informativ, allein nicht handlungsrelevant |
+| -25 bis -60 | Bärisch ausgelöst - das Abwärts-Breakout-Playbook ist aktiv |
+| -60 bis -100 | Stark komprimiert nach unten |
 
-Die Schwelle von 0,25 ist bewusst konservativ gewählt. Squeeze Setup legt die Messlatte hoch - richten sich *alle* strukturellen Inputs aus? - und die Schwelle spiegelt das wider. Ein Wert von 0,20 ist ein Grenzfall; nur 0,25+ zählt als ausgelöst.
+Die Schwelle von ±25 ist bewusst konservativ gewählt. Squeeze Setup legt die Messlatte hoch - richten sich *alle* strukturellen Inputs aus? - und die Schwelle spiegelt das wider. Ein Wert von 20 ist ein Grenzfall; erst ab 25 in eine der beiden Richtungen gilt er als ausgelöst.
 
 ---
 
@@ -115,8 +115,8 @@ Die Zwei-Session-Persistenz ist ein bewusster Filter. Auslöser auf einer einzel
 Ein paar praktische Hinweise:
 
 - **Die Richtung ergibt sich aus dem Vorzeichen des Scores, nicht aus der Einstiegstechnik.** Das Signal liefert die gerichtete Lesart; der Durchbruch der Volatilitätshülle ist der Timing-Trigger.
-- **Die Größenordnung zählt.** Ein Score von +0,55 unterscheidet sich substanziell von +0,27 - beide sind ausgelöst, aber der Trade mit der höheren Überzeugung ist der mit dem höheren Score.
-- **Werte unter der Schwelle liefern trotzdem Informationen.** Ein anhaltender Wert von +0,20 ist allein nicht handlungsrelevant, aber wenn jedes andere Signal ebenfalls bullisch geneigt ist, trägt er zur Gesamtlesart bei.
+- **Die Größenordnung zählt.** Ein Score von +55 unterscheidet sich substanziell von +27 - beide sind ausgelöst, aber der Trade mit der höheren Überzeugung ist der mit dem höheren Score.
+- **Werte unter der Schwelle liefern trotzdem Informationen.** Ein anhaltender Wert von +20 ist allein nicht handlungsrelevant, aber wenn jedes andere Signal ebenfalls bullisch geneigt ist, trägt er zur Gesamtlesart bei.
 
 ---
 
@@ -138,7 +138,7 @@ Wenn sich mehrere Continuation-Signale (Squeeze Setup, Vol Expansion, Market Pre
 Drei Fallen:
 
 - **Eine 0 als "neutral" behandeln.** Eine 0 bei Squeeze Setup bedeutet *nichts ist komprimiert* - nicht, dass der Markt ausgeglichen ist. Handle nicht danach als "ruhiges" grünes Licht.
-- **Auf einen Score unter der Schwelle handeln.** Die Schwelle von 0,25 zählt. Ein Wert von 0,18 kann sich *anfühlen* wie ein Setup, ist aber nicht ausgelöst - und der Unterschied zwischen "fühlt sich komprimiert an" und "ist strukturell komprimiert" macht den Großteil des Edge aus.
+- **Auf einen Score unter der Schwelle handeln.** Die Schwelle von ±25 zählt. Ein Wert von 18 kann sich *anfühlen* wie ein Setup, ist aber nicht ausgelöst - und der Unterschied zwischen "fühlt sich komprimiert an" und "ist strukturell komprimiert" macht den Großteil des Edge aus.
 - **Das Regime ignorieren.** Squeeze Setup sagt für sich genommen nichts über das Gamma-Regime aus. Ein komprimierter Markt unterhalb des Flips verhält sich anders als einer oberhalb. Prüfe immer gegen den [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip)-Workflow.
 
 ---
@@ -148,17 +148,17 @@ Drei Fallen:
 Das Dashboard zeigt es an mehreren Stellen:
 
 - **Die Squeeze Setup-Karte** zeigt den Live-Score, den Trigger-Status und die Aufschlüsselung der Inputs.
-- **Der Composite Signal Score** integriert Squeeze Setup als einen Input neben den anderen Advanced- und Basic-Signalen.
-- **Der Trade Stream** markiert `squeeze_breakout`-gegatete Playbook-Trades, wenn sie auslösen.
+- **Die Event Timeline** auf der Seite des Signals zeigt den jüngsten Verlauf des Scores, Richtungswechsel sind markiert.
+- **Signal Breadth** im Bereich Proprietäre Signale des Dashboards zählt es als eine der Richtungsstimmen. (Es ist kein Input des Composite MSI, der aus seinen eigenen sechs Komponenten besteht.)
 
 *[Bildplatzhalter: ZeroGEX Squeeze Setup-Karte mit Score, Trigger-Status und Input-Beiträgen - Datei ablegen unter /public/blog/zerogex-squeeze-setup-card.png]*
 
 Ein durchgerechnetes Beispiel. Angenommen, SPX bewegt sich in der Mittwochssession seitwärts, und ZeroGEX zeigt:
 
-- **Squeeze Setup:** +0,42 (bullisch ausgelöst)
+- **Squeeze Setup:** +42 (bullisch ausgelöst)
 - **Net GEX:** +$800M
 - **Gamma Flip:** Spot liegt 0,2 % darüber
-- **Tape Flow Bias:** +0,6
+- **Tape Flow Bias:** +60
 - **Trap Detection:** 0
 
 Die strukturelle Lesart: ein nach oben komprimiertes Setup mit bestätigender Flow-Neigung, kein gegenläufiges Signal für einen gescheiterten Breakout, und ein Long-Gamma-Regime, das die Bewegung dämpfen wird, sollte sie versuchen, sich zu weit auszudehnen. Praktische Neigung: wachsam bleiben für einen Durchbruch der Volatilitätshülle nach oben; wenn er kommt, sind die strukturellen Bedingungen für eine Fortsetzung gegeben. Nichts davon ist ein Trade - es ist die Regimelesart, die bestimmen sollte, welche Einstiege du ernst nimmst.
@@ -175,4 +175,4 @@ Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die heutige Squeeze Setup-Lesart in Echtzeit zusammen mit dem Gamma-Flip, den Walls und den anderen Advanced- und Basic-Signalen sehen möchtest, zeigt dir das kostenlose ZeroGEX-Dashboard das alles.
+Wenn du die heutige Squeeze Setup-Lesart in Echtzeit zusammen mit dem Gamma-Flip, den Walls und den anderen Advanced- und Basic-Signalen sehen möchtest, zeigt dir ZeroGEX Pro das alles.

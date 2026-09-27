@@ -22,7 +22,7 @@ Il segnale Squeeze Setup pone una domanda:
 
 > Il mercato è compresso - flow, momentum, gamma e volatilità si stanno allineando per caricare energia che non è ancora stata rilasciata?
 
-È un segnale **Avanzato** nello stack ZeroGEX - produce sia un punteggio continuo sulla linea numerica [-1, +1] sia un trigger discreto quando il punteggio assoluto supera **0,25**.
+È un segnale **Avanzato** nello stack ZeroGEX - produce sia un punteggio continuo su una scala da -100 a +100 sia un trigger discreto quando il punteggio supera **±25**. Come tutti i segnali Avanzati, fa parte di Pro.
 
 È fondamentale notare che Squeeze Setup è un segnale di **Continuazione**, non di fade. Quando scatta, l'inclinazione pratica è tradare *nella direzione* del movimento una volta che rompe, non contro di esso. Questo lo rende l'opposto di strumenti di mean-reversion come Positioning Trap o Trap Detection. Sapere a quale categoria appartiene un segnale è metà del lavoro per leggerlo correttamente.
 
@@ -65,7 +65,7 @@ side_score = normalized_flow × directional_momentum_strength
            × gamma_readiness × acceleration_multiplier × flip_side_multiplier
 ```
 
-Il punteggio netto è `bull_score − bear_score`, limitato all'intervallo [-1, +1]. Il trigger scatta quando il punteggio assoluto è ≥ **0,25**.
+Il punteggio netto è `bull_score − bear_score`, limitato all'intervallo [-1, +1]; la scheda e la pagina del segnale lo mostrano moltiplicato per 100. Il trigger scatta a **±25** su questa scala.
 
 Due fatti strutturali su questa formula sono rilevanti per la lettura:
 
@@ -78,13 +78,13 @@ Due fatti strutturali su questa formula sono rilevanti per la lettura:
 
 | Punteggio | Lettura |
 |---|---|
-| da +0,6 a +1,0 | Fortemente compresso al rialzo |
-| da +0,25 a +0,6 | Attivato rialzista - il playbook di breakout al rialzo è operativo |
-| da -0,25 a +0,25 | Sotto soglia - informativo, non azionabile da solo |
-| da -0,25 a -0,6 | Attivato ribassista - il playbook di breakout al ribasso è operativo |
-| da -0,6 a -1,0 | Fortemente compresso al ribasso |
+| da +60 a +100 | Fortemente compresso al rialzo |
+| da +25 a +60 | Attivato rialzista - il playbook di breakout al rialzo è operativo |
+| da -25 a +25 | Sotto soglia - informativo, non azionabile da solo |
+| da -25 a -60 | Attivato ribassista - il playbook di breakout al ribasso è operativo |
+| da -60 a -100 | Fortemente compresso al ribasso |
 
-La soglia di 0,25 è deliberatamente conservativa. Squeeze Setup pone un'asticella alta - si allineano *tutti* gli input strutturali? - e la soglia riflette questo. Una lettura di 0,20 è borderline; solo 0,25+ conta come attivato.
+La soglia di ±25 è deliberatamente conservativa. Squeeze Setup pone un'asticella alta - si allineano *tutti* gli input strutturali? - e la soglia riflette questo. Una lettura di 20 è borderline; solo 25 o più, in una delle due direzioni, conta come attivato.
 
 ---
 
@@ -115,8 +115,8 @@ La persistenza su due sessioni è un filtro deliberato. I trigger su singola bar
 Alcune note pratiche:
 
 - **La direzione viene dal segno del punteggio, non dalla tecnica di entrata.** Il segnale fa la lettura direzionale; la rottura dell'inviluppo di volatilità è il trigger di timing.
-- **La magnitudine conta.** Un punteggio di +0,55 è materialmente diverso da +0,27 - entrambi attivati, ma il trade a convinzione più alta è quello col punteggio più alto.
-- **I punteggi sotto soglia comunque informano.** Una lettura persistente di +0,20 non è azionabile da sola, ma se ogni altro segnale è anch'esso inclinato al rialzo, si aggiunge alla lettura composita.
+- **La magnitudine conta.** Un punteggio di +55 è materialmente diverso da +27 - entrambi attivati, ma il trade a convinzione più alta è quello col punteggio più alto.
+- **I punteggi sotto soglia comunque informano.** Una lettura persistente di +20 non è azionabile da sola, ma se ogni altro segnale è anch'esso inclinato al rialzo, si aggiunge alla lettura complessiva.
 
 ---
 
@@ -138,7 +138,7 @@ Quando diversi segnali di Continuazione (Squeeze Setup, Vol Expansion, Market Pr
 Tre trappole:
 
 - **Trattare uno 0 come "neutrale".** Uno 0 su Squeeze Setup significa *niente è compresso* - non che il mercato è bilanciato. Non tradare su di esso come un semaforo verde "calmo".
-- **Tradare su un punteggio sotto soglia.** La soglia di 0,25 conta. Una lettura di 0,18 può *sembrare* un setup, ma non è attivata - e la differenza tra "sembra compresso" e "è strutturalmente compresso" è la maggior parte dell'edge.
+- **Tradare su un punteggio sotto soglia.** La soglia di ±25 conta. Una lettura di 18 può *sembrare* un setup, ma non è attivata - e la differenza tra "sembra compresso" e "è strutturalmente compresso" è la maggior parte dell'edge.
 - **Ignorare il regime.** Squeeze Setup di per sé non dice nulla sul regime gamma. Un mercato compresso sotto il flip si comporta diversamente da uno sopra. Verifica sempre con il workflow [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 
 ---
@@ -148,17 +148,17 @@ Tre trappole:
 La dashboard lo mostra in diversi punti:
 
 - **La card Squeeze Setup** mostra il punteggio live, lo stato del trigger e la scomposizione degli input.
-- **Il Composite Signal Score** integra Squeeze Setup come uno degli input insieme agli altri segnali Avanzati e Base.
-- **Il Trade Stream** segnala i trade del playbook gated da `squeeze_breakout` quando scattano.
+- **L'Event Timeline** nella pagina del segnale mostra il percorso recente del punteggio, con i cambi di direzione evidenziati.
+- **Signal Breadth**, nel pannello Segnali Proprietari della dashboard, lo conta come uno dei voti direzionali. (Non è un input del Composite MSI, che è costruito dalle sue sei componenti.)
 
 *[Segnaposto immagine: card Squeeze Setup di ZeroGEX con punteggio, stato del trigger e contributi degli input - inserire il file in /public/blog/zerogex-squeeze-setup-card.png]*
 
 Un esempio pratico. Supponiamo che SPX stia grindando lateralmente nella sessione di mercoledì e che ZeroGEX mostri:
 
-- **Squeeze Setup:** +0,42 (attivato rialzista)
+- **Squeeze Setup:** +42 (attivato rialzista)
 - **Net GEX:** +$800M
 - **Gamma Flip:** lo spot è 0,2% sopra
-- **Tape Flow Bias:** +0,6
+- **Tape Flow Bias:** +60
 - **Trap Detection:** 0
 
 La lettura strutturale: setup compresso al rialzo con inclinazione del flow di conferma, nessun segnale di breakout fallito che vada in senso contrario, e un regime long-gamma che smorzerà il movimento se prova a estendersi troppo. Inclinazione pratica: rimanere vigili per una rottura dell'inviluppo di volatilità al rialzo; quando arriva, le condizioni strutturali per il proseguimento sono in atto. Nulla di tutto questo è un trade - è la lettura del regime che dovrebbe rimodellare quali entrate prendere sul serio.
@@ -175,4 +175,4 @@ Solo a scopo educativo - nulla di quanto sopra è una raccomandazione di tradin
 
 ---
 
-Se vuoi vedere la lettura di Squeeze Setup di oggi in tempo reale insieme al gamma flip, ai walls e agli altri segnali Avanzati e Base, la dashboard gratuita di ZeroGEX mostra tutto questo.
+Se vuoi vedere la lettura di Squeeze Setup di oggi in tempo reale insieme al gamma flip, ai walls e agli altri segnali Avanzati e Base, ZeroGEX Pro mostra tutto questo.

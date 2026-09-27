@@ -20,7 +20,7 @@ The Squeeze Setup signal asks one question:
 
 > Is the market coiled - are flow, momentum, gamma, and volatility aligning to load energy that has not yet been released?
 
-It is an **Advanced** signal in the ZeroGEX stack - it produces both a continuous score on the [-1, +1] number line and a discrete trigger when the absolute score crosses **0.25**.
+It is an **Advanced** signal in the ZeroGEX stack - it produces both a continuous score on the -100 to +100 line and a discrete trigger when the score crosses **±25**. Like all Advanced signals, it is part of Pro.
 
 Critically, Squeeze Setup is a **Continuation** signal, not a fade. When it fires, the practical lean is to trade *with* the move once it breaks, not against it. That makes it the opposite of mean-reversion tools like Positioning Trap or Trap Detection. Knowing which bucket a signal lives in is half of reading it correctly.
 
@@ -63,7 +63,7 @@ side_score = normalized_flow × directional_momentum_strength
            × gamma_readiness × acceleration_multiplier × flip_side_multiplier
 ```
 
-The net score is `bull_score − bear_score`, clamped to [-1, +1]. The trigger fires at absolute score ≥ **0.25** - a hand-picked ZeroGEX threshold, not an empirically fitted one. The formula's structure and weights are design choices, so the output is a derived signal rather than a calibrated probability.
+The net score is `bull_score − bear_score`, clamped to [-1, +1]; the card and the signal page show it multiplied by 100. The trigger fires at **±25** on that scale - a hand-picked ZeroGEX threshold, not an empirically fitted one. The formula's structure and weights are design choices, so the output is a derived signal rather than a calibrated probability.
 
 Two structural facts about that formula matter for reading:
 
@@ -76,13 +76,13 @@ Two structural facts about that formula matter for reading:
 
 | Score | Reading |
 |---|---|
-| +0.6 to +1.0 | Strongly coiled to the upside |
-| +0.25 to +0.6 | Triggered bullish - the upside breakout playbook is on |
-| -0.25 to +0.25 | Sub-threshold - informational, not actionable on its own |
-| -0.25 to -0.6 | Triggered bearish - the downside breakout playbook is on |
-| -0.6 to -1.0 | Strongly coiled to the downside |
+| +60 to +100 | Strongly coiled to the upside |
+| +25 to +60 | Triggered bullish - the upside breakout playbook is on |
+| -25 to +25 | Sub-threshold - informational, not actionable on its own |
+| -25 to -60 | Triggered bearish - the downside breakout playbook is on |
+| -60 to -100 | Strongly coiled to the downside |
 
-The 0.25 threshold is deliberately conservative. Squeeze Setup is asking a high bar - does *every* structural input align? - and the threshold reflects that. A 0.20 read is borderline; only 0.25+ counts as triggered.
+The ±25 threshold is deliberately conservative. Squeeze Setup is asking a high bar - does *every* structural input align? - and the threshold reflects that. A 20 read is borderline; only 25 or more either way counts as triggered.
 
 ---
 
@@ -113,8 +113,8 @@ The two-session persistence is a deliberate filter. Single-bar triggers are too 
 A few practical notes:
 
 - **Direction comes from the score sign, not from the entry technique.** The signal does the directional read; the volatility-envelope break is the timing trigger.
-- **Magnitude matters.** A score of +0.55 is materially different from +0.27 - both triggered, but the higher conviction trade is the higher score.
-- **Sub-threshold scores still inform.** A persistent +0.20 reading isn't actionable alone, but if every other signal is also leaning bullish, it adds to the composite read.
+- **Magnitude matters.** A score of +55 is materially different from +27 - both triggered, but the higher conviction trade is the higher score.
+- **Sub-threshold scores still inform.** A persistent +20 reading isn't actionable alone, but if every other signal is also leaning bullish, it adds to the overall read.
 
 ---
 
@@ -136,7 +136,7 @@ When several Continuation signals (Squeeze Setup, Vol Expansion, Market Pressure
 Three traps:
 
 - **Treating a 0 as "neutral."** A 0 on Squeeze Setup means *nothing is compressed* - not that the market is balanced. Do not trade off it as a "calm" green light.
-- **Trading off a sub-threshold score.** The 0.25 threshold matters. An 0.18 reading might *feel* like a setup, but it is not triggered - and the difference between "feels coiled" and "is structurally coiled" is most of the edge.
+- **Trading off a sub-threshold score.** The ±25 threshold matters. An 18 reading might *feel* like a setup, but it is not triggered - and the difference between "feels coiled" and "is structurally coiled" is most of the edge.
 - **Ignoring the regime.** Squeeze Setup says nothing about the gamma regime by itself. A coiled market below the flip behaves differently than one above. Always cross-check with the [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) workflow.
 
 ---
@@ -146,17 +146,17 @@ Three traps:
 The dashboard surfaces it in a few places:
 
 - **The Squeeze Setup card** shows the live score, the trigger state, and the input breakdown.
-- **The Composite Signal Score** integrates Squeeze Setup as one input alongside the other Advanced and Basic signals.
-- **The Trade Stream** flags `squeeze_breakout`-gated playbook trades when they fire.
+- **The Event Timeline** on the signal's page charts the score's recent path, with direction flips marked.
+- **Signal Breadth** on the dashboard's Proprietary Signals panel counts it as one of the directional votes. (It is not an input to the Composite MSI, which is built from its own six components.)
 
 *[Image placeholder: ZeroGEX Squeeze Setup card with score, trigger state, and input contributions - drop file at /public/blog/zerogex-squeeze-setup-card.png]*
 
 A worked example. Suppose SPX is grinding sideways into Wednesday's session and ZeroGEX shows:
 
-- **Squeeze Setup:** +0.42 (triggered bullish)
+- **Squeeze Setup:** +42 (triggered bullish)
 - **Net GEX:** +$800M (modeled)
 - **Gamma Flip:** spot is 0.2% above
-- **Tape Flow Bias:** +0.6
+- **Tape Flow Bias:** +60
 - **Trap Detection:** 0
 
 The structural read: coiled-upside setup with confirming flow lean, no countervailing failed-breakout signal, and a modeled long-gamma regime that tends to dampen the move if it tries to extend too far. Practical lean: stay alert for an upside volatility-envelope break; if it comes, the structural conditions for follow-through are in place. None of this is a trade - it is the regime read that should reshape which entries you take seriously.
@@ -173,4 +173,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's Squeeze Setup read in real time alongside the gamma flip, the walls, and the other Advanced and Basic signals, the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's Squeeze Setup read in real time alongside the gamma flip, the walls, and the other Advanced and Basic signals, ZeroGEX Pro surfaces all of it.
