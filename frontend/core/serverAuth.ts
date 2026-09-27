@@ -83,6 +83,12 @@ type SessionWithUser = {
     // dismissed. NULL = the member has never seen it, so a new Pro subscriber
     // is greeted once on their first landing back from Stripe checkout.
     proWelcomeSeenAt: string | null;
+    // The same for the Basic version of that welcome (core/proWelcome.ts).
+    basicWelcomeSeenAt: string | null;
+    // When this account first held a paid subscription
+    // (users.paid_welcome_email_sent_at). NULL = never subscribed. Drives the
+    // first-two-weeks onboarding defaults in core/newMember.ts.
+    memberSince: string | null;
     // Affirmative acceptance of the Terms of Service and Privacy Policy.
     // Served to the browser because it is the gate ClientLayout enforces: a
     // session whose recorded version isn't the current one is shown the
@@ -278,6 +284,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
               u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at,
+              u.basic_welcome_seen_at,
               u.terms_accepted_at, u.terms_version_accepted,
               u.last_seen_at
        FROM sessions s
@@ -331,6 +338,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
       foundingEligible: !!row.founding_eligible,
       foundingLockinDismissedAt: (row.founding_lockin_dismissed_at as string | null) ?? null,
       proWelcomeSeenAt: (row.pro_welcome_seen_at as string | null) ?? null,
+      basicWelcomeSeenAt: (row.basic_welcome_seen_at as string | null) ?? null,
+      memberSince: (row.paid_welcome_email_sent_at as string | null) ?? null,
     },
     session: {
       id: row.session_id as string,
@@ -388,6 +397,7 @@ function createSessionForUser(user: AuthUser) {
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
               stripe_subscription_id, email_verified_at,
               founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at,
+              basic_welcome_seen_at, paid_welcome_email_sent_at,
               terms_accepted_at, terms_version_accepted
        FROM users WHERE id = ?`
     )
@@ -400,6 +410,8 @@ function createSessionForUser(user: AuthUser) {
         founding_eligible: number | null;
         founding_lockin_dismissed_at: string | null;
         pro_welcome_seen_at: string | null;
+        basic_welcome_seen_at: string | null;
+        paid_welcome_email_sent_at: string | null;
         terms_accepted_at: string | null;
         terms_version_accepted: string | null;
       }
@@ -420,6 +432,8 @@ function createSessionForUser(user: AuthUser) {
       foundingEligible: !!ackRow?.founding_eligible,
       foundingLockinDismissedAt: ackRow?.founding_lockin_dismissed_at ?? null,
       proWelcomeSeenAt: ackRow?.pro_welcome_seen_at ?? null,
+      basicWelcomeSeenAt: ackRow?.basic_welcome_seen_at ?? null,
+      memberSince: ackRow?.paid_welcome_email_sent_at ?? null,
       termsAcceptedAt: ackRow?.terms_accepted_at ?? null,
       termsVersionAccepted: ackRow?.terms_version_accepted ?? null,
     },
@@ -1767,22 +1781,33 @@ export function applyAppearanceCookies(response: NextResponse, userId: string) {
   }
 }
 
-export async function markProWelcomeSeenForRequest(request: NextRequest) {
+// Stamps the seen flag for whichever version of the first-run welcome the
+// member was shown (core/proWelcome.ts): pro_welcome_seen_at for Pro,
+// basic_welcome_seen_at for everyone else. `market` is their answer to the
+// welcome's "which market do you trade?" question, already validated by the
+// route; it goes on the audit row only, so what new members trade can be
+// counted later.
+export async function markProWelcomeSeenForRequest(
+  request: NextRequest,
+  market: string | null = null,
+) {
   const data = await getSessionFromRequest(request);
   if (!data) return null;
 
+  const isPro = data.user.tier === 'pro';
+  const column = isPro ? 'pro_welcome_seen_at' : 'basic_welcome_seen_at';
   const db = getDb();
   const now = nowIso();
   db.prepare(
-    'UPDATE users SET pro_welcome_seen_at = ?, updated_at = ? WHERE id = ? AND pro_welcome_seen_at IS NULL'
+    `UPDATE users SET ${column} = ?, updated_at = ? WHERE id = ? AND ${column} IS NULL`
   ).run(now, now, data.user.id);
 
   appendAuditEvent({
-    type: 'pro_welcome_seen',
+    type: isPro ? 'pro_welcome_seen' : 'basic_welcome_seen',
     userId: data.user.id,
     email: data.user.email,
     ip: getClientIp(request),
-    message: 'User acknowledged the Pro welcome / first-run modal',
+    message: `User acknowledged the ${isPro ? 'Pro' : 'Basic'} first-run welcome${market ? ` market=${market}` : ''}`,
   });
 
   return {

@@ -8,6 +8,7 @@ import {
   Search,
   Mail,
 } from 'lucide-react';
+import { HAS_LIVE_QUICK_STARTS } from '@/core/quickStarts';
 
 export const metadata = {
   title: 'ZeroGEX Help Center: Platform Guide, FAQs & Quick Starts',
@@ -16,7 +17,7 @@ export const metadata = {
   alternates: { canonical: '/help' },
 };
 
-const sections = [
+const allSections = [
   {
     href: '/help/platform',
     title: 'Platform Guide',
@@ -42,6 +43,12 @@ const sections = [
     badge: 'Video tutorials',
   },
 ];
+
+// The Quick Starts card waits for the first published video (core/quickStarts.ts);
+// until then it would only lead to a page of placeholders.
+const sections = allSections.filter(
+  (section) => section.href !== '/help/quickstarts' || HAS_LIVE_QUICK_STARTS,
+);
 
 const popular = [
   { href: '/help/platform/dashboard', label: 'Reading the Dashboard' },
@@ -85,7 +92,7 @@ export default function HelpCenterPage() {
         </div>
       </div>
 
-      <div className="mb-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={`mb-10 grid gap-6 sm:grid-cols-2 ${sections.length > 2 ? 'lg:grid-cols-3' : ''}`}>
         {sections.map((section) => {
           const Icon = section.icon;
           return (

@@ -230,9 +230,10 @@ function startHereHtmlList(): string {
   return `<ul style="padding-left: 20px; margin: 12px 0;">${items}</ul>`;
 }
 
-// Self-service API-key instructions carried by both Pro welcome emails (paid /
-// trial and founding). Key generation is a Pro benefit (isApiKeyEligibleTier),
-// so every recipient of these two emails can act on it the moment they read it.
+// Self-service API-key instructions carried by the welcome emails (paid /
+// trial, founding and welcome-back) when the member's plan includes API access.
+// Key generation is a Pro benefit (isApiKeyEligibleTier); the webhook passes
+// apiKeyEligible so a Basic member is not told about keys they cannot create.
 // The in-app one-time Pro welcome modal (components/ProWelcomeModal) announces
 // the same thing, but it only fires on the first landing back from checkout and
 // is dismissed for good — a member who closes it, checks out on a phone, or
@@ -398,10 +399,16 @@ export async function sendPaidWelcomeEmail(
     // guarantee, when this purchase is covered by it (a plan paid up front —
     // see core/billingPlans.ts). Null for trials, which carry no guarantee.
     moneyBackUntilIso?: string | null;
+    // False when the plan has no API access (Basic): the self-service API-key
+    // paragraph is left out rather than telling a Basic member their "Pro
+    // plan" includes keys they cannot generate. The webhook passes
+    // isApiKeyEligibleTier(tier); omitted keeps the paragraph.
+    apiKeyEligible?: boolean;
   },
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const promoLabel = opts?.promoIntroLabel ?? null;
+  const includeApiKeys = opts?.apiKeyEligible !== false;
   const moneyBackUntil = !opts?.trialEndIso && opts?.moneyBackUntilIso
     ? formatTrialEndDateTime(opts.moneyBackUntilIso)
     : null;
@@ -467,8 +474,7 @@ export async function sendPaidWelcomeEmail(
     '',
     methodologyTextLine(),
     '',
-    ...apiKeyTextLines(),
-    '',
+    ...(includeApiKeys ? [...apiKeyTextLines(), ''] : []),
     growthLine,
     '',
     "Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
@@ -498,7 +504,7 @@ export async function sendPaidWelcomeEmail(
       </p>
       <p style="font-size: 13px; color: #555;">${TRIAL_DISCLAIMER_LINE}</p>
       ${methodologyHtmlBlock()}
-      ${apiKeyHtmlBlock()}
+      ${includeApiKeys ? apiKeyHtmlBlock() : ''}
       <p>${growthLine}</p>
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again\u00a0- I really appreciate your support.</p>
@@ -614,8 +620,11 @@ export async function sendTrialQuickstartEmail(
 
 export async function sendFoundingWelcomeEmail(
   to: string,
-  opts?: { trialEndIso?: string | null },
+  // apiKeyEligible: as in sendPaidWelcomeEmail. The founding offer had a Basic
+  // rate too, so this reaches Basic founders.
+  opts?: { trialEndIso?: string | null; apiKeyEligible?: boolean },
 ) {
+  const includeApiKeys = opts?.apiKeyEligible !== false;
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const subject = 'Thank you for subscribing to ZeroGEX!';
 
@@ -636,8 +645,7 @@ export async function sendFoundingWelcomeEmail(
     '',
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
     '',
-    ...apiKeyTextLines(),
-    '',
+    ...(includeApiKeys ? [...apiKeyTextLines(), ''] : []),
     "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again\u00a0- I really appreciate your support.',
@@ -655,7 +663,7 @@ export async function sendFoundingWelcomeEmail(
       ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
-      ${apiKeyHtmlBlock()}
+      ${includeApiKeys ? apiKeyHtmlBlock() : ''}
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again\u00a0- I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -1400,8 +1408,11 @@ export async function sendCheckoutRecoveryEmail(
   }
 }
 
-export async function sendWelcomeBackEmail(to: string) {
+// opts.apiKeyEligible: as in sendPaidWelcomeEmail. A returning Basic member
+// never held a key, so "your old key was revoked" would be news about nothing.
+export async function sendWelcomeBackEmail(to: string, opts?: { apiKeyEligible?: boolean }) {
   const subject = 'Welcome back to ZeroGEX!';
+  const includeApiKeys = opts?.apiKeyEligible !== false;
   const text = [
     'Hello,',
     '',
@@ -1409,8 +1420,7 @@ export async function sendWelcomeBackEmail(to: string) {
     '',
     "ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.",
     '',
-    ...apiKeyTextLines(API_KEY_INTRO_RETURNING),
-    '',
+    ...(includeApiKeys ? [...apiKeyTextLines(API_KEY_INTRO_RETURNING), ''] : []),
     "Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again\u00a0- I really appreciate your support.',
@@ -1427,7 +1437,7 @@ export async function sendWelcomeBackEmail(to: string) {
       <p>Hello,</p>
       <p>I just wanted to personally thank you for coming back to ZeroGEX\u00a0- it really does mean a lot to have you here again.</p>
       <p>ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.</p>
-      ${apiKeyHtmlBlock(API_KEY_INTRO_RETURNING)}
+      ${includeApiKeys ? apiKeyHtmlBlock(API_KEY_INTRO_RETURNING) : ''}
       <p>Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again\u00a0- I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>

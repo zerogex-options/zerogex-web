@@ -9,7 +9,7 @@ import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 import { needsTermsAcceptance } from '@/core/legalTerms';
 import { integrationRoutes } from '@/core/integrations';
 import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
-import { PRO_WELCOME_SESSION_KEY, isProWelcomeEligible } from '@/core/proWelcome';
+import { PRO_WELCOME_SESSION_KEY, isWelcomeEligible } from '@/core/proWelcome';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
@@ -39,8 +39,9 @@ const getFoundingLockinGateClient = () => {
   }
 };
 
-// Pro-welcome session gate, same SSR-safe shape as the founding one above. The
-// authoritative one-time gate is the server flag (user.proWelcomeSeenAt); this
+// Welcome session gate, same SSR-safe shape as the founding one above. The
+// authoritative one-time gates are the server flags (user.proWelcomeSeenAt /
+// user.basicWelcomeSeenAt); this
 // sessionStorage check is only a within-session backstop so a failed persist
 // can't re-pop the modal on the next client navigation. SSR returns false so
 // the modal never renders during hydration.
@@ -242,11 +243,11 @@ export default function ClientLayout({
     />
   ) : null;
 
-  // One-time "Welcome to Pro" onboarding. Waits for the disclaimer AND founding
-  // modals to clear so at most one modal is ever on screen. Gated by the server
-  // seen-flag (isProWelcomeEligible) plus the sessionStorage backstop, and
-  // suppressed on the auth/legal/checkout/account routes. Fires for a freshly
-  // subscribed Pro member on their first landing back from Stripe checkout.
+  // One-time first-run welcome (Pro, or a new Basic member). Waits for the
+  // disclaimer AND founding modals to clear so at most one modal is ever on
+  // screen. Gated by the server seen-flags (isWelcomeEligible) plus the
+  // sessionStorage backstop, and suppressed on the auth/legal/checkout/account
+  // routes. Fires on a new member's first landing back from Stripe checkout.
   const shouldShowProWelcome =
     !shouldShowTerms &&
     !shouldShowDisclaimer &&
@@ -255,7 +256,7 @@ export default function ClientLayout({
     !proWelcomeClosed &&
     !PRO_WELCOME_SUPPRESSED_ROUTES.has(pathname) &&
     authSession?.authenticated === true &&
-    isProWelcomeEligible(authSession.user);
+    isWelcomeEligible(authSession.user);
 
   const markProWelcomeSeenForSession = useCallback(() => {
     try {
@@ -270,6 +271,7 @@ export default function ClientLayout({
   const proWelcomeModal = shouldShowProWelcome ? (
     <ProWelcomeModal
       theme={theme}
+      tier={authSession?.user?.tier === 'pro' ? 'pro' : 'basic'}
       onClose={() => {
         markProWelcomeSeenForSession();
         void refreshAuth();

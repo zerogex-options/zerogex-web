@@ -25,6 +25,8 @@ import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import TrialStartedBanner from './TrialStartedBanner';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useDensity } from '@/core/DensityContext';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { isNewMember } from '@/core/newMember';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
@@ -76,6 +78,12 @@ export default function DashboardPage() {
   const { symbol } = useTimeframe();
   const { density, detailed } = useDensity();
   const t = usePageT(dict);
+  // A member's first two weeks (core/newMember.ts): Today's Read opens by
+  // default so the plain-English summary is the first thing they read, not a
+  // folded row. Null while the session loads, which keeps the server render
+  // and hydration on the Simple-mode default.
+  const { data: authSession } = useAuthSession();
+  const newMember = isNewMember(authSession?.user?.memberSince);
 
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
@@ -153,12 +161,16 @@ export default function DashboardPage() {
       {/* Today's Read — the auto-generated regime prose. Collapsed by default in
           Simple mode so the dashboard opens glance-first; the compact Trade Bias
           summary below carries the at-a-glance directional read. Composed from
-          the same buildReportModel as /live-bulletin so the two stay in sync. */}
+          the same buildReportModel as /live-bulletin so the two stay in sync.
+          Open for a new member whatever the density: it is the one place the
+          levels are explained in words, and 'too much information, hard to
+          find the core of it' is what leavers tell us. newMember is in the key
+          so the section remounts open once the session resolves. */}
       <Collapsible
-        key={`todays-read-${density}`}
+        key={`todays-read-${density}-${newMember ? 'new' : 'member'}`}
         title={t('todaysReadTitle')}
         subtitle={t('todaysReadSubtitle')}
-        defaultOpen={detailed}
+        defaultOpen={detailed || newMember}
       >
         <TodaysReadCard model={todaysReadModel} bulletinLink />
       </Collapsible>

@@ -398,6 +398,14 @@ function initDb(): DatabaseSync {
     ).run(new Date().toISOString());
   }
 
+  // The same first-run welcome for a new BASIC member (core/proWelcome.ts
+  // isWelcomeEligible). Its own stamp rather than pro_welcome_seen_at so a
+  // member who saw the Basic version still gets the Pro one, with its API-key
+  // announcement, when they upgrade. Deliberately NOT backfilled: eligibility
+  // also requires a first subscription inside core/newMember's two-week
+  // window, which is what keeps it off the established Basic base.
+  ensureColumn('users', 'basic_welcome_seen_at', 'TEXT');
+
   // Idempotency latch for the ~48h-before-trial-end reminder nudge sent by
   // scripts/send-trial-reminders.mts. NULL = eligible, set to the ISO
   // timestamp of the send once delivered. Cleared back to NULL the next

@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
-import { normalizeTier, TierId } from '@/core/auth';
+import { isApiKeyEligibleTier, normalizeTier, TierId } from '@/core/auth';
 import { revokeApiKeysIfTierDropped } from '@/core/apiKeys';
 import { resolveSubscriptionCard } from '@/core/stripeCard';
 import {
@@ -1145,7 +1145,7 @@ async function syncSubscriptionToUser(
   // still guards on ACTIVE_STATUSES internally, so a past_due-in-grace grant
   // (grantsTier true, status past_due) no-ops there as before.
   if (grantsTier) {
-    await maybeSendPaidWelcomeEmail(user, subscription);
+    await maybeSendPaidWelcomeEmail(user, subscription, nextTier);
   }
 
   // Referral rewards must reflect a REAL paid conversion, not a trial start.
@@ -1378,8 +1378,12 @@ async function firstInvoiceTookMoney(subscription: Stripe.Subscription): Promise
 async function maybeSendPaidWelcomeEmail(
   user: UserRow,
   subscription: Stripe.Subscription,
+  // The tier this sync grants. Decides whether the email's API-key paragraph
+  // applies (keys are Pro-only).
+  tier: TierId,
 ): Promise<void> {
   if (!ACTIVE_STATUSES.has(subscription.status)) return;
+  const apiKeyEligible = isApiKeyEligibleTier(tier);
 
   const stamp = nowIso();
 
@@ -1444,9 +1448,9 @@ async function maybeSendPaidWelcomeEmail(
         : null;
     try {
       if (isFounding) {
-        await sendFoundingWelcomeEmail(user.email, { trialEndIso });
+        await sendFoundingWelcomeEmail(user.email, { trialEndIso, apiKeyEligible });
       } else {
-        await sendPaidWelcomeEmail(user.email, { trialEndIso, trialDays, promoIntroLabel, moneyBackUntilIso });
+        await sendPaidWelcomeEmail(user.email, { trialEndIso, trialDays, promoIntroLabel, moneyBackUntilIso, apiKeyEligible });
       }
       logAudit({
         type: 'paid_welcome_email_sent',
@@ -1484,7 +1488,7 @@ async function maybeSendPaidWelcomeEmail(
   if (Number(welcomeBackClaim.changes) === 0) return;
 
   try {
-    await sendWelcomeBackEmail(user.email);
+    await sendWelcomeBackEmail(user.email, { apiKeyEligible });
     logAudit({
       type: 'paid_welcome_back_email_sent',
       userId: user.id,

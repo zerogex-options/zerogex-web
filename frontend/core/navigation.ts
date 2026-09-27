@@ -1,4 +1,5 @@
 import type { TranslationKey } from '@/core/i18n';
+import { HAS_LIVE_QUICK_STARTS } from '@/core/quickStarts';
 
 // `label` is the stable English string — used as a fallback AND as the key for
 // expand/collapse state, so it must never change per-locale. `labelKey`, when
@@ -255,7 +256,11 @@ export const NAV_GROUPS: NavGroup[] = [
         items: [
           { id: '/help/platform', label: 'Platform Guide', labelKey: 'nav.platformGuide' },
           { id: '/help/faqs', label: 'FAQs' },
-          { id: '/help/quickstarts', label: 'Quick Starts', labelKey: 'nav.quickStarts' },
+          // Listed only once a video is published (core/quickStarts.ts). Until
+          // then the page is a list of placeholders, not a place to send anyone.
+          ...(HAS_LIVE_QUICK_STARTS
+            ? [{ id: '/help/quickstarts', label: 'Quick Starts', labelKey: 'nav.quickStarts' } satisfies NavItem]
+            : []),
         ],
       },
     ],

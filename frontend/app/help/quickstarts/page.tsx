@@ -1,306 +1,22 @@
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, PlayCircle, Clock, Bookmark } from 'lucide-react';
+import { ArrowLeft, ArrowRight, PlayCircle, Clock } from 'lucide-react';
+import { liveQuickStartTracks, type Walkthrough } from '@/core/quickStarts';
 
 export const metadata = {
   title: 'ZeroGEX Quick Starts: Short Video Walkthroughs',
   description:
-    'Short, focused video walkthroughs for the ZeroGEX platform, now being recorded\u00a0- reading the dashboard, using signals, building a strategy, and more.',
+    'Short, focused video walkthroughs for the ZeroGEX platform, now being recorded - reading the dashboard, using signals, building a strategy, and more.',
   alternates: { canonical: '/help/quickstarts' },
 };
 
-type Walkthrough = {
-  id: string;
-  title: string;
-  blurb: string;
-  duration: string;
-  level: 'New trader' | 'Returning' | 'Advanced';
-  tag: string;
-  status: 'live' | 'coming-soon';
-  href?: string;
-};
-
-type Track = {
-  id: string;
-  title: string;
-  blurb: string;
-  walkthroughs: Walkthrough[];
-};
-
-const tracks: Track[] = [
-  {
-    id: 'onboarding',
-    title: 'Onboarding',
-    blurb: 'Your first 15 minutes\u00a0- sign up, orient, find the page you need.',
-    walkthroughs: [
-      {
-        id: 'tour',
-        title: 'ZeroGEX in 90 seconds',
-        blurb: 'A high-altitude tour of the platform\u00a0- the sidebar, the dashboard, the signals, the bulletin. Watch this first.',
-        duration: '1:30',
-        level: 'New trader',
-        tag: 'Orientation',
-        status: 'coming-soon',
-      },
-      {
-        id: 'first-trade',
-        title: 'Your first trade in ZeroGEX',
-        blurb: 'From the morning open to a structured trade on SPX\u00a0- the workflow a working ZeroGEX user runs daily.',
-        duration: '3:10',
-        level: 'New trader',
-        tag: 'Workflow',
-        status: 'coming-soon',
-      },
-      {
-        id: 'sign-up-and-set-up',
-        title: 'Sign up, verify, and configure preferences',
-        blurb: 'The account setup happy path\u00a0- Google or email, email verification, theme and palette, and the symbol picker.',
-        duration: '1:45',
-        level: 'New trader',
-        tag: 'Account',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'dashboard-and-bulletin',
-    title: 'Dashboard &amp; Bulletin',
-    blurb: 'The two pages you keep open all day.',
-    walkthroughs: [
-      {
-        id: 'reading-dashboard',
-        title: 'Reading the Dashboard in 30 seconds',
-        blurb: 'The discipline of a morning read\u00a0- the Key Levels strip, the gamma regime, Today\'s Read, the Trade Bias card. The right order.',
-        duration: '2:20',
-        level: 'New trader',
-        tag: 'Dashboard',
-        status: 'coming-soon',
-      },
-      {
-        id: 'bulletin-tour',
-        title: 'Live Bulletin tour',
-        blurb: 'Picking a symbol and horizon, reading the regime, key levels, and expected-range band, and exporting the card to share.',
-        duration: '2:00',
-        level: 'New trader',
-        tag: 'Live Bulletin',
-        status: 'coming-soon',
-      },
-      {
-        id: 'regime-cues',
-        title: 'Spotting regime changes early',
-        blurb: 'The cues that say "we are about to flip"\u00a0- heatmap migration, vol expansion, walls drifting.',
-        duration: '2:45',
-        level: 'Returning',
-        tag: 'Dashboard',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'signals',
-    title: 'Signals',
-    blurb: 'Reading the score line, the cards, and the triggers.',
-    walkthroughs: [
-      {
-        id: 'score-line',
-        title: 'Reading the −100 to +100 score line',
-        blurb: 'Sign, magnitude, when a 0 is a non-answer, and the Trade Bias card that changes the meaning of the score.',
-        duration: '2:30',
-        level: 'New trader',
-        tag: 'Signals',
-        status: 'coming-soon',
-      },
-      {
-        id: 'basic-vs-advanced',
-        title: 'Basic vs Advanced signals',
-        blurb: 'Why some signals trigger and others are advisory early warnings that stay out of the composite. How the distinction changes how you use them.',
-        duration: '2:15',
-        level: 'New trader',
-        tag: 'Signals',
-        status: 'coming-soon',
-      },
-      {
-        id: 'composite-walkthrough',
-        title: 'Using the Composite Score',
-        blurb: 'How to read the 0-100 MSI gauge, the six-component contribution bar, and when the composite is unhelpful.',
-        duration: '2:50',
-        level: 'Returning',
-        tag: 'Composite Score',
-        status: 'coming-soon',
-      },
-      {
-        id: 'eod-pressure',
-        title: 'Trading the close with EOD Pressure',
-        blurb: 'The 14:30 → 15:45 ramp, the trigger, and the Trade Bias card in the final 90 minutes.',
-        duration: '3:00',
-        level: 'Returning',
-        tag: 'EOD Pressure',
-        status: 'coming-soon',
-      },
-      {
-        id: 'squeeze-setup',
-        title: 'Squeeze Setup: coiled markets',
-        blurb: 'What "coiled" means, the inputs that drive the score, and when to use it as a precondition filter.',
-        duration: '2:40',
-        level: 'Returning',
-        tag: 'Squeeze Setup',
-        status: 'coming-soon',
-      },
-      {
-        id: 'trap-detection',
-        title: 'Trap Detection: fading failed breakouts',
-        blurb: 'Reading the score after a break of the call wall or put wall\u00a0- when the snap-back is the trade.',
-        duration: '2:55',
-        level: 'Returning',
-        tag: 'Trap Detection',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'metrics',
-    title: 'Metrics &amp; Structure',
-    blurb: 'The structural pages\u00a0- GEX, flow, max pain, technicals.',
-    walkthroughs: [
-      {
-        id: 'dealer-positioning-tour',
-        title: 'Dealer Positioning tour',
-        blurb: 'Gamma exposure and open interest by strike, the strike × DTE heatmap, and what the regime header tells you.',
-        duration: '3:00',
-        level: 'New trader',
-        tag: 'Dealer Positioning',
-        status: 'coming-soon',
-      },
-      {
-        id: 'reading-the-flip',
-        title: 'Reading the gamma flip',
-        blurb: 'How to interpret distance-to-flip, why it matters, and how dealer behavior changes when you cross.',
-        duration: '2:35',
-        level: 'Returning',
-        tag: 'Dealer Positioning',
-        status: 'coming-soon',
-      },
-      {
-        id: 'flow-analysis',
-        title: 'Flow Analysis in practice',
-        blurb: 'Premium-weighted flow vs. net volume vs. directional flow\u00a0- when each matters and why.',
-        duration: '2:50',
-        level: 'Returning',
-        tag: 'Flow',
-        status: 'coming-soon',
-      },
-      {
-        id: 'smart-money',
-        title: 'Reading the Smart Money screen',
-        blurb: 'What qualifies as smart money, the call/put notional split, and how to use the bias intraday.',
-        duration: '2:30',
-        level: 'Returning',
-        tag: 'Smart Money',
-        status: 'coming-soon',
-      },
-      {
-        id: 'max-pain',
-        title: 'Max Pain: magnet or coincidence?',
-        blurb: 'When max pain is reliable, when it is not, and how to read it next to the wall structure.',
-        duration: '2:20',
-        level: 'New trader',
-        tag: 'Max Pain',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'strategy',
-    title: 'Strategy Tools',
-    blurb: 'Building, pricing, and stress-testing positions.',
-    walkthroughs: [
-      {
-        id: 'strategy-builder',
-        title: 'Strategy Builder walkthrough',
-        blurb: 'Building a vertical, a calendar, and a 1-by-2\u00a0- and reading the P&amp;L-at-expiration chart for each.',
-        duration: '3:10',
-        level: 'Returning',
-        tag: 'Strategy Builder',
-        status: 'coming-soon',
-      },
-      {
-        id: 'live-chain',
-        title: 'Reading a live options quote',
-        blurb: 'Picking a contract by expiration, strike, and type, then reading its intraday price, bid/ask volume, open interest, IV, delta, and theta.',
-        duration: '2:15',
-        level: 'New trader',
-        tag: 'Live Options Quotes',
-        status: 'coming-soon',
-      },
-      {
-        id: 'backtest-a-rule',
-        title: 'Running your first backtest',
-        blurb: 'Setting up a single-condition rule, reading the equity curve, and the out-of-sample discipline.',
-        duration: '3:20',
-        level: 'Advanced',
-        tag: 'Backtesting',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'account-and-billing',
-    title: 'Account &amp; Billing',
-    blurb: 'The administrative basics.',
-    walkthroughs: [
-      {
-        id: 'manage-subscription',
-        title: 'Managing your subscription',
-        blurb: 'Upgrading from Basic to Pro, switching to annual, updating payment method, and canceling cleanly.',
-        duration: '1:50',
-        level: 'New trader',
-        tag: 'Billing',
-        status: 'coming-soon',
-      },
-      {
-        id: 'linked-providers',
-        title: 'Linking a sign-in provider',
-        blurb: 'Connecting Google, setting a password as fallback, and safely unlinking.',
-        duration: '1:30',
-        level: 'New trader',
-        tag: 'Account',
-        status: 'coming-soon',
-      },
-      {
-        id: 'referrals',
-        title: 'Using your referral code',
-        blurb: 'Where to find it, how credits land on your bill, and the rules of the program.',
-        duration: '1:40',
-        level: 'New trader',
-        tag: 'Referrals',
-        status: 'coming-soon',
-      },
-    ],
-  },
-  {
-    id: 'api',
-    title: 'API &amp; Developer',
-    blurb: 'For Pro subscribers using the data programmatically.',
-    walkthroughs: [
-      {
-        id: 'api-keys',
-        title: 'Generating an API key',
-        blurb: 'The Pro key flow\u00a0- generation, rotation, and the "copy now" pitfall.',
-        duration: '1:35',
-        level: 'Advanced',
-        tag: 'API',
-        status: 'coming-soon',
-      },
-      {
-        id: 'first-api-call',
-        title: 'Your first API call',
-        blurb: 'A working request against the GEX summary endpoint, with rate-limit handling and a JSON walkthrough.',
-        duration: '3:00',
-        level: 'Advanced',
-        tag: 'API',
-        status: 'coming-soon',
-      },
-    ],
-  },
+// The written guides that cover the same ground the Onboarding videos will, in
+// the order a new member needs them. Shown in place of the video library until
+// the first walkthrough is published.
+const WRITTEN_GUIDES = [
+  { href: '/help/platform/getting-started', label: 'Getting Started', note: 'Your first session, step by step.' },
+  { href: '/help/platform/dashboard', label: 'Reading the Dashboard', note: 'What each part of the main page tells you.' },
+  { href: '/help/platform', label: 'Platform Guide', note: 'Every page, covered in writing.' },
+  { href: '/help/faqs', label: 'FAQs', note: 'The questions new members ask most.' },
 ];
 
 function levelStyle(level: Walkthrough['level']) {
@@ -314,14 +30,13 @@ function levelStyle(level: Walkthrough['level']) {
   }
 }
 
+// Only published walkthroughs reach this card (liveQuickStartTracks requires
+// status 'live' and an href), so there is no placeholder state to render.
 function WalkthroughCard({ wt }: { wt: Walkthrough }) {
-  const isComingSoon = wt.status === 'coming-soon';
   return (
     <div
       id={wt.id}
-      className={`zg-feature-shell group flex flex-col overflow-hidden transition ${
-        isComingSoon ? '' : 'hover:border-[var(--color-warning-soft)]'
-      }`}
+      className="zg-feature-shell group flex flex-col overflow-hidden transition hover:border-[var(--color-warning-soft)]"
     >
       <div className="relative flex aspect-video items-center justify-center border-b border-[var(--color-border)] bg-gradient-to-br from-[var(--color-warning-soft)] via-[var(--bg-card)] to-[var(--color-info-soft)]">
         <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-[var(--color-warning-soft)] bg-[var(--bg-card)] text-[var(--color-warning)] shadow-sm">
@@ -331,11 +46,6 @@ function WalkthroughCard({ wt }: { wt: Walkthrough }) {
           <Clock size={10} />
           {wt.duration}
         </div>
-        {isComingSoon && (
-          <div className="absolute left-3 top-3 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
-            Coming soon
-          </div>
-        )}
       </div>
       <div className="flex flex-1 flex-col p-5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -348,11 +58,7 @@ function WalkthroughCard({ wt }: { wt: Walkthrough }) {
         </div>
         <h3 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]" dangerouslySetInnerHTML={{ __html: wt.title }} />
         <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]" dangerouslySetInnerHTML={{ __html: wt.blurb }} />
-        {isComingSoon ? (
-          <div className="text-xs font-semibold text-[var(--color-text-secondary)]">
-            We&apos;re recording this. Bookmark the page and check back.
-          </div>
-        ) : wt.href ? (
+        {wt.href && (
           <Link
             href={wt.href}
             className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]"
@@ -360,14 +66,15 @@ function WalkthroughCard({ wt }: { wt: Walkthrough }) {
             Watch
             <ArrowRight size={14} />
           </Link>
-        ) : null}
+        )}
       </div>
     </div>
   );
 }
 
 export default function QuickStartsPage() {
-  const totalCount = tracks.reduce((sum, t) => sum + t.walkthroughs.length, 0);
+  const tracks = liveQuickStartTracks();
+  const liveCount = tracks.reduce((sum, t) => sum + t.walkthroughs.length, 0);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
@@ -382,56 +89,62 @@ export default function QuickStartsPage() {
           Quick Starts
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Quick Start Walkthroughs</h1>
-        <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Short, focused video walkthroughs&nbsp;- most run under 3 minutes&nbsp;- that show you exactly how
-          to read a chart, run a screen, or configure a feature. The library is being recorded;
-          walkthroughs will appear here as they&apos;re published.
-        </p>
-        <div className="flex flex-wrap gap-3 text-xs">
-          <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
-            {totalCount} walkthroughs planned
-          </div>
-          <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
-            {tracks.length} tracks
-          </div>
-          <div className="rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1.5 font-semibold text-[var(--color-warning)]">
-            <Bookmark size={11} className="-mt-0.5 mr-1 inline" />
-            Bookmark this page
-          </div>
+        {liveCount > 0 ? (
+          <>
+            <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
+              Short, focused video walkthroughs&nbsp;- most run under 3 minutes&nbsp;- that show you exactly how
+              to read a chart, run a screen, or configure a feature. New ones appear here as they&apos;re published.
+            </p>
+            <div className="flex flex-wrap gap-3 text-xs">
+              <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
+                {liveCount} {liveCount === 1 ? 'walkthrough' : 'walkthroughs'}
+              </div>
+              <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
+                {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
+            Short video walkthroughs of the platform are being recorded and will appear here as they&apos;re
+            published. Until then, these written guides cover the same ground.
+          </p>
+        )}
+      </div>
+
+      {liveCount > 0 ? (
+        <div className="space-y-10">
+          {tracks.map((track) => (
+            <section key={track.id} id={track.id}>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]" dangerouslySetInnerHTML={{ __html: track.title }} />
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{track.blurb}</p>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {track.walkthroughs.map((wt) => (
+                  <WalkthroughCard key={wt.id} wt={wt} />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
-      </div>
-
-      <div className="mb-8 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-5">
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Quick Start library&nbsp;- rolling launch</h3>
-        <p className="text-sm leading-6 text-[var(--color-text-primary)]">
-          We&apos;ll publish walkthroughs on a rolling basis. The cards below show what&apos;s planned;
-          the videos themselves are being recorded. In the meantime, the{' '}
-          <Link href="/help/platform" className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
-            Platform Guide
-          </Link>{' '}
-          covers the platform in writing and the{' '}
-          <Link href="/help/faqs" className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
-            FAQs
-          </Link>{' '}
-          cover the most common questions.
-        </p>
-      </div>
-
-      <div className="space-y-10">
-        {tracks.map((track) => (
-          <section key={track.id} id={track.id}>
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]" dangerouslySetInnerHTML={{ __html: track.title }} />
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{track.blurb}</p>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {track.walkthroughs.map((wt) => (
-                <WalkthroughCard key={wt.id} wt={wt} />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {WRITTEN_GUIDES.map((guide) => (
+            <Link
+              key={guide.href}
+              href={guide.href}
+              className="zg-feature-shell group flex items-start justify-between gap-3 p-5 transition hover:border-[var(--color-warning-soft)]"
+            >
+              <span>
+                <span className="block text-base font-semibold text-[var(--color-text-primary)]">{guide.label}</span>
+                <span className="mt-1 block text-sm text-[var(--color-text-secondary)]">{guide.note}</span>
+              </span>
+              <ArrowRight size={16} className="mt-1 shrink-0 text-[var(--color-warning)]" />
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="zg-feature-shell mt-12 p-6">
         <h2 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">Want a walkthrough we haven&apos;t recorded?</h2>

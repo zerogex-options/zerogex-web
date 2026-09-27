@@ -38,6 +38,11 @@ type SessionUser = {
   // dismissed. NULL/absent = never shown, so a freshly-subscribed Pro member is
   // greeted once on their first landing back from Stripe checkout.
   proWelcomeSeenAt?: string | null;
+  // The same for the Basic version of that welcome (core/proWelcome.ts).
+  basicWelcomeSeenAt?: string | null;
+  // When the account first held a paid subscription; NULL if never. Drives the
+  // first-two-weeks onboarding defaults (core/newMember.ts).
+  memberSince?: string | null;
   // Recorded acceptance of the Terms of Service and Privacy Policy. ClientLayout
   // gates the app on termsVersionAccepted matching the published TERMS_VERSION,
   // so a NULL (an account created before the signup checkbox, or through the

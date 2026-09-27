@@ -21,7 +21,7 @@ import {
   useSignalScore,
 } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useHasTierAccess } from '@/hooks/useAuthSession';
+import { useHasTierAccess, useTierAccessState } from '@/hooks/useAuthSession';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { asObject, getNumber, trendColor } from '@/core/signalHelpers';
 import { computeBias, type BiasResult, type MarketState } from '@/core/tradeBias';
@@ -98,6 +98,12 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
   // (computeBias treats a missing signal as null), so a Basic viewer sees exactly
   // the same result, just without the doomed requests. Pro viewers are unchanged.
   const hasPro = useHasTierAccess('pro');
+  // The compact card's link opens /trade-bias, a Pro page. A Basic member
+  // clicking "Open Trade Bias" hit the plan wall with no warning, so the link
+  // says it is Pro. Read with the loading bit so a Pro member is never told
+  // that while the session is still resolving (see useTierAccessState).
+  const proAccess = useTierAccessState('pro');
+  const tradeBiasLocked = !proAccess.allowed && !proAccess.loading;
 
   const gex = useGEXSummary(symbol, 5000);
   const msi = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
@@ -262,7 +268,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
             className="ml-auto text-sm font-semibold hover:underline"
             style={{ color: 'var(--color-info)' }}
           >
-            Open Trade Bias →
+            {tradeBiasLocked ? 'Full Trade Bias is in Pro →' : 'Open Trade Bias →'}
           </Link>
         </div>
       </section>

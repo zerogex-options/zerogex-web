@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Both Pro welcome emails must tell a new subscriber how to generate their own
+// The welcome emails must tell a new Pro subscriber how to generate their own
 // API key. The in-app Pro welcome modal says it once and is dismissed for good,
 // so the email is the durable copy — if this drops out of the body, a member who
 // closed the modal has no self-serve path left and support gets the ticket.
+// And they must NOT tell a Basic member: keys are Pro-only, and since the only
+// free trial is Basic monthly, that is who most of these emails reach.
 //
 // Renders the real emails: fake Resend credentials plus a stubbed global fetch
 // (the Resend SDK's transport) capture the exact payload that would have been
@@ -123,4 +125,33 @@ test('the API-key steps are an ordered list in the HTML body, not a bare link', 
     sent.html.indexOf('Open the live dashboard') < sent.html.indexOf('API Access'),
     'the dashboard CTA should still come before the API-key guidance',
   );
+});
+
+test('the webhook-style Pro call (apiKeyEligible: true) keeps the API-key guidance', async () => {
+  const sent = await capture(() =>
+    sendPaidWelcomeEmail('member@example.com', { trialEndIso, apiKeyEligible: true }),
+  );
+  assertApiKeyGuidance(sent, 'paid welcome (Pro, explicit)');
+  assertNewSubscriberFraming(sent, 'paid welcome (Pro, explicit)');
+});
+
+test("a Basic member's welcome emails leave the API-key paragraph out", async () => {
+  const variants: ReadonlyArray<readonly [string, () => Promise<void>]> = [
+    ['paid welcome (trial copy)', () => sendPaidWelcomeEmail('member@example.com', { trialEndIso, apiKeyEligible: false })],
+    ['paid welcome (no-trial copy)', () => sendPaidWelcomeEmail('member@example.com', { apiKeyEligible: false })],
+    ['founding welcome', () => sendFoundingWelcomeEmail('founder@example.com', { trialEndIso, apiKeyEligible: false })],
+    ['welcome back', () => sendWelcomeBackEmail('returning@example.com', { apiKeyEligible: false })],
+  ];
+  for (const [label, send] of variants) {
+    const sent = await capture(send);
+    for (const [format, body] of [
+      ['text', sent.text],
+      ['html', sent.html],
+    ] as const) {
+      const where = `${label} (${format})`;
+      assert.doesNotMatch(body, /API key/i, `${where}: no API-key paragraph`);
+      assert.doesNotMatch(body, /Pro plan/, `${where}: does not call a Basic plan Pro`);
+      assert.ok(!body.includes(`${APP_URL}/account#api-access`), `${where}: no API Access deep link`);
+    }
+  }
 });
