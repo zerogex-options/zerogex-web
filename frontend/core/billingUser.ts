@@ -123,10 +123,10 @@ export function findUserByCustomerIdIncludingDeleted(customerId: string): Billin
 // spurious "your payment went through."
 //
 // cancel_ack_email_sent_at goes with cancel_at_period_end. It latches the
-// acknowledgment of THIS subscription's pending cancel, so it ends with the
-// subscription. Left set, it outlived the lapse, and when a returning member
-// later canceled their new subscription the webhook's claim found it taken and
-// sent nothing: no acknowledgment, no one-click save offer.
+// acknowledgment of THIS subscription's pending cancel (core/cancelAck.ts), so
+// it ends with the subscription. Left set, it outlived the lapse, and when a
+// returning member later canceled their new subscription the claim found it
+// taken and sent nothing: no acknowledgment, no one-click save offer.
 //
 // Only when the row still points at THIS subscription (or at none). The
 // webhook's ordering guard compares events per subscription, so a deletion

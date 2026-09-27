@@ -509,6 +509,7 @@ function initDb(): DatabaseSync {
   // transition (reactivation) so a future re-cancel can re-fire, and when the
   // subscription ends (core/billingUser.ts markSubscriptionEnded) so a member
   // who lapses and later resubscribes is acknowledged when they cancel again.
+  // The whole lifecycle is in core/cancelAck.ts.
   ensureColumn('users', 'cancel_ack_email_sent_at', 'TEXT');
 
   // Idempotency latch for the ~1-month-after-churn win-back email sent by
