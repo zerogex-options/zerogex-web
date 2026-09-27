@@ -88,13 +88,13 @@ When most of these conditions line up, treating the breakout as real is the high
 
 ## How to read this on ZeroGEX in real time
 
-The free `/spx-gamma-levels` view surfaces the three conditions side by side:
+The free `/spx-gamma-levels` page, delayed about 15 minutes, surfaces the three conditions side by side:
 
 - **Gamma Flip card** - tells you which regime you're in.
 - **Net GEX card** - tells you the magnitude and (over time) the trajectory of dealer positioning.
-- **Call Wall card** - tells you the current heaviest call strike with live distance from spot.
+- **Call Wall card** - tells you the current heaviest call strike with its distance from spot.
 
-Paid plans add the **Trap Detection** signal, a derived score in [-1, +1] designed to flag when the current break is structurally more likely to fail - a modeled read, not a guaranteed forecast. A bearish-fade reading represents *all three* of the conditions above stacking on the failure side.
+Both paid plans show these levels in real time, and ZeroGEX Pro adds the **Trap Detection** signal, a derived score from -100 to +100 designed to flag when the current break is structurally more likely to fail - a modeled read, not a guaranteed forecast. A bearish-fade reading represents *all three* of the conditions above stacking on the failure side.
 
 A worked example. SPY is at 583.20 and ZeroGEX shows:
 
@@ -129,4 +129,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's gamma flip, Net GEX, and the live wall positioning before you take your next breakout trade, the free ZeroGEX gamma-levels view surfaces all three for SPY, SPX, QQQ, and NDX.
+If you want to see today's gamma flip, Net GEX, and wall positioning before you take your next breakout trade, the free ZeroGEX gamma-levels pages show all three for SPY, SPX, QQQ, and NDX on a roughly 15-minute delay.

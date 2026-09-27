@@ -90,13 +90,13 @@ Wenn die meisten dieser Bedingungen zutreffen, ist es die Lesart mit der höhere
 
 ## Wie man das bei ZeroGEX in Echtzeit liest
 
-Die kostenlose `/spx-gamma-levels`-Ansicht zeigt die drei Bedingungen nebeneinander:
+Die kostenlose `/spx-gamma-levels`-Ansicht, rund 15 Minuten verzögert, zeigt die drei Bedingungen nebeneinander:
 
 - **Gamma Flip Card** - zeigt dir, in welchem Regime du dich befindest.
 - **Net GEX Card** - zeigt dir die Größenordnung und (im Zeitverlauf) die Entwicklung der Dealer-Positionierung.
-- **Call Wall Card** - zeigt dir den aktuell gewichtigsten Call-Strike mit Live-Abstand zum Spot.
+- **Call Wall Card** - zeigt dir den aktuell gewichtigsten Call-Strike mit seinem Abstand zum Spot.
 
-Bezahlte Pläne ergänzen das **Trap Detection**-Signal, das mit einem Score von [-1, +1] bewertet, wie strukturell wahrscheinlich es ist, dass der aktuelle Ausbruch scheitert. Eine ausgelöste Bearish-Fade-Lesart bedeutet, dass sich *alle drei* der oben genannten Bedingungen auf der Seite des Scheiterns stapeln.
+Beide bezahlten Pläne zeigen diese Levels in Echtzeit, und ZeroGEX Pro ergänzt das **Trap Detection**-Signal, das mit einem Score von -100 bis +100 bewertet, wie strukturell wahrscheinlich es ist, dass der aktuelle Ausbruch scheitert. Eine ausgelöste Bearish-Fade-Lesart bedeutet, dass sich *alle drei* der oben genannten Bedingungen auf der Seite des Scheiterns stapeln.
 
 Ein Beispiel aus der Praxis. SPY steht bei 583,20 und ZeroGEX zeigt:
 
@@ -131,4 +131,4 @@ Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Gamma Flip, das Net GEX und die Live-Positionierung der Wall sehen möchtest, bevor du deinen nächsten Breakout-Trade eingehst, zeigt dir die kostenlose ZeroGEX-Gamma-Levels-Ansicht alle drei für SPY, SPX, QQQ und NDX.
+Wenn du den heutigen Gamma Flip, das Net GEX und die Positionierung der Wall sehen möchtest, bevor du deinen nächsten Breakout-Trade eingehst, zeigen dir die kostenlosen ZeroGEX-Gamma-Levels-Seiten alle drei für SPY, SPX, QQQ und NDX, mit rund 15 Minuten Verzögerung.
