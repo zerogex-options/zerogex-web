@@ -61,7 +61,7 @@ A null gamma flip explains itself the same way, in `levels.gamma_flip_reason`: `
 
 `SPY`, `QQQ`, `SPX`, `NDX`, `ES`, `NQ`. Anything else is a `404`.
 
-ES and NQ have no separate options book. Gamma is computed from the SPX and NDX chains, and the price-space levels are carried onto the futures axis server-side using a measured index/future ratio. They arrive already on the right axis - there is no basis offset to apply, and applying one will put every level in the wrong place. Exposure values are deliberately *not* rescaled, so relative gamma magnitudes stay comparable.
+ES and NQ have no separate options book. Gamma is computed from the SPX and NDX chains, and the price-space levels are carried onto the futures axis server-side using the theoretical cost-of-carry ratio for the contract being quoted. Carry is fair value, so the levels can sit slightly off when futures trade rich or cheap to it. They arrive already on the right axis - there is no basis offset to apply, and applying one will put every level in the wrong place. Exposure values are deliberately *not* rescaled, so relative gamma magnitudes stay comparable.
 
 ## Tool definitions to start from
 

@@ -46,7 +46,7 @@ Once the old contract expires, every platform is on the new one and the differen
 
 ## Does this affect the dealer levels?
 
-No. The gamma flip, the walls, max pain and the rest are computed from the SPX and NDX options chains and then carried onto the futures price axis, using a ratio measured off the tape rather than modeled from carry. The projection re-measures itself through each roll, so the levels track whichever contract we are quoting without a basis offset to configure. See [Data Coverage & Refresh](/help/platform/data-coverage) for how ES and NQ are served.
+No. The gamma flip, the walls, max pain and the rest are computed from the SPX and NDX options chains and then carried onto the futures price axis using the theoretical cost of carry for the contract we are quoting. At a roll the projection moves to the new contract's carry along with the price, so the levels track whichever contract we are quoting without a basis offset to configure. Because carry is fair value, the levels can sit slightly off when futures trade rich or cheap to it. See [Data Coverage & Refresh](/help/platform/data-coverage) for how ES and NQ are served.
 
 ## Still not matching?
 
