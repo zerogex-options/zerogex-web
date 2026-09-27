@@ -183,4 +183,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's max pain read in real time, alongside the gamma flip, the call and put walls, and the dealer gamma profile that decides whether any pin thesis has a mechanism behind it, the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's max pain alongside the gamma flip, the call and put walls, and the dealer gamma profile that decides whether any pin thesis has a mechanism behind it, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show all of it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The paid plans show the same read [in real time](/real-time-gex-0dte).

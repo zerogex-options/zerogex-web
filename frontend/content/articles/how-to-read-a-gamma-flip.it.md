@@ -117,4 +117,4 @@ Solo a scopo educativo - nulla di quanto sopra è una raccomandazione di tradin
 
 ---
 
-Se vuoi vedere la [lettura del gamma flip di oggi in tempo reale](/real-time-gex-0dte), [la dashboard gratuita ZeroGEX](/spx-gamma-levels) la mostra insieme al Net GEX, ai call e put wall, e al grafico del profilo gamma dei dealer. Per un confronto su come diverse piattaforme calcolano e presentano questa lettura, vedi [la guida ai migliori strumenti GEX](/education/best-gex-tools).
+Se vuoi vedere la lettura del gamma flip di oggi, [le pagine gratuite gamma-levels di ZeroGEX](/spx-gamma-levels) la mostrano insieme al Net GEX, ai call e put wall, e al grafico del profilo gamma dei dealer, con un ritardo di circa 15 minuti; i piani a pagamento la mostrano [in tempo reale](/real-time-gex-0dte). Per un confronto su come diverse piattaforme calcolano e presentano questa lettura, vedi [la guida ai migliori strumenti GEX](/education/best-gex-tools).

@@ -185,4 +185,4 @@ Contenu éducatif uniquement - rien de ce qui précède ne constitue une recomm
 
 ---
 
-Si vous souhaitez voir la lecture du max pain d'aujourd'hui en temps réel, aux côtés du gamma flip, des call et put walls, et du profil gamma des dealers qui détermine si une thèse de pin dispose d'un mécanisme sous-jacent, le dashboard gratuit de ZeroGEX affiche tout cela.
+Si vous souhaitez voir le max pain du jour aux côtés du gamma flip, des call et put walls, et du profil gamma des dealers qui détermine si une thèse de pin dispose d'un mécanisme sous-jacent, [les pages gratuites gamma-levels de ZeroGEX](/spx-gamma-levels) affichent tout cela pour SPX, SPY, QQQ et NDX, avec un décalage d'environ 15 minutes. Les formules payantes affichent la même lecture [en temps réel](/real-time-gex-0dte).

@@ -185,4 +185,4 @@ Nur Bildungsinhalt - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die heutige max-pain-Lesart in Echtzeit sehen möchtest, zusammen mit dem Gamma Flip, den Call- und Put-Walls und dem Dealer-Gamma-Profil, das entscheidet, ob eine Pin-These einen Mechanismus dahinter hat, zeigt das kostenlose ZeroGEX-Dashboard all das.
+Wenn du den heutigen Max Pain zusammen mit dem Gamma Flip, den Call- und Put-Walls und dem Dealer-Gamma-Profil sehen möchtest, das entscheidet, ob eine Pin-These einen Mechanismus dahinter hat, zeigen dir [die kostenlosen ZeroGEX-Gamma-Levels-Seiten](/spx-gamma-levels) all das für SPX, SPY, QQQ und NDX, rund 15 Minuten verzögert. Die bezahlten Pläne zeigen dieselbe Lesart [in Echtzeit](/real-time-gex-0dte).

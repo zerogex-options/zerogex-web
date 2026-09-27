@@ -202,7 +202,7 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's vanna and charm flows in real time, alongside the gamma regime that determines whether they produce drift or get overrun, the free ZeroGEX dashboard surfaces all of it.
+If you want to see today's gamma regime - the one that decides whether vanna and charm flows produce drift or get overrun - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The vanna and charm read itself is on the Vanna/Charm Flow and Dealer Positioning pages, in both paid plans and [in real time](/real-time-gex-0dte).
 
 
 > ZeroGEX signal scores are derived outputs using hand-selected inputs, weights, and thresholds unless otherwise stated. They are not calibrated probabilities or guarantees; historical validation is required before interpreting them as a performance edge.

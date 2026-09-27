@@ -162,4 +162,4 @@ Solo contenido educativo - nada de lo anterior es una recomendación de trading
 
 ---
 
-Si quieres ver hoy el [call wall y put wall en tiempo real](/real-time-gex-0dte), [el dashboard gratuito de ZeroGEX](/spx-gamma-levels) traza ambos junto al gamma flip y al perfil de gamma del dealer que los produjo. Para el panorama más amplio de herramientas de gamma exposure, consulta [la guía de las mejores herramientas GEX](/education/best-gex-tools).
+Si quieres ver el call wall y el put wall de hoy, [las páginas gratuitas de gamma-levels de ZeroGEX](/spx-gamma-levels) muestran ambos junto al gamma flip y al perfil de gamma del dealer que los produjo, con unos 15 minutos de retraso; los planes de pago los muestran [en tiempo real](/real-time-gex-0dte). Para el panorama más amplio de herramientas de gamma exposure, consulta [la guía de las mejores herramientas GEX](/education/best-gex-tools).

@@ -204,6 +204,6 @@ Contenu à visée éducative uniquement - rien de ce qui précède ne constitue
 
 ---
 
-Si vous souhaitez voir en temps réel les flux de vanna et charm du jour, ainsi que le régime gamma qui détermine s'ils produiront une dérive ou seront balayés, le dashboard gratuit de ZeroGEX affiche tout cela.
+Si vous souhaitez voir le régime gamma du jour, celui qui détermine si les flux de vanna et charm produiront une dérive ou seront balayés, [les pages gratuites gamma-levels de ZeroGEX](/spx-gamma-levels) l'affichent pour SPX, SPY, QQQ et NDX, avec un décalage d'environ 15 minutes. La lecture vanna et charm elle-même se trouve sur les pages Vanna/Charm Flow et Dealer Positioning, dans les deux formules payantes et [en temps réel](/real-time-gex-0dte).
 
 > Les scores de signaux ZeroGEX sont des résultats dérivés reposant sur des entrées, des pondérations et des seuils choisis à la main, sauf mention contraire. Ce ne sont ni des probabilités calibrées ni des garanties ; une validation historique est nécessaire avant de les interpréter comme un avantage de performance.

@@ -160,4 +160,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's [call wall and put wall in real time](/real-time-gex-0dte), [the free ZeroGEX dashboard](/spx-gamma-levels) plots both alongside the gamma flip and the dealer gamma profile that produced them. For the broader landscape of gamma-exposure tools, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's call wall and put wall, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show both alongside the gamma flip and the dealer gamma profile that produced them, delayed about 15 minutes; the paid plans show them [in real time](/real-time-gex-0dte). For the broader landscape of gamma-exposure tools, see [the best GEX tools guide](/education/best-gex-tools).

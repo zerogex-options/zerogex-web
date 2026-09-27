@@ -273,4 +273,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's [full gamma exposure read in real time](/real-time-gex-0dte) - Net GEX, the gamma flip, the call and put walls, and the dealer gamma profile - [the free ZeroGEX dashboard](/spx-gamma-levels) surfaces all of it. For a side-by-side of how ZeroGEX compares with other gamma-exposure platforms, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's full gamma exposure read - Net GEX, the gamma flip, the call and put walls, and the dealer gamma profile - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show all of it, delayed about 15 minutes, and the paid plans show it [in real time](/real-time-gex-0dte). For a side-by-side of how ZeroGEX compares with other gamma-exposure platforms, see [the best GEX tools guide](/education/best-gex-tools).
