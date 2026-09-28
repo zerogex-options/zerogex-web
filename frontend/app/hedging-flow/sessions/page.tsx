@@ -1,11 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
 import SymbolPicker from '@/components/SymbolPicker';
 import { CASH_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
+import {
+  groupByMonth,
+  olderHref as resolveOlderHref,
+  parseCursor,
+  sessionsHref,
+} from '@/core/hedgingFlowSessionIndex';
 import SessionCard from './SessionCard';
 
 // The index behind the dated Hedging Flow permalinks. ISR-cached for an hour;
@@ -15,6 +21,15 @@ import SessionCard from './SessionCard';
 // over the calendar — the same choice /replay and /scorecard make. A picker
 // invites a reader onto an empty day and lets them conclude the feature is
 // broken.
+//
+// Paged, unlike /replay and /scorecard. Those read tables `make db-prune`
+// empties at DATA_RETENTION_DAYS, so one request holds their entire contents
+// permanently and their `limit=60` is not a page, it is everything. This list
+// reads hedging_flow_5min, which is retention-exempt and gains a session every
+// trading day, so a fixed request eventually stops showing the oldest sessions
+// while their permalinks keep working perfectly. That failure is silent — the
+// page looks complete, and the only symptom is history nobody can reach by
+// browsing.
 
 const REVALIDATE_SECONDS = 3600;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').replace(/\/+$/, '');
@@ -22,6 +37,10 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').repl
 // A full regular session on the 5-minute grid is 82 bars (09:30–16:15 ET
 // inclusive). The thresholds below grade against that, not against 78.
 const FULL_SESSION_BARS = 82;
+
+// One page of cards. Roughly four months of trading days: long enough that a
+// reader rarely has to page at all, short enough to stay one quick scroll.
+const PAGE_SIZE = 80;
 
 interface HedgingFlowSession {
   date: string;
@@ -37,21 +56,47 @@ interface HedgingFlowSessionList {
   symbol: string;
   count: number;
   sessions: HedgingFlowSession[];
+  /** Authoritative, from a row the API fetched and discarded. Deliberately not
+   *  inferred from `count === PAGE_SIZE`, which is wrong on an exact multiple
+   *  and offers a next page that renders as an empty archive. */
+  has_more?: boolean;
+  /** Feed back as `before` for the next page; null on the last one. */
+  next_before?: string | null;
 }
 
-export const metadata: Metadata = {
-  title: 'Hedging Flow\u00a0- Past Sessions\u00a0- ZeroGEX',
-  description:
-    'Every stored session of estimated dealer hedging pressure, bar by bar, with the dealer gamma structure on the same timeline.',
-  alternates: { canonical: `${SITE_URL}/hedging-flow/sessions` },
-  openGraph: {
-    type: 'website',
-    url: `${SITE_URL}/hedging-flow/sessions`,
-    title: 'Hedging Flow\u00a0- Past Sessions\u00a0- ZeroGEX',
-    description: 'Dated permalinks for estimated dealer hedging pressure.',
-    siteName: 'ZeroGEX',
-  },
-};
+
+
+
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ symbol?: string; before?: string }>;
+}): Promise<Metadata> {
+  const resolved = await searchParams;
+  const symbol = resolveSymbol(resolved?.symbol);
+  const cursor = parseCursor(resolved?.before);
+  const title = 'Hedging Flow - Past Sessions - ZeroGEX';
+
+  return {
+    title,
+    description:
+      'Every stored session of estimated dealer hedging pressure, bar by bar, with the dealer gamma structure on the same timeline.',
+    // Every page of the archive canonicalises to the first one: the deeper
+    // pages are navigation, not content -- the content is the dated permalinks
+    // they link to. `follow` is the part that matters, because those older
+    // permalinks have no other route in for a crawler.
+    alternates: { canonical: `${SITE_URL}/hedging-flow/sessions` },
+    robots: cursor ? { index: false, follow: true } : undefined,
+    openGraph: {
+      type: 'website',
+      url: `${SITE_URL}${sessionsHref(symbol, cursor)}`,
+      title,
+      description: 'Dated permalinks for estimated dealer hedging pressure.',
+      siteName: 'ZeroGEX',
+    },
+  };
+}
 
 function formatHumanDate(raw: string): string {
   try {
@@ -90,9 +135,14 @@ function formatUsd(value: number): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-async function loadSessions(symbol: string): Promise<HedgingFlowSessionList | null> {
+async function loadSessions(
+  symbol: string,
+  before: string | null,
+): Promise<HedgingFlowSessionList | null> {
+  const qs = new URLSearchParams({ symbol, limit: String(PAGE_SIZE) });
+  if (before) qs.set('before', before);
   return serverApiGet<HedgingFlowSessionList>(
-    `/api/flow/hedging/sessions?symbol=${symbol}&limit=90`,
+    `/api/flow/hedging/sessions?${qs.toString()}`,
     REVALIDATE_SECONDS,
   );
 }
@@ -100,14 +150,21 @@ async function loadSessions(symbol: string): Promise<HedgingFlowSessionList | nu
 export default async function HedgingFlowSessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ symbol?: string }>;
+  searchParams: Promise<{ symbol?: string; before?: string }>;
 }) {
-  const symbol = resolveSymbol((await searchParams)?.symbol);
-  const data = await loadSessions(symbol);
+  const resolved = await searchParams;
+  const symbol = resolveSymbol(resolved?.symbol);
+  const cursor = parseCursor(resolved?.before);
+  const data = await loadSessions(symbol, cursor);
   const sessions = data?.sessions ?? [];
-  const pickerHrefs = buildSymbolHrefs((s) =>
-    s === 'SPY' ? '/hedging-flow/sessions' : `/hedging-flow/sessions?symbol=${s}`,
-  );
+  const months = groupByMonth(sessions);
+  // Trust the API's own has_more rather than comparing count to PAGE_SIZE.
+  const olderHref = resolveOlderHref(symbol, data);
+  // Switching symbol restarts at the newest page: a cursor from one symbol's
+  // history means nothing in another's, and carrying it over would drop a
+  // reader into a random middle — or past the end, on a symbol whose snapshot
+  // starts later, which reads as "this symbol has nothing".
+  const pickerHrefs = buildSymbolHrefs((s) => sessionsHref(s, null));
 
   return (
     <PageShell width="measure">
@@ -160,39 +217,95 @@ export default async function HedgingFlowSessionsPage({
               color: 'var(--text-secondary)',
             }}
           >
-            No stored sessions for {symbol} yet. The snapshot is written once per analytics
-            cycle, so the first one appears after the next trading day.
+            {cursor ? (
+              <>
+                No stored sessions for {symbol} before {formatHumanDate(cursor)}&nbsp;- this is
+                the start of its history.{' '}
+                <Link href={sessionsHref(symbol, null)} className="underline">
+                  Back to the latest sessions
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                No stored sessions for {symbol} yet. The snapshot is written once per analytics
+                cycle, so the first one appears after the next trading day.
+              </>
+            )}
           </div>
         ) : (
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {sessions.map((session) => {
-              const meta = sessionLabel(session.real_bar_count);
-              const tone =
-                meta.tone === 'full'
-                  ? 'var(--color-bull)'
-                  : meta.tone === 'partial'
-                    ? 'var(--color-warning)'
-                    : 'var(--text-secondary)';
-              return (
-                <li key={session.date}>
-                  <SessionCard
-                    href={`/hedging-flow/${symbol}/${session.date}`}
-                    humanDate={formatHumanDate(session.date)}
-                    statusLabel={meta.label}
-                    statusTone={tone}
-                    barCount={session.real_bar_count}
-                    leanLabel={
-                      session.cum_net_usd != null ? formatUsd(session.cum_net_usd) : null
-                    }
-                    leanPositive={(session.cum_net_usd ?? 0) >= 0}
-                    had0dte={session.had_0dte}
-                  />
-                </li>
-              );
-            })}
-          </ul>
+          months.map((month) => (
+            <div key={month.label} className="mb-7 last:mb-0">
+              <h2
+                className="mb-2 text-[11px] uppercase tracking-[0.22em] font-bold"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {month.label}
+              </h2>
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {month.sessions.map((session) => {
+                  const meta = sessionLabel(session.real_bar_count);
+                  const tone =
+                    meta.tone === 'full'
+                      ? 'var(--color-bull)'
+                      : meta.tone === 'partial'
+                        ? 'var(--color-warning)'
+                        : 'var(--text-secondary)';
+                  return (
+                    <li key={session.date}>
+                      <SessionCard
+                        href={`/hedging-flow/${symbol}/${session.date}`}
+                        humanDate={formatHumanDate(session.date)}
+                        statusLabel={meta.label}
+                        statusTone={tone}
+                        barCount={session.real_bar_count}
+                        leanLabel={
+                          session.cum_net_usd != null ? formatUsd(session.cum_net_usd) : null
+                        }
+                        leanPositive={(session.cum_net_usd ?? 0) >= 0}
+                        had0dte={session.had_0dte}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))
         )}
       </section>
+
+      {/* Paging. Rendered as links rather than a button so a crawler can follow
+          them: these pages are the only route to the older permalinks. */}
+      {(cursor || olderHref) && (
+        <nav
+          className="mt-8 flex items-center justify-between gap-3 border-t pt-5"
+          style={{ borderColor: 'var(--border-default)' }}
+          aria-label="Session pages"
+        >
+          {cursor ? (
+            <Link
+              href={sessionsHref(symbol, null)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <ChevronLeft size={14} /> Latest sessions
+            </Link>
+          ) : (
+            <span />
+          )}
+          {olderHref ? (
+            <Link
+              href={olderHref}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Older sessions <ChevronRight size={14} />
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
 
       <section
         className="mt-10 rounded-lg border p-5 text-xs leading-relaxed"

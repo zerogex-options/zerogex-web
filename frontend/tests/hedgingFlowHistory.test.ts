@@ -4,6 +4,12 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { normalizeGammaRegime, normalizeHedgingFlow } from '../core/hedgingFlowSeries.ts';
+import {
+  groupByMonth,
+  olderHref,
+  parseCursor,
+  sessionsHref,
+} from '../core/hedgingFlowSessionIndex.ts';
 
 // Dated Hedging Flow permalinks: /hedging-flow/sessions and
 // /hedging-flow/[symbol]/[date].
@@ -202,6 +208,101 @@ test('the pickers offer only symbols this endpoint can answer for', () => {
   ]) {
     assert.match(read(file), /symbols=\{CASH_SYMBOLS\}/, `${file} must restrict the picker`);
   }
+});
+
+// --------------------------------------------------------------------------
+// Paging the session index
+//
+// This index is the only one that needs paging. /replay and /scorecard read
+// tables db-prune empties at DATA_RETENTION_DAYS, so their single request holds
+// everything they will ever hold. hedging_flow_5min is retention-exempt and
+// gains a session per trading day, so a fixed request eventually stops showing
+// the oldest sessions while their permalinks keep working — a page that looks
+// complete and simply omits history.
+// --------------------------------------------------------------------------
+test('a full page is not mistaken for "there is another page"', () => {
+  // The trap this exists for: inferring the next page from
+  // `count === PAGE_SIZE`. That is wrong exactly when the total is an exact
+  // multiple of the page size, and the reader is offered an "Older sessions"
+  // link that lands on an empty archive. has_more comes from a row the API
+  // fetched and threw away, so it is a fact.
+  const full = { sessions: [{ date: '2026-09-25' }], has_more: false, next_before: null };
+  assert.equal(olderHref('SPY', full), null);
+
+  const more = { sessions: [{ date: '2026-09-25' }], has_more: true, next_before: '2026-06-10' };
+  assert.equal(olderHref('SPY', more), '/hedging-flow/sessions?before=2026-06-10');
+});
+
+test('has_more without a cursor does not build a link that loops', () => {
+  // `?before=null` would serve the newest page again: the reader clicks
+  // "Older" and arrives back where they started, with nothing to say why.
+  assert.equal(olderHref('SPY', { sessions: [], has_more: true, next_before: null }), null);
+  assert.equal(olderHref('SPY', null), null);
+});
+
+test('a malformed cursor is dropped, not forwarded', () => {
+  // The API rejects a bad `before` with a 400, so forwarding whatever arrived
+  // would turn a truncated or hand-edited URL into an error page instead of
+  // the top of the archive.
+  for (const junk of ['last-june', '2026-6-1', '', '2026-13-40', undefined, '../../etc']) {
+    assert.equal(parseCursor(junk), null, `${String(junk)} must not survive as a cursor`);
+  }
+  assert.equal(parseCursor('2026-06-12'), '2026-06-12');
+});
+
+test('the default page and SPY are both expressed by absence', () => {
+  // Keeps the canonical entry point a bare URL rather than one carrying a
+  // query string that only restates the default.
+  assert.equal(sessionsHref('SPY', null), '/hedging-flow/sessions');
+  assert.equal(sessionsHref('QQQ', null), '/hedging-flow/sessions?symbol=QQQ');
+  assert.equal(
+    sessionsHref('QQQ', '2026-06-10'),
+    '/hedging-flow/sessions?symbol=QQQ&before=2026-06-10',
+  );
+});
+
+test('switching symbol drops the cursor', () => {
+  // A cursor from one symbol's history means nothing in another's. Carried
+  // over, it drops the reader into a random middle — or past the end, on a
+  // symbol whose snapshot starts later, which reads as "nothing stored".
+  const page = read('app/hedging-flow/sessions/page.tsx');
+  assert.match(page, /buildSymbolHrefs\(\(s\) => sessionsHref\(s, null\)\)/);
+});
+
+test('cursor pages are followable but not indexed', () => {
+  // They are navigation, not content — the content is the dated permalinks.
+  // `follow` is the part that matters: those older permalinks have no other
+  // route in for a crawler, so noindex,nofollow would strand them.
+  const page = read('app/hedging-flow/sessions/page.tsx');
+  assert.match(page, /robots: cursor \? \{ index: false, follow: true \}/);
+  // And every page still canonicalises to the first one.
+  assert.match(page, /canonical: `\$\{SITE_URL\}\/hedging-flow\/sessions`/);
+});
+
+test('month grouping keeps the order the API answered in', () => {
+  // The grouping is presentational only. If it re-sorted, the newest-first
+  // list would silently reorder and the "Older sessions" cursor — which is the
+  // LAST date on the page — would no longer be the oldest one shown.
+  const groups = groupByMonth([
+    { date: '2026-09-25' },
+    { date: '2026-09-01' },
+    { date: '2026-08-31' },
+    { date: '2026-07-20' },
+  ]);
+  assert.deepEqual(
+    groups.map((g) => g.label),
+    ['September 2026', 'August 2026', 'July 2026'],
+  );
+  assert.deepEqual(
+    groups[0].sessions.map((s) => s.date),
+    ['2026-09-25', '2026-09-01'],
+  );
+});
+
+test('the index asks for a bounded page and passes the cursor through', () => {
+  const page = read('app/hedging-flow/sessions/page.tsx');
+  assert.match(page, /limit: String\(PAGE_SIZE\)/);
+  assert.match(page, /qs\.set\('before', before\)/);
 });
 
 test('every dated OG image awaits its params', () => {

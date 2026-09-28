@@ -228,6 +228,46 @@ distinguishable from "short"), `had_0dte`, and the session's closing
 `cum_net_usd`, which is what lets a card say something about the day rather
 than only name it.
 
+#### The listing is paged, and it is the only one that has to be
+
+`/api/replay/sessions` and the scorecard's equivalent read tables `db-prune`
+empties at `DATA_RETENTION_DAYS`. Their `limit=60` is therefore not a page at
+all — it is the entire contents of those tables, permanently. Nothing about
+them can outgrow one request.
+
+This table is retention-exempt, which is the whole point of it, and it gains a
+session every trading day. Left unpaged it would pass a fixed `limit` forever
+and, once the archive grew past it, quietly stop listing the oldest sessions —
+while their permalinks kept answering perfectly. Nothing errors in that state.
+The page looks complete. The only symptom is history that exists, is served,
+and cannot be reached by browsing. That is the same class of failure as a
+recompute endpoint returning an empty session, which is what §3 rejected.
+
+So `before` is an exclusive ET-date cursor, and the response carries `has_more`
+plus `next_before`:
+
+* The bound is on `bar_start`, not on the derived `session_date`, because
+  `session_date` is a function of the column and a predicate on it cannot use
+  an index — every page would re-scan the symbol's whole history, which is the
+  growth the cursor exists to survive. Bounding the raw column keeps each page
+  on the `(symbol, scope, bar_start)` primary key; `EXPLAIN` confirms an index
+  scan with `bar_start < <cursor>` as the index condition.
+* `has_more` is answered from a row the API fetches and discards, never
+  inferred from `count == limit`. That inference is wrong exactly when the
+  total is a multiple of the page size, and it offers a next page that renders
+  as an empty archive.
+* The cursor is part of the read cache key. Left out, page two is served
+  whatever page one cached — the reader pages backwards and lands on the
+  sessions they just read.
+* Switching symbol drops the cursor. A cursor from one symbol's history means
+  nothing in another's, and on a symbol whose snapshot starts later it lands
+  past the end, which reads as "nothing stored for this symbol".
+
+The index groups its cards under month headings and marks cursor pages
+`noindex, follow`. They are navigation rather than content — the content is the
+dated permalinks — but `follow` matters: those older permalinks have no other
+route in for a crawler.
+
 ### 4.4 Front end
 
 ```
