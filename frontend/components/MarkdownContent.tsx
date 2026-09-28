@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
+import ExpandableImage from '@/components/ExpandableImage';
+
 function parseInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
@@ -74,13 +76,9 @@ export function renderMarkdown(markdown: string): ReactNode[] {
       const [, alt, src] = blockImage;
       out.push(
         <figure key={`img-${i}`} className="my-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt={alt}
-            loading="lazy"
-            className="w-full rounded-2xl border border-[var(--color-border)]"
-          />
+          {/* Click to enlarge: most article images are page screenshots whose
+              numbers are too small to read at column width. */}
+          <ExpandableImage src={src} alt={alt} />
           {alt && (
             <figcaption className="mt-3 text-center text-sm italic text-[var(--text-muted)]">
               {alt}

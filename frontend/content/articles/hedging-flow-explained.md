@@ -208,9 +208,9 @@ The names are not statements about price. "Fragile rally" does not require price
 
 ## Reading a live example
 
-![ZeroGEX Hedging Flow for SPY at 2:56 PM ET on September 28, 2026: Gamma Weather reading Stable bid with Mixed forming, Session pressure of -$4.76B, the Pressure rate chart with price, and the dealer gamma structure](/blog/zerogex-hedging-flow-spy-2026-09-28.png)
+![SPY Hedging Flow at 2:56 PM ET on September 28, 2026: Gamma Weather, the four cards, the Pressure rate chart and the dealer gamma structure](/blog/zerogex-hedging-flow-spy-2026-09-28-cropped.png)
 
-Here is SPY at 2:56 PM ET on September 28, 2026, taken with the page's snapshot button. The price levels below are read off the chart, so treat them as approximate.
+Here is SPY at 2:56 PM ET on September 28, 2026, taken with the page's snapshot button. Click the image to see it larger. The price levels below are read off the chart, so treat them as approximate.
 
 **The cards.** Session pressure reads −$4.76B: an estimated $4.76 billion of SPY selling implied by the day's classified option trades. Both books contributed almost equally, −$2.50B from calls and −$2.26B from puts. Under the model, that is customers selling calls and buying puts, and both imply a hedge that sells.
 
