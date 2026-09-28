@@ -388,7 +388,10 @@ export default function MonitoringClient() {
         <h1 className="text-2xl font-semibold">Admin Monitoring</h1>
       </div>
 
-      <div className="flex gap-2 mb-6 border-b" style={{ borderColor: borderColor }}>
+      {/* Scrolls sideways on narrow screens so every tab stays reachable. The
+          border lives on the inner row so the active underline isn't clipped. */}
+      <div className="mb-6 overflow-x-auto">
+      <div className="flex gap-2 border-b w-max min-w-full" style={{ borderColor: borderColor }}>
         {TABS.map((t) => {
           const active = tab === t.id;
           return (
@@ -396,7 +399,7 @@ export default function MonitoringClient() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+              className="inline-flex shrink-0 items-center gap-2 px-4 py-2 text-sm font-semibold whitespace-nowrap"
               style={{
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                 borderBottom: active ? '2px solid var(--color-warning)' : '2px solid transparent',
@@ -407,6 +410,7 @@ export default function MonitoringClient() {
             </button>
           );
         })}
+      </div>
       </div>
 
       {tab === 'frontend' && (
