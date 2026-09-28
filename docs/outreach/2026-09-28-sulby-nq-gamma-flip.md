@@ -14,6 +14,14 @@ build stamp is **v1.6**.
 A 1:1 founder reply from your own inbox. American English, one line per
 paragraph in the draft, so it pastes straight into a mail client.
 
+> **Status:** sent 2026-09-28. The same afternoon the NDX horizon override
+> went live in production after a replay check; see "Follow-up" at the end.
+> The first version of this file said the August NDX blackout was the same
+> weighting bug, and that production's setting couldn't be seen from here. The
+> replay contradicts the first claim on every blackout day it sampled, and the
+> second is now known: production was not running the override. Both are
+> corrected below.
+
 ## The read
 
 - **Not a fault. The NDX flip has been more than 8% from spot for a week.** NQ
@@ -49,11 +57,10 @@ paragraph in the draft, so it pastes straight into a mail client.
 
 - **Mon–Wed is the market, not the NDX weighting bug.** `gamma_flip_raw` is the
   same cycle's crossing with no DTE weighting and no gates, over the same ±50%
-  window. It sat 12–37% from spot on those days (session medians 27–35%). The
-  weighting fix below moves NDX toward that unweighted profile, so it would not
-  have put a flip near spot either. Thursday and Friday have no stored
-  diagnosis in the repo. Friday's pattern (on and off at about 7% below) fits
-  the same regime.
+  window. It sat 12–37% from spot on those days (session medians 27–35%).
+  Replaying 9/23 at the 1-day horizon confirmed it: still blank (see
+  Follow-up). Thursday and Friday have no stored diagnosis in the repo.
+  Friday's pattern (on and off at about 7% below) fits the same regime.
 
 - **Why NDX rather than SPX.** NDX runs about 76% of its open interest in 0DTE;
   SPX runs about 12%. The flip is a multi-day level, so same-day contracts are
@@ -62,17 +69,18 @@ paragraph in the draft, so it pastes straight into a mail client.
   more fragile chain, but it is not permanently blank: the week before, it
   published 69% and 100% of the time.
 
-- **The earlier NDX blackout was a different cause, and it was ours.** From
-  Aug 3 to Sep 11 the NDX flip was blank almost every session. The Sept 20
-  investigation traced it to that same down-weighting: at the shared horizon it
-  removed most of NDX's book, and crossings close to spot went unpublished
-  (2.8% below spot on 9/17, the day it was diagnosed). Its fix is
-  `GAMMA_PROFILE_DTE_REF_DAYS_NDX=1`. In the repo it is only a commented-out
-  line in `.env.example`, so whether production runs it can't be seen from here.
-  It would not have changed last week. But without it, NDX goes back to
-  flickering once this regime passes: 9/17 was 31% blank at the production
-  setting. The v1.6 zip went up on Aug 29, so Sulby may have seen that blackout
-  too. The draft doesn't raise it, because the complaint is about last week.
+- **Sept 17's flicker was ours; the August blackout is unexplained.** The NDX
+  flip was blank almost every session from Aug 3 to Sep 11, and 31% of Sept 17.
+  The Sept 20 investigation diagnosed Sept 17: the shared 2-day horizon
+  discounted most of NDX's book, so crossings close to spot went unpublished
+  (2.8% below spot that day). Its fix is `GAMMA_PROFILE_DTE_REF_DAYS_NDX=1`. It
+  also blamed the August stretch on the same cause. The 2026-09-28 replay
+  contradicts that on the three blackout days it sampled: the blank minutes on
+  8/12, 8/26 and 9/9 stay blank at both 1 and 2 days. Production had not been running the override (its
+  `.env` held only the shared `GAMMA_PROFILE_DTE_REF_DAYS=2.0`); it went live on
+  2026-09-28. The v1.6 zip went up on Aug 29, so Sulby may have seen the
+  August blanks too. The draft doesn't raise them, because the complaint is
+  about last week.
 
 - **Sulby's build is seven versions old.** v1.6 draws an em dash for every
   blank. v2.3 (`4a1e08a`, 2026-09-20) draws the server's `gamma_flip_label`
@@ -102,7 +110,7 @@ Optional, on the box, if you want Thursday and Friday's stored reason codes:
 cd ~/zerogex-oa && make gamma-flip-resolution-healthcheck SYMBOLS=NDX FLIP_SINCE=2026-09-17 BY_DATE=1
 ```
 
-## Draft
+## Draft (sent 2026-09-28)
 
 **Subject:** Re: Don't show gamma flip
 
@@ -139,3 +147,75 @@ Founder, ZeroGEX
   `EDQUANTGAMMA` is also what they see in their NinjaScript Editor. Re-export
   under `zerogex`, have `scripts/verify-ninjatrader-package.py` pin the inner
   name, and add an "updating from an older build" line to the NinjaTrader page.
+
+## Follow-up: the NDX horizon override (2026-09-28)
+
+**What it is.** Before summing gamma across the chain, the resolver weights each
+contract by `min(1, calendar days to expiry ÷ horizon)`
+(`_dte_profile_weight`, zerogex-oa `src/analytics/main_engine.py`), so a
+same-day wall can't pin a multi-day level. Every symbol shared a 2-day horizon
+(`GAMMA_PROFILE_DTE_REF_DAYS=2.0` in production). `GAMMA_PROFILE_DTE_REF_DAYS_NDX=1`
+gives NDX alone a 1-day horizon:
+
+- Next-day contracts go from between half and two-thirds weight (depending on
+  the time of day) to full weight.
+- Same-day contracts go from hours-left ÷ 48 to hours-left ÷ 24, and still reach
+  zero at the close.
+- Anything two or more days out is unchanged.
+
+NDX runs about 76% of its open interest in 0DTE, so the shared horizon was
+discounting most of its book.
+
+**Check run first**, read-only, after the close:
+
+```
+cd ~/zerogex-oa
+for d in 2026-08-12 2026-08-26 2026-09-09 2026-09-17 2026-09-23; do echo "== $d"; make gamma-flip-gate-replay SYMBOL=NDX SESSION=$d SAMPLES=3 DTE_REFS=1,2 | grep -E "spot=|ref=|LARGEST"; done
+make gamma-flip-gate-replay SYMBOL=NDX AT="2026-09-18 11:00" DTE_REFS=1,2 | grep -E "spot=|ref="
+```
+
+| Replayed minute | Spot | Flip at 1-day horizon | Flip at 2-day horizon |
+| --- | --- | --- | --- |
+| 9/17 11:56 (blank in production) | 29,425 | 28,852 | 28,805 |
+| 9/17 13:57 (blank in production) | 29,432 | 28,829 | blank |
+| 9/17 14:43 (blank in production) | 29,411 | 28,905 | 28,755 |
+| 9/18 11:00 (published in production) | 29,469 | 29,161 | 29,109 |
+| 9/23, three blank minutes | 30,459–30,626 | blank | blank |
+| 8/12, 8/26, 9/9, three blank minutes each | 29,165–29,814 | blank | blank |
+
+The tool's verdict on 9/17: "The LARGEST DTE reference that publishes in all
+of them is 1 days (production runs 2)". Where a flip already published (9/18),
+it moved 0.2%. On last week's market blanks (9/23) nothing appeared. The 2-day
+horizon published two of the three 9/17 minutes in the replay, where production
+published none. That is the on-the-edge behavior the Sept 20 investigation
+measured.
+
+**Applied** 2026-09-28 at 16:44 ET, on the box:
+
+```
+sed -i.bak-0928 '/^GAMMA_PROFILE_DTE_REF_DAYS=/a GAMMA_PROFILE_DTE_REF_DAYS_NDX=1' /home/ubuntu/zerogex-oa/.env
+cd ~/zerogex-oa && make analytics-restart
+```
+
+The running service's environment shows both lines, and the backup is
+`/home/ubuntu/zerogex-oa/.env.bak-0928`. To undo:
+`sed -i '/^GAMMA_PROFILE_DTE_REF_DAYS_NDX=/d' /home/ubuntu/zerogex-oa/.env && cd ~/zerogex-oa && make analytics-restart`
+
+**What moves.**
+
+- Only NDX reads the override; NQ inherits it through the projection.
+- NDX's flip, `net_gex_at_spot` and stored gamma profile (`gex_profile`, served
+  by `/api/gex/profile`) all come from the same weighted curve. All three shift
+  together, along with anything that reads them for NDX or NQ.
+- Unchanged: `gamma_flip_raw` (it has no weighting), the 8% cap and the other
+  gates, and the flip-horizon endpoints (they pass their own horizons).
+
+**Still open: August.** The override doesn't explain the three sampled August
+days. Rerun one of them without the `grep` and the report prints a line per
+relaxation. Whichever one publishes names what declined the minute:
+
+- `distance ceiling off` alone means the crossing sat more than 8% from spot.
+- `DTE ramp off` alone means a crossing appears only when same-day contracts
+  count at full weight.
+- Any other single line names the gate that declined it. If only the
+  `all gates off (control)` line publishes, more than one gate did.
