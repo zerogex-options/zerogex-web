@@ -479,12 +479,13 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+          <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <GrowthRateCard rates={data.growthRates} ledgerError={data.subscriberLedger.error} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <LevelsEmailCard data={data.levelsEmail} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-          <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
-          <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+          {/* Tier Breakdown and Daily Registrations share tierYScale, so they
+              sit in one row where their bars compare directly. */}
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
-          <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
             data={data.signups}
             flow={data.signupFlow}
@@ -494,6 +495,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             brandColor={ROW_COLORS.signups}
             yScale={tierYScale}
           />
+          <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
         </div>
       </section>
 
@@ -1800,6 +1802,24 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
 
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Subscriber Ledger</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Every change to the subscriber counts, newest first — who it was, what happened, and exactly what it did to
+          each line of the Total Subscribers chart.
+        </span>
+      </div>
+      <SubscriberLedgerCard
+        ledger={data.subscriberLedger}
+        nowMs={nowMs}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h2 className="text-lg font-semibold" style={{ color: textColor }}>Trials In Flight</h2>
         <span className="text-xs" style={{ color: mutedText }}>
           Soonest charge first. Each lane is one trial&apos;s own run — left edge is the day it started, right edge is
@@ -1874,24 +1894,6 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
       <ScheduledDeparturesCard
         departures={conveyor.departures}
         departingValue={conveyor.departingValue}
-        nowMs={nowMs}
-        cardBg={cardBg}
-        borderColor={borderColor}
-        mutedText={mutedText}
-        textColor={textColor}
-      />
-    </section>
-
-    <section className="mb-8">
-      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Subscriber Ledger</h2>
-        <span className="text-xs" style={{ color: mutedText }}>
-          Every change to the subscriber counts, newest first — who it was, what happened, and exactly what it did to
-          each line of the Total Subscribers chart.
-        </span>
-      </div>
-      <SubscriberLedgerCard
-        ledger={data.subscriberLedger}
         nowMs={nowMs}
         cardBg={cardBg}
         borderColor={borderColor}
