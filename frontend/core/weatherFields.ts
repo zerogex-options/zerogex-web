@@ -37,6 +37,28 @@ export interface WeatherFieldPoint {
 export const SMOOTHER_BARS = 3;
 
 /**
+ * A flip-cushion distance for the Weather chip, without the "pts".
+ *
+ * The same rule as the server's one-line read printed directly under the
+ * chips (zerogex-oa src/analytics/flip_cushion.py `_points`): one decimal
+ * below 10 points, whole points from 10 up, halves rounded up, no trailing
+ * ".0". A chip reading "2" over a line reading "2.4" looks like two different
+ * numbers, and on SPY the whole cushion is often a point or two.
+ *
+ * Rounded through the decimal string, as the server's Decimal is, so a half
+ * stored in binary just under itself (1.15 is 1.1499...) still rounds up.
+ */
+export function cushionPoints(value: number): string {
+  const magnitude = Math.abs(value);
+  if (!Number.isFinite(magnitude)) return String(magnitude);
+  const places = magnitude < 10 ? 1 : 0;
+  const rounded = Number(`${Math.round(Number(`${magnitude}e${places}`))}e-${places}`);
+  // A magnitude small enough to print in exponent form ("1e-7") cannot take a
+  // second exponent; anything that small is 0 at one decimal anyway.
+  return String(Number.isFinite(rounded) ? rounded : 0);
+}
+
+/**
  * Trailing mean, null until the window fills and null through any gap.
  *
  * Mirrors src/analytics/hedging_flow.smooth exactly, and for the same reason:

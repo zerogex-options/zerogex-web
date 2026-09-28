@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import WeatherFieldDrawer from '@/components/WeatherFieldDrawer';
-import type { WeatherFieldKey } from '@/core/weatherFields';
+import { cushionPoints, type WeatherFieldKey } from '@/core/weatherFields';
 import { weatherStateColor } from '@/core/weatherStateColors';
 import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
 import { useGammaWeatherSeries } from '@/hooks/useGammaWeatherSeries';
@@ -20,11 +20,10 @@ import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
  * the evidence, and a reader can check one against the other without
  * leaving the page.
  *
- * Color carries CONDITION, not direction. Settled states take the pinning
- * teal and fragile ones take caution amber; nothing is green or red. A
- * red "Unstable" would read as a sell instruction, which is exactly what
- * this is not, and the spec is explicit that it classifies market health
- * rather than calling direction.
+ * Color carries CONDITION, not direction: one color per Weather state (see
+ * core/weatherStateColors), never buying-green against selling-red. The spec
+ * is explicit that this classifies market health rather than calling
+ * direction, so no color here stands for a side of the tape.
  */
 
 
@@ -222,7 +221,7 @@ export default function GammaWeatherStrip({
   const transitionRisk = payload.cushion === 'TRANSITION_RISK';
 
   const cushionValue = payload.components.cushion_pts != null
-    ? `${payload.components.cushion_pts.toFixed(0)} pts · ${CUSHION_LABEL[payload.cushion] ?? payload.cushion}`
+    ? `${cushionPoints(payload.components.cushion_pts)} pts · ${CUSHION_LABEL[payload.cushion] ?? payload.cushion}`
     : (CUSHION_LABEL[payload.cushion] ?? payload.cushion);
 
   return (
@@ -268,7 +267,7 @@ export default function GammaWeatherStrip({
               color: 'var(--color-text-secondary)',
               border: '1px dashed var(--color-border)',
             }}
-            title={`${payload.pending_label} is forming. The header changes once a new state holds ${payload.confirm_bars} completed bars, so it does not chase a single noisy bar.`}
+            title={`${payload.pending_label} is forming. The header changes once a new state holds ${payload.confirm_bars} bars in a row, counting the one still filling, so it does not chase a single noisy bar.`}
           >
             {payload.pending_label} forming · {payload.pending_bars}/{payload.confirm_bars}
           </span>
@@ -284,7 +283,7 @@ export default function GammaWeatherStrip({
               color: 'var(--color-text-secondary)',
               border: '1px dashed var(--color-border)',
             }}
-            title={`The established pressure side is giving way. Confirms once the opposite side holds ${payload.confirm_bars} completed bars.`}
+            title={`The established pressure side is giving way. Confirms once the opposite side holds ${payload.confirm_bars} bars, counting the one still filling.`}
           >
             Pressure reversing · {payload.pressure_reversing_bars}/{payload.confirm_bars}
           </span>

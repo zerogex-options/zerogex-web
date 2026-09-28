@@ -234,7 +234,7 @@ export default async function Image({
                 {closing != null ? formatUsd(closing) : '—'}
               </div>
               <div style={{ display: 'flex', fontSize: 28, color: '#D1B8A6' }}>
-                {positive ? 'net dealer buying' : 'net dealer selling'}
+                {positive ? 'estimated hedge buying' : 'estimated hedge selling'}
               </div>
             </div>
 

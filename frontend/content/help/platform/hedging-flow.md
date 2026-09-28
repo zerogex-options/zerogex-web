@@ -48,6 +48,8 @@ Where the session has leaned **in total** - the call-side and put-side contribu
 
 Because it is an integral, it moves slowly and turns late. It is the right view for "where has today ended up" and the wrong one for "what just changed."
 
+The call and put areas keep the site's call and put colors, green and red, whichever side of zero they are on. The color names the book; the position says which way it pushed.
+
 Bars that have not happened yet are left empty rather than drawn at zero. A zero would put a flat line through the afternoon that reads as measured *no pressure*, which is a different claim from *no data*.
 
 ## Flips
@@ -97,19 +99,25 @@ This series is written once per Analytics Engine cycle rather than accumulated p
 
 **Last flip** is the most recent rate flip and the time it happened, or *None today*.
 
-All four read the most recent bar carrying real flow. When the latest bar is carried forward rather than measured, the cards skip back to the last real one rather than reporting a repeat as new.
+The first three read the most recent bar carrying real flow. When the latest bar is carried forward rather than measured, they skip back to the last real one rather than reporting a repeat as new.
+
+**Last flip** reads the flip list instead. It shows the newest rate flip whether it was light or significant, so it can name a later flip than the badge above the chart, which shows significant flips only unless **Significant flips only** is unticked.
 
 ## Gamma Weather
 
 The strip above the header cards is the combined read of everything below it: one headline state - **Stable bid**, **Supported dip**, **Fragile rally**, **Unstable**, or **Mixed** - a sentence saying what it amounts to, and the components that produced it: **Pressure now**, **Lean**, **Stability**, **Gamma trend**, and **Flip cushion**. Click a component to open its chart for the session. The charts stay directly underneath, so the claim can always be checked against the evidence.
 
-It classifies market health - whether a condition is healthy enough to persist - not direction. It is not an entry, an exit, or a recommendation, which is why settled states are teal and fragile ones amber, and nothing is green or red. It inherits the estimated-not-observed caveat from the hedging flow it reads. A new state has to hold for a few completed bars before the headline changes - the strip says how many - so it doesn't chase a single noisy bar; until then it shows the new state as forming. The strip appears once a bar carries both hedging flow and gamma structure.
+It classifies market health - whether a condition is healthy enough to persist - not direction. It is not an entry, an exit, or a recommendation, which is why each state has a color of its own rather than buying green and selling red. It inherits the estimated-not-observed caveat from the hedging flow it reads. A new state has to show up on two bars in a row before the headline changes, counting the bar still filling, so it doesn't chase a single noisy bar; until then the strip shows it as forming, with a count such as 1/2. The strip appears once a bar carries both hedging flow and gamma structure.
 
 ## The 0DTE toggle
 
 **0DTE only** is the expirations filter carrying today's date - which is also why it can honestly report that there is no 0DTE book to show. On a day that is not an expiry for the symbol, the filter resolves to nothing and the page says so, rather than silently substituting Friday.
 
 The structure panel below is deliberately **not** filtered by the toggle. Dealer gamma structure is a property of the whole book, and scoping it to 0DTE would answer a different question from the one the flow panel above it appears to be asking.
+
+## ES and NQ
+
+Hedging Flow reads option trades, and ZeroGEX tracks index options rather than options on futures. Pick ES or NQ in the header and this page shows SPX or NDX, the index each one tracks, and says so above the charts.
 
 ## Past sessions
 

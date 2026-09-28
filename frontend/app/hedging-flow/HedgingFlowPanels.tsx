@@ -24,7 +24,7 @@ import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 
 /**
- * Hedging Flow, rendered — the observed counterpart to every OI-derived
+ * Hedging Flow, rendered — the trade-based counterpart to every OI-derived
  * surface on the site. Net GEX, the walls, the flip and Forced Flow all read
  * the BOOK and ask what it would do; this reads what the tape did to that
  * book.
@@ -148,8 +148,8 @@ export default function HedgingFlowPanels({
             <MetricCard
               title="Session pressure"
               value={latest ? USD(latest.cum_net_usd) : '—'}
-              subtitle={leaning ? `Net dealer ${leaning.toLowerCase()}` : undefined}
-              tooltip="Total stock the delta-flat hedge implies against every option traded in this session. Positive means dealers are estimated net buyers of the underlying."
+              subtitle={leaning ? `Estimated hedge ${leaning.toLowerCase()}` : undefined}
+              tooltip="Total stock the delta-flat hedge implies against every option traded in this session. Positive means the implied hedge is a net buyer of the underlying. An estimate, not observed dealer trading."
               trend={latest == null ? 'neutral' : latest.cum_net_usd >= 0 ? 'bullish' : 'bearish'}
             />
             <MetricCard
@@ -162,7 +162,7 @@ export default function HedgingFlowPanels({
               title="Put-driven"
               value={latest ? USD(latest.cum_put_usd) : '—'}
               subtitle="Pressure from put activity"
-              tooltip="The share of this session's pressure produced by put trades. Put activity is not automatically bearish: customers selling puts force dealers to BUY stock, which shows here as positive."
+              tooltip="The share of this session's pressure produced by put trades. Put activity is not automatically bearish: customers selling puts imply a hedge that BUYS stock, which shows here as positive."
             />
             <MetricCard
               title="Last flip"
@@ -174,7 +174,7 @@ export default function HedgingFlowPanels({
                     : 'None today'
               }
               subtitle={flip ? safeTimeLabel(flip.bar_start) : 'No reversal'}
-              tooltip="The last time the smoothed pressure rate changed sign&nbsp;- the immediate push reversing. Read off the rate rather than the session total, which crosses zero rarely and late."
+              tooltip="The last time the smoothed pressure rate changed sign&nbsp;- the immediate push reversing. Read off the rate rather than the session total, which crosses zero rarely and late. It counts light flips too, while the chart marks only significant ones unless Significant flips only is unticked, so the two can name different flips."
             />
           </div>
 
