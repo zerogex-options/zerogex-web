@@ -119,7 +119,7 @@ export async function generateMetadata({
   const bar = result.ok ? result.data.bars?.[0] : undefined;
   const lean =
     bar && typeof bar.cum_net_usd === 'number'
-      ? `${bar.cum_net_usd >= 0 ? 'Net dealer buying' : 'Net dealer selling'} ${formatUsd(
+      ? `${bar.cum_net_usd >= 0 ? 'Estimated net hedge buying' : 'Estimated net hedge selling'} ${formatUsd(
           bar.cum_net_usd,
         )}.`
       : '';

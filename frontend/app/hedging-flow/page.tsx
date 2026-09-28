@@ -7,6 +7,7 @@ import { History } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { optionChainSymbolFor } from '@/core/symbols';
 import { useHedgingFlow } from '@/hooks/useHedgingFlow';
 import { useGammaRegimeSeries } from '@/hooks/useGammaRegimeSeries';
 import { useGammaWeather } from '@/hooks/useGammaWeather';
@@ -21,9 +22,15 @@ import HedgingFlowPanels, { ZeroDteToggle } from './HedgingFlowPanels';
  * The 0DTE toggle is the expirations filter carrying today's date, which is
  * also why it can honestly report "no 0DTE today": when today is not an expiry
  * the filter resolves to nothing rather than silently substituting Friday.
+ *
+ * ES and NQ read their backing index. The page has no picker of its own, so
+ * the header's ES / NQ reach it, and the API refuses /api/flow/hedging for a
+ * future (a projected strike is not a contract anyone traded). Asking for the
+ * index and saying so beats an "Error loading data" box that reads as broken.
  */
 export default function HedgingFlowPage() {
-  const { symbol } = useTimeframe();
+  const { symbol: pickedSymbol } = useTimeframe();
+  const symbol = optionChainSymbolFor(pickedSymbol);
   const [zeroDteOnly, setZeroDteOnly] = useState(false);
 
   const sessionDateKey = etTodayDateKey();
@@ -47,13 +54,21 @@ export default function HedgingFlowPage() {
         beta
         sub={
           <>
-            Dealer hedging pressure from today&rsquo;s option trades, on price&rsquo;s timeline.
-            Positive means the hedge <strong>buys</strong> stock.
+            Estimated dealer hedging pressure from today&rsquo;s option trades, on
+            price&rsquo;s timeline. Positive means the hedge <strong>buys</strong> stock.
           </>
         }
-        tooltip="For every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies: (buy - sell) x delta x 100 x spot, accumulated across the session. This is the observed counterpart to every open-interest surface on the site&nbsp;- Net GEX, the walls, the flip and Forced Flow all read the BOOK and ask what it would do; this reads what the tape did to that book today. The structure panel underneath shares the session window and the crosshair: flow says how hard the tape is pushing, structure says whether the book absorbs that push or amplifies it."
+        tooltip="For every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies: (buy - sell) x delta x 100 x spot, accumulated across the session. This is the trade-based counterpart to every open-interest surface on the site&nbsp;- Net GEX, the walls, the flip and Forced Flow all read the BOOK and ask what it would do; this reads what the tape did to that book today. The structure panel underneath shares the session window and the crosshair: flow says how hard the tape is pushing, structure says whether the book absorbs that push or amplifies it."
         actions={<ZeroDteToggle active={zeroDteOnly} onChange={setZeroDteOnly} />}
       />
+
+      {symbol !== pickedSymbol && (
+        <p className="mt-4 text-sm italic" style={{ color: 'var(--color-text-secondary)' }}>
+          Hedging Flow reads option trades, and ZeroGEX tracks index options rather than options on
+          futures, so for {pickedSymbol} this page shows {symbol}, the index {pickedSymbol} tracks.
+          Prices here are {symbol}&rsquo;s.
+        </p>
+      )}
 
       <HedgingFlowPanels
         symbol={symbol}

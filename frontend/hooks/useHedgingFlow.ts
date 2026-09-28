@@ -14,12 +14,15 @@ import { normalizeHedgingFlow } from '@/core/hedgingFlowSeries';
  *
  * `call_flow_usd` / `put_flow_usd` split by which option type PRODUCED the
  * pressure, not by the direction of it. Customers selling puts push the net
- * positive and land in `put_flow_usd` — which is why the chart colours these
- * by contributed pressure rather than painting puts bearish.
+ * positive and land in `put_flow_usd`. The chart keeps the site's call and put
+ * colors on them (green and red, as on every GEX chart) whichever side of zero
+ * they sit: the color names the book, the position says which way it pushed.
  *
  * `net_flow_ma_usd` is null until the smoothing window fills, and
- * `classified_ratio` is the share of the bar's volume that carried an
- * aggressor classification. A low ratio means a thin sample behind that bar.
+ * `classified_ratio` is the share of the bar's volume in contract-minutes with
+ * any aggressor-classified print: coverage, not the classified share of prints,
+ * and it can sit slightly above 1. A low ratio means a thin sample behind that
+ * bar.
  */
 export interface HedgingFlowBar {
   timestamp: string;

@@ -67,8 +67,8 @@ export default function DatedHedgingFlow({
         }
         sub={
           <>
-            {symbol} · {humanDate}. Dealer hedging pressure from that session&rsquo;s option
-            trades, on price&rsquo;s timeline. Positive means the hedge <strong>buys</strong>{' '}
+            {symbol} · {humanDate}. Estimated dealer hedging pressure from that session&rsquo;s
+            option trades, on price&rsquo;s timeline. Positive means the hedge <strong>buys</strong>{' '}
             stock.
           </>
         }

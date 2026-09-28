@@ -11,6 +11,7 @@ import {
   SMOOTHER_BARS,
   WEATHER_FIELDS,
   changesForField,
+  cushionPoints,
   commentAt,
   fieldSeries,
   fieldSpec,
@@ -230,4 +231,22 @@ test('every field carries a smoothed series alongside its values', () => {
     const points = fieldSeries(f.key, flow, regime);
     assert.ok(points.every((p) => 'smoothed' in p), `${f.key} must carry a smoother`);
   }
+});
+
+
+// The chip sits directly above the server's one-line cushion read, so the two
+// must round alike: one decimal under 10 points, whole points from 10, halves
+// up. A chip saying "2" over a line saying "2.4" reads as two numbers.
+test('cushionPoints rounds the way the server line does', () => {
+  assert.equal(cushionPoints(0.5), '0.5', 'a sub-point cushion keeps its decimal');
+  assert.equal(cushionPoints(2.4), '2.4');
+  assert.equal(cushionPoints(9), '9', 'no trailing .0');
+  assert.equal(cushionPoints(1.15), '1.2', '1.15 is 1.1499... in binary and still rounds up');
+  assert.equal(cushionPoints(0.25), '0.3');
+  assert.equal(cushionPoints(9.95), '10');
+  assert.equal(cushionPoints(12.5), '13', 'whole points from 10, halves up');
+  assert.equal(cushionPoints(18), '18');
+  assert.equal(cushionPoints(0), '0');
+  assert.equal(cushionPoints(-3.25), '3.3', 'a distance, so unsigned');
+  assert.equal(cushionPoints(1e-7), '0');
 });
