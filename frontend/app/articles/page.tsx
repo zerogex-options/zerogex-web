@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/hedging-flow-explained',
+    kind: 'Published • September 28, 2026 • 16:00 UTC',
+    title: 'Hedging Flow Explained: Reading the Options Tape Through the Hedge',
+    blurb:
+      'Hedging Flow estimates the stock hedge implied by today\u2019s options trades and reads it against dealer gamma near price. What the number is and is not, why a heavy session total says little about the next few minutes, how Gamma Weather decides its headline, and one live SPY session read end to end.',
+  },
+  {
     href: '/education/gamma-vwap-confluence-explained',
     kind: 'Published • September 11, 2026 • 16:00 UTC',
     title: 'Gamma / VWAP Confluence Explained\u00a0- and Why Two Symbols Can Disagree',

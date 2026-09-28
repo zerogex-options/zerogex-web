@@ -520,6 +520,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 9,
     kind: 'article',
   },
+  'hedging-flow-explained': {
+    slug: 'hedging-flow-explained',
+    href: '/education/hedging-flow-explained',
+    title: 'Hedging Flow Explained: Reading the Options Tape Through the Hedge',
+    blurb:
+      'What the Hedging Flow page estimates, why Session pressure and Pressure rate answer different questions, what Lean, Stability and the Flip cushion measure, and how Gamma Weather combines them, with one live SPY session read end to end.',
+    description:
+      'Hedging Flow explained\u00a0- the stock hedge implied by today\u2019s options trades, read against near-price dealer gamma, and what the estimate does not claim.',
+    datePublished: '2026-09-28',
+    readMinutes: 15,
+    kind: 'article',
+  },
 };
 
 /**
@@ -586,6 +598,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
     '0dte-dealer-positioning-explained',
+    'hedging-flow-explained',
   ],
   'squeeze-setup-positioning-trap-and-trap-detection': [
     'squeeze-setup-explained',
@@ -704,6 +717,12 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'why-market-makers-trade-stock',
     'delta-and-its-three-children',
     'gamma-exposure-explained',
+    'hedging-flow-explained',
+  ],
+  'hedging-flow-explained': [
+    'net-volume-vs-directional-flow',
+    'why-market-makers-trade-stock',
+    'how-to-read-a-gamma-flip',
   ],
 };
 

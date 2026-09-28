@@ -198,6 +198,24 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Traders typically favor momentum and breakout setups, widen stops and targets for the bigger ranges, and are more cautious fading moves, since dips and rips can accelerate rather than revert.',
     },
   ],
+  'hedging-flow-explained': [
+    {
+      q: 'Does Hedging Flow show what dealers are actually buying or selling?',
+      a: 'No. It estimates the stock hedge implied by option trades classified as buyer- or seller-initiated, assuming a market maker took the passive side and hedges to stay delta-neutral. ZeroGEX does not see who traded or what any dealer holds, and that assumption has not been validated against exchange-classified data.',
+    },
+    {
+      q: 'Why can put activity show positive hedging pressure?',
+      a: 'The sign comes from delta and trade direction together. A customer selling puts implies a hedge that buys the underlying, so heavy put selling shows up as positive Put-driven pressure. A customer selling calls does the opposite.',
+    },
+    {
+      q: 'What is the difference between Session pressure and Pressure now?',
+      a: 'Session pressure is the running total since the open. Pressure now reads only the latest five-minute bar and its 15-minute average, so a strongly negative session can read Mixed, or even Buying, right now.',
+    },
+    {
+      q: 'Does the 0DTE toggle change Gamma Weather?',
+      a: 'No. The toggle filters the flow side of the page (the four cards and the flow chart) to contracts expiring that day. The Gamma Weather headline and chips and the dealer gamma structure always read all tracked expirations.',
+    },
+  ],
   'gamma-levels-in-claude': [
     {
       q: 'Can Claude or ChatGPT tell me where the SPX gamma flip is?',
