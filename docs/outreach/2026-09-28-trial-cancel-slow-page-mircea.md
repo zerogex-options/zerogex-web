@@ -26,6 +26,30 @@ ET.
 | Connecting from | 82.77.225.10, a home connection in Romania (RCS & RDS) |
 | Another trial if they come back later | no, the account has already had one |
 
+## Result (checks run Mon Sep 28, 3:52 to 4:05 PM ET)
+
+**The server was fine. Send Draft B.**
+
+- **This customer:** 687 API requests between 2:00 and 2:30 PM. Median 14 ms,
+  and 95% were done in under 0.2 seconds. One pause: at 2:17:49 PM four of
+  their requests finished together after about 4.6 seconds, three minutes
+  before they canceled.
+- **Everyone:** 81,568 requests in the same half hour. Median 18 ms, 95% under
+  0.34 seconds, and no timeouts. The slowest calls were heavy Pro and API-key
+  endpoints: the forced-flow session surface (up to 30 s) and replay range (up
+  to 12 s). None of them are on the Basic dashboard.
+- **The server:** 31% CPU in the 2 PM hour, no API errors, 83 members online.
+  Last week's weekdays at 2 PM ran 32 to 48% CPU with 68 to 89 members. Monday
+  was not busier than usual.
+- **Their pages** (ET, seconds on screen): /pricing at 14:04 (5, then 38),
+  /dashboard at 14:06:35 (145), / at 14:09:07 (71), /methodology at 14:11:31
+  (6), /basic-signals at 14:11:37 (17), /dashboard at 14:11:54 (284) and
+  14:12:09 (53), /account at 14:12:09 (88). About eight minutes on the
+  dashboard in all. They canceled from the account page at 14:20:52.
+- **nginx:** no errors in its error log involving their IP. Their request list
+  was in a compressed file that the first save command missed. The corrected
+  command is below.
+
 ## The read
 
 - **They are in Romania.** Every piece of data the dashboard asks for crosses
@@ -52,7 +76,8 @@ ET.
   processes), ingestion, analytics, signals, nginx and the website all share
   one 2-core server. Each open dashboard asks for fresh data every one to five
   seconds.
-- **Not known yet: whether the server was slow at 2 PM.** At 3:04 PM ET the
+- **Only the server's own records could say whether it was slow at 2 PM.** At
+  3:04 PM ET the
   public endpoints answered within about 0.2 seconds, and nginx's 5-second
   cache was catching the once-a-second price checks. That says nothing about
   2:04 to 2:21. Only two records can answer it, and both expire soon:
@@ -60,20 +85,23 @@ ET.
     (`duration_ms`). The journal holds about 16 hours, so the 2 PM lines will
     be gone by about 6 AM ET Tuesday.
   - nginx's list of every request, which shows any "gave up waiting" (status
-    499). The nightly cleanup wipes it at 3:30 AM ET.
+    499). It rotates every hour or two and keeps five compressed files, about
+    eight hours in all. The nightly cleanup at 3:30 AM ET deletes the rest.
 - **One thing only you know: did the ThetaData feed go live on Monday?** That's
   the one big change right before this visit. Section 6 below shows whether
   the server has been busier at 2 PM since.
 
-## Save the logs tonight (before 3:30 AM ET)
+## Save the logs the same day
 
-Run on the box. It writes about 10 MB to your home folder and changes nothing
-else.
+Run on the box within a few hours. It writes about 10 MB to your home folder
+and changes nothing else. The nginx line reads the compressed older files too.
+The first version of this command read only the current file, and came back
+empty.
 
 ```bash
 D=~/incident-2026-09-28-slow-page; mkdir -p "$D" && cd "$D"
 sudo journalctl -u zerogex-oa-api --since "2026-09-28 18:00:00 UTC" --until "2026-09-28 18:30:00 UTC" -o short-iso --no-pager | gzip > api.txt.gz
-sudo cat /var/log/nginx/access.log.1 /var/log/nginx/access.log 2>/dev/null | awk '$4 >= "[28/Sep/2026:14:00:00" && $4 < "[28/Sep/2026:14:30:00"' | gzip > nginx.txt.gz
+sudo zcat -f /var/log/nginx/access.log.*.gz /var/log/nginx/access.log | awk '$4 >= "[28/Sep/2026:14:00:00" && $4 < "[28/Sep/2026:14:30:00"' | gzip > nginx.txt.gz
 sudo cat /var/log/nginx/error.log | gzip > nginx-error.txt.gz
 ls -la
 ```
@@ -103,9 +131,40 @@ sqlite3 -readonly /var/lib/zerogex/auth.db "SELECT time(created_at,'-4 hours') A
 echo "== 6. The 2 PM hour, today against earlier days"
 jq -r '.hourly[] | select(.bucket_start|test("T14:00")) | "  \(.bucket_start[0:10]) \(.bucket_start[0:10]+"T12:00:00Z"|fromdate|strftime("%a"))  server cpu avg \(.metrics.cpu_pct.avg // 0 | floor)% max \(.metrics.cpu_pct.max // 0 | floor)%  api errors \(.metrics.errors_by_service["zerogex-oa-api"] // 0)"' ~/monitoring/state.json | tail -10
 jq -r '.hourly | to_entries | sort_by(.key)[] | select(.key|endswith("T14")) | "  \(.key[0:10]) \(.key[0:10]+"T12:00:00Z"|fromdate|strftime("%a"))  members online \(.value.users|length)  data requests \(.value.apiCalls)  page loads \(.value.pageAccesses)"' ~/zerogex-web/frontend/data/monitoring.json | tail -10
+echo "== 7. nginx errors 2:00-2:30 PM ET (total, by kind, this customer)"
+zcat nginx-error.txt.gz | awk '$1=="2026/09/28" && $2>="14:00:00" && $2<"14:30:00"' > nginx-error-window.txt
+wc -l < nginx-error-window.txt
+grep -oE 'upstream timed out|connect\(\) failed|upstream prematurely closed|limiting requests|no live upstreams' nginx-error-window.txt | sort | uniq -c
+grep -c "client: $IP," nginx-error-window.txt
 ```
 
-Two things to know when reading it:
+Follow-up checks, run from the same folder. A to D show what their browser
+asked nginx for, including requests nginx answered from its own cache and any
+site code that had to come from the US server. E to G look at the 2:17:49 PM
+pause, and at how often a pause like it hit everyone in that half hour:
+
+```bash
+cd ~/incident-2026-09-28-slow-page
+IP=82.77.225.10
+kv='{delete f; for(i=1;i<=NF;i++){n=index($i,"="); if(n) f[substr($i,1,n-1)]=substr($i,n+1)}}'
+zcat nginx.txt.gz | awk -v ip="$IP" '$1==ip' > customer-nginx.txt
+echo "== A. Their requests at nginx: $(wc -l < customer-nginx.txt), by status (499 = gave up waiting)"
+awk '{print $9}' customer-nginx.txt | sort | uniq -c | sort -rn
+echo "== B. Site code files their browser pulled from the US server (Cloudflare had no copy near them)"
+awk '$7 ~ /^\/_next\/static\//{n++; b+=$10} END{printf "  %d files, %.1f MB\n", n, b/1048576}' customer-nginx.txt
+echo "== C. Pages and page switches (ET, status, bytes, path)"
+awk '$7 !~ /^\/(api|_next)\//{printf "  %s %s %8s %s\n", substr($4,14,8), $9, $10, substr($7,1,90)}' customer-nginx.txt | head -40
+echo "== D. Their first minute on the dashboard after checkout"
+awk 'substr($4,14,8) >= "14:06:28" && substr($4,14,8) < "14:07:30"{printf "  %s %s %8s %s\n", substr($4,14,8), $9, $10, substr($7,1,100)}' customer-nginx.txt | head -80
+echo "== E. Everyone's requests that finished 2:17:44-2:17:55 PM, slowest first"
+zcat api.txt.gz | grep -F ' api_request ' | awk "$kv"'{t=substr($1,12,8)} t>="14:17:44" && t<="14:17:55" {printf "  %7.0f ms  %s  %s\n", f["duration_ms"], t, f["path"]}' | sort -gr | head -15
+echo "== F. Other API log lines 2:17:40-2:17:55 PM"
+zcat api.txt.gz | grep -vF ' api_request ' | awk '{t=substr($1,12,8)} t>="14:17:40" && t<="14:17:55"' | cut -c1-220 | head -20
+echo "== G. Moments when 3+ requests all took over 2 s (time ET, how many)"
+zcat api.txt.gz | grep -F ' api_request ' | awk "$kv"'f["duration_ms"]+0 > 2000 {print substr($1,12,8)}' | sort | uniq -c | awk '$1>=3{print "  " $2, $1}' | head -30
+```
+
+Two things to know when reading the summary:
 
 - **Server time only.** Section 1 leaves out the trip across the Atlantic and
   anything nginx answered from its cache.
@@ -167,11 +226,11 @@ Hi Mircea,
 
 I saw you canceled your ZeroGEX trial because the site was loading very slowly. I'm sorry that was your first look at it.
 
-I checked the server records for Monday afternoon, and the data was going out quickly. So the delay was somewhere between our servers in the US and your screen, and I'd like to find it.
+I checked the server records for your visit. Apart from one five-second pause a few minutes before you canceled, the data was going out in a fraction of a second. So most of the delay was somewhere between our servers in the US and your screen, and I'd like to find it.
 
 Would you tell me which page was slow, and what it looked like? Gray boxes that never filled in, a chart that kept spinning, or the whole page? Your browser, and whether you were on Wi-Fi or mobile data, would help too.
 
-Your trial is still open until October 5, and nothing will be charged, because you canceled. If you'd like to try it again while I work on this, reply and I'll add a week to it.
+Your trial is still open until October 5, and nothing will be charged, because you canceled. If you'd like to try it again while I look into it, reply and I'll add a week to it.
 
 Best,
 Michael
@@ -196,13 +255,16 @@ Founder, ZeroGEX
 
 ## Worth fixing later (not urgent)
 
-- **nginx doesn't record how long a request took, and the nightly cleanup
-  deletes its log.** The API journal is the only timing record, and it lasts
-  about 16 hours. Put the response time in nginx's log lines (`log_format` with
-  `$request_time $upstream_response_time $upstream_cache_status $host`), and
-  keep a few days of compressed logs instead of truncating them in
-  `logs-clear-noconfirm` (zerogex-oa `Makefile`). Then the next "it's slow" can
-  be checked days later, not only the same night.
+- **nginx doesn't record how long a request took, and keeps its log for only
+  about eight hours.** On the box it rotates every hour or two and keeps five
+  compressed files, and the nightly cleanup deletes even those. That rotation
+  isn't set in either repo. The API journal is the only timing record, and it
+  lasts about 16 hours. Put the response time in nginx's log lines
+  (`log_format` with `$request_time $upstream_response_time
+  $upstream_cache_status $host`), and keep a few days of compressed logs
+  instead of deleting them in `logs-clear-noconfirm` (zerogex-oa `Makefile`).
+  Then the next "it's slow" can be checked days later, not only the same
+  afternoon.
 - **Two backend queries read a symbol's whole price history on every call.**
   `underlying_quotes` stopped being trimmed on 2026-08-25, so both get a little
   slower every trading day. Neither is new, and neither explains a bad
@@ -220,5 +282,6 @@ Founder, ZeroGEX
   chart shows, has no time limit on any request, and every full page load also
   fires eight background preloads of SPY, SPX, QQQ and NDX data for other pages
   (`OptionChainPrewarm.tsx`, `TechnicalSnapshotPrewarm.tsx`). These cost the
-  most for members far from the US. Change them only if the logs point there.
-  Otherwise this is a redesign chasing one cancellation.
+  most for members far from the US. The server records rule the server out
+  for this visit, so this is where to look if more members abroad say the
+  same. For one cancellation, it's a redesign too far.
