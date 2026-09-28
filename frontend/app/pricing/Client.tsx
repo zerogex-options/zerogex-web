@@ -16,7 +16,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
 import { trackTwitter } from '@/core/telemetry/twitter-client';
 import { TwitterEvent } from '@/core/telemetry/twitter-events';
-import { ArrowRight, CheckCircle2, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, CheckCircle2, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import { usePageT } from '@/core/LanguageContext';
 import {
   BILLING_CADENCES,
@@ -1546,6 +1546,28 @@ function PricingClientInner({
               onChangePlan={handleChangePlan}
             />
           </div>
+
+          {/* Mirrors the billing portal config (scripts/setup-billing-portal.mts):
+              upgrades prorate, downgrades are scheduled at period end. Keep in
+              step with upgradesBody in the policy below. */}
+          <p
+            style={{
+              margin: '18px auto 0',
+              maxWidth: 760,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              gap: 8,
+              fontSize: 13,
+              color: C.muted,
+              lineHeight: 1.55,
+            }}
+          >
+            <ArrowLeftRight size={14} style={{ color: C.amber, marginTop: 3, flexShrink: 0 }} aria-hidden />
+            <span>
+              <strong style={{ color: C.light }}>{t('switchAnytimeLabel')}</strong> {t('switchAnytimeBody')}
+            </span>
+          </p>
 
           <BillingComparison
             cadences={cadences}

@@ -91,6 +91,8 @@ export const dict: PageDictionary = {
     moneyBackNote:
       '{days}-day money-back guarantee\u00a0- not for you? Get a full refund within {days} days of paying. One refund per customer.',
     billedTodayNote: 'Billed today · Cancel anytime.',
+    switchAnytimeLabel: 'Switch plans anytime\u00a0- no penalty.',
+    switchAnytimeBody: 'Upgrades are prorated, and downgrades start when your current billing period ends.',
     saveHighlight: 'Save {pct}%',
     quarterlyToggle: 'Quarterly',
     perQuarterSuffix: '/quarter',
@@ -210,6 +212,9 @@ export const dict: PageDictionary = {
     moneyBackNote:
       'Garanzia soddisfatti o rimborsati di {days} giorni: non fa per te? Rimborso completo entro {days} giorni dal pagamento. Un rimborso per cliente.',
     billedTodayNote: 'Addebito oggi · Annulla quando vuoi.',
+    switchAnytimeLabel: 'Cambia piano quando vuoi, senza penali.',
+    switchAnytimeBody:
+      'Gli upgrade sono calcolati in proporzione e i downgrade partono alla fine del periodo di fatturazione in corso.',
     saveHighlight: 'Risparmia il {pct}%',
     quarterlyToggle: 'Trimestrale',
     perQuarterSuffix: '/trimestre',
@@ -332,6 +337,9 @@ export const dict: PageDictionary = {
     moneyBackNote:
       '{days}-Tage-Geld-zurück-Garantie\u00a0- nicht das Richtige? Volle Erstattung innerhalb von {days} Tagen nach der Zahlung. Eine Erstattung pro Kunde.',
     billedTodayNote: 'Abrechnung heute · Jederzeit kündbar.',
+    switchAnytimeLabel: 'Plan jederzeit wechseln\u00a0- ohne Strafgebühr.',
+    switchAnytimeBody:
+      'Upgrades werden anteilig verrechnet, Downgrades gelten ab dem Ende deines aktuellen Abrechnungszeitraums.',
     saveHighlight: '{pct} % sparen',
     quarterlyToggle: 'Vierteljährlich',
     perQuarterSuffix: '/Quartal',
@@ -452,6 +460,9 @@ export const dict: PageDictionary = {
     moneyBackNote:
       'Garantía de devolución de {days} días: ¿no es para ti? Reembolso completo dentro de los {days} días siguientes al pago. Un reembolso por cliente.',
     billedTodayNote: 'Se cobra hoy · Cancela cuando quieras.',
+    switchAnytimeLabel: 'Cambia de plan cuando quieras, sin penalización.',
+    switchAnytimeBody:
+      'Las mejoras se prorratean y las reducciones empiezan al final de tu período de facturación actual.',
     saveHighlight: 'Ahorra {pct} %',
     quarterlyToggle: 'Trimestral',
     perQuarterSuffix: '/trimestre',
@@ -572,6 +583,9 @@ export const dict: PageDictionary = {
     moneyBackNote:
       'Garantie satisfait ou remboursé de {days} jours\u00a0- ça ne vous convient pas ? Remboursement intégral dans les {days} jours suivant le paiement. Un remboursement par client.',
     billedTodayNote: "Facturé aujourd'hui · Annulez à tout moment.",
+    switchAnytimeLabel: "Changez d'offre à tout moment, sans pénalité.",
+    switchAnytimeBody:
+      'Les montées de gamme sont calculées au prorata et les descentes de gamme prennent effet à la fin de votre période de facturation en cours.',
     saveHighlight: 'Économisez {pct} %',
     quarterlyToggle: 'Trimestriel',
     perQuarterSuffix: '/trimestre',
