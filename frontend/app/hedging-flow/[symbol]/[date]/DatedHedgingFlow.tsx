@@ -28,7 +28,7 @@ import HedgingFlowPanels, { ZeroDteToggle } from '../../HedgingFlowPanels';
  * Both scopes arrive together and the toggle switches between them locally.
  * That is the reason the snapshot stores two: on a live session the toggle
  * re-queries, but the trades a past session would be re-queried FROM are
- * pruned at 90 days.
+ * pruned at DATA_RETENTION_DAYS (60 on this deployment).
  */
 export default function DatedHedgingFlow({
   symbol,
@@ -72,7 +72,7 @@ export default function DatedHedgingFlow({
             stock.
           </>
         }
-        tooltip="A finished session, served from the stored 5-minute bars rather than recomputed&nbsp;- the trades behind it are pruned at 90 days, so this is the only thing that outlives them. Everything else reads exactly as the live page: for every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies, accumulated across the session, with the dealer gamma structure sharing the window and the crosshair."
+        tooltip="A finished session, served from the stored 5-minute bars rather than recomputed&nbsp;- the trades behind it are pruned on a rolling retention window, so this is the only thing that outlives them. Everything else reads exactly as the live page: for every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies, accumulated across the session, with the dealer gamma structure sharing the window and the crosshair."
         actions={
           // Wraps rather than overflowing: on a 360px phone the toggle and
           // the four symbol chips do not share one row.
