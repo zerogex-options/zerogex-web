@@ -33,6 +33,7 @@ import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent }
 import { ChevronLeft, ChevronRight, HelpCircle, TrendingDown, TrendingUp } from 'lucide-react';
 import type { ChartSnapshot } from './GammaTerminalChart';
 import TooltipWrapper from './TooltipWrapper';
+import FuturesLevelsChip from './FuturesLevelsChip';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
 import { usePinStability } from '@/hooks/useApiData';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
@@ -384,6 +385,7 @@ export function KeyLevelsBoard({
             {regime.label}
           </span>
         )}
+        <FuturesLevelsChip symbol={read.symbol} />
         {read.delayed && (
           <span
             className="zg-chip"

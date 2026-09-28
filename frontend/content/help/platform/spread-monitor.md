@@ -138,7 +138,7 @@ The same reading on every index with an option chain of its own. Compare using t
 
 ## ES and NQ
 
-The Spread Monitor is not available for the futures. ES and NQ carry no option chain in ZeroGEX - their dealer levels are SPX and NDX option-derived and converted onto the futures price axis using the live basis.
+The Spread Monitor is not available for the futures. ES and NQ carry no option chain in ZeroGEX - their dealer levels are SPX and NDX option-derived and carried onto the futures price axis at fair value (the cost of carry to the contract's expiry).
 
 That conversion works for levels. It cannot work here: a quoted spread is a width a market maker is showing on a real contract, and scaling an SPX quote by the futures basis would invent a market nobody published - in answer to the one question this page exists to answer honestly. Switch to SPX or NDX instead.
 

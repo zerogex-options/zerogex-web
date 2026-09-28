@@ -11,6 +11,7 @@ import { FilterGroup } from '@/components/controls/Filters';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
 import FuturesContractBadge from '@/components/FuturesContractBadge';
+import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import FlipTermStructureChart from '@/components/FlipTermStructureChart';
@@ -21,6 +22,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { isIndexSymbol } from '@/core/utils';
+import { isFuturesSymbol } from '@/core/symbols';
 import { formatPinStrike, pinStrikeSubtitle, PIN_STRIKE_TOOLTIP } from '@/core/pinStrike';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
 
@@ -125,6 +127,13 @@ export default function GreeksGEXPage() {
           </FilterGroup>
         }
       />
+
+      {/* ES / NQ levels are the SPX / NDX levels carried across at fair value. */}
+      {isFuturesSymbol(symbol) && (
+        <div className="mb-4 flex">
+          <FuturesLevelsChip symbol={symbol} />
+        </div>
+      )}
 
       {/* Error Messages */}
       {gexError && (

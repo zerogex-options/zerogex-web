@@ -43,7 +43,8 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
-import { volatilityIndexFor } from '@/core/symbols';
+import { isFuturesSymbol, volatilityIndexFor } from '@/core/symbols';
+import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import {
   aggregateStrikes,
   chartExpirationOptions as deriveChartExpirationOptions,
@@ -526,6 +527,12 @@ export default function GammaExposurePage() {
           </FilterGroup>
         }
       />
+      {/* ES / NQ levels are the SPX / NDX levels carried across at fair value. */}
+      {isFuturesSymbol(symbol) && (
+        <div className="mb-4 flex">
+          <FuturesLevelsChip symbol={symbol} />
+        </div>
+      )}
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
       {/* Section 1: Regime Header */}
       <GexRegimeHeader

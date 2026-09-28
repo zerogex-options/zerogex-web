@@ -52,6 +52,34 @@ export function isFuturesSymbol(symbol: string | null | undefined): boolean {
 }
 
 /**
+ * The short label every ES / NQ levels surface carries: "Implied from SPX".
+ *
+ * The levels on a futures view are the backing index's levels carried onto the
+ * futures price axis at the theoretical cost of carry, not at a basis measured
+ * off CME prints (zerogex-oa FUTURES_BASIS_CARRY_ONLY, on by default since
+ * 2026-09-23 for licensing reasons). Carry is fair value, so the backend's rule
+ * is that anything published from it says it is implied from the index rather
+ * than presenting it as the future's own. Null for a cash symbol.
+ */
+export function futuresLevelsLabel(symbol: string | null | undefined): string | null {
+  const index = symbol ? FUTURES_BACKING_INDEX[symbol.toUpperCase()] : undefined;
+  return index ? `Implied from ${index}` : null;
+}
+
+/** The sentence behind that label, for its tooltip. Null for a cash symbol. */
+export function futuresLevelsExplainer(symbol: string | null | undefined): string | null {
+  const future = (symbol || '').toUpperCase();
+  const index = FUTURES_BACKING_INDEX[future];
+  if (!index) return null;
+  return (
+    `${future} has no options book of its own. These levels are the ${index} option levels ` +
+    `carried onto the ${future} price axis at fair value (the cost of carry to the contract's ` +
+    `expiry); the ${future} price itself is ${future}'s own. When ${future} trades rich or cheap ` +
+    `to fair value, the levels can sit slightly off.`
+  );
+}
+
+/**
  * The symbols a PER-CONTRACT option-flow surface can actually answer for.
  *
  * ES / NQ are served everywhere else by running the SPX / NDX handler and
