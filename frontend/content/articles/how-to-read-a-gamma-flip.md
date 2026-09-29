@@ -32,12 +32,12 @@ Above the flip, dealers are modeled as net long gamma. To stay delta-neutral, th
 
 Practical consequences traders see on the tape:
 
-- **Realized vol tends to compress.** Breakouts more often stall and get faded.
+- **Realized vol tends to compress.** Hedging leans against pushes in either direction, including pushes into the walls.
 - **Pin behavior becomes more likely.** Price tends to gravitate toward strikes with heavy gamma concentration, especially into the close.
-- **Mean-reversion setups have a higher hit rate.** Fading rallies into a [call wall](/education/gamma-walls-explained), dip-buying near a put wall, and short-premium structures all benefit from the dampening reflex.
-- **Trend-following has a lower hit rate.** Breakouts that look clean on a 5-minute chart often fail to extend.
+- **Mean-reversion setups have the hedging behind them.** Fading rallies into a [call wall](/education/gamma-walls-explained), dip-buying near a put wall, and short-premium structures all lean on the dampening reflex.
+- **Trend-following has the hedging against it.** A breakout that looks clean on a 5-minute chart meets a dealer book leaning the other way.
 
-None of this is a guarantee. Macro shocks, OpEx mechanics, or a flip-cross down can override the regime mid-session. As a baseline lean, though, above-flip behavior leans toward calm.
+None of this is a guarantee. Macro shocks, OpEx mechanics, or a flip-cross down can override the regime mid-session. As a baseline lean, though, above-flip behavior leans toward calm. What the regime does not change is how often walls give way: in our measurement of 737 wall tests, S&P walls held about two times in three within an hour on both sides of the flip ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -47,10 +47,10 @@ Below the flip, dealers are modeled as net short gamma. To stay delta-neutral, t
 
 Practical consequences:
 
-- **Realized vol tends to expand.** Breakouts have more follow-through; selloffs accelerate.
+- **Realized vol tends to expand.** A break that does happen has hedging behind it; selloffs can accelerate.
 - **Pin behavior breaks down.** Strikes that magneted price above the flip start releasing it.
-- **Trend-continuation has a higher hit rate.** Momentum tends to extend rather than fade.
-- **Mean-reversion gets dangerous.** Catching a falling knife in a deep negative-gamma regime tends to compound losses, because the dealer reflex you would be counting on (buying weakness) is the reflex that just inverted.
+- **Trend-continuation has the hedging behind it.** Momentum can extend rather than fade.
+- **Mean-reversion gets dangerous.** Catching a falling knife in a deep negative-gamma regime can compound losses, because the dealer reflex you would be counting on (buying weakness) is the reflex that just inverted.
 
 This is also a probabilistic lean, not a forecast. A single calm headline can quiet the tape inside the same regime. But knowing you are in short-gamma territory should change which trades you take and - more importantly - which trades you skip.
 
@@ -85,7 +85,7 @@ A worked example. Suppose SPX is trading at 5,830 and the dashboard shows:
 - **Gamma Flip:** 5,815
 - **Distance:** +15 / +0.26%
 
-The read: spot is in modeled long-gamma territory, comfortably above the flip. The headline Net GEX figure - estimated dealer gamma under the traditional call-positive/put-negative convention, not observed inventory - is consistent with the regime: positive, because it is the value of the same modeled gamma curve evaluated at spot, and in this book that curve turns positive above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, breakouts more likely to fade, pin behavior toward heavy-gamma strikes on the table into the close.
+The read: spot is in modeled long-gamma territory, comfortably above the flip. The headline Net GEX figure - estimated dealer gamma under the traditional call-positive/put-negative convention, not observed inventory - is consistent with the regime: positive, because it is the value of the same modeled gamma curve evaluated at spot, and in this book that curve turns positive above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, hedging leaning against breakouts, pin behavior toward heavy-gamma strikes on the table into the close.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 

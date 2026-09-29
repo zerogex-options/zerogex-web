@@ -83,8 +83,8 @@ Concretely, things to *stop* doing in a negative-gamma regime:
 
 Things to *start* doing:
 
-- **Trade with the move.** Trend-following setups have a higher hit rate.
-- **Treat walls as breakout targets, not resistance.** The same level you'd have faded in long-gamma might be a continuation entry in short-gamma.
+- **Trade with the move.** Trend-following setups have the hedging behind them.
+- **Size fades at walls for the break.** A wall held about as often in short gamma as in long in our measurement, but if it gives way here, hedging adds to the move, so a failed fade can run further against you.
 - **Be more selective on entry timing.** Wider ranges mean more risk per trade. Compensate with tighter setup criteria.
 - **Watch for regime flips back to positive gamma.** They happen - the flip is dynamic. When spot crosses back above the gamma flip, the playbook flips with it.
 
@@ -101,11 +101,11 @@ SPX opens the day at 5,780. ZeroGEX shows:
 
 Through the morning, SPX grinds higher to 5,800. The instinct on a long-gamma day would be to start fading rallies into the 5,810 flip and the 5,820 call wall.
 
-The structural read here says the opposite. SPX is in short-gamma territory; dealer hedging is amplifying. The push toward 5,810 might extend through it rather than fade - especially if Net GEX is decaying further negative. The 5,820 call wall in this regime is more likely to act as a breakout target than as resistance.
+The structural read here says the opposite. SPX is in short-gamma territory; dealer hedging is amplifying. The push toward 5,810 meets hedging that runs with it rather than against it. If the 5,820 call wall gives way in this regime, that hedging adds to the break instead of leaning against it.
 
-The practical lean: skip the fade. Either trade with the momentum or stand aside. Reverse the playbook from a typical long-gamma day.
+The practical read: a fade here has no hedging behind it, and if the wall gives way, the move can run. That changes the risk of fading, not the odds that 5,820 holds - in our measurement of 737 wall tests, SPX walls held about two times in three within an hour whichever side of the flip price was on.
 
-Now imagine the same chart with Net GEX at +$1.2B and the gamma flip at 5,760 (spot 40 points above). The structural read inverts: 5,820 more likely acts as resistance, the long-gamma reflex tends to absorb rallies, and the fade setup is on. Same tape, opposite read, depending on a single regime variable.
+Now imagine the same chart with Net GEX at +$1.2B and the gamma flip at 5,760 (spot 40 points above). The structural read inverts: the long-gamma reflex leans against rallies into 5,820, so a fade has the hedging behind it. Same tape, opposite mechanism, depending on a single regime variable.
 
 ---
 
