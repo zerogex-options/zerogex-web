@@ -55,11 +55,11 @@ Ce que fait le réflexe :
 À quoi ressemble généralement le tape :
 
 - Fourchettes plus larges, breakouts plus rapides.
-- Mouvements de continuation plus fréquents que les retournements.
-- Les entrées en mean-reversion à contre-tendance se font souvent balayer.
-- Les primes des options du jour même tendent à s'élargir en intraday plutôt qu'à se comprimer.
+- Le risque de continuation peut être plus élevé qu'un modèle de gamma longue ne le laisserait supposer.
+- Les entrées en mean-reversion peuvent se heurter à un flux de couverture modélisé qui renforce le mouvement.
+- Les mouvements directionnels et les variations de volatilité implicite peuvent compenser la décroissance rapide du theta ; le comportement des primes ne dépend pas du seul signe de la gamma.
 
-L'inclination pratique dans un régime 0DTE à gamma courte est **d'accompagner le mouvement, pas de le contrer**. Les setups de continuation de tendance affichent généralement de meilleurs taux de réussite ; s'opposer à la tendance dans la concentration 0DTE revient à lutter structurellement contre le réflexe des dealers.
+L'inclination pratique dans un régime 0DTE à gamma courte est **d'accompagner le mouvement, pas de le contrer**. Les setups de continuation de tendance peuvent être plus cohérents avec le réflexe de couverture modélisé ; il s'agit d'une inclination conditionnelle liée à la structure de marché, pas d'une affirmation sur un taux de réussite démontré.
 
 ---
 
@@ -79,8 +79,8 @@ Ce que fait le réflexe :
 
 - Fourchettes plus étroites, plus de chop, plus de breakouts avortés.
 - Comportement d'attraction vers le strike le plus lourd, surtout après 14h00 ET.
-- Les primes des options du jour même tendent à s'éroder.
-- Les setups de mean-reversion affichent généralement de meilleurs taux de réussite que ceux de continuation de tendance.
+- La décroissance rapide du theta peut peser sur les primes des options du jour même, mais les mouvements du spot et de la volatilité implicite peuvent l'emporter.
+- Les setups de mean-reversion peuvent être plus cohérents avec le réflexe de couverture modélisé que les setups de continuation de tendance.
 
 L'inclination pratique dans un régime 0DTE à gamma longue est **de jouer contre le breakout, avec le pin**. Les rallyes vendus à l'approche du call wall, les achats sur repli à l'approche du put wall, et les structures à prime courte bénéficient tous du réflexe amortisseur.
 
@@ -93,15 +93,15 @@ Quelques habitudes qui changent entre les deux régimes :
 **Dans un régime 0DTE à gamma négative :**
 
 - Prenez plus au sérieux les breakouts de la fourchette récente, surtout lorsque le Net GEX est fortement négatif.
-- Traitez les walls 0DTE comme des objectifs, pas comme des plafonds.
+- Ne traitez pas les walls 0DTE comme des plafonds : si l'un d'eux cède, la couverture renforce le mouvement au lieu de s'y opposer.
 - Méfiez-vous des setups « ça va pinner » - le réflexe des dealers ne tire pas dans ce sens.
-- Dimensionnez pour des stops plus larges ; la volatilité réalisée est structurellement plus élevée.
+- Si des mesures de volatilité indépendantes confirment une séance à fourchette plus large, dimensionnez le risque en conséquence ; le signe de la gamma modélisée ne prescrit pas à lui seul un stop.
 
 **Dans un régime 0DTE à gamma positive :**
 
 - Privilégiez par défaut de vendre les mouvements vers les strikes concentrés en 0DTE.
 - Traitez le strike à la gamma la plus lourde comme un aimant, surtout à l'approche de la clôture.
-- Méfiez-vous des breakouts - ils échouent plus souvent.
+- Méfiez-vous des breakouts - la couverture s'y oppose, et les breakouts avortés peuvent mettre dix ou quinze minutes à se défaire.
 - Des stops plus serrés sont plus raisonnables ; les fourchettes sont plus contenues.
 
 **Dans tous les régimes :**

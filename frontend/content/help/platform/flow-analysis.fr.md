@@ -67,7 +67,7 @@ Pour une analyse plus approfondie de pourquoi le volume brut peut induire en err
 ## Quand cette page est la plus utile
 
 - **Juste après l'ouverture** - les 30 premières minutes en disent long sur le biais de la journée.
-- **À tout niveau clé** - le flux vers un wall ou le VWAP indique si le niveau est défendu ou franchi.
+- **À tout niveau clé** - le flux vers un wall ou le VWAP montre qui fait pression sur le niveau. Dans notre étude portant sur 737 tests de walls, le flux signé au strike du wall ne permettait pas de prédire quels walls allaient céder ; lisez-le donc comme un contexte, pas comme un verdict.
 - **Vers la clôture** - combinée à EOD Pressure, la lecture du flux affine l'indication directionnelle.
 
 ## Voir aussi

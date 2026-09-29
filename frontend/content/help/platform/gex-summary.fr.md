@@ -38,7 +38,7 @@ Le strike 0DTE atteignable présentant le plus fort gamma positif modélisé des
 
 - **Call GEX** et **Put GEX** - l'exposition gamma totale modélisée des calls et des puts, les deux moitiés derrière le Net GEX.
 - **Put/Call Ratio** - le volume de puts divisé par le volume de calls. Au-dessus de 1, tendance baissière ; en dessous de 1, haussière.
-- **Call Wall (Resistance)** et **Put Wall (Support)** - le strike au niveau du spot ou au-dessus présentant le plus grand call gamma, et le strike au niveau du spot ou en dessous présentant le plus grand put gamma, chacun additionné sur l'échéance du jour et les deux suivantes (0-2DTE), avec la distance au spot. Un graphique limité au seul 0DTE peut afficher un autre strike. Les libellés sont la lecture habituelle, pas une garantie : qu'un wall tienne dépend du signe modélisé du gamma des dealers et du flux environnant.
+- **Call Wall (Resistance)** et **Put Wall (Support)** - le strike au niveau du spot ou au-dessus présentant le plus grand call gamma, et le strike au niveau du spot ou en dessous présentant le plus grand put gamma, chacun additionné sur l'échéance du jour et les deux suivantes (0-2DTE), avec la distance au spot. Un graphique limité au seul 0DTE peut afficher un autre strike. Les libellés sont la lecture habituelle, pas une garantie : dans notre étude portant sur 737 tests de walls, les walls du S&P ont tenu environ deux fois sur trois dans l'heure et ceux du Nasdaq environ une fois sur deux, et le signe modélisé du gamma des dealers n'y a rien changé.
 
 ## Gamma Flip · Term Structure
 

@@ -12,7 +12,7 @@ Un **call wall** est le strike au-dessus du spot qui porte la plus forte concent
 
 La signification du call wall, en une phrase : ce n'est ni un chiffre rond ni une ligne sur un graphique - c'est un positionnement réel, l'open interest pondéré par le gamma que porte chaque contrat. Le strike unique où ce gamma call est le plus dense au-dessus du prix actuel, c'est le call wall.
 
-Son miroir sous le spot est le [put wall](/education/what-is-a-put-wall), le strike au gamma put le plus lourd, qui tend à servir de plancher à la baisse. Ensemble, les deux walls dessinent la fourchette que la mécanique de couverture des dealers défend. Cet article traite spécifiquement du call wall - ce qu'il est, pourquoi il agit comme une résistance, comment il se déplace, et quand une cassure au travers compte réellement. Pour la vue d'ensemble, associez-le à [Gamma Walls Explained](/education/gamma-walls-explained) et à l'[article pilier sur le Gamma Exposure](/education/gamma-exposure-explained).
+Le [Put Wall](/education/what-is-a-put-wall) correspond à la plus grande magnitude de gamma put sous le spot, mais ce n'est pas un miroir mécanique : selon la convention, l'inventaire de puts à ce strike est modélisé comme un gamma négatif. Les deux walls sont des références structurelles dont le comportement dépend du profil complet et du flux. Cet article traite spécifiquement du call wall - ce qu'il est, pourquoi il agit comme une résistance, comment il se déplace, et quand une cassure au travers compte réellement. Pour la vue d'ensemble, associez-le à [Gamma Walls Explained](/education/gamma-walls-explained) et à l'[article pilier sur le Gamma Exposure](/education/gamma-exposure-explained).
 
 ---
 

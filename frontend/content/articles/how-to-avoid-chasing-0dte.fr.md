@@ -48,7 +48,7 @@ Ouvrez le panneau de flux. Si la prime put/call affiche déjà un ratio de 3:1 c
 
 ### Déclencheur 3 : il est tard dans la journée et le mouvement se dirige vers un niveau clé
 
-Après 14h00 ET, la décroissance du charm s'accélère et le réflexe des dealers autour du strike 0DTE le plus pondéré s'intensifie. Courir après un mouvement de fin de journée qui se dirige vers le call wall (ou qui s'éloigne du put wall), c'est acheter précisément là où le hedging des dealers est structurellement en place pour vous faire perdre. Le signal EOD Pressure existe spécifiquement pour signaler ce régime - voir [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+Après 14h00 ET, les effets de charm modélisés tendent à s'accumuler et le réflexe des dealers autour du strike 0DTE le plus lourd peut s'intensifier. Courir après un mouvement de fin de journée qui se dirige vers le call wall (ou qui s'éloigne du put wall) peut revenir à acheter précisément là où le hedging des dealers joue contre vous plutôt qu'avec vous. Le signal EOD Pressure est conçu pour signaler ce régime - voir [EOD Pressure Signal Explained](/education/eod-pressure-explained).
 
 ---
 
@@ -56,10 +56,10 @@ Après 14h00 ET, la décroissance du charm s'accélère et le réflexe des deale
 
 Quand l'envie de poursuivre vous prend, passez cette checklist en revue :
 
-1. **Quel est le régime de gamma ?** Spot au-dessus du flip (long-gamma) → les fades fonctionnent, les poursuites échouent. Spot en dessous du flip (short-gamma) → les poursuites fonctionnent, les fades échouent. Si vous ne connaissez pas le régime, vous devinez.
+1. **Quel est le régime de gamma ?** Spot au-dessus du flip modélisé (long-gamma) → le hedging joue contre le mouvement que vous poursuivez. Spot en dessous du flip (short-gamma) → le hedging l'accompagne. Cela vous indique de quel côté penche le flux des dealers, pas si le mouvement va durer : sur les 737 tests de walls que nous avons mesurés, les walls n'ont pas cédé plus souvent sous le flip qu'au-dessus. Si vous ne connaissez pas le régime, vous ne savez pas de quel côté penche le hedging.
 2. **Où se situe le wall le plus proche ?** Si vous poursuivez un call vers le call wall dans un régime long-gamma, la traction structurelle joue *contre* la poursuite. Si vous poursuivez vers un espace ouvert sans wall entre le spot actuel et l'objectif poursuivi, la traction structurelle est neutre - meilleur setup.
-3. **Le Net GEX se renforce-t-il ou s'affaiblit-il ?** Un renforcement dans un régime long-gamma signifie que le réflexe absorbant s'intensifie - poursuivre = piège à fade. Un affaiblissement signifie que le réflexe absorbant se relâche - la poursuite a davantage de marge.
-4. **Quelle heure est-il ?** Avant midi ET, le charm sur les 0DTE est faible et le réflexe des dealers est atténué. Après 14h00 ET, les flux de charm s'accumulent. Les poursuites de fin de journée vers une structure sont la pire version du piège.
+3. **Le Net GEX se renforce-t-il ou s'affaiblit-il ?** Un renforcement dans un régime long-gamma suggère que le réflexe absorbant s'intensifie ; un affaiblissement, qu'il se relâche. Cela décrit le hedging, pas les probabilités - selon nos mesures, la trajectoire du Net GEX ne permettait pas de prédire quels walls allaient céder.
+4. **Quelle heure est-il ?** Avant midi ET, le charm modélisé sur les 0DTE est faible et le réflexe des dealers tend à être atténué. Après 14h00 ET, le hedging lié au charm modélisé tend à s'accumuler. Les poursuites de fin de journée vers une structure sont souvent la pire version du piège.
 5. **Le contrat a-t-il déjà fait un x3 ?** Si oui, vous ne captez pas un mouvement - vous payez pour un mouvement déjà survenu. Le mouvement suivant attendu inclut une probabilité non négligeable de mean-reversion.
 
 Si la plupart de ces éléments jouent contre la poursuite, la discipline consiste à passer son tour. Pas « attendre une meilleure entrée » - passer son tour. La poursuite 0DTE qui a fonctionné une fois sur dix, c'est le biais du survivant qui maintient l'habitude en vie.
@@ -70,13 +70,13 @@ Si la plupart de ces éléments jouent contre la poursuite, la discipline consis
 
 La poursuite n'est pas toujours une erreur. Le trade de momentum 0DTE *peut* fonctionner quand :
 
-- Le spot est dans un **régime de gamma négatif** (sous le flip). Le réflexe des dealers amplifie, il n'amortit pas. Le momentum se prolonge.
-- **Le Net GEX est faible ou négatif.** La fade structurelle est faible ou inversée.
-- Il existe un **véritable catalyseur** actif (surprise CPI, réaction au FOMC, actualité géopolitique). Le flux porté par le catalyseur écrase le réflexe structurel.
+- Le spot est dans un **régime de gamma négatif** (sous le flip). Le hedging des dealers tend à amplifier plutôt qu'à amortir. Le momentum peut se prolonger.
+- **Le Net GEX est faible ou négatif.** La fade structurelle tend à être faible ou inversée.
+- Il existe un **véritable catalyseur** actif (surprise CPI, réaction au FOMC, actualité géopolitique). Le flux porté par le catalyseur peut écraser le réflexe structurel.
 - Le mouvement se produit **tôt dans la séance** (avant l'accumulation de charm).
 - Le contrat n'a pas encore accompli tout son mouvement - vous captez les premiers 30 % du range de la journée, pas les derniers 30 %.
 
-Ce sont les conditions pour un trade de breakout 0DTE avec une probabilité réelle. Elles sont l'inverse du déclencheur typique du « je veux courir après ça ».
+Ce sont les conditions dans lesquelles un breakout 0DTE a autre chose derrière lui que l'envie de poursuivre - même si le régime, la seule condition structurelle de cette liste, n'a pas rendu les walls plus susceptibles de céder selon nos mesures. Elles sont l'inverse du déclencheur typique du « je veux courir après ça ».
 
 ---
 
