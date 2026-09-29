@@ -21,7 +21,7 @@ Traders usually mean one of two specific levels when they say "gamma wall":
 - The **call wall** - the heaviest call-gamma concentration above spot. See [What Is a Call Wall?](/education/what-is-a-call-wall)
 - The **put wall** - the heaviest put-gamma concentration below spot. See [What Is a Put Wall?](/education/what-is-a-put-wall)
 
-Together they bracket spot, and traders often read them as the outer edges of the range that current positioning is most consistent with. That reading holds more often in a positive-gamma regime and less often in a negative one - which is why the walls are read alongside the [gamma flip](/education/how-to-read-a-gamma-flip) rather than on their own.
+Together they bracket spot, and traders often read them as the outer edges of the range that current positioning is most consistent with. Whether a given wall holds is closer to a base rate than a read: in our measurement of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, on either side of the flip ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)). The flip still matters, because it decides whether hedging around the walls leans against a move or adds to it - which is why the walls are read alongside the [gamma flip](/education/how-to-read-a-gamma-flip) rather than on their own.
 
 ## Why price can react at a gamma wall
 

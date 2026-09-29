@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/zerogex-vs-bullflow',
+    kind: 'Published • September 29, 2026 • 16:00 UTC',
+    title: 'ZeroGEX vs Bullflow (2026): Pricing, GEX & Options Flow',
+    blurb:
+      'A fair side-by-side of ZeroGEX and Bullflow: what each platform is built for, what each plan costs, where Bullflow is the stronger choice, and where a dedicated gamma-levels tool fits better.',
+  },
+  {
     href: '/education/hedging-flow-explained',
     kind: 'Published • September 28, 2026 • 16:00 UTC',
     title: 'Hedging Flow Explained: Reading the Options Tape Through the Hedge',

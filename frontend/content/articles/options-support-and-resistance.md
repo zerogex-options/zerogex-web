@@ -12,7 +12,7 @@ Options-based support and resistance is different. It's not derived from price h
 
 When chart-S/R and options-S/R agree, the level tends to be more reliable. When they disagree, the options-based read often carries more weight - because the chart level is opinion and the options level is grounded in positioning-driven hedging flow.
 
-This piece is the practical workflow for identifying options-based S/R, reading it in real time, and knowing when it holds versus breaks. For the broader gamma framework, see the [Gamma Exposure pillar](/education/gamma-exposure-explained).
+This piece is the practical workflow for identifying options-based S/R, reading it in real time, and knowing what to expect when price tests it. For the broader gamma framework, see the [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -24,13 +24,13 @@ The labels below - call wall as resistance, put wall as support - describe the
 
 The **call wall** is the strike above spot with the heaviest call gamma exposure. Under the traditional convention dealers are modeled long that inventory, so in a long-gamma regime they tend to sell into rallies that approach the wall. That selling can act as structural resistance.
 
-Practical read: the call wall is one of the more reliable forms of options-based resistance in a positive-gamma regime. In a negative-gamma regime, it can invert and become a breakout target.
+Practical read: in a positive-gamma regime, hedging around the call wall leans against a rally; in a negative-gamma regime it runs with one, so if the wall gives way it can become a breakout accelerant. The regime changes that behavior, not how often the wall breaks: S&P walls held about two times in three within an hour in our measurement, on either side of the flip.
 
 ### 2. Put walls (support)
 
 The **put wall** is the strike below spot with the heaviest put gamma exposure. When net gamma is modeled positive, the aggregate dealer book tends to buy into selloffs that approach the wall. That net buying can act as structural support - note the support comes from the positive net-gamma sign, not from the strike being made of puts (under the convention, dealers are modeled short those puts).
 
-Same regime dependency as the call wall - in negative gamma, the put wall can become a slippage point on the way down.
+Same regime dependency as the call wall - in negative gamma, a put wall that gives way can become a slippage point on the way down.
 
 The mechanics of walls in both regimes is in [Gamma Walls Explained](/education/gamma-walls-explained).
 
@@ -50,7 +50,7 @@ See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the work
 
 ## Why does SPY reverse at these levels?
 
-The reversals that look random on a SPY chart - price runs to some level that wasn't a prior swing or a round number, stops dead, and unwinds - are usually one of these four levels doing its job. At the **call wall**, dealers modeled long the strike sell into the rally to stay hedged, adding supply that caps the move. At the **put wall**, a net-long-gamma book buys the selloff, adding support. At the **gamma magnet**, the modeled hedging reflex pulls price back toward the strike. At the **gamma flip**, that reflex changes sign and price often pauses as it crosses. None of these is on the price chart - they're on the option chain - which is why the reversal looks like it came from nowhere until you map it to positioning. Whether each level absorbs the move or gets run over depends on the regime, so read the flip first: the same call wall that caps a rally in long gamma becomes a breakout target in short gamma.
+The reversals that look random on a SPY chart - price runs to some level that wasn't a prior swing or a round number, stops dead, and unwinds - are usually one of these four levels doing its job. At the **call wall**, dealers modeled long the strike sell into the rally to stay hedged, adding supply that caps the move. At the **put wall**, a net-long-gamma book buys the selloff, adding support. At the **gamma magnet**, the modeled hedging reflex pulls price back toward the strike. At the **gamma flip**, that reflex changes sign and price often pauses as it crosses. None of these is on the price chart - they're on the option chain - which is why the reversal looks like it came from nowhere until you map it to positioning. Whether a wall absorbs the move or gets run over did not depend on the regime in our measurement - S&P walls held about two times in three within an hour on either side of the flip. What the regime changes is the hedging around the level, so read the flip first: in long gamma, hedging leans against a rally into the call wall; in short gamma, it adds to the move once that wall gives way.
 
 ---
 
@@ -75,34 +75,33 @@ A short workflow:
 1. **Pull the gamma flip first.** It tells you which regime you're in. The flip itself is also a soft level worth watching.
 2. **Identify the call wall and put wall.** These give you the structural range - the boundaries dealer hedging is set up to defend (in a long-gamma regime) or release (in a short-gamma regime).
 3. **Identify the gamma magnet.** Often the heaviest 0DTE strike. The magnet tells you where price gets pulled inside the wall range.
-4. **Check the migration.** A wall that's been stable for hours is a stronger level than one that just jumped. A migrating wall is chasing price.
+4. **Check the migration.** A wall that just jumped is a different reference from one that has been stable for hours: a migrating wall is chasing price, so the level you are watching has moved. In our measurement, neither a wall's age nor its migration predicted whether it broke.
 5. **Cross-check with chart S/R.** Where the structural level aligns with a chart-based level (round number, prior swing, key moving average), the convergence can make the level sharper.
 
 ---
 
 ## When the structural level holds
 
-The dealer-hedging mechanism works most reliably when:
+In our measurement of 737 wall tests, S&P walls held about two times in three within an hour of being tested and Nasdaq walls about half ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)). The conditions traders usually check did not improve on that base rate:
 
-- Spot is in a **positive-gamma regime** (above the flip).
-- Net GEX is **substantial and stable** - dealer book has real magnitude.
-- The wall is **not migrating** with price.
-- Flow into the level is **decelerating** (chasers running out of fuel).
-- No catalyst is active.
+- Whether spot was in a **positive-gamma regime** (above the flip) or a negative one.
+- Whether Net GEX was **substantial and stable** or decaying.
+- Whether the wall was **migrating** with price.
+- Whether flow at the wall strike was **accelerating** or decelerating.
+- How long the wall had stood, and how many times it had been tested.
 
-In those conditions, the structural read carries real probability behind it.
+So the honest prior for any wall is the base rate for its index, not a checklist.
 
 ## When the structural level breaks
 
-The mechanism inverts or breaks down when:
+What the regime changes is what hedging does when a level gives way:
 
-- Spot is in a **negative-gamma regime** - dealers chase, not fade.
-- Net GEX is **decaying** - positioning is unwinding.
-- The wall is **migrating** as spot, time, or volatility changes the strike ranking.
-- A catalyst lands during the test.
-- Flow is **accelerating** in the breakout direction.
+- In a **positive-gamma regime**, hedging leans against the move, so a break has less hedging behind it.
+- In a **negative-gamma regime**, dealers chase rather than fade, so their hedging adds to the break.
+- As spot, time, or volatility change the strike ranking, the wall can **migrate**, and the level you were watching stops being the heaviest strike.
+- A **catalyst** landing during the test can overwhelm the hedging in either regime.
 
-When these conditions stack, the level is more likely to fail than to hold. Reading the regime first is what tells you which playbook to run.
+None of this makes a level more likely to fail than to hold. Reading the regime first tells you which mechanism you are trading with, not the odds.
 
 ---
 
@@ -120,18 +119,18 @@ The composite structural read:
 
 - The call wall and chart resistance agree near 583 - the higher-confidence resistance zone is right where chart traders see it, but the modeled positioning puts the wall at 583.50, not the round 583.
 - The put wall and chart support also agree near 580 - a stronger support read there.
-- The gamma magnet at 581.00 means price can have a structural pull toward roughly where it is right now. Compression is more likely than not while positive gamma holds.
+- The gamma magnet at 581.00 means price can have a structural pull toward roughly where it is right now. While positive gamma holds, hedging leans against moves in both directions.
 - The flip at 580.80 means a drop below 580.80 would flip the modeled regime; the put wall at 580 might not absorb cleanly if the flip cross happens first.
 
-The practical lean: tight 581-583.50 range is probable; fade extremes, skip the middle. The structural read sharpens the chart read materially.
+The read: modeled hedging leans against moves toward either edge of the 581-583.50 range, but each wall is still a base-rate bet - SPY walls held about two times in three within an hour in our measurement, whichever side of the flip price was on. The structural read adds where the levels are and what hedging does around them; it does not tell you which one will give way.
 
 ---
 
 ## Common misreads
 
 - **"It's at the prior swing high, so it's resistance."** Sometimes. Sometimes the actual structural level is 30 cents higher or lower - and the move that "broke" the chart resistance was always going to extend to the real wall.
-- **"The put wall is at 580, so 580 will hold."** Only in a long-gamma regime. In short gamma, the same wall can become a slippage point.
-- **"Options-based S/R doesn't work."** It does - when the regime supports it. Most failed reads come from running the long-gamma playbook in a short-gamma regime.
+- **"The put wall is at 580, so 580 will hold."** Not reliably, in either regime: S&P walls broke about one test in three within an hour in our measurement, long gamma or short. What the regime changes is what comes next - in short gamma, a put wall that gives way can become a slippage point.
+- **"Options-based S/R doesn't work."** It locates real positioning, and S&P walls held about two times in three within an hour in our measurement. What it does not give you is a way to tell in advance which wall will break: regime, Net GEX, migration and flow at the strike did not.
 
 ---
 

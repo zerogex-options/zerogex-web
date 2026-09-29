@@ -76,7 +76,9 @@ Broader options-flow platforms (unusual options activity, dark pool prints, flow
 
 Sharpnel Trading sits at the futures-first edge of this bucket. It is a desktop terminal that draws the call wall, put wall and gamma flip on the same chart as the depth-of-market ladder, the footprint and the tape - aimed at ES and NQ traders rather than at a browser dashboard. The GEX layer is priced as an add-on above the order-flow product, which is the tell for this bucket: the levels arrive where you execute rather than being the thing you bought. There is a free delayed tier and a free hosted MCP server covering ES, NQ, SPX and QQQ.
 
-*Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow, Sharpnel Trading. Verify current pricing and coverage on their sites.*
+Bullflow sits at the flow-first end of the bucket. Its base plan lists real-time and historical options flow, mobile and desktop alerts, AI trade signals and a Discord community; its Premium plan adds dark pool trades, and it publishes iOS and Android apps. The GEX tools sit alongside the flow: gamma and net GEX levels on the base plan, and a bubble chart, a multi-map view, vanna exposure data and a GEX heatmap replay it lists for more than 1,000 tickers on Premium. The breadth is the strength - it reaches single stocks, which the index-focused tools in Bucket 3 do not - and the trade-off is the one this bucket shares: gamma is one tool among many rather than what the product is built around. A separate Data API plan adds API keys, custom alerts and an MCP server for coding agents. A side-by-side with ZeroGEX on price and scope is in [ZeroGEX vs Bullflow](/education/zerogex-vs-bullflow).
+
+*Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow, Sharpnel Trading, Bullflow. Verify current pricing and coverage on their sites.*
 
 ### Bucket 3: Real-time, dealer-positioning-focused tools
 

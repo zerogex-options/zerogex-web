@@ -37,7 +37,7 @@ The two walls are symmetric opposites:
 |Call wall|Heaviest call gamma above spot|Tends to sell as price rises toward it|Can act as resistance / cap|
 |Put wall|Largest put-gamma magnitude below spot|Locally negative modeled dealer gamma|May coincide with support or acceleration depending on the full profile and flow|
 
-Neither is directional by itself, and the option type alone does not set the behavior. The call wall is not a "sell signal" - it is a concentration level whose effect depends on which side of the gamma flip you are on. Above the flip, the call wall tends to cap. Below it, in negative gamma, the same strike can invert from a ceiling into a breakout accelerant.
+Neither is directional by itself, and the option type alone does not set the behavior. The call wall is not a "sell signal" - it is a concentration level whose effect depends on which side of the gamma flip you are on. Above the flip, hedging around the call wall leans against a rally. Below it, in negative gamma, the hedging runs with the move, so the same strike can invert from a ceiling into a breakout accelerant if it gives way. The side of the flip changes that behavior, not how often the wall breaks.
 
 ---
 
@@ -49,7 +49,7 @@ The call wall is a live read that moves through the session for three reasons:
 2. **Migration with price.** As price probes the call wall, fresh call volume can concentrate just above it, nudging the modeled wall higher. (Official open interest updates for the next session, so this is inferred intraday positioning, not verified OI.) A wall that *tracks* price is structurally different from one that *holds*.
 3. **Near-expiry repricing.** ATM gamma can increase while decisively ITM or OTM gamma tends toward zero, changing which fixed-OI strike ranks first.
 
-The migration is itself the signal. If the call wall keeps drifting up as price approaches, the fade-the-rip thesis is weak - the wall is chasing, and the breakout is more credible than a static wall would suggest.
+The migration is itself information. If the call wall keeps drifting up as price approaches, the wall is chasing - the strike you were watching is no longer the heaviest, so the level being defended has moved. It is not, by itself, a sign the breakout will stick: in our measurement, whether a wall was migrating with price did not predict whether it broke.
 
 ---
 
@@ -73,7 +73,7 @@ Suppose SPX is at 5,830 and the book reads:
 - **Gamma Flip:** 5,810
 - **Net GEX:** +$1.5B
 
-Net GEX is a modeled estimate of dealer gamma from the traditional call-positive/put-negative open-interest convention, not observed dealer inventory. Spot is above the flip, so this is a long-gamma session and 5,850 is the level dealers are modeled to defend. The lean: rallies into 5,850 are the higher-probability *fade* zone, and drift toward it is the path of least resistance while positive gamma holds. Now suppose price presses 5,848 and the call wall ticks up to 5,855. That migration is data - the wall is chasing, the fade weakens, and a push through 5,850 is more believable than it was moments ago. If instead 5,850 holds firm and price finally slices through on heavy flow, treat it as a possible regime change, not just another tick higher.
+Net GEX is a modeled estimate of dealer gamma from the traditional call-positive/put-negative open-interest convention, not observed dealer inventory. Spot is above the flip, so this is a long-gamma session and 5,850 is the level dealers are modeled to defend. A rally into it meets hedging that leans against the move, but that does not make 5,850 more likely to hold than the base rate: SPX walls held about two times in three within an hour in our measurement, on either side of the flip. Now suppose price presses 5,848 and the call wall ticks up to 5,855. That migration is data - the level being defended has moved up - but in our measurement, migration did not predict whether a wall broke. If instead 5,850 holds firm and price finally slices through on heavy flow, treat it as a possible regime change, not just another tick higher.
 
 ---
 
@@ -85,7 +85,7 @@ ZeroGEX publishes the current call wall - with the put wall, gamma flip, max pa
 
 ## Takeaway
 
-> The call wall is real positioning - the strike where dealer hedging is most likely to cap the upside. But it only caps while spot is in positive gamma, and a clean break of a *held* wall is often the first sign the regime is turning. Read the regime, then the wall, then the wall's migration.
+> The call wall is real positioning - the strike where dealer hedging is most concentrated on the upside. How often it caps a rally is a base rate for the index, not a function of the regime; the regime decides whether hedging leans against a break or feeds it. A clean break of a *held* wall is often the first sign the regime is turning. Read the regime, then the wall, then the wall's migration.
 
 Educational content only - none of the above is a trade recommendation.
 

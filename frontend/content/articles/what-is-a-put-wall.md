@@ -70,7 +70,7 @@ The wall calculation does not establish that fresh volume opened new positions. 
 
 A break below the put wall is information, not a verdict. Read it against four questions:
 
-1. **Which regime was in force?** Above the gamma flip, aggregate hedging tends to lean against the decline, and a break more often stalls at the next put concentration. Below the flip, the reflex runs with the move, and a break can accelerate - the local short-put hedge described above is now aligned with the broader book.
+1. **Which regime was in force?** Above the gamma flip, aggregate hedging tends to lean against the decline, so a break has less hedging behind it. Below the flip, the reflex runs with the move, and a break can accelerate - the local short-put hedge described above is now aligned with the broader book.
 2. **Did the wall migrate or fail?** A wall that re-ranked to a lower strike as inputs changed was not "broken"; the reference moved. Compare the wall's strike before and after the break.
 3. **Did flow overwhelm it?** Macro headlines, index rebalances, and large single orders supply flow that dwarfs hedging. A break on that kind of tape says little about the wall.
 4. **Was the gamma flip crossed?** A break can mean the reference failed, surrounding flow dominated, local gamma weakened, or the wall migrated. Only a crossing of the calculated Gamma Flip - or an actual change in modeled Net GEX sign - supports a gamma-regime-change claim.

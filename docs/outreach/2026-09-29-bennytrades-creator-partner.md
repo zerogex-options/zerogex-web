@@ -8,6 +8,12 @@ paragraph so it pastes straight into X.
 Everything below is from his profile and his 38 most recent posts, replies not
 included (Thu Sep 24 to Tue Sep 29), read 2026-09-29.
 
+**Update, 2026-09-29: his DMs are closed, so the draft below hasn't gone out.**
+If it was tried from an account other than @ZeroGEXOptions, try once from that
+one. It has a blue check, and his inbox may take DMs from verified accounts
+only. If it's closed there too, move to the next prospect. The only other way
+in is a public reply, and that's too visible for a fit this marginal.
+
 ## The read
 
 **Worth one DM, for the feedback. Don't count on the affiliate.**

@@ -13,6 +13,8 @@
  * guarantees by rendering these same strings. Only slugs with an entry here
  * get a FAQ block; everything else renders nothing.
  */
+import { BULLFLOW_PRICES_CHECKED, formatCheckedDate } from './comparisonPrices.ts';
+
 export type FaqItem = { q: string; a: string };
 
 export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
@@ -242,6 +244,27 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     {
       q: 'Are there free GEX tools?',
       a: 'Yes. Some platforms, including ZeroGEX, publish free delayed gamma levels\u00a0- gamma flip, call wall, put wall, and net GEX\u00a0- with no signup, while real-time data and deeper analytics are typically paid.',
+    },
+  ],
+  // No dollar figures here: the page fills its prices from
+  // core/comparisonPrices.ts, and these answers only state how the two price
+  // lists compare, which tests/comparisonPrices.test.ts checks.
+  'zerogex-vs-bullflow': [
+    {
+      q: 'Is ZeroGEX a Bullflow alternative?',
+      a: 'For gamma levels on the index complex, yes: ZeroGEX covers SPX, SPY, QQQ, NDX, ES, and NQ in depth. For unusual options flow in single stocks, dark pool trades, or push alerts to your phone, no: ZeroGEX does not offer those, and Bullflow does.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than Bullflow?',
+      a: `Month to month, the entry plans cost the same and ZeroGEX Pro costs less than Bullflow Premium. On yearly billing, ZeroGEX costs less at both levels, and API access comes with ZeroGEX Pro instead of being sold as a separate plan. Bullflow prices as listed on its site on ${formatCheckedDate(BULLFLOW_PRICES_CHECKED)}.`,
+    },
+    {
+      q: 'Does Bullflow have GEX?',
+      a: 'Yes. Bullflow lists gamma and net GEX levels on its Basic plan, and its Premium plan adds a GEX bubble chart, a multi-map view, a GEX heatmap replay, and vanna exposure data. ZeroGEX goes deeper on six symbols instead of wider across many.',
+    },
+    {
+      q: 'Can I use Bullflow and ZeroGEX together?',
+      a: 'Yes. They answer different questions: a flow scanner shows what is being bought, and a positioning tool shows where a move is likely to run into dealer hedging. The two can sit side by side.',
     },
   ],
   'how-to-trade-around-gamma-flip': [

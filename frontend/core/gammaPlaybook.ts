@@ -38,6 +38,7 @@
  */
 
 import { atSpotGammaForScope } from './gammaRegime.ts';
+import { optionChainSymbolFor } from './symbols.ts';
 
 export type PlaybookRegime = 'positive' | 'negative';
 /** 'up' → approaching the Call Wall, 'down' → approaching the Put Wall. */
@@ -302,4 +303,35 @@ export function describePlaybookScenario(
   }
 
   return `${scope}: ${regimeClause}, and ${wallClause}.`;
+}
+
+/**
+ * How often a wall actually gave way, for the index behind a symbol. The
+ * Playbook shows this beside its cells so no cell has to imply odds of its own.
+ *
+ * Source: ZeroGEX's study of 737 wall tests, late June to early September 2026
+ * (content/articles/how-often-do-gamma-walls-break.md). Within an hour of a
+ * test, SPY and SPX walls broke about 31% of the time and QQQ and NDX walls
+ * about 47-50%. Neither the side of the Gamma Flip, nor net GEX, nor anything
+ * else measured about the individual wall predicted which ones broke, so a cell
+ * that called a wall "more likely to break" in one regime would contradict it.
+ *
+ * Keyed by index, because the study found the rate belongs to the underlying
+ * index rather than the instrument. ES and NQ carry the SPX and NDX option
+ * levels, so they read their index's rate. Any other symbol gets both measured
+ * rates rather than a borrowed one.
+ */
+export function wallBaseRate(symbol: string): string {
+  const chain = optionChainSymbolFor((symbol || '').toUpperCase());
+  const regimeClause = 'whichever side of the Gamma Flip price was on';
+  if (chain === 'SPY' || chain === 'SPX') {
+    return `In our study of 737 wall tests, S&P 500 walls held about 2 in 3 tests within an hour, ${regimeClause}.`;
+  }
+  if (chain === 'QQQ' || chain === 'NDX') {
+    return `In our study of 737 wall tests, Nasdaq-100 walls held about half their tests within an hour, ${regimeClause}.`;
+  }
+  return (
+    'In our study of 737 wall tests on SPY, SPX, QQQ and NDX, S&P 500 walls held about 2 in 3 tests ' +
+    `within an hour and Nasdaq-100 walls about half, ${regimeClause}.`
+  );
 }

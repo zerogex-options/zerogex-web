@@ -28,10 +28,10 @@ One caveat worth keeping in mind: GEX is a *modeled* estimate, not a measurement
 
 This is the part that changes how you trade:
 
-- **Positive GEX (long-gamma regime).** Dealers are net long gamma. To hedge, they **sell into rallies and buy into dips** - trading *against* the move. That tends to dampen volatility. Expect tighter ranges, mean reversion, and pinning near heavy strikes. Breakouts tend to stall.
-- **Negative GEX (short-gamma regime).** Dealers are net short gamma. Now they **buy into rallies and sell into dips** - trading *with* the move. That tends to amplify volatility. Expect wider ranges, extending breakouts, and trends that run. This is [what negative gamma means](/education/what-is-negative-gamma) in practice.
+- **Positive GEX (long-gamma regime).** Dealers are net long gamma. To hedge, they **sell into rallies and buy into dips** - trading *against* the move. That tends to dampen volatility. Expect tighter ranges, mean reversion, and pinning near heavy strikes, with hedging leaning against breakouts.
+- **Negative GEX (short-gamma regime).** Dealers are net short gamma. Now they **buy into rallies and sell into dips** - trading *with* the move. That tends to amplify volatility. Expect wider ranges, trends that run, and hedging that adds to a breakout once a level gives way. This is [what negative gamma means](/education/what-is-negative-gamma) in practice.
 
-Same index, same chart - opposite tape character depending on the sign of GEX. Knowing which regime you're in is the single most useful thing GEX gives you.
+Same index, same chart - opposite tape character depending on the sign of GEX. Knowing which regime you're in is the single most useful thing GEX gives you. What the sign did not change, in our measurement of 737 wall tests, is how often the walls themselves broke ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -40,7 +40,7 @@ Same index, same chart - opposite tape character depending on the sign of GEX. 
 GEX isn't just one number; it maps to specific price levels worth watching:
 
 - **Gamma flip** - the price where total dealer gamma crosses from positive to negative. Above it, the market is usually in the calming long-gamma regime; below it, the amplifying short-gamma regime. It's the regime line. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
-- **Call wall** - the strike with the heaviest call gamma above spot, which tends to cap rallies in positive gamma.
+- **Call wall** - the strike with the heaviest call gamma above spot, where hedging leans against rallies in positive gamma.
 - **Put wall** - the strike with the heaviest put gamma below spot, which tends to support dips in positive gamma.
 
 The call and put walls sketch the range dealers defend; the gamma flip tells you whether they'll defend it or blow through it. [Gamma Walls Explained](/education/gamma-walls-explained) covers both walls in depth.
