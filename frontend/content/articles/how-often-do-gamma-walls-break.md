@@ -34,7 +34,7 @@ The sample: **737 wall tests, four index products, ten weeks (late June to early
 
 The first thing the data did was refuse to give us a single figure.
 
-"Does the wall break" is not well posed without a clock. Longer watch, more chances to break. On SPX, the same tests produced a 15% break rate at a thirty-minute horizon and a 34% rate at sixty - and those intervals do not overlap. Any bare percentage is really a statement about a time window somebody chose.
+"Does the wall break" is not well posed without a clock. Longer watch, more chances to break. On SPX, the same tests produced a 17.5% break rate at a thirty-minute horizon and a 30.7% rate at sixty. Any bare percentage is really a statement about a time window somebody chose.
 
 So the honest form is P(break within *t* minutes of the test):
 
@@ -99,9 +99,9 @@ We also got a null wrong in the other direction. Early on, working from SPX alon
 
 **As a prior, not a trigger.**
 
-The structural information in a gamma wall is real. It is just not where most people look for it. It sits in the base rate - which index, which side of the flip, which product - rather than in any readable property of the individual wall in front of you.
+The structural information in a gamma wall is real. It is just not where most people look for it. It sits in the base rate for the index the wall belongs to - S&P 500 or Nasdaq-100, whichever product you watch it through - rather than in which side of the flip price is on, or in any readable property of the individual wall in front of you.
 
-That reframes the trade. If you are fading a call wall on SPX, you are taking a position that has historically worked around two times in three within the hour. That is a genuine edge, and it is also a one-in-three chance of being run over. On QQQ the same trade is close to a coin flip. Those are different bets and they deserve different sizing.
+That reframes the trade. If you are fading a call wall on SPX, you are betting on a level that held around two times in three within the hour in this sample. That is a meaningful base rate, and it is also a one-in-three chance of being run over. On QQQ the same bet is close to a coin flip. Those are different bets and they deserve different sizing.
 
 What this does **not** license is treating a wall as a level that will hold. Nothing in ten weeks of data supports reading a specific wall and concluding this one is different.
 
@@ -125,7 +125,7 @@ Four honest limits.
 
 The levels themselves are on the free gamma-levels pages for [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) and [NDX](/ndx-gamma-levels) - call wall, put wall, gamma flip and Net GEX side by side. For the live read as walls migrate through the session, the [real-time 0DTE dashboard](/real-time-gex-0dte) is the one to watch.
 
-Pair the level with the base rate for the product you are trading, and with [how to read a gamma flip](/education/how-to-read-a-gamma-flip) - regime is the context every wall sits inside. The [gamma walls pillar](/education/gamma-walls-explained) covers what a wall is and why it behaves the way it does, and [why breakouts fail](/education/why-do-breakouts-fail) covers the mechanism from the other direction.
+Pair the level with the base rate for the product you are trading, and with [how to read a gamma flip](/education/how-to-read-a-gamma-flip) - the regime did not change how often walls broke here, but it does decide whether modeled hedging leans against a move or adds to it once a wall gives way. The [gamma walls pillar](/education/gamma-walls-explained) covers what a wall is and why it behaves the way it does, and [why breakouts fail](/education/why-do-breakouts-fail) covers the mechanism from the other direction.
 
 ---
 
