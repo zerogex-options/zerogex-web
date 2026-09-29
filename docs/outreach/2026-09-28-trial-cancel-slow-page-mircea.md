@@ -132,23 +132,36 @@ echo "== B. His data by endpoint, biggest first (MB, requests)"
 awk '{split($7,p,"?"); n[p[1]]++; b[p[1]]+=$10} END{for(k in n) printf "  %8.1f MB  %6d req  %s\n", b[k]/1048576, n[k], k}' customer-nginx.txt | sort -gr | head -12
 ```
 
-**Reply to their 2:38 PM message** (no trial extension; that is to be offered
-after the fix is live):
+**A came back clean for everyone else.** From 13:50 to 14:29 every other
+visitor's price checks arrived at 898 to 1,192 a minute, with 0 to 8 give-ups
+a minute. That includes 13:54 to 14:02, when none of his got through. Our
+server was answering everyone else normally, so the hold-up was on his side of
+nginx.
+
+**B: where his 373 MB went.** `/api/technicals` 202 MB over 2,806 requests
+(about 72 KB each), `/api/gex/strike-profile-timeseries` 89 MB over 2,598, the
+four `/api/signals/basic/*` cards about 13.5 MB each over roughly 455 requests
+(about 30 KB per 5-second poll), `/api/market/historical` 9 MB over 2,736, and
+`/favicon.ico` 3.8 MB over 4. See the worth-fixing items at the end.
+
+**Reply to their 2:38 PM message, as agreed Tue.** The fix goes in after the
+close, and the extended trial is offered, not applied. Two weeks from Tue is
+Oct 13. If they say yes:
+`make extend-trial EMAIL=croitoru.mircea85@gmail.com TRIAL_END=2026-10-14T03:59:00Z DRY_RUN=1`,
+then the same with `YES=1`. That is 11:59 PM ET on Oct 13. The cancel moves
+with it, so nothing is charged unless they turn it off.
 
 Hi Mircea,
 
-Thank you, this is exactly what I needed.
+Thank you for the screenshots and the detail. They showed me exactly where to look.
 
-On my end there's no slowness at all: the dashboard loads in a fraction of a second. I also went through our server records for your session today. Our servers answered your requests in about a hundredth of a second on average, and even the slowest took under two seconds.
+On my end there's no slowness at all: the dashboard loads in a fraction of a second. I also went through our server records for your session today. Our servers answered your requests in about a hundredth of a second on average, and even the slowest took under two seconds. But for minutes at a time, your requests were taking more than a second just to reach us, while everyone else's were getting through normally. Our servers are in the US, but distance only adds about a tenth of a second, so something between your browser and our servers is holding them up.
 
-What the records do show is that for minutes at a time, your requests were taking more than a second just to reach us. Our servers are in the US, so requests from Europe take a little longer, but distance only adds about a tenth of a second per request. It doesn't explain 18 seconds, so something between your browser and our servers is holding things up, and I'd like to find out what.
+The "(canceled)" rows are our doing, though, and they made it much worse. The page asked for the latest price every second, and if the last answer hadn't come back yet, it canceled it and asked again. Other parts of the page kept asking again before their last answer was back, so a slow patch piled up on itself. I've fixed both: the page now waits for each answer instead of canceling it or piling on more requests. The fix goes live tonight after the US market closes, so it will be in place for tomorrow's session.
 
-The "(canceled)" rows are our doing, though, and they made it worse. The page asks for the latest price every second, and if the last answer hasn't come back yet, it cancels it and asks again. Other parts of the page ask again before their last answer is back, so a slow patch piles up on itself. I've changed both so the page waits for an answer instead, and I'll let you know as soon as that's live.
+For your trouble, I'd like to offer you an extended trial: two more weeks from today, through October 13. Nothing will be charged, and your subscription stays canceled unless you decide to keep it. Would you like that? Just reply and I'll set it up.
 
-Two things would help me find the rest, if you have a minute:
-
-1. In the Network tab, click one of the slow requests and open its Timing tab. A screenshot of that shows where the time goes.
-2. Right-click any column header, turn on "Protocol", and tell me what it shows for those requests (h2, h3 or http/1.1).
+If it's still slow for you after the fix, a screenshot of one slow request's Timing tab (click the request in the Network tab, then open Timing) would show me where the time goes.
 
 Best,
 Michael
@@ -413,3 +426,15 @@ Founder, ZeroGEX
   most for members far from the US. The server records rule the server out
   for this visit, so this is where to look if more members abroad say the
   same. For one cancellation, it's a redesign too far.
+- **`/api/technicals` is most of what the dashboard downloads.** On Tuesday it
+  was 202 of Mircea's 373 MB in 50 minutes: 2,806 requests at about 72 KB each,
+  from the 1-second poll (`useTechnicals.ts`, `interval=3`) plus the 5-minute
+  full reloads for four symbols that `TechnicalSnapshotPrewarm.tsx` starts on
+  every full page load. Check what an `interval=3` answer actually carries
+  before trimming anything. The four Basic signal cards also re-send about 30
+  KB of history every 5 seconds.
+- **The favicon is a 1254 x 1254 PNG, 991 KB.** `assets/branding/favicon.ico`
+  is copied to `frontend/app/favicon.ico` at build time (see the favicon
+  comments in the web `Makefile`). A 32 or 48 px icon is a few KB. Each browser
+  fetches it once per cache lifetime; Mircea's fetched it four times in 50
+  minutes.
