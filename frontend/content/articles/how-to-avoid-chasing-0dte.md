@@ -48,7 +48,7 @@ Open the flow panel. If put/call premium is already 3:1 on the call side and the
 
 ### Trigger 3: It's late in the day and the move is into a key level
 
-After 14:00 ET, modeled charm effects tend to build and the dealer reflex around the heaviest 0DTE strike can intensify. Chasing a late-day move that's heading into the call wall (or away from the put wall) can mean buying right where dealer hedging is more likely to fade you than fuel you. The EOD Pressure signal is designed to flag this regime - see [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+After 14:00 ET, modeled charm effects tend to build and the dealer reflex around the heaviest 0DTE strike can intensify. Chasing a late-day move that's heading into the call wall (or away from the put wall) can mean buying right where dealer hedging leans against you rather than with you. The EOD Pressure signal is designed to flag this regime - see [EOD Pressure Signal Explained](/education/eod-pressure-explained).
 
 ---
 
@@ -56,9 +56,9 @@ After 14:00 ET, modeled charm effects tend to build and the dealer reflex around
 
 One framing note first: the gamma flip, Net GEX, and walls below are *modeled* estimates of dealer positioning, built from the option chain using the traditional call-positive / put-negative convention. Actual dealer inventory isn't directly observable, so treat these as probabilities that tilt the odds, not switches that decide the outcome. With that caveat, when the chase urge hits, run this checklist:
 
-1. **What's the gamma regime?** Spot above the modeled flip (long-gamma) → fades tend to work, chases tend to struggle. Spot below the flip (short-gamma) → chases tend to work better, fades tend to struggle. If you don't know the regime, you're guessing.
+1. **What's the gamma regime?** Spot above the modeled flip (long-gamma) → hedging leans against the move you are chasing. Spot below the flip (short-gamma) → hedging runs with it. That tells you which way dealer flow leans, not whether the move will stick: in our measurement of 737 wall tests, walls broke no more often below the flip than above it. If you don't know the regime, you don't know which way the hedging leans.
 2. **Where is the nearest wall?** If you're chasing a call into the call wall in a long-gamma regime, the structural pull is *against* the chase. If you're chasing into open air with no wall between current spot and the chase target, the structural pull is neutral - better setup.
-3. **Is Net GEX strengthening or decaying?** Strengthening in a long-gamma regime suggests the absorbing reflex is intensifying - chases more often fade. Decaying suggests the absorbing reflex is weakening - chases have more room.
+3. **Is Net GEX strengthening or decaying?** Strengthening in a long-gamma regime suggests the absorbing reflex is intensifying; decaying suggests it is weakening. That describes the hedging, not the odds - in our measurement, Net GEX's trajectory did not predict which walls broke.
 4. **What's the time of day?** Before noon ET, modeled 0DTE charm is low and the dealer reflex tends to be muted. After 14:00 ET, modeled charm hedging tends to build. Late-day chases into structure are often the worst version of the trap.
 5. **Has the contract already 3x'd?** If yes, you're not catching a move - you're paying for the move that already happened. The expected next move includes a meaningful probability of mean-reversion.
 
@@ -76,7 +76,7 @@ The chase isn't always wrong. The 0DTE momentum trade *can* work when:
 - The move is **early in the session** (before charm pile-up).
 - The contract hasn't already done its full move - you're catching the first 30% of the day's range, not the last 30%.
 
-Those are the conditions for a 0DTE breakout trade with real probability. They're the inverse of the typical "I want to chase this" trigger.
+Those are the conditions under which a 0DTE breakout has something behind it other than the urge to chase - though the regime, the one structural condition here, did not make walls more likely to break in our measurement. They're the inverse of the typical "I want to chase this" trigger.
 
 ---
 

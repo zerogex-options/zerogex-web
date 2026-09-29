@@ -255,7 +255,7 @@ A worked example. Suppose SPX is at 5,830 and the dashboard shows:
 - **Call Wall:** 5,850
 - **Put Wall:** 5,790
 
-The composite read: spot is comfortably in long-gamma territory ($20 above the flip), Net GEX is a substantial positive number indicating real magnitude in the dealer book, and the wall range is asymmetric with the call wall closer than the put wall. The practical lean: dampened vol regime, mean-reversion-friendly tape, breakouts more likely to fade than extend, and pin behavior toward heavy gamma concentration on the table into the close. None of that is a trade signal - it is the structural backdrop against which every other tool you use should be calibrated.
+The composite read: spot is comfortably in long-gamma territory ($20 above the flip), Net GEX is a substantial positive number indicating real magnitude in the dealer book, and the wall range is asymmetric with the call wall closer than the put wall. The practical lean: dampened vol regime, mean-reversion-friendly tape, and pin behavior toward heavy gamma concentration on the table into the close. None of that is a trade signal - it is the structural backdrop against which every other tool you use should be calibrated.
 
 ![ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted](/blog/zerogex-strike-profile-overview.png)
 

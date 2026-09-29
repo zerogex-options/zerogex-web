@@ -12,10 +12,14 @@
  *   • Approach      — the wall in play: the Call Wall above, or the Put Wall
  *                     below.
  *
- * The output is the classic dealer-mechanics heuristic: in positive gamma the
- * approached wall acts as a magnet and the level holds (pin / bounce); in
- * negative gamma dealer hedging adds fuel and the level tends to break
- * (breakout / breakdown). It is decision-support context, not a signal.
+ * Each cell describes the classic dealer-hedging MECHANISM, not a hold/break
+ * forecast: in positive gamma, hedging leans against a move into the wall (a
+ * magnet); in negative gamma it adds to the move, so a wall that gives way can
+ * run (fuel). ZeroGEX's own study of 737 wall tests found the regime did not
+ * predict which walls broke (content/articles/how-often-do-gamma-walls-break.md),
+ * so no cell may say a wall is more likely to hold or to break. The measured
+ * base rate for the symbol's index (`wallBaseRate` in core/gammaPlaybook)
+ * carries the odds instead. It is decision-support context, not a signal.
  *
  * The highlighted cell is NOT a default — it is resolved live from the same
  * levels the Gamma Chart is drawing for the symbol and expirations the user has
@@ -26,10 +30,11 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ArrowUp, ArrowDown, Crosshair, Magnet, RotateCcw, Zap } from 'lucide-react';
 import ChartCaption from "./ChartCaption";
 import { useGammaPlaybook } from "@/hooks/useGammaPlaybook";
-import { formatLevel } from "@/core/gammaPlaybook";
+import { formatLevel, wallBaseRate } from "@/core/gammaPlaybook";
 import type { ChartSnapshot } from "./GammaTerminalChart";
 
 type Regime = 'positive' | 'negative';
@@ -38,47 +43,52 @@ type Approach = 'up' | 'down'; // 'up' → Call Wall, 'down' → Put Wall
 interface CellSpec {
   headline: string;
   tag: string;
-  outcome: 'hold' | 'break';
+  /** What modeled dealer hedging does to a move into the wall. */
+  hedging: 'dampens' | 'fuels';
   read: string;
-  edge: string;
+  watch: string;
   caution: string;
 }
 
+// Mechanism only. The study behind `wallBaseRate` found S&P walls held about 2
+// in 3 tests within an hour whichever side of the flip price was on, so a cell
+// that promised a hold in one row or a break in the other would be wrong about
+// most of the tests in that row.
 const MATRIX: Record<Regime, Record<Approach, CellSpec>> = {
   positive: {
     up: {
-      headline: 'Pin & reject',
-      tag: 'Magnet · resistance holds',
-      outcome: 'hold',
-      read: 'Above the Gamma Flip dealers are long gamma and sell into strength. As price grinds up toward the Call Wall they lean against it, bleeding momentum. The wall behaves like a magnet and a ceiling\u00a0- price tends to stall and pin just under it, then fade.',
-      edge: 'Fade strength into the wall; expect mean-reversion over follow-through.',
-      caution: 'A decisive close through the Call Wall flips the read\u00a0- the pin becomes a breakout.',
+      headline: 'Damped rally',
+      tag: 'Magnet · hedging dampens rallies',
+      hedging: 'dampens',
+      read: 'The book is modeled long gamma at spot, so dealer hedging sells into strength. As price rises toward the Call Wall, that selling leans against the move and can slow the rally or pin price near the strike. If the wall does give way, long-gamma hedging keeps leaning against the move rather than adding to it.',
+      watch: 'Whether the rally slows as it nears the strike. Stalling or pinning there is the hedging showing up; a close above the wall that stays there means the move outran it.',
+      caution: 'The book turning short gamma (the chart badge flipping to SHORT) reverses the hedging: it starts adding to moves instead of leaning against them.',
     },
     down: {
-      headline: 'Bounce & hold',
-      tag: 'Magnet · support holds',
-      outcome: 'hold',
-      read: 'Above the Gamma Flip dealers are long gamma and buy into weakness. As price slips toward the Put Wall they cushion the move. The wall behaves like support\u00a0- dips get bought and price tends to bounce or pin above it.',
-      edge: 'Buy weakness into the wall; expect the level to hold.',
-      caution: 'Losing the Put Wall and the Flip tips the tape into the short-gamma, trending regime below.',
+      headline: 'Cushioned dip',
+      tag: 'Magnet · hedging dampens selloffs',
+      hedging: 'dampens',
+      read: 'The book is modeled long gamma at spot, so aggregate dealer hedging buys into weakness. As price slips toward the Put Wall, that buying leans against the decline and can slow it or pin price near the strike. If the wall does give way, long-gamma hedging keeps leaning against the move rather than adding to it.',
+      watch: 'Whether the decline slows as it nears the strike. Stalling or pinning there is the hedging showing up; a close below the wall that stays there means the move outran it.',
+      caution: 'A drop through the Gamma Flip, which often sits above the Put Wall, turns the book short gamma\u00a0- from there, hedging adds to the decline instead of cushioning it.',
     },
   },
   negative: {
     up: {
-      headline: 'Breakout & squeeze',
-      tag: 'Fuel · level breaks',
-      outcome: 'break',
-      read: 'Below the Gamma Flip dealers are short gamma and buy as price rises, amplifying the move. The Call Wall is far more likely to give way\u00a0- a push through it can trigger a gamma squeeze that accelerates higher.',
-      edge: 'Trade with momentum; a break of the wall tends to run.',
-      caution: 'Reclaiming the Flip restores long-gamma damping and the squeeze fuel fades.',
+      headline: 'Squeeze risk',
+      tag: 'Fuel · hedging adds to rallies',
+      hedging: 'fuels',
+      read: 'The book is modeled short gamma at spot, so dealer hedging buys as price rises and adds to the move. If the Call Wall gives way, that buying can feed a gamma squeeze that carries price higher, faster.',
+      watch: 'Whether a break sticks. A first print above the wall proves little: failed breakouts often stay beyond a wall for ten or fifteen minutes before unwinding.',
+      caution: 'A move back above the Gamma Flip turns the book long gamma again, and hedging goes back to leaning against the rally instead of feeding it.',
     },
     down: {
-      headline: 'Breakdown & flush',
-      tag: 'Fuel · level breaks',
-      outcome: 'break',
-      read: 'Below the Gamma Flip dealers are short gamma and sell as price falls, amplifying the move. The Put Wall is more likely to break than hold\u00a0- losing it can accelerate the selloff into a downside gamma flush.',
-      edge: 'Respect momentum; a break of the wall tends to extend.',
-      caution: 'Reclaiming the Put Wall / Flip re-engages dealer support and can snap price back.',
+      headline: 'Flush risk',
+      tag: 'Fuel · hedging adds to selloffs',
+      hedging: 'fuels',
+      read: 'The book is modeled short gamma at spot, so dealer hedging sells as price falls and adds to the move. If the Put Wall gives way, that selling can accelerate the decline into a downside gamma flush.',
+      watch: 'Whether a break sticks. A first print below the wall proves little: failed breakdowns often stay beyond a wall for ten or fifteen minutes before unwinding.',
+      caution: 'A move back above the Gamma Flip turns the book long gamma again, and hedging goes back to leaning against the decline instead of adding to it.',
     },
   },
 };
@@ -99,11 +109,12 @@ const APPROACHES: Array<{ value: Approach; label: string; icon: React.ReactNode 
 const FALLBACK_REGIME: Regime = 'positive';
 const FALLBACK_APPROACH: Approach = 'up';
 
-// Fill/accent per outcome: "hold" reads as contained (info), "break" as
-// explosive (hot). Direction is carried separately by the arrow glyph so the
-// two dimensions stay legible at a glance.
-function outcomeAccent(outcome: 'hold' | 'break'): string {
-  return outcome === 'hold' ? 'var(--color-info)' : 'var(--color-accent-hot)';
+// Fill/accent per hedging effect: hedging that dampens a move reads as
+// contained (info), hedging that fuels one as explosive (hot). Direction is
+// carried separately by the arrow glyph so the two dimensions stay legible at
+// a glance.
+function hedgingAccent(hedging: CellSpec['hedging']): string {
+  return hedging === 'dampens' ? 'var(--color-info)' : 'var(--color-accent-hot)';
 }
 
 function Segmented<T extends string>({
@@ -196,7 +207,7 @@ export default function GammaExpectationMatrix({
   };
 
   const active = MATRIX[regime][approach];
-  const accent = outcomeAccent(active.outcome);
+  const accent = hedgingAccent(active.hedging);
 
   const statusColor = liveRead
     ? read.delayed
@@ -245,9 +256,10 @@ export default function GammaExpectationMatrix({
         Where do we expect the underlying to go?
       </h2>
       <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 720, marginBottom: 14 }}>
-        The matrix returns the classic dealer-hedging expectation for the wall that price is trading against&nbsp;-
-        whether it should act as a magnet that holds, or as fuel that breaks. The highlighted cell is read live from the chart
-        above for <strong style={{ color: 'var(--text-primary)' }}>{read.symbol}</strong> and the expirations you have
+        The matrix describes what modeled dealer hedging does as price trades into the nearest wall&nbsp;- lean against
+        the move (a magnet) or add to it (fuel). That is the mechanism, not the odds: how often walls actually give way is
+        in the read below. The highlighted cell is read live from the chart above
+        for <strong style={{ color: 'var(--text-primary)' }}>{read.symbol}</strong> and the expirations you have
         selected; pick another cell any time to explore the other three.
       </p>
 
@@ -359,7 +371,7 @@ export default function GammaExpectationMatrix({
             className="inline-flex items-center justify-center"
             style={{ width: 30, height: 30, borderRadius: 8, color: accent, background: `color-mix(in srgb, ${accent} 16%, transparent)` }}
           >
-            {active.outcome === 'hold' ? <Magnet size={16} /> : <Zap size={16} />}
+            {active.hedging === 'dampens' ? <Magnet size={16} /> : <Zap size={16} />}
           </span>
           <div className="flex flex-col">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
@@ -373,16 +385,32 @@ export default function GammaExpectationMatrix({
         <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>{active.read}</p>
         <div className="grid sm:grid-cols-2 gap-2.5 mt-3">
           <div className="rounded-lg p-2.5" style={{ background: 'var(--color-surface-subtle)' }}>
-            <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--color-bull)' }}>
-              Where the edge is
+            <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--color-info)' }}>
+              What to watch
             </div>
-            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-primary)' }}>{active.edge}</div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-primary)' }}>{active.watch}</div>
           </div>
           <div className="rounded-lg p-2.5" style={{ background: 'var(--color-surface-subtle)' }}>
             <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--color-warning)' }}>
               What invalidates it
             </div>
             <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-primary)' }}>{active.caution}</div>
+          </div>
+          {/* The odds, stated once and the same for every cell: the study found
+              the regime (the row) did not change how often walls broke. */}
+          <div className="rounded-lg p-2.5 sm:col-span-2" style={{ background: 'var(--color-surface-subtle)' }}>
+            <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--color-info)' }}>
+              How often walls break
+            </div>
+            <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-primary)' }}>
+              {wallBaseRate(read.symbol)}{' '}
+              <Link
+                href="/education/how-often-do-gamma-walls-break"
+                style={{ color: 'var(--color-brand-primary)', fontWeight: 600, textDecoration: 'underline' }}
+              >
+                See the study
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -493,7 +521,7 @@ function RowFragment({
       </div>
       {APPROACHES.map((a) => {
         const cell = MATRIX[regime][a.value];
-        const accent = outcomeAccent(cell.outcome);
+        const accent = hedgingAccent(cell.hedging);
         const isActive = activeRegime === regime && activeApproach === a.value;
         const isLive = liveRegime === regime && liveApproach === a.value;
         return (
@@ -515,7 +543,7 @@ function RowFragment({
           >
             <div className="flex items-center gap-1.5 mb-0.5">
               <span style={{ color: accent, display: 'inline-flex' }}>
-                {cell.outcome === 'hold' ? <Magnet size={13} /> : <Zap size={13} />}
+                {cell.hedging === 'dampens' ? <Magnet size={13} /> : <Zap size={13} />}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
                 {cell.headline}

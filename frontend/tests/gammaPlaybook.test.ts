@@ -18,6 +18,7 @@ import {
   describePlaybookScenario,
   expirationScopeLabel,
   resolvePlaybookScenario,
+  wallBaseRate,
 } from '../core/gammaPlaybook.ts';
 import { longGammaAtSpot } from '../core/gammaRegime.ts';
 
@@ -278,4 +279,33 @@ test('the rationale admits when nothing could be resolved', () => {
     flip: null,
   });
   assert.match(text, /not enough resolved gamma structure/);
+});
+
+// The base rate is the Playbook's only statement of odds, so it has to match
+// the published study (content/articles/how-often-do-gamma-walls-break.md) and
+// follow the symbol to its index: the study found the rate belongs to the
+// index, not the instrument, and ES / NQ carry the SPX / NDX walls.
+test('the wall base rate follows the symbol to its measured index', () => {
+  for (const symbol of ['SPY', 'SPX', 'ES', 'spx']) {
+    assert.match(wallBaseRate(symbol), /S&P 500 walls held about 2 in 3 tests within an hour/, symbol);
+    assert.doesNotMatch(wallBaseRate(symbol), /Nasdaq/, symbol);
+  }
+  for (const symbol of ['QQQ', 'NDX', 'NQ']) {
+    assert.match(wallBaseRate(symbol), /Nasdaq-100 walls held about half their tests within an hour/, symbol);
+    assert.doesNotMatch(wallBaseRate(symbol), /S&P/, symbol);
+  }
+});
+
+test('the wall base rate never borrows one index\'s number for an unmeasured symbol', () => {
+  const text = wallBaseRate('IWM');
+  assert.match(text, /S&P 500 walls held about 2 in 3/);
+  assert.match(text, /Nasdaq-100 walls about half/);
+});
+
+test('the wall base rate says the regime did not change it', () => {
+  // The matrix rows ARE the regime, so the odds line has to say plainly that
+  // the row does not move them.
+  for (const symbol of ['SPY', 'QQQ', 'IWM']) {
+    assert.match(wallBaseRate(symbol), /whichever side of the Gamma Flip price was on/);
+  }
 });

@@ -43,9 +43,9 @@ Two things fall out of the better method:
 
 The sign of modeled dealer gamma is what decides whether hedging leans *against* moves or *with* them.
 
-**Above the zero gamma level (positive gamma).** Dealers are modeled net long gamma. To stay delta-neutral they tend to sell into strength and buy into weakness, which pushes against the direction of the move. Realized volatility tends to compress, ranges tend to be tighter, and price tends to gravitate toward heavy strikes into the close. Breakouts stall more often than they extend.
+**Above the zero gamma level (positive gamma).** Dealers are modeled net long gamma. To stay delta-neutral they tend to sell into strength and buy into weakness, which pushes against the direction of the move. Realized volatility tends to compress, ranges tend to be tighter, and price tends to gravitate toward heavy strikes into the close. Hedging leans against breakouts rather than feeding them.
 
-**Below the zero gamma level (negative gamma).** Dealers are modeled net short gamma. The same hedging reflex now runs with the move - buying strength, selling weakness - and realized volatility tends to expand. Ranges widen, breakouts have more follow-through, and the pinning that held above the level tends to release. [What negative gamma means](/education/what-is-negative-gamma) covers this regime in depth.
+**Below the zero gamma level (negative gamma).** Dealers are modeled net short gamma. The same hedging reflex now runs with the move - buying strength, selling weakness - and realized volatility tends to expand. Ranges widen, a break that does happen has hedging behind it, and the pinning that held above the level tends to release. [What negative gamma means](/education/what-is-negative-gamma) covers this regime in depth.
 
 **At the level itself.** Spot sitting on zero gamma is the least informative state, not the most. Positive and negative modeled contributions roughly offset, the net hedging tendency is weak, and a small change in inputs can flip the sign. Traders who use the level treat this band as contested territory rather than as a signal.
 

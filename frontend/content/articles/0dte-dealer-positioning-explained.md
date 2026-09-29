@@ -91,7 +91,7 @@ A few habits that change between the two regimes:
 **In a negative-gamma 0DTE regime:**
 
 - Take breakouts of the recent range more seriously, especially when Net GEX is large and negative.
-- Treat 0DTE walls as targets, not ceilings.
+- Don't treat 0DTE walls as ceilings: if one gives way, hedging adds to the move instead of leaning against it.
 - Be skeptical of "this will pin" setups - the dealer reflex is not pulling.
 - If independent volatility measures confirm a wider-range session, size risk accordingly; modeled gamma sign alone does not prescribe a stop.
 
@@ -99,7 +99,7 @@ A few habits that change between the two regimes:
 
 - Default to fades of moves into 0DTE-concentrated strikes.
 - Treat the heaviest gamma strike as a magnet, especially into the close.
-- Be skeptical of breakouts - they fail more often.
+- Be skeptical of breakouts - hedging is leaning against them, and failed breakouts can take ten or fifteen minutes to unwind.
 - Tighter stops are more reasonable; ranges are more contained.
 
 **In any regime:**
