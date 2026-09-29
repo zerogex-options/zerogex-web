@@ -22,6 +22,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
 export interface TechnicalsVwapDeviation {
   vwap: number | null;
@@ -99,6 +100,7 @@ interface CacheEntry {
   retryTimer: ReturnType<typeof setTimeout> | null;
   retryDelayMs: number;
   inflight: Promise<void> | null;
+  pollStartedAt: number | null;
 }
 
 const POLL_INTERVAL_MS = 1_000;
@@ -129,6 +131,7 @@ function getOrCreateCache(symbol: string): CacheEntry {
       retryTimer: null,
       retryDelayMs: RETRY_INITIAL_DELAY_MS,
       inflight: null,
+      pollStartedAt: null,
     };
     caches.set(symbol, entry);
   }
@@ -248,12 +251,19 @@ async function performFullReload(symbol: string): Promise<void> {
 async function performIncrementalPoll(symbol: string): Promise<void> {
   const entry = caches.get(symbol);
   if (!entry) return;
+  // One tail poll out at a time: on a slow connection a 1 s tick would
+  // otherwise stack a request behind every late one (core/pollGate.ts).
+  const startedAt = Date.now();
+  if (pollDecision(entry.pollStartedAt, startedAt, STALE_POLL_FLOOR_MS) === 'skip') return;
+  entry.pollStartedAt = startedAt;
   try {
     const payload = await fetchTechnicals(symbol, INCREMENTAL_INTERVAL_PARAM);
     applyResponse(entry, payload, 'merge');
     notifyListeners(entry);
   } catch {
     // Silent failure; the next 1s tick will retry.
+  } finally {
+    if (entry.pollStartedAt === startedAt) entry.pollStartedAt = null;
   }
 }
 

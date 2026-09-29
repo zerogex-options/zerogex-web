@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
+import { pollDecision, staleAfterMs } from '@/core/pollGate';
 import { sessionClosesLagBehind } from '@/core/sessionCloses';
 export type {
   GEXHistoricalContext,
@@ -489,9 +490,22 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     }
 
     const controller = new AbortController();
+    // The request this loop has out, if any. A tick while it is out does
+    // nothing (core/pollGate.ts), so a slow answer is waited for rather than
+    // stacked on; one out past the stale threshold is aborted and replaced.
+    const staleAfter = staleAfterMs(effectiveRefreshInterval);
+    let inflight: { request: AbortController; startedAt: number } | null = null;
 
     const fetchData = async () => {
       if (controller.signal.aborted) return;
+      const decision = pollDecision(inflight?.startedAt ?? null, Date.now(), staleAfter);
+      if (decision === 'skip') return;
+      if (decision === 'replace') inflight?.request.abort();
+      const request = new AbortController();
+      const abortRequest = () => request.abort();
+      controller.signal.addEventListener('abort', abortRequest);
+      const attempt = { request, startedAt: Date.now() };
+      inflight = attempt;
       // Per-attempt, so the status published to state always belongs to the
       // SAME attempt as the error message beside it. Setting it at the throw
       // site instead would let a 403 linger through a later transport failure
@@ -500,7 +514,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
       let attemptStatus: number | null = null;
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-        const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
+        const response = await fetch(`${baseUrl}${endpoint}`, { signal: request.signal });
 
         if (!response.ok) {
           attemptStatus = response.status;
@@ -511,7 +525,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
         }
 
         const rawResult = await response.json();
-        if (controller.signal.aborted) return;
+        if (request.signal.aborted) return;
 
         const result = normalizeNumbers(rawResult) as T;
 
@@ -530,14 +544,18 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
           setErrorStatus(null);
         }
       } catch (err) {
-        if (controller.signal.aborted) return;
+        // Aborted by teardown or replaced as stale: neither is an error.
+        if (request.signal.aborted) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
         setError(errorMessage);
         setErrorStatus(attemptStatus);
         onErrorRef.current?.(errorMessage);
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        controller.signal.removeEventListener('abort', abortRequest);
+        if (inflight === attempt) inflight = null;
+        // A replaced request leaves loading to the one that replaced it.
+        if (!request.signal.aborted) setLoading(false);
       }
     };
 
@@ -836,6 +854,7 @@ interface MarketQuoteCacheEntry {
   pollTimer: ReturnType<typeof setInterval> | null;
   pollIntervalMs: number;
   inflight: AbortController | null;
+  inflightStartedAt: number | null;
   // server_ts of the newest WebSocket tick applied to `data`. Guards against
   // out-of-order / duplicate frames overwriting a fresher price (see
   // core/liveQuoteOrdering.ts). null = no tick applied in the current
@@ -861,6 +880,7 @@ function getOrCreateMarketQuoteEntry(symbol: string): MarketQuoteCacheEntry {
       pollTimer: null,
       pollIntervalMs: 0,
       inflight: null,
+      inflightStartedAt: null,
       lastLiveServerTs: null,
     };
     marketQuoteCache.set(symbol, entry);
@@ -868,12 +888,22 @@ function getOrCreateMarketQuoteEntry(symbol: string): MarketQuoteCacheEntry {
   return entry;
 }
 
-async function fetchMarketQuote(symbol: string): Promise<void> {
+// `force` (a manual refetch) always asks again. A poll tick instead lets a late
+// answer land: aborting it on every 1 s tick meant that once a round trip took
+// over a second, every request was canceled and the price never arrived.
+async function fetchMarketQuote(symbol: string, force = false): Promise<void> {
   const entry = marketQuoteCache.get(symbol);
   if (!entry) return;
-  if (entry.inflight) entry.inflight.abort();
+  if (entry.inflight) {
+    const decision = force
+      ? 'replace'
+      : pollDecision(entry.inflightStartedAt, Date.now(), staleAfterMs(entry.pollIntervalMs));
+    if (decision === 'skip') return;
+    entry.inflight.abort();
+  }
   const controller = new AbortController();
   entry.inflight = controller;
+  entry.inflightStartedAt = Date.now();
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
     const endpoint = `/api/market/quote?${symbolQuery(symbol)}`;
@@ -896,7 +926,10 @@ async function fetchMarketQuote(symbol: string): Promise<void> {
     entry.loading = false;
     entry.listeners.forEach((fn) => fn());
   } finally {
-    if (entry.inflight === controller) entry.inflight = null;
+    if (entry.inflight === controller) {
+      entry.inflight = null;
+      entry.inflightStartedAt = null;
+    }
   }
 }
 
@@ -1225,7 +1258,7 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000, enabled =
   }, [symbol, refreshInterval, id, enabled]);
 
   const refetch = useCallback(() => {
-    void fetchMarketQuote(symbol);
+    void fetchMarketQuote(symbol, true);
   }, [symbol]);
 
   return { ...state, refetch };

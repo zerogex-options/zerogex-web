@@ -27,6 +27,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
 export interface StrikeProfileStrike {
   strike?: number | string;
@@ -89,6 +90,7 @@ interface CacheEntry {
   retryTimer: ReturnType<typeof setTimeout> | null;
   retryDelayMs: number;
   inflightSeed: Promise<void> | null;
+  pollStartedAt: number | null;
 }
 
 // Seed window: the rewind range the chart actually exposes.  The Strike
@@ -130,6 +132,7 @@ function getOrCreateCache(symbol: string, timeframe: string, expirations: string
       retryTimer: null,
       retryDelayMs: RETRY_INITIAL_DELAY_MS,
       inflightSeed: null,
+      pollStartedAt: null,
     };
     caches.set(key, entry);
   }
@@ -246,6 +249,11 @@ async function pollTipBucket(symbol: string, timeframe: string, expirations: str
   // seed will produce a complete state including the live tip, so the
   // tip poll would race and possibly clobber the seed's tail.
   if (entry.inflightSeed) return;
+  // One tail poll out at a time: on a slow connection a 1 s tick would
+  // otherwise stack a request behind every late one (core/pollGate.ts).
+  const startedAt = Date.now();
+  if (pollDecision(entry.pollStartedAt, startedAt, STALE_POLL_FLOOR_MS) === 'skip') return;
+  entry.pollStartedAt = startedAt;
   try {
     const fetched = await fetchBuckets(symbol, timeframe, expirations, TIP_WINDOW_UNITS);
     if (fetched.length === 0) return;
@@ -282,6 +290,8 @@ async function pollTipBucket(symbol: string, timeframe: string, expirations: str
     }
   } catch {
     // Silent failure; the next 1s tick will retry.
+  } finally {
+    if (entry.pollStartedAt === startedAt) entry.pollStartedAt = null;
   }
 }
 

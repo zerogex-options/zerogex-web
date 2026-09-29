@@ -25,6 +25,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
 export interface PriceBar {
   timestamp: string;
@@ -61,6 +62,7 @@ interface CacheEntry {
   retryTimer: ReturnType<typeof setTimeout> | null;
   retryDelayMs: number;
   inflightSeed: Promise<void> | null;
+  pollStartedAt: number | null;
 }
 
 const CACHE_BAR_LIMIT = 576;
@@ -97,6 +99,7 @@ function getOrCreateCache(symbol: string, timeframe: string, allowFutures = fals
       retryTimer: null,
       retryDelayMs: RETRY_INITIAL_DELAY_MS,
       inflightSeed: null,
+      pollStartedAt: null,
     };
     caches.set(key, entry);
   }
@@ -258,6 +261,11 @@ async function performFullReload(symbol: string, timeframe: string, allowFutures
 async function pollLatestBar(symbol: string, timeframe: string, allowFutures = false): Promise<void> {
   const entry = caches.get(getCacheKey(symbol, timeframe, allowFutures));
   if (!entry) return;
+  // One tail poll out at a time: on a slow connection a 1 s tick would
+  // otherwise stack a request behind every late one (core/pollGate.ts).
+  const startedAt = Date.now();
+  if (pollDecision(entry.pollStartedAt, startedAt, STALE_POLL_FLOOR_MS) === 'skip') return;
+  entry.pollStartedAt = startedAt;
   try {
     // Fetch a small tail (not just 1 bar) so that a bar boundary crossing
     // between polls doesn't cause us to skip the bar that just completed.
@@ -294,6 +302,8 @@ async function pollLatestBar(symbol: string, timeframe: string, allowFutures = f
     }
   } catch {
     // Silent failure; we'll try again on the next 1s tick.
+  } finally {
+    if (entry.pollStartedAt === startedAt) entry.pollStartedAt = null;
   }
 }
 
