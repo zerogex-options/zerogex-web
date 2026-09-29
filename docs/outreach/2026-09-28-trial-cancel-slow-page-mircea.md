@@ -26,6 +26,96 @@ ET.
 | Connecting from | 82.77.225.10, a home connection in Romania (RCS & RDS) |
 | Another trial if they come back later | no, the account has already had one |
 
+## Update Tue Sep 29: they replied, still slow
+
+They answered Draft B. At 2:33 PM ET they sent a DevTools screenshot (Network,
+Fetch/XHR, after a refresh of the dashboard): some requests took up to 18
+seconds, and many rows read "(canceled)". At 2:38 PM they added that the page
+is fine at first, then starts to lag, and a click on Gamma Terminal can do
+nothing for almost a minute and then load all at once. Same in Chrome and
+Chromium. They attached Gemini's reading of the screenshot. Its request names
+(`liveMarketStream`, `layoutConfig`) exist nowhere in our code, so treat the
+rest of that reading with the same care.
+
+**The canceled rows are ours, and so is part of the lag.** The price poll
+(`fetchMarketQuote` in `hooks/useApiData.ts`) aborted its in-flight request on
+every 1-second tick, so once a round trip took over a second, every request was
+canceled and the price never arrived. `useApiData` and the chart's 1-second
+tail polls (price bars, strike profile, technicals) sent a new request on every
+tick whether or not the last one had come back, so a slow patch piled up on
+itself. From the US every answer is back inside a second, which is why it never
+showed here.
+
+**Fix: branch `claude/poll-wait-for-answer`.** A tick now waits for the answer
+in flight, and only a request out for more than 10 seconds is replaced. On a
+fast connection the page asks exactly as often as before. Tests:
+`npm run test:poll-gate`.
+
+**Still open: where the rest of the 18 seconds goes.** The API answered them in
+14 ms at the median on Monday, but its log doesn't cover nginx or the website
+process in front of it. Two things settle it:
+
+- **Their Timing tab** for one slow request, asked for in the reply below. A
+  long "Queueing" or "Stalled" means the browser held the request back: too
+  many requests at once, or an HTTP/1.1 connection, which the Protocol column
+  shows. A long "Waiting for server response" means our origin or the network;
+  compare it with our API time for the same request. A long "Content Download"
+  means their bandwidth.
+- **Today's nginx log for their session.** A 499 means they gave up while the
+  request was still on our side. Mostly 200s, with the browser showing
+  canceled rows, means the answer had already left us. A drop in price checks
+  per minute while the dashboard was open means requests weren't reaching us at
+  all.
+
+```bash
+D=~/incident-2026-09-29-slow-page; mkdir -p "$D" && cd "$D"
+sudo journalctl -u zerogex-oa-api --since "2026-09-29 17:00:00 UTC" --until "2026-09-29 19:00:00 UTC" -o short-iso --no-pager | gzip > api.txt.gz
+sudo zcat -f /var/log/nginx/access.log.*.gz /var/log/nginx/access.log | awk '$4 >= "[29/Sep/2026:13:00:00" && $4 < "[29/Sep/2026:15:00:00"' | gzip > nginx.txt.gz
+ls -la
+U=user_42135fa6849267da95e3f552
+kv='{delete f; for(i=1;i<=NF;i++){n=index($i,"="); if(n) f[substr($i,1,n-1)]=substr($i,n+1)}}'
+st='{a[NR]=$1} END{if(!NR){print "  none found"; exit} k=int(NR*0.95); if(k<NR*0.95)k++; printf "  %d requests: median %.0f ms, 95%% under %.0f ms, slowest %.0f ms\n",NR,a[int((NR+1)/2)],a[k],a[NR]}'
+zcat api.txt.gz | grep -F ' api_request ' | grep -F "end_user_id=$U " > customer-api.txt
+echo "== 1. Their IP today"
+awk "$kv"'{print f["client_ip"]}' customer-api.txt | sort | uniq -c | sort -rn | head -3
+IP=$(awk "$kv"'{print f["client_ip"]}' customer-api.txt | sort | uniq -c | sort -rn | awk 'NR==1{print $2}')
+echo "== 2. Their API requests today, server time only"
+awk "$kv"'{print f["duration_ms"]}' customer-api.txt | sort -g | awk "$st"
+awk "$kv"'{printf "  %7.0f ms  %s ET  %s\n", f["duration_ms"], substr($1,12,8), f["path"]}' customer-api.txt | sort -gr | head -8
+zcat nginx.txt.gz | awk -v ip="$IP" '$1==ip' > customer-nginx.txt
+echo "== 3. Their requests at nginx by status (499 = they gave up while it was still on our side)"
+awk '{print $9}' customer-nginx.txt | sort | uniq -c | sort -rn
+echo "== 4. Which requests ended in 499"
+awk '$9==499{split($7,p,"?"); print p[1]}' customer-nginx.txt | sort | uniq -c | sort -rn | head -8
+echo "== 5. Per minute at nginx: requests, MB, price checks, 499s"
+awk '{m=substr($4,14,5); n[m]++; b[m]+=$10; if($7 ~ /^\/api\/market\/quote/) q[m]++; if($9==499) c[m]++} END{for(m in n) printf "  %s  %5d req  %6.2f MB  %3d price  %3d gave up\n", m, n[m], b[m]/1048576, q[m]+0, c[m]+0}' customer-nginx.txt | sort | head -60
+echo "== 6. Pages they opened today (ET, seconds on screen)"
+sqlite3 -readonly /var/lib/zerogex/auth.db "SELECT time(created_at,'-4 hours'), path, round(duration_ms/1000.0) FROM page_view_events WHERE user_id='$U' AND created_at >= '2026-09-29' ORDER BY created_at;"
+echo "== 7. Website process restarts"
+pm2 describe zerogex-web 2>/dev/null | grep -E 'restarts|uptime'
+```
+
+**Reply to their 2:38 PM message.** Send it after
+`make extend-trial EMAIL=croitoru.mircea85@gmail.com EXTEND_DAYS=7 YES=1`
+(dry run first), or cut the sentence about the extra week:
+
+Hi Mircea,
+
+Thank you, this is exactly what I needed.
+
+The "(canceled)" rows are our doing. The page asks for the latest price every second, and if the last answer hasn't come back yet, it cancels it and asks again. Other parts of the page ask again before their last answer is back, so one slow patch piles up on itself. That fits what you saw: fine at first, then lagging, then a click that does nothing for a while. From the US the answers come back fast enough that it never shows, which is why I missed it.
+
+I've changed both, so the page waits for an answer instead of canceling it or piling up. I'll write as soon as it's live, and I've added a week to your trial so you can give it a fair try after that.
+
+When I checked your visit on Monday, our API was answering your requests in a fraction of a second, so I want to find where the rest of those 18 seconds goes. Two things would help, if you have a minute:
+
+1. In the Network tab, click one of the slow requests and open its Timing tab. A screenshot of that shows where the time goes.
+2. Right-click any column header, turn on "Protocol", and tell me what it shows for those requests (h2, h3 or http/1.1).
+
+Best,
+Michael
+Founder, ZeroGEX
+
 ## Result (checks run Mon Sep 28, 3:52 to 4:05 PM ET)
 
 **The server was fine. Send Draft B.**
