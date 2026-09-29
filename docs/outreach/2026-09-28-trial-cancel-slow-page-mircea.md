@@ -95,19 +95,57 @@ echo "== 7. Website process restarts"
 pm2 describe zerogex-web 2>/dev/null | grep -E 'restarts|uptime'
 ```
 
-**Reply to their 2:38 PM message.** Send it after
-`make extend-trial EMAIL=croitoru.mircea85@gmail.com EXTEND_DAYS=7 YES=1`
-(dry run first), or cut the sentence about the extra week:
+**Result of the check (run Tue 3:19 PM ET, session 1:47 to 2:36 PM ET).**
+
+- **Still Romania.** Same address as Monday, 82.77.225.10, which the European
+  registry lists as a home connection with RCS & RDS in a Bucharest block.
+- **Our API was fast again.** 3,979 requests, median 14 ms, 95% under 0.25 s,
+  slowest 1.8 s (strike-profile timeseries). Nothing near 18 s.
+- **His requests were reaching us late, for minutes at a time.** In 15 of the
+  50 minutes, with the dashboard open and a few hundred of his other requests
+  a minute arriving, not one of his once-a-second price checks reached nginx.
+  Under the old code a price check is canceled after one second, so each one
+  was taking more than a second just to get to us. That includes 13:54 to
+  14:02 without a break. Where price checks did arrive, 171 of his requests
+  were canceled while still at our end, 127 of them price checks.
+- **It isn't distance on its own.** Europe to the US East Coast adds roughly a
+  tenth of a second per request. Something on the way between his browser and
+  nginx was holding requests for seconds: his browser queueing them, his
+  network, or the Cloudflare path from Europe. His Timing tab and Protocol
+  column will say which.
+- **His page pulled a lot:** about 15,700 requests and 373 MB in 50 minutes,
+  7.5 MB a minute on average and 18.5 MB at the peak. That matters most if his
+  browser is holding requests in a queue.
+- **The website process didn't restart** (0 restarts, 12 hours up).
+
+Before sending, check it wasn't everyone. A shows every other visitor's price
+checks and give-ups per minute. If the price-check column holds steady through
+13:54 to 14:02 while his was zero, the hold-up was on his side of nginx. B,
+optional, shows which endpoints make up his 373 MB:
+
+```bash
+cd ~/incident-2026-09-29-slow-page
+IP=82.77.225.10
+echo "== A. Everyone else, per minute: requests, price checks, gave up"
+zcat nginx.txt.gz | awk -v ip="$IP" '$1!=ip && $4 >= "[29/Sep/2026:13:50" && $4 < "[29/Sep/2026:14:30" {m=substr($4,14,5); n[m]++; if($7 ~ /^\/api\/market\/quote/) q[m]++; if($9==499) c[m]++} END{for(m in n) printf "  %s  %6d req  %5d price  %4d gave up\n", m, n[m], q[m]+0, c[m]+0}' | sort
+echo "== B. His data by endpoint, biggest first (MB, requests)"
+awk '{split($7,p,"?"); n[p[1]]++; b[p[1]]+=$10} END{for(k in n) printf "  %8.1f MB  %6d req  %s\n", b[k]/1048576, n[k], k}' customer-nginx.txt | sort -gr | head -12
+```
+
+**Reply to their 2:38 PM message** (no trial extension; that is to be offered
+after the fix is live):
 
 Hi Mircea,
 
 Thank you, this is exactly what I needed.
 
-The "(canceled)" rows are our doing. The page asks for the latest price every second, and if the last answer hasn't come back yet, it cancels it and asks again. Other parts of the page ask again before their last answer is back, so one slow patch piles up on itself. That fits what you saw: fine at first, then lagging, then a click that does nothing for a while. From the US the answers come back fast enough that it never shows, which is why I missed it.
+On my end there's no slowness at all: the dashboard loads in a fraction of a second. I also went through our server records for your session today. Our servers answered your requests in about a hundredth of a second on average, and even the slowest took under two seconds.
 
-I've changed both, so the page waits for an answer instead of canceling it or piling up. I'll write as soon as it's live, and I've added a week to your trial so you can give it a fair try after that.
+What the records do show is that for minutes at a time, your requests were taking more than a second just to reach us. Our servers are in the US, so requests from Europe take a little longer, but distance only adds about a tenth of a second per request. It doesn't explain 18 seconds, so something between your browser and our servers is holding things up, and I'd like to find out what.
 
-When I checked your visit on Monday, our API was answering your requests in a fraction of a second, so I want to find where the rest of those 18 seconds goes. Two things would help, if you have a minute:
+The "(canceled)" rows are our doing, though, and they made it worse. The page asks for the latest price every second, and if the last answer hasn't come back yet, it cancels it and asks again. Other parts of the page ask again before their last answer is back, so a slow patch piles up on itself. I've changed both so the page waits for an answer instead, and I'll let you know as soon as that's live.
+
+Two things would help me find the rest, if you have a minute:
 
 1. In the Network tab, click one of the slow requests and open its Timing tab. A screenshot of that shows where the time goes.
 2. Right-click any column header, turn on "Protocol", and tell me what it shows for those requests (h2, h3 or http/1.1).
