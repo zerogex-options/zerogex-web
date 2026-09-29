@@ -98,7 +98,7 @@ By 13:00 ET, SPX has slipped to 5,806 and the flip has drifted up to 5,803 - th
 
 The playbook shifts. The fade-the-rally setup that was on at the open is now structurally unsupported; a continuation higher is possible if Net GEX flips negative. Position size should shrink; the default trade is no trade until the regime resolves.
 
-At 14:30 ET, Net GEX has flipped to −$200M and SPX has pushed to 5,815. This is now a modeled short-gamma regime - the dealer reflex is assumed to amplify - and the 5,820 call wall is less likely to act as firm resistance; in this regime it can behave more like a breakout target. The fade-the-breakout trade is *off*; if the setup is right, the chase becomes the play.
+At 14:30 ET, Net GEX has flipped to −$200M and SPX has pushed to 5,815. This is now a modeled short-gamma regime - the dealer reflex is assumed to amplify - so if the 5,820 call wall gives way, hedging adds to the break instead of leaning against it. In our measurement the regime did not change how often walls broke, so 5,820 is no less likely to hold than it was at the open; what changed is the cost of being wrong. A failed fade can now run further, so the fade-the-breakout trade loses its cushion, and if the setup is right, the chase has the hedging behind it.
 
 Same chart, three different playbooks across the session - driven largely by the modeled regime variable.
 
