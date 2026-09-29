@@ -1,7 +1,8 @@
 import 'server-only';
 import fs from 'node:fs';
 import path from 'node:path';
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
+import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
 import { ARTICLE_REGISTRY, SITE_URL, type ArticleMeta } from '@/core/articleRegistry';
 import { SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
@@ -25,12 +26,10 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gex
 // so a model grounding on it quotes a timestamped value instead of
 // paraphrasing prose.
 //
-// Same 900s-cached `serverApiGet` as the free levels pages and /mcp, so this
-// shares their cache entries and stays inside the same derived-levels zone:
-// wall and flip LEVELS, max pain, net GEX magnitudes, delayed reference spot.
-// No raw chain, no per-contract quotes, no price stream.
-
-const REVALIDATE_SECONDS = 900;
+// Same delayed `serverApiGetDelayed` read as the free levels pages and /mcp, so
+// this shares their cache entries and stays inside the same derived-levels
+// zone: wall and flip LEVELS, max pain, net GEX magnitudes, delayed reference
+// spot. No raw chain, no per-contract quotes, no price stream.
 
 // Reading order, which is not the picker's order. core/symbols.ts leads with
 // SPY because that is the default symbol a signed-in member lands on; a model
@@ -49,9 +48,8 @@ export async function loadSnapshots(): Promise<Snapshot[]> {
   return Promise.all(
     DISPLAY_ORDER.map(async (symbol) => ({
       symbol,
-      data: await serverApiGet<GexSummary>(
+      data: await serverApiGetDelayed<GexSummary>(
         `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
-        REVALIDATE_SECONDS,
       ),
     })),
   );
@@ -93,16 +91,17 @@ function levelsSection(snapshots: Snapshot[]): string {
   if (rows.length === 0) {
     return `## Today's dealer positioning
 
-Levels are temporarily unavailable. They refresh every 15 minutes through the
-session; see ${SITE_URL}/spx-gamma-levels for the current reading.
+Levels are temporarily unavailable. They update through the session on a
+15-minute delay; see ${SITE_URL}/spx-gamma-levels for the current reading.
 `;
   }
 
   return `## Today's dealer positioning (15-minute delayed)
 
-Refreshed every 15 minutes through the US cash session. ES and NQ levels are
-derived from the SPX and NDX option chains and carried onto the futures price
-axis. Source page for each symbol: ${SITE_URL}/<symbol>-gamma-levels.
+Each reading is at least 15 minutes old and updates through the US cash
+session. ES and NQ levels are derived from the SPX and NDX option chains and
+carried onto the futures price axis. Source page for each symbol:
+${SITE_URL}/<symbol>-gamma-levels.
 
 | Symbol | As of | Ref. spot | Net GEX @ spot | Gamma flip | Call wall | Put wall | Max pain |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -223,10 +222,13 @@ ${bodies.join('\n\n')}
 `;
 }
 
-/** Shared response headers — same 15-minute cache as the levels the file quotes. */
+/**
+ * Shared response headers — the same one-minute cache as the delayed levels the
+ * file quotes, so a shared cache cannot make "15-minute delayed" an hour.
+ */
 export const LLMS_HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8',
-  'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=3600`,
+  'Cache-Control': `public, s-maxage=${FREE_REVALIDATE_SECONDS}, stale-while-revalidate=${FREE_REVALIDATE_SECONDS}`,
   // Cited by machines from other origins; there is nothing here that is not
   // already public on the site.
   'Access-Control-Allow-Origin': '*',

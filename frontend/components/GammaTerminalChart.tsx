@@ -564,7 +564,8 @@ interface ProfilePoint {
  * chart for the public "delayed" mode: when present, the component renders from
  * it and does ZERO client-side fetching (all live hooks are disabled), so a
  * public visitor can never pull real-time data off the wire. Built on the
- * server from ~15-min ISR-cached `serverApiGet` calls.
+ * server from `serverApiGetDelayed` reads, which the backend answers with data
+ * at least 15 minutes old.
  */
 /** The terminal headline's futures chip — shared by the display-swap badge and
  *  the contract chip that replaces it on a natively-served ES / NQ chart, so

@@ -4,7 +4,7 @@ import GammaLevelsView, { gammaMetadata } from '../spx-gamma-levels/gammaLevels'
 // intro, Today's Read, share block, first-screen card order all lead with NDX),
 // self-canonical to /ndx-gamma-levels. Shared view lives in ../spx-gamma-levels.
 export const dynamic = 'force-static';
-export const revalidate = 900;
+export const revalidate = 60; // FREE_REVALIDATE_SECONDS in core/freeDelay.ts; Next needs a literal here.
 
 export function generateMetadata() {
   return gammaMetadata('NDX');

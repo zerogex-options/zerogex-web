@@ -125,8 +125,8 @@ const RULES: readonly Rule[] = [
   // Underlying OHLC bars, open interest, and session levels. All three were
   // unmapped, which is the squarest form of the bypass this module exists to
   // stop: the free pages that show this data (/chart, /spx-gamma-levels) render
-  // it SERVER-side through serverApiGet with a 900s ISR cache, so "free" means
-  // ~15-minute-stale — while an anonymous GET to the same path through this
+  // it SERVER-side through serverApiGetDelayed, so "free" means at least
+  // 15 minutes old — while an anonymous GET to the same path through this
   // proxy returned it LIVE (proxy.ts fetches no-store). serverApiGet talks to
   // FastAPI directly and never traverses this proxy, so gating cannot break the
   // SSR/public path — /api/market/volatility above is the standing proof.
@@ -147,7 +147,7 @@ const RULES: readonly Rule[] = [
   // gamma ladders read /api/gex/strike-profile-timeseries + /api/gex/summary,
   // both Basic-gated here, so the anonymous view does NOT mount the live
   // columns at all: app/chart/page.tsx server-renders them through
-  // loadLadderSnapshot (serverApiGet, 900s ISR) and TerminalSurface hands the
+  // loadLadderSnapshot (serverApiGetDelayed) and TerminalSurface hands the
   // hooks `enabled: false`. A visitor who is not entitled to the live feeds
   // never asks for them, rather than asking and being refused.
   //   open-interest  — /my-dashboard and /gamma-exposure only.

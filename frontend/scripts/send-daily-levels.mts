@@ -52,6 +52,7 @@ import {
   type FreshnessBasis,
 } from '../core/levelsEmail.ts';
 import type { GexSummary } from '../core/gexSummary.ts';
+import { delayedPath } from '../core/freeDelay.ts';
 import { sendDailyLevelsEmail } from '../core/mailer.ts';
 
 const PRIMARY_SYMBOL = 'SPX';
@@ -232,10 +233,12 @@ if (!inWindow) {
 // A plain fetch rather than core/api/serverFetch.ts: that module imports
 // 'server-only' and cannot be loaded outside a Next runtime. Same base URL,
 // same bearer, same endpoint, so it shares nothing but reaches the same data.
+// The same delayed read as the free pages, too: the email says "delayed ~15
+// minutes", and SPY and QQQ are already trading pre-market when it goes out.
 async function fetchSummary(symbol: string): Promise<GexSummary | null> {
   try {
     const res = await fetch(
-      `${API_BASE}/api/gex/summary?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
+      `${API_BASE}${delayedPath(`/api/gex/summary?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`)}`,
       { headers: { Authorization: `Bearer ${API_TOKEN}` } },
     );
     if (!res.ok) {

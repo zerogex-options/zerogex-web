@@ -5,7 +5,7 @@ import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnThinkorswim from '@/components/PlotOnThinkorswim';
 import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
 import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
 
 // Standalone home for the free thinkorswim study — the Schwab-platform sibling
 // of /tradingview-indicator. Same shape as that page: <PlotOnThinkorswim
@@ -65,8 +65,8 @@ const JSON_LD = {
 // reader who trades something else gets the same study from that ticker's
 // gamma-levels page, already filled with ITS numbers.
 //
-// 900s to match the revalidate on the gamma-levels pages, so the two surfaces
-// cannot show different levels for the same minute. serverApiGet returns null
+// The same delayed read the gamma-levels pages make, so the two surfaces cannot
+// show different levels for the same minute. serverApiGetDelayed returns null
 // on any failure — an unset token, an unreachable backend, a non-2xx — and
 // PlotOnThinkorswim falls back to the blank template and says so. This page is
 // a public marketing landing, so a backend blip must cost the pre-fill, never
@@ -80,9 +80,8 @@ interface LevelsSnapshot {
 }
 
 export default async function ThinkorswimIndicatorPage() {
-  const snapshot = await serverApiGet<LevelsSnapshot>(
+  const snapshot = await serverApiGetDelayed<LevelsSnapshot>(
     '/api/gex/summary?symbol=SPX&underlying=SPX',
-    900,
   );
 
   return (

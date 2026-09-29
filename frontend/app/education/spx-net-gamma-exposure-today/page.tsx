@@ -11,7 +11,7 @@ import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import DelayedLevelsTable from '@/components/DelayedLevelsTable';
 import { articleMetadata } from '@/core/articleRegistry';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
 
@@ -20,16 +20,16 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } 
 // gamma exposure current", "spx 0dte net gex current" and a dozen variants,
 // ~450 impressions a month — and sat at positions 19-35 for all of them,
 // because it explained the number without showing it. It now opens with
-// today's delayed reading, pulled from the same endpoint and the same 900s
-// fetch-cache window as /spx-gamma-levels (so the two pages share one cache
-// entry and can never disagree), and leads the meta description with the
-// value the way the gamma-levels snippet does. The explainer follows.
+// today's delayed reading, pulled through the same delayed read and cache
+// window as /spx-gamma-levels (so the two pages share one cache entry and can
+// never disagree), and leads the meta description with the value the way the
+// gamma-levels snippet does. The explainer follows.
 
 const SLUG = 'spx-net-gamma-exposure-today';
 const articlePath = path.join(process.cwd(), 'content/articles/spx-net-gamma-exposure-today.md');
 
 function loadSpxSummary() {
-  return serverApiGet<GexSummary>('/api/gex/summary?symbol=SPX&underlying=SPX', 900);
+  return serverApiGetDelayed<GexSummary>('/api/gex/summary?symbol=SPX&underlying=SPX');
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -84,7 +84,7 @@ function CurrentNetGex({ data }: { data: GexSummary | null }) {
           <Link href="/spx-gamma-levels" className={linkClass}>
             SPX gamma levels page
           </Link>{' '}
-          carries the same reading, refreshed roughly every 15 minutes.
+          carries the same reading, updated through the session on a 15-minute delay.
         </p>
       </section>
     );

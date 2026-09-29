@@ -12,12 +12,12 @@ import { loadChartSnapshot, loadLadderSnapshot } from './snapshot';
  *     no snapshots — the components poll the API client-side).
  *   • Everyone else gets a ~15-minute-delayed server snapshot rendered as the
  *     same interactive terminal: the chart AND both gamma ladders. All the
- *     delayed data is fetched here on the server via ISR-cached serverApiGet,
- *     so the public client never touches the API and no real-time data leaks
- *     over the wire.
+ *     delayed data is fetched here on the server via serverApiGetDelayed, so
+ *     the backend serves nothing newer than 15 minutes, the public client never
+ *     touches the API, and no real-time data leaks over the wire.
  *
  * Reading the session cookie (requireSession) makes this route render per
- * request; the underlying data fetches stay cached for ~15 minutes.
+ * request; the underlying data fetches stay cached for a minute.
  *
  * /gamma-terminal, the members-only beta this page absorbed, 301s here (see
  * next.config.ts).

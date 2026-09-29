@@ -212,10 +212,11 @@ test("the public view renders both ladders from server snapshots and polls nothi
   assert.match(page, /loadLadderSnapshot\(compareSymbol\)/);
   assert.match(page, /const compareSymbol = sameIndexPairFor\(PUBLIC_SYMBOL\);/);
   assert.match(snapshot, /export async function loadLadderSnapshot/);
-  // Every delayed fetch runs through the 900s ISR-cached server client.
+  // Every delayed fetch is a delayed read on the server client: the backend
+  // serves it nothing newer than 15 minutes (core/freeDelay.ts).
   const ladderLoader = snapshot.slice(snapshot.indexOf("export async function loadLadderSnapshot"));
-  assert.equal((ladderLoader.match(/serverApiGet</g) ?? []).length, 4, "four server feeds, no client ones");
-  assert.match(ladderLoader, /DELAY_SECONDS/);
+  assert.equal((ladderLoader.match(/serverApiGetDelayed</g) ?? []).length, 4, "four delayed server feeds, no client ones");
+  assert.doesNotMatch(ladderLoader, /serverApiGet</, "no read without the delay");
   // Delayed => the columns come from the snapshot, and every live hook is off.
   assert.match(surface, /const left = delayed \? snapshotColumn\(ladders\?\.primary \?\? null, sym1\) : leftLive;/);
   assert.match(surface, /const right = delayed \? snapshotColumn\(ladders\?\.compare \?\? null, sym2\) : rightLive;/);

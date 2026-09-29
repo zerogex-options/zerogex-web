@@ -23,7 +23,7 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gex
 // say how old it is would eventually misrepresent a level as current, which is
 // the one failure that matters here.
 //
-// Same derived-levels zone and the same 900s-cached snapshot as the HTML
+// Same derived-levels zone and the same delayed, cached snapshot as the HTML
 // widget, /mcp and the free pages — the caller fetches it and hands it in.
 
 export const CARD_SIZE = { width: 1200, height: 630 };
@@ -256,7 +256,7 @@ export function renderLevelsCard(
         >
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 27, fontWeight: 700, color: p.text, display: 'flex' }}>
-              {data ? `As of ${fmtTimestampET(data.timestamp)}` : 'Levels refresh every 15 minutes'}
+              {data ? `As of ${fmtTimestampET(data.timestamp)}` : 'Free levels, 15 minutes delayed'}
             </div>
             <div style={{ fontSize: 21, color: p.muted, marginTop: 7, display: 'flex' }}>
               {data

@@ -10,7 +10,7 @@
 
 There is nothing to install, no key to generate, and no account to create. Reading is free.
 
-It serves the same data as the free [Gamma Levels pages](/spx-gamma-levels): **delayed by up to 15 minutes**. That is the whole tier. The real-time feed is a Pro feature and lives behind the [API](/help/platform/api-access); this endpoint is not a way around that.
+It serves the same data as the free [Gamma Levels pages](/spx-gamma-levels): **delayed at least 15 minutes**. That is the whole tier. The real-time feed is a Pro feature and lives behind the [API](/help/platform/api-access); this endpoint is not a way around that.
 
 This page is about *using* our hosted server. If you want to build your own MCP server against the real-time Pro API, that is [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration).
 
@@ -72,7 +72,7 @@ Every response leads with its own age and says plainly that the data is delayed.
 
 Three things worth knowing before you trade off an answer:
 
-- **The levels are up to 15 minutes old.** On a fast tape the market can be through a level well before the snapshot shows it. These are good for orientation and structure, not for timing an entry at the current price.
+- **The levels are at least 15 minutes old.** On a fast tape the market can be through a level well before the snapshot shows it. These are good for orientation and structure, not for timing an entry at the current price.
 - **A missing level is a real answer.** When the modeled book does not support a gamma flip, the server says the level is unavailable. It is not zero, and it is not an error. An assistant that substitutes a number there is making one up - ask it where the number came from.
 - **Positioning is not direction.** These levels describe how dealer hedging tends to behave around price. They are not a forecast and not a recommendation, and the server says so on every call.
 
@@ -80,7 +80,7 @@ If the assistant reports levels without mentioning the delay, ask it directly ho
 
 ## Limits and availability
 
-There is no key, so there is no per-user quota. The server answers from the same cache as the public gamma-levels pages and refreshes about every 15 minutes, so calling it more often than that returns the same snapshot - polling faster buys nothing.
+There is no key, so there is no per-user quota. The server answers from the same cache as the public gamma-levels pages and refreshes about once a minute, so calling it more often than that returns the same snapshot - polling faster buys nothing.
 
 When the backend is briefly unavailable, tools return an explicit "temporarily unavailable" result that tells the assistant not to fill the gap from memory. That is a normal transient state, not a sign your configuration is wrong.
 

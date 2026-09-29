@@ -65,7 +65,8 @@ function registryWith(
   });
 }
 
-const okRegistry = registryWith(async () => snapshotAt(300));
+// 16 minutes: what a delayed read normally hands back (core/freeDelay.ts).
+const okRegistry = registryWith(async () => snapshotAt(16 * 60));
 
 function result(response: JsonRpcResponse | null): Record<string, unknown> {
   assert.ok(response, 'expected a response, got null');
@@ -142,7 +143,7 @@ test('initialize declares tools only, and warns about the delay up front', async
 
   const instructions = payload.instructions as string;
   assert.match(instructions, /DELAYED/);
-  assert.match(instructions, /15 minutes/);
+  assert.match(instructions, /at least\s+15 minutes/);
   assert.match(instructions, /not a forecast|not a recommendation/i);
 });
 
@@ -236,9 +237,10 @@ test('tools/list advertises both read-only tools with usable schemas', async () 
 // --- freshness -------------------------------------------------------------
 
 test('a normally delayed snapshot is labelled delayed, never live', async () => {
-  const line = freshnessLine(snapshotAt(300).timestamp, 'open', NOW);
+  const line = freshnessLine(snapshotAt(16 * 60).timestamp, 'open', NOW);
   assert.match(line, /Free delayed snapshot/);
-  assert.match(line, /15 minutes behind/);
+  // A floor, not a ceiling: the backend serves this tier nothing newer.
+  assert.match(line, /at least 15 minutes behind/);
   assert.match(line, /never call them live/);
   assert.doesNotMatch(line, /STALE|RUNNING BEHIND/);
 });
@@ -335,8 +337,8 @@ test('get_gamma_levels leads with freshness and carries a structured payload', a
   const structured = result(res).structuredContent as Record<string, unknown>;
   assert.equal(structured.symbol, 'SPX');
   assert.equal(structured.data_tier, 'free-delayed', 'must be unmistakable in machine output too');
-  assert.equal(structured.max_delay_seconds, 900);
-  assert.equal(structured.age_seconds, 300);
+  assert.equal(structured.min_delay_seconds, 900);
+  assert.equal(structured.age_seconds, 16 * 60);
   assert.equal(structured.regime, 'long');
 });
 

@@ -7,8 +7,8 @@
 //
 // It serves exactly the derived-levels zone the public /spx-gamma-levels pages
 // already render — wall and flip LEVELS, max pain, net GEX magnitudes — through
-// the same 900s-cached `serverApiGet`, so it shares those pages' cache entries
-// and is licensing-clean by the same construction. No raw chain, no
+// the same delayed `serverApiGetDelayed` read, so it shares those pages' cache
+// entries and is licensing-clean by the same construction. No raw chain, no
 // per-contract quotes, no live price stream. The real-time API stays a Pro
 // feature behind a key.
 //
@@ -19,7 +19,8 @@
 // SDK dependency. Message handling lives in core/mcp/protocol.ts; this file is
 // only the HTTP skin.
 
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
+import { delayedNow } from '@/core/freeDelay';
 import { getMarketSession } from '@/core/utils';
 import type { PickerSymbol } from '@/core/symbols';
 import {
@@ -31,13 +32,13 @@ import {
   rpcError,
   type JsonRpcResponse,
 } from '@/core/mcp/protocol';
-import { DELAY_SECONDS, type GexSnapshot, type MarketPhase } from '@/core/mcp/levels';
+import type { GexSnapshot, MarketPhase } from '@/core/mcp/levels';
 import { createToolRegistry } from '@/core/mcp/tools';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { captureServer } from '@/core/telemetry/posthog-server';
 
 // Reads request headers and a request body, so it can never be statically
-// rendered. Upstream data is still cached: `serverApiGet` sets the 900s fetch
+// rendered. Upstream data is still cached: `serverApiGetDelayed` sets the fetch
 // revalidate, which is what bounds backend load no matter how many clients
 // connect here.
 export const dynamic = 'force-dynamic';
@@ -105,10 +106,7 @@ function json(body: unknown, status: number, origin: string | null): Response {
 async function fetchSnapshot(symbol: PickerSymbol): Promise<GexSnapshot | null> {
   // Byte-identical to the URL the free gamma-levels pages request, so the Next
   // fetch cache dedupes across both surfaces rather than doubling backend load.
-  return serverApiGet<GexSnapshot>(
-    `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
-    DELAY_SECONDS,
-  );
+  return serverApiGetDelayed<GexSnapshot>(`/api/gex/summary?symbol=${symbol}&underlying=${symbol}`);
 }
 
 /**
@@ -118,9 +116,13 @@ async function fetchSnapshot(symbol: PickerSymbol): Promise<GexSnapshot | null> 
  * this reports "open" and the snapshot then ages past the refresh thresholds,
  * so the result degrades into a stale-data warning rather than a wrong claim
  * that the data is current. That is the safe direction to fail.
+ *
+ * Read at the instant the delayed data is as of, not now: from 16:00 to 16:16
+ * the market is shut but the delayed snapshots are still the session's, and
+ * "last snapshot of the session" would be false until the delay runs out.
  */
 function marketPhase(): MarketPhase {
-  return getMarketSession() === 'open' ? 'open' : 'closed';
+  return getMarketSession(delayedNow()) === 'open' ? 'open' : 'closed';
 }
 
 const registry = createToolRegistry({

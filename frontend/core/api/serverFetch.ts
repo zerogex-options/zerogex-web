@@ -1,11 +1,14 @@
 import 'server-only';
 
+import { delayedPath, FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
+
 // Server-only fetch for routes that are server-rendered (no incoming session
 // cookie to attach an end-user token to) and want to talk to the FastAPI
 // backend directly rather than round-tripping through the same-origin BFF
 // proxy. Used by ISR pages like the free `/spx-gamma-levels` lead-magnet,
-// where the response is intentionally cached for ~15 minutes and shared
-// across all anonymous visitors — there is no per-user attribution to do.
+// where the response is cached and shared across all anonymous visitors —
+// there is no per-user attribution to do. Those free surfaces read through
+// `serverApiGetDelayed` below, never `serverApiGet` directly.
 //
 // Honors the same env vars as `core/api/proxy.ts`:
 //   * ZEROGEX_API_BASE_URL — defaults to http://127.0.0.1:8000.
@@ -127,4 +130,15 @@ export async function serverApiGet<T>(
 ): Promise<T | null> {
   const result = await serverApiGetResult<T>(path, revalidateSeconds);
   return result.ok ? result.data : null;
+}
+
+/**
+ * ``serverApiGet`` for the free, no-login surfaces: the read carries the free
+ * tier's ``delay_minutes``, so the backend answers with the newest data at
+ * least that old, and it is cached for ``FREE_REVALIDATE_SECONDS``. Every
+ * caller shares the same delay and cache window, so two surfaces reading the
+ * same path share one cache entry and cannot disagree. See core/freeDelay.ts.
+ */
+export async function serverApiGetDelayed<T>(path: string): Promise<T | null> {
+  return serverApiGet<T>(delayedPath(path), FREE_REVALIDATE_SECONDS);
 }

@@ -8,7 +8,7 @@ import GammaLevelsView, { gammaMetadata } from '../spx-gamma-levels/gammaLevels'
 // option-derived and converted to ES prices by the API at fair value
 // (cost of carry), which the page's intro and FAQ disclose.
 export const dynamic = 'force-static';
-export const revalidate = 900;
+export const revalidate = 60; // FREE_REVALIDATE_SECONDS in core/freeDelay.ts; Next needs a literal here.
 
 export function generateMetadata() {
   return gammaMetadata('ES');

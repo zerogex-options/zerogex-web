@@ -132,8 +132,8 @@ export default function PutOnYourSite({ symbol }: { symbol: PickerSymbol }) {
         }}
       >
         If you write about the session, today&rsquo;s {symbol} levels are one line of HTML. Paste it once and it
-        re-reads the chain every 15 minutes, so the {symbol} flip and walls under your writing stay
-        current without you typing them in again. No account, no key, and it sets no cookies on
+        updates itself through the session on a 15-minute delay, so the {symbol} flip and walls under your
+        writing stay current without you typing them in again. No account, no key, and it sets no cookies on
         your readers.
       </p>
 

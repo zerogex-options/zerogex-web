@@ -29,7 +29,7 @@ import EmbedBuilder from './EmbedBuilder';
 const PATH = '/embed';
 const TITLE = 'Free Gamma Levels Widget: Embed SPX, SPY & QQQ Levels on Your Site';
 const DESCRIPTION =
-  'Put today’s gamma flip, call wall, put wall and net GEX on your own site with one line of HTML. Free, no signup, no API key, no cookies\u00a0- refreshed every 15 minutes for SPX, SPY, QQQ, NDX, ES and NQ.';
+  'Put today’s gamma flip, call wall, put wall and net GEX on your own site with one line of HTML. Free, no signup, no API key, no cookies\u00a0- 15-minute delayed levels for SPX, SPY, QQQ, NDX, ES and NQ.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -58,7 +58,7 @@ const FAQ = [
   },
   {
     q: 'How often does the widget update?',
-    a: 'The levels refresh every 15 minutes through the trading session, and the widget is cached for the same 15 minutes. You paste the snippet once; the card keeps itself current every market day with no further work.',
+    a: 'The levels update about once a minute through the trading session, on a 15-minute delay: every reading is at least 15 minutes old. You paste the snippet once; the card keeps itself current every market day with no further work.',
   },
   {
     q: 'Does the widget track my readers?',
@@ -143,7 +143,7 @@ const PROMISES = [
   {
     icon: RefreshCw,
     title: 'Updates itself',
-    body: 'Paste it once. The card re-reads the option chain every 15 minutes through the session, so the levels under your writing are never yesterday’s.',
+    body: 'Paste it once. The card updates itself through the session on a 15-minute delay, so the levels under your writing are never yesterday’s.',
   },
   {
     icon: ShieldCheck,
@@ -179,8 +179,8 @@ export default function EmbedPage() {
           A small card showing the <strong style={STRONG}>gamma flip</strong>, the{' '}
           <strong style={STRONG}>call wall</strong>, the <strong style={STRONG}>put wall</strong> and{' '}
           <strong style={STRONG}>net dealer GEX at spot</strong> for SPX, SPY, QQQ, NDX, ES or NQ.
-          It refreshes every 15 minutes on its own, so the structure under your market write-up stays
-          current without you touching it again.
+          It updates itself through the session on a 15-minute delay, so the structure under your market
+          write-up stays current without you touching it again.
         </p>
       </header>
 

@@ -75,7 +75,7 @@ This matters more than the setup, because a connected assistant and an unconnect
 
 ## What this is not
 
-**It is not real-time.** The free tier is delayed by up to 15 minutes, on purpose. That is good for orientation and structure - where the walls are, which regime you are in, how far spot is from the flip. It is not good for timing an entry at the current price, because on a fast tape the market can be through a level before the snapshot shows it. The real-time feed is a Pro feature behind [an API key](/help/platform/api-access).
+**It is not real-time.** The free tier is delayed at least 15 minutes, on purpose. That is good for orientation and structure - where the walls are, which regime you are in, how far spot is from the flip. It is not good for timing an entry at the current price, because on a fast tape the market can be through a level before the snapshot shows it. The real-time feed is a Pro feature behind [an API key](/help/platform/api-access).
 
 **It is not a signal service.** The server returns positioning, not direction. A gamma flip tells you which hedging playbook the modeled book is running, not whether to buy. It says so on every call.
 

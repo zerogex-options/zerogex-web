@@ -82,7 +82,7 @@ export function renderGammaOgImage(symbol: string) {
             display: 'flex',
           }}
         >
-          Call wall, put wall, gamma flip, max pain, net dealer GEX for {symbol}. Updated every 15 minutes.
+          Call wall, put wall, gamma flip, max pain, net dealer GEX for {symbol}. Delayed 15 minutes.
         </div>
         <div
           style={{

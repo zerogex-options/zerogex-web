@@ -12,17 +12,16 @@
 //
 // Card design, and why the timestamp is set so large, is in ./levelsCard.tsx.
 
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
+import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
 import { SYMBOLS, type PickerSymbol } from '@/core/symbols';
 import type { GexSummary } from '@/core/gexSummary';
 import { CARD_CONTENT_TYPE, renderLevelsCard, type CardTheme } from './levelsCard';
 
 // Satori needs the Node runtime, and searchParams make this per-request. The
-// upstream read is still the shared 900s-cached one.
+// upstream read is still the shared, cached delayed one.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const REVALIDATE_SECONDS = 900;
 
 export async function GET(
   request: Request,
@@ -43,9 +42,8 @@ export async function GET(
   const theme: CardTheme =
     new URL(request.url).searchParams.get('theme') === 'light' ? 'light' : 'dark';
 
-  const data = await serverApiGet<GexSummary>(
+  const data = await serverApiGetDelayed<GexSummary>(
     `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
-    REVALIDATE_SECONDS,
   );
 
   return renderLevelsCard(symbol, data, theme, {
@@ -53,7 +51,7 @@ export async function GET(
     // Deliberately short, and deliberately not the whole story. Our own cache
     // honors this; Substack's re-host, Gmail's image proxy and Discord's CDN
     // do not, which is exactly why the card dates itself on its face.
-    'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=3600`,
+    'Cache-Control': `public, s-maxage=${FREE_REVALIDATE_SECONDS}, stale-while-revalidate=${FREE_REVALIDATE_SECONDS}`,
     // Hotlinked from other origins by construction.
     'Access-Control-Allow-Origin': '*',
     // One image per symbol per theme, repeated wherever it is pasted.

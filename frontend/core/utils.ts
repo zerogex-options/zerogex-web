@@ -37,8 +37,10 @@ export function sanitizeUtmSource(raw: unknown): string | null {
   return UTM_SOURCE_ALIASES[cleaned] ?? cleaned;
 }
 
-export const getMarketSession = (): MarketSession => {
-  const now = new Date();
+// `at` labels another instant: the delayed public view asks what the session
+// was when its data is as of (core/freeDelay.ts delayedNow), not what it is now.
+export const getMarketSession = (at: Date = new Date()): MarketSession => {
+  const now = at;
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     weekday: 'short',

@@ -15,30 +15,29 @@
 //
 // It serves exactly the derived-levels zone the public /<ticker>-gamma-levels
 // pages already render — wall and flip LEVELS, max pain, net GEX magnitudes,
-// delayed reference spot — through the same 900s-cached `serverApiGet`, so it
-// shares those pages' cache entries and is licensing-clean by the same
-// construction as /mcp. No raw chain, no per-contract quotes, no price stream.
+// delayed reference spot — through the same delayed `serverApiGetDelayed`
+// read, so it shares those pages' cache entries and is licensing-clean by the
+// same construction as /mcp. No raw chain, no per-contract quotes, no price
+// stream.
 //
 // The SEO mechanism lives in the SNIPPET, not in here. A link inside an iframe
 // is a link from this URL, which is our own origin — worth nothing to us. The
 // backlink is the plain <a> that app/embed/page.tsx puts in the HOST page's
 // markup next to the frame. This document is the reason the embedder keeps it.
 
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
+import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
 import { SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
 import { longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
 
 // Reads searchParams, so it can never be statically rendered. Upstream data is
-// still cached: `serverApiGet` sets the 900s fetch revalidate, and the response
-// carries its own s-maxage below, which is what bounds backend load no matter
-// how many host pages frame this.
+// still cached: `serverApiGetDelayed` sets the fetch revalidate, and the
+// response carries its own s-maxage below, which is what bounds backend load no
+// matter how many host pages frame this.
 export const dynamic = 'force-dynamic';
 
 const SITE = 'https://zerogex.io';
-
-/** Same 15-minute cache the free levels pages and /mcp share. */
-const REVALIDATE_SECONDS = 900;
 
 type Theme = 'dark' | 'light';
 
@@ -195,7 +194,7 @@ function renderWidget(
         <div class="sym">${esc(symbol)}</div>
         <div class="pill">Data briefly unavailable</div>
       </div>
-      <div class="empty">Today's ${esc(symbol)} levels are not loading right now. They refresh every 15 minutes.</div>
+      <div class="empty">Today's ${esc(symbol)} levels are not loading right now. Try again in a minute.</div>
       <div class="foot">
         <span>Free delayed dealer positioning</span>
         <a href="${esc(href)}" target="_blank" rel="noopener">ZeroGEX ↗</a>
@@ -297,18 +296,18 @@ export async function GET(
   // it is used, and only ever echoed into a utm_content value.
   const ref = (url.searchParams.get('ref') || '').slice(0, 64);
 
-  const data = await serverApiGet<GexSummary>(
+  const data = await serverApiGetDelayed<GexSummary>(
     `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
-    REVALIDATE_SECONDS,
   );
 
   return new Response(renderWidget(symbol, data, theme, ref), {
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      // Shared caches may hold this for the same 15 minutes the data is stale
-      // by, and keep serving the old card for an hour while revalidating.
-      'Cache-Control': `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=3600`,
+      // Shared caches may hold this for the minute the fetch cache does, and
+      // serve it one more minute while revalidating: the card says "15-min
+      // delayed", so a cache must not quietly make it an hour.
+      'Cache-Control': `public, s-maxage=${FREE_REVALIDATE_SECONDS}, stale-while-revalidate=${FREE_REVALIDATE_SECONDS}`,
       // This route exists to be framed. Everything else on the site is
       // SAMEORIGIN-only via next.config.ts; this is the deliberate exception.
       'Content-Security-Policy': "frame-ancestors *",

@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGetDelayed } from '@/core/api/serverFetch';
+import { delayedNow } from '@/core/freeDelay';
 import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
@@ -13,10 +14,10 @@ import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
 import type { ChartSnapshot } from '@/components/GammaTerminalChart';
 
-// The whole point of the public /chart view: the data is fetched once per this
-// window and shared across every anonymous visitor via the Next fetch cache, so
-// what the public sees is 0–15 min stale and the client never touches the API.
-const DELAY_SECONDS = 900;
+// The whole point of the public /chart view: every feed is a delayed read
+// (serverApiGetDelayed), so the backend answers with data at least 15 minutes
+// old, shared across every anonymous visitor via the Next fetch cache, and the
+// client never touches the API. See core/freeDelay.ts.
 
 // Enough bars for the default window plus room to pan/zoom back.
 const WINDOW_UNITS = 180;
@@ -112,8 +113,9 @@ function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfi
 
 /**
  * Build the frozen, ~15-min-delayed snapshot the public chart renders from.
- * Every fetch is ISR-cached for DELAY_SECONDS, so this is cheap under load and
- * genuinely delayed. Returns null only if there are no bars at all (the page
+ * Every fetch is a delayed read, so the delay is the backend's and holds
+ * whatever is cached, and each is shared through the fetch cache, so this is
+ * cheap under load. Returns null only if there are no bars at all (the page
  * then shows the chart's own empty state).
  */
 export async function loadChartSnapshot(
@@ -125,14 +127,14 @@ export async function loadChartSnapshot(
   // freeze at the 16:00 close), matching the live chart.
   const futuresParam = isIndexSymbol(symbol) ? '' : '&allow_futures=1';
   const [barsRaw, profile, summary, quote, closes, technicals, buckets] = await Promise.all([
-    serverApiGet<RawBar[]>(`/api/market/historical?${q}&timeframe=${encodeURIComponent(timeframe)}&window_units=${WINDOW_UNITS}${futuresParam}`, DELAY_SECONDS),
-    serverApiGet<RawProfile>(`/api/gex/profile?${q}`, DELAY_SECONDS),
-    serverApiGet<RawSummary>(`/api/gex/summary?${q}`, DELAY_SECONDS),
-    serverApiGet<RawQuote>(`/api/market/quote?${q}`, DELAY_SECONDS),
-    serverApiGet<SessionClosesData>(`/api/market/session-closes?${q}`, DELAY_SECONDS),
-    serverApiGet<RawTechnicals>(`/api/technicals?${q}`, DELAY_SECONDS),
+    serverApiGetDelayed<RawBar[]>(`/api/market/historical?${q}&timeframe=${encodeURIComponent(timeframe)}&window_units=${WINDOW_UNITS}${futuresParam}`),
+    serverApiGetDelayed<RawProfile>(`/api/gex/profile?${q}`),
+    serverApiGetDelayed<RawSummary>(`/api/gex/summary?${q}`),
+    serverApiGetDelayed<RawQuote>(`/api/market/quote?${q}`),
+    serverApiGetDelayed<SessionClosesData>(`/api/market/session-closes?${q}`),
+    serverApiGetDelayed<RawTechnicals>(`/api/technicals?${q}`),
     // Per-strike surface for the rail (same density the live/rewind rail draws).
-    serverApiGet<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`, DELAY_SECONDS),
+    serverApiGetDelayed<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`),
   ]);
 
   if (!Array.isArray(barsRaw) || barsRaw.length === 0) return null;
@@ -179,6 +181,9 @@ export async function loadChartSnapshot(
   // session's 4 PM close while the delayed candles show today's tape. During the
   // cash session this anchors price + "as of" to the freshest delayed bar; nights
   // / weekends / the futures swap keep the served quote (see resolveDelayedQuote).
+  // "During the cash session" means at the instant the delayed data is as of:
+  // from 09:30 to 09:46 the market is open now but the delayed tape is still
+  // pre-market, and the served quote already says so.
   const repairedQuote = resolveDelayedQuote({
     quoteClose: levelOrNull(quote?.close),
     quoteSession: quote?.session ?? null,
@@ -186,7 +191,7 @@ export async function loadChartSnapshot(
     displaySource: quote?.display_source ?? null,
     lastBarClose: firstLevel(lastBar?.close, lastBar?.price),
     lastBarTimestamp: lastBar?.timestamp ?? null,
-    marketNow: getMarketSession(),
+    marketNow: getMarketSession(delayedNow()),
   });
 
   return {
@@ -229,7 +234,7 @@ export async function loadChartSnapshot(
  * /api/gex/strike-profile-timeseries + /api/gex/summary from the browser —
  * both Basic-gated by core/api/apiTierGate, so an anonymous visitor cannot
  * have them. This is the server-rendered counterpart: the same four feeds read
- * through `serverApiGet` with the same 900s ISR cache the chart snapshot uses,
+ * through `serverApiGetDelayed`, the same delayed reads the chart snapshot makes,
  * shaped into exactly what `PairGammaHeatmap` takes for a column. The public
  * terminal therefore renders real ladders and issues zero client requests.
  *
@@ -260,10 +265,10 @@ export async function loadLadderSnapshot(symbol: string): Promise<LadderSnapshot
   // for the same symbol, so the two share ONE Next fetch-cache entry rather
   // than doubling a query that JOINs hundreds of thousands of rows.
   const [buckets, summary, quote, closes] = await Promise.all([
-    serverApiGet<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`, DELAY_SECONDS),
-    serverApiGet<RawSummary>(`/api/gex/summary?${q}`, DELAY_SECONDS),
-    serverApiGet<RawQuote>(`/api/market/quote?${q}`, DELAY_SECONDS),
-    serverApiGet<SessionClosesData>(`/api/market/session-closes?${q}`, DELAY_SECONDS),
+    serverApiGetDelayed<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`),
+    serverApiGetDelayed<RawSummary>(`/api/gex/summary?${q}`),
+    serverApiGetDelayed<RawQuote>(`/api/market/quote?${q}`),
+    serverApiGetDelayed<SessionClosesData>(`/api/market/session-closes?${q}`),
   ]);
 
   const bucket = latestPositionedBucket(buckets);

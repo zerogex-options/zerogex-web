@@ -45,7 +45,7 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
       "Modeled options dealer-positioning levels for one underlying: gamma flip, call wall, " +
       'put wall, max pain, same-day pin strike, and net dealer gamma at spot (whose sign is the ' +
       'regime). Use for "where is the gamma flip", "where are the walls", "is SPX in positive ' +
-      'gamma". FREE DELAYED DATA - up to 15 minutes behind live, and the response states its own ' +
+      'gamma". FREE DELAYED DATA - at least 15 minutes behind live, and the response states its own ' +
       'age; quote that age and never call these levels live. Not a price feed, not a forecast, ' +
       'and not a trade recommendation: it describes dealer positioning and says nothing on its ' +
       'own about direction. A null level means the modeled book does not support that level right ' +
@@ -83,7 +83,8 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
 
 const FOOTER =
   `Source: ZeroGEX free delayed levels (https://zerogex.io), the same data as the public ` +
-  `gamma-levels pages, refreshed about every ${Math.round(DELAY_SECONDS / 60)} minutes. ` +
+  `gamma-levels pages, at least ${Math.round(DELAY_SECONDS / 60)} minutes behind live and ` +
+  'refreshed about once a minute. ' +
   'Educational information about modeled dealer positioning, not investment advice.';
 
 function textResult(text: string, structured?: Record<string, unknown>): McpToolResult {
@@ -148,7 +149,7 @@ export function createToolRegistry(deps: ToolDeps): ToolRegistry {
     const phase = deps.marketPhase();
 
     // One request per symbol, all in flight together. Each resolves from the
-    // same shared 15-minute cache entry the public pages use, so a burst of
+    // same shared, delayed cache entry the public pages use, so a burst of
     // overview calls costs the backend nothing extra.
     const snapshots = await Promise.all(
       SYMBOLS.map(async (symbol) => ({ symbol, snapshot: await deps.fetchSnapshot(symbol) })),
@@ -194,7 +195,7 @@ export function createToolRegistry(deps: ToolDeps): ToolRegistry {
     return textResult(lines.join('\n'), {
       as_of: oldest.snapshot.timestamp ?? null,
       data_tier: 'free-delayed',
-      max_delay_seconds: DELAY_SECONDS,
+      min_delay_seconds: DELAY_SECONDS,
       market_phase: phase,
       symbols: available.map((entry) => structuredSnapshot(entry.symbol, entry.snapshot, phase, now)),
       unavailable: missing,

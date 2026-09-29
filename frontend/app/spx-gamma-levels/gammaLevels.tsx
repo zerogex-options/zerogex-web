@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
-import { serverApiGet } from '@/core/api/serverFetch';
+import { serverApiGet, serverApiGetDelayed } from '@/core/api/serverFetch';
 import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
 import TrackRecordStrip from '@/components/TrackRecordStrip';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
@@ -40,11 +40,12 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } 
 // and cross-link to their own dedicated pages, so they form a tight internal
 // cluster.
 //
-// Pure server component: ISR-cached at 900s (set on each route) so the page is
-// naturally delayed and SEO-friendly, with zero auth wiring required. It stays
-// inside the derived-data zone (call/put wall STRIKES, gamma flip LEVEL,
-// max-pain, net GEX magnitudes) — no live-quote streaming — so it is
-// licensing-clean by construction.
+// Pure server component: every market read is a delayed read, so the backend
+// answers with data at least 15 minutes old (core/freeDelay.ts), and the page is
+// ISR-cached for a minute (set on each route), so it is SEO-friendly with zero
+// auth wiring required. It stays inside the derived-data zone (call/put wall
+// STRIKES, gamma flip LEVEL, max-pain, net GEX magnitudes) — no live-quote
+// streaming — so it is licensing-clean by construction.
 
 const SITE = 'https://zerogex.io';
 
@@ -130,7 +131,7 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
     // alternative" queries have in common and every competitor's title lacks
     // — and names GEX up front so "<ticker> gamma exposure" queries see it.
     title: `${primary} Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls`,
-    description: `Free daily ${primary} gamma levels\u00a0- the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
+    description: `Free daily ${primary} gamma levels\u00a0- the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Dealer-positioning levels on a 15-minute delay. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
     intro: `Track today's ${primary} gamma levels\u00a0- the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
   };
@@ -201,15 +202,14 @@ function liveDescription(primary: Symbol, data: GexSummary | null): string {
   return out + tail;
 }
 
-// Async because the description carries live values. The snapshot comes from
-// the same 900s-cached `serverApiGet` the page component uses, so this shares
-// that cache entry rather than adding a backend call, and stays compatible
-// with `force-static` + `revalidate = 900` on each route.
+// Async because the description carries delayed values. The snapshot comes from
+// the same delayed `serverApiGetDelayed` read the page component makes, so this
+// shares that cache entry rather than adding a backend call, and stays
+// compatible with `force-static` + `revalidate = 60` on each route.
 export async function gammaMetadata(primary: Symbol): Promise<Metadata> {
   const c = SYMBOL_CONTENT[primary];
-  const data = await serverApiGet<GexSummary>(
+  const data = await serverApiGetDelayed<GexSummary>(
     `/api/gex/summary?symbol=${primary}&underlying=${primary}`,
-    900,
   );
   const description = liveDescription(primary, data);
   return {
@@ -413,8 +413,8 @@ function flipHint(symbol: Symbol, flip: number | null | undefined): string {
 // stop→start); if an ISR revalidation of this page fires inside that window,
 // every /api/gex/summary call returns null. Without a fallback, all three cards
 // render blank and — because the render still "succeeds" — that empty HTML is
-// what ISR caches and serves for the next 900s, turning a 45-second deploy blip
-// into a 15-minute free-page outage.
+// what ISR caches and serves until the next revalidation, turning a 45-second
+// deploy blip into a blank free page for the whole window.
 //
 // Process-scoped and deliberately simple: it relies on the single-instance PM2
 // fork deployment (ecosystem.config.js — instances:1, exec_mode:'fork'), so
@@ -432,8 +432,8 @@ interface LoadedSnapshots {
   fromCache: Set<Symbol>;
 }
 
-// Pull all four symbols in parallel. Each call is cached in the Next.js fetch
-// cache at 900s, so the page itself is effectively ISR'd at the same cadence.
+// Pull all four symbols in parallel. Each call is a delayed read cached in the
+// Next.js fetch cache for a minute, the same cadence the page is ISR'd at.
 // A successful fetch refreshes the last-good cache; a null (missing token,
 // unreachable backend, non-2xx — see serverApiGet) falls back to the last-good
 // snapshot so a transient blip degrades to "delayed" instead of "unavailable".
@@ -441,9 +441,8 @@ async function loadSnapshots(): Promise<LoadedSnapshots> {
   const fromCache = new Set<Symbol>();
   const entries = await Promise.all(
     SYMBOLS.map(async (symbol) => {
-      const fresh = await serverApiGet<GexSummary>(
+      const fresh = await serverApiGetDelayed<GexSummary>(
         `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
-        900,
       );
       if (fresh) {
         lastGoodSnapshots.set(symbol, fresh);
@@ -626,7 +625,8 @@ function SymbolCard({
 /**
  * The graded forecast record for this page's symbol.
  *
- * Same ISR window as everything else here, and only the dated archive: no
+ * Its own 15-minute fetch cache (the archive changes twice a day, and it is not
+ * market data, so it is not a delayed read), and only the dated archive: no
  * rolling-stats call. Two reasons. The extra request would buy a Brier score
  * that needs a paragraph to explain, where "48 of 55 graded sessions, misses
  * published" lands on its own. And the rolling window reads 29 of 29 on SPX,
@@ -650,8 +650,8 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   const content = SYMBOL_CONTENT[primary];
   const order = symbolOrder(primary);
   // Free-page data + the ~15-min-delayed chart snapshot for the page's symbol,
-  // fetched in parallel. Both go through the same ISR-cached serverApiGet at
-  // 900s (and the shared /api/gex/summary URL is deduped by the Next fetch
+  // fetched in parallel. Both go through the same delayed serverApiGetDelayed
+  // read (and the shared /api/gex/summary URL is deduped by the Next fetch
   // cache), so the added chart costs no extra latency on a warm cache.
   const [{ snapshots, fromCache }, chartSnapshot, trackRecord] = await Promise.all([
     loadSnapshots(),
@@ -698,8 +698,8 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   });
 
   // The freshest timestamp across the three symbols is what we surface as the
-  // page's "as of" line — the ISR cache holds for 900s, so any individual cell
-  // may be up to ~15 minutes older than the actual server clock.
+  // page's "as of" line. Every read is delayed at least 15 minutes and cached
+  // for a minute, so it normally reads 15 to 17 minutes behind the clock.
   const latestTimestamp = SYMBOLS.map((s) => snapshots[s]?.timestamp)
     .filter((t): t is string => Boolean(t))
     .sort()

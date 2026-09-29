@@ -13,8 +13,9 @@
 
 // Relative rather than '@/...' on purpose: tests/mcpLevels.test.ts runs this
 // module under `node --experimental-strip-types`, which has no tsconfig path
-// alias to resolve. Both imports are alias-free leaf modules for the same
+// alias to resolve. All three imports are alias-free leaf modules for the same
 // reason.
+import { FREE_DELAY_SECONDS } from '../freeDelay.ts';
 import { formatGexCompact } from '../signalHelpers.ts';
 import type { PickerSymbol } from '../symbols.ts';
 
@@ -39,15 +40,18 @@ export interface GexSnapshot {
 }
 
 /**
- * How far behind live the free tier runs. Matches `revalidate = 900` on the
- * public gamma-levels routes: same data, same cache entry, same delay.
+ * How far behind live the free tier runs, at least: the backend serves this
+ * tier nothing newer (core/freeDelay.ts). Same data and cache entry as the
+ * public gamma-levels pages.
  */
-export const DELAY_SECONDS = 900;
+export const DELAY_SECONDS = FREE_DELAY_SECONDS;
 
 /**
  * Past this age during a regular session the snapshot is not merely delayed,
- * it is not refreshing — one missed cache cycle plus headroom. Below it, age is
- * the ordinary free-tier delay and saying "stale" would be crying wolf.
+ * it is not refreshing. The delay accounts for 15 minutes and the one-minute
+ * bucket and cache for about two more, so twice the delay is well clear of
+ * both. Below it, age is the ordinary free-tier delay and saying "stale" would
+ * be crying wolf.
  */
 const BEHIND_SECONDS = 2 * DELAY_SECONDS;
 
@@ -121,7 +125,7 @@ export function freshnessLine(
   }
 
   return (
-    `Free delayed snapshot, ${stamp} - up to 15 minutes behind the live market by design. ` +
+    `Free delayed snapshot, ${stamp} - at least 15 minutes behind the live market by design. ` +
     'State the age when you quote these levels, and never call them live or real-time.'
   );
 }
@@ -234,7 +238,8 @@ export function structuredSnapshot(
     age_seconds: ageSeconds(snapshot.timestamp, now),
     // Named so no consumer can mistake this for the real-time product.
     data_tier: 'free-delayed',
-    max_delay_seconds: DELAY_SECONDS,
+    // A floor, not a ceiling: nothing newer is served; age_seconds is the rest.
+    min_delay_seconds: DELAY_SECONDS,
     market_phase: phase,
     spot: snapshot.spot_price ?? null,
     regime: regimeOf(snapshot),

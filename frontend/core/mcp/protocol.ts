@@ -47,7 +47,7 @@ export const SERVER_INSTRUCTIONS = [
   'ZeroGEX publishes modeled options dealer-positioning levels for SPX, SPY, QQQ, NDX, ES and NQ:',
   'the gamma flip, call wall, put wall, max pain, pin strike and net dealer gamma at spot.',
   '',
-  'Every number this server returns is FREE DELAYED data, behind the live market by up to',
+  'Every number this server returns is FREE DELAYED data, behind the live market by at least',
   '15 minutes, and each response states its own age. Quote the age whenever you quote a level.',
   'Never present these as live or real-time, and never use them to justify an entry or exit at',
   'the current price - during a fast tape the market can be through a level well before the',
