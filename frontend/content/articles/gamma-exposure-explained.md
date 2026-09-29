@@ -106,10 +106,10 @@ Above the gamma flip, dealers are generally net long gamma. To stay delta-neutra
 
 - Compress realized volatility.
 - Pull price toward strikes with heavy gamma concentration, especially into the close.
-- Make breakouts harder to sustain.
-- Make mean-reversion setups more reliable.
+- Lean against breakouts.
+- Put the hedging behind mean-reversion setups.
 
-The character of the tape is **range-bound and absorbing**. Pin behavior is more likely, especially near OPEX and into the cash close. Short-premium strategies tend to work more often. Trend-following setups have a lower hit rate.
+The character of the tape is **range-bound and absorbing**. Pin behavior is more likely, especially near OPEX and into the cash close. Short-premium strategies tend to work more often. Trend-following setups have the hedging against them.
 
 ### Negative gamma regime
 
