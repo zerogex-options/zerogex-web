@@ -54,6 +54,16 @@ const BANNED: Array<[string, RegExp]> = [
   ['"the odds rise when" conditions line up', /the odds rise when/i],
   ['conditions that "predict the fail"', /(conditions|variables) that (predict|flag) the fail|conditions that predict a fail/i],
   ['a "higher-probability fade" or trend path at a wall', /higher-probability \*?fade|trend extension is the higher-probability path/i],
+  ['walls that "weaken or invert" by regime', /walls? weakens? or inverts?/i],
+  ['walls "less reliable" or "weaker" as resistance / support', /(less reliable|weaker) as (resistance|support)/i],
+  ['walls as "genuine" resistance and support by regime', /more like genuine resistance/i],
+  ['"more failed breakouts" by regime', /more failed breakouts/i],
+  ['walls "not durable" by regime', /walls as durable in a/i],
+  ['"walls absorb" / "walls release" by regime', /\bwalls (absorb|release)\b/i],
+  ['a chase "high failure rate"', /high failure rate/i],
+  ['breakouts "likely to extend or fade"', /breakouts are likely to (extend|fade)/i],
+  ['the flip decides "defend it or blow through it"', /defend it or blow through it/i],
+  ['a regime table of breakouts that "often fade" / "often extend"', /\| *Often (fade and snap back|extend) *\|/i],
   ['a regime-given "hit rate" for a setup', /\b(setups|trend-following|trend-continuation) (have|has) a (higher|lower) hit rate\b/i],
 ];
 
@@ -123,6 +133,17 @@ test('the banned patterns still catch the sentences they were written for', () =
     'The lean: rallies into 5,850 are the higher-probability *fade* zone',
     'Mean-reversion setups have a higher hit rate.',
     'Strengthening in a long-gamma regime suggests the absorbing reflex is intensifying - chases more often fade.',
+    'In short-gamma regimes, walls weaken or invert.',
+    'Walls become less reliable as resistance and support - they can invert into breakout targets.',
+    'Walls behave more like genuine resistance and support.',
+    'Tighter ranges, more chop, more failed breakouts.',
+    'Treating walls as durable in a negative-gamma regime. They are not.',
+    'In a positive-gamma regime, walls absorb.',
+    'Long-gamma + chase = high failure rate.',
+    'whether breakouts are likely to extend or fade',
+    'the gamma flip tells you whether they will defend it or blow through it',
+    '| Breakouts | Often fade and snap back | Often extend |',
+    'In a negative-gamma regime, they are weaker as resistance and can flip into breakout targets.',
   ];
   for (const sentence of ORIGINALS) {
     assert.ok(

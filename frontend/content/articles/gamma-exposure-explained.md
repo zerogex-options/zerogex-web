@@ -8,7 +8,7 @@
 
 Most of the price action that traders try to read on a chart is a downstream effect of something happening one layer below: **dealer hedging flows**. Market makers sit on the other side of every option trade, and to stay delta-neutral, they continuously buy and sell the underlying as price moves. Whether they buy weakness or sell it - whether they dampen volatility or amplify it - depends on one structural variable: their **gamma exposure**.
 
-Gamma exposure (GEX) is the cleanest way to read what that dealer book is doing. It tells you whether the structural force in the tape is pushing toward stability or instability, whether breakouts are likely to extend or fade, and whether the strikes you see on the chain are absorbing flow or releasing it. It does not tell you direction. It tells you the **character of the regime** you are trading in - and that is most of the edge.
+Gamma exposure (GEX) is the cleanest way to read what that dealer book is doing. It tells you whether the structural force in the tape is pushing toward stability or instability, whether hedging will lean against a breakout or add to it, and whether the strikes you see on the chain are absorbing flow or releasing it. It does not tell you direction. It tells you the **character of the regime** you are trading in - and that is most of the edge.
 
 This piece is the comprehensive read. We will cover what gamma exposure is, how it is built from the chain, the mechanics of positive versus negative gamma regimes, the role of the gamma flip and the gamma walls, and the practical workflow for using all of it intraday. For the deeper trader-facing reads on each sub-topic, this guide links out to [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip), [Gamma Walls Explained](/education/gamma-walls-explained), and [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained). For specific second-order Greeks, see [Vanna and Charm Explained for Options Traders](/education/vanna-and-charm-explained), and for the pinning-versus-magnet discussion, see [Max Pain Explained - and Does It Actually Work?](/education/max-pain-explained).
 
@@ -120,7 +120,7 @@ Below the gamma flip, dealers are generally net short gamma. To stay delta-neutr
 - Make selloffs accelerate as they go.
 - Make mean-reversion setups dangerous.
 
-The character of the tape is **momentum-driven and amplifying**. The pins of the prior regime release; the strikes that were resistance can become breakout targets. Long-premium and trend-continuation strategies tend to work more often. Catching a falling knife in a deep negative-gamma regime fights the exact reflex that would make a dip-buy work.
+The character of the tape is **momentum-driven and amplifying**. The pins of the prior regime release; a strike that gives way can become an accelerant rather than resistance. Long-premium strategies tend to benefit from the wider ranges, and trend-continuation setups have the hedging behind them. Catching a falling knife in a deep negative-gamma regime fights the exact reflex that would make a dip-buy work.
 
 ### Two important caveats
 
@@ -151,8 +151,8 @@ If the flip is the regime boundary, the gamma walls are the structural boundarie
 
 The walls behave very differently in the two regimes:
 
-- In a **positive-gamma** regime, walls absorb. The dealer reflex around them is to fade moves - selling rallies into the call wall, buying dips into the put wall.
-- In a **negative-gamma** regime, walls release. The same level that resisted price in long-gamma can become a breakout target.
+- In a **positive-gamma** regime, hedging around the walls leans against moves - selling rallies into the call wall, buying dips into the put wall.
+- In a **negative-gamma** regime, the hedging runs with the move, so a wall that gives way can become a breakout accelerant rather than resistance. Walls did not break more often in either regime in our measurement.
 
 Walls also migrate. A call wall that drifts up as price tests it is a structurally different read than one that holds. For the full reading workflow, see [Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts](/education/gamma-walls-explained).
 
@@ -183,7 +183,7 @@ Before anything else, check whether spot is above or below the gamma flip and wh
 
 ### Step 2: Read the walls within the regime
 
-Find the active call wall and put wall. In a positive-gamma regime, these are your absorbing boundaries - the structural range. In a negative-gamma regime, they are weaker as resistance and can flip into breakout targets.
+Find the active call wall and put wall. In a positive-gamma regime, hedging leans against moves toward them - the structural range. In a negative-gamma regime, hedging adds to a move once one of them gives way. Either way, how often they hold is the base rate: about two tests in three within an hour for S&P walls in our measurement, about half for Nasdaq walls.
 
 ### Step 3: Watch migration
 

@@ -47,7 +47,7 @@ What the reflex does:
 - A move up tends to have dealers *buy*, amplifying the move.
 - A move down tends to have dealers *sell*, amplifying the move.
 - Realized intraday vol tends to expand.
-- Walls become less reliable as resistance and support - they can invert into breakout targets.
+- A wall that gives way can invert into an accelerant, with hedging adding to the break.
 - Pin behavior near the heaviest 0DTE strike weakens or reverses.
 
 What the tape tends to look like:
@@ -70,12 +70,12 @@ What the reflex does:
 - A move up tends to have dealers *sell*, dampening the move.
 - A move down tends to have dealers *buy*, dampening the move.
 - Realized intraday vol tends to compress.
-- Walls behave more like genuine resistance and support.
+- Hedging around the walls leans against moves into them.
 - Pin behavior near the heaviest 0DTE strike strengthens into the close.
 
 What the tape tends to look like:
 
-- Tighter ranges, more chop, more failed breakouts.
+- Tighter ranges and more chop, with hedging leaning against breakouts.
 - Pull-toward-the-heaviest-strike behavior, especially after 14:00 ET.
 - Rapid theta decay can weigh on same-day premiums, but spot and implied-volatility moves can dominate it.
 - Mean-reversion setups may be more consistent with the modeled hedge reflex than trend-continuation setups.
@@ -133,7 +133,7 @@ Practical lean: this is a short-gamma, continuation-friendly regime, with the mi
 A short list of how 0DTE dealer positioning gets misread:
 
 - **Using all-OI gamma in a 0DTE-dominant chain.** If most of today's gamma is 0DTE and you are reading aggregate-OI gamma, your read is averaging a near-expiry book with a far-dated book that does not matter for today's tape.
-- **Treating walls as durable in a negative-gamma regime.** They are not. They become breakout targets.
+- **Sizing a wall fade the same way in both regimes.** Walls broke about as often in either regime in our measurement, but in negative gamma a wall that gives way has hedging adding to the break, so a failed fade can run much further.
 - **Ignoring the regime and trading the level.** Spot at the put wall is one trade above the flip and a very different trade below it.
 - **Ignoring migration.** A heavy 0DTE strike that has moved twice in the last hour is a different read than one that has been static all morning.
 - **Treating 0DTE pin behavior as guaranteed.** It is a lean, not a promise. Catalysts and flow shocks routinely break the pin.

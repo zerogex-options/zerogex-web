@@ -54,7 +54,7 @@ After 14:00 ET, modeled charm effects tend to build and the dealer reflex around
 
 ## The structural read before you click
 
-One framing note first: the gamma flip, Net GEX, and walls below are *modeled* estimates of dealer positioning, built from the option chain using the traditional call-positive / put-negative convention. Actual dealer inventory isn't directly observable, so treat these as probabilities that tilt the odds, not switches that decide the outcome. With that caveat, when the chase urge hits, run this checklist:
+One framing note first: the gamma flip, Net GEX, and walls below are *modeled* estimates of dealer positioning, built from the option chain using the traditional call-positive / put-negative convention. Actual dealer inventory isn't directly observable, so treat these as context for what dealer hedging is doing, not switches that decide the outcome. With that caveat, when the chase urge hits, run this checklist:
 
 1. **What's the gamma regime?** Spot above the modeled flip (long-gamma) → hedging leans against the move you are chasing. Spot below the flip (short-gamma) → hedging runs with it. That tells you which way dealer flow leans, not whether the move will stick: in our measurement of 737 wall tests, walls broke no more often below the flip than above it. If you don't know the regime, you don't know which way the hedging leans.
 2. **Where is the nearest wall?** If you're chasing a call into the call wall in a long-gamma regime, the structural pull is *against* the chase. If you're chasing into open air with no wall between current spot and the chase target, the structural pull is neutral - better setup.
@@ -76,7 +76,7 @@ The chase isn't always wrong. The 0DTE momentum trade *can* work when:
 - The move is **early in the session** (before charm pile-up).
 - The contract hasn't already done its full move - you're catching the first 30% of the day's range, not the last 30%.
 
-Those are the conditions under which a 0DTE breakout has something behind it other than the urge to chase - though the regime, the one structural condition here, did not make walls more likely to break in our measurement. They're the inverse of the typical "I want to chase this" trigger.
+Those are the conditions under which a 0DTE breakout has something behind it other than the urge to chase - though neither the regime, Net GEX nor the time of day made walls more likely to break in our measurement. They're the inverse of the typical "I want to chase this" trigger.
 
 ---
 
@@ -106,7 +106,7 @@ Read: long-gamma regime, healthy positioning, wall sits five points above curren
 A few that work:
 
 - **Set a "no chase" timer.** When the urge hits, force yourself to wait five minutes before clicking. The urge usually fades.
-- **Check the regime before every 0DTE entry.** Build it into the workflow. Long-gamma + chase = high failure rate.
+- **Check the regime before every 0DTE entry.** Build it into the workflow. In long gamma, a chase is buying into hedging that leans against it.
 - **Size for the bad outcome.** If the chase fails, the contract goes to zero. Position size assuming that's the base case.
 - **Track your chases separately.** Tag every "chase" entry in your journal. Compare win rate against your non-chase entries. The honest data usually settles the debate.
 

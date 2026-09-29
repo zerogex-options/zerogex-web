@@ -41,9 +41,9 @@ GEX isn't just one number; it maps to specific price levels worth watching:
 
 - **Gamma flip** - the price where total dealer gamma crosses from positive to negative. Above it, the market is usually in the calming long-gamma regime; below it, the amplifying short-gamma regime. It's the regime line. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 - **Call wall** - the strike with the heaviest call gamma above spot, where hedging leans against rallies in positive gamma.
-- **Put wall** - the strike with the heaviest put gamma below spot, which tends to support dips in positive gamma.
+- **Put wall** - the strike with the heaviest put gamma below spot, where aggregate hedging leans against dips in positive gamma.
 
-The call and put walls sketch the range dealers defend; the gamma flip tells you whether they'll defend it or blow through it. [Gamma Walls Explained](/education/gamma-walls-explained) covers both walls in depth.
+The call and put walls sketch the range dealers defend; the gamma flip tells you whether their hedging leans against a move toward the edges or adds to one that breaks through. [Gamma Walls Explained](/education/gamma-walls-explained) covers both walls in depth.
 
 ---
 

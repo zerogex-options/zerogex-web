@@ -49,8 +49,8 @@ Compare to **positive gamma**, where the same flow chain inverts: dealers sell i
 |---|---|---|
 | Dealer hedging reflex | Sell strength, buy weakness | Buy strength, sell weakness |
 | Realized vol vs. implied | Tends to be **lower** | Tends to be **higher** |
-| Breakouts | Often fade and snap back | Often extend |
-| Selloffs | Often get absorbed near walls | Often accelerate |
+| Breakouts | Hedging leans against them | Hedging adds to them once a level gives way |
+| Selloffs | Hedging buys into them | Hedging sells into them, so they can accelerate |
 | Pin behavior | Price tends to get pulled toward heavy strikes | Pinning tends to weaken or release |
 | Best playbook | Mean-reversion, fade extremes, premium-selling | Trend continuation, momentum, breakout |
 | Worst playbook | Chasing breakouts, momentum | Fading rallies, dip-buying into structure |
@@ -67,7 +67,7 @@ A short workflow:
 1. **Check the gamma flip first.** If SPY is below the flip, the model puts you in a short-gamma regime.
 2. **Confirm with Net GEX.** A negative Net GEX value is the magnitude read - the more negative, the sharper the regime. Net GEX near zero is a contested regime; both reflexes are partially active.
 3. **Cross-check the realized vol picture.** Short-gamma regimes show up as wider intraday ranges than the day's open implied vol suggested. If realized is expanding while implied is flat, that's the regime signature.
-4. **Watch wall behavior.** In short-gamma regimes, walls weaken or invert. The call wall that was capping rallies yesterday can become a breakout target today.
+4. **Watch what happens after a wall gives way.** In short-gamma regimes, hedging adds to the move instead of leaning against it, so a break can keep going where it would have stalled in long gamma. How often walls broke did not change with the regime in our measurement; the difference the model expects is in what follows a break.
 5. **Watch flow direction at the close.** Short-gamma into the close often produces accelerating directional moves (the EOD pressure signal becomes a continuation read, not a fade read).
 
 ---
