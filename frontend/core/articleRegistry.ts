@@ -125,11 +125,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/gamma-walls-explained',
     title: 'Gamma Walls Explained: Call Wall and Put Wall',
     blurb:
-      'What the call wall and put wall actually do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and the conditions that decide whether the read holds or breaks.',
+      'What the call wall and put wall actually do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and how often walls actually hold or break.',
     description:
-      'Gamma walls explained\u00a0- what each wall does in each regime, what the gap between them tells you, how they behave on 0DTE, and when the read holds or fails.',
+      'Gamma walls explained\u00a0- what each wall does in each regime, what the gap between them tells you, how they behave on 0DTE, and how often they actually break.',
     datePublished: '2026-06-11',
-    dateModified: '2026-08-29',
+    dateModified: '2026-09-29',
     readMinutes: 11,
     kind: 'tier1',
   },
@@ -280,6 +280,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'How often do gamma walls break? Measured break curves for SPY, SPX, QQQ and NDX, why the answer depends on the index rather than the instrument, and what did not predict a break.',
     datePublished: '2026-09-04',
+    dateModified: '2026-09-29',
     readMinutes: 9,
     kind: 'tier1',
   },
@@ -288,10 +289,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/why-do-breakouts-fail',
     title: 'Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts',
     blurb:
-      'Failed breakouts aren\'t random. They\'re driven by dealer hedging at concentrated strikes, regime conditions, and three structural variables that flag the fail before you chase.',
+      'Failed breakouts have a structural cause: dealer hedging at concentrated strikes. The mechanism, the three conditions traders check, and what 737 measured wall tests say about how often that hedging wins.',
     description:
-      'Why do breakouts fail in SPY and SPX? The structural reason\u00a0- dealer hedging, gamma regime, and the three conditions that make the trap likely.',
+      'Why do breakouts fail in SPY and SPX? The structural reason\u00a0- dealer hedging at concentrated strikes\u00a0- and what 737 measured wall tests say about how often it wins.',
     datePublished: '2026-06-15',
+    dateModified: '2026-09-29',
     readMinutes: 10,
     kind: 'tier1',
   },
@@ -304,6 +306,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'How to identify support and resistance from options positioning\u00a0- call walls, put walls, gamma magnet, gamma flip. The structural map most chart S/R misses.',
     datePublished: '2026-06-15',
+    dateModified: '2026-09-29',
     readMinutes: 11,
     kind: 'tier1',
   },
@@ -326,7 +329,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Negative gamma means dealer hedging amplifies moves instead of dampening them. What the term actually refers to, how to spot a negative-gamma regime in real time, and what changes in your trading.',
     description:
-      'What does negative gamma mean? Dealers amplify moves, volatility expands, breakouts extend\u00a0- and how to spot a negative-gamma regime in real time.',
+      'What does negative gamma mean? Dealers amplify moves instead of dampening them and volatility expands\u00a0- and how to spot a negative-gamma regime in real time.',
     datePublished: '2026-06-15',
     readMinutes: 10,
     kind: 'tier1',
@@ -389,6 +392,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside\u00a0- why it acts as resistance, and when it breaks.',
     datePublished: '2026-07-07',
+    dateModified: '2026-09-29',
     readMinutes: 8,
     kind: 'tier1',
   },

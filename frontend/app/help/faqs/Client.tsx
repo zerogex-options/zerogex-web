@@ -320,7 +320,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'walls-explained',
         q: 'What are the call wall and put wall?',
-        a: 'The call wall is the strike at or above spot with the largest call gamma exposure; the put wall is the strike at or below spot with the largest put gamma exposure. They tend to act as intraday resistance and support, especially in positive gamma, but a wall is a concentration of modeled hedging, not a level anyone is obliged to defend. The walls can migrate intraday\u00a0- watching the migration is informative on its own.',
+        a: 'The call wall is the strike at or above spot with the largest call gamma exposure; the put wall is the strike at or below spot with the largest put gamma exposure. They often act as intraday resistance and support, but a wall is a concentration of modeled hedging, not a level anyone is obliged to defend: in our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, whichever side of the gamma flip price was on. The walls can migrate intraday\u00a0- watching the migration is informative on its own.',
       },
       {
         id: 'max-pain-reliability',

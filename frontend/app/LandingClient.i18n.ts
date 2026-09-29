@@ -28,7 +28,7 @@ export const dict: PageDictionary = {
     useCase4Title: 'Avoid chasing into major walls',
     useCase4Body: 'When price runs toward a heavy call wall in a long-gamma regime, the modeled dealer reflex is to fade. Knowing the wall is there keeps you from buying the top.',
     useCase5Title: 'Know when dips get absorbed vs. extended',
-    useCase5Body: 'Above the flip, dealer hedging tends to absorb weakness. Below the flip, the same weakness gets amplified. Same dip, opposite outcome depending on regime.',
+    useCase5Body: 'Above the flip, dealer hedging tends to absorb weakness. Below the flip, the same weakness gets amplified. Same dip, opposite hedging depending on regime.',
     useCase6Title: 'Plan around real-time positioning',
     useCase6Body: 'Levels migrate intraday as positioning rebalances. ZeroGEX shows the current structural map, not yesterday’s\u00a0- so your plan stays calibrated to today’s book.',
 
@@ -154,7 +154,7 @@ export const dict: PageDictionary = {
     useCase4Title: 'Evita di inseguire i muri principali',
     useCase4Body: 'Quando il prezzo corre verso un call wall pesante in un regime di gamma lungo, il riflesso modellato dei dealer è vendere. Sapere che il muro c\'è ti evita di comprare al top.',
     useCase5Title: 'Sappi quando i cali vengono assorbiti o estesi',
-    useCase5Body: 'Sopra il flip, l\'hedging dei dealer tende ad assorbire la debolezza. Sotto il flip, la stessa debolezza viene amplificata. Stesso calo, esito opposto a seconda del regime.',
+    useCase5Body: 'Sopra il flip, l\'hedging dei dealer tende ad assorbire la debolezza. Sotto il flip, la stessa debolezza viene amplificata. Stesso calo, copertura opposta a seconda del regime.',
     useCase6Title: 'Pianifica sul posizionamento in tempo reale',
     useCase6Body: 'I livelli migrano durante la giornata mentre il posizionamento si riequilibra. ZeroGEX mostra la mappa strutturale attuale, non quella di ieri\u00a0- così il tuo piano resta calibrato sul book di oggi.',
 
@@ -280,7 +280,7 @@ export const dict: PageDictionary = {
     useCase4Title: 'Vermeide es, großen Walls hinterherzujagen',
     useCase4Body: 'Läuft der Preis in einem Long-Gamma-Regime auf eine schwere Call-Wall zu, ist der Dealer-Reflex zu verkaufen. Wer die Wall kennt, kauft nicht am Top.',
     useCase5Title: 'Wisse, wann Rücksetzer absorbiert oder verstärkt werden',
-    useCase5Body: 'Über dem Flip absorbiert das Dealer-Hedging Schwäche tendenziell. Unter dem Flip wird dieselbe Schwäche verstärkt. Gleicher Dip, gegensätzliches Ergebnis je nach Regime.',
+    useCase5Body: 'Über dem Flip absorbiert das Dealer-Hedging Schwäche tendenziell. Unter dem Flip wird dieselbe Schwäche verstärkt. Gleicher Dip, gegensätzliches Hedging je nach Regime.',
     useCase6Title: 'Planen anhand des Echtzeit-Positioning',
     useCase6Body: 'Level verschieben sich im Tagesverlauf, wenn sich das Positioning verändert. ZeroGEX zeigt die aktuelle strukturelle Karte, nicht die von gestern\u00a0- so bleibt dein Plan auf das heutige Book kalibriert.',
 
@@ -406,7 +406,7 @@ export const dict: PageDictionary = {
     useCase4Title: 'Evita perseguir muros importantes',
     useCase4Body: 'Cuando el precio corre hacia un call wall pesado en un régimen de gamma largo, el reflejo del dealer es vender. Saber que el muro está ahí te evita comprar en el máximo.',
     useCase5Title: 'Sabe cuándo las caídas se absorben o se extienden',
-    useCase5Body: 'Por encima del flip, la cobertura de los dealers tiende a absorber la debilidad. Por debajo del flip, esa misma debilidad se amplifica. Misma caída, resultado opuesto según el régimen.',
+    useCase5Body: 'Por encima del flip, la cobertura de los dealers tiende a absorber la debilidad. Por debajo del flip, esa misma debilidad se amplifica. Misma caída, cobertura opuesta según el régimen.',
     useCase6Title: 'Planifica según el posicionamiento en tiempo real',
     useCase6Body: 'Los niveles migran durante el día a medida que se reequilibra el posicionamiento. ZeroGEX muestra el mapa estructural actual, no el de ayer\u00a0- así tu plan permanece calibrado con el libro de hoy.',
 
@@ -532,7 +532,7 @@ export const dict: PageDictionary = {
     useCase4Title: 'Éviter de poursuivre les grands murs',
     useCase4Body: 'Quand le prix se dirige vers un call wall important en régime de gamma long, le réflexe du dealer est de vendre. Savoir que le mur est là vous évite d\'acheter au sommet.',
     useCase5Title: 'Savoir quand les baisses sont absorbées ou amplifiées',
-    useCase5Body: 'Au-dessus du flip, la couverture des dealers tend à absorber la faiblesse. En dessous du flip, la même faiblesse est amplifiée. Même baisse, résultat opposé selon le régime.',
+    useCase5Body: 'Au-dessus du flip, la couverture des dealers tend à absorber la faiblesse. En dessous du flip, la même faiblesse est amplifiée. Même baisse, couverture opposée selon le régime.',
     useCase6Title: 'Planifier selon le positionnement en temps réel',
     useCase6Body: 'Les niveaux évoluent en cours de journée à mesure que le positionnement se rééquilibre. ZeroGEX affiche la carte structurelle actuelle, pas celle d\'hier\u00a0- votre plan reste ainsi calibré sur le carnet du jour.',
 

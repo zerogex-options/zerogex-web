@@ -365,13 +365,13 @@ const REGIME_DISPLAY: Record<
     label: 'Positive gamma (suppressed vol)',
     color: 'var(--color-positive)',
     icon: 'up',
-    body: 'Dealers are net long gamma at spot\u00a0- mean-reversion is favored, pinning is more likely, breakouts tend to stall.',
+    body: 'Dealers are net long gamma at spot\u00a0- mean-reversion is favored, pinning is more likely, and hedging leans against breakouts.',
   },
   negative: {
     label: 'Negative gamma (amplified vol)',
     color: 'var(--color-negative)',
     icon: 'down',
-    body: 'Dealers are net short gamma at spot\u00a0- moves can accelerate, walls are more brittle, trend extension is the higher-probability path.',
+    body: 'Dealers are net short gamma at spot\u00a0- moves can accelerate, and if a wall gives way, hedging adds to the break.',
   },
   neutral: {
     label: 'At the gamma flip',
@@ -593,8 +593,8 @@ function SymbolCard({
 
       <div>
         <LevelRow label="Reference spot (delayed)" value={fmtPrice(data?.spot_price)} hint="Approximate, snapshot ≥15 min ago" />
-        <LevelRow label="Call wall" value={fmtPrice(data?.call_wall)} hint="Strike that tends to cap upside" />
-        <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Strike that tends to floor downside" />
+        <LevelRow label="Call wall" value={fmtPrice(data?.call_wall)} hint="Heaviest call gamma above spot" />
+        <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Heaviest put gamma below spot" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint={flipHint(symbol, data?.gamma_flip)} />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
         <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration&nbsp;- a modeled pinning level, not a target" />
@@ -1062,8 +1062,8 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               <strong style={{ color: 'var(--color-text-primary)' }}>{fmtNetGex(primaryNetGex)}</strong>&nbsp;- a{' '}
               {primaryNetGex >= 0 ? 'positive' : 'negative'}-gamma regime.{' '}
               {primaryNetGex >= 0
-                ? 'Dealers are modeled net long gamma above the flip, which tends to suppress volatility\u00a0- tighter ranges, more pinning, and rallies that stall near the call wall.'
-                : 'Dealers are modeled net short gamma below the flip, which tends to amplify volatility\u00a0- wider ranges, extending breakouts, and trends that run.'}
+                ? 'Dealers are modeled net long gamma above the flip, which tends to suppress volatility\u00a0- tighter ranges, more pinning, and hedging that leans against rallies into the call wall.'
+                : 'Dealers are modeled net short gamma below the flip, which tends to amplify volatility\u00a0- wider ranges, trends that run, and hedging that adds to a breakout once a wall gives way.'}
               {primaryFlip != null && (
                 <>
                   {' '}The zero-cross&nbsp;- the gamma flip, or zero-gamma level&nbsp;- sits at {fmtPrice(primaryFlip)}
@@ -1096,17 +1096,18 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Call wall</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
-                The strike where call-side dealer gamma piles up. Above a positive-gamma regime, price tends to
-                stall here as dealers sell into rips to hedge. A break above is usually a tell that the regime
-                itself is flipping.
+                The strike where call-side dealer gamma piles up. In a positive-gamma regime, dealers hedge by
+                selling into rips here, which can stall a rally. How often it actually holds is a base rate: in our
+                study of 737 wall tests, S&amp;P walls held about two times in three within an hour and Nasdaq walls
+                about half, on either side of the flip. A break above can be a tell that the regime itself is flipping.
               </p>
             </div>
             <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Put wall</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
-                The strike where put-side dealer gamma piles up&nbsp;- typically the strongest dealer-hedged support
-                in a positive-gamma session. Failing below the put wall in negative gamma is one of the cleaner
-                bear-trend setups in the playbook.
+                The strike where put-side dealer gamma piles up. In a positive-gamma session, aggregate hedging leans
+                against a decline into it; in negative gamma, if it gives way, hedging adds to the move lower. How
+                often it holds is the same base rate as the call wall&apos;s.
               </p>
             </div>
             <div className="zg-panel" style={{ padding: 22 }}>

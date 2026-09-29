@@ -52,9 +52,9 @@ const MISTAKES: Mistake[] = [
     mistake:
       'Chasing a rally just as price approaches the heaviest call gamma strike\u00a0- the level where dealer hedging is structurally set up to absorb the move.',
     whatHappens:
-      'In a long-gamma regime, dealers must sell into rallies to stay delta-neutral. That structural reflex caps the move. Late buyers get the worst entry; the rip fades; the trade is underwater within minutes.',
+      'Dealer hedging concentrates at the wall, and in a long-gamma regime dealers sell into rallies to stay delta-neutral. In our study of 737 wall tests, S&P walls held about two times in three within an hour. When this one holds, late buyers get the worst entry; the rip fades; the trade is underwater within minutes.',
     zerogex:
-      'The Call Wall card surfaces the current heaviest call gamma strike with live distance from spot. Combined with the gamma flip, you see whether the wall is in a regime that will absorb the move (long-gamma) or release it (short-gamma).',
+      'The Call Wall card surfaces the current heaviest call gamma strike with live distance from spot. Combined with the gamma flip, you see whether hedging around the wall is leaning against the move (long-gamma) or ready to add to it if the wall gives way (short-gamma).',
     reference: { href: '/education/gamma-walls-explained', label: 'Gamma Walls Explained' },
     imagePath: '/blog/zerogex-walls-cards.png',
     imageAlt: 'ZeroGEX Call Wall and Put Wall cards with live distance from spot',
@@ -67,9 +67,9 @@ const MISTAKES: Mistake[] = [
     mistake:
       'Selling into a slide right as price approaches the heaviest put gamma strike below spot.',
     whatHappens:
-      'In a long-gamma regime, dealers must buy into weakness around the put wall\u00a0- the structural bid catches the decline. Late shorts get squeezed back through the level; the trade reverses violently.',
+      'Dealer hedging concentrates at the put wall, and in our study of 737 wall tests, S&P walls held about two times in three within an hour. When this one holds, late shorts get squeezed back through the level; the trade reverses violently.',
     zerogex:
-      'The Put Wall card shows the heaviest put gamma strike with live distance from spot. Cross-checked against the regime read, you know when the wall is likely to act as support and when (in a short-gamma regime) it can become a slippage point on the way down.',
+      'The Put Wall card shows the heaviest put gamma strike with live distance from spot. Cross-checked against the regime read, you know whether hedging is leaning against the decline or, in a short-gamma regime, ready to add to it if the wall gives way.',
     reference: { href: '/education/gamma-walls-explained', label: 'Gamma Walls Explained' },
     imagePath: '/blog/zerogex-walls-chart.png',
     imageAlt: 'ZeroGEX walls chart highlighting the call wall and put wall on the strike-by-strike gamma profile',
@@ -97,7 +97,7 @@ const MISTAKES: Mistake[] = [
     mistake:
       'Running the same playbook above and below the gamma flip\u00a0- fading breakouts in both regimes, or chasing breakouts in both regimes.',
     whatHappens:
-      'Above the flip (long-gamma), breakouts fade and mean-reversion works. Below the flip (short-gamma), breakouts extend and mean-reversion gets crushed. Same setup, opposite results, depending on a single threshold most traders never see.',
+      'Above the flip (long-gamma), hedging leans against breakouts and cushions mean-reversion trades. Below the flip (short-gamma), hedging adds to a breakout once a level gives way, so a fade that fails can run hard against you. Walls held about as often on either side of the flip in our study; what changes is what happens when they do not.',
     zerogex:
       'The Gamma Flip card shows live distance from spot at every refresh. When spot crosses the flip, the regime has changed\u00a0- and the playbook should change with it. The Net GEX magnitude tells you how sharp the regime is right now.',
     reference: { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip? The Gamma Flip Level Explained' },
@@ -112,7 +112,7 @@ const MISTAKES: Mistake[] = [
     mistake:
       'Buying every upside break above resistance\u00a0- or selling every downside break below support\u00a0- without checking whether positioning supports the move.',
     whatHappens:
-      'In a long-gamma regime with strengthening dealer positioning, dealers absorb breakouts. Price pokes above resistance, runs into supply, and snaps back into the range. The breakout was a trap. The fade entry would have worked; the chase did not.',
+      'Plenty of breakouts are traps: price pokes above resistance, runs into supply, and snaps back into the range. In our study of 737 wall tests, S&P walls held about two times in three within an hour, and failed breakouts often stayed beyond the wall for ten or fifteen minutes before unwinding. The chase that looked confirmed was not.',
     zerogex:
       'The Trap Detection signal scores -100 to +100 for whether the current break is structurally likely to fail. When it triggers in the opposite direction of a recent break, the read is "fade, don\'t chase." Cross-checked against the regime, that\'s the cleanest fade-the-breakout setup in the stack.',
     reference: { href: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },

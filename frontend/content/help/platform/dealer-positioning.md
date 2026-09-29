@@ -60,7 +60,7 @@ Reference lines mark spot, the flip, and both walls. Each bar is stacked by expi
 
 ### Call Wall / Put Wall
 
-The strikes with the largest call-side and put-side gamma. They often act as intraday friction - but option type alone doesn't fix the direction; whether a wall behaves as resistance, support, a magnet, or an accelerant depends on the modeled dealer-gamma sign and surrounding flow. Wall behavior is most "wall-like" when dealers are modeled long gamma.
+The strikes with the largest call-side and put-side gamma. They often act as intraday friction - but option type alone doesn't fix the direction; whether hedging at a wall leans against a move or adds to one depends on the modeled dealer-gamma sign and surrounding flow. How often a wall actually holds did not: in our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, whichever side of the flip price was on.
 
 ## The Open Interest by Strike chart
 
@@ -98,7 +98,7 @@ The flip is computed from a **spot-shift dealer gamma profile** - not a cumulat
 
 ## Common reads
 
-- **Spot well above flip, call wall close above** ⇒ pin into the close, fade extension.
+- **Spot well above flip, call wall close above** ⇒ hedging leans against a push through the wall; pin pressure can build into the close.
 - **Spot below flip, put wall close below** ⇒ trend bias; expect amplification on a break.
 - **Spot near the flip with rising vol** ⇒ regime change risk; size down or wait.
 - **Heatmap concentration on 0DTE call strikes near spot** ⇒ pin pressure into the close.
