@@ -16,7 +16,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
 import { trackTwitter } from '@/core/telemetry/twitter-client';
 import { TwitterEvent } from '@/core/telemetry/twitter-events';
-import { ArrowLeftRight, ArrowRight, CheckCircle2, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, CheckCircle2, Loader2, LockOpen, ShieldCheck, Sparkles } from 'lucide-react';
 import { usePageT } from '@/core/LanguageContext';
 import {
   BILLING_CADENCES,
@@ -1517,6 +1517,9 @@ function PricingClientInner({
                 t('basicFeature1'),
                 t('basicFeature2'),
                 t('basicFeature3'),
+                t('basicFeature4'),
+                t('basicFeature5'),
+                t('basicFeature6'),
               ]}
               action={actionFor('basic')}
               busy={busyTier === 'basic'}
@@ -1539,6 +1542,8 @@ function PricingClientInner({
                 t('proFeature2'),
                 t('proFeature3'),
                 t('proFeature4'),
+                t('proFeature5'),
+                t('proFeature6'),
               ]}
               action={actionFor('pro')}
               busy={busyTier === 'pro'}
@@ -1566,6 +1571,27 @@ function PricingClientInner({
             <ArrowLeftRight size={14} style={{ color: C.amber, marginTop: 3, flexShrink: 0 }} aria-hidden />
             <span>
               <strong style={{ color: C.light }}>{t('switchAnytimeLabel')}</strong> {t('switchAnytimeBody')}
+            </span>
+          </p>
+
+          {/* The public tier, as listed in content/help/platform/tiers-and-access.md
+              and gated in core/auth.ts. Keep the three in step. */}
+          <p
+            style={{
+              margin: '10px auto 0',
+              maxWidth: 760,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              gap: 8,
+              fontSize: 13,
+              color: C.muted,
+              lineHeight: 1.55,
+            }}
+          >
+            <LockOpen size={14} style={{ color: C.amber, marginTop: 3, flexShrink: 0 }} aria-hidden />
+            <span>
+              <strong style={{ color: C.light }}>{t('freeForEveryoneLabel')}</strong> {t('freeForEveryoneBody')}
             </span>
           </p>
 

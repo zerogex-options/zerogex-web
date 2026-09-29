@@ -218,7 +218,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly\u00a0- real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-11',
+    dateModified: '2026-09-29',
     readMinutes: 14,
     kind: 'article',
   },
@@ -532,6 +532,22 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 15,
     kind: 'article',
   },
+  'zerogex-vs-bullflow': {
+    slug: 'zerogex-vs-bullflow',
+    href: '/education/zerogex-vs-bullflow',
+    // For readers searching the competitor's name ("bullflow alternative",
+    // "bullflow vs", "bullflow gex"). Prices stay out of the title and
+    // description: they are the one part of the page that changes, and the
+    // page fills them from core/comparisonPrices.ts.
+    title: 'ZeroGEX vs Bullflow (2026): Pricing, GEX & Options Flow',
+    blurb:
+      'A fair side-by-side of ZeroGEX and Bullflow: what each platform is built for, what each plan costs, where Bullflow is the stronger choice, and where a dedicated gamma-levels tool fits better.',
+    description:
+      'Looking for a Bullflow alternative? ZeroGEX vs Bullflow, compared fairly: plan prices, GEX depth, options flow, integrations, and which one fits how you trade.',
+    datePublished: '2026-09-29',
+    readMinutes: 6,
+    kind: 'article',
+  },
 };
 
 /**
@@ -588,6 +604,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     '0dte-dealer-positioning-explained',
     'how-to-read-a-gamma-flip',
+    'zerogex-vs-bullflow',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
@@ -723,6 +740,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'net-volume-vs-directional-flow',
     'why-market-makers-trade-stock',
     'how-to-read-a-gamma-flip',
+  ],
+  'zerogex-vs-bullflow': [
+    'best-gex-tools',
+    'gamma-exposure-explained',
+    'gamma-levels-in-claude',
   ],
 };
 

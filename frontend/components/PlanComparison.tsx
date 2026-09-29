@@ -4,8 +4,10 @@ import { Check, Minus } from 'lucide-react';
 
 // Side-by-side feature comparison surfaced on /pricing and /founding. The
 // source of truth for what each tier actually unlocks is the route table in
-// frontend/core/auth.ts and the nav config in frontend/core/navigation.ts —
-// keep these rows in sync with those when access rules change.
+// frontend/core/auth.ts, the nav config in frontend/core/navigation.ts and the
+// integration tiers in frontend/core/integrations.ts; the Help article
+// content/help/platform/tiers-and-access.md says the same in prose. Keep these
+// rows in sync with those when access rules change.
 const C = {
   card: 'var(--color-surface)',
   light: 'var(--color-text-primary)',
@@ -20,11 +22,17 @@ type Section = { heading: string; rows: Row[] };
 
 const SECTIONS: Section[] = [
   {
+    heading: 'Markets',
+    rows: [
+      { feature: 'SPX, SPY, QQQ, NDX, ES, and NQ, in real time', basic: true, pro: true },
+    ],
+  },
+  {
     heading: 'Dashboard & Live Feed',
     rows: [
       { feature: 'Real-time Dashboard', basic: true, pro: true },
       { feature: 'My Dashboard (customizable widgets)', basic: true, pro: true },
-      { feature: 'Gamma Chart', basic: true, pro: true },
+      { feature: 'Gamma Terminal, live on every symbol', basic: true, pro: true },
       { feature: 'Live Bulletin (live dealer-gamma snapshot)', basic: true, pro: true },
     ],
   },
@@ -54,20 +62,35 @@ const SECTIONS: Section[] = [
       { feature: 'Market Pressure Index', basic: false, pro: true },
     ],
   },
+  // The three Metrics subgroups, in the sidebar's order.
   {
-    heading: 'Metrics',
+    heading: 'Metrics: Positioning',
     rows: [
       { feature: 'Dealer Positioning', basic: true, pro: true },
       { feature: 'GEX Summary', basic: true, pro: true },
       { feature: 'GEX Strike Profile', basic: true, pro: true },
       { feature: 'GEX Heatmap', basic: true, pro: true },
+      { feature: 'Gamma Shift (beta)', basic: true, pro: true },
       { feature: 'Pair Comparison (beta)', basic: true, pro: true },
-      { feature: 'Forced Flow (beta)', basic: true, pro: true },
-      { feature: 'Flow Analysis', basic: true, pro: true },
-      { feature: 'Market Tide (beta)', basic: true, pro: true },
-      { feature: 'Smart Money', basic: true, pro: true },
       { feature: 'Max Pain', basic: true, pro: true },
+    ],
+  },
+  {
+    heading: 'Metrics: Options Flow',
+    rows: [
+      { feature: 'Flow Analysis', basic: true, pro: true },
+      { feature: 'Hedging Flow (beta)', basic: true, pro: true },
+      { feature: 'Forced Flow (beta)', basic: true, pro: true },
+      { feature: 'Smart Money', basic: true, pro: true },
+      { feature: 'Market Tide (beta)', basic: true, pro: true },
+    ],
+  },
+  {
+    heading: 'Metrics: Market Context',
+    rows: [
+      { feature: 'Volatility (beta)', basic: true, pro: true },
       { feature: 'Technicals', basic: true, pro: true },
+      { feature: 'Spread Monitor (beta)', basic: true, pro: true },
     ],
   },
   {
@@ -76,14 +99,30 @@ const SECTIONS: Section[] = [
       { feature: 'Strategy Builder (options pricing & P&L)', basic: true, pro: true },
       { feature: 'Live Options Quotes', basic: true, pro: true },
       { feature: 'Premium Surface (beta)', basic: true, pro: true },
-      { feature: 'Backtesting (beta)', basic: false, pro: true },
+    ],
+  },
+  {
+    heading: 'TradeWorkz™ (beta)',
+    rows: [
+      { feature: 'Bot Trading', basic: false, pro: true },
+      { feature: 'Backtesting', basic: false, pro: true },
+      { feature: 'Pattern Insights', basic: false, pro: true },
+    ],
+  },
+  {
+    heading: 'Integrations & API',
+    rows: [
+      { feature: 'API access (levels, GEX, flow, signals, and history)', basic: false, pro: true },
+      { feature: 'NinjaTrader and Sierra Chart indicators (auto-updating)', basic: false, pro: true },
+      { feature: 'TradingView and thinkorswim scripts (free for everyone)', basic: true, pro: true },
+      { feature: 'Levels in AI assistants over MCP (free, delayed)', basic: true, pro: true },
     ],
   },
   {
     heading: 'Platform',
     rows: [
       { feature: 'Education, Guides & Help Center', basic: true, pro: true },
-      { feature: 'Direct access to ZeroGEX APIs', basic: false, pro: true },
+      { feature: 'Forecast track record, signal scorecard, and session replay (free for everyone)', basic: true, pro: true },
     ],
   },
 ];
@@ -128,7 +167,7 @@ export default function PlanComparison() {
         What&rsquo;s included
       </h2>
       <p style={{ margin: '8px 0 20px', color: C.muted, fontSize: 14, lineHeight: 1.6 }}>
-        Quick side-by-side of every page each tier unlocks.
+        Quick side-by-side of every page and integration each plan unlocks.
       </p>
 
       <div

@@ -184,7 +184,8 @@
     "test:checkout-disclosure": "node --experimental-strip-types --test tests/checkoutDisclosure.test.ts",
     "test:money-back": "node --experimental-strip-types --test tests/moneyBackGuarantee.test.ts tests/moneyBackServer.test.ts",
     "test:renewal-reminder": "node --experimental-strip-types --test tests/renewalReminder.test.ts",
-    "test:poll-gate": "node --experimental-strip-types --test tests/pollGate.test.ts"
+    "test:poll-gate": "node --experimental-strip-types --test tests/pollGate.test.ts",
+    "test:comparison-prices": "node --experimental-strip-types --test tests/comparisonPrices.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

@@ -78,7 +78,9 @@ Breitere Options-Flow-Plattformen (ungewöhnliche Optionsaktivität, Dark-Pool-P
 
 Sharpnel Trading sitzt am futures-orientierten Rand dieser Gruppe. Es ist ein Desktop-Terminal, das Call Wall, Put Wall und Gamma Flip in denselben Chart zeichnet wie die Depth-of-Market-Leiter, den Footprint und die Tape - gerichtet an ES- und NQ-Trader statt an ein Browser-Dashboard. Die GEX-Ebene ist als Zusatz über dem Order-Flow-Produkt bepreist, und genau das ist das Kennzeichen dieser Gruppe: Die Levels kommen dorthin, wo du ausführst, statt das zu sein, was du gekauft hast. Es gibt eine kostenlose verzögerte Stufe und einen kostenlosen gehosteten MCP-Server für ES, NQ, SPX und QQQ.
 
-*In dieser Gruppe häufig genannte Tools: Unusual Whales, Cheddar Flow, Sharpnel Trading. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
+Bullflow sitzt am flow-orientierten Rand dieser Gruppe. Der Basisplan umfasst laut Preisseite Options-Flow in Echtzeit und historisch, Alerts für Mobilgerät und Desktop, KI-Tradesignale und eine Discord-Community; der Premium-Plan ergänzt Dark-Pool-Trades, und es gibt Apps für iOS und Android. Die GEX-Werkzeuge stehen neben dem Flow: Gamma- und Net-GEX-Levels im Basisplan, im Premium-Plan dazu ein Bubble-Chart, eine Multi-Map-Ansicht, Vanna-Exposure-Daten und ein GEX-Heatmap-Replay, das laut Anbieter mehr als 1.000 Ticker abdeckt. Die Breite ist die Stärke - Bullflow reicht bis zu Einzelaktien, die die indexfokussierten Tools in Gruppe 3 nicht abdecken -, und der Kompromiss ist der, den diese Gruppe teilt: Gamma ist ein Werkzeug unter vielen, nicht das, worum herum das Produkt gebaut ist. Ein separater Data-API-Plan ergänzt API-Schlüssel, eigene Alerts und einen MCP-Server für Coding-Agents. Einen Vergleich mit ZeroGEX zu Preis und Umfang gibt es (auf Englisch) unter [ZeroGEX vs Bullflow](/education/zerogex-vs-bullflow).
+
+*In dieser Gruppe häufig genannte Tools: Unusual Whales, Cheddar Flow, Sharpnel Trading, Bullflow. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
 
 ### Gruppe 3: Auf Echtzeit-Dealer-Positioning fokussierte Tools
 
