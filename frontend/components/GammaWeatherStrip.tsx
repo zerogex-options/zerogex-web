@@ -3,10 +3,12 @@
 import { useState } from 'react';
 
 import WeatherFieldDrawer from '@/components/WeatherFieldDrawer';
+import WeatherFieldStack from '@/components/WeatherFieldStack';
 import { cushionPoints, type WeatherFieldKey } from '@/core/weatherFields';
 import { weatherStateColor } from '@/core/weatherStateColors';
 import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
 import { useGammaWeatherSeries } from '@/hooks/useGammaWeatherSeries';
+import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
 import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 
@@ -75,6 +77,7 @@ function Chip({
   field,
   open,
   onToggle,
+  stacked = false,
 }: {
   label: string;
   value: string;
@@ -82,6 +85,8 @@ function Chip({
   field?: WeatherFieldKey;
   open?: boolean;
   onToggle?: (field: WeatherFieldKey) => void;
+  /** Stacked: every chart is already drawn, so the chip jumps rather than opens. */
+  stacked?: boolean;
 }) {
   const body = (
     <span className="flex min-w-0 flex-col gap-0.5">
@@ -114,8 +119,15 @@ function Chip({
     <button
       type="button"
       onClick={() => onToggle(field)}
-      aria-expanded={open}
-      title={`${open ? 'Hide' : 'Show'} this session's ${label.toLowerCase()} chart`}
+      // aria-expanded only where the chip actually expands something. Stacked,
+      // all five charts are already on screen and the chip scrolls to one, so
+      // announcing it as collapsed would be a lie to a screen reader.
+      {...(stacked ? {} : { 'aria-expanded': open })}
+      title={
+        stacked
+          ? `Jump to this session's ${label.toLowerCase()} chart`
+          : `${open ? 'Hide' : 'Show'} this session's ${label.toLowerCase()} chart`
+      }
       // Classes, not an inline style: an inline borderColor outranks the
       // stylesheet, so setting the resting border that way silently disables
       // the hover state it is supposed to sit under.
@@ -198,9 +210,19 @@ export default function GammaWeatherStrip({
   symbol,
   date = null,
 }: GammaWeatherStripProps) {
-  // One field at a time, per the spec: opening another swaps the drawer,
-  // clicking the open one closes it. Five charts at once is the wall of
-  // numbers this is meant to replace.
+  // Stacked by default. One chart at a time was the right shape while the
+  // drawer was being proved and the wrong one for the job it grew into, which
+  // is scanning a session rather than interrogating a field. The toggle stays
+  // because reading one line closely is still a thing people do.
+  //
+  // usePersistedFlag rather than useState + localStorage: the server has no
+  // storage, so seeding state from it is a hydration mismatch on every load
+  // for anyone who has changed the setting.
+  const [stacked, toggleStacked] = usePersistedFlag('gammaWeatherStacked', true);
+
+  // In one-at-a-time mode this is the open drawer. In stacked mode every chart
+  // is already drawn, so it is which one the reader asked to look at: that
+  // chart is scrolled to and the rest dim.
   const [openField, setOpenField] = useState<WeatherFieldKey | null>(null);
   // Set the first time a drawer is opened and never cleared, so the hint below
   // retires itself once the reader has demonstrated they no longer need it.
@@ -208,13 +230,24 @@ export default function GammaWeatherStrip({
   const toggleField = (field: WeatherFieldKey) => {
     setHasOpened(true);
     setOpenField((current) => (current === field ? null : field));
+    if (stacked) {
+      // The charts are all on screen already; the chip's job is to take the
+      // reader to one. Deferred a frame so a chart that has just been
+      // un-dimmed is measured at its final position.
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`weather-chart-${field}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
   };
 
-  // Only while a drawer is open. Most visits never open one, and the header
-  // does not need a session of sentences to say what the read is now.
+  // Stacked mode always needs the trail, because all five strips are showing.
+  // One at a time needs it only once a drawer is open, and most visits never
+  // open one.
   const { data: series, loading: seriesLoading } = useGammaWeatherSeries(
     symbol ?? payload.symbol,
-    { enabled: openField != null, date },
+    { enabled: stacked || openField != null, date },
   );
 
   const color = weatherStateColor(payload.state);
@@ -319,6 +352,7 @@ export default function GammaWeatherStrip({
           field="pressure"
           open={openField === 'pressure'}
           onToggle={toggleField}
+          stacked={stacked}
           label="Pressure now"
           value={
             payload.pressure === 'MIXED'
@@ -332,6 +366,7 @@ export default function GammaWeatherStrip({
           field="lean"
           open={openField === 'lean'}
           onToggle={toggleField}
+          stacked={stacked}
           label="Lean"
           value={payload.lean_side ? LEAN_LABEL[payload.lean_side] : '—'}
         />
@@ -339,6 +374,7 @@ export default function GammaWeatherStrip({
           field="stability"
           open={openField === 'stability'}
           onToggle={toggleField}
+          stacked={stacked}
           label="Stability"
           value={STRUCTURE_LABEL[payload.structure] ?? payload.structure}
         />
@@ -346,6 +382,7 @@ export default function GammaWeatherStrip({
           field="gamma_trend"
           open={openField === 'gamma_trend'}
           onToggle={toggleField}
+          stacked={stacked}
           label="Gamma trend"
           value={TREND_LABEL[payload.gamma_trend] ?? payload.gamma_trend}
         />
@@ -353,10 +390,22 @@ export default function GammaWeatherStrip({
           field="cushion"
           open={openField === 'cushion'}
           onToggle={toggleField}
+          stacked={stacked}
           label="Flip cushion"
           value={cushionValue}
           alert={transitionRisk}
         />
+      </div>
+
+      <div className="mt-2 flex items-center justify-end">
+        <button
+          type="button"
+          onClick={toggleStacked}
+          className="rounded px-2 py-1 text-[11px] underline-offset-2 hover:underline max-sm:min-h-8"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          {stacked ? 'Show one at a time' : 'Stack all five'}
+        </button>
       </div>
 
       {/* Says out loud what the boxes imply, then gets out of the way. Someone
@@ -366,7 +415,7 @@ export default function GammaWeatherStrip({
           reader who comes back tomorrow gets told once more, which costs one
           line and is cheaper than a returning reader who never finds the
           feature because a flag said they already had. */}
-      {!hasOpened && (
+      {!stacked && !hasOpened && (
         <p className="mt-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
           Each field above opens a chart of this session.
         </p>
@@ -380,15 +429,25 @@ export default function GammaWeatherStrip({
 
       {/* Under the header, not a jump to another page. The header above stays
           the live read; this is the audit trail and never changes a state. */}
-      {openField && (
-        <WeatherFieldDrawer
-          field={openField}
+      {stacked ? (
+        <WeatherFieldStack
           flow={flow}
           regime={regime}
           series={series}
           loading={seriesLoading}
-          onClose={() => setOpenField(null)}
+          focus={openField}
         />
+      ) : (
+        openField && (
+          <WeatherFieldDrawer
+            field={openField}
+            flow={flow}
+            regime={regime}
+            series={series}
+            loading={seriesLoading}
+            onClose={() => setOpenField(null)}
+          />
+        )
       )}
     </section>
   );

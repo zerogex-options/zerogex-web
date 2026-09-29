@@ -275,3 +275,67 @@ export function commentAt(
     fresh: line != null && line.bar_start === time,
   };
 }
+
+/**
+ * Put every field on one x-grid: the session's 5-minute timeline.
+ *
+ * Pressure comes off the flow series and the other four off the structure
+ * series, and the two payloads can legitimately differ in length and in where
+ * they start. That is harmless while one chart is open at a time and fatal
+ * once five are stacked under a shared cursor, because Recharts syncs charts
+ * by ROW INDEX, not by timestamp. Two series of different lengths would put
+ * the crosshair on 11:45 in one chart and 11:20 in the next, and the whole
+ * point of stacking them is that the same vertical line means one moment.
+ *
+ * Absent bars become nulls rather than being dropped. A hole is a hole; the
+ * line does not bridge it and the smoother already refuses to average across
+ * one.
+ */
+/** The same round-trip core/flowSeriesCharts calls canonicalTimestamp.
+ *  Inlined rather than imported: this module stays free of runtime imports so
+ *  the Node test runner can exercise it directly, which it cannot do through
+ *  the "@/" alias. */
+function canonicalBar(ts: string): string {
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? ts : d.toISOString();
+}
+
+export function alignFieldToTimeline(
+  points: WeatherFieldPoint[],
+  timeline: string[],
+): WeatherFieldPoint[] {
+  if (timeline.length === 0) return points;
+  // Matched on the canonical form and returned AS THEY CAME. The server sends
+  // "...00Z" and the timeline is built through Date.toISOString(), which is
+  // "...00.000Z", so a raw string compare matches nothing and every bar aligns
+  // to a hole: five charts, all empty, no error anywhere. Keeping the original
+  // object rather than the timeline's stamp is what lets the Weather state and
+  // the change dots keep joining on the key they were indexed by.
+  const byBar = new Map(points.map((p) => [canonicalBar(p.bar_start), p]));
+  return timeline.map(
+    (bar_start) => byBar.get(bar_start) ?? { bar_start, value: null, smoothed: null },
+  );
+}
+
+/**
+ * The trading day the panel is showing, as a YYYY-MM-DD ET key.
+ *
+ * Taken from the LAST bar rather than the first: a session that started before
+ * midnight UTC would otherwise resolve to the previous day. Returns null when
+ * neither payload has a bar, which is the case a caller renders as "no data"
+ * rather than an empty grid.
+ */
+export function sessionDateKey(
+  flow: HedgingFlowPayload | null | undefined,
+  regime: GammaRegimeSeriesPayload | null | undefined,
+): string | null {
+  const last =
+    regime?.bars?.[regime.bars.length - 1]?.bar_start ??
+    flow?.bars?.[flow.bars.length - 1]?.bar_start ??
+    null;
+  if (!last) return null;
+  const d = new Date(last);
+  if (Number.isNaN(d.getTime())) return null;
+  // en-CA gives YYYY-MM-DD, which is the shape getFiveMinuteSessionTimeline takes.
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}

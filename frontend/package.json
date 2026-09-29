@@ -136,6 +136,7 @@
     "test:regime-domain": "node --experimental-strip-types --test tests/regimeDomain.test.ts",
     "test:weather-fields": "node --experimental-strip-types --test tests/weatherFields.test.ts",
     "test:weather-colors": "node --experimental-strip-types --test tests/weatherStateColors.test.ts",
+    "test:weather-stack": "node --experimental-strip-types --test tests/weatherStack.test.ts",
     "test:session-time-ticks": "node --experimental-strip-types --test tests/sessionTimeTicks.test.ts",
     "test:gamma-playbook": "node --experimental-strip-types --test tests/gammaPlaybook.test.ts",
     "test:regime-triggers": "node --experimental-strip-types --test tests/regimeTriggers.test.ts",
