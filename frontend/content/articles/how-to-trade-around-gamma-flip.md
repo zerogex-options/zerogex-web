@@ -8,9 +8,9 @@
 
 Most retail traders who hear "gamma flip" treat it as another support/resistance line. Buy at the flip; sell at the flip; trade the bounce. That framing misses what the flip actually is. The flip isn't a level price respects - it's a **regime boundary**, a modeled read on which playbook the dealer-hedging mechanism is more likely supporting today.
 
-Above the flip, the modeled dealer reflex is to fade strength and buy weakness. Mean-reversion playbooks tend to have structural tailwind: breakouts more often fail, pins more often form, and volatility tends to compress.
+Above the flip, the modeled dealer reflex is to fade strength and buy weakness. Mean-reversion playbooks have the modeled hedging behind them: moves tend to be dampened, pins can form, and volatility tends to compress.
 
-Below the flip, the modeled reflex flips sign. The dealer book is assumed to amplify moves instead of dampening them, so trend-continuation playbooks tend to have the tailwind: breakouts extend more often, pins break down, volatility expands. That's the model's tendency, not a guarantee - realized behavior still depends on flow, liquidity, vol, and catalysts.
+Below the flip, the modeled reflex flips sign. The dealer book is assumed to amplify moves instead of dampening them, so trend-continuation playbooks have the hedging behind them: a break that does happen has hedging adding to it, pins break down, volatility expands. That's the model's tendency, not a guarantee - realized behavior still depends on flow, liquidity, vol, and catalysts. And one thing the flip did not change in our measurement is how often walls broke: S&P walls held about two times in three within an hour of a test on either side of it ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)).
 
 That's not "support and resistance at the flip." That's two different playbooks for the same chart depending on which side of one specific price you're on. Trading around the flip well means switching playbooks at the cross - not trading a level.
 
@@ -26,7 +26,7 @@ This piece covers the workflow. For the deeper read on what the flip is and how 
 The modeled dealer reflex tends to pull price toward heavy gamma strikes. Selling pushes near the call wall and buying dips near the put wall can have structural support when the modeled hedge flow is on your side. Position size small; take profit at the magnet.
 
 **Setup type 2: Fade failed breakouts.**
-When SPX punches above the call wall but Net GEX is positive and strengthening, the modeled setup leans toward the breakout failing. The fade - short the break, target re-entry into the prior range - is the canonical long-gamma trade. The Trap Detection signal exists specifically for this read; see the [combined EOD Pressure & Trap Detection article](/education/eod-pressure-and-trap-detection).
+When SPX punches above the call wall but Net GEX is positive and strengthening, the modeled hedging is leaning against the break. That is the mechanism, not the odds: in our measurement, neither the regime nor Net GEX's trajectory predicted which walls broke. The fade - short the break, target re-entry into the prior range - is the canonical long-gamma trade. The Trap Detection signal exists specifically for this read; see the [combined EOD Pressure & Trap Detection article](/education/eod-pressure-and-trap-detection).
 
 **Setup type 3: Premium-selling around the gamma magnet.**
 The pin behavior in a positive-gamma regime tends to compress realized volatility. Selling near-the-money premium against the magnet strike can work - though it's a defined-risk trade, not a structural lock. Size appropriately for the tail risk.

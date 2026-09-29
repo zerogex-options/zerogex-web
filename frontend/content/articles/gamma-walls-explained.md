@@ -10,7 +10,7 @@ A gamma wall is a strike where modeled dealer gamma exposure is heavily concentr
 
 If that definition is what you came for, [What Is a Gamma Wall?](/education/what-is-a-gamma-wall) covers it on its own and is the shorter read.
 
-This page is the applied one. It assumes you know what a wall is and works through the parts that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and the conditions under which the read holds or fails. For the regime context underneath all of it, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
+This page is the applied one. It assumes you know what a wall is and works through the parts that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and how often walls actually hold or break. For the regime context underneath all of it, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -23,7 +23,7 @@ In practice, the call wall often acts as **resistance** in positive-gamma condit
 Things to know:
 
 - The wall is the *current* heaviest concentration. As OI shifts, the wall moves.
-- The wall acts more reliably in long-gamma regimes (spot above the gamma flip). In short-gamma regimes the same level can invert from resistance to a breakout target.
+- In long-gamma regimes (spot above the gamma flip), hedging around the wall leans against a rally. In short-gamma regimes it runs with one, so if the level gives way it can turn from resistance into a breakout accelerant. The regime changes that behavior, not how often the wall breaks.
 - A call wall is a **probabilistic** lean, not a hard ceiling. Real flow can punch through.
 
 ---
@@ -37,7 +37,7 @@ In practice, the put wall often acts as **support** when net gamma is positive. 
 Things to know:
 
 - The wall is dynamic. Heavy OI rolling off into expiry can erase a put wall by midday.
-- In a short-gamma regime, dealer behavior inverts - the put wall stops absorbing weakness and can become a slippage point on the way down.
+- In a short-gamma regime, dealer behavior inverts - hedging stops absorbing weakness, and if the put wall gives way it can become a slippage point on the way down.
 - A put wall is a lean. Macro shocks, vol expansion, and chain refits can all override the structural read.
 
 ---
@@ -50,7 +50,7 @@ In a **positive-gamma** regime, dealers tend to hedge *against* price movement. 
 
 In a **negative-gamma** regime, the reflex inverts. Dealers tend to hedge *with* price movement. The same wall that pinned price in long-gamma can become a breakout vector - once price clears it, the hedging trade reinforces the move instead of fading it.
 
-This is why walls feel like they "work" some days and not others. A gamma wall is not a fixed property of the chain. It is a fixed *level* whose behavioral effect depends on the **regime around it** - which is exactly the read the gamma flip provides.
+A gamma wall is not a fixed property of the chain. It is a fixed *level* whose hedging effect depends on the **regime around it** - which is exactly the read the gamma flip provides. What the regime does not decide is whether the wall holds: in our measurement of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, on either side of the flip ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -58,11 +58,11 @@ This is why walls feel like they "work" some days and not others. A gamma wall i
 
 The two walls carry more information together than either does alone. The gap between them is the range current positioning is most consistent with, and its shape is readable in two ways.
 
-**Width.** A narrow wall range means gamma is concentrated close to spot on both sides. In a positive-gamma regime that is the classic pinning setup - hedging leans against moves in both directions and the range tends to hold. A wide range means the nearest dense strikes are far away, so there is less concentrated hedging in between and price can travel further before meeting any.
+**Width.** A narrow wall range means gamma is concentrated close to spot on both sides. In a positive-gamma regime that is the classic pinning setup - hedging leans against moves in both directions. A wide range means the nearest dense strikes are far away, so there is less concentrated hedging in between and price can travel further before meeting any.
 
 **Asymmetry.** Spot rarely sits in the middle. When one wall is much closer than the other, the near wall is the level that actually gets tested and the far one is mostly context. Spot sitting 0.3% under the call wall and 1.4% above the put wall is a different day from spot sitting midway between them: the first has a near-term decision point, the second does not.
 
-The trap is reading width or asymmetry without the regime. Both readings above assume positive gamma. Below the flip, the same narrow range is not a pin - it is a short distance between two levels that hedging will help price move through.
+The trap is reading width or asymmetry without the regime. Both readings above assume positive gamma. Below the flip, the same narrow range is not a pin - it is a short distance between two levels, and hedging will add to a move through either one.
 
 ---
 
@@ -92,25 +92,23 @@ Two practical consequences. A 0DTE wall read has a much shorter shelf life than 
 
 ## When walls hold and when they break
 
-Walls are not predictions. They are leans that work more often when the structural conditions support them. A short list of when each side of the read is more likely to hold up:
+Walls are not predictions, and we have measured how often they give way. Across 737 wall tests on SPY, SPX, QQQ and NDX over ten weeks in 2026, S&P walls held about two times in three within an hour of being tested and Nasdaq walls about half ([How Often Do Gamma Walls Actually Break?](/education/how-often-do-gamma-walls-break)). That base rate for the index is the best prior available, and none of the conditions traders usually reach for improved on it:
 
-**Conditions that make a wall more likely to hold:**
+**Conditions we tested that did not predict a break:**
 
-- Spot is in a positive-gamma regime (above the flip).
-- The wall sits at a strike with very high relative gamma magnitude.
-- Net GEX is meaningfully positive and stable.
-- The wall is *not* migrating with price.
-- Realized vol is compressing into the level.
+- Which side of the flip spot was on - positive or negative gamma.
+- The wall's size, its share of the book, and its rank against its own history. Bigger walls broke slightly less, but too weakly to separate from noise.
+- Net GEX, its trajectory, and the distance to the flip.
+- Whether the wall was migrating with price, and whether its gamma was strengthening or being consumed.
+- Signed flow at the wall strike, whether that flow was accelerating, and realized volatility.
+- How long the wall had stood, how many times it had been tested, and the time of day.
 
-**Conditions that make a wall more likely to break:**
+**What the regime changes instead:**
 
-- Spot is in a negative-gamma regime (below the flip).
-- Net GEX is small in magnitude or rapidly contracting.
-- The wall is migrating with price (chasing the move).
-- A macro catalyst (CPI, FOMC, NFP, geopolitical headline) hits while the wall is being tested.
-- Directional flow is *accelerating* into the level rather than decelerating.
+- In positive gamma (above the flip), modeled hedging leans against a move into the wall, which can slow it or pin price near the strike.
+- In negative gamma (below the flip), modeled hedging runs with the move, so if the wall gives way, hedging adds to the break instead of fading it.
 
-Most of these can be read in real time. None of them are predictions. They are checks - when most line up on one side, the read is sharper; when they conflict, the read is weak and the right move is usually no trade.
+Most of these can be read in real time, and none of them tells you whether this wall will hold. A macro catalyst (CPI, FOMC, NFP, a geopolitical headline) landing during a test can overwhelm the hedging in either regime. Use the index's base rate as your prior and the regime as a description of what hedging is doing around the level, not as odds.
 
 ---
 
@@ -130,11 +128,11 @@ A worked example. Suppose SPX is at 5,830. The dashboard shows:
 - **Net GEX:** +$1.5B
 - **Gamma Flip:** 5,810
 
-Net GEX here is a modeled estimate of dealer gamma using the traditional call-positive/put-negative open-interest convention; actual dealer inventory is not directly observable from public option-chain data. The structural read: spot is comfortably above the flip (long-gamma regime), the wall range is asymmetric - much closer to the call wall than the put wall - and Net GEX is healthy. Practical lean: drift toward the call wall is the higher-probability path, fades of rallies into it are the cleaner setup, and downside conviction would need either a flip-cross below 5,810 or a clear catalyst to override the structural pull from positive gamma above.
+Net GEX here is a modeled estimate of dealer gamma using the traditional call-positive/put-negative open-interest convention; actual dealer inventory is not directly observable from public option-chain data. The structural read: spot is comfortably above the flip (long-gamma regime), the wall range is asymmetric - much closer to the call wall than the put wall - and Net GEX is healthy. What that tells you: the call wall is the nearer test, and a rally into it meets hedging that is modeled to lean against it. What it does not tell you is whether 5,850 holds. SPX walls held about two times in three within an hour in our measurement, whichever side of the flip price was on. A drop below 5,810 would change the mechanism, not those odds: hedging would start adding to moves instead of dampening them.
 
 ![ZeroGEX GEX walls chart highlighting the call wall and put wall on the strike-by-strike gamma profile](/blog/zerogex-walls-chart.png)
 
-Now imagine the call wall migrates up to 5,855 as price probes 5,848. That migration is data - the wall is chasing price, the trap-fade is much weaker, and the breakout above 5,850 is more credible than it looked five minutes earlier. Reading the wall in motion is most of the edge.
+Now imagine the call wall migrates up to 5,855 as price probes 5,848. That migration is data - the strike you were watching is no longer the heaviest, so the level you are trading against has moved. It is not, by itself, a sign that the break will stick: in our measurement, whether a wall was migrating with price did not predict whether it broke.
 
 ---
 
@@ -142,19 +140,19 @@ Now imagine the call wall migrates up to 5,855 as price probes 5,848. That migra
 
 A few traps:
 
-- **"Walls are hard support/resistance."** They are structural leans. Real flow breaks them regularly.
+- **"Walls are hard support/resistance."** They are structural leans. Real flow breaks them regularly: about one test in three within an hour for S&P walls in our measurement, and about half for Nasdaq walls.
 - **"The biggest open-interest strike is always the wall."** Walls are weighted by gamma exposure, not raw OI. A near-ATM strike can dominate a far-OTM strike with twice the open interest.
 - **"Walls are static for the session."** They migrate. A wall that hasn't moved in two hours is one read; a wall that has drifted with price three times is a very different read.
-- **"Walls work the same in any regime."** They do not. Positive-gamma walls absorb. Negative-gamma walls release.
+- **"Walls work the same in any regime."** The hedging does not: in positive gamma it leans against a move into the wall, in negative gamma it adds to a move through it. How often walls broke did not change with the regime in our measurement; what changes is what hedging does around the break.
 - **"The call wall is bullish, the put wall is bearish."** Neither is directional, and the option type alone does not set the behavior. They are gamma-concentration levels whose effect depends on the modeled dealer gamma sign and the surrounding flow - i.e., which side of the flip you are on.
 
 ---
 
 ## Takeaway
 
-> Gamma walls are real positioning, not psychology. They sketch the structural range - but only the gamma flip and the regime around it tell you whether those walls will absorb moves or release them.
+> Gamma walls are real positioning, not psychology. They sketch the structural range, and the gamma flip tells you whether hedging around those walls leans against moves or adds to them. Whether a given wall holds is a base rate, not a read: about two tests in three within an hour for S&P walls, about half for Nasdaq walls.
 
-Read the regime first. Read the wall second. Read the wall migration third. That sequence is most of the structural edge in dealer-positioning reads - and it is also the difference between fading a rally that the dealer book is fading with you and fading a rally that the same dealer book is about to chase.
+Read the regime first. Read the wall second. Read the wall migration third. That sequence tells you what dealer hedging is doing around the level - the difference between fading a rally that the dealer book is fading with you and fading a rally that the same dealer book is about to chase. It does not tell you whether this particular wall will hold; for that, the base rate for the index is the best guide we have measured.
 
 Educational content only - none of the above is a trade recommendation.
 
