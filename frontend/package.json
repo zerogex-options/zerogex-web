@@ -153,6 +153,7 @@
     "test:chart-hero": "node --experimental-strip-types --test tests/chartHeroDisclosure.test.ts",
     "test:chart-level-palette": "node --experimental-strip-types --test tests/chartLevelPalette.test.ts",
     "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
+    "test:strike-panel-hover": "node --experimental-strip-types --test tests/strikePanelHover.test.ts",
     "test:chart-view-hold": "node --experimental-strip-types --test tests/chartViewHold.test.ts",
     "test:gex-ribbons": "node --experimental-strip-types --test tests/gexRibbons.test.ts",
     "test:strike-history": "node --experimental-strip-types --test tests/strikeHistory.test.ts",

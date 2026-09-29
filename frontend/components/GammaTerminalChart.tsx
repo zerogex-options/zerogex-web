@@ -73,6 +73,16 @@ import {
   shownExpirations,
   type ExpirationSegment,
 } from "@/core/expirationGradient";
+import {
+  dteLabel,
+  expiryBreakdown,
+  expiryScopeLabel,
+  levelsForStrike,
+  nearestStrike,
+  readoutPlacement,
+  shareOfPeak,
+  type PanelStrikeRow,
+} from "@/core/strikePanelHover";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 import { volatilityIndexFor } from '@/core/symbols';
 
@@ -392,6 +402,10 @@ interface RailStrike {
   callGex: number;
   putGex: number;
   netGex: number;
+  // Open interest at the strike, in contracts. The bars never draw it; the
+  // strike panel's hover card reads it.
+  callOi: number | null;
+  putOi: number | null;
 }
 const RAIL_STORAGE_KEY = "zg.gammaChart.rail.v1";
 // Net-overlay bar color for "combined" mode — violet, distinct from bull/bear.
@@ -401,6 +415,10 @@ const RAIL_BAR_OPACITY = 0.85;
 // Below this per-strike vertical slot (px) the on-bar $ labels are suppressed;
 // zoom the price axis to spread the strikes apart and they reappear.
 const RAIL_LABEL_MIN_SLOT = 12;
+// Expirations the strike panel's hover card names before folding the rest into
+// one "+N later" row. The card has to fit in half the panel, which is what
+// lets it always sit clear of the strike it describes.
+const PANEL_CARD_EXPIRY_ROWS = 3;
 // The flip status chip is drawn a touch translucent. Its label's ink is shaded
 // for this opacity, so the two have to come from the same number.
 const FLIP_CHIP_OPACITY = 0.9;
@@ -561,6 +579,16 @@ const FUTURES_CHIP_STYLE: CSSProperties = {
   borderRadius: 3,
   padding: "1px 5px",
   lineHeight: 1.4,
+};
+
+/** The crosshair readout card's box. The tape's card and the strike panel's
+ *  card share it, so the two readouts on the terminal look like one. */
+const READOUT_CARD_STYLE: CSSProperties = {
+  background: "var(--color-chart-tooltip-bg)",
+  border: "1px solid var(--color-chart-tooltip-border)",
+  borderRadius: "var(--radius-control)",
+  boxShadow: "var(--shadow-pop)",
+  padding: "9px 11px",
 };
 
 export interface ChartSnapshot {
@@ -847,6 +875,23 @@ export default function GammaTerminalChart({
   // panel — the page's own view switch put it there, so an overlay pill that
   // could empty the panel would be a second, contradictory control.
   const railOn = inPanel || (overlays.rail && !hideRail);
+  // The strike panel's hover: the price under the pointer (snapped to a strike
+  // at render, so the card keeps up with the book as it updates), where the
+  // pointer sits in the panel, for placing the card, and whether a finger put
+  // it there. Separate from the tape's crosshair: the panel has no bar under
+  // the pointer, and the tape's readout has no business appearing because the
+  // pointer is over the panel.
+  const [panelHover, setPanelHover] = useState<{ price: number; x: number; y: number; w: number; h: number; touch: boolean } | null>(null);
+  // Where a finger went down on the panel, so a swipe that scrolls the page is
+  // not taken for a tap.
+  const panelTapRef = useRef<{ x: number; y: number } | null>(null);
+  // A new panel element (the view switched away and back) starts clean, or a
+  // card pinned by a tap on the old one would reappear on the new one.
+  const [panelHoverHost, setPanelHoverHost] = useState(strikePanelTarget);
+  if (panelHoverHost !== strikePanelTarget) {
+    setPanelHoverHost(strikePanelTarget);
+    setPanelHover(null);
+  }
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
@@ -931,6 +976,7 @@ export default function GammaTerminalChart({
     setRewindTime(null);
     setPlaybackActive(false);
     setFrozenAxis(null);
+    setPanelHover(null);
   }
 
   // Clear the expiration filter when the instrument changes (a QQQ expiry is
@@ -1989,10 +2035,32 @@ export default function GammaTerminalChart({
         callGex: levelOrNull(s.call_gamma) ?? 0,
         putGex: levelOrNull(s.put_gamma) ?? 0,
         netGex: levelOrNull(s.net_gamma) ?? 0,
+        callOi: levelOrNull(s.call_oi),
+        putOi: levelOrNull(s.put_oi),
       }))
       .filter((s) => Number.isFinite(s.price))
       .sort((a, b) => a.price - b.price);
   }, [rewindActive, rewindBucket, liveGexBucket, live]);
+
+  // The rows the strike panel's hover card reads. Live and in rewind they are
+  // the rail's own rows, from the bucket its bars are drawn from. The delayed
+  // snapshot's surface (what its silhouette is smoothed from) ships net gamma
+  // and open interest but no call/put split, so there the two sides are null
+  // and the card leaves them out rather than printing a zero.
+  const panelRows = useMemo<PanelStrikeRow[]>(() => {
+    if (!snapshot) return railStrikes;
+    return (snapshot.strikes ?? [])
+      .map((s) => ({
+        price: levelOrNull(s.strike) ?? NaN,
+        callGex: null,
+        putGex: null,
+        netGex: levelOrNull(s.net_gamma) ?? 0,
+        callOi: levelOrNull(s.call_oi),
+        putOi: levelOrNull(s.put_oi),
+      }))
+      .filter((s) => Number.isFinite(s.price))
+      .sort((a, b) => a.price - b.price);
+  }, [snapshot, railStrikes]);
 
   // ── Per-expiration gradient for the rail bars ──
   // The strike-profile timeseries sums gamma server-side across the selected
@@ -2987,6 +3055,26 @@ export default function GammaTerminalChart({
         .sort((a, b) => a.dist - b.dist)[0] ?? null
     : null;
 
+  // ── Strike panel hover ── what the card on the panel describes. The pointer
+  // snaps to the nearest strike the panel draws, and every figure comes off the
+  // rows its bars and silhouette were drawn from, so the card can only describe
+  // what is on the panel. `smoothed` is the silhouette's own reading at that
+  // strike: the same curve the tape's crosshair card reads a price off. With no
+  // strikes to snap to (the whole-chain curve drawn while the timeseries seeds)
+  // it is all the card has, read at the pointer.
+  const panelFocus = (() => {
+    if (!inPanel || !panelHover || !railDomain) return null;
+    const inView = panelRows.filter((r) => r.price >= railDomain.min && r.price <= railDomain.max);
+    const strike = nearestStrike(inView, panelHover.price);
+    const price = strike ? strike.price : panelHover.price;
+    const smoothed = profilePoints.length > 0 ? gexAtPrice(price) : null;
+    if (!strike && smoothed == null) return null;
+    return { strike, price, smoothed, inView };
+  })();
+  // The bar views dim every strike but the one being read, as the tape dims
+  // every volume bar but the hovered one.
+  const railFocusPrice = panelFocus?.strike && effectiveRailMode !== "silhouette" ? panelFocus.strike.price : null;
+
   // Session chip. The futures swap takes over the "same spot" a cash-closed
   // index would read CLOSED: FUTURES when the future is trading, CLOSED only
   // when the index is outside the cash session AND no future is available.
@@ -3129,12 +3217,13 @@ export default function GammaTerminalChart({
           railBars.inView.map((s) => {
             const y = yPrice(s.price);
             const h = railBars.barH;
+            const focusOpacity = railFocusPrice == null || s.price === railFocusPrice ? undefined : 0.5;
             if (effectiveRailMode === "net") {
               const w = railBars.wFor(s.netGex);
               const pos = s.netGex >= 0;
               const c = pos ? "var(--color-bull)" : "var(--color-bear)";
               return (
-                <g key={`bar-${s.price}`}>
+                <g key={`bar-${s.price}`} opacity={focusOpacity}>
                   <rect x={pos ? railCenter : railCenter - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
                   {railBars.showLabels && s.netGex !== 0 && (
                     <RailBarLabel x={clamp((pos ? railCenter + w : railCenter - w) + (pos ? 3 : -3), railLeft + 2, railRight - 2)} y={y + 3} anchor={pos ? "start" : "end"} color={levelInk(c)} text={fmtGex(s.netGex)} />
@@ -3158,7 +3247,7 @@ export default function GammaTerminalChart({
               ? railStackSegments(`putseg-${s.price}`, st.put, -1, Math.max(0, pw), y, h, "var(--color-bear)")
               : null;
             return (
-              <g key={`bar-${s.price}`}>
+              <g key={`bar-${s.price}`} opacity={focusOpacity}>
                 {callSegs ?? (
                   <rect x={railCenter} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={RAIL_BAR_OPACITY} />
                 )}
@@ -3189,6 +3278,208 @@ export default function GammaTerminalChart({
         )}
       </g>
     ) : null;
+
+  // ── Strike panel hover: guide line, card, pointer ───────────────────────
+  // The guide is the tape crosshair's horizontal line, drawn across the panel
+  // at the strike being read. On the silhouette a dot marks where the curve
+  // crosses it, the way the call and put peaks are marked.
+  const panelGuide = panelFocus ? (
+    <g pointerEvents="none">
+      <line x1={railLeft} x2={railRight} y1={yPrice(panelFocus.price)} y2={yPrice(panelFocus.price)} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+      {effectiveRailMode === "silhouette" && rail && panelFocus.smoothed != null && (
+        <circle
+          cx={rail.xFor(panelFocus.smoothed)}
+          cy={yPrice(panelFocus.price)}
+          r={2.6}
+          fill={panelFocus.smoothed >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+          stroke="var(--bg-card)"
+          strokeWidth={1}
+        />
+      )}
+    </g>
+  ) : null;
+
+  // The card is the tape's crosshair card, same box, type and rows: a muted
+  // line saying which moment and which book, a titled section, a grid of
+  // figures, a rule, then what the figures mean here.
+  const panelCard = (() => {
+    if (!panelFocus) return null;
+    const { strike, price, smoothed, inView } = panelFocus;
+    const bucketTs = rewindActive ? rewindBucket?.timestamp : live ? liveGexBucket?.timestamp : null;
+    const when = delayed
+      ? "Delayed ~15 min"
+      : bucketTs
+        ? `${new Date(bucketTs).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
+        : "Live";
+    // The book the rows came from. Only with rows: the whole-chain curve drawn
+    // while the timeseries seeds does not follow the Expiry filter.
+    const scope = !strike ? null : delayed ? "All expiries" : expiryScopeLabel({ selection: effectiveRailExpiries, zeroDte: railZeroDte });
+    const signColor = (v: number) => (v >= 0 ? "var(--color-bull)" : "var(--color-bear)");
+    const rowStyle: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 2 };
+    const sectionTitle = (text: string, color: string) => (
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color, marginBottom: 4 }}>{text}</div>
+    );
+    const rule = <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />;
+
+    if (!strike) {
+      // Nothing to snap to: the curve's reading at the pointer, exactly as the
+      // tape's card gives it.
+      return (
+        <>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>{when}</div>
+          {sectionTitle(`GAMMA @ ${fmtPrice(price)}`, "var(--color-brand-primary)")}
+          {smoothed != null && (
+            <>
+              <div className="flex items-center justify-between" style={{ ...rowStyle, marginTop: 0 }}>
+                <span style={{ color: "var(--text-secondary)" }}>Net dealer &#915;</span>
+                <span style={{ fontWeight: 600, color: signColor(smoothed) }}>{fmtGex(smoothed)}</span>
+              </div>
+              <div className="flex items-center justify-between" style={rowStyle}>
+                <span style={{ color: "var(--text-secondary)" }}>Regime</span>
+                <span style={{ fontWeight: 600, color: signColor(smoothed) }}>{smoothed >= 0 ? "Long Γ" : "Short Γ"}</span>
+              </div>
+            </>
+          )}
+        </>
+      );
+    }
+
+    // Figures: gamma down the left, open interest down the right. The delayed
+    // snapshot has no call/put split, so there it is net gamma and OI alone.
+    const oi = (v: number | null) => (v == null ? "—" : fmtVol(v));
+    const hasOi = strike.callOi != null || strike.putOi != null;
+    const putCall = strike.callOi != null && strike.putOi != null && strike.callOi > 0 ? (strike.putOi / strike.callOi).toFixed(2) : "—";
+    const cells: Array<{ k: string; v: string; color?: string }> = [];
+    if (strike.callGex != null && strike.putGex != null) {
+      cells.push({ k: "Call Γ", v: fmtGex(strike.callGex), color: "var(--color-bull)" });
+      if (hasOi) cells.push({ k: "Call OI", v: oi(strike.callOi) });
+      cells.push({ k: "Put Γ", v: fmtGex(strike.putGex), color: "var(--color-bear)" });
+      if (hasOi) cells.push({ k: "Put OI", v: oi(strike.putOi) });
+      cells.push({ k: "Net Γ", v: fmtGex(strike.netGex), color: signColor(strike.netGex) });
+      if (hasOi) cells.push({ k: "P/C OI", v: putCall });
+    } else {
+      cells.push({ k: "Net Γ", v: fmtGex(strike.netGex), color: signColor(strike.netGex) });
+      if (hasOi) cells.push({ k: "P/C OI", v: putCall }, { k: "Call OI", v: oi(strike.callOi) }, { k: "Put OI", v: oi(strike.putOi) });
+    }
+
+    const share = shareOfPeak(inView, strike.netGex);
+    const fromSpot = strike.price - spot;
+    const fromSpotSign = fromSpot >= 0 ? "+" : "−";
+    const fromSpotText =
+      Math.abs(fromSpot) < 0.005
+        ? "at spot"
+        : `${fromSpotSign}${fmtPrice(Math.abs(fromSpot))} (${fromSpotSign}${Math.abs((fromSpot / spot) * 100).toFixed(2)}%)`;
+    const levels = levelsForStrike(levelDefs, strike.price);
+    // The per-expiration split behind the Split / Combined segments, only
+    // where those segments are drawn (the live tip, in a call/put view).
+    const split = railStackingActive ? railStackedByStrike.get(Math.round(strike.price * 100)) : undefined;
+    const byExpiry =
+      split && strike.callGex != null && strike.putGex != null
+        ? expiryBreakdown({
+            callGex: strike.callGex,
+            putGex: strike.putGex,
+            call: split.call,
+            put: split.put,
+            order: railStackExpiries,
+            maxRows: PANEL_CARD_EXPIRY_ROWS,
+          })
+        : null;
+    const sides = (call: number, put: number) => (
+      <span style={{ fontWeight: 600 }}>
+        <span style={{ color: "var(--color-bull)" }}>{fmtGex(call)}</span>
+        <span style={{ color: "var(--text-muted)" }}> / </span>
+        <span style={{ color: "var(--color-bear)" }}>{fmtGex(put)}</span>
+      </span>
+    );
+
+    return (
+      <>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>
+          {when}
+          {scope && ` · ${scope}`}
+        </div>
+        {sectionTitle(`STRIKE ${fmtPrice(strike.price)}`, "var(--color-brand-primary)")}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5" style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
+          {cells.map((c) => (
+            <Row key={c.k} k={c.k} v={c.v} color={c.color} />
+          ))}
+        </div>
+        {rule}
+        {effectiveRailMode === "silhouette" && smoothed != null && (
+          <div className="flex items-center justify-between gap-3" style={{ ...rowStyle, marginTop: 0, marginBottom: 2 }}>
+            <span style={{ color: "var(--text-secondary)" }}>Smoothed net &#915;</span>
+            <span style={{ fontWeight: 600, color: signColor(smoothed) }}>{fmtGex(smoothed)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3" style={{ ...rowStyle, marginTop: 0 }}>
+          <span style={{ color: "var(--text-secondary)" }}>
+            {strike.netGex > 0 ? "Long Γ · magnet / brake" : strike.netGex < 0 ? "Short Γ · accelerant" : "No net Γ"}
+          </span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{share != null ? `${Math.round(share * 100)}% of max` : "—"}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3" style={rowStyle}>
+          <span style={{ color: "var(--text-secondary)" }}>From spot</span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{fromSpotText}</span>
+        </div>
+        {levels.map((l) => (
+          <div key={l.key} className="flex items-center justify-between gap-3" style={rowStyle}>
+            <span style={{ color: "var(--text-secondary)" }}>{l.label}</span>
+            <span style={{ fontWeight: 600, color: l.color }}>{l.dist <= 0 ? "at" : `${fmtPrice(l.dist)} away`}</span>
+          </div>
+        ))}
+        {byExpiry && (
+          <>
+            {rule}
+            {sectionTitle("BY EXPIRATION", "var(--text-secondary)")}
+            {byExpiry.rows.map((r, i) => (
+              <div key={r.exp} className="flex items-center justify-between gap-3" style={{ ...rowStyle, marginTop: i === 0 ? 0 : 2 }}>
+                <span style={{ color: "var(--text-muted)" }}>{dteLabel(r.exp, todayKey)}</span>
+                {sides(r.call, r.put)}
+              </div>
+            ))}
+            {byExpiry.rest && (
+              <div className="flex items-center justify-between gap-3" style={rowStyle}>
+                <span style={{ color: "var(--text-muted)" }}>+{byExpiry.rest.count} later</span>
+                {sides(byExpiry.rest.call, byExpiry.rest.put)}
+              </div>
+            )}
+          </>
+        )}
+      </>
+    );
+  })();
+
+  // A mouse reads the panel by hovering it. A finger has no hover, so a tap
+  // puts the card down and the next tap lifts it, the tape's touch grammar.
+  // The panel claims no gestures, so a swipe across it still scrolls the page.
+  const panelPointAt = (e: ReactPointerEvent<SVGSVGElement>, touch: boolean) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    // The panel's viewBox is in the chart's own y units (see panelVb), so the
+    // tape's priceForY reads it as is.
+    const price = layout.priceForY(panelVb.y + (y / rect.height) * panelVb.h);
+    setPanelHover({ price, x, y, w: rect.width, h: rect.height, touch });
+  };
+  const handlePanelPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch") panelPointAt(e, false);
+  };
+  const handlePanelPointerLeave = (e: ReactPointerEvent<SVGSVGElement>) => {
+    // A finger "leaves" as it lifts, which must not take its card down.
+    if (e.pointerType !== "touch") setPanelHover(null);
+  };
+  const handlePanelPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === "touch") panelTapRef.current = { x: e.clientX, y: e.clientY };
+  };
+  const handlePanelPointerUp = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType !== "touch") return;
+    const start = panelTapRef.current;
+    panelTapRef.current = null;
+    if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return;
+    if (panelHover) setPanelHover(null);
+    else panelPointAt(e, true);
+  };
 
   // ── Toolbar pieces ── one set of controls, laid out as a single wrapping
   // row on the desktop board and as a compact bar + Layers panel on phones
@@ -4155,7 +4446,7 @@ export default function GammaTerminalChart({
                   }
             }
           >
-            <div style={{ background: "var(--color-chart-tooltip-bg)", border: "1px solid var(--color-chart-tooltip-border)", borderRadius: "var(--radius-control)", boxShadow: "var(--shadow-pop)", padding: "9px 11px" }}>
+            <div style={READOUT_CARD_STYLE}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>
                 {timeframe === "1day"
                   ? etTradingDateLabel(activeBar.timestamp)
@@ -4473,9 +4764,16 @@ export default function GammaTerminalChart({
               height="100%"
               viewBox={`${railLeft} ${panelVb.y} ${railRight - railLeft} ${panelVb.h}`}
               preserveAspectRatio="none"
-              style={{ display: "block", overflow: "visible" }}
+              style={{ display: "block", overflow: "visible", cursor: "crosshair" }}
               role="img"
               aria-label="Dealer gamma by strike"
+              onPointerMove={handlePanelPointerMove}
+              onPointerLeave={handlePanelPointerLeave}
+              onPointerDown={handlePanelPointerDown}
+              onPointerUp={handlePanelPointerUp}
+              onPointerCancel={() => {
+                panelTapRef.current = null;
+              }}
             >
               <defs>
                 <linearGradient id={`${RAIL_POS_GRADIENT_ID}-panel`} x1="0" y1="0" x2="1" y2="0">
@@ -4488,7 +4786,20 @@ export default function GammaTerminalChart({
                 </linearGradient>
               </defs>
               {railGroup}
+              {panelGuide}
             </svg>,
+            strikePanelTarget,
+          )
+        : null}
+
+      {/* The strike panel's hover card. HTML over the panel rather than SVG in
+          it, like the tape's card, so it reads at the UI's own type size; its
+          own portal so the SVG above stays the panel's only drawing. */}
+      {inPanel && strikePanelTarget && panelHover && panelCard
+        ? createPortal(
+            <PanelReadout pointer={{ x: panelHover.x, y: panelHover.y }} panel={panelBox ?? { width: panelHover.w, height: panelHover.h }} pinned={panelHover.touch}>
+              {panelCard}
+            </PanelReadout>,
             strikePanelTarget,
           )
         : null}
@@ -4663,6 +4974,41 @@ function Row({ k, v, color }: { k: string; v: string; color?: string }) {
     <div className="flex items-center justify-between gap-2">
       <span style={{ color: "var(--text-muted)" }}>{k}</span>
       <span style={{ color: color ?? "var(--text-primary)", fontWeight: 600 }}>{v}</span>
+    </div>
+  );
+}
+
+/**
+ * The strike panel's hover card, in the tape crosshair card's box. It sits
+ * inside the panel, whose card clips anything hanging out of it, and its
+ * height changes with what it lists, so it is placed from its own measured
+ * size (core/strikePanelHover's readoutPlacement) rather than an estimate. The
+ * position is written onto the node before paint, so following the pointer
+ * costs no second render. `width: max-content` keeps the measured width from
+ * depending on where the card was last put.
+ */
+function PanelReadout({
+  pointer,
+  panel,
+  pinned,
+  children,
+}: {
+  pointer: { x: number; y: number };
+  panel: { width: number; height: number };
+  pinned: boolean;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { left, top } = readoutPlacement(pointer, panel, { width: el.offsetWidth, height: el.offsetHeight }, pinned);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  });
+  return (
+    <div ref={ref} className="pointer-events-none absolute z-20" style={{ width: "max-content", minWidth: 196, maxWidth: "calc(100% - 12px)" }}>
+      <div style={READOUT_CARD_STYLE}>{children}</div>
     </div>
   );
 }

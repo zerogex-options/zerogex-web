@@ -65,7 +65,10 @@ const INFO_TEXT =
   "own price band so a strike's bar sits level with that price on the candles. It is the same rail the chart used " +
   "to carry in a narrow column inside itself, with the same four views\u00a0- a smoothed silhouette, or per-strike bars " +
   "in Net, Split (calls and puts apart) or Combined\u00a0- and the same optional on-bar $ labels, which move onto the " +
-  "panel with it. The ladders and the rail answer the same question about the same book, so the panel shows one " +
+  "panel with it. Hover a strike on the panel (or tap it on a touch screen) for its readout, in the same card the " +
+  "tape's crosshair uses: call, put and net dealer gamma, open interest, its weight against the heaviest strike in " +
+  "view, its distance from spot, any key level on it and, in Split or Combined, how it splits by expiration. " +
+  "The ladders and the rail answer the same question about the same book, so the panel shows one " +
   "at a time and your choice is remembered. " +
   "The chart itself is identical under either: same width, same toolbar, same overlays\u00a0- the GEX ribbons included, " +
   "since those read the tape rather than the panel. " +
