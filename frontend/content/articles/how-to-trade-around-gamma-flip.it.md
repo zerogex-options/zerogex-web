@@ -10,9 +10,9 @@
 
 La maggior parte dei trader retail che sente parlare di "gamma flip" lo tratta come un'ennesima linea di supporto/resistenza. Comprare al flip; vendere al flip; tradare il rimbalzo. Questa impostazione non coglie cosa sia realmente il flip. Il flip non è un livello che il prezzo rispetta - è un **confine di regime** che determina quale playbook sta supportando oggi il meccanismo di hedging dei dealer.
 
-Sopra il flip, il riflesso del dealer è vendere sulla forza e comprare sulla debolezza. I playbook di mean-reversion hanno un vento a favore strutturale. I breakout tendono a fallire; i pin tendono a formarsi; la volatilità si comprime.
+Sopra il flip, il riflesso modellato del dealer è vendere sulla forza e comprare sulla debolezza. I playbook di mean-reversion hanno dalla loro parte l'hedging modellato: i movimenti tendono a essere smorzati, i pin possono formarsi e la volatilità tende a comprimersi.
 
-Sotto il flip, lo stesso riflesso si inverte. Il book dei dealer amplifica i movimenti invece di smorzarli. I playbook di continuazione del trend hanno il vento a favore; i breakout si estendono; i pin si rompono; la volatilità si espande.
+Sotto il flip, il riflesso modellato cambia segno. Si assume che il book dei dealer amplifichi i movimenti invece di smorzarli, quindi i playbook di continuazione del trend hanno dalla loro parte l'hedging: una rottura che avviene davvero viene rafforzata dall'hedging, i pin si rompono, la volatilità si espande. È la tendenza del modello, non una garanzia - il comportamento effettivo dipende comunque da flusso, liquidità, volatilità e catalizzatori. E una cosa che, nella nostra misurazione, il flip non ha cambiato è la frequenza con cui i wall si sono rotti: i wall dell'S&P hanno tenuto circa due volte su tre entro un'ora da un test, sia sopra sia sotto di esso ([Quanto spesso si rompono davvero i gamma wall?](/education/how-often-do-gamma-walls-break)).
 
 Questo non è "supporto e resistenza al flip". Sono due playbook diversi per lo stesso grafico, a seconda di quale lato di un preciso prezzo ti trovi. Tradare bene intorno al flip significa cambiare playbook all'incrocio - non tradare un livello.
 
@@ -28,7 +28,7 @@ Questo articolo copre il workflow. Per l'approfondimento concettuale su cosa sia
 Il riflesso del dealer spinge il prezzo verso gli strike a gamma pesante. Vendere sui push vicino al call wall e comprare sui ritracciamenti vicino al put wall ha supporto strutturale - il flusso di hedge è dalla tua parte. Dimensiona la posizione in piccolo; prendi profitto al magnete.
 
 **Setup tipo 2: Fadare i breakout falliti.**
-Quando SPX buca sopra il call wall ma il Net GEX è positivo e in rafforzamento, il breakout è strutturalmente destinato a fallire con alta probabilità. Il fade - short sulla rottura, target di rientro nel range precedente - è il trade canonico da long-gamma. Il segnale di Trap Detection esiste proprio per questa lettura; vedi l'[articolo combinato su EOD Pressure e Trap Detection](/education/eod-pressure-and-trap-detection).
+Quando SPX buca sopra il call wall ma il Net GEX è positivo e in rafforzamento, l'hedging modellato si sta opponendo alla rottura. Questo è il meccanismo, non le probabilità: nella nostra misurazione, né il regime né la traiettoria del Net GEX hanno permesso di prevedere quali wall si sarebbero rotti. Il fade - short sulla rottura, target di rientro nel range precedente - è il trade canonico da long-gamma. Il segnale di Trap Detection esiste proprio per questa lettura; vedi l'[articolo combinato su EOD Pressure e Trap Detection](/education/eod-pressure-and-trap-detection).
 
 **Setup tipo 3: Vendita di premio intorno al magnete gamma.**
 Il comportamento da pin in un regime a gamma positivo tende a comprimere la volatilità realizzata. Vendere premio at-the-money contro lo strike magnete può funzionare - anche se è un trade a rischio definito, non un lock strutturale. Dimensiona in modo adeguato per il rischio di coda.

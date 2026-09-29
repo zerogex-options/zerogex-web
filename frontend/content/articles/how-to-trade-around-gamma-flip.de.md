@@ -10,9 +10,9 @@
 
 Die meisten Retail-Trader, die von "Gamma-Flip" hören, behandeln ihn wie eine weitere Support-/Resistance-Linie. Am Flip kaufen; am Flip verkaufen; den Bounce traden. Diese Sichtweise verfehlt, was der Flip tatsächlich ist. Der Flip ist kein Level, das der Preis respektiert - er ist eine **Regimegrenze**, die bestimmt, welches Playbook der Dealer-Hedging-Mechanismus heute unterstützt.
 
-Oberhalb des Flips ist der Dealer-Reflex, Stärke zu faden und Schwäche zu kaufen. Mean-Reversion-Playbooks haben strukturellen Rückenwind. Breakouts scheitern tendenziell; Pins bilden sich tendenziell; die Volatilität komprimiert sich.
+Oberhalb des Flips ist der modellierte Dealer-Reflex, Stärke zu faden und Schwäche zu kaufen. Mean-Reversion-Playbooks haben das modellierte Hedging im Rücken: Bewegungen werden tendenziell gedämpft, Pins können sich bilden, und die Volatilität komprimiert sich tendenziell.
 
-Unterhalb des Flips kehrt sich derselbe Reflex um. Das Dealer-Buch verstärkt Bewegungen, statt sie zu dämpfen. Trend-Continuation-Playbooks haben den Rückenwind; Breakouts weiten sich aus; Pins brechen; die Volatilität expandiert.
+Unterhalb des Flips wechselt der modellierte Reflex das Vorzeichen. Das Dealer-Buch verstärkt der Modellannahme nach Bewegungen, statt sie zu dämpfen, sodass Trend-Continuation-Playbooks das Hedging im Rücken haben: Ein Break, zu dem es tatsächlich kommt, wird vom Hedging zusätzlich verstärkt, Pins lösen sich auf, die Volatilität expandiert. Das ist die Tendenz des Modells, keine Garantie - das realisierte Verhalten hängt weiterhin von Flow, Liquidität, Vol und Katalysatoren ab. Und eines hat der Flip in unserer Messung nicht verändert, nämlich wie oft Walls brachen: S&P-Walls hielten auf beiden Seiten des Flips in etwa zwei von drei Fällen innerhalb einer Stunde nach einem Test ([Wie oft brechen Gamma Walls tatsächlich?](/education/how-often-do-gamma-walls-break)).
 
 Das ist nicht "Support und Resistance am Flip". Das sind zwei unterschiedliche Playbooks für denselben Chart, je nachdem, auf welcher Seite eines bestimmten Preises man sich befindet. Gut rund um den Flip zu traden bedeutet, beim Cross das Playbook zu wechseln - nicht, ein Level zu traden.
 
@@ -28,7 +28,7 @@ Dieser Artikel behandelt den Workflow. Für die tiefere Lektüre darüber, was d
 Der Dealer-Reflex zieht den Preis zu Strikes mit schwerem Gamma. Verkäufe bei Pushes nahe dem Call Wall und Käufe bei Dips nahe dem Put Wall haben strukturelle Unterstützung - der Hedge-Flow ist auf deiner Seite. Positionsgröße klein halten; Gewinne am Magneten mitnehmen.
 
 **Setup-Typ 2: Gescheiterte Breakouts faden.**
-Wenn SPX über den Call Wall durchbricht, das Net GEX aber positiv ist und sich verstärkt, ist der Breakout strukturell wahrscheinlich zum Scheitern verurteilt. Der Fade - short auf den Break, Ziel: Wiedereintritt in die vorherige Range - ist der klassische Long-Gamma-Trade. Das Trap-Detection-Signal existiert genau für diese Lesart; siehe den [kombinierten Artikel zu EOD Pressure & Trap Detection](/education/eod-pressure-and-trap-detection).
+Wenn SPX über den Call Wall durchbricht, das Net GEX aber positiv ist und sich verstärkt, stemmt sich das modellierte Hedging gegen den Break. Das ist der Mechanismus, nicht die Wahrscheinlichkeit: In unserer Messung ließ sich weder aus dem Regime noch aus der Entwicklung des Net GEX vorhersagen, welche Walls brachen. Der Fade - short auf den Break, Ziel: Wiedereintritt in die vorherige Range - ist der klassische Long-Gamma-Trade. Das Trap-Detection-Signal existiert genau für diese Lesart; siehe den [kombinierten Artikel zu EOD Pressure & Trap Detection](/education/eod-pressure-and-trap-detection).
 
 **Setup-Typ 3: Prämienverkauf rund um den Gamma-Magneten.**
 Das Pin-Verhalten in einem positiven Gamma-Regime tendiert dazu, die realisierte Volatilität zu komprimieren. Der Verkauf von Near-the-Money-Prämie gegen den Magnet-Strike kann funktionieren - auch wenn es sich um einen Trade mit definiertem Risiko handelt, nicht um eine strukturelle Garantie. Angemessen für das Tail-Risiko dimensionieren.

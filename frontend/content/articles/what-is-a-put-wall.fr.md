@@ -71,7 +71,7 @@ Le calcul du wall n'établit pas que du volume frais a ouvert de nouvelles posit
 
 Une cassure sous le Put Wall est une information, pas un verdict. Lisez-la à travers quatre questions :
 
-1. **Quel régime était en vigueur ?** Au-dessus du gamma flip, la couverture agrégée tend à freiner la baisse, et une cassure s'arrête plus souvent à la concentration de puts suivante. Sous le flip, le réflexe accompagne le mouvement et une cassure peut s'accélérer - la couverture locale de put vendu décrite plus haut est désormais alignée avec le livre global.
+1. **Quel régime était en vigueur ?** Au-dessus du gamma flip, la couverture agrégée tend à freiner la baisse, si bien qu'une cassure est moins portée par la couverture. Sous le flip, le réflexe accompagne le mouvement et une cassure peut s'accélérer - la couverture locale de put vendu décrite plus haut est désormais alignée avec le livre global.
 2. **Le wall a-t-il migré ou échoué ?** Un wall qui s'est reclassé sur un strike plus bas lorsque les paramètres ont changé n'a pas été « cassé » ; la référence s'est déplacée. Comparez le strike du wall avant et après la cassure.
 3. **Le flux l'a-t-il submergé ?** Les gros titres macro, les rééquilibrages d'indices et les ordres de grande taille apportent un flux qui écrase la couverture. Une cassure sur ce type de tape dit peu de chose du wall.
 4. **Le gamma flip a-t-il été franchi ?** Une cassure peut signifier que la référence a échoué, que le flux environnant a dominé, que la gamma locale s'est affaiblie ou que le wall a migré. Seul un franchissement du Gamma Flip calculé - ou un véritable changement de signe du Net GEX modélisé - étaye l'affirmation d'un changement de régime de gamma.

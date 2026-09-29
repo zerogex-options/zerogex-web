@@ -39,7 +39,7 @@ Los dos walls son opuestos simétricos:
 |Call wall|Mayor gamma call por encima del spot|Vende mientras el precio sube hacia él|Resistencia / techo alcista|
 |Put wall|Mayor gamma put por debajo del spot|Compra mientras el precio baja hacia él|Soporte / piso bajista|
 
-Ninguno es direccional por sí solo. El call wall no es una "señal de venta" - es un nivel de concentración cuyo efecto depende de en qué lado del gamma flip te encuentres. Por encima del flip, el call wall limita. Por debajo, en gamma negativo, el mismo strike puede invertirse, pasando de techo a acelerador de breakout.
+Ninguno de los dos es direccional en sí mismo, y el tipo de opción por sí solo no determina el comportamiento. El call wall no es una "señal de venta" - es un nivel de concentración cuyo efecto depende de en qué lado del gamma flip te encuentres. Por encima del flip, la cobertura en torno al call wall va en contra de un rally. Por debajo, en gamma negativo, la cobertura acompaña al movimiento, así que, si cede, el mismo strike puede invertirse y pasar de techo a acelerador de breakout. El lado del flip cambia ese comportamiento, no la frecuencia con la que el wall se rompe.
 
 ---
 
@@ -51,7 +51,7 @@ El call wall es una lectura en vivo que se mueve durante la sesión por tres raz
 2. **Migración con el precio.** A medida que el precio sondea el call wall, dealers y traders pueden construir OI fresco en calls justo por encima de él, empujando efectivamente el wall más arriba. Un wall que *sigue* al precio es estructuralmente distinto de uno que *aguanta*.
 3. **Decaimiento por vencimiento.** En cadenas con mucho peso de 0DTE, los contratos que construyeron el wall pueden expirar a media tarde, adelgazando el techo.
 
-La migración misma es la señal. Si el call wall sigue subiendo a medida que el precio se acerca, la tesis de vender el repunte es débil - el wall está persiguiendo, y el breakout es más creíble de lo que sugeriría un wall estático.
+La migración es en sí misma información. Si el call wall sigue subiendo a medida que el precio se acerca, el wall está persiguiendo al precio - el strike que vigilabas ya no es el más pesado, así que el nivel que se defiende se ha movido. No es, por sí sola, una señal de que el breakout vaya a consolidarse: en nuestra medición, que un wall estuviera migrando con el precio no predijo si acabaría rompiéndose.
 
 ---
 
@@ -75,7 +75,7 @@ Supongamos que SPX está en 5.830 y el libro muestra:
 - **Gamma Flip:** 5.810
 - **Net GEX:** +$1.500 millones
 
-El spot está por encima del flip, así que esta es una sesión de gamma largo y 5.850 es el nivel que los dealers están posicionados para defender. La inclinación: los rallies hacia 5.850 son la zona de *fade* de mayor probabilidad, y la deriva hacia allí es el camino de menor resistencia mientras se mantenga el gamma positivo. Ahora supongamos que el precio presiona 5.848 y el call wall sube a 5.855. Esa migración es un dato - el wall está persiguiendo, el fade se debilita, y un empuje a través de 5.850 es más creíble de lo que era momentos antes. Si en cambio 5.850 aguanta firme y el precio finalmente lo atraviesa con flujo pesado, trátalo como un posible cambio de régimen, no solo como otro tick más arriba.
+El Net GEX es una estimación modelada del gamma de los dealers según la convención tradicional de open interest call-positivo / put-negativo, no el inventario observado de los dealers. El spot está por encima del flip, así que esta es una sesión de gamma largo y 5.850 es el nivel que, según el modelo, defienden los dealers. Un rally hacia él se encuentra con una cobertura que va en contra del movimiento, pero eso no hace que 5.850 tenga más probabilidades de aguantar de las que indica la tasa base: en nuestra medición, los walls del SPX aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, tanto por encima como por debajo del flip. Ahora supongamos que el precio presiona 5.848 y el call wall sube a 5.855. Esa migración es un dato - el nivel que se defiende ha subido - pero, en nuestra medición, la migración no predijo si un wall se rompería. Si en cambio 5.850 aguanta firme y el precio finalmente lo atraviesa con flujo pesado, trátalo como un posible cambio de régimen, no solo como otro tick más arriba.
 
 ---
 
@@ -87,7 +87,7 @@ ZeroGEX publica el call wall actual - junto con el put wall, el gamma flip, el 
 
 ## Conclusión
 
-> El call wall es posicionamiento real - el strike donde la cobertura de los dealers es más propensa a limitar el lado alcista. Pero solo limita mientras el spot esté en gamma positivo, y una ruptura clara de un wall que *ha aguantado* suele ser la primera señal de que el régimen está cambiando. Lee el régimen, luego el wall, luego la migración del wall.
+> El call wall es posicionamiento real - el strike donde la cobertura de los dealers está más concentrada en el lado alcista. La frecuencia con la que limita un rally es una tasa base del índice, no una función del régimen; el régimen decide si la cobertura va en contra de una ruptura o la alimenta. Una ruptura clara de un wall que *ha aguantado* suele ser la primera señal de que el régimen está cambiando. Lee el régimen, luego el wall, luego la migración del wall.
 
 Contenido solo educativo - nada de lo anterior es una recomendación de trading.
 

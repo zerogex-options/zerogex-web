@@ -71,7 +71,7 @@ El cálculo del wall no establece que volumen nuevo haya abierto posiciones nuev
 
 Una rotura por debajo del Put Wall es información, no un veredicto. Léela con cuatro preguntas:
 
-1. **¿Qué régimen estaba vigente?** Por encima del gamma flip, la cobertura agregada tiende a frenar la caída, y una rotura se detiene más a menudo en la siguiente concentración de puts. Por debajo del flip, el reflejo va con el movimiento y una rotura puede acelerarse - la cobertura local de put corta descrita arriba está ahora alineada con el libro general.
+1. **¿Qué régimen estaba vigente?** Por encima del gamma flip, la cobertura agregada tiende a frenar la caída, así que una rotura tiene menos cobertura a su favor. Por debajo del flip, el reflejo va con el movimiento y una rotura puede acelerarse - la cobertura local de put corta descrita arriba está ahora alineada con el libro general.
 2. **¿El wall migró o falló?** Un wall que se reordenó a un strike más bajo al cambiar los inputs no fue "roto"; la referencia se movió. Compara el strike del wall antes y después de la rotura.
 3. **¿El flujo lo arrolló?** Los titulares macro, los rebalanceos de índices y las órdenes grandes aportan un flujo que empequeñece la cobertura. Una rotura en ese tipo de tape dice poco sobre el wall.
 4. **¿Se cruzó el gamma flip?** Una rotura puede significar que la referencia falló, que el flujo circundante dominó, que la gamma local se debilitó o que el wall migró. Solo un cruce del Gamma Flip calculado - o un cambio real de signo del Net GEX modelado - sostiene la afirmación de un cambio de régimen de gamma.
