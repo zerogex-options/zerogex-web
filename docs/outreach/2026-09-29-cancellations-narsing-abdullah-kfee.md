@@ -27,6 +27,10 @@ Everything below is from `make diagnose-user` on each address (run 2026-09-29).
 works until Wednesday 2:06 PM ET. Narsing any time this week. kfee tomorrow or
 later: there's no deadline, and two automated emails reached them this morning.
 
+**Sent 2026-09-29:** Abdullah and Narsing. kfee's draft below is Michael's
+revised version, which adds the other ticker pages, the education library and
+an open offer of a promo rate.
+
 ## The read
 
 **Abdullah: worth sending today.**
@@ -142,18 +146,28 @@ Founder, ZeroGEX
 
 **Subject:** "Too complex": which part?
 
-Hi,
+*Revised 2026-09-29 by Michael: adds the name from Stripe, the other ticker
+pages, the education library and an open offer of a promo rate.*
+
+Hi Kenneth,
 
 Thanks for telling me why you canceled. Your $49 refund has gone through, and it usually shows up within 5 to 10 business days.
 
-You picked "too complex / hard to use," and I'd like to understand it. Was it the ideas behind it (gamma, the flip, the walls), how much is on the screen, or knowing what to do with it? One word back is enough.
+You picked "too complex / hard to use," and I'd like to understand why. Was it the underlying ideas (gamma, the flip, the walls), the amount of information on the screen, or knowing what action to take? One word back is enough.
 
 If you'd like the simplest version in the meantime, this free page shows the day's key SPX levels, delayed about 15 minutes, with no account needed:
 https://zerogex.io/spx-gamma-levels
 
+There are matching pages for SPY, QQQ, NDX, ES and NQ. We also have a library of articles and platform guides here:
+https://zerogex.io/education
+
+If you ever want to give ZeroGEX another try, let me know and I'll set you up with a promo rate.
+
 Best,
 Michael
 Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
 
 ## If they reply
 
@@ -180,9 +194,24 @@ Founder, ZeroGEX
   the "If they reply" section of `2026-09-25-trial-cancels-oliver-chenyu.md`
   (the win-back stamp plus `/pricing?winback=1`).
 - **kfee says which part.** Nothing to set up. Read it.
-- **kfee wants to try again.** They've used their one money-back refund, so
-  checkout will charge them up front with no guarantee. Tell them that before
-  they pay.
+- **kfee takes up the promo rate.** They've used their one money-back refund,
+  so tell them the next payment has no guarantee before they pay. The account
+  is already marked lapsed, so stamping the win-back and sending the win-back
+  link makes checkout apply the standing win-back coupon:
+
+  ```bash
+  sqlite3 /var/lib/zerogex/auth.db "UPDATE users SET winback_email_sent_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE email = 'kfee@msn.com';"
+  ```
+
+  Then send them https://zerogex.io/pricing?winback=1. If
+  `STRIPE_COUPON_WINBACK_PRO_MONTHLY` isn't set in `frontend/.env.local`,
+  checkout falls back to the public promo while it runs (through October 1),
+  then to full price. The stamp also stops the win-back email below from
+  offering it a second time.
+- **kfee doesn't reply.** The win-back email covers the promo line on its own.
+  kfee becomes eligible 30 days after the refund, so they first appear in the
+  Monday win-back digest on November 2. It goes out when you send from that
+  digest.
 
 ## Worth fixing later (not urgent)
 
