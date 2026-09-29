@@ -21,7 +21,8 @@
  *     labels. The chart draws it, portalled into this panel
  *     (`strikePanelTarget`), across the tape's exact price band — so a strike's
  *     bar sits level with that price on the candles, which the rail never
- *     managed from inside its own narrow column.
+ *     managed from inside its own narrow column. Hovering a strike (tapping
+ *     it on a touch screen) puts up the tape crosshair's readout card for it.
  *
  * The chart itself does not change between the two. It is always in terminal
  * mode (`hideRail`), always the same width, always keeps its whole toolbar —
@@ -307,7 +308,7 @@ export default function TerminalSurface({
         <div className="zg-gc-seg" role="tablist" aria-label="Dealer-gamma view beside the chart">
           {([
             ["ladders", "Gamma Ladders", "Two strike-aligned Net-GEX ladders pinned to the tape: the chart's underlying and any other symbol, both centered on spot with the Gamma Flip, Call/Put Walls and Max Pain marked."],
-            ["panel", "Strike Panel", "Net dealer gamma by price, drawn across the tape's own price band\u00a0- a smoothed silhouette, or per-strike Net / Split / Combined bars."],
+            ["panel", "Strike Panel", "Net dealer gamma by price, drawn across the tape's own price band\u00a0- a smoothed silhouette, or per-strike Net / Split / Combined bars. Hover a strike for its full readout."],
           ] as Array<[TerminalView, string, string]>).map(([v, label, title]) => (
             <button
               key={v}

@@ -168,6 +168,38 @@ test("the rail's view controls follow it, and the inline rail keeps them", () =>
   assert.match(surface, /ref=\{setPanelControlsHost\}/);
 });
 
+// The strike panel reads out like the tape beside it: hover a strike (tap it on
+// a touch screen) and the tape crosshair's card names it. The card is the same
+// box, snaps to a strike the panel actually draws, reads the rows the bars were
+// drawn from, and lives inside the panel, which clips anything outside it. The
+// pure half (snapping, weight, levels, expiry split, placement) is covered by
+// tests/strikePanelHover.test.ts.
+test("the strike panel has a hover readout in the tape crosshair's card", () => {
+  // One box for both readouts, so they cannot drift apart.
+  assert.match(chart, /const READOUT_CARD_STYLE: CSSProperties = \{/);
+  assert.equal((chart.match(/style=\{READOUT_CARD_STYLE\}/g) ?? []).length, 2, "the tape's card and the panel's card");
+  // The panel's own SVG takes the pointer: hover with a mouse, tap with a finger.
+  const panelSvg = chart.slice(chart.indexOf("createPortal(\n            <svg"), chart.indexOf("strikePanelTarget,\n          )"));
+  assert.match(panelSvg, /onPointerMove=\{handlePanelPointerMove\}/);
+  assert.match(panelSvg, /onPointerLeave=\{handlePanelPointerLeave\}/);
+  assert.match(panelSvg, /onPointerUp=\{handlePanelPointerUp\}/);
+  assert.match(panelSvg, /\{panelGuide\}/);
+  // Snapped to a strike on the panel, off the rows the rail draws.
+  assert.match(chart, /const inView = panelRows\.filter\(\(r\) => r\.price >= railDomain\.min && r\.price <= railDomain\.max\);/);
+  assert.match(chart, /nearestStrike\(inView, panelHover\.price\)/);
+  assert.match(chart, /if \(!snapshot\) return railStrikes;/);
+  // The pointer's y maps through the panel's own viewBox, which is in the
+  // chart's y units, so the tape's scale reads it directly.
+  assert.match(chart, /layout\.priceForY\(panelVb\.y \+ \(y \/ rect\.height\) \* panelVb\.h\)/);
+  // Rendered into the panel, placed from its measured size, and only while
+  // the rail is panelled: the inline rail keeps the tape's own crosshair.
+  assert.match(chart, /inPanel && strikePanelTarget && panelHover && panelCard\s*\?\s*createPortal\(\s*<PanelReadout/);
+  assert.match(chart, /readoutPlacement\(pointer, panel, \{ width: el\.offsetWidth, height: el\.offsetHeight \}, pinned\)/);
+  assert.match(chart, /if \(!inPanel \|\| !panelHover \|\| !railDomain\) return null;/);
+  // A finger's lift reads as a pointer leaving; it must not take the card down.
+  assert.match(chart, /if \(e\.pointerType !== "touch"\) setPanelHover\(null\);/);
+});
+
 // ── The public, delayed view ────────────────────────────────────────────────
 // The whole premise of /chart is that an anonymous visitor gets the real
 // instrument on ~15-minute-delayed SERVER data and the browser makes no API
