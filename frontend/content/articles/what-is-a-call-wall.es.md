@@ -12,7 +12,7 @@ Un **call wall** es el strike por encima del spot que concentra la mayor exposic
 
 El significado de call wall, en una frase: no es un número redondo ni una línea en el gráfico - es posicionamiento real, open interest ponderado por el gamma que carga cada contrato. El strike único donde ese gamma call es más denso por encima del precio actual es el call wall.
 
-Su espejo por debajo del spot es el [put wall](/education/what-is-a-put-wall), el strike con mayor gamma put, que tiende a servir de piso a la baja. Juntos, los dos walls dibujan el rango que la mecánica de cobertura de los dealers defiende. Este artículo trata específicamente el call wall - qué es, por qué actúa como resistencia, cómo se mueve, y cuándo una ruptura a través de él realmente importa. Para el panorama completo, combínalo con [Gamma Walls Explained](/education/gamma-walls-explained) y el [pilar de Gamma Exposure](/education/gamma-exposure-explained).
+El [put wall](/education/what-is-a-put-wall) es la mayor magnitud de gamma put por debajo del spot, pero no es un espejo mecánico: bajo la convención, ese inventario local de puts se modela como gamma negativo. Ambos walls son referencias estructurales cuyo comportamiento depende del perfil completo y del flujo. Este artículo trata específicamente el call wall - qué es, por qué actúa como resistencia, cómo se mueve, y cuándo una ruptura a través de él realmente importa. Para el panorama completo, combínalo con [Gamma Walls Explained](/education/gamma-walls-explained) y el [pilar de Gamma Exposure](/education/gamma-exposure-explained).
 
 ---
 
@@ -20,7 +20,7 @@ Su espejo por debajo del spot es el [put wall](/education/what-is-a-put-wall), e
 
 El mecanismo es la cobertura de los dealers. En un régimen de **gamma positivo** - spot por encima del [gamma flip](/education/how-to-read-a-gamma-flip) - los dealers están netos largos en gamma, y los desks que mantienen las calls pesadas en el strike del call wall están largos en esas calls (los clientes hicieron overwriting de ellas). Para mantenerse delta-neutrales deben **vender** el subyacente a medida que el precio sube hacia el strike, porque una posición larga en calls adquiere un delta cada vez más positivo a medida que el mercado sube.
 
-Esa venta es la resistencia. A medida que el precio sube hacia un strike call denso, el reflejo de cobertura se intensifica - un pequeño movimiento al alza obliga a una venta de cobertura relativamente mayor de vuelta hacia abajo. Los repuntes se venden, y el avance se estanca. No porque el número sea mágico, sino porque la cobertura es mecánica.
+Esa venta es lo que puede crear la resistencia. A medida que el precio sube hacia un strike call denso, el reflejo de cobertura tiende a intensificarse - un pequeño movimiento al alza puede requerir una venta de cobertura relativamente mayor de vuelta hacia abajo. Los repuntes se venden, y el avance puede estancarse. No porque el número sea mágico, sino porque la cobertura modelada va en contra del movimiento.
 
 Algunas consecuencias del mecanismo:
 
@@ -34,10 +34,10 @@ Algunas consecuencias del mecanismo:
 
 Los dos walls son opuestos simétricos:
 
-|Wall|Dónde|Cobertura del dealer en gamma positivo|Comportamiento típico|
+|Wall|Dónde|Cobertura modelada del dealer en gamma positivo|Comportamiento en ese régimen|
 |---|---|---|---|
-|Call wall|Mayor gamma call por encima del spot|Vende mientras el precio sube hacia él|Resistencia / techo alcista|
-|Put wall|Mayor gamma put por debajo del spot|Compra mientras el precio baja hacia él|Soporte / piso bajista|
+|Call wall|Mayor gamma call por encima del spot|Tiende a vender a medida que el precio sube hacia él|Puede actuar como resistencia / techo|
+|Put wall|Mayor magnitud de gamma put por debajo del spot|Gamma modelado del dealer localmente negativo|Puede coincidir con soporte o con aceleración, según el perfil completo y el flujo|
 
 Ninguno de los dos es direccional en sí mismo, y el tipo de opción por sí solo no determina el comportamiento. El call wall no es una "señal de venta" - es un nivel de concentración cuyo efecto depende de en qué lado del gamma flip te encuentres. Por encima del flip, la cobertura en torno al call wall va en contra de un rally. Por debajo, en gamma negativo, la cobertura acompaña al movimiento, así que, si cede, el mismo strike puede invertirse y pasar de techo a acelerador de breakout. El lado del flip cambia ese comportamiento, no la frecuencia con la que el wall se rompe.
 

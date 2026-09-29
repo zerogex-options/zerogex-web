@@ -100,7 +100,7 @@ Hacia las 13:00 ET, SPX ha resbalado a 5.806 y el flip ha derivado hacia arriba 
 
 El playbook cambia. El setup de desvanecer el rally que estaba activo en la apertura ya no tiene soporte estructural; una continuación al alza es posible si el Net GEX se vuelve negativo. El tamaño de posición debería reducirse; el trade por defecto es no operar hasta que el régimen se resuelva.
 
-A las 14:30 ET, el Net GEX ha pasado a −$200 millones y SPX ha subido a 5.815. Este es ahora un régimen short-gamma - el reflejo del dealer está amplificando, y el call wall en 5.820 ya no es resistencia estructural; es un objetivo de breakout. El trade de desvanecer el breakout está *descartado*; si el setup es correcto, la persecución del movimiento se convierte en la jugada.
+A las 14:30 ET, el Net GEX ha pasado a −$200 millones y SPX ha subido a 5.815. Este es ahora un régimen short-gamma modelado - se supone que el reflejo del dealer amplifica - así que, si el call wall en 5.820 cede, la cobertura se suma a la ruptura en lugar de oponerse a ella. En nuestra medición, el régimen no cambió la frecuencia con la que se rompieron los walls, así que 5.820 no tiene menos probabilidades de aguantar que en la apertura; lo que ha cambiado es el coste de equivocarse. Un fade fallido ahora puede irse más lejos, así que el trade de desvanecer el breakout pierde su colchón, y si el setup es correcto, la persecución del movimiento tiene la cobertura a su favor.
 
 Mismo gráfico, tres playbooks distintos a lo largo de la sesión - impulsados enteramente por la variable de régimen.
 

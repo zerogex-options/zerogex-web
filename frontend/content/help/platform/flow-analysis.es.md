@@ -67,7 +67,7 @@ Para una explicación más profunda de por qué el volumen bruto puede engañar,
 ## Cuándo esta página es más útil
 
 - **Justo después de la apertura** - los primeros 30 minutos dicen mucho sobre el sesgo del día.
-- **En cualquier nivel clave** - el flujo hacia un wall o el VWAP indica si el nivel se está defendiendo o rompiendo.
+- **En cualquier nivel clave** - el flujo hacia un wall o el VWAP muestra quién está presionando el nivel. En nuestro estudio de 737 pruebas de walls, el flujo con signo en el strike del wall no predijo qué walls se romperían, así que léelo como contexto, no como un veredicto.
 - **Hacia el cierre** - combinado con EOD Pressure, la lectura del flujo afina la señal direccional.
 
 ## Ver también

@@ -36,11 +36,11 @@ La causa estructural dominante es **el hedging long-gamma de los dealers en stri
 
 Así es la cadena:
 
-1. Los clientes venden muchas calls en un strike determinado (digamos, el strike SPX 5.850) - overwriting y venta de calls. Los dealers compran esas calls.
-2. Para mantenerse delta-neutrales, los dealers deben mantener una cantidad correspondiente de delta corto en el subyacente - es decir, están cortos en relación con la exposición a las calls. A medida que el spot sube hacia 5.850, su exposición en opciones acumula delta positivo que deben compensar *vendiendo* el subyacente.
-3. Cuanto más se acerca el spot a 5.850, más se concentra la gamma - y más subyacente deben vender los dealers por cada tick de movimiento del precio para mantenerse neutrales.
-4. Esa venta actúa como oferta estructural. No tiene que provenir de un solo lugar - es el agregado de cada dealer cubriéndose de la misma manera.
-5. Cuando el precio intenta romper 5.850, los dealers se ven obligados a vender exactamente en el momento en que los perseguidores están comprando. La oferta gana.
+1. Los clientes venden muchas calls en un strike determinado (digamos, el strike SPX 5.850) - overwriting y venta de calls. Se modela que los dealers compran esas calls, lo que los deja largos en esa gamma.
+2. Para mantenerse delta-neutrales, los dealers mantienen una cantidad correspondiente de delta corto en el subyacente - es decir, están cortos en relación con la exposición a las calls. A medida que el spot sube hacia 5.850, su exposición en opciones acumula delta positivo que tienden a compensar *vendiendo* el subyacente.
+3. Cuanto más se acerca el spot a 5.850, más se concentra la gamma - y más subyacente tienden a vender los dealers por cada tick de movimiento del precio para mantenerse neutrales.
+4. Esa venta puede actuar como oferta estructural. No tiene que provenir de un solo lugar - es el agregado de los dealers que, según el modelo, se cubren de la misma manera.
+5. Cuando el precio intenta romper 5.850, los dealers tienden a vender en el mismo movimiento en el que compran los perseguidores - y esa oferta puede acabar imponiéndose.
 
 Esto es lo que la gente quiere decir cuando afirma que "el call wall absorbió el breakout". El wall es posicionamiento real; la absorción es una operación de hedging real. Ambos son observables en tiempo real.
 

@@ -34,12 +34,12 @@ Por encima del flip, los dealers generalmente están net long gamma. Para manten
 
 Consecuencias prácticas que los traders observan en el tape:
 
-- **La volatilidad realizada tiende a comprimirse.** Los breakouts se estancan con más frecuencia y son faded.
+- **La volatilidad realizada tiende a comprimirse.** La cobertura se opone a los empujes en cualquier dirección, incluidos los empujes hacia los walls.
 - **El pin behavior se vuelve más probable.** El precio tiende a gravitar hacia strikes con fuerte concentración de gamma, especialmente hacia el cierre.
-- **Los setups de mean-reversion tienen una tasa de acierto más alta.** Fadear rallies hacia un [call wall](/education/gamma-walls-explained), comprar dips cerca de un put wall, y las estructuras de short-premium se benefician todas del reflejo amortiguador.
-- **El trend-following tiene una tasa de acierto más baja.** Los breakouts que se ven limpios en un gráfico de 5 minutos a menudo no logran extenderse.
+- **Los setups de mean-reversion tienen la cobertura a su favor.** Fadear rallies hacia un [call wall](/education/gamma-walls-explained), comprar dips cerca de un put wall y las estructuras de short-premium se apoyan todas en el reflejo amortiguador.
+- **El trend-following tiene la cobertura en contra.** Un breakout que se ve limpio en un gráfico de 5 minutos se topa con un libro de los dealers que se inclina en sentido contrario.
 
-Nada de esto es una garantía. Shocks macro, la mecánica de OpEx, o un flip-cross a la baja pueden anular el régimen a mitad de sesión. Como inclinación base, sin embargo, el comportamiento por encima del flip tiende hacia la calma.
+Nada de esto es una garantía. Shocks macro, la mecánica de OpEx, o un flip-cross a la baja pueden anular el régimen a mitad de sesión. Como inclinación base, sin embargo, el comportamiento por encima del flip tiende hacia la calma. Lo que el régimen no cambia es la frecuencia con la que ceden los walls: en nuestra medición de 737 pruebas de walls, los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora a ambos lados del flip ([¿Con qué frecuencia se rompen realmente los gamma walls?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -49,10 +49,10 @@ Por debajo del flip, los dealers generalmente están net short gamma. Para mante
 
 Consecuencias prácticas:
 
-- **La volatilidad realizada tiende a expandirse.** Los breakouts tienen más continuidad; los selloffs se aceleran.
+- **La volatilidad realizada tiende a expandirse.** Una ruptura que sí llega a producirse tiene la cobertura a su favor; los selloffs pueden acelerarse.
 - **El pin behavior se rompe.** Los strikes que magnetizaban el precio por encima del flip empiezan a liberarlo.
-- **La continuación de tendencia tiene una tasa de acierto más alta.** El momentum tiende a extenderse en lugar de desvanecerse.
-- **El mean-reversion se vuelve peligroso.** Atrapar un cuchillo cayendo en un régimen de gamma negativa profunda tiende a agravar las pérdidas, porque el reflejo del dealer con el que contarías (comprar la debilidad) es precisamente el reflejo que acaba de invertirse.
+- **La continuación de tendencia tiene la cobertura a su favor.** El momentum puede extenderse en lugar de desvanecerse.
+- **El mean-reversion se vuelve peligroso.** Atrapar un cuchillo cayendo en un régimen de gamma negativa profunda puede agravar las pérdidas, porque el reflejo del dealer con el que contarías (comprar la debilidad) es precisamente el reflejo que acaba de invertirse.
 
 Esto también es una inclinación probabilística, no un pronóstico. Un solo titular tranquilo puede calmar el tape dentro del mismo régimen. Pero saber que estás en territorio short-gamma debería cambiar qué trades tomas y - lo que es más importante - cuáles evitas.
 
@@ -87,7 +87,7 @@ Un ejemplo práctico. Supongamos que el SPX cotiza en 5.830 y el dashboard muest
 - **Gamma Flip:** 5.815
 - **Distancia:** +15 / +0,26%
 
-La lectura: el spot está en territorio long-gamma, cómodamente por encima del flip. La cifra principal de Net GEX es coherente con el régimen - positiva, porque es el valor de esa misma curva de gamma de los dealers evaluada en el spot, y esa curva solo se vuelve positiva una vez que se ha cruzado por encima del flip. (Esa coherencia de signo es estructural a la forma en que ZeroGEX calcula el perfil.) Inclinación práctica: volatilidad amortiguada, breakouts con más probabilidad de ser faded, pin behavior hacia los strikes de fuerte gamma sobre la mesa de cara al cierre.
+La lectura: el spot está en territorio long-gamma modelado, cómodamente por encima del flip. La cifra principal de Net GEX - gamma estimada de los dealers según la convención tradicional call-positivo / put-negativo, no un inventario observado - es coherente con el régimen: positiva, porque es el valor de esa misma curva de gamma modelada evaluada en el spot, y en este libro esa curva se vuelve positiva por encima del flip. (Esa coherencia de signo es estructural a la forma en que ZeroGEX calcula el perfil.) Inclinación práctica: volatilidad amortiguada, cobertura que se opone a los breakouts, pin behavior hacia los strikes de fuerte gamma sobre la mesa de cara al cierre.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 

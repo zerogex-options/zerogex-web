@@ -55,11 +55,11 @@ Lo que hace el reflejo:
 Cómo tiende a verse el tape:
 
 - Rangos más amplios, breakouts más rápidos.
-- Movimientos de continuación más frecuentes que las reversiones.
-- Las entradas de mean-reversion contra la tendencia suelen ser arrolladas.
-- Las primas de opciones del mismo día tienden a expandirse intradía en lugar de comprimirse.
+- El riesgo de continuación puede ser mayor de lo que implicaría un modelo de gamma larga.
+- Las entradas de mean-reversion pueden encontrarse con un flujo de cobertura modelado que refuerza el movimiento.
+- Los movimientos direccionales y los cambios de volatilidad implícita pueden compensar el rápido decaimiento theta; el comportamiento de las primas no lo determina solo el signo de la gamma.
 
-La inclinación práctica en un régimen 0DTE de gamma corta es **a favor del movimiento, no en contra**. Los setups de continuación de tendencia suelen tener mejores tasas de acierto; ir contra la tendencia hacia la concentración 0DTE es luchar estructuralmente contra el reflejo de los dealers.
+La inclinación práctica en un régimen 0DTE de gamma corta es **a favor del movimiento, no en contra**. Los setups de continuación de tendencia pueden ser más coherentes con el reflejo de cobertura modelado; es una inclinación condicional de estructura de mercado, no una afirmación demostrada sobre la tasa de acierto.
 
 ---
 
@@ -79,8 +79,8 @@ Cómo tiende a verse el tape:
 
 - Rangos más ajustados, más chop, más breakouts fallidos.
 - Comportamiento de atracción hacia el strike más pesado, especialmente después de las 14:00 ET.
-- Las primas de opciones del mismo día tienden a desinflarse.
-- Los setups de mean-reversion tienden a tener mejores tasas de acierto que los de continuación de tendencia.
+- El rápido decaimiento theta puede pesar sobre las primas del mismo día, pero los movimientos del spot y de la volatilidad implícita pueden dominarlo.
+- Los setups de mean-reversion pueden ser más coherentes con el reflejo de cobertura modelado que los setups de continuación de tendencia.
 
 La inclinación práctica en un régimen 0DTE de gamma larga es **contra el breakout, con el pin**. Los rallies desvanecidos hacia el call wall, las compras en caídas hacia el put wall y las estructuras de prima corta se benefician todas del reflejo amortiguador.
 
@@ -93,15 +93,15 @@ Algunos hábitos que cambian entre los dos regímenes:
 **En un régimen 0DTE de gamma negativa:**
 
 - Toma más en serio los breakouts del rango reciente, especialmente cuando el Net GEX es grande y negativo.
-- Trata los walls 0DTE como objetivos, no como techos.
+- No trates los walls 0DTE como techos: si uno cede, la cobertura se suma al movimiento en lugar de oponerse a él.
 - Sé escéptico ante los setups de "esto va a hacer pin" - el reflejo de los dealers no está tirando.
-- Dimensiona para stops más amplios; la volatilidad realizada es estructuralmente más alta.
+- Si medidas de volatilidad independientes confirman una sesión de rango más amplio, dimensiona el riesgo en consecuencia; el signo modelado de la gamma no prescribe por sí solo un stop.
 
 **En un régimen 0DTE de gamma positiva:**
 
 - Por defecto, apuesta a desvanecer los movimientos hacia strikes concentrados en 0DTE.
 - Trata el strike de mayor gamma como un imán, especialmente hacia el cierre.
-- Sé escéptico ante los breakouts - fallan con más frecuencia.
+- Sé escéptico ante los breakouts - la cobertura se está oponiendo a ellos, y los breakouts fallidos pueden tardar diez o quince minutos en deshacerse.
 - Stops más ajustados son más razonables; los rangos están más contenidos.
 
 **En cualquier régimen:**
