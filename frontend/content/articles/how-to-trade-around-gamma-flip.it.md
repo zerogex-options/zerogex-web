@@ -100,7 +100,7 @@ Alle 13:00 ET, SPX è scivolato a 5.806 e il flip è salito a 5.803 - i due son
 
 Il playbook cambia. Il setup di fade-the-rally che era attivo all'apertura non è più supportato strutturalmente; una continuazione al rialzo è possibile se il Net GEX diventa negativo. La size della posizione dovrebbe ridursi; il trade di default è nessun trade finché il regime non si risolve.
 
-Alle 14:30 ET, il Net GEX è passato a −200 milioni di dollari e SPX è salito a 5.815. Questo è ora un regime short-gamma - il riflesso del dealer sta amplificando, e il call wall a 5.820 non è più resistenza strutturale; è un target di breakout. Il trade fade-the-breakout è *fuori gioco*; se il setup è corretto, l'inseguimento diventa la giocata.
+Alle 14:30 ET, il Net GEX è passato a −200 milioni di dollari e SPX è salito a 5.815. Questo è ora un regime short-gamma modellato - si assume che il riflesso del dealer amplifichi - quindi, se il call wall a 5.820 cede, l'hedging rafforza la rottura invece di opporvisi. Nella nostra misurazione il regime non ha cambiato la frequenza con cui i wall si sono rotti, quindi non è meno probabile che 5.820 tenga rispetto all'apertura; ciò che è cambiato è il costo dell'errore. Ora, con un fade fallito, il prezzo può spingersi più lontano, quindi il trade fade-the-breakout perde il suo cuscinetto e, se il setup è corretto, l'inseguimento ha l'hedging dalla sua parte.
 
 Stesso grafico, tre playbook diversi nell'arco della sessione - guidati interamente dalla variabile di regime.
 

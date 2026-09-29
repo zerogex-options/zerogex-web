@@ -108,10 +108,10 @@ Sopra il gamma flip, i dealer sono generalmente net long gamma. Per restare delt
 
 - Comprimere la volatilità realizzata.
 - Tirare il prezzo verso gli strike con forte concentrazione di gamma, specialmente verso la chiusura.
-- Rendere più difficile sostenere i breakout.
-- Rendere più affidabili i setup di mean-reversion.
+- Opporsi ai breakout.
+- Mettere l'hedging a sostegno dei setup di mean-reversion.
 
-Il carattere del mercato è **range-bound e assorbente**. Il comportamento di pinning è più probabile, specialmente vicino all'OPEX e verso la chiusura del mercato cash. Le strategie short-premium tendono a funzionare più spesso. I setup trend-following hanno un tasso di successo più basso.
+Il carattere del mercato è **range-bound e assorbente**. Il comportamento di pinning è più probabile, specialmente vicino all'OPEX e verso la chiusura del mercato cash. Le strategie short-premium tendono a funzionare più spesso. I setup trend-following hanno contro l'hedging.
 
 ### Regime di gamma negativo
 
@@ -257,7 +257,7 @@ Un esempio pratico. Supponiamo che SPX sia a 5.830 e la dashboard mostri:
 - **Call Wall:** 5.850
 - **Put Wall:** 5.790
 
-La lettura composita: lo spot è comodamente in territorio long-gamma ($20 sopra il flip), il Net GEX è un numero positivo consistente che indica una magnitudine reale nel book dei dealer, e il range dei wall è asimmetrico con il call wall più vicino rispetto al put wall. L'inclinazione pratica: regime di volatilità smorzata, mercato favorevole alla mean-reversion, breakout più propensi a esaurirsi che a estendersi, e comportamento di pinning verso la forte concentrazione di gamma possibile verso la chiusura. Niente di tutto questo è un segnale di trade - è lo sfondo strutturale rispetto al quale dovrebbe essere calibrato ogni altro strumento che usi.
+La lettura composita: lo spot è comodamente in territorio long-gamma ($20 sopra il flip), il Net GEX è un numero positivo consistente che indica una magnitudine reale nel book dei dealer, e il range dei wall è asimmetrico con il call wall più vicino rispetto al put wall. L'inclinazione pratica: regime di volatilità smorzata, mercato favorevole alla mean-reversion e un possibile comportamento di pinning verso la forte concentrazione di gamma in prossimità della chiusura. Niente di tutto questo è un segnale di trade - è lo sfondo strutturale rispetto al quale dovrebbe essere calibrato ogni altro strumento che usi.
 
 ![Grafico del profilo per strike di ZeroGEX con la curva del gamma dei dealer, la linea del flip e i wall evidenziati](/blog/zerogex-strike-profile-overview.png)
 

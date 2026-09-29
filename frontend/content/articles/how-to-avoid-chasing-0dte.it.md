@@ -48,7 +48,7 @@ Apri il pannello del flusso. Se il rapporto put/call sul premio è già 3:1 sul 
 
 ### Trigger 3: È tardi nella giornata e il movimento va verso un livello chiave
 
-Dopo le 14:00 ET, il decadimento del charm accelera e il riflesso dei dealer intorno allo strike 0DTE più pesante si intensifica. Inseguire un movimento a fine giornata che si dirige verso il call wall (o si allontana dal put wall) significa comprare esattamente dove l'hedging dei dealer è strutturalmente predisposto a farti fade. Il segnale EOD Pressure esiste specificamente per segnalare questo regime - vedi [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+Dopo le 14:00 ET, gli effetti modellati del charm tendono ad accumularsi e il riflesso dei dealer intorno allo strike 0DTE più pesante può intensificarsi. Inseguire un movimento a fine giornata che si dirige verso il call wall (o si allontana dal put wall) può significare comprare proprio dove l'hedging dei dealer ti rema contro anziché a favore. Il segnale EOD Pressure è pensato per segnalare questo regime - vedi [EOD Pressure Signal Explained](/education/eod-pressure-explained).
 
 ---
 
@@ -56,10 +56,10 @@ Dopo le 14:00 ET, il decadimento del charm accelera e il riflesso dei dealer int
 
 Quando arriva l'impulso a inseguire, esegui questa checklist:
 
-1. **Qual è il regime gamma?** Spot sopra il flip (long-gamma) → le fade funzionano, gli inseguimenti falliscono. Spot sotto il flip (short-gamma) → gli inseguimenti funzionano, le fade falliscono. Se non conosci il regime, stai tirando a indovinare.
+1. **Qual è il regime gamma?** Spot sopra il flip modellato (long-gamma) → l'hedging si oppone al movimento che stai inseguendo. Spot sotto il flip (short-gamma) → l'hedging lo asseconda. Questo ti dice da che parte pende il flusso dei dealer, non se il movimento reggerà: nella nostra misurazione su 737 test di wall, i wall non si sono rotti più spesso sotto il flip che sopra. Se non conosci il regime, non sai da che parte pende l'hedging.
 2. **Dov'è il wall più vicino?** Se stai inseguendo una call verso il call wall in un regime long-gamma, la spinta strutturale è *contro* l'inseguimento. Se stai inseguendo verso spazio aperto senza wall tra lo spot attuale e il target dell'inseguimento, la spinta strutturale è neutra - setup migliore.
-3. **Il Net GEX si sta rafforzando o indebolendo?** Il rafforzamento in un regime long-gamma significa che il riflesso di assorbimento si sta intensificando - inseguire = trappola per fade trader. L'indebolimento significa che il riflesso di assorbimento si sta indebolendo - l'inseguimento ha più spazio.
-4. **Che ora del giorno è?** Prima di mezzogiorno ET, il charm sulle 0DTE è basso e il riflesso dei dealer è attenuato. Dopo le 14:00 ET, i flussi di charm si accumulano. Gli inseguimenti di fine giornata verso la struttura sono la versione peggiore della trappola.
+3. **Il Net GEX si sta rafforzando o indebolendo?** Il rafforzamento in un regime long-gamma suggerisce che il riflesso di assorbimento si sta intensificando; l'indebolimento suggerisce che si sta attenuando. Questo descrive l'hedging, non le probabilità - nella nostra misurazione, la traiettoria del Net GEX non ha permesso di prevedere quali wall si sarebbero rotti.
+4. **Che ora del giorno è?** Prima di mezzogiorno ET, il charm modellato sulle 0DTE è basso e il riflesso dei dealer tende a essere attenuato. Dopo le 14:00 ET, l'hedging modellato legato al charm tende ad accumularsi. Gli inseguimenti di fine giornata verso la struttura sono spesso la versione peggiore della trappola.
 5. **Il contratto ha già fatto 3x?** Se sì, non stai catturando un movimento - stai pagando per il movimento già avvenuto. Il prossimo movimento atteso include una probabilità significativa di mean-reversion.
 
 Se la maggior parte di questi elementi punta contro l'inseguimento, la disciplina impone di saltare il trade. Non "aspetta un entry migliore" - salta. L'inseguimento 0DTE che ha funzionato una volta su dieci è il survivorship bias che tiene in vita l'abitudine.
@@ -70,13 +70,13 @@ Se la maggior parte di questi elementi punta contro l'inseguimento, la disciplin
 
 L'inseguimento non è sempre sbagliato. Il trade di momentum 0DTE *può* funzionare quando:
 
-- Lo spot è in un **regime negative-gamma** (sotto il flip). Il riflesso dei dealer amplifica, non smorza. Il momentum si estende.
-- **Il Net GEX è piccolo o negativo.** La fade strutturale è debole o invertita.
-- C'è un **catalizzatore reale** attivo (sorpresa sul CPI, reazione al FOMC, notizia geopolitica). Il flusso guidato dal catalizzatore sovrasta il riflesso strutturale.
+- Lo spot è in un **regime negative-gamma** (sotto il flip). L'hedging dei dealer tende ad amplificare anziché smorzare. Il momentum può estendersi.
+- **Il Net GEX è piccolo o negativo.** La fade strutturale tende a essere debole o invertita.
+- C'è un **catalizzatore reale** attivo (sorpresa sul CPI, reazione al FOMC, notizia geopolitica). Il flusso guidato dal catalizzatore può sovrastare il riflesso strutturale.
 - Il movimento è **all'inizio della sessione** (prima dell'accumulo di charm).
 - Il contratto non ha già fatto il suo movimento completo - stai catturando il primo 30% del range della giornata, non l'ultimo 30%.
 
-Queste sono le condizioni per un trade di breakout 0DTE con probabilità reale. Sono l'inverso del tipico trigger "voglio inseguire questo".
+Queste sono le condizioni in cui un breakout 0DTE ha dietro di sé qualcosa oltre alla voglia di inseguire - anche se il regime, l'unica condizione strutturale qui, nella nostra misurazione non ha reso più probabile la rottura dei wall. Sono l'inverso del tipico trigger "voglio inseguire questo".
 
 ---
 

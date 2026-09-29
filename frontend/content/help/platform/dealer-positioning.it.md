@@ -60,7 +60,7 @@ Le linee di riferimento segnano lo spot, il flip ed entrambi i wall. Ogni barra 
 
 ### Call Wall / Put Wall
 
-Gli strike con il maggior gamma lato call e lato put. Spesso agiscono come frizione intraday - ma il tipo di opzione da solo non fissa la direzione; che un wall si comporti da resistenza, supporto, magnete o acceleratore dipende dal segno modellato del gamma dei dealer e dal flusso circostante. Il comportamento da "muro" è più netto quando i dealer sono, secondo il modello, long gamma.
+Gli strike con il maggior gamma lato call e lato put. Spesso agiscono come frizione intraday - ma il tipo di opzione da solo non fissa la direzione; che l'hedging su un wall si opponga a un movimento o lo rafforzi dipende dal segno modellato del gamma dei dealer e dal flusso circostante. Quanto spesso un wall tenga davvero, invece, non ne è dipeso: nel nostro studio su 737 test di wall, i wall dell'S&P hanno tenuto circa due volte su tre entro un'ora e quelli del Nasdaq circa la metà delle volte, da qualunque lato del flip si trovasse il prezzo.
 
 ## Il grafico Open Interest by Strike
 
@@ -98,7 +98,7 @@ Il flip è calcolato a partire da un **profilo del gamma dei dealer a spot shift
 
 ## Letture comuni
 
-- **Spot ben sopra il flip, call wall vicino sopra** ⇒ pin verso la chiusura, fade delle estensioni.
+- **Spot ben sopra il flip, call wall vicino sopra** ⇒ l'hedging si oppone a una spinta oltre il wall; la pressione di pin può aumentare verso la chiusura.
 - **Spot sotto il flip, put wall vicino sotto** ⇒ bias trend; ci si aspetta amplificazione in caso di rottura.
 - **Spot vicino al flip con volatilità in salita** ⇒ rischio di cambio di regime; ridurre la size o attendere.
 - **Concentrazione della heatmap sugli strike call 0DTE vicino allo spot** ⇒ pressione di pin verso la chiusura.
