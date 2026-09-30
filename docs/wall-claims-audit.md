@@ -93,7 +93,7 @@ The translators rewrote every block this branch changed. Along the way they foun
 
 - `gamma-walls-explained` (all four languages): blocks 3-5 still hold the old "What is a gamma wall?" intro. Blocks 26-27 hold the migration section's heading, so the Width and Asymmetry paragraphs sit under the wrong heading and that heading appears twice. Block 41 repeats block 35 instead of translating "Two practical consequences".
 - `options-support-and-resistance.es.md` block 6 says "notablemente más fiable" (markedly more reliable) where the English says "tends to be more reliable".
-- Italian, French and German: several blocks say "must" or "only works" where the English now says "tend to" or "modeled".
+- All four languages: several blocks say "must" or "only works" where the English now says "tend to" or "modeled". In Spanish, for example: `gamma-walls-explained` blocks 9 and 22, `what-is-a-call-wall` block 9, `how-to-trade-around-gamma-flip` block 25 and `options-support-and-resistance` blocks 19, 22 and 30.
 - `how-to-avoid-chasing-0dte.de.md` block 23 says a fade becomes "weit wahrscheinlicher" (far more likely) where the English says "more likely".
 - English loose ends in `what-is-a-call-wall.md`: block 15 calls the two walls "symmetric opposites" right after block 6 says the put wall "is not a mechanical mirror", and block 6 ends in a fragment ("under the convention that local put inventory is modeled negative gamma").
 - Fixed on this branch because it was in a changed block: `options-support-and-resistance` block 26 in Spanish and Italian was a stray copy of block 23, so those pages were missing the whole "Why does SPY reverse at these levels?" paragraph.
