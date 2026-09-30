@@ -62,7 +62,7 @@ C'est également une tendance probabiliste, pas une prévision. Un seul titre ra
 
 Lire le gamma flip en temps réel repose sur un court ensemble d'habitudes :
 
-1. **Vérifiez d'abord le régime.** Avant tout setup, sachez si le spot est au-dessus ou en dessous du flip. Cette seule lecture filtre une part significative des mauvais trades.
+1. **Vérifiez d'abord le régime.** Avant tout setup, sachez si le spot est au-dessus ou en dessous du flip. Cette seule lecture vous indique si la couverture joue avec vous ou contre vous.
 2. **Surveillez la distance au flip.** Un spot nettement éloigné du flip, avec une marge confortable, correspond à une lecture de régime stable. Un spot coincé à quelques dixièmes de pourcent correspond à un régime contesté - les deux côtés du carnet sont partiellement actifs, et le comportement est instable. Réduisez la taille ou restez à l'écart.
 3. **Surveillez la migration.** Les niveaux de flip se déplacent à mesure que le positionnement se rééquilibre. Un flip qui dérive vers le haut en même temps que le prix a une signification différente de celui qui reste ancré pendant que le prix se rapproche de lui.
 4. **Associez le flip aux walls.** Le flip indique le régime ; le [call wall et le put wall](/education/gamma-walls-explained) indiquent les limites structurelles à l'intérieur de ce régime. Lisez-les ensemble.

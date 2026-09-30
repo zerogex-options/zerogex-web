@@ -34,7 +34,7 @@ Trata el nivel como:
 - una gran concentración de gamma de puts;
 - una posible referencia de liquidez y posicionamiento;
 - un nivel que empíricamente puede comportarse como soporte; y
-- un nivel cuyo comportamiento depende de la gamma agregada y local más el flujo circundante.
+- un nivel cuya cobertura depende de la gamma agregada y local más el flujo circundante.
 
 ## Put Wall frente a Call Wall
 
@@ -82,7 +82,7 @@ Tras una rotura, el siguiente strike con más gamma de puts por debajo se convie
 
 Supón que el SPX está en 5.830, el Put Wall en 5.790, el Call Wall en 5.850 y el Net GEX modelado es positivo. El Put Wall identifica la mayor magnitud de gamma de puts por debajo del spot. **No** identifica por sí mismo una zona de compra. Un trader puede observar si la liquidez absorbe las ventas ahí, si el perfil de gamma agregado se mantiene estable, si el wall migra al cambiar los inputs y si el flujo direccional confirma o arrolla el nivel.
 
-Supón ahora que el SPX cae a 5.785 una hora después y que el gamma flip, publicado en 5.815, ha sido cruzado. Dos cosas cambiaron a la vez: la referencia del Put Wall falló y el régimen modelado pasó a negativo. Lo segundo es lo que importa para la siguiente operación - el reflejo de cobertura que podría haber frenado la caída ahora está modelado para acompañarla, y la siguiente concentración de puts por debajo es la nueva referencia, no un objetivo de rebote.
+Supón ahora que el SPX cae a 5.785 una hora después y que el gamma flip, publicado en 5.815, ha sido cruzado. Dos cosas cambiaron a la vez: la referencia del Put Wall falló y el régimen modelado pasó a negativo. Lo segundo es lo que importa para la siguiente operación - el reflejo de cobertura que podría haber frenado la caída ahora está modelado para acompañarla, y la siguiente concentración de puts por debajo es la nueva referencia, no un nivel que la cobertura vaya a amortiguar.
 
 ## Cómo encontrar el Put Wall de hoy
 

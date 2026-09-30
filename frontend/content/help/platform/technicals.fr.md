@@ -30,7 +30,7 @@ Une liste continue, de la plus récente à la plus ancienne, qui confronte chaqu
 
 Trois configurations - les walls et le flip viennent de Dealer Positioning ou du Gamma Terminal :
 
-1. **Prix coincé entre le call wall et le put wall** en gamma positif ⇒ *tendance* au retour à la moyenne à l'intérieur du range. Les technicals confirment le range ; la page dealer en suggère la raison.
+1. **Prix entre le call wall et le put wall** en gamma positif ⇒ le hedging s'oppose aux mouvements vers l'un ou l'autre wall, un contexte de retour à la moyenne. Les technicals confirment le range ; la page dealer en suggère la raison.
 2. **Prix cassant sous le put wall** en gamma négatif avec l'IV en expansion ⇒ une poursuite de tendance *devient plus probable*. Les technicals montrent la cassure ; la page dealer explique l'amplification modélisée.
 3. **VWAP et gamma flip qui se superposent au même niveau** ⇒ un pivot structurel à surveiller. Les réactions à ce niveau *peuvent* avoir une conviction plus élevée qu'à l'un ou l'autre pris isolément.
 

@@ -49,17 +49,17 @@ Was der Reflex bewirkt:
 - Eine Aufwärtsbewegung führt tendenziell dazu, dass Dealer *kaufen*, was die Bewegung verstärkt.
 - Eine Abwärtsbewegung führt tendenziell dazu, dass Dealer *verkaufen*, was die Bewegung verstärkt.
 - Die realisierte Intraday-Volatilität tendiert zur Ausweitung.
-- Walls werden als Widerstand und Unterstützung unzuverlässiger - sie können sich in Breakout-Ziele umkehren.
+- Eine Wall, die nachgibt, kann sich in einen Beschleuniger umkehren, wobei das Hedging den Bruch verstärkt.
 - Pin-Verhalten nahe dem gewichtigsten 0DTE-Strike schwächt sich ab oder kehrt sich um.
 
 Wie das Tape typischerweise aussieht:
 
 - Größere Ranges, schnellere Breakouts.
-- Fortsetzungsbewegungen häufiger als Umkehrungen.
-- Mean-Reversion-Einstiege gegen den Trend werden häufig überrollt.
-- Prämien für Optionen mit Fälligkeit am selben Tag tendieren dazu, sich intraday auszuweiten statt zu komprimieren.
+- Das Fortsetzungsrisiko kann größer sein, als ein Long-Gamma-Modell nahelegen würde.
+- Mean-Reversion-Einstiege können auf verstärkenden modellierten Hedge-Flow treffen.
+- Gerichtete Bewegungen und Veränderungen der impliziten Volatilität können den raschen Theta-Zerfall ausgleichen; das Prämienverhalten wird nicht allein vom Gamma-Vorzeichen bestimmt.
 
-Die praktische Tendenz in einem Short-Gamma-0DTE-Regime ist **mit der Bewegung, nicht dagegen**. Trend-Fortsetzungs-Setups haben tendenziell höhere Trefferquoten; gegen den Trend in die 0DTE-Konzentration zu fahren bedeutet, strukturell gegen den Dealer-Reflex zu kämpfen.
+Die praktische Tendenz in einem Short-Gamma-0DTE-Regime ist **mit der Bewegung, nicht dagegen**. Trend-Fortsetzungs-Setups passen möglicherweise besser zum modellierten Hedge-Reflex; das ist eine bedingte Tendenz der Marktstruktur, keine belegte Aussage über Trefferquoten.
 
 ---
 
@@ -72,17 +72,17 @@ Was der Reflex bewirkt:
 - Eine Aufwärtsbewegung führt tendenziell dazu, dass Dealer *verkaufen*, was die Bewegung dämpft.
 - Eine Abwärtsbewegung führt tendenziell dazu, dass Dealer *kaufen*, was die Bewegung dämpft.
 - Die realisierte Intraday-Volatilität tendiert zur Kompression.
-- Walls verhalten sich eher wie echter Widerstand und echte Unterstützung.
+- Das Hedging rund um die Walls stemmt sich gegen Bewegungen auf sie zu.
 - Pin-Verhalten nahe dem gewichtigsten 0DTE-Strike verstärkt sich zum Handelsschluss hin.
 
 Wie das Tape typischerweise aussieht:
 
-- Engere Ranges, mehr Chop, mehr fehlgeschlagene Breakouts.
+- Engere Ranges und mehr Chop, wobei sich das Hedging gegen Breakouts stemmt.
 - Zug-zum-gewichtigsten-Strike-Verhalten, besonders nach 14:00 ET.
-- Prämien für Optionen mit Fälligkeit am selben Tag tendieren zum Nachgeben.
-- Mean-Reversion-Setups haben tendenziell höhere Trefferquoten als Trend-Fortsetzung.
+- Der rasche Theta-Zerfall kann auf Prämien für Optionen mit Fälligkeit am selben Tag lasten, aber Bewegungen von Spot und impliziter Volatilität können ihn überlagern.
+- Mean-Reversion-Setups passen möglicherweise besser zum modellierten Hedge-Reflex als Trend-Fortsetzungs-Setups.
 
-Die praktische Tendenz in einem Long-Gamma-0DTE-Regime ist **gegen den Breakout, mit dem Pin**. Verkaufte Rallyes in die Call Wall hinein, Dip-Käufe in die Put Wall hinein und Short-Prämien-Strukturen profitieren allesamt vom dämpfenden Reflex.
+Die praktische Tendenz in einem Long-Gamma-0DTE-Regime ist **gegen den Breakout, mit dem Pin**. Verkaufte Rallyes in die Call Wall hinein, Dip-Käufe in die Put Wall hinein und Short-Prämien-Strukturen stützen sich allesamt auf den dämpfenden Reflex.
 
 ---
 
@@ -92,16 +92,16 @@ Ein paar Gewohnheiten, die sich zwischen den beiden Regimen ändern:
 
 **In einem Negative-Gamma-0DTE-Regime:**
 
-- Nimm Breakouts der jüngsten Range ernster, besonders wenn Net GEX groß und negativ ist.
-- Behandle 0DTE-Walls als Ziele, nicht als Decken.
+- Gib Breakouts der jüngsten Range mehr Spielraum, besonders wenn Net GEX groß und negativ ist: Wenn ein Level nachgibt, verstärkt das Hedging die Bewegung.
+- Behandle 0DTE-Walls nicht als Decken: Wenn eine nachgibt, verstärkt das Hedging die Bewegung, statt sich gegen sie zu stemmen.
 - Sei skeptisch gegenüber "das wird pinnen"-Setups - der Dealer-Reflex zieht nicht.
-- Positioniere für weitere Stops; die realisierte Volatilität ist strukturell höher.
+- Wenn unabhängige Volatilitätsmaße eine Sitzung mit breiterer Range bestätigen, dimensioniere das Risiko entsprechend; das modellierte Gamma-Vorzeichen allein gibt keinen Stop vor.
 
 **In einem Positive-Gamma-0DTE-Regime:**
 
-- Setze standardmäßig auf das Verkaufen von Bewegungen in 0DTE-konzentrierte Strikes hinein.
+- Rechne damit, dass Bewegungen in 0DTE-konzentrierte Strikes hinein auf Hedging treffen, das sich gegen sie stemmt.
 - Behandle den gewichtigsten Gamma-Strike als Magneten, besonders zum Handelsschluss hin.
-- Sei skeptisch gegenüber Breakouts - sie scheitern häufiger.
+- Sei skeptisch gegenüber Breakouts - das Hedging stemmt sich gegen sie, und gescheiterte Breakouts können zehn oder fünfzehn Minuten brauchen, bis sie sich auflösen.
 - Engere Stops sind eher angemessen; die Ranges sind stärker begrenzt.
 
 **In jedem Regime:**
@@ -124,7 +124,7 @@ Das Dashboard zeigt an mehreren Stellen 0DTE-spezifische Lesarten:
 
 Ein durchgerechnetes Beispiel. Angenommen, SPX steht bei 5.825, Net GEX zeigt −800 Mio. USD, der Gamma Flip liegt bei 5.840, und die Heatmap zeigt einen gewichtigen 0DTE-Put-Strike bei 5.820, der den ganzen Morgen mit dem Preis nach unten gewandert ist. Die strukturelle Lesart: Dealer sind short in Gamma, der Spot liegt unter dem Flip, und der gewichtigste 0DTE-Strike folgt der Bewegung, statt sie zu halten.
 
-Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünstigt, wobei der wandernde Put-Strike die Abwärtsbewegung bestätigt statt ihr zu widerstehen. Ein Trader, der mit einem Mean-Reversion-Bias in die Sitzung gegangen ist, sollte hier deutlich vorsichtiger sein, weil die 0DTE-Struktur aktiv in die andere Richtung zeigt. Nichts davon ist ein Handelssignal - es ist Regime-Kontext, der beeinflussen sollte, welche Einstiege man ernst nimmt.
+Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünstigt, und der gewichtigste Put-Strike wandert mit dem Preis, sodass sich das Level, auf das sich ein Fade stützen würde, ständig verschiebt. Ein Trader, der mit einem Mean-Reversion-Bias in die Sitzung gegangen ist, sollte hier deutlich vorsichtiger sein, weil das Hedging mit der Bewegung läuft, statt sich gegen sie zu stemmen. Nichts davon ist ein Handelssignal - es ist Regime-Kontext, der beeinflussen sollte, welche Einstiege man ernst nimmt.
 
 ![ZeroGEX Net-GEX- und Gamma-Flip-Karten mit einer negativen Intraday-Gamma-Lesart](/blog/zerogex-net-gex-flip-card.png)
 
@@ -135,7 +135,7 @@ Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünsti
 Eine kurze Liste, wie 0DTE-Dealer-Positionierung falsch gelesen wird:
 
 - **Verwendung der Gesamt-OI-Gamma in einer 0DTE-dominierten Chain.** Wenn der größte Teil der heutigen Gamma 0DTE ist und du die aggregierte OI-Gamma liest, mittelst du in deiner Lesart ein fast verfallendes Buch mit einem weit entfernten Buch, das für das heutige Tape keine Rolle spielt.
-- **Walls in einem Negative-Gamma-Regime als dauerhaft behandeln.** Das sind sie nicht. Sie werden zu Breakout-Zielen.
+- **Einen Wall-Fade in beiden Regimen gleich dimensionieren.** Walls brachen in unserer Messung in beiden Regimen etwa gleich oft, aber bei negativem Gamma verstärkt das Hedging den Bruch, wenn eine Wall nachgibt, sodass ein gescheiterter Fade viel weiter laufen kann.
 - **Das Regime ignorieren und das Niveau handeln.** Spot an der Put Wall ist über dem Flip ein anderer Trade als darunter.
 - **Migration ignorieren.** Ein gewichtiger 0DTE-Strike, der sich in der letzten Stunde zweimal bewegt hat, ist eine andere Lesart als einer, der den ganzen Morgen statisch geblieben ist.
 - **0DTE-Pin-Verhalten als garantiert behandeln.** Es ist eine Tendenz, kein Versprechen. Katalysatoren und Flow-Schocks brechen den Pin regelmäßig.

@@ -35,8 +35,8 @@ Il net GEX è quotato in dollari - «$1.5B di gamma» - perché è scalato per
 
 Due casi, playbook opposti:
 
-- **Net GEX di SPX positivo (regime long-gamma).** I dealer sono net long gamma sullo spot. Vendono i rally e comprano i ribassi per hedgiarsi, il che *sopprime* la volatilità. Aspettati range più stretti, mean reversion, pinning verso gli strike pesanti e tentativi di rally che si fermano vicino al call wall. Una lettura positiva ampia è un segnale di "mercato tranquillo e laterale."
-- **Net GEX di SPX negativo (regime short-gamma).** I dealer sono net short gamma sullo spot. Comprano i rally e vendono i ribassi, il che *amplifica* la volatilità. Aspettati range più ampi, breakout che si estendono e trend che corrono. Una lettura negativa ampia è un segnale di "mercato veloce, in trend, rispetta gli stop." Questo è [cosa significa la gamma negativa](/education/what-is-negative-gamma) per il mercato.
+- **Net GEX di SPX positivo (regime long-gamma).** I dealer sono net long gamma sullo spot. Vendono i rally e comprano i ribassi per hedgiarsi, il che tende a *sopprimere* la volatilità. Aspettati range più stretti, più mean reversion, pinning verso gli strike pesanti e un hedging che si oppone ai rally verso il call wall. Una lettura positiva ampia è un segnale di "mercato tranquillo e laterale."
+- **Net GEX di SPX negativo (regime short-gamma).** I dealer sono net short gamma sullo spot. Comprano i rally e vendono i ribassi, il che tende ad *amplificare* la volatilità. Aspettati range più ampi, trend che corrono e un hedging che rafforza il breakout una volta che un wall cede. Una lettura negativa ampia è un segnale di "mercato veloce, in trend, rispetta gli stop." Questo è [cosa significa la gamma negativa](/education/what-is-negative-gamma) per il mercato.
 
 La lettura non è una direzione - è un *carattere*. Un net GEX positivo non dice "su," dice "appiccicoso." Uno negativo non dice "giù," dice "volatile."
 

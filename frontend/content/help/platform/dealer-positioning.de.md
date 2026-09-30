@@ -60,7 +60,7 @@ Referenzlinien markieren den Spot, den Flip und beide Walls. Jeder Balken ist na
 
 ### Call Wall / Put Wall
 
-Die Strikes mit dem größten Gamma auf der Call- bzw. Put-Seite. Sie wirken oft als intraday Reibung - aber der Optionstyp allein legt die Richtung nicht fest; ob eine Wall als Widerstand, Unterstützung, Magnet oder Beschleuniger wirkt, hängt vom modellierten Vorzeichen des Dealer-Gammas und vom umgebenden Flow ab. Am meisten „Wand“ ist eine Wall, wenn die Dealer modelliert long Gamma sind.
+Die Strikes mit dem größten Gamma auf der Call- bzw. Put-Seite. Sie wirken oft als intraday Reibung - aber der Optionstyp allein legt die Richtung nicht fest; ob sich das Hedging an einer Wall gegen eine Bewegung stemmt oder sie verstärkt, hängt vom modellierten Vorzeichen des Dealer-Gammas und vom umgebenden Flow ab. Wie oft eine Wall tatsächlich hält, hing davon nicht ab: In unserer Studie mit 737 Wall-Tests hielten S&P-Walls in etwa zwei von drei Fällen innerhalb einer Stunde und Nasdaq-Walls in etwa der Hälfte der Fälle, unabhängig davon, auf welcher Seite des Flips der Preis stand.
 
 ## Das Open-Interest-by-Strike-Chart
 
@@ -98,7 +98,7 @@ Der Flip wird aus einem **Spot-Shift-Dealer-Gamma-Profil** berechnet - nicht au
 
 ## Häufige Lesarten
 
-- **Spot deutlich über dem Flip, Call Wall knapp darüber** ⇒ Pin in den Schluss hinein, Fade von Extensions.
+- **Spot deutlich über dem Flip, Call Wall knapp darüber** ⇒ Hedging stemmt sich gegen einen Vorstoß durch die Wall; Pin-Druck kann sich in den Schluss hinein aufbauen.
 - **Spot unter dem Flip, Put Wall knapp darunter** ⇒ Trend-Bias; bei einem Bruch ist Verstärkung zu erwarten.
 - **Spot nahe am Flip bei steigender Vol** ⇒ Risiko eines Regimewechsels; Positionsgröße reduzieren oder abwarten.
 - **Heatmap-Konzentration auf 0DTE-Call-Strikes nahe dem Spot** ⇒ Pin-Druck in den Schluss hinein.

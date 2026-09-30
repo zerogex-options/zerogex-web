@@ -62,7 +62,7 @@ Anche questa è un'inclinazione probabilistica, non una previsione. Un singolo h
 
 Leggere il gamma flip in tempo reale è un breve set di abitudini:
 
-1. **Controlla prima il regime.** Prima di qualsiasi setup, sappi se lo spot è sopra o sotto il flip. Questa singola lettura filtra una quota significativa di trade sbagliati.
+1. **Controlla prima il regime.** Prima di qualsiasi setup, sappi se lo spot è sopra o sotto il flip. Questa singola lettura ti dice se l'hedging è dalla tua parte o contro di te.
 2. **Osserva la distanza dal flip.** Uno spot chiaramente distante dal flip con un margine sano è una lettura di regime stabile. Uno spot incastrato entro pochi decimi di punto percentuale è un regime conteso - entrambi i lati del book sono parzialmente attivi, e il comportamento è instabile. Riduci la size o resta a guardare.
 3. **Osserva la migrazione.** I livelli di flip si spostano man mano che il positioning si riequilibra. Un flip che deriva verso l'alto insieme al prezzo ha un significato diverso da uno ancorato mentre il prezzo si muove verso di esso.
 4. **Abbina il flip ai wall.** Il flip ti dice il regime; il [call wall e put wall](/education/gamma-walls-explained) ti dicono i confini strutturali al suo interno. Leggili insieme.

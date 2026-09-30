@@ -30,7 +30,7 @@ Eine laufende Liste, neueste zuerst, die jede 5-Minuten-Kursbewegung mit dem Opt
 
 Drei Muster - die Walls und der Flip kommen von Dealer Positioning oder vom Gamma Terminal:
 
-1. **Preis zwischen Call Wall und Put Wall gefangen** in positivem Gamma ⇒ *Tendenz* zu Mean Reversion innerhalb der Range. Die Technicals bestätigen die Range; die Dealer-Seite legt das Warum nahe.
+1. **Preis zwischen Call Wall und Put Wall** in positivem Gamma ⇒ das Hedging stemmt sich gegen Bewegungen in Richtung einer der beiden Walls, ein Mean-Reversion-Umfeld. Die Technicals bestätigen die Range; die Dealer-Seite legt das Warum nahe.
 2. **Preis bricht unter die Put Wall** in negativem Gamma bei steigender IV ⇒ eine Trendfortsetzung *wird wahrscheinlicher*. Die Technicals zeigen den Bruch; die Dealer-Seite erklärt die modellierte Verstärkung.
 3. **VWAP und Gamma Flip stapeln sich auf demselben Level** ⇒ ein struktureller Pivot, den man beobachten sollte. Reaktionen dort *können* mehr Überzeugungskraft haben als an einem der beiden allein.
 

@@ -34,12 +34,12 @@ Oberhalb des Flips sind Dealer in der Regel net long Gamma. Um delta-neutral zu 
 
 Praktische Konsequenzen, die Trader am Tape beobachten:
 
-- **Realisierte Volatilität tendiert zur Kompression.** Ausbrüche stocken häufiger und werden gefadet.
+- **Realisierte Volatilität tendiert zur Kompression.** Das Hedging stemmt sich gegen Vorstöße in beide Richtungen, auch gegen Vorstöße in die Walls hinein.
 - **Pin-Verhalten wird wahrscheinlicher.** Der Preis tendiert dazu, zu Strikes mit hoher Gamma-Konzentration zu gravitieren, besonders zum Handelsschluss hin.
-- **Mean-Reversion-Setups haben eine höhere Trefferquote.** Das Faden von Rallyes in einen [Call Wall](/education/gamma-walls-explained) hinein, Dip-Buying nahe eines Put Walls und Short-Premium-Strukturen profitieren alle vom dämpfenden Reflex.
-- **Trendfolge hat eine niedrigere Trefferquote.** Ausbrüche, die auf einem 5-Minuten-Chart sauber aussehen, scheitern oft daran, sich fortzusetzen.
+- **Mean-Reversion-Setups haben das Hedging im Rücken.** Das Faden von Rallyes in einen [Call Wall](/education/gamma-walls-explained) hinein, Dip-Buying nahe eines Put Walls und Short-Premium-Strukturen stützen sich alle auf den dämpfenden Reflex.
+- **Trendfolge hat das Hedging gegen sich.** Ein Ausbruch, der auf einem 5-Minuten-Chart sauber aussieht, trifft auf ein Dealer-Buch, das sich in die Gegenrichtung stemmt.
 
-Nichts davon ist eine Garantie. Makro-Schocks, OpEx-Mechanik oder ein Flip-Cross nach unten können das Regime mitten in der Session außer Kraft setzen. Als Basistendenz neigt das Verhalten oberhalb des Flips jedoch zur Ruhe.
+Nichts davon ist eine Garantie. Makro-Schocks, OpEx-Mechanik oder ein Flip-Cross nach unten können das Regime mitten in der Session außer Kraft setzen. Als Basistendenz neigt das Verhalten oberhalb des Flips jedoch zur Ruhe. Was das Regime nicht verändert, ist, wie oft Walls nachgeben: In unserer Messung von 737 Wall-Tests hielten S&P-Walls auf beiden Seiten des Flips in etwa zwei von drei Fällen innerhalb einer Stunde ([Wie oft brechen Gamma Walls tatsächlich?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -49,10 +49,10 @@ Unterhalb des Flips sind Dealer in der Regel net short Gamma. Um delta-neutral z
 
 Praktische Konsequenzen:
 
-- **Realisierte Volatilität tendiert zur Expansion.** Ausbrüche haben mehr Durchzug; Ausverkäufe beschleunigen sich.
+- **Realisierte Volatilität tendiert zur Expansion.** Ein Ausbruch, zu dem es tatsächlich kommt, hat das Hedging im Rücken; Ausverkäufe können sich beschleunigen.
 - **Pin-Verhalten bricht zusammen.** Strikes, die den Preis oberhalb des Flips magnetisch angezogen haben, beginnen ihn freizugeben.
-- **Trendfortsetzung hat eine höhere Trefferquote.** Momentum tendiert dazu, sich fortzusetzen, statt abzuflauen.
-- **Mean-Reversion wird gefährlich.** Ein fallendes Messer in einem tiefen Negativ-Gamma-Regime aufzufangen, tendiert dazu, Verluste zu verstärken, weil der Dealer-Reflex, auf den man sich verlassen würde (Kaufen in Schwäche hinein), genau der Reflex ist, der sich soeben umgekehrt hat.
+- **Trendfortsetzung hat das Hedging im Rücken.** Momentum kann sich fortsetzen, statt abzuflauen.
+- **Mean-Reversion wird gefährlich.** Ein fallendes Messer in einem tiefen Negativ-Gamma-Regime aufzufangen, kann Verluste verstärken, weil der Dealer-Reflex, auf den man sich verlassen würde (Kaufen in Schwäche hinein), genau der Reflex ist, der sich soeben umgekehrt hat.
 
 Auch das ist eine probabilistische Tendenz, keine Prognose. Eine einzelne beruhigende Schlagzeile kann das Tape innerhalb desselben Regimes glätten. Aber zu wissen, dass man sich in Short-Gamma-Territorium befindet, sollte beeinflussen, welche Trades man eingeht und - noch wichtiger - welche man auslässt.
 
@@ -62,7 +62,7 @@ Auch das ist eine probabilistische Tendenz, keine Prognose. Eine einzelne beruhi
 
 Den Gamma Flip in Echtzeit zu lesen, ist eine kurze Reihe von Gewohnheiten:
 
-1. **Zuerst das Regime prüfen.** Vor jedem Setup wissen, ob der Spot über oder unter dem Flip liegt. Allein diese Lesart filtert einen erheblichen Anteil schlechter Trades heraus.
+1. **Zuerst das Regime prüfen.** Vor jedem Setup wissen, ob der Spot über oder unter dem Flip liegt. Allein diese Lesart zeigt, ob das Hedging für oder gegen Sie arbeitet.
 2. **Den Abstand zum Flip beobachten.** Ein Spot, der mit gesundem Abstand klar vom Flip entfernt ist, ist eine stabile Regime-Lesart. Ein Spot, der innerhalb weniger Zehntel Prozent eingeklemmt ist, kennzeichnet ein umkämpftes Regime - beide Seiten des Buchs sind teilweise aktiv, und das Verhalten ist instabil. Positionsgröße reduzieren oder aussetzen.
 3. **Auf Migration achten.** Flip-Level verschieben sich, während sich das Positioning neu ausbalanciert. Ein Flip, der zusammen mit dem Preis nach oben driftet, hat eine andere Bedeutung als einer, der verankert bleibt, während sich der Preis darauf zubewegt.
 4. **Den Flip mit den Walls kombinieren.** Der Flip verrät das Regime; [Call Wall und Put Wall](/education/gamma-walls-explained) verraten die strukturellen Grenzen darin. Beide zusammen lesen.
@@ -87,7 +87,7 @@ Ein Beispiel aus der Praxis. Angenommen, SPX notiert bei 5.830 und das Dashboard
 - **Gamma Flip:** 5.815
 - **Distanz:** +15 / +0,26 %
 
-Die Lesart: Der Spot befindet sich in Long-Gamma-Territorium, komfortabel oberhalb des Flips. Der ausgewiesene Net-GEX-Wert ist konsistent mit dem Regime - positiv, weil es sich um den Wert derselben Dealer-Gamma-Kurve handelt, ausgewertet am Spot, und diese Kurve wird erst positiv, sobald man den Flip nach oben überschritten hat. (Diese Vorzeichen-Konsistenz ist strukturell in der Art verankert, wie ZeroGEX das Profil berechnet.) Praktische Tendenz: gedämpfte Volatilität, Ausbrüche mit höherer Wahrscheinlichkeit, gefadet zu werden, Pin-Verhalten zum Handelsschluss hin in Richtung der stark besetzten Gamma-Strikes.
+Die Lesart: Der Spot befindet sich in modelliertem Long-Gamma-Territorium, komfortabel oberhalb des Flips. Der ausgewiesene Net-GEX-Wert - geschätztes Dealer-Gamma nach der traditionellen Call-positiv/Put-negativ-Konvention, kein beobachteter Bestand - ist konsistent mit dem Regime: positiv, weil es sich um den Wert derselben modellierten Gamma-Kurve handelt, ausgewertet am Spot, und in diesem Buch wird diese Kurve oberhalb des Flips positiv. (Diese Vorzeichen-Konsistenz ist strukturell in der Art verankert, wie ZeroGEX das Profil berechnet.) Praktische Tendenz: gedämpfte Volatilität, Hedging, das sich gegen Ausbrüche stemmt, und mögliches Pin-Verhalten in Richtung der stark besetzten Gamma-Strikes zum Handelsschluss hin.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 

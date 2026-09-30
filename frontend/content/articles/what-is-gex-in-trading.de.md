@@ -28,10 +28,10 @@ Ein Vorbehalt, den man im Kopf behalten sollte: GEX ist eine *modellierte* Schä
 
 Das ist der Teil, der verändert, wie du tradest:
 
-- **Positives GEX (Long-Gamma-Regime).** Die Dealer sind netto long Gamma. Um abzusichern, **verkaufen sie in Rallys und kaufen in Dips** - sie handeln *gegen* die Bewegung. Das dämpft tendenziell die Volatilität. Erwarte engere Ranges, Mean Reversion und Pinning nahe stark gewichteter Strikes. Breakouts neigen dazu, ins Stocken zu geraten.
-- **Negatives GEX (Short-Gamma-Regime).** Die Dealer sind netto short Gamma. Jetzt **kaufen sie in Rallys und verkaufen in Dips** - sie handeln *mit* der Bewegung. Das verstärkt tendenziell die Volatilität. Erwarte breitere Ranges, sich ausdehnende Breakouts und Trends, die durchlaufen. Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) in der Praxis.
+- **Positives GEX (Long-Gamma-Regime).** Die Dealer sind netto long Gamma. Um abzusichern, **verkaufen sie in Rallys und kaufen in Dips** - sie handeln *gegen* die Bewegung. Das dämpft tendenziell die Volatilität. Erwarte engere Ranges, Mean Reversion und Pinning nahe stark gewichteter Strikes, wobei sich das Hedging gegen Breakouts stemmt.
+- **Negatives GEX (Short-Gamma-Regime).** Die Dealer sind netto short Gamma. Jetzt **kaufen sie in Rallys und verkaufen in Dips** - sie handeln *mit* der Bewegung. Das verstärkt tendenziell die Volatilität. Erwarte breitere Ranges, Trends, die durchlaufen, und Hedging, das einen Breakout verstärkt, sobald ein Level nachgibt. Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) in der Praxis.
 
-Gleicher Index, gleicher Chart - entgegengesetzter Marktcharakter je nach Vorzeichen des GEX. Zu wissen, in welchem Regime man sich befindet, ist das nützlichste, was GEX dir liefert.
+Gleicher Index, gleicher Chart - entgegengesetzter Marktcharakter je nach Vorzeichen des GEX. Zu wissen, in welchem Regime du dich befindest, ist das Nützlichste, was GEX dir liefert. Was das Vorzeichen in unserer Messung von 737 Wall-Tests nicht verändert hat, ist, wie oft die Walls selbst brachen ([Wie oft brechen Gamma Walls tatsächlich?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -40,10 +40,10 @@ Gleicher Index, gleicher Chart - entgegengesetzter Marktcharakter je nach Vorze
 GEX ist nicht nur eine Zahl; es bildet sich auf spezifische Preisniveaus ab, die es zu beobachten gilt:
 
 - **Gamma Flip** - der Preis, an dem das gesamte Dealer-Gamma von positiv auf negativ wechselt. Darüber befindet sich der Markt meist im beruhigenden Long-Gamma-Regime; darunter im verstärkenden Short-Gamma-Regime. Es ist die Trennlinie zwischen den Regimen. Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
-- **Call Wall** - der Strike mit dem stärksten Call-Gamma oberhalb des Spotpreises, der dazu neigt, Rallys bei positivem Gamma zu deckeln.
-- **Put Wall** - der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, der dazu neigt, Dips bei positivem Gamma zu stützen.
+- **Call Wall** - der Strike mit dem stärksten Call-Gamma oberhalb des Spotpreises, an dem sich das Hedging bei positivem Gamma gegen Rallys stemmt.
+- **Put Wall** - der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, an dem sich das aggregierte Hedging bei positivem Gamma gegen Dips stemmt.
 
-Die Call und Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sie diese verteidigen oder durchbrechen werden. [Gamma Walls Explained](/education/gamma-walls-explained) behandelt beide Walls im Detail.
+Die Call Wall und die Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sich ihr Hedging gegen eine Bewegung zu den Rändern hin stemmt oder eine Bewegung, die durchbricht, noch verstärkt. [Gamma Walls Explained](/education/gamma-walls-explained) behandelt beide Walls im Detail.
 
 ---
 

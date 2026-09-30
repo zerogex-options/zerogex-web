@@ -67,7 +67,7 @@ Für eine tiefere Betrachtung, warum reines Volumen in die Irre führen kann, wa
 ## Wann die Seite am nützlichsten ist
 
 - **Direkt nach der Eröffnung** - die ersten 30 Minuten verraten viel über den Bias des Tages.
-- **An jedem Schlüssellevel** - der Flow in einen Wall oder VWAP zeigt, ob das Level verteidigt oder durchbrochen wird.
+- **An jedem Schlüssellevel** - der Flow in einen Wall oder VWAP zeigt, wer auf das Level drückt. In unserer Studie mit 737 Wall-Tests ließ sich aus dem vorzeichenbehafteten Flow am Wall-Strike nicht vorhersagen, welche Walls brachen, also lies ihn als Kontext, nicht als Urteil.
 - **Zum Handelsschluss** - kombiniert mit EOD Pressure schärft die Flow-Lesart den Richtungshinweis.
 
 ## Siehe auch

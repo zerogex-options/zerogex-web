@@ -42,7 +42,7 @@ In questo regime i dealer devono comprare sulla forza e vendere sulla debolezza�
 Lo stesso riflesso che amplifica i rally amplifica anche i selloff. Provare a comprare setup da "coltello che cade" in un regime short-gamma profondo tende ad amplificare le perdite, perché il meccanismo dei dealer che avrebbe prodotto il rimbalzo in regime long-gamma qui è invertito. La tesi del dip-buy perde specificamente il suo supporto strutturale sotto il flip.
 
 **Setup tipo 3: Tradare nella direzione del flusso, non contro.**
-Il Tape Flow Bias e segnali di continuazione simili hanno più peso nei regimi short-gamma. Quando il flusso pesato per premio pende in una direzione e il Net GEX è negativo, il movimento tende a estendersi piuttosto che invertirsi.
+Il Tape Flow Bias e segnali di continuazione simili hanno più peso nei regimi short-gamma. Quando il flusso pesato per premio pende in una direzione e il Net GEX è negativo, l'hedging rafforza il movimento invece di opporvisi.
 
 ---
 
@@ -98,7 +98,7 @@ Lettura iniziale: regime long-gamma, posizionamento sano, range strutturale 5.79
 
 Alle 13:00 ET, SPX è scivolato a 5.806 e il flip è salito a 5.803 - i due sono quasi convergiti. Il Net GEX si è ridotto a +300 milioni di dollari. Il regime è conteso - lo spot è appena sopra il flip, la magnitudine si sta riducendo, e il riflesso strutturale si sta indebolendo.
 
-Il playbook cambia. Il setup di fade-the-rally che era attivo all'apertura non è più supportato strutturalmente; una continuazione al rialzo è possibile se il Net GEX diventa negativo. La size della posizione dovrebbe ridursi; il trade di default è nessun trade finché il regime non si risolve.
+Il playbook cambia. Il setup di fade-the-rally che era attivo all'apertura ha perso gran parte del sostegno dell'hedging, e una continuazione al rialzo avrebbe l'hedging dalla sua parte se il Net GEX diventasse negativo. La size della posizione dovrebbe ridursi; il trade di default è nessun trade finché il regime non si risolve.
 
 Alle 14:30 ET, il Net GEX è passato a −200 milioni di dollari e SPX è salito a 5.815. Questo è ora un regime short-gamma modellato - si assume che il riflesso del dealer amplifichi - quindi, se il call wall a 5.820 cede, l'hedging rafforza la rottura invece di opporvisi. Nella nostra misurazione il regime non ha cambiato la frequenza con cui i wall si sono rotti, quindi non è meno probabile che 5.820 tenga rispetto all'apertura; ciò che è cambiato è il costo dell'errore. Ora, con un fade fallito, il prezzo può spingersi più lontano, quindi il trade fade-the-breakout perde il suo cuscinetto e, se il setup è corretto, l'inseguimento ha l'hedging dalla sua parte.
 

@@ -25,7 +25,7 @@ Este artículo cubre el flujo de trabajo. Para la lectura más profunda sobre qu
 ### Por encima del flip (régimen long-gamma)
 
 **Setup tipo 1: Desvanecer los extremos de vuelta al imán.**
-El reflejo del dealer atrae el precio hacia los strikes de gamma pesado. Vender en los empujes cerca del call wall y comprar en las caídas cerca del put wall tiene soporte estructural - el flujo de cobertura está de tu lado. Dimensiona la posición en pequeño; toma beneficios en el imán.
+El reflejo modelado del dealer tiende a atraer el precio hacia los strikes de gamma pesado. Vender en los empujes cerca del call wall y comprar en las caídas cerca del put wall puede tener soporte estructural cuando el flujo de cobertura modelado está de tu lado. Dimensiona la posición en pequeño; toma beneficios en el imán.
 
 **Setup tipo 2: Desvanecer breakouts fallidos.**
 Cuando SPX perfora por encima del call wall pero el Net GEX es positivo y se fortalece, la cobertura modelada se está oponiendo a la ruptura. Ese es el mecanismo, no las probabilidades: en nuestra medición, ni el régimen ni la trayectoria del Net GEX predijeron qué walls se romperían. El fade - corto sobre la ruptura, objetivo de reingreso al rango previo - es el trade canónico de long-gamma. La señal de Trap Detection existe específicamente para esta lectura; ver el [artículo combinado de EOD Pressure y Trap Detection](/education/eod-pressure-and-trap-detection).
@@ -36,13 +36,13 @@ El comportamiento de pin en un régimen de gamma positivo tiende a comprimir la 
 ### Por debajo del flip (régimen short-gamma)
 
 **Setup tipo 1: Breakouts de continuación.**
-En este régimen los dealers deben comprar fortaleza y vender debilidad - el reflejo extiende los movimientos. Comprar una ruptura limpia por encima de la resistencia (especialmente con el Net GEX claramente negativo) tiene viento estructural de cola a favor. La señal Squeeze Setup puntúa exactamente para este tipo de setup comprimido y en extensión; ver [Squeeze Setup Signal Explained](/education/squeeze-setup-explained).
+En este régimen modelado, los dealers tienden a comprar fortaleza y vender debilidad - el reflejo extiende los movimientos. Comprar una ruptura limpia por encima de la resistencia (especialmente con el Net GEX claramente negativo) puede tener viento estructural de cola a favor. La señal Squeeze Setup puntúa exactamente para este tipo de setup comprimido y en extensión; ver [Squeeze Setup Signal Explained](/education/squeeze-setup-explained).
 
 **Setup tipo 2: No atrapar el cuchillo que cae.**
 El mismo reflejo que amplifica los rallies también amplifica las ventas masivas. Atrapar setups de "cuchillo que cae" en un régimen short-gamma profundo tiende a agravar las pérdidas, porque el mecanismo del dealer que habría producido el rebote en long-gamma está invertido. La tesis de comprar la caída pierde específicamente su soporte estructural por debajo del flip.
 
 **Setup tipo 3: Operar con la dirección del flujo, no en contra.**
-El Tape Flow Bias y señales de continuación similares tienen más peso en regímenes short-gamma. Cuando el flujo ponderado por prima se inclina en una dirección y el Net GEX es negativo, el movimiento tiende a extenderse en lugar de desvanecerse.
+El Tape Flow Bias y señales de continuación similares tienen más peso en regímenes short-gamma. Cuando el flujo ponderado por prima se inclina en una dirección y el Net GEX es negativo, la cobertura se suma al movimiento en lugar de oponerse a él.
 
 ---
 
@@ -98,7 +98,7 @@ Lectura inicial: régimen long-gamma, posicionamiento saludable, rango estructur
 
 Hacia las 13:00 ET, SPX ha resbalado a 5.806 y el flip ha derivado hacia arriba hasta 5.803 - los dos han convergido casi por completo. El Net GEX se ha reducido a +$300 millones. El régimen está disputado - el spot está apenas por encima del flip, la magnitud se está reduciendo, y el reflejo estructural se está debilitando.
 
-El playbook cambia. El setup de desvanecer el rally que estaba activo en la apertura ya no tiene soporte estructural; una continuación al alza es posible si el Net GEX se vuelve negativo. El tamaño de posición debería reducirse; el trade por defecto es no operar hasta que el régimen se resuelva.
+El playbook cambia. El setup de desvanecer el rally que estaba activo en la apertura ha perdido la mayor parte de su respaldo de cobertura, y una continuación al alza tendría la cobertura a su favor si el Net GEX se vuelve negativo. El tamaño de posición debería reducirse; el trade por defecto es no operar hasta que el régimen se resuelva.
 
 A las 14:30 ET, el Net GEX ha pasado a −$200 millones y SPX ha subido a 5.815. Este es ahora un régimen short-gamma modelado - se supone que el reflejo del dealer amplifica - así que, si el call wall en 5.820 cede, la cobertura se suma a la ruptura en lugar de oponerse a ella. En nuestra medición, el régimen no cambió la frecuencia con la que se rompieron los walls, así que 5.820 no tiene menos probabilidades de aguantar que en la apertura; lo que ha cambiado es el coste de equivocarse. Un fade fallido ahora puede irse más lejos, así que el trade de desvanecer el breakout pierde su colchón, y si el setup es correcto, la persecución del movimiento tiene la cobertura a su favor.
 

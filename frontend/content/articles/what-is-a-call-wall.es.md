@@ -8,7 +8,7 @@
 
 ## ¿Qué es un call wall?
 
-Un **call wall** es el strike por encima del spot que concentra la mayor exposición de gamma de los dealers en el lado call de la cadena de opciones. Es el nivel de precio donde los flujos de cobertura de los dealers son más propensos a *ir en contra de un rally* - por eso los traders tratan el call wall como el techo estructural del rango actual de posicionamiento de los dealers.
+Un **call wall** es el strike por encima del spot que concentra la mayor exposición de gamma del lado call en la cadena de opciones. Cuando se modela a los dealers como largos en ese gamma (un régimen de gamma positivo), es el nivel donde sus flujos de cobertura son más propensos a *ir en contra de un rally* - por eso los traders tratan el call wall como el techo estructural del rango actual de posicionamiento de los dealers. Ese comportamiento de techo es una tendencia, no una regla, y la cobertura que hay detrás depende del signo modelado del gamma de los dealers y del flujo circundante, no de que el strike sea simplemente de calls.
 
 El significado de call wall, en una frase: no es un número redondo ni una línea en el gráfico - es posicionamiento real, open interest ponderado por el gamma que carga cada contrato. El strike único donde ese gamma call es más denso por encima del precio actual es el call wall.
 
@@ -25,7 +25,7 @@ Esa venta es lo que puede crear la resistencia. A medida que el precio sube haci
 Algunas consecuencias del mecanismo:
 
 - El call wall es una **resistencia probabilística**, no un techo rígido. El flujo direccional real lo atraviesa con regularidad.
-- Pesa más en un régimen de gamma positivo y en strikes con gamma relativo alto.
+- Su cobertura pesa más en un régimen de gamma positivo y en strikes con gamma relativo alto.
 - Es una señal estructural, no una garantía - un catalizador fuerte puede atravesarlo en segundos.
 
 ---
@@ -57,12 +57,12 @@ La migración es en sí misma información. Si el call wall sigue subiendo a med
 
 ## Cuándo importa una ruptura por encima del call wall
 
-Dado que los dealers defienden el call wall en gamma positivo, una ruptura *decisiva* por encima de él es uno de los eventos estructurales más significativos en el tape. Normalmente significa una de dos cosas:
+Dado que los dealers tienden a defender el call wall en gamma positivo, una ruptura *decisiva* por encima de él es uno de los eventos estructurales más relevantes del tape. Normalmente significa una de dos cosas:
 
 - **El wall estaba migrando**, y el precio simplemente siguió un techo que ya estaba subiendo - menos significativo, a menudo solo continuación de tendencia.
 - **El wall era estático y el precio lo superó de todos modos** - una señal de que la cobertura que limitaba el movimiento ha sido superada, y con frecuencia de que el propio régimen de gamma está cambiando. Una vez que el spot empuja por encima de un call wall que aguantó y entra en gamma más delgado, el reflejo del dealer puede invertirse, pasando de vender los rallies a perseguirlos, que es como un tape estancado se convierte en uno rápido.
 
-La lectura, en orden: ¿el wall aguanta o persigue?, ¿y el Net GEX está sosteniendo el techo o debilitándose? Una ruptura con Net GEX en contracción es un animal distinto de una ruptura hacia un gamma positivo que se fortalece.
+La lectura, en orden: ¿el wall aguanta o persigue?, ¿y el Net GEX está creciendo o debilitándose? En nuestra medición, ninguna de las dos cosas predijo las rupturas, pero cambian el mecanismo: una ruptura con Net GEX en contracción tiene menos cobertura en su contra que una ruptura hacia un gamma positivo que se fortalece.
 
 ---
 

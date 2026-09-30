@@ -6,7 +6,7 @@
 
 ## Start here
 
-A gamma wall is a strike where modeled dealer gamma exposure is heavily concentrated. There are two: the **call wall** above spot and the **put wall** below it. Neither is support or resistance by construction - what a wall does depends on the modeled dealer gamma *sign* and the flow around it, not on whether the contracts sitting there are calls or puts.
+A gamma wall is a strike where modeled dealer gamma exposure is heavily concentrated. There are two: the **call wall** above spot and the **put wall** below it. Neither is support or resistance by construction - what the hedging at a wall does depends on the modeled dealer gamma *sign* and the flow around it, not on whether the contracts sitting there are calls or puts.
 
 If that definition is what you came for, [What Is a Gamma Wall?](/education/what-is-a-gamma-wall) covers it on its own and is the shorter read.
 
@@ -18,7 +18,7 @@ This page is the applied one. It assumes you know what a wall is and works throu
 
 The call wall is the strike above spot that carries the heaviest call gamma exposure. Under the traditional convention, dealers are *modeled* as long those calls, so in a positive-gamma regime they tend to sell into rallies that approach the wall - shedding the positive delta they accumulate as price climbs toward it. That hedging reflex can push against the rally.
 
-In practice, the call wall often acts as **resistance** in positive-gamma conditions - not because the level is magic, and not simply because it is a call strike, but because the modeled hedging flow around it tends to lean against the move. Change the gamma sign and the same strike can behave very differently.
+In practice, the call wall often acts as **resistance** - not because the level is magic, and not simply because it is a call strike. In positive-gamma conditions the modeled hedging flow around it tends to lean against the move; change the gamma sign and that hedging runs with the move instead.
 
 Things to know:
 
@@ -32,7 +32,7 @@ Things to know:
 
 The put wall is the strike below spot with the heaviest put gamma exposure. When the net book is modeled as long gamma (a positive Net GEX regime), the aggregate dealer hedge tends to buy weakness and sell strength - so as price drops toward a dense put strike, that buy-the-dip reflex can lean against the selloff. That behavior comes from the *net* gamma sign, though, not from the strike being made of puts.
 
-In practice, the put wall often acts as **support** when net gamma is positive. Like the call wall, whether it supports, pins, or accelerates depends on the modeled dealer gamma sign and the surrounding flow - not on the option type.
+In practice, the put wall often acts as **support**. Like the call wall, whether the hedging around it cushions a decline, pins price, or accelerates a break depends on the modeled dealer gamma sign and the surrounding flow - not on the option type.
 
 Things to know:
 

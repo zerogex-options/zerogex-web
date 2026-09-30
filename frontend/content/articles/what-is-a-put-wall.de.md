@@ -34,7 +34,7 @@ Behandle das Level als:
 - eine große Put-Gamma-Konzentration;
 - eine mögliche Liquiditäts- und Positioning-Referenz;
 - ein Level, das sich empirisch wie Unterstützung verhalten kann; und
-- ein Level, dessen Verhalten vom aggregierten und lokalen Gamma sowie vom umgebenden Flow abhängt.
+- ein Level, dessen Hedging vom aggregierten und lokalen Gamma sowie vom umgebenden Flow abhängt.
 
 ## Put Wall vs. Call Wall
 
@@ -82,7 +82,7 @@ Nach einem Bruch wird der nächstgrößere Put-Gamma-Strike darunter im nächste
 
 Angenommen, SPX steht bei 5.830, die Put Wall liegt bei 5.790, die Call Wall bei 5.850, und das modellierte Net GEX ist positiv. Die Put Wall weist den größten Put-Gamma-Betrag unter Spot aus. Sie identifiziert damit **nicht** von sich aus eine Kaufzone. Ein Trader kann beobachten, ob Liquidität dort Verkäufe aufnimmt, ob das aggregierte Gamma-Profil stabil bleibt, ob die Wall bei veränderten Inputs wandert und ob gerichteter Flow das Level bestätigt oder überrollt.
 
-Nehmen wir nun an, SPX rutscht eine Stunde später auf 5.785, und der bei 5.815 veröffentlichte Gamma Flip wurde gekreuzt. Zwei Dinge haben sich gleichzeitig geändert: Die Put-Wall-Referenz ist gescheitert, und das modellierte Regime ist negativ geworden. Das Zweite ist das, was für den nächsten Trade zählt - der Hedging-Reflex, der sich vielleicht gegen den Rückgang gelehnt hätte, ist nun modelliert mit ihm ausgerichtet, und die nächste Put-Konzentration darunter ist die neue Referenz, kein Abprallziel.
+Nehmen wir nun an, SPX rutscht eine Stunde später auf 5.785, und der bei 5.815 veröffentlichte Gamma Flip wurde gekreuzt. Zwei Dinge haben sich gleichzeitig geändert: Die Put-Wall-Referenz ist gescheitert, und das modellierte Regime ist negativ geworden. Das Zweite ist das, was für den nächsten Trade zählt - der Hedging-Reflex, der sich vielleicht gegen den Rückgang gelehnt hätte, ist nun modelliert mit ihm ausgerichtet, und die nächste Put-Konzentration darunter ist die neue Referenz, kein Level, an dem das Hedging einen Rückgang abfedert.
 
 ## Wie man die heutige Put Wall findet
 

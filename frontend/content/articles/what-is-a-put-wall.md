@@ -33,7 +33,7 @@ Treat the level as:
 - a large put-gamma concentration;
 - a possible liquidity and positioning reference;
 - a level that may empirically behave as support; and
-- a level whose behavior depends on aggregate and local gamma plus surrounding flow.
+- a level whose hedging depends on aggregate and local gamma plus surrounding flow.
 
 ## Put wall vs call wall
 
@@ -81,7 +81,7 @@ After a break, the next-largest put-gamma strike below becomes the new put wall 
 
 Suppose SPX is at 5,830, the Put Wall is 5,790, the Call Wall is 5,850, and modeled Net GEX is positive. The Put Wall identifies the largest below-spot put-gamma magnitude. It does **not** by itself identify a buy zone. A trader can watch whether liquidity absorbs selling there, whether the aggregate gamma profile remains stable, whether the wall migrates as inputs change, and whether directional flow confirms or overwhelms the level.
 
-Now suppose SPX slips to 5,785 an hour later and the gamma flip, published at 5,815, has been crossed. Two things changed at once: the put wall reference failed, and the modeled regime turned negative. The second is the one that matters for the next trade - the hedging reflex that might have leaned against the decline is now modeled to lean with it, and the next put concentration below is the new reference, not a bounce target.
+Now suppose SPX slips to 5,785 an hour later and the gamma flip, published at 5,815, has been crossed. Two things changed at once: the put wall reference failed, and the modeled regime turned negative. The second is the one that matters for the next trade - the hedging reflex that might have leaned against the decline is now modeled to lean with it, and the next put concentration below is the new reference, not a level the hedging will cushion.
 
 ## How to find today's put wall
 

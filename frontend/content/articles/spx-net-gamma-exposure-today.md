@@ -33,8 +33,8 @@ Net GEX is quoted in dollars - "$1.5B of gamma" - because it is scaled to answ
 
 Two cases, opposite playbooks:
 
-- **Positive SPX net GEX (long-gamma regime).** Dealers are net long gamma at spot. They sell rallies and buy dips to hedge, which tends to *suppress* volatility. Expect tighter ranges, more mean reversion, pinning toward heavy strikes, and rally attempts that often stall near the call wall. A large positive reading is a "quiet, rangebound" tell.
-- **Negative SPX net GEX (short-gamma regime).** Dealers are net short gamma at spot. They buy rallies and sell dips, which tends to *amplify* volatility. Expect wider ranges, extending breakouts, and trends that run. A large negative reading is a "fast, trending, respect-your-stops" tell. This is [what negative gamma means](/education/what-is-negative-gamma) for the tape.
+- **Positive SPX net GEX (long-gamma regime).** Dealers are net long gamma at spot. They sell rallies and buy dips to hedge, which tends to *suppress* volatility. Expect tighter ranges, more mean reversion, pinning toward heavy strikes, and hedging that leans against rallies into the call wall. A large positive reading is a "quiet, rangebound" tell.
+- **Negative SPX net GEX (short-gamma regime).** Dealers are net short gamma at spot. They buy rallies and sell dips, which tends to *amplify* volatility. Expect wider ranges, trends that run, and hedging that adds to a breakout once a wall gives way. A large negative reading is a "fast, trending, respect-your-stops" tell. This is [what negative gamma means](/education/what-is-negative-gamma) for the tape.
 
 The reading isn't a direction - it's a *character*. Positive net GEX doesn't say "up," it says "sticky." Negative doesn't say "down," it says "volatile."
 

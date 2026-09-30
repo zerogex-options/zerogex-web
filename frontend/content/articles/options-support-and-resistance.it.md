@@ -20,7 +20,7 @@ Questo articolo è il workflow pratico per identificare S/R basati sulle opzioni
 
 ## I quattro tipi di S/R basati sulle opzioni
 
-Le etichette qui sotto - call wall come resistenza, put wall come supporto - descrivono il comportamento *tipico in gamma positivo*. Non sono proprietà fisse dello strike: il tipo di opzione da solo non fissa la direzione, e ciascuna può invertirsi quando cambia il segno della gamma dealer modellata o il flusso circostante.
+Le etichette qui sotto - call wall come resistenza, put wall come supporto - descrivono in che direzione pende l'hedging modellato in un regime di *gamma positiva*. Non sono proprietà fisse dello strike: il tipo di opzione da solo non fissa la direzione, e l'hedging può invece assecondare un movimento quando cambia il segno della gamma dealer modellata o il flusso circostante.
 
 ### 1. Call wall (resistenza)
 
@@ -66,7 +66,7 @@ Tre motivi:
 
 3. **Si aggiorna in tempo reale.** Le trendline sono artefatti storici che diventano obsoleti man mano che il prezzo si muove. I wall si muovono con il posizionamento - nuovo OI che si accumula sopra il call wall spinge il wall più in alto, e la lettura strutturale si aggiorna di conseguenza. Il livello che vedi alle 10:30 ET è il livello che conta adesso.
 
-Detto questo, l'S/R basato sulle opzioni non è infallibile. È un'inclinazione probabilistica. Shock macro, eventi catalizzatori e cambi di regime lo scavalcano regolarmente. Il vantaggio è che l'inclinazione è *fondata* - quando funziona, funziona per un motivo verificabile.
+Detto questo, l'S/R basato sulle opzioni non è infallibile. È un'inclinazione probabilistica. Shock macro ed eventi catalizzatori lo scavalcano regolarmente, e un cambio di regime modifica ciò che fa l'hedging. Il vantaggio è che l'inclinazione è *fondata* - quando funziona, funziona per un motivo verificabile.
 
 ---
 
@@ -75,7 +75,7 @@ Detto questo, l'S/R basato sulle opzioni non è infallibile. È un'inclinazione 
 Un workflow breve:
 
 1. **Individua prima il gamma flip.** Ti dice in quale regime ti trovi. Il flip stesso è anche un livello debole da tenere d'occhio.
-2. **Identifica il call wall e il put wall.** Ti danno il range strutturale - i confini che l'hedging dei dealer è predisposto a difendere (in un regime di gamma lunga) o rilasciare (in un regime di gamma corta).
+2. **Identifica il call wall e il put wall.** Ti danno il range strutturale - i confini presso i quali l'hedging dei dealer si oppone al movimento (in un regime di gamma lunga) o rafforza un movimento che li attraversa (in un regime di gamma corta).
 3. **Identifica il gamma magnet.** Spesso lo strike 0DTE più pesante. Il magnet ti dice dove il prezzo viene attratto all'interno del range dei wall.
 4. **Controlla la migrazione.** Un wall che si è appena spostato è un riferimento diverso da uno stabile da ore: un wall in migrazione sta inseguendo il prezzo, quindi il livello che stai osservando si è spostato. Nella nostra misurazione, né l'età di un wall né la sua migrazione hanno permesso di prevedere se si sarebbe rotto.
 5. **Confronta con l'S/R da grafico.** Dove il livello strutturale si allinea con un livello da grafico (numero tondo, swing precedente, media mobile chiave), la convergenza può rendere il livello più netto.
@@ -122,7 +122,7 @@ La lettura strutturale composita:
 - Il call wall e la resistenza da grafico concordano vicino a 583 - la zona di resistenza a maggiore confidenza è proprio dove la vedono i chartisti, ma il posizionamento modellato colloca il wall a 583,50, non al tondo 583.
 - Anche il put wall e il supporto da grafico concordano vicino a 580 - lì la lettura del supporto è più solida.
 - Il gamma magnet a 581,00 significa che il prezzo può subire un'attrazione strutturale verso un livello vicino a quello attuale. Finché la gamma positiva regge, l'hedging si oppone ai movimenti in entrambe le direzioni.
-- Il flip a 580,80 significa che una discesa sotto 580,80 farebbe cambiare il regime modellato; il put wall a 580 potrebbe non assorbire in modo pulito se l'attraversamento del flip avviene prima.
+- Il flip a 580,80 significa che una discesa sotto 580,80 farebbe cambiare il regime modellato; se questo avviene prima e poi il put wall a 580 cede, l'hedging rafforza il movimento invece di attutirlo.
 
 La lettura: l'hedging modellato si oppone ai movimenti verso l'uno o l'altro estremo del range 581-583,50, ma ogni wall resta una scommessa sul tasso di base - nella nostra misurazione i wall di SPY hanno tenuto circa due volte su tre entro un'ora, da qualunque lato del flip si trovasse il prezzo. La lettura strutturale aggiunge dove si trovano i livelli e cosa fa l'hedging intorno a essi; non ti dice quale dei due cederà.
 

@@ -49,14 +49,14 @@ Compáralo con el **gamma positivo**, donde la misma cadena de flow se invierte:
 |---|---|---|
 | Reflejo de hedging de los dealers | Venden en la fortaleza, compran en la debilidad | Compran en la fortaleza, venden en la debilidad |
 | Vol realizada vs. implícita | Tiende a ser **más baja** | Tiende a ser **más alta** |
-| Breakouts | A menudo se desvanecen y rebotan | A menudo se extienden |
-| Selloffs | A menudo se absorben cerca de los walls | A menudo se aceleran |
+| Breakouts | El hedging se opone a ellos | El hedging se suma a ellos una vez que un nivel cede |
+| Selloffs | El hedging compra durante ellos | El hedging vende durante ellos, así que pueden acelerarse |
 | Comportamiento de pin | El precio tiende a ser atraído hacia los strikes pesados | El pinning tiende a debilitarse o soltarse |
 | Mejor playbook | Mean-reversion, fade de extremos, venta de prima | Continuación de tendencia, momentum, breakout |
 | Peor playbook | Perseguir breakouts, momentum | Fadear rallies, comprar dips dentro de la estructura |
 | Típico cuando | SPY por encima del gamma flip, Net GEX > 0 | SPY por debajo del gamma flip, Net GEX < 0 |
 
-Estas son tendencias generales de régimen, no garantías. Los catalizadores y shocks pueden anularlas. Pero la tasa base es lo bastante significativa como para que ejecutar el playbook equivocado para el régimen sea la mayor parte del costo.
+Estas son tendencias generales de régimen, no garantías. Los catalizadores y los shocks prevalecen sobre ellas. Lo que cambian es el mecanismo detrás de una operación, no la frecuencia con la que se rompen los walls: en nuestra medición, los walls aguantaron aproximadamente con la misma frecuencia a ambos lados del flip.
 
 ---
 
@@ -67,7 +67,7 @@ Un flujo de trabajo breve:
 1. **Revisa primero el gamma flip.** Si SPY está por debajo del flip, el modelo te sitúa en un régimen short-gamma.
 2. **Confirma con el Net GEX.** Un valor de Net GEX negativo es la lectura de magnitud - cuanto más negativo, más marcado el régimen. Un Net GEX cercano a cero es un régimen disputado; ambos reflejos están parcialmente activos.
 3. **Verifica cruzadamente el panorama de vol realizada.** Los regímenes short-gamma se manifiestan con rangos intradía más amplios de lo que sugería la vol implícita de la apertura del día. Si la realizada se está expandiendo mientras la implícita permanece plana, esa es la firma del régimen.
-4. **Observa el comportamiento de los walls.** En regímenes short-gamma, los walls se debilitan o se invierten. El call wall que ayer limitaba los rallies puede convertirse hoy en un objetivo de breakout.
+4. **Observa lo que ocurre después de que un wall ceda.** En regímenes short-gamma, el hedging se suma al movimiento en lugar de oponerse a él, así que una ruptura puede seguir avanzando donde en long gamma se habría estancado. En nuestra medición, la frecuencia con la que se rompieron los walls no cambió con el régimen; la diferencia que espera el modelo está en lo que sigue a una ruptura.
 5. **Observa la dirección del flow al cierre.** El short-gamma hacia el cierre a menudo produce movimientos direccionales que se aceleran (la señal de presión EOD se convierte en una lectura de continuación, no de fade).
 
 ---
@@ -77,14 +77,14 @@ Un flujo de trabajo breve:
 Concretamente, cosas que hay que *dejar* de hacer en un régimen de gamma negativo:
 
 - **No fadees los rallies.** El reflejo de los dealers está amplificando. Tu "short de mean-reversion" está luchando contra el flow estructural de compra.
-- **No compres dips dentro de la estructura.** El mismo problema al revés. El put wall que sostenía el mercado en long-gamma puede convertirse en un punto de slippage en short-gamma.
+- **No compres dips dentro de la estructura.** El mismo problema al revés. Si el put wall cede en short gamma, el hedging se suma a la caída en lugar de amortiguarla, así que puede convertirse en un punto de slippage.
 - **No esperes pinning.** La tracción estructural hacia los strikes pesados tiende a debilitarse, así que la tesis del imán es mucho menos fiable aquí.
 - **No dimensiones para un rango normal.** La vol realizada es estructuralmente más alta. Dimensiona la posición asumiendo que se necesitan stops más amplios.
 
 Cosas que hay que *empezar* a hacer:
 
 - **Opera a favor del movimiento.** Los setups trend-following tienen el hedging a su favor.
-- **Dimensiona los fades en los walls para el caso de una ruptura.** En nuestra medición, un wall aguantó aproximadamente con la misma frecuencia en short gamma que en long gamma, pero si cede aquí, el hedging se suma al movimiento, así que un fade fallido puede irse más lejos en tu contra.
+- **Dimensiona cualquier posición apoyada en un wall para el caso de una ruptura.** En nuestra medición, un wall aguantó aproximadamente con la misma frecuencia en short gamma que en long gamma, pero si cede aquí, el hedging se suma al movimiento, así que una posición que apuesta por el wall puede irse más lejos en tu contra.
 - **Sé más selectivo con el timing de entrada.** Rangos más amplios significan más riesgo por operación. Compénsalo con criterios de setup más estrictos.
 - **Vigila los regresos al régimen de gamma positivo.** Ocurren - el flip es dinámico. Cuando el spot vuelve a cruzar por encima del gamma flip, el playbook se voltea con él.
 
@@ -113,7 +113,7 @@ Ahora imagina el mismo gráfico con el Net GEX en +1.200 millones $ y el gamma f
 
 - **"El gamma negativo es bajista."** No lo es. Es **amplificador de volatilidad**. El mercado puede rallar con fuerza en un régimen de gamma negativo - y el rally tiende a extenderse más de lo que lo haría en long-gamma. El gamma negativo tiene que ver con el *carácter de los movimientos*, no con la dirección.
 - **"El gamma positivo es alcista."** Tampoco es cierto. El gamma positivo es **amortiguador de volatilidad**. El mercado puede irse a la baja en un régimen de gamma positivo; simplemente tiende a hacerlo lentamente, con rebotes de mean-reversion en el camino.
-- **"Puedes operar las señales de gamma negativo igual que las de gamma positivo."** La mayor parte del daño aquí proviene de esto. Las señales y las lecturas estructurales se invierten entre regímenes. Una tesis de "comprar el dip" que funciona por encima del flip puede acumular pérdidas por debajo de él.
+- **"Puedes operar las señales de gamma negativo igual que las de gamma positivo."** La mayor parte del daño aquí proviene de esto. Las señales y las lecturas estructurales se invierten entre regímenes. Una tesis de "comprar el dip" que tiene el hedging a su favor por encima del flip puede acumular pérdidas por debajo de él.
 - **"El gamma negativo es raro."** Ocurre regularmente - particularmente después de picos de vol, durante el estrés macro y cuando la chain está fuertemente sesgada hacia las puts. Conocer el régimen en tiempo real es lo que te dice cuándo.
 
 ---

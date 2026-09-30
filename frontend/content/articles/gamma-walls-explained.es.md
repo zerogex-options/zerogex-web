@@ -8,7 +8,7 @@
 
 ## ¿Qué es un gamma wall?
 
-Un gamma wall es un strike en la cadena de opciones donde la exposición gamma de los dealers se concentra fuertemente en un lado del libro. Los dos walls más observados son el **call wall** - la mayor concentración de gamma en calls por encima del spot - y el **put wall** - la mayor concentración de gamma en puts por debajo del spot. Juntos delinean el rango estructural que las dinámicas de cobertura (hedging) de los dealers tienden a defender.
+Un gamma wall es un strike donde la exposición gamma modelada de los dealers está fuertemente concentrada. Hay dos: el **call wall** por encima del spot y el **put wall** por debajo. Ninguno de los dos es soporte o resistencia por construcción - lo que hace la cobertura en un wall depende del *signo* de la gamma modelada de los dealers y del flujo que lo rodea, no de si los contratos que hay ahí son calls o puts.
 
 Los walls no son medias móviles ni niveles psicológicos. Surgen de un posicionamiento real: open interest, contrato por contrato, ponderado por el gamma que aporta cada contrato. Cuando los traders preguntan por el significado de call wall y put wall, lo que realmente preguntan es: *¿dónde se concentran los flujos de cobertura de los dealers, y cómo afectan esos flujos al precio?*
 
@@ -20,7 +20,7 @@ Esta es la página de aplicación práctica. Da por sentado que sabes qué es un
 
 El call wall es el strike por encima del spot que concentra la mayor exposición gamma en calls. En un régimen de gamma positiva, los dealers con inventario long-call deben vender en los rallies que se acercan al wall - desprendiéndose del delta positivo que acumulan mientras el precio sube hacia él. Ese reflejo de cobertura se opone al rally.
 
-En la práctica, el call wall suele actuar como **resistencia** en regímenes de gamma larga - no porque el nivel sea mágico, sino porque el flujo de cobertura que se activa a su alrededor es estructural.
+En la práctica, el call wall suele actuar como **resistencia** - no porque el nivel sea mágico, ni simplemente porque sea un strike de calls. En condiciones de gamma positiva, el flujo de cobertura modelado a su alrededor tiende a oponerse al movimiento; si el signo de la gamma cambia, esa cobertura pasa a acompañar al movimiento.
 
 Cosas que conviene saber:
 
@@ -32,9 +32,9 @@ Cosas que conviene saber:
 
 ## ¿Qué es un put wall?
 
-El put wall es el strike por debajo del spot con la mayor exposición gamma en puts. En un régimen de gamma positiva, el libro neto de los dealers está largo de gamma, de modo que compra mientras el precio cae hacia el wall - el reflejo espejo del call wall, con las compras concentradas donde la gamma en puts es más densa. Ese reflejo contrarresta el selloff.
+El put wall es el strike por debajo del spot con la mayor exposición gamma en puts. Cuando se modela el libro neto como largo de gamma (un régimen de Net GEX positivo), la cobertura agregada de los dealers tiende a comprar la debilidad y vender la fortaleza - así que, a medida que el precio cae hacia un strike denso en puts, ese reflejo de comprar la caída puede oponerse al selloff. Ese comportamiento, sin embargo, viene del signo de la gamma *neta*, no de que el strike esté hecho de puts.
 
-En la práctica, el put wall suele actuar como **soporte** en regímenes de gamma larga. Al igual que el call wall, el mecanismo es estructural, no psicológico.
+En la práctica, el put wall suele actuar como **soporte**. Al igual que con el call wall, que la cobertura a su alrededor amortigüe una caída, ancle el precio o acelere una ruptura depende del signo de la gamma modelada de los dealers y del flujo circundante - no del tipo de opción.
 
 Cosas que conviene saber:
 

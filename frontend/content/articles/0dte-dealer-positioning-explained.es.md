@@ -49,7 +49,7 @@ Lo que hace el reflejo:
 - Un movimiento al alza tiende a llevar a los dealers a *comprar*, amplificando el movimiento.
 - Un movimiento a la baja tiende a llevar a los dealers a *vender*, amplificando el movimiento.
 - La volatilidad intradía realizada tiende a expandirse.
-- Los walls se vuelven menos fiables como resistencia y soporte - pueden invertirse en objetivos de breakout.
+- Un wall que cede puede invertirse y convertirse en un acelerador, con la cobertura sumándose a la ruptura.
 - El comportamiento de pin cerca del strike 0DTE más pesado se debilita o se revierte.
 
 Cómo tiende a verse el tape:
@@ -72,17 +72,17 @@ Lo que hace el reflejo:
 - Un movimiento al alza tiende a llevar a los dealers a *vender*, amortiguando el movimiento.
 - Un movimiento a la baja tiende a llevar a los dealers a *comprar*, amortiguando el movimiento.
 - La volatilidad intradía realizada tiende a comprimirse.
-- Los walls se comportan más como resistencia y soporte genuinos.
+- La cobertura en torno a los walls se opone a los movimientos hacia ellos.
 - El comportamiento de pin cerca del strike 0DTE más pesado se fortalece hacia el cierre.
 
 Cómo tiende a verse el tape:
 
-- Rangos más ajustados, más chop, más breakouts fallidos.
+- Rangos más ajustados y más chop, con una cobertura que se opone a los breakouts.
 - Comportamiento de atracción hacia el strike más pesado, especialmente después de las 14:00 ET.
 - El rápido decaimiento theta puede pesar sobre las primas del mismo día, pero los movimientos del spot y de la volatilidad implícita pueden dominarlo.
 - Los setups de mean-reversion pueden ser más coherentes con el reflejo de cobertura modelado que los setups de continuación de tendencia.
 
-La inclinación práctica en un régimen 0DTE de gamma larga es **contra el breakout, con el pin**. Los rallies desvanecidos hacia el call wall, las compras en caídas hacia el put wall y las estructuras de prima corta se benefician todas del reflejo amortiguador.
+La inclinación práctica en un régimen 0DTE de gamma larga es **contra el breakout, con el pin**. Los rallies desvanecidos hacia el call wall, las compras en caídas hacia el put wall y las estructuras de prima corta se apoyan todas en el reflejo amortiguador.
 
 ---
 
@@ -92,14 +92,14 @@ Algunos hábitos que cambian entre los dos regímenes:
 
 **En un régimen 0DTE de gamma negativa:**
 
-- Toma más en serio los breakouts del rango reciente, especialmente cuando el Net GEX es grande y negativo.
+- Dales más margen a los breakouts del rango reciente, especialmente cuando el Net GEX es grande y negativo: si un nivel cede, la cobertura se suma al movimiento.
 - No trates los walls 0DTE como techos: si uno cede, la cobertura se suma al movimiento en lugar de oponerse a él.
 - Sé escéptico ante los setups de "esto va a hacer pin" - el reflejo de los dealers no está tirando.
 - Si medidas de volatilidad independientes confirman una sesión de rango más amplio, dimensiona el riesgo en consecuencia; el signo modelado de la gamma no prescribe por sí solo un stop.
 
 **En un régimen 0DTE de gamma positiva:**
 
-- Por defecto, apuesta a desvanecer los movimientos hacia strikes concentrados en 0DTE.
+- Espera que los movimientos hacia strikes concentrados en 0DTE se encuentren con una cobertura que se opone a ellos.
 - Trata el strike de mayor gamma como un imán, especialmente hacia el cierre.
 - Sé escéptico ante los breakouts - la cobertura se está oponiendo a ellos, y los breakouts fallidos pueden tardar diez o quince minutos en deshacerse.
 - Stops más ajustados son más razonables; los rangos están más contenidos.
@@ -124,7 +124,7 @@ El dashboard muestra lecturas específicas de 0DTE en varios lugares:
 
 Un ejemplo desarrollado. Supongamos que SPX está en 5.825, el Net GEX marca −800 millones de dólares, el gamma flip se sitúa en 5.840, y el mapa de calor muestra un strike de put 0DTE pesado en 5.820 que ha estado migrando a la baja junto con el precio durante toda la mañana. La lectura estructural: los dealers están cortos de gamma, el spot está por debajo del flip, y el strike 0DTE más pesado está siguiendo el movimiento en lugar de contenerlo.
 
-Inclinación práctica: este es un régimen de gamma corta, favorable a la continuación, con el strike de put migrando confirmando en lugar de resistir la caída. Un trader que entró en la sesión con un sesgo de mean-reversion debería ser mucho más cauteloso aquí, porque la estructura 0DTE está apuntando activamente en la dirección contraria. Nada de esto es una señal de trade - es contexto de régimen que debería remodelar qué entradas tomas en serio.
+Inclinación práctica: este es un régimen de gamma corta, favorable a la continuación, y el strike de put más pesado está migrando junto con el precio, así que el nivel en el que se apoyaría un fade no deja de moverse. Un trader que entró en la sesión con un sesgo de mean-reversion debería ser mucho más cauteloso aquí, porque la cobertura va a favor del movimiento en lugar de oponerse a él. Nada de esto es una señal de trade - es contexto de régimen que debería remodelar qué entradas tomas en serio.
 
 ![Tarjetas de Net GEX y Gamma Flip de ZeroGEX mostrando una lectura intradía de gamma negativa](/blog/zerogex-net-gex-flip-card.png)
 
@@ -135,7 +135,7 @@ Inclinación práctica: este es un régimen de gamma corta, favorable a la conti
 Una breve lista de cómo se malinterpreta el posicionamiento de dealers en 0DTE:
 
 - **Usar la gamma de todo el OI en una cadena dominada por 0DTE.** Si la mayor parte de la gamma de hoy es 0DTE y estás leyendo la gamma agregada del OI, tu lectura está promediando un libro cercano al vencimiento con un libro de vencimiento lejano que no importa para el tape de hoy.
-- **Tratar los walls como duraderos en un régimen de gamma negativa.** No lo son. Se convierten en objetivos de breakout.
+- **Dimensionar un fade en un wall igual en ambos regímenes.** En nuestra medición, los walls se rompieron aproximadamente con la misma frecuencia en uno y otro régimen, pero en gamma negativa un wall que cede tiene la cobertura sumándose a la ruptura, así que un fade fallido puede irse mucho más lejos.
 - **Ignorar el régimen y operar el nivel.** El spot en el put wall es un trade distinto por encima del flip que por debajo de él.
 - **Ignorar la migración.** Un strike 0DTE pesado que se ha movido dos veces en la última hora es una lectura distinta a uno que ha permanecido estático toda la mañana.
 - **Tratar el comportamiento de pin en 0DTE como garantizado.** Es una inclinación, no una promesa. Los catalizadores y los shocks de flujo rompen el pin con regularidad.

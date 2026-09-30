@@ -134,7 +134,7 @@ C'est aussi là que la thèse « vanna + charm à l'approche de l'OPEX » est pa
 
 Le cadre le plus utile en un mot :
 
-- **Dans un régime de gamma positif**, les flux de vanna et de charm renforcent le caractère amortissant et favorable au pin du tape. Le vanna grind soutient la dérive, la décroissance de charm tire vers l'aimant structurel, et le réflexe absorbant de la couverture long-gamma maintient le range.
+- **Dans un régime de gamma positif**, les flux de vanna et de charm renforcent le caractère amortissant et favorable au pin du tape. Le vanna grind soutient la dérive, la décroissance de charm tire vers l'aimant structurel, et le réflexe absorbant de la couverture long-gamma s'oppose aux mouvements qui sortent du range.
 - **Dans un régime de gamma négatif**, les flux de vanna et de charm peuvent amplifier le momentum directionnel au lieu de produire une dérive. La même décroissance de charm qui aurait fixé le prix en long-gamma peut alimenter un selloff en short-gamma si le book des dealers est positionné en ce sens.
 
 L'implication pratique : **lisez d'abord le gamma, puis lisez vanna et charm à l'intérieur de ce cadre.** Les grecques de second ordre décrivent des forces qui existent dans tous les régimes, mais leur *effet comportemental* est filtré par le réflexe gamma. Lire vanna ou charm sans lire le gamma revient à ne lire que la moitié du book.

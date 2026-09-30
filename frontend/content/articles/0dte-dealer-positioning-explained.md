@@ -80,7 +80,7 @@ What the tape tends to look like:
 - Rapid theta decay can weigh on same-day premiums, but spot and implied-volatility moves can dominate it.
 - Mean-reversion setups may be more consistent with the modeled hedge reflex than trend-continuation setups.
 
-The practical lean in a long-gamma 0DTE regime is **against the breakout, with the pin**. Faded rallies into the call wall, dip buys into the put wall, and short-premium structures all benefit from the dampening reflex.
+The practical lean in a long-gamma 0DTE regime is **against the breakout, with the pin**. Faded rallies into the call wall, dip buys into the put wall, and short-premium structures all lean on the dampening reflex.
 
 ---
 
@@ -90,14 +90,14 @@ A few habits that change between the two regimes:
 
 **In a negative-gamma 0DTE regime:**
 
-- Take breakouts of the recent range more seriously, especially when Net GEX is large and negative.
+- Give breakouts of the recent range more room, especially when Net GEX is large and negative: if a level gives way, hedging adds to the move.
 - Don't treat 0DTE walls as ceilings: if one gives way, hedging adds to the move instead of leaning against it.
 - Be skeptical of "this will pin" setups - the dealer reflex is not pulling.
 - If independent volatility measures confirm a wider-range session, size risk accordingly; modeled gamma sign alone does not prescribe a stop.
 
 **In a positive-gamma 0DTE regime:**
 
-- Default to fades of moves into 0DTE-concentrated strikes.
+- Expect moves into 0DTE-concentrated strikes to meet hedging that leans against them.
 - Treat the heaviest gamma strike as a magnet, especially into the close.
 - Be skeptical of breakouts - hedging is leaning against them, and failed breakouts can take ten or fifteen minutes to unwind.
 - Tighter stops are more reasonable; ranges are more contained.
@@ -122,7 +122,7 @@ The dashboard surfaces 0DTE-specific reads in a few places:
 
 A worked example. Suppose SPX is at 5,825, Net GEX reads −$800M, the gamma flip sits at 5,840, and the heatmap shows a heavy 0DTE put strike at 5,820 that has been migrating down with price all morning. The structural read: dealers are short gamma, spot is below the flip, and the heaviest 0DTE strike is tracking the move rather than holding it.
 
-Practical lean: this is a short-gamma, continuation-friendly regime, with the migrating put strike confirming rather than resisting downside. A trader who came into the session with a mean-reversion bias should be much more cautious here, because the 0DTE structure is actively pointing the other way. None of that is a trade signal - it is regime context that should reshape which entries you take seriously.
+Practical lean: this is a short-gamma, continuation-friendly regime, and the heaviest put strike is migrating with price, so the level a fade would lean on keeps moving. A trader who came into the session with a mean-reversion bias should be much more cautious here, because the hedging is running with the move rather than leaning against it. None of that is a trade signal - it is regime context that should reshape which entries you take seriously.
 
 ![ZeroGEX Net GEX and Gamma Flip cards showing a negative-gamma intraday read](/blog/zerogex-net-gex-flip-card.png)
 

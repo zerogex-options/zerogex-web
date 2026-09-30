@@ -12,7 +12,7 @@ Two things follow from that definition, and both matter.
 
 First, a gamma wall is derived from real open interest - contract by contract, weighted by the gamma each contract carries - not from chart geometry. It is not a moving average, a trendline, or a round number.
 
-Second, a wall describes *where positioning sits*, not *what price will do*. Whether a wall behaves as resistance, support, a magnet, or an accelerant depends on the modeled dealer gamma **sign** and the surrounding flow - not on whether the contracts at that strike happen to be calls or puts.
+Second, a wall describes *where positioning sits*, not *what price will do*. Whether the hedging at a wall leans against a move, pulls price toward the strike, or accelerates a break depends on the modeled dealer gamma **sign** and the surrounding flow - not on whether the contracts at that strike happen to be calls or puts.
 
 ## The two gamma walls
 

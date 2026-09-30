@@ -64,6 +64,13 @@ const BANNED: Array<[string, RegExp]> = [
   ['breakouts "likely to extend or fade"', /breakouts are likely to (extend|fade)/i],
   ['the flip decides "defend it or blow through it"', /defend it or blow through it/i],
   ['a regime table of breakouts that "often fade" / "often extend"', /\| *Often (fade and snap back|extend) *\|/i],
+  ['wall migration "confirming" a move', /confirming rather than resisting/i],
+  ['the regime read "filters out" bad trades', /filters out a (huge|meaningful) share of bad trades/i],
+  ['strikes "absorbing flow or releasing it"', /absorbing flow or releasing it/i],
+  ['rallies that "stall near the call wall" by regime', /stall near the call wall/i],
+  ['walls that "behave very differently" by regime', /\bwalls behave very differently/i],
+  ['chases "structurally set up to fade" at walls', /structurally set up to fade/i],
+  ['long-gamma hedging that "holds the range"', /hedging holds the range/i],
   ['a regime-given "hit rate" for a setup', /\b(setups|trend-following|trend-continuation) (have|has) a (higher|lower) hit rate\b/i],
 ];
 
@@ -144,6 +151,13 @@ test('the banned patterns still catch the sentences they were written for', () =
     'the gamma flip tells you whether they will defend it or blow through it',
     '| Breakouts | Often fade and snap back | Often extend |',
     'In a negative-gamma regime, they are weaker as resistance and can flip into breakout targets.',
+    'with the migrating put strike confirming rather than resisting downside',
+    'That single read filters out a huge share of bad trades',
+    'whether the strikes you see on the chain are absorbing flow or releasing it',
+    'rally attempts that often stall near the call wall',
+    'The walls behave very differently in the two regimes:',
+    'Call Wall / Put Wall - where chases are structurally set up to fade.',
+    'and the absorbing reflex of long-gamma hedging holds the range.',
   ];
   for (const sentence of ORIGINALS) {
     assert.ok(

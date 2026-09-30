@@ -38,7 +38,7 @@ Der erreichbare 0DTE-Strike mit dem stärksten modellierten positiven Dealer-Gam
 
 - **Call GEX** und **Put GEX** - das gesamte modellierte Gamma-Exposure aus Calls bzw. aus Puts, die beiden Hälften hinter Net GEX.
 - **Put/Call Ratio** - Put-Volumen geteilt durch Call-Volumen. Über 1 eher bearish; unter 1 eher bullish.
-- **Call Wall (Resistance)** und **Put Wall (Support)** - der Strike auf oder über dem Spot mit dem größten Call-Gamma und der Strike auf oder unter dem Spot mit dem größten Put-Gamma, jeweils summiert über den heutigen Verfall und die zwei nächsten (0-2DTE), mit dem Abstand zum Spot. Ein Chart, das nur auf 0DTE beschränkt ist, kann einen anderen Strike zeigen. Die Bezeichnungen sind die übliche Lesart, keine Garantie: Ob eine Wall hält, hängt vom modellierten Vorzeichen des Dealer-Gammas und vom umgebenden Flow ab.
+- **Call Wall (Resistance)** und **Put Wall (Support)** - der Strike auf oder über dem Spot mit dem größten Call-Gamma und der Strike auf oder unter dem Spot mit dem größten Put-Gamma, jeweils summiert über den heutigen Verfall und die zwei nächsten (0-2DTE), mit dem Abstand zum Spot. Ein Chart, das nur auf 0DTE beschränkt ist, kann einen anderen Strike zeigen. Die Bezeichnungen sind die übliche Lesart, keine Garantie: In unserer Studie mit 737 Wall-Tests hielten S&P-Walls in etwa zwei von drei Fällen innerhalb einer Stunde und Nasdaq-Walls in etwa der Hälfte der Fälle, und das modellierte Vorzeichen des Dealer-Gammas änderte daran nichts.
 
 ## Gamma Flip · Term Structure
 

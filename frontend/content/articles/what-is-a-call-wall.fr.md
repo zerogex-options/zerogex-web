@@ -8,7 +8,7 @@
 
 ## Qu'est-ce qu'un call wall ?
 
-Un **call wall** est le strike au-dessus du spot qui porte la plus forte concentration d'exposition gamma des dealers côté call sur la chaîne d'options. C'est le niveau de prix où les flux de couverture des dealers sont les plus susceptibles de *s'opposer à un rallye* - c'est pourquoi les traders considèrent le call wall comme le plafond structurel de l'actuelle fourchette de positionnement des dealers.
+Un **call wall** est le strike au-dessus du spot qui porte la plus forte concentration d'exposition gamma côté call sur la chaîne d'options. Quand les dealers sont modélisés comme longs de ce gamma (un régime de gamma positif), c'est le niveau où leurs flux de couverture sont les plus susceptibles de *s'opposer à un rallye* - c'est pourquoi les traders considèrent le call wall comme le plafond structurel de l'actuelle fourchette de positionnement des dealers. Ce comportement de plafond est une tendance, pas une règle, et la couverture qui le sous-tend dépend du signe modélisé du gamma des dealers et du flux environnant, pas du simple fait que le strike soit composé de calls.
 
 La signification du call wall, en une phrase : ce n'est ni un chiffre rond ni une ligne sur un graphique - c'est un positionnement réel, l'open interest pondéré par le gamma que porte chaque contrat. Le strike unique où ce gamma call est le plus dense au-dessus du prix actuel, c'est le call wall.
 
@@ -25,7 +25,7 @@ C'est cette vente qui peut créer la résistance. À mesure que le prix se rappr
 Quelques conséquences de ce mécanisme :
 
 - Le call wall est une **résistance probabiliste**, pas un plafond rigide. Un flux directionnel réel le traverse régulièrement.
-- Il pèse le plus fort dans un régime de gamma positif et sur les strikes à gamma relatif élevé.
+- Sa couverture pèse le plus fort dans un régime de gamma positif et sur les strikes à gamma relatif élevé.
 - C'est un indice structurel, pas une garantie - un catalyseur puissant peut le pulvériser en quelques secondes.
 
 ---
@@ -62,7 +62,7 @@ Comme les dealers défendent le call wall en gamma positif, une cassure *décisi
 - **Le wall était en migration**, et le prix a simplement suivi un plafond qui montait déjà - moins significatif, souvent une simple continuation de tendance.
 - **Le wall était statique et le prix l'a franchi quand même** - un signe que la couverture qui plafonnait le mouvement a été débordée, et fréquemment que le régime de gamma lui-même est en train de basculer. Une fois que le spot pousse au-dessus d'un call wall qui tenait et entre dans une zone de gamma plus mince, le réflexe des dealers peut s'inverser, passant de la vente des rallyes à leur poursuite - c'est ainsi qu'un tape figé devient un tape rapide.
 
-La lecture, dans l'ordre : le wall tient-il ou poursuit-il le prix, et le Net GEX soutient-il le plafond ou s'affaiblit-il ? Une cassure avec un Net GEX en contraction n'a rien à voir avec une cassure vers un gamma positif qui se renforce.
+La lecture, dans l'ordre : le wall tient-il ou poursuit-il le prix, et le Net GEX se construit-il ou s'affaiblit-il ? Ni l'un ni l'autre n'a permis de prédire les cassures selon nos mesures, mais ils changent le mécanisme : une cassure avec un Net GEX en contraction a moins de couverture qui s'y oppose qu'une cassure vers un gamma positif qui se renforce.
 
 ---
 

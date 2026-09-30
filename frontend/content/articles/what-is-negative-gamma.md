@@ -56,7 +56,7 @@ Compare to **positive gamma**, where the same flow chain inverts: dealers sell i
 | Worst playbook | Chasing breakouts, momentum | Fading rallies, dip-buying into structure |
 | Typical when | SPY above the gamma flip, Net GEX > 0 | SPY below the gamma flip, Net GEX < 0 |
 
-These are general regime leans, not guarantees. Catalysts and shocks override them. But the base rate is meaningful enough that running the wrong playbook for the regime is most of the cost.
+These are general regime leans, not guarantees. Catalysts and shocks override them. What they change is the mechanism behind a trade, not how often walls break: in our measurement, walls held about as often on either side of the flip.
 
 ---
 
@@ -77,14 +77,14 @@ A short workflow:
 Concretely, things to *stop* doing in a negative-gamma regime:
 
 - **Don't fade rallies.** The dealer reflex is amplifying. Your "mean-reversion short" is fighting the structural buying flow.
-- **Don't buy dips into structure.** Same problem inverted. The put wall that was supporting the tape in long-gamma can become a slippage point in short-gamma.
+- **Don't buy dips into structure.** Same problem inverted. If the put wall gives way in short gamma, hedging adds to the slide instead of cushioning it, so it can become a slippage point.
 - **Don't expect pinning.** The structural pull toward heavy strikes tends to weaken, so the magnet thesis is far less reliable here.
 - **Don't size for a normal range.** Realized vol is structurally higher. Position size assuming wider stops are needed.
 
 Things to *start* doing:
 
 - **Trade with the move.** Trend-following setups have the hedging behind them.
-- **Size fades at walls for the break.** A wall held about as often in short gamma as in long in our measurement, but if it gives way here, hedging adds to the move, so a failed fade can run further against you.
+- **Size any position against a wall for the break.** A wall held about as often in short gamma as in long in our measurement, but if it gives way here, hedging adds to the move, so a position betting on the wall can run further against you.
 - **Be more selective on entry timing.** Wider ranges mean more risk per trade. Compensate with tighter setup criteria.
 - **Watch for regime flips back to positive gamma.** They happen - the flip is dynamic. When spot crosses back above the gamma flip, the playbook flips with it.
 
@@ -113,7 +113,7 @@ Now imagine the same chart with Net GEX at +$1.2B and the gamma flip at 5,760 (s
 
 - **"Negative gamma is bearish."** It is not. It is **vol-amplifying**. The market can rally hard in a negative-gamma regime - and the rally tends to extend further than it would in long-gamma. Negative gamma is about *character of moves*, not direction.
 - **"Positive gamma is bullish."** Also no. Positive gamma is **vol-dampening**. The market can drift down in a positive-gamma regime; it just tends to do so slowly with mean-reverting bounces along the way.
-- **"You can trade negative-gamma signals the same as positive-gamma signals."** Most of the damage here comes from this. The signals and the structural reads invert across regimes. A "buy the dip" thesis that works above the flip can compound losses below it.
+- **"You can trade negative-gamma signals the same as positive-gamma signals."** Most of the damage here comes from this. The signals and the structural reads invert across regimes. A "buy the dip" thesis that has the hedging behind it above the flip can compound losses below it.
 - **"Negative gamma is rare."** It happens regularly - particularly after vol spikes, during macro stress, and when the chain is heavily put-skewed. Knowing the regime in real time is what tells you when.
 
 ---

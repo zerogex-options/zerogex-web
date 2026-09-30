@@ -18,7 +18,7 @@ This piece is the practical workflow for identifying options-based S/R, reading 
 
 ## The four kinds of options-based S/R
 
-The labels below - call wall as resistance, put wall as support - describe the *typical positive-gamma* behavior. They are not fixed properties of the strike: option type alone does not set the direction, and each can invert when the modeled dealer gamma sign or the surrounding flow changes.
+The labels below - call wall as resistance, put wall as support - describe how the modeled hedging leans in a *positive-gamma* regime. They are not fixed properties of the strike: option type alone does not set the direction, and the hedging can run with a move instead when the modeled dealer gamma sign or the surrounding flow changes.
 
 ### 1. Call walls (resistance)
 
@@ -64,7 +64,7 @@ Three reasons:
 
 3. **It is recalculated.** Spot, time, and implied volatility reprice gamma at each strike, so a different fixed-OI strike can become the wall intraday. Official OI generally updates after clearing; a migrating wall is not evidence that fresh positions opened there.
 
-That said, options-based S/R isn't infallible. It's a probabilistic lean. Macro shocks, catalyst events, and regime flips override it regularly. The advantage is that the lean is *grounded* - when it works, it works for a reason you can verify.
+That said, options-based S/R isn't infallible. It's a probabilistic lean. Macro shocks and catalyst events override it regularly, and a regime flip changes what the hedging does. The advantage is that the lean is *grounded* - when it works, it works for a reason you can verify.
 
 ---
 
@@ -73,7 +73,7 @@ That said, options-based S/R isn't infallible. It's a probabilistic lean. Macro 
 A short workflow:
 
 1. **Pull the gamma flip first.** It tells you which regime you're in. The flip itself is also a soft level worth watching.
-2. **Identify the call wall and put wall.** These give you the structural range - the boundaries dealer hedging is set up to defend (in a long-gamma regime) or release (in a short-gamma regime).
+2. **Identify the call wall and put wall.** These give you the structural range - the boundaries dealer hedging leans against (in a long-gamma regime) or adds to a move through (in a short-gamma regime).
 3. **Identify the gamma magnet.** Often the heaviest 0DTE strike. The magnet tells you where price gets pulled inside the wall range.
 4. **Check the migration.** A wall that just jumped is a different reference from one that has been stable for hours: a migrating wall is chasing price, so the level you are watching has moved. In our measurement, neither a wall's age nor its migration predicted whether it broke.
 5. **Cross-check with chart S/R.** Where the structural level aligns with a chart-based level (round number, prior swing, key moving average), the convergence can make the level sharper.
@@ -120,7 +120,7 @@ The composite structural read:
 - The call wall and chart resistance agree near 583 - the higher-confidence resistance zone is right where chart traders see it, but the modeled positioning puts the wall at 583.50, not the round 583.
 - The put wall and chart support also agree near 580 - a stronger support read there.
 - The gamma magnet at 581.00 means price can have a structural pull toward roughly where it is right now. While positive gamma holds, hedging leans against moves in both directions.
-- The flip at 580.80 means a drop below 580.80 would flip the modeled regime; the put wall at 580 might not absorb cleanly if the flip cross happens first.
+- The flip at 580.80 means a drop below 580.80 would flip the modeled regime; if that happens first and the put wall at 580 then gives way, hedging adds to the move instead of cushioning it.
 
 The read: modeled hedging leans against moves toward either edge of the 581-583.50 range, but each wall is still a base-rate bet - SPY walls held about two times in three within an hour in our measurement, whichever side of the flip price was on. The structural read adds where the levels are and what hedging does around them; it does not tell you which one will give way.
 

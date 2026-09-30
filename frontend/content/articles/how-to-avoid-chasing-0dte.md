@@ -59,10 +59,10 @@ One framing note first: the gamma flip, Net GEX, and walls below are *modeled* e
 1. **What's the gamma regime?** Spot above the modeled flip (long-gamma) → hedging leans against the move you are chasing. Spot below the flip (short-gamma) → hedging runs with it. That tells you which way dealer flow leans, not whether the move will stick: in our measurement of 737 wall tests, walls broke no more often below the flip than above it. If you don't know the regime, you don't know which way the hedging leans.
 2. **Where is the nearest wall?** If you're chasing a call into the call wall in a long-gamma regime, the structural pull is *against* the chase. If you're chasing into open air with no wall between current spot and the chase target, the structural pull is neutral - better setup.
 3. **Is Net GEX strengthening or decaying?** Strengthening in a long-gamma regime suggests the absorbing reflex is intensifying; decaying suggests it is weakening. That describes the hedging, not the odds - in our measurement, Net GEX's trajectory did not predict which walls broke.
-4. **What's the time of day?** Before noon ET, modeled 0DTE charm is low and the dealer reflex tends to be muted. After 14:00 ET, modeled charm hedging tends to build. Late-day chases into structure are often the worst version of the trap.
+4. **What's the time of day?** Before noon ET, modeled 0DTE charm is low and the dealer reflex tends to be muted. After 14:00 ET, modeled charm hedging tends to build. A late-day chase into structure meets that hedging at its heaviest.
 5. **Has the contract already 3x'd?** If yes, you're not catching a move - you're paying for the move that already happened. The expected next move includes a meaningful probability of mean-reversion.
 
-If most of these line up against the chase, the discipline is to skip. Not "wait for a better entry" - skip. The 0DTE chase that worked one time in ten is the survivorship bias keeping the habit alive.
+If most of these line up against the chase, the discipline is to skip. Not "wait for a better entry" - skip. The 0DTE chase that worked once is the survivorship bias keeping the habit alive.
 
 ---
 
@@ -85,7 +85,7 @@ Those are the conditions under which a 0DTE breakout has something behind it oth
 The free `/spx-gamma-levels` view gives you the three filters you need:
 
 - **Gamma Flip** - regime check.
-- **Call Wall / Put Wall** - where chases are structurally set up to fade.
+- **Call Wall / Put Wall** - where a chase runs into the heaviest dealer hedging.
 - **Net GEX** - magnitude of the dealer book.
 
 For the time-of-day filter, the live dashboards show the EOD Pressure signal during the active window (post-14:30 ET) - a modeled directional read on which way hedging pressure may point into the close.
@@ -97,7 +97,7 @@ Worked example. It's 14:45 ET. SPX has just punched through the day's high to 5,
 - **Call Wall:** 5,815 (basically at the chase target)
 - **EOD Pressure:** +0.35 (mild bullish drift, but heading toward the magnet)
 
-Read: long-gamma regime, healthy positioning, wall sits five points above current - and the EOD drift is mild, not screaming. Every filter is on the *fade* side. The chase is buying right at the top of the structural absorb zone, late in the day, with theta accelerating. Skip.
+Read: long-gamma regime, healthy positioning, wall sits five points above current - and the EOD drift is mild, not screaming. Every filter is on the *fade* side of the mechanism. The chase is buying into the heaviest hedging of the day, late, with theta accelerating. Skip.
 
 ---
 
@@ -116,7 +116,7 @@ A few that work:
 
 > The 0DTE chase isn't a strategy; it's an emotional reaction to seeing a contract you wanted go up without you. The cure is the structural read before the click, not better discipline.
 
-The discipline part comes naturally once the read is consistent - if you've checked the regime, the wall, Net GEX, and time-of-day and they all point fade, the chase loses its appeal. The trap is taking the chase *before* running the check.
+The discipline part comes naturally once the read is consistent - after you've checked the regime, the wall, Net GEX, and time-of-day and seen the hedging leaning against you, the chase loses its appeal. The trap is taking the chase *before* running the check.
 
 Educational content only - none of the above is a trade recommendation.
 

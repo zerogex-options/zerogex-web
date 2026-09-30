@@ -20,7 +20,7 @@ Cet article présente le workflow pratique pour identifier le S/R basé sur les 
 
 ## Les quatre types de S/R basés sur les options
 
-Les libellés ci-dessous - call wall comme résistance, put wall comme support - décrivent le comportement *typique en gamma positive*. Ce ne sont pas des propriétés fixes du strike : le type d'option ne détermine pas à lui seul la direction, et chacun peut s'inverser quand le signe de la gamma dealer modélisée ou le flux environnant change.
+Les libellés ci-dessous - call wall comme résistance, put wall comme support - décrivent dans quel sens penche la couverture modélisée dans un régime de *gamma positive*. Ce ne sont pas des propriétés fixes du strike : le type d'option ne détermine pas à lui seul la direction, et la couverture peut au contraire accompagner un mouvement quand le signe de la gamma dealer modélisée ou le flux environnant change.
 
 ### 1. Les call walls (résistance)
 
@@ -66,7 +66,7 @@ Trois raisons :
 
 3. **Ça se met à jour en temps réel.** Les lignes de tendance sont des artefacts historiques qui deviennent obsolètes à mesure que le prix évolue. Les walls se déplacent avec le positionnement - un nouvel OI qui se construit au-dessus du call wall le pousse plus haut, et la lecture structurelle se met à jour en conséquence. Le niveau que vous voyez à 10h30 ET est celui qui compte maintenant.
 
-Cela dit, le S/R basé sur les options n'est pas infaillible. C'est une inclinaison probabiliste. Les chocs macro, les événements catalyseurs et les changements de régime le contredisent régulièrement. L'avantage, c'est que cette inclinaison est *fondée* - quand ça fonctionne, ça fonctionne pour une raison vérifiable.
+Cela dit, le S/R basé sur les options n'est pas infaillible. C'est une inclinaison probabiliste. Les chocs macro et les événements catalyseurs le contredisent régulièrement, et un changement de régime modifie ce que fait la couverture. L'avantage, c'est que cette inclinaison est *fondée* - quand ça fonctionne, ça fonctionne pour une raison vérifiable.
 
 ---
 
@@ -75,7 +75,7 @@ Cela dit, le S/R basé sur les options n'est pas infaillible. C'est une inclinai
 Un workflow court :
 
 1. **Repérez d'abord le gamma flip.** Il indique dans quel régime vous vous trouvez. Le flip lui-même est aussi un niveau souple à surveiller.
-2. **Identifiez le call wall et le put wall.** Ils donnent la fourchette structurelle - les limites que la couverture des dealers est configurée pour défendre (en régime de gamma longue) ou relâcher (en régime de gamma courte).
+2. **Identifiez le call wall et le put wall.** Ils donnent la fourchette structurelle - les limites près desquelles la couverture des dealers s'oppose au mouvement (en régime de gamma longue) ou renforce un mouvement qui les franchit (en régime de gamma courte).
 3. **Identifiez le gamma magnet.** Souvent le strike 0DTE le plus lourd. Le magnet indique où le prix est attiré à l'intérieur de la fourchette des walls.
 4. **Vérifiez la migration.** Un wall qui vient de sauter n'est pas la même référence qu'un wall stable depuis des heures : un wall qui migre poursuit le prix, donc le niveau que vous surveillez s'est déplacé. Selon nos mesures, ni l'ancienneté d'un wall ni sa migration ne permettaient de prédire s'il allait céder.
 5. **Recoupez avec le S/R graphique.** Là où le niveau structurel s'aligne avec un niveau graphique (chiffre rond, swing précédent, moyenne mobile clé), la convergence peut rendre le niveau plus net.
@@ -122,7 +122,7 @@ La lecture structurelle composite :
 - Le call wall et la résistance graphique concordent près de 583 - la zone de résistance à plus forte confiance se situe exactement là où les traders graphiques la voient, mais le positionnement modélisé place le wall à 583,50, pas au chiffre rond de 583.
 - Le put wall et le support graphique concordent également près de 580 - une lecture de support plus solide à ce niveau.
 - Le gamma magnet à 581,00 signifie que le prix peut subir une attraction structurelle vers à peu près l'endroit où il se trouve actuellement. Tant que la gamma reste positive, la couverture s'oppose aux mouvements dans les deux sens.
-- Le flip à 580,80 signifie qu'une chute sous 580,80 ferait basculer le régime modélisé ; le put wall à 580 pourrait ne pas absorber proprement si le franchissement du flip survient en premier.
+- Le flip à 580,80 signifie qu'une chute sous 580,80 ferait basculer le régime modélisé ; si cela se produit d'abord et que le put wall à 580 cède ensuite, la couverture renforce le mouvement au lieu de l'amortir.
 
 La lecture : la couverture modélisée s'oppose aux mouvements vers l'une ou l'autre borne de la fourchette 581-583,50, mais chaque wall reste un pari sur le taux de base - selon nos mesures, les walls du SPY ont tenu environ deux fois sur trois dans l'heure, quel que soit le côté du flip où se trouvait le prix. La lecture structurelle vous apporte l'emplacement des niveaux et ce que fait la couverture autour d'eux ; elle ne vous dit pas lequel va céder.
 

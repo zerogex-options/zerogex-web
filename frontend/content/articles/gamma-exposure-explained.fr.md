@@ -10,7 +10,7 @@
 
 L'essentiel de l'action des prix que les traders essaient de lire sur un graphique est un effet en aval de quelque chose qui se produit un niveau plus bas : les **flux de couverture des dealers**. Les market makers se trouvent de l'autre côté de chaque transaction sur options et, pour rester delta-neutres, achètent et vendent en permanence le sous-jacent à mesure que le prix évolue. Qu'ils achètent la faiblesse ou qu'ils la vendent - qu'ils atténuent la volatilité ou qu'ils l'amplifient - dépend d'une variable structurelle : leur **gamma exposure**.
 
-La gamma exposure (GEX) est le moyen le plus clair de lire ce que fait ce book de dealers. Elle indique si la force structurelle du marché pousse vers la stabilité ou l'instabilité, si les breakouts ont tendance à se prolonger ou à s'essouffler, et si les strikes visibles sur la chaîne d'options absorbent le flux ou le libèrent. Elle n'indique pas la direction. Elle indique le **caractère du régime** dans lequel vous évoluez - et c'est là que se trouve l'essentiel de l'avantage.
+La gamma exposure (GEX) est le moyen le plus clair de lire ce que fait ce book de dealers. Elle indique si la force structurelle du marché pousse vers la stabilité ou l'instabilité, si la couverture va s'opposer à un breakout ou le renforcer, et si la couverture aux strikes visibles sur la chaîne d'options s'oppose au flux ou le renforce. Elle n'indique pas la direction. Elle indique le **caractère du régime** dans lequel vous évoluez - et c'est là que se trouve l'essentiel de l'avantage.
 
 Cet article est la lecture exhaustive. Nous aborderons ce qu'est la gamma exposure, comment elle se construit à partir de la chaîne d'options, la mécanique des régimes de gamma positif contre négatif, le rôle du gamma flip et des gamma walls, ainsi que le flux de travail pratique pour utiliser tout cela en intraday. Pour des lectures plus approfondies destinées aux traders sur chaque sous-thème, ce guide renvoie vers [Comment lire un Gamma Flip](/education/how-to-read-a-gamma-flip), [Les Gamma Walls expliqués](/education/gamma-walls-explained) et [Le positionnement des dealers en 0DTE expliqué](/education/0dte-dealer-positioning-explained). Pour les Grecques de second ordre spécifiques, voir [Vanna et Charm expliqués pour les traders d'options](/education/vanna-and-charm-explained), et pour la discussion pinning contre magnet, voir [Max Pain expliqué - est-ce que ça fonctionne vraiment ?](/education/max-pain-explained).
 
@@ -118,11 +118,11 @@ Le caractère du marché est **borné et absorbant**. Le comportement de pinning
 En dessous du gamma flip, les dealers sont généralement nets courts en gamma. Pour rester delta-neutres, ils couvrent avec des mouvements directionnels - en achetant quand le prix monte et en vendant quand il baisse. Ce réflexe a tendance à :
 
 - Amplifier la volatilité réalisée.
-- Faire durer les breakouts plus longtemps qu'ils ne le laissent penser.
+- Ajouter un flux de couverture à un breakout dès qu'un niveau cède, au lieu de s'y opposer.
 - Accélérer les mouvements de vente à mesure qu'ils progressent.
 - Rendre les setups de retour à la moyenne dangereux.
 
-Le caractère du marché est **guidé par le momentum et amplificateur**. Les pins du régime précédent se libèrent ; les strikes qui faisaient office de résistance peuvent devenir des cibles de breakout. Les stratégies d'achat de prime et de continuation de tendance ont tendance à fonctionner plus souvent. Vouloir attraper un couteau qui tombe dans un régime de gamma profondément négatif va exactement à l'encontre du réflexe qui permettrait à un achat sur repli de fonctionner.
+Le caractère du marché est **guidé par le momentum et amplificateur**. Les pins du régime précédent se libèrent ; un strike qui cède peut devenir un accélérateur plutôt qu'une résistance. Les stratégies d'achat de prime ont tendance à profiter des fourchettes plus larges, et les setups de continuation de tendance ont la couverture de leur côté. Vouloir attraper un couteau qui tombe dans un régime de gamma profondément négatif va exactement à l'encontre du réflexe qui permettrait à un achat sur repli de fonctionner.
 
 ### Deux mises en garde importantes
 
@@ -151,10 +151,10 @@ Pour le flux de travail de lecture pratique - y compris ce qui change au-dessus
 
 Si le flip est la frontière de régime, les gamma walls sont les frontières structurelles à l'intérieur de celle-ci. Le **call wall** est le strike au-dessus du spot portant la plus forte gamma exposure sur les calls ; le **put wall** est le strike en dessous du spot avec la plus forte gamma exposure sur les puts. Ensemble, ils dessinent la fourchette que la couverture des dealers a tendance à défendre.
 
-Les walls se comportent très différemment dans les deux régimes :
+La couverture autour des walls se comporte très différemment dans les deux régimes :
 
-- Dans un régime de **gamma positif**, les walls absorbent. Le réflexe des dealers autour d'eux consiste à contrer les mouvements - vendre les rallyes à l'approche du call wall, acheter les replis à l'approche du put wall.
-- Dans un régime de **gamma négatif**, les walls se libèrent. Le même niveau qui résistait au prix en gamma long peut devenir une cible de breakout.
+- Dans un régime de **gamma positif**, la couverture autour des walls s'oppose aux mouvements - vendre les rallyes à l'approche du call wall, acheter les replis à l'approche du put wall.
+- Dans un régime de **gamma négatif**, la couverture accompagne le mouvement, si bien qu'un wall qui cède peut devenir un accélérateur de breakout plutôt qu'une résistance. Selon nos mesures, les walls n'ont pas cédé plus souvent dans un régime que dans l'autre.
 
 Les walls migrent aussi. Un call wall qui dérive vers le haut à mesure que le prix le teste constitue une lecture structurellement différente d'un wall qui tient. Pour le flux de travail de lecture complet, voir [Les Gamma Walls expliqués : Call Wall, Put Wall, et comment le prix réagit](/education/gamma-walls-explained).
 
@@ -181,11 +181,11 @@ Un flux de travail pratique :
 
 ### Étape 1 : Identifier le régime
 
-Avant toute chose, vérifiez si le spot est au-dessus ou en dessous du gamma flip et quelle est l'ampleur du Net GEX. Cette seule lecture filtre une part importante des mauvais trades - contrer un mouvement alors qu'il faudrait l'accompagner, ou trader des breakouts alors qu'il faudrait les contrer.
+Avant toute chose, vérifiez si le spot est au-dessus ou en dessous du gamma flip et quelle est l'ampleur du Net GEX. Cette seule lecture vous indique si la couverture s'oppose au mouvement ou le renforce - ce qui détermine jusqu'où un fade ou un breakout peut aller contre vous quand il tourne mal.
 
 ### Étape 2 : Lire les walls au sein du régime
 
-Repérez le call wall et le put wall actifs. Dans un régime de gamma positif, ce sont vos frontières absorbantes - la fourchette structurelle. Dans un régime de gamma négatif, ils sont plus faibles en tant que résistance et peuvent se transformer en cibles de breakout.
+Repérez le call wall et le put wall actifs. Dans un régime de gamma positif, la couverture s'oppose aux mouvements qui vont vers eux - la fourchette structurelle. Dans un régime de gamma négatif, la couverture renforce un mouvement dès que l'un d'eux cède. Dans les deux cas, la fréquence à laquelle ils tiennent correspond au taux de base : selon nos mesures, environ deux tests sur trois dans l'heure pour les walls du S&P, environ un sur deux pour ceux du Nasdaq.
 
 ### Étape 3 : Surveiller la migration
 
@@ -219,7 +219,7 @@ Quelques pièges :
 - **« Le gamma positif est haussier. »** Ce n'est pas le cas. Il est **stabilisant**. Le marché peut dériver à la baisse dans un régime de gamma positif ; il a simplement tendance à le faire lentement.
 - **« Le Net GEX est un indicateur directionnel. »** Ce n'est pas le cas. Le signe indique le régime ; la direction vient d'ailleurs.
 - **« Les niveaux de GEX sont fixes. »** Ce n'est pas le cas. Le flip, les walls et le Net GEX lui-même évoluent tous à mesure que la chaîne se repositionne.
-- **« Les walls sont des supports et résistances durs. »** Ce sont des inclinaisons structurelles dont l'effet comportemental dépend du régime. Ils sont régulièrement enfoncés.
+- **« Les walls sont des supports et résistances durs. »** Ce sont des inclinaisons structurelles dont l'effet de couverture dépend du régime. Ils sont régulièrement enfoncés : selon nos mesures, environ un test sur trois dans l'heure pour les walls du S&P, et environ un sur deux pour ceux du Nasdaq.
 - **« Le GEX est un signal. »** Il se rapproche davantage d'un filtre. Une lecture de régime propre affine tout autre outil que vous utilisez ; elle n'indique pas, à elle seule, quand entrer en position.
 
 ---
