@@ -42,7 +42,7 @@ Dans ce régime, les dealers doivent acheter la force et vendre la faiblesse - 
 Le même réflexe qui amplifie les rallyes amplifie aussi les ventes massives. Attraper des setups de "couteau qui tombe" dans un régime short-gamma profond tend à aggraver les pertes, car le mécanisme du dealer qui aurait produit le rebond en long-gamma est ici inversé. La thèse de l'achat du creux perd spécifiquement son soutien structurel en dessous du flip.
 
 **Setup type 3 : Trader dans le sens du flux, pas contre.**
-Le Tape Flow Bias et les signaux de continuation similaires pèsent davantage dans les régimes short-gamma. Quand le flux pondéré par la prime penche dans une direction et que le Net GEX est négatif, le mouvement tend à s'étendre plutôt qu'à se faire fader.
+Le Tape Flow Bias et les signaux de continuation similaires pèsent davantage dans les régimes short-gamma. Quand le flux pondéré par la prime penche dans une direction et que le Net GEX est négatif, la couverture renforce le mouvement au lieu de s'y opposer.
 
 ---
 
@@ -98,7 +98,7 @@ Lecture initiale : régime long-gamma, positionnement sain, range structurel 5 7
 
 Vers 13h00 ET, SPX a glissé à 5 806 et le flip a dérivé vers le haut jusqu'à 5 803 - les deux ont presque convergé. Le Net GEX s'est réduit à +300 M$. Le régime est disputé - le spot est à peine au-dessus du flip, l'ampleur diminue, et le réflexe structurel s'affaiblit.
 
-Le playbook change. Le setup fade-the-rally qui était actif à l'ouverture n'est désormais plus soutenu structurellement ; une continuation à la hausse est possible si le Net GEX bascule en négatif. La taille de position devrait diminuer ; le trade par défaut est de ne pas trader jusqu'à ce que le régime se résolve.
+Le playbook change. Le setup fade-the-rally qui était actif à l'ouverture a perdu l'essentiel du soutien de la couverture, et une continuation à la hausse aurait la couverture de son côté si le Net GEX bascule en négatif. La taille de position devrait diminuer ; le trade par défaut est de ne pas trader jusqu'à ce que le régime se résolve.
 
 À 14h30 ET, le Net GEX a basculé à −200 M$ et SPX a poussé jusqu'à 5 815. C'est désormais un régime short-gamma modélisé - le réflexe du dealer est supposé amplifier - de sorte que, si le call wall à 5 820 cède, la couverture renforce la cassure au lieu de s'y opposer. Selon nos mesures, le régime n'a pas changé la fréquence à laquelle les walls ont cédé, donc 5 820 n'a pas moins de chances de tenir qu'à l'ouverture ; ce qui a changé, c'est le coût d'une erreur. Quand un fade échoue, le mouvement peut désormais aller plus loin, si bien que le trade fade-the-breakout perd sa marge de sécurité, et, si le setup est correct, la poursuite du mouvement a la couverture de son côté.
 

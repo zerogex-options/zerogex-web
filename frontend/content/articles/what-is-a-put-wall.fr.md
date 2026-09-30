@@ -34,7 +34,7 @@ Traitez le niveau comme :
 - une forte concentration de gamma put ;
 - une référence possible de liquidité et de positionnement ;
 - un niveau qui peut empiriquement se comporter comme un support ; et
-- un niveau dont le comportement dépend de la gamma agrégée et locale ainsi que du flux environnant.
+- un niveau dont la couverture dépend de la gamma agrégée et locale ainsi que du flux environnant.
 
 ## Put Wall et Call Wall
 
@@ -82,7 +82,7 @@ Après une cassure, le strike suivant le plus chargé en gamma put en dessous de
 
 Supposons que le SPX soit à 5 830, le Put Wall à 5 790, le Call Wall à 5 850 et le Net GEX modélisé positif. Le Put Wall identifie la plus grande magnitude de gamma put sous le spot. Il n'identifie **pas** à lui seul une zone d'achat. Un trader peut observer si la liquidité absorbe les ventes à ce niveau, si le profil de gamma agrégé reste stable, si le wall migre lorsque les paramètres changent, et si le flux directionnel confirme ou submerge le niveau.
 
-Supposons maintenant que le SPX glisse à 5 785 une heure plus tard et que le gamma flip, publié à 5 815, ait été franchi. Deux choses ont changé en même temps : la référence du Put Wall a échoué, et le régime modélisé est devenu négatif. C'est la seconde qui compte pour la transaction suivante - le réflexe de couverture qui aurait pu freiner la baisse est désormais modélisé comme l'accompagnant, et la concentration de puts suivante en dessous est la nouvelle référence, pas un objectif de rebond.
+Supposons maintenant que le SPX glisse à 5 785 une heure plus tard et que le gamma flip, publié à 5 815, ait été franchi. Deux choses ont changé en même temps : la référence du Put Wall a échoué, et le régime modélisé est devenu négatif. C'est la seconde qui compte pour la transaction suivante - le réflexe de couverture qui aurait pu freiner la baisse est désormais modélisé comme l'accompagnant, et la concentration de puts suivante en dessous est la nouvelle référence, pas un niveau que la couverture viendra amortir.
 
 ## Où trouver le Put Wall du jour
 
