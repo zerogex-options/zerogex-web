@@ -30,7 +30,7 @@ Una lista continua, de la más reciente a la más antigua, que contrasta cada mo
 
 Tres patrones - los walls y el flip vienen de Dealer Positioning o del Gamma Terminal:
 
-1. **Precio atrapado entre el call wall y el put wall** en gamma positiva ⇒ *tiende a* revertir a la media dentro del rango. Los technicals confirman el rango; la página de dealers sugiere el porqué.
+1. **Precio entre el call wall y el put wall** en gamma positiva ⇒ el hedging se opone a los movimientos hacia cualquiera de los dos walls, un entorno de reversión a la media. Los technicals confirman el rango; la página de dealers sugiere el porqué.
 2. **Precio que rompe por debajo del put wall** en gamma negativa con la IV en expansión ⇒ la continuación de tendencia *se vuelve más probable*. Los technicals muestran la ruptura; la página de dealers explica la amplificación modelada.
 3. **El VWAP y el gamma flip se apilan en el mismo nivel** ⇒ un pivote estructural a vigilar. Las reacciones allí *pueden* tener más convicción que en cualquiera de los dos por separado.
 

@@ -35,8 +35,8 @@ El net GEX se expresa en dólares - «$1.5B de gamma» - porque está escalado
 
 Dos casos, playbooks opuestos:
 
-- **Net GEX de SPX positivo (régimen long-gamma).** Los dealers están net long gamma en el spot. Venden en los rallies y compran en las caídas para cubrirse, lo que tiende a *suprimir* la volatilidad. Espera rangos más ajustados, más mean reversion, pinning hacia strikes con mucho peso e intentos de rally que a menudo se estancan cerca del call wall. Una lectura muy positiva es una señal de mercado "tranquilo y lateral."
-- **Net GEX de SPX negativo (régimen short-gamma).** Los dealers están net short gamma en el spot. Compran en los rallies y venden en las caídas, lo que tiende a *amplificar* la volatilidad. Espera rangos más amplios, breakouts que se extienden y tendencias que corren. Una lectura muy negativa es una señal de mercado "rápido, en tendencia, respeta tus stops." Esto es [lo que significa la gamma negativa](/education/what-is-negative-gamma) para el mercado.
+- **Net GEX de SPX positivo (régimen long-gamma).** Los dealers están net long gamma en el spot. Venden en los rallies y compran en las caídas para cubrirse, lo que tiende a *suprimir* la volatilidad. Espera rangos más ajustados, más mean reversion, pinning hacia strikes con mucho peso y una cobertura que se opone a los rallies hacia el call wall. Una lectura muy positiva es una señal de mercado "tranquilo y lateral."
+- **Net GEX de SPX negativo (régimen short-gamma).** Los dealers están net short gamma en el spot. Compran en los rallies y venden en las caídas, lo que tiende a *amplificar* la volatilidad. Espera rangos más amplios, tendencias que corren y una cobertura que se suma a un breakout una vez que un wall cede. Una lectura muy negativa es una señal de mercado "rápido, en tendencia, respeta tus stops." Esto es [lo que significa la gamma negativa](/education/what-is-negative-gamma) para el mercado.
 
 La lectura no es una dirección - es un *carácter*. Un net GEX positivo no dice "arriba," dice "pegajoso." Uno negativo no dice "abajo," dice "volátil."
 

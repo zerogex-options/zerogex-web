@@ -134,7 +134,7 @@ Aquí es también donde la tesis de "vanna más charm hacia el OPEX" se estira m
 
 El enfoque único más útil:
 
-- **En un régimen de gamma positivo**, los flujos de vanna y charm refuerzan el carácter amortiguador y favorable al pin del tape. El vanna grind sostiene la deriva, la decadencia de charm tira hacia el imán estructural, y el reflejo absorbente de la cobertura long-gamma mantiene el rango.
+- **En un régimen de gamma positivo**, los flujos de vanna y charm refuerzan el carácter amortiguador y favorable al pin del tape. El vanna grind sostiene la deriva, la decadencia de charm tira hacia el imán estructural, y el reflejo absorbente de la cobertura long-gamma se opone a los movimientos que salen del rango.
 - **En un régimen de gamma negativo**, los flujos de vanna y charm pueden amplificar el momentum direccional en lugar de producir deriva. La misma decadencia de charm que fijaba el precio en long-gamma puede añadirse a un selloff en short-gamma si el libro del dealer está posicionado de esa manera.
 
 La implicación práctica: **lee primero gamma, y luego lee vanna y charm dentro de ese marco.** Las griegas de segundo orden describen fuerzas que existen en cualquier régimen, pero su *efecto de comportamiento* está filtrado por el reflejo de gamma. Leer vanna o charm sin leer gamma es leer solo la mitad del libro.

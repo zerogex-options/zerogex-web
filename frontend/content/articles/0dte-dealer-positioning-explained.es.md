@@ -82,7 +82,7 @@ Cómo tiende a verse el tape:
 - El rápido decaimiento theta puede pesar sobre las primas del mismo día, pero los movimientos del spot y de la volatilidad implícita pueden dominarlo.
 - Los setups de mean-reversion pueden ser más coherentes con el reflejo de cobertura modelado que los setups de continuación de tendencia.
 
-La inclinación práctica en un régimen 0DTE de gamma larga es **contra el breakout, con el pin**. Los rallies desvanecidos hacia el call wall, las compras en caídas hacia el put wall y las estructuras de prima corta se benefician todas del reflejo amortiguador.
+La inclinación práctica en un régimen 0DTE de gamma larga es **contra el breakout, con el pin**. Los rallies desvanecidos hacia el call wall, las compras en caídas hacia el put wall y las estructuras de prima corta se apoyan todas en el reflejo amortiguador.
 
 ---
 
@@ -92,14 +92,14 @@ Algunos hábitos que cambian entre los dos regímenes:
 
 **En un régimen 0DTE de gamma negativa:**
 
-- Toma más en serio los breakouts del rango reciente, especialmente cuando el Net GEX es grande y negativo.
+- Dales más margen a los breakouts del rango reciente, especialmente cuando el Net GEX es grande y negativo: si un nivel cede, la cobertura se suma al movimiento.
 - No trates los walls 0DTE como techos: si uno cede, la cobertura se suma al movimiento en lugar de oponerse a él.
 - Sé escéptico ante los setups de "esto va a hacer pin" - el reflejo de los dealers no está tirando.
 - Si medidas de volatilidad independientes confirman una sesión de rango más amplio, dimensiona el riesgo en consecuencia; el signo modelado de la gamma no prescribe por sí solo un stop.
 
 **En un régimen 0DTE de gamma positiva:**
 
-- Por defecto, apuesta a desvanecer los movimientos hacia strikes concentrados en 0DTE.
+- Espera que los movimientos hacia strikes concentrados en 0DTE se encuentren con una cobertura que se opone a ellos.
 - Trata el strike de mayor gamma como un imán, especialmente hacia el cierre.
 - Sé escéptico ante los breakouts - la cobertura se está oponiendo a ellos, y los breakouts fallidos pueden tardar diez o quince minutos en deshacerse.
 - Stops más ajustados son más razonables; los rangos están más contenidos.
@@ -124,7 +124,7 @@ El dashboard muestra lecturas específicas de 0DTE en varios lugares:
 
 Un ejemplo desarrollado. Supongamos que SPX está en 5.825, el Net GEX marca −800 millones de dólares, el gamma flip se sitúa en 5.840, y el mapa de calor muestra un strike de put 0DTE pesado en 5.820 que ha estado migrando a la baja junto con el precio durante toda la mañana. La lectura estructural: los dealers están cortos de gamma, el spot está por debajo del flip, y el strike 0DTE más pesado está siguiendo el movimiento en lugar de contenerlo.
 
-Inclinación práctica: este es un régimen de gamma corta, favorable a la continuación, con el strike de put migrando confirmando en lugar de resistir la caída. Un trader que entró en la sesión con un sesgo de mean-reversion debería ser mucho más cauteloso aquí, porque la estructura 0DTE está apuntando activamente en la dirección contraria. Nada de esto es una señal de trade - es contexto de régimen que debería remodelar qué entradas tomas en serio.
+Inclinación práctica: este es un régimen de gamma corta, favorable a la continuación, y el strike de put más pesado está migrando junto con el precio, así que el nivel en el que se apoyaría un fade no deja de moverse. Un trader que entró en la sesión con un sesgo de mean-reversion debería ser mucho más cauteloso aquí, porque la cobertura va a favor del movimiento en lugar de oponerse a él. Nada de esto es una señal de trade - es contexto de régimen que debería remodelar qué entradas tomas en serio.
 
 ![Tarjetas de Net GEX y Gamma Flip de ZeroGEX mostrando una lectura intradía de gamma negativa](/blog/zerogex-net-gex-flip-card.png)
 

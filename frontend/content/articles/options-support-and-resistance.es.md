@@ -10,7 +10,7 @@
 
 El kit de herramientas de S/R del trader minorista se deriva sobre todo del gráfico: máximos y mínimos de swing previos, líneas de tendencia, números redondos, medias móviles. Funcionan - a veces - porque suficientes traders los observan como para volverlos autocumplidos. El mecanismo es convergencia psicológica.
 
-El soporte y la resistencia basados en opciones son diferentes. No se derivan del historial de precios; se derivan del posicionamiento actual en opciones. El mecanismo es estructural: flujos de cobertura de los dealers que se disparan automáticamente conforme el precio se acerca a strikes concentrados. No hace falta ninguna convergencia - los dealers deben cubrirse independientemente de quién esté observando, y sus flujos de cobertura actúan como oferta en la resistencia y como demanda en el soporte.
+El soporte y la resistencia basados en opciones son diferentes. No se derivan del historial de precios; se derivan del posicionamiento actual en opciones. El mecanismo es estructural: flujos de cobertura modelados de los dealers que tienden a activarse conforme el precio se acerca a strikes concentrados. Gran parte de esta cobertura es sistemática y no discrecional - así que, cuando el signo de la gamma modelada de los dealers es el adecuado, esos flujos pueden actuar como oferta cerca de la resistencia y como demanda cerca del soporte.
 
 Cuando el S/R de gráfico y el S/R de opciones coinciden, el nivel es notablemente más fiable. Cuando difieren, la lectura basada en opciones suele imponerse - porque el nivel de gráfico es opinión y el nivel de opciones es flujo forzado.
 
@@ -20,17 +20,17 @@ Este artículo es el flujo de trabajo práctico para identificar S/R basado en o
 
 ## Los cuatro tipos de S/R basado en opciones
 
-Las etiquetas de abajo - call wall como resistencia, put wall como soporte - describen el comportamiento *típico con gamma positiva*. No son propiedades fijas del strike: el tipo de opción por sí solo no fija la dirección, y cada una puede invertirse cuando cambia el signo de la gamma modelada del dealer o el flujo circundante.
+Las etiquetas de abajo - call wall como resistencia, put wall como soporte - describen hacia dónde se inclina la cobertura modelada en un régimen de *gamma positiva*. No son propiedades fijas del strike: el tipo de opción por sí solo no fija la dirección, y la cobertura puede pasar a acompañar un movimiento cuando cambia el signo de la gamma modelada del dealer o el flujo circundante.
 
 ### 1. Call walls (resistencia)
 
-El **call wall** es el strike por encima del spot con la mayor exposición gamma de calls. En un régimen de gamma larga, los dealers que cubren su inventario long-call deben vender en los rallies que se acercan al wall. Esa venta actúa como resistencia estructural.
+El **call wall** es el strike por encima del spot con la mayor exposición gamma de calls. Bajo la convención tradicional, se modela a los dealers como largos en ese inventario, así que en un régimen de gamma larga tienden a vender en los rallies que se acercan al wall. Esa venta puede actuar como resistencia estructural.
 
 Lectura práctica: en un régimen de gamma positiva, la cobertura en torno al call wall se opone a un rally; en un régimen de gamma negativa lo acompaña, así que, si el wall cede, puede convertirse en un acelerador de la ruptura (breakout). El régimen cambia ese comportamiento, no la frecuencia con la que el wall se rompe: en nuestra medición, los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, tanto por encima como por debajo del flip.
 
 ### 2. Put walls (soporte)
 
-El **put wall** es el strike por debajo del spot con la mayor exposición gamma de puts. En un régimen de gamma larga, los dealers deben comprar en los selloffs que se acercan al wall para mantenerse neutrales. Esa compra actúa como soporte estructural.
+El **put wall** es el strike por debajo del spot con la mayor exposición gamma de puts. Cuando la gamma neta modelada es positiva, el book agregado de los dealers tiende a comprar en los selloffs que se acercan al wall. Esa compra neta puede actuar como soporte estructural - ten en cuenta que el soporte viene del signo positivo de la gamma neta, no de que el strike esté hecho de puts (bajo la convención, se modela a los dealers como cortos en esas puts).
 
 Misma dependencia de régimen que el call wall - en gamma negativa, un put wall que cede puede convertirse en un punto de deslizamiento (slippage) en la caída.
 
@@ -66,7 +66,7 @@ Tres razones:
 
 3. **Se actualiza en tiempo real.** Las líneas de tendencia son artefactos históricos que se vuelven obsoletos a medida que el precio se mueve. Los walls se mueven con el posicionamiento - nuevo OI que se acumula por encima del call wall lo empuja más alto, y la lectura estructural se actualiza en consecuencia. El nivel que ves a las 10:30 ET es el nivel que importa ahora mismo.
 
-Dicho esto, el S/R basado en opciones no es infalible. Es una inclinación probabilística. Los shocks macro, los eventos catalizadores y los cambios de régimen lo anulan con regularidad. La ventaja es que la inclinación está *fundamentada* - cuando funciona, funciona por una razón verificable.
+Dicho esto, el S/R basado en opciones no es infalible. Es una inclinación probabilística. Los shocks macro y los eventos catalizadores lo anulan con regularidad, y un cambio de régimen cambia lo que hace la cobertura. La ventaja es que la inclinación está *fundamentada* - cuando funciona, funciona por una razón verificable.
 
 ---
 
@@ -75,7 +75,7 @@ Dicho esto, el S/R basado en opciones no es infalible. Es una inclinación proba
 Un flujo de trabajo breve:
 
 1. **Consulta primero el gamma flip.** Te dice en qué régimen estás. El flip en sí mismo también es un nivel suave que vale la pena vigilar.
-2. **Identifica el call wall y el put wall.** Te dan el rango estructural - los límites que la cobertura de los dealers está preparada para defender (en un régimen de gamma larga) o liberar (en un régimen de gamma corta).
+2. **Identifica el call wall y el put wall.** Te dan el rango estructural - los límites en los que la cobertura de los dealers se opone al movimiento (en un régimen de gamma larga) o se suma a un movimiento que los atraviesa (en un régimen de gamma corta).
 3. **Identifica el gamma magnet.** Suele ser el strike 0DTE con más peso. El magnet te indica hacia dónde se ve atraído el precio dentro del rango de los walls.
 4. **Revisa la migración.** Un wall que acaba de saltar es una referencia distinta de uno que lleva horas estable: un wall que migra está persiguiendo al precio, así que el nivel que vigilas se ha movido. En nuestra medición, ni la antigüedad de un wall ni su migración predijeron si se rompería.
 5. **Contrasta con el S/R de gráfico.** Donde el nivel estructural coincide con un nivel basado en gráfico (número redondo, swing previo, media móvil clave), la convergencia puede hacer que el nivel sea más nítido.
@@ -122,7 +122,7 @@ La lectura estructural compuesta:
 - El call wall y la resistencia del gráfico coinciden cerca de 583 - la zona de resistencia de mayor confianza está justo donde la ven los traders de gráficos, pero el posicionamiento modelado sitúa el wall en 583,50, no en el redondo 583.
 - El put wall y el soporte del gráfico también coinciden cerca de 580 - una lectura de soporte más sólida ahí.
 - El gamma magnet en 581,00 significa que el precio puede tener una atracción estructural hacia más o menos donde se encuentra ahora mismo. Mientras se mantenga la gamma positiva, la cobertura se opone a los movimientos en ambas direcciones.
-- El flip en 580,80 significa que una caída por debajo de 580,80 cambiaría el régimen modelado; el put wall en 580 podría no absorber de forma limpia si el cruce del flip ocurre primero.
+- El flip en 580,80 significa que una caída por debajo de 580,80 cambiaría el régimen modelado; si eso ocurre primero y después el put wall en 580 cede, la cobertura se suma al movimiento en lugar de amortiguarlo.
 
 La lectura: la cobertura modelada se opone a los movimientos hacia cualquiera de los extremos del rango 581-583,50, pero cada wall sigue siendo una apuesta a la tasa base - en nuestra medición, los walls del SPY aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, independientemente del lado del flip en que estuviera el precio. La lectura estructural aporta dónde están los niveles y qué hace la cobertura en torno a ellos; no te dice cuál de ellos cederá.
 

@@ -59,10 +59,10 @@ Antes de nada, una aclaración: el gamma flip, el Net GEX y los walls que aparec
 1. **¿Cuál es el régimen de gamma?** Spot por encima del flip modelado (long-gamma) → el hedging va en contra del movimiento que estás persiguiendo. Spot por debajo del flip (short-gamma) → el hedging va a su favor. Eso te dice hacia dónde se inclina el flujo de los dealers, no si el movimiento se consolidará: en nuestra medición de 737 pruebas de walls, los walls no se rompieron con más frecuencia por debajo del flip que por encima de él. Si no conoces el régimen, no sabes hacia dónde se inclina el hedging.
 2. **¿Dónde está el wall más cercano?** Si estás persiguiendo una call hacia el call wall en un régimen long-gamma, la tracción estructural va *en contra* de la persecución. Si persigues hacia espacio abierto sin ningún wall entre el spot actual y el objetivo de la persecución, la tracción estructural es neutral - mejor setup.
 3. **¿El Net GEX se está fortaleciendo o debilitando?** Que se fortalezca en un régimen long-gamma sugiere que el reflejo absorbente se está intensificando; que decaiga sugiere que se está debilitando. Eso describe el hedging, no las probabilidades - en nuestra medición, la trayectoria del Net GEX no predijo qué walls se romperían.
-4. **¿Qué hora del día es?** Antes del mediodía ET, el charm modelado en 0DTE es bajo y el reflejo de los dealers tiende a estar atenuado. Después de las 14:00 ET, el hedging de charm modelado tiende a acumularse. Las persecuciones de última hora hacia estructura suelen ser la peor versión de la trampa.
+4. **¿Qué hora del día es?** Antes del mediodía ET, el charm modelado en 0DTE es bajo y el reflejo de los dealers tiende a estar atenuado. Después de las 14:00 ET, el hedging de charm modelado tiende a acumularse. Una persecución de última hora hacia estructura se encuentra con ese hedging en su punto más fuerte.
 5. **¿El contrato ya ha hecho un 3x?** Si es así, no estás capturando un movimiento - estás pagando por el movimiento que ya ocurrió. El siguiente movimiento esperado incluye una probabilidad significativa de mean-reversion.
 
-Si la mayoría de estos puntos apuntan en contra de la persecución, la disciplina dicta pasar del trade. No "esperar una entrada mejor" - pasar. La persecución 0DTE que funcionó una vez de cada diez es el survivorship bias que mantiene vivo el hábito.
+Si la mayoría de estos puntos apuntan en contra de la persecución, la disciplina dicta pasar del trade. No "esperar una entrada mejor" - pasar. La persecución 0DTE que funcionó una vez es el survivorship bias que mantiene vivo el hábito.
 
 ---
 
@@ -85,7 +85,7 @@ Esas son las condiciones en las que un breakout 0DTE tiene algo que lo respalde 
 La vista gratuita `/spx-gamma-levels` te da los tres filtros que necesitas:
 
 - **Gamma Flip** - verificación del régimen.
-- **Call Wall / Put Wall** - dónde las persecuciones están estructuralmente montadas para hacer fade.
+- **Call Wall / Put Wall** - dónde una persecución se topa con el hedging más fuerte de los dealers.
 - **Net GEX** - magnitud del libro de los dealers.
 
 Para el filtro de hora del día, los dashboards en vivo muestran la señal EOD Pressure durante la ventana activa (después de las 14:30 ET) - una lectura direccional de hacia dónde apunta el hedging forzado de cara al cierre.
@@ -97,7 +97,7 @@ Ejemplo desarrollado. Son las 14:45 ET. SPX acaba de perforar el máximo del dí
 - **Call Wall:** 5,815 (prácticamente en el objetivo de la persecución)
 - **EOD Pressure:** +0.35 (deriva alcista leve, pero dirigiéndose hacia el imán)
 
-Lectura: régimen long-gamma, posicionamiento saludable, el wall está cinco puntos por encima del nivel actual - y la deriva EOD es leve, no gritona. Todos los filtros están del lado *fade*. Perseguir significa comprar justo en la cima de la zona estructural de absorción, tarde en el día, con el theta acelerando. Pasar.
+Lectura: régimen long-gamma, posicionamiento saludable, el wall está cinco puntos por encima del nivel actual - y la deriva EOD es leve, no gritona. Dentro del mecanismo, todos los filtros están del lado *fade*. Perseguir significa comprar contra el hedging más fuerte del día, tarde, con el theta acelerando. Pasar.
 
 ---
 
@@ -116,7 +116,7 @@ Algunos que funcionan:
 
 > La persecución 0DTE no es una estrategia; es una reacción emocional a ver que un contrato que querías sube sin ti. La cura es la lectura estructural antes del clic, no una mejor disciplina.
 
-La parte de la disciplina llega de forma natural una vez que la lectura es consistente - si has revisado el régimen, el wall, el Net GEX y la hora del día y todos apuntan a fade, la persecución pierde su atractivo. La trampa consiste en perseguir *antes* de hacer la revisión.
+La parte de la disciplina llega de forma natural una vez que la lectura es consistente - después de revisar el régimen, el wall, el Net GEX y la hora del día y ver que el hedging va en tu contra, la persecución pierde su atractivo. La trampa consiste en perseguir *antes* de hacer la revisión.
 
 Contenido solo educativo - nada de lo anterior es una recomendación de trading.
 
