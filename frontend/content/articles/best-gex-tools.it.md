@@ -70,7 +70,9 @@ La categoria si suddivide grosso modo in quattro gruppi. Le affermazioni specifi
 
 I fornitori che hanno inaugurato la categoria GEX tracciata pubblicamente. Possono offrire profili di scenario, archivi storici e prodotti per pubblici diversi; metodologia e copertura attuali andrebbero verificate sui materiali ufficiali di ciascun fornitore. La cadenza va da prodotti di ricerca giornalieri al tracking intraday completamente in tempo reale, con l'accesso in tempo reale tipicamente riservato ai livelli di abbonamento superiori. Il lignaggio metodologico è il punto di forza; il compromesso è spesso rappresentato da calcoli a codice chiuso e strumenti specifici per 0DTE limitati. La loro ricerca pubblicata è spesso il riferimento del settore.
 
-*Strumenti comunemente citati in questo gruppo: SpotGamma, SqueezeMetrics. Verifica prezzi e copertura attuali sui rispettivi siti.*
+MenthorQ rientra in questo gruppo con un'enfasi diversa: livelli consegnati direttamente nelle piattaforme che i trader già usano. Pubblica Call Resistance, Put Support e un High Vol Level (il suo nome per il gamma flip), ciascuno anche in versione 0DTE, nelle versioni di fine giornata e intraday, per azioni, ETF, indici, futures, forex e cripto, e li porta su TradingView, NinjaTrader, Sierra Chart, Bookmap, Quantower e altre piattaforme. I suoi piani aggiungono un'accademia, un assistente IA chiamato QUIN e, nel livello più alto, coaching dal vivo. Un confronto con ZeroGEX (in inglese), inclusa la corrispondenza tra i suoi livelli e quelli di ZeroGEX, si trova in [ZeroGEX vs MenthorQ](/education/zerogex-vs-menthorq).
+
+*Strumenti comunemente citati in questo gruppo: SpotGamma, SqueezeMetrics, MenthorQ. Verifica prezzi e copertura attuali sui rispettivi siti.*
 
 ### Gruppo 2: Piattaforme aggregatrici di flusso con superfici GEX
 

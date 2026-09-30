@@ -68,7 +68,9 @@ The category roughly splits into four buckets. Specific feature claims about nam
 
 The vendors that pioneered the publicly-tracked GEX category. May offer scenario profiles, historical archives, and products for different audiences; current methodology and coverage should be verified from each vendor’s official materials. Cadence ranges from daily research products to fully real-time intraday tracking, with the real-time access typically gated behind higher-tier subscriptions. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
 
-*Tools commonly cited in this bucket: SpotGamma, SqueezeMetrics. Verify current pricing and coverage on their sites.*
+MenthorQ sits in this bucket with a different emphasis: levels delivered into the platforms traders already use. It publishes Call Resistance, Put Support and a High Vol Level (its name for the gamma flip), each with a 0DTE version, in end-of-day and intraday versions, across stocks, ETFs, indices, futures, forex and crypto, and ships them to TradingView, NinjaTrader, Sierra Chart, Bookmap, Quantower and other platforms. Its plans add an academy, an AI assistant called QUIN, and on the top tier, live coaching. A side-by-side with ZeroGEX, including how its levels map onto ZeroGEX's, is in [ZeroGEX vs MenthorQ](/education/zerogex-vs-menthorq).
+
+*Tools commonly cited in this bucket: SpotGamma, SqueezeMetrics, MenthorQ. Verify current pricing and coverage on their sites.*
 
 ### Bucket 2: Flow-aggregator platforms with GEX surfaces
 

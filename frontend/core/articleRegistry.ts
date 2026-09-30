@@ -567,6 +567,21 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 7,
     kind: 'article',
   },
+  'zerogex-vs-menthorq': {
+    slug: 'zerogex-vs-menthorq',
+    href: '/education/zerogex-vs-menthorq',
+    // For readers searching the competitor ("menthorq alternative",
+    // "menthorq vs", "menthorq hvl"). Same rule as the other comparisons: no
+    // prices in the title or description.
+    title: 'ZeroGEX vs MenthorQ (2026): Gamma Levels, Pricing & Coverage',
+    blurb:
+      'A fair side-by-side of ZeroGEX and MenthorQ: how their gamma levels line up, what each plan costs, where MenthorQ is the stronger choice, and where ZeroGEX fits better.',
+    description:
+      'Looking for a MenthorQ alternative? ZeroGEX vs MenthorQ, compared fairly: HVL vs gamma flip, pricing, coverage, integrations, and which fits how you trade.',
+    datePublished: '2026-09-30',
+    readMinutes: 7,
+    kind: 'article',
+  },
 };
 
 /**
@@ -625,6 +640,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'zerogex-vs-bullflow',
     'zerogex-vs-quant-data',
+    'zerogex-vs-menthorq',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
@@ -764,14 +780,23 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'zerogex-vs-bullflow': [
     'best-gex-tools',
     'zerogex-vs-quant-data',
+    'zerogex-vs-menthorq',
     'gamma-exposure-explained',
     'gamma-levels-in-claude',
   ],
   'zerogex-vs-quant-data': [
     'best-gex-tools',
     'zerogex-vs-bullflow',
+    'zerogex-vs-menthorq',
     'why-we-dont-publish-dex',
     'hedging-flow-explained',
+  ],
+  'zerogex-vs-menthorq': [
+    'best-gex-tools',
+    'zerogex-vs-quant-data',
+    'zerogex-vs-bullflow',
+    'zero-gamma-level-explained',
+    'gamma-walls-explained',
   ],
 };
 

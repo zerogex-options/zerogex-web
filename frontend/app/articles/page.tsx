@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/zerogex-vs-menthorq',
+    kind: 'Published • September 30, 2026 • 16:00 UTC',
+    title: 'ZeroGEX vs MenthorQ (2026): Gamma Levels, Pricing & Coverage',
+    blurb:
+      'A fair side-by-side of ZeroGEX and MenthorQ: how their gamma levels line up, what each plan costs, where MenthorQ is the stronger choice, and where ZeroGEX fits better.',
+  },
+  {
     href: '/education/zerogex-vs-quant-data',
     kind: 'Published • September 30, 2026 • 16:00 UTC',
     title: 'ZeroGEX vs Quant Data (2026): GEX Maps, Pricing & Coverage',

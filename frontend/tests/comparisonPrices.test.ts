@@ -21,6 +21,7 @@ import { ARTICLE_FAQ } from '../core/articleFaq.ts';
 const PAGES: Array<[CompetitorId, string]> = [
   ['bullflow', 'zerogex-vs-bullflow'],
   ['quantdata', 'zerogex-vs-quant-data'],
+  ['menthorq', 'zerogex-vs-menthorq'],
 ];
 
 const readArticle = (slug: string) =>
@@ -67,6 +68,15 @@ test('competitor figures print the way their sources quote them', () => {
   // rather than printing $125.00.
   assert.equal(fillComparisonPrices('{{quantdata:api:annual:mo}}'), '$124.99');
   assert.equal(fillComparisonPrices('{{quantdata:checked}}'), 'September 30, 2026');
+  assert.equal(fillComparisonPrices('{{menthorq:premium:monthly}}'), '$129');
+  assert.equal(fillComparisonPrices('{{menthorq:premium:firstMonth}}'), '$39');
+  assert.equal(fillComparisonPrices('{{menthorq:premium:annual}}'), '$1,164');
+  assert.equal(fillComparisonPrices('{{menthorq:premium:annual:mo}}'), '$97');
+  assert.equal(fillComparisonPrices('{{menthorq:pro:monthly}}'), '$349');
+  assert.equal(fillComparisonPrices('{{menthorq:pro:firstMonth}}'), '$174.50');
+  assert.equal(fillComparisonPrices('{{menthorq:pro:annual}}'), '$3,108');
+  assert.equal(fillComparisonPrices('{{menthorq:pro:annual:mo}}'), '$259');
+  assert.equal(fillComparisonPrices('{{menthorq:checked}}'), 'September 30, 2026');
 });
 
 // A plan that records both a yearly total and a per-month figure has to agree
@@ -94,6 +104,11 @@ test('a malformed or unknown token throws instead of printing braces', () => {
     '{{price}}',
     // Quant Data does not show its Professional plan's price.
     '{{quantdata:professional:monthly}}',
+    // A first-month price exists only where a vendor lists one, is already
+    // monthly, and has no ZeroGEX counterpart.
+    '{{bullflow:basic:firstMonth}}',
+    '{{menthorq:premium:firstMonth:mo}}',
+    '{{zgx:basic:firstMonth}}',
   ]) {
     assert.throws(() => fillComparisonPrices(bad), /unknown price token/, bad);
   }
@@ -124,4 +139,16 @@ test('the price comparisons the pages make in words still hold', () => {
   const quantdataApi = COMPETITOR_PRICES.quantdata.plans.api;
   assert.ok(LIST_PRICE_USD.pro.monthly < quantdataApi.monthly);
   assert.ok(LIST_PRICE_USD.pro.annual < quantdataApi.annual);
+
+  // "Both ZeroGEX plans cost less than either MenthorQ plan, monthly or yearly"
+  const menthorq = COMPETITOR_PRICES.menthorq.plans;
+  for (const tier of ['basic', 'pro'] as const) {
+    for (const plan of [menthorq.premium, menthorq.pro]) {
+      assert.ok(LIST_PRICE_USD[tier].monthly < plan.monthly, `${tier} monthly`);
+      assert.ok(LIST_PRICE_USD[tier].annual < plan.annual, `${tier} yearly`);
+    }
+  }
+  // "MenthorQ's discounted first month of Premium costs the same as a regular
+  // month of ZeroGEX Basic"
+  assert.equal(menthorq.premium.firstMonth, LIST_PRICE_USD.basic.monthly);
 });

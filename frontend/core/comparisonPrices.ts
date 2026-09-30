@@ -16,6 +16,7 @@
 //   {{bullflow:premium:annual}}      "$708"      the yearly total
 //   {{bullflow:premium:annual:mo}}   "$59"       the yearly plan, per month
 //   {{quantdata:api:monthly}}        "$149.99"
+//   {{menthorq:pro:firstMonth}}      "$174.50"   a discounted first month
 //   {{bullflow:checked}}             "September 29, 2026"
 //
 // An unknown or malformed token throws, so a typo fails
@@ -44,6 +45,9 @@ export type CompetitorPlanPrice = {
   monthly: number;
   annual?: number;
   annualPerMonth?: number;
+  // The price of the first month on the monthly plan, when the vendor
+  // discounts it. `monthly` stays the regular list price every later month.
+  firstMonth?: number;
 };
 
 export type CompetitorPrices = {
@@ -79,6 +83,21 @@ export const COMPETITOR_PRICES = {
     plans: {
       platform: { monthly: 74.99, annual: 750, annualPerMonth: 62.5 },
       api: { monthly: 149.99, annual: 1499.99, annualPerMonth: 124.99 },
+    },
+  },
+  // MenthorQ's pricing page, read first-hand on the date below. Monthly:
+  // Premium $129/mo and Pro $349/mo, each with a discounted first month that
+  // is applied automatically at checkout ($39 with code FIRST39, $174.50 with
+  // FIRST50). Yearly: Premium $1,164 ($97/mo) and Pro $3,108 ($259/mo),
+  // "Save 25% by paying yearly." Pro is everything in Premium plus coaching
+  // (mentorship meetings, live trading sessions, a monthly strategy session),
+  // not more data.
+  menthorq: {
+    checked: '2026-09-30',
+    source: 'https://menthorq.com/pricing/',
+    plans: {
+      premium: { monthly: 129, firstMonth: 39, annual: 1164, annualPerMonth: 97 },
+      pro: { monthly: 349, firstMonth: 174.5, annual: 3108, annualPerMonth: 259 },
     },
   },
 } satisfies Record<string, CompetitorPrices>;
@@ -133,6 +152,16 @@ function resolveToken(body: string): string | null {
   if (parts.length < 3 || parts.length > 4) return null;
   const [vendor, plan, cadence, unit] = parts;
   if (unit !== undefined && unit !== 'mo') return null;
+
+  // A discounted first month is a competitor figure only, and is already a
+  // monthly price, so it takes no `:mo`.
+  if (cadence === 'firstMonth') {
+    if (unit !== undefined || !isCompetitorId(vendor)) return null;
+    const plans: Record<string, CompetitorPlanPrice> = COMPETITOR_PRICES[vendor].plans;
+    const amount = Object.hasOwn(plans, plan) ? plans[plan].firstMonth : undefined;
+    return amount === undefined ? null : formatUsd(amount);
+  }
+
   if (!isComparedCadence(cadence)) return null;
   const perMonth = unit === 'mo';
 
