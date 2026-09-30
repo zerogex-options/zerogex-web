@@ -13,10 +13,9 @@ import { loadLocalizedMarkdown } from '@/core/localizedContent';
 // A head-to-head with Quant Data, for readers who search its name or its
 // Interval Map. Every claim about Quant Data comes from its own site, help
 // center or app listings and is dated. Every price is a token filled by
-// core/comparisonPrices.ts, which holds Quant Data's API plan only: its
-// platform price has not been read first-hand, so the page names it nowhere.
-// tests/comparisonPrices.test.ts fails if a price change makes the page's one
-// price comparison untrue.
+// core/comparisonPrices.ts, so ours always match the pricing page and theirs
+// are edited in exactly one place. tests/comparisonPrices.test.ts fails if a
+// price change makes one of the page's price comparisons untrue.
 export const metadata = articleMetadata('zerogex-vs-quant-data');
 
 const articlePath = path.join(process.cwd(), 'content/articles/zerogex-vs-quant-data.md');

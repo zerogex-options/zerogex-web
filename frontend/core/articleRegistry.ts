@@ -560,9 +560,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     // entry: no prices in the title or description.
     title: 'ZeroGEX vs Quant Data (2026): GEX Maps, Pricing & Coverage',
     blurb:
-      'A fair side-by-side of ZeroGEX and Quant Data: what each platform is built for, how the Interval Map and the GEX Heatmap compare, what the APIs cost, and where each one is the stronger choice.',
+      'A fair side-by-side of ZeroGEX and Quant Data: what each platform is built for, how the Interval Map and the GEX Heatmap compare, what each costs, and where each one is the stronger choice.',
     description:
-      'Looking for a Quant Data alternative? ZeroGEX vs Quant Data, compared fairly: Interval Map vs GEX Heatmap, API pricing, coverage, and which fits how you trade.',
+      'Looking for a Quant Data alternative? ZeroGEX vs Quant Data, compared fairly: Interval Map vs GEX Heatmap, pricing, coverage, and which fits how you trade.',
     datePublished: '2026-09-30',
     readMinutes: 7,
     kind: 'article',

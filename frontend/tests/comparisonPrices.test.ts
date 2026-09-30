@@ -57,6 +57,8 @@ test('competitor figures print the way their sources quote them', () => {
   assert.equal(fillComparisonPrices('{{bullflow:basic:annual:mo}}'), '$33');
   assert.equal(fillComparisonPrices('{{bullflow:dataApi:annual}}'), '$1,188');
   assert.equal(fillComparisonPrices('{{bullflow:checked}}'), 'September 29, 2026');
+  assert.equal(fillComparisonPrices('{{quantdata:platform:monthly}}'), '$74.99');
+  assert.equal(fillComparisonPrices('{{quantdata:platform:annual:mo}}'), '$62.50');
   assert.equal(fillComparisonPrices('{{quantdata:api:monthly}}'), '$149.99');
   assert.equal(fillComparisonPrices('{{quantdata:api:annual:mo}}'), '$124.99');
   assert.equal(fillComparisonPrices('{{quantdata:checked}}'), 'September 30, 2026');
@@ -74,10 +76,11 @@ test('a malformed or unknown token throws instead of printing braces', () => {
     '{{bullflow:toString:monthly}}',
     '{{toString:checked}}',
     '{{price}}',
-    // Quant Data's help center quotes the yearly API plan per month only, so
-    // there is no yearly total to print, and its platform plan is not recorded.
+    // Quant Data quotes both yearly plans per month only, so there is no
+    // yearly total to print, and its Professional plan's price is not shown.
     '{{quantdata:api:annual}}',
-    '{{quantdata:platform:monthly}}',
+    '{{quantdata:platform:annual}}',
+    '{{quantdata:professional:monthly}}',
   ]) {
     assert.throws(() => fillComparisonPrices(bad), /unknown price token/, bad);
   }
@@ -95,8 +98,16 @@ test('the price comparisons the pages make in words still hold', () => {
   assert.ok(LIST_PRICE_USD.basic.annual < bullflow.basic.annual);
   assert.ok(LIST_PRICE_USD.pro.annual < bullflow.premium.annual);
 
-  // "API access comes with ZeroGEX Pro, which costs less per month than the
-  // Quant Data API plan on monthly or yearly billing"
+  // "Both ZeroGEX plans cost less than Quant Data's platform plan, monthly or
+  // yearly"
+  const quantdata = COMPETITOR_PRICES.quantdata.plans.platform;
+  for (const tier of ['basic', 'pro'] as const) {
+    assert.ok(LIST_PRICE_USD[tier].monthly < quantdata.monthly, `${tier} monthly`);
+    assert.ok(LIST_PRICE_USD[tier].annual / 12 < quantdata.annualPerMonth, `${tier} yearly`);
+  }
+
+  // "ZeroGEX Pro includes the API access that Quant Data sells as a separate
+  // plan", and costs less than that plan on its own
   const quantdataApi = COMPETITOR_PRICES.quantdata.plans.api;
   assert.ok(LIST_PRICE_USD.pro.monthly < quantdataApi.monthly);
   assert.ok(LIST_PRICE_USD.pro.annual / 12 < quantdataApi.annualPerMonth);

@@ -267,9 +267,8 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Yes. They answer different questions: a flow scanner shows what is being bought, and a positioning tool shows where a move is likely to run into dealer hedging. The two can sit side by side.',
     },
   ],
-  // Same rule as the Bullflow entry. Quant Data's platform price is not
-  // recorded in core/comparisonPrices.ts, so the one price claim here is about
-  // the two APIs, which tests/comparisonPrices.test.ts checks.
+  // Same rule as the Bullflow entry: no dollar figures, only how the price
+  // lists compare, which tests/comparisonPrices.test.ts checks.
   'zerogex-vs-quant-data': [
     {
       q: 'Is ZeroGEX a Quant Data alternative?',
@@ -285,7 +284,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Is ZeroGEX cheaper than Quant Data?',
-      a: `For API access, yes: it comes with ZeroGEX Pro, which costs less per month than the Quant Data API plan on monthly or yearly billing. Quant Data API price as listed in its help center, checked ${competitorCheckedLabel('quantdata')}. Its platform plans are on its own pricing page.`,
+      a: `On list prices, yes. Both ZeroGEX plans cost less than Quant Data's non-professional platform plan, on monthly or yearly billing, and API access comes with ZeroGEX Pro instead of being sold as a separate plan. Quant Data's price covers far more tickers and data types, including order flow, dark pool prints, and news. Quant Data prices as listed on its site, checked ${competitorCheckedLabel('quantdata')}.`,
     },
   ],
   'how-to-trade-around-gamma-flip': [
