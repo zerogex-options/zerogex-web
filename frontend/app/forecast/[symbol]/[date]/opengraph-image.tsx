@@ -48,9 +48,27 @@ function humanizeRegime(value: string | null): string {
 }
 
 // Neutral brand accent for the Projected range / Pin / Regime fields. Direction
-// (bull/bear green-red) is reserved for the ✓ HELD / ✗ BROKEN receipt marks, so
+// (bull/bear green-red) is reserved for the HELD / BROKEN receipt marks, so
 // the forecast fields themselves stay on the ZeroGEX orange that brands the card.
 const CARD_ACCENT = '#FF8531';
+
+// The receipt mark is drawn, not typed. OG_FONTS is the Latin subset of Noto
+// Sans, which has no ✓ or ✗, and next/og's dynamic-font fallback for them
+// fails, so the characters rendered as an empty box on every shared receipt.
+function ReceiptMark({ held, color }: { held: boolean; color: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" style={{ marginRight: 6 }}>
+      <path
+        d={held ? 'M4 12.5l5 5L20 6.5' : 'M6 6l12 12M18 6L6 18'}
+        fill="none"
+        stroke={color}
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function fmtPrice(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—';
@@ -95,6 +113,8 @@ export default async function Image({
   const morning = payload?.morning;
   const receipt = payload?.receipt;
   const hasReceipt = !!receipt;
+  const held = !!receipt?.range_respected;
+  const markColor = held ? '#10B981' : '#F45854';
   const accent = CARD_ACCENT;
   const volLabel = humanizeRegime(morning?.expected_vol_state ?? null);
   const flipPct =
@@ -185,7 +205,10 @@ export default async function Image({
             Forecast not yet committed.
           </div>
         ) : (
-          <>
+          // A real column, not a fragment: next/og lays a fragment's children
+          // out in a row, which squeezed the Volatility + Levels panels into
+          // slivers beside the range and overlapped their text.
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Projected range hero */}
             <div
               style={{
@@ -202,11 +225,13 @@ export default async function Image({
                   color: '#7E96A0',
                   textTransform: 'uppercase',
                   display: 'flex',
+                  alignItems: 'center',
                 }}
               >
                 Projected range {hasReceipt && (
-                  <span style={{ marginLeft: 12, color: receipt?.range_respected ? '#10B981' : '#F45854' }}>
-                    {receipt?.range_respected ? '✓ HELD' : '✗ BROKEN'}
+                  <span style={{ marginLeft: 12, display: 'flex', alignItems: 'center', color: markColor }}>
+                    <ReceiptMark held={held} color={markColor} />
+                    {held ? 'HELD' : 'BROKEN'}
                   </span>
                 )}
               </div>
@@ -343,7 +368,7 @@ export default async function Image({
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Footer: ZeroGEX wordmark · permalink */}
@@ -377,7 +402,7 @@ export default async function Image({
               display: 'flex',
             }}
           >
-            zerogex.io/forecast/{date}
+            zerogex.io/forecast/{symbol}/{date}
           </div>
         </div>
       </div>

@@ -177,7 +177,10 @@ export default async function Image({
             Quiet tape - no Playbook calls, no signal flips.
           </div>
         ) : (
-          <>
+          // A real column, not a fragment: next/og lays a fragment's children
+          // out in a row, which squeezed the stat boxes into overlapping
+          // slivers. flex: 1 keeps the regime banner's marginTop: 'auto' working.
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             {/* Hero stat row: cards count + best/worst signal returns */}
             <div style={{ display: 'flex', gap: 18, marginBottom: 32 }}>
               <StatBox
@@ -268,7 +271,7 @@ export default async function Image({
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         {/* Footer: ZeroGEX wordmark · permalink */}
@@ -302,7 +305,7 @@ export default async function Image({
               display: 'flex',
             }}
           >
-            zerogex.io/scorecard/{date}
+            zerogex.io/scorecard/{symbol}/{date}
           </div>
         </div>
       </div>

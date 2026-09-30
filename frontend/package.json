@@ -168,6 +168,7 @@
     "test:page-snapshot": "node --experimental-strip-types --test tests/pageSnapshot.test.ts",
     "test:hedging-flow-history": "node --experimental-strip-types --test tests/hedgingFlowHistory.test.ts",
     "test:dated-permalinks": "node --experimental-strip-types --test tests/datedPermalinks.test.ts",
+    "test:og-images": "node --experimental-strip-types --test tests/ogImages.test.ts",
     "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",
     "test:futures-contract": "node --experimental-strip-types --test tests/futuresContract.test.ts",
     "verify:mcp": "bash scripts/verify-mcp.sh",
