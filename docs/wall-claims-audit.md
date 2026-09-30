@@ -40,6 +40,10 @@ Same pattern, lower stakes:
 - `components/SignalScorePanel.tsx`: "breakouts & momentum favored" / "fades & mean-reversion favored"
 - `components/ForcedFlowRead.tsx`: "breakouts run, dips aren't bought" / "extremes get faded, expect the pin"
 - `components/SignalScorePanel.tsx`: an extreme negative reading is a "compression regime where breakouts are less likely to sustain"
+- Help and guides describing those same signals: `content/guides/signals-explained.md` (Confluence "Mean-rev (long gamma) / Continuation (short gamma)", "fade down under long gamma / accelerate up under short gamma"; GEX Gradient "a supportive floor" / "resistance overhead" in long gamma), `content/help/platform/advanced-signals-dashboard.md` ("In positive gamma, confluence reads are fades; in negative gamma, they're continuation reads"), `basic-signals-dashboard.md` (GEX Gradient's regime flip) and `score-line.md` (the regime flips the reading of Confluence, GEX Gradient and Trap Detection)
+- Hedging Flow structure labels, which also feed Gamma Weather (`content/help/platform/hedging-flow.md`): "Firming ... dips absorbed", "Capping ... rallies sold into", "Deteriorating ... moves more likely to accelerate", and "Structure says whether the book absorbs that push or amplifies it". Building or thinning gamma near spot is the gamma strengthening or being consumed that the study tested.
+
+These describe how the signals are actually built. Rewording the copy alone would describe them wrongly, so the decision is whether to change the signal or the claim.
 
 ### 2. Labels that call walls resistance and support
 
@@ -48,6 +52,8 @@ These don't depend on the regime. "Tends to act as resistance" fits the S&P base
 - "Call Wall (Resistance)" / "Put Wall (Support)": `app/dashboard/page.i18n.ts`, `app/my-dashboard/tiles.i18n.ts`, `app/greeks-gex/page.tsx`, `content/help/platform/dashboard.md`, `content/help/platform/gex-summary.md`
 - "Tends to act as resistance/support as dealers sell into rallies / buy into selloffs": `core/keyLevels.ts`, `app/dashboard/page.i18n.ts`, `app/greeks-gex/page.tsx`
 - Indicator tooltips "tends to cap upside" / "tends to floor downside": `public/tradingview/zerogex-daily-gamma-levels.pine`, `public/thinkorswim/zerogex-daily-gamma-levels.thinkscript` (a change here means re-downloads for users)
+- MCP field table, "Heaviest call gamma - the level that tends to cap" / "the level that tends to support" (`content/help/platform/mcp-integration.md`), served for every symbol including QQQ, NDX and NQ
+- Chart legend, "the call wall red (resistance above), the put wall green (support below)" (`content/help/platform/reading-charts.md`)
 - "a magnet and a brake" vs "an accelerant", and "price gets pinned toward them into expiry and often reverses off them": `components/GammaTerminalChart.tsx`, `app/chart/ChartClient.tsx`
 
 The free gamma-levels pages already use neutral hints ("Heaviest call gamma above spot"); the same wording would work anywhere a label renders for every symbol.
