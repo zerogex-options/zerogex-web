@@ -27,7 +27,7 @@ The strip across the top. Its header shows the symbol, the expirations the level
 - **Spot** - the live price and its change.
 - **Gamma Flip** - the level where modeled dealer gamma changes sign. Above it, hedging dampens moves; below it, hedging amplifies them. The closer price is to the flip, the higher the risk of a regime change.
 - **Pin Strike** - the nearby 0DTE strike where positive dealer gamma and the odds of price getting there combine most strongly, with a Strong / Moderate / Weak label. It's a modeled pinning level, not a price target, and the card says so when no strike qualifies. See [Pin Strike](/help/platform/pin-strike).
-- **Call Wall** and **Put Wall** - the strikes with the most call gamma and put gamma. They tend to act as resistance and support, especially in positive gamma. See [Gamma Walls Explained](/education/gamma-walls-explained).
+- **Call Wall** and **Put Wall** - the strikes with the most call gamma and put gamma. They often act as resistance and support: in our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, whichever side of the gamma flip price was on. See [Gamma Walls Explained](/education/gamma-walls-explained).
 - **Max Pain** - the strike that minimizes the total value of outstanding options at expiration. Most relevant in the last day or two before a meaningful expiration. See [Max Pain Explained](/education/max-pain-explained).
 
 The strip shows exactly the levels the Gamma Chart draws, including any expiration filter you set on the chart. To switch symbols from the strip, hover it for arrows on a computer, or swipe it on a phone.

@@ -71,7 +71,7 @@ Die Wall-Berechnung belegt nicht, dass frisches Volumen neue Positionen eröffne
 
 Ein Bruch unter die Put Wall ist eine Information, kein Urteil. Lies ihn anhand von vier Fragen:
 
-1. **Welches Regime war in Kraft?** Oberhalb des Gamma Flip lehnt sich das aggregierte Hedging tendenziell gegen den Rückgang, und ein Bruch bleibt häufiger an der nächsten Put-Konzentration stehen. Unterhalb des Flip läuft der Reflex mit der Bewegung, und ein Bruch kann sich beschleunigen - der oben beschriebene lokale Short-Put-Hedge zeigt nun in dieselbe Richtung wie das Gesamtbuch.
+1. **Welches Regime war in Kraft?** Oberhalb des Gamma Flip lehnt sich das aggregierte Hedging tendenziell gegen den Rückgang, sodass hinter einem Bruch weniger Hedging steht. Unterhalb des Flip läuft der Reflex mit der Bewegung, und ein Bruch kann sich beschleunigen - der oben beschriebene lokale Short-Put-Hedge zeigt nun in dieselbe Richtung wie das Gesamtbuch.
 2. **Ist die Wall gewandert oder gescheitert?** Eine Wall, die sich bei veränderten Inputs auf einen tieferen Strike umsortiert hat, wurde nicht „gebrochen"; die Referenz ist umgezogen. Vergleiche den Strike der Wall vor und nach dem Bruch.
 3. **Hat Flow sie überrollt?** Makro-Schlagzeilen, Index-Rebalancings und große Einzelorders liefern Flow, der Hedging in den Schatten stellt. Ein Bruch auf einer solchen Tape sagt wenig über die Wall aus.
 4. **Wurde der Gamma Flip gekreuzt?** Ein Bruch kann bedeuten, dass die Referenz gescheitert ist, dass umgebender Flow dominiert hat, dass lokales Gamma schwächer wurde oder dass die Wall gewandert ist. Nur eine Kreuzung des berechneten Gamma Flip - oder ein tatsächlicher Vorzeichenwechsel im modellierten Net GEX - stützt die Behauptung eines Gamma-Regimewechsels.

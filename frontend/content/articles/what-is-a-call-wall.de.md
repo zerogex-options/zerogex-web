@@ -25,7 +25,7 @@ Dieser Verkaufsdruck ist der Widerstand. Steigt der Preis auf einen dichten Call
 Ein paar Konsequenzen des Mechanismus:
 
 - Der Call Wall ist **probabilistischer Widerstand**, keine feste Obergrenze. Echter direktionaler Flow durchbricht ihn regelmäßig.
-- Er wirkt am stärksten in einem Positiv-Gamma-Regime und an Strikes mit hohem relativem Gamma.
+- Er stemmt sich in einem Positiv-Gamma-Regime und an Strikes mit hohem relativem Gamma am stärksten gegen die Bewegung.
 - Er ist ein struktureller Hinweis, keine Garantie - ein starker Katalysator kann ihn in Sekunden durchbrechen.
 
 ---
@@ -39,7 +39,7 @@ Die beiden Walls sind symmetrische Gegenstücke:
 |Call Wall|Stärkstes Call-Gamma oberhalb des Spots|Verkauft, während der Preis darauf zusteigt|Widerstand / Obergrenze|
 |Put Wall|Stärkstes Put-Gamma unterhalb des Spots|Kauft, während der Preis darauf zufällt|Support / Untergrenze|
 
-Keiner der beiden ist für sich genommen direktional. Der Call Wall ist kein "Verkaufssignal" - er ist ein Konzentrationsniveau, dessen Wirkung davon abhängt, auf welcher Seite des Gamma Flip man sich befindet. Oberhalb des Flip deckelt der Call Wall. Unterhalb, in Negativ-Gamma, kann sich derselbe Strike umkehren - von einer Obergrenze zu einem Breakout-Beschleuniger.
+Keiner der beiden ist für sich genommen direktional, und der Optionstyp allein legt das Verhalten nicht fest. Der Call Wall ist kein "Verkaufssignal" - er ist ein Konzentrationsniveau, dessen Wirkung davon abhängt, auf welcher Seite des Gamma Flip man sich befindet. Oberhalb des Flip stemmt sich das Hedging rund um den Call Wall gegen eine Rally. Unterhalb, in Negativ-Gamma, läuft das Hedging mit der Bewegung, sodass sich derselbe Strike, falls er nachgibt, von einer Obergrenze zu einem Breakout-Beschleuniger umkehren kann. Die Seite des Flip ändert dieses Verhalten, nicht, wie oft der Wall bricht.
 
 ---
 
@@ -51,7 +51,7 @@ Der Call Wall ist eine Live-Kennzahl, die sich während der Handelssitzung aus d
 2. **Migration mit dem Preis.** Während der Preis den Call Wall testet, können Dealer und Trader direkt darüber frisches Call-OI aufbauen und den Wall so effektiv nach oben schieben. Ein Wall, der dem Preis *folgt*, ist strukturell etwas anderes als einer, der *hält*.
 3. **Verfallsabbau.** In Ketten mit hohem 0DTE-Anteil können die Kontrakte, die den Wall aufgebaut haben, bis zum frühen Nachmittag auslaufen und die Obergrenze ausdünnen.
 
-Die Migration selbst ist das Signal. Wenn der Call Wall weiter nach oben driftet, während sich der Preis nähert, ist die Fade-die-Rally-These schwach - der Wall zieht nach, und der Breakout ist glaubwürdiger, als ein statischer Wall vermuten ließe.
+Die Migration selbst ist eine Information. Wenn der Call Wall weiter nach oben driftet, während sich der Preis nähert, zieht der Wall nach - der Strike, den du beobachtet hast, ist nicht mehr der stärkste, das verteidigte Niveau hat sich also verschoben. Für sich genommen ist das kein Zeichen dafür, dass der Breakout Bestand haben wird: In unserer Messung ließ sich daran, ob ein Wall mit dem Preis wanderte, nicht vorhersagen, ob er brach.
 
 ---
 
@@ -75,7 +75,7 @@ Angenommen, SPX steht bei 5.830 und das Buch zeigt:
 - **Gamma Flip:** 5.810
 - **Net GEX:** +1,5 Mrd. $
 
-Der Spot liegt über dem Flip, es handelt sich also um eine Long-Gamma-Sitzung, und 5.850 ist das Niveau, das Dealer positioniert sind zu verteidigen. Die Tendenz: Rallyes bis 5.850 sind die Zone mit höherer Wahrscheinlichkeit für einen *Fade*, und ein Driften dorthin ist der Weg des geringsten Widerstands, solange das Positiv-Gamma hält. Angenommen nun, der Preis drückt auf 5.848, und der Call Wall steigt auf 5.855. Diese Migration ist ein Datenpunkt - der Wall zieht nach, der Fade wird schwächer, und ein Durchbruch über 5.850 ist glaubwürdiger als noch Momente zuvor. Hält 5.850 dagegen stand und der Preis schneidet schließlich mit starkem Flow hindurch, sollte man das als möglichen Regimewechsel behandeln, nicht nur als einen weiteren Tick nach oben.
+Net GEX ist eine modellierte Schätzung des Dealer-Gammas auf Basis der traditionellen Call-positiv/Put-negativ-Konvention für das Open Interest, kein beobachteter Dealerbestand. Der Spot liegt über dem Flip, es handelt sich also um eine Long-Gamma-Sitzung, und 5.850 ist das Niveau, das Dealer laut Modell verteidigen. Eine Rally dorthin trifft auf Hedging, das sich gegen die Bewegung stemmt, aber das hebt die Wahrscheinlichkeit, dass 5.850 hält, nicht über die Grundrate: SPX-Walls hielten in unserer Messung in etwa zwei von drei Fällen innerhalb einer Stunde, und zwar auf beiden Seiten des Flip. Angenommen nun, der Preis drückt auf 5.848, und der Call Wall steigt auf 5.855. Diese Migration ist ein Datenpunkt - das verteidigte Niveau hat sich nach oben verschoben - doch in unserer Messung ließ sich aus der Migration nicht vorhersagen, ob ein Wall brach. Hält 5.850 dagegen stand und der Preis schneidet schließlich mit starkem Flow hindurch, sollte man das als möglichen Regimewechsel behandeln, nicht nur als einen weiteren Tick nach oben.
 
 ---
 
@@ -87,7 +87,7 @@ ZeroGEX veröffentlicht den aktuellen Call Wall - zusammen mit Put Wall, Gamma 
 
 ## Fazit
 
-> Der Call Wall ist reale Positionierung - der Strike, an dem das Dealer-Hedging am wahrscheinlichsten die Aufwärtsseite deckelt. Aber er deckelt nur, solange der Spot in Positiv-Gamma liegt, und ein sauberer Ausbruch aus einem *gehaltenen* Wall ist oft das erste Anzeichen, dass sich das Regime dreht. Lies zuerst das Regime, dann den Wall, dann die Migration des Walls.
+> Der Call Wall ist reale Positionierung - der Strike, an dem sich das Dealer-Hedging auf der Aufwärtsseite am stärksten konzentriert. Wie oft er eine Rally deckelt, ist eine Frage der Grundrate des jeweiligen Index, nicht des Regimes; das Regime entscheidet, ob sich das Hedging gegen einen Ausbruch stemmt oder ihn befeuert. Ein sauberer Ausbruch aus einem *gehaltenen* Wall ist oft das erste Anzeichen, dass sich das Regime dreht. Lies zuerst das Regime, dann den Wall, dann die Migration des Walls.
 
 Nur redaktioneller Bildungsinhalt - nichts davon ist eine Handelsempfehlung.
 

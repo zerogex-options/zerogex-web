@@ -28,10 +28,10 @@ Un'avvertenza da tenere a mente: il GEX è una stima *modellata*, non una misura
 
 Questa è la parte che cambia il modo in cui fai trading:
 
-- **GEX positivo (regime long-gamma).** I dealer sono net long gamma. Per coprirsi, **vendono nei rally e comprano nei dip** - operando *contro* il movimento. Questo smorza la volatilità. Aspettati range più stretti, mean reversion e pinning vicino agli strike più pesanti. I breakout tendono a bloccarsi.
-- **GEX negativo (regime short-gamma).** I dealer sono net short gamma. Ora **comprano nei rally e vendono nei dip** - operando *nella stessa direzione* del movimento. Questo amplifica la volatilità. Aspettati range più ampi, breakout che si estendono e trend che corrono. Questo è [cosa significa il gamma negativo](/education/what-is-negative-gamma) in pratica.
+- **GEX positivo (regime long-gamma).** I dealer sono net long gamma. Per coprirsi, **vendono nei rally e comprano nei dip** - operando *contro* il movimento. Questo tende a smorzare la volatilità. Aspettati range più stretti, mean reversion e pinning vicino agli strike più pesanti, con l'hedging che si oppone ai breakout.
+- **GEX negativo (regime short-gamma).** I dealer sono net short gamma. Ora **comprano nei rally e vendono nei dip** - operando *nella stessa direzione* del movimento. Questo tende ad amplificare la volatilità. Aspettati range più ampi, trend che corrono e un hedging che rafforza il breakout una volta che un livello cede. Questo è [cosa significa il gamma negativo](/education/what-is-negative-gamma) in pratica.
 
-Stesso indice, stesso grafico - carattere del mercato opposto a seconda del segno del GEX. Sapere in quale regime ti trovi è la cosa più utile che il GEX può darti.
+Stesso indice, stesso grafico - carattere del mercato opposto a seconda del segno del GEX. Sapere in quale regime ti trovi è la cosa più utile che il GEX può darti. Ciò che il segno non ha cambiato, nella nostra misurazione su 737 test di wall, è quanto spesso si sono rotti i wall stessi ([Quanto spesso si rompono davvero i gamma wall?](/education/how-often-do-gamma-walls-break)).
 
 ---
 
@@ -40,8 +40,8 @@ Stesso indice, stesso grafico - carattere del mercato opposto a seconda del seg
 Il GEX non è solo un numero; corrisponde a livelli di prezzo specifici da tenere d'occhio:
 
 - **Gamma flip** - il prezzo in cui il gamma totale dei dealer passa da positivo a negativo. Sopra questo livello, il mercato è di solito nel regime calmante long-gamma; sotto, nel regime amplificante short-gamma. È la linea di confine tra i regimi. Vedi [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
-- **Call wall** - lo strike con il maggiore gamma call sopra lo spot, che tende a limitare i rally in regime di gamma positivo.
-- **Put wall** - lo strike con il maggiore gamma put sotto lo spot, che tende a sostenere i dip.
+- **Call wall** - lo strike con il maggiore gamma call sopra lo spot, dove in regime di gamma positivo l'hedging si oppone ai rally.
+- **Put wall** - lo strike con il maggiore gamma put sotto lo spot, che tende a sostenere i dip in regime di gamma positivo.
 
 Il call wall e il put wall delineano il range che i dealer difendono; il gamma flip ti dice se lo difenderanno o lo sfonderanno. [Gamma Walls Explained](/education/gamma-walls-explained) approfondisce entrambi i wall.
 

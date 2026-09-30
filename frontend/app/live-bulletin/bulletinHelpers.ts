@@ -171,16 +171,20 @@ export function regimeCopy(regime: RegimeKey) {
 
 // Alternate phrasings of each regime's mechanics so the closing line of the
 // auto-lead isn't word-for-word identical every time the same regime shows up.
+// This line lands right after the wall sentence, so it describes what dealer
+// hedging does, never whether the walls hold: our study of 737 wall tests found
+// the regime did not change how often walls broke
+// (content/articles/how-often-do-gamma-walls-break.md).
 const MECHANICS_VARIANTS: Record<RegimeKey, string[]> = {
   positive: [
     REGIME_COPY.positive.explain,
-    'Expect rallies to get faded and dips to get bought as dealers hedge against direction\u00a0- the net effect is range compression.',
-    'Dealer hedging works against momentum here: pushes stall, pullbacks recover, and the tape leans mean-reverting.',
+    'Dealers hedge against direction here, selling into rallies and buying into dips\u00a0- the net effect is range compression.',
+    'Dealer hedging works against momentum here, leaning on pushes in either direction, and the tape leans mean-reverting.',
   ],
   negative: [
     REGIME_COPY.negative.explain,
-    'Dealer hedging runs with momentum here: breaks extend, dips can cascade, and intraday ranges widen out.',
-    'Expect moves to feed on themselves rather than fade\u00a0- short-gamma hedging chases price and stretches the range.',
+    'Dealer hedging runs with momentum here: a break has hedging behind it, dips can cascade, and intraday ranges widen out.',
+    'Short-gamma hedging chases price here, so moves can feed on themselves and stretch the range.',
   ],
   neutral: [
     REGIME_COPY.neutral.explain,

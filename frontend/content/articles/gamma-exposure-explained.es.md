@@ -108,10 +108,10 @@ Por encima del gamma flip, los dealers son generalmente netos largos de gamma. P
 
 - Comprimir la volatilidad realizada.
 - Atraer el precio hacia strikes con alta concentración de gamma, especialmente hacia el cierre.
-- Dificultar que los breakouts se sostengan.
-- Hacer más fiables los setups de reversión a la media.
+- Oponerse a los breakouts.
+- Poner la cobertura a favor de los setups de reversión a la media.
 
-El carácter del mercado es **acotado en rango y absorbente**. El comportamiento de pinning es más probable, sobre todo cerca del OPEX y hacia el cierre del mercado en efectivo. Las estrategias de venta de prima tienden a funcionar más a menudo. Los setups de seguimiento de tendencia tienen una tasa de acierto más baja.
+El carácter del mercado es **acotado en rango y absorbente**. El comportamiento de pinning es más probable, sobre todo cerca del OPEX y hacia el cierre del mercado en efectivo. Las estrategias de venta de prima tienden a funcionar más a menudo. Los setups de seguimiento de tendencia tienen la cobertura en contra.
 
 ### Régimen de gamma negativo
 
@@ -257,7 +257,7 @@ Un ejemplo trabajado. Supongamos que el SPX está en 5.830 y el panel muestra:
 - **Call Wall:** 5.850
 - **Put Wall:** 5.790
 
-La lectura compuesta: el spot está cómodamente en territorio de gamma largo (20 puntos por encima del flip), el Net GEX es una cifra positiva sustancial que indica una magnitud real en el libro de los dealers, y el rango de walls es asimétrico, con el call wall más cerca que el put wall. La inclinación práctica: régimen de volatilidad amortiguada, mercado favorable a la reversión a la media, breakouts con más probabilidad de agotarse que de extenderse, y comportamiento de pinning hacia la fuerte concentración de gamma como posibilidad hacia el cierre. Nada de esto es una señal de operación: es el trasfondo estructural frente al cual debería calibrarse cualquier otra herramienta que uses.
+La lectura compuesta: el spot está cómodamente en territorio de gamma largo (20 puntos por encima del flip), el Net GEX es una cifra positiva sustancial que indica una magnitud real en el libro de los dealers, y el rango de walls es asimétrico, con el call wall más cerca que el put wall. La inclinación práctica: régimen de volatilidad amortiguada, mercado favorable a la reversión a la media y comportamiento de pinning hacia la fuerte concentración de gamma como posibilidad hacia el cierre. Nada de esto es una señal de operación - es el trasfondo estructural frente al cual debería calibrarse cualquier otra herramienta que uses.
 
 ![Gráfico de perfil por strike de ZeroGEX con la curva de gamma de los dealers, la línea del flip y los walls resaltados](/blog/zerogex-strike-profile-overview.png)
 

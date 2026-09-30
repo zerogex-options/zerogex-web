@@ -67,7 +67,7 @@ Per un approfondimento sul perché il volume grezzo può trarre in inganno, perc
 ## Quando la pagina è più utile
 
 - **Subito dopo l'apertura** - i primi 30 minuti dicono molto sul bias della giornata.
-- **A ogni livello chiave** - il flusso verso un wall o il VWAP indica se il livello viene difeso o violato.
+- **A ogni livello chiave** - il flusso verso un wall o il VWAP mostra chi sta mettendo pressione sul livello. Nel nostro studio su 737 test di wall, il flusso con segno sullo strike del wall non ha permesso di prevedere quali wall si sarebbero rotti, quindi leggilo come contesto, non come verdetto.
 - **Verso la chiusura** - combinato con EOD Pressure, la lettura del flusso affina il segnale direzionale.
 
 ## Vedi anche

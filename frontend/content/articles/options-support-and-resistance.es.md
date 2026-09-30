@@ -14,7 +14,7 @@ El soporte y la resistencia basados en opciones son diferentes. No se derivan de
 
 Cuando el S/R de gráfico y el S/R de opciones coinciden, el nivel es notablemente más fiable. Cuando difieren, la lectura basada en opciones suele imponerse - porque el nivel de gráfico es opinión y el nivel de opciones es flujo forzado.
 
-Este artículo es el flujo de trabajo práctico para identificar S/R basado en opciones, leerlo en tiempo real y saber cuándo se mantiene y cuándo se rompe. Para el marco más amplio de gamma, consulta el [pilar de Exposición Gamma](/education/gamma-exposure-explained).
+Este artículo es el flujo de trabajo práctico para identificar S/R basado en opciones, leerlo en tiempo real y saber qué esperar cuando el precio lo pone a prueba. Para el marco más amplio de gamma, consulta el [pilar de Exposición Gamma](/education/gamma-exposure-explained).
 
 ---
 
@@ -26,13 +26,13 @@ Las etiquetas de abajo - call wall como resistencia, put wall como soporte - d
 
 El **call wall** es el strike por encima del spot con la mayor exposición gamma de calls. En un régimen de gamma larga, los dealers que cubren su inventario long-call deben vender en los rallies que se acercan al wall. Esa venta actúa como resistencia estructural.
 
-Lectura práctica: el call wall es la forma más fiable de resistencia basada en opciones en un régimen de gamma positiva. En un régimen de gamma negativa, se invierte y se convierte en un objetivo de ruptura (breakout).
+Lectura práctica: en un régimen de gamma positiva, la cobertura en torno al call wall se opone a un rally; en un régimen de gamma negativa lo acompaña, así que, si el wall cede, puede convertirse en un acelerador de la ruptura (breakout). El régimen cambia ese comportamiento, no la frecuencia con la que el wall se rompe: en nuestra medición, los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, tanto por encima como por debajo del flip.
 
 ### 2. Put walls (soporte)
 
 El **put wall** es el strike por debajo del spot con la mayor exposición gamma de puts. En un régimen de gamma larga, los dealers deben comprar en los selloffs que se acercan al wall para mantenerse neutrales. Esa compra actúa como soporte estructural.
 
-Misma dependencia de régimen que el call wall - en gamma negativa, el put wall se convierte en un punto de deslizamiento (slippage) en la caída.
+Misma dependencia de régimen que el call wall - en gamma negativa, un put wall que cede puede convertirse en un punto de deslizamiento (slippage) en la caída.
 
 La mecánica de los walls en ambos regímenes se explica en [Gamma Walls Explained](/education/gamma-walls-explained).
 
@@ -52,7 +52,7 @@ Consulta [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) para el
 
 ## ¿Por qué el SPY se da la vuelta en estos niveles?
 
-Consulta [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) para el flujo de trabajo.
+Los giros que parecen aleatorios en un gráfico del SPY - el precio corre hasta un nivel que no era un swing previo ni un número redondo, se frena en seco y revierte - suelen ser uno de estos cuatro niveles haciendo su trabajo. En el **call wall**, los dealers modelados como largos en ese strike venden en el rally para mantenerse cubiertos, lo que añade una oferta que pone techo al movimiento. En el **put wall**, un book neto largo en gamma compra el selloff, lo que añade soporte. En el **gamma magnet**, el reflejo de cobertura modelado devuelve el precio hacia el strike. En el **gamma flip**, ese reflejo cambia de signo y el precio a menudo hace una pausa al cruzarlo. Ninguno de ellos aparece en el gráfico de precios - están en la cadena de opciones - y por eso el giro parece surgir de la nada hasta que lo relacionas con el posicionamiento. En nuestra medición, que un wall absorbiera el movimiento o fuera arrollado no dependió del régimen - los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, tanto por encima como por debajo del flip. Lo que cambia el régimen es la cobertura en torno al nivel, así que lee primero el flip: en gamma larga, la cobertura se opone a un rally hacia el call wall; en gamma corta, se suma al movimiento una vez que ese wall cede.
 
 ---
 
@@ -77,34 +77,33 @@ Un flujo de trabajo breve:
 1. **Consulta primero el gamma flip.** Te dice en qué régimen estás. El flip en sí mismo también es un nivel suave que vale la pena vigilar.
 2. **Identifica el call wall y el put wall.** Te dan el rango estructural - los límites que la cobertura de los dealers está preparada para defender (en un régimen de gamma larga) o liberar (en un régimen de gamma corta).
 3. **Identifica el gamma magnet.** Suele ser el strike 0DTE con más peso. El magnet te indica hacia dónde se ve atraído el precio dentro del rango de los walls.
-4. **Revisa la migración.** Un wall que ha estado estable durante horas es un nivel más fuerte que uno que acaba de saltar. Un wall que migra está persiguiendo al precio.
-5. **Contrasta con el S/R de gráfico.** Donde el nivel estructural coincide con un nivel basado en gráfico (número redondo, swing previo, media móvil clave), la convergencia hace que el nivel sea notablemente más nítido.
+4. **Revisa la migración.** Un wall que acaba de saltar es una referencia distinta de uno que lleva horas estable: un wall que migra está persiguiendo al precio, así que el nivel que vigilas se ha movido. En nuestra medición, ni la antigüedad de un wall ni su migración predijeron si se rompería.
+5. **Contrasta con el S/R de gráfico.** Donde el nivel estructural coincide con un nivel basado en gráfico (número redondo, swing previo, media móvil clave), la convergencia puede hacer que el nivel sea más nítido.
 
 ---
 
 ## Cuándo se mantiene el nivel estructural
 
-El mecanismo de cobertura de los dealers funciona de forma más fiable cuando:
+En nuestra medición de 737 pruebas de walls, los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora tras ser puestos a prueba y los del Nasdaq, aproximadamente la mitad ([¿Con qué frecuencia se rompen realmente los gamma walls?](/education/how-often-do-gamma-walls-break)). Las condiciones que los traders suelen comprobar no mejoraron esa tasa base:
 
-- El spot está en un **régimen de gamma positiva** (por encima del flip).
-- El Net GEX es **sustancial y estable** - el book de los dealers tiene magnitud real.
-- El wall **no está migrando** con el precio.
-- El flujo hacia el nivel se está **desacelerando** (a los que persiguen se les acaba el combustible).
-- No hay ningún catalizador activo.
+- Si el spot estaba en un **régimen de gamma positiva** (por encima del flip) o en uno de gamma negativa.
+- Si el Net GEX era **sustancial y estable** o estaba decayendo.
+- Si el wall estaba **migrando** con el precio.
+- Si el flujo en el strike del wall se estaba **acelerando** o desacelerando.
+- Cuánto tiempo llevaba el wall en pie y cuántas veces se había puesto a prueba.
 
-En esas condiciones, la lectura estructural conlleva una probabilidad real.
+Así que la estimación a priori honesta para cualquier wall es la tasa base de su índice, no una lista de comprobación.
 
 ## Cuándo se rompe el nivel estructural
 
-El mecanismo se invierte o colapsa cuando:
+Lo que cambia el régimen es lo que hace la cobertura cuando un nivel cede:
 
-- El spot está en un **régimen de gamma negativa** - los dealers persiguen al precio, no lo contrarrestan.
-- El Net GEX está **decayendo** - el posicionamiento se está deshaciendo.
-- El wall está **migrando** con el precio - nuevo OI se acumula por encima mientras el precio lo pone a prueba.
-- Un catalizador aparece durante la prueba.
-- El flujo se está **acelerando** en la dirección de la ruptura.
+- En un **régimen de gamma positiva**, la cobertura se opone al movimiento, así que una ruptura tiene menos cobertura a su favor.
+- En un **régimen de gamma negativa**, los dealers persiguen al precio en lugar de contrarrestarlo, así que su cobertura se suma a la ruptura.
+- A medida que el spot, el tiempo o la volatilidad cambian la clasificación de los strikes, el wall puede **migrar**, y el nivel que vigilabas deja de ser el strike más pesado.
+- Un **catalizador** que llegue durante la prueba puede desbordar la cobertura en cualquiera de los dos regímenes.
 
-Cuando estas condiciones se acumulan, es más probable que el nivel falle que que se mantenga. Leer primero el régimen es lo que te indica qué manual de estrategia seguir.
+Nada de esto hace que un nivel tenga más probabilidades de fallar que de mantenerse. Leer primero el régimen te dice con qué mecanismo estás operando, no las probabilidades.
 
 ---
 
@@ -120,20 +119,20 @@ SPY está en 581,50. El análisis de gráfico estándar muestra resistencia alre
 
 La lectura estructural compuesta:
 
-- El call wall y la resistencia del gráfico coinciden cerca de 583 - la zona de resistencia de alta confianza está justo donde la ven los traders de gráficos, pero la resistencia *real* es 583,50 (el wall), no el redondo 583.
-- El put wall y el soporte del gráfico también coinciden en 580 - soporte de alta confianza ahí.
-- El gamma magnet en 581,00 significa que el precio tiene una atracción estructural hacia exactamente donde se encuentra ahora mismo. Es probable una compresión.
-- El flip en 580,80 significa que una caída por debajo de 580,80 cambiaría el régimen; el put wall en 580 podría no absorber de forma limpia si el cruce del flip ocurre primero.
+- El call wall y la resistencia del gráfico coinciden cerca de 583 - la zona de resistencia de mayor confianza está justo donde la ven los traders de gráficos, pero el posicionamiento modelado sitúa el wall en 583,50, no en el redondo 583.
+- El put wall y el soporte del gráfico también coinciden cerca de 580 - una lectura de soporte más sólida ahí.
+- El gamma magnet en 581,00 significa que el precio puede tener una atracción estructural hacia más o menos donde se encuentra ahora mismo. Mientras se mantenga la gamma positiva, la cobertura se opone a los movimientos en ambas direcciones.
+- El flip en 580,80 significa que una caída por debajo de 580,80 cambiaría el régimen modelado; el put wall en 580 podría no absorber de forma limpia si el cruce del flip ocurre primero.
 
-La inclinación práctica: un rango estrecho de 581-583,50 es probable; contrarrestar los extremos, evitar la parte media. La lectura estructural afina de forma significativa la lectura de gráfico.
+La lectura: la cobertura modelada se opone a los movimientos hacia cualquiera de los extremos del rango 581-583,50, pero cada wall sigue siendo una apuesta a la tasa base - en nuestra medición, los walls del SPY aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, independientemente del lado del flip en que estuviera el precio. La lectura estructural aporta dónde están los niveles y qué hace la cobertura en torno a ellos; no te dice cuál de ellos cederá.
 
 ---
 
 ## Malinterpretaciones comunes
 
 - **"Está en el máximo de swing previo, así que es resistencia."** A veces. A veces el nivel estructural real está 30 centavos más arriba o más abajo - y el movimiento que "rompió" la resistencia del gráfico siempre iba a extenderse hasta el wall real.
-- **"El put wall está en 580, así que 580 va a aguantar."** Solo en un régimen de gamma larga. En gamma corta, el mismo wall puede convertirse en un punto de deslizamiento.
-- **"El S/R basado en opciones no funciona."** Sí funciona - cuando el régimen lo respalda. La mayoría de las lecturas fallidas provienen de aplicar el manual de gamma larga en un régimen de gamma corta.
+- **"El put wall está en 580, así que 580 va a aguantar."** No de forma fiable, en ninguno de los dos regímenes: en nuestra medición, los walls del S&P se rompieron en aproximadamente una de cada tres pruebas en el plazo de una hora, tanto en gamma larga como en gamma corta. Lo que cambia el régimen es lo que viene después - en gamma corta, un put wall que cede puede convertirse en un punto de deslizamiento.
+- **"El S/R basado en opciones no funciona."** Localiza posicionamiento real, y en nuestra medición los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora. Lo que no te da es una forma de saber de antemano qué wall se romperá: no lo lograron ni el régimen, ni el Net GEX, ni la migración, ni el flujo en el strike.
 
 ---
 

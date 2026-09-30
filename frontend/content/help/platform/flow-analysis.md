@@ -67,7 +67,7 @@ For the deeper read on why raw volume can mislead, why directional flow adds sig
 ## When the page is most useful
 
 - **Right after the open** - the first 30 minutes tell you a lot about the day's bias.
-- **At any key level** - the flow into a wall or VWAP tells you whether the level is being defended or broken.
+- **At any key level** - the flow into a wall or VWAP shows who is pressing the level. In our study of 737 wall tests, signed flow at the wall strike did not predict which walls broke, so read it as context, not a verdict.
 - **Into the close** - combined with EOD Pressure, the flow read sharpens the directional cue.
 
 ## See also

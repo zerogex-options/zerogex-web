@@ -38,7 +38,7 @@ The reachable 0DTE strike with the strongest modeled positive dealer gamma into 
 
 - **Call GEX** and **Put GEX** - total modeled gamma exposure from calls and from puts, the two halves behind Net GEX.
 - **Put/Call Ratio** - put volume divided by call volume. Above 1 leans bearish; below 1, bullish.
-- **Call Wall (Resistance)** and **Put Wall (Support)** - the strike at or above spot with the largest call gamma, and the strike at or below spot with the largest put gamma, each summed over today's expiration and the next two (0-2DTE), with the distance from spot. A chart scoped to 0DTE alone can show a different strike. The labels are the usual reading, not a guarantee: whether a wall holds depends on the modeled dealer-gamma sign and the surrounding flow.
+- **Call Wall (Resistance)** and **Put Wall (Support)** - the strike at or above spot with the largest call gamma, and the strike at or below spot with the largest put gamma, each summed over today's expiration and the next two (0-2DTE), with the distance from spot. A chart scoped to 0DTE alone can show a different strike. The labels are the usual reading, not a guarantee: in our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, and the modeled dealer-gamma sign did not change that.
 
 ## Gamma Flip · Term Structure
 

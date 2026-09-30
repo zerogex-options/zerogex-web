@@ -29,7 +29,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Does the put wall always hold?',
-      a: 'No. It is a probability zone, not a guarantee. If price breaks below it, especially in a negative-gamma regime, the same hedging can flip to selling and accelerate the move lower.',
+      a: 'No. In our study of 737 wall tests, S&P walls broke about one test in three within an hour and Nasdaq walls about half, whichever side of the gamma flip price was on. If price does break below it in a negative-gamma regime, the same hedging can flip to selling and accelerate the move lower.',
     },
     {
       q: 'How is the put wall different from the call wall?',
@@ -103,7 +103,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What happens above versus below the gamma flip?',
-      a: 'Above the flip, dealer hedging dampens moves, so ranges tend to be tighter and dips get bought. Below it, hedging reinforces moves, so ranges widen and breakouts tend to extend.',
+      a: 'Above the flip, modeled dealer hedging dampens moves, so ranges tend to be tighter. Below it, hedging reinforces moves, so ranges widen and a break that does happen has hedging behind it. What the flip did not change, in our study of 737 wall tests, is how often walls broke.',
     },
     {
       q: 'How do traders use the gamma flip?',
@@ -175,7 +175,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Why do gamma walls seem to work on some days and not others?',
-      a: 'Because the effect depends on the modeled dealer gamma sign, not on the level. In a positive-gamma regime hedging tends to lean against moves, so walls can slow price. In a negative-gamma regime the same hedging tends to lean with moves, so the same wall can become a breakout vector rather than a brake.',
+      a: 'Mostly because a wall is a base rate, not a guarantee. In our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, and the regime did not change that. What the regime changes is the hedging around the wall: in positive gamma it leans against moves, so a wall can slow price; in negative gamma it leans with them, so a wall that gives way can become a breakout vector rather than a brake.',
     },
     {
       q: 'How do gamma walls behave on 0DTE?',
@@ -183,13 +183,13 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What does it mean when a gamma wall moves with price?',
-      a: 'A wall that migrates as price approaches it is a weaker level than one that stays put. Migration can come from repricing as spot, time and implied volatility change, or from a different strike becoming the largest eligible concentration\u00a0- it does not establish that anyone opened new positions there. A wall chasing price makes a fade of that level harder to justify.',
+      a: 'It means the level you were watching is no longer the heaviest strike. Migration can come from repricing as spot, time and implied volatility change, or from a different strike becoming the largest eligible concentration\u00a0- it does not establish that anyone opened new positions there. It is not, by itself, a sign the wall will break: in our study of 737 wall tests, whether a wall was migrating with price did not predict whether it broke.',
     },
   ],
   'what-is-negative-gamma': [
     {
       q: 'What does negative gamma mean?',
-      a: 'Negative gamma means dealer hedging amplifies price moves instead of dampening them\u00a0- dealers sell as price falls and buy as it rises. The result tends to be wider ranges, extending breakouts, and broken pins.',
+      a: 'Negative gamma means dealer hedging amplifies price moves instead of dampening them\u00a0- dealers sell as price falls and buy as it rises. The result tends to be wider ranges and broken pins, and a break that does happen has hedging behind it.',
     },
     {
       q: 'How do I know if the market is in negative gamma?',
@@ -320,7 +320,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Do these levels always hold?',
-      a: 'No\u00a0- the regime decides. In a positive-gamma regime, hedging defends the levels and reversals are more likely; in a negative-gamma regime, the same levels tend to give way and breaks extend.',
+      a: 'No. In our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, and the regime did not change those odds. What the regime changes is the hedging around a level: in positive gamma it leans against the move, while in negative gamma it adds to a break once the level gives way.',
     },
   ],
   'how-often-do-gamma-walls-break': [
@@ -348,17 +348,17 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How can you tell a breakout is likely to fail?',
-      a: 'The odds rise when all three structural conditions line up: a long-gamma (positive) regime, a strengthening net GEX, and a static gamma wall sitting just beyond the breakout level. When fewer of the three line up, the breakout is more likely to run.',
+      a: 'Not reliably from structure alone. Traders check three conditions\u00a0- a long-gamma (positive) regime, a strengthening net GEX, and a static gamma wall just beyond the breakout level\u00a0- but in our study of 737 wall tests none of them predicted which walls broke. The base rate is the better guide: S&P walls held about two times in three within an hour, Nasdaq walls about half.',
     },
     {
       q: 'When do breakouts actually hold?',
-      a: 'Breakouts extend far more readily in a negative-gamma regime, where dealer hedging reinforces moves instead of fading them, and when net GEX is decaying or there is no heavy wall parked just past the level to cap it.',
+      a: 'There is no reliable structural tell. In our study of 737 wall tests, breaks came in about one test in three for S&P walls and about half for Nasdaq walls, whatever the regime. What a negative-gamma regime changes is the follow-through: when a wall does give way there, dealer hedging reinforces the move instead of fading it.',
     },
   ],
   'how-to-avoid-chasing-0dte': [
     {
       q: 'How do you avoid chasing 0DTE moves?',
-      a: 'Replace the urge to chase with a structural read before entering: the gamma regime (spot versus the flip), the nearest wall, whether net GEX is strengthening or decaying, and where price sits in its range. If the structure does not support continuation, the move is likelier a fade than a breakout.',
+      a: 'Replace the urge to chase with a structural read before entering: the gamma regime (spot versus the flip), the nearest wall, whether net GEX is strengthening or decaying, and where price sits in its range. That read tells you whether dealer hedging is leaning against the move or adding to it. It does not tell you the move will fail: in our study of 737 wall tests, the regime and net GEX did not predict which walls broke.',
     },
     {
       q: 'How do you know if you are chasing?',
@@ -366,7 +366,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'When is 0DTE momentum actually real?',
-      a: 'It tends to be real in a short-gamma (negative) regime with open room to the next wall and a supportive net-GEX backdrop\u00a0- conditions where dealer hedging pushes the move along instead of absorbing it.',
+      a: 'No structural read makes it reliably real. A short-gamma (negative) regime with open room to the next wall and a supportive net-GEX backdrop is where dealer hedging pushes a move along instead of absorbing it, but in our study of 737 wall tests the regime did not change how often walls broke.',
     },
   ],
   '0dte-dealer-positioning-explained': [

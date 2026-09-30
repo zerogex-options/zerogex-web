@@ -83,8 +83,8 @@ Concretamente, cosas que hay que *dejar* de hacer en un régimen de gamma negati
 
 Cosas que hay que *empezar* a hacer:
 
-- **Opera a favor del movimiento.** Los setups trend-following tienen una tasa de acierto más alta.
-- **Trata los walls como objetivos de breakout, no como resistencia.** El mismo nivel que habrías fadeado en long-gamma podría ser una entrada de continuación en short-gamma.
+- **Opera a favor del movimiento.** Los setups trend-following tienen el hedging a su favor.
+- **Dimensiona los fades en los walls para el caso de una ruptura.** En nuestra medición, un wall aguantó aproximadamente con la misma frecuencia en short gamma que en long gamma, pero si cede aquí, el hedging se suma al movimiento, así que un fade fallido puede irse más lejos en tu contra.
 - **Sé más selectivo con el timing de entrada.** Rangos más amplios significan más riesgo por operación. Compénsalo con criterios de setup más estrictos.
 - **Vigila los regresos al régimen de gamma positivo.** Ocurren - el flip es dinámico. Cuando el spot vuelve a cruzar por encima del gamma flip, el playbook se voltea con él.
 
@@ -101,11 +101,11 @@ SPX abre el día en 5.780. ZeroGEX muestra:
 
 Durante la mañana, SPX asciende gradualmente hasta 5.800. El instinto en un día long-gamma sería empezar a fadear los rallies hacia el flip de 5.810 y el call wall de 5.820.
 
-La lectura estructural aquí dice lo contrario. SPX está en territorio short-gamma; el hedging de los dealers está amplificando. El empuje hacia 5.810 podría extenderse más allá en lugar de desvanecerse - especialmente si el Net GEX sigue decayendo más hacia el negativo. En este régimen, el call wall de 5.820 tiene más probabilidades de actuar como objetivo de breakout que como resistencia.
+La lectura estructural aquí dice lo contrario. SPX está en territorio short-gamma; el hedging de los dealers está amplificando. El empuje hacia 5.810 se encuentra con un hedging que va a su favor en lugar de en su contra. Si el call wall de 5.820 cede en este régimen, ese hedging se suma a la ruptura en lugar de oponerse a ella.
 
-La inclinación práctica: sáltate el fade. O bien operas con el momentum o te quedas al margen. Invierte el playbook respecto a un día long-gamma típico.
+La lectura práctica: aquí un fade no tiene el hedging a su favor, y si el wall cede, el movimiento puede extenderse. Eso cambia el riesgo de fadear, no las probabilidades de que 5.820 aguante - en nuestra medición de 737 pruebas de walls, los walls del SPX aguantaron aproximadamente dos de cada tres veces en el plazo de una hora, independientemente del lado del flip en que estuviera el precio.
 
-Ahora imagina el mismo gráfico con el Net GEX en +1.200 millones $ y el gamma flip en 5.760 (spot 40 puntos por encima). La lectura estructural se invierte: 5.820 actúa con más probabilidad como resistencia, el reflejo long-gamma tiende a absorber los rallies, y el setup de fade está activo. La misma cinta, la lectura opuesta, dependiendo de una sola variable de régimen.
+Ahora imagina el mismo gráfico con el Net GEX en +1.200 millones $ y el gamma flip en 5.760 (spot 40 puntos por encima). La lectura estructural se invierte: el reflejo long-gamma se opone a los rallies hacia 5.820, así que un fade tiene el hedging a su favor. La misma cinta, el mecanismo opuesto, dependiendo de una sola variable de régimen.
 
 ---
 

@@ -107,14 +107,14 @@ const ARTICLES: Article[] = [
     kind: 'Updated • September 4, 2026 • 16:00 UTC',
     title: 'What Is a Put Wall? Put Gamma Concentration Explained',
     blurb:
-      'The put wall is the strike where put-side dealer gamma piles up\u00a0- usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, QQQ, and NDX put walls.',
+      'The put wall is the strike where put-side dealer gamma piles up. What it is, why price often reacts near it, why the modeled hedge does not make it a floor, how it migrates intraday, what a break means, and how to find today’s SPX, SPY, QQQ, and NDX put walls.',
   },
   {
     href: '/education/what-is-a-call-wall',
     kind: 'Published • July 7, 2026 • 16:00 UTC',
     title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
     blurb:
-      'The call wall is the strike where call-side dealer gamma concentrates\u00a0- the level dealers defend on the way up. What it is, why it caps rallies in long gamma, how it migrates, when a break signals a regime change, and where to see today’s live SPX, SPY, QQQ, and NDX call walls.',
+      'The call wall is the strike where call-side dealer gamma concentrates\u00a0- the level dealer hedging tends to defend on the way up. What it is, why hedging there leans against rallies in long gamma, how it migrates, what a break may signal, and where to see today’s live SPX, SPY, QQQ, and NDX call walls.',
   },
   {
     href: '/education/what-is-gex-in-trading',
@@ -150,14 +150,14 @@ const ARTICLES: Article[] = [
     kind: 'Published • June 15, 2026 • 14:00 UTC',
     title: 'Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts',
     blurb:
-      "Failed breakouts aren't random\u00a0- they're driven by dealer hedging at concentrated strikes. The three structural conditions (long-gamma regime, strengthening Net GEX, static wall) that predict the fail before you chase, and how to read them on the live tape.",
+      "Failed breakouts have a structural cause: dealer hedging at concentrated strikes. The three conditions traders check (long-gamma regime, strengthening Net GEX, static wall), what 737 measured wall tests say about them, and how to read them on the live tape.",
   },
   {
     href: '/education/options-support-and-resistance',
     kind: 'Published • June 15, 2026 • 14:00 UTC',
     title: 'How to Identify Support and Resistance from Options Positioning',
     blurb:
-      "Standard S/R is psychology; options-based S/R is mechanics. The four kinds of options-based levels, why they're sturdier than chart-based S/R, the workflow for identifying them in real time, and the conditions that make them hold versus break.",
+      "Standard S/R is psychology; options-based S/R is mechanics. The four kinds of options-based levels, why they're sturdier than chart-based S/R, the workflow for identifying them in real time, and what to expect when price tests them.",
   },
   {
     href: '/education/how-to-avoid-chasing-0dte',
@@ -171,7 +171,7 @@ const ARTICLES: Article[] = [
     kind: 'Published • June 15, 2026 • 14:00 UTC',
     title: 'What Does Negative Gamma Mean? A Plain-English Explainer',
     blurb:
-      'Negative gamma means dealer hedging amplifies moves instead of dampening them\u00a0- wider ranges, extending breakouts, broken pins. What the term refers to, how to spot a negative-gamma regime in real time, and what changes in your trading when you’re in one.',
+      'Negative gamma means dealer hedging amplifies moves instead of dampening them\u00a0- wider ranges, broken pins, and hedging that adds to a break. What the term refers to, how to spot a negative-gamma regime in real time, and what changes in your trading when you’re in one.',
   },
   {
     href: '/education/why-spy-pins-near-strikes',
@@ -248,7 +248,7 @@ const ARTICLES: Article[] = [
     kind: 'Updated • August 29, 2026 • 16:00 UTC',
     title: 'Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts',
     blurb:
-      'What the call wall and put wall do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and the conditions that decide whether the read holds or breaks.',
+      'What the call wall and put wall do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and how often walls actually hold or break.',
   },
   {
     href: '/education/how-to-read-a-gamma-flip',

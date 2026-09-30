@@ -38,7 +38,7 @@ Lo strike 0DTE raggiungibile con il gamma positivo modellato dei dealer più for
 
 - **Call GEX** e **Put GEX** - l'esposizione gamma totale modellata di call e put, le due metà dietro il Net GEX.
 - **Put/Call Ratio** - il volume delle put diviso per il volume delle call. Sopra 1 tende al ribasso; sotto 1, al rialzo.
-- **Call Wall (Resistance)** e **Put Wall (Support)** - lo strike allo spot o sopra con il maggior call gamma e lo strike allo spot o sotto con il maggior put gamma, ciascuno sommato sulla scadenza di oggi e sulle due successive (0-2DTE), con la distanza dallo spot. Un grafico limitato ai soli 0DTE può mostrare uno strike diverso. Le etichette sono la lettura abituale, non una garanzia: che un wall tenga dipende dal segno modellato del gamma dei dealer e dal flusso circostante.
+- **Call Wall (Resistance)** e **Put Wall (Support)** - lo strike allo spot o sopra con il maggior call gamma e lo strike allo spot o sotto con il maggior put gamma, ciascuno sommato sulla scadenza di oggi e sulle due successive (0-2DTE), con la distanza dallo spot. Un grafico limitato ai soli 0DTE può mostrare uno strike diverso. Le etichette sono la lettura abituale, non una garanzia: nel nostro studio su 737 test di wall, i wall dell'S&P hanno tenuto circa due volte su tre entro un'ora e quelli del Nasdaq circa la metà delle volte, e il segno modellato del gamma dei dealer non ha cambiato questo risultato.
 
 ## Gamma Flip · Term Structure
 

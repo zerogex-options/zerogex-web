@@ -55,11 +55,11 @@ Cosa fa il riflesso:
 Che aspetto tende ad avere il tape:
 
 - Range più ampi, breakout più rapidi.
-- Movimenti di continuazione più frequenti delle inversioni.
-- Gli ingressi in mean-reversion contro il trend vengono spesso travolti.
-- I premi delle opzioni giornaliere tendono a espandersi intraday piuttosto che comprimersi.
+- Il rischio di continuazione può essere maggiore di quanto implicherebbe un modello long-gamma.
+- Gli ingressi in mean-reversion possono scontrarsi con un flusso di hedging modellato che rafforza il movimento.
+- Movimenti direzionali e variazioni della volatilità implicita possono compensare il rapido decadimento theta; il comportamento dei premi non è determinato dal solo segno della gamma.
 
-L'inclinazione pratica in un regime 0DTE a gamma corta è **con il movimento, non contro di esso**. I setup di trend-continuation tendono ad avere tassi di successo migliori; contrastare il trend dentro la concentrazione 0DTE significa combattere strutturalmente contro il riflesso dei dealer.
+L'inclinazione pratica in un regime 0DTE a gamma corta è **con il movimento, non contro di esso**. I setup di trend-continuation possono essere più coerenti con il riflesso di hedging modellato; è un'inclinazione condizionale legata alla struttura di mercato, non un'affermazione dimostrata sul tasso di successo.
 
 ---
 
@@ -79,8 +79,8 @@ Che aspetto tende ad avere il tape:
 
 - Range più stretti, più chop, più breakout falliti.
 - Comportamento di attrazione verso lo strike più pesante, soprattutto dopo le 14:00 ET.
-- I premi delle opzioni giornaliere tendono a sgonfiarsi.
-- I setup di mean-reversion tendono ad avere tassi di successo migliori rispetto al trend-continuation.
+- Il rapido decadimento theta può pesare sui premi delle opzioni giornaliere, ma i movimenti dello spot e della volatilità implicita possono prevalere.
+- I setup di mean-reversion possono essere più coerenti con il riflesso di hedging modellato rispetto ai setup di trend-continuation.
 
 L'inclinazione pratica in un regime 0DTE a gamma lunga è **contro il breakout, con il pin**. I rally sfumati verso il call wall, gli acquisti sul dip verso il put wall e le strutture short-premium beneficiano tutti del riflesso smorzante.
 
@@ -93,15 +93,15 @@ Alcune abitudini che cambiano tra i due regimi:
 **In un regime 0DTE a gamma negativa:**
 
 - Prendi più sul serio i breakout del range recente, soprattutto quando il Net GEX è ampio e negativo.
-- Tratta i wall 0DTE come target, non come soffitti.
+- Non trattare i wall 0DTE come soffitti: se uno cede, l'hedging rafforza il movimento invece di opporvisi.
 - Sii scettico sui setup "questo pinnerà" - il riflesso dei dealer non sta tirando.
-- Dimensiona per stop più larghi; la volatilità realizzata è strutturalmente più alta.
+- Se misure di volatilità indipendenti confermano una sessione a range più ampio, dimensiona il rischio di conseguenza; il segno della gamma modellata da solo non prescrive uno stop.
 
 **In un regime 0DTE a gamma positiva:**
 
 - Punta di default a sfumare i movimenti verso gli strike concentrati 0DTE.
 - Tratta lo strike a gamma più pesante come una calamita, soprattutto verso la chiusura.
-- Sii scettico sui breakout - falliscono più spesso.
+- Sii scettico sui breakout - l'hedging si sta opponendo a essi, e i breakout falliti possono impiegare dieci o quindici minuti prima di rientrare.
 - Stop più stretti sono più ragionevoli; i range sono più contenuti.
 
 **In qualsiasi regime:**

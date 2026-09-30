@@ -10,9 +10,9 @@
 
 La mayoría de los traders minoristas que oyen hablar del "gamma flip" lo tratan como otra línea de soporte/resistencia. Comprar en el flip; vender en el flip; operar el rebote. Ese enfoque pasa por alto lo que realmente es el flip. El flip no es un nivel que el precio respeta - es una **frontera de régimen** que determina qué playbook está respaldando hoy el mecanismo de cobertura de los dealers.
 
-Por encima del flip, el reflejo del dealer es desvanecer la fortaleza y comprar la debilidad. Los playbooks de reversión a la media tienen viento estructural de cola a favor. Los breakouts tienden a fallar; los pins tienden a formarse; la volatilidad se comprime.
+Por encima del flip, el reflejo modelado del dealer es desvanecer la fortaleza y comprar la debilidad. Los playbooks de reversión a la media tienen a su favor la cobertura modelada: los movimientos tienden a amortiguarse, pueden formarse pins y la volatilidad tiende a comprimirse.
 
-Por debajo del flip, ese mismo reflejo se invierte. El libro del dealer amplifica los movimientos en lugar de amortiguarlos. Los playbooks de continuación de tendencia tienen el viento a favor; los breakouts se extienden; los pins se rompen; la volatilidad se expande.
+Por debajo del flip, el reflejo modelado cambia de signo. Se supone que el libro del dealer amplifica los movimientos en lugar de amortiguarlos, así que los playbooks de continuación de tendencia tienen a su favor la cobertura: cuando una ruptura sí se produce, la cobertura se suma a ella, los pins se rompen y la volatilidad se expande. Esa es la tendencia del modelo, no una garantía - el comportamiento real sigue dependiendo del flujo, la liquidez, la volatilidad y los catalizadores. Y algo que el flip no cambió en nuestra medición es la frecuencia con la que se rompieron los walls: los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora tras una prueba, tanto por encima como por debajo de él ([¿Con qué frecuencia se rompen realmente los gamma walls?](/education/how-often-do-gamma-walls-break)).
 
 Eso no es "soporte y resistencia en el flip". Son dos playbooks distintos para el mismo gráfico, dependiendo de en qué lado de un precio específico te encuentres. Operar bien en torno al flip significa cambiar de playbook en el cruce - no operar un nivel.
 
@@ -28,7 +28,7 @@ Este artículo cubre el flujo de trabajo. Para la lectura más profunda sobre qu
 El reflejo del dealer atrae el precio hacia los strikes de gamma pesado. Vender en los empujes cerca del call wall y comprar en las caídas cerca del put wall tiene soporte estructural - el flujo de cobertura está de tu lado. Dimensiona la posición en pequeño; toma beneficios en el imán.
 
 **Setup tipo 2: Desvanecer breakouts fallidos.**
-Cuando SPX perfora por encima del call wall pero el Net GEX es positivo y se fortalece, el breakout tiene alta probabilidad estructural de fallar. El fade - corto sobre la ruptura, objetivo de reingreso al rango previo - es el trade canónico de long-gamma. La señal de Trap Detection existe específicamente para esta lectura; ver el [artículo combinado de EOD Pressure y Trap Detection](/education/eod-pressure-and-trap-detection).
+Cuando SPX perfora por encima del call wall pero el Net GEX es positivo y se fortalece, la cobertura modelada se está oponiendo a la ruptura. Ese es el mecanismo, no las probabilidades: en nuestra medición, ni el régimen ni la trayectoria del Net GEX predijeron qué walls se romperían. El fade - corto sobre la ruptura, objetivo de reingreso al rango previo - es el trade canónico de long-gamma. La señal de Trap Detection existe específicamente para esta lectura; ver el [artículo combinado de EOD Pressure y Trap Detection](/education/eod-pressure-and-trap-detection).
 
 **Setup tipo 3: Venta de prima en torno al imán de gamma.**
 El comportamiento de pin en un régimen de gamma positivo tiende a comprimir la volatilidad realizada. Vender prima cercana al dinero contra el strike imán puede funcionar - aunque es un trade de riesgo definido, no un lock estructural. Dimensiona adecuadamente para el riesgo de cola.
@@ -100,7 +100,7 @@ Hacia las 13:00 ET, SPX ha resbalado a 5.806 y el flip ha derivado hacia arriba 
 
 El playbook cambia. El setup de desvanecer el rally que estaba activo en la apertura ya no tiene soporte estructural; una continuación al alza es posible si el Net GEX se vuelve negativo. El tamaño de posición debería reducirse; el trade por defecto es no operar hasta que el régimen se resuelva.
 
-A las 14:30 ET, el Net GEX ha pasado a −$200 millones y SPX ha subido a 5.815. Este es ahora un régimen short-gamma - el reflejo del dealer está amplificando, y el call wall en 5.820 ya no es resistencia estructural; es un objetivo de breakout. El trade de desvanecer el breakout está *descartado*; si el setup es correcto, la persecución del movimiento se convierte en la jugada.
+A las 14:30 ET, el Net GEX ha pasado a −$200 millones y SPX ha subido a 5.815. Este es ahora un régimen short-gamma modelado - se supone que el reflejo del dealer amplifica - así que, si el call wall en 5.820 cede, la cobertura se suma a la ruptura en lugar de oponerse a ella. En nuestra medición, el régimen no cambió la frecuencia con la que se rompieron los walls, así que 5.820 no tiene menos probabilidades de aguantar que en la apertura; lo que ha cambiado es el coste de equivocarse. Un fade fallido ahora puede irse más lejos, así que el trade de desvanecer el breakout pierde su colchón, y si el setup es correcto, la persecución del movimiento tiene la cobertura a su favor.
 
 Mismo gráfico, tres playbooks distintos a lo largo de la sesión - impulsados enteramente por la variable de régimen.
 
