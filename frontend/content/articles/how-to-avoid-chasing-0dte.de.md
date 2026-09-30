@@ -54,7 +54,7 @@ Nach 14:00 ET bauen sich modellierte Charm-Effekte tendenziell auf, und der Deal
 
 ## Die strukturelle Lesart, bevor du klickst
 
-Wenn der Nachjage-Impuls kommt, arbeite diese Checkliste ab:
+Vorab ein Hinweis zur Einordnung: Der Gamma Flip, das Net GEX und die Walls unten sind *modellierte* Schätzungen dafür, wie die Dealer positioniert sind, abgeleitet aus der Optionskette nach der traditionellen Konvention Call-positiv / Put-negativ. Der tatsächliche Bestand der Dealer ist nicht direkt beobachtbar, also behandle diese Werte als Kontext dafür, was das Dealer-Hedging tut, nicht als Schalter, die über das Ergebnis entscheiden. Mit diesem Vorbehalt im Hinterkopf arbeite diese Checkliste ab, wenn der Nachjage-Impuls kommt:
 
 1. **Welches Gamma-Regime herrscht?** Spot über dem modellierten Flip (Long-Gamma) → das Hedging stemmt sich gegen die Bewegung, der du nachjagst. Spot unter dem Flip (Short-Gamma) → das Hedging läuft mit ihr. Das sagt dir, in welche Richtung der Dealer-Flow tendiert, nicht, ob die Bewegung Bestand hat: In unserer Messung von 737 Wall-Tests brachen Walls unterhalb des Flips nicht häufiger als oberhalb. Kennst du das Regime nicht, weißt du nicht, in welche Richtung das Hedging tendiert.
 2. **Wo liegt die nächste Wall?** Wenn du einer Call in den Call Wall hinein nachjagst, in einem Long-Gamma-Regime, wirkt der strukturelle Zug *gegen* das Nachjagen. Wenn du in offenen Raum ohne Wall zwischen aktuellem Spot und Nachjage-Ziel nachjagst, ist der strukturelle Zug neutral - besseres Setup.
@@ -70,13 +70,13 @@ Wenn die meisten dieser Punkte gegen das Nachjagen sprechen, gebietet die Diszip
 
 Das Nachjagen liegt nicht immer falsch. Der 0DTE-Momentum-Trade *kann* funktionieren, wenn:
 
-- Der Spot sich in einem **Negativ-Gamma-Regime** befindet (unter dem Flip). Der Dealer-Reflex verstärkt, statt zu dämpfen. Das Momentum setzt sich fort.
-- **Net GEX klein oder negativ ist.** Die strukturelle Fade ist schwach oder invertiert.
-- Ein **echter Katalysator** aktiv ist (CPI-Überraschung, FOMC-Reaktion, geopolitische Schlagzeile). Katalysator-getriebener Flow überwindet den strukturellen Reflex.
+- Der Spot sich in einem **Negativ-Gamma-Regime** befindet (unter dem Flip). Das Dealer-Hedging verstärkt tendenziell, statt zu dämpfen. Das Momentum kann sich fortsetzen.
+- **Net GEX klein oder negativ ist.** Die strukturelle Fade ist tendenziell schwach oder invertiert.
+- Ein **echter Katalysator** aktiv ist (CPI-Überraschung, FOMC-Reaktion, geopolitische Schlagzeile). Katalysator-getriebener Flow kann den strukturellen Reflex überwinden.
 - Die Bewegung **früh in der Session** stattfindet (vor dem Charm-Aufbau).
 - Der Kontrakt seine volle Bewegung noch nicht abgeschlossen hat - du fängst die ersten 30 % der Tagesrange ein, nicht die letzten 30 %.
 
-Das sind die Bedingungen, unter denen hinter einem 0DTE-Breakout noch etwas anderes steht als der Drang, hinterherzujagen - wobei das Regime, die einzige strukturelle Bedingung hier, in unserer Messung einen Bruch von Walls nicht wahrscheinlicher machte. Sie sind das Gegenteil des typischen "Ich will dem hinterherjagen"-Auslösers.
+Das sind die Bedingungen, unter denen hinter einem 0DTE-Breakout noch etwas anderes steht als der Drang, hinterherzujagen - wobei in unserer Messung weder das Regime noch das Net GEX noch die Tageszeit einen Bruch von Walls wahrscheinlicher machten. Sie sind das Gegenteil des typischen "Ich will dem hinterherjagen"-Auslösers.
 
 ---
 
@@ -106,7 +106,7 @@ Lesart: Long-Gamma-Regime, gesundes Positioning, die Wall liegt fünf Punkte üb
 Ein paar, die funktionieren:
 
 - **Setze einen "No-Chase"-Timer.** Wenn der Impuls kommt, zwinge dich, fünf Minuten zu warten, bevor du klickst. Der Impuls klingt meist ab.
-- **Prüfe das Regime vor jedem 0DTE-Einstieg.** Baue es fest in den Workflow ein. Long-Gamma + Nachjagen = hohe Fehlerquote.
+- **Prüfe das Regime vor jedem 0DTE-Einstieg.** Baue es fest in den Workflow ein. Bei Long-Gamma bedeutet Nachjagen, in ein Hedging hineinzukaufen, das sich dagegen stemmt.
 - **Positioniere für das schlechte Szenario.** Falls das Nachjagen scheitert, geht der Kontrakt auf null. Bemesse die Positionsgröße so, dass das der Basisfall ist.
 - **Verfolge deine Nachjage-Trades separat.** Markiere jeden "Chase"-Einstieg in deinem Journal. Vergleiche die Trefferquote mit deinen Nicht-Chase-Einstiegen. Die ehrlichen Daten klären die Debatte meist von selbst.
 

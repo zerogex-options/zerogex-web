@@ -49,8 +49,8 @@ Zum Vergleich **positives Gamma**, bei dem sich dieselbe Flow-Kette umkehrt: Dea
 |---|---|---|
 | Dealer-Hedging-Reflex | Verkaufen in Stärke, kaufen in Schwäche | Kaufen in Stärke, verkaufen in Schwäche |
 | Realisierte Vol vs. implizite | Tendiert **niedriger** zu sein | Tendiert **höher** zu sein |
-| Ausbrüche | Verpuffen oft und schnappen zurück | Verlängern sich oft |
-| Ausverkäufe | Werden oft in der Nähe von Walls absorbiert | Beschleunigen sich oft |
+| Ausbrüche | Das Hedging stemmt sich gegen sie | Das Hedging verstärkt sie, sobald ein Level nachgibt |
+| Ausverkäufe | Das Hedging kauft in sie hinein | Das Hedging verkauft in sie hinein, sodass sie sich beschleunigen können |
 | Pin-Verhalten | Der Preis wird tendenziell zu stark gewichteten Strikes gezogen | Pinning tendiert dazu, sich abzuschwächen oder zu lösen |
 | Bestes Playbook | Mean-Reversion, Fading von Extremen, Prämienverkauf | Trendfortsetzung, Momentum, Breakout |
 | Schlechtestes Playbook | Ausbrüchen hinterherjagen, Momentum | Rallyes faden, Dip-Buying in die Struktur hinein |
@@ -67,7 +67,7 @@ Ein kurzer Workflow:
 1. **Zuerst den Gamma-Flip prüfen.** Liegt SPY unter dem Flip, verortet dich das Modell in einem Short-Gamma-Regime.
 2. **Mit Net GEX bestätigen.** Ein negativer Net-GEX-Wert liefert die Größenordnung - je negativer, desto ausgeprägter das Regime. Net GEX nahe null ist ein umkämpftes Regime; beide Reflexe sind teilweise aktiv.
 3. **Das Bild der realisierten Vol gegenprüfen.** Short-Gamma-Regime zeigen sich in breiteren Intraday-Spannen, als die implizite Vol beim Tagesauftakt nahelegte. Wenn sich die realisierte Vol ausweitet, während die implizite flach bleibt, ist das die Signatur des Regimes.
-4. **Das Wall-Verhalten beobachten.** In Short-Gamma-Regimen schwächen sich Walls ab oder kehren sich um. Die Call-Wall, die gestern Rallyes gedeckelt hat, kann heute zum Breakout-Ziel werden.
+4. **Beobachten, was passiert, nachdem eine Wall nachgegeben hat.** In Short-Gamma-Regimen verstärkt das Hedging die Bewegung, statt sich gegen sie zu stemmen, sodass ein Bruch weiterlaufen kann, wo er in Long-Gamma ins Stocken geraten wäre. Wie oft Walls brachen, änderte sich in unserer Messung nicht mit dem Regime; der Unterschied, den das Modell erwartet, liegt darin, was auf einen Bruch folgt.
 5. **Die Flow-Richtung zum Schluss beobachten.** Short-Gamma zum Handelsschluss erzeugt oft sich beschleunigende gerichtete Bewegungen (das EOD-Drucksignal wird zu einer Fortsetzungslesart, nicht zu einer Fade-Lesart).
 
 ---

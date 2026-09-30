@@ -41,9 +41,9 @@ GEX ist nicht nur eine Zahl; es bildet sich auf spezifische Preisniveaus ab, die
 
 - **Gamma Flip** - der Preis, an dem das gesamte Dealer-Gamma von positiv auf negativ wechselt. Darüber befindet sich der Markt meist im beruhigenden Long-Gamma-Regime; darunter im verstärkenden Short-Gamma-Regime. Es ist die Trennlinie zwischen den Regimen. Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 - **Call Wall** - der Strike mit dem stärksten Call-Gamma oberhalb des Spotpreises, an dem sich das Hedging bei positivem Gamma gegen Rallys stemmt.
-- **Put Wall** - der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, der dazu neigt, Dips bei positivem Gamma zu stützen.
+- **Put Wall** - der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, an dem sich das aggregierte Hedging bei positivem Gamma gegen Dips stemmt.
 
-Die Call und Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sie diese verteidigen oder durchbrechen werden. [Gamma Walls Explained](/education/gamma-walls-explained) behandelt beide Walls im Detail.
+Die Call Wall und die Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sich ihr Hedging gegen eine Bewegung zu den Rändern hin stemmt oder eine Bewegung, die durchbricht, noch verstärkt. [Gamma Walls Explained](/education/gamma-walls-explained) behandelt beide Walls im Detail.
 
 ---
 

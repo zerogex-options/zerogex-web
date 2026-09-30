@@ -10,7 +10,7 @@
 
 Ein Großteil des Kursverlaufs, den Trader auf einem Chart zu lesen versuchen, ist ein nachgelagerter Effekt von etwas, das eine Ebene darunter passiert: **Dealer-Hedging-Flüsse**. Market Maker stehen auf der anderen Seite jedes Optionsgeschäfts, und um delta-neutral zu bleiben, kaufen und verkaufen sie fortlaufend den Basiswert, während sich der Kurs bewegt. Ob sie Schwäche kaufen oder verkaufen - ob sie Volatilität dämpfen oder verstärken - hängt von einer strukturellen Variable ab: ihrer **Gamma Exposure**.
 
-Gamma Exposure (GEX) ist der sauberste Weg, um abzulesen, was dieses Dealer-Buch gerade tut. Sie zeigt, ob die strukturelle Kraft im Markt in Richtung Stabilität oder Instabilität wirkt, ob Ausbrüche (Breakouts) eher weiterlaufen oder verpuffen, und ob die Strikes, die man in der Optionskette sieht, Flow absorbieren oder freisetzen. Sie sagt nicht die Richtung voraus. Sie zeigt den **Charakter des Regimes**, in dem man handelt - und genau darin liegt der größte Teil des Edge.
+Gamma Exposure (GEX) ist der sauberste Weg, um abzulesen, was dieses Dealer-Buch gerade tut. Sie zeigt, ob die strukturelle Kraft im Markt in Richtung Stabilität oder Instabilität wirkt, ob sich das Hedging gegen einen Ausbruch (Breakout) stemmen oder ihn verstärken wird, und ob die Strikes, die man in der Optionskette sieht, Flow absorbieren oder freisetzen. Sie sagt nicht die Richtung voraus. Sie zeigt den **Charakter des Regimes**, in dem man handelt - und genau darin liegt der größte Teil des Edge.
 
 Dieser Artikel ist die umfassende Lektüre. Wir behandeln, was Gamma Exposure ist, wie sie aus der Optionskette aufgebaut wird, die Mechanik von positiven versus negativen Gamma-Regimen, die Rolle des Gamma-Flips und der Gamma-Walls sowie den praktischen Workflow, um all das intraday zu nutzen. Für vertiefende Beiträge zu den einzelnen Unterthemen verweist dieser Leitfaden auf [Wie man einen Gamma-Flip liest](/education/how-to-read-a-gamma-flip), [Gamma-Walls erklärt](/education/gamma-walls-explained) und [0DTE-Dealer-Positionierung erklärt](/education/0dte-dealer-positioning-explained). Zu spezifischen Greeks zweiter Ordnung siehe [Vanna und Charm für Optionshändler erklärt](/education/vanna-and-charm-explained), und zur Pinning-versus-Magnet-Diskussion siehe [Max Pain erklärt - funktioniert es wirklich?](/education/max-pain-explained).
 
@@ -122,7 +122,7 @@ Unterhalb des Gamma-Flips sind Dealer im Allgemeinen netto short Gamma. Um delta
 - Ausverkäufe im Verlauf zu beschleunigen.
 - Mean-Reversion-Setups gefährlich zu machen.
 
-Der Charakter des Marktes ist **momentumgetrieben und verstärkend**. Die Pins des vorherigen Regimes lösen sich; Strikes, die zuvor Widerstand waren, können zu Breakout-Zielen werden. Long-Prämien- und Trendfortsetzungs-Strategien funktionieren tendenziell häufiger. Ein fallendes Messer in einem tief negativen Gamma-Regime aufzufangen widerspricht genau dem Reflex, der einen Dip-Kauf funktionieren lassen würde.
+Der Charakter des Marktes ist **momentumgetrieben und verstärkend**. Die Pins des vorherigen Regimes lösen sich; ein Strike, der nachgibt, kann zum Beschleuniger statt zum Widerstand werden. Long-Prämien-Strategien profitieren tendenziell von den breiteren Ranges, und Trendfortsetzungs-Setups haben das Hedging im Rücken. Ein fallendes Messer in einem tief negativen Gamma-Regime aufzufangen widerspricht genau dem Reflex, der einen Dip-Kauf funktionieren lassen würde.
 
 ### Zwei wichtige Vorbehalte
 
@@ -153,8 +153,8 @@ Wenn der Flip die Regimegrenze ist, sind die Gamma-Walls die strukturellen Grenz
 
 Die Walls verhalten sich in den beiden Regimen sehr unterschiedlich:
 
-- In einem **positiven Gamma**-Regime absorbieren die Walls. Der Dealer-Reflex um sie herum besteht darin, Bewegungen zu bremsen - Rallyes in Richtung Call-Wall zu verkaufen, Rücksetzer in Richtung Put-Wall zu kaufen.
-- In einem **negativen Gamma**-Regime lösen sich die Walls. Derselbe Level, der bei Long-Gamma Widerstand leistete, kann zu einem Breakout-Ziel werden.
+- In einem **positiven Gamma**-Regime stemmt sich das Hedging rund um die Walls gegen Bewegungen - es verkauft Rallyes in Richtung Call-Wall und kauft Rücksetzer in Richtung Put-Wall.
+- In einem **negativen Gamma**-Regime läuft das Hedging mit der Bewegung, sodass eine Wall, die nachgibt, zum Breakout-Beschleuniger statt zum Widerstand werden kann. In unserer Messung brachen Walls in keinem der beiden Regime häufiger.
 
 Auch Walls wandern. Eine Call-Wall, die nach oben wandert, während der Kurs sie testet, ist strukturell eine andere Ablesung als eine, die hält. Für den vollständigen Lese-Workflow siehe [Gamma-Walls erklärt: Call-Wall, Put-Wall und wie der Kurs reagiert](/education/gamma-walls-explained).
 
@@ -185,7 +185,7 @@ Bevor irgendetwas anderes geschieht, prüfe, ob der Spot oberhalb oder unterhalb
 
 ### Schritt 2: Die Walls innerhalb des Regimes lesen
 
-Finde die aktive Call-Wall und Put-Wall. In einem positiven Gamma-Regime sind das die absorbierenden Grenzen - der strukturelle Range. In einem negativen Gamma-Regime sind sie als Widerstand schwächer und können zu Breakout-Zielen werden.
+Finde die aktive Call-Wall und Put-Wall. In einem positiven Gamma-Regime stemmt sich das Hedging gegen Bewegungen auf sie zu - die strukturelle Range. In einem negativen Gamma-Regime verstärkt das Hedging eine Bewegung, sobald eine von ihnen nachgibt. So oder so gilt für die Frage, wie oft sie halten, die Grundrate: In unserer Messung hielten S&P-Walls bei etwa zwei von drei Tests innerhalb einer Stunde, Nasdaq-Walls bei etwa der Hälfte.
 
 ### Schritt 3: Migration beobachten
 
