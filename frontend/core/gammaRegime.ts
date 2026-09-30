@@ -168,3 +168,35 @@ export function offScaleBandIsLong(
 ): boolean {
   return flip < domainMin ? aboveBandIsLong : !aboveBandIsLong;
 }
+
+/**
+ * Dealer gamma at spot for a SUBSET of expirations (the chart's Expiry filter).
+ *
+ * The whole-chain figure comes off the spot-shift profile, which the engine
+ * can't rebuild for a subset (no per-strike IV is persisted). The subset's flip
+ * is therefore the zero crossing of the low→high cumulative net-GEX curve over
+ * the filtered strikes (`compute_gamma_flip_from_strikes` on the API side), and
+ * this returns the value of that SAME curve at spot: the net GEX of every
+ * filtered strike at or below spot. Same book as the flip drawn beside it.
+ *
+ * `null` when there is no usable strike at or below spot, or spot is unusable.
+ *
+ * @param strikes per-strike rows; `net_gamma` is dollar GEX
+ * @param spot current underlying price
+ */
+export function cumulativeNetGexAtSpot(
+  strikes: ReadonlyArray<{ strike?: unknown; net_gamma?: unknown }> | null | undefined,
+  spot: number | null,
+): number | null {
+  if (spot == null || !Number.isFinite(spot) || spot <= 0) return null;
+  let sum = 0;
+  let counted = 0;
+  for (const s of strikes ?? []) {
+    const k = levelOrNull(s.strike);
+    const g = levelOrNull(s.net_gamma);
+    if (k == null || g == null || k > spot) continue;
+    sum += g;
+    counted++;
+  }
+  return counted > 0 ? sum : null;
+}

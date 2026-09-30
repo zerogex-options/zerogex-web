@@ -14,6 +14,7 @@ import {
   aboveFlipBandIsLong,
   longGammaAtSpot,
   offScaleBandIsLong,
+  cumulativeNetGexAtSpot,
 } from '../core/gammaRegime.ts';
 
 test('netGexAtSpotOrNull keeps a finite point value (both signs)', () => {
@@ -206,4 +207,27 @@ test('regression: a whole-chain book may still disagree with its own flip', () =
   const longNow = longGammaAtSpot(kept, 754.12, 744.0);
   assert.equal(longNow, false);
   assert.equal(aboveFlipBandIsLong(754.12, 744.0, longNow!), false);
+});
+
+// The chip's figure under an Expiry filter: the cumulative low→high curve (the
+// one whose zero crossing is the filtered flip) read at spot.
+test('cumulativeNetGexAtSpot sums the strikes at or below spot', () => {
+  const strikes = [
+    { strike: 736, net_gamma: -1000 },
+    { strike: 740, net_gamma: 400 },
+    { strike: '741', net_gamma: '150' },
+    { strike: 745, net_gamma: 800 },
+  ];
+  assert.equal(cumulativeNetGexAtSpot(strikes, 741.19), -450);
+  assert.equal(cumulativeNetGexAtSpot(strikes, 741), -450);
+  assert.equal(cumulativeNetGexAtSpot(strikes, 746), 350);
+});
+
+test('cumulativeNetGexAtSpot skips unusable rows and returns null with nothing below spot', () => {
+  assert.equal(cumulativeNetGexAtSpot([{ strike: 740, net_gamma: null }, { strike: 739, net_gamma: 5 }], 741), 5);
+  assert.equal(cumulativeNetGexAtSpot([{ strike: 745, net_gamma: 5 }], 741), null);
+  assert.equal(cumulativeNetGexAtSpot([], 741), null);
+  assert.equal(cumulativeNetGexAtSpot(undefined, 741), null);
+  assert.equal(cumulativeNetGexAtSpot([{ strike: 740, net_gamma: 5 }], null), null);
+  assert.equal(cumulativeNetGexAtSpot([{ strike: 740, net_gamma: 5 }], 0), null);
 });

@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity, Camera, ChevronDown, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
+import { Activity, Camera, ChevronDown, ChevronsRight, Eye, EyeOff, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesLevelsChip from "./FuturesLevelsChip";
@@ -58,7 +58,7 @@ import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/char
 import { useChipInk, useLevelInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
-import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
+import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong, cumulativeNetGexAtSpot } from "@/core/gammaRegime";
 import { firstLevel, levelOrNull } from "@/core/levelValue";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
@@ -131,6 +131,7 @@ interface OverlayState {
   expectedRange: boolean; // IV-derived ±1σ expected-range band (Daily/Weekly/Monthly)
   barTimer: boolean; // countdown + elapsed on the forming candle
   ribbons: boolean; // GEX ribbons: per-strike dealer gamma through time, behind the tape
+  volume: boolean; // volume pane under the tape; off hands its height to the price pane
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -153,6 +154,7 @@ const DEFAULT_OVERLAYS: OverlayState = {
   expectedRange: false,
   barTimer: false,
   ribbons: false,
+  volume: true,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -759,11 +761,19 @@ export default function GammaTerminalChart({
   const coarsePointer = useCoarsePointer();
   // A phone or touch screen: the gesture grammar and the touch copy apply.
   const touchUi = isMobile || coarsePointer;
-  const canvas = useMemo(() => {
+  const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
+  const baseCanvas = useMemo(() => {
     if (!box || box.w <= 0) return DESKTOP_CANVAS;
     if (box.w < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)) return compactCanvas(box.w, box.landscape);
     return desktopCanvas(box.w);
   }, [box, touchUi]);
+  // Volume off: the pane (and the gap above it) collapses onto its bottom edge
+  // and the price pane grows down to fill it, so hiding volume gives the tape
+  // the room rather than leaving a blank strip.
+  const canvas = useMemo(
+    () => (overlays.volume ? baseCanvas : { ...baseCanvas, PRICE_BOTTOM: baseCanvas.VOL_BOTTOM, VOL_TOP: baseCanvas.VOL_BOTTOM }),
+    [baseCanvas, overlays.volume],
+  );
   const {
     compact,
     VW,
@@ -819,7 +829,6 @@ export default function GammaTerminalChart({
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [volumeMode, setVolumeMode] = useState<VolumeMode>("updown");
-  const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
 
   // ── Where the rail is drawn ──────────────────────────────────────────────
   // Inline (the default) it occupies its own column inside the chart's SVG.
@@ -1463,7 +1472,7 @@ export default function GammaTerminalChart({
   // the replay instead of snapping. Daily candles are one bar per session
   // already, so they accumulate across the whole window instead.
   const netVolume = useMemo(() => {
-    if (volumeMode !== "net" || bars.length === 0) return null;
+    if (!overlays.volume || volumeMode !== "net" || bars.length === 0) return null;
     const throughEdge = allBars.slice(0, viewEnd);
     if (partialCurrentBar && throughEdge.length > 0) throughEdge[throughEdge.length - 1] = partialCurrentBar;
     const scope = timeframe === "1day" ? "window" : "session";
@@ -1480,7 +1489,7 @@ export default function GammaTerminalChart({
       scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
       last: values[values.length - 1],
     };
-  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol, VOL_TOP, VOL_BOTTOM]);
+  }, [overlays.volume, volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol, VOL_TOP, VOL_BOTTOM]);
 
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView = view.offset !== 0 || view.count !== defaultCount || priceIsManual;
@@ -2557,10 +2566,12 @@ export default function GammaTerminalChart({
       // but a touch tap or a keyboard activation never fires that — and the
       // clear has to be COMMITTED before we read the DOM, so wait a frame
       // rather than serializing the tree React has not re-rendered yet.
-      if (hover) {
-        setHover(null);
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      }
+      //
+      // Always wait that frame, even with no crosshair: "working" also takes
+      // the volume pane's hide eye off the canvas, and that has to be
+      // committed before the serialize too.
+      if (hover) setHover(null);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const blob = await chartSvgToPngBlob(svg, {
         background: resolvedBackground(containerRef.current),
       });
@@ -2870,6 +2881,21 @@ export default function GammaTerminalChart({
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   const regimeUnknown = flip == null;
   const longGammaNow = netGexAtSpot != null ? netGexAtSpot >= 0 : flip != null && spot >= flip;
+  // The chip's dollar figure under a LIVE Expiry filter. netGexAtSpot is
+  // withheld there (it's whole-chain; see atSpotGammaForScope), so the chip
+  // reads the filtered book's own figure: the cumulative curve whose zero
+  // crossing is the filtered flip, taken at spot. It only rides along when its
+  // sign agrees with the LONG/SHORT read beside it: on a lumpy book the gated
+  // flip can sit on the other side of a crossing, and a chip reading
+  // "SHORT Γ +$120M" is the contradiction this chart exists to avoid. Rewind
+  // keeps no figure, as before.
+  const scopedGexAtSpot =
+    filteredExp && live && !rewindActive && !snapshot && !regimeUnknown
+      ? cumulativeNetGexAtSpot(liveGexBucket?.strikes, spot)
+      : null;
+  const chipGex =
+    netGexAtSpot ?? (scopedGexAtSpot != null && (scopedGexAtSpot >= 0) === longGammaNow ? scopedGexAtSpot : null);
+  const chipScope = filteredExp && live && !rewindActive ? expiryScopeLabel({ selection: effectiveRailExpiries, zeroDte: railZeroDte }) : null;
   // Shaded regime bands take their orientation from the badge, not from raw
   // geometry: the band that CONTAINS spot always matches longGammaNow, so the
   // shading can't contradict the "Dealer Gamma @ Spot" badge on a lumpy /
@@ -3567,6 +3593,19 @@ export default function GammaTerminalChart({
               say what it is cumulative OF. */}
           <div className="flex items-center gap-1.5">
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
+            <button
+              type="button"
+              className="zg-gc-seg-btn"
+              data-active={overlays.volume}
+              aria-pressed={overlays.volume}
+              aria-label={overlays.volume ? "Hide volume" : "Show volume"}
+              title={overlays.volume ? "Hide the volume pane (the price pane takes its room)" : "Show the volume pane"}
+              onClick={() => setOverlays((o) => ({ ...o, volume: !o.volume }))}
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
+              {overlays.volume ? <Eye size={13} /> : <EyeOff size={13} />}
+            </button>
+            {overlays.volume && (
             <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
               {(["updown", "net"] as VolumeMode[]).map((m) => (
                 <button
@@ -3586,6 +3625,7 @@ export default function GammaTerminalChart({
                 </button>
               ))}
             </div>
+            )}
           </div>
 
     </>
@@ -3878,16 +3918,19 @@ export default function GammaTerminalChart({
               }}
             >
               <span className="zg-eyebrow" style={{ color: "var(--text-muted)", fontSize: 9 }}>
-                Dealer Gamma @ Spot
+                Dealer Gamma @ Spot{chipScope ? ` · ${chipScope}` : ""}
               </span>
               <div className="flex items-center gap-1.5">
                 <Activity size={13} style={{ color: regimeUnknown ? "var(--text-muted)" : longGammaNow ? "var(--color-bull)" : "var(--color-bear)" }} />
                 <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, letterSpacing: "0.04em", color: regimeUnknown ? "var(--text-secondary)" : longGammaNow ? "var(--color-bull)" : "var(--color-bear)" }}>
                   {regimeUnknown ? "—" : longGammaNow ? "LONG Γ" : "SHORT Γ"}
                 </span>
-                {netGexAtSpot != null && (
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                    {fmtGex(netGexAtSpot)}
+                {chipGex != null && (
+                  <span
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}
+                    title={netGexAtSpot == null ? "Net GEX of the selected expirations' strikes at or below spot: the same curve whose zero crossing is the flip drawn for them." : undefined}
+                  >
+                    {fmtGex(chipGex)}
                   </span>
                 )}
               </div>
@@ -4279,7 +4322,34 @@ export default function GammaTerminalChart({
             })()}
 
             {/* ── Volume pane ───────────────────────────────────────────── */}
+            {overlays.volume && (
             <g>
+              {/* Hide control in the pane's own corner; the toolbar's Vol eye
+                  brings the pane back. Not drawn while a PNG is being saved,
+                  so a control never lands in the image. */}
+              {exportState !== "working" && (
+              <g
+                role="button"
+                tabIndex={0}
+                aria-label="Hide volume"
+                style={{ cursor: "pointer" }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOverlays((o) => ({ ...o, volume: false }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setOverlays((o) => ({ ...o, volume: false }));
+                  }
+                }}
+              >
+                <title>Hide volume</title>
+                <rect x={plotRight - 22} y={VOL_TOP} width={20} height={16} fill="transparent" />
+                <EyeOff x={plotRight - 19} y={VOL_TOP + 2} width={13} height={13} color="var(--text-muted)" />
+              </g>
+              )}
               <text x={PLOT_LEFT + 4} y={VOL_TOP + 11} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.12em" fill="var(--text-muted)">
                 VOLUME
                 {/* The pane names its own view, so a PNG export of the
@@ -4332,6 +4402,7 @@ export default function GammaTerminalChart({
               )}
               <line x1={PLOT_LEFT} x2={plotRight} y1={VOL_BOTTOM} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} />
             </g>
+            )}
 
             {/* ── Time axis + day separators ────────────────────────────── */}
             {bars.map((b, i) => {
