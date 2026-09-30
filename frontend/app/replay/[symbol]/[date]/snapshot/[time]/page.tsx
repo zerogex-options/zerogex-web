@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft, Magnet, Pin, TrendingUp } from 'lucide-react';
 
+import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
@@ -206,6 +207,9 @@ export default async function ReplaySnapshotPage({
             <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
               Frame {formatTimeEt(frame.frame_ts)} ET (requested {formatTimeEt(frame.requested_ts)} ET)
             </p>
+            {/* ES / NQ: spot and every level below are the index's, carried to
+                the futures axis at fair value. Nothing for a cash symbol. */}
+            <FuturesLevelsChip symbol={sym} variant="replay" style={{ marginTop: 8 }} />
           </div>
           <SymbolPicker current={sym} hrefs={pickerHrefs} />
         </div>

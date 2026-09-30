@@ -80,6 +80,25 @@ export function futuresLevelsExplainer(symbol: string | null | undefined): strin
 }
 
 /**
+ * The replay counterpart of futuresLevelsExplainer, and the difference is the
+ * price. A replay is rebuilt from stored data, so /api/replay carries the
+ * backing index's own candles onto the futures axis on the same fair-value
+ * ratio as the levels. The live sentence ("the ES price itself is ES's own")
+ * would be false on a replay: nothing there is a traded futures price.
+ */
+export function futuresReplayExplainer(symbol: string | null | undefined): string | null {
+  const future = (symbol || '').toUpperCase();
+  const index = FUTURES_BACKING_INDEX[future];
+  if (!index) return null;
+  return (
+    `${future} replay is rebuilt from ${index}. The price candles and the levels are both ` +
+    `${index} values carried onto the ${future} price axis at fair value (the cost of carry to ` +
+    `the contract's expiry), not ${future}'s traded prices, so they can differ from an ` +
+    `${future} chart by however far ${future} traded from fair value.`
+  );
+}
+
+/**
  * The symbols a PER-CONTRACT option-flow surface can actually answer for.
  *
  * ES / NQ are served everywhere else by running the SPX / NDX handler and
