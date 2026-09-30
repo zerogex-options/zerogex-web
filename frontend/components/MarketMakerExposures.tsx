@@ -668,10 +668,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // Only meaningful while ``rewindActive`` is true.  Playback advances the
   // scrubber forward one candle per tick at a rate derived from
   // ``playbackSpeed``; on reaching the live edge it either stops or loops
-  // back to the leftmost rewindable position depending on ``playbackLoop``.
+  // back to the leftmost rewindable position depending on ``playbackLoop``
+  // (on by default).
   const [playbackActive, setPlaybackActive] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
-  const [playbackLoop, setPlaybackLoop] = useState<boolean>(false);
+  const [playbackLoop, setPlaybackLoop] = useState<boolean>(true);
   const [gexMode, setGexMode] = useState<'split' | 'net' | 'combined'>(savedSettings.gexMode);
   const [showGexValues, setShowGexValues] = useState<boolean>(savedSettings.showGexValues);
   const [showOiDots, setShowOiDots] = useState<boolean>(savedSettings.showOiDots);
@@ -724,7 +725,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setRewindTime(null);
     setPlaybackActive(false);
     setPlaybackSpeed(1);
-    setPlaybackLoop(false);
+    setPlaybackLoop(true);
     setGexMode(DEFAULTS.gexMode);
     setShowGexValues(DEFAULTS.showGexValues);
     setShowOiDots(DEFAULTS.showOiDots);
@@ -2421,6 +2422,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (candle) setRewindTime(new Date(candle.timestamp).getTime());
   };
 
+  // Play from the most recent point, which is where Rewind opens, replays from
+  // the earliest one (the same place Loop wraps to) instead of stopping on its
+  // first tick with nothing left to play.
+  const togglePlayback = () => {
+    if (playbackActive) {
+      setPlaybackActive(false);
+      return;
+    }
+    if (rewindValue >= rewindMax) {
+      const first = allCandles[rewindMin];
+      if (first) setRewindTime(new Date(first.timestamp).getTime());
+    }
+    setPlaybackActive(true);
+  };
+
   // ── Rewind playback driver ──
   // Advances the rewind scrubber forward one candle per tick at the
   // selected speed.  When the scrubber reaches the live edge (rewindMax)
@@ -4066,11 +4082,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
-                onClick={() => setPlaybackActive((v) => !v)}
+                onClick={togglePlayback}
                 disabled={!rewindAvailable}
                 className={toolbarBtnClass}
                 style={toolbarBtnStyle(playbackActive)}
-                title={playbackActive ? 'Pause playback' : 'Play forward from the current scrubber position'}
+                title={
+                  playbackActive
+                    ? 'Pause playback'
+                    : rewindValue >= rewindMax
+                      ? 'Play from the earliest point'
+                      : 'Play forward from the current scrubber position'
+                }
                 aria-label={playbackActive ? 'Pause rewind playback' : 'Play rewind playback'}
               >
                 {playbackActive ? <Pause size={12} /> : <Play size={12} />}

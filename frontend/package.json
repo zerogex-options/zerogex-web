@@ -161,6 +161,7 @@
     "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts",
     "test:level-value": "node --experimental-strip-types --test tests/levelValue.test.ts",
     "test:rewind-bucket": "node --experimental-strip-types --test tests/rewindBucket.test.ts",
+    "test:rewind-defaults": "node --experimental-strip-types --test tests/rewindDefaults.test.ts",
     "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
     "test:embed-widget": "node --experimental-strip-types --test tests/embedWidget.test.ts",
     "test:og-fonts": "node --experimental-strip-types --test tests/ogFonts.test.ts",
