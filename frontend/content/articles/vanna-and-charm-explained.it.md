@@ -134,7 +134,7 @@ Un tipico tape della settimana OPEX - per i regimi in cui si manifesta - mostr
 
 L'inquadramento singolo più utile:
 
-- **In un regime a gamma positivo**, i flussi vanna e charm rafforzano il carattere smorzante e favorevole al pin del tape. Il vanna grind sostiene la deriva, il decadimento di charm tira verso il magnete strutturale, e il riflesso assorbente dell'hedging long-gamma mantiene il range.
+- **In un regime a gamma positivo**, i flussi vanna e charm rafforzano il carattere smorzante e favorevole al pin del tape. Il vanna grind sostiene la deriva, il decadimento di charm tira verso il magnete strutturale, e il riflesso assorbente dell'hedging long-gamma si oppone ai movimenti che escono dal range.
 - **In un regime a gamma negativo**, i flussi vanna e charm possono amplificare il momentum direzionale invece di produrre deriva. Lo stesso decadimento di charm che fissava il prezzo in un regime long-gamma può contribuire a un selloff in short-gamma se il book dei dealer è posizionato in quel modo.
 
 L'implicazione pratica: **leggete prima il gamma, poi leggete vanna e charm al suo interno.** Le greche del secondo ordine descrivono forze che esistono in ogni regime, ma il loro *effetto comportamentale* è filtrato dal riflesso gamma. Leggere vanna o charm senza leggere il gamma significa leggere solo metà del book.

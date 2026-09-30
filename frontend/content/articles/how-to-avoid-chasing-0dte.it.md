@@ -59,10 +59,10 @@ Prima, una premessa: il gamma flip, il Net GEX e i wall qui sotto sono stime *mo
 1. **Qual è il regime gamma?** Spot sopra il flip modellato (long-gamma) → l'hedging si oppone al movimento che stai inseguendo. Spot sotto il flip (short-gamma) → l'hedging lo asseconda. Questo ti dice da che parte pende il flusso dei dealer, non se il movimento reggerà: nella nostra misurazione su 737 test di wall, i wall non si sono rotti più spesso sotto il flip che sopra. Se non conosci il regime, non sai da che parte pende l'hedging.
 2. **Dov'è il wall più vicino?** Se stai inseguendo una call verso il call wall in un regime long-gamma, la spinta strutturale è *contro* l'inseguimento. Se stai inseguendo verso spazio aperto senza wall tra lo spot attuale e il target dell'inseguimento, la spinta strutturale è neutra - setup migliore.
 3. **Il Net GEX si sta rafforzando o indebolendo?** Il rafforzamento in un regime long-gamma suggerisce che il riflesso di assorbimento si sta intensificando; l'indebolimento suggerisce che si sta attenuando. Questo descrive l'hedging, non le probabilità - nella nostra misurazione, la traiettoria del Net GEX non ha permesso di prevedere quali wall si sarebbero rotti.
-4. **Che ora del giorno è?** Prima di mezzogiorno ET, il charm modellato sulle 0DTE è basso e il riflesso dei dealer tende a essere attenuato. Dopo le 14:00 ET, l'hedging modellato legato al charm tende ad accumularsi. Gli inseguimenti di fine giornata verso la struttura sono spesso la versione peggiore della trappola.
+4. **Che ora del giorno è?** Prima di mezzogiorno ET, il charm modellato sulle 0DTE è basso e il riflesso dei dealer tende a essere attenuato. Dopo le 14:00 ET, l'hedging modellato legato al charm tende ad accumularsi. Un inseguimento di fine giornata verso la struttura incontra quell'hedging nel suo momento più intenso.
 5. **Il contratto ha già fatto 3x?** Se sì, non stai catturando un movimento - stai pagando per il movimento già avvenuto. Il prossimo movimento atteso include una probabilità significativa di mean-reversion.
 
-Se la maggior parte di questi elementi punta contro l'inseguimento, la disciplina impone di saltare il trade. Non "aspetta un entry migliore" - salta. L'inseguimento 0DTE che ha funzionato una volta su dieci è il survivorship bias che tiene in vita l'abitudine.
+Se la maggior parte di questi elementi punta contro l'inseguimento, la disciplina impone di saltare il trade. Non "aspetta un entry migliore" - salta. L'inseguimento 0DTE che ha funzionato una volta è il survivorship bias che tiene in vita l'abitudine.
 
 ---
 
@@ -85,7 +85,7 @@ Queste sono le condizioni in cui un breakout 0DTE ha dietro di sé qualcosa oltr
 La vista gratuita `/spx-gamma-levels` ti offre i tre filtri di cui hai bisogno:
 
 - **Gamma Flip** - verifica del regime.
-- **Call Wall / Put Wall** - dove gli inseguimenti sono strutturalmente predisposti a fare fade.
+- **Call Wall / Put Wall** - dove un inseguimento si scontra con l'hedging più pesante dei dealer.
 - **Net GEX** - magnitudine del book dei dealer.
 
 Per il filtro sull'ora del giorno, le dashboard live mostrano il segnale EOD Pressure durante la finestra attiva (dopo le 14:30 ET) - una lettura direzionale su verso quale direzione punta l'hedging forzato in avvicinamento alla chiusura.
@@ -97,7 +97,7 @@ Esempio pratico. Sono le 14:45 ET. SPX ha appena sfondato il massimo della giorn
 - **Call Wall:** 5.815 (praticamente al target dell'inseguimento)
 - **EOD Pressure:** +0.35 (mild bullish drift, ma diretto verso il magnete)
 
-Lettura: regime long-gamma, posizionamento sano, il wall si trova cinque punti sopra il livello attuale - e il drift EOD è modesto, non eclatante. Ogni filtro è sul lato *fade*. L'inseguimento significherebbe comprare esattamente in cima alla zona di assorbimento strutturale, a fine giornata, con il theta in accelerazione. Salta.
+Lettura: regime long-gamma, posizionamento sano, il wall si trova cinque punti sopra il livello attuale - e il drift EOD è modesto, non eclatante. Ogni filtro è sul lato *fade* del meccanismo. L'inseguimento significherebbe comprare proprio dove l'hedging della giornata è più pesante, in tarda seduta, con il theta in accelerazione. Salta.
 
 ---
 
@@ -116,7 +116,7 @@ Alcune che funzionano:
 
 > L'inseguimento 0DTE non è una strategia; è una reazione emotiva al vedere un contratto che volevi salire senza di te. La cura è la lettura strutturale prima del click, non una disciplina migliore.
 
-La parte della disciplina viene naturale una volta che la lettura è coerente - se hai controllato il regime, il wall, il Net GEX e l'ora del giorno e tutti puntano verso il fade, l'inseguimento perde il suo fascino. La trappola è fare l'inseguimento *prima* di eseguire il controllo.
+La parte della disciplina viene naturale una volta che la lettura è coerente - dopo che hai controllato il regime, il wall, il Net GEX e l'ora del giorno e hai visto l'hedging che ti va contro, l'inseguimento perde il suo fascino. La trappola è fare l'inseguimento *prima* di eseguire il controllo.
 
 Solo contenuto educativo - nulla di quanto sopra è una raccomandazione di trading.
 

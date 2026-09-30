@@ -8,7 +8,7 @@
 
 ## Cos'è un call wall?
 
-Un **call wall** è lo strike sopra lo spot che porta la concentrazione più pesante di esposizione gamma dei dealer sul lato call lungo la catena delle opzioni. È il livello di prezzo dove i flussi di hedging dei dealer sono più propensi a *opporsi a un rally* - motivo per cui i trader considerano il call wall come il tetto strutturale dell'attuale range di posizionamento dei dealer.
+Un **call wall** è lo strike sopra lo spot che porta la concentrazione più pesante di esposizione gamma sul lato call lungo la catena delle opzioni. Quando il modello considera i dealer long su quel gamma (un regime di gamma positivo), è il livello in cui i loro flussi di hedging sono più propensi a *opporsi a un rally* - motivo per cui i trader considerano il call wall come il tetto strutturale dell'attuale range di posizionamento dei dealer. Questo comportamento da tetto è una tendenza, non una regola, e l'hedging che ne è alla base dipende dal segno modellato del gamma dei dealer e dal flusso circostante, non dal semplice fatto che lo strike sia composto da call.
 
 Il significato del call wall, in una frase: non è un numero tondo né una linea sul grafico - è un posizionamento reale, open interest ponderato per il gamma che ogni contratto porta con sé. Lo strike singolo dove quel gamma sul lato call è più denso sopra il prezzo corrente è il call wall.
 
@@ -25,7 +25,7 @@ Il meccanismo è l'hedging dei dealer. In un regime di **gamma positivo** - spo
 Alcune conseguenze del meccanismo:
 
 - Il call wall è una **resistenza probabilistica**, non un tetto rigido. Flussi direzionali reali lo sfondano regolarmente.
-- Pesa di più in un regime di gamma positivo e sugli strike con gamma relativo elevato.
+- Il suo hedging pesa di più in un regime di gamma positivo e sugli strike con gamma relativo elevato.
 - È un indizio strutturale, non una garanzia - un forte catalizzatore può sfondarlo in pochi secondi.
 
 ---
@@ -62,7 +62,7 @@ Poiché i dealer difendono il call wall in gamma positivo, una rottura *decisiva
 - **Il wall stava migrando**, e il prezzo ha semplicemente seguito un tetto che stava già salendo - meno significativo, spesso solo continuazione del trend.
 - **Il wall era statico e il prezzo lo ha comunque superato** - un indizio che l'hedging che limitava il movimento è stato sopraffatto, e spesso che il regime di gamma stesso sta cambiando. Una volta che lo spot spinge sopra un call wall che ha tenuto e entra in un gamma più sottile, il riflesso del dealer può invertirsi, passando dal vendere i rally all'inseguirli, ed è così che un tape bloccato diventa uno rapido.
 
-La lettura, in ordine: il wall sta tenendo o inseguendo, e il Net GEX sta sostenendo il tetto o si sta indebolendo? Una rottura con Net GEX in contrazione è un animale diverso da una rottura verso un gamma positivo in rafforzamento.
+La lettura, in ordine: il wall sta tenendo o inseguendo, e il Net GEX si sta rafforzando o si sta indebolendo? Nella nostra misurazione nessuno dei due ha permesso di prevedere le rotture, ma cambiano il meccanismo: una rottura con Net GEX in contrazione ha meno hedging che le si oppone rispetto a una rottura verso un gamma positivo in rafforzamento.
 
 ---
 

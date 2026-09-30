@@ -30,7 +30,7 @@ Un elenco continuo, dal più recente, che confronta ogni movimento di prezzo di 
 
 Tre pattern - i wall e il flip vengono da Dealer Positioning o dal Gamma Terminal:
 
-1. **Prezzo bloccato tra il call wall e il put wall** in gamma positiva ⇒ *tende a* fare mean reversion all'interno del range. I technicals confermano il range; la pagina dealer ne suggerisce il perché.
+1. **Prezzo tra il call wall e il put wall** in gamma positiva ⇒ l'hedging si oppone ai movimenti verso l'uno o l'altro wall, un contesto da mean reversion. I technicals confermano il range; la pagina dealer ne suggerisce il perché.
 2. **Prezzo che rompe sotto il put wall** in gamma negativa con IV in espansione ⇒ la continuazione del trend *diventa più probabile*. I technicals mostrano la rottura; la pagina dealer spiega l'amplificazione modellata.
 3. **VWAP e il gamma flip che si sovrappongono allo stesso livello** ⇒ un pivot strutturale da tenere d'occhio. Le reazioni lì *possono* avere una convinzione più alta rispetto a uno dei due preso singolarmente.
 

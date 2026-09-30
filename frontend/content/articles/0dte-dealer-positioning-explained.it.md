@@ -82,7 +82,7 @@ Che aspetto tende ad avere il tape:
 - Il rapido decadimento theta può pesare sui premi delle opzioni giornaliere, ma i movimenti dello spot e della volatilità implicita possono prevalere.
 - I setup di mean-reversion possono essere più coerenti con il riflesso di hedging modellato rispetto ai setup di trend-continuation.
 
-L'inclinazione pratica in un regime 0DTE a gamma lunga è **contro il breakout, con il pin**. I rally sfumati verso il call wall, gli acquisti sul dip verso il put wall e le strutture short-premium beneficiano tutti del riflesso smorzante.
+L'inclinazione pratica in un regime 0DTE a gamma lunga è **contro il breakout, con il pin**. I rally sfumati verso il call wall, gli acquisti sul dip verso il put wall e le strutture short-premium si appoggiano tutti al riflesso smorzante.
 
 ---
 
@@ -92,14 +92,14 @@ Alcune abitudini che cambiano tra i due regimi:
 
 **In un regime 0DTE a gamma negativa:**
 
-- Prendi più sul serio i breakout del range recente, soprattutto quando il Net GEX è ampio e negativo.
+- Lascia più spazio ai breakout del range recente, soprattutto quando il Net GEX è ampio e negativo: se un livello cede, l'hedging rafforza il movimento.
 - Non trattare i wall 0DTE come soffitti: se uno cede, l'hedging rafforza il movimento invece di opporvisi.
 - Sii scettico sui setup "questo pinnerà" - il riflesso dei dealer non sta tirando.
 - Se misure di volatilità indipendenti confermano una sessione a range più ampio, dimensiona il rischio di conseguenza; il segno della gamma modellata da solo non prescrive uno stop.
 
 **In un regime 0DTE a gamma positiva:**
 
-- Punta di default a sfumare i movimenti verso gli strike concentrati 0DTE.
+- Aspettati che i movimenti verso gli strike concentrati 0DTE incontrino un hedging che si oppone a essi.
 - Tratta lo strike a gamma più pesante come una calamita, soprattutto verso la chiusura.
 - Sii scettico sui breakout - l'hedging si sta opponendo a essi, e i breakout falliti possono impiegare dieci o quindici minuti prima di rientrare.
 - Stop più stretti sono più ragionevoli; i range sono più contenuti.
@@ -124,7 +124,7 @@ La dashboard mostra letture specifiche per 0DTE in diversi punti:
 
 Un esempio pratico. Supponi che SPX sia a 5.825, il Net GEX segni −800 milioni di dollari, il gamma flip si trovi a 5.840, e la heatmap mostri uno strike put 0DTE pesante a 5.820 che sta migrando verso il basso insieme al prezzo per tutta la mattina. La lettura strutturale: i dealer sono corti di gamma, lo spot è sotto il flip, e lo strike 0DTE più pesante sta seguendo il movimento anziché contenerlo.
 
-Inclinazione pratica: questo è un regime a gamma corta, favorevole alla continuazione, con lo strike put in migrazione che conferma piuttosto che resistere al ribasso. Un trader entrato in sessione con un bias di mean-reversion dovrebbe essere molto più cauto qui, perché la struttura 0DTE sta puntando attivamente nella direzione opposta. Nulla di tutto ciò è un segnale di trade - è contesto di regime che dovrebbe rimodellare quali ingressi prendi sul serio.
+Inclinazione pratica: questo è un regime a gamma corta, favorevole alla continuazione, e lo strike put più pesante sta migrando insieme al prezzo, quindi il livello su cui si appoggerebbe un fade continua a spostarsi. Un trader entrato in sessione con un bias di mean-reversion dovrebbe essere molto più cauto qui, perché l'hedging sta assecondando il movimento invece di opporvisi. Nulla di tutto ciò è un segnale di trade - è contesto di regime che dovrebbe rimodellare quali ingressi prendi sul serio.
 
 ![Card Net GEX e Gamma Flip di ZeroGEX che mostrano una lettura intraday a gamma negativa](/blog/zerogex-net-gex-flip-card.png)
 
