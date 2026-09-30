@@ -60,7 +60,7 @@ This is also a probabilistic lean, not a forecast. A single calm headline can qu
 
 Reading the gamma flip in real time is a short set of habits:
 
-1. **Check the regime first.** Before any setup, know whether spot is above or below the flip. That single read filters out a meaningful share of bad trades.
+1. **Check the regime first.** Before any setup, know whether spot is above or below the flip. That single read tells you whether the hedging is with you or against you.
 2. **Watch the distance to the flip.** Spot clear of the flip by a healthy margin is a stable regime read. Spot wedged within a few tenths of a percent is a contested regime - both sides of the book are partially active, and behavior is unstable. Tighten size or stand aside.
 3. **Watch for migration.** Flip levels shift as positioning rebalances. A flip that drifts up alongside price has a different meaning than one anchored while price moves toward it.
 4. **Pair the flip with the walls.** The flip tells you the regime; the [call wall and put wall](/education/gamma-walls-explained) tell you the structural boundaries inside it. Read them together.

@@ -132,7 +132,7 @@ This is also where the "vanna + charm into OPEX" thesis gets stretched beyond it
 
 The single most useful framing:
 
-- **In a positive-gamma regime**, vanna and charm flows reinforce the dampening, pin-friendly character of the tape. Vanna grind supports the drift, charm decay pulls toward the structural magnet, and the absorbing reflex of long-gamma hedging holds the range.
+- **In a positive-gamma regime**, vanna and charm flows reinforce the dampening, pin-friendly character of the tape. Vanna grind supports the drift, charm decay pulls toward the structural magnet, and the absorbing reflex of long-gamma hedging leans against moves out of the range.
 - **In a negative-gamma regime**, vanna and charm flows can amplify directional momentum instead of producing drift. The same charm decay that pinned price in long-gamma can add to a selloff in short-gamma if the dealer book is positioned that way.
 
 The practical implication: **read gamma first, then read vanna and charm inside it.** The second-order Greeks describe forces that exist in every regime, but their *behavioral effect* is filtered through the gamma reflex. Reading vanna or charm without reading gamma is reading half the book.

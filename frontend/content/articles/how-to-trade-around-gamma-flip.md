@@ -40,7 +40,7 @@ In this modeled regime dealers tend to buy strength and sell weakness - the ref
 The same reflex that amplifies rallies also amplifies selloffs. Catching falling-knife setups in a deep short-gamma regime tends to compound losses, because the dealer mechanism that would have produced the bounce in long-gamma is inverted. The dip-buy thesis specifically loses its structural support below the flip.
 
 **Setup type 3: Trade with the flow direction, not against it.**
-Tape Flow Bias and similar continuation signals carry more weight in short-gamma regimes. When premium-weighted flow is leaning one direction and Net GEX is negative, the move tends to extend rather than fade.
+Tape Flow Bias and similar continuation signals carry more weight in short-gamma regimes. When premium-weighted flow is leaning one direction and Net GEX is negative, the hedging adds to the move rather than leaning against it.
 
 ---
 
@@ -96,7 +96,7 @@ Initial read: long-gamma regime, healthy positioning, structural range 5,790-5,8
 
 By 13:00 ET, SPX has slipped to 5,806 and the flip has drifted up to 5,803 - the two have nearly converged. Net GEX has decayed to +$300M. The regime is contested - spot is barely above the flip, magnitude is shrinking, and the structural reflex is weakening.
 
-The playbook shifts. The fade-the-rally setup that was on at the open is now structurally unsupported; a continuation higher is possible if Net GEX flips negative. Position size should shrink; the default trade is no trade until the regime resolves.
+The playbook shifts. The fade-the-rally setup that was on at the open has lost most of its hedging support, and a continuation higher would have hedging behind it if Net GEX flips negative. Position size should shrink; the default trade is no trade until the regime resolves.
 
 At 14:30 ET, Net GEX has flipped to −$200M and SPX has pushed to 5,815. This is now a modeled short-gamma regime - the dealer reflex is assumed to amplify - so if the 5,820 call wall gives way, hedging adds to the break instead of leaning against it. In our measurement the regime did not change how often walls broke, so 5,820 is no less likely to hold than it was at the open; what changed is the cost of being wrong. A failed fade can now run further, so the fade-the-breakout trade loses its cushion, and if the setup is right, the chase has the hedging behind it.
 

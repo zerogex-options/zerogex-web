@@ -6,7 +6,7 @@
 
 ## What is a call wall?
 
-A **call wall** is the strike above spot that carries the heaviest concentration of call-side gamma exposure on the option chain. When dealers are modeled as long that gamma (a positive-gamma regime), it is the level where their hedging flows are most likely to *lean against a rally* - which is why traders treat the call wall as the structural ceiling of the current dealer-positioning range. That ceiling behavior is a tendency, not a rule: it depends on the modeled dealer gamma sign and the surrounding flow, not on the strike simply being made of calls.
+A **call wall** is the strike above spot that carries the heaviest concentration of call-side gamma exposure on the option chain. When dealers are modeled as long that gamma (a positive-gamma regime), it is the level where their hedging flows are most likely to *lean against a rally* - which is why traders treat the call wall as the structural ceiling of the current dealer-positioning range. That ceiling behavior is a tendency, not a rule, and the hedging behind it depends on the modeled dealer gamma sign and the surrounding flow, not on the strike simply being made of calls.
 
 Call wall meaning, in one sentence: it is not a round number or a chart line - it is real positioning, open interest weighted by the gamma each contract carries. The single strike where that call gamma is densest above the current price is the call wall.
 
@@ -23,7 +23,7 @@ That selling is what can create resistance. As price rallies toward a dense call
 A few consequences of the mechanism:
 
 - The call wall is **probabilistic resistance**, not a hard ceiling. Real directional flow punches through it regularly.
-- It leans hardest in a positive-gamma regime and at strikes with high relative gamma.
+- Its hedging leans hardest in a positive-gamma regime and at strikes with high relative gamma.
 - It is a structural tell, not a guarantee - a strong catalyst can blow through it in seconds.
 
 ---
@@ -60,7 +60,7 @@ Because dealers tend to defend the call wall in positive gamma, a *decisive* bre
 - **The wall was migrating**, and price simply followed a ceiling that was already rising - less significant, often just trend continuation.
 - **The wall was static and price cleared it anyway** - a tell that the hedging that was capping the move has been overwhelmed, and frequently that the gamma regime itself is flipping. Once spot pushes above a held call wall and into thinner gamma, the dealer reflex can invert from selling rallies to chasing them, which is how a stalled tape turns into a fast one.
 
-The read, in order: is the wall holding or chasing, and is Net GEX supporting the cap or fading? A break with contracting Net GEX is a different animal from a break into strengthening positive gamma.
+The read, in order: is the wall holding or chasing, and is Net GEX building or fading? Neither predicted breaks in our measurement, but they change the mechanism: a break with contracting Net GEX has less hedging leaning against it than a break into strengthening positive gamma.
 
 ---
 
