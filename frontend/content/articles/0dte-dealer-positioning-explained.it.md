@@ -46,10 +46,10 @@ Quando i dealer sono netti corti di gamma - tipicamente quando lo spot è sotto
 
 Cosa fa il riflesso:
 
-- Un movimento al rialzo costringe i dealer a *comprare*, amplificando il movimento.
-- Un movimento al ribasso costringe i dealer a *vendere*, amplificando il movimento.
+- Un movimento al rialzo tende a far *comprare* i dealer, amplificando il movimento.
+- Un movimento al ribasso tende a far *vendere* i dealer, amplificando il movimento.
 - La volatilità realizzata intraday tende a espandersi.
-- I wall diventano meno affidabili come resistenza e supporto - possono invertirsi in target di breakout.
+- Un wall che cede può invertirsi in un acceleratore, con l'hedging che rafforza la rottura.
 - Il comportamento di pin vicino allo strike 0DTE più pesante si indebolisce o si inverte.
 
 Che aspetto tende ad avere il tape:
@@ -69,15 +69,15 @@ Quando i dealer sono netti lunghi di gamma - tipicamente quando lo spot è sopr
 
 Cosa fa il riflesso:
 
-- Un movimento al rialzo costringe i dealer a *vendere*, smorzando il movimento.
-- Un movimento al ribasso costringe i dealer a *comprare*, smorzando il movimento.
+- Un movimento al rialzo tende a far *vendere* i dealer, smorzando il movimento.
+- Un movimento al ribasso tende a far *comprare* i dealer, smorzando il movimento.
 - La volatilità realizzata intraday tende a comprimersi.
-- I wall si comportano più come vera resistenza e vero supporto.
+- L'hedging intorno ai wall si oppone ai movimenti verso di essi.
 - Il comportamento di pin vicino allo strike 0DTE più pesante si rafforza verso la chiusura.
 
 Che aspetto tende ad avere il tape:
 
-- Range più stretti, più chop, più breakout falliti.
+- Range più stretti e più chop, con l'hedging che si oppone ai breakout.
 - Comportamento di attrazione verso lo strike più pesante, soprattutto dopo le 14:00 ET.
 - Il rapido decadimento theta può pesare sui premi delle opzioni giornaliere, ma i movimenti dello spot e della volatilità implicita possono prevalere.
 - I setup di mean-reversion possono essere più coerenti con il riflesso di hedging modellato rispetto ai setup di trend-continuation.
@@ -135,7 +135,7 @@ Inclinazione pratica: questo è un regime a gamma corta, favorevole alla continu
 Un breve elenco di come il posizionamento dei dealer 0DTE viene letto male:
 
 - **Usare la gamma su tutto l'OI in una catena dominata da 0DTE.** Se la maggior parte della gamma odierna è 0DTE e stai leggendo la gamma aggregata sull'OI, la tua lettura sta mediando un book vicino alla scadenza con un book a scadenza lontana che non conta per il tape di oggi.
-- **Trattare i wall come duraturi in un regime a gamma negativa.** Non lo sono. Diventano target di breakout.
+- **Dimensionare un fade su un wall allo stesso modo in entrambi i regimi.** Nella nostra misurazione i wall si sono rotti più o meno con la stessa frequenza in entrambi i regimi, ma in gamma negativa, quando un wall cede, l'hedging rafforza la rottura, e con un fade fallito il prezzo può spingersi molto più lontano.
 - **Ignorare il regime e tradare il livello.** Lo spot al put wall è un trade sopra il flip e un trade molto diverso sotto di esso.
 - **Ignorare la migrazione.** Uno strike 0DTE pesante che si è spostato due volte nell'ultima ora è una lettura diversa rispetto a uno rimasto statico per tutta la mattina.
 - **Trattare il comportamento di pin 0DTE come garantito.** È un'inclinazione, non una promessa. Catalizzatori e shock di flusso rompono regolarmente il pin.

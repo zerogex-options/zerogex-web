@@ -49,9 +49,9 @@ Confronta questo con il **gamma positivo**, dove la stessa catena di flow si inv
 |---|---|---|
 | Riflesso di hedging dei dealer | Vendono nella forza, comprano nella debolezza | Comprano nella forza, vendono nella debolezza |
 | Vol realizzata vs. implicita | Tende a essere **più bassa** | Tende a essere **più alta** |
-| Breakout | Spesso svaniscono e tornano indietro | Spesso si estendono |
-| Selloff | Spesso vengono assorbiti vicino ai wall | Spesso accelerano |
-| Comportamento di pin | I magneti attirano il prezzo verso gli strike pesanti | I magneti rilasciano il prezzo; nessun pin |
+| Breakout | L'hedging si oppone a essi | L'hedging li rafforza una volta che un livello cede |
+| Selloff | L'hedging compra durante i selloff | L'hedging vende durante i selloff, che quindi possono accelerare |
+| Comportamento di pin | Il prezzo tende a essere attratto verso gli strike pesanti | Il pinning tende a indebolirsi o a sciogliersi |
 | Playbook migliore | Mean-reversion, fade degli estremi, vendita di premio | Continuazione del trend, momentum, breakout |
 | Playbook peggiore | Rincorrere breakout, momentum | Fadare i rally, comprare i dip nella struttura |
 | Tipico quando | SPY sopra il gamma flip, Net GEX > 0 | SPY sotto il gamma flip, Net GEX < 0 |
@@ -64,10 +64,10 @@ Queste sono tendenze generali di regime, non garanzie. Catalizzatori e shock le 
 
 Un breve workflow:
 
-1. **Controlla prima il gamma flip.** Se SPY è sotto il flip, sei per definizione in un regime short-gamma.
+1. **Controlla prima il gamma flip.** Se SPY è sotto il flip, il modello ti colloca in un regime short-gamma.
 2. **Conferma con il Net GEX.** Un valore di Net GEX negativo è la lettura di magnitudine - più è negativo, più marcato è il regime. Un Net GEX vicino allo zero indica un regime conteso; entrambi i riflessi sono parzialmente attivi.
 3. **Verifica incrociata con il quadro della vol realizzata.** I regimi short-gamma si manifestano con range intraday più ampi di quanto suggerito dalla vol implicita all'apertura della giornata. Se la realizzata si sta espandendo mentre l'implicita resta piatta, questa è la firma del regime.
-4. **Osserva il comportamento dei wall.** Nei regimi short-gamma, i wall si indeboliscono o si invertono. Il call wall che ieri limitava i rally può diventare oggi un target di breakout.
+4. **Osserva cosa succede dopo che un wall cede.** Nei regimi short-gamma, l'hedging rafforza il movimento invece di opporvisi, quindi una rottura può proseguire là dove in long-gamma si sarebbe fermata. Nella nostra misurazione la frequenza con cui i wall si sono rotti non è cambiata con il regime; la differenza che il modello si aspetta sta in ciò che segue una rottura.
 5. **Osserva la direzione del flow in chiusura.** Lo short-gamma verso la chiusura produce spesso movimenti direzionali che accelerano (il segnale di pressione EOD diventa una lettura di continuazione, non di fade).
 
 ---

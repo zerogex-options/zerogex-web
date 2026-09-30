@@ -54,7 +54,7 @@ Dopo le 14:00 ET, gli effetti modellati del charm tendono ad accumularsi e il ri
 
 ## La lettura strutturale prima di cliccare
 
-Quando arriva l'impulso a inseguire, esegui questa checklist:
+Prima, una premessa: il gamma flip, il Net GEX e i wall qui sotto sono stime *modellate* del posizionamento dei dealer, costruite a partire dalla catena di opzioni con la tradizionale convenzione call-positive / put-negative. L'inventario effettivo dei dealer non è direttamente osservabile, quindi trattali come contesto su ciò che sta facendo l'hedging dei dealer, non come interruttori che decidono l'esito. Fatta questa precisazione, quando arriva l'impulso a inseguire, esegui questa checklist:
 
 1. **Qual è il regime gamma?** Spot sopra il flip modellato (long-gamma) → l'hedging si oppone al movimento che stai inseguendo. Spot sotto il flip (short-gamma) → l'hedging lo asseconda. Questo ti dice da che parte pende il flusso dei dealer, non se il movimento reggerà: nella nostra misurazione su 737 test di wall, i wall non si sono rotti più spesso sotto il flip che sopra. Se non conosci il regime, non sai da che parte pende l'hedging.
 2. **Dov'è il wall più vicino?** Se stai inseguendo una call verso il call wall in un regime long-gamma, la spinta strutturale è *contro* l'inseguimento. Se stai inseguendo verso spazio aperto senza wall tra lo spot attuale e il target dell'inseguimento, la spinta strutturale è neutra - setup migliore.
@@ -76,7 +76,7 @@ L'inseguimento non è sempre sbagliato. Il trade di momentum 0DTE *può* funzion
 - Il movimento è **all'inizio della sessione** (prima dell'accumulo di charm).
 - Il contratto non ha già fatto il suo movimento completo - stai catturando il primo 30% del range della giornata, non l'ultimo 30%.
 
-Queste sono le condizioni in cui un breakout 0DTE ha dietro di sé qualcosa oltre alla voglia di inseguire - anche se il regime, l'unica condizione strutturale qui, nella nostra misurazione non ha reso più probabile la rottura dei wall. Sono l'inverso del tipico trigger "voglio inseguire questo".
+Queste sono le condizioni in cui un breakout 0DTE ha dietro di sé qualcosa oltre alla voglia di inseguire - anche se, nella nostra misurazione, né il regime, né il Net GEX, né l'ora del giorno hanno reso più probabile la rottura dei wall. Sono l'inverso del tipico trigger "voglio inseguire questo".
 
 ---
 
@@ -106,7 +106,7 @@ Lettura: regime long-gamma, posizionamento sano, il wall si trova cinque punti s
 Alcune che funzionano:
 
 - **Imposta un timer "no chase".** Quando arriva l'impulso, costringiti ad aspettare cinque minuti prima di cliccare. L'impulso di solito svanisce.
-- **Controlla il regime prima di ogni entry 0DTE.** Integralo nel workflow. Long-gamma + inseguimento = alto tasso di fallimento.
+- **Controlla il regime prima di ogni entry 0DTE.** Integralo nel workflow. In un regime long-gamma, inseguire significa comprare mentre l'hedging ti va contro.
 - **Dimensiona la posizione per l'esito negativo.** Se l'inseguimento fallisce, il contratto va a zero. Dimensiona la posizione assumendo che questo sia lo scenario base.
 - **Traccia i tuoi inseguimenti separatamente.** Etichetta ogni entry "chase" nel tuo journal. Confronta il win rate rispetto alle tue entry non-chase. I dati onesti di solito risolvono il dibattito.
 
