@@ -2227,6 +2227,16 @@ function formatProjTooltipLabel(day: string): string {
   return `${Number(m[2])}/${Number(m[3])}/'${m[1].slice(2)}`;
 }
 
+// Legend swatch drawn as a short line with the same dash pattern as the series
+// it labels, so a dashed chart line reads as dashed in the legend too.
+function LineSwatch({ color, dash }: { color: string; dash?: string }) {
+  return (
+    <svg width="18" height="8" aria-hidden="true" className="inline-block align-middle">
+      <line x1="0" y1="4" x2="18" y2="4" stroke={color} strokeWidth={2} strokeDasharray={dash} />
+    </svg>
+  );
+}
+
 function MrrTrendCard({
   series,
   signupsPerDay,
@@ -2317,8 +2327,8 @@ function MrrTrendCard({
         <div className="flex items-center gap-3 text-xs flex-wrap" style={{ color: mutedText }}>
           <span><span style={{ color: brandColor }}>●</span> Paying</span>
           <span><span style={{ color: committedColor }}>●</span> Paying + trials</span>
-          <span><span style={{ color: brandColor }}>▬</span> Projected</span>
-          {showTarget && <span><span style={{ color: targetColor }}>▬</span> Target</span>}
+          <span><LineSwatch color={brandColor} dash="5 4" /> Projected</span>
+          {showTarget && <span><LineSwatch color={targetColor} dash="6 4" /> Target</span>}
           <label className="flex items-center gap-1">
             <span className="sr-only">Projection horizon</span>
             <select
