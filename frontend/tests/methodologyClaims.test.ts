@@ -27,6 +27,7 @@ const MARKETING_SURFACES: Array<[string, string]> = [
   ['pricing copy', '../app/pricing/Client.i18n.ts'],
   ['plan comparison table', '../components/PlanComparison.tsx'],
   ['bullflow comparison', '../content/articles/zerogex-vs-bullflow.md'],
+  ['quant data comparison', '../content/articles/zerogex-vs-quant-data.md'],
 ];
 
 // Each pattern is an AFFIRMATIVE overclaim. Written narrowly on purpose: the
