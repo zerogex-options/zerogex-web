@@ -10,7 +10,7 @@
 
 Gran parte de la acción del precio que los traders intentan leer en un gráfico es un efecto derivado de algo que ocurre un nivel más abajo: los **flujos de cobertura de los dealers**. Los market makers se sitúan al otro lado de cada operación con opciones y, para mantenerse delta-neutral, compran y venden continuamente el subyacente a medida que se mueve el precio. Que compren la debilidad o la vendan - que amortigüen la volatilidad o la amplifiquen - depende de una variable estructural: su **gamma exposure**.
 
-La gamma exposure (GEX) es la forma más limpia de leer qué está haciendo ese libro de los dealers. Indica si la fuerza estructural del mercado empuja hacia la estabilidad o la inestabilidad, si es probable que los breakouts se extiendan o se agoten, y si los strikes que ves en la cadena de opciones están absorbiendo flujo o liberándolo. No indica la dirección. Indica el **carácter del régimen** en el que estás operando, y ahí reside la mayor parte de la ventaja.
+La gamma exposure (GEX) es la forma más limpia de leer qué está haciendo ese libro de los dealers. Indica si la fuerza estructural del mercado empuja hacia la estabilidad o la inestabilidad, si la cobertura se opondrá a un breakout o se sumará a él, y si los strikes que ves en la cadena de opciones están absorbiendo flujo o liberándolo. No indica la dirección. Indica el **carácter del régimen** en el que estás operando - y ahí reside la mayor parte de la ventaja.
 
 Este artículo es la lectura exhaustiva. Cubriremos qué es la gamma exposure, cómo se construye a partir de la cadena de opciones, la mecánica de los regímenes de gamma positivo frente a negativo, el papel del gamma flip y de los gamma walls, y el flujo de trabajo práctico para usar todo esto en el intradía. Para lecturas más profundas orientadas al trader sobre cada subtema, esta guía enlaza a [Cómo leer un Gamma Flip](/education/how-to-read-a-gamma-flip), [Gamma Walls explicados](/education/gamma-walls-explained) y [Posicionamiento de dealers en 0DTE explicado](/education/0dte-dealer-positioning-explained). Para las Griegas de segundo orden específicas, consulta [Vanna y Charm explicados para traders de opciones](/education/vanna-and-charm-explained), y para la discusión sobre pinning frente a imán, consulta [Max Pain explicado: ¿funciona realmente?](/education/max-pain-explained).
 
@@ -122,7 +122,7 @@ Por debajo del gamma flip, los dealers son generalmente netos cortos de gamma. P
 - Hacer que las ventas masivas se aceleren a medida que avanzan.
 - Hacer peligrosos los setups de reversión a la media.
 
-El carácter del mercado es **impulsado por el momentum y amplificador**. Los pins del régimen anterior se liberan; los strikes que eran resistencia pueden convertirse en objetivos de breakout. Las estrategias de compra de prima y de continuación de tendencia tienden a funcionar más a menudo. Intentar atrapar un cuchillo que cae en un régimen de gamma profundamente negativo va exactamente en contra del reflejo que haría funcionar una compra en el dip.
+El carácter del mercado es **impulsado por el momentum y amplificador**. Los pins del régimen anterior se liberan; un strike que cede puede convertirse en un acelerador en lugar de en una resistencia. Las estrategias de compra de prima tienden a beneficiarse de los rangos más amplios, y los setups de continuación de tendencia tienen la cobertura a su favor. Intentar atrapar un cuchillo que cae en un régimen de gamma profundamente negativo va exactamente en contra del reflejo que haría funcionar una compra en el dip.
 
 ### Dos advertencias importantes
 
@@ -153,8 +153,8 @@ Si el flip es la frontera del régimen, los gamma walls son las fronteras estruc
 
 Los walls se comportan de forma muy distinta en los dos regímenes:
 
-- En un régimen de **gamma positivo**, los walls absorben. El reflejo de los dealers en torno a ellos es contrarrestar los movimientos: vendiendo los rallies hacia el call wall, comprando las caídas hacia el put wall.
-- En un régimen de **gamma negativo**, los walls se liberan. El mismo nivel que resistía el precio en gamma largo puede convertirse en un objetivo de breakout.
+- En un régimen de **gamma positivo**, la cobertura en torno a los walls se opone a los movimientos - vendiendo los rallies hacia el call wall, comprando las caídas hacia el put wall.
+- En un régimen de **gamma negativo**, la cobertura va a favor del movimiento, así que un wall que cede puede convertirse en un acelerador del breakout en lugar de en una resistencia. En nuestra medición, los walls no se rompieron más a menudo en un régimen que en el otro.
 
 Los walls también migran. Un call wall que se desplaza hacia arriba a medida que el precio lo pone a prueba es una lectura estructuralmente distinta a uno que se mantiene firme. Para el flujo de trabajo de lectura completo, consulta [Gamma Walls explicados: Call Wall, Put Wall y cómo reacciona el precio](/education/gamma-walls-explained).
 
@@ -185,7 +185,7 @@ Antes que nada, comprueba si el spot está por encima o por debajo del gamma fli
 
 ### Paso 2: Lee los walls dentro del régimen
 
-Localiza el call wall y el put wall activos. En un régimen de gamma positivo, son tus fronteras absorbentes: el rango estructural. En un régimen de gamma negativo, son más débiles como resistencia y pueden convertirse en objetivos de breakout.
+Localiza el call wall y el put wall activos. En un régimen de gamma positivo, la cobertura se opone a los movimientos hacia ellos - el rango estructural. En un régimen de gamma negativo, la cobertura se suma a un movimiento una vez que uno de ellos cede. En ambos casos, la frecuencia con la que aguantan es la tasa base: en nuestra medición, aproximadamente dos de cada tres pruebas en el plazo de una hora para los walls del S&P y aproximadamente la mitad para los del Nasdaq.
 
 ### Paso 3: Vigila la migración
 

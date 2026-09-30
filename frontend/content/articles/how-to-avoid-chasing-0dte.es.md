@@ -54,7 +54,7 @@ Después de las 14:00 ET, los efectos modelados del charm tienden a acumularse y
 
 ## La lectura estructural antes de hacer clic
 
-Cuando llegue el impulso de perseguir, ejecuta esta checklist:
+Antes de nada, una aclaración: el gamma flip, el Net GEX y los walls que aparecen a continuación son estimaciones *modeladas* del posicionamiento de los dealers, construidas a partir de la cadena de opciones con la convención tradicional call-positivo / put-negativo. El inventario real de los dealers no es directamente observable, así que trátalos como contexto sobre lo que está haciendo el hedging de los dealers, no como interruptores que deciden el resultado. Con esa salvedad, cuando llegue el impulso de perseguir, ejecuta esta checklist:
 
 1. **¿Cuál es el régimen de gamma?** Spot por encima del flip modelado (long-gamma) → el hedging va en contra del movimiento que estás persiguiendo. Spot por debajo del flip (short-gamma) → el hedging va a su favor. Eso te dice hacia dónde se inclina el flujo de los dealers, no si el movimiento se consolidará: en nuestra medición de 737 pruebas de walls, los walls no se rompieron con más frecuencia por debajo del flip que por encima de él. Si no conoces el régimen, no sabes hacia dónde se inclina el hedging.
 2. **¿Dónde está el wall más cercano?** Si estás persiguiendo una call hacia el call wall en un régimen long-gamma, la tracción estructural va *en contra* de la persecución. Si persigues hacia espacio abierto sin ningún wall entre el spot actual y el objetivo de la persecución, la tracción estructural es neutral - mejor setup.
@@ -76,7 +76,7 @@ Perseguir no siempre está mal. El trade de momentum 0DTE *puede* funcionar cuan
 - El movimiento se produce **temprano en la sesión** (antes de la acumulación de charm).
 - El contrato aún no ha completado todo su movimiento - estás capturando el primer 30% del rango del día, no el último 30%.
 
-Esas son las condiciones en las que un breakout 0DTE tiene algo que lo respalde aparte de las ganas de perseguir - aunque el régimen, la única condición estructural aquí, no hizo que los walls tuvieran más probabilidades de romperse en nuestra medición. Son el inverso del típico disparador de "quiero perseguir esto".
+Esas son las condiciones en las que un breakout 0DTE tiene algo que lo respalde aparte de las ganas de perseguir - aunque, en nuestra medición, ni el régimen, ni el Net GEX, ni la hora del día hicieron que los walls tuvieran más probabilidades de romperse. Son el inverso del típico disparador de "quiero perseguir esto".
 
 ---
 
@@ -105,8 +105,8 @@ Lectura: régimen long-gamma, posicionamiento saludable, el wall está cinco pun
 
 Algunos que funcionan:
 
-- **Ponte un temporizador de "no perseguir".** Cuando llegue el impulso, obligate a esperar cinco minutos antes de hacer clic. El impulso normalmente se desvanece.
-- **Revisa el régimen antes de cada entrada 0DTE.** Incorpóralo al flujo de trabajo. Long-gamma + persecución = alta tasa de fallo.
+- **Ponte un temporizador de "no perseguir".** Cuando llegue el impulso, oblígate a esperar cinco minutos antes de hacer clic. El impulso normalmente se desvanece.
+- **Revisa el régimen antes de cada entrada 0DTE.** Incorpóralo al flujo de trabajo. En long gamma, perseguir significa comprar contra un hedging que va en sentido contrario.
 - **Dimensiona la posición para el peor escenario.** Si la persecución falla, el contrato se va a cero. Dimensiona la posición asumiendo que ese es el caso base.
 - **Registra tus persecuciones por separado.** Etiqueta cada entrada de "chase" en tu diario de trading. Compara la tasa de acierto con tus entradas que no son de persecución. Los datos honestos suelen zanjar el debate.
 

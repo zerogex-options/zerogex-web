@@ -49,7 +49,7 @@ Lo que hace el reflejo:
 - Un movimiento al alza tiende a llevar a los dealers a *comprar*, amplificando el movimiento.
 - Un movimiento a la baja tiende a llevar a los dealers a *vender*, amplificando el movimiento.
 - La volatilidad intradía realizada tiende a expandirse.
-- Los walls se vuelven menos fiables como resistencia y soporte - pueden invertirse en objetivos de breakout.
+- Un wall que cede puede invertirse y convertirse en un acelerador, con la cobertura sumándose a la ruptura.
 - El comportamiento de pin cerca del strike 0DTE más pesado se debilita o se revierte.
 
 Cómo tiende a verse el tape:
@@ -72,12 +72,12 @@ Lo que hace el reflejo:
 - Un movimiento al alza tiende a llevar a los dealers a *vender*, amortiguando el movimiento.
 - Un movimiento a la baja tiende a llevar a los dealers a *comprar*, amortiguando el movimiento.
 - La volatilidad intradía realizada tiende a comprimirse.
-- Los walls se comportan más como resistencia y soporte genuinos.
+- La cobertura en torno a los walls se opone a los movimientos hacia ellos.
 - El comportamiento de pin cerca del strike 0DTE más pesado se fortalece hacia el cierre.
 
 Cómo tiende a verse el tape:
 
-- Rangos más ajustados, más chop, más breakouts fallidos.
+- Rangos más ajustados y más chop, con una cobertura que se opone a los breakouts.
 - Comportamiento de atracción hacia el strike más pesado, especialmente después de las 14:00 ET.
 - El rápido decaimiento theta puede pesar sobre las primas del mismo día, pero los movimientos del spot y de la volatilidad implícita pueden dominarlo.
 - Los setups de mean-reversion pueden ser más coherentes con el reflejo de cobertura modelado que los setups de continuación de tendencia.
@@ -135,7 +135,7 @@ Inclinación práctica: este es un régimen de gamma corta, favorable a la conti
 Una breve lista de cómo se malinterpreta el posicionamiento de dealers en 0DTE:
 
 - **Usar la gamma de todo el OI en una cadena dominada por 0DTE.** Si la mayor parte de la gamma de hoy es 0DTE y estás leyendo la gamma agregada del OI, tu lectura está promediando un libro cercano al vencimiento con un libro de vencimiento lejano que no importa para el tape de hoy.
-- **Tratar los walls como duraderos en un régimen de gamma negativa.** No lo son. Se convierten en objetivos de breakout.
+- **Dimensionar un fade en un wall igual en ambos regímenes.** En nuestra medición, los walls se rompieron aproximadamente con la misma frecuencia en uno y otro régimen, pero en gamma negativa un wall que cede tiene la cobertura sumándose a la ruptura, así que un fade fallido puede irse mucho más lejos.
 - **Ignorar el régimen y operar el nivel.** El spot en el put wall es un trade distinto por encima del flip que por debajo de él.
 - **Ignorar la migración.** Un strike 0DTE pesado que se ha movido dos veces en la última hora es una lectura distinta a uno que ha permanecido estático toda la mañana.
 - **Tratar el comportamiento de pin en 0DTE como garantizado.** Es una inclinación, no una promesa. Los catalizadores y los shocks de flujo rompen el pin con regularidad.

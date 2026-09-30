@@ -49,8 +49,8 @@ Compáralo con el **gamma positivo**, donde la misma cadena de flow se invierte:
 |---|---|---|
 | Reflejo de hedging de los dealers | Venden en la fortaleza, compran en la debilidad | Compran en la fortaleza, venden en la debilidad |
 | Vol realizada vs. implícita | Tiende a ser **más baja** | Tiende a ser **más alta** |
-| Breakouts | A menudo se desvanecen y rebotan | A menudo se extienden |
-| Selloffs | A menudo se absorben cerca de los walls | A menudo se aceleran |
+| Breakouts | El hedging se opone a ellos | El hedging se suma a ellos una vez que un nivel cede |
+| Selloffs | El hedging compra durante ellos | El hedging vende durante ellos, así que pueden acelerarse |
 | Comportamiento de pin | El precio tiende a ser atraído hacia los strikes pesados | El pinning tiende a debilitarse o soltarse |
 | Mejor playbook | Mean-reversion, fade de extremos, venta de prima | Continuación de tendencia, momentum, breakout |
 | Peor playbook | Perseguir breakouts, momentum | Fadear rallies, comprar dips dentro de la estructura |
@@ -67,7 +67,7 @@ Un flujo de trabajo breve:
 1. **Revisa primero el gamma flip.** Si SPY está por debajo del flip, el modelo te sitúa en un régimen short-gamma.
 2. **Confirma con el Net GEX.** Un valor de Net GEX negativo es la lectura de magnitud - cuanto más negativo, más marcado el régimen. Un Net GEX cercano a cero es un régimen disputado; ambos reflejos están parcialmente activos.
 3. **Verifica cruzadamente el panorama de vol realizada.** Los regímenes short-gamma se manifiestan con rangos intradía más amplios de lo que sugería la vol implícita de la apertura del día. Si la realizada se está expandiendo mientras la implícita permanece plana, esa es la firma del régimen.
-4. **Observa el comportamiento de los walls.** En regímenes short-gamma, los walls se debilitan o se invierten. El call wall que ayer limitaba los rallies puede convertirse hoy en un objetivo de breakout.
+4. **Observa lo que ocurre después de que un wall ceda.** En regímenes short-gamma, el hedging se suma al movimiento en lugar de oponerse a él, así que una ruptura puede seguir avanzando donde en long gamma se habría estancado. En nuestra medición, la frecuencia con la que se rompieron los walls no cambió con el régimen; la diferencia que espera el modelo está en lo que sigue a una ruptura.
 5. **Observa la dirección del flow al cierre.** El short-gamma hacia el cierre a menudo produce movimientos direccionales que se aceleran (la señal de presión EOD se convierte en una lectura de continuación, no de fade).
 
 ---
