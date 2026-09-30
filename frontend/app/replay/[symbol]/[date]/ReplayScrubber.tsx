@@ -33,6 +33,7 @@ import {
 } from '@/core/expirationGradient';
 import { pinLineLabel, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
 import { isZoomGesture } from '@/core/wheelZoom';
+import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import {
   replayScopeHref,
   replayScopeLabel,
@@ -1763,8 +1764,13 @@ function ReplayOverlayChart({
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-3 sm:px-5 sm:py-4">
       <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-        <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          {symbol} price · dealer {gexMode === 'net' ? 'net ' : ''}GEX · strike profile
+        {/* For ES / NQ the title's "price" is the index's, carried to the
+            futures axis at fair value, and the chip beside it says so. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+            {symbol} price · dealer {gexMode === 'net' ? 'net ' : ''}GEX · strike profile
+          </div>
+          <FuturesLevelsChip symbol={symbol} variant="replay" />
         </div>
         {/* On a phone the OHLC readout takes its own line and the controls wrap
             under it; from `sm` up the group sits beside the title as before. */}

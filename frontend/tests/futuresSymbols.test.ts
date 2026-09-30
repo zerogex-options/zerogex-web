@@ -20,6 +20,7 @@ import {
   isFuturesSymbol,
   futuresLevelsLabel,
   futuresLevelsExplainer,
+  futuresReplayExplainer,
   optionChainSymbolFor,
   volatilityIndexFor,
   resolveSymbol,
@@ -177,5 +178,20 @@ test('cash symbols carry no futures levels label', () => {
   for (const s of ['SPX', 'SPY', 'QQQ', 'NDX', '', null, undefined]) {
     assert.equal(futuresLevelsLabel(s), null, String(s));
     assert.equal(futuresLevelsExplainer(s), null, String(s));
+    assert.equal(futuresReplayExplainer(s), null, String(s));
   }
+});
+
+// A replay's ES candles are SPX candles carried to the futures axis on the same
+// ratio as the levels, so the replay explanation must not borrow the live one's
+// "the ES price itself is ES's own". A customer backtesting against real ES
+// prints had to reverse-engineer that the replay candles were not ES trades,
+// because nothing on the replay said so.
+test('the replay explanation says the candles are implied too', () => {
+  const es = futuresReplayExplainer('es') ?? '';
+  assert.match(es, /price candles and the levels are both SPX values/);
+  assert.match(es, /fair value/);
+  assert.match(es, /not ES's traded prices/);
+  assert.doesNotMatch(es, /price itself is ES's own/);
+  assert.match(futuresReplayExplainer('NQ') ?? '', /NDX values carried onto the NQ price axis/);
 });
