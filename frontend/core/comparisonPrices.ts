@@ -35,9 +35,11 @@ import {
 export type ComparedCadence = 'monthly' | 'annual';
 
 // One plan as its vendor states it. `annual` is the yearly total and
-// `annualPerMonth` the per-month rate on yearly billing. Vendors usually state
-// one or the other; record only what the source says, and the per-month rate is
-// derived from the total when only the total is known.
+// `annualPerMonth` the per-month rate on yearly billing. Record only what the
+// source says. The per-month rate is derived from the total when only the total
+// is known; when the vendor states both, both are kept as it prints them, since
+// a vendor may round the monthly figure ($1,499.99 a year shown as $124.99 a
+// month) and the page should match what readers see on the vendor's site.
 export type CompetitorPlanPrice = {
   monthly: number;
   annual?: number;
@@ -64,19 +66,19 @@ export const COMPETITOR_PRICES = {
     },
   },
   // `platform` is the pricing section of quantdata.us: $74.99/mo billed
-  // monthly, or $62.50/mo billed annually, both labeled "Non-professionals
+  // monthly, or $750 a year shown as $62.50/mo, both labeled "Non-professionals
   // only" with a 7-day free trial. Registered professionals are sent to a
   // separate Professional plan whose price that section does not show, so it
-  // is not recorded. The page quotes the yearly plan per month only, so no
-  // yearly total is recorded either. `api` is the API plan as Quant Data's help
-  // center states it, "Flat $149.99/mo ($124.99 annual)" (GEX API quickstart,
-  // dated July 2, 2026).
+  // is not recorded. `api` is the API plan: $149.99/mo, or $1,499.99 a year
+  // shown as $124.99/mo (the help center's GEX API quickstart, dated July 2,
+  // 2026, gives the same two monthly figures). Yearly totals read first-hand
+  // from quantdata.us on the date below.
   quantdata: {
     checked: '2026-09-30',
     source: 'https://quantdata.us/#pricing',
     plans: {
-      platform: { monthly: 74.99, annualPerMonth: 62.5 },
-      api: { monthly: 149.99, annualPerMonth: 124.99 },
+      platform: { monthly: 74.99, annual: 750, annualPerMonth: 62.5 },
+      api: { monthly: 149.99, annual: 1499.99, annualPerMonth: 124.99 },
     },
   },
 } satisfies Record<string, CompetitorPrices>;

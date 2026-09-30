@@ -30,14 +30,14 @@ Open interest is published once a day, after the close. On a gamma map built fro
 
 ## Prices
 
-List prices before promotions and tax, checked {{quantdata:checked}}. Quant Data's platform plan, which covers its web dashboard and its iOS and Android apps, is {{quantdata:platform:monthly}} a month, or {{quantdata:platform:annual:mo}} a month billed yearly, with a 7-day free trial on either. Both prices are for non-professional traders; registered professionals are sent to a separate Professional plan. Its API is a separate plan again. ZeroGEX's prices are the ones on its [Pricing](/pricing) page today.
+List prices before promotions and tax, checked {{quantdata:checked}}. Quant Data's platform plan, which covers its web dashboard and its iOS and Android apps, is {{quantdata:platform:monthly}} a month, or {{quantdata:platform:annual}} a year, with a 7-day free trial on either. Both prices are for non-professional traders; registered professionals are sent to a separate Professional plan. Its API is a separate plan again. ZeroGEX's prices are the ones on its [Pricing](/pricing) page today.
 
 | Plan | Billed monthly | Billed yearly |
 |---|---|---|
 | ZeroGEX Basic | {{zgx:basic:monthly}}/mo | {{zgx:basic:annual}}/yr (about {{zgx:basic:annual:mo}}/mo) |
 | ZeroGEX Pro, with API access | {{zgx:pro:monthly}}/mo | {{zgx:pro:annual}}/yr (about {{zgx:pro:annual:mo}}/mo) |
-| Quant Data, non-professional | {{quantdata:platform:monthly}}/mo | {{quantdata:platform:annual:mo}}/mo, billed yearly |
-| Quant Data API plan | {{quantdata:api:monthly}}/mo | {{quantdata:api:annual:mo}}/mo, billed yearly |
+| Quant Data, non-professional | {{quantdata:platform:monthly}}/mo | {{quantdata:platform:annual}}/yr (about {{quantdata:platform:annual:mo}}/mo) |
+| Quant Data API plan | {{quantdata:api:monthly}}/mo | {{quantdata:api:annual}}/yr (about {{quantdata:api:annual:mo}}/mo) |
 
 Both ZeroGEX plans cost less than Quant Data's platform plan, monthly or yearly, and ZeroGEX Pro includes the API access that Quant Data sells as a separate plan. The prices buy different things, though: Quant Data's covers order flow, dark pool prints, news, and exposure maps across 6,000+ tickers, and ZeroGEX's covers six symbols in depth.
 

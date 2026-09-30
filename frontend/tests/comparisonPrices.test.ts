@@ -7,6 +7,7 @@ import {
   competitorCheckedLabel,
   fillComparisonPrices,
   type CompetitorId,
+  type CompetitorPlanPrice,
 } from '../core/comparisonPrices.ts';
 import { ARTICLE_FAQ } from '../core/articleFaq.ts';
 
@@ -58,10 +59,25 @@ test('competitor figures print the way their sources quote them', () => {
   assert.equal(fillComparisonPrices('{{bullflow:dataApi:annual}}'), '$1,188');
   assert.equal(fillComparisonPrices('{{bullflow:checked}}'), 'September 29, 2026');
   assert.equal(fillComparisonPrices('{{quantdata:platform:monthly}}'), '$74.99');
+  assert.equal(fillComparisonPrices('{{quantdata:platform:annual}}'), '$750');
   assert.equal(fillComparisonPrices('{{quantdata:platform:annual:mo}}'), '$62.50');
   assert.equal(fillComparisonPrices('{{quantdata:api:monthly}}'), '$149.99');
+  assert.equal(fillComparisonPrices('{{quantdata:api:annual}}'), '$1,499.99');
+  // Quant Data shows $1,499.99 a year as $124.99 a month; the page matches it
+  // rather than printing $125.00.
   assert.equal(fillComparisonPrices('{{quantdata:api:annual:mo}}'), '$124.99');
   assert.equal(fillComparisonPrices('{{quantdata:checked}}'), 'September 30, 2026');
+});
+
+// A plan that records both a yearly total and a per-month figure has to agree
+// with itself to the cent, so an edit to one cannot leave the other stale.
+test('a yearly total and its per-month figure agree', () => {
+  for (const [id, entry] of Object.entries(COMPETITOR_PRICES)) {
+    for (const [plan, price] of Object.entries(entry.plans) as Array<[string, CompetitorPlanPrice]>) {
+      if (price.annual === undefined || price.annualPerMonth === undefined) continue;
+      assert.ok(Math.abs(price.annual / 12 - price.annualPerMonth) < 0.01, `${id} ${plan}`);
+    }
+  }
 });
 
 test('a malformed or unknown token throws instead of printing braces', () => {
@@ -76,10 +92,7 @@ test('a malformed or unknown token throws instead of printing braces', () => {
     '{{bullflow:toString:monthly}}',
     '{{toString:checked}}',
     '{{price}}',
-    // Quant Data quotes both yearly plans per month only, so there is no
-    // yearly total to print, and its Professional plan's price is not shown.
-    '{{quantdata:api:annual}}',
-    '{{quantdata:platform:annual}}',
+    // Quant Data does not show its Professional plan's price.
     '{{quantdata:professional:monthly}}',
   ]) {
     assert.throws(() => fillComparisonPrices(bad), /unknown price token/, bad);
@@ -103,12 +116,12 @@ test('the price comparisons the pages make in words still hold', () => {
   const quantdata = COMPETITOR_PRICES.quantdata.plans.platform;
   for (const tier of ['basic', 'pro'] as const) {
     assert.ok(LIST_PRICE_USD[tier].monthly < quantdata.monthly, `${tier} monthly`);
-    assert.ok(LIST_PRICE_USD[tier].annual / 12 < quantdata.annualPerMonth, `${tier} yearly`);
+    assert.ok(LIST_PRICE_USD[tier].annual < quantdata.annual, `${tier} yearly`);
   }
 
   // "ZeroGEX Pro includes the API access that Quant Data sells as a separate
   // plan", and costs less than that plan on its own
   const quantdataApi = COMPETITOR_PRICES.quantdata.plans.api;
   assert.ok(LIST_PRICE_USD.pro.monthly < quantdataApi.monthly);
-  assert.ok(LIST_PRICE_USD.pro.annual / 12 < quantdataApi.annualPerMonth);
+  assert.ok(LIST_PRICE_USD.pro.annual < quantdataApi.annual);
 });
