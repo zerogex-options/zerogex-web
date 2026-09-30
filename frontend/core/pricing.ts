@@ -314,9 +314,10 @@ export const MRR_PROJECTION_HORIZONS = [
   { months: 36, label: '3 years' },
 ] as const;
 
-// How many trailing days set the extrapolation pace: "the growth rate of the
-// last one week". Falls back to whatever history exists when short of a week.
-export const MRR_PROJECTION_WINDOW_DAYS = 7;
+// How many trailing days set the extrapolation pace: the actual Paying MRR
+// change over the last 30 days. Falls back to whatever history exists when
+// there's less than that.
+export const MRR_PROJECTION_WINDOW_DAYS = 30;
 
 // One extrapolated point on the forward MRR line. `day` is a future ET-style
 // YYYY-MM-DD key continuing the historical series' axis.
@@ -327,7 +328,7 @@ export type MrrProjectionPoint = {
 
 export type MrrProjection = {
   // Trailing days actually used to set the pace — MRR_PROJECTION_WINDOW_DAYS
-  // (7) once there's a full week of real data, fewer while history is thin.
+  // (30) once there's that much real data, fewer while history is thin.
   windowDays: number;
   // Absolute dollars-per-day added over that window (negative if MRR is
   // shrinking). A straight line, not compounding — hence "linear progression".
@@ -374,7 +375,7 @@ function diffDayKeys(a: string, b: string): number {
 }
 
 // Extrapolate a straight-line MRR projection from today's value and the pace of
-// the trailing `windowDays` (default one week). Linear — a constant dollar
+// the trailing `windowDays` (default 30 days). Linear — a constant dollar
 // amount per day — so the dropdown horizons read as a plain runway rather than
 // a compounding curve. Leading carry-forward zeros (before the first real
 // sample) are skipped, and the pace window is clamped to the history available.
