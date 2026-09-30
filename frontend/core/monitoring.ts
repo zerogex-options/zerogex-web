@@ -67,6 +67,10 @@ import {
   type ConveyorTotals,
 } from '@/core/trialConveyor';
 
+// Runtime state this module writes, never build inputs. Their reads carry
+// /*turbopackIgnore: true*/ because the env overrides leave the paths
+// unknowable at build time, and Turbopack answers that by tracing the whole
+// project into every route that imports this file and warning on every build.
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
 const MRR_STORE_PATH = process.env.MRR_STORE_PATH ?? path.join(process.cwd(), 'data', 'mrr.json');
@@ -398,7 +402,7 @@ function normalizeBucket(raw: Partial<MonitoringBucket> | undefined): Monitoring
 
 function readStoreFromDisk(): StoreShape {
   try {
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<StoreShape>;
     if (parsed && parsed.version === 1 && parsed.hourly && parsed.daily) {
       const hourly: Record<string, MonitoringBucket> = {};
@@ -612,7 +616,7 @@ type SignupStoreShape = {
 
 function readSignupStore(): SignupStoreShape {
   try {
-    const raw = fs.readFileSync(SIGNUP_STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ SIGNUP_STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<SignupStoreShape>;
     if (parsed && parsed.version === 1 && parsed.days && typeof parsed.days === 'object') {
       const days: Record<string, SignupDay> = {};
@@ -861,7 +865,7 @@ type MrrStoreShape = {
 
 function readMrrStore(): MrrStoreShape {
   try {
-    const raw = fs.readFileSync(MRR_STORE_PATH, 'utf8');
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ MRR_STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<MrrStoreShape>;
     if (parsed && parsed.version === 1 && parsed.days && typeof parsed.days === 'object') {
       const days: Record<string, MrrDaySample> = {};

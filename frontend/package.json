@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS=\"$NODE_OPTIONS --disable-warning=ExperimentalWarning\" next build",
     "postbuild": "next-sitemap --config next-sitemap.config.mjs",
     "start": "next start",
     "lint": "eslint",

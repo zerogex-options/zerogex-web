@@ -3,6 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { etBucketKeys, generateDailyKeys, generateHourlyKeys } from '@/core/monitoringBuckets';
 
+// Runtime state written by the backend monitor, never a build input. The read
+// below carries /*turbopackIgnore: true*/ because the env override leaves the
+// path unknowable at build time, and Turbopack answers that by tracing the
+// whole project into this route's file trace and warning on every build.
 const STATE_PATH =
   process.env.BACKEND_MONITORING_STATE_PATH ?? path.join('/home/ubuntu/monitoring/state.json');
 
@@ -141,7 +145,7 @@ function normalizeBucket(raw: RawBucket | undefined, bucketKey: string): Backend
 
 function readStateFromDisk(): RawState | null {
   try {
-    const raw = fs.readFileSync(STATE_PATH, 'utf8');
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ STATE_PATH, 'utf8');
     return JSON.parse(raw) as RawState;
   } catch {
     return null;
