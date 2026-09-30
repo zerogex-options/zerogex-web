@@ -176,10 +176,18 @@ export function offScaleBandIsLong(
  * can't rebuild for a subset (no per-strike IV is persisted). The subset's flip
  * is therefore the zero crossing of the low→high cumulative net-GEX curve over
  * the filtered strikes (`compute_gamma_flip_from_strikes` on the API side), and
- * this returns the value of that SAME curve at spot: the net GEX of every
- * filtered strike at or below spot. Same book as the flip drawn beside it.
+ * this returns the value of that SAME curve at spot. Same book as the flip
+ * drawn beside it.
  *
- * `null` when there is no usable strike at or below spot, or spot is unusable.
+ * Read the way the API places the flip: the curve is the running total at each
+ * strike, linearly interpolated between adjacent strikes. A plain "sum of the
+ * strikes at or below spot" is a step function instead, and for a spot between
+ * the last strike below the flip and the flip itself it reads the opposite sign
+ * to the flip drawn beside it.
+ *
+ * `null` when spot is unusable or sits below the lowest usable strike (the
+ * curve isn't defined there). At or above the highest strike it is the book's
+ * total.
  *
  * @param strikes per-strike rows; `net_gamma` is dollar GEX
  * @param spot current underlying price
@@ -189,14 +197,25 @@ export function cumulativeNetGexAtSpot(
   spot: number | null,
 ): number | null {
   if (spot == null || !Number.isFinite(spot) || spot <= 0) return null;
-  let sum = 0;
-  let counted = 0;
+  // Aggregate by strike first, as the API does.
+  const byStrike = new Map<number, number>();
   for (const s of strikes ?? []) {
     const k = levelOrNull(s.strike);
     const g = levelOrNull(s.net_gamma);
-    if (k == null || g == null || k > spot) continue;
-    sum += g;
-    counted++;
+    if (k == null || g == null) continue;
+    byStrike.set(k, (byStrike.get(k) ?? 0) + g);
   }
-  return counted > 0 ? sum : null;
+  const ks = [...byStrike.keys()].sort((a, b) => a - b);
+  if (ks.length === 0 || spot < ks[0]) return null;
+  let cum = 0;
+  for (let i = 0; i < ks.length; i++) {
+    const prev = cum;
+    cum += byStrike.get(ks[i])!;
+    if (spot === ks[i]) return cum;
+    if (spot < ks[i]) {
+      const t = (spot - ks[i - 1]) / (ks[i] - ks[i - 1]);
+      return prev + t * (cum - prev);
+    }
+  }
+  return cum;
 }

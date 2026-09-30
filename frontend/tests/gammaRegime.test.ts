@@ -211,19 +211,38 @@ test('regression: a whole-chain book may still disagree with its own flip', () =
 
 // The chip's figure under an Expiry filter: the cumulative low→high curve (the
 // one whose zero crossing is the filtered flip) read at spot.
-test('cumulativeNetGexAtSpot sums the strikes at or below spot', () => {
+test('cumulativeNetGexAtSpot reads the cumulative curve at spot, interpolated between strikes', () => {
   const strikes = [
     { strike: 736, net_gamma: -1000 },
     { strike: 740, net_gamma: 400 },
     { strike: '741', net_gamma: '150' },
     { strike: 745, net_gamma: 800 },
   ];
-  assert.equal(cumulativeNetGexAtSpot(strikes, 741.19), -450);
+  // Curve: 736 → -1000, 740 → -600, 741 → -450, 745 → 350.
   assert.equal(cumulativeNetGexAtSpot(strikes, 741), -450);
+  assert.equal(cumulativeNetGexAtSpot(strikes, 736), -1000);
+  assert.equal(cumulativeNetGexAtSpot(strikes, 738), -800);
   assert.equal(cumulativeNetGexAtSpot(strikes, 746), 350);
 });
 
-test('cumulativeNetGexAtSpot skips unusable rows and returns null with nothing below spot', () => {
+// The 2026-10-01 QQQ book at 16:52 ET: the cumulative curve runs -65.78M at
+// 739 and +21.24M at 740, so the API's interpolated flip sits near 739.76. A
+// spot just above it must read positive, agreeing with the LONG read beside it.
+// A step sum over the strikes at or below spot read -65.78M there, and the chip
+// hid its figure.
+test('cumulativeNetGexAtSpot agrees in sign with the interpolated flip between strikes', () => {
+  const strikes = [
+    { strike: 738, net_gamma: -90_686_753 },
+    { strike: 739, net_gamma: 24_909_303 },
+    { strike: 740, net_gamma: 87_015_228 },
+  ];
+  // Running totals: 738 → -90.69M, 739 → -65.78M, 740 → +21.24M.
+  const flip = 739 + 65_777_450 / (65_777_450 + 21_237_778);
+  assert.ok(cumulativeNetGexAtSpot(strikes, flip + 0.02)! > 0);
+  assert.ok(cumulativeNetGexAtSpot(strikes, flip - 0.02)! < 0);
+});
+
+test('cumulativeNetGexAtSpot skips unusable rows and returns null below the lowest strike', () => {
   assert.equal(cumulativeNetGexAtSpot([{ strike: 740, net_gamma: null }, { strike: 739, net_gamma: 5 }], 741), 5);
   assert.equal(cumulativeNetGexAtSpot([{ strike: 745, net_gamma: 5 }], 741), null);
   assert.equal(cumulativeNetGexAtSpot([], 741), null);
