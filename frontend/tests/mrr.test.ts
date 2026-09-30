@@ -182,9 +182,9 @@ test('flat or declining MRR yields no ETA to target', () => {
   assert.equal(declining.monthsToTarget, null);
 });
 
-test('projection extrapolates a straight line at last week\'s daily pace', () => {
-  // 8 days of history rising exactly $10/day: pace over the trailing week is
-  // $10/day off the latest ($1070) value.
+test('projection extrapolates a straight line at the available history\'s daily pace', () => {
+  // 8 days of history rising exactly $10/day: short of 30 days, so the pace is
+  // set over the 7-day span, $10/day off the latest ($1070) value.
   const series = dailySeries('2026-07-01', [1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070]);
   const proj = buildMrrProjection(series, 6)!;
   assert.equal(proj.windowDays, 7);
@@ -213,7 +213,7 @@ test('projection horizons scale the number of forward days', () => {
   assert.ok(y3.horizonMrr > y1.horizonMrr);
 });
 
-test('projection uses the shorter window when under a week of history', () => {
+test('projection uses the shorter window when under 30 days of history', () => {
   // Only 5 days of real data (4-day span) -> window clamps to 4.
   const series = dailySeries('2026-07-01', [100, 130, 160, 190, 220]);
   const proj = buildMrrProjection(series, 6)!;
@@ -224,10 +224,22 @@ test('projection uses the shorter window when under a week of history', () => {
 test('projection skips leading pre-launch zeros when setting the pace', () => {
   const series = dailySeries('2026-07-01', [0, 0, 0, 500, 510, 520, 530, 540, 550, 560, 570]);
   const proj = buildMrrProjection(series, 6)!;
-  // Trailing week still resolves to $10/day, unaffected by the zero prefix.
+  // The 7-day real span still resolves to $10/day, unaffected by the zero prefix.
   assert.equal(proj.windowDays, 7);
   assert.ok(Math.abs(proj.slopePerDay - 10) < 1e-9);
   assert.equal(proj.originMrr, 570);
+});
+
+test('projection paces off the trailing 30 days, not the whole history', () => {
+  // 41 days: +$50/day for the first 10, then +$10/day for the last 30. Only the
+  // trailing 30-day change counts: (1800 - 1500) / 30 = $10/day.
+  const values = [1000];
+  for (let i = 0; i < 10; i++) values.push(values[values.length - 1] + 50);
+  for (let i = 0; i < 30; i++) values.push(values[values.length - 1] + 10);
+  const proj = buildMrrProjection(dailySeries('2026-07-01', values), 6)!;
+  assert.equal(proj.windowDays, 30);
+  assert.equal(proj.originMrr, 1800);
+  assert.ok(Math.abs(proj.slopePerDay - 10) < 1e-9);
 });
 
 test('declining MRR projects downward and clamps at zero', () => {

@@ -11,11 +11,11 @@ import GrowthClient from './growth/GrowthClient';
 import DeclineTracking from './declines/DeclineTracking';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
-  buildSignupImpliedMrrProjection,
-  blendedListMonthlyPrice,
+  buildMrrProjection,
   projectionMonthsToTarget,
   buildGrowthProjection,
   MRR_PROJECTION_HORIZONS,
+  MRR_PROJECTION_WINDOW_DAYS,
 } from '@/core/pricing';
 import { accumulateFlowByWeekday } from '@/core/subscriptionFlow';
 import {
@@ -787,11 +787,6 @@ function StripeTab({ data, loading, error, cardBg, borderColor, axisStroke, mute
 }
 
 function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
-  // Pace for the MRR projection: the 30-day net daily rate off the
-  // Forward-Looking Growth Rate table, valued at the blended full (list) price
-  // of today's plan mix. See buildSignupImpliedMrrProjection.
-  const signupsPerDay = data.growthRates.find((r) => r.days === 30)?.dailyRate ?? 0;
-  const blendedListPrice = blendedListMonthlyPrice(data.mrr.breakdown);
   return <div>
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -800,7 +795,7 @@ function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColo
       </div>
       <div className="grid grid-cols-1 gap-4">
         <IncomeReplacementCard mrr={data.mrr} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
-        <MrrTrendCard series={data.mrrSeries} signupsPerDay={signupsPerDay} blendedListPrice={blendedListPrice} targetMrr={data.mrr.targetMrr} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
+        <MrrTrendCard series={data.mrrSeries} targetMrr={data.mrr.targetMrr} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
       </div>
     </section>
     <section className="mb-8">
@@ -2239,8 +2234,6 @@ function LineSwatch({ color, dash }: { color: string; dash?: string }) {
 
 function MrrTrendCard({
   series,
-  signupsPerDay,
-  blendedListPrice,
   targetMrr,
   cardBg,
   axisStroke,
@@ -2249,8 +2242,6 @@ function MrrTrendCard({
   brandColor,
 }: {
   series: MrrPoint[];
-  signupsPerDay: number;
-  blendedListPrice: number;
   targetMrr: number;
   cardBg: string;
   axisStroke: string;
@@ -2265,19 +2256,12 @@ function MrrTrendCard({
   const horizonLabel =
     MRR_PROJECTION_HORIZONS.find((h) => h.months === horizonMonths)?.label ?? `${horizonMonths} mo`;
 
-  // Straight-line extrapolation off today's real MRR, grown at the 30-day net
-  // signup rate valued at the blended full (list) price of today's plan mix —
-  // not off the recent MRR slope, which reads steep early on while launch
-  // discounts still dominate. Recomputed only when its inputs change.
+  // Straight-line extrapolation off today's real Paying MRR, grown at the
+  // actual MRR change over the last 30 days (fewer while history is shorter).
+  // Recomputed only when its inputs change.
   const projection = useMemo(
-    () =>
-      buildSignupImpliedMrrProjection({
-        series,
-        signupsPerDay,
-        blendedMonthlyPrice: blendedListPrice,
-        horizonMonths,
-      }),
-    [series, signupsPerDay, blendedListPrice, horizonMonths],
+    () => buildMrrProjection(series, horizonMonths),
+    [series, horizonMonths],
   );
   const monthsToTarget = useMemo(
     () => projectionMonthsToTarget(projection, targetMrr),
@@ -2352,7 +2336,9 @@ function MrrTrendCard({
           <span className="font-semibold tabular-nums" style={{ color: textColor }}>
             {slopeLabel}
           </span>{' '}
-          <span style={{ color: mutedText }}>(30-day signup rate × blended list price)</span>
+          <span style={{ color: mutedText }}>
+            (actual MRR change over the last {projection?.windowDays ?? MRR_PROJECTION_WINDOW_DAYS} days)
+          </span>
         </span>
         <span>
           Projected in {horizonLabel}:{' '}
