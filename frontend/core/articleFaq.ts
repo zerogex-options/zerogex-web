@@ -287,6 +287,25 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: `On list prices, yes. Both ZeroGEX plans cost less than Quant Data's non-professional platform plan, on monthly or yearly billing, and API access comes with ZeroGEX Pro instead of being sold as a separate plan. Quant Data's price covers far more tickers and data types, including order flow, dark pool prints, and news. Quant Data prices as listed on its site, checked ${competitorCheckedLabel('quantdata')}.`,
     },
   ],
+  // Same rule again: no dollar figures, only how the price lists compare.
+  'zerogex-vs-menthorq': [
+    {
+      q: 'Is ZeroGEX a MenthorQ alternative?',
+      a: 'For gamma levels on SPX, SPY, QQQ, NDX, ES, and NQ, yes: both publish the call and put levels and the gamma flip, and both deliver them into charting platforms. For stocks, forex, crypto, or other futures, or for an academy and live coaching, no: MenthorQ covers those, and ZeroGEX does not.',
+    },
+    {
+      q: 'What are the MenthorQ HVL, Call Resistance, and Put Support in ZeroGEX terms?',
+      a: 'The High Vol Level (HVL) is MenthorQ’s name for the gamma flip, the line between positive and negative modeled dealer gamma. Call Resistance and Put Support are its names for the strikes carrying the most call and put gamma, which ZeroGEX calls the call wall and the put wall.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than MenthorQ?',
+      a: `On list prices, yes. Both ZeroGEX plans cost less than either MenthorQ plan, on monthly or yearly billing, and API access comes with ZeroGEX Pro. MenthorQ discounts its first month, and its price covers far more markets, more integrations, an academy, and on its Pro plan, live coaching. MenthorQ prices as listed on its site, checked ${competitorCheckedLabel('menthorq')}.`,
+    },
+    {
+      q: 'Does MenthorQ Pro include more data than Premium?',
+      a: 'No. MenthorQ lists its Pro plan as everything in Premium plus coaching: mentorship meetings, live trading sessions, and a monthly strategy session.',
+    },
+  ],
   'how-to-trade-around-gamma-flip': [
     {
       q: 'How do you trade around the gamma flip?',
