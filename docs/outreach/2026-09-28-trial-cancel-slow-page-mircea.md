@@ -69,7 +69,8 @@ response" means the route), and five minutes on a phone hotspot (home network
 or not). A dashboard session through a European VPN on our side would tell the
 route apart from their network without asking them.
 
-**Reply to their three messages** (Wed; the "exact moment" line is backed by the records above):
+**Reply to their three messages** (Wed; the "exact moment" line is backed by
+the records above):
 
 No problem, Mircea. Yes, it is strange. I have users from all over the globe, and you're the first who has ever reported any level of slowness. I know that isn't helpful to you, but it tells me where to focus my efforts. If others were reporting that a specific page was slow, I'd know it was likely a performance issue on my side.
 
@@ -77,7 +78,7 @@ When I said "fixed both," I meant I addressed two issues that likely contributed
 
 Thank you for checking again, for the video, and for trying a second machine. That helps a lot. The fix is working: in your video the price requests now finish instead of being canceled. The constant stream of new requests is expected too. The dashboard refreshes its live data every second or so, so new requests keep appearing for as long as it's open.
 
-The problem is the pauses. In your video, requests that normally finish in about 0.15 seconds all took between 1 and 5 seconds together for a moment, and a click made during one of those pauses waits too. I checked our records for that exact moment: our servers were answering everyone else normally and answered yours in a few hundredths of a second. So something between your browser and our servers is holding your requests for a few seconds at a time.
+The problem is the pauses. In your video, requests that normally finish in about 0.15 seconds all slowed down together for a moment, some taking more than 5 seconds. A click made during one of those pauses waits too, which fits what you saw with Logout and the Gamma Terminal button. I checked our records for that exact moment: our servers were answering everyone else normally and answered yours in a fraction of a second, and fewer of your requests than usual reached us during the pause. So something between your browser and our servers is holding your requests for a few seconds at a time.
 
 Three quick checks would tell us where:
 
