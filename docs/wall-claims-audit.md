@@ -1,6 +1,6 @@
 # Wall hold/break claims: what changed, and what is left for you
 
-September 29, 2026. Branch `claude/playbook-wall-claims`.
+September 30, 2026. Branch `claude/playbook-wall-claims`.
 
 ## The rule this audit applied
 
@@ -12,7 +12,8 @@ So copy was changed when it said a wall is more or less likely to hold or break 
 
 - **Gamma Terminal Playbook**: all four cells now describe the hedging, not the odds. "Where the edge is" became "What to watch", and a "How often walls break" line shows the base rate for the symbol's index (SPY, SPX and ES read the S&P rate; QQQ, NDX and NQ the Nasdaq rate).
 - **The wall study itself**: its takeaway no longer puts "which side of the flip" back into the base rate. The SPX figures in the prose now match its table (17.5% and 30.7%, not 15% and 34%). A fade that "worked" two times in three now reads as a level that held two times in three.
-- **Fourteen education articles** (English, plus the four translations of the twelve that have them), the article FAQs, registry descriptions and `/articles` blurbs, the free gamma-levels pages, the Live Bulletin lead, the About FAQ (five locales), the landing page use case, the trading-mistakes page, the Help FAQ, the methodology page and four help docs.
+- **Sixteen education articles** (English, plus the four translations of the fourteen that have them), the article FAQs, registry descriptions and `/articles` blurbs, the free gamma-levels pages, the Live Bulletin lead, the About FAQ (five locales), the landing page use case, the trading-mistakes page, the Help FAQ, the methodology page and five help docs (with their translations).
+- Every English article, guide and help page was then read line by line by two reviewers, and the translators read every block they touched, so the list below is what was deliberately left, not what was missed.
 - **`tests/wallBreakClaims.test.ts`** fails the build if the removed phrasings come back.
 
 One thing to check: the study's prose used to say the SPX 30- and 60-minute intervals "do not overlap". That clause went with the old 15%/34% figures. Put it back if the intervals at 17.5% and 30.7% still separate.
@@ -30,6 +31,7 @@ The sharpest remaining tension. Trap Detection's inputs (long gamma, gamma stren
 - `content/articles/eod-pressure-and-trap-detection.md`: "dealers tend to absorb breakouts"; "In a short-gamma book, breakouts tend to run rather than fade" (and its four translations)
 - `app/trading-mistakes/Client.tsx` (mistake 05): Trap Detection scores "whether the current break is structurally likely to fail"
 - `app/advanced-signals/page.tsx`: "Failed-breakout fades when dealer gamma reinforces reversal"; `app/my-dashboard/registry.tsx`: "Built to catch the fake before you chase it"
+- The signal articles themselves, all with four translations: `eod-pressure-and-trap-detection.md` (about fifteen sentences: "a wall migrating ... suggests a real breakout", "In a short-gamma book, breakouts tend to run rather than fade", "accelerating flow into the breakout means real participants"), `eod-pressure-explained.md` ("EOD drift confirms a failed-breakout fade"), `squeeze-setup-positioning-trap-and-trap-detection.md` ("if the modeled wall has moved *away* from price, the breakout is more likely real")
 
 Options: measure Trap Detection's hit rate the way the wall study was measured, or reword "likely to fail" to "flags a break running into these conditions" (the breakouts article now does this).
 
@@ -41,6 +43,7 @@ Same pattern, lower stakes:
 - `components/ForcedFlowRead.tsx`: "breakouts run, dips aren't bought" / "extremes get faded, expect the pin"
 - `components/SignalScorePanel.tsx`: an extreme negative reading is a "compression regime where breakouts are less likely to sustain"
 - Help and guides describing those same signals: `content/guides/signals-explained.md` (Confluence "Mean-rev (long gamma) / Continuation (short gamma)", "fade down under long gamma / accelerate up under short gamma"; GEX Gradient "a supportive floor" / "resistance overhead" in long gamma), `content/help/platform/advanced-signals-dashboard.md` ("In positive gamma, confluence reads are fades; in negative gamma, they're continuation reads"), `basic-signals-dashboard.md` (GEX Gradient's regime flip) and `score-line.md` (the regime flips the reading of Confluence, GEX Gradient and Trap Detection)
+- Other signal articles with the same regime logic: `gamma-vwap-confluence-explained.md` ("in one regime the market runs from the level, and in the other it returns to it"), `squeeze-setup-explained.md` ("when the score is triggered, the breakout setup is more likely to be genuine"), `positioning-trap-explained.md` (whose factor table says long gamma "tends to dampen the trap thesis" while its sizing advice says the same trap in long gamma "can be a sharper trade"; those two contradict each other), and the put-wall example in `hedging-flow-explained.md`
 - Hedging Flow structure labels, which also feed Gamma Weather (`content/help/platform/hedging-flow.md`): "Firming ... dips absorbed", "Capping ... rallies sold into", "Deteriorating ... moves more likely to accelerate", and "Structure says whether the book absorbs that push or amplifies it". Building or thinning gamma near spot is the gamma strengthening or being consumed that the study tested.
 
 These describe how the signals are actually built. Rewording the copy alone would describe them wrongly, so the decision is whether to change the signal or the claim.
@@ -66,6 +69,7 @@ Not a hold/break claim on its own, but it is the voice the Playbook just dropped
 - Article FAQ for the flip: "lean on mean reversion and fade extremes back toward the walls" (the FAQ file's own header says answers never give trade advice)
 - Help: `signals-overview.md` "Don't fade rallies in negative gamma"; `composite-score.md` "buy the dip small, fade the extremes, don't chase" (core/regime.ts says this style was removed); `score-line.md` "a failed downside break you would buy"
 - `app/chart/ChartClient.tsx`: "One glance tells you whether to fade extremes or ride momentum."
+- Regime playbooks kept in the articles, all with translations: the "Best playbook" / "Worst playbook" rows of the `what-is-negative-gamma.md` table; "Positive GEX → favor fades ... Negative GEX → favor momentum and breakouts" (`what-is-gex-in-trading.md`); "Match the tactics to the sign" (`spx-net-gamma-exposure-today.md`, `zero-gamma-level-explained.md`); "the setups that work in one regime are usually the wrong setups in the other" (`how-to-read-a-gamma-flip.md`, `gamma-exposure-explained.md`); "Default playbook: fade the extremes" in the `how-to-trade-around-gamma-flip.md` example. The mechanism supports this advice, but the study found fades at walls did not work more often above the flip than below it.
 
 ### 4. Claims about things the study did not measure
 
@@ -74,6 +78,9 @@ Not contradicted, but no published number stands behind them either.
 - Chart-level and VWAP confluence: "When chart-S/R and options-S/R agree, the level tends to be more reliable" (`options-support-and-resistance.md`); "the levels that tend to hold hardest" (`app/my-dashboard/registry.tsx`)
 - Pinning near walls and max pain: "a pin is *more likely*" (`content/help/platform/max-pain.md`)
 - Follow-through after a break: "trend continuation *becomes more likely*" (`content/help/platform/technicals.md`)
+- A break of a held call wall as a sign "the regime itself is flipping" (`what-is-a-call-wall.md`, four places)
+- "Why options-based S/R is sturdier than chart-based S/R" (a heading in `options-support-and-resistance.md`)
+- "A level where SPX and SPY agree can matter more than the biggest wall on either chart alone" (`spy-vs-spx-gamma-levels.md`)
 - "A wall indicates a reaction is more likely there than at a random strike" (article FAQ, `what-is-a-gamma-wall.md`). The `make gex-rank-backtest` harness, with its random-strike control, looks like the place to measure it.
 
 ### 5. Copy this repo cannot see
@@ -84,9 +91,11 @@ Action Card rationales, bot taglines, strategy-catalog summaries, the Range Brea
 
 The translators rewrote every block this branch changed. Along the way they found older drift that has nothing to do with wall odds. It is not fixed here:
 
-- `gamma-walls-explained` (Spanish and Italian so far): blocks 3-5 still hold the old "What is a gamma wall?" intro. Blocks 26-27 hold the migration section's heading, so the Width and Asymmetry paragraphs sit under the wrong heading and that heading appears twice. Block 41 repeats block 35 instead of translating "Two practical consequences".
+- `gamma-walls-explained` (all four languages): blocks 3-5 still hold the old "What is a gamma wall?" intro. Blocks 26-27 hold the migration section's heading, so the Width and Asymmetry paragraphs sit under the wrong heading and that heading appears twice. Block 41 repeats block 35 instead of translating "Two practical consequences".
 - `options-support-and-resistance.es.md` block 6 says "notablemente más fiable" (markedly more reliable) where the English says "tends to be more reliable".
-- Italian: several blocks say "devono" (must) or "funziona solo" (only works) where the English now says "tend to" or "modeled".
+- Italian, French and German: several blocks say "must" or "only works" where the English now says "tend to" or "modeled".
+- `how-to-avoid-chasing-0dte.de.md` block 23 says a fade becomes "weit wahrscheinlicher" (far more likely) where the English says "more likely".
+- English loose ends in `what-is-a-call-wall.md`: block 15 calls the two walls "symmetric opposites" right after block 6 says the put wall "is not a mechanical mirror", and block 6 ends in a fragment ("under the convention that local put inventory is modeled negative gamma").
 - Fixed on this branch because it was in a changed block: `options-support-and-resistance` block 26 in Spanish and Italian was a stray copy of block 23, so those pages were missing the whole "Why does SPY reverse at these levels?" paragraph.
 
 A per-language pass that retranslates any block whose meaning has drifted from the English would clear all of this.
