@@ -12,7 +12,7 @@ Ein **Call Wall** ist der Strike oberhalb des Spots, der die stärkste Konzentra
 
 Die Bedeutung des Call Wall in einem Satz: Es ist keine runde Zahl und keine Chartlinie - es ist reale Positionierung, Open Interest gewichtet mit dem Gamma, das jeder Kontrakt trägt. Der einzelne Strike, an dem dieses Call-Gamma oberhalb des aktuellen Preises am dichtesten ist, ist der Call Wall.
 
-Sein Spiegelbild unterhalb des Spots ist der [Put Wall](/education/what-is-a-put-wall), der Strike mit dem stärksten Put-Gamma, der tendenziell die Abwärtsseite absichert. Zusammen skizzieren die beiden Walls die Spanne, die die Hedging-Mechanik der Dealer verteidigt. Dieser Beitrag befasst sich speziell mit dem Call Wall - was er ist, warum er als Widerstand wirkt, wie er sich bewegt und wann ein Durchbruch tatsächlich von Bedeutung ist. Für das vollständige Bild kombiniere ihn mit [Gamma Walls Explained](/education/gamma-walls-explained) und dem [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained).
+Der [Put Wall](/education/what-is-a-put-wall) markiert den größten Put-Gamma-Betrag unterhalb des Spots, ist aber kein mechanisches Spiegelbild: Unter der Konvention wird der lokale Put-Bestand dort als negatives Gamma modelliert. Beide Walls sind strukturelle Referenzen, deren Verhalten vom gesamten Profil und vom Flow abhängt. Dieser Beitrag befasst sich speziell mit dem Call Wall - was er ist, warum er als Widerstand wirkt, wie er sich bewegt und wann ein Durchbruch tatsächlich von Bedeutung ist. Für das vollständige Bild kombiniere ihn mit [Gamma Walls Explained](/education/gamma-walls-explained) und dem [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained).
 
 ---
 
@@ -20,7 +20,7 @@ Sein Spiegelbild unterhalb des Spots ist der [Put Wall](/education/what-is-a-put
 
 Der Mechanismus ist das Dealer-Hedging. In einem **Positiv-Gamma-Regime** - Spot oberhalb des [Gamma Flip](/education/how-to-read-a-gamma-flip) - sind Dealer netto long Gamma, und die Desks, die die schweren Calls am Call-Wall-Strike halten, sind long in diesen Calls (Kunden haben sie geschrieben). Um delta-neutral zu bleiben, müssen sie das Underlying **verkaufen**, wenn der Preis auf den Strike zusteigt, da eine Long-Call-Position beim Ansteigen des Marktes ein zunehmend positiveres Delta bekommt.
 
-Dieser Verkaufsdruck ist der Widerstand. Steigt der Preis auf einen dichten Call-Strike zu, verstärkt sich der Hedging-Reflex - eine kleine Aufwärtsbewegung erzwingt einen relativ größeren Hedging-Verkauf zurück nach unten. Ausbrüche werden verkauft, und der Anstieg stockt. Nicht weil die Zahl magisch ist, sondern weil der Hedge mechanisch funktioniert.
+Genau dieser Verkauf kann Widerstand erzeugen. Steigt der Preis auf einen dichten Call-Strike zu, verstärkt sich der Hedging-Reflex tendenziell - eine kleine Aufwärtsbewegung kann einen relativ größeren Hedging-Verkauf zurück nach unten erfordern. Rallyes werden gefadet, und der Anstieg kann ins Stocken geraten. Nicht weil die Zahl magisch ist, sondern weil sich der modellierte Hedge gegen die Bewegung stemmt.
 
 Ein paar Konsequenzen des Mechanismus:
 
@@ -34,10 +34,10 @@ Ein paar Konsequenzen des Mechanismus:
 
 Die beiden Walls sind symmetrische Gegenstücke:
 
-|Wall|Wo|Dealer-Hedge in Positiv-Gamma|Typisches Verhalten|
+|Wall|Wo|Modellierter Dealer-Hedge in Positiv-Gamma|Verhalten in diesem Regime|
 |---|---|---|---|
-|Call Wall|Stärkstes Call-Gamma oberhalb des Spots|Verkauft, während der Preis darauf zusteigt|Widerstand / Obergrenze|
-|Put Wall|Stärkstes Put-Gamma unterhalb des Spots|Kauft, während der Preis darauf zufällt|Support / Untergrenze|
+|Call Wall|Stärkstes Call-Gamma oberhalb des Spots|Verkauft tendenziell, während der Preis darauf zusteigt|Kann als Widerstand / Obergrenze wirken|
+|Put Wall|Größter Put-Gamma-Betrag unterhalb des Spots|Lokal negatives modelliertes Dealer-Gamma|Kann je nach Gesamtprofil und Flow mit Unterstützung oder Beschleunigung zusammenfallen|
 
 Keiner der beiden ist für sich genommen direktional, und der Optionstyp allein legt das Verhalten nicht fest. Der Call Wall ist kein "Verkaufssignal" - er ist ein Konzentrationsniveau, dessen Wirkung davon abhängt, auf welcher Seite des Gamma Flip man sich befindet. Oberhalb des Flip stemmt sich das Hedging rund um den Call Wall gegen eine Rally. Unterhalb, in Negativ-Gamma, läuft das Hedging mit der Bewegung, sodass sich derselbe Strike, falls er nachgibt, von einer Obergrenze zu einem Breakout-Beschleuniger umkehren kann. Die Seite des Flip ändert dieses Verhalten, nicht, wie oft der Wall bricht.
 

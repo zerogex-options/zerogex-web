@@ -93,15 +93,15 @@ Ein paar Gewohnheiten, die sich zwischen den beiden Regimen ändern:
 **In einem Negative-Gamma-0DTE-Regime:**
 
 - Nimm Breakouts der jüngsten Range ernster, besonders wenn Net GEX groß und negativ ist.
-- Behandle 0DTE-Walls als Ziele, nicht als Decken.
+- Behandle 0DTE-Walls nicht als Decken: Wenn eine nachgibt, verstärkt das Hedging die Bewegung, statt sich gegen sie zu stemmen.
 - Sei skeptisch gegenüber "das wird pinnen"-Setups - der Dealer-Reflex zieht nicht.
-- Positioniere für weitere Stops; die realisierte Volatilität ist strukturell höher.
+- Wenn unabhängige Volatilitätsmaße eine Sitzung mit breiterer Range bestätigen, dimensioniere das Risiko entsprechend; das modellierte Gamma-Vorzeichen allein gibt keinen Stop vor.
 
 **In einem Positive-Gamma-0DTE-Regime:**
 
-- Setze standardmäßig auf das Verkaufen von Bewegungen in 0DTE-konzentrierte Strikes hinein.
+- Setze standardmäßig auf Fades von Bewegungen in 0DTE-konzentrierte Strikes hinein.
 - Behandle den gewichtigsten Gamma-Strike als Magneten, besonders zum Handelsschluss hin.
-- Sei skeptisch gegenüber Breakouts - sie scheitern häufiger.
+- Sei skeptisch gegenüber Breakouts - das Hedging stemmt sich gegen sie, und gescheiterte Breakouts können zehn oder fünfzehn Minuten brauchen, bis sie sich auflösen.
 - Engere Stops sind eher angemessen; die Ranges sind stärker begrenzt.
 
 **In jedem Regime:**

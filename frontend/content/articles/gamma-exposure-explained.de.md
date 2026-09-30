@@ -108,10 +108,10 @@ Oberhalb des Gamma-Flips sind Dealer im Allgemeinen netto long Gamma. Um delta-n
 
 - die realisierte Volatilität zu komprimieren.
 - den Kurs in Richtung der Strikes mit starker Gamma-Konzentration zu ziehen, besonders zum Handelsschluss hin.
-- Ausbrüche schwerer aufrechtzuerhalten zu machen.
-- Mean-Reversion-Setups zuverlässiger zu machen.
+- sich gegen Ausbrüche zu stemmen.
+- Mean-Reversion-Setups Rückendeckung durch das Hedging zu geben.
 
-Der Charakter des Marktes ist **range-gebunden und absorbierend**. Pin-Verhalten ist wahrscheinlicher, besonders in der Nähe des OPEX und zum Handelsschluss hin. Short-Prämien-Strategien funktionieren tendenziell häufiger. Trendfolge-Setups haben eine niedrigere Trefferquote.
+Der Charakter des Marktes ist **range-gebunden und absorbierend**. Pin-Verhalten ist wahrscheinlicher, besonders in der Nähe des OPEX und zum Handelsschluss hin. Short-Prämien-Strategien funktionieren tendenziell häufiger. Trendfolge-Setups haben das Hedging gegen sich.
 
 ### Negatives Gamma-Regime
 
@@ -257,7 +257,7 @@ Ein durchgerechnetes Beispiel. Angenommen, SPX steht bei 5.830 und das Dashboard
 - **Call Wall:** 5.850
 - **Put Wall:** 5.790
 
-Die Gesamtablesung: Der Spot befindet sich komfortabel im Long-Gamma-Territorium (20 Punkte oberhalb des Flips), das Net GEX ist eine deutlich positive Zahl, die auf eine reale Größenordnung im Dealer-Buch hinweist, und der Wall-Bereich ist asymmetrisch, wobei die Call-Wall näher liegt als die Put-Wall. Die praktische Tendenz: gedämpftes Vola-Regime, mean-reversion-freundlicher Markt, Ausbrüche verpuffen eher, als dass sie sich fortsetzen, und Pin-Verhalten in Richtung der starken Gamma-Konzentration ist zum Handelsschluss hin denkbar. Nichts davon ist ein Trade-Signal - es ist der strukturelle Hintergrund, an dem jedes andere Werkzeug, das man nutzt, kalibriert werden sollte.
+Die Gesamtablesung: Der Spot befindet sich komfortabel im Long-Gamma-Territorium (20 Punkte oberhalb des Flips), das Net GEX ist eine deutlich positive Zahl, die auf eine reale Größenordnung im Dealer-Buch hinweist, und der Wall-Bereich ist asymmetrisch, wobei die Call-Wall näher liegt als die Put-Wall. Die praktische Tendenz: gedämpftes Vola-Regime, mean-reversion-freundlicher Markt und mögliches Pin-Verhalten in Richtung der starken Gamma-Konzentration zum Handelsschluss hin. Nichts davon ist ein Trade-Signal - es ist der strukturelle Hintergrund, an dem jedes andere Werkzeug, das man nutzt, kalibriert werden sollte.
 
 ![ZeroGEX-Strike-Profil-Chart mit hervorgehobener Dealer-Gamma-Kurve, Flip-Linie und Walls](/blog/zerogex-strike-profile-overview.png)
 

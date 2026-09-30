@@ -48,7 +48,7 @@ Die reinste Form dieser Falle: ein Ausbruch aus einem 20-Bar-Volatilitäts-Envel
 
 ### Auslöser 3: Es ist spät am Tag und die Bewegung läuft auf ein Schlüssellevel zu
 
-Nach 14:00 ET beschleunigt sich der Charm-Zerfall, und der Dealer-Reflex rund um den gewichtigsten 0DTE-Strike intensiviert sich. Einer Spätnachmittagsbewegung hinterherzujagen, die auf den Call Wall zuläuft (oder vom Put Wall wegläuft), bedeutet, genau dort zu kaufen, wo das Dealer-Hedging strukturell darauf ausgelegt ist, dich zu faden. Das EOD-Pressure-Signal existiert speziell, um dieses Regime zu markieren - siehe [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+Nach 14:00 ET bauen sich modellierte Charm-Effekte tendenziell auf, und der Dealer-Reflex rund um den gewichtigsten 0DTE-Strike kann sich intensivieren. Einer Spätnachmittagsbewegung hinterherzujagen, die auf den Call Wall zuläuft (oder vom Put Wall wegläuft), kann bedeuten, genau dort zu kaufen, wo sich das Dealer-Hedging gegen dich stemmt, statt mit dir zu laufen. Das EOD-Pressure-Signal ist darauf ausgelegt, dieses Regime zu markieren - siehe [EOD Pressure Signal Explained](/education/eod-pressure-explained).
 
 ---
 
@@ -56,10 +56,10 @@ Nach 14:00 ET beschleunigt sich der Charm-Zerfall, und der Dealer-Reflex rund um
 
 Wenn der Nachjage-Impuls kommt, arbeite diese Checkliste ab:
 
-1. **Welches Gamma-Regime herrscht?** Spot über dem Flip (Long-Gamma) → Fades funktionieren, Nachjagen scheitert. Spot unter dem Flip (Short-Gamma) → Nachjagen funktioniert, Fades scheitern. Kennst du das Regime nicht, rätst du nur.
+1. **Welches Gamma-Regime herrscht?** Spot über dem modellierten Flip (Long-Gamma) → das Hedging stemmt sich gegen die Bewegung, der du nachjagst. Spot unter dem Flip (Short-Gamma) → das Hedging läuft mit ihr. Das sagt dir, in welche Richtung der Dealer-Flow tendiert, nicht, ob die Bewegung Bestand hat: In unserer Messung von 737 Wall-Tests brachen Walls unterhalb des Flips nicht häufiger als oberhalb. Kennst du das Regime nicht, weißt du nicht, in welche Richtung das Hedging tendiert.
 2. **Wo liegt die nächste Wall?** Wenn du einer Call in den Call Wall hinein nachjagst, in einem Long-Gamma-Regime, wirkt der strukturelle Zug *gegen* das Nachjagen. Wenn du in offenen Raum ohne Wall zwischen aktuellem Spot und Nachjage-Ziel nachjagst, ist der strukturelle Zug neutral - besseres Setup.
-3. **Verstärkt sich das Net GEX oder schwächt es sich ab?** Verstärkung in einem Long-Gamma-Regime bedeutet, der absorbierende Reflex intensiviert sich - Nachjagen = Fade-Falle. Abschwächung bedeutet, der absorbierende Reflex wird schwächer - das Nachjagen hat mehr Spielraum.
-4. **Wie spät ist es?** Vor Mittag ET ist das 0DTE-Charm gering und der Dealer-Reflex gedämpft. Nach 14:00 ET stapeln sich die Charm-Flows. Spätnachmittags-Nachjagen in Struktur hinein ist die schlimmste Version der Falle.
+3. **Verstärkt sich das Net GEX oder schwächt es sich ab?** Eine Verstärkung in einem Long-Gamma-Regime deutet darauf hin, dass sich der absorbierende Reflex intensiviert; eine Abschwächung deutet darauf hin, dass er schwächer wird. Das beschreibt das Hedging, nicht die Wahrscheinlichkeit - in unserer Messung ließ sich aus der Entwicklung des Net GEX nicht vorhersagen, welche Walls brachen.
+4. **Wie spät ist es?** Vor Mittag ET ist das modellierte 0DTE-Charm gering, und der Dealer-Reflex ist tendenziell gedämpft. Nach 14:00 ET baut sich modelliertes Charm-Hedging tendenziell auf. Spätnachmittags-Nachjagen in Struktur hinein ist oft die schlimmste Version der Falle.
 5. **Hat der Kontrakt bereits ein 3x hingelegt?** Falls ja, fängst du keine Bewegung ein - du zahlst für die Bewegung, die bereits stattgefunden hat. Die erwartete nächste Bewegung enthält eine bedeutende Wahrscheinlichkeit für Mean-Reversion.
 
 Wenn die meisten dieser Punkte gegen das Nachjagen sprechen, gebietet die Disziplin, es zu lassen. Nicht "auf einen besseren Einstieg warten" - auslassen. Das eine von zehn Malen, bei dem das 0DTE-Nachjagen funktioniert hat, ist der Survivorship-Bias, der die Angewohnheit am Leben hält.
@@ -76,7 +76,7 @@ Das Nachjagen liegt nicht immer falsch. Der 0DTE-Momentum-Trade *kann* funktioni
 - Die Bewegung **früh in der Session** stattfindet (vor dem Charm-Aufbau).
 - Der Kontrakt seine volle Bewegung noch nicht abgeschlossen hat - du fängst die ersten 30 % der Tagesrange ein, nicht die letzten 30 %.
 
-Das sind die Bedingungen für einen 0DTE-Breakout-Trade mit echter Wahrscheinlichkeit. Sie sind das Gegenteil des typischen "Ich will dem hinterherjagen"-Auslösers.
+Das sind die Bedingungen, unter denen hinter einem 0DTE-Breakout noch etwas anderes steht als der Drang, hinterherzujagen - wobei das Regime, die einzige strukturelle Bedingung hier, in unserer Messung einen Bruch von Walls nicht wahrscheinlicher machte. Sie sind das Gegenteil des typischen "Ich will dem hinterherjagen"-Auslösers.
 
 ---
 
