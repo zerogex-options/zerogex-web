@@ -218,7 +218,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly\u00a0- real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-29',
+    dateModified: '2026-09-30',
     readMinutes: 14,
     kind: 'article',
   },
@@ -552,6 +552,21 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 6,
     kind: 'article',
   },
+  'zerogex-vs-quant-data': {
+    slug: 'zerogex-vs-quant-data',
+    href: '/education/zerogex-vs-quant-data',
+    // For readers searching the competitor ("quant data alternative",
+    // "quantdata vs", "quant data interval map"). Same rule as the Bullflow
+    // entry: no prices in the title or description.
+    title: 'ZeroGEX vs Quant Data (2026): GEX Maps, Pricing & Coverage',
+    blurb:
+      'A fair side-by-side of ZeroGEX and Quant Data: what each platform is built for, how the Interval Map and the GEX Heatmap compare, what the APIs cost, and where each one is the stronger choice.',
+    description:
+      'Looking for a Quant Data alternative? ZeroGEX vs Quant Data, compared fairly: Interval Map vs GEX Heatmap, API pricing, coverage, and which fits how you trade.',
+    datePublished: '2026-09-30',
+    readMinutes: 7,
+    kind: 'article',
+  },
 };
 
 /**
@@ -609,6 +624,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     '0dte-dealer-positioning-explained',
     'how-to-read-a-gamma-flip',
     'zerogex-vs-bullflow',
+    'zerogex-vs-quant-data',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
@@ -747,8 +763,15 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'zerogex-vs-bullflow': [
     'best-gex-tools',
+    'zerogex-vs-quant-data',
     'gamma-exposure-explained',
     'gamma-levels-in-claude',
+  ],
+  'zerogex-vs-quant-data': [
+    'best-gex-tools',
+    'zerogex-vs-bullflow',
+    'why-we-dont-publish-dex',
+    'hedging-flow-explained',
   ],
 };
 

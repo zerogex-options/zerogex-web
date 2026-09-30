@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/zerogex-vs-quant-data',
+    kind: 'Published • September 30, 2026 • 16:00 UTC',
+    title: 'ZeroGEX vs Quant Data (2026): GEX Maps, Pricing & Coverage',
+    blurb:
+      'A fair side-by-side of ZeroGEX and Quant Data: what each platform is built for, how the Interval Map and the GEX Heatmap compare, what the APIs cost, and where each one is the stronger choice.',
+  },
+  {
     href: '/education/zerogex-vs-bullflow',
     kind: 'Published • September 29, 2026 • 16:00 UTC',
     title: 'ZeroGEX vs Bullflow (2026): Pricing, GEX & Options Flow',

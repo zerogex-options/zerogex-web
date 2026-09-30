@@ -13,7 +13,7 @@
  * guarantees by rendering these same strings. Only slugs with an entry here
  * get a FAQ block; everything else renders nothing.
  */
-import { BULLFLOW_PRICES_CHECKED, formatCheckedDate } from './comparisonPrices.ts';
+import { competitorCheckedLabel } from './comparisonPrices.ts';
 
 export type FaqItem = { q: string; a: string };
 
@@ -256,7 +256,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Is ZeroGEX cheaper than Bullflow?',
-      a: `Month to month, the entry plans cost the same and ZeroGEX Pro costs less than Bullflow Premium. On yearly billing, ZeroGEX costs less at both levels, and API access comes with ZeroGEX Pro instead of being sold as a separate plan. Bullflow prices as listed on its site on ${formatCheckedDate(BULLFLOW_PRICES_CHECKED)}.`,
+      a: `Month to month, the entry plans cost the same and ZeroGEX Pro costs less than Bullflow Premium. On yearly billing, ZeroGEX costs less at both levels, and API access comes with ZeroGEX Pro instead of being sold as a separate plan. Bullflow prices as listed on its site on ${competitorCheckedLabel('bullflow')}.`,
     },
     {
       q: 'Does Bullflow have GEX?',
@@ -265,6 +265,27 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     {
       q: 'Can I use Bullflow and ZeroGEX together?',
       a: 'Yes. They answer different questions: a flow scanner shows what is being bought, and a positioning tool shows where a move is likely to run into dealer hedging. The two can sit side by side.',
+    },
+  ],
+  // Same rule as the Bullflow entry. Quant Data's platform price is not
+  // recorded in core/comparisonPrices.ts, so the one price claim here is about
+  // the two APIs, which tests/comparisonPrices.test.ts checks.
+  'zerogex-vs-quant-data': [
+    {
+      q: 'Is ZeroGEX a Quant Data alternative?',
+      a: 'For gamma levels and dealer positioning on SPX, SPY, QQQ, NDX, ES, and NQ, yes. For options order flow, dark pool prints, news, and exposure maps across thousands of tickers, no: Quant Data covers those, and ZeroGEX does not.',
+    },
+    {
+      q: 'Does ZeroGEX have something like the Quant Data Interval Map?',
+      a: 'Yes. The GEX Heatmap on ZeroGEX Basic plots net dealer gamma by strike through the session, with the price candles and the gamma flip drawn on top. The Interval Map also shows delta, vanna, and charm exposure and covers many more tickers; ZeroGEX maps gamma only, on six symbols.',
+    },
+    {
+      q: 'Why does gamma build up at one strike during the day?',
+      a: 'Open interest is published once a day, so on a gamma map built from it, a strike changes during the session because its options are repriced as price, time, and implied volatility move. Near expiration, gamma near the money rises as time runs out, so a 0DTE strike next to price can deepen through the day without any new positions being opened.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than Quant Data?',
+      a: `For API access, yes: it comes with ZeroGEX Pro, which costs less per month than the Quant Data API plan on monthly or yearly billing. Quant Data API price as listed in its help center, checked ${competitorCheckedLabel('quantdata')}. Its platform plans are on its own pricing page.`,
     },
   ],
   'how-to-trade-around-gamma-flip': [
