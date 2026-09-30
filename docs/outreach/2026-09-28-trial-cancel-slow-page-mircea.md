@@ -26,6 +26,71 @@ ET.
 | Connecting from | 82.77.225.10, a home connection in Romania (RCS & RDS) |
 | Another trial if they come back later | no, the account has already had one |
 
+## Update Wed Sep 30: still slow after the fix
+
+The fix went live after Tuesday's close. On Wednesday they wrote three times
+(2:11, 2:33 and 2:41 PM ET):
+
+- They had assumed "fixed both" meant a server-side cause, and asked why only
+  they see it.
+- Same behavior on a second machine. Their ping to zerogex.io is a steady
+  16-18 ms with no losses. Every button can hang, not just data: Logout did
+  nothing on two clicks and then went through, and Gamma Terminal takes 20-30
+  seconds and then loads all at once. That Logout video wasn't in the thread we
+  have.
+- A 55-second phone video of the dashboard with DevTools open, recorded 2:37:33
+  to 2:38:28 PM ET by their taskbar clock. They read the constant stream of new
+  requests as "never-ending loading".
+
+**What the video shows.** The fix works: price requests now finish instead of
+being canceled. The remaining "(canceled)" rows are session-close checks, which
+cancel by design when the page moves on. Most of the time requests finish in
+about 150 ms, a normal round trip from Europe. At about 2:38:17 PM ET a whole
+batch of small requests (under 17 KB each) took 0.8 to 5.5 s together.
+
+**Our records for those seconds** (`~/incident-2026-09-30-slow-page` on the
+box):
+
+- Everyone else's requests reached nginx at 121 to 276 a second, with no dip
+  at any point from 14:37:50 to 14:38:29.
+- The API answered their requests in 2 to 259 ms.
+- Their own arrivals thinned out at 14:38:10 to 14:38:18: 0 to 2 a second
+  against the usual 3, with the 5-second batches still arriving. With the fix,
+  a poll waits for a late answer instead of re-asking, so a hold-up on their
+  side now shows up here as fewer requests arriving.
+- So the pause was between their browser and our server again.
+- Their page also opens the live-quote WebSocket (`POST /api/ws/ticket`), and
+  every full page load prefetches about 13 other pages (`?_rsc=`).
+
+**The next checks are theirs:** the Protocol column (http/1.1 usually means
+security software scanning HTTPS), the Timing tab of a hung request
+("Queueing" or "Stalled" means the browser held it; "Waiting for server
+response" means the route), and five minutes on a phone hotspot (home network
+or not). A dashboard session through a European VPN on our side would tell the
+route apart from their network without asking them.
+
+**Reply to their three messages** (Wed; the "exact moment" line is backed by the records above):
+
+No problem, Mircea. Yes, it is strange. I have users from all over the globe, and you're the first who has ever reported any level of slowness. I know that isn't helpful to you, but it tells me where to focus my efforts. If others were reporting that a specific page was slow, I'd know it was likely a performance issue on my side.
+
+When I said "fixed both," I meant I addressed two issues that likely contributed to the slowness you were experiencing. However, they can't explain why your requests were taking more than a second just to reach our server.
+
+Thank you for checking again, for the video, and for trying a second machine. That helps a lot. The fix is working: in your video the price requests now finish instead of being canceled. The constant stream of new requests is expected too. The dashboard refreshes its live data every second or so, so new requests keep appearing for as long as it's open.
+
+The problem is the pauses. In your video, requests that normally finish in about 0.15 seconds all took between 1 and 5 seconds together for a moment, and a click made during one of those pauses waits too. I checked our records for that exact moment: our servers were answering everyone else normally and answered yours in a few hundredths of a second. So something between your browser and our servers is holding your requests for a few seconds at a time.
+
+Three quick checks would tell us where:
+
+1. Right-click any column header in the Network tab and turn on "Protocol". Does it show h2, h3 or http/1.1? If it's http/1.1, security software that scans secure web traffic is a common reason, and pausing that feature for a few minutes is worth a try.
+2. When a click hangs, click the request that finishes last and open its Timing tab. A screenshot of that shows whether the time is spent in your browser ("Queueing" or "Stalled") or on the way to us ("Waiting for server response").
+3. If you can, use the dashboard for five minutes over your phone's hotspot. If the pauses disappear, the cause is on your home network. If they stay, it's on the route to us, and that's for me to fix.
+
+I will certainly do whatever I can to resolve this for you. Obviously, I don't want to lose you as a customer. And the two extra weeks are yours whenever you want them.
+
+Best,
+Michael
+Founder, ZeroGEX
+
 ## Update Tue Sep 29: they replied, still slow
 
 They answered Draft B. At 2:33 PM ET they sent a DevTools screenshot (Network,
