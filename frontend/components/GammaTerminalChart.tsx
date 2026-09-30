@@ -2566,12 +2566,10 @@ export default function GammaTerminalChart({
       // but a touch tap or a keyboard activation never fires that — and the
       // clear has to be COMMITTED before we read the DOM, so wait a frame
       // rather than serializing the tree React has not re-rendered yet.
-      //
-      // Always wait that frame, even with no crosshair: "working" also takes
-      // the volume pane's hide eye off the canvas, and that has to be
-      // committed before the serialize too.
-      if (hover) setHover(null);
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if (hover) {
+        setHover(null);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
       const blob = await chartSvgToPngBlob(svg, {
         background: resolvedBackground(containerRef.current),
       });
@@ -4324,32 +4322,6 @@ export default function GammaTerminalChart({
             {/* ── Volume pane ───────────────────────────────────────────── */}
             {overlays.volume && (
             <g>
-              {/* Hide control in the pane's own corner; the toolbar's Vol eye
-                  brings the pane back. Not drawn while a PNG is being saved,
-                  so a control never lands in the image. */}
-              {exportState !== "working" && (
-              <g
-                role="button"
-                tabIndex={0}
-                aria-label="Hide volume"
-                style={{ cursor: "pointer" }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOverlays((o) => ({ ...o, volume: false }));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setOverlays((o) => ({ ...o, volume: false }));
-                  }
-                }}
-              >
-                <title>Hide volume</title>
-                <rect x={plotRight - 22} y={VOL_TOP} width={20} height={16} fill="transparent" />
-                <EyeOff x={plotRight - 19} y={VOL_TOP + 2} width={13} height={13} color="var(--text-muted)" />
-              </g>
-              )}
               <text x={PLOT_LEFT + 4} y={VOL_TOP + 11} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.12em" fill="var(--text-muted)">
                 VOLUME
                 {/* The pane names its own view, so a PNG export of the
