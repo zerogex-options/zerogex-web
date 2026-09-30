@@ -49,8 +49,8 @@ Comparez avec le **gamma positif**, où la même chaîne de flow s'inverse : les
 |---|---|---|
 | Réflexe de hedging des dealers | Vendent dans la force, achètent dans la faiblesse | Achètent dans la force, vendent dans la faiblesse |
 | Vol réalisée vs. implicite | Tend à être **plus basse** | Tend à être **plus élevée** |
-| Breakouts | S'estompent souvent et rebondissent | S'étendent souvent |
-| Selloffs | Souvent absorbés près des walls | S'accélèrent souvent |
+| Breakouts | Le hedging s'y oppose | Le hedging les renforce dès qu'un niveau cède |
+| Selloffs | Le hedging achète dans le selloff | Le hedging vend dans le selloff, qui peut donc s'accélérer |
 | Comportement de pin | Le prix tend à être attiré vers les strikes lourds | Le pinning tend à s'affaiblir ou à se relâcher |
 | Meilleur playbook | Mean-reversion, fade des extrêmes, vente de prime | Continuation de tendance, momentum, breakout |
 | Pire playbook | Courir après les breakouts, momentum | Fader les rallyes, acheter les dips dans la structure |
@@ -67,7 +67,7 @@ Un court workflow :
 1. **Vérifiez d'abord le gamma flip.** Si SPY est en dessous du flip, le modèle vous place dans un régime short-gamma.
 2. **Confirmez avec le Net GEX.** Une valeur de Net GEX négative donne la lecture de magnitude - plus elle est négative, plus le régime est marqué. Un Net GEX proche de zéro est un régime disputé ; les deux réflexes sont partiellement actifs.
 3. **Recoupez avec le tableau de la vol réalisée.** Les régimes short-gamma se traduisent par des fourchettes intraday plus larges que ce que la vol implicite d'ouverture de la journée suggérait. Si la réalisée s'élargit pendant que l'implicite reste plate, c'est la signature du régime.
-4. **Observez le comportement des walls.** Dans les régimes short-gamma, les walls s'affaiblissent ou s'inversent. Le call wall qui plafonnait les rallyes hier peut devenir aujourd'hui un objectif de breakout.
+4. **Observez ce qui se passe quand un wall cède.** Dans les régimes short-gamma, le hedging renforce le mouvement au lieu de s'y opposer, si bien qu'une cassure peut se poursuivre là où elle aurait calé en long gamma. Selon nos mesures, la fréquence à laquelle les walls ont cédé n'a pas changé avec le régime ; la différence qu'attend le modèle tient à ce qui suit une cassure.
 5. **Observez la direction du flow à la clôture.** Le short-gamma en fin de séance produit souvent des mouvements directionnels qui s'accélèrent (le signal de pression EOD devient une lecture de continuation, pas une lecture de fade).
 
 ---

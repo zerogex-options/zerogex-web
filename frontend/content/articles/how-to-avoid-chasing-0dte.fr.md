@@ -54,7 +54,7 @@ Après 14h00 ET, les effets de charm modélisés tendent à s'accumuler et le r�
 
 ## La lecture structurelle avant de cliquer
 
-Quand l'envie de poursuivre vous prend, passez cette checklist en revue :
+Une remarque de cadrage d'abord : le gamma flip, le Net GEX et les walls ci-dessous sont des estimations *modélisées* du positionnement des dealers, construites à partir de la chaîne d'options selon la convention traditionnelle call-positif / put-négatif. L'inventaire réel des dealers n'est pas directement observable ; traitez donc ces éléments comme un contexte sur ce que fait le hedging des dealers, et non comme des interrupteurs qui décident de l'issue. Avec cette réserve en tête, quand l'envie de poursuivre vous prend, passez cette checklist en revue :
 
 1. **Quel est le régime de gamma ?** Spot au-dessus du flip modélisé (long-gamma) → le hedging joue contre le mouvement que vous poursuivez. Spot en dessous du flip (short-gamma) → le hedging l'accompagne. Cela vous indique de quel côté penche le flux des dealers, pas si le mouvement va durer : sur les 737 tests de walls que nous avons mesurés, les walls n'ont pas cédé plus souvent sous le flip qu'au-dessus. Si vous ne connaissez pas le régime, vous ne savez pas de quel côté penche le hedging.
 2. **Où se situe le wall le plus proche ?** Si vous poursuivez un call vers le call wall dans un régime long-gamma, la traction structurelle joue *contre* la poursuite. Si vous poursuivez vers un espace ouvert sans wall entre le spot actuel et l'objectif poursuivi, la traction structurelle est neutre - meilleur setup.
@@ -76,7 +76,7 @@ La poursuite n'est pas toujours une erreur. Le trade de momentum 0DTE *peut* fon
 - Le mouvement se produit **tôt dans la séance** (avant l'accumulation de charm).
 - Le contrat n'a pas encore accompli tout son mouvement - vous captez les premiers 30 % du range de la journée, pas les derniers 30 %.
 
-Ce sont les conditions dans lesquelles un breakout 0DTE a autre chose derrière lui que l'envie de poursuivre - même si le régime, la seule condition structurelle de cette liste, n'a pas rendu les walls plus susceptibles de céder selon nos mesures. Elles sont l'inverse du déclencheur typique du « je veux courir après ça ».
+Ce sont les conditions dans lesquelles un breakout 0DTE a autre chose derrière lui que l'envie de poursuivre - même si, selon nos mesures, ni le régime, ni le Net GEX, ni l'heure de la journée n'ont rendu les walls plus susceptibles de céder. Elles sont l'inverse du déclencheur typique du « je veux courir après ça ».
 
 ---
 
@@ -106,7 +106,7 @@ Lecture : régime long-gamma, positionnement sain, le wall se situe cinq points 
 Quelques-unes qui fonctionnent :
 
 - **Fixez-vous un minuteur « pas de poursuite ».** Quand l'envie vous prend, forcez-vous à attendre cinq minutes avant de cliquer. L'envie s'estompe généralement.
-- **Vérifiez le régime avant chaque entrée 0DTE.** Intégrez-le à votre workflow. Long-gamma + poursuite = taux d'échec élevé.
+- **Vérifiez le régime avant chaque entrée 0DTE.** Intégrez-le à votre workflow. En long-gamma, une poursuite revient à acheter face à un hedging qui joue contre elle.
 - **Dimensionnez votre position pour le pire scénario.** Si la poursuite échoue, le contrat tombe à zéro. Dimensionnez votre position en supposant que c'est le scénario de base.
 - **Suivez vos poursuites séparément.** Étiquetez chaque entrée « chase » dans votre journal de trading. Comparez le taux de réussite avec vos entrées hors poursuite. Les données honnêtes tranchent généralement le débat.
 
