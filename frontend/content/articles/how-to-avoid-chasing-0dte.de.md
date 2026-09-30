@@ -59,10 +59,10 @@ Vorab ein Hinweis zur Einordnung: Der Gamma Flip, das Net GEX und die Walls unte
 1. **Welches Gamma-Regime herrscht?** Spot über dem modellierten Flip (Long-Gamma) → das Hedging stemmt sich gegen die Bewegung, der du nachjagst. Spot unter dem Flip (Short-Gamma) → das Hedging läuft mit ihr. Das sagt dir, in welche Richtung der Dealer-Flow tendiert, nicht, ob die Bewegung Bestand hat: In unserer Messung von 737 Wall-Tests brachen Walls unterhalb des Flips nicht häufiger als oberhalb. Kennst du das Regime nicht, weißt du nicht, in welche Richtung das Hedging tendiert.
 2. **Wo liegt die nächste Wall?** Wenn du einer Call in den Call Wall hinein nachjagst, in einem Long-Gamma-Regime, wirkt der strukturelle Zug *gegen* das Nachjagen. Wenn du in offenen Raum ohne Wall zwischen aktuellem Spot und Nachjage-Ziel nachjagst, ist der strukturelle Zug neutral - besseres Setup.
 3. **Verstärkt sich das Net GEX oder schwächt es sich ab?** Eine Verstärkung in einem Long-Gamma-Regime deutet darauf hin, dass sich der absorbierende Reflex intensiviert; eine Abschwächung deutet darauf hin, dass er schwächer wird. Das beschreibt das Hedging, nicht die Wahrscheinlichkeit - in unserer Messung ließ sich aus der Entwicklung des Net GEX nicht vorhersagen, welche Walls brachen.
-4. **Wie spät ist es?** Vor Mittag ET ist das modellierte 0DTE-Charm gering, und der Dealer-Reflex ist tendenziell gedämpft. Nach 14:00 ET baut sich modelliertes Charm-Hedging tendenziell auf. Spätnachmittags-Nachjagen in Struktur hinein ist oft die schlimmste Version der Falle.
+4. **Wie spät ist es?** Vor Mittag ET ist das modellierte 0DTE-Charm gering, und der Dealer-Reflex ist tendenziell gedämpft. Nach 14:00 ET baut sich modelliertes Charm-Hedging tendenziell auf. Wer spät am Tag in Struktur hinein nachjagt, trifft auf dieses Hedging, wenn es am stärksten ist.
 5. **Hat der Kontrakt bereits ein 3x hingelegt?** Falls ja, fängst du keine Bewegung ein - du zahlst für die Bewegung, die bereits stattgefunden hat. Die erwartete nächste Bewegung enthält eine bedeutende Wahrscheinlichkeit für Mean-Reversion.
 
-Wenn die meisten dieser Punkte gegen das Nachjagen sprechen, gebietet die Disziplin, es zu lassen. Nicht "auf einen besseren Einstieg warten" - auslassen. Das eine von zehn Malen, bei dem das 0DTE-Nachjagen funktioniert hat, ist der Survivorship-Bias, der die Angewohnheit am Leben hält.
+Wenn die meisten dieser Punkte gegen das Nachjagen sprechen, gebietet die Disziplin, es zu lassen. Nicht "auf einen besseren Einstieg warten" - auslassen. Das eine Mal, bei dem das 0DTE-Nachjagen funktioniert hat, ist der Survivorship-Bias, der die Angewohnheit am Leben hält.
 
 ---
 
@@ -85,7 +85,7 @@ Das sind die Bedingungen, unter denen hinter einem 0DTE-Breakout noch etwas ande
 Die kostenlose `/spx-gamma-levels`-Ansicht liefert dir die drei Filter, die du brauchst:
 
 - **Gamma Flip** - Regime-Check.
-- **Call Wall / Put Wall** - wo Nachjagen strukturell zum Faden ansetzt.
+- **Call Wall / Put Wall** - wo Nachjagen auf das stärkste Dealer-Hedging trifft.
 - **Net GEX** - Größenordnung des Dealer-Buchs.
 
 Für den Tageszeit-Filter zeigen die Live-Dashboards während des aktiven Fensters (nach 14:30 ET) das EOD-Pressure-Signal - eine direktionale Lesart, in welche Richtung das erzwungene Hedging zum Handelsschluss hin tendiert.
@@ -97,7 +97,7 @@ Ein durchgerechnetes Beispiel. Es ist 14:45 ET. SPX hat gerade das Tageshoch bei
 - **Call Wall:** 5.815 (praktisch am Nachjage-Ziel)
 - **EOD Pressure:** +0,35 (leicht bullisches Drift, aber Richtung Magnet)
 
-Lesart: Long-Gamma-Regime, gesundes Positioning, die Wall liegt fünf Punkte über dem aktuellen Stand - und das EOD-Drift ist mild, nicht auffällig. Jeder Filter steht auf der *Fade*-Seite. Das Nachjagen würde bedeuten, genau am oberen Rand der strukturellen Absorptionszone zu kaufen, spät am Tag, bei beschleunigendem Theta. Auslassen.
+Lesart: Long-Gamma-Regime, gesundes Positioning, die Wall liegt fünf Punkte über dem aktuellen Stand - und das EOD-Drift ist mild, nicht auffällig. Jeder Filter steht auf der *Fade*-Seite des Mechanismus. Das Nachjagen würde bedeuten, in das stärkste Hedging des Tages hineinzukaufen, spät am Tag, bei beschleunigendem Theta. Auslassen.
 
 ---
 
@@ -116,7 +116,7 @@ Ein paar, die funktionieren:
 
 > Das 0DTE-Nachjagen ist keine Strategie; es ist eine emotionale Reaktion darauf, einen Kontrakt zu sehen, den man wollte, der ohne einen selbst steigt. Die Heilung liegt in der strukturellen Lesart vor dem Klick, nicht in besserer Disziplin.
 
-Der Disziplin-Teil kommt von selbst, sobald die Lesart konsistent ist - wenn du das Regime, die Wall, das Net GEX und die Tageszeit geprüft hast und alle auf Fade zeigen, verliert das Nachjagen seinen Reiz. Die Falle besteht darin, das Nachjagen *vor* der Prüfung durchzuführen.
+Der Disziplin-Teil kommt von selbst, sobald die Lesart konsistent ist - wenn du das Regime, die Wall, das Net GEX und die Tageszeit geprüft und gesehen hast, dass sich das Hedging gegen dich stemmt, verliert das Nachjagen seinen Reiz. Die Falle besteht darin, das Nachjagen *vor* der Prüfung durchzuführen.
 
 Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
 

@@ -20,7 +20,7 @@ Dieser Artikel ist der praktische Workflow, um Options-basierte S/R zu identifiz
 
 ## Die vier Arten von Options-basierter S/R
 
-Die Bezeichnungen unten - Call Wall als Widerstand, Put Wall als Unterstützung - beschreiben das *typische Verhalten bei positivem Gamma*. Sie sind keine festen Eigenschaften des Strikes: Der Optionstyp allein legt die Richtung nicht fest, und beide können sich umkehren, wenn sich das Vorzeichen des modellierten Dealer-Gammas oder der umgebende Flow ändert.
+Die Bezeichnungen unten - Call Wall als Widerstand, Put Wall als Unterstützung - beschreiben, wogegen sich das modellierte Hedging in einem *positiven Gamma*-Regime stemmt. Sie sind keine festen Eigenschaften des Strikes: Der Optionstyp allein legt die Richtung nicht fest, und das Hedging kann stattdessen mit einer Bewegung laufen, wenn sich das Vorzeichen des modellierten Dealer-Gammas oder der umgebende Flow ändert.
 
 ### 1. Call Walls (Resistance)
 
@@ -66,7 +66,7 @@ Drei Gründe:
 
 3. **Es aktualisiert sich in Echtzeit.** Trendlinien sind historische Artefakte, die veralten, während sich der Preis bewegt. Walls bewegen sich mit dem Positioning - frisches OI, das sich oberhalb des Call Walls aufbaut, schiebt den Wall höher, und die strukturelle Lesart aktualisiert sich entsprechend. Das Level, das man um 10:30 ET sieht, ist das Level, das jetzt zählt.
 
-Trotzdem ist Options-basierte S/R nicht unfehlbar. Es ist eine probabilistische Tendenz. Makro-Schocks, Katalysator-Events und Regime-Wechsel setzen sie regelmäßig außer Kraft. Der Vorteil ist, dass diese Tendenz *fundiert* ist - wenn sie funktioniert, funktioniert sie aus einem nachvollziehbaren Grund.
+Trotzdem ist Options-basierte S/R nicht unfehlbar. Es ist eine probabilistische Tendenz. Makro-Schocks und Katalysator-Events setzen sie regelmäßig außer Kraft, und ein Regime-Wechsel verändert, was das Hedging tut. Der Vorteil ist, dass diese Tendenz *fundiert* ist - wenn sie funktioniert, funktioniert sie aus einem nachvollziehbaren Grund.
 
 ---
 
@@ -75,7 +75,7 @@ Trotzdem ist Options-basierte S/R nicht unfehlbar. Es ist eine probabilistische 
 Ein kurzer Workflow:
 
 1. **Zuerst den Gamma Flip abrufen.** Er sagt dir, in welchem Regime du dich befindest. Der Flip selbst ist auch ein weiches Level, das man beobachten sollte.
-2. **Call Wall und Put Wall identifizieren.** Diese geben dir die strukturelle Range - die Grenzen, auf deren Verteidigung (in einem Long-Gamma-Regime) oder Freigabe (in einem Short-Gamma-Regime) das Dealer-Hedging ausgerichtet ist.
+2. **Call Wall und Put Wall identifizieren.** Diese geben dir die strukturelle Range - die Grenzen, gegen die sich das Dealer-Hedging stemmt (in einem Long-Gamma-Regime) oder durch die hindurch es eine Bewegung verstärkt (in einem Short-Gamma-Regime).
 3. **Den Gamma Magnet identifizieren.** Oft der stärkste 0DTE-Strike. Der Magnet zeigt dir, wohin der Preis innerhalb der Wall-Range gezogen wird.
 4. **Die Migration prüfen.** Ein Wall, der gerade erst gesprungen ist, ist eine andere Referenz als einer, der seit Stunden stabil ist: Ein migrierender Wall jagt dem Preis hinterher, das Level, das du beobachtest, hat sich also verschoben. In unserer Messung ließ sich weder aus dem Alter eines Walls noch aus seiner Migration vorhersagen, ob er brach.
 5. **Mit Chart-S/R gegenchecken.** Wo sich das strukturelle Level mit einem Chart-basierten Level (runde Zahl, früherer Swing, wichtiger gleitender Durchschnitt) deckt, kann die Konvergenz das Level schärfer machen.
@@ -122,7 +122,7 @@ Die zusammengesetzte strukturelle Lesart:
 - Der Call Wall und der Chart-Widerstand stimmen nahe 583 überein - die Widerstandszone mit höherer Konfidenz liegt genau dort, wo Chart-Trader sie sehen, aber das modellierte Positioning verortet den Wall bei 583,50, nicht bei der runden 583.
 - Auch der Put Wall und der Chart-Support stimmen nahe 580 überein - dort eine stärkere Support-Lesart.
 - Der Gamma Magnet bei 581,00 bedeutet, dass der Preis strukturell ungefähr dorthin gezogen werden kann, wo er gerade steht. Solange das positive Gamma anhält, stemmt sich das Hedging in beide Richtungen gegen Bewegungen.
-- Der Flip bei 580,80 bedeutet, dass ein Fall unter 580,80 das modellierte Regime kippen würde; der Put Wall bei 580 könnte nicht sauber absorbieren, wenn die Flip-Kreuzung zuerst passiert.
+- Der Flip bei 580,80 bedeutet, dass ein Fall unter 580,80 das modellierte Regime kippen würde; passiert das zuerst und gibt der Put Wall bei 580 anschließend nach, verstärkt das Hedging die Bewegung, statt sie abzufedern.
 
 Die Lesart: Das modellierte Hedging stemmt sich gegen Bewegungen in Richtung eines der beiden Ränder der Range von 581-583,50, aber jeder Wall bleibt eine Wette auf die Grundrate - SPY-Walls hielten in unserer Messung in etwa zwei von drei Fällen innerhalb einer Stunde, unabhängig davon, auf welcher Seite des Flips der Preis stand. Die strukturelle Lesart ergänzt, wo die Levels liegen und was das Hedging rund um sie tut; sie sagt dir nicht, welches davon nachgeben wird.
 

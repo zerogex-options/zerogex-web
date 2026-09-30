@@ -42,7 +42,7 @@ Dealer müssen in diesem Regime Stärke kaufen und Schwäche verkaufen - der Re
 Derselbe Reflex, der Rallyes verstärkt, verstärkt auch Sell-offs. Das Auffangen von Falling-Knife-Setups in einem tiefen Short-Gamma-Regime neigt dazu, Verluste zu verstärken, weil der Dealer-Mechanismus, der im Long-Gamma-Regime den Bounce produziert hätte, hier umgekehrt ist. Die Dip-Buy-These verliert unterhalb des Flips speziell ihre strukturelle Unterstützung.
 
 **Setup-Typ 3: Mit der Flow-Richtung traden, nicht dagegen.**
-Tape Flow Bias und ähnliche Continuation-Signale haben in Short-Gamma-Regimen mehr Gewicht. Wenn der prämiengewichtete Flow in eine Richtung tendiert und das Net GEX negativ ist, weitet sich die Bewegung tendenziell eher aus, als dass sie fadet.
+Tape Flow Bias und ähnliche Continuation-Signale haben in Short-Gamma-Regimen mehr Gewicht. Wenn der prämiengewichtete Flow in eine Richtung tendiert und das Net GEX negativ ist, verstärkt das Hedging die Bewegung, statt sich gegen sie zu stemmen.
 
 ---
 
@@ -98,7 +98,7 @@ Erste Lesart: Long-Gamma-Regime, gesundes Positioning, strukturelle Range 5.790-
 
 Bis 13:00 ET ist SPX auf 5.806 abgerutscht, und der Flip ist auf 5.803 nach oben gedriftet - die beiden sind fast zusammengelaufen. Net GEX ist auf +300 Mio. USD gesunken. Das Regime ist umkämpft - der Spot liegt nur knapp über dem Flip, die Größenordnung schrumpft, und der strukturelle Reflex schwächt sich ab.
 
-Das Playbook wechselt. Das Fade-the-Rally-Setup, das bei Eröffnung aktiv war, ist jetzt strukturell nicht mehr unterstützt; eine Fortsetzung nach oben ist möglich, falls das Net GEX ins Negative kippt. Die Positionsgröße sollte schrumpfen; der Standard-Trade ist "kein Trade", bis sich das Regime klärt.
+Das Playbook wechselt. Das Fade-the-Rally-Setup, das bei Eröffnung aktiv war, hat den Großteil seiner Unterstützung durch das Hedging verloren, und eine Fortsetzung nach oben hätte das Hedging im Rücken, falls das Net GEX ins Negative kippt. Die Positionsgröße sollte schrumpfen; der Standard-Trade ist "kein Trade", bis sich das Regime klärt.
 
 Um 14:30 ET ist das Net GEX auf −200 Mio. USD gekippt, und SPX ist auf 5.815 gestiegen. Das ist jetzt ein modelliertes Short-Gamma-Regime - der Dealer-Reflex wirkt der Annahme nach verstärkend - wenn der Call Wall bei 5.820 also nachgibt, treibt das Hedging den Break zusätzlich an, statt sich gegen ihn zu stemmen. In unserer Messung änderte das Regime nichts daran, wie oft Walls brachen, 5.820 hält also nicht mit geringerer Wahrscheinlichkeit als zur Eröffnung; was sich geändert hat, sind die Kosten eines Irrtums. Ein gescheiterter Fade kann jetzt weiter laufen, sodass der Fade-the-Breakout-Trade seinen Puffer verliert, und wenn das Setup stimmt, hat die Verfolgung des Ausbruchs das Hedging im Rücken.
 

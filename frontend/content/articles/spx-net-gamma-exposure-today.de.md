@@ -35,8 +35,8 @@ Net GEX wird in Dollar angegeben - „1,5 Mrd. $ Gamma“ -, weil es so skalie
 
 Zwei Fälle, entgegengesetzte Spielpläne:
 
-- **Positives SPX Net GEX (Long-Gamma-Regime).** Dealer sind am Spot netto long Gamma. Sie verkaufen Rallyes und kaufen Dips zur Absicherung, was Volatilität tendenziell *unterdrückt*. Erwarte engere Ranges, mehr Mean Reversion, Pinning an schwer gewichtete Strikes und Rallyversuche, die nahe der Call Wall oft ins Stocken geraten. Eine stark positive Lesart signalisiert einen "ruhigen, seitwärts laufenden" Markt.
-- **Negatives SPX Net GEX (Short-Gamma-Regime).** Dealer sind am Spot netto short Gamma. Sie kaufen Rallyes und verkaufen Dips, was Volatilität tendenziell *verstärkt*. Erwarte breitere Ranges, sich fortsetzende Ausbrüche und laufende Trends. Eine stark negative Lesart signalisiert einen "schnellen, trendstarken Markt, bei dem man seine Stops respektieren sollte." Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) für den Markt.
+- **Positives SPX Net GEX (Long-Gamma-Regime).** Dealer sind am Spot netto long Gamma. Sie verkaufen Rallyes und kaufen Dips zur Absicherung, was Volatilität tendenziell *unterdrückt*. Erwarte engere Ranges, mehr Mean Reversion, Pinning an schwer gewichtete Strikes und Hedging, das sich gegen Rallyes in Richtung Call Wall stemmt. Eine stark positive Lesart signalisiert einen "ruhigen, seitwärts laufenden" Markt.
+- **Negatives SPX Net GEX (Short-Gamma-Regime).** Dealer sind am Spot netto short Gamma. Sie kaufen Rallyes und verkaufen Dips, was Volatilität tendenziell *verstärkt*. Erwarte breitere Ranges, laufende Trends und Hedging, das einen Ausbruch verstärkt, sobald eine Wall nachgibt. Eine stark negative Lesart signalisiert einen "schnellen, trendstarken Markt, bei dem man seine Stops respektieren sollte." Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) für den Markt.
 
 Die Lesart ist keine Richtung - sie ist ein *Charakter*. Positives Net GEX sagt nicht "aufwärts," sondern "klebrig." Negatives sagt nicht "abwärts," sondern "volatil."
 

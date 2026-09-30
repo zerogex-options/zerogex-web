@@ -82,7 +82,7 @@ Wie das Tape typischerweise aussieht:
 - Der rasche Theta-Zerfall kann auf Prämien für Optionen mit Fälligkeit am selben Tag lasten, aber Bewegungen von Spot und impliziter Volatilität können ihn überlagern.
 - Mean-Reversion-Setups passen möglicherweise besser zum modellierten Hedge-Reflex als Trend-Fortsetzungs-Setups.
 
-Die praktische Tendenz in einem Long-Gamma-0DTE-Regime ist **gegen den Breakout, mit dem Pin**. Verkaufte Rallyes in die Call Wall hinein, Dip-Käufe in die Put Wall hinein und Short-Prämien-Strukturen profitieren allesamt vom dämpfenden Reflex.
+Die praktische Tendenz in einem Long-Gamma-0DTE-Regime ist **gegen den Breakout, mit dem Pin**. Verkaufte Rallyes in die Call Wall hinein, Dip-Käufe in die Put Wall hinein und Short-Prämien-Strukturen stützen sich allesamt auf den dämpfenden Reflex.
 
 ---
 
@@ -92,14 +92,14 @@ Ein paar Gewohnheiten, die sich zwischen den beiden Regimen ändern:
 
 **In einem Negative-Gamma-0DTE-Regime:**
 
-- Nimm Breakouts der jüngsten Range ernster, besonders wenn Net GEX groß und negativ ist.
+- Gib Breakouts der jüngsten Range mehr Spielraum, besonders wenn Net GEX groß und negativ ist: Wenn ein Level nachgibt, verstärkt das Hedging die Bewegung.
 - Behandle 0DTE-Walls nicht als Decken: Wenn eine nachgibt, verstärkt das Hedging die Bewegung, statt sich gegen sie zu stemmen.
 - Sei skeptisch gegenüber "das wird pinnen"-Setups - der Dealer-Reflex zieht nicht.
 - Wenn unabhängige Volatilitätsmaße eine Sitzung mit breiterer Range bestätigen, dimensioniere das Risiko entsprechend; das modellierte Gamma-Vorzeichen allein gibt keinen Stop vor.
 
 **In einem Positive-Gamma-0DTE-Regime:**
 
-- Setze standardmäßig auf Fades von Bewegungen in 0DTE-konzentrierte Strikes hinein.
+- Rechne damit, dass Bewegungen in 0DTE-konzentrierte Strikes hinein auf Hedging treffen, das sich gegen sie stemmt.
 - Behandle den gewichtigsten Gamma-Strike als Magneten, besonders zum Handelsschluss hin.
 - Sei skeptisch gegenüber Breakouts - das Hedging stemmt sich gegen sie, und gescheiterte Breakouts können zehn oder fünfzehn Minuten brauchen, bis sie sich auflösen.
 - Engere Stops sind eher angemessen; die Ranges sind stärker begrenzt.
@@ -124,7 +124,7 @@ Das Dashboard zeigt an mehreren Stellen 0DTE-spezifische Lesarten:
 
 Ein durchgerechnetes Beispiel. Angenommen, SPX steht bei 5.825, Net GEX zeigt −800 Mio. USD, der Gamma Flip liegt bei 5.840, und die Heatmap zeigt einen gewichtigen 0DTE-Put-Strike bei 5.820, der den ganzen Morgen mit dem Preis nach unten gewandert ist. Die strukturelle Lesart: Dealer sind short in Gamma, der Spot liegt unter dem Flip, und der gewichtigste 0DTE-Strike folgt der Bewegung, statt sie zu halten.
 
-Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünstigt, wobei der wandernde Put-Strike die Abwärtsbewegung bestätigt statt ihr zu widerstehen. Ein Trader, der mit einem Mean-Reversion-Bias in die Sitzung gegangen ist, sollte hier deutlich vorsichtiger sein, weil die 0DTE-Struktur aktiv in die andere Richtung zeigt. Nichts davon ist ein Handelssignal - es ist Regime-Kontext, der beeinflussen sollte, welche Einstiege man ernst nimmt.
+Praktische Tendenz: Dies ist ein Short-Gamma-Regime, das Fortsetzungen begünstigt, und der gewichtigste Put-Strike wandert mit dem Preis, sodass sich das Level, auf das sich ein Fade stützen würde, ständig verschiebt. Ein Trader, der mit einem Mean-Reversion-Bias in die Sitzung gegangen ist, sollte hier deutlich vorsichtiger sein, weil das Hedging mit der Bewegung läuft, statt sich gegen sie zu stemmen. Nichts davon ist ein Handelssignal - es ist Regime-Kontext, der beeinflussen sollte, welche Einstiege man ernst nimmt.
 
 ![ZeroGEX Net-GEX- und Gamma-Flip-Karten mit einer negativen Intraday-Gamma-Lesart](/blog/zerogex-net-gex-flip-card.png)
 

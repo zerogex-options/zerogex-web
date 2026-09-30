@@ -8,7 +8,7 @@
 
 ## Was ist ein Gamma Wall?
 
-Ein Gamma Wall ist ein Strike in der Optionskette, an dem sich die Dealer-Gamma-Exponierung stark auf einer Seite des Buchs konzentriert. Die zwei meistbeachteten Walls sind die **Call Wall** - die stärkste Call-Gamma-Konzentration oberhalb des Spots - und die **Put Wall** - die stärkste Put-Gamma-Konzentration unterhalb des Spots. Zusammen skizzieren sie die strukturelle Spanne, die die Hedging-Mechanik der Dealer tendenziell verteidigt.
+Ein Gamma Wall ist ein Strike, an dem sich die modellierte Dealer-Gamma-Exponierung stark konzentriert. Es gibt zwei: die **Call Wall** oberhalb des Spots und die **Put Wall** darunter. Keine von beiden ist per Konstruktion Unterstützung oder Widerstand - was das Hedging an einer Wall tut, hängt vom *Vorzeichen* des modellierten Dealer-Gammas und vom Flow um sie herum ab, nicht davon, ob die Kontrakte dort Calls oder Puts sind.
 
 Walls sind keine gleitenden Durchschnitte oder psychologischen Levels. Sie entstehen aus realer Positionierung: Open Interest, Kontrakt für Kontrakt, gewichtet nach dem Gamma, das jeder Kontrakt trägt. Wenn Trader nach der Bedeutung von Call Wall und Put Wall fragen, fragen sie eigentlich: *Wo konzentrieren sich die Hedging-Flows der Dealer, und wie beeinflussen diese Flows den Preis?*
 
@@ -20,7 +20,7 @@ Dieser Artikel ist praxisorientiert. Er setzt voraus, dass du weißt, was eine W
 
 Die Call Wall ist der Strike oberhalb des Spots mit der stärksten Call-Gamma-Exponierung. In einem positiven Gamma-Regime müssen Dealer mit Long-Call-Bestand in Rallyes, die sich der Wall nähern, verkaufen - sie bauen dabei das positive Delta ab, das sie ansammeln, während der Preis darauf zusteigt. Dieser Hedging-Reflex wirkt der Rally entgegen.
 
-In der Praxis wirkt die Call Wall in Long-Gamma-Regimen oft als **Widerstand** - nicht, weil das Level magisch wäre, sondern weil der Hedging-Flow, der sich um sie herum aktiviert, strukturell ist.
+In der Praxis wirkt die Call Wall oft als **Widerstand** - nicht, weil das Level magisch wäre, und nicht einfach, weil sie ein Call-Strike ist. Bei positivem Gamma stemmt sich der modellierte Hedging-Flow um sie herum tendenziell gegen die Bewegung; wechselt das Gamma-Vorzeichen, läuft dieses Hedging stattdessen mit der Bewegung.
 
 Wissenswertes:
 
@@ -34,7 +34,7 @@ Wissenswertes:
 
 Die Put Wall ist der Strike unterhalb des Spots mit der stärksten Put-Gamma-Exponierung. In einem positiven Gamma-Regime ist das Netto-Dealer-Buch long Gamma und kauft daher, während der Preis auf die Wall zufällt - das Spiegelbild des Call-Wall-Reflexes, wobei sich das Kaufen dort konzentriert, wo die Put-Gamma am dichtesten ist. Dieser Reflex wirkt dem Ausverkauf entgegen.
 
-In der Praxis wirkt die Put Wall in Long-Gamma-Regimen oft als **Unterstützung**. Wie bei der Call Wall ist der Mechanismus strukturell, nicht psychologisch.
+In der Praxis wirkt die Put Wall oft als **Unterstützung**. Ob das Hedging um sie herum einen Rückgang abfedert, den Preis festhält oder einen Bruch beschleunigt, hängt wie bei der Call Wall vom Vorzeichen des modellierten Dealer-Gammas und vom umgebenden Flow ab - nicht vom Optionstyp.
 
 Wissenswertes:
 

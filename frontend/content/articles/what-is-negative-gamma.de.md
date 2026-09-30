@@ -56,7 +56,7 @@ Zum Vergleich **positives Gamma**, bei dem sich dieselbe Flow-Kette umkehrt: Dea
 | Schlechtestes Playbook | Ausbrüchen hinterherjagen, Momentum | Rallyes faden, Dip-Buying in die Struktur hinein |
 | Typisch wenn | SPY über dem Gamma-Flip, Net GEX > 0 | SPY unter dem Gamma-Flip, Net GEX < 0 |
 
-Dies sind allgemeine Regime-Tendenzen, keine Garantien. Katalysatoren und Schocks können sie außer Kraft setzen. Aber die Basisrate ist bedeutsam genug, dass das Fahren des falschen Playbooks für das jeweilige Regime den Großteil der Kosten ausmacht.
+Dies sind allgemeine Regime-Tendenzen, keine Garantien. Katalysatoren und Schocks setzen sie außer Kraft. Was sie verändern, ist der Mechanismus hinter einem Trade, nicht, wie oft Walls brechen: In unserer Messung hielten Walls auf beiden Seiten des Flips etwa gleich oft.
 
 ---
 
@@ -77,14 +77,14 @@ Ein kurzer Workflow:
 Konkret Dinge, die man in einem Negativ-Gamma-Regime *lassen* sollte:
 
 - **Rallyes nicht faden.** Der Dealer-Reflex verstärkt. Deine "Mean-Reversion-Short"-Position kämpft gegen den strukturellen Kauf-Flow.
-- **Dips in der Struktur nicht kaufen.** Dasselbe Problem umgekehrt. Die Put-Wall, die den Markt im Long-Gamma-Regime gestützt hat, kann im Short-Gamma-Regime zum Slippage-Punkt werden.
+- **Dips in der Struktur nicht kaufen.** Dasselbe Problem umgekehrt. Gibt die Put-Wall bei Short-Gamma nach, verstärkt das Hedging den Abverkauf, statt ihn abzufedern, sodass sie zum Slippage-Punkt werden kann.
 - **Kein Pinning erwarten.** Der strukturelle Sog zu stark gewichteten Strikes tendiert dazu, sich abzuschwächen, sodass die Magnet-These hier deutlich weniger verlässlich ist.
 - **Nicht für eine normale Spanne dimensionieren.** Die realisierte Vol ist strukturell höher. Positionsgröße unter der Annahme wählen, dass breitere Stops nötig sind.
 
 Dinge, die man *anfangen* sollte zu tun:
 
 - **Mit der Bewegung handeln.** Trendfolgende Setups haben das Hedging im Rücken.
-- **Fades an Walls für den Fall eines Bruchs dimensionieren.** Eine Wall hielt in unserer Messung bei Short-Gamma etwa genauso oft wie bei Long-Gamma, aber wenn sie hier nachgibt, verstärkt das Hedging die Bewegung, sodass ein gescheiterter Fade weiter gegen dich laufen kann.
+- **Jede Position gegen eine Wall für den Fall eines Bruchs dimensionieren.** Eine Wall hielt in unserer Messung bei Short-Gamma etwa genauso oft wie bei Long-Gamma, aber wenn sie hier nachgibt, verstärkt das Hedging die Bewegung, sodass eine Position, die auf die Wall setzt, weiter gegen dich laufen kann.
 - **Beim Einstiegs-Timing selektiver sein.** Breitere Spannen bedeuten mehr Risiko pro Trade. Das mit strengeren Setup-Kriterien ausgleichen.
 - **Auf Rückkehr zu positivem Gamma achten.** Das passiert - der Flip ist dynamisch. Wenn der Spot wieder über den Gamma-Flip steigt, dreht sich das Playbook mit.
 
@@ -113,7 +113,7 @@ Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma-Flip bei
 
 - **"Negatives Gamma ist bärisch."** Das stimmt nicht. Es ist **volatilitätsverstärkend**. Der Markt kann in einem Negativ-Gamma-Regime stark rallyen - und die Rally tendiert dazu, sich weiter fortzusetzen, als sie es in Long-Gamma tun würde. Bei negativem Gamma geht es um den *Charakter der Bewegungen*, nicht um die Richtung.
 - **"Positives Gamma ist bullisch."** Auch falsch. Positives Gamma ist **volatilitätsdämpfend**. Der Markt kann in einem Positiv-Gamma-Regime nach unten driften; er tendiert nur dazu, das langsam mit mean-reversion-artigen Rückprallern entlang des Wegs zu tun.
-- **"Man kann Negativ-Gamma-Signale genauso handeln wie Positiv-Gamma-Signale."** Der Großteil des Schadens hier kommt daher. Die Signale und die strukturellen Lesarten kehren sich zwischen den Regimen um. Eine "Buy the Dip"-These, die oberhalb des Flips funktioniert, kann unterhalb davon Verluste vergrößern.
+- **"Man kann Negativ-Gamma-Signale genauso handeln wie Positiv-Gamma-Signale."** Der Großteil des Schadens hier kommt daher. Die Signale und die strukturellen Lesarten kehren sich zwischen den Regimen um. Eine "Buy the Dip"-These, die oberhalb des Flips das Hedging im Rücken hat, kann unterhalb davon Verluste vergrößern.
 - **"Negatives Gamma ist selten."** Es passiert regelmäßig - insbesondere nach Vol-Spikes, während makroökonomischem Stress und wenn die Chain stark put-lastig ist. Das Regime in Echtzeit zu kennen, sagt dir, wann.
 
 ---

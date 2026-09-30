@@ -134,7 +134,7 @@ Hier wird auch die These "Vanna plus Charm rund um OPEX" oft über ihren tatsäc
 
 Die nützlichste Grundeinordnung:
 
-- **In einem positiven Gamma-Regime** verstärken die Vanna- und Charm-Flows den dämpfenden, pin-freundlichen Charakter des Tapes. Der Vanna Grind stützt die Drift, der Charm-Zerfall zieht Richtung des strukturellen Magneten, und der absorbierende Reflex des Long-Gamma-Hedgings hält die Range.
+- **In einem positiven Gamma-Regime** verstärken die Vanna- und Charm-Flows den dämpfenden, pin-freundlichen Charakter des Tapes. Der Vanna Grind stützt die Drift, der Charm-Zerfall zieht Richtung des strukturellen Magneten, und der absorbierende Reflex des Long-Gamma-Hedgings stemmt sich gegen Bewegungen aus der Range heraus.
 - **In einem negativen Gamma-Regime** können Vanna- und Charm-Flows die direktionale Dynamik verstärken, statt Drift zu erzeugen. Derselbe Charm-Zerfall, der den Preis im Long-Gamma-Regime fixiert hätte, kann in einem Short-Gamma-Regime einen Ausverkauf verstärken, wenn das Dealer-Buch entsprechend positioniert ist.
 
 Die praktische Konsequenz: **Lesen Sie zuerst Gamma, dann lesen Sie Vanna und Charm innerhalb dieses Rahmens.** Die Greeks zweiter Ordnung beschreiben Kräfte, die in jedem Regime existieren, aber ihre *verhaltensmäßige Wirkung* wird durch den Gamma-Reflex gefiltert. Vanna oder Charm zu lesen, ohne Gamma zu lesen, heißt, nur die halbe Bilanz zu lesen.

@@ -8,7 +8,7 @@
 
 ## Was ist ein Call Wall?
 
-Ein **Call Wall** ist der Strike oberhalb des Spots, der die stärkste Konzentration an Dealer-Gamma-Exposure auf der Call-Seite der Optionskette trägt. Es ist das Preisniveau, an dem die Hedging-Flows der Dealer am wahrscheinlichsten *gegen eine Rally arbeiten* - weshalb Trader den Call Wall als strukturelle Obergrenze der aktuellen Dealer-Positionierungsspanne betrachten.
+Ein **Call Wall** ist der Strike oberhalb des Spots, der die stärkste Konzentration an Call-seitiger Gamma-Exposure in der Optionskette trägt. Wenn Dealer als long in diesem Gamma modelliert werden (ein Positiv-Gamma-Regime), ist er das Niveau, an dem sich ihre Hedging-Flows am wahrscheinlichsten *gegen eine Rally stemmen* - weshalb Trader den Call Wall als strukturelle Obergrenze der aktuellen Dealer-Positionierungsspanne betrachten. Dieses Obergrenzen-Verhalten ist eine Tendenz, keine Regel, und das Hedging dahinter hängt vom modellierten Vorzeichen des Dealer-Gammas und vom umgebenden Flow ab, nicht davon, dass der Strike schlicht aus Calls besteht.
 
 Die Bedeutung des Call Wall in einem Satz: Es ist keine runde Zahl und keine Chartlinie - es ist reale Positionierung, Open Interest gewichtet mit dem Gamma, das jeder Kontrakt trägt. Der einzelne Strike, an dem dieses Call-Gamma oberhalb des aktuellen Preises am dichtesten ist, ist der Call Wall.
 
@@ -25,7 +25,7 @@ Genau dieser Verkauf kann Widerstand erzeugen. Steigt der Preis auf einen dichte
 Ein paar Konsequenzen des Mechanismus:
 
 - Der Call Wall ist **probabilistischer Widerstand**, keine feste Obergrenze. Echter direktionaler Flow durchbricht ihn regelmäßig.
-- Er stemmt sich in einem Positiv-Gamma-Regime und an Strikes mit hohem relativem Gamma am stärksten gegen die Bewegung.
+- Sein Hedging stemmt sich in einem Positiv-Gamma-Regime und an Strikes mit hohem relativem Gamma am stärksten gegen die Bewegung.
 - Er ist ein struktureller Hinweis, keine Garantie - ein starker Katalysator kann ihn in Sekunden durchbrechen.
 
 ---
@@ -62,7 +62,7 @@ Da Dealer den Call Wall in Positiv-Gamma verteidigen, ist ein *entscheidender* A
 - **Der Wall war in Migration**, und der Preis ist einfach einer Obergrenze gefolgt, die bereits stieg - weniger bedeutsam, oft nur Trendfortsetzung.
 - **Der Wall war statisch, und der Preis hat ihn trotzdem durchbrochen** - ein Hinweis darauf, dass das Hedging, das die Bewegung deckelte, überwältigt wurde, und häufig, dass sich das Gamma-Regime selbst dreht. Sobald der Spot über einen gehaltenen Call Wall hinaus in dünneres Gamma vordringt, kann sich der Dealer-Reflex umkehren - vom Verkaufen von Rallyes zum Hinterherjagen -, und so wird aus einem stockenden Tape ein schnelles.
 
-Die Lesart, in der Reihenfolge: Hält der Wall oder zieht er nach, und stützt der Net GEX die Obergrenze oder schwächt er sich ab? Ein Ausbruch bei schrumpfendem Net GEX ist ein anderes Tier als ein Ausbruch in sich verstärkendes Positiv-Gamma.
+Die Lesart, in der Reihenfolge: Hält der Wall oder zieht er nach, und baut sich der Net GEX auf oder schwächt er sich ab? Keines von beiden hat in unserer Messung Brüche vorhergesagt, aber sie verändern den Mechanismus: Gegen einen Ausbruch bei schrumpfendem Net GEX stemmt sich weniger Hedging als gegen einen Ausbruch in sich verstärkendes Positiv-Gamma.
 
 ---
 
