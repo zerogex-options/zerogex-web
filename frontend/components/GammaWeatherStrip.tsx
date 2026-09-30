@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import WeatherFieldDrawer from '@/components/WeatherFieldDrawer';
 import WeatherFieldStack from '@/components/WeatherFieldStack';
@@ -192,6 +192,13 @@ function Chevron({ open }: { open?: boolean }) {
 export interface GammaWeatherStripProps {
   payload: GammaWeatherPayload;
   /**
+   * Rendered between the field chips and the charts. The Tape Flow Bias block
+   * goes here: it is a different measurement from Weather and owns its own
+   * frame, but it is a live read, and below a stack of five charts it would be
+   * a scroll away from the glance it exists for.
+   */
+  beforeCharts?: ReactNode;
+  /**
    * The two payloads already loaded for the charts below the header. The
    * drawer charts one field from these rather than fetching the same numbers
    * again, so it cannot disagree with the chart further down the page.
@@ -209,6 +216,7 @@ export default function GammaWeatherStrip({
   regime = null,
   symbol,
   date = null,
+  beforeCharts = null,
 }: GammaWeatherStripProps) {
   // Stacked by default. One chart at a time was the right shape while the
   // drawer was being proved and the wrong one for the job it grew into, which
@@ -426,6 +434,8 @@ export default function GammaWeatherStrip({
           {payload.cushion_summary}
         </p>
       )}
+
+      {beforeCharts}
 
       {/* Under the header, not a jump to another page. The header above stays
           the live read; this is the audit trail and never changes a state. */}

@@ -267,3 +267,20 @@ export function firstTicksOfEtDay(ticks: readonly string[]): Set<string> {
   }
   return result;
 }
+
+/**
+ * The Tape Flow Bias score in words.
+ *
+ * Shared rather than copied because the bands are thresholds, and thresholds
+ * get retuned. Two copies would mean the compact block on the Hedging Flow page
+ * and the full page could describe the same score differently, which is worse
+ * than either wording on its own.
+ */
+export function tapeFlowInterpretation(score: number | null): string {
+  if (score == null) return 'No reading';
+  if (score >= 50) return 'Early bullish accumulation';
+  if (score >= 25) return 'Bullish tape tilt';
+  if (score <= -50) return 'Distribution / early bearish';
+  if (score <= -25) return 'Bearish tape tilt';
+  return 'Flat / thin tape';
+}

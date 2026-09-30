@@ -10,6 +10,7 @@ import MetricCard from '@/components/MetricCard';
 import HedgingFlowChart from '@/components/HedgingFlowChart';
 import GammaRegimeChart from '@/components/GammaRegimeChart';
 import GammaWeatherStrip from '@/components/GammaWeatherStrip';
+import TapeFlowBiasBlock from '@/components/TapeFlowBiasBlock';
 import {
   latestRateFlip,
   latestRealBar,
@@ -130,6 +131,10 @@ export default function HedgingFlowPanels({
                 regime={regime}
                 symbol={symbol}
                 date={historical ? sessionDateKey : null}
+                // Live only. The block reads the current tape, and showing
+                // today's bias under a chart of three weeks ago would be two
+                // different days on one screen with nothing saying so.
+                beforeCharts={historical ? null : <TapeFlowBiasBlock symbol={symbol} />}
               />
             </div>
           )}

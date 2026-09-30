@@ -15,10 +15,13 @@
  *     module accumulates; the mappers are field renames and the aligners only
  *     decide which session slots carry a value.
  *
- * The three compact charts further down the Flow Analysis page (Put/Call Ratio,
- * Net Directional Premium, Net Position) keep their own mappers on the page —
- * they are page-only — but share the session timeline, the time labels and the
- * date-marker helper below so every chart on that page lines up.
+ * Net Directional Premium moved down here once a second page drew it: the
+ * Hedging Flow page shows it in compact form under the Weather panel, and two
+ * copies of the same running total is how two pages end up disagreeing about
+ * one number on one day. Put/Call Ratio and Net Position are still page-only,
+ * and should move the same way if anything else ever needs them. All of them
+ * share the session timeline, the time labels and the date-marker helper below
+ * so every chart lines up.
  *
  * Deliberately import-free (bar erased type-only imports), like the other core
  * modules the Node test runner exercises directly.
@@ -436,4 +439,125 @@ export function getDynamicLeftMargin(rows: FlowTimeseriesRow[]): number {
   const maxAbs = Math.max(...prices.map((v) => Math.abs(v)));
   const digits = Math.max(3, Math.floor(Math.log10(Math.max(1, maxAbs))) + 1);
   return Math.max(86, Math.min(120, 52 + digits * 10));
+}
+
+// ── Net Directional Premium ───────────────────────────────────────────────────
+//
+// The session's running net call-minus-put premium, split into a positive and a
+// negative series so the area can be filled on the correct side of zero.
+//
+// These lived on the Flow Analysis page while it was the only thing that drew
+// them. The Hedging Flow page now shows the same chart in compact form, and two
+// copies of "net directional premium" is how one page ends up disagreeing with
+// another about the same number on the same day.
+
+export interface NetDirectionalPremiumRow {
+  timestamp: string;
+  premium: number | null;
+  positivePremium: number | null;
+  negativePremium: number | null;
+}
+
+/**
+ * The two fields this derivation reads, declared structurally like
+ * FlowSeriesRowLike above so the module stays free of the hooks layer. A full
+ * FlowSeriesPoint satisfies it.
+ */
+export type PremiumSeriesRowLike = {
+  timestamp: string;
+  net_premium_cum: number;
+};
+
+/** A field rename. Nothing accumulates here; net_premium_cum already has. */
+export function mapSeriesToPremiumRows(rows: PremiumSeriesRowLike[]): NetDirectionalPremiumRow[] {
+  return rows.map((r) => {
+    const premium = r.net_premium_cum;
+    return {
+      timestamp: canonicalTimestamp(r.timestamp),
+      premium,
+      positivePremium: premium > 0 ? premium : null,
+      negativePremium: premium < 0 ? premium : null,
+    };
+  });
+}
+
+/**
+ * Onto the session grid, holding the previous cumulative through an internal
+ * gap and leaving nulls after the last real bar. A running total should not
+ * punch a hole in the line for a quiet five minutes, and it should not
+ * extrapolate into market time that has not happened.
+ */
+export function alignPremiumToTimeline(
+  rows: NetDirectionalPremiumRow[],
+  timeline: string[],
+): NetDirectionalPremiumRow[] {
+  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
+  const lastMs = latestRowMs(rows);
+
+  let prev: NetDirectionalPremiumRow | null = null;
+  return timeline.map((timestamp) => {
+    const exact = byTs.get(timestamp);
+    if (exact) {
+      prev = exact;
+      return exact;
+    }
+    const ms = new Date(timestamp).getTime();
+    if (prev && Number.isFinite(ms) && ms < lastMs) {
+      const premium = prev.premium;
+      return {
+        timestamp,
+        premium,
+        positivePremium: premium != null && premium > 0 ? premium : null,
+        negativePremium: premium != null && premium < 0 ? premium : null,
+      };
+    }
+    return { timestamp, premium: null, positivePremium: null, negativePremium: null };
+  });
+}
+
+/**
+ * Inserts an interpolated zero-crossing row between any two adjacent rows whose
+ * premium values straddle zero. Without it the positive and negative areas each
+ * start or end at the bar boundary rather than at the actual crossing, which
+ * renders as a visible step where the line crosses the axis.
+ */
+export function insertPremiumZeroCrossings(
+  rows: NetDirectionalPremiumRow[],
+): NetDirectionalPremiumRow[] {
+  const result: NetDirectionalPremiumRow[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const cur = rows[i];
+    result.push(cur);
+    const next = rows[i + 1];
+    if (!next) continue;
+    const a = cur.premium;
+    const b = next.premium;
+    if (a == null || b == null) continue;
+    if ((a > 0 && b < 0) || (a < 0 && b > 0)) {
+      const tA = new Date(cur.timestamp).getTime();
+      const tB = new Date(next.timestamp).getTime();
+      if (Number.isFinite(tA) && Number.isFinite(tB) && tB > tA) {
+        const ratio = Math.abs(a) / (Math.abs(a) + Math.abs(b));
+        const tCrossMs = tA + (tB - tA) * ratio;
+        result.push({
+          timestamp: new Date(tCrossMs).toISOString(),
+          premium: 0,
+          positivePremium: 0,
+          negativePremium: 0,
+        });
+      }
+    }
+  }
+  return result;
+}
+
+/** The whole Net Directional Premium derivation in one call. */
+export function netDirectionalPremiumSeries(
+  rows: PremiumSeriesRowLike[] | null | undefined,
+  sessionTimeline: string[],
+): NetDirectionalPremiumRow[] {
+  if (sessionTimeline.length === 0) return [];
+  return insertPremiumZeroCrossings(
+    alignPremiumToTimeline(mapSeriesToPremiumRows(rows ?? []), sessionTimeline),
+  );
 }

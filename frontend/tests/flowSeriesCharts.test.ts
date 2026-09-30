@@ -21,6 +21,7 @@ const {
   getFiveMinuteSessionTimeline,
   getUnderlyingDomain,
   is30MinBoundary,
+  netDirectionalPremiumSeries,
   isBarWindowComplete,
   latestRowMs,
   mapSeriesToFlowTimeseries,
@@ -325,4 +326,83 @@ test('the two bases plot different quantities from the same bar', () => {
   const bar = [row(0, { net_volume_cum: -400, raw_volume_cum: 900 })];
   assert.equal(mapSeriesToFlowTimeseries(bar, 'raw')[0].netVolume, 900);
   assert.equal(mapSeriesToFlowTimeseries(bar, 'directional')[0].netVolume, -400);
+});
+
+// ── Net Directional Premium ───────────────────────────────────────────────────
+//
+// Moved out of the Flow Analysis page when the Hedging Flow page started
+// drawing the same running total in compact form. Two copies of one number is
+// how two pages end up disagreeing about the same day.
+
+test('premium rows carry the value on its own side of zero', () => {
+  const rows = netDirectionalPremiumSeries(
+    [
+      { timestamp: BAR(0), net_premium_cum: 500 },
+      { timestamp: BAR(5), net_premium_cum: -300 },
+    ],
+    [BAR(0), BAR(5)],
+  );
+  const positive = rows.find((r) => r.premium === 500)!;
+  const negative = rows.find((r) => r.premium === -300)!;
+  assert.equal(positive.positivePremium, 500);
+  assert.equal(positive.negativePremium, null);
+  assert.equal(negative.negativePremium, -300);
+  assert.equal(negative.positivePremium, null);
+});
+
+test('a zero crossing gets its own interpolated row', () => {
+  // Without it each area starts or ends at the bar boundary rather than at the
+  // crossing, which renders as a visible step where the line meets the axis.
+  const rows = netDirectionalPremiumSeries(
+    [
+      { timestamp: BAR(0), net_premium_cum: 300 },
+      { timestamp: BAR(5), net_premium_cum: -100 },
+    ],
+    [BAR(0), BAR(5)],
+  );
+  assert.equal(rows.length, 3, 'one row inserted between the two bars');
+
+  const crossing = rows[1];
+  assert.equal(crossing.premium, 0);
+  assert.equal(crossing.positivePremium, 0);
+  assert.equal(crossing.negativePremium, 0);
+
+  // Placed proportionally: 300 of the 400 move happens before the crossing, so
+  // it sits three quarters of the way through the five minutes.
+  const t0 = new Date(BAR(0)).getTime();
+  const t1 = new Date(BAR(5)).getTime();
+  assert.equal(new Date(crossing.timestamp).getTime(), t0 + (t1 - t0) * 0.75);
+});
+
+test('no crossing is invented where the series stays on one side', () => {
+  const rows = netDirectionalPremiumSeries(
+    [
+      { timestamp: BAR(0), net_premium_cum: -100 },
+      { timestamp: BAR(5), net_premium_cum: -400 },
+      { timestamp: BAR(10), net_premium_cum: -50 },
+    ],
+    [BAR(0), BAR(5), BAR(10)],
+  );
+  assert.equal(rows.length, 3);
+  assert.equal(rows.every((r) => (r.premium ?? 0) <= 0), true);
+});
+
+test('a running total holds through a gap and stops at the last bar', () => {
+  // A quiet five minutes should not punch a hole in a cumulative line, and the
+  // line should not extrapolate into market time that has not happened.
+  const timeline = [BAR(0), BAR(5), BAR(10), BAR(15)];
+  const rows = netDirectionalPremiumSeries(
+    [
+      { timestamp: BAR(0), net_premium_cum: -100 },
+      { timestamp: BAR(10), net_premium_cum: -250 },
+    ],
+    timeline,
+  );
+  assert.equal(rows[1].premium, -100, 'the gap holds the previous cumulative');
+  assert.equal(rows[3].premium, null, 'nothing is drawn past the last real bar');
+});
+
+test('an empty timeline yields no premium rows rather than a bare axis', () => {
+  assert.deepEqual(netDirectionalPremiumSeries([{ timestamp: BAR(0), net_premium_cum: 1 }], []), []);
+  assert.deepEqual(netDirectionalPremiumSeries(null, [BAR(0)]).length, 1);
 });

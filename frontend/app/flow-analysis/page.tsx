@@ -47,6 +47,7 @@ import {
   getFiveMinuteSessionTimeline,
   isBarWindowComplete,
   isMajorTwoHourTick,
+  netDirectionalPremiumSeries,
   latestRowMs,
   safeTimeLabel,
   type NetVolumeMode,
@@ -57,13 +58,6 @@ import {
 interface PutCallRatioRow {
   timestamp: string;
   ratio: number | null;
-}
-
-interface NetDirectionalPremiumRow {
-  timestamp: string;
-  premium: number | null;
-  positivePremium: number | null;
-  negativePremium: number | null;
 }
 
 interface NetPositionRow {
@@ -89,63 +83,6 @@ function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutC
     }
     return { timestamp, ratio: null };
   });
-}
-
-function alignPremiumToTimeline(rows: NetDirectionalPremiumRow[], timeline: string[]): NetDirectionalPremiumRow[] {
-  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
-  const lastMs = latestRowMs(rows);
-
-  let prev: NetDirectionalPremiumRow | null = null;
-  return timeline.map((timestamp) => {
-    const exact = byTs.get(timestamp);
-    if (exact) {
-      prev = exact;
-      return exact;
-    }
-    const ms = new Date(timestamp).getTime();
-    if (prev && Number.isFinite(ms) && ms < lastMs) {
-      const premium = prev.premium;
-      return {
-        timestamp,
-        premium,
-        positivePremium: premium != null && premium > 0 ? premium : null,
-        negativePremium: premium != null && premium < 0 ? premium : null,
-      };
-    }
-    return { timestamp, premium: null, positivePremium: null, negativePremium: null };
-  });
-}
-
-// Inserts an interpolated zero-crossing row between any two adjacent rows
-// whose premium values straddle zero. Without it, the positive/negative Area
-// series each start or end at the bar boundary rather than at the actual
-// crossing, which renders as a visible step where the line crosses the axis.
-function insertPremiumZeroCrossings(rows: NetDirectionalPremiumRow[]): NetDirectionalPremiumRow[] {
-  const result: NetDirectionalPremiumRow[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const cur = rows[i];
-    result.push(cur);
-    const next = rows[i + 1];
-    if (!next) continue;
-    const a = cur.premium;
-    const b = next.premium;
-    if (a == null || b == null) continue;
-    if ((a > 0 && b < 0) || (a < 0 && b > 0)) {
-      const tA = new Date(cur.timestamp).getTime();
-      const tB = new Date(next.timestamp).getTime();
-      if (Number.isFinite(tA) && Number.isFinite(tB) && tB > tA) {
-        const ratio = Math.abs(a) / (Math.abs(a) + Math.abs(b));
-        const tCrossMs = tA + (tB - tA) * ratio;
-        result.push({
-          timestamp: new Date(tCrossMs).toISOString(),
-          premium: 0,
-          positivePremium: 0,
-          negativePremium: 0,
-        });
-      }
-    }
-  }
-  return result;
 }
 
 function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]): NetPositionRow[] {
@@ -196,18 +133,6 @@ function maskIncompleteZeroNetPositionBars(rows: NetPositionRow[]): NetPositionR
 
 function mapSeriesToRatioRows(rows: FlowSeriesPoint[]): PutCallRatioRow[] {
   return rows.map((r) => ({ timestamp: canonicalIso(r.timestamp), ratio: r.put_call_ratio }));
-}
-
-function mapSeriesToPremiumRows(rows: FlowSeriesPoint[]): NetDirectionalPremiumRow[] {
-  return rows.map((r) => {
-    const premium = r.net_premium_cum;
-    return {
-      timestamp: canonicalIso(r.timestamp),
-      premium,
-      positivePremium: premium > 0 ? premium : null,
-      negativePremium: premium < 0 ? premium : null,
-    };
-  });
 }
 
 function mapSeriesToNetPositionRows(rows: FlowSeriesPoint[]): NetPositionRow[] {
@@ -314,9 +239,7 @@ export default function FlowAnalysisPage() {
   // ── Net Directional Premium (unfiltered) ─────────────────────────────────
   const directionalPremiumSeries = useMemo(() => {
     if (!selectedDate || sessionTimeline.length === 0) return [];
-    const base = mapSeriesToPremiumRows(flowSeriesUnfiltered ?? []);
-    const aligned = alignPremiumToTimeline(base, sessionTimeline);
-    return insertPremiumZeroCrossings(aligned);
+    return netDirectionalPremiumSeries(flowSeriesUnfiltered, sessionTimeline);
   }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
 
   // ── Net Position (Buys vs Sells), unfiltered ─────────────────────────────

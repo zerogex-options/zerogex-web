@@ -16,19 +16,11 @@ import {
   asObject,
   getNumber,
   parseScoreHistory,
+  tapeFlowInterpretation,
   toTrend,
   formatGexCompact,
 } from '@/core/signalHelpers';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
-
-function interpretation(score: number | null): string {
-  if (score == null) return 'No reading';
-  if (score >= 50) return 'Early bullish accumulation';
-  if (score >= 25) return 'Bullish tape tilt';
-  if (score <= -50) return 'Distribution / early bearish';
-  if (score <= -25) return 'Bearish tape tilt';
-  return 'Flat / thin tape';
-}
 
 export default function TapeFlowBiasPage() {
   const { symbol } = useTimeframe();
@@ -71,7 +63,7 @@ export default function TapeFlowBiasPage() {
             <SignalScoreHero
               score={score}
               trend={trend}
-              interpretation={interpretation(score)}
+              interpretation={tapeFlowInterpretation(score)}
               history={history}
             />
           </div>
