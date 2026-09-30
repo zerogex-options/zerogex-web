@@ -63,15 +63,19 @@ export const COMPETITOR_PRICES = {
       dataApi: { monthly: 129, annual: 1188 },
     },
   },
-  // The API plan as Quant Data's help center states it: "Flat $149.99/mo
-  // ($124.99 annual)", in an article dated July 2, 2026. Its platform
-  // subscription is not recorded: it has not been read first-hand from its
-  // pricing page. Add it here, with the date, once it has.
+  // `platform` is the pricing section of quantdata.us: $74.99/mo billed
+  // monthly, or $62.50/mo billed annually, both labeled "Non-professionals
+  // only" with a 7-day free trial. Registered professionals are sent to a
+  // separate Professional plan whose price that section does not show, so it
+  // is not recorded. The page quotes the yearly plan per month only, so no
+  // yearly total is recorded either. `api` is the API plan as Quant Data's help
+  // center states it, "Flat $149.99/mo ($124.99 annual)" (GEX API quickstart,
+  // dated July 2, 2026).
   quantdata: {
     checked: '2026-09-30',
-    source:
-      'https://help.quantdata.us/en/articles/15807345-gamma-exposure-gex-api-python-quickstart-dealer-positioning-guide',
+    source: 'https://quantdata.us/#pricing',
     plans: {
+      platform: { monthly: 74.99, annualPerMonth: 62.5 },
       api: { monthly: 149.99, annualPerMonth: 124.99 },
     },
   },

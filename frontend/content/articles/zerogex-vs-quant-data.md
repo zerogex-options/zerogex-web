@@ -30,16 +30,20 @@ Open interest is published once a day, after the close. On a gamma map built fro
 
 ## Prices
 
-Quant Data prices its main platform subscription on its [pricing page](https://quantdata.us/pricing) and advertises a 7-day free trial. The one Quant Data price this page quotes is its API plan, which its help center lists at {{quantdata:api:monthly}} a month, or {{quantdata:api:annual:mo}} a month on yearly billing (checked {{quantdata:checked}}). ZeroGEX's API access comes with Pro, so that is the closest like-for-like comparison:
+List prices before promotions and tax, checked {{quantdata:checked}}. Quant Data's platform plan, which covers its web dashboard and its iOS and Android apps, is {{quantdata:platform:monthly}} a month, or {{quantdata:platform:annual:mo}} a month billed yearly, with a 7-day free trial on either. Both prices are for non-professional traders; registered professionals are sent to a separate Professional plan. Its API is a separate plan again. ZeroGEX's prices are the ones on its [Pricing](/pricing) page today.
 
 | Plan | Billed monthly | Billed yearly |
 |---|---|---|
+| ZeroGEX Basic | {{zgx:basic:monthly}}/mo | {{zgx:basic:annual}}/yr (about {{zgx:basic:annual:mo}}/mo) |
 | ZeroGEX Pro, with API access | {{zgx:pro:monthly}}/mo | {{zgx:pro:annual}}/yr (about {{zgx:pro:annual:mo}}/mo) |
+| Quant Data, non-professional | {{quantdata:platform:monthly}}/mo | {{quantdata:platform:annual:mo}}/mo, billed yearly |
 | Quant Data API plan | {{quantdata:api:monthly}}/mo | {{quantdata:api:annual:mo}}/mo, billed yearly |
 
-The two APIs are not the same size. Quant Data's covers 30+ endpoints across 6,000+ tickers, including dark pool prints and implied volatility surfaces, with a year of history and a hosted MCP server. ZeroGEX's covers the six symbols it tracks: levels, GEX, flow, signals, and their history.
+Both ZeroGEX plans cost less than Quant Data's platform plan, monthly or yearly, and ZeroGEX Pro includes the API access that Quant Data sells as a separate plan. The prices buy different things, though: Quant Data's covers order flow, dark pool prints, news, and exposure maps across 6,000+ tickers, and ZeroGEX's covers six symbols in depth.
 
-ZeroGEX Basic, without API access, is {{zgx:basic:monthly}} a month or {{zgx:basic:annual}} a year. Basic monthly starts with a 7-day free trial, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. The full breakdown is on the [Pricing](/pricing) page.
+The two APIs are not the same size either. Quant Data's covers 30+ endpoints across 6,000+ tickers, including dark pool prints and implied volatility surfaces, with a year of history and a hosted MCP server. ZeroGEX's covers the six symbols it tracks: levels, GEX, flow, signals, and their history.
+
+ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. The full breakdown is on the [Pricing](/pricing) page.
 
 ## Where Quant Data is the stronger choice
 
@@ -48,6 +52,7 @@ ZeroGEX Basic, without API access, is {{zgx:basic:monthly}} a month or {{zgx:bas
 - **More exposure types on the map.** Delta, vanna, and charm alongside gamma, at intervals you choose.
 - **Mobile apps and push alerts.** Quant Data has native iOS and Android apps with push notifications. ZeroGEX runs in the browser, on desktop or phone, and its signal triggers show inside the app.
 - **A bigger API.** 30+ endpoints, a year of history, and dark pool data, for building your own tools across many tickers.
+- **Support around the clock.** Quant Data's plans list 24/7 live chat support. ZeroGEX support is by email.
 
 ## Where ZeroGEX is the stronger choice
 
@@ -55,7 +60,7 @@ ZeroGEX Basic, without API access, is {{zgx:basic:monthly}} a month or {{zgx:bas
 - **The regime line on every chart.** The gamma flip is drawn on the GEX Heatmap and the price charts: the level where modeled dealer hedging tends to switch from damping moves to extending them.
 - **A published method and a graded record.** ZeroGEX documents how it calculates the gamma flip on its [Methodology](/methodology) page and grades every forecast it publishes, misses included, on its [Track Record](/track-record).
 - **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader and Sierra Chart indicators that update themselves on Pro. See [Integrations](/integrations).
-- **API access without a separate plan,** at a lower price than Quant Data's API plan.
+- **A lower price, with the API included.** Both ZeroGEX plans cost less than Quant Data's platform plan, and API access comes with Pro instead of a separate plan.
 - **A free way to check first.** The [SPX gamma levels](/spx-gamma-levels) page and its siblings need no signup, and neither does the [MCP server](/education/gamma-levels-in-claude) that puts the same levels in AI assistants.
 
 ## How to decide
@@ -67,4 +72,4 @@ ZeroGEX Basic, without API access, is {{zgx:basic:monthly}} a month or {{zgx:bas
 
 ---
 
-Quant Data's features and API price are from [quantdata.us](https://quantdata.us) and its [help center](https://help.quantdata.us/en/), checked {{quantdata:checked}}, and can change at any time, so confirm them there. ZeroGEX prices on this page are read from its live price list. ZeroGEX is not affiliated with Quant Data. Educational content only, not a trade recommendation.
+Quant Data's features and prices are from [quantdata.us](https://quantdata.us) and its [help center](https://help.quantdata.us/en/), checked {{quantdata:checked}}, and can change at any time, so confirm them there. ZeroGEX prices on this page are read from its live price list. ZeroGEX is not affiliated with Quant Data. Educational content only, not a trade recommendation.
