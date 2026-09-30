@@ -37,7 +37,10 @@ interface FramePayload {
 // with the wall cells' green=put / red=call colors in the same image.)
 const OG_POS = '#10B981';
 const OG_NEG = '#F45854';
-const STRIP_H = 120;
+// Sized, with the 84px spot, so the strip's downward (net-negative) bars end
+// above the footer; at 120 under a 96px spot they ran into the ZeroGEX
+// wordmark and permalink.
+const STRIP_H = 96;
 
 interface ProfileCol {
   strike: number;
@@ -218,12 +221,15 @@ export default async function Image({
             No GEX frame at this moment.
           </div>
         ) : (
-          <>
+          // A real column, not a fragment: next/og lays a fragment's children
+          // out in a row, which squeezed the level tiles and the strike
+          // profile into overlapping slivers beside the spot price.
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                marginBottom: 26,
+                marginBottom: 22,
               }}
             >
               <div
@@ -241,7 +247,7 @@ export default async function Image({
               <div
                 style={{
                   marginTop: 6,
-                  fontSize: 96,
+                  fontSize: 84,
                   fontWeight: 900,
                   letterSpacing: '-2.5px',
                   color: '#FFF1E6',
@@ -380,7 +386,7 @@ export default async function Image({
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         <div
