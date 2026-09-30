@@ -1675,6 +1675,13 @@ export default function GammaTerminalChart({
       .filter((p) => Number.isFinite(p.price) && Number.isFinite(p.gex))
       .sort((a, b) => a.price - b.price);
   }, [gexProfile, snapshot, rewindActive, rewindBucket, liveGexBucket, live]);
+  // Which of the two curves above the crosshair readouts are reading. The
+  // per-strike density only says how much gamma sits at the strikes near a
+  // price; its sign is NOT the regime there (a positive-gamma strike can sit
+  // in a net-short book), so the readouts must not label it as one. Only the
+  // cumulative GEX-profile fallback is a regime read. Mirrors the branches of
+  // profilePoints.
+  const profileIsStrikeDensity = rewindActive || (live && liveGexBucket != null) || (snapshot != null && !!snapshot.strikes);
 
   // ── Price/change readout ─────────────────────────────────────────────────
   // Three readings, TradingView-style (see priceChange.ts):
@@ -3023,6 +3030,12 @@ export default function GammaTerminalChart({
 
   // Crosshair-price gamma context for the floating readout.
   const hoverGex = hover ? gexAtPrice(hover.price) : null;
+  // Wording for the crosshair gamma section, shared by the tape's readout and
+  // the strike panel's card. On the per-strike density it names what the
+  // number is and says outright that the regime lives on the band / badge.
+  const gammaReadoutTitle = (price: number) =>
+    profileIsStrikeDensity ? `STRIKE Γ NEAR ${fmtPrice(price)}` : `GAMMA @ ${fmtPrice(price)}`;
+  const gammaReadoutLabel = profileIsStrikeDensity ? "Net Γ at nearby strikes" : "Net dealer Γ";
   // The ribbon orb under the cursor: the hovered bar's bucket, the strike lane
   // nearest the hovered price (within half a lane), its net gamma and its
   // weight against the heaviest strike on screen — the same numbers the orb
@@ -3328,17 +3341,21 @@ export default function GammaTerminalChart({
       return (
         <>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>{when}</div>
-          {sectionTitle(`GAMMA @ ${fmtPrice(price)}`, "var(--color-brand-primary)")}
+          {sectionTitle(gammaReadoutTitle(price), "var(--color-brand-primary)")}
           {smoothed != null && (
             <>
               <div className="flex items-center justify-between" style={{ ...rowStyle, marginTop: 0 }}>
-                <span style={{ color: "var(--text-secondary)" }}>Net dealer &#915;</span>
+                <span style={{ color: "var(--text-secondary)" }}>{gammaReadoutLabel}</span>
                 <span style={{ fontWeight: 600, color: signColor(smoothed) }}>{fmtGex(smoothed)}</span>
               </div>
-              <div className="flex items-center justify-between" style={rowStyle}>
-                <span style={{ color: "var(--text-secondary)" }}>Regime</span>
-                <span style={{ fontWeight: 600, color: signColor(smoothed) }}>{smoothed >= 0 ? "Long Γ" : "Short Γ"}</span>
-              </div>
+              {profileIsStrikeDensity ? (
+                <div style={{ ...rowStyle, color: "var(--text-muted)" }}>Not the regime &middot; see the shaded band</div>
+              ) : (
+                <div className="flex items-center justify-between" style={rowStyle}>
+                  <span style={{ color: "var(--text-secondary)" }}>Regime</span>
+                  <span style={{ fontWeight: 600, color: signColor(smoothed) }}>{smoothed >= 0 ? "Long Γ" : "Short Γ"}</span>
+                </div>
+              )}
             </>
           )}
         </>
@@ -4497,16 +4514,19 @@ export default function GammaTerminalChart({
                 </div>
               )}
               <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>GAMMA @ {fmtPrice(hover.price)}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>{gammaReadoutTitle(hover.price)}</div>
               {hoverGex != null ? (
                 <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Net dealer &#915;</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{gammaReadoutLabel}</span>
                   <span style={{ fontWeight: 600, color: hoverGex >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>{fmtGex(hoverGex)}</span>
                 </div>
               ) : (
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>No gamma data</div>
               )}
-              {hoverGex != null && (
+              {hoverGex != null && profileIsStrikeDensity && (
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 2, color: "var(--text-muted)" }}>Not the regime &middot; see the shaded band</div>
+              )}
+              {hoverGex != null && !profileIsStrikeDensity && (
                 <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 2 }}>
                   <span style={{ color: "var(--text-secondary)" }}>Regime</span>
                   <span style={{ fontWeight: 600, color: hoverGex >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>{hoverGex >= 0 ? "Long Γ" : "Short Γ"}</span>

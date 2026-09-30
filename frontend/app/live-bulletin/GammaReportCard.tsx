@@ -285,13 +285,20 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             fontSize: 11,
             fontWeight: 800,
             letterSpacing: 1.2,
-            marginBottom: 14,
+            marginBottom: 8,
           }}
         >
           {model.regimeBadge}
           <span style={{ color: C.textSecondary, fontWeight: 600, letterSpacing: 0.3 }}>
             {copy.label}
           </span>
+        </div>
+        {/* The bulletin has no Expiry selector: it always reads the whole
+            chain. Say so, because the chart's 0DTE pick is shared across tabs
+            and a reader coming from a 0DTE board will otherwise assume this
+            card follows it. */}
+        <div style={{ fontSize: 11, color: C.textSecondary, letterSpacing: 0.3, marginBottom: 14 }}>
+          All expirations &middot; full options chain, not filtered to 0DTE
         </div>
 
         <h1
