@@ -1228,7 +1228,9 @@ const DESKTOP_BOARD: OverlayBoard = {
   compact: false,
   CW: 1200,
   CH: 560,
-  PLOT_TOP: 24,
+  // Room above the plot for two rows over the profile panel: the expiry
+  // ramp key on top, then the panel title and call/put swatches.
+  PLOT_TOP: 36,
   PLOT_BOTTOM: 500,
   LEFT_X: 0,
   LEFT_W: 720,
