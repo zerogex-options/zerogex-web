@@ -57,6 +57,14 @@ settings for zerogex.io. Every visitor then gets HTTP/2 over TCP, so they need
 no browser flag. It is one switch and can be turned back on.
 `api.zerogex.io` is not behind Cloudflare, so the WebSocket is unaffected.
 
+**Decided Thu: switch HTTP/3 off first, rather than ask them to change a
+browser flag.** Cloudflare advertises HTTP/3 with `alt-svc: h3=":443";
+ma=86400`, so browsers remember it for up to 24 hours. New visitors get h2 at
+once, but their Chrome may stay on h3 until it forgets. Check that it took
+with `curl -sI https://zerogex.io/ | grep -i alt-svc`; no output means it is no
+longer advertised. Their Protocol column showing `h2` means it has reached
+them. The Chrome flag remains the fallback if they don't want to wait.
+
 ## Update Wed Sep 30: still slow after the fix
 
 The fix went live after Tuesday's close. On Wednesday they wrote three times
