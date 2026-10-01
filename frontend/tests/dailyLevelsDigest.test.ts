@@ -394,6 +394,15 @@ test('an unresolved flip is asterisked and explained, not left as a bare dash', 
   assert.match(text, /flip —\*/);
 });
 
+test('the paste block links the indicator it is formatted for', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const { text, html } = render(m);
+  // Right under the paste lines, ahead of the "Full page" link, so a reader
+  // without the script finds it where they need it, not only in the footer.
+  assert.match(text, /NQ: flip[^\n]*\nDon't have the script yet\? Get the free TradingView indicator: https:\/\/zerogex\.io\/tradingview-indicator\n/);
+  assert.match(html, /<\/pre>\s*<p[^>]*>Don&rsquo;t have the script yet\? <a href="https:\/\/zerogex\.io\/tradingview-indicator"/);
+});
+
 test('no asterisk and no footnote when every flip resolved', () => {
   const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
   const { text, html } = render(m);
