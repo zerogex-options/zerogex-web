@@ -145,7 +145,11 @@ build: ninjatrader-package integration-assets
 # means one command leaves the box consistent; generating after would not.
 rebuild: ninjatrader-package integration-assets
 	@echo "Cleaning build directory..."
-	rm -rf frontend/.next
+# The running server rewrites ISR pages (the 60 s gamma-levels pages) into
+# .next while this deletes it, so one rm -rf can lose that race with
+# "Directory not empty" and stop the deploy before the build. Retry briefly;
+# the last attempt still fails loudly if something else is wrong.
+	@for i in 1 2 3 4 5; do rm -rf frontend/.next 2>/dev/null && exit 0; sleep 1; done; rm -rf frontend/.next
 	@echo "Building for production..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "Restarting PM2 process..."
@@ -1614,7 +1618,11 @@ janitor-noconfirm:
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -rf frontend/.next
+# The running server rewrites ISR pages (the 60 s gamma-levels pages) into
+# .next while this deletes it, so one rm -rf can lose that race with
+# "Directory not empty" and stop the deploy before the build. Retry briefly;
+# the last attempt still fails loudly if something else is wrong.
+	@for i in 1 2 3 4 5; do rm -rf frontend/.next 2>/dev/null && exit 0; sleep 1; done; rm -rf frontend/.next
 	rm -rf frontend/node_modules/.cache
 	@echo "Clean complete!"
 
@@ -1833,7 +1841,11 @@ deploy:
 	@echo "5b. Publishing chart-platform study sources..."
 	@make integration-assets
 	@echo "6. Rebuilding application..."
-	rm -rf frontend/.next
+# The running server rewrites ISR pages (the 60 s gamma-levels pages) into
+# .next while this deletes it, so one rm -rf can lose that race with
+# "Directory not empty" and stop the deploy before the build. Retry briefly;
+# the last attempt still fails loudly if something else is wrong.
+	@for i in 1 2 3 4 5; do rm -rf frontend/.next 2>/dev/null && exit 0; sleep 1; done; rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 	@echo "7. Restarting PM2..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
