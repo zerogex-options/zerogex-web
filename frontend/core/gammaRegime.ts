@@ -83,21 +83,32 @@ export function longGammaAtSpot(
  * in the badge — the regime zones paint INVERTED, short above the flip and long
  * below, which is the one reading the chart must never show.
  *
- * Scoped levels therefore get `null`, which sends {@link longGammaAtSpot} to
- * its geometric spot-vs-DRAWN-flip fallback: no dollar figure, but a badge and
- * bands that agree with the level on screen.
+ * Scoped levels therefore never get the whole-chain value. What they get
+ * instead depends on the scope:
+ *
+ *   * the live expiration filter passes `scopedNetGexAtSpot`: the selected
+ *     book's OWN at-spot figure, read off the same cumulative curve its flip is
+ *     a crossing of (see {@link cumulativeNetGexAtSpot}). One book, so it can't
+ *     contradict the flip the way the whole-chain value could. It is also the
+ *     only regime read a subset with NO crossing has: a one-signed book
+ *     publishes no flip, and its sign at spot is still its regime.
+ *   * rewind passes nothing and gets `null`, which sends
+ *     {@link longGammaAtSpot} to its geometric spot-vs-DRAWN-flip fallback: no
+ *     dollar figure, but a badge and bands that agree with the level on screen.
+ *     (An unfiltered rewind draws the canonical spot-shift flip, which is not a
+ *     crossing of the cumulative curve, so that curve can't stand in there.)
  *
  * @param netGexAtSpot whole-chain at-spot dealer gamma, or null
  * @param scopedLevels true when the flip/walls on screen are not the whole-chain live ones
+ * @param scopedNetGexAtSpot the scoped book's own at-spot figure, when the caller has one
  */
 export function atSpotGammaForScope(
   netGexAtSpot: number | null,
   scopedLevels: boolean,
+  scopedNetGexAtSpot: number | null = null,
 ): number | null {
-  if (scopedLevels) return null;
-  return typeof netGexAtSpot === "number" && Number.isFinite(netGexAtSpot)
-    ? netGexAtSpot
-    : null;
+  const value = scopedLevels ? scopedNetGexAtSpot : netGexAtSpot;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /**

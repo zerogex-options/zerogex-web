@@ -141,8 +141,10 @@ function finite(value: number | null | undefined): number | null {
  * the Playbook's levels) describe only that subset — so reading the regime off
  * the chain-wide value would pin the row to the unfiltered book and make the
  * Playbook deaf to the expiration picker, which is exactly the selection this
- * component is supposed to follow. Filtered → null, which sends
- * `longGammaAtSpot` to its geometric spot-vs-FILTERED-flip fallback.
+ * component is supposed to follow. Filtered → the filtered book's own at-spot
+ * figure (`scopedNetGexAtSpot`, the hook reads it off the same bucket the
+ * levels come from), or null without one, which sends `longGammaAtSpot` to its
+ * geometric spot-vs-FILTERED-flip fallback.
  *
  * Thin wrapper over {@link atSpotGammaForScope}, which states the same rule for
  * every surface that can draw a non-whole-chain flip (the chart's badge and
@@ -150,8 +152,12 @@ function finite(value: number | null | undefined): number | null {
  * only scope the Playbook has — it never rewinds — and the name is what the
  * hook and its tests read.
  */
-export function atSpotGammaForPlaybook(netGexAtSpot: number | null, filtered: boolean): number | null {
-  return atSpotGammaForScope(finite(netGexAtSpot), filtered);
+export function atSpotGammaForPlaybook(
+  netGexAtSpot: number | null,
+  filtered: boolean,
+  scopedNetGexAtSpot: number | null = null,
+): number | null {
+  return atSpotGammaForScope(finite(netGexAtSpot), filtered, finite(scopedNetGexAtSpot));
 }
 
 function wallOf(side: 'call' | 'put', level: number, spot: number): PlaybookWall {

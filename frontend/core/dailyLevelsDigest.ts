@@ -306,6 +306,9 @@ const FLIP_UNRESOLVED_NOTE =
   '* Gamma flip unresolved\u00a0- the chain had no qualifying zero-crossing, so no level is printed rather than an invented one.';
 const FLIP_UNRESOLVED_PATH = '/methodology';
 
+/** Where a reader gets the script the paste block is formatted for. */
+const TRADINGVIEW_PATH = '/tradingview-indicator';
+
 /**
  * The reading list at the foot of every digest.
  *
@@ -322,7 +325,7 @@ const FOOTER_LINKS: ReadonlyArray<{ path: string; label: string; blurb: string }
   { path: '/education/gamma-walls-explained', label: 'Gamma walls explained', blurb: 'why price stalls at the call and put walls' },
   { path: '/scorecard', label: 'Daily Scorecard', blurb: "how the engine's calls actually resolved, session by session" },
   { path: '/track-record', label: 'Forecast track record', blurb: 'every graded session since we started, including the days the range broke' },
-  { path: '/tradingview-indicator', label: 'Free TradingView script', blurb: 'plot the levels above on your own chart' },
+  { path: TRADINGVIEW_PATH, label: 'Free TradingView script', blurb: 'plot the levels above on your own chart' },
 ];
 
 export type RenderedEmail = { subject: string; text: string; html: string };
@@ -361,6 +364,7 @@ export function renderDailyLevelsEmail(
     'Paste order for the free TradingView script (Gamma Flip / Call Wall / Put Wall / Max Pain):',
     zeroNote,
     ...model.rows.map(pasteLine),
+    `Don't have the script yet? Get the free TradingView indicator: ${site}${TRADINGVIEW_PATH}`,
     '',
     `Full page, charts and the other tickers: ${site}/spx-gamma-levels`,
     '',
@@ -453,6 +457,7 @@ export function renderDailyLevelsEmail(
       <p style="margin:24px 0 6px; font-size:13px; font-weight:700; color:#12283c;">Paste order for the free TradingView script</p>
       <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Gamma Flip / Call Wall / Put Wall / Max Pain${zeroNote ? ` &middot; ${escapeHtml(zeroNote)}` : ''}</p>
       <pre style="margin:0; padding:14px 16px; background:#f5f7f9; border:1px solid #e2e6ea; border-radius:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; line-height:1.7; color:#12283c; white-space:pre-wrap; word-break:break-word;">${escapeHtml(model.rows.map(pasteLine).join('\n'))}</pre>
+      <p style="margin:8px 0 0; font-size:12px; color:#6b7680;">Don&rsquo;t have the script yet? <a href="${escapeHtml(`${site}${TRADINGVIEW_PATH}`)}" style="color:#12283c; font-weight:600;">Get the free TradingView indicator &rarr;</a></p>
 
       <p style="margin:22px 0 0; font-size:14px;">
         <a href="${escapeHtml(`${site}/spx-gamma-levels`)}" style="color:#12283c; font-weight:600;">Full page, charts and the other tickers &rarr;</a>

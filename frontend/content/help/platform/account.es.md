@@ -35,8 +35,8 @@ Puedes vincular **Google** y **Apple** a la misma cuenta. La sección Métodos d
 ## Nivel y suscripción
 
 - Tu nivel actual se muestra en la parte superior de la página.
-- **Gestionar suscripción**, en la sección Suscripción, abre el portal de facturación alojado por Stripe. Los cambios de plan, los métodos de pago, las facturas y la cancelación se gestionan todos allí.
-- También puedes cancelar con el enlace **Cancel subscription** bajo ese botón, que te ofrece en su lugar una pausa de uno a tres meses si lo que necesitas es un descanso.
+- **Gestionar suscripción**, en la sección Suscripción, abre el portal de facturación alojado por Stripe. Los cambios de plan, los métodos de pago y las facturas se gestionan allí.
+- Para cancelar, usa el enlace **Cancelar suscripción** bajo ese botón. Antes de cancelar, puede ofrecerte un descuento, una periodicidad más larga o una pausa de uno a tres meses si lo que necesitas es un descanso.
 - Si un pago falla, la sección lo indica y el botón pasa a ser **Abrir el portal de facturación**, donde puedes pagar la factura pendiente con cualquier tarjeta o actualizar tu método de pago.
 - En los 7 días siguientes a tu primer pago de un plan cubierto por la garantía de devolución del dinero de 7 días (Pro, o cualquier plan trimestral o anual), haz clic en **Solicitar un reembolso completo** en la página Cuenta. El acceso termina cuando se emite el reembolso; un reembolso por cliente.
 

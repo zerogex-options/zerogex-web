@@ -166,7 +166,7 @@ test('the dormant reminder states the exit without selling it', () => {
   // An email claiming nothing is needed must not end in a call to action; the
   // cancel route is linked inline in its own sentence instead.
   assert.doesNotMatch(html, /Manage subscription/);
-  assert.match(html, /billing portal/);
+  assert.match(html, /Cancel subscription<\/strong> link on your <a href="[^"]*\/account"/);
 });
 
 test('softening the dormant copy does not soften the charge disclosure', () => {
@@ -195,7 +195,7 @@ test('the dormant variant carries no CTA button at all', () => {
   const { html } = buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT, dormant: true });
 
   assert.doesNotMatch(html, /display: inline-block; padding: 12px 20px/);
-  assert.match(html, /billing portal/);
+  assert.match(html, /Cancel subscription<\/strong> link on your <a href="[^"]*\/account"/);
 });
 
 // ---------------------------------------------------------------------------

@@ -16,9 +16,12 @@ import {
   shouldAlertOnChurn,
   DEFAULT_CHURN_ALERT_KIND,
   alertRunExitCode,
+  billingAtCancel,
+  LEDGER_MATCH_WINDOW_MS,
   type ChurnAlertInput,
 } from '../core/cancellationAlert.ts';
 import { formatCancellationReasonSuffix } from '../core/cancellationReason.ts';
+import { buildSubscriberLedger, type LedgerSyncEvent } from '../core/subscriberBucket.ts';
 
 // The alert is only as trustworthy as two contracts:
 //   1. The LATCH round-trip. If buildAlertLatchMessage ⇄ parseAlertLatchEventId
@@ -38,6 +41,7 @@ const BASE: ChurnAlertInput = {
   accountCreatedAtIso: '2026-08-24T03:21:07.556Z',
   subscriptionStartedAtIso: null,
   tier: 'pro',
+  billing: null,
   currentPeriodEndIso: '2026-09-28T10:00:00.000Z',
 };
 
@@ -351,4 +355,110 @@ test('missing member context degrades to em dashes, never to a crash', () => {
   assert.equal(byLabel.get('Tier at churn'), 'unknown');
   assert.equal(byLabel.get('User id'), 'unknown');
   assert.ok(alert.subject.length > 0);
+});
+
+// ── Paying member or free trial ──────────────────────────────────────────────
+// The label must say what the Subscriber Ledger says about the same cancel, so
+// these run the real ledger builder rather than hand-written ledger rows.
+
+function sync(overrides: Partial<LedgerSyncEvent>): LedgerSyncEvent {
+  return {
+    subId: 'sub_1',
+    userId: 'user_1',
+    email: 'member@example.com',
+    at: '2026-09-01T00:00:00.000Z',
+    status: 'active',
+    tier: 'pro',
+    cancelAtPeriodEnd: false,
+    ...overrides,
+  };
+}
+
+test('billing: a cancel during the free trial reads as a trial, as it does in the ledger', () => {
+  const ledger = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-20T22:52:00.000Z', status: 'trialing' }),
+      sync({ at: '2026-09-25T22:31:00.000Z', status: 'trialing', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [],
+    [],
+    Date.parse('2026-09-25T23:00:00.000Z'),
+  );
+  assert.ok(ledger.some((r) => r.kind === 'cancelScheduledTrial'));
+  // The churn row lands a few seconds after the sync the ledger row came from.
+  assert.equal(billingAtCancel(ledger, 'user_1', '2026-09-25T22:31:04.000Z'), 'trial');
+});
+
+test('billing: a cancel after the first payment cleared reads as paying', () => {
+  const ledger = buildSubscriberLedger(
+    [
+      sync({ at: '2026-08-24T18:00:00.000Z', status: 'trialing' }),
+      sync({ at: '2026-08-31T18:00:00.000Z', status: 'active' }),
+      sync({ at: '2026-09-29T07:26:00.000Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [{ subId: 'sub_1', userId: 'user_1', email: 'member@example.com', at: '2026-09-01T19:00:00.000Z' }],
+    [],
+    Date.parse('2026-09-29T08:00:00.000Z'),
+  );
+  assert.ok(ledger.some((r) => r.kind === 'cancelScheduledPaid'));
+  assert.equal(billingAtCancel(ledger, 'user_1', '2026-09-29T07:26:02.000Z'), 'paying');
+});
+
+test('billing: no answer rather than a guess', () => {
+  const ledger = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-20T00:00:00.000Z', status: 'trialing' }),
+      sync({ at: '2026-09-25T00:00:00.000Z', status: 'trialing', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [],
+    [],
+    Date.parse('2026-09-26T00:00:00.000Z'),
+  );
+  // Another member's cancel at the same moment says nothing about this one.
+  assert.equal(billingAtCancel(ledger, 'user_2', '2026-09-25T00:00:01.000Z'), null);
+  // A churn row whose account is gone has no member to look up.
+  assert.equal(billingAtCancel(ledger, null, '2026-09-25T00:00:01.000Z'), null);
+  // A cancel the ledger saw long before is a different click.
+  const later = new Date(Date.parse('2026-09-25T00:00:00.000Z') + LEDGER_MATCH_WINDOW_MS + 1000).toISOString();
+  assert.equal(billingAtCancel(ledger, 'user_1', later), null);
+  assert.equal(billingAtCancel(ledger, 'user_1', 'not a date'), null);
+  assert.equal(billingAtCancel([], 'user_1', '2026-09-25T00:00:01.000Z'), null);
+});
+
+test('billing: a member who cancels twice gets the verdict for the click nearest the churn row', () => {
+  // Canceled the trial, took it back, converted and paid, then canceled again.
+  const ledger = buildSubscriberLedger(
+    [
+      sync({ at: '2026-09-01T00:00:00.000Z', status: 'trialing' }),
+      sync({ at: '2026-09-03T00:00:00.000Z', status: 'trialing', cancelAtPeriodEnd: true }),
+      sync({ at: '2026-09-03T00:01:00.000Z', status: 'trialing' }),
+      sync({ at: '2026-09-08T00:00:00.000Z', status: 'active' }),
+      sync({ at: '2026-09-03T00:08:00.000Z', status: 'trialing', cancelAtPeriodEnd: true, subId: 'sub_other', userId: 'user_9' }),
+      sync({ at: '2026-09-20T00:00:00.000Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [{ subId: 'sub_1', userId: 'user_1', email: 'member@example.com', at: '2026-09-08T01:00:00.000Z' }],
+    [],
+    Date.parse('2026-09-21T00:00:00.000Z'),
+  );
+  assert.equal(billingAtCancel(ledger, 'user_1', '2026-09-03T00:00:03.000Z'), 'trial');
+  assert.equal(billingAtCancel(ledger, 'user_1', '2026-09-20T00:00:03.000Z'), 'paying');
+});
+
+test('subject and facts lead with paying or trial', () => {
+  const paying = buildChurnAlert({ ...BASE, billing: 'paying' }, NOW);
+  assert.ok(paying.subject.startsWith('[ZeroGEX] Paying member canceled: member@example.com — '));
+  assert.equal(new Map(paying.facts.map((f) => [f.label, f.value])).get('Billing'), 'Paying member');
+
+  const trial = buildChurnAlert({ ...BASE, billing: 'trial' }, NOW);
+  assert.ok(trial.subject.startsWith('[ZeroGEX] Trial canceled, never charged: member@example.com — '));
+  assert.equal(new Map(trial.facts.map((f) => [f.label, f.value])).get('Billing'), 'Free trial, never charged');
+
+  // Unknown keeps the old subject: an alert never claims what it can't back up.
+  const unknown = buildChurnAlert(BASE, NOW);
+  assert.ok(unknown.subject.startsWith('[ZeroGEX] member@example.com canceled — '));
+  assert.equal(new Map(unknown.facts.map((f) => [f.label, f.value])).get('Billing'), 'unknown');
 });

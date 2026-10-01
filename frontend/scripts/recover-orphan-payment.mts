@@ -60,9 +60,9 @@ import {
   readSubscriptionDiscounts,
   RECOVERED_FROM_INVOICE_KEY,
 } from '../core/orphanPayment.ts';
+import { resolveInvoicePaymentMethodId } from '../core/stripeCard.ts';
 import {
   readInvoicePaidAtUnix,
-  readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
@@ -590,7 +590,11 @@ if (already) {
 }
 
 // Renew on the card that actually settled the invoice, not the one that failed.
-const paymentMethodId = readInvoicePaymentMethodId(invoice);
+// Shared with the webhook: reads the method off the payload, else follows the
+// invoice's PaymentIntent. This script previously read only the payload and had
+// no fallback, so an unexpanded invoice left the recovered subscription with no
+// default payment method and Stripe guessing at renewal time.
+const paymentMethodId = await resolveInvoicePaymentMethodId(stripe, invoice);
 
 const params = buildRecoverySubscriptionParams({
   customerId: user.stripe_customer_id,

@@ -69,7 +69,7 @@ Para instrucciones paso a paso, consulta [Facturación y Portal de Stripe](/help
 
 ## Cuando estás en periodo de prueba
 
-La prueba gratuita de 7 días solo está disponible con Basic mensual (una por cuenta). Unas 48 horas antes de que termine, te enviamos un recordatorio por correo con el importe que se cobrará. Cuando termina la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste. Para evitarlo, cancela antes de que expire la prueba - en el portal de facturación o con **Cancel subscription** en la página Cuenta - y no se te cobrará nada.
+La prueba gratuita de 7 días solo está disponible con Basic mensual (una por cuenta). Unas 48 horas antes de que termine, te enviamos un recordatorio por correo con el importe que se cobrará. Cuando termina la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste. Para evitarlo, cancela antes de que expire la prueba con **Cancelar suscripción** en la página Cuenta y no se te cobrará nada.
 
 Si durante la prueba pasas a Pro o a un plan trimestral o anual, la prueba termina y el nuevo plan se factura ese mismo día; la página [Pricing](/pricing) te muestra el importe exacto y te pide confirmación, y ese pago está cubierto por la garantía de devolución del dinero de 7 días.
 

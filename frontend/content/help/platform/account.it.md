@@ -35,8 +35,8 @@ Puoi collegare **Google** e **Apple** allo stesso account. La sezione Metodi di 
 ## Livello e abbonamento
 
 - Il tuo livello attuale è mostrato in cima alla pagina.
-- **Gestisci abbonamento**, nella sezione Abbonamento, apre il portale di fatturazione ospitato da Stripe. Cambio piano, metodi di pagamento, fatture e cancellazione avvengono tutti lì.
-- Puoi anche annullare con il link **Cancel subscription** sotto quel pulsante, che in alternativa ti propone una pausa da uno a tre mesi se ti basta una pausa.
+- **Gestisci abbonamento**, nella sezione Abbonamento, apre il portale di fatturazione ospitato da Stripe. Cambio piano, metodi di pagamento e fatture si gestiscono lì.
+- Per annullare, usa il link **Annulla abbonamento** sotto quel pulsante. Prima di annullare, può proporti uno sconto, una cadenza più lunga o una pausa da uno a tre mesi se ti basta una pausa.
 - Se un pagamento non va a buon fine, la sezione lo segnala e il pulsante diventa **Apri il portale di fatturazione**, dove puoi saldare la fattura aperta con qualsiasi carta o aggiornare il metodo di pagamento.
 - Entro 7 giorni dal primo pagamento di un piano coperto dalla garanzia soddisfatti o rimborsati di 7 giorni (Pro, o qualsiasi piano trimestrale o annuale), clicca su **Richiedi il rimborso completo** nella pagina Account. L'accesso termina quando il rimborso viene emesso; un rimborso per cliente.
 

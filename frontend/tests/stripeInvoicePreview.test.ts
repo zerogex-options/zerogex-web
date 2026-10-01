@@ -70,6 +70,36 @@ test('createPreview nests item + proration changes under subscription_details', 
   });
 });
 
+test('a switch to a longer period previews a new period from now, priced at one instant', async () => {
+  const both = {
+    subscription: 'sub_1',
+    items: [{ id: 'si_1', price: 'price_pro_annual' }],
+    prorationBehavior: 'always_invoice' as const,
+    billingCycleAnchor: 'now' as const,
+    prorationDate: 1790000000,
+  };
+  const modern = fakeStripe({ createPreview: true });
+  await previewNextInvoice(modern.stripe, both);
+  assert.deepEqual(modern.calls.createPreview[0], {
+    subscription: 'sub_1',
+    subscription_details: {
+      items: [{ id: 'si_1', price: 'price_pro_annual' }],
+      proration_behavior: 'always_invoice',
+      billing_cycle_anchor: 'now',
+      proration_date: 1790000000,
+    },
+  });
+  const legacy = fakeStripe({ retrieveUpcoming: true });
+  await previewNextInvoice(legacy.stripe, both);
+  assert.deepEqual(legacy.calls.retrieveUpcoming[0], {
+    subscription: 'sub_1',
+    subscription_items: [{ id: 'si_1', price: 'price_pro_annual' }],
+    subscription_proration_behavior: 'always_invoice',
+    subscription_billing_cycle_anchor: 'now',
+    subscription_proration_date: 1790000000,
+  });
+});
+
 test('falls back to retrieveUpcoming, translating to the legacy param shape', async () => {
   const { stripe, calls } = fakeStripe({ retrieveUpcoming: true });
   const invoice = await previewNextInvoice(stripe, {

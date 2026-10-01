@@ -69,7 +69,7 @@ Eine Schritt-für-Schritt-Anleitung findest du unter [Abrechnung & Stripe-Portal
 
 ## Wenn du dich in einer Testphase befindest
 
-Die 7-tägige kostenlose Testphase gibt es nur für Basic monatlich (eine pro Konto). Etwa 48 Stunden vor ihrem Ende schicken wir dir eine Erinnerung per E-Mail mit dem Betrag, der abgebucht wird. Endet die Testphase, läuft das Abonnement automatisch zu dem Tarif weiter, zu dem du dich angemeldet hast. Um das zu verhindern, kündige, bevor die Testphase abläuft - im Billing-Portal oder über **Cancel subscription** auf der Kontoseite -, dann wird dir nichts berechnet.
+Die 7-tägige kostenlose Testphase gibt es nur für Basic monatlich (eine pro Konto). Etwa 48 Stunden vor ihrem Ende schicken wir dir eine Erinnerung per E-Mail mit dem Betrag, der abgebucht wird. Endet die Testphase, läuft das Abonnement automatisch zu dem Tarif weiter, zu dem du dich angemeldet hast. Um das zu verhindern, kündige, bevor die Testphase abläuft, über **Abonnement kündigen** auf der Kontoseite, dann wird dir nichts berechnet.
 
 Wechselst du während der Testphase zu Pro oder zu einem vierteljährlichen oder jährlichen Plan, endet die Testphase und der neue Plan wird noch am selben Tag abgerechnet; die Seite [Pricing](/pricing) zeigt dir den genauen Betrag und bittet um Bestätigung, und diese Zahlung ist durch die 7-tägige Geld-zurück-Garantie abgedeckt.
 

@@ -7,7 +7,7 @@
 // Provisions (or updates) the Stripe **customer billing portal configuration**
 // so members can self-serve the things our help docs and trial emails already
 // promise — switch cadence (monthly ↔ annual), change tier (Basic ↔ Pro),
-// cancel, update the card, and view invoices.
+// update the card, and view invoices. Not cancel: that is the Account page's.
 //
 // WHY THIS EXISTS
 //   The portal's feature set is NOT controlled by our code — it lives in a
@@ -17,8 +17,7 @@
 //   default ships with subscription_update (plan switching) OFF, so the portal
 //   renders only Payment methods / Billing info / Invoice history — no
 //   "Update plan", no "Cancel plan". Members literally cannot switch monthly →
-//   annual from it, which contradicts content/help/platform/billing.md and the
-//   "cancel anytime in the billing portal" copy in core/mailer.ts.
+//   annual from it, which contradicts content/help/platform/billing.md.
 //
 //   This script builds a configuration with the full feature set enabled and
 //   every cadence's price listed under each tier, then prints the resulting
@@ -37,8 +36,14 @@
 //     monthly, quarterly (when configured) and annual price, grouped by their
 //     Stripe product, so a member can move between any of them (cadence swap
 //     and tier swap both).
-//   • subscription_cancel  — at period end (matches our "keep access until the
-//     end of the billing period" policy in content/help/platform/billing.md).
+//   • subscription_cancel  — OFF. Every cancel goes through the Account page's
+//     "Cancel subscription" link instead (components/CancelRetentionModal),
+//     which offers 25% off, a longer billing period and a pause before it
+//     schedules the cancel, and asks why. A cancel in the portal skipped all of
+//     that: in the 90 days to 2026-10-01, 32 of 59 paid cancels happened there,
+//     and 1 of those 32 left a reason. The in-app link is shown for every state
+//     a member can be in with a subscription on file (app/account/page.tsx), so
+//     no one is left without a way to cancel; it still cancels at period end.
 //   • payment_method_update, invoice_history, customer_update (address/name/
 //     email/tax id — the last so automatic_tax has an address to work from,
 //     consistent with the checkout route's customer_update: address/name auto).
@@ -217,8 +222,9 @@ function usage() {
     [--trial-update-behavior <continue_trial|end_trial>] [--dry-run | --yes]
 
 Creates or updates the Stripe customer billing portal configuration so members
-can switch cadence (monthly <-> annual), change tier, cancel, update payment
-method, and view invoices. Mirrors the account default config in the Dashboard.
+can switch cadence (monthly <-> annual), change tier, update payment method,
+and view invoices. Cancel is left off: members cancel from the Account page.
+Mirrors the account default config in the Dashboard.
 
 Options:
       --config-id bpc_...   Update this existing configuration in place. Defaults
@@ -434,11 +440,8 @@ const subscriptionUpdate = {
 
 const features: Stripe.BillingPortal.ConfigurationCreateParams.Features = {
   subscription_update: subscriptionUpdate,
-  subscription_cancel: {
-    enabled: true,
-    mode: 'at_period_end',
-    proration_behavior: 'none',
-  },
+  // Off: cancels go through the in-app flow (see WHAT IT ENABLES above).
+  subscription_cancel: { enabled: false },
   payment_method_update: { enabled: true },
   invoice_history: { enabled: true },
   customer_update: {
@@ -536,7 +539,7 @@ try {
   const { config, created } = result;
   if (!created) {
     console.log(`\nDone. Updated portal configuration ${config.id}.`);
-    console.log('Plan switching, cancel, payment-method and invoice features are now enabled on it.');
+    console.log('Plan switching, payment-method and invoice features are enabled on it; Cancel is off.');
     verifyTrialBehavior(config);
     if (envOrLocal('STRIPE_PORTAL_CONFIG_ID') !== config.id) {
       console.log(`\nMake sure STRIPE_PORTAL_CONFIG_ID=${config.id} is set in .env.local, then: make restart`);

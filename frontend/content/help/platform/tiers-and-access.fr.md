@@ -69,7 +69,7 @@ Pour un guide pas à pas, consultez [Facturation et portail Stripe](/help/platfo
 
 ## Lorsque vous êtes en période d'essai
 
-L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Environ 48 heures avant sa fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez avant l'expiration de l'essai - dans le portail de facturation ou via **Cancel subscription** sur la page Compte - et vous ne serez pas facturé.
+L'essai gratuit de 7 jours est réservé à Basic mensuel (un par compte). Environ 48 heures avant sa fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit. Pour l'éviter, annulez avant l'expiration de l'essai via **Résilier l'abonnement** sur la page Compte, et vous ne serez pas facturé.
 
 Passer à Pro, ou à une formule trimestrielle ou annuelle, pendant l'essai met fin à l'essai et facture la nouvelle formule le jour même ; la page [Pricing](/pricing) affiche le montant exact et vous demande de confirmer, et ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.
 

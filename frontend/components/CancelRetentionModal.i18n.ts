@@ -18,6 +18,30 @@ export const dict: PageDictionary = {
     applying: 'Applying…',
     declineToCancel: 'No thanks, continue to cancel',
 
+    // Plan offers: a longer billing period, shown with the save offer (or alone
+    // once that offer has been used).
+    plansHeading: 'Before you go\u00a0- pay less with a longer plan',
+    plansBody:
+      'A longer billing period costs less per month than paying monthly. Your access carries straight on, with a credit for the unused part of what you’ve already paid.',
+    plansSubheading: 'Or pay less with a longer plan',
+    planOfferAnnual: 'Switch to {tier} annual: {price} a year',
+    planOfferQuarterly: 'Switch to {tier} quarterly: {price} every 3 months',
+    planOfferPerMonth: 'About {perMonth} a month',
+    switchConfirmHeading: 'Switch to {tier} {period}?',
+    switchConfirmBodyAnnual:
+      'You’ll be charged {amount} today: the annual price, less a credit for the unused part of your current billing period. Your plan then renews once a year from today.',
+    switchConfirmBodyQuarterly:
+      'You’ll be charged {amount} today: the quarterly price, less a credit for the unused part of your current billing period. Your plan then renews every 3 months from today.',
+    confirmSwitch: 'Switch and pay {amount}',
+    switching: 'Switching…',
+    switchBack: 'Back',
+    switchPortalLink: 'Continue in the billing portal',
+    switchedHeading: 'You’re on {tier} {period}',
+    switchedBodyAnnual:
+      'Thanks for staying. Your annual plan started today, and your receipt is on its way by email. It renews a year from today.',
+    switchedBodyQuarterly:
+      'Thanks for staying. Your quarterly plan started today, and your receipt is on its way by email. It renews 3 months from today.',
+
     // Step 2 — reason capture (only if they declined the offer).
     reasonHeading: 'Sorry to see you go',
     reasonBody:

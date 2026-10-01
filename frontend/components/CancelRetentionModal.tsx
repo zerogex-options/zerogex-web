@@ -1,27 +1,42 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageT } from '@/core/LanguageContext';
 import { lockPageScroll } from '@/core/scrollLock';
 import { CANCELLATION_FEEDBACK_LABELS } from '@/core/cancellationReason';
+import { formatBilledUsd, formatPerMonthUsd, type BillableTier, type BillingCadence } from '@/core/billingPlans';
+import type { LengthenOffer } from '@/core/planSwitch';
 import { dict } from './CancelRetentionModal.i18n';
 
-// In-app cancellation RETENTION flow. Opened from the account page's "Cancel
+// In-app cancellation RETENTION flow, and the only way to cancel: the Stripe
+// billing portal no longer offers Cancel. Opened from the account page's "Cancel
 // subscription" button, it intercepts the member at the moment of cancel intent —
-// the highest-converting retention moment — instead of deep-linking straight to
-// Stripe's one-click portal cancel. Offer 25% off first; only if they decline do
-// we capture a reason and schedule the cancel (forwarding the reason to Stripe so
-// the webhook's existing ack-email + "Why Members Cancel" logging still fire).
+// the highest-converting retention moment. It offers 25% off and, to a paying
+// monthly or quarterly member, a switch to a longer billing period; only if they
+// decline do we capture a reason and schedule the cancel (forwarding the reason
+// to Stripe so the webhook's existing ack-email + "Why Members Cancel" logging
+// still fire).
 //
-// All billing mutations go through POST /api/billing/cancel-flow (CSRF + session
-// gated). This component owns no billing logic — just the steps and the copy.
+// Cancel, discount and pause go through POST /api/billing/cancel-flow; a plan
+// switch goes through POST /api/billing/change-plan, priced first and confirmed
+// at the amount shown. Both are CSRF + session gated. This component owns no
+// billing logic — just the steps and the copy.
 
 // Mirrors SAVE_PERCENT in core/retentionOffer.ts (kept local so this client
 // component never imports the server-only Stripe module). The server is the
 // source of truth and echoes the real percentOff back on success.
 const SAVE_PERCENT = 25;
 
-type Step = 'offer' | 'reason' | 'pause' | 'saved' | 'canceled' | 'paused';
+type Step = 'offer' | 'reason' | 'pause' | 'switchConfirm' | 'switched' | 'saved' | 'canceled' | 'paused';
+
+// A priced switch awaiting the member's confirmation (from change-plan).
+type SwitchQuote = {
+  tier: BillableTier;
+  cadence: BillingCadence;
+  amountDue: number;
+  amountFormatted: string;
+  prorationDate: number;
+};
 
 type Props = {
   open: boolean;
@@ -30,16 +45,26 @@ type Props = {
   onChanged: () => void;
   // ISO of the current period end, for the "charged/access until {date}" copy.
   periodEndIso: string | null;
-  // Whether the one-shot 25%-off save offer is still claimable. When false, the
-  // flow skips the offer step and goes straight to reason + cancel.
+  // Whether the one-shot 25%-off save offer is still claimable.
   offerAvailable: boolean;
+  // Longer billing periods the member can switch to, longest first (from
+  // /api/billing/status). Empty for anyone not paying monthly or quarterly.
+  planOffers: LengthenOffer[];
+  // Whether a pause can be offered (a live, unpaused subscription).
+  canPause: boolean;
 };
+
+const TIER_NAME: Record<BillableTier, string> = { basic: 'Basic', pro: 'Pro' };
 
 function formatDate(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function periodName(cadence: BillingCadence): string {
+  return cadence === 'annual' ? 'annual' : cadence === 'quarterly' ? 'quarterly' : 'monthly';
 }
 
 async function fetchCsrf(): Promise<string | null> {
@@ -58,28 +83,44 @@ export default function CancelRetentionModal({
   onChanged,
   periodEndIso,
   offerAvailable,
+  planOffers,
+  canPause,
 }: Props) {
   const t = usePageT(dict);
-  const [step, setStep] = useState<Step>(offerAvailable ? 'offer' : 'reason');
+  // The offer step opens the flow whenever there is something to offer.
+  const entryStep: Step = offerAvailable || planOffers.length > 0 ? 'offer' : 'reason';
+  const [step, setStep] = useState<Step>(entryStep);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [resumeLabel, setResumeLabel] = useState<string | null>(null);
+  const [quote, setQuote] = useState<SwitchQuote | null>(null);
+  const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
 
   const endDate = formatDate(periodEndIso);
 
-  // Reset to the entry step each time the modal is (re)opened.
+  // Reset to the entry step each time the modal is opened, and only then. A
+  // save or a switch refreshes the billing status behind the open modal, which
+  // changes what there is to offer; resetting on that would replace the
+  // confirmation the member is reading with the start of the flow.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (open) {
-      setStep(offerAvailable ? 'offer' : 'reason');
+    const opening = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (opening) {
+      setStep(entryStep);
       setBusy(false);
       setError(null);
+      setPortalUrl(null);
       setFeedback(null);
       setComment('');
       setResumeLabel(null);
+      setQuote(null);
+      setQuoteNotice(null);
     }
-  }, [open, offerAvailable]);
+  }, [open, entryStep]);
 
   // Escape to close (never mid-request), and lock body scroll while open.
   useEffect(() => {
@@ -161,6 +202,80 @@ export default function CancelRetentionModal({
     }
   }, [feedback, comment, onChanged, t]);
 
+  // Price a switch (no confirm) or make it (confirm at the quoted amount and
+  // instant). The server answers with a quote to confirm, the switch, or a URL
+  // to follow (the billing portal, when the switch can't be made in-app).
+  const requestSwitch = useCallback(
+    async (offer: { tier: BillableTier; cadence: BillingCadence }, confirm: SwitchQuote | null) => {
+      setBusy(true);
+      setError(null);
+      setPortalUrl(null);
+      try {
+        const csrf = await fetchCsrf();
+        if (!csrf) {
+          setError(t('genericError'));
+          return;
+        }
+        const res = await fetch('/api/billing/change-plan', {
+          method: 'POST',
+          headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            tier: offer.tier,
+            cadence: offer.cadence,
+            source: 'cancel_flow',
+            ...(confirm
+              ? { confirm: true, expectedAmountDue: confirm.amountDue, prorationDate: confirm.prorationDate }
+              : {}),
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          url?: string;
+          error?: string;
+          portalUrl?: string;
+          switched?: { tier: BillableTier; cadence: BillingCadence };
+          confirm?: Partial<SwitchQuote>;
+        };
+        const next = data.confirm;
+        if (
+          (res.ok || res.status === 409) &&
+          next &&
+          typeof next.amountDue === 'number' &&
+          typeof next.amountFormatted === 'string' &&
+          typeof next.prorationDate === 'number'
+        ) {
+          setQuote({
+            tier: offer.tier,
+            cadence: offer.cadence,
+            amountDue: next.amountDue,
+            amountFormatted: next.amountFormatted,
+            prorationDate: next.prorationDate,
+          });
+          // A 409 means the price moved since the member looked.
+          setQuoteNotice(res.status === 409 ? (data.error ?? null) : null);
+          setStep('switchConfirm');
+          return;
+        }
+        if (res.ok && data.switched) {
+          setStep('switched');
+          onChanged();
+          return;
+        }
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        setError(data.error ?? t('genericError'));
+        setPortalUrl(data.portalUrl ?? null);
+      } catch {
+        setError(t('genericError'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onChanged, t],
+  );
+
   const submitPause = useCallback(
     async (months: number) => {
       setBusy(true);
@@ -235,27 +350,66 @@ export default function CancelRetentionModal({
       >
         {step === 'offer' && (
           <>
-            <h2 style={headingStyle}>{t('offerHeading', { pct })}</h2>
-            <p style={bodyStyle}>
-              {endDate ? t('offerBody', { pct, date: endDate }) : t('offerBodyNoDate', { pct })}
-            </p>
+            {offerAvailable ? (
+              <>
+                <h2 style={headingStyle}>{t('offerHeading', { pct })}</h2>
+                <p style={bodyStyle}>
+                  {endDate ? t('offerBody', { pct, date: endDate }) : t('offerBodyNoDate', { pct })}
+                </p>
+                <div style={buttonColumn}>
+                  <button
+                    type="button"
+                    onClick={applyDiscount}
+                    disabled={busy}
+                    style={primaryButtonStyle(busy)}
+                  >
+                    {busy ? t('applying') : t('applyDiscount', { pct })}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 style={headingStyle}>{t('plansHeading')}</h2>
+                <p style={bodyStyle}>{t('plansBody')}</p>
+              </>
+            )}
+            {planOffers.length > 0 && (
+              <>
+                {offerAvailable && <p style={subheadingStyle}>{t('plansSubheading')}</p>}
+                <div style={{ ...buttonColumn, marginBottom: 10 }}>
+                  {planOffers.map((offer) => (
+                    <button
+                      key={offer.cadence}
+                      type="button"
+                      onClick={() => requestSwitch(offer, null)}
+                      disabled={busy}
+                      style={offerButtonStyle(busy)}
+                    >
+                      <span style={{ display: 'block', fontWeight: 800, fontSize: 15 }}>
+                        {t(offer.cadence === 'annual' ? 'planOfferAnnual' : 'planOfferQuarterly', {
+                          tier: TIER_NAME[offer.tier],
+                          price: formatBilledUsd(offer.listPrice),
+                        })}
+                      </span>
+                      <span style={{ display: 'block', marginTop: 2, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                        {t('planOfferPerMonth', { perMonth: formatPerMonthUsd(offer.perMonth) })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <div style={buttonColumn}>
-              <button
-                type="button"
-                onClick={applyDiscount}
-                disabled={busy}
-                style={primaryButtonStyle(busy)}
-              >
-                {busy ? t('applying') : t('applyDiscount', { pct })}
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep('pause')}
-                disabled={busy}
-                style={secondaryButtonStyle(busy)}
-              >
-                {t('pauseInstead')}
-              </button>
+              {canPause && (
+                <button
+                  type="button"
+                  onClick={() => setStep('pause')}
+                  disabled={busy}
+                  style={secondaryButtonStyle(busy)}
+                >
+                  {t('pauseInstead')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setStep('reason')}
@@ -263,6 +417,58 @@ export default function CancelRetentionModal({
                 style={linkButtonStyle}
               >
                 {t('declineToCancel')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'switchConfirm' && quote && (
+          <>
+            <h2 style={headingStyle}>
+              {t('switchConfirmHeading', { tier: TIER_NAME[quote.tier], period: periodName(quote.cadence) })}
+            </h2>
+            {quoteNotice && <p style={{ ...bodyStyle, color: 'var(--color-text-primary)' }}>{quoteNotice}</p>}
+            <p style={bodyStyle}>
+              {t(quote.cadence === 'annual' ? 'switchConfirmBodyAnnual' : 'switchConfirmBodyQuarterly', {
+                amount: quote.amountFormatted,
+              })}
+            </p>
+            <div style={buttonColumn}>
+              <button
+                type="button"
+                onClick={() => requestSwitch(quote, quote)}
+                disabled={busy}
+                style={primaryButtonStyle(busy)}
+              >
+                {busy ? t('switching') : t('confirmSwitch', { amount: quote.amountFormatted })}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setPortalUrl(null);
+                  setStep('offer');
+                }}
+                disabled={busy}
+                style={linkButtonStyle}
+              >
+                {t('switchBack')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'switched' && quote && (
+          <>
+            <h2 style={headingStyle}>
+              {t('switchedHeading', { tier: TIER_NAME[quote.tier], period: periodName(quote.cadence) })}
+            </h2>
+            <p style={bodyStyle}>
+              {t(quote.cadence === 'annual' ? 'switchedBodyAnnual' : 'switchedBodyQuarterly')}
+            </p>
+            <div style={buttonColumn}>
+              <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
+                {t('done')}
               </button>
             </div>
           </>
@@ -318,14 +524,16 @@ export default function CancelRetentionModal({
               }}
             />
             <div style={buttonColumn}>
-              <button
-                type="button"
-                onClick={() => setStep('pause')}
-                disabled={busy}
-                style={secondaryButtonStyle(busy)}
-              >
-                {t('pauseInstead')}
-              </button>
+              {canPause && (
+                <button
+                  type="button"
+                  onClick={() => setStep('pause')}
+                  disabled={busy}
+                  style={secondaryButtonStyle(busy)}
+                >
+                  {t('pauseInstead')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={submitCancel}
@@ -372,7 +580,7 @@ export default function CancelRetentionModal({
             <div style={buttonColumn}>
               <button
                 type="button"
-                onClick={() => setStep('offer')}
+                onClick={() => setStep(entryStep)}
                 disabled={busy}
                 style={linkButtonStyle}
               >
@@ -425,7 +633,17 @@ export default function CancelRetentionModal({
         )}
 
         {error && (
-          <p style={{ margin: '14px 0 0', color: 'var(--color-bear)', fontSize: 13 }}>{error}</p>
+          <p style={{ margin: '14px 0 0', color: 'var(--color-bear)', fontSize: 13 }}>
+            {error}
+            {portalUrl && (
+              <>
+                {' '}
+                <a href={portalUrl} style={{ color: 'var(--color-text-primary)', fontWeight: 700 }}>
+                  {t('switchPortalLink')}
+                </a>
+              </>
+            )}
+          </p>
         )}
       </div>
     </div>
@@ -445,6 +663,27 @@ const bodyStyle: React.CSSProperties = {
   lineHeight: 1.6,
   color: 'var(--color-text-secondary)',
 };
+
+const subheadingStyle: React.CSSProperties = {
+  margin: '18px 0 10px',
+  fontSize: 14,
+  fontWeight: 700,
+  color: 'var(--color-text-primary)',
+};
+
+// A plan offer: a two-line choice, quieter than the primary save button.
+function offerButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    textAlign: 'left',
+    background: 'transparent',
+    border: '1px solid var(--color-brand-primary)',
+    color: 'var(--color-text-primary)',
+    borderRadius: 10,
+    padding: '11px 14px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.6 : 1,
+  };
+}
 
 const buttonColumn: React.CSSProperties = {
   display: 'flex',

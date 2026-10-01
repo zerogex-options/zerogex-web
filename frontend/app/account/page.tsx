@@ -13,6 +13,7 @@ import AccountApiKeys from '@/components/AccountApiKeys';
 import CancelRetentionModal from '@/components/CancelRetentionModal';
 import MoneyBackGuaranteePanel from '@/components/MoneyBackGuaranteePanel';
 import { usePageT } from '@/core/LanguageContext';
+import type { LengthenOffer } from '@/core/planSwitch';
 import { dict } from './page.i18n';
 
 type DonationPayload = {
@@ -56,7 +57,17 @@ type BillingStatusPayload = {
   retentionOfferClaimed?: boolean;
   // ISO auto-resume instant when the subscription is paused, else null.
   pausedUntil?: string | null;
+  // Longer billing periods the cancel flow can offer, and whether it can offer
+  // a pause.
+  planOffers?: LengthenOffer[];
+  canPause?: boolean;
 };
+
+// Statuses that can still be canceled from the Account page. Every cancel goes
+// through the in-app flow (the Stripe billing portal no longer offers Cancel),
+// so this has to cover each state a member can be in with a subscription on
+// file, a declined renewal and a pause included.
+const CANCELABLE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
 
 const PASSWORD_MIN_LENGTH = 12;
 
@@ -96,6 +107,8 @@ export default function AccountPage() {
 function AccountPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Set by the in-app switch to a longer billing period (/api/billing/change-plan).
+  const planSwitched = searchParams?.get('plan_switched') ?? null;
   const t = usePageT(dict);
   const { data: authSession, loading, refresh: refreshSession } = useAuthSession();
   const [opening, setOpening] = useState(false);
@@ -114,6 +127,7 @@ function AccountPageContent() {
   const [billing, setBilling] = useState<BillingStatusPayload | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [resuming, setResuming] = useState(false);
+  const [keepingPlan, setKeepingPlan] = useState(false);
   const [donation, setDonation] = useState<DonationPayload | null>(null);
   // X/Twitter handle. `xHandle` is the input value (without the leading @);
   // `xHandleSaved` is the persisted value the server confirmed (null when unset).
@@ -444,6 +458,35 @@ function AccountPageContent() {
     }
   };
 
+  // Undo a scheduled cancel ("Keep my plan").
+  const handleKeepPlan = async () => {
+    setKeepingPlan(true);
+    setFeedback(null);
+    try {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        setFeedback({ type: 'error', message: t('csrfError') });
+        return;
+      }
+      const response = await fetch('/api/billing/cancel-flow', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf.csrfToken, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'reactivate' }),
+      });
+      if (!response.ok) {
+        setFeedback({ type: 'error', message: t('somethingWentWrong') });
+        return;
+      }
+      await refreshBilling();
+    } catch {
+      setFeedback({ type: 'error', message: t('somethingWentWrong') });
+    } finally {
+      setKeepingPlan(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setDeleteError(null);
     setDeletingAccount(true);
@@ -681,6 +724,23 @@ function AccountPageContent() {
 
         <section style={{ marginTop: 24 }}>
           <SectionHeading icon={<CreditCard size={18} />}>{t('subscription')}</SectionHeading>
+          {(planSwitched === 'annual' || planSwitched === 'quarterly') && (
+            <div
+              role="status"
+              style={{
+                margin: '6px 0 14px',
+                borderRadius: 12,
+                padding: '12px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                border: '1px solid var(--color-bull)',
+                color: 'var(--color-text-primary)',
+                background: 'var(--color-bull-soft)',
+              }}
+            >
+              {t(planSwitched === 'annual' ? 'planSwitchedAnnual' : 'planSwitchedQuarterly')}
+            </div>
+          )}
           {billing?.paymentIssue && (
             <div
               role="alert"
@@ -759,8 +819,7 @@ function AccountPageContent() {
 
           {billing?.hasSubscription &&
             !billing?.cancelAtPeriodEnd &&
-            !billing?.pausedUntil &&
-            (billing?.status === 'active' || billing?.status === 'trialing') && (
+            CANCELABLE_STATUSES.has(billing?.status ?? '') && (
               <div style={{ marginTop: 12 }}>
                 <button
                   type="button"
@@ -811,11 +870,31 @@ function AccountPageContent() {
           )}
 
           {billing?.cancelAtPeriodEnd && (
-            <p style={{ margin: '12px 0 0', color: C.muted, fontSize: 13 }}>
-              {billing?.currentPeriodEnd && formatBillingDate(billing.currentPeriodEnd)
-                ? t('subscriptionEndsOn', { date: formatBillingDate(billing.currentPeriodEnd) })
-                : t('subscriptionScheduledToCancel')}
-            </p>
+            <div style={{ marginTop: 12 }}>
+              <p style={{ margin: '0 0 8px', color: C.muted, fontSize: 13 }}>
+                {billing?.currentPeriodEnd && formatBillingDate(billing.currentPeriodEnd)
+                  ? t('subscriptionEndsOn', { date: formatBillingDate(billing.currentPeriodEnd) })
+                  : t('subscriptionScheduledToCancel')}
+              </p>
+              <button
+                type="button"
+                onClick={handleKeepPlan}
+                disabled={keepingPlan}
+                style={{
+                  background: 'transparent',
+                  border: `1px solid ${C.border}`,
+                  color: C.light,
+                  borderRadius: 10,
+                  padding: '8px 14px',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: keepingPlan ? 'not-allowed' : 'pointer',
+                  opacity: keepingPlan ? 0.6 : 1,
+                }}
+              >
+                {keepingPlan ? t('keepingPlan') : t('keepMyPlan')}
+              </button>
+            </div>
           )}
 
           {/* The 7-day money-back guarantee. Self-hiding: it asks the server and
@@ -835,7 +914,15 @@ function AccountPageContent() {
           onClose={() => setShowCancelModal(false)}
           onChanged={refreshBilling}
           periodEndIso={billing?.currentPeriodEnd ?? null}
-          offerAvailable={!billing?.retentionOfferClaimed}
+          // The 25% off rides the next invoice of a live subscription: not one
+          // whose payment failed, and not one on a break.
+          offerAvailable={
+            !billing?.retentionOfferClaimed &&
+            (billing?.status === 'active' || billing?.status === 'trialing') &&
+            !billing?.pausedUntil
+          }
+          planOffers={billing?.planOffers ?? []}
+          canPause={billing?.canPause ?? false}
         />
 
         <AccountApiKeys />

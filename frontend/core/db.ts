@@ -1041,6 +1041,11 @@ function initDb(): DatabaseSync {
   // period starts, and a late or repeated run never sends twice for one renewal.
   ensureColumn('users', 'renewal_reminder_sent_for', 'TEXT');
 
+  // The first-month plan offer (core/planOffer.ts, scripts/send-plan-offers.mts)
+  // latch: the subscription id it went out for, so it is sent once per
+  // subscription and a member back on a new one is eligible again.
+  ensureColumn('users', 'plan_offer_email_sent_for', 'TEXT');
+
   // ── 7-day money-back guarantee ledger ─────────────────────────────────────
   // One row per guarantee refund request, keyed by the subscription it
   // refunds. Two jobs:

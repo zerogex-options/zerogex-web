@@ -101,9 +101,13 @@ import {
   selectBatch,
   shouldAlertOnChurn,
   alertRunExitCode,
+  billingAtCancel,
+  type ChurnBilling,
   type ChurnEventKind,
 } from '../core/cancellationAlert.ts';
 import { sendCancellationAlertEmail } from '../core/mailer.ts';
+import { readSubscriberLedgerRows } from '../core/subscriberLedgerSource.ts';
+import type { LedgerRow } from '../core/subscriberBucket.ts';
 
 // ── Env loading (matches other frontend/scripts/*.mts) ────────────────────────
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -427,6 +431,27 @@ function subscriptionStartLookup(db: DatabaseSync): (auditMessage: string) => st
   };
 }
 
+// How far back the Subscriber Ledger is read for the trial-or-paying label: the
+// whole history, as the Growth tab's daily rollup reads it, so an annual
+// member's last payment is still in view when they cancel.
+const LEDGER_SCAN_DAYS = 900;
+
+// Paying member or free trial for each churn row, read off the Subscriber
+// Ledger so the alert says exactly what the ledger row says. Built once per
+// run, and only on a run that sends. A ledger that fails to build costs the
+// label, never the alert. Only a pending cancel is looked up: the ledger's
+// cancel row is the click, and a lapse is not one.
+function billingLookup(db: DatabaseSync): (row: ChurnRow, kind: ChurnEventKind) => ChurnBilling | null {
+  let ledger: LedgerRow[] = [];
+  try {
+    ledger = readSubscriberLedgerRows(LEDGER_SCAN_DAYS, Date.now(), db);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[cancellation-alerts] Subscriber Ledger unavailable, sending without trial/paying: ${message}`);
+  }
+  return (row, kind) => (kind === 'pending' ? billingAtCancel(ledger, row.user_id, row.created_at) : null);
+}
+
 async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Promise<void> {
   const insertLatch = args.dryRun
     ? null
@@ -465,6 +490,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
   let sent = 0;
   let failed = 0;
   const subscriptionStartedAt = subscriptionStartLookup(db);
+  const billingFor = billingLookup(db);
 
   for (const row of batch) {
     const kind = classifyChurnEvent(row.type);
@@ -481,6 +507,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
         accountCreatedAtIso: row.account_created_at,
         subscriptionStartedAtIso: subscriptionStartedAt(row.message),
         tier: row.tier,
+        billing: billingFor(row, kind),
         // Only a pending cancel has a live period end to report; the lapse path
         // NULLs it in the same transaction that drops the tier, so reading it
         // there would just print an em dash with extra steps.
@@ -494,6 +521,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       console.log(`  --- ${alert.subject}`);
       console.log(`      ${alert.headline}`);
       if (alert.saveWindowNote) console.log(`      ${alert.saveWindowNote}`);
+      console.log(`      billing: ${alert.billingLabel}`);
       console.log(`      reason: ${alert.reasonLabel}`);
       console.log(`      comment: ${alert.comment ?? '(none)'}`);
       console.log(`      tenure: ${alert.tenure}`);
@@ -513,7 +541,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       // the next tick retries it — the whole reason this is a sweeper.
       latch(insertLatch, row, kind);
       sent += 1;
-      console.log(`  SENT ${row.email} (${kind}) — ${alert.reasonLabel}`);
+      console.log(`  SENT ${row.email} (${kind}, ${alert.billingLabel}) — ${alert.reasonLabel}`);
     } catch (err) {
       failed += 1;
       const message = err instanceof Error ? err.message : String(err);
@@ -566,6 +594,7 @@ async function sendPreview(to: string): Promise<void> {
       accountCreatedAtIso: new Date(Date.now() - 87 * 86_400_000).toISOString(),
       subscriptionStartedAtIso: new Date(Date.now() - 34 * 86_400_000).toISOString(),
       tier: 'pro',
+      billing: 'paying',
       currentPeriodEndIso: new Date(Date.now() + 26 * 86_400_000).toISOString(),
     },
     NOW_ISO,

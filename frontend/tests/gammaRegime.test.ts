@@ -250,3 +250,29 @@ test('cumulativeNetGexAtSpot skips unusable rows and returns null below the lowe
   assert.equal(cumulativeNetGexAtSpot([{ strike: 740, net_gamma: 5 }], null), null);
   assert.equal(cumulativeNetGexAtSpot([{ strike: 740, net_gamma: 5 }], 0), null);
 });
+
+test('atSpotGammaForScope: a scoped book can bring its own at-spot figure', () => {
+  // The live Expiry filter hands in the selected book's own figure (the
+  // cumulative curve its flip is a crossing of). It replaces the whole-chain
+  // value; it never leaks into an unscoped read.
+  assert.equal(atSpotGammaForScope(5.45e9, true, -3.1e8), -3.1e8);
+  assert.equal(atSpotGammaForScope(5.45e9, true, 0), 0);
+  assert.equal(atSpotGammaForScope(5.45e9, false, -3.1e8), 5.45e9);
+  assert.equal(atSpotGammaForScope(5.45e9, true, NaN), null);
+  assert.equal(atSpotGammaForScope(5.45e9, true, null), null);
+});
+
+test('regression: a filtered book with no flip still reads its regime at spot', () => {
+  // Any single expiry but 0DTE read "NO FLIP IN SELECTED EXPIRIES" with a "—"
+  // badge: a put-heavy subset's cumulative curve never climbs back to zero, so
+  // the API publishes no crossing. Its sign at spot is still its regime.
+  const strikes = [
+    { strike: 730, net_gamma: -40e6 },
+    { strike: 740, net_gamma: -90e6 },
+    { strike: 745, net_gamma: 30e6 },
+    { strike: 750, net_gamma: 20e6 },
+  ];
+  const scoped = atSpotGammaForScope(1.1e9, true, cumulativeNetGexAtSpot(strikes, 742.4));
+  assert.ok(scoped != null && scoped < 0);
+  assert.equal(longGammaAtSpot(scoped, 742.4, null), false);
+});

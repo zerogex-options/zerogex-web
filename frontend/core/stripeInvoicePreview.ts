@@ -41,6 +41,13 @@ export type InvoicePreviewOptions = {
   // 'now' previews the invoice that ending a trial immediately would raise —
   // what the in-app upgrade out of a trial charges on the spot.
   trialEnd?: 'now';
+  // 'now' previews starting a new billing period today — what a paying
+  // member's switch to a longer period charges on the spot.
+  billingCycleAnchor?: 'now';
+  // Unix seconds to price prorations at. Prorations are computed to the second,
+  // so a quote and the update it describes must share one instant or the
+  // amounts drift apart between showing the price and charging it.
+  prorationDate?: number;
 };
 
 type InvoicesApi = {
@@ -53,13 +60,16 @@ export async function previewNextInvoice(
   options: InvoicePreviewOptions,
 ): Promise<Stripe.Invoice> {
   const invoices = stripe.invoices as unknown as InvoicesApi;
-  const { subscription, customer, items, prorationBehavior, discounts, trialEnd } = options;
+  const { subscription, customer, items, prorationBehavior, discounts, trialEnd, billingCycleAnchor, prorationDate } =
+    options;
 
   if (typeof invoices.createPreview === 'function') {
     const subscriptionDetails: Record<string, unknown> = {};
     if (items) subscriptionDetails.items = items;
     if (prorationBehavior) subscriptionDetails.proration_behavior = prorationBehavior;
     if (trialEnd) subscriptionDetails.trial_end = trialEnd;
+    if (billingCycleAnchor) subscriptionDetails.billing_cycle_anchor = billingCycleAnchor;
+    if (prorationDate !== undefined) subscriptionDetails.proration_date = prorationDate;
     return invoices.createPreview({
       subscription,
       ...(customer ? { customer } : {}),
@@ -77,6 +87,8 @@ export async function previewNextInvoice(
       ...(items ? { subscription_items: items } : {}),
       ...(prorationBehavior ? { subscription_proration_behavior: prorationBehavior } : {}),
       ...(trialEnd ? { subscription_trial_end: trialEnd } : {}),
+      ...(billingCycleAnchor ? { subscription_billing_cycle_anchor: billingCycleAnchor } : {}),
+      ...(prorationDate !== undefined ? { subscription_proration_date: prorationDate } : {}),
       // The legacy endpoint takes a single coupon id, not a discounts array.
       ...(Array.isArray(discounts) && discounts.length === 1 && 'coupon' in discounts[0]
         ? { coupon: discounts[0].coupon }

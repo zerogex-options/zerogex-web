@@ -186,6 +186,17 @@ export const CATALOG = {
     source: 'core/mailer.ts buildRenewalReminderEmail · core/renewalReminder.ts · scripts/send-renewal-reminders.mts',
     notes: "The auto-renewal notice the pricing page promises. Quotes the exact amount from Stripe's upcoming-invoice preview (discounts applied), or names no figure when that read fails. Monthly plans are never reminded.",
   },
+  'plan-offer': {
+    group: 'billing', title: 'First-month plan offer (annual / quarterly)', channel: 'member', autoSends: true,
+    trigger: 'systemd timer', triggerDetail: 'zerogex-web-plan-offers.timer → make plan-offers YES=1',
+    when: "1–8 days before a monthly member's FIRST renewal. Swept daily.",
+    cadence: 'Timer: 15:20 UTC daily (+0–5m jitter, Persistent)',
+    cohort: "subscription_status='active', cancel_at_period_end=0, not paused, a monthly price, exactly one paid period on the current subscription, marketing_unsubscribed_at IS NULL, not deleted",
+    latch: 'plan_offer_email_sent_for — the subscription id it went out for, so a member back on a new subscription is eligible again',
+    optOut: 'Marketing unsubscribe (signed link + List-Unsubscribe one-click)', foh: false,
+    source: 'core/mailer.ts buildPlanOfferEmail · core/planOffer.ts · scripts/send-plan-offers.mts',
+    notes: 'Lists the longer plans on the member\'s tier at list price with the per-month equivalent; the link opens /pricing on annual (through /login, so the member arrives signed in), where the switch is priced by Stripe and confirmed before any charge. Staying monthly is stated as the no-action default.',
+  },
   'card-expiring': {
     group: 'billing', title: 'Card expiring', channel: 'member', autoSends: true,
     trigger: 'systemd timer', triggerDetail: 'zerogex-web-card-expiry.timer → make card-expiry-reminders YES=1',

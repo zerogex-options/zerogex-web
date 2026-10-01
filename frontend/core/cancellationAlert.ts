@@ -22,6 +22,7 @@ import {
   hasCancellationSignal,
   type ParsedCancellationReason,
 } from './cancellationReason.ts';
+import type { LedgerRow } from './subscriberBucket.ts';
 
 // The two audit rows that mean "a member is leaving". They are DIFFERENT events
 // and both are worth an alert, because they carry different urgency:
@@ -103,6 +104,54 @@ export function describeTenure(days: number | null): string {
   if (days < 45) return `${days} days`;
   const months = Math.round(days / 30.44);
   return `${days} days (~${months} month${months === 1 ? '' : 's'})`;
+}
+
+// ── Paying member or free trial ──────────────────────────────────────────────
+// Whether the member who clicked Cancel had paid. A trial cancel forfeits a
+// conversion that was never charged; a paying member's cancel is revenue
+// already in hand walking out. An alert that read the same for both made every
+// trial cancel look like lost revenue.
+//
+// The answer is the Subscriber Ledger's, not a second rule: the ledger already
+// splits every cancel into "Cancellation scheduled: trial" and "Cancellation
+// scheduled: paid subscription", and the alert must never disagree with the
+// row the operator checks it against.
+export type ChurnBilling = 'paying' | 'trial';
+
+// The ledger's cancel row comes from the subscription sync the webhook logs
+// moments before the cancel-ack path writes the churn row, in the same handler,
+// with a few network calls in between. Ten minutes is far wider than that gap
+// and far narrower than the time between two cancel clicks by one member.
+export const LEDGER_MATCH_WINDOW_MS = 10 * 60_000;
+
+// The ledger's verdict for one churn row: its cancel row for the same member
+// nearest in time, or null when there is none to read (no user id, or a cancel
+// the ledger never saw), in which case the alert says nothing rather than guess.
+export function billingAtCancel(
+  ledgerRows: ReadonlyArray<Pick<LedgerRow, 'userId' | 'kind' | 'at'>>,
+  userId: string | null,
+  churnedAtIso: string,
+): ChurnBilling | null {
+  if (!userId) return null;
+  const churnedMs = Date.parse(churnedAtIso);
+  if (!Number.isFinite(churnedMs)) return null;
+  let best: ChurnBilling | null = null;
+  let bestGap = Infinity;
+  for (const row of ledgerRows) {
+    if (row.userId !== userId) continue;
+    if (row.kind !== 'cancelScheduledPaid' && row.kind !== 'cancelScheduledTrial') continue;
+    const gap = Math.abs(Date.parse(row.at) - churnedMs);
+    if (!(gap <= LEDGER_MATCH_WINDOW_MS) || gap >= bestGap) continue;
+    best = row.kind === 'cancelScheduledPaid' ? 'paying' : 'trial';
+    bestGap = gap;
+  }
+  return best;
+}
+
+export function describeBilling(billing: ChurnBilling | null): string {
+  if (billing === 'paying') return 'Paying member';
+  if (billing === 'trial') return 'Free trial, never charged';
+  return 'unknown';
 }
 
 // ── Run exit status ──────────────────────────────────────────────────────────
@@ -190,6 +239,9 @@ export type ChurnAlertInput = {
   // from here, falling back to the account's creation.
   subscriptionStartedAtIso: string | null;
   tier: string | null;
+  // Paying member or free trial, per the Subscriber Ledger (billingAtCancel),
+  // or null when the ledger has no answer.
+  billing: ChurnBilling | null;
   // Period end for a pending cancel: the deadline on the save window. Null for a
   // lapse (already past) or when the DB row has been cleared.
   currentPeriodEndIso: string | null;
@@ -203,6 +255,8 @@ export type ChurnAlert = {
   reasonLabel: string;
   comment: string | null;
   hasSignal: boolean;
+  billing: ChurnBilling | null;
+  billingLabel: string;
   tenure: string;
   tenureDays: number | null;
   headline: string;
@@ -256,8 +310,16 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     : hasSignal
       ? reasonLabel
       : 'no reason given';
-  const verb = input.kind === 'pending' ? 'canceled' : 'lapsed';
-  const subject = `[ZeroGEX] ${input.email} ${verb} — ${subjectReason}`;
+  // Paying or trial leads the subject, so the one fact that decides whether
+  // revenue just walked out is readable from the lock screen.
+  const who =
+    input.billing === 'paying'
+      ? `Paying member canceled: ${input.email}`
+      : input.billing === 'trial'
+        ? `Trial canceled, never charged: ${input.email}`
+        : `${input.email} ${input.kind === 'pending' ? 'canceled' : 'lapsed'}`;
+  const subject = `[ZeroGEX] ${who} — ${subjectReason}`;
+  const billingLabel = describeBilling(input.billing);
 
   const headline =
     input.kind === 'pending'
@@ -274,6 +336,7 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
 
   const facts: Array<{ label: string; value: string }> = [
     { label: 'Member', value: input.email },
+    { label: 'Billing', value: billingLabel },
     { label: 'Reason (survey)', value: reasonLabel },
     { label: 'What they typed', value: reason.comment ?? '(nothing)' },
     { label: 'Tier at churn', value: input.tier ?? 'unknown' },
@@ -301,6 +364,8 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     reasonLabel,
     comment: reason.comment,
     hasSignal,
+    billing: input.billing,
+    billingLabel,
     tenure,
     tenureDays: days,
     headline,

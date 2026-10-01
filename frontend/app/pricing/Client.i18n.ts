@@ -52,7 +52,7 @@ export const dict: PageDictionary = {
     mostPopularHighlight: 'Most Popular',
     refundPolicyTitle: 'Refund & Cancellation Policy',
     refundPolicyIntro1:
-      'Paid subscriptions are billed in advance on a recurring basis through Stripe. You can cancel your subscription at any time from the Stripe-hosted billing portal, accessible from your',
+      'Paid subscriptions are billed in advance on a recurring basis through Stripe. You can cancel your subscription at any time from your',
     accountLinkText: 'account',
     refundPolicyIntro2: 'page.',
     trialListLabel: '{days}-day free trial (Basic monthly).',
@@ -60,7 +60,7 @@ export const dict: PageDictionary = {
       "You get full access right away. Your card is collected at signup but isn't charged until the trial ends. Cancel before then and you pay nothing. One free trial per account.",
     cancelAnytimeLabel: 'Cancel anytime.',
     cancelAnytimeBody:
-      'Manage or cancel your plan yourself through the billing portal\u00a0- no email or support request required.',
+      'Cancel your plan yourself from your account page, and manage it in the billing portal\u00a0- no email or support request required.',
     planSwitchLabel: 'Leaving the free trial for another plan.',
     planSwitchBody:
       "Moving from the Basic trial to Pro, or to quarterly or annual billing, ends the trial and bills the new plan that day\u00a0- you'll see the exact amount and confirm it first. That payment is covered by the 7-day money-back guarantee.",
@@ -120,6 +120,9 @@ export const dict: PageDictionary = {
     confirmSwitchBody: 'Your free trial ends today, and {amount} is charged to your card on file now.',
     confirmSwitchBodyNoAmount:
       'Your free trial ends today, and the {plan} price is charged to your card on file now.',
+    confirmPaidSwitchTitle: 'Switch to {plan}?',
+    confirmPaidSwitchBody:
+      'You’ll be charged {amount} today: the {plan} price, less a credit for the unused part of your current billing period. Your new billing period starts today.',
     confirmSwitchGuarantee: 'Covered by our {days}-day money-back guarantee\u00a0- limit one refund per customer.',
     confirmSwitchCta: 'Confirm and pay',
     confirmSwitchCancel: 'Not now',
@@ -181,7 +184,7 @@ export const dict: PageDictionary = {
     mostPopularHighlight: 'Più scelto',
     refundPolicyTitle: 'Politica di rimborso e cancellazione',
     refundPolicyIntro1:
-      "Gli abbonamenti a pagamento vengono fatturati in anticipo su base ricorrente tramite Stripe. Puoi annullare il tuo abbonamento in qualsiasi momento dal portale di fatturazione ospitato da Stripe, accessibile dalla tua pagina",
+      "Gli abbonamenti a pagamento vengono fatturati in anticipo su base ricorrente tramite Stripe. Puoi annullare il tuo abbonamento in qualsiasi momento dalla tua pagina",
     accountLinkText: 'account',
     refundPolicyIntro2: '.',
     trialListLabel: 'Prova gratuita di {days} giorni (Basic mensile).',
@@ -189,7 +192,7 @@ export const dict: PageDictionary = {
       'Hai accesso completo da subito. La tua carta viene registrata alla registrazione ma non viene addebitata finché la prova non termina. Annulla prima e non paghi nulla. Una prova gratuita per account.',
     cancelAnytimeLabel: 'Annulla quando vuoi.',
     cancelAnytimeBody:
-      'Gestisci o annulla il tuo piano autonomamente tramite il portale di fatturazione, senza email o richieste di assistenza.',
+      'Annulla il tuo piano autonomamente dalla tua pagina account e gestiscilo nel portale di fatturazione, senza email o richieste di assistenza.',
     planSwitchLabel: 'Passare dalla prova gratuita a un altro piano.',
     planSwitchBody:
       "Passare dalla prova Basic a Pro, o alla fatturazione trimestrale o annuale, termina la prova e addebita il nuovo piano quel giorno: vedrai prima l'importo esatto e lo confermerai. Quel pagamento è coperto dalla garanzia soddisfatti o rimborsati di 7 giorni.",
@@ -251,6 +254,9 @@ export const dict: PageDictionary = {
       'La tua prova gratuita termina oggi e ora vengono addebitati {amount} sulla carta registrata.',
     confirmSwitchBodyNoAmount:
       'La tua prova gratuita termina oggi e ora viene addebitato il prezzo di {plan} sulla carta registrata.',
+    confirmPaidSwitchTitle: 'Passare a {plan}?',
+    confirmPaidSwitchBody:
+      'Oggi ti verranno addebitati {amount}: il prezzo di {plan}, meno un credito per la parte non utilizzata del periodo di fatturazione in corso. Il nuovo periodo di fatturazione inizia oggi.',
     confirmSwitchGuarantee:
       'Coperto dalla nostra garanzia soddisfatti o rimborsati di {days} giorni: massimo un rimborso per cliente.',
     confirmSwitchCta: 'Conferma e paga',
@@ -314,7 +320,7 @@ export const dict: PageDictionary = {
     mostPopularHighlight: 'Am beliebtesten',
     refundPolicyTitle: 'Rückerstattungs- und Kündigungsrichtlinie',
     refundPolicyIntro1:
-      'Bezahlte Abonnements werden im Voraus wiederkehrend über Stripe abgerechnet. Du kannst dein Abonnement jederzeit über das von Stripe gehostete Kundenportal kündigen, erreichbar über deine Seite',
+      'Bezahlte Abonnements werden im Voraus wiederkehrend über Stripe abgerechnet. Du kannst dein Abonnement jederzeit über deine Seite',
     accountLinkText: 'Konto',
     refundPolicyIntro2: '.',
     trialListLabel: '{days}-tägige kostenlose Testphase (Basic monatlich).',
@@ -322,7 +328,7 @@ export const dict: PageDictionary = {
       'Du erhältst sofort vollen Zugriff. Deine Karte wird bei der Anmeldung hinterlegt, aber erst nach Ende der Testphase belastet. Kündige vorher und du zahlst nichts. Eine kostenlose Testphase pro Konto.',
     cancelAnytimeLabel: 'Jederzeit kündbar.',
     cancelAnytimeBody:
-      'Verwalte oder kündige deinen Plan selbst über das Kundenportal\u00a0- ohne E-Mail oder Support-Anfrage.',
+      'Kündige deinen Plan selbst über deine Kontoseite und verwalte ihn im Kundenportal\u00a0- ohne E-Mail oder Support-Anfrage.',
     planSwitchLabel: 'Von der kostenlosen Testphase zu einem anderen Plan wechseln.',
     planSwitchBody:
       'Ein Wechsel von der Basic-Testphase zu Pro oder zu vierteljährlicher bzw. jährlicher Abrechnung beendet die Testphase und berechnet den neuen Plan am selben Tag\u00a0- du siehst vorher den genauen Betrag und bestätigst ihn. Diese Zahlung ist durch die 7-Tage-Geld-zurück-Garantie abgesichert.',
@@ -384,6 +390,9 @@ export const dict: PageDictionary = {
       'Deine kostenlose Testphase endet heute, und {amount} werden jetzt von deiner hinterlegten Karte abgebucht.',
     confirmSwitchBodyNoAmount:
       'Deine kostenlose Testphase endet heute, und der Preis für {plan} wird jetzt von deiner hinterlegten Karte abgebucht.',
+    confirmPaidSwitchTitle: 'Zu {plan} wechseln?',
+    confirmPaidSwitchBody:
+      'Heute werden dir {amount} berechnet: der Preis für {plan}, abzüglich einer Gutschrift für den ungenutzten Teil deines aktuellen Abrechnungszeitraums. Dein neuer Abrechnungszeitraum beginnt heute.',
     confirmSwitchGuarantee:
       'Abgesichert durch unsere {days}-Tage-Geld-zurück-Garantie\u00a0- maximal eine Erstattung pro Kunde.',
     confirmSwitchCta: 'Bestätigen und bezahlen',
@@ -445,7 +454,7 @@ export const dict: PageDictionary = {
     mostPopularHighlight: 'Más popular',
     refundPolicyTitle: 'Política de reembolsos y cancelación',
     refundPolicyIntro1:
-      'Las suscripciones pagas se facturan por adelantado de forma recurrente a través de Stripe. Puedes cancelar tu suscripción en cualquier momento desde el portal de facturación alojado por Stripe, accesible desde tu página de',
+      'Las suscripciones pagas se facturan por adelantado de forma recurrente a través de Stripe. Puedes cancelar tu suscripción en cualquier momento desde tu página de',
     accountLinkText: 'cuenta',
     refundPolicyIntro2: '.',
     trialListLabel: 'Prueba gratuita de {days} días (Basic mensual).',
@@ -453,7 +462,7 @@ export const dict: PageDictionary = {
       'Obtienes acceso completo de inmediato. Tu tarjeta se registra al suscribirte, pero no se cobra hasta que termine la prueba. Cancela antes y no pagarás nada. Una prueba gratuita por cuenta.',
     cancelAnytimeLabel: 'Cancela cuando quieras.',
     cancelAnytimeBody:
-      'Gestiona o cancela tu plan tú mismo desde el portal de facturación, sin correo ni solicitudes de soporte.',
+      'Cancela tu plan tú mismo desde tu página de cuenta y gestiónalo en el portal de facturación, sin correo ni solicitudes de soporte.',
     planSwitchLabel: 'Pasar de la prueba gratuita a otro plan.',
     planSwitchBody:
       'Pasar de la prueba de Basic a Pro, o a la facturación trimestral o anual, termina la prueba y cobra el nuevo plan ese mismo día; verás antes el importe exacto y lo confirmarás. Ese pago está cubierto por la garantía de devolución de 7 días.',
@@ -514,6 +523,9 @@ export const dict: PageDictionary = {
     confirmSwitchBody: 'Tu prueba gratuita termina hoy y ahora se cobran {amount} a tu tarjeta registrada.',
     confirmSwitchBodyNoAmount:
       'Tu prueba gratuita termina hoy y ahora se cobra el precio de {plan} a tu tarjeta registrada.',
+    confirmPaidSwitchTitle: '¿Cambiar a {plan}?',
+    confirmPaidSwitchBody:
+      'Hoy se te cobrarán {amount}: el precio de {plan}, menos un crédito por la parte no utilizada de tu periodo de facturación actual. Tu nuevo periodo de facturación empieza hoy.',
     confirmSwitchGuarantee:
       'Cubierto por nuestra garantía de devolución de {days} días: límite de un reembolso por cliente.',
     confirmSwitchCta: 'Confirmar y pagar',
@@ -576,7 +588,7 @@ export const dict: PageDictionary = {
     mostPopularHighlight: 'Le plus populaire',
     refundPolicyTitle: 'Politique de remboursement et d’annulation',
     refundPolicyIntro1:
-      "Les abonnements payants sont facturés à l'avance de façon récurrente via Stripe. Vous pouvez annuler votre abonnement à tout moment depuis le portail de facturation hébergé par Stripe, accessible depuis votre page",
+      "Les abonnements payants sont facturés à l'avance de façon récurrente via Stripe. Vous pouvez annuler votre abonnement à tout moment depuis votre page",
     accountLinkText: 'compte',
     refundPolicyIntro2: '.',
     trialListLabel: 'Essai gratuit de {days} jours (Basic mensuel).',
@@ -584,7 +596,7 @@ export const dict: PageDictionary = {
       "Vous bénéficiez d'un accès complet immédiatement. Votre carte est enregistrée à l'inscription mais n'est débitée qu'à la fin de l'essai. Annulez avant et vous ne payez rien. Un essai gratuit par compte.",
     cancelAnytimeLabel: 'Annulez à tout moment.',
     cancelAnytimeBody:
-      "Gérez ou annulez votre offre vous-même depuis le portail de facturation\u00a0- sans e-mail ni demande d'assistance.",
+      "Résiliez votre offre vous-même depuis votre page compte et gérez-la dans le portail de facturation\u00a0- sans e-mail ni demande d'assistance.",
     planSwitchLabel: "Quitter l'essai gratuit pour une autre offre.",
     planSwitchBody:
       "Passer de l'essai Basic à Pro, ou à une facturation trimestrielle ou annuelle, met fin à l'essai et facture la nouvelle offre le jour même\u00a0- vous verrez d'abord le montant exact et le confirmerez. Ce paiement est couvert par la garantie satisfait ou remboursé de 7 jours.",
@@ -646,6 +658,9 @@ export const dict: PageDictionary = {
       "Votre essai gratuit se termine aujourd'hui et {amount} sont prélevés maintenant sur votre carte enregistrée.",
     confirmSwitchBodyNoAmount:
       "Votre essai gratuit se termine aujourd'hui et le prix de {plan} est prélevé maintenant sur votre carte enregistrée.",
+    confirmPaidSwitchTitle: 'Passer à {plan} ?',
+    confirmPaidSwitchBody:
+      '{amount} vous seront facturés aujourd’hui : le prix de {plan}, moins un crédit pour la partie non utilisée de votre période de facturation en cours. Votre nouvelle période de facturation commence aujourd’hui.',
     confirmSwitchGuarantee:
       'Couvert par notre garantie satisfait ou remboursé de {days} jours\u00a0- limité à un remboursement par client.',
     confirmSwitchCta: 'Confirmer et payer',

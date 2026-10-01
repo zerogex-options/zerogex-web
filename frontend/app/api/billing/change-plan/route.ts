@@ -52,8 +52,18 @@ import {
 //     when BILLING_TRIAL_PLANS names more than one), keeping the trial — the
 //     original behaviour of this route.
 //
-//   • hands off to the Stripe billing portal for everything else — paid members
-//     (mid-cycle prorations) and downgrades (scheduled at period end).
+//   • LENGTHENS a paying member's billing period in-app (monthly to quarterly
+//     or annual, quarterly to annual, same tier) — the switch the cancel flow
+//     and the first-month plan offer put in front of them. Same two calls as
+//     starting to pay: price it, then confirm the amount shown. The new period
+//     starts today and is charged today, less a credit for the unused part of
+//     the current one. Prorations are priced to the second, so the first call
+//     fixes the instant (`prorationDate`) and the confirm prices and switches
+//     at that same instant; otherwise the amount would move between showing it
+//     and charging it. A declined card changes nothing.
+//
+//   • hands off to the Stripe billing portal for everything else — other paid
+//     switches (tier changes) and downgrades (scheduled at period end).
 //
 // The local users row is deliberately NOT updated with the new price: leaving
 // the webhook's pre-UPDATE snapshot on the OLD price is what lets its
@@ -72,6 +82,14 @@ type UserBillingRow = {
 // Next process; the second click gets a 409 and the page's own busy state
 // covers the rest.)
 const inFlight = new Set<string>();
+
+// How long a paying member's quote can be confirmed at its own instant. Past
+// this the switch is re-priced at now, and the member confirms the new amount.
+const QUOTE_TTL_SECONDS = 15 * 60;
+
+// The screens that send a member here. Anything else is recorded as the
+// pricing page, the original caller.
+const SWITCH_SOURCES = new Set(['pricing', 'cancel_flow', 'plan_offer_email']);
 
 function formatAmount(amount: number, currency: string): string {
   try {
@@ -110,17 +128,22 @@ function classifySwitchFailure(err: unknown): SwitchFailure {
   return 'unknown';
 }
 
-const SWITCH_FAILURE_COPY: Record<SwitchFailure, { status: number; error: string }> = {
-  authentication: {
-    status: 402,
-    error:
-      "Your bank needs to confirm this payment, which can't be done from this page. Nothing changed\u00a0- you're still on your free trial. Continue in the billing portal to approve it there.",
-  },
-  card: {
-    status: 402,
-    error:
-      "Your card was declined, so nothing changed\u00a0- you're still on your free trial. Update your card from the Account page and try again.",
-  },
+// Where the member stays when a switch fails: "your free trial" for a trial
+// starting to pay, "your current plan" for a paying member's switch.
+function switchFailureCopy(failure: SwitchFailure, stillOn: string): { status: number; error: string } {
+  if (failure === 'authentication' || failure === 'card') {
+    return {
+      status: 402,
+      error:
+        failure === 'authentication'
+          ? `Your bank needs to confirm this payment, which can't be done from this page. Nothing changed\u00a0- you're still on ${stillOn}. Continue in the billing portal to approve it there.`
+          : `Your card was declined, so nothing changed\u00a0- you're still on ${stillOn}. Update your card from the Account page and try again.`,
+    };
+  }
+  return SWITCH_FAILURE_COPY[failure];
+}
+
+const SWITCH_FAILURE_COPY: Record<'rejected' | 'unknown', { status: number; error: string }> = {
   rejected: {
     status: 502,
     error: "Couldn't switch plans just now. Nothing changed\u00a0- please try again in a minute.",
@@ -151,6 +174,12 @@ export async function POST(request: NextRequest) {
     confirm?: unknown;
     // With confirm: the amount (minor units) the member was shown and agreed to.
     expectedAmountDue?: unknown;
+    // With confirm on a paying member's switch: the instant (Unix seconds) the
+    // quote was priced at, echoed back from that quote.
+    prorationDate?: unknown;
+    // Which screen asked, for the audit trail: did the cancel flow or the
+    // first-month email produce this switch?
+    source?: unknown;
   };
   if (!isBillableTier(body.tier)) {
     return NextResponse.json({ error: 'tier must be one of basic, pro' }, { status: 400 });
@@ -161,6 +190,8 @@ export async function POST(request: NextRequest) {
   const tier = body.tier;
   const cadence = body.cadence;
   const confirmed = body.confirm === true;
+  const source =
+    typeof body.source === 'string' && SWITCH_SOURCES.has(body.source) ? body.source : 'pricing';
   if (!isSkuSellable({ tier, cadence })) {
     return NextResponse.json(
       { error: 'That plan is not available right now. Please choose another billing period.' },
@@ -219,6 +250,7 @@ export async function POST(request: NextRequest) {
     targetCadence: cadence,
     targetHasTrial: skuHasFreeTrial({ tier, cadence }),
     status: subscription.status,
+    paused: subscription.pause_collection != null,
   });
 
   if (decision.kind === 'noop') {
@@ -339,7 +371,7 @@ export async function POST(request: NextRequest) {
           `Trial → paid switch ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} failed (${failure}; ` +
           `${failure === 'unknown' ? 'outcome unknown — check the subscription' : 'trial left as it was'}): ${message}`,
       });
-      const { status, error } = SWITCH_FAILURE_COPY[failure];
+      const { status, error } = switchFailureCopy(failure, 'your free trial');
       if (failure === 'authentication') {
         // The portal can collect the bank's confirmation; hand the member there.
         try {
@@ -371,6 +403,151 @@ export async function POST(request: NextRequest) {
     // syncs the new tier.
     return NextResponse.json({
       url: `${appUrl}/dashboard?trial_started=1&trial=${guaranteeUsed ? 'none' : 'money_back'}&upgraded=${tier}`,
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Paying member → a longer period on the same tier: start it today.
+  // -------------------------------------------------------------------------
+  if (decision.kind === 'in_app_lengthen' && item) {
+    const attached = readAttachedDiscounts(subscription);
+    if (!attached) {
+      return NextResponse.json(
+        { error: "Couldn't read your current plan just now. Nothing changed\u00a0- please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    // The monthly promo is stripped and the founding coupons swapped for the
+    // new cadence's, on this same update (core/switchDiscounts.ts).
+    const discounts = planSwitchDiscounts({
+      currentCouponIds: attachedCouponIds(attached),
+      newSku: { tier, cadence },
+      foundingMemberStartedAt: row.founding_member_started_at,
+      foundingLifetimeAppliedAt: row.founding_lifetime_applied_at,
+    });
+    const discountParam = discounts?.changed ? discountsParam(discounts.keep, attached) : undefined;
+
+    // A confirm prices at the quote's instant while that quote is fresh; a
+    // first call, or a stale or malformed echo, prices at now (and a confirm
+    // priced afresh then differs, so the member is shown the new amount).
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const echoed = body.prorationDate;
+    const prorationDate =
+      confirmed &&
+      typeof echoed === 'number' &&
+      Number.isInteger(echoed) &&
+      echoed <= nowUnix &&
+      nowUnix - echoed <= QUOTE_TTL_SECONDS
+        ? echoed
+        : nowUnix;
+
+    let quote: { amountDue: number; currency: string } | null = null;
+    try {
+      const preview = await previewNextInvoice(stripe, {
+        subscription: subscription.id,
+        customer: row.stripe_customer_id,
+        items: [{ id: item.id, price: targetPriceId }],
+        prorationBehavior: 'always_invoice',
+        billingCycleAnchor: 'now',
+        prorationDate,
+        ...(discountParam !== undefined ? { discounts: discountParam } : {}),
+      });
+      if (typeof preview.amount_due === 'number' && preview.currency) {
+        quote = { amountDue: preview.amount_due, currency: preview.currency };
+      }
+    } catch {
+      quote = null;
+    }
+    if (!quote) {
+      return NextResponse.json(
+        { error: "Couldn't price this switch just now, so nothing changed. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    const confirmQuote = {
+      kind: 'lengthen' as const,
+      tier,
+      cadence,
+      amountDue: quote.amountDue,
+      currency: quote.currency,
+      amountFormatted: formatAmount(quote.amountDue, quote.currency),
+      // The guarantee covers a subscription's first payment only.
+      guarantee: false,
+      prorationDate,
+    };
+
+    if (!confirmed) {
+      return NextResponse.json({ confirm: confirmQuote });
+    }
+    if (body.expectedAmountDue !== quote.amountDue) {
+      return NextResponse.json(
+        {
+          error: `The price changed since you looked: switching now charges ${confirmQuote.amountFormatted}. Please review it before confirming.`,
+          confirm: confirmQuote,
+        },
+        { status: 409 },
+      );
+    }
+
+    if (inFlight.has(subscription.id)) {
+      return NextResponse.json({ error: 'Your plan change is already being processed.' }, { status: 409 });
+    }
+    inFlight.add(subscription.id);
+    try {
+      await stripe.subscriptions.update(subscription.id, {
+        items: [{ id: item.id, price: targetPriceId }],
+        // The new period starts now and is invoiced now, with a credit for the
+        // unused part of the current one, priced at the quote's instant.
+        billing_cycle_anchor: 'now',
+        proration_behavior: 'always_invoice',
+        proration_date: prorationDate,
+        // A declined (or authentication-required) payment fails the whole
+        // update, leaving the member on their current plan.
+        payment_behavior: 'error_if_incomplete',
+        // Committing to a longer period implies staying.
+        cancel_at_period_end: false,
+        ...(discountParam !== undefined ? { discounts: discountParam } : {}),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'plan change failed';
+      const failure = classifySwitchFailure(err);
+      appendAuditEvent({
+        type: 'billing_plan_switch_error',
+        userId: actor.user.id,
+        email: actor.user.email,
+        ip: getClientIp(request),
+        message:
+          `Paid switch ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} from ${source} failed (${failure}; ` +
+          `${failure === 'unknown' ? 'outcome unknown — check the subscription' : 'plan left as it was'}): ${message}`,
+      });
+      const { status, error } = switchFailureCopy(failure, 'your current plan');
+      if (failure === 'authentication') {
+        try {
+          const session = await createBillingPortalSession(row.stripe_customer_id, `${appUrl}/account`);
+          return NextResponse.json({ error, portalUrl: session.url }, { status });
+        } catch {
+          return NextResponse.json({ error }, { status });
+        }
+      }
+      return NextResponse.json({ error }, { status });
+    } finally {
+      inFlight.delete(subscription.id);
+    }
+
+    appendAuditEvent({
+      type: 'billing_plan_switch_in_app',
+      userId: actor.user.id,
+      email: actor.user.email,
+      ip: getClientIp(request),
+      message:
+        `Paid switch ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} from ${source} ` +
+        `(charged ${confirmQuote.amountFormatted} today as quoted, unused time credited; discounts ` +
+        `${discountParam !== undefined ? `set to [${describeDiscountsParam(discountParam, attached)}]` : 'unchanged'})`,
+    });
+
+    return NextResponse.json({
+      url: `${appUrl}/account?plan_switched=${cadence}`,
+      switched: { tier, cadence },
     });
   }
 
