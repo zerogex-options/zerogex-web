@@ -46,6 +46,7 @@ import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes,
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { visibleViewBoxRight } from '@/core/chartViewport';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { flipStatusChip } from '@/core/flipStatusChip';
 import { seriesRollNote, summarizeSeriesContracts } from '@/core/futuresContract';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
@@ -2593,6 +2594,73 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const tickUnderTag = (y: number): boolean =>
     narrow && positionedLevels.some((l) => Math.abs(l.labelY - y) < PILL_H / 2 + 6);
 
+  // ── Flip status chip — why there is no Gamma Flip line ──────────────────
+  // The flip is the one level whose absence is itself a question. Every other
+  // level simply isn't drawn when it isn't there; a trader opening this board
+  // expects a flip and cannot tell whether it sits outside the price band on
+  // screen or was never resolved at all. Two ways it goes blank here, and the
+  // board used to be silent about both:
+  //
+  //   * off-scale   — the level exists, but `positionedLevels` keeps only what
+  //                   falls between PLOT_TOP and PLOT_BOTTOM, so a flip beyond
+  //                   the band simply vanishes.
+  //   * no-crossing — an expiration filter is on, and the subset's cumulative
+  //                   net-GEX curve publishes no crossing that clears the
+  //                   resolver's noise floor. A finding about the book the
+  //                   trader picked, not a miss: waiting cannot fix it,
+  //                   widening the Expiry filter can.
+  //
+  // Label and copy are core/flipStatusChip's — the same module the Gamma Chart
+  // uses — so the two boards tell ONE story about the same blank instead of
+  // two. Only the placement is this board's: pinned to the edge the level lies
+  // beyond when it has a direction to point in, and parked at the bottom-left
+  // otherwise, since neither blank case has a price to sit at. The "?" is an
+  // SVG glyph rather than the Gamma Chart's HTML mark because this board's
+  // viewBox is letterboxed (preserveAspectRatio) inside a sideways scroller,
+  // so percentages of the wrapper do not map to viewBox units here — and an
+  // in-SVG mark survives a PNG export besides.
+  const flipChip = (() => {
+    if (!yBounds) return null;
+    const flipPrice = effFlip != null && Number.isFinite(effFlip) ? effFlip : null;
+    const aboveView = flipPrice != null && flipPrice > yBounds.yMax;
+    const chip = flipStatusChip({
+      flip: flipPrice,
+      onScreen: flipPrice != null && flipPrice >= yBounds.yMin && flipPrice <= yBounds.yMax,
+      aboveView,
+      // Each board's own price text, so the chip reads like the level tags
+      // beside it rather than introducing a third rounding.
+      formatPrice: narrow ? levelTagText : (price: number) => price.toFixed(2),
+      symbol,
+      filtered: levelsAreFiltered,
+    });
+    if (!chip) return null;
+    const y = chip.kind === 'off-scale' && aboveView ? PLOT_TOP + 11 : PLOT_BOTTOM - 9;
+    // 5.6/char + 14 of padding is the board's own pill metric (and the Gamma
+    // Chart's labelWidth), which leaves the label filling the box. The "?" is
+    // drawn INSIDE this chip rather than past its edge, so it needs its own
+    // room or it prints over the label's tail.
+    const width = Math.round(chip.label.length * 5.6 + 14 + (chip.explain ? 12 : 0));
+    // The narrow board puts its level NAME chips against the same left edge;
+    // slide past any that shares this row. The desktop board right-aligns its
+    // pills, so the left edge is already clear there.
+    const shifted = narrow
+      ? positionedLevels.reduce((acc, lvl) => {
+          if (Math.abs(lvl.labelY - y) >= PILL_H) return acc;
+          const name = NARROW_LEVEL_NAMES[lvl.label] ?? lvl.label;
+          return Math.max(acc, LEFT_X + 2 + Math.round(name.length * 5.9 + 10) + 5);
+        }, LEFT_X + 6)
+      : LEFT_X + 6;
+    // Keep the whole chip on the canvas: on a phone-width board the shift past
+    // a level's name chip can otherwise run its tail off the right edge, and a
+    // half-clipped explainer explains nothing.
+    const x = Math.max(LEFT_X + 2, Math.min(shifted, CW - width - 4));
+    // A drawn (off-scale) flip names itself in the flip line's own color, so
+    // FLIP is one color whether its line is on screen or not. The blank cases
+    // stay muted and dashed — there is no line on the plot to match.
+    const drawn = chip.kind === 'off-scale';
+    return { ...chip, x, y, w: width, drawn, color: drawn ? FLIP_LINE : 'var(--text-muted)' };
+  })();
+
   // ── Toolbar pieces ── one set of controls, laid out as the original single
   // wrapping row on the desktop board and as a compact bar + Options panel on
   // the narrow one (see the Toolbar block in the JSX below).
@@ -3769,6 +3837,53 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               );
             });
           })()}
+
+          {/* ── Flip status chip — why there is no Gamma Flip line (see flipChip) ──
+               The chip body carries the copy as a native <title> too, so the
+               story survives anywhere the "?" cannot be hovered. */}
+          {flipChip && (
+            <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
+              <rect
+                x={0}
+                y={-8}
+                width={flipChip.w}
+                height={16}
+                rx={2}
+                fill={cardBg}
+                stroke={flipChip.color}
+                strokeWidth={1}
+                strokeDasharray={flipChip.drawn ? undefined : '2 2'}
+                opacity={0.95}
+              />
+              <text
+                x={6}
+                y={3.5}
+                fontSize={9.5}
+                letterSpacing="0.08em"
+                fontWeight={600}
+                fill={flipChip.drawn ? FLIP_LINE : 'var(--text-muted)'}
+              >
+                {flipChip.label}
+              </text>
+              {/* A blank flip has something to explain and no price to explain
+                  it with, so it carries the same amber mark the Key Levels
+                  strip puts beside an empty level. An off-scale chip already
+                  states its price and direction and explains itself. */}
+              {flipChip.explain && (
+                <text
+                  x={flipChip.w - 6}
+                  y={3.5}
+                  fontSize={10}
+                  fontWeight={700}
+                  textAnchor="end"
+                  fill="var(--color-warning)"
+                >
+                  ?
+                </text>
+              )}
+              <title>{flipChip.tooltip}</title>
+            </g>
+          )}
 
           {/* ── Crosshair (drawn after levels so it overlays everything) ── */}
           {hover && hover.panel && (
