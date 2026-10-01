@@ -1,5 +1,7 @@
 import type Stripe from 'stripe';
 
+import { readInvoicePaymentIntentId, readInvoicePaymentMethodId } from './stripeInvoice.ts';
+
 // Stripe reports card brands as lowercase codes (visa, mastercard, amex, …).
 // Map the documented set to display-ready names for customer-facing copy.
 // Anything unmapped — including 'unknown' and the 'link' wallet — resolves to
@@ -70,4 +72,44 @@ export async function resolveSubscriptionCard(
   }
 
   return null;
+}
+
+// The payment method that actually SETTLED an invoice, resolved in full: read
+// it straight off the payload when it is there, else follow the invoice's
+// PaymentIntent and read it from that. Returns null when neither yields one.
+//
+// Recovery is the caller that matters. Re-creating a subscription for a member
+// whose payment was orphaned must renew on the card that just worked, not the
+// one that failed its way into cancellation — but a webhook invoice arrives
+// unexpanded, so the method is usually absent and only the intent's id is
+// present. Without the round trip the new subscription is created with NO
+// default payment method on either the subscription or the customer, leaving
+// Stripe to guess at renewal time; with one card on file it guesses right, and
+// with two it is a coin toss on a member who has already been through one
+// failed charge.
+//
+// Lives here, shared, because the webhook and scripts/recover-orphan-payment
+// both build that subscription and must not drift: the script previously read
+// only the payload and had no fallback at all.
+export async function resolveInvoicePaymentMethodId(
+  stripe: Stripe,
+  invoice: unknown,
+): Promise<string | null> {
+  const fromPayload = readInvoicePaymentMethodId(invoice);
+  if (fromPayload) return fromPayload;
+
+  const paymentIntentId = readInvoicePaymentIntentId(invoice);
+  if (!paymentIntentId) return null;
+
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    return typeof pi.payment_method === 'string'
+      ? pi.payment_method
+      : (pi.payment_method?.id ?? null);
+  } catch {
+    // Non-fatal by design: the caller still creates the subscription, Stripe
+    // still falls back to a method on the customer, and a member who has paid
+    // must never be left on 'public' over an optional parameter.
+    return null;
+  }
 }

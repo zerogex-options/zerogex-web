@@ -4,7 +4,7 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { isApiKeyEligibleTier, normalizeTier, TierId } from '@/core/auth';
 import { revokeApiKeysIfTierDropped } from '@/core/apiKeys';
-import { resolveSubscriptionCard } from '@/core/stripeCard';
+import { resolveInvoicePaymentMethodId, resolveSubscriptionCard } from '@/core/stripeCard';
 import {
   sendCancellationEmail,
   sendFoundingWelcomeEmail,
@@ -52,7 +52,6 @@ import {
   readInvoiceCouponIds,
   readInvoicePaidAtUnix,
   readInvoicePaymentIntentId,
-  readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
   readInvoicePriceId,
@@ -1662,7 +1661,10 @@ async function maybeStampFirstPayment(invoice: Stripe.Invoice): Promise<void> {
 //
 // The charge is read off the INVOICE, not the subscription price: amount_paid
 // is what actually left the member's card, net of any banked referral credit.
-async function maybeSendTrialConvertedEmail(invoice: Stripe.Invoice): Promise<void> {
+async function maybeSendTrialConvertedEmail(
+  invoice: Stripe.Invoice,
+  opts?: { suppressedBy?: string },
+): Promise<void> {
   const customerId =
     typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
   if (!customerId) return;
@@ -1717,6 +1719,21 @@ async function maybeSendTrialConvertedEmail(invoice: Stripe.Invoice): Promise<vo
     )
     .run(stamp, stamp, user.id) as { changes: number | bigint };
   if (Number(claim.changes) === 0) return;
+
+  // Suppressed — but only AFTER claiming the latch, deliberately. Spending the
+  // one-shot here is what stops this confirmation surfacing weeks later on some
+  // other invoice that also classifies as a conversion. The reason is recorded
+  // because an operator reading this account should see that the email was
+  // decided against, not that it silently failed.
+  if (opts?.suppressedBy) {
+    logAudit({
+      type: 'trial_converted_email_suppressed',
+      userId: user.id,
+      email: user.email,
+      message: `Suppressed trial-conversion confirmation for invoice ${invoice.id} on sub ${invoiceSub}: ${opts.suppressedBy}`,
+    });
+    return;
+  }
 
   // Best-effort enrichment: name the exact card that was charged. A Stripe
   // hiccup here must never cost the member their confirmation, so any failure
@@ -1888,13 +1905,13 @@ async function resolveRefundedAmount(invoice: Stripe.Invoice): Promise<number | 
 // bought and is not charged twice. Never throws — a recovery failure must not
 // 500 the webhook and unwind the commission accrual that ran before it; the
 // audit row is what an operator (or `make recover-orphan-payment`) picks up.
-async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void> {
+async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<boolean> {
   const invoiceId = invoice.id;
   const customerId =
     typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? null;
-  if (!invoiceId || !customerId) return;
+  if (!invoiceId || !customerId) return false;
   const user = findUserByCustomerId(customerId);
-  if (!user) return;
+  if (!user) return false;
 
   // Cheap local gate first. decideOrphanPayment would answer 'none' for every
   // one of these anyway, and stopping here keeps the two live Stripe reads below
@@ -1908,7 +1925,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       localSubscriptionId: user.stripe_subscription_id,
     })
   ) {
-    return;
+    return false;
   }
 
   const subscriptionId = readInvoiceSubscriptionId(invoice);
@@ -1944,7 +1961,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
           email: user.email,
           message: `Could not read subscription ${subscriptionId} for paid invoice ${invoiceId}; skipped orphan check`,
         });
-        return;
+        return false;
       }
     }
   }
@@ -1971,7 +1988,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       : false,
   });
 
-  if (decision.kind === 'none') return;
+  if (decision.kind === 'none') return false;
 
   logAudit({
     type: 'billing_orphan_payment_detected',
@@ -1984,7 +2001,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       (decision.recoverable ? '' : ' — needs a human'),
   });
 
-  if (!decision.recoverable) return;
+  if (!decision.recoverable) return false;
   if (!getOrphanPaymentRecoveryEnabled()) {
     logAudit({
       type: 'billing_orphan_payment_skipped',
@@ -1992,7 +2009,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       email: user.email,
       message: `Automatic recovery disabled (BILLING_ORPHAN_RECOVERY_ENABLED=0); invoice ${invoiceId} awaits \`make recover-orphan-payment EMAIL=${user.email}\``,
     });
-    return;
+    return false;
   }
 
   // Idempotency + last-line double-charge guard, both read from Stripe rather
@@ -2016,7 +2033,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
         email: user.email,
         message: `Invoice ${invoiceId}: customer already has live subscription ${live.id} (${live.status}); no recovery`,
       });
-      return;
+      return false;
     }
     const already = existing.data.find(
       (sub) => sub.metadata?.[RECOVERED_FROM_INVOICE_KEY] === invoiceId,
@@ -2028,7 +2045,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
         email: user.email,
         message: `Invoice ${invoiceId} was already recovered as subscription ${already.id}`,
       });
-      return;
+      return false;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'subscription list failed';
@@ -2038,27 +2055,21 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       email: user.email,
       message: `Invoice ${invoiceId}: could not list existing subscriptions (${message}); no recovery attempted`,
     });
-    return;
+    return false;
   }
 
   // Renew on the card that actually settled this invoice, not the one that
-  // failed. Best-effort in three steps: the (possibly unexpanded) invoice body,
-  // then its PaymentIntent, then nothing — with no explicit default Stripe falls
-  // back to the customer's own default payment method.
-  let paymentMethodId = readInvoicePaymentMethodId(invoice);
-  if (!paymentMethodId) {
-    const piRef = (invoice as unknown as { payment_intent?: unknown }).payment_intent;
-    const piId = typeof piRef === 'string' ? piRef : null;
-    if (piId) {
-      try {
-        const pi = await getStripe().paymentIntents.retrieve(piId);
-        paymentMethodId =
-          typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method?.id ?? null;
-      } catch {
-        // Non-fatal — the subscription still gets the customer default.
-      }
-    }
-  }
+  // failed. The payload, then its PaymentIntent, then nothing — and with no
+  // explicit default Stripe falls back to a method on the customer.
+  //
+  // This used to hand-roll the fallback and read only the acacia
+  // `invoice.payment_intent`, so on a basil-rendered event it had no id to
+  // retrieve with and gave up — which is how a real recovery came back with no
+  // default payment method on either the subscription or the customer, leaving
+  // Stripe to guess at renewal. readInvoicePaymentIntentId already knew both
+  // shapes; this path simply wasn't using it. Now shared with
+  // scripts/recover-orphan-payment, which had no fallback at all.
+  const paymentMethodId = await resolveInvoicePaymentMethodId(getStripe(), invoice);
 
   // A brand-new subscription starts with no discounts. Carry the canceled one's
   // FOREVER coupons across (a founding lifetime rate, a forever winback price);
@@ -2090,7 +2101,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       email: user.email,
       message: `Invoice ${invoiceId}: recovery subscription create failed (${message}); member is still public having paid`,
     });
-    return;
+    return false;
   }
 
   // Name each carried coupon with its duration, and say outright when one has
@@ -2187,6 +2198,11 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     created.id,
     paidAtUnix != null ? new Date(paidAtUnix * 1000).toISOString() : null,
   );
+
+  // Recovered. The caller suppresses the trial-conversion confirmation on the
+  // strength of this: the welcome-back that syncSubscriptionToUser just sent is
+  // the right email for a member whose subscription came back from the dead.
+  return true;
 }
 
 // The final invoice of a subscription Stripe just killed for nonpayment stays
@@ -2602,7 +2618,7 @@ export async function POST(request: NextRequest) {
         // has already canceled the subscription for nonpayment, paying its
         // still-open invoice emits NOTHING else. Without this the member stays
         // on 'public' having paid in full.
-        await maybeRecoverOrphanPayment(invoice);
+        const recovered = await maybeRecoverOrphanPayment(invoice);
         // Record that money actually moved. Runs before the email below because
         // it is the stamp the admin headcount reads: it promotes the member off
         // the Converting line and onto Full Subscriber.
@@ -2611,7 +2627,21 @@ export async function POST(request: NextRequest) {
         // trial-conversion dunning email in invoice.payment_failed below.
         // Self-classifying and CAS-latched, so it no-ops on the renewals and
         // prorations that also land here.
-        await maybeSendTrialConvertedEmail(invoice);
+        //
+        // Suppressed on a recovery. The invoice that gets orphan-recovered IS
+        // usually the trial-conversion one, so this would fire — and land
+        // beside the welcome-back the recovery's own sync just sent, 0.4s
+        // apart. Two emails is the smaller problem: "your trial just became a
+        // full membership" is simply the wrong story for someone whose
+        // subscription was cancelled and rebuilt days later, and the
+        // welcome-back is the one that tells them to regenerate the API key the
+        // tier drop revoked.
+        await maybeSendTrialConvertedEmail(
+          invoice,
+          recovered
+            ? { suppressedBy: 'orphan recovery sent the welcome-back email instead' }
+            : undefined,
+        );
         break;
       }
       case 'charge.refunded': {
