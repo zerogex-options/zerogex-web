@@ -157,6 +157,9 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [openPositions, setOpenPositions] =
     useState<OpenPositionsResponse | null>(null);
+  // When that snapshot arrived. Held time and the time-stop countdown are
+  // measured against it, so they advance with each 15 s poll.
+  const [openFetchedAt, setOpenFetchedAt] = useState(0);
 
   const queryParams = useMemo(() => {
     const p = new URLSearchParams();
@@ -211,7 +214,10 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
         });
         if (!res.ok) return;
         const body = (await res.json()) as OpenPositionsResponse;
-        if (!cancelled) setOpenPositions(body);
+        if (!cancelled) {
+          setOpenPositions(body);
+          setOpenFetchedAt(Date.now());
+        }
       } catch {
         /* keep the last-known good snapshot */
       }
@@ -307,7 +313,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
         </div>
       </div>
 
-      <OpenPositionsSection data={openPositions} />
+      <OpenPositionsSection data={openPositions} now={openFetchedAt} />
 
       {/*
         Closed-trades section header. Matches OpenPositionsSection layout:
@@ -549,9 +555,14 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
   );
 }
 
-function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) {
+function OpenPositionsSection({
+  data,
+  now,
+}: {
+  data: OpenPositionsResponse | null;
+  now: number;
+}) {
   if (!data) return null;
-  const now = Date.now();
   // Per-position winning/losing/scratch counts derived from the sign of
   // each row's unrealized_pnl. Mirrors the wins/losses/scratches columns
   // on the closed-trades stat rail so the two sections read as a matched

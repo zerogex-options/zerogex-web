@@ -619,7 +619,7 @@ export default function FollowControl({
                     style={{ accentColor: color }}
                   />
                   <div className="text-[10px] text-[var(--color-text-secondary)] mt-1 leading-snug">
-                    Suppress notifications for entries below this bot's
+                    Suppress notifications for entries below this bot&apos;s
                     confidence-blend score.
                   </div>
                 </div>

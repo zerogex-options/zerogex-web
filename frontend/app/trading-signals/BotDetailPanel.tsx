@@ -102,16 +102,18 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
   }, [equity.data]);
 
   const drawdownPoints: DrawdownChartPoint[] = useMemo(() => {
+    const out: DrawdownChartPoint[] = [];
     let peak = -Infinity;
-    return equityPoints.map((p) => {
+    for (const p of equityPoints) {
       peak = Math.max(peak, p.ending_nav);
       const dd = peak > 0 ? (p.ending_nav / peak - 1) * 100 : 0;
-      return {
+      out.push({
         session_date: p.session_date,
         realized_pnl: p.realized_pnl,
         drawdown_pct: dd,
-      };
-    });
+      });
+    }
+    return out;
   }, [equityPoints]);
 
   if (typeof window === 'undefined') return null;
