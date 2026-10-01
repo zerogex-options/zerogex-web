@@ -1050,6 +1050,13 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   return series;
 }
 
+// The Full Subscriber line of the Total Subscribers chart, one point per New
+// York day, today's from the live count. The Churn tab divides by this, so its
+// "paying members" is the number on the chart (core/churnReportServer.ts).
+export function getFullSubscriberHistory(now: Date = new Date()): Array<{ day: string; paying: number }> {
+  return buildSignupSeries(now).map((point) => ({ day: point.day, paying: point.paying }));
+}
+
 type FlowAcc = {
   basicAdd: number;
   proAdd: number;

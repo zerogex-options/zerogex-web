@@ -8,6 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import GrowthClient from './growth/GrowthClient';
+import ChurnClient from './churn/ChurnClient';
 import DeclineTracking from './declines/DeclineTracking';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
@@ -323,7 +324,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'growth';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'growth' | 'churn';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -338,9 +339,9 @@ export default function MonitoringClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Both of these tabs own their own fetch, so the shared snapshot poll would
-    // be pure waste while either is open.
-    if (tab === 'backend' || tab === 'growth') return;
+    // These tabs own their own fetch, so the shared snapshot poll would be pure
+    // waste while one is open.
+    if (tab === 'backend' || tab === 'growth' || tab === 'churn') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -380,6 +381,7 @@ export default function MonitoringClient() {
     { id: 'revenue', label: 'Revenue Tracking' },
     { id: 'conveyor', label: 'Conversion Conveyor' },
     { id: 'growth', label: 'Growth' },
+    { id: 'churn', label: 'Churn' },
   ];
 
   return (
@@ -438,8 +440,11 @@ export default function MonitoringClient() {
       {tab === 'growth' && (
         <GrowthClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
+      {tab === 'churn' && (
+        <ChurnClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'churn' && tab !== 'stripe' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'churn' && tab !== 'stripe' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
