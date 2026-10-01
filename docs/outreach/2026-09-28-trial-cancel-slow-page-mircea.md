@@ -26,6 +26,45 @@ ET.
 | Connecting from | 82.77.225.10, a home connection in Romania (RCS & RDS) |
 | Another trial if they come back later | no, the account has already had one |
 
+## Update Thu Oct 1: it's HTTP/3 on their connection
+
+They sent a 40-second video (8:17 PM their time, 1:17 PM ET) with the Protocol
+column turned on and one request's Timing tab open. No hotspot test: mobile
+signal is poor where they live. They offered to try from town.
+
+- **Every request is `h3`**, HTTP/3 over QUIC, which runs on UDP between their
+  browser and Cloudflare's nearby edge.
+- **Timing of the slowest request**, `strike-profile-timeseries`, 188 KB:
+  Queueing 0.25 ms, Stalled 0.42 ms, Request sent 0.11 ms, Waiting for server
+  response 812.89 ms, **Content Download 20.65 s**, total 21.47 s. The browser
+  held nothing back, and the first byte came in under a second. The body then
+  trickled in at about 9 KB a second.
+- **Small requests were just as slow:** a 0.7 KB quote took 13.27 s, a 0.6 KB
+  session-close 12.78 s, a 0.8 KB historical 15.60 s, and the 16 KB by-strike
+  requests 11 to 19 s.
+
+**Read:** the QUIC connection between their browser and Cloudflare is moving
+data at dial-up speed while our server answers in milliseconds. Some home
+routers and networks throttle or drop UDP while TCP and ping are fine. That
+fits a steady 16-18 ms ping, the same result on two machines on one network,
+and "fine at first, then it lags": the dashboard's steady ~1 Mbps outruns a
+throttled link and backs up. Not proven until QUIC is off.
+
+**Test (theirs):** `chrome://flags/#enable-quic`, set "Experimental QUIC
+protocol" to Disabled, relaunch, and check that the Protocol column shows `h2`.
+**If that fixes it (ours):** turn off "HTTP/3 (with QUIC)" in Cloudflare's
+settings for zerogex.io. Every visitor then gets HTTP/2 over TCP, so they need
+no browser flag. It is one switch and can be turned back on.
+`api.zerogex.io` is not behind Cloudflare, so the WebSocket is unaffected.
+
+**Decided Thu: switch HTTP/3 off first, rather than ask them to change a
+browser flag.** Cloudflare advertises HTTP/3 with `alt-svc: h3=":443";
+ma=86400`, so browsers remember it for up to 24 hours. New visitors get h2 at
+once, but their Chrome may stay on h3 until it forgets. Check that it took
+with `curl -sI https://zerogex.io/ | grep -i alt-svc`; no output means it is no
+longer advertised. Their Protocol column showing `h2` means it has reached
+them. The Chrome flag remains the fallback if they don't want to wait.
+
 ## Update Wed Sep 30: still slow after the fix
 
 The fix went live after Tuesday's close. On Wednesday they wrote three times
