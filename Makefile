@@ -609,14 +609,15 @@ trial-reminders:
 # 7 days for quarterly, 30 for annual). Idempotent per billing period. Driven
 # daily by the zerogex-web-renewal-reminders timer (deploy/steps/099.renewal-reminders).
 renewal-reminders:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-renewal-reminders.mts $(if $(YES),--yes,--dry-run) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-renewal-reminders.mts $(if $(YES),--yes,$(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),--dry-run))'
 
 # First-month plan offer (core/planOffer.ts): a few days before a monthly
 # member's first renewal, the longer plans on their tier and what each costs per
-# month. Dry run by default; YES=1 sends. Driven daily by the
+# month. Dry run by default; YES=1 sends; PREVIEW_TO=<email> sends one sample
+# copy there (no DB writes). Driven daily by the
 # zerogex-web-plan-offers timer (deploy/steps/099.plan-offers).
 plan-offers:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-plan-offers.mts $(if $(YES),--yes,--dry-run) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-plan-offers.mts $(if $(YES),--yes,$(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),--dry-run))'
 
 # Honor a 7-day money-back guarantee request by hand (the same code path as the
 # Account page button — core/moneyBackServer.ts). Dry run unless YES=1.
