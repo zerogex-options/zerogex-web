@@ -132,3 +132,62 @@ test('the filter never suppresses or rewrites a flip that exists', () => {
   assert.equal(offScale.kind, 'off-scale');
   assert.equal(offScale.label, 'FLIP ↑ 22,600.00');
 });
+
+// ── The chip's second home: the GEX Strike Profile ─────────────────────────
+// The Strike Profile draws the same Gamma Flip line from the same
+// expiration-filtered bucket, and went blank the same two ways — an off-scale
+// level dropped by its in-bounds filter, and a filtered subset that publishes
+// no crossing — while saying nothing about either. It now draws this same chip,
+// so a reader who learns the label on one board reads it on the other.
+// Checked at the source, the way tests/rewindDefaults.test.ts checks this
+// component and tests/gammaTerminal.test.ts checks the chart.
+import { readFileSync } from 'node:fs';
+
+const strikeProfile = readFileSync(
+  new URL('../components/MarketMakerExposures.tsx', import.meta.url),
+  'utf8',
+);
+
+test('Strike Profile: the blank flip is explained by the shared chip, not re-worded', () => {
+  assert.match(
+    strikeProfile,
+    /import \{ flipStatusChip \} from '@\/core\/flipStatusChip';/,
+    'the copy comes from the shared module — never a second wording of the same blank',
+  );
+  assert.match(strikeProfile, /const flipChip = \(\) => \{|const flipChip = \(\(\) => \{/);
+  // The labels themselves must NOT be written out here; that is how two
+  // surfaces drift into telling different stories about one blank.
+  assert.doesNotMatch(strikeProfile, /NO FLIP IN SELECTED EXPIRIES/);
+  assert.doesNotMatch(strikeProfile, /FLIP UNAVAILABLE/);
+});
+
+test('Strike Profile: a filtered book gets the subset story, not the declined-publish one', () => {
+  // `filtered` is what splits "this subset has no crossing" from "the resolver
+  // declined". Wiring it to anything but the board's own level scope would send
+  // the reader to wait for a snapshot that cannot fix it.
+  assert.match(
+    strikeProfile,
+    /filtered: levelsAreFiltered,/,
+    'the chip reads the same scope flag the levels themselves are read under',
+  );
+  assert.match(
+    strikeProfile,
+    /const levelsAreFiltered = expirationsParam !== 'all';/,
+    'and that flag is the Expiry filter, not a proxy for it',
+  );
+});
+
+test('Strike Profile: an off-scale flip is caught by the visible price band', () => {
+  // The board keeps only levels between PLOT_TOP and PLOT_BOTTOM, so a flip
+  // outside the band silently disappeared. onScreen has to be measured against
+  // that same band or the chip never fires for the case it exists to cover.
+  assert.match(strikeProfile, /onScreen: flipPrice != null && flipPrice >= yBounds\.yMin && flipPrice <= yBounds\.yMax,/);
+  assert.match(strikeProfile, /const aboveView = flipPrice != null && flipPrice > yBounds\.yMax;/);
+});
+
+test('Strike Profile: the chip renders its label, its hover copy and the "?" mark', () => {
+  assert.match(strikeProfile, /\{flipChip\.label\}/, 'the label is drawn');
+  assert.match(strikeProfile, /<title>\{flipChip\.tooltip\}<\/title>/, 'the copy is reachable as a native title');
+  assert.match(strikeProfile, /\{flipChip\.explain && \(/, 'a blank flip carries the mark that invites the hover');
+  assert.match(strikeProfile, /fill="var\(--color-warning\)"/, 'and the mark is the same amber as every other empty level');
+});
