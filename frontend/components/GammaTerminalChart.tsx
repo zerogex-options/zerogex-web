@@ -948,9 +948,10 @@ export default function GammaTerminalChart({
   const [rewindTime, setRewindTime] = useState<number | null>(null);
   const [playbackActive, setPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 4 | 8 | 16>(1);
-  // Sticky preference: when on, playback wraps back to the earliest replayable
-  // bar at the live edge instead of stopping (kept across enter/exit rewind).
-  const [playbackLoop, setPlaybackLoop] = useState(false);
+  // Sticky preference, on by default: playback wraps back to the earliest
+  // replayable bar at the live edge instead of stopping (kept across
+  // enter/exit rewind).
+  const [playbackLoop, setPlaybackLoop] = useState(true);
   // Vertical domain captured when rewind is entered. While rewinding we freeze
   // the y-axis to this instead of re-fitting to the scrubbed bars, so the price
   // scale never jumps as you scrub — the user still zooms/pans it by hand.
@@ -2687,14 +2688,29 @@ export default function GammaTerminalChart({
     // window the reader already holds) so scrubbing doesn't move it and
     // entering doesn't jump it (the user can still adjust it by hand afterward).
     if (layout) setFrozenAxis({ mid: layout.baseMid, half: layout.baseHalf });
-    // Anchor at the earliest replayable bar (full window + GEX coverage) so Play
-    // has the longest runway. Set the clock to that candle's END so it opens on
-    // a fully-formed candle; playback then builds the next one forward.
-    const startIdx = clamp(allBars.length - 1 - Math.max(effCount, 60), rewindMinIdx, allBars.length - 1);
-    setRewindTime(barStartMs(allBars, startIdx) + intervalMinutes * 60 * 1000 - 1);
+    // Anchor at the latest bar, so the replay opens on the chart the reader was
+    // just looking at and they scrub back from there. The clock sits at that
+    // candle's END (the live edge), the same place a scrub to it lands.
+    setRewindTime(barStartMs(allBars, allBars.length - 1) + intervalMinutes * 60 * 1000 - 1);
     setRewindActive(true);
     setPlaybackActive(false);
     setHover(null);
+  };
+
+  // Play from the live edge, which is where Rewind opens, replays from the
+  // earliest replayable candle (the same place Loop wraps to) instead of
+  // stopping on its first tick with nothing left to play.
+  const togglePlayback = () => {
+    if (playbackActive) {
+      setPlaybackActive(false);
+      return;
+    }
+    const lastIdx = allBars.length - 1;
+    if (rewindTime != null && lastIdx > rewindMinIdx) {
+      const liveEdge = barStartMs(allBars, lastIdx) + intervalMinutes * 60 * 1000 - 1;
+      if (rewindTime >= liveEdge) setRewindTime(barStartMs(allBars, rewindMinIdx));
+    }
+    setPlaybackActive(true);
   };
 
   const exitRewind = () => {
@@ -4695,7 +4711,7 @@ export default function GammaTerminalChart({
               </button>
               <button
                 type="button"
-                onClick={() => setPlaybackActive((p) => !p)}
+                onClick={togglePlayback}
                 aria-label={playbackActive ? "Pause playback" : "Play forward"}
                 title={playbackActive ? "Pause playback" : "Play forward"}
                 style={{ display: "grid", placeItems: "center", width: 28, height: 26, borderRadius: "var(--radius-control)", border: "1px solid var(--border-strong)", color: "var(--text-primary)", background: "var(--bg-card)", cursor: "pointer" }}
