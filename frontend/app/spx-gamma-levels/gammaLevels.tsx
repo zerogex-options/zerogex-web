@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import type { CSSProperties, ReactNode } from 'react';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { serverApiGet, serverApiGetDelayed } from '@/core/api/serverFetch';
 import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
@@ -26,8 +27,10 @@ import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
 import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
-import { futuresLevelsLabel, volatilityIndexFor } from '@/core/symbols';
+import { futuresLevelsLabel, isFuturesSymbol, volatilityIndexFor } from '@/core/symbols';
+import { resolveFuturesContract, symbolWithContract } from '@/core/futuresContract';
 import FuturesLevelsChip from '@/components/FuturesLevelsChip';
+import FuturesContractBadge from '@/components/FuturesContractBadge';
 import DelayedLevelsTable from '@/components/DelayedLevelsTable';
 import LevelsEmailSignup from '@/components/LevelsEmailSignup';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
@@ -323,9 +326,19 @@ function fmtShareGex(value: number | null | undefined): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
-function shareLine(symbol: Symbol, data: GexSummary | null, delayed = false): string {
+// `nameContract` adds the CME contract to a futures line ("ES (ESZ26): spot
+// 7512 | …"). A pasted line is read with no chip beside it, and "ES" alone is
+// the label behind the "your futures price is off" reports. A line whose
+// snapshot carries no contract reads exactly as before.
+function shareLine(
+  symbol: Symbol,
+  data: GexSummary | null,
+  delayed = false,
+  nameContract = false,
+): string {
+  const label = nameContract ? symbolWithContract(symbol, data?.data_contract) : symbol;
   return (
-    `${symbol}: spot ${fmtShareLevel(data?.spot_price)} | ` +
+    `${label}: spot ${fmtShareLevel(data?.spot_price)} | ` +
     `Call Wall ${fmtShareStrike(data?.call_wall)} | ` +
     `Put Wall ${fmtShareStrike(data?.put_wall)} | ` +
     `Gamma Flip ${fmtShareLevel(data?.gamma_flip)} | ` +
@@ -342,10 +355,11 @@ function buildShareSnippet(
   snapshots: Record<Symbol, GexSummary | null>,
   primary: Symbol,
   staleSymbols?: ReadonlySet<Symbol>,
+  nameContracts = false,
 ): string {
   const order = symbolOrder(primary);
   return [
-    ...order.map((s) => shareLine(s, snapshots[s], staleSymbols?.has(s) ?? false)),
+    ...order.map((s) => shareLine(s, snapshots[s], staleSymbols?.has(s) ?? false, nameContracts)),
     'Free delayed levels:',
     SYMBOL_CONTENT[primary].shareUrl,
   ].join('\n');
@@ -463,10 +477,13 @@ function LevelRow({
   label,
   value,
   hint,
+  badge,
 }: {
   label: string;
   value: string;
   hint?: string;
+  /** A chip after the label: the CME contract on a futures card's spot row. */
+  badge?: ReactNode;
 }) {
   return (
     <div
@@ -480,7 +497,10 @@ function LevelRow({
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 500 }}>{label}</div>
+        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+          {label}
+          {badge}
+        </div>
         {hint && (
           <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.7, marginTop: 2 }}>
             {hint}
@@ -494,39 +514,72 @@ function LevelRow({
   );
 }
 
+const CARD_CLASS = 'zg-panel p-5 sm:px-[26px] sm:py-7 hover:!border-[var(--color-brand-primary)]';
+const CARD_STYLE: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 18,
+  textDecoration: 'none',
+  color: 'inherit',
+  cursor: 'pointer',
+  transition: 'border-color 150ms, transform 150ms',
+};
+const CARD_CTA_STYLE: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  color: 'var(--color-brand-primary)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+};
+
+// The contract chip on a futures card's spot row: the futures coral the app's
+// other contract chips wear, at the size of the "Implied from" chip above it,
+// and raised above the card's stretched link so it takes its own clicks.
+const CONTRACT_CHIP_STYLE = {
+  '--chip-color': 'var(--color-brand-coral)',
+  fontSize: 10,
+  marginLeft: 8,
+  position: 'relative',
+  zIndex: 1,
+} as CSSProperties;
+
 // The primary ticker's card links deeper to its live dashboard (the conversion
 // path); the other three tickers link to their own dedicated gamma-levels pages
 // so the four pages cross-link into a cluster.
+//
+// The whole card is one link, except a futures card that names its CME contract
+// (`nameContract`, on the ES / NQ pages). That chip is a button with its own
+// link to the help article, and a button cannot sit inside an <a>: the markup
+// is invalid, and a screen reader reads the whole card as one link name. So
+// that card is a box with its CTA link stretched over it (.zg-card-link): the
+// face is still one click target and the chip sits above it as its own tab
+// stop. With no contract (every cash card, an older backend, a cached
+// response) the card is exactly the link it has always been.
 function SymbolCard({
   symbol,
   data,
   isPrimary,
   status = 'ok',
+  nameContract = false,
 }: {
   symbol: Symbol;
   data: GexSummary | null;
   isPrimary: boolean;
   /** Freshness of this ticker relative to the freshest of the three. */
   status?: 'ok' | 'stale' | 'missing';
+  /** Name the CME contract beside the reference spot, when the API sent one. */
+  nameContract?: boolean;
 }) {
   const regime = REGIME_DISPLAY[detectRegime(data?.gamma_flip, data?.spot_price)];
   const regimeColor = regime.color;
   const href = isPrimary ? `/gamma-exposure?symbol=${symbol}` : gammaPath(symbol);
   const ctaLabel = isPrimary ? `Live ${symbol} dashboard` : `${symbol} gamma levels`;
-  return (
-    <Link
-      href={href}
-      className="zg-panel p-5 sm:px-[26px] sm:py-7 hover:!border-[var(--color-brand-primary)]"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 18,
-        textDecoration: 'none',
-        color: 'inherit',
-        cursor: 'pointer',
-        transition: 'border-color 150ms, transform 150ms',
-      }}
-    >
+  const contract = nameContract
+    ? resolveFuturesContract(data?.data_contract, data?.data_contract_expiry)
+    : null;
+  const body = (
+    <>
       <header>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: 'var(--color-text-primary)', letterSpacing: '-0.5px' }}>
@@ -591,7 +644,21 @@ function SymbolCard({
       </header>
 
       <div>
-        <LevelRow label="Reference spot (delayed)" value={fmtPrice(data?.spot_price)} hint="Approximate, snapshot ≥15 min ago" />
+        <LevelRow
+          label="Reference spot (delayed)"
+          value={fmtPrice(data?.spot_price)}
+          hint="Approximate, snapshot ≥15 min ago"
+          badge={
+            contract && (
+              <FuturesContractBadge
+                contract={data?.data_contract}
+                expiry={data?.data_contract_expiry}
+                className="zg-chip"
+                style={CONTRACT_CHIP_STYLE}
+              />
+            )
+          }
+        />
         <LevelRow label="Call wall" value={fmtPrice(data?.call_wall)} hint="Heaviest call gamma above spot" />
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Heaviest put gamma below spot" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint={flipHint(symbol, data?.gamma_flip)} />
@@ -604,21 +671,32 @@ function SymbolCard({
         <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.75 }}>
           Snapshot: {fmtTimestampET(data?.timestamp)}
         </span>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: 'var(--color-brand-primary)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          {ctaLabel}
-          <ArrowRight size={14} />
-        </span>
+        {contract ? (
+          <Link href={href} className="zg-card-link" style={CARD_CTA_STYLE}>
+            {ctaLabel}
+            <ArrowRight size={14} />
+          </Link>
+        ) : (
+          <span style={CARD_CTA_STYLE}>
+            {ctaLabel}
+            <ArrowRight size={14} />
+          </span>
+        )}
       </footer>
-    </Link>
+    </>
+  );
+
+  if (!contract) {
+    return (
+      <Link href={href} className={CARD_CLASS} style={CARD_STYLE}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <div className={CARD_CLASS} style={{ ...CARD_STYLE, position: 'relative' }}>
+      {body}
+    </div>
   );
 }
 
@@ -688,10 +766,16 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   };
   const staleSymbols = new Set<Symbol>(SYMBOLS.filter((s) => cardStatus(s) === 'stale'));
 
+  // The ES and NQ pages name the CME contract behind each futures card's spot
+  // and share line ("ES" alone does not say WHICH ES), from the API's
+  // data_contract. The four cash pages render exactly as they always have,
+  // including the ES / NQ cards lower down on them.
+  const nameContracts = isFuturesSymbol(primary);
+
   // Daily copy/paste share snapshot — built here so it ships in the ISR HTML and
   // is passed to the interactive ShareBlock as a ready-to-post string. Stale
   // tickers are tagged in the snippet from the same freshness read as the cards.
-  const shareSnippet = buildShareSnippet(snapshots, primary, staleSymbols);
+  const shareSnippet = buildShareSnippet(snapshots, primary, staleSymbols, nameContracts);
   const shareHasData = SYMBOLS.some((s) => {
     const spot = snapshots[s]?.spot_price;
     return typeof spot === 'number' && Number.isFinite(spot);
@@ -939,6 +1023,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               data={snapshots[symbol]}
               isPrimary={symbol === primary}
               status={cardStatus(symbol)}
+              nameContract={nameContracts}
             />
           ))}
         </section>

@@ -25,6 +25,12 @@ export interface GexSummary {
   pin_score?: number | null;
   pin_confidence?: number | null;
   pin_strike_reason?: string | null;
+  // ES / NQ only: the CME contract the futures levels are quoted on ("ESZ26")
+  // and its expiry ("2026-12-18"). Absent for every cash symbol, and from an
+  // older backend or a cached response. A display label, never a key — see
+  // core/futuresContract.ts.
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 
 /** Index/ETF price convention: whole numbers at four figures, else two decimals. */

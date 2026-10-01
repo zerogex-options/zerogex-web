@@ -1894,6 +1894,27 @@ html {
   outline-offset: 2px;
 }
 
+/* A card whose whole face is a link but which holds a control of its own: the
+   free gamma-levels card that names its CME contract. A <button> cannot sit
+   inside an <a>, so that card is a positioned box and its CTA link is
+   stretched over it. The ::after covers the card, so the whole face is still
+   one click target, and the chip is raised above it. The focus ring moves onto
+   the overlay, so a keyboard user sees the card ringed as before rather than
+   a ring around the CTA text alone. */
+.zg-card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-panel);
+}
+.zg-card-link:focus-visible {
+  outline: none;
+}
+.zg-card-link:focus-visible::after {
+  outline: 2px solid var(--color-accent-hot);
+  outline-offset: 2px;
+}
+
 /* Button family — CSS states, flat fills, no gradient/glow/lift.
    Hover shifts edge or ground; :active nudges 1px. */
 .zg-btn {

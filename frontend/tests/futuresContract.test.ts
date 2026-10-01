@@ -33,10 +33,12 @@ import {
   FUTURES_CONTRACT_EXPLAINER,
   FUTURES_CONTRACT_HELP_HREF,
   FUTURES_CONTRACT_HELP_LABEL,
+  futuresContractCaption,
   futuresContractDescription,
   resolveFuturesContract,
   seriesRollNote,
   summarizeSeriesContracts,
+  symbolWithContract,
 } from '../core/futuresContract.ts';
 import { HELP_ARTICLES, getHelpArticleBySlug } from '../core/helpRegistry.ts';
 import { projectedIndexSpot } from '../app/live-bulletin/bulletinHelpers.ts';
@@ -217,6 +219,8 @@ test('the copy never says "front month"', () => {
       'the roll note',
       seriesRollNote(summarizeSeriesContracts([{ data_contract: 'NQU26' }, { data_contract: 'NQZ26' }]))!,
     ],
+    ['the free pages share line', symbolWithContract('NQ', 'NQZ26')],
+    ['the free pages table caption', futuresContractCaption('NQZ26', '2026-12-18')!],
   ];
   for (const [name, text] of surfaces) {
     assert.doesNotMatch(text, /front[-\s]month/i, `${name} must not say "front month"`);
@@ -290,4 +294,55 @@ test('the bulletin card falls back to the ticker when no contract is served', ()
 test('an in-session cash quote is never projected or labelled', () => {
   assert.equal(projectedIndexSpot({ display_source: null, data_contract: 'ESZ26' }, 5990), null);
   assert.equal(projectedIndexSpot(null, 5990), null);
+});
+
+// ── The free gamma-levels pages ──────────────────────────────────────────
+// /es-gamma-levels and /nq-gamma-levels were the last surface printing an ES or
+// NQ number with nothing to say which contract it was: a "Reference spot
+// (delayed)" row nobody could check against another platform. They read
+// /api/gex/summary, which now carries the same two fields as the quote. The
+// card names the contract with the shared chip; the two plain-text surfaces
+// name it in words, because each is read with no chip beside it — the share
+// snippet is pasted into X and Discord, and the levels table is what answer
+// engines quote.
+
+test('a shared levels line names the contract the API sent', () => {
+  assert.equal(symbolWithContract('ES', 'ESZ26'), 'ES (ESZ26)');
+  assert.equal(symbolWithContract('NQ', ' nqz26 '), 'NQ (NQZ26)');
+});
+
+test('a shared levels line without a contract reads exactly as before', () => {
+  // A cash symbol, an older backend, a cached response.
+  for (const missing of [undefined, null, '', '   ']) {
+    assert.equal(symbolWithContract('ES', missing), 'ES');
+  }
+  assert.equal(symbolWithContract('SPX', undefined), 'SPX');
+});
+
+test('the levels table names the contract and its month in words', () => {
+  assert.equal(futuresContractCaption('ESZ26', '2026-12-18'), 'CME contract ESZ26, December 2026');
+  // An older backend that sent the code without the date: the month is the
+  // code's own letter, spelled out, never a second opinion about the roll.
+  assert.equal(futuresContractCaption('NQU26'), 'CME contract NQU26, September 2026');
+  assert.equal(futuresContractCaption(undefined, undefined), null);
+  assert.equal(futuresContractCaption(null, '2026-12-18'), null);
+  assert.equal(futuresContractCaption('', null), null);
+});
+
+test('the free pages take the contract from the API and render the shared chip', () => {
+  const view = read('../app/spx-gamma-levels/gammaLevels.tsx');
+  // The one accessible chip (hover, focus, tap, Escape, the article link), not
+  // a second implementation of it.
+  assert.match(view, /import FuturesContractBadge from '@\/components\/FuturesContractBadge'/);
+  assert.match(view, /<FuturesContractBadge\s+contract=\{data\?\.data_contract\}\s+expiry=\{data\?\.data_contract_expiry\}/);
+  // Rendered from the API's own fields, never re-derived on the client: a
+  // second roll calendar would drift from the feed, and the drift would look
+  // exactly like the reports this answers.
+  assert.doesNotMatch(view, /MONTH_CODES|third\s*friday|roll_?days|active_contract/i);
+  // Named on the ES and NQ pages only. The four cash pages must not change,
+  // and they render the same view.
+  assert.match(view, /const nameContracts = isFuturesSymbol\(primary\);/);
+
+  const table = read('../components/DelayedLevelsTable.tsx');
+  assert.match(table, /futuresContractCaption\(data\.data_contract, data\.data_contract_expiry\)/);
 });

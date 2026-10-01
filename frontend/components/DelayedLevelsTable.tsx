@@ -1,6 +1,7 @@
 import type { GexSummary } from '@/core/gexSummary';
 import { fmtNetGex, fmtPrice, fmtTimestampET } from '@/core/gexSummary';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { futuresContractCaption } from '@/core/futuresContract';
 
 type Props = {
   symbol: string;
@@ -72,11 +73,18 @@ export default function DelayedLevelsTable({ symbol, data, chainSymbol }: Props)
       ? ` · derived from the ${chainSymbol} options chain and converted to ${symbol} prices`
       : '';
 
+  // Which ES the prices are on, from the API's own label. An answer engine
+  // quoting this table has no chip beside it, and "ES 7512" alone is the
+  // ambiguity behind every "your futures price is off" report. Empty for a
+  // cash symbol and for a response without the field, so those read as before.
+  const contract = futuresContractCaption(data.data_contract, data.data_contract_expiry);
+  const contractNote = contract ? ` · ${contract}` : '';
+
   return (
     <div className="my-6 overflow-x-auto">
       <table className="w-full border-collapse text-sm">
         <caption className="mb-2 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
-          {symbol} gamma levels as of {fmtTimestampET(data.timestamp)} · delayed ~15 minutes{chainNote}
+          {symbol} gamma levels as of {fmtTimestampET(data.timestamp)} · delayed ~15 minutes{chainNote}{contractNote}
         </caption>
         <thead>
           <tr className="bg-[var(--color-surface-subtle)]">
