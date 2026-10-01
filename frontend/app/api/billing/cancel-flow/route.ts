@@ -23,6 +23,10 @@ import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause
 //     via core/retentionOffer), clear any pending cancel, and latch the one-shot
 //     retention offer. This is the highest-converting retention moment there is.
 //
+//   • action 'reactivate' — undo a scheduled cancel, no strings attached. The
+//     Account page's "Keep my plan" button. The Stripe billing portal no longer
+//     offers Cancel, so it can't be relied on to offer the undo either.
+//
 //   • action 'cancel' — the member declined the offer. Schedule the cancel in
 //     app (cancel_at_period_end) AND forward the reason they gave us as Stripe
 //     cancellation_details, so the webhook's existing cancel-ack path fires the
@@ -83,9 +87,15 @@ export async function POST(request: NextRequest) {
     months?: unknown;
   };
   const action = body.action;
-  if (action !== 'discount' && action !== 'cancel' && action !== 'pause' && action !== 'resume') {
+  if (
+    action !== 'discount' &&
+    action !== 'cancel' &&
+    action !== 'pause' &&
+    action !== 'resume' &&
+    action !== 'reactivate'
+  ) {
     return NextResponse.json(
-      { error: "action must be 'discount', 'pause', 'resume', or 'cancel'" },
+      { error: "action must be 'discount', 'pause', 'resume', 'reactivate', or 'cancel'" },
       { status: 400 },
     );
   }
@@ -272,6 +282,29 @@ export async function POST(request: NextRequest) {
       message: `In-app resume requested for sub ${row.stripe_subscription_id}`,
     });
     return NextResponse.json({ ok: true, action: 'resume' });
+  }
+
+  // -------------------------------------------------------------------------
+  // Keep my plan: clear a scheduled cancel. The webhook sees the 1→0
+  // transition, releases the cancel-ack latch and records the reversal.
+  // -------------------------------------------------------------------------
+  if (action === 'reactivate') {
+    try {
+      await stripe.subscriptions.update(row.stripe_subscription_id, { cancel_at_period_end: false });
+    } catch {
+      return NextResponse.json(
+        { error: "Couldn't keep your plan just now. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    appendAuditEvent({
+      type: 'billing_cancel_reverted_in_app',
+      userId: row.id,
+      email: row.email,
+      ip: getClientIp(request),
+      message: `In-app cancel reverted for sub ${row.stripe_subscription_id} (Keep my plan)`,
+    });
+    return NextResponse.json({ ok: true, action: 'reactivate' });
   }
 
   // -------------------------------------------------------------------------

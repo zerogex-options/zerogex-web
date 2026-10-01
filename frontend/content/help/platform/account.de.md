@@ -35,8 +35,8 @@ Du kannst **Google** und **Apple** mit demselben Konto verknüpfen. Der Bereich 
 ## Tier und Abonnement
 
 - Dein aktuelles Tier wird oben auf der Seite angezeigt.
-- **Abonnement verwalten** im Bereich Abonnement öffnet das von Stripe gehostete Billing-Portal. Plan-Wechsel, Zahlungsmethoden, Rechnungen und Kündigung erfolgen alle dort.
-- Du kannst auch über den Link **Cancel subscription** unter diesem Button kündigen; er bietet dir stattdessen eine Pause von einem bis drei Monaten an, falls dir eine Unterbrechung reicht.
+- **Abonnement verwalten** im Bereich Abonnement öffnet das von Stripe gehostete Billing-Portal. Plan-Wechsel, Zahlungsmethoden und Rechnungen laufen dort.
+- Zum Kündigen nutze den Link **Abonnement kündigen** unter diesem Button. Bevor er kündigt, bietet er dir eventuell einen Rabatt, einen längeren Zahlungsrhythmus oder eine Pause von einem bis drei Monaten an, falls dir eine Unterbrechung reicht.
 - Schlägt eine Zahlung fehl, weist der Bereich darauf hin, und der Button heißt **Abrechnungsportal öffnen** - dort kannst du die offene Rechnung mit einer beliebigen Karte bezahlen oder deine Zahlungsmethode aktualisieren.
 - Innerhalb von 7 Tagen nach deiner ersten Zahlung für einen Plan mit 7-tägiger Geld-zurück-Garantie (Pro oder ein vierteljährlicher bzw. jährlicher Plan) klickst du auf der Kontoseite auf **Volle Erstattung anfordern**. Der Zugang endet, sobald die Erstattung ausgestellt ist; eine Erstattung pro Kunde.
 

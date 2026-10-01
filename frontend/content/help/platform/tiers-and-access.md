@@ -69,7 +69,7 @@ For step-by-step, see [Billing & Stripe Portal](/help/platform/billing).
 
 ## When you're on a trial
 
-The 7-day free trial comes with Basic monthly only (one per account). About 48 hours before it ends, we email you a reminder with the amount that will be charged. When the trial ends, the subscription continues automatically at the rate you signed up at. To prevent that, cancel before the trial expires - in the billing portal, or with **Cancel subscription** on the Account page - and you won't be charged.
+The 7-day free trial comes with Basic monthly only (one per account). About 48 hours before it ends, we email you a reminder with the amount that will be charged. When the trial ends, the subscription continues automatically at the rate you signed up at. To prevent that, cancel before the trial expires with **Cancel subscription** on the Account page, and you won't be charged.
 
 Moving to Pro, or to a quarterly or annual plan, during the trial ends the trial and bills the new plan that day; the [Pricing](/pricing) page shows the exact amount and asks you to confirm, and that payment is covered by the 7-day money-back guarantee.
 

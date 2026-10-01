@@ -429,10 +429,10 @@ export async function sendPaidWelcomeEmail(
   const safeDashboardUrl = escapeHtml(dashboardUrl);
   const trialLength = describeTrialLength(opts?.trialDays);
   const trialLineText = trialEndDate
-    ? `Your ${trialLength} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your ${trialLength} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then with the Cancel subscription link on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then with the <strong>Cancel subscription</strong> link on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel}\u00a0- it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
@@ -632,10 +632,10 @@ export async function sendFoundingWelcomeEmail(
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
   const trialLineText = trialEndDate
-    ? `Your founding rate is locked in\u00a0- but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your founding rate is locked in\u00a0- but you won't be charged until ${trialEndDate}. Your first payment, at your founding rate, happens then. Cancel before that with the Cancel subscription link on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your founding rate is locked in\u00a0- but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your founding rate is locked in\u00a0- but you won't be charged until ${escapeHtml(trialEndDate)}. Your first payment, at your founding rate, happens then. Cancel before that with the <strong>Cancel subscription</strong> link on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
 
   const text = [
@@ -947,15 +947,15 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? [
         "If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade\u00a0- I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
         '',
-        `And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't be charged.`,
+        `And if you've decided ZeroGEX isn't for you, you can cancel your subscription with the Cancel subscription link on your account page (${accountUrl}) before ${trialEndDate} and you won't be charged.`,
       ]
     : [
-        `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
+        `If it isn't the right fit, you can cancel anytime before ${trialEndDate} with the Cancel subscription link on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
     ? `<p>If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade\u00a0- I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>
-      <p>And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> before ${escapeHtml(trialEndDate)} and you won't be charged.</p>`
-    : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
+      <p>And if you've decided ZeroGEX isn't for you, you can cancel your subscription with the <strong>Cancel subscription</strong> link on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> before ${escapeHtml(trialEndDate)} and you won't be charged.</p>`
+    : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} with the <strong>Cancel subscription</strong> link on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
   const text = [
     'Hello,',
@@ -3018,7 +3018,7 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     '',
     "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet\u00a0- wanted to reach out personally rather than route you through a generic marketing flow.",
     '',
-    "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.",
+    "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel from your account page before then and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.",
     '',
     "If you have a question, a hesitation, or feedback on what's missing\u00a0- just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
     '',
@@ -3036,7 +3036,7 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet\u00a0- wanted to reach out personally rather than route you through a generic marketing flow.</p>
-      <p>If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel in one click on the billing portal and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.</p>
+      <p>If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel from your account page before then and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.</p>
       <p>If you have a question, a hesitation, or feedback on what's missing\u00a0- just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
       <p style="margin: 24px 0;">
         <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Choose your plan</a>
@@ -3118,7 +3118,7 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
     `  • ${trialDays} days of full access, starting the moment you activate.`,
     `  • You add a card when you activate, but it is NOT charged until day ${chargeDay}.`,
     '  • We email you 48 hours before that first charge\u00a0- it is never a surprise.',
-    "  • If it's not for you, one click in the billing portal cancels it and you won't be charged a cent.",
+    "  • If it's not for you, cancel from your account page before then and you won't be charged a cent.",
     '',
     `Start your ${trialDays}-day trial: ${ctaHref}`,
     '',
@@ -3146,7 +3146,7 @@ export function renderReactivationEmail(opts: ReactivationEmailOptions): {
         <li style="margin: 0 0 8px;"><strong>${trialDays} days</strong> of full access, starting the moment you activate.</li>
         <li style="margin: 0 0 8px;">You add a card when you activate, but it is <strong>not charged until day ${chargeDay}</strong>.</li>
         <li style="margin: 0 0 8px;">We email you <strong>48 hours before</strong> that first charge\u00a0- it is never a surprise.</li>
-        <li style="margin: 0 0 8px;">If it's not for you, <strong>one click</strong> in the billing portal cancels it and you won't be charged a cent.</li>
+        <li style="margin: 0 0 8px;">If it's not for you, cancel from your account page before then and you won't be charged a cent.</li>
       </ul>
       <p style="margin: 24px 0;">
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start my ${trialDays}-day trial</a>
@@ -4083,7 +4083,7 @@ export function buildRenewalReminderEmail(opts: RenewalReminderEmailOptions): {
     ? `Your ZeroGEX ${opts.planLabel} subscription renews automatically on ${when}, and ${opts.amountFormatted} will be charged to your payment method on file.`
     : `Your ZeroGEX ${opts.planLabel} subscription renews automatically on ${when}, at your plan's current rate, charged to your payment method on file.`;
   const keepLine = "If you'd like to keep it, there's nothing to do\u00a0- your access simply continues.";
-  const changeLine = `To cancel or switch plans, open the billing portal from your account page (${accountUrl}) any time before then. Cancelling stops the renewal; you keep access until the end of the period you've already paid for.`;
+  const changeLine = `To cancel, use the Cancel subscription link on your account page (${accountUrl}) any time before then; to switch plans, use Manage Subscription on the same page. Canceling stops the renewal; you keep access until the end of the period you've already paid for.`;
 
   const text = [
     'Hello,',
@@ -4106,7 +4106,7 @@ export function buildRenewalReminderEmail(opts: RenewalReminderEmailOptions): {
       <p>Hello,</p>
       <p>${escapeHtml(renewLine)}</p>
       <p>${escapeHtml(keepLine)}</p>
-      <p>To cancel or switch plans, open the billing portal from your <a href="${escapeHtml(accountUrl)}" style="color: #f5b400; font-weight: 600;">account page</a> any time before then. Cancelling stops the renewal; you keep access until the end of the period you've already paid for.</p>
+      <p>To cancel, use the <strong>Cancel subscription</strong> link on your <a href="${escapeHtml(accountUrl)}" style="color: #f5b400; font-weight: 600;">account page</a> any time before then; to switch plans, use Manage Subscription on the same page. Canceling stops the renewal; you keep access until the end of the period you've already paid for.</p>
       <p>Questions about your plan? Just reply to this email.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
@@ -4119,6 +4119,99 @@ export async function sendRenewalReminderEmail(to: string, opts: RenewalReminder
   const { subject, text, html } = buildRenewalReminderEmail(opts);
   const client = getClient();
   const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+export type PlanOfferEmailOptions = {
+  // "Pro" or "Basic".
+  tierLabel: string;
+  // The first renewal the member is approaching (users.current_period_end).
+  renewalIso: string;
+  // Longer periods on the member's tier, longest first, at list price:
+  // { label: 'annual', price: '$299 a year', perMonth: '$24.92' }.
+  offers: Array<{ label: string; price: string; perMonth: string }>;
+  // The pricing page on the annual plan, through /login so the member arrives
+  // signed in, tagged so a switch it produces is recorded as coming from here.
+  switchUrl: string;
+  // Signed per-user opt-out link (core/unsubToken.ts buildUnsubUrl).
+  unsubUrl: string;
+};
+
+// The first-month plan offer (core/planOffer.ts): a few days before a monthly
+// member's first renewal, the longer plans on their tier and what they cost per
+// month. No pressure and no deadline: if monthly suits them, nothing changes.
+export function buildPlanOfferEmail(opts: PlanOfferEmailOptions): { subject: string; text: string; html: string } {
+  const day = formatTrialEndDate(opts.renewalIso);
+  const longest = opts.offers[0]?.label ?? 'annual';
+  const subject = `A cheaper way to keep ZeroGEX ${opts.tierLabel}: go ${longest}`;
+  const opening = `Your first month of ZeroGEX ${opts.tierLabel} is almost up: your plan renews on ${day}. Thanks for giving it a real try.`;
+  const pitch = "If you're planning to keep using it, a longer plan costs less per month:";
+  const how =
+    "You'd pay for the new plan today, less a credit for the rest of this month, and you'll see the exact amount before you confirm anything.";
+  const stay = `If monthly suits you better, there's nothing to do. Your plan renews on ${day} as usual.`;
+  const offerLine = (o: PlanOfferEmailOptions['offers'][number]) =>
+    `${opts.tierLabel} ${o.label}: ${o.price}, about ${o.perMonth} a month`;
+
+  const text = [
+    'Hi,',
+    '',
+    opening,
+    '',
+    pitch,
+    '',
+    ...opts.offers.map((o) => `  • ${offerLine(o)}`),
+    '',
+    `${how} Switch here: ${opts.switchUrl}`,
+    '',
+    stay,
+    '',
+    'Questions? Just reply. I read every email.',
+    '',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    `Prefer fewer emails like this? Unsubscribe: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hi,</p>
+      <p>${escapeHtml(opening)}</p>
+      <p>${escapeHtml(pitch)}</p>
+      <ul style="padding-left: 20px; margin: 0 0 16px;">
+        ${opts.offers.map((o) => `<li style="margin: 0 0 6px;">${escapeHtml(offerLine(o))}</li>`).join('')}
+      </ul>
+      <p>${escapeHtml(how)}</p>
+      <p style="margin: 22px 0;">
+        <a href="${escapeHtml(opts.switchUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #111; font-weight: 700; text-decoration: none; border-radius: 8px;">See the longer plans</a>
+      </p>
+      <p>${escapeHtml(stay)}</p>
+      <p>Questions? Just reply. I read every email.</p>
+      <p>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${escapeHtml(opts.unsubUrl)}" style="color: #888;">Unsubscribe</a>.</p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendPlanOfferEmail(to: string, opts: PlanOfferEmailOptions) {
+  const { subject, text, html } = buildPlanOfferEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    // An offer, so opting out is one tap (RFC 8058).
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
   if (result.error) {
     throw new Error(`Resend error: ${result.error.message}`);
   }

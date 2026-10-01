@@ -29,7 +29,7 @@ export const dict: PageDictionary = {
       'Upgrades take effect immediately and are pro-rated for the remainder of the current billing period. Downgrades take effect at the end of the current billing period unless otherwise stated.',
     s4CancellationLabel: 'Cancellation.',
     s4CancellationBody:
-      'You may cancel at any time through the Stripe-hosted billing portal. Cancellation takes effect at the end of the current paid billing period; you retain access to paid features until that period ends.',
+      'You may cancel at any time from your Account page. Cancellation takes effect at the end of the current paid billing period; you retain access to paid features until that period ends.',
     s4RefundsLabel: 'Refunds.',
     s4RefundsBody:
       'Except for the money-back guarantee above and where required by law, fees are non-refundable.',
@@ -150,7 +150,7 @@ export const dict: PageDictionary = {
       'Gli upgrade hanno effetto immediato e sono calcolati proporzionalmente per il resto del periodo di fatturazione in corso. I downgrade hanno effetto alla fine del periodo di fatturazione in corso, salvo diversa indicazione.',
     s4CancellationLabel: 'Cancellazione.',
     s4CancellationBody:
-      'Puoi cancellare in qualsiasi momento tramite il portale di fatturazione ospitato da Stripe. La cancellazione ha effetto alla fine del periodo di fatturazione a pagamento in corso; mantieni l’accesso alle funzionalità a pagamento fino alla fine di tale periodo.',
+      'Puoi cancellare in qualsiasi momento dalla tua pagina Account. La cancellazione ha effetto alla fine del periodo di fatturazione a pagamento in corso; mantieni l’accesso alle funzionalità a pagamento fino alla fine di tale periodo.',
     s4RefundsLabel: 'Rimborsi.',
     s4RefundsBody:
       'Salvo la garanzia soddisfatti o rimborsati sopra descritta e quanto richiesto dalla legge, le tariffe non sono rimborsabili.',
@@ -272,7 +272,7 @@ export const dict: PageDictionary = {
       'Upgrades werden sofort wirksam und anteilig für den Rest des aktuellen Abrechnungszeitraums berechnet. Downgrades werden am Ende des aktuellen Abrechnungszeitraums wirksam, sofern nicht anders angegeben.',
     s4CancellationLabel: 'Kündigung.',
     s4CancellationBody:
-      'Sie können jederzeit über das von Stripe gehostete Abrechnungsportal kündigen. Die Kündigung wird am Ende des aktuellen bezahlten Abrechnungszeitraums wirksam; Sie behalten den Zugang zu kostenpflichtigen Funktionen bis zum Ende dieses Zeitraums.',
+      'Sie können jederzeit über Ihre Kontoseite kündigen. Die Kündigung wird am Ende des aktuellen bezahlten Abrechnungszeitraums wirksam; Sie behalten den Zugang zu kostenpflichtigen Funktionen bis zum Ende dieses Zeitraums.',
     s4RefundsLabel: 'Erstattungen.',
     s4RefundsBody:
       'Abgesehen von der oben beschriebenen Geld-zurück-Garantie und sofern gesetzlich nicht anders vorgeschrieben, sind Gebühren nicht erstattungsfähig.',
@@ -395,7 +395,7 @@ export const dict: PageDictionary = {
       'Las mejoras entran en vigor de inmediato y se prorratean por el resto del período de facturación actual. Las degradaciones entran en vigor al final del período de facturación actual, salvo que se indique lo contrario.',
     s4CancellationLabel: 'Cancelación.',
     s4CancellationBody:
-      'Puede cancelar en cualquier momento a través del portal de facturación alojado por Stripe. La cancelación entra en vigor al final del período de facturación pagado actual; conservará el acceso a las funciones de pago hasta que finalice ese período.',
+      'Puede cancelar en cualquier momento desde su página de Cuenta. La cancelación entra en vigor al final del período de facturación pagado actual; conservará el acceso a las funciones de pago hasta que finalice ese período.',
     s4RefundsLabel: 'Reembolsos.',
     s4RefundsBody:
       'Salvo la garantía de devolución descrita arriba y cuando la ley lo exija, las tarifas no son reembolsables.',
@@ -517,7 +517,7 @@ export const dict: PageDictionary = {
       'Les mises à niveau prennent effet immédiatement et sont calculées au prorata pour le reste de la période de facturation en cours. Les rétrogradations prennent effet à la fin de la période de facturation en cours, sauf indication contraire.',
     s4CancellationLabel: 'Résiliation.',
     s4CancellationBody:
-      'Vous pouvez résilier à tout moment via le portail de facturation hébergé par Stripe. La résiliation prend effet à la fin de la période de facturation payante en cours ; vous conservez l’accès aux fonctionnalités payantes jusqu’à la fin de cette période.',
+      'Vous pouvez résilier à tout moment depuis votre page Compte. La résiliation prend effet à la fin de la période de facturation payante en cours ; vous conservez l’accès aux fonctionnalités payantes jusqu’à la fin de cette période.',
     s4RefundsLabel: 'Remboursements.',
     s4RefundsBody:
       'Hormis la garantie satisfait ou remboursé décrite ci-dessus et sauf obligation légale contraire, les frais ne sont pas remboursables.',

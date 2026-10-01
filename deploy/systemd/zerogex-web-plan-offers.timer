@@ -1,0 +1,15 @@
+[Unit]
+Description=ZeroGEX web first-month plan offer email timer (daily)
+
+[Timer]
+# Once a day, late morning ET (15:20 UTC), an hour after the renewal reminders
+# and off the hour so it doesn't collide with the hourly auth backup. The offer
+# window is a week wide and the latch is per subscription, so a single daily
+# run sends each offer exactly once.
+OnCalendar=*-*-* 15:20:00
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

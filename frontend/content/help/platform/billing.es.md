@@ -6,20 +6,20 @@
 
 ## Cómo funciona la facturación
 
-ZeroGEX factura a través de **Stripe**. No vemos ni almacenamos los datos de tu tarjeta de pago - Stripe se encarga de todo eso. Cada acción de facturación se realiza en el portal de facturación alojado por Stripe, al que se accede desde tu página de [Cuenta](/account).
+ZeroGEX factura a través de **Stripe**. No vemos ni almacenamos los datos de tu tarjeta de pago - Stripe se encarga de todo eso. Los métodos de pago, las facturas y los cambios de plan se gestionan en el portal de facturación alojado por Stripe, al que se accede desde tu página de [Cuenta](/account). La cancelación se hace en la propia página Cuenta.
 
 ## Planes y periodicidades
 
 Dos niveles - **Basic** y **Pro** - cada uno disponible en modalidad **mensual**, **trimestral** (facturado cada 3 meses) o **anual**.
 
 - Cuanto más largo es el periodo de facturación, menos pagas al mes. La página de [Pricing](/pricing) muestra lo que factura cada plan, con su equivalente mensual debajo, y una tabla comparativa de lo que ahorras frente a pagar mensualmente.
-- El cambio entre periodicidades es compatible a través del portal.
+- Puedes pasar a una periodicidad más larga desde la página de [Pricing](/pricing) o en el portal (ver más abajo).
 
 ## Prueba gratuita (Basic mensual)
 
 Basic mensual empieza con una **prueba gratuita de 7 días**: acceso completo desde el primer momento, tu tarjeta registrada y ningún cargo hasta que termine la prueba. Unas 48 horas antes de que termine, te enviamos un recordatorio por correo con el importe que se cobrará. Al final de la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste - sin un segundo paso de confirmación.
 
-Para evitar esa renovación automática: cancela antes de que finalice la prueba - en el portal o con **Cancel subscription** en tu página Cuenta. Conservarás el acceso hasta el final de la prueba. Una prueba gratuita por cuenta.
+Para evitar esa renovación automática: cancela antes de que finalice la prueba con **Cancelar suscripción** en tu página Cuenta. Conservarás el acceso hasta el final de la prueba. Una prueba gratuita por cuenta.
 
 ## Garantía de devolución del dinero de 7 días (todos los demás planes)
 
@@ -40,7 +40,8 @@ Desde el portal puedes:
 - Cambiar de periodicidad (mensual ↔ trimestral ↔ anual)
 - Actualizar el método de pago
 - Ver y descargar facturas
-- Cancelar la suscripción
+
+Para cancelar, usa en su lugar el enlace **Cancelar suscripción** de tu página Cuenta (ver más abajo).
 
 ## Mejoras y reducciones de nivel
 
@@ -51,7 +52,7 @@ Desde el portal puedes:
 
 ## Cancelación
 
-- Cancela en el portal o con el enlace **Cancel subscription** bajo Gestionar suscripción, en tu página Cuenta. Ese enlace también te ofrece pausar la suscripción de uno a tres meses en su lugar - sin cargos y sin acceso mientras está en pausa, y se reanuda automáticamente.
+- Cancela con el enlace **Cancelar suscripción** bajo Gestionar suscripción, en tu página Cuenta. Antes de cancelar, puede ofrecerte un descuento, el cambio a una periodicidad más larga o una pausa de uno a tres meses - sin cargos y sin acceso mientras está en pausa, y se reanuda automáticamente. Puedes saltarte todas las ofertas y cancelar.
 - La cancelación entra en vigor al **final del periodo de facturación actual**. Conservas el acceso de pago hasta entonces, y tu página Cuenta muestra la fecha.
 - Una vez finalizado el periodo, tu nivel vuelve a Public. Tu cuenta no se elimina; tus datos de referidos y tu configuración guardada permanecen intactos.
 - Puedes volver a suscribirte en cualquier momento.
@@ -78,11 +79,11 @@ Para excepciones, escribe a [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Cambio a un periodo de facturación más largo
 
-Los números salen a tu favor: cuanto más largo es el periodo, menor es el equivalente mensual. El portal gestiona el cambio: se aplica de inmediato y se prorratea, con un crédito por la parte no utilizada de tu periodo actual. Si aún estás en la prueba gratuita de Basic, el cambio termina la prueba y factura el nuevo plan ese mismo día (ver arriba).
+Los números salen a tu favor: cuanto más largo es el periodo, menor es el equivalente mensual. Elige el periodo más largo en la página de [Pricing](/pricing): verás antes el importe exacto que se cobra hoy - el precio del nuevo plan, menos un crédito por la parte no utilizada de tu periodo actual - y lo confirmarás. El nuevo periodo empieza ese mismo día. El portal también puede hacer el mismo cambio. Si aún estás en la prueba gratuita de Basic, el cambio termina la prueba y factura el nuevo plan ese mismo día (ver arriba).
 
 ## Recordatorios de renovación
 
-Los planes trimestrales y anuales se renuevan automáticamente. Te enviamos un correo antes - 7 días antes en el trimestral, 30 días antes en el anual - con la fecha y el importe, para que puedas cancelar o cambiar en el portal antes si lo deseas.
+Los planes trimestrales y anuales se renuevan automáticamente. Te enviamos un correo antes - 7 días antes en el trimestral, 30 días antes en el anual - con la fecha y el importe, para que puedas cancelar desde tu página Cuenta o cambiar de plan antes si lo deseas.
 
 ## Códigos promocionales y cupones
 

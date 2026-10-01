@@ -19,9 +19,18 @@
 // guarantee's 7 days start from that payment. Moving to another TRIAL plan
 // (only possible when BILLING_TRIAL_PLANS names more than one) keeps the trial,
 // exactly as before.
+//
+// A PAYING member moving to a longer billing period on the same tier (monthly
+// to quarterly or annual, quarterly to annual) is also switched in-app, after
+// confirming the amount: the new period starts today and is charged today, less
+// a credit for the unused part of the current one. That is the switch the cancel
+// flow and the first-month plan offer put in front of a monthly member, and the
+// Stripe billing portal can't be the place it happens: the portal no longer
+// offers Cancel (every cancel goes through the in-app flow), and sending a
+// member who is deciding whether to stay to a different site loses them.
 
-import type { BillableTier, BillingCadence } from './billingPlans.ts';
-import { CADENCE_MONTHS } from './billingPlans.ts';
+import type { BillableTier, BillingCadence, Sku } from './billingPlans.ts';
+import { BILLING_CADENCES, CADENCE_MONTHS, planDisplay } from './billingPlans.ts';
 
 export type { BillableTier, BillingCadence };
 
@@ -40,6 +49,9 @@ export type PlanSwitchInput = {
   targetHasTrial: boolean;
   // Live Stripe subscription status ('trialing' | 'active' | 'past_due' | …).
   status: string;
+  // Whether collection is paused (Stripe keeps the status `active` while a
+  // pause is on). A paused subscription is never switched in-app.
+  paused: boolean;
 };
 
 export type PlanSwitchDecision =
@@ -51,6 +63,11 @@ export type PlanSwitchDecision =
   // or any quarterly/annual plan): end the trial and charge the new plan now,
   // after the member has confirmed the amount. Covered by the guarantee.
   | { kind: 'in_app_start_paid' }
+  // Paying member moving to a longer billing period on the same tier: start
+  // the new period today, charge it less a credit for the unused part of the
+  // current one, after the member has confirmed the amount. Not covered by the
+  // guarantee, which covers a subscription's first payment only.
+  | { kind: 'in_app_lengthen' }
   // Everything else — paid members (proration), downgrades (scheduled at period
   // end), unmapped prices — routes to the Stripe billing portal.
   | { kind: 'portal' }
@@ -81,11 +98,19 @@ export function decidePlanSwitch(input: PlanSwitchInput): PlanSwitchDecision {
   if (input.currentTier === input.targetTier && sameCadence) {
     return { kind: 'noop' };
   }
-  // Only a trial is handled in-app: a paid member's switch prorates, which the
-  // portal already does well. An unmapped current price is never guessed at.
-  if (input.status !== 'trialing' || !input.currentTier || !input.currentCadence) {
-    return { kind: 'portal' };
+  // An unmapped current price is never guessed at.
+  if (!input.currentTier || !input.currentCadence) return { kind: 'portal' };
+  if (
+    input.status === 'active' &&
+    !input.paused &&
+    input.currentTier === input.targetTier &&
+    CADENCE_MONTHS[input.targetCadence] > CADENCE_MONTHS[input.currentCadence]
+  ) {
+    return { kind: 'in_app_lengthen' };
   }
+  // Any other paid member's switch (a tier change, or a shorter period) prorates
+  // or waits for the period end, which the portal already does well.
+  if (input.status !== 'trialing') return { kind: 'portal' };
   if (
     isDowngrade({
       currentTier: input.currentTier,
@@ -101,6 +126,52 @@ export function decidePlanSwitch(input: PlanSwitchInput): PlanSwitchDecision {
   // well-trodden shape: a tier upgrade at the same cadence.
   const isTierUpgrade = input.currentTier === 'basic' && input.targetTier === 'pro';
   return isTierUpgrade && sameCadence ? { kind: 'in_app_upgrade' } : { kind: 'portal' };
+}
+
+// ---------------------------------------------------------------------------
+// Longer-period offers
+// ---------------------------------------------------------------------------
+
+export type LengthenOffer = {
+  tier: BillableTier;
+  cadence: BillingCadence;
+  // List price billed once per period, in whole US dollars.
+  listPrice: number;
+  // listPrice spread over the months it covers.
+  perMonth: number;
+  months: number;
+};
+
+/**
+ * The longer billing periods a member can switch to in-app, longest first, or
+ * none when they can't (not a paying, unpaused member on a plan we recognize).
+ * Exactly the switches decidePlanSwitch performs as `in_app_lengthen`, limited
+ * to the plans on sale (`isSellable`, core/stripe.ts isSkuSellable).
+ *
+ * Prices are LIST prices, the ones the pricing page shows. A member paying a
+ * promo rate sees their real charge on the confirm step, priced by Stripe.
+ */
+export function lengthenOffers(input: {
+  current: Sku | null;
+  status: string | null;
+  paused: boolean;
+  isSellable: (sku: Sku) => boolean;
+}): LengthenOffer[] {
+  const { current } = input;
+  if (!current || input.status !== 'active' || input.paused) return [];
+  return BILLING_CADENCES.filter((cadence) => CADENCE_MONTHS[cadence] > CADENCE_MONTHS[current.cadence])
+    .filter((cadence) => input.isSellable({ tier: current.tier, cadence }))
+    .sort((a, b) => CADENCE_MONTHS[b] - CADENCE_MONTHS[a])
+    .map((cadence) => {
+      const display = planDisplay({ tier: current.tier, cadence });
+      return {
+        tier: current.tier,
+        cadence,
+        listPrice: display.listPrice,
+        perMonth: display.perMonth,
+        months: CADENCE_MONTHS[cadence],
+      };
+    });
 }
 
 // ---------------------------------------------------------------------------

@@ -35,8 +35,8 @@ You can link **Google** and **Apple** sign-in to the same account. The Sign-in m
 ## Tier and subscription
 
 - Your current tier is shown at the top of the page.
-- **Manage Subscription**, under Subscription, opens the Stripe-hosted billing portal. Plan switches, payment methods, invoices, and cancellation all happen there.
-- You can also cancel with the **Cancel subscription** link under that button, which offers a pause of one to three months instead if a break is all you need.
+- **Manage Subscription**, under Subscription, opens the Stripe-hosted billing portal. Plan switches, payment methods, and invoices are handled there.
+- To cancel, use the **Cancel subscription** link under that button. Before it cancels, it may offer a discount, a longer billing period, or a pause of one to three months if a break is all you need.
 - If a payment fails, the section says so and the button reads **Open billing portal**, where you can pay the open invoice with any card or update your payment method.
 - Within 7 days of your first payment on a plan covered by the 7-day money-back guarantee (Pro, or any quarterly or annual plan), click **Request a full refund** on the Account page. Access ends when the refund is issued; one refund per customer.
 

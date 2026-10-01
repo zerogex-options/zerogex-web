@@ -69,7 +69,7 @@ Per la procedura passo passo, vedi [Fatturazione e Portale Stripe](/help/platfor
 
 ## Quando sei in prova gratuita
 
-La prova gratuita di 7 giorni è disponibile solo con Basic mensile (una per account). Circa 48 ore prima della fine ti inviamo un promemoria via email con l'importo che verrà addebitato. Al termine della prova, l'abbonamento continua automaticamente alla tariffa a cui ti sei iscritto. Per evitarlo, annulla prima della scadenza della prova - nel portale di fatturazione o con **Cancel subscription** nella pagina Account - e non ti verrà addebitato nulla.
+La prova gratuita di 7 giorni è disponibile solo con Basic mensile (una per account). Circa 48 ore prima della fine ti inviamo un promemoria via email con l'importo che verrà addebitato. Al termine della prova, l'abbonamento continua automaticamente alla tariffa a cui ti sei iscritto. Per evitarlo, annulla prima della scadenza della prova con **Annulla abbonamento** nella pagina Account e non ti verrà addebitato nulla.
 
 Se durante la prova passi a Pro o a un piano trimestrale o annuale, la prova termina e il nuovo piano viene addebitato il giorno stesso; la pagina [Pricing](/pricing) mostra l'importo esatto e ti chiede di confermare, e quel pagamento è coperto dalla garanzia soddisfatti o rimborsati di 7 giorni.
 

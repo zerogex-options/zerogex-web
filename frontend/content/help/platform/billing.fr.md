@@ -6,20 +6,20 @@
 
 ## Comment fonctionne la facturation
 
-ZeroGEX facture via **Stripe**. Nous ne voyons ni ne stockons les informations de votre carte de paiement - Stripe s'occupe entièrement de cela. Chaque action de facturation s'effectue dans le portail de facturation hébergé par Stripe, accessible depuis votre page [Compte](/account).
+ZeroGEX facture via **Stripe**. Nous ne voyons ni ne stockons les informations de votre carte de paiement - Stripe s'occupe entièrement de cela. Les moyens de paiement, les factures et les changements de formule se gèrent dans le portail de facturation hébergé par Stripe, accessible depuis votre page [Compte](/account). La résiliation se fait directement sur la page Compte.
 
 ## Formules et périodicités
 
 Deux niveaux - **Basic** et **Pro** - chacun disponible en **mensuel**, en **trimestriel** (facturé tous les 3 mois) ou en **annuel**.
 
 - Plus la période de facturation est longue, moins vous payez par mois. La page [Pricing](/pricing) indique ce que facture chaque formule, avec son équivalent mensuel en dessous, ainsi qu'un tableau comparatif de ce que vous économisez par rapport à un paiement mensuel.
-- Le changement entre périodicités est pris en charge via le portail.
+- Vous pouvez passer à une périodicité plus longue depuis la page [Pricing](/pricing) ou dans le portail (voir ci-dessous).
 
 ## Essai gratuit (Basic mensuel)
 
 Basic mensuel commence par un **essai gratuit de 7 jours** : accès complet immédiat, votre carte enregistrée, et aucun prélèvement avant la fin de l'essai. Environ 48 heures avant la fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit - sans étape de confirmation supplémentaire.
 
-Pour empêcher ce renouvellement automatique : annulez avant la fin de l'essai - dans le portail ou via **Cancel subscription** sur votre page Compte. Vous conservez l'accès jusqu'à la fin de l'essai. Un essai gratuit par compte.
+Pour empêcher ce renouvellement automatique : annulez avant la fin de l'essai via **Résilier l'abonnement** sur votre page Compte. Vous conservez l'accès jusqu'à la fin de l'essai. Un essai gratuit par compte.
 
 ## Garantie satisfait ou remboursé de 7 jours (toutes les autres formules)
 
@@ -40,7 +40,8 @@ Depuis le portail, vous pouvez :
 - Changer de périodicité (mensuel ↔ trimestriel ↔ annuel)
 - Mettre à jour le moyen de paiement
 - Consulter et télécharger les factures
-- Annuler l'abonnement
+
+Pour résilier, utilisez plutôt le lien **Résilier l'abonnement** de votre page Compte (voir ci-dessous).
 
 ## Montées et descentes de niveau
 
@@ -51,7 +52,7 @@ Depuis le portail, vous pouvez :
 
 ## Annulation
 
-- Annulez dans le portail, ou via le lien **Cancel subscription** sous Gérer l'abonnement sur votre page Compte. Ce lien vous propose aussi de mettre votre abonnement en pause pendant un à trois mois à la place - aucun prélèvement et aucun accès pendant la pause, puis reprise automatique.
+- Résiliez via le lien **Résilier l'abonnement** sous Gérer l'abonnement sur votre page Compte. Avant de résilier, il peut vous proposer une réduction, le passage à une périodicité plus longue ou une pause d'un à trois mois - aucun prélèvement et aucun accès pendant la pause, puis reprise automatique. Vous pouvez ignorer chaque offre et résilier.
 - L'annulation prend effet à la **fin de la période de facturation en cours**. Vous conservez l'accès payant jusque-là, et votre page Compte affiche la date.
 - Une fois la période terminée, votre niveau revient à Public. Votre compte n'est pas supprimé ; vos données de parrainage et vos paramètres enregistrés sont conservés.
 - Vous pouvez vous réabonner à tout moment.
@@ -78,11 +79,11 @@ Pour les cas particuliers, écrivez à [support@zerogex.io](mailto:support@zerog
 
 ## Passage à une période de facturation plus longue
 
-Le calcul joue en votre faveur : plus la période est longue, plus l'équivalent mensuel est bas. Le portail gère le changement : il s'applique immédiatement et au prorata, avec un crédit pour la partie non utilisée de votre période en cours. Si vous êtes encore dans l'essai gratuit de Basic, le changement met fin à l'essai et facture la nouvelle formule le jour même (voir ci-dessus).
+Le calcul joue en votre faveur : plus la période est longue, plus l'équivalent mensuel est bas. Choisissez la période plus longue sur la page [Pricing](/pricing) : vous voyez d'abord le montant exact facturé aujourd'hui - le prix de la nouvelle formule, moins un crédit pour la partie non utilisée de votre période en cours - et le confirmez. La nouvelle période commence le jour même. Le portail peut faire le même changement. Si vous êtes encore dans l'essai gratuit de Basic, le changement met fin à l'essai et facture la nouvelle formule le jour même (voir ci-dessus).
 
 ## Rappels de renouvellement
 
-Les formules trimestrielles et annuelles se renouvellent automatiquement. Nous vous envoyons un e-mail avant - 7 jours avant pour le trimestriel, 30 jours avant pour l'annuel - avec la date et le montant, afin que vous puissiez annuler ou changer de formule dans le portail au préalable si vous le souhaitez.
+Les formules trimestrielles et annuelles se renouvellent automatiquement. Nous vous envoyons un e-mail avant - 7 jours avant pour le trimestriel, 30 jours avant pour l'annuel - avec la date et le montant, afin que vous puissiez résilier depuis votre page Compte ou changer de formule au préalable si vous le souhaitez.
 
 ## Codes promo et coupons
 

@@ -866,6 +866,13 @@ function PricingClientInner({
     // Whether this switch is covered by the money-back guarantee (not for a
     // customer who has already used their one refund).
     guarantee: boolean;
+    // A paying member's switch to a longer period ('lengthen'), rather than a
+    // trial starting to pay: different words on the confirm step.
+    kind?: string;
+    // The instant a paying member's switch was priced at, sent back with the
+    // confirm so it is charged at that same instant (prorations move by the
+    // second).
+    prorationDate?: number;
     // Set when a confirm came back because the price moved since the quote.
     notice?: string;
   } | null>(null);
@@ -933,6 +940,9 @@ function PricingClientInner({
   // registration marks the immediate register→pricing hop; ?checkout_cancelled=1
   // (or the legacy checkout=cancelled) comes back from an abandoned Stripe session.
   const cameFromTrialCta = searchParams.get('trial') === '1';
+  // The first-month plan offer email links here with ?from=plan_offer, so a
+  // switch it produces is recorded as coming from it.
+  const cameFromPlanOffer = searchParams.get('from') === 'plan_offer';
   const cameFromRegistration = searchParams.get('source') === 'registration';
   // ?winback=1 is the link in the ~1-month win-back email. It tells checkout to
   // attempt the automated win-back coupon; the server re-verifies the account is
@@ -1106,7 +1116,11 @@ function PricingClientInner({
   // second call carries confirm: true); anything else comes back as a `url` to
   // follow (the dashboard after an in-app switch, or Stripe's portal).
   const requestPlanChange = useCallback(
-    async (tier: BillableTier, planCadence: Cadence, confirmAmountDue: number | null) => {
+    async (
+      tier: BillableTier,
+      planCadence: Cadence,
+      confirmed: { amountDue: number; prorationDate?: number } | null,
+    ) => {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) throw new Error(t('errorCsrfFailed'));
@@ -1117,14 +1131,27 @@ function PricingClientInner({
         body: JSON.stringify({
           tier,
           cadence: planCadence,
-          ...(confirmAmountDue != null ? { confirm: true, expectedAmountDue: confirmAmountDue } : {}),
+          source: cameFromPlanOffer ? 'plan_offer_email' : 'pricing',
+          ...(confirmed
+            ? {
+                confirm: true,
+                expectedAmountDue: confirmed.amountDue,
+                ...(confirmed.prorationDate != null ? { prorationDate: confirmed.prorationDate } : {}),
+              }
+            : {}),
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as {
         url?: string;
         error?: string;
         portalUrl?: string;
-        confirm?: { amountDue?: number; amountFormatted?: string; guarantee?: boolean };
+        confirm?: {
+          amountDue?: number;
+          amountFormatted?: string;
+          guarantee?: boolean;
+          kind?: string;
+          prorationDate?: number;
+        };
       };
       // A quote: the first step, or a confirm refused because the price moved
       // (409, with the new quote). Either way the member confirms this amount.
@@ -1136,6 +1163,8 @@ function PricingClientInner({
           amountDue: quote.amountDue,
           amountFormatted: quote.amountFormatted,
           guarantee: quote.guarantee !== false,
+          ...(quote.kind ? { kind: quote.kind } : {}),
+          ...(typeof quote.prorationDate === 'number' ? { prorationDate: quote.prorationDate } : {}),
           ...(response.status === 409 && payload.error ? { notice: payload.error } : {}),
         });
         setBusyTier(null);
@@ -1149,7 +1178,7 @@ function PricingClientInner({
       if (!payload.url) throw new Error(t('errorBillingFailed'));
       window.location.href = payload.url;
     },
-    [t],
+    [cameFromPlanOffer, t],
   );
 
   const handleChangePlan = useCallback(
@@ -1169,13 +1198,13 @@ function PricingClientInner({
 
   const handleConfirmSwitch = useCallback(async () => {
     if (!confirmSwitch) return;
-    const { tier, cadence: planCadence, amountDue } = confirmSwitch;
+    const { tier, cadence: planCadence, amountDue, prorationDate } = confirmSwitch;
     setError(null);
     setErrorPortalUrl(null);
     setBusyTier(tier);
     setConfirmSwitch(null);
     try {
-      await requestPlanChange(tier, planCadence, amountDue);
+      await requestPlanChange(tier, planCadence, { amountDue, prorationDate });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
       setErrorPortalUrl((err as Error & { portalUrl?: string })?.portalUrl ?? null);
@@ -1686,7 +1715,9 @@ function PricingClientInner({
             style={{ maxWidth: 460, width: '100%', padding: 24, background: 'var(--color-surface)' }}
           >
             <h2 id="zgx-confirm-switch-title" style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.light }}>
-              {t('confirmSwitchTitle', { plan: planName(confirmSwitch.tier, confirmSwitch.cadence) })}
+              {t(confirmSwitch.kind === 'lengthen' ? 'confirmPaidSwitchTitle' : 'confirmSwitchTitle', {
+                plan: planName(confirmSwitch.tier, confirmSwitch.cadence),
+              })}
             </h2>
             {confirmSwitch.notice && (
               <p role="status" style={{ margin: '12px 0 0', color: C.amber, fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
@@ -1694,7 +1725,10 @@ function PricingClientInner({
               </p>
             )}
             <p style={{ margin: '12px 0 0', color: C.light, fontSize: 15, lineHeight: 1.6 }}>
-              {t('confirmSwitchBody', { amount: confirmSwitch.amountFormatted })}
+              {t(confirmSwitch.kind === 'lengthen' ? 'confirmPaidSwitchBody' : 'confirmSwitchBody', {
+                amount: confirmSwitch.amountFormatted,
+                plan: planName(confirmSwitch.tier, confirmSwitch.cadence),
+              })}
             </p>
             {confirmSwitch.guarantee && (
               <p

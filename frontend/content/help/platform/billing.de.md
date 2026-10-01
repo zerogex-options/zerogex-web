@@ -6,20 +6,20 @@
 
 ## Wie die Abrechnung funktioniert
 
-ZeroGEX rechnet über **Stripe** ab. Wir sehen oder speichern keine Zahlungskartendaten - das übernimmt vollständig Stripe. Jede Abrechnungsaktion erfolgt im von Stripe gehosteten Abrechnungsportal, das du über deine [Konto](/account)-Seite erreichst.
+ZeroGEX rechnet über **Stripe** ab. Wir sehen oder speichern keine Zahlungskartendaten - das übernimmt vollständig Stripe. Zahlungsmethoden, Rechnungen und Planwechsel laufen über das von Stripe gehostete Abrechnungsportal, das du über deine [Konto](/account)-Seite erreichst. Gekündigt wird direkt auf der Kontoseite.
 
 ## Tarife und Zahlungsrhythmen
 
 Zwei Stufen - **Basic** und **Pro** - jeweils verfügbar mit **monatlicher**, **vierteljährlicher** (alle 3 Monate abgerechnet) oder **jährlicher** Abrechnung.
 
 - Je länger der Abrechnungszeitraum, desto weniger zahlst du pro Monat. Die [Pricing](/pricing)-Seite zeigt, was jeder Plan abrechnet, mit dem monatlichen Gegenwert darunter, und eine Vergleichstabelle, wie viel du gegenüber monatlicher Zahlung sparst.
-- Der Wechsel zwischen den Zahlungsrhythmen wird über das Portal unterstützt.
+- Zu einem längeren Zahlungsrhythmus wechselst du über die [Pricing](/pricing)-Seite oder im Portal (siehe unten).
 
 ## Kostenlose Testphase (Basic monatlich)
 
 Basic monatlich beginnt mit einer **7-tägigen kostenlosen Testphase**: voller Zugang sofort, deine Karte ist hinterlegt, und bis zum Ende der Testphase wird nichts berechnet. Etwa 48 Stunden vor ihrem Ende schicken wir dir eine Erinnerung per E-Mail mit dem Betrag, der abgebucht wird. Am Ende der Testphase läuft das Abonnement automatisch zu dem Satz weiter, zu dem du dich angemeldet hast - ohne einen zweiten Bestätigungsschritt.
 
-Um diese automatische Verlängerung zu verhindern: kündige, bevor die Testphase endet - im Portal oder über **Cancel subscription** auf deiner Kontoseite. Du behältst den Zugang bis zum Ende der Testphase. Eine kostenlose Testphase pro Konto.
+Um diese automatische Verlängerung zu verhindern: kündige, bevor die Testphase endet, über **Abonnement kündigen** auf deiner Kontoseite. Du behältst den Zugang bis zum Ende der Testphase. Eine kostenlose Testphase pro Konto.
 
 ## 7-tägige Geld-zurück-Garantie (alle anderen Pläne)
 
@@ -40,7 +40,8 @@ Im Portal kannst du:
 - Den Zahlungsrhythmus wechseln (monatlich ↔ vierteljährlich ↔ jährlich)
 - Die Zahlungsmethode aktualisieren
 - Rechnungen einsehen und herunterladen
-- Das Abonnement kündigen
+
+Zum Kündigen nutze stattdessen den Link **Abonnement kündigen** auf deiner Kontoseite (siehe unten).
 
 ## Upgrades und Downgrades
 
@@ -51,7 +52,7 @@ Im Portal kannst du:
 
 ## Kündigung
 
-- Kündige im Portal oder über den Link **Cancel subscription** unter Abonnement verwalten auf deiner Kontoseite. Dieser Link bietet dir stattdessen auch an, dein Abonnement für ein bis drei Monate zu pausieren - während der Pause wird nichts berechnet und du hast keinen Zugang, danach läuft es automatisch weiter.
+- Kündige über den Link **Abonnement kündigen** unter Abonnement verwalten auf deiner Kontoseite. Bevor er kündigt, bietet er dir eventuell einen Rabatt, einen Wechsel zu einem längeren Zahlungsrhythmus oder eine Pause von ein bis drei Monaten an - während der Pause wird nichts berechnet und du hast keinen Zugang, danach läuft es automatisch weiter. Du kannst jedes Angebot überspringen und kündigen.
 - Die Kündigung wird zum **Ende des aktuellen Abrechnungszeitraums** wirksam. Bis dahin behältst du den kostenpflichtigen Zugang, und deine Kontoseite zeigt das Datum an.
 - Nach Ablauf des Zeitraums fällt deine Stufe auf Public zurück. Dein Konto wird nicht gelöscht; deine Empfehlungsdaten und gespeicherten Einstellungen bleiben erhalten.
 - Du kannst jederzeit erneut abonnieren.
@@ -78,11 +79,11 @@ Für Ausnahmen schreibe eine E-Mail an [support@zerogex.io](mailto:support@zerog
 
 ## Wechsel zu einem längeren Abrechnungszeitraum
 
-Die Rechnung geht zu deinen Gunsten auf - je länger der Zeitraum, desto niedriger der monatliche Gegenwert. Das Portal übernimmt den Wechsel: Er wird sofort wirksam und anteilig berechnet, mit einer Gutschrift für den ungenutzten Teil deines aktuellen Zeitraums. Befindest du dich noch in der kostenlosen Testphase von Basic, beendet der Wechsel die Testphase und der neue Plan wird noch am selben Tag abgerechnet (siehe oben).
+Die Rechnung geht zu deinen Gunsten auf - je länger der Zeitraum, desto niedriger der monatliche Gegenwert. Wähle den längeren Zeitraum auf der [Pricing](/pricing)-Seite: Du siehst vorher den genauen Betrag, der heute berechnet wird - den Preis des neuen Plans abzüglich einer Gutschrift für den ungenutzten Teil deines aktuellen Zeitraums - und bestätigst ihn. Der neue Zeitraum beginnt am selben Tag. Im Portal geht derselbe Wechsel ebenfalls. Befindest du dich noch in der kostenlosen Testphase von Basic, beendet der Wechsel die Testphase und der neue Plan wird noch am selben Tag abgerechnet (siehe oben).
 
 ## Verlängerungserinnerungen
 
-Vierteljährliche und jährliche Pläne verlängern sich automatisch. Wir schicken dir vorher eine E-Mail - 7 Tage vorher bei vierteljährlich, 30 Tage vorher bei jährlich - mit Datum und Betrag, damit du bei Bedarf vorher im Portal kündigen oder wechseln kannst.
+Vierteljährliche und jährliche Pläne verlängern sich automatisch. Wir schicken dir vorher eine E-Mail - 7 Tage vorher bei vierteljährlich, 30 Tage vorher bei jährlich - mit Datum und Betrag, damit du bei Bedarf vorher auf deiner Kontoseite kündigen oder den Plan wechseln kannst.
 
 ## Promo- und Gutscheincodes
 

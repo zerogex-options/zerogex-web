@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   decidePlanSwitch,
   isDowngrade,
+  lengthenOffers,
   pickSwitchPromoCoupon,
   reconcileSwitchDiscounts,
   type PlanSwitchInput,
@@ -22,6 +23,7 @@ function input(over: Partial<PlanSwitchInput> = {}): PlanSwitchInput {
     targetCadence: 'monthly',
     targetHasTrial: false,
     status: 'trialing',
+    paused: false,
     ...over,
   };
 }
@@ -48,6 +50,40 @@ test('a trial-plan target keeps the trial for the original shape: tier up, same 
   // ...and anything else toward a trial plan still goes through the portal.
   assert.deepEqual(
     decidePlanSwitch(input({ targetHasTrial: true, targetCadence: 'annual' })),
+    { kind: 'portal' },
+  );
+});
+
+test('a paying member moving to a longer period on the same tier switches in-app', () => {
+  const paying = { status: 'active', targetTier: 'pro', currentTier: 'pro' } as const;
+  for (const [currentCadence, targetCadence] of [
+    ['monthly', 'quarterly'],
+    ['monthly', 'annual'],
+    ['quarterly', 'annual'],
+  ] as const) {
+    assert.deepEqual(
+      decidePlanSwitch(input({ ...paying, currentCadence, targetCadence })),
+      { kind: 'in_app_lengthen' },
+      `${currentCadence} → ${targetCadence}`,
+    );
+  }
+  assert.deepEqual(
+    decidePlanSwitch(input({ status: 'active', currentTier: 'basic', targetTier: 'basic', targetCadence: 'annual' })),
+    { kind: 'in_app_lengthen' },
+  );
+});
+
+test('a longer period is never switched in-app while paused, past due, or with a tier change', () => {
+  const base = { currentTier: 'pro', targetTier: 'pro', targetCadence: 'annual' } as const;
+  assert.deepEqual(decidePlanSwitch(input({ ...base, status: 'active', paused: true })), { kind: 'portal' });
+  assert.deepEqual(decidePlanSwitch(input({ ...base, status: 'past_due' })), { kind: 'portal' });
+  assert.deepEqual(
+    decidePlanSwitch(input({ status: 'active', currentTier: 'basic', targetTier: 'pro', targetCadence: 'annual' })),
+    { kind: 'portal' },
+  );
+  // A shorter period is a downgrade: the portal schedules it at period end.
+  assert.deepEqual(
+    decidePlanSwitch(input({ status: 'active', currentTier: 'pro', currentCadence: 'annual', targetTier: 'pro', targetCadence: 'monthly' })),
     { kind: 'portal' },
   );
 });
@@ -204,4 +240,73 @@ test('a move to a plan without the promo drops it; otherwise the live promo (or 
     }),
     null,
   );
+});
+
+// ── Longer-period offers ─────────────────────────────────────────────────────
+
+const allSellable = () => true;
+
+test('a monthly member is offered annual first, then quarterly, at list prices', () => {
+  const offers = lengthenOffers({
+    current: { tier: 'pro', cadence: 'monthly' },
+    status: 'active',
+    paused: false,
+    isSellable: allSellable,
+  });
+  assert.deepEqual(
+    offers.map((o) => [o.cadence, o.listPrice, o.perMonth, o.months]),
+    [
+      ['annual', 299, 24.92, 12],
+      ['quarterly', 115, 38.33, 3],
+    ],
+  );
+  assert.ok(offers.every((o) => o.tier === 'pro'));
+});
+
+test('only plans on sale are offered, and an annual member has nothing longer', () => {
+  const noQuarterly = lengthenOffers({
+    current: { tier: 'basic', cadence: 'monthly' },
+    status: 'active',
+    paused: false,
+    isSellable: (sku) => sku.cadence !== 'quarterly',
+  });
+  assert.deepEqual(noQuarterly.map((o) => o.cadence), ['annual']);
+  assert.deepEqual(
+    lengthenOffers({ current: { tier: 'pro', cadence: 'quarterly' }, status: 'active', paused: false, isSellable: allSellable }).map((o) => o.cadence),
+    ['annual'],
+  );
+  assert.deepEqual(
+    lengthenOffers({ current: { tier: 'pro', cadence: 'annual' }, status: 'active', paused: false, isSellable: allSellable }),
+    [],
+  );
+});
+
+test('no offers unless the member is paying, unpaused, on a plan we recognize', () => {
+  const sku = { tier: 'pro', cadence: 'monthly' } as const;
+  for (const status of ['trialing', 'past_due', 'canceled', null]) {
+    assert.deepEqual(lengthenOffers({ current: sku, status, paused: false, isSellable: allSellable }), [], String(status));
+  }
+  assert.deepEqual(lengthenOffers({ current: sku, status: 'active', paused: true, isSellable: allSellable }), []);
+  assert.deepEqual(lengthenOffers({ current: null, status: 'active', paused: false, isSellable: allSellable }), []);
+});
+
+test('every offer is a switch decidePlanSwitch performs in-app', () => {
+  for (const tier of ['basic', 'pro'] as const) {
+    for (const cadence of ['monthly', 'quarterly'] as const) {
+      for (const offer of lengthenOffers({ current: { tier, cadence }, status: 'active', paused: false, isSellable: allSellable })) {
+        assert.deepEqual(
+          decidePlanSwitch({
+            currentTier: tier,
+            currentCadence: cadence,
+            targetTier: offer.tier,
+            targetCadence: offer.cadence,
+            targetHasTrial: false,
+            status: 'active',
+            paused: false,
+          }),
+          { kind: 'in_app_lengthen' },
+        );
+      }
+    }
+  }
 });
