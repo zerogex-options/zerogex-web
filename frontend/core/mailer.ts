@@ -2829,6 +2829,13 @@ export async function sendCancellationAlertEmail(to: string, alert: ChurnAlert) 
 
   const factLines = alert.facts.map((f) => `  ${f.label.padEnd(18)} ${f.value}`).join('\n');
   const commandLines = alert.commands.map((c) => `  ${c}`).join('\n');
+  const badge = !pending
+    ? 'Subscription ended'
+    : alert.billing === 'paying'
+      ? 'Paying member canceled &mdash; still has access'
+      : alert.billing === 'trial'
+        ? 'Trial canceled &mdash; never charged'
+        : 'Canceled &mdash; still has access';
 
   const text = [
     alert.headline,
@@ -2878,7 +2885,7 @@ export async function sendCancellationAlertEmail(to: string, alert: ChurnAlert) 
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 620px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <div style="display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 9px; border-radius: 5px; margin-bottom: 12px; ${
         pending ? 'background: #fff8e1; color: #8a6100;' : 'background: #f1f1f1; color: #666;'
-      }">${pending ? 'Canceled &mdash; still has access' : 'Subscription ended'}</div>
+      }">${badge}</div>
       <h1 style="font-size: 19px; margin: 0 0 4px;">${escapeHtml(alert.email)}</h1>
       <p style="margin: 0 0 4px; color: #444; font-size: 14px;">${escapeHtml(alert.reasonLabel)} &middot; after ${escapeHtml(alert.tenure)}</p>
       ${

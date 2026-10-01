@@ -8,6 +8,7 @@
 // follows the same rules dailyMetrics does: not `server-only`, and relative
 // imports only (the "@/" alias is a bundler feature the script's loader lacks).
 // It is still server code: it opens the SQLite DB through ./db.ts.
+import type { DatabaseSync } from 'node:sqlite';
 import { getDb } from './db.ts';
 import { MONEY_BACK_REFUND_AUDIT_TYPES } from './cancelDecisions.ts';
 import { parseCancellationReasonFromMessage } from './cancellationReason.ts';
@@ -99,9 +100,12 @@ export type SubscriptionPaymentRow = {
   billingReason: string | null;
 };
 
-export function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
+export function readSubscriptionPayments(
+  sinceDays: number,
+  db: DatabaseSync = getDb(),
+): SubscriptionPaymentRow[] {
   const types = SUBSCRIPTION_PAYMENT_AUDIT_TYPES.map((type) => `'${type}'`).join(', ');
-  const rows = getDb()
+  const rows = db
     .prepare(
       `SELECT created_at, user_id, email, type, message FROM audit_events
         WHERE type IN (${types})
@@ -137,9 +141,15 @@ export function readSubscriptionPayments(sinceDays: number): SubscriptionPayment
  * history has to be read from before the window a caller shows, or its first
  * sync inside the window reads as a brand-new subscriber. Throws on a query
  * failure; callers decide how to degrade.
+ *
+ * `db` is for the standalone scripts that open the database themselves (the
+ * cancellation alert opens it read-only on a dry run); the app takes the default.
  */
-export function readSubscriberLedgerRows(sinceDays: number, nowMs: number): LedgerRow[] {
-  const db = getDb();
+export function readSubscriberLedgerRows(
+  sinceDays: number,
+  nowMs: number,
+  db: DatabaseSync = getDb(),
+): LedgerRow[] {
   // Scanned oldest-first so each subscription's prior state is known before
   // the transition that changes it.
   const syncRows = db
@@ -183,7 +193,7 @@ export function readSubscriberLedgerRows(sinceDays: number, nowMs: number): Ledg
   // The Converting -> Full Subscriber step. Nothing about the SUBSCRIPTION
   // changes when its invoice is paid, so the sync stream above cannot see it;
   // this is the only record that money moved.
-  const payments: LedgerPaymentEvent[] = readSubscriptionPayments(sinceDays).map((row) => ({
+  const payments: LedgerPaymentEvent[] = readSubscriptionPayments(sinceDays, db).map((row) => ({
     subId: row.subId,
     userId: row.userId,
     email: row.email,

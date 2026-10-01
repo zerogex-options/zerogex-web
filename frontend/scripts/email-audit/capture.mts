@@ -79,6 +79,7 @@ const CHURN_ALERT = buildChurnAlert(
     accountCreatedAtIso: '2026-05-12T14:02:00.000Z',
     subscriptionStartedAtIso: '2026-05-12T14:05:00.000Z',
     tier: 'pro',
+    billing: 'paying',
     currentPeriodEndIso: PERIOD_END,
   },
   '2026-09-15T18:25:00.000Z',
