@@ -1,9 +1,19 @@
 {
-  "totalDonatedUsd": 0,
-  "donationsCount": 0,
-  "lastDonation": null,
-  "nextDonationAtIso": "2026-10-05",
+  "totalDonatedUsd": 459,
+  "donationsCount": 1,
+  "lastDonation": {
+    "amountUsd": 459,
+    "donatedAtIso": "2026-10-01T00:00:00.000Z",
+    "quarter": "Q3 2026"
+  },
+  "nextDonationAtIso": "2027-01-05",
   "pledgePct": 3,
   "partner": "Folds of Honor",
-  "history": []
+  "history": [
+    {
+      "amountUsd": 459,
+      "donatedAtIso": "2026-10-01T00:00:00.000Z",
+      "quarter": "Q3 2026"
+    }
+  ]
 }
