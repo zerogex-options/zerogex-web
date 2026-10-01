@@ -65,6 +65,12 @@ with `curl -sI https://zerogex.io/ | grep -i alt-svc`; no output means it is no
 longer advertised. Their Protocol column showing `h2` means it has reached
 them. The Chrome flag remains the fallback if they don't want to wait.
 
+**Done Thu Oct 1, about 2:25 PM ET:** HTTP/3 (with QUIC) switched off in
+Cloudflare for zerogex.io, which is on the Free plan. HTTP/2 and HTTP/2 to
+Origin stay on. At 18:25 UTC three `curl -sI https://zerogex.io/` checks came
+back with no `alt-svc` header. Turn it back on if they still see the pauses
+once their Protocol column shows `h2`.
+
 ## Update Wed Sep 30: still slow after the fix
 
 The fix went live after Tuesday's close. On Wednesday they wrote three times
