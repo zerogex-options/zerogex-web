@@ -37,19 +37,21 @@ export default function AutoFitValue({
   // Keep the latest measure closure in a ref so the ResizeObserver (set up once)
   // always calls the current one without being torn down on every render.
   const fitRef = useRef<() => void>(() => {});
-  fitRef.current = () => {
-    const outer = outerRef.current;
-    const inner = innerRef.current;
-    if (!outer || !inner) return;
-    const avail = outer.clientWidth;
-    const natural = inner.scrollWidth; // unaffected by the current transform
-    if (!avail || !natural) return;
-    const next = natural > avail ? Math.max(minScale, avail / natural) : 1;
-    setScale((prev) => (Math.abs(prev - next) > 0.005 ? next : prev));
-  };
 
   // Re-measure after every render (value changes don't resize the container).
+  // The closure is refreshed here rather than during render, which React
+  // forbids for refs; this effect runs before the observer's below.
   useLayoutEffect(() => {
+    fitRef.current = () => {
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+      if (!outer || !inner) return;
+      const avail = outer.clientWidth;
+      const natural = inner.scrollWidth; // unaffected by the current transform
+      if (!avail || !natural) return;
+      const next = natural > avail ? Math.max(minScale, avail / natural) : 1;
+      setScale((prev) => (Math.abs(prev - next) > 0.005 ? next : prev));
+    };
     fitRef.current();
   });
 

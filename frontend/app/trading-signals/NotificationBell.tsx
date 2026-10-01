@@ -212,7 +212,7 @@ export default function NotificationBell() {
                 </div>
                 <div className="text-[11px] text-[var(--color-text-secondary)] leading-snug">
                   Follow a bot (click <span className="text-[var(--color-text-primary)]">Follow</span> on
-                  any roster card) and you'll get an in-app notification when it enters or exits a trade.
+                  any roster card) and you&apos;ll get an in-app notification when it enters or exits a trade.
                 </div>
               </div>
             ) : (

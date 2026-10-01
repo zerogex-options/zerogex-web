@@ -142,7 +142,11 @@ export default function NotificationsClient() {
   // Local state keyed by bot_id so debounced saves don't fight the
   // network-driven refresh.
   const [state, setState] = useState<Map<string, BotState>>(new Map());
-  const [savedTick, setSavedTick] = useState<Map<string, number>>(new Map());
+  // Bots whose last save landed under 2.4 s ago, so their card shows "Saved".
+  // A timer clears each one; reading the clock during render would leave the
+  // badge up until something else happened to re-render the page.
+  const [savedFresh, setSavedFresh] = useState<Set<string>>(new Set());
+  const savedFreshTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Bots the user just unfollowed. The card is hidden optimistically the
@@ -153,50 +157,60 @@ export default function NotificationsClient() {
   // resurrect the follow row a click just deleted).
   const [pendingRemoval, setPendingRemoval] = useState<Set<string>>(() => new Set());
   const pendingRemovalRef = useRef(pendingRemoval);
-  pendingRemovalRef.current = pendingRemoval;
+  // Synced after commit (React forbids writing refs during render). The save
+  // timer that reads it fires 350 ms after a change, long after this runs.
+  useEffect(() => {
+    pendingRemovalRef.current = pendingRemoval;
+  }, [pendingRemoval]);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!follows.data) return;
-    setState((prev) => {
-      const next = new Map(prev);
-      for (const rec of follows.data!.follows) {
-        if (!next.has(rec.bot_id)) {
-          const s = normalizeChannels(rec.channels);
-          s.min_confidence = Number(rec.min_confidence ?? 0);
-          next.set(rec.bot_id, s);
+  // Fold each new follows payload into local state as it arrives. Done during
+  // render, keyed on the payload's identity (useApiData holds it in state, so
+  // it changes only when a fetch lands), rather than in an effect: React's
+  // pattern for state derived from a changed input, without the extra render
+  // an effect's setState costs.
+  const [syncedFollows, setSyncedFollows] = useState(follows.data);
+  if (follows.data !== syncedFollows) {
+    setSyncedFollows(follows.data);
+    const data = follows.data;
+    if (data) {
+      setState((prev) => {
+        const next = new Map(prev);
+        for (const rec of data.follows) {
+          if (!next.has(rec.bot_id)) {
+            const s = normalizeChannels(rec.channels);
+            s.min_confidence = Number(rec.min_confidence ?? 0);
+            next.set(rec.bot_id, s);
+          }
         }
-      }
-      // Drop any local state for bots we're no longer following.
-      for (const botId of Array.from(next.keys())) {
-        if (!follows.data!.follows.find((f) => f.bot_id === botId)) {
-          next.delete(botId);
+        // Drop any local state for bots we're no longer following.
+        for (const botId of Array.from(next.keys())) {
+          if (!data.follows.find((f) => f.bot_id === botId)) {
+            next.delete(botId);
+          }
         }
-      }
-      return next;
-    });
-  }, [follows.data]);
+        return next;
+      });
 
-  // Once a fresh follows payload no longer lists a bot we optimistically
-  // removed, the delete is confirmed on the server — drop it from the
-  // pending set. If a stale payload still lists it, keep hiding until a
-  // subsequent refresh reflects the delete; the set converges either way.
-  useEffect(() => {
-    if (!follows.data) return;
-    setPendingRemoval((prev) => {
-      if (prev.size === 0) return prev;
-      const present = new Set(follows.data!.follows.map((f) => f.bot_id));
-      let changed = false;
-      const next = new Set(prev);
-      for (const botId of prev) {
-        if (!present.has(botId)) {
-          next.delete(botId);
-          changed = true;
+      // Once a fresh follows payload no longer lists a bot we optimistically
+      // removed, the delete is confirmed on the server — drop it from the
+      // pending set. If a stale payload still lists it, keep hiding until a
+      // subsequent refresh reflects the delete; the set converges either way.
+      setPendingRemoval((prev) => {
+        if (prev.size === 0) return prev;
+        const present = new Set(data.follows.map((f) => f.bot_id));
+        let changed = false;
+        const next = new Set(prev);
+        for (const botId of prev) {
+          if (!present.has(botId)) {
+            next.delete(botId);
+            changed = true;
+          }
         }
-      }
-      return changed ? next : prev;
-    });
-  }, [follows.data]);
+        return changed ? next : prev;
+      });
+    }
+  }
 
   const scheduleSave = useCallback((botId: string, newState: BotState) => {
     const timers = saveTimers.current;
@@ -210,11 +224,21 @@ export default function NotificationsClient() {
       if (pendingRemovalRef.current.has(botId)) return;
       try {
         await upsertFollow(botId, newState);
-        setSavedTick((prev) => {
-          const next = new Map(prev);
-          next.set(botId, Date.now());
-          return next;
-        });
+        setSavedFresh((prev) => new Set(prev).add(botId));
+        const freshTimers = savedFreshTimers.current;
+        const prevFresh = freshTimers.get(botId);
+        if (prevFresh) clearTimeout(prevFresh);
+        freshTimers.set(
+          botId,
+          setTimeout(() => {
+            freshTimers.delete(botId);
+            setSavedFresh((prev) => {
+              const next = new Set(prev);
+              next.delete(botId);
+              return next;
+            });
+          }, 2400),
+        );
       } catch {
         /* leave the local state alone; user can retry with any change */
       }
@@ -408,8 +432,6 @@ export default function NotificationsClient() {
                   return init;
                 })();
               const color = BOT_COLORS[rec.bot_id] ?? 'var(--color-info)';
-              const saved = savedTick.get(rec.bot_id) ?? 0;
-              const savedFresh = Date.now() - saved < 2400;
               return (
                 <div
                   key={rec.bot_id}
@@ -442,7 +464,7 @@ export default function NotificationsClient() {
                               {rec.tier}
                             </span>
                           ) : null}
-                          {savedFresh ? (
+                          {savedFresh.has(rec.bot_id) ? (
                             <span
                               className="text-[10px] inline-flex items-center gap-1"
                               style={{ color: 'var(--color-bull)' }}

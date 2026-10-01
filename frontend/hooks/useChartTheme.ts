@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { readableLevelInk, toHex } from '@/core/levelInk';
 
@@ -247,26 +247,29 @@ function resolveInk(chip: string): string {
  * server render and the hydrating render both get INK_FALLBACK and therefore
  * agree. Results are cached per palette/mode.
  */
-export function useChipInk(): (chipColor: string) => string {
+type ChipInk = (chipColor: string) => string;
+const chipInkFallback: ChipInk = () => INK_FALLBACK;
+
+export function useChipInk(): ChipInk {
   const { theme, palette } = useTheme();
-  const [generation, setGeneration] = useState(0); // 0 = not yet read from the DOM
+  // Built in the effect and held in state, as useLevelInk does, so the cache
+  // is never created during render.
+  const [resolver, setResolver] = useState<ChipInk>(() => chipInkFallback);
   useEffect(() => {
     // One frame, so the root element's variables have actually flipped.
-    const raf = requestAnimationFrame(() => setGeneration((g: number) => g + 1));
+    const raf = requestAnimationFrame(() => {
+      const cache = new Map<string, string>();
+      setResolver(() => (chipColor: string) => {
+        const hit = cache.get(chipColor);
+        if (hit !== undefined) return hit;
+        const ink = resolveInk(chipColor);
+        cache.set(chipColor, ink);
+        return ink;
+      });
+    });
     return () => cancelAnimationFrame(raf);
   }, [theme, palette]);
-
-  return useMemo(() => {
-    if (generation === 0) return () => INK_FALLBACK;
-    const cache = new Map<string, string>();
-    return (chipColor: string) => {
-      const hit = cache.get(chipColor);
-      if (hit !== undefined) return hit;
-      const ink = resolveInk(chipColor);
-      cache.set(chipColor, ink);
-      return ink;
-    };
-  }, [generation]);
+  return resolver;
 }
 
 /* ── Ink for text in a mark's own color ───────────────────────────────────────
