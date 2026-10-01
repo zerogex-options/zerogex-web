@@ -13,15 +13,17 @@
 //
 // The email contains:
 //   1. Which quarter just closed (auto-detected from today, unless overridden)
-//   2. A ready-to-run Stripe Sigma query with the closing quarter's date
-//      window pre-filled — computes gross paid subscription revenue for that
-//      window, from which 3% is the donation
+//   2. The closing quarter's gross subscription revenue and the donation it
+//      owes, computed from Stripe's ordinary invoice API (core/fohRevenue.ts).
+//      Stripe Sigma would need a paid add-on. If Stripe can't be reached the
+//      email still goes out, with the `make foh-revenue` command to run instead.
 //   3. The tracked FOH donation URL
 //   4. The exact `make quarterly-receipt` command to run afterward
 //   5. A reminder about the tweet + badge attach step
 //
 // Env:
 //   RESEND_API_KEY, RESEND_FROM_EMAIL  (required — sends the email)
+//   STRIPE_SECRET_KEY                  (computes the donation; read-only)
 //   FOH_REMINDER_EMAIL                 (default recipient; --to overrides)
 //   NEXT_PUBLIC_APP_URL                (used for /giving link in the email)
 //
@@ -34,6 +36,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { Resend } from 'resend';
+import Stripe from 'stripe';
+
+import {
+  closingQuarterFor,
+  formatCents,
+  formatQuarterRevenue,
+  parseQuarterLabel,
+  type Quarter,
+  type QuarterRevenue,
+} from '../core/fohRevenue.ts';
+import { computeQuarterRevenue } from '../core/fohRevenueServer.ts';
 
 // ── Env loading (matches other frontend/scripts/*.mts) ────────────────────────
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -84,43 +97,6 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-// ── Date + quarter helpers ────────────────────────────────────────────────────
-// The closing quarter is the previous calendar quarter relative to `now`. If
-// today is 2026-10-05 (Q4), the just-closed quarter is Q3 2026.
-type ClosingQuarter = {
-  label: string;
-  startIso: string; // e.g. "2026-07-01"
-  endIso: string;   // e.g. "2026-09-30"
-};
-
-function closingQuarterFor(now: Date): ClosingQuarter {
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth(); // 0-11
-  const currentQuarterZeroBased = Math.floor(m / 3); // 0..3
-  // Closing = previous quarter
-  const closingZeroBased = currentQuarterZeroBased === 0 ? 3 : currentQuarterZeroBased - 1;
-  const closingYear = currentQuarterZeroBased === 0 ? y - 1 : y;
-  const startMonth = closingZeroBased * 3;
-  const start = new Date(Date.UTC(closingYear, startMonth, 1));
-  const end = new Date(Date.UTC(closingYear, startMonth + 3, 0)); // day 0 of next month = last day of previous
-  return {
-    label: `Q${closingZeroBased + 1} ${closingYear}`,
-    startIso: start.toISOString().slice(0, 10),
-    endIso: end.toISOString().slice(0, 10),
-  };
-}
-
-function parseQuarterLabel(label: string): ClosingQuarter {
-  const m = /^Q([1-4])\s+(\d{4})$/.exec(label.trim());
-  if (!m) throw new Error(`Invalid --quarter "${label}". Expected format like "Q3 2026".`);
-  const q = parseInt(m[1]!, 10);
-  const y = parseInt(m[2]!, 10);
-  const startMonth = (q - 1) * 3;
-  const start = new Date(Date.UTC(y, startMonth, 1));
-  const end = new Date(Date.UTC(y, startMonth + 3, 0));
-  return { label: `Q${q} ${y}`, startIso: start.toISOString().slice(0, 10), endIso: end.toISOString().slice(0, 10) };
-}
-
 // ── Email body ────────────────────────────────────────────────────────────────
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://zerogex.io';
 const FOH_DONATION_URL = 'https://foldsofhonorpartners.donorsupport.co/page/ZeroGEX';
@@ -129,27 +105,46 @@ function escapeHtml(v: string): string {
   return v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-function buildStripeQuery(q: ClosingQuarter): string {
-  return `SELECT SUM(amount_paid) / 100.0 AS gross_usd_paid
-FROM   invoices
-WHERE  status = 'paid'
-  AND  billing_reason IN ('subscription_cycle', 'subscription_create')
-  AND  paid_at BETWEEN '${q.startIso}' AND '${q.endIso}';`;
+// Step 1's content: the computed figure, or why it could not be computed.
+type Step1 = { revenue: QuarterRevenue } | { error: string };
+
+function manualCommand(q: Quarter): string {
+  return `make foh-revenue QUARTER="${q.label}"`;
 }
 
-function buildText(q: ClosingQuarter): string {
+function step1Text(q: Quarter, step1: Step1): string[] {
+  if ('revenue' in step1) {
+    return [
+      `Computed from Stripe's paid invoices for the quarter:`,
+      ``,
+      ...formatQuarterRevenue(step1.revenue),
+      ``,
+      `Re-check any time on the EC2 box with: ${manualCommand(q)}`,
+    ];
+  }
+  return [
+    `The donation could not be computed automatically (${step1.error}).`,
+    `On the EC2 box, from ~/zerogex-web, run:`,
+    ``,
+    `  ${manualCommand(q)}`,
+    ``,
+    `It prints the quarter's revenue and the donation amount. Write it down.`,
+  ];
+}
+
+function suggestedAmount(step1: Step1): string {
+  return 'revenue' in step1 ? (step1.revenue.donationCents / 100).toFixed(2) : '<the donation from Step 1>';
+}
+
+function buildText(q: Quarter, step1: Step1): string {
   return [
     `${q.label} just closed. Time to make the Folds of Honor donation.`,
     ``,
     `Roughly 15 minutes end-to-end. Four steps:`,
     ``,
-    `STEP 1 — Compute 3% of the closing quarter's gross subscription revenue`,
+    `STEP 1 — The donation amount`,
     `───────────────────────────────────────────────────`,
-    `Paste this into Stripe Sigma (Dashboard → More → Sigma):`,
-    ``,
-    buildStripeQuery(q),
-    ``,
-    `Multiply the result by 0.03 to get the donation amount. Write it down.`,
+    ...step1Text(q, step1),
     ``,
     `STEP 2 — Send the donation`,
     `───────────────────────────────────────────────────`,
@@ -171,7 +166,7 @@ function buildText(q: ClosingQuarter): string {
     `prints the exact tweet you'll post in Step 4.`,
     ``,
     `Suggested inputs:`,
-    `  Amount:  <your number from Step 1 × 0.03>`,
+    `  Amount:  ${suggestedAmount(step1)}`,
     `  Quarter: ${q.label}`,
     `  Date:    today (default — just press Enter)`,
     ``,
@@ -192,17 +187,22 @@ function buildText(q: ClosingQuarter): string {
   ].join('\n');
 }
 
-function buildHtml(q: ClosingQuarter): string {
-  const query = escapeHtml(buildStripeQuery(q));
+function buildHtml(q: Quarter, step1: Step1): string {
+  const step1Html = 'revenue' in step1
+    ? `<p style="margin: 0 0 8px;">Donation to send: <strong style="font-size: 18px;">${escapeHtml(formatCents(step1.revenue.donationCents))}</strong></p>
+  <p style="margin: 0 0 8px; color: #555; font-size: 14px;">Computed from Stripe's paid invoices for the quarter:</p>
+  <pre style="background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 14px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55; overflow: auto;">${escapeHtml(formatQuarterRevenue(step1.revenue).join('\n'))}</pre>
+  <p style="margin: 8px 0 0; color: #555; font-size: 14px;">Re-check any time on the EC2 box with <code>${escapeHtml(manualCommand(q))}</code>.</p>`
+    : `<p style="margin: 0 0 8px;">The donation could not be computed automatically (${escapeHtml(step1.error)}). On the EC2 box, from <code>~/zerogex-web</code>, run:</p>
+  <pre style="background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 14px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55;">${escapeHtml(manualCommand(q))}</pre>
+  <p style="margin: 8px 0 0; color: #555; font-size: 14px;">It prints the quarter's revenue and the donation amount. Write it down.</p>`;
   return `<!doctype html>
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 680px; margin: 0 auto; padding: 24px; line-height: 1.55;">
   <h1 style="margin: 0 0 8px; font-size: 24px;">${escapeHtml(q.label)} just closed — time to make the FOH donation</h1>
   <p style="color: #555; margin: 0 0 20px;">Roughly 15 minutes end-to-end. Four steps below. Nothing to remember and no docs to consult — everything you need is in this email.</p>
 
-  <h2 style="font-size: 16px; margin: 28px 0 8px; color: #333;">Step 1 — Compute 3% of the closing quarter's revenue</h2>
-  <p style="margin: 0 0 8px;">Paste this into <strong>Stripe Sigma</strong> (Dashboard → More → Sigma):</p>
-  <pre style="background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 14px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55; overflow: auto;">${query}</pre>
-  <p style="margin: 8px 0 0; color: #555; font-size: 14px;">Multiply the result by <strong>0.03</strong> to get the donation amount. Write it down.</p>
+  <h2 style="font-size: 16px; margin: 28px 0 8px; color: #333;">Step 1 — The donation amount</h2>
+  ${step1Html}
 
   <h2 style="font-size: 16px; margin: 28px 0 8px; color: #333;">Step 2 — Send the donation</h2>
   <p style="margin: 0;">Wire or use a card at the ZeroGEX-tracked partner page:</p>
@@ -222,7 +222,7 @@ make quarterly-receipt</pre>
     Suggested inputs when prompted:
   </p>
   <ul style="margin: 4px 0 0 20px; padding: 0; color: #555; font-size: 14px; line-height: 1.6;">
-    <li><strong>Amount:</strong> your number from Step 1 × 0.03</li>
+    <li><strong>Amount:</strong> ${escapeHtml(suggestedAmount(step1))}</li>
     <li><strong>Quarter:</strong> <code>${escapeHtml(q.label)}</code></li>
     <li><strong>Date:</strong> today (default — press Enter)</li>
   </ul>
@@ -249,6 +249,39 @@ make quarterly-receipt</pre>
 </div>`;
 }
 
+// ── Step 1: compute the donation ─────────────────────────────────────────────
+// Never fatal: the reminder is worth sending even when Stripe is unreachable,
+// so a failure becomes the manual-command fallback in the email. Capped well
+// inside the service's TimeoutStartSec so the email still goes out.
+const STRIPE_BUDGET_MS = 60_000;
+
+async function computeStep1(q: Quarter): Promise<Step1> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return { error: 'STRIPE_SECRET_KEY is not set' };
+  try {
+    const totals = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), 'content', 'giving', 'totals.json'), 'utf8'),
+    ) as { pledgePct: number };
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Stripe did not answer within ${STRIPE_BUDGET_MS / 1000}s`)), STRIPE_BUDGET_MS);
+    });
+    try {
+      const revenue = await Promise.race([
+        computeQuarterRevenue(new Stripe(key, { timeout: 30_000 }), q, totals.pledgePct),
+        timeout,
+      ]);
+      return { revenue };
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`Could not compute the donation from Stripe: ${message}`);
+    return { error: message };
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -260,9 +293,12 @@ async function main() {
   }
 
   const quarter = args.quarter ? parseQuarterLabel(args.quarter) : closingQuarterFor(new Date());
-  const subject = `[ZeroGEX] ${quarter.label} closed — time to make the FOH donation`;
-  const text = buildText(quarter);
-  const html = buildHtml(quarter);
+  const step1 = await computeStep1(quarter);
+  const subject = 'revenue' in step1
+    ? `[ZeroGEX] ${quarter.label} closed — FOH donation due: ${formatCents(step1.revenue.donationCents)}`
+    : `[ZeroGEX] ${quarter.label} closed — time to make the FOH donation`;
+  const text = buildText(quarter, step1);
+  const html = buildHtml(quarter, step1);
 
   if (args.dryRun) {
     console.log(`=== TO: ${to}`);

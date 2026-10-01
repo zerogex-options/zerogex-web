@@ -58,8 +58,8 @@ send.
 
 The repo ships a systemd timer that emails you the full four-step
 playbook whenever a quarter closes. The email is self-contained: it
-has the Stripe query with dates pre-filled, the donation URL, the
-exact `make quarterly-receipt` command, and the tweet-post reminder.
+has the donation amount already computed from Stripe, the donation URL,
+the exact `make quarterly-receipt` command, and the tweet-post reminder.
 Nothing to look up.
 
 **Setup is idempotent — running `./deploy/deploy.sh` installs it every
@@ -121,19 +121,29 @@ reminder-plus-manual-run loop keeps the wire step consciously human.
 
 ### Step 1 — Compute what to send
 
-At the start of the new quarter, pull the closing quarter's gross
-subscription revenue from Stripe:
+The reminder email already has the figure in it. To check it, or to get it
+without the email, run this on the EC2 box from `~/zerogex-web`:
 
-```sql
--- Run in Stripe Sigma. Replace the dates with the closing quarter's window.
-SELECT SUM(amount_paid) / 100.0 AS gross_usd_paid
-FROM   invoices
-WHERE  status = 'paid'
-  AND  billing_reason IN ('subscription_cycle', 'subscription_create')
-  AND  paid_at BETWEEN '<quarter-start>' AND '<quarter-end>';
+```bash
+make foh-revenue                     # the quarter that most recently closed
+make foh-revenue QUARTER="Q3 2026"   # a specific quarter
 ```
 
-Multiply by `0.03`. That's your donation.
+It lists the quarter's paid invoices through Stripe's normal API (no Stripe
+Sigma subscription needed), totals the gross subscription revenue, and prints
+the donation: `pledgePct` from `content/giving/totals.json` (3%), rounded up
+to the cent. It is read-only.
+
+What it counts (see `frontend/core/fohRevenue.ts`):
+
+- Paid invoices whose payment landed inside the quarter (UTC), including the
+  whole last day.
+- New subscriptions, renewals, and the prorated charge for a mid-period
+  upgrade.
+- The amount the customer was charged. Stripe's fee is not subtracted.
+  Refunds are shown beside the total, not taken out of it.
+- Anything paid that is not subscription billing is listed as "not counted",
+  so nothing disappears without you seeing it.
 
 ### Step 2 — Send it
 

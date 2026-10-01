@@ -24,12 +24,14 @@ Environment="HOME=/home/ubuntu"
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 
 # Sends ONE email to the admin (FOH_REMINDER_EMAIL in frontend/.env.local)
-# with the four-step quarterly donation playbook. No DB reads or writes —
-# purely a reminder. No latch is touched, so re-running by hand is safe.
+# with the four-step quarterly donation playbook, the donation amount already
+# computed from Stripe's paid invoices (read-only list call). No DB reads or
+# writes. No latch is touched, so re-running by hand is safe.
 ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web foh-donation-reminder
 
-# Resend HTTPS is the only outbound leg; cap so a hung connect can't wedge
-# the timer.
+# Outbound legs: a read-only Stripe invoice list (capped at 60s in the script,
+# falling back to a manual command in the email) and the Resend send. Cap the
+# whole run so a hung connect can't wedge the timer.
 TimeoutStartSec=120
 
 # Security hardening — same shape as the other outbound-email units, minus

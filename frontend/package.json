@@ -187,7 +187,8 @@
     "test:money-back": "node --experimental-strip-types --test tests/moneyBackGuarantee.test.ts tests/moneyBackServer.test.ts",
     "test:renewal-reminder": "node --experimental-strip-types --test tests/renewalReminder.test.ts",
     "test:poll-gate": "node --experimental-strip-types --test tests/pollGate.test.ts",
-    "test:comparison-prices": "node --experimental-strip-types --test tests/comparisonPrices.test.ts"
+    "test:comparison-prices": "node --experimental-strip-types --test tests/comparisonPrices.test.ts",
+    "test:foh-revenue": "node --experimental-strip-types --test tests/fohRevenue.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
