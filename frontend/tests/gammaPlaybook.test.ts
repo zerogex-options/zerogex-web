@@ -309,3 +309,20 @@ test('the wall base rate says the regime did not change it', () => {
     assert.match(wallBaseRate(symbol), /whichever side of the Gamma Flip price was on/);
   }
 });
+
+test('atSpotGammaForPlaybook: a filtered book reads its own at-spot figure, flip or no flip', () => {
+  // The hook hands in the filtered bucket's own figure, the same one the
+  // chart's badge reads, so a subset with no crossing still resolves a regime
+  // instead of reading unknown under a SHORT badge.
+  const atSpot = atSpotGammaForPlaybook(4.2e9, true, -3.1e8);
+  assert.equal(atSpot, -3.1e8);
+  const scenario = resolvePlaybookScenario({
+    spot: 742.4,
+    callWall: 750,
+    putWall: 735,
+    netGexAtSpot: atSpot,
+    longGamma: longGammaAtSpot(atSpot, 742.4, null),
+  });
+  assert.equal(scenario.regime, 'negative');
+  assert.equal(scenario.regimeBasis, 'at-spot-gamma');
+});

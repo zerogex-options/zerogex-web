@@ -44,7 +44,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { resolvePriceSession } from '@/core/sessionCloses';
 import { etTodayDateKey } from '@/core/utils';
-import { longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { cumulativeNetGexAtSpot, longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { firstLevel, levelOrNull } from '@/core/levelValue';
 import {
   atSpotGammaForPlaybook,
@@ -191,10 +191,13 @@ export function useGammaPlaybook({
   const spot = tape.displayPrice ?? firstLevel(gexProfile?.spot_price, gexSummary?.spot_price);
 
   // Whole-chain at-spot gamma, withheld when the levels above came from a
-  // filtered book (see atSpotGammaForPlaybook).
+  // filtered book; that book's own at-spot figure, off the same bucket, stands
+  // in (see atSpotGammaForPlaybook). The chart's badge reads the same bucket
+  // the same way, so the two can't disagree.
   const netGexAtSpot = atSpotGammaForPlaybook(
     snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot),
     filtered && levelBucket != null,
+    levelBucket ? cumulativeNetGexAtSpot(levelBucket.strikes, spot) : null,
   );
 
   // Resolved by the shared regime helper, so neither the Playbook's row nor the

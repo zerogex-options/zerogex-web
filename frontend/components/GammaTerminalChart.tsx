@@ -58,7 +58,7 @@ import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/char
 import { useChipInk, useLevelInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
-import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong, cumulativeNetGexAtSpot } from "@/core/gammaRegime";
+import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong, cumulativeNetGexAtSpot, longGammaAtSpot } from "@/core/gammaRegime";
 import { firstLevel, levelOrNull } from "@/core/levelValue";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
@@ -1608,10 +1608,11 @@ export default function GammaTerminalChart({
   // Playbook below the chart already applies this rule to the same levels
   // (atSpotGammaForPlaybook); atSpotGammaForScope is the shared statement of
   // it, so the two surfaces can't drift apart again.
-  const netGexAtSpot = atSpotGammaForScope(
-    snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot),
-    rewindActive || levelBucket != null,
-  );
+  //
+  // Under a LIVE filter the selected book's own at-spot figure stands in for
+  // the withheld whole-chain one. It needs spot, so it is resolved further down
+  // (see netGexAtSpot there); this is only the whole-chain input.
+  const wholeChainGexAtSpot = snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot);
   // Pin Strike — reachable 0DTE positive-gamma pin, drawn during rewind from
   // the bucket's stored value (the server ships the same per-cycle pin the
   // Daily Replay reads, as of the bucket's close).
@@ -2893,22 +2894,23 @@ export default function GammaTerminalChart({
       : null;
 
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
-  const regimeUnknown = flip == null;
-  const longGammaNow = netGexAtSpot != null ? netGexAtSpot >= 0 : flip != null && spot >= flip;
-  // The chip's dollar figure under a LIVE Expiry filter. netGexAtSpot is
-  // withheld there (it's whole-chain; see atSpotGammaForScope), so the chip
-  // reads the filtered book's own figure: the cumulative curve whose zero
-  // crossing is the filtered flip, taken at spot. It only rides along when its
-  // sign agrees with the LONG/SHORT read beside it: on a lumpy book the gated
-  // flip can sit on the other side of a crossing, and a chip reading
-  // "SHORT Γ +$120M" is the contradiction this chart exists to avoid. Rewind
-  // keeps no figure, as before.
-  const scopedGexAtSpot =
-    filteredExp && live && !rewindActive && !snapshot && !regimeUnknown
-      ? cumulativeNetGexAtSpot(liveGexBucket?.strikes, spot)
-      : null;
-  const chipGex =
-    netGexAtSpot ?? (scopedGexAtSpot != null && (scopedGexAtSpot >= 0) === longGammaNow ? scopedGexAtSpot : null);
+  // At-spot dealer gamma for the badge (see the whole-chain note at
+  // wholeChainGexAtSpot). Under a live Expiry filter it is the selected book's
+  // own figure: the cumulative curve its flip is a crossing of, read at spot
+  // off the same bucket the levels came from, exactly as the Playbook reads it.
+  // That holds with no crossing at all: a one-signed subset publishes no flip,
+  // and its sign at spot is still its regime. Rewind keeps no figure.
+  const netGexAtSpot = atSpotGammaForScope(
+    wholeChainGexAtSpot,
+    rewindActive || levelBucket != null,
+    !rewindActive && levelBucket != null ? cumulativeNetGexAtSpot(levelBucket.strikes, spot) : null,
+  );
+  // The shared resolver behind every LONG/SHORT read on the site, so the badge
+  // and the Playbook / Key Levels regime can't disagree. Unknown only when
+  // there is neither an at-spot figure nor a flip to read it from.
+  const longGammaRead = longGammaAtSpot(netGexAtSpot, spot, flip);
+  const regimeUnknown = longGammaRead == null;
+  const longGammaNow = longGammaRead ?? false;
   const chipScope = filteredExp && live && !rewindActive ? expiryScopeLabel({ selection: effectiveRailExpiries, zeroDte: railZeroDte }) : null;
   // Shaded regime bands take their orientation from the badge, not from raw
   // geometry: the band that CONTAINS spot always matches longGammaNow, so the
@@ -3939,12 +3941,12 @@ export default function GammaTerminalChart({
                 <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, letterSpacing: "0.04em", color: regimeUnknown ? "var(--text-secondary)" : longGammaNow ? "var(--color-bull)" : "var(--color-bear)" }}>
                   {regimeUnknown ? "—" : longGammaNow ? "LONG Γ" : "SHORT Γ"}
                 </span>
-                {chipGex != null && (
+                {netGexAtSpot != null && (
                   <span
                     style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}
-                    title={netGexAtSpot == null ? "Net GEX of the selected expirations' strikes at or below spot: the same curve whose zero crossing is the flip drawn for them." : undefined}
+                    title={chipScope ? "Net GEX of the selected expirations at spot: their cumulative dealer-gamma curve (the one whose zero crossing is their flip, when they have one) read at the current price." : undefined}
                   >
-                    {fmtGex(chipGex)}
+                    {fmtGex(netGexAtSpot)}
                   </span>
                 )}
               </div>
