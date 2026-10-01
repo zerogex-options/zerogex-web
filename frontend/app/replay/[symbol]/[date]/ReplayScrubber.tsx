@@ -12,7 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { BarChart3, Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
+import { BarChart3, Eye, EyeOff, Link2, Pause, Play, Repeat, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -463,6 +463,9 @@ export default function ReplayScrubber({
   const [cursor, setCursor] = useState<number>(() => frameIndexForMinute(frames, initialMinute));
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<PlaySpeed>(4);
+  // On by default: playback past the last minute restarts at the session open.
+  // Off, it stops on the last minute.
+  const [loop, setLoop] = useState(true);
   const [pinA, setPinA] = useState<number | null>(null);
   const [pinB, setPinB] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -654,6 +657,16 @@ export default function ReplayScrubber({
     return Number.isFinite(lo) && Number.isFinite(hi) ? { lo, hi } : null;
   }, [frames]);
 
+  // Refs so the interval reads the latest cursor/loop without being recreated
+  // on every frame. All setState lives in the interval callback body (not
+  // inside another updater), the same shape Pair Comparison's player uses.
+  const cursorRef = useRef(cursor);
+  const loopRef = useRef(loop);
+  useEffect(() => {
+    cursorRef.current = cursor;
+    loopRef.current = loop;
+  });
+
   useEffect(() => {
     if (!isPlaying) {
       if (playRef.current) clearInterval(playRef.current);
@@ -662,10 +675,10 @@ export default function ReplayScrubber({
     }
     playRef.current = setInterval(
       () => {
-        setCursor((prev) => {
-          const next = prev + 1;
-          return next >= frames.length ? 0 : next;
-        });
+        const next = cursorRef.current + 1;
+        if (next < frames.length) setCursor(next);
+        else if (loopRef.current) setCursor(0);
+        else setIsPlaying(false);
       },
       Math.max(50, Math.round(1000 / speed)),
     );
@@ -679,6 +692,13 @@ export default function ReplayScrubber({
     setCursor(value);
     setIsPlaying(false);
   }, []);
+
+  // Play from the last minute, which is where the replay opens, starts over
+  // from the session open rather than stopping on its first tick with Loop off.
+  const togglePlay = () => {
+    if (!isPlaying && cursor >= frames.length - 1) setCursor(0);
+    setIsPlaying((p) => !p);
+  };
 
   // Touch scrubbing on the chart hands back a moment in time; land on the
   // frame nearest it.
@@ -882,13 +902,23 @@ export default function ReplayScrubber({
             <span className="hidden sm:contents">
               <button
                 type="button"
-                onClick={() => setIsPlaying((p) => !p)}
+                onClick={togglePlay}
                 className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-subtle)]"
               >
                 {isPlaying ? <Pause size={13} /> : <Play size={13} />}
                 {isPlaying ? 'Pause' : 'Play'}
               </button>
             </span>
+            <button
+              type="button"
+              onClick={() => setLoop((l) => !l)}
+              aria-pressed={loop}
+              title={loop ? 'Looping - restarts at the session open' : 'Play once - stops at the last minute'}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 pointer-coarse:py-2 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
+              style={{ color: loop ? 'var(--color-bull)' : 'var(--color-text-secondary)' }}
+            >
+              <Repeat size={13} /> Loop
+            </button>
             <div className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)] text-[10px] uppercase tracking-[0.14em]">
               {PLAY_SPEEDS.map((s) => (
                 <button
@@ -946,7 +976,7 @@ export default function ReplayScrubber({
           <span className="contents sm:hidden">
             <button
               type="button"
-              onClick={() => setIsPlaying((p) => !p)}
+              onClick={togglePlay}
               aria-label={isPlaying ? 'Pause replay' : 'Play replay'}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface-subtle)] text-[var(--color-text-primary)]"
             >

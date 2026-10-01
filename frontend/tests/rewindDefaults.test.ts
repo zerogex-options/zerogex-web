@@ -62,13 +62,21 @@ test('Pair Comparison: Replay opens on the latest minute, with Loop on', () => {
   );
 });
 
-test("Daily Replay: opens on the session's last minute and always loops", () => {
+test("Daily Replay: opens on the session's last minute, with Loop on", () => {
   // With no ?t= in the address, the playhead opens on the last frame.
   assert.match(
     replay,
     /const last = frames\.length > 0 \? frames\.length - 1 : 0;\s*if \(!minute \|\| frames\.length === 0\) return last;/,
   );
   assert.match(replay, /useState<number>\(\(\) => frameIndexForMinute\(frames, initialMinute\)\)/);
-  // Playing past the last frame wraps to the first.
-  assert.match(replay, /return next >= frames\.length \? 0 : next;/);
+  assert.match(replay, /const \[loop, setLoop\] = useState\(true\);/);
+  assert.match(replay, /onClick=\{\(\) => setLoop\(\(l\) => !l\)\}\s*aria-pressed=\{loop\}/);
+  // Past the last frame: back to the open with Loop on, stop with it off.
+  assert.match(
+    replay,
+    /if \(next < frames\.length\) setCursor\(next\);\s*else if \(loopRef\.current\) setCursor\(0\);\s*else setIsPlaying\(false\);/,
+  );
+  // Play from the last minute starts over, on both the desktop and phone buttons.
+  assert.match(handler(replay, 'togglePlay'), /if \(!isPlaying && cursor >= frames\.length - 1\) setCursor\(0\);/);
+  assert.equal((replay.match(/onClick=\{togglePlay\}/g) ?? []).length, 2);
 });
