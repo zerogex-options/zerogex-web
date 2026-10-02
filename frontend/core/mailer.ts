@@ -6,6 +6,7 @@ import type { DeclineCategory } from './declineReason.ts';
 import type { ChurnAlert } from './cancellationAlert.ts';
 import type { ReturnAngle } from './returnIntent.ts';
 import { regimeSentence, sessionDateLabel, type ComebackLevels, type LatestGrade } from './trialComeback.ts';
+import { resendSendError } from './resendRetry.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -3333,6 +3334,9 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
  * reaches for "report spam" instead. A complaint costs the sending domain's
  * reputation, and that domain also carries the receipts, trial reminders and
  * payment-failure mail this business depends on.
+ *
+ * Throws a ResendSendError rather than a bare Error so the send script can
+ * tell a 429 (wait and retry) from a bad address (don't). Same message text.
  */
 export async function sendDailyLevelsEmail(
   to: string,
@@ -3351,7 +3355,7 @@ export async function sendDailyLevelsEmail(
     },
   });
   if (result.error) {
-    throw new Error(`Resend error: ${result.error.message}`);
+    throw resendSendError(result.error, result.headers);
   }
 }
 

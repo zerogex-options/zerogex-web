@@ -17,6 +17,7 @@ import { getDb } from './db.ts';
 import { SYMBOLS } from './symbols.ts';
 import {
   normalizeEmail,
+  sentDuringSession,
   shouldSendConfirmation,
   verifyLevelsToken,
 } from './levelsEmail.ts';
@@ -283,9 +284,9 @@ export function unsubscribeLevelsSubscriber(
 /**
  * Everyone the daily digest may be mailed: confirmed, and not opted out.
  *
- * Matches idx_levels_subscribers_sendable exactly. Ordered by created_at so a
- * throttled or --limit-ed run walks the list in a stable order across ticks
- * instead of re-mailing the same prefix.
+ * Matches idx_levels_subscribers_sendable exactly. Ordered by created_at so the
+ * list has a stable order. The send itself goes through
+ * listLevelsDigestRecipients, which also drops anyone already mailed today.
  */
 export function listSendableLevelsSubscribers(limit?: number): LevelsSubscriber[] {
   const sql = `SELECT ${COLUMNS} FROM levels_subscribers
@@ -295,7 +296,36 @@ export function listSendableLevelsSubscribers(limit?: number): LevelsSubscriber[
   return (limit != null ? stmt.all(limit) : stmt.all()) as LevelsSubscriber[];
 }
 
-/** Stamp a successful digest delivery. Best-effort bookkeeping, not a latch. */
+/**
+ * Who one session's digest still has to reach: the sendable list minus anyone
+ * already mailed that ET day (see sentDuringSession). Re-running the send after
+ * a partial failure therefore mails only the people it missed.
+ *
+ * The limit applies AFTER that filter, so consecutive --limit runs walk down
+ * the list instead of re-sending to the same first N. Filtered here rather than
+ * in SQL because last_sent_at is a UTC instant and the session is an ET date;
+ * the list is small enough that doing the time-zone math in one tested place is
+ * worth more than an index.
+ */
+export function listLevelsDigestRecipients(
+  sessionDate: string,
+  limit?: number,
+): { recipients: LevelsSubscriber[]; alreadySent: number } {
+  const sendable = listSendableLevelsSubscribers();
+  const unsent = sendable.filter((s) => !sentDuringSession(s.last_sent_at, sessionDate));
+  return {
+    recipients: limit != null ? unsent.slice(0, limit) : unsent,
+    alreadySent: sendable.length - unsent.length,
+  };
+}
+
+/**
+ * Stamp a successful digest delivery.
+ *
+ * Also what stops a re-run that morning from mailing this subscriber twice
+ * (listLevelsDigestRecipients), so the send script stamps right after each
+ * delivery rather than at the end of the run.
+ */
 export function markLevelsDigestSent(id: string, now: Date = new Date()): void {
   const nowIso = now.toISOString();
   getDb()

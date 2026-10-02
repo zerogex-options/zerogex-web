@@ -29,6 +29,7 @@ account: see "Why not a user row" below.
 | Confirm / unsubscribe pages | `frontend/app/levels-email/{confirm,unsubscribe}/route.ts` |
 | Emails | `sendLevelsConfirmationEmail`, `sendDailyLevelsEmail` in `frontend/core/mailer.ts` |
 | Send script | `frontend/scripts/send-daily-levels.mts` |
+| Pacing + retry against Resend's rate limit | `frontend/core/resendRetry.ts` |
 | Timer | `deploy/systemd/zerogex-web-daily-levels.{service,timer}`, installed by `deploy/steps/099.daily-levels` |
 
 ## Running it by hand
@@ -46,12 +47,25 @@ make daily-levels PREVIEW_TO=you@example.com FORCE=1
 # The real send. This is what the timer runs.
 make daily-levels YES=1
 
-# Bounded, for a first live send to a large list.
-make daily-levels YES=1 LIMIT=25 THROTTLE_MS=500
+# Bounded, for a first live send to a large list. Each run reaches the next 25.
+make daily-levels YES=1 LIMIT=25
 ```
 
 `FORCE=1` skips only the clock window. It does **not** skip the trading-day or
 freshness guards, so a forced run on a Saturday still aborts.
+
+### Resending to the people a run missed
+
+Run the same command again. Anyone already sent that day's digest is skipped,
+so a second run reaches only the people the first one missed:
+
+```bash
+make daily-levels DRY_RUN=1 FORCE=1   # lists exactly who would be mailed
+make daily-levels YES=1 FORCE=1       # sends to just them
+```
+
+`FORCE=1` is only needed after 09:25 ET. Do not use `PREVIEW_TO=` for this: a
+preview carries a dummy unsubscribe link, not the subscriber's own.
 
 ## The three guards
 
@@ -94,6 +108,39 @@ received materially different emails. Every row now carries its own short
 stamp instead ("8:48 AM" for the session being named, "Mon 3:59 PM" for an
 earlier one), and a mixed digest opens by explaining the split rather than
 hiding it.
+
+## Pacing and retries
+
+**Measured on 2026-10-02.** The run sent 17 emails back to back and Resend
+refused three: "Too many requests. You can only make 10 requests per second."
+Nothing retried, and re-running would have mailed the other fourteen again.
+
+Resend's limit is 10 requests a second **per team**, shared by every API key, so
+the per-minute TradeWorkz worker and the app's own transactional mail draw on
+the same budget. The send now:
+
+* **Paces itself** to one request per 250 ms at most (`THROTTLE_MS=` overrides).
+  17 subscribers take about 4 seconds; 1,000 about 4 minutes.
+* **Waits out a 429** for as long as its `retry-after` header asks, then tries
+  the same subscriber again. The wait holds back the whole run, not just the
+  one subscriber.
+* **Retries in rounds** anything else temporary (no response, a 5xx, a 429 that
+  kept coming): 30 s, 1, 2 and 4 minutes after the first pass, about 7.5
+  minutes in all, inside the unit's 15-minute timeout. Rounds stop at 09:25 ET
+  unless the run was started with `FORCE=1`.
+* **Never retries** a failure that would repeat: a rejected address, a bad API
+  key, an exhausted daily or monthly quota.
+* **Is safe to re-run.** Each subscriber is stamped (`last_sent_at`) the moment
+  their email is accepted, and a run skips anyone stamped that ET day.
+
+The rules live in `frontend/core/resendRetry.ts`, tested in
+`tests/resendRetry.test.ts` against a simulated 10/s limit.
+
+No Resend idempotency keys, on purpose. Resend does not document whether a
+request it refused (a 429) uses the key up, and if it does, every retry of a
+rate-limited send would be refused for 24 hours. A key would only prevent one
+rare case: a response lost after Resend accepted the email, where the retry
+sends a second copy.
 
 ## Partial data
 
@@ -192,7 +239,10 @@ journalctl -u zerogex-web-daily-levels -n 80           # what the last run did
 sudo systemctl start zerogex-web-daily-levels.service  # fire the real send now
 ```
 
-A failed run routes to the standard `zerogex-web-alert@` unit.
+A failed run routes to the standard `zerogex-web-alert@` unit. It fails only
+when someone still has not been sent after the retries above, and its last
+lines say how many and give the command that sends to just them (see
+"Resending to the people a run missed").
 
 `Persistent=false` on this timer is load-bearing and unlike every other timer
 in `deploy/systemd`. A missed morning is skipped, never replayed. Do not

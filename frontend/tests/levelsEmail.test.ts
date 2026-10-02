@@ -34,6 +34,7 @@ import {
   levelsToken,
   normalizeEmail,
   previousTradingDay,
+  sentDuringSession,
   shouldSendConfirmation,
   verifyLevelsToken,
 } from '../core/levelsEmail.ts';
@@ -387,4 +388,39 @@ test('ET-date comparison, not UTC — a late-session stamp is not tomorrow', () 
   });
   assert.equal(v.fresh, true);
   assert.equal(v.fresh && v.snapshotDate, '2026-09-18');
+});
+
+// ── sentDuringSession ───────────────────────────────────────────────────────
+// What makes a second run safe: after a partial failure, re-running the send
+// must reach the people Resend refused and nobody else.
+
+test('sentDuringSession: this morning\'s send counts, yesterday\'s does not', () => {
+  // The 2026-10-02 run: 14 stamped at 08:47 ET, 3 refused with a 429 and left
+  // on the previous morning's stamp.
+  assert.equal(sentDuringSession('2026-10-02T12:47:57.123Z', '2026-10-02'), true);
+  assert.equal(sentDuringSession('2026-10-01T12:48:30.000Z', '2026-10-02'), false);
+});
+
+test('sentDuringSession: a send less than 24 hours ago is still yesterday\'s', () => {
+  // The timer carries up to two minutes of random delay, so yesterday's 08:48
+  // send can be under 24 hours before today's 08:47 one. Only today's counts.
+  assert.equal(sentDuringSession('2026-10-01T12:48:59.000Z', '2026-10-02'), false);
+});
+
+test('sentDuringSession compares ET dates, not UTC dates, on both sides of DST', () => {
+  // 23:30 EDT on Oct 2 is already Oct 3 in UTC.
+  assert.equal(sentDuringSession('2026-10-03T03:30:00Z', '2026-10-02'), true);
+  assert.equal(sentDuringSession('2026-10-03T03:30:00Z', '2026-10-03'), false);
+  // 23:30 EST on Dec 14 is Dec 15 in UTC.
+  assert.equal(sentDuringSession('2026-12-15T04:30:00Z', '2026-12-14'), true);
+  assert.equal(sentDuringSession('2026-12-15T04:30:00Z', '2026-12-15'), false);
+});
+
+test('sentDuringSession: never sent, or an unreadable stamp, means not sent', () => {
+  assert.equal(sentDuringSession(null, '2026-10-02'), false);
+  assert.equal(sentDuringSession(undefined, '2026-10-02'), false);
+  assert.equal(sentDuringSession('', '2026-10-02'), false);
+  // A confirmed subscriber asked for this email; a corrupt stamp must not
+  // silently withhold it (and must not throw out of Intl).
+  assert.equal(sentDuringSession('not-a-date', '2026-10-02'), false);
 });

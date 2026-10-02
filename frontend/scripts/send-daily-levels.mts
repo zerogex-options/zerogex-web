@@ -29,6 +29,13 @@
 // A partial digest is never sent: if SPX has no usable snapshot the run
 // aborts, and any OTHER ticker off the anchor date is dropped from the table
 // and named in the email rather than printed as if it were current.
+//
+// SAFE TO RE-RUN. Anyone already sent this session's digest is skipped, so
+// after a partial failure the same command mails only the people it missed.
+// Sends are paced (default one Resend request per 250 ms, against Resend's
+// 10/s for the whole account) and rate-limited or failed sends are retried
+// automatically; see core/resendRetry.ts. The 2026-10-02 run lost three of 17
+// subscribers to "Too many requests" by sending back to back with neither.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -54,8 +61,15 @@ import {
 import type { GexSummary } from '../core/gexSummary.ts';
 import { delayedPath } from '../core/freeDelay.ts';
 import { sendDailyLevelsEmail } from '../core/mailer.ts';
+import { deliverAll, isRetryable } from '../core/resendRetry.ts';
 
 const PRIMARY_SYMBOL = 'SPX';
+
+// Minimum gap between Resend requests: at most 4 a second. Resend allows 10 a
+// second across the whole account, and the per-minute TradeWorkz worker and
+// the app's transactional mail share that budget, so this leaves them room.
+// 17 subscribers take about 4 seconds; 1,000 about 4 minutes.
+const DEFAULT_THROTTLE_MS = 250;
 
 type Args = {
   dryRun: boolean;
@@ -93,7 +107,7 @@ function parseEnvFile(filePath: string): Record<string, string> {
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     dryRun: false, yes: false, force: false, help: false,
-    previewTo: null, limit: null, throttleMs: 0, sessionDate: null,
+    previewTo: null, limit: null, throttleMs: DEFAULT_THROTTLE_MS, sessionDate: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -130,6 +144,10 @@ function usage() {
 Sends the free pre-open levels digest to every confirmed, non-unsubscribed
 subscriber. Sends nothing unless --yes is passed.
 
+Safe to re-run: anyone already sent this session's digest is skipped, so after
+a partial failure the same command mails only the people it missed.
+Rate-limited and failed sends are retried automatically.
+
 Options:
       --dry-run            Print the freshness verdict per symbol, the rendered
                            subject, and the recipient count. No mail, no writes.
@@ -139,7 +157,8 @@ Options:
       --force              Skip the 08:30-09:25 ET send-window check. Does NOT
                            skip the trading-day or freshness checks.
       --limit N            Send to at most N subscribers this run.
-      --throttle-ms N      Pause N ms between sends.
+      --throttle-ms N      Minimum gap between Resend requests, in ms (default
+                           ${DEFAULT_THROTTLE_MS}). Resend allows 10/s for the whole account.
       --session-date D     Override the ET session being named. Testing only.
   -h, --help               Show this help.
 
@@ -217,9 +236,13 @@ if (!isTradingDay(sessionDate)) {
 
 // Guard 2 — clock window, always against the real clock, never the override.
 // This is what stops a systemd timer replayed after a reboot from mailing
-// "today's pre-open levels" in the middle of the session.
-const inWindow = et.minutesOfDay >= SEND_WINDOW_START_MIN && et.minutesOfDay <= SEND_WINDOW_END_MIN;
-if (!inWindow) {
+// "today's pre-open levels" in the middle of the session. The retry rounds in
+// the send loop ask the same question before each pass.
+function inSendWindow(at: Date): boolean {
+  const p = etParts(at);
+  return p.date === et.date && p.minutesOfDay >= SEND_WINDOW_START_MIN && p.minutesOfDay <= SEND_WINDOW_END_MIN;
+}
+if (!inSendWindow(now)) {
   if (!args.force) {
     console.log(`\nABORT: ${clock} is outside the 08:30-09:25 ET send window.`);
     console.log('This is the guard that stops a replayed systemd timer mailing pre-open');
@@ -353,17 +376,20 @@ if (args.previewTo) {
 // ── Recipients ──────────────────────────────────────────────────────────────
 // Imported late and dynamically: core/db.ts opens the SQLite file at module
 // load, and a --help or an aborted guard run must not touch the database.
-const { listSendableLevelsSubscribers, markLevelsDigestSent, countLevelsSubscribers } =
+const { listLevelsDigestRecipients, markLevelsDigestSent, countLevelsSubscribers } =
   await import('../core/levelsSubscribers.ts');
 
 const counts = countLevelsSubscribers();
 console.log(`\nSubscribers:      ${counts.confirmed} confirmed · ${counts.pending} pending · ${counts.unsubscribed} unsubscribed`);
 
-const recipients = listSendableLevelsSubscribers(args.limit ?? undefined);
+// Anyone already mailed this session is left out, which is what makes a second
+// run after a partial failure reach only the people the first one missed.
+const { recipients, alreadySent } = listLevelsDigestRecipients(sessionDate, args.limit ?? undefined);
+if (alreadySent > 0) console.log(`Already sent:     ${alreadySent} (got the ${sessionDate} digest earlier, skipped)`);
 console.log(`This run:         ${recipients.length}`);
 
 if (recipients.length === 0) {
-  console.log('\nNothing to do.');
+  console.log(alreadySent > 0 ? `\nEveryone has already been sent the ${sessionDate} digest. Nothing to do.` : '\nNothing to do.');
   process.exit(0);
 }
 
@@ -373,6 +399,12 @@ if (args.dryRun) {
   console.log(
     `Preferred symbol: ${[...bySymbol.entries()].map(([sym, n]) => `${sym}×${n}`).join(', ') || '(none)'}`,
   );
+  // The check to run before a manual resend: it should list exactly the people
+  // the earlier run missed.
+  const SHOW = 25;
+  console.log('Would send to:');
+  for (const r of recipients.slice(0, SHOW)) console.log(`  ${r.email} (${r.symbol})`);
+  if (recipients.length > SHOW) console.log(`  … and ${recipients.length - SHOW} more`);
   console.log('\n[dry-run] No mail sent, no rows written.');
   console.log('--- text body ---');
   console.log(renderDailyLevelsEmail(model, {
@@ -388,14 +420,13 @@ if (!args.yes) {
 }
 
 // ── Send ────────────────────────────────────────────────────────────────────
-let sent = 0;
-let failed = 0;
+console.log(`Pace:             one Resend request per ${args.throttleMs} ms at most`);
 
-for (const [index, subscriber] of recipients.entries()) {
-  try {
-    if (args.throttleMs > 0 && index > 0) {
-      await new Promise((resolve) => setTimeout(resolve, args.throttleMs));
-    }
+let unstamped = 0;
+
+const { sent, failed } = await deliverAll(
+  recipients,
+  async (subscriber) => {
     // The unsubscribe link is per-subscriber, so the body is rendered per
     // recipient rather than once. Everything expensive (the fetch, the model)
     // is already done; this is string assembly.
@@ -406,13 +437,27 @@ for (const [index, subscriber] of recipients.entries()) {
     const theirModel = (await modelFor(subscriber.symbol)) ?? model;
     const rendered = renderDailyLevelsEmail(theirModel, { unsubUrl, siteUrl: APP_URL });
     await sendDailyLevelsEmail(subscriber.email, { ...rendered, unsubUrl });
-    markLevelsDigestSent(subscriber.id);
-    sent += 1;
-  } catch (err) {
-    failed += 1;
-    console.error(`  FAIL ${subscriber.email}: ${err instanceof Error ? err.message : 'unknown error'}`);
-  }
-}
+    // Delivered. Nothing from here on may throw: deliverAll would take it for
+    // a failed send and mail them a second copy.
+    try {
+      markLevelsDigestSent(subscriber.id);
+    } catch (err) {
+      unstamped += 1;
+      console.error(
+        `  WARN ${subscriber.email}: sent, but last_sent_at was not recorded ` +
+          `(${err instanceof Error ? err.message : 'unknown error'}). A re-run today would mail them again.`,
+      );
+    }
+  },
+  {
+    throttleMs: args.throttleMs,
+    label: (subscriber) => subscriber.email,
+    log: (line) => console.log(line),
+    // A retry is still a pre-open email, so the rounds stop at 09:25 ET like
+    // the first attempt would. A deliberate --force run retries regardless.
+    mayRetryAt: (ms) => args.force || inSendWindow(new Date(ms)),
+  },
+);
 
 // Best-effort audit row, one per run rather than per recipient: this is a bulk
 // send and a row each would bury the table.
@@ -425,12 +470,33 @@ try {
     )
     .run(
       `audit_${crypto.randomBytes(12).toString('hex')}`,
-      `Daily levels digest for ${sessionDate} (${model.basis}, as of ${model.asOf}): ${sent} sent, ${failed} failed`,
+      `Daily levels digest for ${sessionDate} (${model.basis}, as of ${model.asOf}): ` +
+        `${sent.length} sent, ${failed.length} failed` +
+        (alreadySent > 0 ? `, ${alreadySent} already sent earlier` : ''),
       new Date().toISOString(),
     );
 } catch {
   /* audit is bookkeeping, never a reason to fail a completed send */
 }
 
-console.log(`\nDone. ${sent} sent, ${failed} failed.`);
-process.exit(failed > 0 ? 1 : 0);
+console.log(`\nDone. ${sent.length} sent, ${failed.length} failed.`);
+if (unstamped > 0) {
+  console.log(`${unstamped} of those were sent but not recorded as sent, so a re-run today would mail them twice.`);
+}
+if (failed.length > 0) {
+  // Printed for the failure alert, which carries the last 40 journal lines.
+  const temporary = failed.filter((f) => isRetryable(f.error)).length;
+  console.log(`\n${failed.length} subscriber(s) did not get the ${sessionDate} digest.`);
+  if (temporary > 0) {
+    console.log(`${temporary} failed for a temporary reason. To send to everyone still missing it, from ~/zerogex-web:`);
+    console.log('  make daily-levels YES=1 FORCE=1');
+    console.log('Everyone already sent today is skipped. FORCE=1 is only needed after 09:25 ET.');
+  }
+  if (temporary < failed.length) {
+    console.log(
+      `${failed.length - temporary} failed for a reason a re-run will not fix ` +
+        '(a bad address, the API key, a used-up quota). See the FAIL lines above.',
+    );
+  }
+}
+process.exit(failed.length > 0 ? 1 : 0);

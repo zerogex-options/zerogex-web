@@ -31,6 +31,7 @@ const {
   countLevelsSubscribers,
   getLevelsSubscriberByEmail,
   getLevelsSubscriberById,
+  listLevelsDigestRecipients,
   listSendableLevelsSubscribers,
   markLevelsDigestSent,
   recordLevelsSubscription,
@@ -263,6 +264,64 @@ test('the send list is stably ordered and respects a limit, for throttled runs',
   const all = listSendableLevelsSubscribers().map((s) => s.email);
   assert.deepEqual(all, ['u0@x.com', 'u1@x.com', 'u2@x.com', 'u3@x.com', 'u4@x.com']);
   assert.deepEqual(listSendableLevelsSubscribers(2).map((s) => s.email), ['u0@x.com', 'u1@x.com']);
+});
+
+// The 2026-10-02 shape: Resend refused 3 of 17 with a 429. Re-running the send
+// has to reach those 3 and must not mail the 14 who already have it.
+test('a re-run that morning skips everyone already sent and reaches only who was missed', () => {
+  reset();
+  const mk = (email: string) => {
+    const id = recordLevelsSubscription({ email, now: T0 })!.subscriber.id;
+    confirmLevelsSubscriber(id, levelsToken('confirm', id), null, plusMinutes(1));
+    return id;
+  };
+  const gotIt = mk('got-it@x.com');
+  const refused = mk('refused@x.com');
+  mk('never-sent@x.com'); // confirmed since the last send, never mailed
+
+  // Yesterday (Fri 2026-09-18) everyone then on the list was sent.
+  markLevelsDigestSent(gotIt, new Date('2026-09-18T12:47:58Z'));
+  markLevelsDigestSent(refused, new Date('2026-09-18T12:47:58Z'));
+  // This morning (Mon 2026-09-21, 08:47 ET) only one of them went through.
+  markLevelsDigestSent(gotIt, new Date('2026-09-21T12:47:57Z'));
+
+  const { recipients, alreadySent } = listLevelsDigestRecipients('2026-09-21');
+  assert.deepEqual(recipients.map((s) => s.email), ['refused@x.com', 'never-sent@x.com']);
+  assert.equal(alreadySent, 1);
+
+  // A different session is a different question: on Tuesday everyone is due.
+  assert.equal(listLevelsDigestRecipients('2026-09-22').recipients.length, 3);
+});
+
+test('the limit applies after skipping who already has it, so limited runs walk down the list', () => {
+  reset();
+  const ids: string[] = [];
+  for (let i = 0; i < 5; i += 1) {
+    const id = recordLevelsSubscription({ email: `u${i}@x.com`, now: plusMinutes(i) })!.subscriber.id;
+    confirmLevelsSubscriber(id, levelsToken('confirm', id), null, plusMinutes(i + 100));
+    ids.push(id);
+  }
+  // A first LIMIT=2 run reached u0 and u1.
+  markLevelsDigestSent(ids[0], plusMinutes(200));
+  markLevelsDigestSent(ids[1], plusMinutes(200));
+
+  const { recipients, alreadySent } = listLevelsDigestRecipients('2026-09-21', 2);
+  assert.deepEqual(recipients.map((s) => s.email), ['u2@x.com', 'u3@x.com']);
+  assert.equal(alreadySent, 2);
+});
+
+test('the per-session list still never includes pending or opted-out rows', () => {
+  reset();
+  const confirmed = recordLevelsSubscription({ email: 'confirmed@x.com', now: T0 })!.subscriber.id;
+  recordLevelsSubscription({ email: 'pending@x.com', now: T0 });
+  const gone = recordLevelsSubscription({ email: 'gone@x.com', now: T0 })!.subscriber.id;
+  confirmLevelsSubscriber(confirmed, levelsToken('confirm', confirmed), null, plusMinutes(1));
+  confirmLevelsSubscriber(gone, levelsToken('confirm', gone), null, plusMinutes(1));
+  unsubscribeLevelsSubscriber(gone, levelsToken('unsub', gone), plusMinutes(2));
+
+  const { recipients, alreadySent } = listLevelsDigestRecipients('2026-09-21');
+  assert.deepEqual(recipients.map((s) => s.email), ['confirmed@x.com']);
+  assert.equal(alreadySent, 0);
 });
 
 test('markLevelsDigestSent records delivery without disturbing consent', () => {
