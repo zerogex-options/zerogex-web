@@ -1,8 +1,8 @@
 # Payment-failure follow-ups (2026-10-02)
 
-Four members are `past_due` inside the 3-day payment grace window. Two are trial
-conversions whose first charge failed; two are renewals on paying members. All
-four have full access right now. Each already got the automated payment-failed
+Five members are `past_due` inside the 3-day payment grace window. Three are
+trial conversions whose first charge failed; two are renewals on paying members.
+All five have full access right now. Each already got the automated payment-failed
 email, and each gets the automated grace-expiry warning about a day before
 access drops.
 
@@ -10,7 +10,8 @@ These are 1:1 founder emails from your own inbox, not `mailer.ts` sends. Each
 one is short and says one thing the automated emails can't. Every paragraph is a
 single line so it pastes straight into a mail client.
 
-Everything below comes from `make diagnose-user`, run 2026-10-02 around 13:40 UTC.
+Everything below comes from `make diagnose-user`, run 2026-10-02 around 13:40 UTC
+(alexandre around 14:45 UTC).
 
 ## Who, and when to send
 
@@ -19,6 +20,7 @@ Everything below comes from `make diagnose-user`, run 2026-10-02 around 13:40 UT
 | ksquareinc@protonmail.com | Renewal | none given (Link) | Pro, $29 promo | Sun Oct 4, 5:51 PM | **Today** |
 | kenmaster030684@gmail.com | Trial conversion | insufficient funds | Basic, $29 promo | Sat Oct 3, 4:53 PM | **Today, before 4:30 PM ET** |
 | fahdadrees2@gmail.com | Trial conversion | insufficient funds | Pro, $59, no discount | Mon Oct 5, 9:22 AM | **Saturday** |
+| alexandre@venturacap.com.br | Trial conversion | insufficient funds (Link) | Pro, $59, no discount | Mon Oct 5, 10:39 AM | **Saturday** |
 | lybydallh053@gmail.com | Renewal | insufficient funds | Pro, $29 promo | Mon Oct 5, 12:42 AM | **Saturday, only if still unpaid** |
 
 Access ends 3 days after the first decline (`BILLING_PAYMENT_GRACE_DAYS`). The
@@ -31,9 +33,10 @@ automated emails:
   three days.
 - **ksquare**: the warning is due Saturday evening, so today leaves a day on
   either side.
-- **fahd**: the charge failed at 9:22 AM ET today, and the automated email went
-  out with it. Saturday gives that a day, still lands before Sunday's warning,
-  and shows you whether Stripe's second try cleared.
+- **fahd and alexandre**: the charges failed at 9:22 and 10:39 AM ET today, and
+  the automated emails went out with them. Saturday gives those a day, still
+  lands before Sunday's warnings, and shows you whether Stripe's second try
+  cleared.
 - **lyby**: wait. This is the third month in a row that the first try came up
   short, and the last two both cleared on a retry: 19 hours later in September,
   about 35 hours later in August. If it has not cleared by Saturday afternoon,
@@ -45,8 +48,9 @@ Re-run `make diagnose-user EMAIL=<email>`. If the status is `active`, or the ope
 invoice is no longer `status=open`, the charge cleared and the payment-recovered
 email has already gone out. Send nothing.
 
-If Stripe shows a first name for the customer, put it after "Hi". None of these
-email addresses gives a name safely ("kenmaster" is a Street Fighter handle).
+If Stripe shows a first name for the customer, put it after "Hi". Only
+alexandre's address gives a name safely ("kenmaster" is a Street Fighter
+handle).
 
 ---
 
@@ -144,13 +148,16 @@ access through **Mon Oct 5, 9:22 AM ET**
 ### The read
 
 Engaged. They signed up from chatgpt.com on August 29 and started on Basic. They
-upgraded themselves to Pro during the trial, and you extended the trial by hand
-from September 9 to October 2. They were on the site 16 minutes after today's
-decline, so they have seen the automated email.
+upgraded themselves to Pro during the trial. On September 7 you extended the
+trial by hand from September 9 to October 2, two seconds after you did the same
+for alexandre. That was most likely the 30-day trial the August product-update
+email promised, not a reply to an email from them, so a new email is fine. They
+were on the site 16 minutes after today's decline, so they have seen the
+automated email.
 
 The reason is insufficient funds on a card, so naming it is fine. The automated
-email already did. Unlike the other three, they pay full price, so a cheaper
-plan is a real offer. Basic is $39 against $59, about a third less. The draft
+email already did. They pay full price (alexandre is the only other one who
+does), so a cheaper plan is a real offer. Basic is $39 against $59, about a third less. The draft
 says "about a third" rather than a dollar figure, because they may be billed in
 a local currency.
 
@@ -159,9 +166,6 @@ list, and none of them is a key.
 
 ### ⚠ Verify first
 
-- **If your September 7 trial extension came from an email exchange with them,
-  reply in that thread** rather than starting a new one, and drop the "not the
-  automated email" line.
 - Re-check before sending. If Stripe's second try cleared overnight, send
   nothing.
 
@@ -241,14 +245,60 @@ Founder, ZeroGEX
 
 ---
 
+## 5. alexandre@venturacap.com.br (send Saturday)
+
+**Trial conversion declined** Fri Oct 2 · Pro, **$59, no discount** · Link, no
+card visible · access through **Mon Oct 5, 10:39 AM ET**
+
+### The read
+
+Fahd's case again, on Link instead of a card. They signed up August 4 and
+abandoned checkout that day. Your August 25 reactivation email promised them a
+30-day trial, but the September 2 checkout gave them only 7 days, so on
+September 7 you extended it to October 2. They used the trial and were in the
+app Thursday, the day before it ended. They are in Brazil (a `.com.br` address
+and Brazilian IP addresses).
+
+The decline is `partner_insufficient_funds`: insufficient funds at Link's
+funding source. As with Illian, the note names that reason. It names no card,
+because Link hides the one behind it. It gives no amount, since a Brazilian
+customer may be billed in reais. Like Fahd, they pay full price, so Basic is a
+real offer.
+
+No API key on the account.
+
+### Draft
+
+**Subject:** Your ZeroGEX payment didn't go through
+
+Hi Alexandre,
+
+A quick note from me, not the automated email.
+
+Your trial ended yesterday, and Link declined the first Pro payment for insufficient funds.
+
+Your Pro access stays on until Monday, October 5. You can pay with any card here: https://zerogex.io/pay?i=in_1UM6fG4AOiqteMYYLTgWQEVa&t=BXP3o6O37ZvmdcmZcwOplomh3wR96PUcJQz1FTicGAQ
+
+Or, once the account you use with Link has the funds, Stripe's next automatic retry should go through on its own.
+
+If Pro is more than you want to spend right now, Basic costs about a third less. Reply and I'll cancel this charge so you can start on Basic instead.
+
+And if now isn't the right time at all, that's fine too. Reply and I'll cancel it so nothing is charged later.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+---
+
 ## If they reply
 
-- **"Cancel it"** (kenmaster or fahd): run
+- **"Cancel it"** (kenmaster, fahd or alexandre): run
   `make cancel-subscription EMAIL=<email> VOID_INVOICE=1 DRY_RUN=1`, then the
   same with `YES=1` in place of `DRY_RUN=1`. It ends access at once, voids the
   open invoice so no retry can charge them, and sends no email. Reply yourself
   to confirm they won't be charged.
-- **"Basic, please"** (fahd): cancel and void as above first, then send them
+- **"Basic, please"** (fahd or alexandre): cancel and void as above first, then send them
   https://zerogex.io/pricing for Basic monthly. Two things to know. There is no
   trial, because they have already had one, so Basic is charged at checkout.
   And the $10-off promo closed October 1, so it is the full $39. Void before
