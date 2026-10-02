@@ -62,7 +62,7 @@ The two walls carry more information together than either does alone. The gap be
 
 **Asymmetry.** Spot rarely sits in the middle. When one wall is much closer than the other, the near wall is the level that actually gets tested and the far one is mostly context. Spot sitting 0.3% under the call wall and 1.4% above the put wall is a different day from spot sitting midway between them: the first has a near-term decision point, the second does not.
 
-The trap is reading width or asymmetry without the regime. Both readings above assume positive gamma. Below the flip, the same narrow range is not a pin - it is a short distance between two levels, and hedging will add to a move through either one.
+The trap is reading width or asymmetry without the regime. Both readings above assume positive gamma. Below the flip, the same narrow range is not a pin - it is a short distance between two levels, and hedging will add to a move through either one. To run all three reads - width, asymmetry, and regime - on today's tape, check the [current SPX gamma flip, call wall, and put wall](/spx-gamma-levels).
 
 ---
 

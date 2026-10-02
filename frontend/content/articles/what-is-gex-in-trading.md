@@ -43,7 +43,7 @@ GEX isn't just one number; it maps to specific price levels worth watching:
 - **Call wall** - the strike with the heaviest call gamma above spot, where hedging leans against rallies in positive gamma.
 - **Put wall** - the strike with the heaviest put gamma below spot, where aggregate hedging leans against dips in positive gamma.
 
-The call and put walls sketch the range dealers defend; the gamma flip tells you whether their hedging leans against a move toward the edges or adds to one that breaks through. [Gamma Walls Explained](/education/gamma-walls-explained) covers both walls in depth.
+The call and put walls sketch the range dealers defend; the gamma flip tells you whether their hedging leans against a move toward the edges or adds to one that breaks through. [Gamma Walls Explained](/education/gamma-walls-explained) covers both walls in depth. To see how these levels look in the current market, view [today's SPX gamma levels](/spx-gamma-levels).
 
 ---
 
