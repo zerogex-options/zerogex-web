@@ -17,10 +17,10 @@ Everything below comes from `make diagnose-user`, run 2026-10-02 around 13:40 UT
 
 | Member | What failed | Reason | Plan | Access ends (ET) | Send |
 |---|---|---|---|---|---|
-| ksquareinc@protonmail.com | Renewal | none given (Link) | Pro, $29 promo | Sun Oct 4, 5:51 PM | **Today** |
-| kenmaster030684@gmail.com | Trial conversion | insufficient funds | Basic, $29 promo | Sat Oct 3, 4:53 PM | **Today, before 4:30 PM ET** |
+| ksquareinc@protonmail.com | Renewal | none given (Link) | Pro, $29 promo | Sun Oct 4, 5:51 PM | ✅ Sent Fri Oct 2 |
+| kenmaster030684@gmail.com | Trial conversion | insufficient funds | Basic, $29 promo | Sat Oct 3, 4:53 PM | ✅ Sent Fri Oct 2 |
 | fahdadrees2@gmail.com | Trial conversion | insufficient funds | Pro, $59, no discount | Mon Oct 5, 9:22 AM | **Saturday** |
-| alexandre@venturacap.com.br | Trial conversion | insufficient funds (Link) | Pro, $59, no discount | Mon Oct 5, 10:39 AM | **Saturday** |
+| alexandre@venturacap.com.br | Trial conversion | insufficient funds (Link) | Pro, $59, no discount | Mon Oct 5, 10:39 AM | ✅ Sent Fri Oct 2 (a day early) |
 | lybydallh053@gmail.com | Renewal | insufficient funds | Pro, $29 promo | Mon Oct 5, 12:42 AM | **Saturday, only if still unpaid** |
 
 Access ends 3 days after the first decline (`BILLING_PAYMENT_GRACE_DAYS`). The
