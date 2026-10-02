@@ -13,7 +13,7 @@ That is the whole definition, and it is worth holding onto the plain version, be
 A few consequences follow directly:
 
 - It is a **price level, not a strike.** The zero crossing usually sits between strikes, because it comes from a curve - modeled dealer gamma evaluated across a range of spot prices - rather than from any single contract.
-- It **moves.** As open interest changes and as existing contracts reprice with spot, time, and implied volatility, the curve reshapes and its zero crossing shifts. Yesterday's zero gamma level is a different number from today's.
+- It **moves.** As open interest changes and as existing contracts reprice with spot, time, and implied volatility, the curve reshapes and its zero crossing shifts. Yesterday's zero gamma level is a different number from today's. Check the [current SPX zero gamma level](/spx-gamma-levels) each session rather than carrying an old one forward.
 - It is a **model output.** Dealer inventory is not directly observable, so the level depends on a sign convention (ZeroGEX uses the traditional call-positive / put-negative convention) and on which expirations and inputs the model includes.
 
 ## Zero gamma vs gamma flip vs net GEX

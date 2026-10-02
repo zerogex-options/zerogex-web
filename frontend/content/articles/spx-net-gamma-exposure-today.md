@@ -50,6 +50,8 @@ When traders search for "SPX net gamma exposure zero cross," this is what they m
 - Spot hovering near the flip with net GEX close to zero → an unstable, whippy tape that can tip either way.
 - Spot below the flip with negative net GEX → the amplifying regime is in control.
 
+To see which of those states SPX is in, check [SPX gamma levels today](/spx-gamma-levels).
+
 ---
 
 ## Why the SPX 0DTE book makes today's number move

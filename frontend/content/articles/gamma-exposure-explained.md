@@ -179,7 +179,7 @@ A practical workflow:
 
 ### Step 1: Identify the regime
 
-Before anything else, check whether spot is above or below the gamma flip and what the Net GEX magnitude is. That single read tells you whether the hedging is leaning against the move or adding to it - which decides how far a fade or a breakout can run against you when it is wrong.
+Before anything else, check whether spot is above or below the gamma flip and what the Net GEX magnitude is. That single read tells you whether the hedging is leaning against the move or adding to it - which decides how far a fade or a breakout can run against you when it is wrong. For the S&P 500, the [current SPX gamma levels](/spx-gamma-levels) show the flip and Net GEX alongside the call wall, put wall, and max pain.
 
 ### Step 2: Read the walls within the regime
 
