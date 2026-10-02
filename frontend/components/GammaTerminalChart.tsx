@@ -28,12 +28,13 @@ import SymbolSelect from "./SymbolSelect";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
+import { useReplayFrameRows } from "@/hooks/useReplayFrameRows";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel, futuresFeedBehind } from "@/core/futuresDataStatus";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etDateKeyFor, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { wheelAction } from "@/core/wheelZoom";
 import { barsPrintedSince } from "@/core/chartViewHold";
@@ -43,6 +44,7 @@ import {
   netVolumeAreaPaths,
   netVolumeScale,
   signedAreaSegments,
+  tradingSessionKeyFor,
   VOLUME_MODE_LABELS,
   type VolumeMode,
 } from "@/core/netVolumeSeries";
@@ -2093,25 +2095,45 @@ export default function GammaTerminalChart({
   // Only fetched when it can actually be drawn: live, rail on, and in one of
   // the call/put bar modes (Net is a single signed bar — a per-expiration net
   // can flip sign, so it has no meaningful stack, same as the Strike Profile).
-  // The snapshot is "now", so scrubbing back through rewind drops to the
-  // bucket's plain aggregate bars.
+  //
+  // The snapshot is "now", so while rewinding the split comes from the replay
+  // frame at the rewound bucket's time instead: the same per-(strike,
+  // expiration) rows, as they stood then (useReplayFrameRows). The bars stay
+  // the bucket's own, so the gradient replays with them the way it does on
+  // the Daily Replay.
   const railStackEnabled =
-    live && railOn && !rewindActive &&
-    (effectiveRailMode === "split" || effectiveRailMode === "combined");
+    live && railOn && (effectiveRailMode === "split" || effectiveRailMode === "combined");
+  const liveStackEnabled = railStackEnabled && !rewindActive;
   // limit / sort match the GEX Strike Profile's call so the two pages hit the
   // identical URL (and therefore the same server-side read cache).
-  const { data: gexByStrikeRows } = useGEXByStrike(symbol, 200, railStackEnabled ? 10000 : 0, "impact", railStackEnabled);
+  const { data: gexByStrikeRows } = useGEXByStrike(symbol, 200, liveStackEnabled ? 10000 : 0, "impact", liveStackEnabled);
+  const rewindStackTs = railStackEnabled && rewindActive && rewindBucket ? isoOrNull(rewindBucket.timestamp) : null;
+  const rewindFrame = useReplayFrameRows(symbol, rewindStackTs);
 
   const todayKey = etTodayDateKey();
   // Placed here rather than beside availableExpiries above: it needs todayKey,
   // and both sit at the component's top level so the hook order is stable.
   const railZeroDte = useZeroDteOption(availableExpiries, todayKey);
 
+  // The day the split counts DTE from: today live, the rewound bucket's own day
+  // while rewinding, so that day's 0DTE is still on the ramp (and labeled
+  // 0DTE) rather than dropped as expired.
+  const railSplitDayKey = rewindActive && rewindBucket ? etDateKeyFor(rewindBucket.timestamp) || todayKey : todayKey;
+  // While the rewound moment's frame loads, the last one read stands in, but
+  // never one from another session: that would grade the bars with a chain
+  // that had not listed, or had already settled, those expirations.
+  const railSplitRows = rewindActive
+    ? rewindFrame && rewindBucket &&
+      tradingSessionKeyFor(rewindFrame.ts, symbol) === tradingSessionKeyFor(rewindBucket.timestamp, symbol)
+      ? rewindFrame.rows
+      : null
+    : gexByStrikeRows;
+
   // strike(cents) → normalized expiration → call/put magnitudes, plus the
   // snapshot's expiration universe (nearest-first = DTE rank).
   const { perStrike: railPerStrikeExp, expirations: railByStrikeExps } = useMemo(
-    () => buildExpirationSplit(gexByStrikeRows, todayKey),
-    [gexByStrikeRows, todayKey],
+    () => buildExpirationSplit(railSplitRows, railSplitDayKey),
+    [railSplitRows, railSplitDayKey],
   );
 
   // DTE-ranked opacity keyed on the FULL snapshot universe so a segment's shade
@@ -3431,7 +3453,7 @@ export default function GammaTerminalChart({
         : `${fromSpotSign}${fmtPrice(Math.abs(fromSpot))} (${fromSpotSign}${Math.abs((fromSpot / spot) * 100).toFixed(2)}%)`;
     const levels = levelsForStrike(levelDefs, strike.price);
     // The per-expiration split behind the Split / Combined segments, only
-    // where those segments are drawn (the live tip, in a call/put view).
+    // where those segments are drawn (a call/put view, live or rewound).
     const split = railStackingActive ? railStackedByStrike.get(Math.round(strike.price * 100)) : undefined;
     const byExpiry =
       split && strike.callGex != null && strike.putGex != null
@@ -3493,7 +3515,7 @@ export default function GammaTerminalChart({
             {sectionTitle("BY EXPIRATION", "var(--text-secondary)")}
             {byExpiry.rows.map((r, i) => (
               <div key={r.exp} className="flex items-center justify-between gap-3" style={{ ...rowStyle, marginTop: i === 0 ? 0 : 2 }}>
-                <span style={{ color: "var(--text-muted)" }}>{dteLabel(r.exp, todayKey)}</span>
+                <span style={{ color: "var(--text-muted)" }}>{dteLabel(r.exp, railSplitDayKey)}</span>
                 {sides(r.call, r.put)}
               </div>
             ))}
@@ -4894,6 +4916,14 @@ export default function GammaTerminalChart({
 }
 
 // ── Small presentational helpers ─────────────────────────────────────────────
+// A bucket timestamp as one canonical ISO instant (so "…+00:00" and "…Z"
+// spellings of the same moment are one request and one cache entry), or null
+// when it does not parse.
+function isoOrNull(ts: string | null | undefined): string | null {
+  const ms = ts ? Date.parse(ts) : NaN;
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
 // Rebuild the gamma rail for a rewound moment from a bucket's per-strike net
 // gamma. The live rail draws a smooth net-gamma-by-price density (two lobes
 // peaking at the put-side / call-side walls); the raw bucket strikes are the
