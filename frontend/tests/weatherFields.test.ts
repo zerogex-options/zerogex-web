@@ -51,15 +51,15 @@ const changes = [
 ];
 
 const bars = [
-  { bar_start: t(0), label: 'Stable bid', age_label: 'New', age_minutes: 5, pending_label: null },
+  { bar_start: t(0), label: 'Stable bid', age_label: 'Fresh', age_minutes: 5, pending_label: null },
   {
     bar_start: t(1),
     label: 'Stable bid',
-    age_label: 'New',
+    age_label: 'Fresh',
     age_minutes: 10,
     pending_label: 'Unstable',
   },
-  { bar_start: t(2), label: 'Unstable', age_label: 'New', age_minutes: 5, pending_label: null },
+  { bar_start: t(2), label: 'Unstable', age_label: 'Fresh', age_minutes: 5, pending_label: null },
 ] as never;
 
 test('every field has a spec, and an unknown one is refused', () => {
@@ -119,7 +119,7 @@ test('the comment at a time is the one in force, not only one printed then', () 
   // quiet stretches it exists to compress.
   const comment = commentAt(bars, changes, 'pressure', t(2));
 
-  assert.equal(comment.state, 'Unstable · New 5m');
+  assert.equal(comment.state, 'Unstable · Fresh 5m');
   assert.equal(comment.line, 'Flipped to selling');
   assert.equal(comment.fresh, false);
 });
@@ -131,14 +131,14 @@ test('the weather context is the state, never the panel sentence', () => {
   const comment = commentAt(bars, changes, 'lean', t(2));
 
   assert.ok(!/hedging pressure/i.test(comment.state ?? ''));
-  assert.equal(comment.state, 'Unstable · New 5m');
+  assert.equal(comment.state, 'Unstable · Fresh 5m');
 });
 
 test('a candidate still forming is carried in the state line', () => {
   // The spec asks for the Weather line in force "including forming chips".
   const comment = commentAt(bars, changes, 'pressure', t(1));
 
-  assert.equal(comment.state, 'Stable bid · Unstable forming · New 10m');
+  assert.equal(comment.state, 'Stable bid · Unstable forming · Fresh 10m');
 });
 
 test('the state line survives a bar with no age yet', () => {

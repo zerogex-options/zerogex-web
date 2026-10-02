@@ -288,11 +288,15 @@ export default function GammaWeatherStrip({
           <span
             className="text-xs font-medium tabular-nums"
             style={{ color: 'var(--color-text-secondary)' }}
-            title="How long this state has held. The question is not whether gamma calls direction, but whether a condition that exists is healthy enough to persist."
+            // Elapsed time, and nothing more. The old wording here promised
+            // the opposite of what 42 sessions measured: survival of the next
+            // 30 minutes falls 29.9% / 23.8% / 20.3% / 11.1% across the four
+            // rungs, so the oldest state is the least likely to last.
+            title="How long this state has held. Older states have been less likely to last another half hour, not more, so read this as elapsed time rather than confirmation."
           >
             {/* Falls back to the raw code only for a deploy skew: this panel
                 can ship before the API that serves the wording, and a blank
-                or `undefined` in the header is worse than NEW. */}
+                or `undefined` in the header is worse than FRESH. */}
             {payload.age_label ?? payload.age}
             {payload.age_minutes != null && ` ${Math.round(payload.age_minutes)}m`}
           </span>
