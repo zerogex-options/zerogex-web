@@ -49,7 +49,7 @@ Die Dealer-Level auf einem Futures-Chart stammen weiterhin aus dem Index-Options
 | Signal-Scores | Etwa einmal pro Minute |
 | Gesamtscore | Etwa einmal pro Minute |
 | Volatilitätsanzeigen (VIX / VXN) | Fünf-Minuten-Balken |
-| Live-Bulletin | Kurs alle 5 Sekunden, Level alle ~10 Sekunden, Volatilität alle ~30 Sekunden |
+| Live-Bulletin | Kurs alle 5 Sekunden; die Level sind die oben genannten minütlichen Werte und erscheinen innerhalb von etwa 10 Sekunden; Volatilität alle ~30 Sekunden |
 | Backtesting-Daten | Historische Minutendaten, nicht live |
 
 Die Seite muss nicht aktualisiert werden. Die Seiten fragen alle paar Sekunden nach neuen Zahlen (auf den Signalseiten alle 5 Sekunden), sodass ein neuer Wert wenige Sekunden nach seiner Berechnung erscheint.
@@ -82,11 +82,11 @@ An verkürzten Handelstagen (früherer Handelsschluss um 13:00 Uhr ET rund um ma
 
 ## Datenquellen
 
-ZeroGEX nutzt professionelle Echtzeit-Marktdaten zu Optionen und Basiswerten unter kommerziellen Lizenzen. Es lohnt sich, genau zu sein, denn es handelt sich nicht um ein einziges Tape:
+ZeroGEX nutzt Echtzeit-Marktdaten zu Optionen und Basiswerten. Es lohnt sich, genau zu sein, denn es handelt sich nicht um ein einziges Tape:
 
-- **Optionsquotes und -trades** für SPY, QQQ, SPX und NDX stammen von OPRA, dem konsolidierten Tape für börsengehandelte US-Optionen.
+- **Optionsquotes und -trades** für SPY, QQQ, SPX und NDX basieren auf OPRA, dem konsolidierten Tape für börsengehandelte US-Optionen.
 - **Die Indexwerte von SPX und NDX** stammen aus einem separaten Index-Feed, nicht aus dem Options-Tape.
-- **Die Kurse von SPY und QQQ** stammen aus Nasdaq Basic, einem Echtzeit-Feed von Nasdaq.
+- **Die Kurse von SPY und QQQ** stammen aus einem Echtzeit-Aktien-Feed.
 - Die Kurse für **ES und NQ** stammen aus dem Echtzeit-CME-Feed.
 - Das **Open Interest** ist eine separate Größe vom Ende der Sitzung aus dem Clearing und kein Echtzeitwert.
 

@@ -49,7 +49,7 @@ I livelli dei dealer su un grafico di futures continuano a derivare dal book di 
 | Punteggi dei segnali | Circa una volta al minuto |
 | Punteggio composito | Circa una volta al minuto |
 | Indicatori di volatilità (VIX / VXN) | Barre da cinque minuti |
-| Bollettino live | Prezzo ogni 5 secondi, livelli ogni ~10 secondi, volatilità ogni ~30 secondi |
+| Bollettino live | Prezzo ogni 5 secondi; i livelli sono i valori ricalcolati ogni minuto indicati sopra, ripresi entro circa 10 secondi; volatilità ogni ~30 secondi |
 | Dati di backtesting | Dati storici al minuto, non in tempo reale |
 
 Non è necessario aggiornare la pagina. Le pagine cercano nuovi dati ogni pochi secondi (ogni 5 secondi sulle pagine dei segnali), quindi un nuovo valore compare pochi secondi dopo essere stato calcolato.
@@ -82,11 +82,11 @@ Giornate corte (chiusura anticipata alle 13:00 ET in prossimità di alcune festi
 
 ## Fonti dati
 
-ZeroGEX utilizza dati di mercato professionali in tempo reale su opzioni e sottostanti, con licenze commerciali. Vale la pena essere precisi su cosa significa, perché non si tratta di un unico tape:
+ZeroGEX utilizza dati di mercato in tempo reale su opzioni e sottostanti. Vale la pena essere precisi su cosa significa, perché non si tratta di un unico tape:
 
-- **Le quotazioni e le operazioni sulle opzioni** su SPY, QQQ, SPX e NDX provengono da OPRA, il tape consolidato delle opzioni quotate negli USA.
+- **Le quotazioni e le operazioni sulle opzioni** su SPY, QQQ, SPX e NDX si basano su OPRA, il tape consolidato delle opzioni quotate negli USA.
 - **I valori degli indici SPX e NDX** provengono da un feed di indici separato, non dal tape delle opzioni.
-- **I prezzi di SPY e QQQ** provengono da Nasdaq Basic, un feed in tempo reale di Nasdaq.
+- **I prezzi di SPY e QQQ** provengono da un feed azionario in tempo reale.
 - I prezzi di **ES e NQ** provengono dal feed CME in tempo reale.
 - L'**open interest** è un dato separato di fine sessione proveniente dal clearing, non un valore in tempo reale.
 

@@ -16,7 +16,7 @@ ZeroGEX starts with observed market data and applies mechanical calculations to 
 
 **Observed market data:**
 
-- **Option chain snapshots** - every listed strike and expiration on the covered underlyings, captured continuously through the session.
+- **Option chain snapshots** - the near-term chain on each covered underlying (currently the three nearest expirations, at the strikes around the current price), captured continuously through the session.
 - **Open interest** - the number of contracts outstanding at each strike and expiration. Standard listed-options open interest is tallied by the clearinghouse after the session and published for the *next* trading day. It is an end-of-session figure, not a live intraday one.
 - **Options trades and quotes** - the real-time options tape: execution prices, sizes, and bid/ask context.
 - **Underlying prices** - real-time quotes and OHLCV bars for the underlying index or ETF.

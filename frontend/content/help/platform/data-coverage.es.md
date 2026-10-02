@@ -49,7 +49,7 @@ Los niveles de dealers en un gráfico de futuros siguen procediendo del libro de
 | Puntuaciones de señales | Aproximadamente una vez por minuto |
 | Puntuación compuesta | Aproximadamente una vez por minuto |
 | Medidores de volatilidad (VIX / VXN) | Barras de cinco minutos |
-| Boletín en vivo | Precio cada 5 segundos, niveles cada ~10 segundos, volatilidad cada ~30 segundos |
+| Boletín en vivo | Precio cada 5 segundos; los niveles son las cifras de cada minuto indicadas arriba, recogidas en unos 10 segundos; volatilidad cada ~30 segundos |
 | Datos de backtesting | Datos históricos por minuto, no en vivo |
 
 No es necesario actualizar la página. Las páginas buscan cifras nuevas cada pocos segundos (cada 5 segundos en las páginas de señales), así que un valor nuevo aparece a los pocos segundos de calcularse.
@@ -82,11 +82,11 @@ Jornadas reducidas (cierre anticipado a la 1:00 PM ET en torno a algunos festivo
 
 ## Fuentes de datos
 
-ZeroGEX utiliza datos de mercado profesionales en tiempo real de opciones y subyacentes, bajo licencias comerciales. Conviene ser preciso sobre lo que eso significa, porque no se trata de un único tape:
+ZeroGEX utiliza datos de mercado en tiempo real de opciones y subyacentes. Conviene ser preciso sobre lo que eso significa, porque no se trata de un único tape:
 
-- **Las cotizaciones y operaciones de opciones** de SPY, QQQ, SPX y NDX proceden de OPRA, el tape consolidado de las opciones cotizadas en EE. UU.
+- **Las cotizaciones y operaciones de opciones** de SPY, QQQ, SPX y NDX se basan en OPRA, el tape consolidado de las opciones cotizadas en EE. UU.
 - **Los valores de los índices SPX y NDX** proceden de un feed de índices independiente, no del tape de opciones.
-- **Los precios de SPY y QQQ** proceden de Nasdaq Basic, un feed en tiempo real de Nasdaq.
+- **Los precios de SPY y QQQ** proceden de un feed de acciones en tiempo real.
 - Los precios de **ES y NQ** provienen del feed en tiempo real de CME.
 - El **interés abierto** es una cifra separada de cierre de sesión procedente del clearing, no un valor en tiempo real.
 

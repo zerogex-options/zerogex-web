@@ -49,7 +49,7 @@ The dealer levels on a futures chart still come from the index options book, whi
 | Signal scores | About once a minute |
 | Composite Score | About once a minute |
 | Volatility gauges (VIX / VXN) | Five-minute bars |
-| Live Bulletin | Price every 5 seconds, levels every ~10 seconds, volatility every ~30 seconds |
+| Live Bulletin | Price every 5 seconds; levels are the once-a-minute figures above, picked up within about 10 seconds; volatility every ~30 seconds |
 | Backtesting data | Historical minute-level data, not live |
 
 The page does not need to be refreshed. Pages check for new numbers every few seconds (every 5 seconds on the signal pages), so a new value shows up within seconds of being computed.
@@ -82,11 +82,11 @@ Half-days (early close at 1:00 PM ET around some holidays) - the platform respe
 
 ## Data sources
 
-ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise about what that means, because it is not all one tape:
+ZeroGEX uses real-time options and underlying market data. It is worth being precise about what that means, because it is not all one tape:
 
-- **Option quotes and trades** for SPY, QQQ, SPX, and NDX come from OPRA, the consolidated tape for U.S. listed options.
+- **Option quotes and trades** for SPY, QQQ, SPX, and NDX are based on OPRA, the consolidated tape for U.S. listed options.
 - **The SPX and NDX index values** come from a separate index feed, not from the options tape.
-- **SPY and QQQ prices** come from Nasdaq Basic, a real-time feed from Nasdaq.
+- **SPY and QQQ prices** come from a real-time equity feed.
 - **ES and NQ** prices come from the real-time CME feed.
 - **Open interest** is a separate, end-of-session figure from clearing rather than a real-time value.
 

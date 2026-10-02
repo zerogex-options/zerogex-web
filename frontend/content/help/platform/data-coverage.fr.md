@@ -49,7 +49,7 @@ Les niveaux de dealers sur un graphique de futures proviennent toujours du carne
 | Scores de signaux | Environ une fois par minute |
 | Score composite | Environ une fois par minute |
 | Jauges de volatilité (VIX / VXN) | Barres de cinq minutes |
-| Bulletin en direct | Prix toutes les 5 secondes, niveaux toutes les ~10 secondes, volatilité toutes les ~30 secondes |
+| Bulletin en direct | Prix toutes les 5 secondes ; les niveaux sont les valeurs recalculées chaque minute ci-dessus, reprises en une dizaine de secondes ; volatilité toutes les ~30 secondes |
 | Données de backtesting | Données historiques à la minute, pas en direct |
 
 Il n'est pas nécessaire d'actualiser la page. Les pages vérifient les nouveaux chiffres toutes les quelques secondes (toutes les 5 secondes sur les pages de signaux) : une nouvelle valeur apparaît donc quelques secondes après avoir été calculée.
@@ -82,11 +82,11 @@ Demi-journées (clôture anticipée à 13h00 ET autour de certains jours férié
 
 ## Sources de données
 
-ZeroGEX utilise des données de marché professionnelles en temps réel sur les options et les sous-jacents, sous licences commerciales. Il vaut la peine d'être précis sur ce que cela signifie, car il ne s'agit pas d'un tape unique :
+ZeroGEX utilise des données de marché en temps réel sur les options et les sous-jacents. Il vaut la peine d'être précis sur ce que cela signifie, car il ne s'agit pas d'un tape unique :
 
-- **Les cotations et transactions d'options** sur SPY, QQQ, SPX et NDX proviennent d'OPRA, le tape consolidé des options cotées aux États-Unis.
+- **Les cotations et transactions d'options** sur SPY, QQQ, SPX et NDX reposent sur OPRA, le tape consolidé des options cotées aux États-Unis.
 - **Les valeurs des indices SPX et NDX** proviennent d'un flux d'indices distinct, et non du tape des options.
-- **Les prix de SPY et QQQ** proviennent de Nasdaq Basic, un flux en temps réel de Nasdaq.
+- **Les prix de SPY et QQQ** proviennent d'un flux actions en temps réel.
 - Les prix **ES et NQ** proviennent du flux CME en temps réel.
 - L'**open interest** est une donnée distincte de fin de séance issue du clearing, et non une valeur en temps réel.
 
