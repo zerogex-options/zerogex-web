@@ -239,6 +239,27 @@ export function etParts(date: Date): EtParts {
   };
 }
 
+/**
+ * Did this subscriber's last digest go out on the ET calendar day of the
+ * session being named, i.e. have they already had this morning's email?
+ *
+ * This is what makes the send safe to run twice. A morning where Resend
+ * refuses some sends is recovered by running the same command again; it must
+ * reach only the people who missed out, never a second copy for the rest. ET
+ * date rather than "the last 24 hours": the timer fires at 08:47 with up to
+ * two minutes of random delay, so yesterday's send can land less than 24
+ * hours before today's and would wrongly count as this morning's.
+ *
+ * An unparseable stamp counts as not sent. The row is a confirmed subscriber
+ * who asked for this email, and the next successful send overwrites the stamp.
+ */
+export function sentDuringSession(lastSentAt: string | null | undefined, sessionDate: string): boolean {
+  if (!lastSentAt) return false;
+  const at = new Date(lastSentAt);
+  if (!Number.isFinite(at.getTime())) return false;
+  return etParts(at).date === sessionDate;
+}
+
 /** Default holiday calendar, read from NEXT_PUBLIC_NYSE_HOLIDAYS. */
 export function defaultHolidayCalendar(): NyseHolidayCalendar {
   return buildNyseHolidayCalendar(
