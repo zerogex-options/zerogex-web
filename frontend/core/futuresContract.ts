@@ -202,6 +202,36 @@ export function futuresContractDescription(contract: FuturesContractDisplay): st
 }
 
 /**
+ * A symbol with its contract, for plain text that travels without a tooltip:
+ * 'ES' and 'ESZ26' give 'ES (ESZ26)'.
+ *
+ * The free pages' share snippet is pasted into X, Reddit and Discord, where
+ * "ES: spot 7512" is exactly the ambiguous label behind the reports. With no
+ * contract (a cash symbol, an older backend, a cached response) this is the
+ * bare symbol, so the line reads as it always has.
+ */
+export function symbolWithContract(symbol: string, contract: string | null | undefined): string {
+  const resolved = resolveFuturesContract(contract);
+  return resolved ? `${symbol} (${resolved.code})` : symbol;
+}
+
+/**
+ * The contract as one plain clause, 'CME contract ESZ26, December 2026', for
+ * text a machine extracts: the free pages' levels table caption, which answer
+ * engines quote without the chip beside it. Null when there is no contract.
+ */
+export function futuresContractCaption(
+  contract: string | null | undefined,
+  expiry?: string | null,
+): string | null {
+  const resolved = resolveFuturesContract(contract, expiry);
+  if (!resolved) return null;
+  return resolved.monthLabel
+    ? `CME contract ${resolved.code}, ${resolved.monthLabel}`
+    : `CME contract ${resolved.code}`;
+}
+
+/**
  * Every contract a historical series touches, in the order it touches them.
  *
  * On `/api/market/historical` the contract is per-row, derived from each bar's
