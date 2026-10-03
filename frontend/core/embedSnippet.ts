@@ -27,10 +27,15 @@ export const FALLBACK_HEIGHT = 200;
  *      the frame would point from our origin to our origin;
  *   3. the embed.js <script>, which sizes the frame to its content.
  *
- * The anchor text is deliberately descriptive rather than keyword-stuffed, and
- * both surfaces tell the embedder they may rewrite it. Distributing one
- * identical optimized anchor at scale is what Google calls a link scheme; an
- * honest, editable credit line is not.
+ * The frame and its credit line share one wrapper <div>, so the credit stays
+ * directly under the widget wherever the snippet is pasted. The anchor text is
+ * the brand name, not a keyword, and both surfaces tell the embedder they may
+ * rewrite it. Distributing one identical optimized anchor at scale is what
+ * Google calls a link scheme; an honest, editable credit line is not. The link
+ * carries no nofollow or sponsored rel; rel="noopener" is there only because
+ * it opens in a new tab. The credit takes the host page's font and color at a
+ * small size, so it reads on light and dark sites alike. The frame's own 15-min
+ * delay notice is inside the widget, so the credit line does not repeat it.
  */
 export function buildEmbedSnippet(
   symbol: PickerSymbol,
@@ -40,13 +45,13 @@ export function buildEmbedSnippet(
   const slug = `${symbol.toLowerCase()}-gamma-levels`;
   const ref = host ? `&ref=${encodeURIComponent(host)}` : '';
   return `<!-- ZeroGEX - free ${symbol} gamma levels, 15-minute delayed -->
-<iframe src="${SITE}/embed/${symbol}?theme=${theme}${ref}"
-        title="${symbol} gamma levels by ZeroGEX"
-        width="100%" height="${FALLBACK_HEIGHT}" loading="lazy"
-        style="border:0;max-width:680px" data-zerogex-embed></iframe>
-<p style="font:400 12px/1.4 sans-serif;opacity:.7;max-width:680px">
-  <a href="${SITE}/${slug}">${symbol} gamma levels</a> by ZeroGEX - free, 15-minute delayed.
-</p>
+<div>
+  <iframe src="${SITE}/embed/${symbol}?theme=${theme}${ref}"
+          title="${symbol} gamma levels by ZeroGEX"
+          width="100%" height="${FALLBACK_HEIGHT}" loading="lazy"
+          style="border:0;max-width:680px" data-zerogex-embed></iframe>
+  <div style="font-size:11px;line-height:1.4;margin-top:4px">${symbol} gamma levels by <a href="${SITE}/${slug}" target="_blank" rel="noopener">ZeroGEX</a></div>
+</div>
 <script async src="${SITE}/embed.js"></script>`;
 }
 

@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { SYMBOLS } from '../core/symbols.ts';
 import { isPublicRoute, requiredTierForRoute } from '../core/auth.ts';
+import { buildEmbedSnippet } from '../core/embedSnippet.ts';
 
 process.env.NEXT_PUBLIC_AUTH_ENABLED = '1';
 
@@ -162,13 +163,39 @@ test('the snippet puts a real anchor in the host page, not only an iframe', () =
   assert.ok(snippetModule.includes('<iframe'), 'snippet lost its iframe');
   assert.match(
     snippetModule,
-    /<a href="\$\{SITE\}\/\$\{slug\}">/,
+    /<a href="\$\{SITE\}\/\$\{slug\}"[^>]*>/,
     'snippet lost the host-page anchor',
   );
   assert.ok(
     snippetModule.includes('data-zerogex-embed'),
     'embed.js matches frames by this attribute',
   );
+});
+
+test('the copied credit line sits under the frame: a followed, new-tab link on the brand name', () => {
+  // Checked on the built HTML, because that is exactly what Copy embed code
+  // puts on the clipboard. A nofollow or sponsored rel would quietly zero out
+  // the one link the widget earns, and a keyword anchor repeated on every host
+  // is what Google calls a link scheme. The builder's optional host tag belongs
+  // on the frame only; the credit link stays the clean levels-page URL.
+  for (const symbol of SYMBOLS) {
+    for (const host of ['', 'example.com']) {
+      const html = buildEmbedSnippet(symbol, 'dark', host);
+      const slug = `${symbol.toLowerCase()}-gamma-levels`;
+      assert.ok(
+        html.includes(
+          `${symbol} gamma levels by <a href="https://zerogex.io/${slug}" target="_blank" rel="noopener">ZeroGEX</a>`,
+        ),
+        `${symbol}: the credit line is missing or changed`,
+      );
+      assert.doesNotMatch(html, /nofollow|sponsored|\bugc\b/, `${symbol}: the credit link must stay followed`);
+      assert.match(
+        html,
+        /<div>\s*<iframe [^>]*data-zerogex-embed><\/iframe>\s*<div style="[^"]+">[^<]*<a [^>]+>ZeroGEX<\/a><\/div>\s*<\/div>/,
+        `${symbol}: the credit is not directly under the frame`,
+      );
+    }
+  }
 });
 
 test('both surfaces build the snippet from the one module', () => {
