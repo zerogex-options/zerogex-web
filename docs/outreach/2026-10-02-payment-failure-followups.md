@@ -1,8 +1,9 @@
 # Payment-failure follow-ups (2026-10-02)
 
-Five members are `past_due` inside the 3-day payment grace window. Three are
-trial conversions whose first charge failed; two are renewals on paying members.
-All five have full access right now. Each already got the automated payment-failed
+Eight members are `past_due` inside the 3-day payment grace window. Five are
+trial conversions whose first charge failed; three are renewals on paying
+members. All eight have full access right now. Seven get a note. Carlos, who
+canceled, does not (section 8). Each already got the automated payment-failed
 email, and each gets the automated grace-expiry warning about a day before
 access drops.
 
@@ -11,7 +12,8 @@ one is short and says one thing the automated emails can't. Every paragraph is a
 single line so it pastes straight into a mail client.
 
 Everything below comes from `make diagnose-user`, run 2026-10-02 around 13:40 UTC
-(alexandre around 14:45 UTC).
+(alexandre around 14:45 UTC; maxii, trujillo, carlos and a lyby re-check around
+03:40 UTC on October 3).
 
 ## Who, and when to send
 
@@ -19,9 +21,12 @@ Everything below comes from `make diagnose-user`, run 2026-10-02 around 13:40 UT
 |---|---|---|---|---|---|
 | ksquareinc@protonmail.com | Renewal | none given (Link) | Pro, $29 promo | Sun Oct 4, 5:51 PM | ✅ Sent Fri Oct 2 |
 | kenmaster030684@gmail.com | Trial conversion | insufficient funds | Basic, $29 promo | Sat Oct 3, 4:53 PM | ✅ Sent Fri Oct 2 |
-| fahdadrees2@gmail.com | Trial conversion | insufficient funds | Pro, $59, no discount | Mon Oct 5, 9:22 AM | **Saturday** |
+| fahdadrees2@gmail.com | Trial conversion | insufficient funds | Pro, $59, no discount | Mon Oct 5, 9:22 AM | ✅ Sent Fri Oct 2 (a day early) |
 | alexandre@venturacap.com.br | Trial conversion | insufficient funds (Link) | Pro, $59, no discount | Mon Oct 5, 10:39 AM | ✅ Sent Fri Oct 2 (a day early) |
 | lybydallh053@gmail.com | Renewal | insufficient funds | Pro, $29 promo | Mon Oct 5, 12:42 AM | **Saturday, only if still unpaid** |
+| maxii1231811@gmail.com | Trial conversion | insufficient funds | Basic, $29 promo | Sun Oct 4, 8:40 PM | **Saturday, before 8 PM ET** |
+| trujillolamas@gmail.com | Renewal | none given (Link) | Pro, $59, no discount | Mon Oct 5, 10:32 PM | **Saturday** |
+| carlos.flanigan07@gmail.com | Trial conversion | insufficient funds (Link) | Basic, $29 promo | Mon Oct 5, 11:47 AM | **No email** (canceled) |
 
 Access ends 3 days after the first decline (`BILLING_PAYMENT_GRACE_DAYS`). The
 automated warning goes out once fewer than 24 hours are left, on the next run of
@@ -40,7 +45,13 @@ automated emails:
 - **lyby**: wait. This is the third month in a row that the first try came up
   short, and the last two both cleared on a retry: 19 hours later in September,
   about 35 hours later in August. If it has not cleared by Saturday afternoon,
-  send the note. Their warning is due early Sunday.
+  send the note. Their warning is due early Sunday. *Re-checked 11:40 PM ET
+  Friday: still `past_due` on attempt 1. Stripe had not retried yet, so nothing
+  had changed.*
+- **maxii**: the charge failed at 8:41 PM ET Friday. Their warning is due at
+  8:40 PM ET Saturday, so send Saturday before then.
+- **trujillo**: the charge failed at 10:32 PM ET Friday. Their warning is due
+  Sunday at 10:32 PM ET, so Saturday or Sunday daytime both work.
 
 ## Before each send
 
@@ -50,7 +61,7 @@ email has already gone out. Send nothing.
 
 If Stripe shows a first name for the customer, put it after "Hi". Only
 alexandre's address gives a name safely ("kenmaster" is a Street Fighter
-handle).
+handle, and "trujillolamas" is a surname).
 
 ---
 
@@ -291,9 +302,125 @@ Founder, ZeroGEX
 
 ---
 
+## 6. maxii1231811@gmail.com (Saturday, before 8 PM ET)
+
+**Trial conversion declined** Fri Oct 2 · Basic, $29 a month promo · Visa ····1340 ·
+access through **Sun Oct 4, 8:40 PM ET**
+
+### The read
+
+Kenmaster's case. They signed up September 25, came back once on the 27th, and
+have not been back since. They have paid nothing. Insufficient funds on a card,
+so the note names the reason. Basic is already the cheapest plan and they
+already have the promo, so there is nothing cheaper to offer. The point of the
+note is the clean way out, so a retry two weeks from now doesn't charge someone
+who had stopped using it. No amount, since they may be billed in a local
+currency.
+
+### Draft
+
+**Subject:** Your ZeroGEX payment didn't go through
+
+Hi,
+
+A quick note from me, not the automated email.
+
+Your ZeroGEX trial ended yesterday, and your bank declined the first Basic payment for insufficient funds.
+
+Your access stays on through Sunday. If you'd like to keep Basic, you can pay with any card here: https://zerogex.io/pay?i=in_1UMG3I4AOiqteMYYUzOBWi8z&t=BiOTFT1EFHDTQmpBlocNyq6MBYifHb0Qw49gQ7lGBWk
+
+Or, once the funds are in that account, Stripe's next automatic retry should go through on its own.
+
+If now isn't the right time, or ZeroGEX isn't for you, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
+
+And if something didn't work the way you expected, I'd like to hear about it. One line is plenty.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+---
+
+## 7. trujillolamas@gmail.com (Saturday)
+
+**Renewal declined** Fri Oct 2 · Pro, $59 a month, no discount · Link, no card
+visible · access through **Mon Oct 5, 10:32 PM ET**
+
+### The read
+
+The most valuable member in this batch. They have paid since June, four
+invoices, $167.19 in all, and every one cleared on the first try. They were in
+the app on Friday. Their sign-ins come from Mexico.
+
+This is ksquare's case: Link, no usable decline reason, attempt 1. So the note
+names no reason and no card, and offers the `/pay` link. It adds one true,
+reassuring fact: nothing has failed before. No cheaper-plan offer, because
+nothing says money is the problem, and suggesting it would read as a guess.
+
+### ⚠ Verify first
+
+- **API key:** the audit list only reaches back to June 30, and they have been
+  on Pro since June 3, so a key made in June would not show. If their account
+  has one, add the API-key paragraph from lyby's draft. If it drops, the key is
+  revoked.
+- Their charge went from $39 (June and August; July was $30.19) to $59 in
+  September, and nothing in the visible audit events says why. Not for the email, but know it if they
+  reply about price.
+
+### Draft
+
+**Subject:** Your ZeroGEX payment didn't go through
+
+Hi,
+
+A quick note from me, not the automated one.
+
+Your October Pro payment didn't go through on Friday. It was charged through Link, and no reason came back with the decline, so I can't tell you what caused it. You've been with ZeroGEX since June and every payment before this one went through the first time, so it may just be a one-off.
+
+Stripe will try again automatically over the coming days. If you'd rather settle it now, you can pay with any card here: https://zerogex.io/pay?i=in_1UMHnT4AOiqteMYYTQyleku4&t=M3_QcK1SlCEgnB0Ip0b53NhrWLrsgQk2brEbPNLVuDM
+
+Your Pro access stays on through Monday. If nothing has gone through by then, the account moves to the free Public tier. Nothing is deleted, and full access comes back automatically as soon as a payment succeeds.
+
+If something has changed on your end, or you have a question, just reply.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+---
+
+## 8. carlos.flanigan07@gmail.com: no email
+
+**Trial conversion declined** Fri Oct 2 · Basic, $29 a month promo · Link ·
+**canceled in-app 28 minutes after the trial ended**
+
+### The read
+
+Their trial ended at 10:46 AM ET Friday. They canceled at 11:14 AM (reason
+"other", so the cancellation alert you got at 11:22 has whatever they typed).
+The charge then ran at 11:47 AM and failed for insufficient funds at Link.
+
+This is a case the code already handles on purpose. A cancel after the trial
+has expired still owes that period (`core/trialDunning.ts`). The cancellation
+email they got says so: the trial had already ended, one final charge will go
+through, nothing renews after it, and access lasts until November 2. So they
+were told, and a founder email asking for that $29 would be chasing someone who
+just said goodbye.
+
+Leave it to Stripe. The grace-expiry warning skips anyone who has canceled, so
+they get no more automated email. Access drops Monday around 11:47 AM ET. If a
+retry clears later, they get Basic back until November 2, which matches what
+they were told.
+
+If they write in about the charge and you'd rather waive it, run the cancel and
+void below. That ends access at once and stops every retry.
+
+---
+
 ## If they reply
 
-- **"Cancel it"** (kenmaster, fahd or alexandre): run
+- **"Cancel it"** (kenmaster, fahd, alexandre or maxii), **or waiving carlos's
+  charge**: run
   `make cancel-subscription EMAIL=<email> VOID_INVOICE=1 DRY_RUN=1`, then the
   same with `YES=1` in place of `DRY_RUN=1`. It ends access at once, voids the
   open invoice so no retry can charge them, and sends no email. Reply yourself
