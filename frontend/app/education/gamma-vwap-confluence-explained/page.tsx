@@ -35,7 +35,7 @@ export default async function GammaVwapConfluenceExplainedPage() {
 
       <RelatedArticles slug="gamma-vwap-confluence-explained" />
 
-      <LiveLevelsCTA concept="gamma / VWAP confluence" />
+      <LiveLevelsCTA concept="gamma levels" />
     </div>
   );
 }

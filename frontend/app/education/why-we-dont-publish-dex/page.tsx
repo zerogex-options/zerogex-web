@@ -29,7 +29,7 @@ export default async function WhyWeDontPublishDexPage() {
 
       <RelatedArticles slug="why-we-dont-publish-dex" />
 
-      <LiveLevelsCTA concept="forced dealer flow" />
+      <LiveLevelsCTA concept="gamma levels" />
     </div>
   );
 }

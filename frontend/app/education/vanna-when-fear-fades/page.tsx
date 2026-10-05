@@ -29,7 +29,7 @@ export default async function VannaWhenFearFadesPage() {
 
       <RelatedArticles slug="vanna-when-fear-fades" />
 
-      <LiveLevelsCTA concept="vanna flow" />
+      <LiveLevelsCTA concept="gamma levels" />
     </div>
   );
 }

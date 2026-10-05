@@ -29,7 +29,7 @@ export default async function CharmTheClockIsATraderPage() {
 
       <RelatedArticles slug="charm-the-clock-is-a-trader" />
 
-      <LiveLevelsCTA concept="charm into the close" />
+      <LiveLevelsCTA concept="gamma levels" />
     </div>
   );
 }

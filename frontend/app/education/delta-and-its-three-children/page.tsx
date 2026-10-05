@@ -29,7 +29,7 @@ export default async function DeltaAndItsThreeChildrenPage() {
 
       <RelatedArticles slug="delta-and-its-three-children" />
 
-      <LiveLevelsCTA concept="forced dealer flow" />
+      <LiveLevelsCTA concept="gamma levels" />
     </div>
   );
 }
