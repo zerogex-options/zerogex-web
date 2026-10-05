@@ -94,11 +94,16 @@ export default function TapeFlowBiasBlock({ symbol }: { symbol: string }) {
   const needlePct = score != null ? Math.max(0, Math.min(100, (score + 100) / 2)) : 50;
 
   return (
+    // Peer framing, not inset: this used to sit inside the Gamma Weather box
+    // between the chips and the charts, where a smaller radius and the subtle
+    // surface read correctly as a sub-card. It now sits ABOVE that box as its
+    // own block, so it takes the same frame the Weather box and the signal
+    // cards take. Margin is the caller's, as everywhere else on this page.
     <section
-      className="mt-3 rounded-xl border p-3"
+      className="rounded-2xl border p-4"
       style={{
         borderColor: 'var(--color-border)',
-        backgroundColor: 'var(--color-surface-subtle)',
+        backgroundColor: 'var(--color-surface)',
       }}
       aria-label="Tape Flow Bias"
     >

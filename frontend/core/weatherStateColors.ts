@@ -12,10 +12,26 @@
  * The palette is validated, not picked by eye: four hues plus a neutral,
  * checked over ALL pairs (any two states can meet in time, and all five sit
  * together in the legend) under protanopia and deuteranopia, in both modes.
- * Worst pair 8.3 dE under CVD and 16.8 under normal vision, every hue at or
- * above 3:1 on its own surface. Amber and red are separated by lightness as
- * well as hue because deuteranopia collapses that pair. The hexes live in
- * globals.css; re-run the palette validator before changing any of them.
+ * Worst pair 8.3 dE under CVD and 19.5 under normal vision, every hue at or
+ * above 3:1 on its own surface and inside its mode's lightness band. Amber and
+ * red are separated by lightness as well as hue because deuteranopia collapses
+ * that pair. The hexes live in globals.css; re-run the palette validator before
+ * changing any of them, and include the neutral in the pair list.
+ *
+ * Supported dip is violet rather than blue because Barrie could not separate it
+ * from Stable bid's teal while scanning the row. He was right, and it was the
+ * weakest pair in the set: blue against teal measured 16.8 dE under normal
+ * vision in dark mode, barely over the 15 floor, and only 3.4 under tritanopia.
+ * Violet takes that pair to 24.0 and 11.2. It also fixed one nobody had found:
+ * blue against the Mixed slate was 13.7, BELOW the floor, which the original
+ * validation missed by running the four hues without the neutral. Violet is
+ * 15.5 there.
+ *
+ * The two steps are not the same hex on purpose. Barrie proposed #A78BFA, which
+ * is right for dark but fails twice as written: 2.72:1 on white, and L 0.709
+ * against a dark band of 0.48-0.67, so it would have read brighter than the
+ * four states beside it. #9B7BF5 is the nearest step inside the band, and
+ * #7C3AED is the light-mode counterpart, deep enough to hold 3:1 on white.
  */
 
 export const WEATHER_STATE_COLOR: Record<string, string> = {

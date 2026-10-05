@@ -123,6 +123,21 @@ export default function HedgingFlowPanels({
 
       {data && (
         <>
+          {/* Tape first, then the Weather read, then the session detail below.
+              Live only: the block reads the current tape, and showing today's
+              bias above a chart of three weeks ago would be two different days
+              on one screen with nothing saying so.
+
+              Above the Weather box rather than inside it, and no longer tied to
+              Weather being ready: the tape bias is its own measurement and
+              stands up on a session where the classifier has not got a bar
+              carrying both inputs yet. */}
+          {!historical && (
+            <div className="mt-6">
+              <TapeFlowBiasBlock symbol={symbol} />
+            </div>
+          )}
+
           {weather && (
             <div className="mt-6">
               <GammaWeatherStrip
@@ -131,10 +146,6 @@ export default function HedgingFlowPanels({
                 regime={regime}
                 symbol={symbol}
                 date={historical ? sessionDateKey : null}
-                // Live only. The block reads the current tape, and showing
-                // today's bias under a chart of three weeks ago would be two
-                // different days on one screen with nothing saying so.
-                beforeCharts={historical ? null : <TapeFlowBiasBlock symbol={symbol} />}
               />
             </div>
           )}
