@@ -998,6 +998,42 @@ function initDb(): DatabaseSync {
   ensureColumn('payment_declines', 'method_type', 'TEXT');
   ensureColumn('payment_declines', 'collection_method', 'TEXT');
   ensureColumn('payment_declines', 'invoice_status', 'TEXT');
+  // WHERE the payment died, read off the PaymentIntent and its latest charge by
+  // core/paymentFailureDiagnostics.ts. A generic "The payment failed." says
+  // nothing about whether the issuer ever saw the charge; `network_status`
+  // does (declined_by_network vs not_sent_to_network), and `outcome_type`
+  // separates a Radar block from an issuer decline. Observability only: none of
+  // these feeds the category, the dunning copy or any billing decision. All
+  // NULL on rows captured before they existed, which the report states as "not
+  // captured" rather than reading as "no data in Stripe".
+  ensureColumn('payment_declines', 'payment_intent_id', 'TEXT');
+  ensureColumn('payment_declines', 'payment_intent_status', 'TEXT');
+  // last_payment_error, kept apart from failure_code/decline_code above, which
+  // prefer the CHARGE's values — the two can disagree, and which one said
+  // `payment_intent_generic_payment_failed` is part of the diagnosis.
+  ensureColumn('payment_declines', 'pi_error_type', 'TEXT');
+  ensureColumn('payment_declines', 'pi_error_code', 'TEXT');
+  ensureColumn('payment_declines', 'pi_error_decline_code', 'TEXT');
+  ensureColumn('payment_declines', 'pi_error_message', 'TEXT');
+  // The intent's value where it has one, else the charge outcome's.
+  ensureColumn('payment_declines', 'advice_code', 'TEXT');
+  ensureColumn('payment_declines', 'network_advice_code', 'TEXT');
+  // charge.outcome
+  ensureColumn('payment_declines', 'network_status', 'TEXT');
+  ensureColumn('payment_declines', 'outcome_type', 'TEXT');
+  ensureColumn('payment_declines', 'outcome_reason', 'TEXT');
+  ensureColumn('payment_declines', 'risk_level', 'TEXT');
+  ensureColumn('payment_declines', 'risk_score', 'INTEGER');
+  ensureColumn('payment_declines', 'outcome_rule', 'TEXT');
+  // charge.payment_method_details.card — never the number or the CVC itself.
+  ensureColumn('payment_declines', 'card_network', 'TEXT');
+  ensureColumn('payment_declines', 'card_cvc_check', 'TEXT');
+  ensureColumn('payment_declines', 'card_postal_check', 'TEXT');
+  ensureColumn('payment_declines', 'card_3ds_result', 'TEXT');
+  ensureColumn('payment_declines', 'card_3ds_result_reason', 'TEXT');
+  // What went wrong reading the above from Stripe, when something did. The
+  // same text is written to the audit log as payment_decline_diagnostic_error.
+  ensureColumn('payment_declines', 'diagnostic_error', 'TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_failed_at ON payment_declines(failed_at);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_sub ON payment_declines(subscription_id, outcome);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_user ON payment_declines(user_id, failed_at);');

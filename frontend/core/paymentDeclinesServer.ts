@@ -25,6 +25,7 @@
 
 import { getDb } from './db.ts';
 import { classifyDecline, type ChargeDecline, type DeclineCategory } from './declineReason.ts';
+import type { PaymentFailureDiagnostics } from './paymentFailureDiagnostics.ts';
 import { loadExcludedAccounts } from './excludedAccountsServer.ts';
 import { summarizeExcluded, type ExcludedAccountsSummary } from './excludedAccounts.ts';
 import {
@@ -225,6 +226,14 @@ export type RecordDeclineInput = {
    */
   trialConversion?: boolean | null;
   source?: DeclineSource;
+  /**
+   * Where the payment died — the PaymentIntent's last_payment_error and the
+   * latest charge's outcome (core/paymentFailureDiagnostics.ts). Stored in its
+   * own columns and never read by `category`, which stays the decline's alone.
+   */
+  diagnostics?: PaymentFailureDiagnostics | null;
+  /** What went wrong reading the above from Stripe, if anything. */
+  diagnosticError?: string | null;
 };
 
 /**
@@ -243,6 +252,7 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
     const sku = input.priceId ? priceIdToSku(input.priceId) : null;
     const kind = resolveKindForInvoice(input);
     const category = classifyDecline(input.decline ?? null);
+    const diag = input.diagnostics ?? null;
     db.prepare(
       `INSERT INTO payment_declines (
          id, invoice_id, attempt_count, charge_id, user_id, email, customer_id,
@@ -251,8 +261,15 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          failure_message, seller_message, category, method_type, card_brand, card_last4,
          card_funding, card_country, next_attempt_at, grace_until,
          collection_method, invoice_status, failed_at,
-         outcome, source, recorded_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+         outcome, source, recorded_at,
+         payment_intent_id, payment_intent_status,
+         pi_error_type, pi_error_code, pi_error_decline_code, pi_error_message,
+         advice_code, network_advice_code,
+         network_status, outcome_type, outcome_reason, risk_level, risk_score, outcome_rule,
+         card_network, card_cvc_check, card_postal_check, card_3ds_result, card_3ds_result_reason,
+         diagnostic_error
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?,
+                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(invoice_id, attempt_count) DO UPDATE SET
          charge_id = COALESCE(excluded.charge_id, payment_declines.charge_id),
          user_id = COALESCE(excluded.user_id, payment_declines.user_id),
@@ -279,6 +296,28 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          grace_until = COALESCE(excluded.grace_until, payment_declines.grace_until),
          collection_method = COALESCE(excluded.collection_method, payment_declines.collection_method),
          invoice_status = COALESCE(excluded.invoice_status, payment_declines.invoice_status),
+         -- A redelivery that could not reach Stripe must not erase what the
+         -- first delivery read, so every diagnostic only ever fills in.
+         payment_intent_id = COALESCE(excluded.payment_intent_id, payment_declines.payment_intent_id),
+         payment_intent_status = COALESCE(excluded.payment_intent_status, payment_declines.payment_intent_status),
+         pi_error_type = COALESCE(excluded.pi_error_type, payment_declines.pi_error_type),
+         pi_error_code = COALESCE(excluded.pi_error_code, payment_declines.pi_error_code),
+         pi_error_decline_code = COALESCE(excluded.pi_error_decline_code, payment_declines.pi_error_decline_code),
+         pi_error_message = COALESCE(excluded.pi_error_message, payment_declines.pi_error_message),
+         advice_code = COALESCE(excluded.advice_code, payment_declines.advice_code),
+         network_advice_code = COALESCE(excluded.network_advice_code, payment_declines.network_advice_code),
+         network_status = COALESCE(excluded.network_status, payment_declines.network_status),
+         outcome_type = COALESCE(excluded.outcome_type, payment_declines.outcome_type),
+         outcome_reason = COALESCE(excluded.outcome_reason, payment_declines.outcome_reason),
+         risk_level = COALESCE(excluded.risk_level, payment_declines.risk_level),
+         risk_score = COALESCE(excluded.risk_score, payment_declines.risk_score),
+         outcome_rule = COALESCE(excluded.outcome_rule, payment_declines.outcome_rule),
+         card_network = COALESCE(excluded.card_network, payment_declines.card_network),
+         card_cvc_check = COALESCE(excluded.card_cvc_check, payment_declines.card_cvc_check),
+         card_postal_check = COALESCE(excluded.card_postal_check, payment_declines.card_postal_check),
+         card_3ds_result = COALESCE(excluded.card_3ds_result, payment_declines.card_3ds_result),
+         card_3ds_result_reason = COALESCE(excluded.card_3ds_result_reason, payment_declines.card_3ds_result_reason),
+         diagnostic_error = COALESCE(excluded.diagnostic_error, payment_declines.diagnostic_error),
          -- A real reason never loses to 'unknown', and a resolved row is never
          -- reopened by a redelivery of the failure that started it.
          category = CASE WHEN excluded.category = 'unknown' THEN payment_declines.category ELSE excluded.category END,
@@ -318,6 +357,26 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
       failedAt,
       input.source ?? 'webhook',
       nowIso(),
+      diag?.paymentIntentId ?? null,
+      diag?.paymentIntentStatus ?? null,
+      diag?.intentError?.type ?? null,
+      diag?.intentError?.code ?? null,
+      diag?.intentError?.declineCode ?? null,
+      diag?.intentError?.message ?? null,
+      diag?.intentError?.adviceCode ?? diag?.outcome?.adviceCode ?? null,
+      diag?.intentError?.networkAdviceCode ?? diag?.outcome?.networkAdviceCode ?? null,
+      diag?.outcome?.networkStatus ?? null,
+      diag?.outcome?.type ?? null,
+      diag?.outcome?.reason ?? null,
+      diag?.outcome?.riskLevel ?? null,
+      diag?.outcome?.riskScore ?? null,
+      diag?.outcome?.rule ?? null,
+      diag?.method?.network ?? null,
+      diag?.method?.cvcCheck ?? null,
+      diag?.method?.postalCheck ?? null,
+      diag?.method?.threeDSecureResult ?? null,
+      diag?.method?.threeDSecureResultReason ?? null,
+      input.diagnosticError ?? null,
     );
     return true;
   } catch {

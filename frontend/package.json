@@ -71,6 +71,8 @@
     "test:pay-link": "node --experimental-strip-types --test tests/payLink.test.ts",
     "test:script-env": "node --experimental-strip-types --test tests/scriptEnvLocal.test.ts",
     "test:payment-declines-db": "node --experimental-strip-types --test tests/paymentDeclinesDb.test.ts",
+    "test:payment-declines-migration": "node --experimental-strip-types --test tests/paymentDeclinesMigration.test.ts",
+    "test:payment-failure-diagnostics": "node --experimental-strip-types --test tests/paymentFailureDiagnostics.test.ts",
     "test:billing-user": "node --experimental-strip-types --test tests/billingUser.test.ts",
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
     "test:payment-claim": "node --experimental-strip-types --test tests/paymentClaim.test.ts",

@@ -70,6 +70,11 @@ import {
 import { MONEY_BACK_GUARANTEE_DAYS } from '@/core/billingPlans';
 import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
 import {
+  collectPaymentFailureDiagnostics,
+  describeDiagnosticProblems,
+  type PaymentFailureDiagnostics,
+} from '@/core/paymentFailureDiagnostics';
+import {
   markDeclinesLostForInvoice,
   markDeclinesLostForSubscription,
   recordPaymentDecline,
@@ -258,6 +263,13 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
 // errors (core/paymentDeclinesServer.ts). Reporting must never be able to fail
 // the webhook — a 500 here makes Stripe retry the event, which re-sends the
 // member's dunning email.
+//
+// The diagnostics (core/paymentFailureDiagnostics.ts) — whether the charge ever
+// reached the issuer, Radar's verdict, the advice codes — ride along in their
+// own columns. They are read AFTER the decline and never touch the category
+// returned below, so the dunning email reads exactly what it did before. When a
+// Stripe read fails, what was obtained is still written and the failure goes to
+// the audit log as payment_decline_diagnostic_error.
 async function recordInvoiceDecline(input: {
   invoice: Stripe.Invoice;
   invoiceSub: string | null;
@@ -275,11 +287,27 @@ async function recordInvoiceDecline(input: {
   const { invoice } = input;
   if (!invoice.id) return null;
   try {
-    const lookup = await lookupInvoiceDecline(getStripe(), invoice);
+    const stripe = getStripe();
+    const lookup = await lookupInvoiceDecline(stripe, invoice);
+    let diagnostics: PaymentFailureDiagnostics | null = null;
+    try {
+      diagnostics = await collectPaymentFailureDiagnostics(stripe, invoice, {
+        paymentIntentId: lookup.paymentIntentId,
+        chargeId: lookup.chargeId,
+      });
+    } catch {
+      // It does not throw; this is only the belt to its braces.
+    }
+    const diagnosticError = describeDiagnosticProblems({ lookupError: lookup.error, diagnostics });
+    const attemptCount = typeof invoice.attempt_count === 'number' ? invoice.attempt_count : 1;
+    // The card fields fall back to the diagnostics' read of the same charge
+    // when the decline lookup came back without one. Only the admin report
+    // reads these columns.
+    const method = diagnostics?.method ?? null;
     recordPaymentDecline({
       invoiceId: invoice.id,
-      attemptCount: typeof invoice.attempt_count === 'number' ? invoice.attempt_count : 1,
-      chargeId: lookup.chargeId,
+      attemptCount,
+      chargeId: lookup.chargeId ?? diagnostics?.chargeId ?? null,
       userId: input.user?.id ?? null,
       email: input.user?.email ?? null,
       customerId: input.customerId,
@@ -293,11 +321,11 @@ async function recordInvoiceDecline(input: {
       // The card that was ACTUALLY charged, off the charge itself, rather than
       // the subscription's current default: on a retry after a card swap those
       // are different cards, and the one that declined is the one to report.
-      methodType: lookup.card?.type ?? null,
-      cardBrand: lookup.card?.brand ?? null,
-      cardLast4: lookup.card?.last4 ?? null,
-      cardFunding: lookup.card?.funding ?? null,
-      cardCountry: lookup.card?.country ?? null,
+      methodType: lookup.card?.type ?? method?.type ?? null,
+      cardBrand: lookup.card?.brand ?? method?.brand ?? null,
+      cardLast4: lookup.card?.last4 ?? method?.last4 ?? null,
+      cardFunding: lookup.card?.funding ?? method?.funding ?? null,
+      cardCountry: lookup.card?.country ?? method?.country ?? null,
       nextAttemptAt:
         typeof invoice.next_payment_attempt === 'number'
           ? new Date(invoice.next_payment_attempt * 1000).toISOString()
@@ -310,7 +338,26 @@ async function recordInvoiceDecline(input: {
       invoiceStatus: invoice.status ?? null,
       trialConversion: input.trialConversion,
       source: 'webhook',
+      diagnostics,
+      diagnosticError,
     });
+    if (diagnosticError) {
+      // After the row, and guarded: an audit write that fails must not cost
+      // the decline record or the email's category.
+      try {
+        logAudit({
+          type: 'payment_decline_diagnostic_error',
+          userId: input.user?.id,
+          email: input.user?.email,
+          message:
+            `Invoice ${invoice.id} attempt ${attemptCount}: could not read the full failure from Stripe ` +
+            `(payment_intent ${diagnostics?.paymentIntentId ?? lookup.paymentIntentId ?? 'unknown'}, ` +
+            `charge ${diagnostics?.chargeId ?? lookup.chargeId ?? 'unknown'}). Recorded what was obtained. ${diagnosticError}`,
+        });
+      } catch {
+        // Nothing further to do; the row carries the same text in diagnostic_error.
+      }
+    }
     return lookup.decline ? classifyDecline(lookup.decline) : null;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'decline capture failed';

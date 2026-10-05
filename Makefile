@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing normalize-utm-sources open-invoice-recovery resend-payment-failed sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -26,6 +26,7 @@ help:
 	@echo "  make audit-trial-conversions - READ-ONLY forensic audit of why trial conversions fail: payment-method type, SetupIntent completion, attempts actually made, first decline reason off the FAILED charge, and whether each unpaid invoice still has a retry scheduled. Writes nothing anywhere. DAYS=<n>, LIMIT=<n>, JSON=<path>"
 	@echo "  make decline-by-source - READ-ONLY. Decline rate by the acquisition channel that acquired each member, with a real denominator on both sides and a 95% interval on every rate. Answers whether a slice of the lost conversions was ever a billing problem at all. Writes nothing. DAYS=<n> (0 = all time), SCOPE=first|all, JSON=<path>"
 	@echo "  make orphan-payment-alerts - Daily sweep (systemd timer) for members who PAID and were left with nothing, emailing the operator about anything new. Detection only — every command it prints is a dry run. DRY_RUN=1 to print the email instead of sending, PREVIEW_TO=<addr> to check the layout, TO=<addr> to redirect, DAYS=<n> lookback"
+	@echo "  make decline-diagnostics - READ-ONLY. Where each recent payment failure died: issuer decline vs Stripe Radar block vs never sent to the network (outcome.network_status), with Radar risk, decline/network/advice codes, CVC/postal/3DS checks and any Stripe read that failed at capture. Runs two read-only sqlite3 queries against the auth DB, writes nothing. DAYS=<n> (default 30), AUTH_DB_PATH=<path>"
 	@echo "  make decline-timing - READ-ONLY. Tests whether insufficient-funds declines persist because the retries land before payday: how long Stripe actually kept trying, and whether invoices whose window crossed the 1st or 15th recovered any better. Designed to be able to come back negative. Writes nothing. DAYS=<n> (0 = all time, the default), CATEGORY=<name|all>"
 	@echo "  make normalize-utm-sources - Rewrite stored acquisition sources (users.signup_utm_source, page_view_events.utm_source) to match what sanitizeUtmSource produces today, so one channel tagged two ways stops reading as two channels. DRY RUN by default; YES=1 to apply. Re-run whenever UTM_SOURCE_ALIASES changes"
 	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), DAYS=<n>, LIMIT=<n>"
@@ -351,6 +352,32 @@ decline-by-source:
 # Does the retry SCHEDULE explain the insufficient-funds losses? Read-only, and
 # built to be able to answer no: if invoices whose retry window crossed a payday
 # recover no better than the ones that missed, retry policy is not the lever.
+# Where recent payment failures died, one row per declined attempt plus a count
+# by stage. "The payment failed." does not say whether the issuer ever saw the
+# charge; the network_status, Radar and advice-code columns the webhook writes
+# (core/paymentFailureDiagnostics.ts) do. The query lives in
+# frontend/scripts/decline-diagnostics.sql, which explains every stage.
+#
+# READ-ONLY: sqlite3 opens the database with -readonly. No Stripe call, no write.
+# Rows recorded before the diagnostic columns shipped read as "not_captured".
+#
+#   DAYS=<n>             window in days (default 30)
+#   AUTH_DB_PATH=<path>  else AUTH_DB_PATH from frontend/.env.local, else
+#                        frontend/data/auth.db
+decline-diagnostics:
+	@command -v sqlite3 >/dev/null 2>&1 || { echo "ERROR: sqlite3 CLI not found. Install it: sudo apt-get install -y sqlite3"; exit 1; }; \
+	db="$(AUTH_DB_PATH)"; \
+	if [ -z "$$db" ] && [ -f frontend/.env.local ]; then \
+		db=$$(grep -E '^AUTH_DB_PATH=' frontend/.env.local | head -1 | cut -d= -f2- | tr -d '"'); \
+	fi; \
+	if [ -z "$$db" ]; then db="frontend/data/auth.db"; fi; \
+	if [ ! -f "$$db" ]; then echo "Auth DB not found at '$$db' (set AUTH_DB_PATH)."; exit 1; fi; \
+	days="$(or $(DAYS),30)"; \
+	case "$$days" in ''|*[!0-9]*) echo "DAYS must be a whole number of days, got '$$days'"; exit 1;; esac; \
+	echo "Payment failures in the last $$days day(s) — $$db (read-only)"; \
+	echo; \
+	sed "s/__DAYS__/$$days/g" frontend/scripts/decline-diagnostics.sql | sqlite3 -readonly -header -column "$$db"
+
 decline-timing:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/decline-timing.mts'
 
