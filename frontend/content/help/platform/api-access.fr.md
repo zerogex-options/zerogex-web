@@ -60,12 +60,12 @@ Les réponses sont mises en cache côté serveur pendant environ cinq secondes, 
 
 ### Backfill
 
-Les endpoints d'historique dérivé - GEX (`/api/gex/historical`), max pain et historique des signaux - prennent en charge des fenêtres de plusieurs jours. Les données d'options font exception : les cotations par contrat sont servies sous forme de dernière cotation ou d'une seule séance intraday (`/api/option/contract`), **pas** sous forme de série historique sur plusieurs jours - et les cotations par contrat ne font de toute façon pas partie du niveau standard (voir *Ce qui est restreint*). Si vous avez besoin d'un historique plus long des cotations d'options, contactez le support avec les détails.
+Les endpoints d'historique dérivé - GEX (`/api/gex/historical`), max pain et historique des signaux - prennent en charge des fenêtres de plusieurs jours. Les cotations par contrat font exception : elles ne sont pas disponibles via l'API, ni actuelles ni historiques (voir *Ce qui est restreint*).
 
 ## Ce qui est restreint
 
 - L'accès à l'API nécessite un compte **Pro**. Les comptes Basic et Public ne peuvent pas générer de clés.
-- Les données de marché brutes en amont - cotations des contrats d'options individuels (la dernière cotation comme l'historique intraday du contrat) - ne font pas partie du niveau d'API standard. L'API sert les analyses dérivées (GEX, flow, max pain, indicateurs techniques, signaux) et leur historique. Besoin de données d'options brutes pour un cas d'usage précis ? Écrivez au support et nous étudierons les possibilités.
+- Les cotations des contrats d'options individuels - le bid, l'ask et le dernier prix d'un contrat, actuels ou historiques - ne sont disponibles via l'API dans aucune formule et ne peuvent pas être activées pour une clé particulière ; ces endpoints renvoient `403`. L'API sert les analyses dérivées (GEX, flow, max pain, indicateurs techniques, signaux) et leur historique. Si votre intégration a besoin de cotations par contrat, obtenez-les auprès de votre courtier ou d'un fournisseur de données de marché.
 
 ## Bonnes pratiques
 

@@ -60,12 +60,12 @@ Las respuestas se guardan en caché en el servidor durante unos cinco segundos, 
 
 ### Backfill
 
-Los endpoints de historial derivado - GEX (`/api/gex/historical`), max pain e historial de señales - admiten ventanas de varios días. Los datos de opciones son la excepción: las cotizaciones por contrato se sirven como la última cotización o como una sola sesión intradía (`/api/option/contract`), **no** como una serie histórica de varios días - y, de todos modos, las cotizaciones por contrato no forman parte del nivel estándar (consulta *Qué está restringido*). Si necesitas un historial más largo de cotizaciones de opciones, contacta con soporte con los detalles.
+Los endpoints de historial derivado - GEX (`/api/gex/historical`), max pain e historial de señales - admiten ventanas de varios días. Las cotizaciones por contrato son la excepción: no están disponibles en la API en absoluto, ni actuales ni históricas (consulta *Qué está restringido*).
 
 ## Qué está restringido
 
 - El acceso a la API requiere una cuenta **Pro**. Las cuentas Basic y Public no pueden generar claves.
-- Los datos de mercado en bruto de origen - cotizaciones de contratos de opciones individuales (tanto la última cotización como el historial intradía del contrato) - no forman parte del nivel estándar de la API. La API sirve los análisis derivados (GEX, flow, max pain, técnicos, señales) y su historial. ¿Necesitas datos de opciones en bruto para un caso de uso concreto? Escribe a soporte y vemos las opciones.
+- Las cotizaciones de contratos de opciones individuales - el bid, el ask y el último precio de un contrato, actuales o históricos - no están disponibles en la API en ningún plan, y no se pueden activar para una clave concreta; esos endpoints devuelven `403`. La API sirve los análisis derivados (GEX, flow, max pain, técnicos, señales) y su historial. Si tu integración necesita cotizaciones de contratos, obtenlas de tu bróker o de un proveedor de datos de mercado.
 
 ## Buenas prácticas
 

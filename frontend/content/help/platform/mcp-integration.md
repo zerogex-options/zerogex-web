@@ -210,7 +210,7 @@ If you would rather not maintain that judgment yourself, call `/api/v2/levels/{s
 
 There is no streaming channel on the public API. Levels recompute on roughly a 60-second analytics cycle, so polling faster buys nothing but rate limit. Responses are also cached server-side for about five seconds. For a long-running server, cache per symbol and serve tool calls from that cache rather than hitting the API once per question.
 
-Your Pro key's tier covers GEX, flow, max pain, technicals and signals - every derived analytic. It does **not** include raw per-contract option quotes. If your integration needs those, email [support@zerogex.io](mailto:support@zerogex.io) with the use case.
+Your Pro key's tier covers GEX, flow, max pain, technicals and signals - every derived analytic. It does **not** include per-contract option quotes, and they can't be added to a key. If your integration needs them, get them from your broker or a market data vendor.
 
 ## Publishing what you build
 

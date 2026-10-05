@@ -60,12 +60,12 @@ Antworten werden serverseitig etwa fünf Sekunden zwischengespeichert, und die A
 
 ### Backfill
 
-Die abgeleiteten Historien-Endpunkte - GEX (`/api/gex/historical`), Max Pain und Signal-Historie - unterstützen mehrtägige Zeitfenster. Optionsdaten sind die Ausnahme: Kurse einzelner Kontrakte gibt es als jüngste Notierung oder als eine einzelne Intraday-Sitzung (`/api/option/contract`), **nicht** als mehrtägige historische Reihe - und Kontraktkurse gehören ohnehin nicht zum Standard-Tarif (siehe *Was eingeschränkt ist*). Wenn du eine längere Historie von Optionskursen brauchst, wende dich mit den Details an den Support.
+Die abgeleiteten Historien-Endpunkte - GEX (`/api/gex/historical`), Max Pain und Signal-Historie - unterstützen mehrtägige Zeitfenster. Kurse einzelner Optionskontrakte sind die Ausnahme: Sie sind über die API überhaupt nicht verfügbar, weder aktuell noch historisch (siehe *Was eingeschränkt ist*).
 
 ## Was eingeschränkt ist
 
 - API-Zugang erfordert ein **Pro**-Konto. Basic- und Public-Konten können keine Schlüssel generieren.
-- Rohe Marktdaten aus der Quelle - Kurse einzelner Optionskontrakte (sowohl die jüngste Notierung als auch die Intraday-Historie eines Kontrakts) - gehören nicht zum Standard-API-Tarif. Die API liefert die abgeleiteten Analysen (GEX, Flow, Max Pain, Technicals, Signale) und deren Historie. Brauchst du rohe Optionsdaten für einen bestimmten Anwendungsfall? Schreib dem Support, dann besprechen wir die Möglichkeiten.
+- Kurse einzelner Optionskontrakte - Bid, Ask und letzter Kurs eines einzelnen Kontrakts, aktuell oder historisch - sind über die API in keinem Plan verfügbar und lassen sich auch nicht für einen einzelnen Schlüssel freischalten; diese Endpunkte antworten mit `403`. Die API liefert die abgeleiteten Analysen (GEX, Flow, Max Pain, Technicals, Signale) und deren Historie. Wenn deine Integration Kontraktkurse braucht, bezieh sie von deinem Broker oder einem Marktdatenanbieter.
 
 ## Best Practices
 

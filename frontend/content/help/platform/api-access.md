@@ -60,12 +60,12 @@ Responses are cached server-side for about five seconds, and the analytics behin
 
 ### Backfill
 
-The derived history endpoints - GEX (`/api/gex/historical`), max pain, and signal history - support multi-day windows. Options data is the exception: per-contract quotes are served as the latest quote or a single intraday session (`/api/option/contract`), **not** a multi-day historical series - and per-contract quotes aren't part of the standard tier anyway (see *What's gated*). If you need a longer options-quote history, contact support with the specifics.
+The derived history endpoints - GEX (`/api/gex/historical`), max pain, and signal history - support multi-day windows. Per-contract option quotes are the exception: they aren't available through the API at all, current or historical (see *What's gated*).
 
 ## What's gated
 
 - API access requires a **Pro** account. Basic and Public accounts cannot generate keys.
-- Raw upstream market data - per-contract option quotes (both the latest quote and intraday contract history) - isn't part of the standard API tier. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. Need raw options data for a specific use case? Email support and we'll talk through the options.
+- Per-contract option quotes - the bid, ask and last for an individual contract, current or historical - aren't available through the API on any plan, and can't be enabled for an individual key; those endpoints return `403`. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. If your integration needs contract quotes, get them from your broker or a market data vendor.
 
 ## Best practices
 
