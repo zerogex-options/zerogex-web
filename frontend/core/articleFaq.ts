@@ -200,6 +200,24 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Traders typically favor momentum and breakout setups, widen stops and targets for the bigger ranges, and are more cautious fading moves, since dips and rips can accelerate rather than revert.',
     },
   ],
+  'forced-flow-and-zero-flow-explained': [
+    {
+      q: 'What is the zero-flow level?',
+      a: 'It is the price at which the modeled dealer book, carried to today\u2019s 4:00 PM ET close, would owe no hedging at all. With price held still, time decay already owes some amount of stock by the close; the zero-flow level is the price move whose own hedge cancels it.',
+    },
+    {
+      q: 'Is the zero-flow level a price target?',
+      a: 'No. It is where the modeled hedging nets to zero, built on an assumed dealer position. It says which way that hedging leans around the level, not where price will go, and ZeroGEX has not published a multi-session study of how often price closes near it.',
+    },
+    {
+      q: 'What is the difference between a magnet and a pivot?',
+      a: 'Both are zero-flow levels. At a magnet, dealers are modeled long gamma, so the hedging leans toward the level from both sides: net buying below, net selling above. At a pivot, they are modeled short gamma, so it leans away: net selling below, net buying above. The same price can be either, depending on the slope of the forced-flow curve through it.',
+    },
+    {
+      q: 'How is Forced Flow different from Hedging Flow?',
+      a: 'Forced Flow reprices the standing book and asks what hedging a move in price, time or implied volatility would force from here to the close. Hedging Flow estimates the hedge implied by the options that actually traded today. They share units and a sign convention, so they can be read side by side.',
+    },
+  ],
   'hedging-flow-explained': [
     {
       q: 'Does Hedging Flow show what dealers are actually buying or selling?',

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
@@ -75,6 +76,18 @@ export default function ForcedFlowPage() {
 
       {/* Track record: does the charm-into-close forecast actually work? */}
       <ForcedFlowTrackRecord symbol={symbol} />
+
+      <p className="mt-6 text-sm" style={{ color: 'var(--text-secondary)' }}>
+        How to read this page:{' '}
+        <Link href="/education/forced-flow-and-zero-flow-explained" className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline">
+          Forced Flow and Zero Flow explained
+        </Link>
+        , and the panel-by-panel{' '}
+        <Link href="/help/platform/forced-flow" className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline">
+          Forced Flow help guide
+        </Link>
+        .
+      </p>
     </PageShell>
   );
 }

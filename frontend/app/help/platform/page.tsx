@@ -191,6 +191,12 @@ const sections: Section[] = [
               "Estimated dealer hedging pressure from today's trades, against price\u00a0- the two views, what a flip is, and why put activity often reads as buying.",
           },
           {
+            href: '/help/platform/forced-flow',
+            title: 'Forced Flow',
+            blurb:
+              'The stock dealers would have to trade to stay hedged if price, time or vol moves\u00a0- The Read, the reprice curve, the full-session Field, magnets vs pivots, and the forecast track record.',
+          },
+          {
             href: '/help/platform/smart-money',
             title: 'Smart Money',
             blurb:

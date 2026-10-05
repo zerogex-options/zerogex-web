@@ -113,6 +113,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     subsection: 'Options Flow',
   },
   {
+    slug: 'forced-flow',
+    title: 'Forced Flow',
+    description: 'The stock dealers would have to trade to stay hedged if price, time or vol moves, and the zero-flow level.',
+    section: 'Metrics',
+    subsection: 'Options Flow',
+  },
+  {
     slug: 'smart-money',
     title: 'Smart Money',
     description: 'The smart-money screen\u00a0- block trades as they print and the call/put notional split.',

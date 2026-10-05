@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/forced-flow-and-zero-flow-explained',
+    kind: 'Published • October 5, 2026 • 16:00 UTC',
+    title: 'Forced Flow and Zero Flow Explained: Where Dealer Hedging Nets to Zero',
+    blurb:
+      'Forced Flow models the stock dealers would have to trade to stay hedged if price, time or implied volatility moves, and the zero-flow level is the one price where all of it cancels. How both are computed, why the same zero-flow price can be a magnet or a pivot, how the level moves through the day, and what the model does not claim.',
+  },
+  {
     href: '/education/zerogex-vs-menthorq',
     kind: 'Published • September 30, 2026 • 16:00 UTC',
     title: 'ZeroGEX vs MenthorQ (2026): Gamma Levels, Pricing & Coverage',

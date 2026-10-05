@@ -536,6 +536,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 15,
     kind: 'article',
   },
+  'forced-flow-and-zero-flow-explained': {
+    slug: 'forced-flow-and-zero-flow-explained',
+    href: '/education/forced-flow-and-zero-flow-explained',
+    title: 'Forced Flow and Zero Flow Explained: Where Dealer Hedging Nets to Zero',
+    blurb:
+      'Forced Flow models the stock dealers would have to trade to stay hedged if price, time or implied volatility moves. The zero-flow level is the one price where all of it cancels. How both are computed, why the same zero-flow price can be a magnet or a pivot, and what the model does not claim.',
+    description:
+      'Forced flow and the zero-flow level explained\u00a0- the dealer hedge the option book would force by the close, where it nets to zero, and magnet vs pivot.',
+    datePublished: '2026-10-05',
+    readMinutes: 11,
+    kind: 'article',
+  },
   'zerogex-vs-bullflow': {
     slug: 'zerogex-vs-bullflow',
     href: '/education/zerogex-vs-bullflow',
@@ -750,6 +762,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'delta-and-its-three-children',
     'why-we-dont-publish-dex',
     'vanna-and-charm-explained',
+    'forced-flow-and-zero-flow-explained',
   ],
   'delta-and-its-three-children': [
     'why-market-makers-trade-stock',
@@ -760,11 +773,13 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'vanna-when-fear-fades',
     'delta-and-its-three-children',
     'eod-pressure-explained',
+    'forced-flow-and-zero-flow-explained',
   ],
   'vanna-when-fear-fades': [
     'charm-the-clock-is-a-trader',
     'delta-and-its-three-children',
     'vanna-and-charm-explained',
+    'forced-flow-and-zero-flow-explained',
   ],
   'why-we-dont-publish-dex': [
     'why-market-makers-trade-stock',
@@ -772,10 +787,17 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     'hedging-flow-explained',
   ],
+  'forced-flow-and-zero-flow-explained': [
+    'charm-the-clock-is-a-trader',
+    'vanna-when-fear-fades',
+    'hedging-flow-explained',
+    'delta-and-its-three-children',
+  ],
   'hedging-flow-explained': [
     'net-volume-vs-directional-flow',
     'why-market-makers-trade-stock',
     'how-to-read-a-gamma-flip',
+    'forced-flow-and-zero-flow-explained',
   ],
   'zerogex-vs-bullflow': [
     'best-gex-tools',
