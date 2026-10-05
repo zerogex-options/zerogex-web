@@ -181,7 +181,7 @@ Ein praktischer Workflow:
 
 ### Schritt 1: Das Regime identifizieren
 
-Bevor irgendetwas anderes geschieht, prüfe, ob der Spot oberhalb oder unterhalb des Gamma-Flips liegt und wie groß das Net GEX ist. Allein diese Ablesung sagt dir, ob sich das Hedging gegen die Bewegung stemmt oder sie verstärkt - was darüber entscheidet, wie weit ein Fade oder ein Ausbruch gegen dich laufen kann, wenn er sich als falsch erweist.
+Bevor irgendetwas anderes geschieht, prüfe, ob der Spot oberhalb oder unterhalb des Gamma-Flips liegt und wie groß das Net GEX ist. Allein diese Ablesung sagt dir, ob sich das Hedging gegen die Bewegung stemmt oder sie verstärkt - was darüber entscheidet, wie weit ein Fade oder ein Ausbruch gegen dich laufen kann, wenn er sich als falsch erweist. Für den S&P 500 zeigen die [aktuellen SPX-Gamma-Levels](/spx-gamma-levels) den Flip und das Net GEX neben Call Wall, Put Wall und Max Pain.
 
 ### Schritt 2: Die Walls innerhalb des Regimes lesen
 

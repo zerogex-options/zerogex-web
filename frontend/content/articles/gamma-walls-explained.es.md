@@ -64,7 +64,7 @@ Los walls no se anuncian en la apertura y se mantienen fijos hasta el cierre. Mi
 
 **Asimetría.** El spot rara vez está en el medio. Cuando un wall está mucho más cerca que el otro, el wall cercano es el nivel que realmente se pone a prueba y el lejano es sobre todo contexto. Un spot situado un 0,3 % por debajo del call wall y un 1,4 % por encima del put wall es un día distinto de un spot a medio camino entre ambos: el primero tiene un punto de decisión a corto plazo, el segundo no.
 
-La trampa es leer la anchura o la asimetría sin el régimen. Ambas lecturas anteriores suponen gamma positiva. Por debajo del flip, ese mismo rango estrecho no es un pin - es una distancia corta entre dos niveles, y la cobertura se sumará a un movimiento que atraviese cualquiera de los dos.
+La trampa es leer la anchura o la asimetría sin el régimen. Ambas lecturas anteriores suponen gamma positiva. Por debajo del flip, ese mismo rango estrecho no es un pin - es una distancia corta entre dos niveles, y la cobertura se sumará a un movimiento que atraviese cualquiera de los dos. Para aplicar las tres lecturas - anchura, asimetría y régimen - al mercado de hoy, consulta el [gamma flip, el call wall y el put wall actuales de SPX](/spx-gamma-levels).
 
 ---
 

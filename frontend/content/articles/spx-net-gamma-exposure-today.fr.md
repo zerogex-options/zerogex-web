@@ -52,6 +52,8 @@ Quand les traders recherchent « SPX net gamma exposure zero cross », c'est exa
 - Spot proche du flip avec un net GEX proche de zéro → un marché instable et nerveux, susceptible de basculer dans un sens ou dans l'autre.
 - Spot en dessous du flip avec un net GEX négatif → le régime amplificateur domine.
 
+Pour savoir dans lequel de ces états se trouve le SPX, consultez les [niveaux gamma SPX du jour](/spx-gamma-levels).
+
 ---
 
 ## Pourquoi le book 0DTE du SPX fait bouger le chiffre du jour
