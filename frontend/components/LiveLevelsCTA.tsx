@@ -4,14 +4,14 @@ import { ArrowRight, BarChart2, Code2 } from 'lucide-react';
 type Props = {
   /**
    * Optional concept woven into the sub-headline, e.g. "put wall" →
-   * "See today's put wall in real time". Defaults to the generic
-   * gamma-levels headline when omitted.
+   * "See today's put wall". Defaults to the generic gamma-levels headline when
+   * omitted. Never "in real time": the box offers the free pages, which are
+   * delayed roughly 15 minutes; real time is the paid dashboard further down.
    */
   concept?: string;
   /**
    * Optional explicit headline that overrides the concept template. Use when a
-   * page needs precise wording — e.g. to avoid implying "in real time" next to
-   * the delayed-data offer below.
+   * page needs wording the template can't give.
    */
   headline?: string;
   /**
@@ -44,8 +44,7 @@ const linkClass =
  */
 export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
   const resolvedHeadline =
-    headline ??
-    (concept ? `See today's ${concept} in real time` : "See today's gamma levels in real time");
+    headline ?? (concept ? `See today's ${concept}` : "See today's gamma levels");
 
   return (
     <div className="zg-feature-shell mt-8 p-6 md:p-8">
