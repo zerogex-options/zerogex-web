@@ -208,6 +208,41 @@ short on Monday and blocked by the issuer on Thursday is stuck on the block;
 telling the member to wait for payday would be the wrong advice. Attempt-level
 counts sit beside it, which is why attempts exceed invoices.
 
+### Where the payment died — `network_status`
+
+A reason is not a location. `payment_intent_generic_payment_failed` / "The
+payment failed." reads the same whether the issuer refused the charge, Stripe
+Radar blocked it before any bank saw it, or Stripe never sent it at all. Since
+the diagnostic columns shipped, the webhook also reads the PaymentIntent and its
+latest charge (`core/paymentFailureDiagnostics.ts`) and stores where the attempt
+stopped:
+
+    network_status           approved_by_network | declined_by_network |
+                             not_sent_to_network | reversed_after_approval
+    outcome_type             issuer_declined | blocked (Radar) | invalid | …
+    outcome_reason           highest_risk_level, rule, insufficient_funds, …
+    risk_level / risk_score  Radar's verdict (the score needs Radar for Fraud Teams)
+    outcome_rule             the Radar rule that matched, by id
+    pi_error_*               the PaymentIntent's last_payment_error, kept apart
+                             from failure_code / decline_code, which prefer the
+                             charge's values
+    advice_code              confirm_card_data | do_not_try_again | try_again_later
+    network_advice_code      the network's own 2-digit retry advice
+    card_network, card_cvc_check, card_postal_check, card_3ds_result
+    diagnostic_error         a Stripe read that failed at capture; whatever was
+                             obtained is still on the row, and the same text is in
+                             the audit log as `payment_decline_diagnostic_error`
+
+**Observability only.** None of these feeds `category`, the dunning copy,
+retries, subscription state or access. A row captured before they existed has
+them all NULL, which `make decline-diagnostics` reports as `not_captured` rather
+than as "Stripe had nothing". Every Smart Retry attempt is its own row with its
+own charge: one PaymentIntent, a new `latest_charge` per try.
+
+`make decline-diagnostics` (read-only, `DAYS=<n>`, default 30) prints a count by
+stage and then every attempt; the SQL and the meaning of each stage are in
+`frontend/scripts/decline-diagnostics.sql`.
+
 ## When a transient code stops being transient
 
 `try_again` is the only category whose advice rests on a PREDICTION — that

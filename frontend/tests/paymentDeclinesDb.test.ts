@@ -1252,3 +1252,302 @@ test('the report carries per-source rows built from the live join', () => {
   const summed = report.bySignupSource.reduce((total, entry) => total + entry.attemptedInvoices, 0);
   assert.equal(summed, report.totals.attemptedInvoices);
 });
+
+// ---------------------------------------------------------------------------
+// Diagnostics: WHERE the payment died (core/paymentFailureDiagnostics.ts)
+// ---------------------------------------------------------------------------
+
+type Diagnostics = NonNullable<Parameters<typeof recordPaymentDecline>[0]['diagnostics']>;
+
+function diagnostics(overrides: {
+  paymentIntentId?: string | null;
+  paymentIntentStatus?: string | null;
+  chargeId?: string | null;
+  intentError?: Partial<NonNullable<Diagnostics['intentError']>> | null;
+  outcome?: Partial<NonNullable<Diagnostics['outcome']>> | null;
+  method?: Partial<NonNullable<Diagnostics['method']>> | null;
+  errors?: string[];
+}): Diagnostics {
+  return {
+    paymentIntentId: overrides.paymentIntentId ?? null,
+    paymentIntentStatus: overrides.paymentIntentStatus ?? null,
+    chargeId: overrides.chargeId ?? null,
+    intentError:
+      overrides.intentError === null || overrides.intentError === undefined
+        ? null
+        : {
+            type: null,
+            code: null,
+            declineCode: null,
+            adviceCode: null,
+            networkAdviceCode: null,
+            networkDeclineCode: null,
+            message: null,
+            ...overrides.intentError,
+          },
+    outcome:
+      overrides.outcome === null || overrides.outcome === undefined
+        ? null
+        : {
+            networkStatus: null,
+            type: null,
+            reason: null,
+            riskLevel: null,
+            riskScore: null,
+            rule: null,
+            sellerMessage: null,
+            adviceCode: null,
+            networkAdviceCode: null,
+            networkDeclineCode: null,
+            ...overrides.outcome,
+          },
+    method:
+      overrides.method === null || overrides.method === undefined
+        ? null
+        : {
+            type: null,
+            brand: null,
+            network: null,
+            last4: null,
+            country: null,
+            funding: null,
+            postalCheck: null,
+            cvcCheck: null,
+            threeDSecureResult: null,
+            threeDSecureResultReason: null,
+            ...overrides.method,
+          },
+    errors: overrides.errors ?? [],
+  };
+}
+
+const issuerDecline = diagnostics({
+  paymentIntentId: 'pi_diag',
+  paymentIntentStatus: 'requires_payment_method',
+  chargeId: 'ch_diag',
+  intentError: {
+    type: 'card_error',
+    code: 'card_declined',
+    declineCode: 'insufficient_funds',
+    adviceCode: 'try_again_later',
+    networkAdviceCode: '01',
+    networkDeclineCode: '51',
+    message: 'Your card has insufficient funds.',
+  },
+  outcome: {
+    networkStatus: 'declined_by_network',
+    type: 'issuer_declined',
+    reason: 'insufficient_funds',
+    riskLevel: 'normal',
+    riskScore: 23,
+  },
+  method: {
+    type: 'card',
+    brand: 'visa',
+    network: 'visa',
+    last4: '4242',
+    country: 'US',
+    funding: 'debit',
+    cvcCheck: 'pass',
+    postalCheck: 'pass',
+    threeDSecureResult: 'authenticated',
+    threeDSecureResultReason: null,
+  },
+});
+
+test('diagnostics land in their own columns and never move the category', () => {
+  recordPaymentDecline({
+    invoiceId: 'in_diag_issuer',
+    attemptCount: 1,
+    chargeId: 'ch_diag',
+    amountDue: 4900,
+    // The decline the email is chosen from says 'unknown' …
+    decline: { code: 'card_declined', declineCode: null, networkDeclineCode: null, message: 'The payment failed.', sellerMessage: null },
+    failedAt: ago(1),
+    // … and the diagnostics, which know better, are not allowed to change that.
+    diagnostics: issuerDecline,
+  });
+
+  const [row] = declineRows('in_diag_issuer');
+  assert.equal(row.category, 'unknown');
+  assert.equal(row.network_decline_code, null, 'existing columns keep reading only the decline');
+  assert.equal(row.payment_intent_id, 'pi_diag');
+  assert.equal(row.payment_intent_status, 'requires_payment_method');
+  assert.equal(row.pi_error_type, 'card_error');
+  assert.equal(row.pi_error_code, 'card_declined');
+  assert.equal(row.pi_error_decline_code, 'insufficient_funds');
+  assert.equal(row.pi_error_message, 'Your card has insufficient funds.');
+  assert.equal(row.advice_code, 'try_again_later');
+  assert.equal(row.network_advice_code, '01');
+  assert.equal(row.network_status, 'declined_by_network');
+  assert.equal(row.outcome_type, 'issuer_declined');
+  assert.equal(row.outcome_reason, 'insufficient_funds');
+  assert.equal(row.risk_level, 'normal');
+  assert.equal(row.risk_score, 23);
+  assert.equal(row.card_network, 'visa');
+  assert.equal(row.card_cvc_check, 'pass');
+  assert.equal(row.card_postal_check, 'pass');
+  assert.equal(row.card_3ds_result, 'authenticated');
+  assert.equal(row.diagnostic_error, null);
+});
+
+test('advice codes fall back to the charge outcome when the intent has none', () => {
+  recordPaymentDecline({
+    invoiceId: 'in_diag_advice',
+    attemptCount: 1,
+    amountDue: 4900,
+    failedAt: ago(1),
+    diagnostics: diagnostics({
+      paymentIntentId: 'pi_advice',
+      outcome: { networkStatus: 'declined_by_network', adviceCode: 'do_not_try_again', networkAdviceCode: '03' },
+    }),
+  });
+  const [row] = declineRows('in_diag_advice');
+  assert.equal(row.advice_code, 'do_not_try_again');
+  assert.equal(row.network_advice_code, '03');
+});
+
+test('repeated Smart Retry attempts keep one row each, each with its own charge', () => {
+  recordPaymentDecline({
+    invoiceId: 'in_diag_retry',
+    attemptCount: 1,
+    chargeId: 'ch_try1',
+    amountDue: 4900,
+    failedAt: ago(5),
+    diagnostics: diagnostics({
+      paymentIntentId: 'pi_retry',
+      chargeId: 'ch_try1',
+      outcome: { networkStatus: 'declined_by_network', type: 'issuer_declined', reason: 'insufficient_funds' },
+    }),
+  });
+  recordPaymentDecline({
+    invoiceId: 'in_diag_retry',
+    attemptCount: 2,
+    chargeId: 'ch_try2',
+    amountDue: 4900,
+    failedAt: ago(2),
+    diagnostics: diagnostics({
+      paymentIntentId: 'pi_retry',
+      chargeId: 'ch_try2',
+      outcome: { networkStatus: 'not_sent_to_network', type: 'blocked', reason: 'rule', rule: 'rule_cvc' },
+    }),
+  });
+  // A redelivery of attempt 1 that could not reach Stripe: it must not erase
+  // what the first delivery read.
+  recordPaymentDecline({
+    invoiceId: 'in_diag_retry',
+    attemptCount: 1,
+    amountDue: 4900,
+    failedAt: ago(5),
+    diagnostics: diagnostics({ errors: ['paymentIntents.retrieve pi_retry: timeout'] }),
+    diagnosticError: 'paymentIntents.retrieve pi_retry: timeout',
+  });
+
+  const rows = declineRows('in_diag_retry');
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].charge_id, 'ch_try1');
+  assert.equal(rows[0].network_status, 'declined_by_network');
+  assert.equal(rows[0].outcome_reason, 'insufficient_funds');
+  assert.equal(rows[0].payment_intent_id, 'pi_retry');
+  assert.equal(rows[0].diagnostic_error, 'paymentIntents.retrieve pi_retry: timeout');
+  assert.equal(rows[1].charge_id, 'ch_try2');
+  assert.equal(rows[1].network_status, 'not_sent_to_network');
+  assert.equal(rows[1].outcome_type, 'blocked');
+  assert.equal(rows[1].outcome_rule, 'rule_cvc');
+  assert.equal(rows[1].payment_intent_id, 'pi_retry');
+});
+
+test('a failed Stripe read still writes the row, with what was obtained and why the rest is missing', () => {
+  const ok = recordPaymentDecline({
+    invoiceId: 'in_diag_partial',
+    attemptCount: 1,
+    amountDue: 4900,
+    decline: null,
+    failedAt: ago(1),
+    diagnostics: diagnostics({
+      paymentIntentId: 'pi_partial',
+      chargeId: 'ch_partial',
+      outcome: { networkStatus: 'declined_by_network', type: 'issuer_declined' },
+      errors: ['paymentIntents.retrieve pi_partial: Stripe is down'],
+    }),
+    diagnosticError: 'decline lookup: Stripe is down; paymentIntents.retrieve pi_partial: Stripe is down',
+  });
+  assert.equal(ok, true);
+  const [row] = declineRows('in_diag_partial');
+  assert.equal(row.category, 'unknown');
+  assert.equal(row.payment_intent_id, 'pi_partial');
+  assert.equal(row.network_status, 'declined_by_network');
+  assert.equal(row.pi_error_code, null);
+  assert.equal(row.diagnostic_error, 'decline lookup: Stripe is down; paymentIntents.retrieve pi_partial: Stripe is down');
+});
+
+test('the decline-diagnostics report runs against this schema and names each stage', () => {
+  // The exact SQL `make decline-diagnostics` runs, so a renamed column fails here
+  // rather than on production.
+  const sql = fs
+    .readFileSync(new URL('../scripts/decline-diagnostics.sql', import.meta.url), 'utf8')
+    .replaceAll('__DAYS__', '3650');
+  const statements = sql
+    .split(/;\s*(?:\n|$)/)
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.split('\n').some((line) => line.trim() && !line.trim().startsWith('--')));
+  assert.equal(statements.length, 2);
+
+  recordPaymentDecline({
+    invoiceId: 'in_stage_radar',
+    attemptCount: 1,
+    amountDue: 4900,
+    decline: { code: 'card_declined', declineCode: 'highest_risk_level', networkDeclineCode: null, message: null, sellerMessage: null },
+    failedAt: ago(1),
+    diagnostics: diagnostics({
+      paymentIntentId: 'pi_radar',
+      chargeId: 'ch_radar',
+      outcome: { networkStatus: 'not_sent_to_network', type: 'blocked', reason: 'highest_risk_level', riskLevel: 'highest', riskScore: 91 },
+    }),
+  });
+  recordPaymentDecline({
+    invoiceId: 'in_stage_invalid',
+    attemptCount: 1,
+    amountDue: 4900,
+    failedAt: ago(1),
+    diagnostics: diagnostics({ paymentIntentId: 'pi_invalid', outcome: { networkStatus: 'not_sent_to_network', type: 'invalid' } }),
+  });
+  recordPaymentDecline({
+    invoiceId: 'in_stage_3ds',
+    attemptCount: 1,
+    amountDue: 4900,
+    failedAt: ago(1),
+    diagnostics: diagnostics({ paymentIntentId: 'pi_3ds', paymentIntentStatus: 'requires_action' }),
+  });
+  recordPaymentDecline({
+    invoiceId: 'in_stage_failed',
+    attemptCount: 1,
+    amountDue: 4900,
+    failedAt: ago(1),
+    diagnostics: diagnostics({ errors: ['no PaymentIntent found for invoice in_stage_failed'] }),
+    diagnosticError: 'no PaymentIntent found for invoice in_stage_failed',
+  });
+  // Recorded before the diagnostic columns existed.
+  recordPaymentDecline({ invoiceId: 'in_stage_old', attemptCount: 1, amountDue: 4900, failedAt: ago(1) });
+
+  const summary = db.prepare(statements[0]).all() as Row[];
+  assert.ok(summary.length > 0);
+  assert.ok(summary.every((row) => typeof row.stage === 'string' && Number(row.attempts) >= Number(row.invoices)));
+
+  const itemized = db.prepare(statements[1]).all() as Row[];
+  const stageOf = (invoiceId: string) => itemized.find((row) => row.invoice_id === invoiceId)?.stage;
+  assert.equal(stageOf('in_diag_issuer'), 'issuer_declined');
+  assert.equal(stageOf('in_stage_radar'), 'blocked_by_stripe_radar');
+  assert.equal(stageOf('in_stage_invalid'), 'not_sent_to_network');
+  assert.equal(stageOf('in_stage_3ds'), 'no_charge_attempted');
+  assert.equal(stageOf('in_stage_failed'), 'lookup_failed');
+  assert.equal(stageOf('in_stage_old'), 'not_captured');
+
+  const radar = itemized.find((row) => row.invoice_id === 'in_stage_radar');
+  assert.equal(radar?.risk_level, 'highest');
+  assert.equal(radar?.risk_score, 91);
+  assert.equal(radar?.category, 'blocked_by_risk');
+  for (const column of ['network_status', 'outcome_reason', 'risk_level', 'risk_score', 'decline_code', 'network_decline_code', 'network_advice_code']) {
+    assert.ok(column in (radar ?? {}), `the report prints ${column}`);
+  }
+});

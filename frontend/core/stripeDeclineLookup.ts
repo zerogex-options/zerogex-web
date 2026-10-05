@@ -59,6 +59,18 @@ export type InvoiceDeclineLookup = {
   declines: ChargeDecline[];
   /** True when the reason came from a charge OTHER than the invoice's latest. */
   fromHistory: boolean;
+  /**
+   * The payment intent behind the attempt, when one was resolved — handed on to
+   * core/paymentFailureDiagnostics.ts so it does not re-read the invoice.
+   */
+  paymentIntentId: string | null;
+  /**
+   * Why the lookup gave up, when a Stripe read threw. Null on every path that
+   * ran to the end, including the ones that found no reason. Kept rather than
+   * swallowed so the caller can write it down; the lookup itself still never
+   * throws.
+   */
+  error: string | null;
 };
 
 const EMPTY: InvoiceDeclineLookup = {
@@ -67,7 +79,18 @@ const EMPTY: InvoiceDeclineLookup = {
   card: null,
   declines: [],
   fromHistory: false,
+  paymentIntentId: null,
+  error: null,
 };
+
+function idOf(value: unknown): string | null {
+  if (typeof value === 'string') return value || null;
+  if (value && typeof value === 'object') {
+    const id = (value as { id?: unknown }).id;
+    if (typeof id === 'string' && id) return id;
+  }
+  return null;
+}
 
 function cardOf(charge: Stripe.Charge | null | undefined): DeclineCard | null {
   const details = charge?.payment_method_details;
@@ -117,18 +140,35 @@ export async function lookupInvoiceDecline(
   stripe: Stripe,
   invoice: unknown,
 ): Promise<InvoiceDeclineLookup> {
+  // What has been resolved so far, so a read that throws part-way still hands
+  // back the ids it got to.
+  let chargeId: string | null = null;
+  let paymentIntentId: string | null = null;
   try {
     invoice = await invoiceWithPaymentRefs(stripe, invoice);
+    chargeId = readInvoiceChargeId(invoice);
+    paymentIntentId = readInvoicePaymentIntentId(invoice);
 
-    const chargeId = readInvoiceChargeId(invoice);
     if (chargeId) {
       const charge = await stripe.charges.retrieve(chargeId);
+      paymentIntentId = paymentIntentId ?? idOf(charge.payment_intent);
       const decline = readChargeDecline(charge);
       if (decline) {
-        return { chargeId, decline, card: cardOf(charge), declines: [decline], fromHistory: false };
+        return {
+          chargeId,
+          decline,
+          card: cardOf(charge),
+          declines: [decline],
+          fromHistory: false,
+          paymentIntentId,
+          error: null,
+        };
       }
     }
 
+    // Read off the invoice only, exactly as before: the intent found on the
+    // charge above is reported, but it does not get to change which decline —
+    // and so which dunning copy — this lookup returns.
     const intentId = readInvoicePaymentIntentId(invoice);
     if (intentId) {
       const intent = await stripe.paymentIntents.retrieve(intentId, { expand: ['latest_charge'] });
@@ -142,15 +182,20 @@ export async function lookupInvoiceDecline(
           card: cardOf(charge),
           declines: [decline],
           fromHistory: false,
+          paymentIntentId: intentId,
+          error: null,
         };
       }
     }
 
-    return await lookupDeclinesInHistory(stripe, invoice);
-  } catch {
-    // Best-effort by design — see the module header.
+    const history = await lookupDeclinesInHistory(stripe, invoice);
+    return { ...history, paymentIntentId: history.paymentIntentId ?? paymentIntentId };
+  } catch (err) {
+    // Best-effort by design — see the module header. Nothing found is returned
+    // as nothing found; the ids and the error are only for the caller's record.
+    const message = err instanceof Error ? err.message : String(err);
+    return { ...EMPTY, chargeId, paymentIntentId, error: message.slice(0, 300) };
   }
-  return EMPTY;
 }
 
 /**
@@ -214,6 +259,8 @@ async function lookupDeclinesInHistory(
     card: cardOf(failed[0]),
     declines,
     fromHistory: true,
+    paymentIntentId: idOf(failed[0].payment_intent),
+    error: null,
   };
 }
 

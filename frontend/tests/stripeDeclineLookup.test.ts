@@ -121,3 +121,42 @@ test('something that is not an invoice is not looked up', async () => {
   }
   assert.deepEqual(calls, []);
 });
+
+// What the lookup now hands on to core/paymentFailureDiagnostics.ts: the intent
+// it resolved, and — instead of silence — why it gave up.
+
+test('the payment intent the lookup resolved is handed on', async () => {
+  const { stripe } = fakeStripe();
+  const lookup = await lookupInvoiceDecline(stripe, basilEvent);
+  assert.equal(lookup.paymentIntentId, 'pi_1');
+  assert.equal(lookup.error, null);
+});
+
+test('a Stripe failure part-way keeps the ids already resolved, and says why', async () => {
+  const { stripe } = fakeStripe({
+    charge: () => {
+      throw new Error('Stripe is down');
+    },
+  });
+  const lookup = await lookupInvoiceDecline(stripe, basilEvent);
+  // Still nothing to classify — the email reads exactly what it did before.
+  assert.equal(lookup.decline, null);
+  assert.equal(lookup.chargeId, 'ch_1');
+  assert.equal(lookup.paymentIntentId, 'pi_1');
+  assert.equal(lookup.error, 'Stripe is down');
+});
+
+test("an intent found only on the charge is reported but does not change the decline", async () => {
+  // The invoice names a charge with no decline data and no intent of its own.
+  // Before, that ended with no reason; reading the charge's intent for the
+  // REASON would change which dunning copy the member gets. It is reported only.
+  const { stripe, calls } = fakeStripe({
+    invoice: () => ({ id: 'in_1', charge: 'ch_ok', payment_intent: null }),
+    charge: () => ({ id: 'ch_ok', status: 'succeeded', payment_intent: 'pi_from_charge' }),
+    intent: () => ({ id: 'pi_from_charge', last_payment_error: { code: 'card_declined', decline_code: 'insufficient_funds' } }),
+  });
+  const lookup = await lookupInvoiceDecline(stripe, basilEvent);
+  assert.equal(lookup.decline, null);
+  assert.equal(lookup.paymentIntentId, 'pi_from_charge');
+  assert.deepEqual(calls, ['invoices.retrieve in_1', 'charges.retrieve ch_ok']);
+});
