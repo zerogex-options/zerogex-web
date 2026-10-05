@@ -8,12 +8,16 @@
 
      Validated as a categorical palette over ALL pairs (any two states can sit
      next to each other in time, and all five sit side by side in the legend),
-     under protanopia and deuteranopia: worst pair dE 8.3 CVD and 16.8 normal
-     vision, every hue >= 3:1 on its surface. Amber and red are separated by
-     lightness as well as hue because deuteranopia collapses that hue pair.
-     Re-run the palette validator before changing any of these. */
+     under protanopia and deuteranopia: worst pair dE 8.3 CVD and 19.5 normal
+     vision, every hue >= 3:1 on its surface and inside the light band. Amber
+     and red are separated by lightness as well as hue because deuteranopia
+     collapses that hue pair. Supported dip is violet, not blue: against Stable
+     bid's teal the blue measured 16.8 normal vision in dark mode, the weakest
+     pair in the set, and 13.7 against the Mixed slate, under the floor. See
+     core/weatherStateColors.ts. Re-run the palette validator before changing
+     any of these, with the neutral in the pair list. */
   --color-weather-stable-bid: #0E8A7A;
-  --color-weather-supported-dip: #1D4ED8;
+  --color-weather-supported-dip: #7C3AED;
   --color-weather-fragile-rally: #A16207;
   --color-weather-unstable: #9F1239;
   --color-weather-mixed: #64748B;
@@ -221,9 +225,12 @@
 :root.dark {
   /* Gamma Weather states, stepped for the dark surface rather than flipped
      from the light values. Same all-pairs validation: worst pair dE 8.3 CVD,
-     16.8 normal vision, every hue >= 3:1 on the dark chart surface. */
+     19.5 normal vision, every hue >= 3:1 on the dark chart surface and inside
+     the dark band of L 0.48-0.67. The violet is #9B7BF5 rather than the
+     #A78BFA it was drawn from, which sits at L 0.709 and would have read
+     brighter than the four states beside it. */
   --color-weather-stable-bid: #0FA899;
-  --color-weather-supported-dip: #4A90F0;
+  --color-weather-supported-dip: #9B7BF5;
   --color-weather-fragile-rally: #C08400;
   --color-weather-unstable: #D43D63;
   --color-weather-mixed: #94A3B8;
