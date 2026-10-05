@@ -52,6 +52,8 @@ Cuando los traders buscan "SPX net gamma exposure zero cross," se refieren preci
 - Spot cerca del flip con net GEX próximo a cero → un mercado inestable y errático que puede inclinarse hacia cualquier lado.
 - Spot por debajo del flip con net GEX negativo → el régimen amplificador tiene el control.
 
+Para ver en cuál de esos estados está el SPX, consulta los [niveles gamma de SPX de hoy](/spx-gamma-levels).
+
 ---
 
 ## Por qué el libro 0DTE de SPX hace que el número de hoy se mueva

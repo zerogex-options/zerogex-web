@@ -64,7 +64,7 @@ Walls werden nicht beim Open verkündet und bleiben bis zum Close bestehen. Sie 
 
 **Asymmetrie.** Der Spot sitzt selten in der Mitte. Wenn eine Wall deutlich näher liegt als die andere, ist die nahe Wall das Level, das tatsächlich getestet wird, und die ferne ist überwiegend Kontext. Ein Spot 0,3 % unter der Call Wall und 1,4 % über der Put Wall ist ein anderer Tag als ein Spot auf halbem Weg zwischen beiden: Der erste hat einen kurzfristigen Entscheidungspunkt, der zweite nicht.
 
-Die Falle besteht darin, Breite oder Asymmetrie ohne das Regime zu lesen. Beide Lesarten oben setzen positives Gamma voraus. Unterhalb des Flips ist dieselbe enge Spanne kein Pin - sie ist eine kurze Distanz zwischen zwei Levels, und Hedging verstärkt eine Bewegung durch jedes der beiden.
+Die Falle besteht darin, Breite oder Asymmetrie ohne das Regime zu lesen. Beide Lesarten oben setzen positives Gamma voraus. Unterhalb des Flips ist dieselbe enge Spanne kein Pin - sie ist eine kurze Distanz zwischen zwei Levels, und Hedging verstärkt eine Bewegung durch jedes der beiden. Um alle drei Lesarten - Breite, Asymmetrie und Regime - auf den heutigen Markt anzuwenden, prüfe den [aktuellen Gamma Flip, die Call Wall und die Put Wall von SPX](/spx-gamma-levels).
 
 ---
 

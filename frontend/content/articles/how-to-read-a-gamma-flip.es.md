@@ -62,7 +62,7 @@ Esto también es una inclinación probabilística, no un pronóstico. Un solo ti
 
 Leer el gamma flip en tiempo real es un breve conjunto de hábitos:
 
-1. **Revisa primero el régimen.** Antes de cualquier setup, ten claro si el spot está por encima o por debajo del flip. Esa sola lectura te dice si la cobertura está a tu favor o en tu contra.
+1. **Revisa primero el régimen.** Antes de cualquier setup, ten claro si el spot está por encima o por debajo del flip. Esa sola lectura te dice si la cobertura está a tu favor o en tu contra. Para el S&P 500, compara el spot con el [gamma flip de SPX de hoy](/spx-gamma-levels).
 2. **Observa la distancia al flip.** Un spot claramente alejado del flip con un margen saludable es una lectura de régimen estable. Un spot encajonado dentro de unas pocas décimas de porcentaje es un régimen disputado - ambos lados del libro están parcialmente activos, y el comportamiento es inestable. Reduce el tamaño o quédate al margen.
 3. **Vigila la migración.** Los niveles de flip se desplazan a medida que el posicionamiento se reequilibra. Un flip que deriva hacia arriba junto con el precio tiene un significado distinto al de uno anclado mientras el precio se mueve hacia él.
 4. **Combina el flip con los walls.** El flip te indica el régimen; el [call wall y put wall](/education/gamma-walls-explained) te indican los límites estructurales dentro de él. Léelos juntos.

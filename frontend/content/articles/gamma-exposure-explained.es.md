@@ -181,7 +181,7 @@ Un flujo de trabajo práctico:
 
 ### Paso 1: Identifica el régimen
 
-Antes que nada, comprueba si el spot está por encima o por debajo del gamma flip y cuál es la magnitud del Net GEX. Esa única lectura te dice si la cobertura se está oponiendo al movimiento o sumándose a él - lo que decide hasta dónde puede irse en tu contra un fade o un breakout cuando sale mal.
+Antes que nada, comprueba si el spot está por encima o por debajo del gamma flip y cuál es la magnitud del Net GEX. Esa única lectura te dice si la cobertura se está oponiendo al movimiento o sumándose a él - lo que decide hasta dónde puede irse en tu contra un fade o un breakout cuando sale mal. Para el S&P 500, los [niveles gamma actuales de SPX](/spx-gamma-levels) muestran el flip y el Net GEX junto al call wall, el put wall y el max pain.
 
 ### Paso 2: Lee los walls dentro del régimen
 

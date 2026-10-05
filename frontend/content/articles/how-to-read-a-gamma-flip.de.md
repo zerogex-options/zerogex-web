@@ -62,7 +62,7 @@ Auch das ist eine probabilistische Tendenz, keine Prognose. Eine einzelne beruhi
 
 Den Gamma Flip in Echtzeit zu lesen, ist eine kurze Reihe von Gewohnheiten:
 
-1. **Zuerst das Regime prüfen.** Vor jedem Setup wissen, ob der Spot über oder unter dem Flip liegt. Allein diese Lesart zeigt, ob das Hedging für oder gegen Sie arbeitet.
+1. **Zuerst das Regime prüfen.** Vor jedem Setup wissen, ob der Spot über oder unter dem Flip liegt. Allein diese Lesart zeigt, ob das Hedging für oder gegen Sie arbeitet. Für den S&P 500 den Spot mit dem [heutigen Gamma Flip von SPX](/spx-gamma-levels) vergleichen.
 2. **Den Abstand zum Flip beobachten.** Ein Spot, der mit gesundem Abstand klar vom Flip entfernt ist, ist eine stabile Regime-Lesart. Ein Spot, der innerhalb weniger Zehntel Prozent eingeklemmt ist, kennzeichnet ein umkämpftes Regime - beide Seiten des Buchs sind teilweise aktiv, und das Verhalten ist instabil. Positionsgröße reduzieren oder aussetzen.
 3. **Auf Migration achten.** Flip-Level verschieben sich, während sich das Positioning neu ausbalanciert. Ein Flip, der zusammen mit dem Preis nach oben driftet, hat eine andere Bedeutung als einer, der verankert bleibt, während sich der Preis darauf zubewegt.
 4. **Den Flip mit den Walls kombinieren.** Der Flip verrät das Regime; [Call Wall und Put Wall](/education/gamma-walls-explained) verraten die strukturellen Grenzen darin. Beide zusammen lesen.

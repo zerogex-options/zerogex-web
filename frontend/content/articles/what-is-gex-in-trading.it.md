@@ -43,7 +43,7 @@ Il GEX non è solo un numero; corrisponde a livelli di prezzo specifici da tener
 - **Call wall** - lo strike con il maggiore gamma call sopra lo spot, dove in regime di gamma positivo l'hedging si oppone ai rally.
 - **Put wall** - lo strike con il maggiore gamma put sotto lo spot, dove in regime di gamma positivo l'hedging aggregato si oppone ai dip.
 
-Il call wall e il put wall delineano il range che i dealer difendono; il gamma flip ti dice se il loro hedging si oppone a un movimento verso i bordi o rafforza un movimento che li oltrepassa. [Gamma Walls Explained](/education/gamma-walls-explained) approfondisce entrambi i wall.
+Il call wall e il put wall delineano il range che i dealer difendono; il gamma flip ti dice se il loro hedging si oppone a un movimento verso i bordi o rafforza un movimento che li oltrepassa. [Gamma Walls Explained](/education/gamma-walls-explained) approfondisce entrambi i wall. Per vedere come appaiono questi livelli nel mercato attuale, consulta i [livelli gamma SPX di oggi](/spx-gamma-levels).
 
 ---
 
