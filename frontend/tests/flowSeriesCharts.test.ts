@@ -19,6 +19,7 @@ const {
   getDynamicStep,
   getETTimeTimestamp,
   getFiveMinuteSessionTimeline,
+  getSessionTimeline,
   getUnderlyingDomain,
   is30MinBoundary,
   netDirectionalPremiumSeries,
@@ -29,6 +30,8 @@ const {
   optionsFlowSeries,
   roundToStep,
   safeTimeLabel,
+  timelineStepMs,
+  FLOW_TIMEFRAME_MINUTES,
   NET_VOLUME_MODE_LABELS,
 } = await import('../core/flowSeriesCharts.ts');
 
@@ -73,6 +76,32 @@ test('the 5-minute session timeline runs 09:30 to 16:15 ET on even 5-minute slot
 
 test('an unparseable date key yields no timeline rather than a bogus one', () => {
   assert.deepEqual(getFiveMinuteSessionTimeline('not-a-date'), []);
+});
+
+test('the 1-minute session timeline covers the same session in 406 one-minute slots', () => {
+  const timeline = getSessionTimeline('2026-08-17', FLOW_TIMEFRAME_MINUTES['1min']);
+  assert.equal(timeline.length, 406);
+  assert.equal(timeline[0], BAR(0));
+  assert.equal(timeline[timeline.length - 1], BAR(405));
+  for (let i = 1; i < timeline.length; i++) {
+    const step = new Date(timeline[i]).getTime() - new Date(timeline[i - 1]).getTime();
+    assert.equal(step, 60_000);
+  }
+  // Every 5-minute slot is also a 1-minute slot, so the two grids line up.
+  const minutes = new Set(timeline);
+  assert.ok(getFiveMinuteSessionTimeline('2026-08-17').every((t) => minutes.has(t)));
+});
+
+test('the 5-minute timeline is the default step, unchanged', () => {
+  assert.deepEqual(getSessionTimeline('2026-08-17'), getFiveMinuteSessionTimeline('2026-08-17'));
+  assert.deepEqual(getSessionTimeline('2026-08-17', 0), []);
+});
+
+test('timelineStepMs reads the bar length off the grid, 5 minutes when it cannot', () => {
+  assert.equal(timelineStepMs(getSessionTimeline('2026-08-17', 1)), 60_000);
+  assert.equal(timelineStepMs(getFiveMinuteSessionTimeline('2026-08-17')), 5 * 60_000);
+  assert.equal(timelineStepMs([BAR(0)]), 5 * 60_000);
+  assert.equal(timelineStepMs([]), 5 * 60_000);
 });
 
 test('getETTimeTimestamp resolves ET wall-clock across the DST boundary', () => {
@@ -166,6 +195,12 @@ test('a bar window is complete only once its full 5 minutes have elapsed', () =>
   assert.equal(isBarWindowComplete('nonsense', barMs), true);
 });
 
+test('a 1-minute bar window closes after one minute when told its length', () => {
+  const startMs = new Date(BAR(0)).getTime();
+  assert.equal(isBarWindowComplete(BAR(0), startMs + 59_000, 60_000), false);
+  assert.equal(isBarWindowComplete(BAR(0), startMs + 60_000, 60_000), true);
+});
+
 test('an all-zero row inside a still-open bar is blanked, not plotted at zero', () => {
   const zeroed = mapSeriesToFlowTimeseries(
     [row(0, { call_premium_cum: 0, put_premium_cum: 0, net_volume_cum: 0 })],
@@ -220,6 +255,27 @@ test('optionsFlowSeries maps, aligns and masks in one pass over the session grid
   const closed = optionsFlowSeries(rows, timeline, 'directional', nowInsideTip + 5 * 60_000);
   assert.equal(closed[3].callPremium, 0);
   assert.equal(closed[4].callPremium, null);
+});
+
+test('optionsFlowSeries on a 1-minute grid keeps every bar and masks only for one minute', () => {
+  const timeline = getSessionTimeline('2026-08-17', 1);
+  const rows = [
+    row(0, { call_premium_cum: 100 }),
+    row(1, { call_premium_cum: 200 }),
+    row(2, { call_premium_cum: 300 }),
+    // The tip bar opened at 09:33 and has reported nothing yet.
+    row(3, { call_premium_cum: 0, put_premium_cum: 0, net_volume_cum: 0 }),
+  ];
+  const tipStart = new Date(BAR(3)).getTime();
+
+  const open = optionsFlowSeries(rows, timeline, 'directional', tipStart + 30_000);
+  // No 1-minute row is dropped by the alignment.
+  assert.deepEqual(open.slice(0, 3).map((r) => r.callPremium), [100, 200, 300]);
+  assert.equal(open[3].callPremium, null);
+
+  // Its window is one minute, not five: a minute later its zero is plotted.
+  const closed = optionsFlowSeries(rows, timeline, 'directional', tipStart + 60_000);
+  assert.equal(closed[3].callPremium, 0);
 });
 
 test('optionsFlowSeries returns nothing when the session grid could not be built', () => {

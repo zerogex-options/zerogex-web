@@ -8,7 +8,7 @@
 
 La page Flow Analysis est la **vue du tape** du marché des options. Là où Dealer Positioning montre le carnet statique, cette page montre le **flux** - ce qui s'est échangé aujourd'hui, et quel côté a franchi le spread pour l'échanger.
 
-Deux menus de l'en-tête s'appliquent à toute la page : **Session** (la séance en cours ou la précédente, pour voir si aujourd'hui sort vraiment de l'ordinaire) et **Volume basis** (**Directional** ou **Total Traded** - voir ci-dessous).
+Trois menus de l'en-tête s'appliquent à toute la page : **Session** (la séance en cours ou la précédente, pour voir si aujourd'hui sort vraiment de l'ordinaire), **Bars** (**5 min** ou **1 min** - la finesse avec laquelle les graphiques découpent la séance) et **Volume basis** (**Directional** ou **Total Traded** - voir ci-dessous).
 
 ## Les trois angles du flux
 
@@ -43,7 +43,7 @@ Les totaux de la séance au dernier barreau :
 
 - **Options Flow** - la prime nette des calls et celle des puts au fil de la séance face au prix du sous-jacent, avec une aire de volume en dessous selon la base choisie. Filtrable par strike ou par échéance.
 - **Net Directional Premium** - le total cumulé de la prime nette sur la séance, ombré au-dessus et en dessous de zéro.
-- **Put/Call Ratio** - le ratio cumulé de la séance à chaque barreau de 5 minutes.
+- **Put/Call Ratio** - le ratio cumulé de la séance à chaque barreau.
 - **Net Position (Buys vs. Sells)** - le volume net cumulé des calls et des puts, pour distinguer les achats des ventes, ce que le ratio ne permet pas.
 
 Chacun est tracé comme une série afin que vous puissiez voir la pente, pas seulement le niveau.

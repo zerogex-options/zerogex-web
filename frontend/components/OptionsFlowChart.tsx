@@ -57,13 +57,16 @@ import {
   getDateMarkerMeta,
   getDynamicLeftMargin,
   getDynamicStep,
-  getFiveMinuteSessionTimeline,
+  FLOW_TIMEFRAME_LABELS,
+  FLOW_TIMEFRAME_MINUTES,
+  getSessionTimeline,
   getUnderlyingDomain,
   is30MinBoundary,
   isMajorTwoHourTick,
   optionsFlowSeries,
   roundToStep,
   safeTimeLabel,
+  type FlowTimeframe,
   type FlowTimeseriesRow,
   type NetVolumeMode,
 } from '@/core/flowSeriesCharts';
@@ -89,7 +92,7 @@ const OPTIONS_FLOW_DEFAULTS: OptionsFlowSettings = {
 };
 
 const CHART_TOOLTIP =
-  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area\u00a0- on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
+  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area\u00a0- on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract that traded, in 5-minute or 1-minute bars. Use the filters below to narrow by strike or expiration.';
 
 // ── Filter chips ─────────────────────────────────────────────────────────────
 
@@ -662,10 +665,13 @@ export type OptionsFlowChartProps = {
   session?: FlowSession;
   /** Net-volume basis. Omit and the chart renders its own basis select. */
   netVolumeMode?: NetVolumeMode;
+  /** Bar size. Omit and the chart renders its own bars select. */
+  timeframe?: FlowTimeframe;
   /**
    * Unfiltered rows for `session`, when the caller already subscribes to them
    * (the Flow Analysis page does, for its other charts) — passing them keeps a
-   * second poll of the same feed from opening. Must be the rows for `session`.
+   * second poll of the same feed from opening. Must be the rows for `session`
+   * at `timeframe`.
    * Omit and the chart subscribes itself.
    */
   baseRows?: FlowSeriesPoint[] | null;
@@ -676,6 +682,7 @@ export type OptionsFlowChartProps = {
 export default function OptionsFlowChart({
   session: sessionProp,
   netVolumeMode: netVolumeModeProp,
+  timeframe: timeframeProp,
   baseRows,
   className = '',
 }: OptionsFlowChartProps) {
@@ -687,8 +694,10 @@ export default function OptionsFlowChart({
   // Controlled by the caller, or self-owned with a select in the header.
   const [ownSession, setOwnSession] = useState<FlowSession>('current');
   const [ownNetVolumeMode, setOwnNetVolumeMode] = useState<NetVolumeMode>('directional');
+  const [ownTimeframe, setOwnTimeframe] = useState<FlowTimeframe>('5min');
   const session = sessionProp ?? ownSession;
   const netVolumeMode = netVolumeModeProp ?? ownNetVolumeMode;
+  const timeframe = timeframeProp ?? ownTimeframe;
 
   // ── Display prefs (persisted) ───────────────────────────────────────────
   // Restored once in a lazy initializer — mirroring how symbol / GEX unit
@@ -774,6 +783,7 @@ export default function OptionsFlowChart({
   // us theirs) plus a filtered fetch that runs only while a chip is active.
   const { rows: ownBaseRows } = useFlowSeries(symbol, session, {
     enabled: baseRows === undefined,
+    timeframe,
   });
   const unfilteredRows = baseRows !== undefined ? baseRows : ownBaseRows;
 
@@ -787,6 +797,7 @@ export default function OptionsFlowChart({
   const { rows: filteredRows } = useFlowSeries(symbol, session, {
     enabled: hasActiveFilters,
     filters: serverFilters,
+    timeframe,
   });
 
   const sourceRows = useMemo(
@@ -796,10 +807,15 @@ export default function OptionsFlowChart({
 
   // ── Chart series ────────────────────────────────────────────────────────
   // The session grid is anchored to the date the rows themselves report, so a
-  // prior-session view lays out on that session's clock, not today's.
+  // prior-session view lays out on that session's clock, not today's. Its step
+  // is the bar size: rows land on slots by exact timestamp.
   const sessionTimeline = useMemo(
-    () => getFiveMinuteSessionTimeline(sessionDateKeyFromSeries(unfilteredRows ?? sourceRows)),
-    [unfilteredRows, sourceRows],
+    () =>
+      getSessionTimeline(
+        sessionDateKeyFromSeries(unfilteredRows ?? sourceRows),
+        FLOW_TIMEFRAME_MINUTES[timeframe],
+      ),
+    [unfilteredRows, sourceRows, timeframe],
   );
   const rows = useMemo(
     () => optionsFlowSeries(sourceRows, sessionTimeline, netVolumeMode),
@@ -866,6 +882,17 @@ export default function OptionsFlowChart({
                   { value: 'prior', label: 'Prior' },
                 ]}
                 onChange={setOwnSession}
+              />
+            )}
+            {timeframeProp === undefined && (
+              <InlineSelect<FlowTimeframe>
+                label="Bars"
+                value={timeframe}
+                options={[
+                  { value: '5min', label: FLOW_TIMEFRAME_LABELS['5min'] },
+                  { value: '1min', label: FLOW_TIMEFRAME_LABELS['1min'] },
+                ]}
+                onChange={setOwnTimeframe}
               />
             )}
             {netVolumeModeProp === undefined && (

@@ -404,8 +404,8 @@ export function GammaLadderPanel() {
 
 // ── Options Flow ──────────────────────────────────────────────────────────────
 
-// The "Options Flow" chart from /flow-analysis. Handed no session or basis prop,
-// it renders its own selectors for both alongside the underlying-price toggle,
+// The "Options Flow" chart from /flow-analysis. Handed no session, bars or basis
+// prop, it renders its own selectors for all three beside the underlying-price toggle,
 // and fetches its own session rows — so a tile is the full instrument, not a
 // read-only copy of the page's. It carries its own card chrome, so it renders
 // bare (no WidgetCard).

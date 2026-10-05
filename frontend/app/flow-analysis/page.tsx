@@ -42,14 +42,17 @@ import { etDateKeyFor } from "@/core/utils";
 // session timeline, labels and axis helpers from there so every chart on this
 // page lands on the same slots.
 import {
+  FLOW_TIMEFRAME_LABELS,
+  FLOW_TIMEFRAME_MINUTES,
   NET_VOLUME_MODE_LABELS,
   getDateMarkerMeta,
-  getFiveMinuteSessionTimeline,
+  getSessionTimeline,
   isBarWindowComplete,
   isMajorTwoHourTick,
   netDirectionalPremiumSeries,
   latestRowMs,
   safeTimeLabel,
+  type FlowTimeframe,
   type NetVolumeMode,
 } from "@/core/flowSeriesCharts";
 
@@ -107,17 +110,17 @@ function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]):
 // ── Incomplete-bar suppression ────────────────────────────────────────────────
 //
 // A row whose tracked cumulative fields are all exactly 0 inside a still-open
-// 5-minute bar means "no trades reported yet for this bar" — plotting it drops
-// the line to zero before the session has actually drifted there. We mask
-// those rows until the bar window fully elapses; after that, a genuine 0 is
+// bar means "no trades reported yet for this bar" — plotting it drops the line
+// to zero before the session has actually drifted there. We mask those rows
+// until the bar window (`barMs`) fully elapses; after that, a genuine 0 is
 // allowed through.
 
-function maskIncompleteZeroNetPositionBars(rows: NetPositionRow[]): NetPositionRow[] {
+function maskIncompleteZeroNetPositionBars(rows: NetPositionRow[], barMs: number): NetPositionRow[] {
   return rows.map((row) => {
     if (
       row.callPosition === 0 &&
       row.putPosition === 0 &&
-      !isBarWindowComplete(row.timestamp)
+      !isBarWindowComplete(row.timestamp, Date.now(), barMs)
     ) {
       return { ...row, callPosition: null, putPosition: null };
     }
@@ -167,6 +170,11 @@ export default function FlowAnalysisPage() {
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
   const [netVolumeMode, setNetVolumeMode] = useState<NetVolumeMode>("directional");
+  // Bar size for every chart on the page. The cards read the latest totals,
+  // which are the same at either size.
+  const [flowTimeframe, setFlowTimeframe] = useState<FlowTimeframe>("5min");
+  const barMinutes = FLOW_TIMEFRAME_MINUTES[flowTimeframe];
+  const barPhrase = `${barMinutes}-minute`;
 
   // ── Server-computed session cumulatives (unfiltered) ─────────────────────
   // Drives the Flow Snapshot cards and the Put/Call Ratio, Net Directional
@@ -176,7 +184,7 @@ export default function FlowAnalysisPage() {
   const {
     rows: flowSeriesUnfiltered,
     error: flowError,
-  } = useFlowSeries(symbol, flowSession);
+  } = useFlowSeries(symbol, flowSession, { timeframe: flowTimeframe });
 
   // A cheap intervals=1 probe of the other session just to read its ET date
   // for the session dropdown label.
@@ -201,11 +209,11 @@ export default function FlowAnalysisPage() {
   const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
   const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
 
-  // ── Session timeline (5-minute, 09:30–16:15 ET) ───────────────────────────
+  // ── Session timeline (one slot per bar, 09:30–16:15 ET) ──────────────────
   const sessionTimeline = useMemo(() => {
     if (!selectedDate) return [];
-    return getFiveMinuteSessionTimeline(selectedDate);
-  }, [selectedDate]);
+    return getSessionTimeline(selectedDate, barMinutes);
+  }, [selectedDate, barMinutes]);
 
   // ── Flow Snapshot cards ───────────────────────────────────────────────────
   const latestSnapshot = useMemo(
@@ -247,8 +255,8 @@ export default function FlowAnalysisPage() {
     if (!selectedDate || sessionTimeline.length === 0) return [];
     const base = mapSeriesToNetPositionRows(flowSeriesUnfiltered ?? []);
     const aligned = alignNetPositionToTimeline(base, sessionTimeline);
-    return maskIncompleteZeroNetPositionBars(aligned);
-  }, [flowSeriesUnfiltered, selectedDate, sessionTimeline]);
+    return maskIncompleteZeroNetPositionBars(aligned, barMinutes * 60_000);
+  }, [flowSeriesUnfiltered, selectedDate, sessionTimeline, barMinutes]);
 
   const hasDirectionalPremiumData = directionalPremiumSeries.some((row) => row.premium != null);
   const hasRatioData = putCallRatioSeries.some((row) => row.ratio != null);
@@ -284,6 +292,15 @@ export default function FlowAnalysisPage() {
               options={[
                 { value: "current" as const, label: `Current${currentDateLabel ? ` (${currentDateLabel})` : ""}` },
                 { value: "prior" as const, label: `Prior${priorDateLabel ? ` (${priorDateLabel})` : ""}` },
+              ]}
+            />
+            <FilterSelect
+              label="Bars"
+              value={flowTimeframe}
+              onChange={setFlowTimeframe}
+              options={[
+                { value: "5min" as FlowTimeframe, label: FLOW_TIMEFRAME_LABELS["5min"] },
+                { value: "1min" as FlowTimeframe, label: FLOW_TIMEFRAME_LABELS["1min"] },
               ]}
             />
             <FilterSelect
@@ -370,6 +387,7 @@ export default function FlowAnalysisPage() {
         className="mb-8"
         session={flowSession}
         netVolumeMode={netVolumeMode}
+        timeframe={flowTimeframe}
         baseRows={flowSeriesUnfiltered}
       />
 
@@ -377,7 +395,7 @@ export default function FlowAnalysisPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       {/* ── Net Directional Premium ───────────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <ChartPanel className="h-full" title={"Net Directional Premium"} tooltip={"Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."}>
+      <ChartPanel className="h-full" title={"Net Directional Premium"} tooltip={`Running session total of net_premium aggregated across every contract (accumulated across ${barPhrase} bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure.`}>
         {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
@@ -492,7 +510,7 @@ export default function FlowAnalysisPage() {
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <ChartPanel className="h-full" title={"Put/Call Ratio"} tooltip={"Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."}>
+      <ChartPanel className="h-full" title={"Put/Call Ratio"} tooltip={`Session-cumulative put volume ÷ session-cumulative call volume at each ${barPhrase} bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars.`}>
         {!hasRatioData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
@@ -600,7 +618,7 @@ export default function FlowAnalysisPage() {
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity\u00a0- this chart accounts for trade direction to distinguish buying from selling."}>
+      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={`Running session totals of net_volume per ${barPhrase} bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity\u00a0- this chart accounts for trade direction to distinguish buying from selling.`}>
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (

@@ -8,7 +8,7 @@
 
 Die Flow-Analysis-Seite ist die **Tape-Ansicht** des Optionsmarktes. Während Dealer Positioning das statische Buch zeigt, zeigt diese Seite den **Flow** - was heute gehandelt wurde und welche Seite dafür den Spread gekreuzt hat.
 
-Zwei Menüs im Seitenkopf gelten für die ganze Seite: **Session** (die aktuelle oder die vorherige Handelssitzung, damit du siehst, ob heute überhaupt ungewöhnlich ist) und **Volume basis** (**Directional** oder **Total Traded** - siehe unten).
+Drei Menüs im Seitenkopf gelten für die ganze Seite: **Session** (die aktuelle oder die vorherige Handelssitzung, damit du siehst, ob heute überhaupt ungewöhnlich ist), **Bars** (**5 min** oder **1 min** - wie fein die Diagramme die Sitzung aufteilen) und **Volume basis** (**Directional** oder **Total Traded** - siehe unten).
 
 ## Die drei Flow-Perspektiven
 
@@ -43,7 +43,7 @@ Sitzungssummen zum letzten Balken:
 
 - **Options Flow** - Netto-Call-Prämie und Netto-Put-Prämie im Sitzungsverlauf gegen den Kurs des Basiswerts, darunter eine Volumenfläche auf der gewählten Basis. Filterbar nach Strike oder Verfall.
 - **Net Directional Premium** - die laufende Sitzungssumme der Netto-Prämie, über und unter null schattiert.
-- **Put/Call Ratio** - das kumulative Verhältnis der Sitzung an jedem 5-Minuten-Balken.
+- **Put/Call Ratio** - das kumulative Verhältnis der Sitzung an jedem Balken.
 - **Net Position (Buys vs. Sells)** - laufendes Netto-Call- und Netto-Put-Volumen, damit du Kaufen von Verkaufen unterscheiden kannst, was das Verhältnis nicht kann.
 
 Jede wird als Serie dargestellt, damit man die Steigung sieht, nicht nur das Niveau.

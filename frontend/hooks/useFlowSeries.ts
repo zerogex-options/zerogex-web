@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { canonicalTimestamp } from '@/core/flowSeriesCharts';
+import { canonicalTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { optionChainSymbolFor } from '@/core/symbols';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { FlowSnapshot } from './useFlowByContract';
 
 /**
  * Row shape returned by GET /api/flow/series. Each row is a single 5-minute
- * bar with server-computed session cumulatives for every field the Flow
- * Analysis page plots. The backend emits one row per 5-min slot from session
- * open to the latest bar that has data, with carry-forward values for quiet
- * bars flagged via `is_synthetic`. The frontend is a dumb renderer — no
- * accumulation, no gap-filling.
+ * bar (1-minute with `timeframe=1min`) with server-computed session
+ * cumulatives for every field the Flow Analysis page plots. The backend emits
+ * one row per slot from session open to the latest bar that has data, with
+ * carry-forward values for quiet bars flagged via `is_synthetic`. The frontend
+ * is a dumb renderer — no accumulation, no gap-filling.
  *
  * See docs/flow-series-endpoint.md for the full contract.
  */
@@ -101,6 +101,11 @@ interface CacheEntry {
 }
 
 const DEFAULT_INCREMENTAL_MS = 5_000;
+// How many trailing bars a tail poll re-reads. One is enough on 5-minute bars,
+// where the full refresh catches the occasional bar that closes between polls.
+// On 1-minute bars a bar closes every minute, and the backend keeps revising
+// the last few minutes as late prints land, so each poll re-reads five.
+const TAIL_BARS: Record<FlowTimeframe, number> = { '5min': 1, '1min': 5 };
 const DEFAULT_FULL_REFRESH_MS = 5 * 60_000;
 const STORAGE_PREFIX = 'zerogex:flowSeries:v1:';
 const STORAGE_TTL_MS = 24 * 60 * 60_000;
@@ -138,9 +143,17 @@ function normalizeFilters(filters: FlowSeriesFilters | undefined): {
   return { strikes, expirations };
 }
 
-function buildCacheKey(symbol: string, session: 'current' | 'prior', filters: FlowSeriesFilters | undefined): string {
+function buildCacheKey(
+  symbol: string,
+  session: 'current' | 'prior',
+  filters: FlowSeriesFilters | undefined,
+  timeframe: FlowTimeframe,
+): string {
   const { strikes, expirations } = normalizeFilters(filters);
-  return `${symbol}:${session}:${strikes.join(',')}:${expirations.join(',')}`;
+  const key = `${symbol}:${session}:${strikes.join(',')}:${expirations.join(',')}`;
+  // 5-minute keys keep their old shape, so rows already cached in this tab
+  // stay valid; 1-minute rows get their own entry and never mix with them.
+  return timeframe === '5min' ? key : `${key}:${timeframe}`;
 }
 
 function readFromStorage(cacheKey: string): FlowSeriesPoint[] | null {
@@ -222,6 +235,7 @@ async function fetchSeries(
   symbol: string,
   session: 'current' | 'prior',
   filters: FlowSeriesFilters | undefined,
+  timeframe: FlowTimeframe,
   intervals?: number,
 ): Promise<FlowSeriesPoint[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -229,6 +243,7 @@ async function fetchSeries(
   const { strikes, expirations } = normalizeFilters(filters);
   if (strikes.length > 0) params.set('strikes', strikes.join(','));
   if (expirations.length > 0) params.set('expirations', expirations.join(','));
+  if (timeframe !== '5min') params.set('timeframe', timeframe);
   if (intervals != null) params.set('intervals', String(intervals));
 
   const resp = await fetchWithTimeout(`${baseUrl}/api/flow/series?${params.toString()}`);
@@ -249,16 +264,19 @@ export interface UseFlowSeriesOptions {
   enabled?: boolean;
   /** Server-side filters (strikes, expirations). Empty = unfiltered. */
   filters?: FlowSeriesFilters;
+  /** Bar size. Default 5-minute. */
+  timeframe?: FlowTimeframe;
 }
 
 /**
  * Subscribes to a module-level cache of /api/flow/series rows for
- * `(symbol, session, filters)`. The server returns ready-to-render 5-minute
- * bars with session cumulatives already computed — this hook just polls,
- * merges tails, and hands back the latest snapshot.
+ * `(symbol, session, filters, timeframe)`. The server returns ready-to-render
+ * 5-minute (or 1-minute) bars with session cumulatives already computed — this
+ * hook just polls, merges tails, and hands back the latest snapshot.
  *
  * Dual polling:
- *   - incrementalMs (default 5s): intervals=1 pull of the tail bar
+ *   - incrementalMs (default 5s): a pull of the tail bar (the last five on
+ *     1-minute bars, see TAIL_BARS)
  *   - fullRefreshMs (default 5min): full series refetch
  *
  * Keyed per filter combination so toggling filter chips doesn't thrash the
@@ -274,9 +292,10 @@ export function useFlowSeries(
     fullRefreshMs = DEFAULT_FULL_REFRESH_MS,
     enabled = true,
     filters,
+    timeframe = '5min',
   } = options;
 
-  const cacheKey = buildCacheKey(symbol, session, filters);
+  const cacheKey = buildCacheKey(symbol, session, filters, timeframe);
 
   if (!globalCache.has(cacheKey)) {
     const stored = readFromStorage(cacheKey);
@@ -333,7 +352,7 @@ export function useFlowSeries(
       if (!pending) {
         pending = (async () => {
           try {
-            const data = await fetchSeries(symbol, session, filters);
+            const data = await fetchSeries(symbol, session, filters, timeframe);
             globalCache.set(cacheKey, createEntry(data));
             writeToStorage(cacheKey, data);
           } finally {
@@ -359,7 +378,7 @@ export function useFlowSeries(
 
     const refetchFullSession = async (): Promise<void> => {
       try {
-        const data = await fetchSeries(symbol, session, filters);
+        const data = await fetchSeries(symbol, session, filters, timeframe);
         if (cancelled) return;
         globalCache.set(cacheKey, createEntry(data));
         writeToStorage(cacheKey, data);
@@ -379,7 +398,7 @@ export function useFlowSeries(
       }
 
       try {
-        const incoming = await fetchSeries(symbol, session, filters, 1);
+        const incoming = await fetchSeries(symbol, session, filters, timeframe, TAIL_BARS[timeframe]);
         if (cancelled) return;
         if (incoming.length === 0) return;
 
@@ -410,7 +429,7 @@ export function useFlowSeries(
       timers.forEach((t) => clearInterval(t));
     };
     // Serialized filter key is embedded in cacheKey, so that covers filter churn.
-  }, [cacheKey, symbol, session, enabled, incrementalMs, fullRefreshMs, filters]);
+  }, [cacheKey, symbol, session, enabled, incrementalMs, fullRefreshMs, filters, timeframe]);
 
   return { rows, loading, error };
 }

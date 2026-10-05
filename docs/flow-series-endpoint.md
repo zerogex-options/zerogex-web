@@ -24,7 +24,8 @@ GET /api/flow/series
 | `session`     | enum      | no       | `current`  | One of `current`, `prior`. `current` = most recent trading session that has any data; `prior` = the session immediately before that. |
 | `strikes`     | CSV float | no       | all        | Comma-separated strikes to include. Empty/missing = all. |
 | `expirations` | CSV date  | no       | all        | Comma-separated `YYYY-MM-DD` expirations. Empty/missing = all. |
-| `intervals`   | integer   | no       | full       | If provided, return only the last N 5-min bars (used by incremental polling). `intervals=1` returns just the tail bar. |
+| `timeframe`   | enum      | no       | `5min`     | Bar size: `5min` or `1min`. Both carry the same session cumulatives, so the 1-minute bar that closes a 5-minute bar reads the same totals. |
+| `intervals`   | integer   | no       | full       | If provided, return only the last N bars of the chosen timeframe (used by incremental polling). `intervals=1` returns just the tail bar. |
 
 ### Validation rules
 
@@ -68,7 +69,7 @@ GET /api/flow/series
 | ------------------- | ------------------ | ----------------- | ----- |
 | `timestamp`         | ISO-8601 Z string  | —                 | **Bar start**, floored to 5-minute boundary. Use this as the primary chart X key. Always present. |
 | `bar_start`         | ISO-8601 Z string  | —                 | Identical to `timestamp`; included for clarity and future divergence. Always present. |
-| `bar_end`           | ISO-8601 Z string  | —                 | `bar_start + 5min`. Always present. |
+| `bar_end`           | ISO-8601 Z string  | —                 | `bar_start` plus one bar (`5min`, or `1min` with `timeframe=1min`). Always present. |
 | `call_premium_cum`  | number             | USD (dollars)     | Σ of `net_premium` for `option_type='C'` rows up to and including this bar, across the selected contracts. |
 | `put_premium_cum`   | number             | USD (dollars)     | Σ of `net_premium` for `option_type='P'` rows up to this bar. |
 | `call_volume_cum`   | integer            | contracts         | Σ of `raw_volume` for calls up to this bar. |
@@ -80,7 +81,7 @@ GET /api/flow/series
 | `net_premium_cum`   | number             | USD (dollars)     | Directional net premium: `call_premium_cum − put_premium_cum` (buying puts is bearish, so the put leg subtracts). Positive = bullish. Pre-computed so clients don't drift. |
 | `put_call_ratio`    | number \| null     | ratio             | `put_volume_cum / call_volume_cum`. `null` if `call_volume_cum == 0` (avoid divide-by-zero; frontend renders as a break). |
 | `underlying_price`  | number \| null     | USD               | Last-observed underlying tick whose timestamp falls inside `[bar_start, bar_end)`. Must come from the tape / an underlying OHLC source — **never** from `flow_bar_contract.underlying_price`. Invariant under strike/expiration filters. See "Underlying price semantics" below. |
-| `contract_count`    | integer            | —                 | Distinct contracts contributing to this bar's *delta* (not cumulative). Used for diagnostics. |
+| `contract_count`    | integer            | —                 | Distinct contracts contributing to this bar's *delta* (not cumulative). Used for diagnostics. On 1-minute bars it is exactly that; on 5-minute bars the implementation counts every contract traded so far in the session. |
 | `is_synthetic`      | boolean            | —                 | `true` when the row was emitted as a carry-forward (no activity in this bar). Charts don't need it; diagnostics pages do. |
 
 ### Ordering & coverage guarantees

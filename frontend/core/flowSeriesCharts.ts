@@ -10,10 +10,11 @@
  * test runner, like core/gexStrikeCharts.ts and core/chartSettings.ts.
  *
  * One raw feed drives everything here:
- *   • /api/flow/series → 5-minute bars whose fields are already the session
- *     cumulatives the chart plots (see hooks/useFlowSeries). Nothing in this
- *     module accumulates; the mappers are field renames and the aligners only
- *     decide which session slots carry a value.
+ *   • /api/flow/series → 5-minute bars (1-minute with timeframe=1min) whose
+ *     fields are already the session cumulatives the chart plots (see
+ *     hooks/useFlowSeries). Nothing in this module accumulates; the mappers
+ *     are field renames and the aligners only decide which session slots
+ *     carry a value.
  *
  * Net Directional Premium moved down here once a second page drew it: the
  * Hedging Flow page shows it in compact form under the Weather panel, and two
@@ -117,22 +118,48 @@ export function getETTimeTimestamp(
 }
 
 /**
- * Builds the 5-minute ET session timeline for a trading date: 09:30 through
- * 16:15 ET, one slot every five minutes. The grid runs past the 16:00 bell
- * because the closing auction's prints land in the bars after it. Returns []
- * for a date key the ET clock can't be resolved for, which callers treat as
- * "no chart".
+ * Bar sizes /api/flow/series serves (its `timeframe` param). 5-minute is the
+ * default everywhere; 1-minute carries the same session cumulatives, so a
+ * 1-minute bar reads the same totals as the 5-minute bar it closes.
  */
-export function getFiveMinuteSessionTimeline(dateKey: string): string[] {
+export type FlowTimeframe = '5min' | '1min';
+
+export const FLOW_TIMEFRAME_MINUTES: Record<FlowTimeframe, number> = {
+  '5min': 5,
+  '1min': 1,
+};
+
+/** Control copy for each bar size, shared by the page bar and the chart's own select. */
+export const FLOW_TIMEFRAME_LABELS: Record<FlowTimeframe, string> = {
+  '5min': '5 min',
+  '1min': '1 min',
+};
+
+/**
+ * Builds the ET session timeline for a trading date: 09:30 through 16:15 ET,
+ * one slot every `stepMinutes`. The grid runs past the 16:00 bell because the
+ * closing auction's prints land in the bars after it. Returns [] for a date
+ * key the ET clock can't be resolved for, which callers treat as "no chart".
+ *
+ * The step must match the bar size of the rows aligned onto it: the aligners
+ * match rows to slots by exact timestamp, so 1-minute rows on a 5-minute grid
+ * would silently lose four bars in five.
+ */
+export function getSessionTimeline(dateKey: string, stepMinutes: number = 5): string[] {
   const openMs = getETTimeTimestamp(dateKey, 9, 30);
   const closeMs = getETTimeTimestamp(dateKey, 16, 15);
-  if (openMs == null || closeMs == null) return [];
+  if (openMs == null || closeMs == null || !(stepMinutes > 0)) return [];
 
   const timeline: string[] = [];
-  for (let t = openMs; t <= closeMs; t += 5 * 60_000) {
+  for (let t = openMs; t <= closeMs; t += stepMinutes * 60_000) {
     timeline.push(new Date(t).toISOString());
   }
   return timeline;
+}
+
+/** The 5-minute session timeline: 82 slots, 09:30 through 16:15 ET. */
+export function getFiveMinuteSessionTimeline(dateKey: string): string[] {
+  return getSessionTimeline(dateKey, 5);
 }
 
 /**
@@ -314,29 +341,45 @@ export function alignFlowSeriesToTimeline(
 
 const BAR_WINDOW_MS = 5 * 60_000;
 
-/** True once a 5-minute bar's window has fully elapsed. */
-export function isBarWindowComplete(timestamp: string, nowMs: number = Date.now()): boolean {
+/** True once a bar's window (`barMs`, 5 minutes unless given) has fully elapsed. */
+export function isBarWindowComplete(
+  timestamp: string,
+  nowMs: number = Date.now(),
+  barMs: number = BAR_WINDOW_MS,
+): boolean {
   const ms = new Date(timestamp).getTime();
   if (!Number.isFinite(ms)) return true;
-  return nowMs >= ms + BAR_WINDOW_MS;
+  return nowMs >= ms + barMs;
 }
 
 /**
- * Blanks an all-zero bar whose 5-minute window hasn't closed yet. The backend
- * emits a zeroed row the moment a bar opens, and plotting it drags every series
- * to the axis for the length of the bar; holding the previous value instead is
- * what the aligner does for every other quiet slot.
+ * The bar length a session timeline was built with: the gap between its first
+ * two slots, or 5 minutes for a timeline too short to say. Lets a derivation
+ * that is handed only the timeline size its bar window to match.
+ */
+export function timelineStepMs(timeline: string[]): number {
+  if (timeline.length < 2) return BAR_WINDOW_MS;
+  const step = new Date(timeline[1]).getTime() - new Date(timeline[0]).getTime();
+  return Number.isFinite(step) && step > 0 ? step : BAR_WINDOW_MS;
+}
+
+/**
+ * Blanks an all-zero bar whose window hasn't closed yet. The backend emits a
+ * zeroed row the moment a bar opens, and plotting it drags every series to the
+ * axis for the length of the bar; holding the previous value instead is what
+ * the aligner does for every other quiet slot.
  */
 export function maskIncompleteZeroFlowBars(
   rows: FlowTimeseriesRow[],
   nowMs: number = Date.now(),
+  barMs: number = BAR_WINDOW_MS,
 ): FlowTimeseriesRow[] {
   return rows.map((row) => {
     if (
       row.callPremium === 0 &&
       row.putPremium === 0 &&
       row.netVolume === 0 &&
-      !isBarWindowComplete(row.timestamp, nowMs)
+      !isBarWindowComplete(row.timestamp, nowMs, barMs)
     ) {
       return {
         ...row,
@@ -368,7 +411,7 @@ export function optionsFlowSeries(
   if (sessionTimeline.length === 0) return [];
   const base = mapSeriesToFlowTimeseries(rows ?? [], mode);
   const aligned = alignFlowSeriesToTimeline(base, sessionTimeline);
-  return maskIncompleteZeroFlowBars(aligned, nowMs);
+  return maskIncompleteZeroFlowBars(aligned, nowMs, timelineStepMs(sessionTimeline));
 }
 
 // ── Axis helpers ──────────────────────────────────────────────────────────────

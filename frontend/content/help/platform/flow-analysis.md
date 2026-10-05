@@ -8,7 +8,7 @@
 
 The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the static book, this page shows you the **flow** - what traded today, and which side crossed the spread to trade it.
 
-Two menus in the header apply to the whole page: **Session** (the current session or the prior one, so you can see whether today is unusual at all) and **Volume basis** (**Directional** or **Total Traded** - see below).
+Three menus in the header apply to the whole page: **Session** (the current session or the prior one, so you can see whether today is unusual at all), **Bars** (**5 min** or **1 min** - how finely the charts slice the session) and **Volume basis** (**Directional** or **Total Traded** - see below).
 
 ## The three flow lenses
 
@@ -43,7 +43,7 @@ Session totals as of the latest bar:
 
 - **Options Flow** - net call premium and net put premium through the session against the underlying price, with a volume area underneath on the basis you picked. Filter it by strike or expiration.
 - **Net Directional Premium** - the running session total of net premium, shaded above and below zero.
-- **Put/Call Ratio** - the session-cumulative ratio at each 5-minute bar.
+- **Put/Call Ratio** - the session-cumulative ratio at each bar.
 - **Net Position (Buys vs. Sells)** - running net call and net put volume, so you can tell buying from selling, which the ratio can't.
 
 Each is plotted as a series so you can see the slope, not just the level.
