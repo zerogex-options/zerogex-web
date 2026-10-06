@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates | ZeroGEX',
   description:
-    "What's new at ZeroGEX and what's coming next: chart integrations for TradingView, thinkorswim, NinjaTrader and Sierra Chart, ES and NQ coverage, Gamma Shift, Pin Strike, and the road ahead. A running log of platform updates.",
+    "What's new at ZeroGEX and what's coming next: the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and Track Record, chart integrations, ES and NQ coverage, and the road ahead, including the Magnificent Seven and DAX futures. A running log of platform updates.",
   alternates: { canonical: '/updates' },
 };
 
@@ -19,6 +19,71 @@ type Update = {
 
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
+  {
+    date: 'October 6, 2026',
+    title: 'Our first Folds of Honor donation, and the next markets',
+    intro:
+      'On October 1 we sent our first quarterly donation to Folds of Honor. Since the last note here, the forecasts started keeping a public score, Hedging Flow got a plain-language read of conditions, My Dashboard moved onto your account, and the phone layout was rebuilt. Next on the list: the first single stocks, the first market outside the U.S., and years of history for backtesting.',
+    whatsNew: [
+      {
+        title: 'Our first Folds of Honor donation',
+        href: '/giving',
+        body: '$459, which is 3% of every ZeroGEX subscription in the third quarter, sent on October 1. It funds educational scholarships for the spouses and children of fallen and disabled U.S. service members, and it comes out of ZeroGEX’s share, not the subscription price. The receipt and the running total are on the giving page, and the next donation goes out in January.',
+      },
+      {
+        title: 'Intraday Cone',
+        href: '/forecast/cone',
+        body: 'Every 15 minutes, a fresh price band for the next 30 minutes to 2 hours on SPY, SPX, QQQ and NDX, with the odds that price stays inside it the whole way. Each window is marked held or broke once it closes, and a reliability panel scores the odds against a simple baseline, including where the cone is not beating it yet. It is not a direction call. Free, in beta.',
+      },
+      {
+        title: 'Track Record',
+        href: '/track-record',
+        body: 'Every Daily Forecast we have ever graded, not a recent window: the range, the volatility call and the level touch odds, with every miss named, dated and linked. The page also lists the weaknesses we know about, such as a range band that runs wider than its target. Free.',
+      },
+      {
+        title: 'Hedging Flow and Gamma Weather',
+        href: '/hedging-flow',
+        body: 'An estimate of the dealer hedging pressure created by today’s option trades, charted against price, with a 0DTE filter. At the top, Gamma Weather gives a one-line read of conditions (Stable bid, Supported dip, Fragile rally, Unstable or Mixed) that changes only after a new state holds for two bars, and the five inputs behind it chart on one shared clock. Past sessions have their own dated pages.',
+      },
+      {
+        title: 'My Dashboard, on every device',
+        href: '/my-dashboard',
+        body: 'Your boards and theme are stored on your account rather than in one browser, so they follow you to another computer or your phone. Save, name and switch between several boards, with new widgets including Momentum Divergence, Volume Spike, Position Within Range and the ORB Breakout Map.',
+      },
+      {
+        title: 'Rebuilt for phones and tablets',
+        body: 'A new phone layout from the top bar down: a live quote that doubles as the symbol picker, a full-screen menu, and charts redrawn for a small screen with drag to pan, pinch to zoom and press-and-hold for a crosshair. Tablets get the same treatment instead of a squeezed desktop page.',
+      },
+      {
+        title: 'The free levels, by email and on other sites',
+        href: '/embed',
+        body: 'A free email every trading morning with the gamma flip, call wall, put wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ, formatted to paste into the free TradingView script; sign up with just an email on any free levels page. And an embeddable levels card, or a PNG version, for a blog, Discord or newsletter.',
+      },
+      {
+        title: 'How often do gamma walls actually break?',
+        href: '/education/how-often-do-gamma-walls-break',
+        body: 'We measured 737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two times in three over the following hour, and Nasdaq walls were closer to a coin flip. None of the 19 features we tested, including which side of the gamma flip price was on, predicted which walls would break, so the site copy was rewritten to match.',
+      },
+    ],
+    whatsComing: [
+      {
+        title: 'The Magnificent Seven',
+        body: 'Our first single stocks: AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA, with the same gamma flip, walls and dealer-positioning read used on the indices today.',
+      },
+      {
+        title: 'DAX futures',
+        body: 'Coverage for DAX futures, our first market outside the U.S., for traders who work the European session.',
+      },
+      {
+        title: 'Years of history for backtesting',
+        body: 'We are working to license historical options data going back several years, so a backtest can run across different market regimes instead of only the months we have recorded ourselves since this spring.',
+      },
+      {
+        title: 'A more streamlined experience',
+        body: 'An ongoing pass to simplify the platform: fewer clicks to the read that matters, and less on-screen noise.',
+      },
+    ],
+  },
   {
     date: 'September 20, 2026',
     title: 'The Gamma Chart and the Gamma Terminal are one page now',

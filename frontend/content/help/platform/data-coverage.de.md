@@ -22,7 +22,7 @@ Hinzu kommen zwei CME-Aktienindex-Futures als vollwertige Symbole:
 
 ES und NQ haben kein eigenes Optionsbuch. ES und SPX bilden denselben Index ab, das Dealer-Buch hinter einem ES-Chart *ist* also das SPX-Buch - die SPX-Level (bzw. NDX bei NQ) werden auf die Futures-Preisachse projiziert, während die Preisreihe selbst aus dem CME-Feed stammt. Die Projektion nutzt den theoretischen Carry des Kontrakts, den wir quotieren (Zinsen abzüglich der Dividendenrendite des Index über die Restlaufzeit bis zu seinem Verfall). Einen Basis-Offset musst du also nirgends einstellen, und bei jedem Quartalsroll wandern die Level zusammen mit dem Preis auf den neuen Kontrakt. Weil Carry den fairen Wert abbildet, können die Level leicht danebenliegen, wenn die Futures über oder unter ihrem fairen Wert handeln, etwa über Nacht oder rund um Nachrichten. Dollar-Exposures (Netto-, Call- und Put-GEX) bleiben bewusst unprojiziert: Das Histogramm skaliert auf *relatives* Exposure, die Form ist also in beiden Fällen dieselbe. Die Micro-Kontrakte (/MES, /MNQ) sind derselbe Kontrakt in einem Zehntel der Größe - es gelten dieselben Level.
 
-Wir planen nicht, einzelne Aktien zu unterstützen. Das Signalmodell und das Regime-Konzept sind auf das Dealer-Verhalten auf Indexebene ausgelegt.
+Einzelaktien stehen auf der Roadmap, beginnend mit den Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META und TSLA). Bis eine Aktie live ist, sind das Signalmodell und das Regime-Konzept auf das Dealer-Verhalten auf Indexebene ausgelegt; diese Seite führt jede Aktie auf, sobald sie hinzukommt.
 
 ## Handelszeiten
 
@@ -97,14 +97,14 @@ Griechen und alle Dealer-Positionierungs-Kennzahlen berechnet ZeroGEX selbst aus
 
 Während der regulären Handelszeiten erreichen Kurse deinen Browser typischerweise innerhalb weniger Sekunden nach dem Druck auf dem Tape. Die Kennzahlen zur Dealer-Positionierung und die Signale folgen bewusst mit Verzögerung, weil sie in den oben genannten Zyklen neu berechnet werden statt bei jedem Trade. Wirken die Updates langsamer, siehe [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Warum nur der Index-Komplex
+## Warum der Index-Komplex zuerst kommt
 
 Zwei Gründe:
 
 1. Das Dealer-Positionierungsmodell funktioniert nur dort gut, wo der Dealer-Flow einen bedeutenden Anteil am Gesamt-Flow ausmacht. Das ist der Index-Komplex - SPY, SPX, QQQ, NDX und die Futures ES / NQ, die dieselben beiden Indizes abbilden.
 2. Wir setzen lieber auf eine Handvoll Instrumente, die wir richtig beherrschen, statt auf zehn Instrumente, die wir nur halb beherrschen.
 
-Einzelaktien können durch idiosynkratische Nachrichten driften, was die GEX-Lesart verrauscht. Auf dieses Spiel lassen wir uns nicht ein.
+Einzelaktien können durch idiosynkratische Nachrichten driften, vor allem rund um Quartalszahlen, was die GEX-Lesart verrauscht. Deshalb kommen sie schrittweise hinzu, beginnend mit den Magnificent Seven, wo der Optionsmarkt am tiefsten ist, statt alle auf einmal.
 
 ## Siehe auch
 

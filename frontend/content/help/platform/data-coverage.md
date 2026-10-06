@@ -22,7 +22,7 @@ Two CME equity-index futures are also first-class symbols:
 
 ES and NQ are not a separate options book. ES and SPX track the same index, so the dealer book behind an ES chart *is* the SPX book - the SPX levels (and NDX, for NQ) are projected onto the futures price axis, while the price series itself comes from the CME feed. The projection uses the theoretical cost of carry for the contract we are quoting (interest rates less the index's dividend yield, over the time left to that contract's expiry), so there is no basis offset to configure, and at each quarterly roll the levels move to the new contract along with the price. Because carry is fair value, the levels can sit slightly off when futures trade rich or cheap to it, as they can overnight and around news. Dollar exposures (net, call, and put GEX) are deliberately left unprojected: the histogram scales on *relative* exposure, so the shape is the same either way. The micro contracts (/MES, /MNQ) are the same contract at a tenth the size, so the same levels apply.
 
-We don't plan to support single-name equities. The signal model and the regime concept are designed around index-level dealer behavior.
+Single-name equities are on the roadmap, starting with the Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA). Until each one is live, the signal model and the regime concept are built around index-level dealer behavior, and this page will list each stock as it is added.
 
 ## Market hours
 
@@ -97,14 +97,14 @@ Greeks and every dealer-positioning metric are computed by ZeroGEX from those in
 
 During regular hours, prices typically reach your browser within seconds of the print. The dealer-positioning numbers and signals trail by design, because they're recomputed on the cycles above rather than on every trade. If updates feel slower than that, see [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Why only the index complex
+## Why the index complex comes first
 
 Two reasons:
 
 1. The dealer-positioning model only works well where dealer flow is a meaningful fraction of total flow. That's the index complex - SPY, SPX, QQQ, NDX, and the ES / NQ futures that track the same two indices.
 2. We'd rather get a handful of instruments right than ten instruments half-right.
 
-Single-name equities can drift on idiosyncratic news that makes the GEX read noisier. We're not in that game.
+Single-name equities can drift on idiosyncratic news, earnings above all, which makes the GEX read noisier. That is why they are being added a few at a time, starting with the Magnificent Seven, where the options market is deepest, rather than all at once.
 
 ## See also
 

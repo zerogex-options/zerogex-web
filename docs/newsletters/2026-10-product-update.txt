@@ -1,0 +1,195 @@
+ZeroGEX · Product Update · October 2026
+
+------------------------------------------------------------
+
+Hi there,
+
+It has been a while since the last subscriber update, and a lot has shipped
+since July. You may have noticed the new look, too: ZeroGEX has a new logo.
+
+Before the product news, a thank-you that belongs to you.
+
+
+== YOUR SUBSCRIPTION FUNDED OUR FIRST FOLDS OF HONOR DONATION ==
+
+On October 1 we sent $459 to Folds of Honor: 3% of every ZeroGEX
+subscription in the third quarter. It funds educational scholarships for the
+spouses and children of fallen and disabled U.S. service members, and it
+came out of ZeroGEX's share, not your price.
+
+The receipt and the running total are public at https://zerogex.io/giving.
+The next donation goes out in January. Thank you for making it possible.
+
+
+== WHAT'S NEW ==
+
+* One Gamma Terminal (https://zerogex.io/chart). The Gamma Chart and the
+  Gamma Terminal are now a single page. A switch chooses what sits beside
+  the tape: two strike-aligned gamma ladders, or the Strike Panel, which
+  draws net dealer gamma on the chart's own price scale so each strike's bar
+  sits level with that price on the candles. Nothing was dropped in the
+  merge, old links still work, and the free delayed version now includes the
+  ladders.
+
+* Spread Monitor (https://zerogex.io/spread-monitor). Can you actually get
+  filled? A new page showing how wide the option market is quoted, which
+  side of the book is the expensive one, where the chain thins out, and how
+  much of it has no bid at all. Each reading is ranked against the same
+  symbol's own history at the same time of day, and when there is not enough
+  history the page shows the measurement and withholds the verdict.
+
+* 0DTE on the Daily Replay (https://zerogex.io/replay). Every replayed
+  session now has an All expirations / 0DTE switch. On 0DTE, the Call Wall,
+  Put Wall, Gamma Flip and Max Pain are rebuilt from that day's expiry
+  alone, so you see the book that actually had to be hedged into the bell.
+  The filter and the playhead live in the link, so sharing a 0DTE moment is
+  a copy and paste.
+
+* Hedging Flow and Gamma Weather (https://zerogex.io/hedging-flow). A new
+  estimate of the dealer hedging pressure created by today's option trades,
+  charted against price, with a 0DTE filter (beta). At the top, Gamma
+  Weather gives a one-line read of conditions: Stable bid, Supported dip,
+  Fragile rally, Unstable or Mixed. It changes only after a new state holds
+  for two bars, and the five inputs behind it chart on one shared clock.
+  Here is how it works
+  (https://zerogex.io/education/hedging-flow-explained).
+
+* Forecasts that keep score. The Intraday Cone
+  (https://zerogex.io/forecast/cone), in beta, redraws every 15 minutes: a
+  price band for the next 30 minutes to 2 hours on SPY, SPX, QQQ and NDX,
+  with the odds that price stays inside it the whole way. A reliability
+  panel scores those odds against a simple baseline, including where the
+  cone is not beating it yet. The Track Record
+  (https://zerogex.io/track-record) publishes every Daily Forecast we have
+  ever graded, with the misses named and dated and the weaknesses we know
+  about listed on the page. Both are free.
+
+* My Dashboard, on every device (https://zerogex.io/my-dashboard). Your
+  boards now live on your account rather than in one browser, so your layout
+  and theme follow you to another computer or your phone. You can save, name
+  and switch between several boards, and there are new widgets, including
+  Momentum Divergence, Volume Spike, Position Within Range and the ORB
+  Breakout Map.
+
+* Rebuilt for phones and tablets. The phone layout was rebuilt from the top
+  bar down: a live quote that doubles as the symbol picker, a full-screen
+  menu, and charts redrawn for a small screen, with drag to pan, pinch to
+  zoom and press-and-hold for a crosshair. Tablets get the same treatment
+  instead of a squeezed desktop page.
+
+
+== WORTH READING ==
+
+* How often do gamma walls actually break?
+  (https://zerogex.io/education/how-often-do-gamma-walls-break) We measured
+  737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two
+  times in three over the following hour, and Nasdaq walls were closer to a
+  coin flip. None of the 19 features we tested, including which side of the
+  gamma flip price was on, predicted which walls would break, so we rewrote
+  our own site copy to match.
+
+* Forced Flow and the zero-flow level
+  (https://zerogex.io/education/forced-flow-and-zero-flow-explained). How
+  much stock the current option book would force hedgers to buy or sell into
+  the 4 PM close as price, time and implied volatility move, and the price
+  where that nets out to zero.
+
+
+== IN CASE YOU MISSED IT ==
+
+These shipped in late August and haven't been in a subscriber update yet:
+
+* Your levels, on your own charts (https://zerogex.io/integrations). Free
+  TradingView and thinkorswim scripts draw the Gamma Flip, Call Wall, Put
+  Wall and Max Pain. The NinjaTrader 8 and Sierra Chart studies, included
+  with Pro, keep those levels current from the API on their own, Pin Strike
+  included.
+
+* ES and NQ (https://zerogex.io/es-gamma-levels). Futures are first-class
+  symbols, with their own free levels pages. The levels come from the SPX
+  and NDX books, projected onto the futures price at fair value.
+
+* Gamma Shift (https://zerogex.io/gamma-shift). The per-strike change in
+  modeled dealer gamma between two points in time, with expiry roll-off
+  separated out so it doesn't read as fresh positioning.
+
+* Pin Strike (https://zerogex.io/education/pin-strike-explained). The
+  reachable 0DTE strike with the strongest modeled restoring dealer gamma
+  into expiration.
+
+* Market Tide, Pair Comparison and Volatility
+  (https://zerogex.io/market-tide). One bearish-to-bullish score across the
+  indices, any two indices side by side on strike-aligned ladders, and
+  put/call skew charted against realized versus implied volatility.
+
+
+== WHAT'S COMING NEXT ==
+
+A quick look at where ZeroGEX is headed. Roadmaps shift, often because of
+something one of you flags, but this is the current direction:
+
+-> The Magnificent Seven. Our first single stocks: AAPL, MSFT, NVDA, AMZN,
+   GOOGL, META and TSLA, with the same gamma flip, walls and
+   dealer-positioning read you use on the indices today.
+
+-> DAX futures. Coverage for DAX futures, our first market outside the U.S.,
+   for traders who work the European session.
+
+-> Years of history for backtesting. We are working to license historical
+   options data going back several years, so a backtest can run across
+   different market regimes instead of only the months we have recorded
+   ourselves since this spring.
+
+-> A more streamlined experience. An ongoing pass to simplify the platform:
+   fewer clicks to the read that matters, and less on-screen noise.
+
+
+== REFER A FRIEND, GET A FREE MONTH ==
+
+Every friend you refer who subscribes earns you a free month, credited to
+your next bill, and free months stack. Your friend gets their first month
+free on a monthly or quarterly plan, or 10% off their first year on annual.
+Your link is on your Account page, under Referrals.
+
+Grab my referral link:
+https://zerogex.io/account
+
+Not ready to pitch anyone? Two free things are easy to pass along. The daily
+levels email puts the flip, walls, max pain and net GEX for six symbols in
+an inbox every trading morning, and the signup is on every free levels page
+(https://zerogex.io/spx-gamma-levels). The embeddable levels card
+(https://zerogex.io/embed) drops the same levels into a blog, Discord or
+newsletter.
+
+
+------------------------------------------------------------
+
+That is the update. Thank you for being here. Hit reply with anything: a
+bug, a feature you want, a question, or just what is working. I read every
+message myself, and several of the items above started as exactly that kind
+of note.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+Dealer positioning is modeled, not directly observed: public option data
+does not disclose which side a dealer holds at a strike. See
+https://zerogex.io/methodology
+
+ZeroGEX provides options market-structure data and analytics for educational
+and informational purposes only. It is not investment advice, and nothing
+here is a recommendation to buy or sell any security. Options trading
+involves substantial risk and is not suitable for every investor.
+
+Dashboard:  https://zerogex.io/dashboard
+Account:    https://zerogex.io/account
+Giving:     https://zerogex.io/giving
+Help & FAQ: https://zerogex.io/help/faqs
+
+You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

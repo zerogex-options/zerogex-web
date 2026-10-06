@@ -22,7 +22,7 @@ S'y ajoutent deux contrats à terme sur indices du CME, comme symboles à part e
 
 ES et NQ n'ont pas de carnet d'options propre. ES et SPX suivent le même indice : le carnet des dealers derrière un graphique ES *est* donc le carnet SPX - les niveaux SPX (ou NDX, pour NQ) sont projetés sur l'axe de prix du future, tandis que la série de prix provient du flux CME. La projection utilise le carry théorique du contrat que nous cotons (taux d'intérêt moins le rendement du dividende de l'indice, sur le temps restant jusqu'à son échéance) : il n'y a donc aucun décalage de base à configurer, et à chaque roulement trimestriel les niveaux passent au nouveau contrat en même temps que le prix. Comme le carry correspond à la juste valeur, les niveaux peuvent être légèrement décalés quand les futures se traitent au-dessus ou en dessous de celle-ci, par exemple la nuit ou autour des annonces. Les expositions en dollars (GEX net, call et put) sont délibérément laissées non projetées : l'histogramme est mis à l'échelle sur l'exposition *relative*, la forme est donc identique dans les deux cas. Les micro-contrats (/MES, /MNQ) sont le même contrat au dixième de la taille - les mêmes niveaux s'appliquent.
 
-Nous ne prévoyons pas de prendre en charge les actions individuelles. Le modèle de signaux et le concept de régime sont conçus autour du comportement des dealers à l'échelle de l'indice.
+Les actions individuelles sont au programme, à commencer par les Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META et TSLA). Tant qu'une action n'est pas disponible, le modèle de signaux et le concept de régime reposent sur le comportement des dealers à l'échelle de l'indice, et cette page listera chaque action dès son ajout.
 
 ## Heures de marché
 
@@ -97,14 +97,14 @@ Les grecques et toutes les mesures de positionnement des dealers sont calculées
 
 Pendant les heures régulières, les prix arrivent généralement dans votre navigateur quelques secondes après leur impression sur le tape. Les chiffres de positionnement des dealers et les signaux suivent avec un décalage voulu, car ils sont recalculés selon les cycles ci-dessus plutôt qu'à chaque transaction. Si les mises à jour semblent plus lentes, voir [Streaming et performance](/help/platform/streaming-and-performance).
 
-## Pourquoi seulement le complexe des indices
+## Pourquoi le complexe des indices d'abord
 
 Deux raisons :
 
 1. Le modèle de positionnement des dealers ne fonctionne bien que là où le flow des dealers représente une fraction significative du flow total. C'est le cas du complexe des indices - SPY, SPX, QQQ, NDX et les futures ES / NQ, qui suivent ces deux mêmes indices.
 2. Nous préférons bien maîtriser une poignée d'instruments plutôt que de maîtriser à moitié dix instruments.
 
-Les actions individuelles peuvent dériver sous l'effet de nouvelles idiosyncrasiques, ce qui rend la lecture du GEX plus bruitée. Ce n'est pas notre terrain de jeu.
+Les actions individuelles peuvent dériver sous l'effet de nouvelles idiosyncrasiques, surtout autour des résultats trimestriels, ce qui rend la lecture du GEX plus bruitée. C'est pourquoi elles arrivent quelques-unes à la fois, à commencer par les Magnificent Seven, où le marché des options est le plus profond, plutôt que toutes en même temps.
 
 ## Voir aussi
 
