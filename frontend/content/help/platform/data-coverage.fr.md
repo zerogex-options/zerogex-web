@@ -76,9 +76,10 @@ Demi-journées (clôture anticipée à 13h00 ET autour de certains jours férié
 
 ## Profondeur historique
 
-- **Données intrajournalières détaillées** - les instantanés complets de la chaîne d'options, le GEX par strike et le flux par contrat sont conservés sur une fenêtre glissante d'environ deux à trois mois, pas des années.
-- **Séries plus légères** - les barres de prix à la minute et le résumé GEX principal sont conservés plus longtemps.
-- **Backtesting** - repose sur une archive distincte de la chaîne d'options. La plage de dates de la page Backtesting indique exactement ce qui est disponible pour un test.
+- **Résumé GEX** - call wall, put wall, gamma flip, GEX net et max pain, un instantané par minute. Cet historique n'est pas tronqué : il s'allonge d'une séance à chaque jour de bourse. Il commence le **29 juin 2026** pour SPY, QQQ et SPX, et le **24 juillet 2026** pour NDX. ES et NQ sont tirés des carnets SPX et NDX : ES commence donc avec SPX et NQ avec NDX.
+- **Barres de prix à la minute** - conservées de la même façon, sans limite glissante.
+- **Données intrajournalières détaillées** - les instantanés complets de la chaîne d'options, le GEX par strike et le flux par contrat sont conservés sur une fenêtre glissante d'environ 60 jours. Pour les dates antérieures à cette fenêtre, les walls et le GEX net sont les valeurs enregistrées avec chaque instantané du résumé, et la répartition du GEX entre calls et puts n'est pas disponible.
+- **Backtesting** - les prix des options utilisés pour les trades d'un test proviennent d'une archive distincte, qui commence le **20 avril 2026** pour SPY et SPX, le **24 avril 2026** pour QQQ et le **31 juillet 2026** pour NDX. Un test qui utilise les niveaux GEX ne remonte pas plus loin que le résumé GEX. La plage de dates de la page Backtesting indique exactement ce qui est disponible pour un test.
 
 ## Sources de données
 

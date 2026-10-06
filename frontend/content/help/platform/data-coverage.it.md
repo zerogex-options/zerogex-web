@@ -76,9 +76,10 @@ Giornate corte (chiusura anticipata alle 13:00 ET in prossimità di alcune festi
 
 ## Profondità storica
 
-- **Dati intraday dettagliati** - gli snapshot completi della catena di opzioni, il GEX per strike e il flow a livello di contratto vengono conservati per una finestra mobile di circa due-tre mesi, non per anni.
-- **Serie più leggere** - le barre di prezzo al minuto e il riepilogo GEX principale vengono conservati più a lungo.
-- **Backtesting** - si basa su un archivio separato della catena di opzioni. L'intervallo di date della pagina Backtesting mostra esattamente cosa è disponibile per un test.
+- **Riepilogo GEX** - call wall, put wall, gamma flip, GEX netto e max pain, uno snapshot al minuto. Questo storico non viene accorciato, quindi cresce di una sessione a ogni giorno di borsa. Inizia il **29 giugno 2026** per SPY, QQQ e SPX, e il **24 luglio 2026** per NDX. ES e NQ derivano dai book di SPX e NDX, quindi ES inizia con SPX e NQ con NDX.
+- **Barre di prezzo al minuto** - conservate allo stesso modo, senza limite mobile.
+- **Dati intraday dettagliati** - gli snapshot completi della catena di opzioni, il GEX per strike e il flow a livello di contratto vengono conservati per una finestra mobile di circa 60 giorni. Per le date precedenti a questa finestra, i wall e il GEX netto sono i valori registrati con ciascuno snapshot del riepilogo, e la ripartizione del GEX tra call e put non è disponibile.
+- **Backtesting** - i prezzi delle opzioni per le operazioni di un test provengono da un archivio separato, che inizia il **20 aprile 2026** per SPY e SPX, il **24 aprile 2026** per QQQ e il **31 luglio 2026** per NDX. Un test che usa i livelli GEX arriva indietro solo fin dove arriva il riepilogo GEX. L'intervallo di date della pagina Backtesting mostra esattamente cosa è disponibile per un test.
 
 ## Fonti dati
 

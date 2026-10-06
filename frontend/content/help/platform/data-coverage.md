@@ -76,9 +76,10 @@ Half-days (early close at 1:00 PM ET around some holidays) - the platform respe
 
 ## Historical depth
 
-- **Detailed intraday data** - full option-chain snapshots, per-strike GEX, and contract-level flow are kept for a rolling window of roughly two to three months, not years.
-- **Lighter series** - per-minute price bars and the headline GEX summary are kept longer.
-- **Backtesting** - backed by a separate option-chain archive. The Backtesting page's date range shows exactly what's available for a test.
+- **GEX summary** - call wall, put wall, gamma flip, net GEX and max pain, one snapshot a minute. This history isn't trimmed, so it grows by a session every trading day. It starts on **June 29, 2026** for SPY, QQQ and SPX, and on **July 24, 2026** for NDX. ES and NQ are drawn from the SPX and NDX books, so ES starts with SPX and NQ with NDX.
+- **Per-minute price bars** - kept the same way, with no rolling cutoff.
+- **Detailed intraday data** - full option-chain snapshots, per-strike GEX, and contract-level flow are kept for a rolling window of about 60 days. For dates before that window, the walls and net GEX are the values recorded with each summary snapshot, and the split of GEX into calls and puts isn't available.
+- **Backtesting** - option prices for a test's trades come from a separate archive, which starts on **April 20, 2026** for SPY and SPX, **April 24, 2026** for QQQ, and **July 31, 2026** for NDX. A test that uses the GEX levels can only reach back as far as the GEX summary. The Backtesting page's date range shows exactly what's available for a test.
 
 ## Data sources
 

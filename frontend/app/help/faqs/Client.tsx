@@ -88,7 +88,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'history-depth',
         q: 'How far back does historical data go?',
-        a: 'It varies by data type, and the most detailed data is kept for a limited window. Full option-chain snapshots, per-strike GEX, and trade-level flow are kept for a rolling window of roughly two to three months. Lighter series, such as per-minute price bars and the headline GEX summary, are kept longer, and a separate option-chain archive backs the backtester. The Backtesting page\'s date range shows exactly what is available for a test.',
+        a: 'It varies by data type. The GEX summary (call wall, put wall, gamma flip, net GEX and max pain, one snapshot a minute) isn\'t trimmed: it starts on June 29, 2026 for SPY, QQQ and SPX, and on July 24, 2026 for NDX, and ES and NQ start with SPX and NDX. Per-minute price bars are kept the same way. Full option-chain snapshots, per-strike GEX, and trade-level flow are kept for a rolling window of about 60 days. A separate option-price archive backs the backtester, starting April 20, 2026 for SPY and SPX, April 24, 2026 for QQQ, and July 31, 2026 for NDX. The Backtesting page\'s date range shows exactly what is available for a test.',
       },
     ],
   },
