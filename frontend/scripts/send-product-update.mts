@@ -185,11 +185,34 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
       },
     },
   },
+  '2026-10': {
+    key: 'product_update_2026_10',
+    excludeOnboardingNudged: false,
+    // Same offer and CTA as August. The October 2026 pricing still honors the
+    // reactivation trial on any plan (docs/pricing-october-2026-runbook.md).
+    grantsExtendedTrial: true,
+    // No `cancelled` variant. August swept the never-win-backed backlog, so what
+    // that cohort holds now is mostly members who left in the last few weeks,
+    // and the weekly automated win-back reaches each of them a month after they
+    // leave. A campaign would only pitch them the same discount sooner.
+    content: {
+      subscribers: {
+        subject: "What's new at ZeroGEX, and our first Folds of Honor donation",
+        html: '2026-10-product-update.html',
+        text: '2026-10-product-update.txt',
+      },
+      registrants: {
+        subject: "What's new at ZeroGEX this month",
+        html: '2026-10-product-update-registrants.html',
+        text: '2026-10-product-update-registrants.txt',
+      },
+    },
+  },
 };
-const DEFAULT_CAMPAIGN = '2026-08';
+const DEFAULT_CAMPAIGN = '2026-10';
 
-// The July send used a 30-day signup window. The August campaign targets only
-// registrants who arrived SINCE that send, so it passes --since instead.
+// The July send used a 30-day signup window. Later campaigns target only
+// registrants who arrived SINCE the previous send, so they pass --since instead.
 const DEFAULT_DAYS = 30;
 const DEFAULT_THROTTLE_MS = 550; // conservative: ≈1.8 req/s, well under Resend limits
 

@@ -22,7 +22,7 @@ A questi si aggiungono due futures su indici del CME, come simboli a pieno titol
 
 ES e NQ non hanno un book di opzioni proprio. ES e SPX seguono lo stesso indice, quindi il book dei dealer dietro un grafico ES *è* il book dell'SPX: i livelli SPX (o NDX, per NQ) vengono proiettati sull'asse dei prezzi del future, mentre la serie dei prezzi arriva dal feed CME. La proiezione usa il carry teorico del contratto che quotiamo (tassi d'interesse meno il rendimento da dividendi dell'indice, sul tempo che manca alla sua scadenza), quindi non c'è alcun offset di base da configurare, e a ogni rollover trimestrale i livelli passano al nuovo contratto insieme al prezzo. Poiché il carry corrisponde al fair value, i livelli possono risultare leggermente spostati quando i futures scambiano sopra o sotto di esso, per esempio di notte o in occasione di notizie. Le esposizioni in dollari (GEX netto, call e put) sono deliberatamente lasciate non proiettate: l'istogramma scala sull'esposizione *relativa*, quindi la forma è la stessa in entrambi i casi. I micro (/MES, /MNQ) sono lo stesso contratto a un decimo della dimensione, quindi valgono gli stessi livelli.
 
-Non prevediamo di supportare azioni su singoli titoli. Il modello dei segnali e il concetto di regime sono progettati attorno al comportamento dei dealer a livello di indice.
+Le azioni su singoli titoli sono nella roadmap, a cominciare dai Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META e TSLA). Finché un titolo non è disponibile, il modello dei segnali e il concetto di regime si basano sul comportamento dei dealer a livello di indice, e questa pagina elencherà ogni titolo man mano che viene aggiunto.
 
 ## Orari di mercato
 
@@ -96,14 +96,14 @@ Le greche e ogni metrica di posizionamento dei dealer sono calcolate da ZeroGEX 
 
 Durante gli orari regolari, i prezzi arrivano tipicamente nel tuo browser pochi secondi dopo la stampa sul tape. I dati di posizionamento dei dealer e i segnali seguono con un ritardo voluto, perché vengono ricalcolati secondo i cicli indicati sopra anziché a ogni operazione. Se gli aggiornamenti sembrano più lenti, vedi [Streaming e prestazioni](/help/platform/streaming-and-performance).
 
-## Perché solo il complesso degli indici
+## Perché prima il complesso degli indici
 
 Due motivi:
 
 1. Il modello di posizionamento dei dealer funziona bene solo dove il flow dei dealer rappresenta una frazione significativa del flow totale. Questo è il complesso degli indici - SPY, SPX, QQQ, NDX e i futures ES / NQ, che seguono quegli stessi due indici.
 2. Preferiamo fare bene una manciata di strumenti piuttosto che fare a metà dieci strumenti.
 
-Le azioni su singoli titoli possono muoversi per notizie idiosincratiche che rendono la lettura del GEX più rumorosa. Non è il nostro campo.
+Le azioni su singoli titoli possono muoversi per notizie idiosincratiche, soprattutto intorno alle trimestrali, che rendono la lettura del GEX più rumorosa. Per questo vengono aggiunte poche alla volta, a cominciare dai Magnificent Seven, dove il mercato delle opzioni è più profondo, anziché tutte insieme.
 
 ## Vedi anche
 

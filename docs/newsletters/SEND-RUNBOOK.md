@@ -13,21 +13,47 @@ self-deleted (`users.deleted_at`) are excluded from every cohort.
 
 ---
 
-## Current campaign — August 2026 (`--campaign 2026-08`, the default)
+## Current campaign: October 2026 (`--campaign 2026-10`, the default)
 
-The follow-up to the July send. Covers everything that shipped since: the
-TradingView and NinjaTrader indicators, ES/NQ futures coverage, Gamma Shift,
-Pin Strike, and the Market Tide / Pair Comparison / Volatility metric pages.
+Covers what shipped in September (one Gamma Terminal, Spread Monitor, 0DTE on
+the Daily Replay, Hedging Flow and Gamma Weather, the Intraday Cone and Track
+Record, My Dashboard on the account, the phone rebuild), the first Folds of
+Honor donation ($459 for Q3 2026, sent October 1), and the roadmap: the
+Magnificent Seven, DAX futures, and licensed history for backtesting.
 
 | Audience | Who | Files | Subject |
 |---|---|---|---|
-| `registrants` | Verified, never subscribed, signed up **since the July send**, logged in | `2026-08-product-update-registrants.html` / `.txt` | What's new at ZeroGEX since you signed up |
-| `cancelled` | Churned (`subscription_lapsed=1`), verified, no live sub, not an operator, and **never win-backed** (`winback_email_sent_at IS NULL`) | `2026-08-product-update-cancelled.html` / `.txt` | What's changed at ZeroGEX since you left |
+| `subscribers` | Active + trialing customers (`subscription_status IN ('active','trialing')`) | `2026-10-product-update.html` / `.txt` | What's new at ZeroGEX, and our first Folds of Honor donation |
+| `registrants` | Verified, never subscribed, signed up **since the August send**, logged in | `2026-10-product-update-registrants.html` / `.txt` | What's new at ZeroGEX this month |
 
-**Idempotency key:** `product_update_2026_08`. Each successful send stamps
-`audit_events(type='product_update_2026_08_sent')`, so a re-run — including after a
-`--limit` test batch — skips anyone already emailed and an interrupted run resumes
+**Idempotency key:** `product_update_2026_10`. Each successful send stamps
+`audit_events(type='product_update_2026_10_sent')`, so a re-run (including after a
+`--limit` test batch) skips anyone already emailed and an interrupted run resumes
 cleanly.
+
+**Subscribers have not had a campaign since July.** The August send went only to
+registrants and cancelled members, so the subscriber copy also carries a short
+"In case you missed it" list of the late-August features. Trialing members are
+in this cohort, so the copy names Pro-only items as Pro.
+
+**The subscriber copy pitches the referral program.** Its box only makes sense
+while `REFERRAL_PROGRAM_ENABLED=1` in `frontend/.env.local` (the Account page
+hides the Referrals panel otherwise). Check before sending, from `frontend/`:
+
+```
+grep '^REFERRAL_PROGRAM_ENABLED=' .env.local    # must print REFERRAL_PROGRAM_ENABLED=1
+```
+
+**There is no `cancelled` variant this time.** August swept the never-win-backed
+backlog, so what that cohort holds now is mostly members who left in the last
+few weeks, and the weekly automated win-back (`092.winback`) reaches each of them
+about a month after they leave, with the dated highlights from
+`winback-highlights.json`. A campaign would only pitch them the same discount
+sooner. `--audience cancelled` on this campaign refuses with "no content".
+
+## How the audiences and offers work
+
+These apply to every campaign registered in the script.
 
 ### Why `registrants` no longer skips the already-nudged
 
@@ -39,7 +65,7 @@ timer fires **every 2 hours** over a 2h–7d window, so it stamps
 hours of registration. A live August run with the exclusion returned **2
 recipients against 146 skipped**.
 
-So August keeps them. The flag is per-campaign
+So August and October keep them. The flag is per-campaign
 (`CampaignSpec.excludeOnboardingNudged`), not deleted, so re-running
 `--campaign 2026-07` still reproduces the cohort July actually sent to. The
 dry-run reports the overlap either way — `Excluded:` when the campaign skips
@@ -47,8 +73,8 @@ them, `Second touch:` when it doesn't.
 
 ### The `registrants` audience grants the extended trial
 
-The August email tells registrants "your **extended free trial** is still on the
-table" and its CTA is `/pricing?trial=1&reactivate=1`. That link is only a
+The August and October emails tell registrants "your **extended free trial** is
+still on the table" and their CTA is `/pricing?trial=1&reactivate=1`. That link is only a
 *signal*: `/pricing` renders the longer number straight off the URL parameter,
 but `app/api/billing/checkout/route.ts` re-derives the actual grant server-side
 and gives the extended `REACTIVATION_TRIAL_DAYS` trial **only** when
@@ -143,7 +169,7 @@ KEY=$(grep -m1 '^STRIPE_SECRET_KEY=' .env.local | cut -d= -f2- | tr -d '"')
 curl -s "https://api.stripe.com/v1/coupons/<coupon id>" -u "$KEY:"
 ```
 
-### Before sending
+### Before a `cancelled` send
 
 Consider pausing the weekly automated win-back timer for the duration of the
 `cancelled` send so the two can't interleave mid-run:
@@ -167,51 +193,82 @@ campaign is draining the same cohort.
   per-recipient unsubscribe links.
 - For `cancelled`: `STRIPE_COUPON_WINBACK_{BASIC,PRO}_{MONTHLY,ANNUAL}` configured
   in Stripe and in `.env.local`.
-- **Deploy first.** It serves the header image at
-  `https://zerogex.io/email/zerogex-header.png` (otherwise the logo is broken) and
-  publishes the `/unsubscribe` route the footer link and one-click header point to.
+- **Deploy first.** It serves the header and footer logos at
+  `https://zerogex.io/email/zerogex-email-header.png` and `zerogex-email-footer.png`
+  (generated from `assets/branding/` by `make logo`; otherwise the logo is broken)
+  and publishes the `/unsubscribe` route the footer link and one-click header point
+  to.
+
+## Send to subscribers
+
+No date window: the cohort is everyone on an active or trialing subscription.
+
+```
+cd frontend
+
+# 1. See the count + a sample (nothing sent)
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --dry-run
+
+# 2. Send one preview to yourself; open on desktop + phone
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --preview-to Michael@zerogex.io
+
+# 3. Small live test batch (first 5 real recipients)
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --send --yes --limit 5
+
+# 4. Send to everyone remaining
+node --experimental-strip-types scripts/send-product-update.mts --audience subscribers --send --yes
+```
 
 ## Send to registrants
 
 `--since` pins the signup floor to the last campaign, so only people who
-registered after it are contacted. Use the July send date.
+registered after it are contacted. For October, use the date the August send
+started, which the audit log records:
+
+```
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT MIN(created_at) FROM audit_events WHERE type = 'product_update_2026_08_sent';"
+```
+
+Put its date (the first 10 characters) in place of `<AUGUST_SEND_DATE>`:
 
 ```
 cd frontend
 
 # 1. See the count + a sample (nothing sent)
 node --experimental-strip-types scripts/send-product-update.mts \
-  --audience registrants --since 2026-07-20 --dry-run
+  --audience registrants --since <AUGUST_SEND_DATE> --dry-run
 
 # 2. Send one preview to yourself; open on desktop + phone
 node --experimental-strip-types scripts/send-product-update.mts \
-  --audience registrants --since 2026-07-20 --preview-to Michael@zerogex.io
+  --audience registrants --since <AUGUST_SEND_DATE> --preview-to Michael@zerogex.io
 
 # 3. Small live test batch (first 5 real recipients)
 node --experimental-strip-types scripts/send-product-update.mts \
-  --audience registrants --since 2026-07-20 --send --yes --limit 5
+  --audience registrants --since <AUGUST_SEND_DATE> --send --yes --limit 5
 
 # 4. Send to everyone remaining
 node --experimental-strip-types scripts/send-product-update.mts \
-  --audience registrants --since 2026-07-20 --send --yes
+  --audience registrants --since <AUGUST_SEND_DATE> --send --yes
 ```
 
-## Send to cancelled
+## Send to cancelled (campaigns that have a `cancelled` variant)
 
-Same shape, no `--since` — the cohort is defined by the never-win-backed latch,
-not a date window.
+Same shape, no `--since`: the cohort is defined by the never-win-backed latch,
+not a date window. October has no `cancelled` variant, so these name the August
+campaign explicitly.
 
 ```
-node --experimental-strip-types scripts/send-product-update.mts --audience cancelled --dry-run
-node --experimental-strip-types scripts/send-product-update.mts --audience cancelled --preview-to Michael@zerogex.io
-node --experimental-strip-types scripts/send-product-update.mts --audience cancelled --send --yes --limit 5
-node --experimental-strip-types scripts/send-product-update.mts --audience cancelled --send --yes
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --dry-run
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --preview-to Michael@zerogex.io
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --send --yes --limit 5
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --send --yes
 ```
 
 Or export the cohort and send from the Resend UI:
 
 ```
-node --experimental-strip-types scripts/send-product-update.mts --audience cancelled --csv cancelled.csv
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --csv cancelled.csv
 ```
 
 ## Notes
@@ -221,14 +278,29 @@ node --experimental-strip-types scripts/send-product-update.mts --audience cance
 - **`--send` requires `--yes`.** Default mode is dry-run.
 - **Verified only:** every cohort requires `email_verified_at`; subscribers are
   verified by definition.
-- **Keep the copy in sync.** The five highlights appear in three places — the
+- **Keep the copy in sync.** The highlights appear in three places: the
   campaign emails here, `frontend/content/winback-highlights.json` (the automated
-  win-back's "what's new since you left" bullets), and the August entry on
-  `/updates` (`app/updates/page.tsx`). Update all three together.
+  win-back's dated "what's new since you left" bullets), and the matching entry
+  on `/updates` (`app/updates/page.tsx`). Update all three together.
 
 ---
 
 ## Past campaigns
+
+### August 2026 (`--campaign 2026-08`)
+
+The follow-up to the July send: the TradingView and NinjaTrader indicators,
+ES/NQ futures coverage, Gamma Shift, Pin Strike, and the Market Tide / Pair
+Comparison / Volatility metric pages.
+
+| Audience | Who | Files | Subject |
+|---|---|---|---|
+| `registrants` | Verified, never subscribed, signed up **since the July send** (`--since 2026-07-20`), logged in | `2026-08-product-update-registrants.html` / `.txt` | What's new at ZeroGEX since you signed up |
+| `cancelled` | Churned (`subscription_lapsed=1`), verified, no live sub, not an operator, and **never win-backed** (`winback_email_sent_at IS NULL`) | `2026-08-product-update-cancelled.html` / `.txt` | What's changed at ZeroGEX since you left |
+
+**Idempotency key:** `product_update_2026_08`. Sent in early September 2026; still
+registered so the cohort can be re-counted or audited, and so the `cancelled`
+variant stays available.
 
 ### July 2026 (`--campaign 2026-07`)
 

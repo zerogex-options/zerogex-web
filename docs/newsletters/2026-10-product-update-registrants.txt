@@ -1,0 +1,160 @@
+ZeroGEX · What's New · October 2026
+
+------------------------------------------------------------
+
+Hi there,
+
+I'm Michael, the founder of ZeroGEX. You created an account recently but
+haven't started a trial, so here is a short look at what shipped over the
+past month.
+
+A quick reminder of what ZeroGEX does: it models where options dealers are
+likely positioned, so you can read intraday price action the way market
+makers hedge it. That means the gamma flip, the call and put walls, and the
+levels price tends to pin, reject, or react around.
+
+A good share of what follows is free, so you can look before deciding
+anything.
+
+
+== WHAT'S NEW ==
+
+* The Gamma Terminal, free on a delay (https://zerogex.io/chart). Our
+  flagship chart: price with the Gamma Flip, Call and Put Walls and Max Pain
+  drawn on it, and beside it either two strike-aligned gamma ladders or net
+  dealer gamma by price on the chart's own scale. Anyone can open it on a
+  ~15-minute delay, ladders included. Members get it live, on every symbol.
+
+* A free levels email every trading morning
+  (https://zerogex.io/spx-gamma-levels). The gamma flip, call wall, put
+  wall, max pain and net GEX for SPX, SPY, QQQ, NDX, ES and NQ, in your
+  inbox before the open and formatted to paste into the free TradingView
+  script. Sign up with just your email on any free levels page.
+
+* Spread Monitor (https://zerogex.io/spread-monitor). Can you actually get
+  filled? A new page showing how wide the option market is quoted, which
+  side of the book is the expensive one, where the chain thins out, and how
+  much of it has no bid at all. Each reading is ranked against the same
+  symbol's own history at the same time of day, and when there is not enough
+  history the page shows the measurement and withholds the verdict. Included
+  with membership.
+
+* 0DTE on the Daily Replay (https://zerogex.io/replay). Every replayed
+  session now has an All expirations / 0DTE switch. On 0DTE, the Call Wall,
+  Put Wall, Gamma Flip and Max Pain are rebuilt from that day's expiry
+  alone, so you see the book that actually had to be hedged into the bell.
+  The filter and the playhead live in the link, so sharing a 0DTE moment is
+  a copy and paste. Free.
+
+* Forecasts that keep score. The Intraday Cone
+  (https://zerogex.io/forecast/cone), in beta, redraws every 15 minutes: a
+  price band for the next 30 minutes to 2 hours on SPY, SPX, QQQ and NDX,
+  with the odds that price stays inside it the whole way. A reliability
+  panel scores those odds against a simple baseline, including where the
+  cone is not beating it yet. The Track Record
+  (https://zerogex.io/track-record) publishes every Daily Forecast we have
+  ever graded, with the misses named and dated and the weaknesses we know
+  about listed on the page. Both are free.
+
+* Rebuilt for phones and tablets. The phone layout was rebuilt from the top
+  bar down: a live quote that doubles as the symbol picker, a full-screen
+  menu, and charts redrawn for a small screen, with drag to pan, pinch to
+  zoom and press-and-hold for a crosshair. Tablets get the same treatment
+  instead of a squeezed desktop page.
+
+
+== WORTH READING ==
+
+* How often do gamma walls actually break?
+  (https://zerogex.io/education/how-often-do-gamma-walls-break) We measured
+  737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two
+  times in three over the following hour, and Nasdaq walls were closer to a
+  coin flip. None of the 19 features we tested, including which side of the
+  gamma flip price was on, predicted which walls would break, so we rewrote
+  our own site copy to match.
+
+
+== WHAT'S COMING NEXT ==
+
+A quick look at where ZeroGEX is headed. Roadmaps shift, often because of
+something one of you flags, but this is the current direction:
+
+-> The Magnificent Seven. Our first single stocks: AAPL, MSFT, NVDA, AMZN,
+   GOOGL, META and TSLA, with the same gamma flip, walls and
+   dealer-positioning read you use on the indices today.
+
+-> DAX futures. Coverage for DAX futures, our first market outside the U.S.,
+   for traders who work the European session.
+
+-> Years of history for backtesting. We are working to license historical
+   options data going back several years, so a backtest can run across
+   different market regimes instead of only the months we have recorded
+   ourselves since this spring.
+
+-> A more streamlined experience. An ongoing pass to simplify the platform:
+   fewer clicks to the read that matters, and less on-screen noise.
+
+
+== TWO WAYS IN, BOTH FREE TO START ==
+
+The free, ~15-minute-delayed Gamma Levels
+(https://zerogex.io/spx-gamma-levels) pages, the Gamma Terminal and the
+daily levels email are open right now. No card, nothing to set up.
+
+Want it all live, with the real-time dashboards, Spread Monitor, Hedging
+Flow and the rest? Because you never started one, your extended free trial
+is still on the table. It doesn't start until you activate it. You add a
+card at that step, it isn't charged until the trial ends, and we email you
+48 hours before the first charge. Cancel from your account page before then
+and you pay nothing.
+
+Start your extended free trial:
+https://zerogex.io/pricing?trial=1&reactivate=1
+
+Or just open the free Gamma Terminal (https://zerogex.io/chart) first. No
+account needed.
+
+
+== WE'RE A FOLDS OF HONOR PROUD SUPPORTER ==
+
+3% of every subscription is pledged to Folds of Honor, funding educational
+scholarships for the spouses and children of fallen and disabled U.S.
+service members, at no extra cost to you. It comes out of ZeroGEX's share,
+not your price.
+
+Our first quarterly donation, $459, went out on October 1. The receipt and
+the running total are public at https://zerogex.io/giving. That is the
+ledger, not a marketing claim.
+
+
+------------------------------------------------------------
+
+That is what is new. Your account is ready whenever you are: the free levels
+and the daily email cost nothing, and the trial opens up the rest. If there
+is something you would want to see before subscribing, just hit reply. I
+read every message myself.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+Dealer positioning is modeled, not directly observed: public option data
+does not disclose which side a dealer holds at a strike. See
+https://zerogex.io/methodology
+
+ZeroGEX provides options market-structure data and analytics for educational
+and informational purposes only. It is not investment advice, and nothing
+here is a recommendation to buy or sell any security. Options trading
+involves substantial risk and is not suitable for every investor.
+
+Free Gamma Levels: https://zerogex.io/spx-gamma-levels
+Pricing:           https://zerogex.io/pricing
+Giving:            https://zerogex.io/giving
+Help & FAQ:        https://zerogex.io/help/faqs
+
+You're receiving this because you created a ZeroGEX account.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
