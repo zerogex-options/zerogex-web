@@ -2421,10 +2421,13 @@ body {
 
 /* ============================================================
    MY DASHBOARD — customizable widget grid
-   A 12-column desktop grid; each widget's footprint (sm/md/lg/xl = 3/6/9/12
-   columns, a quarter to the full board) collapses responsively (12→2→1
-   columns). Twelve rather than four so a free-resize tile (the Gamma Ladder)
-   can be dragged to widths between the footprints. Tiles in the same row stretch
+   A 24-track desktop grid; each widget's footprint (sm/md/lg/xl = 6/12/18/24
+   tracks, a quarter to the full board) collapses responsively (24→2→1
+   columns). That fine so a free-resize tile (the Gamma Ladder) can be dragged
+   to widths between the footprints, in half-column steps (a track is half of
+   one of the board's twelve columns — see core/myDashboardLayout). With the
+   gap counted in, every footprint is exactly as wide as it was on the old
+   four-column grid. Tiles in the same row stretch
    to a shared height (align-items: stretch), so a row of mixed cards reads
    as one clean band. Flow is ordered (not dense) so the board keeps the
    exact order the member arranged by dragging, rather than auto-repacking.
@@ -2440,7 +2443,7 @@ body {
   .zg-mydash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 1024px) {
-  .zg-mydash-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .zg-mydash-grid { grid-template-columns: repeat(24, minmax(0, 1fr)); }
 }
 
 /* Footprints. Base (mobile) is a single column; they widen at the two
@@ -2461,11 +2464,12 @@ body {
   .zg-w-span { grid-column: span var(--zg-span-tab, 1); }
 }
 @media (min-width: 1024px) {
-  .zg-w-sm { grid-column: span 3; }
-  .zg-w-md { grid-column: span 6; }
-  .zg-w-lg { grid-column: span 9; }
-  .zg-w-xl { grid-column: span 12; }
-  .zg-w-span { grid-column: span var(--zg-span, 3); }
+  .zg-w-sm { grid-column: span 6; }
+  .zg-w-md { grid-column: span 12; }
+  .zg-w-lg { grid-column: span 18; }
+  .zg-w-xl { grid-column: span 24; }
+  /* --zg-span is the dragged width in tracks (set inline). */
+  .zg-w-span { grid-column: span var(--zg-span, 6); }
 }
 
 /* ── Key Levels flip ─────────────────────────────────────────────────────────
@@ -2593,19 +2597,19 @@ body {
   .zg-mydash-split {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  /* A half-width pane keeps the 12 columns but doubles each footprint, so
+  /* A half-width pane keeps the 24 tracks but doubles each footprint, so
      S/M/L/XL land on half or the whole of the space the pane actually has
      instead of collapsing into unreadable slivers. A dragged width stays a
-     count of the pane's own twelfths. */
-  .zg-mydash-grid--half .zg-w-sm { grid-column: span 6; }
-  .zg-mydash-grid--half .zg-w-md { grid-column: span 6; }
-  .zg-mydash-grid--half .zg-w-lg { grid-column: span 12; }
-  .zg-mydash-grid--half .zg-w-xl { grid-column: span 12; }
+     count of the pane's own tracks. */
+  .zg-mydash-grid--half .zg-w-sm { grid-column: span 12; }
+  .zg-mydash-grid--half .zg-w-md { grid-column: span 12; }
+  .zg-mydash-grid--half .zg-w-lg { grid-column: span 24; }
+  .zg-mydash-grid--half .zg-w-xl { grid-column: span 24; }
 }
 
 /* Right-edge resize handle (edit mode). Drag it to widen/narrow a widget; it
    snaps to the widget's allowed footprints (or, on a free-resize tile, to any
-   whole column). Shown only on the 12-column desktop grid, where widths render
+   half-column). Shown only on the desktop grid, where widths render
    distinctly — on the 2-/1-column layouts the toolbar's size button is the
    resize control instead. */
 .zg-w-resize-handle {
@@ -2626,11 +2630,16 @@ body {
 @media (min-width: 1024px) {
   .zg-w-resize-handle { display: flex; }
 }
+/* The grip has to read at rest — the tile's own content (a ladder's tinted
+   rows, a chart) sits right under it, and --border-strong alone came out at
+   about 1.5:1 there. So it is a solid pill on the card color with the bar in
+   the accent, only brighter when grabbed. */
 .zg-w-resize-grip {
   width: 4px;
   height: 26px;
   border-radius: 999px;
-  background: var(--border-strong);
+  background: color-mix(in srgb, var(--color-accent-hot) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--bg-card), 0 0 0 4px var(--border-default);
   transition: background var(--dur-1) var(--ease-standard),
     height var(--dur-1) var(--ease-standard);
 }
@@ -2684,7 +2693,8 @@ body.zg-box-resizing * {
   width: 26px;
   height: 4px;
   border-radius: 999px;
-  background: var(--border-strong);
+  background: color-mix(in srgb, var(--color-accent-hot) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--bg-card), 0 0 0 4px var(--border-default);
   transition: background var(--dur-1) var(--ease-standard),
     width var(--dur-1) var(--ease-standard);
 }
@@ -2706,14 +2716,15 @@ body.zg-box-resizing * {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 6px;
   cursor: nwse-resize;
   touch-action: none;
   z-index: 4;
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  color: var(--color-accent-hot);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
 }
 .zg-box-resize-handle:hover,
 .zg-box-resize-handle[data-active='true'] {
@@ -2722,6 +2733,45 @@ body.zg-box-resizing * {
 @media (min-width: 1024px) {
   .zg-box-resize-handle { display: flex; }
 }
+/* Splitter between an instrument and its side panel (My Dashboard: the Gamma
+   Chart's strike rail, the Gamma Terminal's ladders / Strike Panel). Always
+   on screen as a faint grip, so the panel reads as resizable without hunting
+   for it; it lights up under the pointer and while dragged. */
+.zg-split-handle {
+  position: absolute;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 6;
+}
+.zg-split-grip {
+  width: 4px;
+  height: 40px;
+  max-height: 70%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-hot) 55%, transparent);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--border-default);
+  opacity: 0.85;
+  transition: opacity var(--dur-1) var(--ease-standard),
+    background var(--dur-1) var(--ease-standard),
+    height var(--dur-1) var(--ease-standard);
+}
+.zg-split-handle:hover .zg-split-grip,
+.zg-split-handle:focus-visible .zg-split-grip,
+.zg-split-handle[data-active='true'] .zg-split-grip {
+  opacity: 1;
+  background: var(--color-accent-hot);
+  height: 56px;
+}
+.zg-split-handle:focus-visible {
+  outline: 2px solid var(--color-accent-hot);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
 /* The live size readout shown while a free-resize tile is being dragged. */
 .zg-resize-readout {
   position: absolute;

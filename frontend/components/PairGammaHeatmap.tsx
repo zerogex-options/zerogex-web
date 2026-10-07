@@ -740,6 +740,7 @@ export default function PairGammaHeatmap({
   activeOnly = true,
   fit = null,
   maxSide = MAX_SIDE,
+  columnMinWidth = 175,
 }: {
   left: HeatmapColumnInput;
   right: HeatmapColumnInput;
@@ -753,6 +754,9 @@ export default function PairGammaHeatmap({
   /** Strikes kept on each side of spot; a fitted band may want more than the
    *  page default so the clip never runs out of rows. */
   maxSide?: number;
+  /** Each column's floor before the pair scrolls sideways (see below). A
+   *  surface whose panel the reader can drag narrower lowers it. */
+  columnMinWidth?: number;
 }) {
   const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, maxSide), [left, gexUnit, activeOnly, maxSide]);
   const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, maxSide), [right, gexUnit, activeOnly, maxSide]);
@@ -776,10 +780,10 @@ export default function PairGammaHeatmap({
     // horizontally instead of clipping it.
     <div className="overflow-x-auto">
       <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
-        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
+        <div style={{ flex: `1 1 ${columnMinWidth}px`, minWidth: columnMinWidth, background: "var(--bg-card)" }}>
           <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} fit={columnFit} />
         </div>
-        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
+        <div style={{ flex: `1 1 ${columnMinWidth}px`, minWidth: columnMinWidth, background: "var(--bg-card)" }}>
           <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} fit={columnFit} />
         </div>
       </div>

@@ -68,6 +68,7 @@ import {
   setPaneSymbol,
   setSplit,
   setWidgetBox,
+  setWidgetPanelWidth,
   setWidgetSymbol,
   setWidgetZoom,
   visiblePanes,
@@ -184,6 +185,11 @@ export default function MyDashboardPage() {
   // default. Not gated on edit mode: the ladder's picker is on its face.
   const handleWidgetSymbol = useCallback((instanceId: string, symbol: UnderlyingSymbol | null) => {
     setLayout((l) => setWidgetSymbol(l, instanceId, symbol));
+  }, []);
+  // A tile's side panel (the Gamma Terminal's ladders, the Gamma Chart's
+  // strike rail) — set when its splitter is let go, not on every move.
+  const handleWidgetPanelWidth = useCallback((instanceId: string, width: number | null) => {
+    setLayout((l) => setWidgetPanelWidth(l, instanceId, width));
   }, []);
 
   // ── Split / per-half controls ──
@@ -377,6 +383,7 @@ export default function MyDashboardPage() {
                 onWidgetBox={handleWidgetBox}
                 onWidgetZoom={handleWidgetZoom}
                 onWidgetSymbol={handleWidgetSymbol}
+                onWidgetPanelWidth={handleWidgetPanelWidth}
                 onSendToOtherPane={handleSendToPane}
               />
             ))}

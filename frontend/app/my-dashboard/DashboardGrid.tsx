@@ -3,14 +3,15 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import WidgetFrame, { type WidgetBox } from './WidgetFrame';
 import { getWidget, type WidgetDef } from './registry';
-import type { PaneId, PlacedWidget, WidgetSize, WidgetZoom } from '@/core/myDashboardLayout';
+import { SPAN_STEP, type PaneId, type PlacedWidget, type WidgetSize, type WidgetZoom } from '@/core/myDashboardLayout';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 
 /**
  * The grid cell's class and inline style for one placement. A footprint tile
  * is just its footprint class. A free-resize tile with a dragged width spans
- * that many columns instead (--zg-span on the desktop grid, half or all of the
- * tablet row via --zg-span-tab; a phone gives every chart the full row), and
+ * that many columns instead (--zg-span, in the desktop grid's half-column
+ * tracks; half or all of the tablet row via --zg-span-tab; a phone gives every
+ * chart the full row), and
  * its height is either the one it was dragged to — top-aligned, so a shorter
  * tile leaves the row's spare height visible rather than stretching into it —
  * or the row's own, never less than its default.
@@ -23,7 +24,7 @@ function cellLayout(item: PlacedWidget, widget: WidgetDef): { className: string;
   let className = `zg-w-${item.size}`;
   if (item.span !== undefined) {
     className = 'zg-w-span';
-    style['--zg-span'] = item.span;
+    style['--zg-span'] = Math.round(item.span / SPAN_STEP);
     style['--zg-span-tab'] = item.span <= 6 ? 1 : 2;
   }
   if (item.height !== undefined) {
@@ -61,6 +62,7 @@ export default function DashboardGrid({
   onBoxChange,
   onZoomChange,
   onSymbolChange,
+  onPanelWidthChange,
   onSendToPane,
 }: {
   items: PlacedWidget[];
@@ -78,6 +80,7 @@ export default function DashboardGrid({
   onBoxChange: (instanceId: string, box: WidgetBox) => void;
   onZoomChange: (instanceId: string, zoom: WidgetZoom) => void;
   onSymbolChange: (instanceId: string, symbol: UnderlyingSymbol | null) => void;
+  onPanelWidthChange: (instanceId: string, width: number | null) => void;
   onSendToPane?: (instanceId: string, target: PaneId) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -148,7 +151,8 @@ export default function DashboardGrid({
               onResizeEnd={() => setResizeIndex(null)}
               onBoxChange={(box) => onBoxChange(item.instanceId, box)}
               onZoomChange={(zoom) => onZoomChange(item.instanceId, zoom)}
-              onSymbolChange={(symbol) => onSymbolChange(item.instanceId, symbol)}
+              onSymbolChange={onSymbolChange}
+              onPanelWidthChange={onPanelWidthChange}
               onRemove={() => onRemove(item.instanceId)}
               onDuplicate={() => onDuplicate(item.instanceId)}
               sendToPane={sendToPane}

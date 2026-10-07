@@ -42,15 +42,26 @@
  *
  * ── In a My Dashboard tile ──
  * `inWidget` mounts the same instrument as the dashboard's Gamma Terminal
- * widget. Two things change. The side-by-side layout is decided by the TILE's
- * width rather than the window's (a half-width tile on a wide monitor has no
- * room for the panel beside the chart), and stacked, the panel is held to a
- * fixed height with spot centered rather than running the ladders' full
- * forty-one rows down the board. The tile also gets its own underlying picker
- * beside the view switch, with a "Default" that follows the board.
+ * widget. Three things change. The side-by-side layout is decided by the
+ * TILE's width rather than the window's (a half-width tile on a wide monitor
+ * has no room for the panel beside the chart); the panel's width is the
+ * reader's, dragged from a splitter between it and the chart and saved with
+ * the tile; and stacked, the panel is held to a fixed height with spot
+ * centered rather than running the ladders' full forty-one rows down the
+ * board. (Which underlying the tile shows is the
+ * tile's own business: it wraps this in a scope that hands the chart's and the
+ * first ladder's symbol switchers to the tile, so nothing changes in here.)
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import GammaTerminalChart, {
   type ChartGeometry,
   type ChartSnapshot,
@@ -58,7 +69,6 @@ import GammaTerminalChart, {
 } from "@/components/GammaTerminalChart";
 import PairGammaHeatmap, { ROW_H, type HeatmapColumnInput, type LadderFit } from "@/components/PairGammaHeatmap";
 import SymbolSelect from "@/components/SymbolSelect";
-import WidgetSymbolSelect from "@/app/my-dashboard/WidgetSymbolSelect";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import SessionDeltaToggle from "@/components/SessionDeltaToggle";
 import GexUnitToggle from "@/components/GexUnitToggle";
@@ -98,10 +108,23 @@ const readWideServer = () => false;
 // panel just takes a readable height of its own.
 const STACKED_PANEL_H = 420;
 
-// In a dashboard tile the panel goes beside the chart once the tile can hold
-// both: the panel's 372px, the gap, and the 700px under which the chart
-// swaps its desktop board for the portrait compact one.
-const WIDGET_WIDE_MIN = 372 + 16 + 700;
+// In a dashboard tile the panel's width is dragged (see `inWidget`). It starts
+// at the page's 372px, goes as narrow as two ladder columns at their tile floor
+// (WIDGET_LADDER_COLUMN_MIN) still fit, and as wide as leaves the chart the
+// 700px under which it swaps its desktop board for the portrait compact one.
+// The panel goes beside the chart once the tile can hold both at their
+// narrowest, and gives up width to the chart rather than stacking under it.
+const PANEL_DEFAULT_W = 372;
+const PANEL_MIN_W = 240;
+const PANEL_GAP = 16;
+const CHART_MIN_W = 700;
+const WIDGET_WIDE_MIN = PANEL_MIN_W + PANEL_GAP + CHART_MIN_W;
+// A dragged splitter within this many px of the default width lands on it.
+const PANEL_MAGNET = 10;
+// One arrow-key press on the splitter.
+const PANEL_KEY_STEP = 20;
+// Each ladder column's floor inside a tile's panel (the page keeps 175).
+const WIDGET_LADDER_COLUMN_MIN = 110;
 
 const FROZEN_SYMBOL_TITLE =
   "The free preview is a frozen ~15-minute-delayed snapshot of this pair. Members pick any underlying, live.";
@@ -138,12 +161,19 @@ export default function TerminalSurface({
   delayed = false,
   ladders = null,
   inWidget = false,
+  panelWidth = null,
+  onPanelWidthChange,
 }: {
   snapshot?: ChartSnapshot | null;
   delayed?: boolean;
   ladders?: LadderSnapshots | null;
   /** Mounted as a My Dashboard tile — see the header comment. */
   inWidget?: boolean;
+  /** The tile's saved panel width (px), or null for the default. Tile only. */
+  panelWidth?: number | null;
+  /** Saves the panel width the reader lets the splitter go at (null = the
+   *  default). Absent, there is no splitter. Tile only. */
+  onPanelWidthChange?: (width: number | null) => void;
 }) {
   const live = !delayed;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
@@ -158,6 +188,71 @@ export default function TerminalSurface({
     return () => ro.disconnect();
   }, [inWidget, rootEl]);
   const wide = inWidget ? rootW >= WIDGET_WIDE_MIN : viewportWide;
+  // The tile's panel width: mid-drag the live value, else the saved one, else
+  // the default — always fitted to what the tile leaves beside the chart.
+  const [panelDrag, setPanelDrag] = useState<number | null>(null);
+  const panelMax = Math.max(PANEL_MIN_W, rootW - PANEL_GAP - CHART_MIN_W);
+  const widgetPanelW = Math.round(
+    Math.min(panelMax, Math.max(PANEL_MIN_W, panelDrag ?? panelWidth ?? PANEL_DEFAULT_W)),
+  );
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const beginPanelResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const row = rowRef.current;
+    if (!row || !onPanelWidthChange) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const right = row.getBoundingClientRect().right;
+    const handleEl = e.currentTarget;
+    const pointerId = e.pointerId;
+    try {
+      handleEl.setPointerCapture(pointerId);
+    } catch {
+      /* the window listeners still track the drag */
+    }
+    document.body.classList.add("zg-col-resizing");
+    let last = widgetPanelW;
+    setPanelDrag(last);
+    const onMove = (ev: PointerEvent) => {
+      // The handle sits in the middle of the gap left of the panel.
+      let w = Math.round(Math.min(panelMax, Math.max(PANEL_MIN_W, right - ev.clientX - PANEL_GAP / 2)));
+      if (Math.abs(w - PANEL_DEFAULT_W) <= PANEL_MAGNET && PANEL_DEFAULT_W <= panelMax) w = PANEL_DEFAULT_W;
+      if (w !== last) {
+        last = w;
+        setPanelDrag(w);
+      }
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      document.body.classList.remove("zg-col-resizing");
+      try {
+        handleEl.releasePointerCapture(pointerId);
+      } catch {
+        /* nothing to release */
+      }
+      setPanelDrag(null);
+      onPanelWidthChange(last === PANEL_DEFAULT_W ? null : last);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  };
+  // Keyboard parity: Left widens the panel (the splitter moves left), Right
+  // narrows it, Enter goes back to the default.
+  const stepPanelByKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!onPanelWidthChange) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onPanelWidthChange(null);
+      return;
+    }
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const step = e.key === "ArrowLeft" ? PANEL_KEY_STEP : -PANEL_KEY_STEP;
+    const w = Math.round(Math.min(panelMax, Math.max(PANEL_MIN_W, widgetPanelW + step)));
+    onPanelWidthChange(w === PANEL_DEFAULT_W ? null : w);
+  };
   // Stacked in a tile, the ladders are held to the stacked panel height with
   // spot centered, rather than at their full natural length.
   const stackedFit: LadderFit | null =
@@ -338,7 +433,6 @@ export default function TerminalSurface({
           own toolbar because it decides what the panel holds, not how the chart
           draws — the chart is identical under either. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        {inWidget && <WidgetSymbolSelect />}
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Beside the tape</span>
         <div className="zg-gc-seg" role="tablist" aria-label="Dealer-gamma view beside the chart">
           {([
@@ -364,7 +458,10 @@ export default function TerminalSurface({
           a wide screen (≥ xl) and stacks under it below that — the chart keeps
           its own aspect ratio, so anything narrower would squeeze the candles
           into a strip. Top-aligned: neither card is stretched to the other. */}
-      <div className={inWidget ? `flex gap-4 ${wide ? "flex-row items-start" : "flex-col"}` : "flex flex-col xl:flex-row xl:items-start gap-4"}>
+      <div
+        ref={rowRef}
+        className={inWidget ? `relative flex gap-4 ${wide ? "flex-row items-start" : "flex-col"}` : "flex flex-col xl:flex-row xl:items-start gap-4"}
+      >
         <div className="flex-1 min-w-0">
           {/* One configuration under both views: terminal mode, spot held at the
               tape's center, ribbons on by default, its own storage scope. The
@@ -390,8 +487,12 @@ export default function TerminalSurface({
             while the tape keeps as much width as possible. The card takes the
             chart's exact height once the chart has reported it. */}
         <aside
-          className={`relative ${inWidget ? (wide ? "w-[372px] flex-none" : "w-full") : "w-full xl:w-[372px] xl:flex-none"} zg-feature-shell zg-gc-rise flex flex-col`}
-          style={{ overflow: "hidden", height: wide && geometry ? geometry.height : undefined }}
+          className={`relative ${inWidget ? (wide ? "flex-none" : "w-full") : "w-full xl:w-[372px] xl:flex-none"} zg-feature-shell zg-gc-rise flex flex-col`}
+          style={{
+            overflow: "hidden",
+            height: wide && geometry ? geometry.height : undefined,
+            width: inWidget && wide ? widgetPanelW : undefined,
+          }}
           aria-label={laddersView ? "Gamma ladders" : "Dealer gamma by strike"}
         >
           <div className="flex flex-col min-h-0 flex-1">
@@ -444,7 +545,7 @@ export default function TerminalSurface({
               }}
             >
               {laddersView ? (
-                <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} fit={fit} maxSide={maxSide} />
+                <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} fit={fit} maxSide={maxSide} columnMinWidth={inWidget ? WIDGET_LADDER_COLUMN_MIN : undefined} />
               ) : (
                 /* The chart draws into this box. The insets ARE the drawing
                    area — the chart sizes its viewBox from this element, so
@@ -462,6 +563,31 @@ export default function TerminalSurface({
             />
           </div>
         </aside>
+
+        {/* The splitter, in the gap between the chart and the panel: drag
+            left to widen the panel, right to give the chart the room. Live
+            while dragging, saved with the tile on release; double-click (or
+            Enter) for the default width. */}
+        {inWidget && wide && onPanelWidthChange && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Panel width"
+            aria-valuemin={PANEL_MIN_W}
+            aria-valuemax={panelMax}
+            aria-valuenow={widgetPanelW}
+            tabIndex={0}
+            title="Drag to resize the panel. Double-click to reset."
+            className="zg-split-handle"
+            data-active={panelDrag !== null ? "true" : undefined}
+            style={{ top: 0, bottom: 0, right: widgetPanelW + PANEL_GAP / 2 - 6 }}
+            onPointerDown={beginPanelResize}
+            onDoubleClick={() => onPanelWidthChange(null)}
+            onKeyDown={stepPanelByKey}
+          >
+            <span className="zg-split-grip" aria-hidden />
+          </div>
+        )}
       </div>
     </div>
   );

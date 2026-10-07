@@ -151,7 +151,7 @@ export type WidgetDef = {
 };
 
 export type FreeResizeSpec = {
-  /** Narrowest the tile can be dragged, in grid columns (of 12). */
+  /** Narrowest the tile can be dragged, in grid columns (of 12; half-columns allowed). */
   minSpan: number;
   /** Shortest it can be dragged, in px. */
   minHeight: number;
@@ -419,9 +419,10 @@ export const WIDGETS: WidgetDef[] = [
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: [],
-    // Two columns (a sixth of the board) is about the narrowest the strike,
-    // its level tags and the value still sit side by side in.
-    freeResize: { minSpan: 2, minHeight: 240, defaultHeight: 480 },
+    // A column and a half (an eighth of the board, ~160px on a 1440px
+    // screen) is about the narrowest a row's strike, its level tags and its
+    // value still sit side by side in; the tile folds its controls away to fit.
+    freeResize: { minSpan: 1.5, minHeight: 240, defaultHeight: 480 },
     render: () => <GammaLadderPanel />,
   },
 

@@ -29,7 +29,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Add widgets',
     underlyingSymbol: 'Underlying symbol',
     editingHint:
-      'Drag tiles to rearrange. Each tile’s controls resize it (S / M / L / XL), copy it for a side-by-side comparison, or remove it\u00a0- on touch, use the arrow buttons to reorder.',
+      'Drag tiles to rearrange. Each tile’s controls resize it (S / M / L / XL), copy it for a side-by-side comparison, or remove it\u00a0- on touch, use the arrow buttons to reorder. The Gamma Ladder sizes by dragging its right edge, bottom edge or corner; its S / M / L set its text size.',
     designYourDashboard: 'Design your dashboard',
     emptyStateLead:
       'Pull in live gamma levels, dealer positioning, options flow, proprietary signals and more\u00a0- arranged exactly how you like. Start from a preset or add widgets one at a time.',
@@ -49,7 +49,7 @@ export const dict: PageDictionary = {
     confirmClearSide: 'Remove every widget from side {side}?',
     sideLabel: 'Side {side}',
     editingHintSplit:
-      'Drag tiles to rearrange within a half. Each tile’s controls resize it (S / M / L / XL), copy it, move it to the other half, or remove it. Each half’s toolbar sets its own underlying and expiration.',
+      'Drag tiles to rearrange within a half. Each tile’s controls resize it (S / M / L / XL), copy it, move it to the other half, or remove it. Each half’s toolbar sets its own underlying and expiration. The Gamma Ladder sizes by dragging its right edge, bottom edge or corner; its S / M / L set its text size.',
   },
   it: {
     yourBoard: 'La tua bacheca',
@@ -79,7 +79,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Aggiungi widget',
     underlyingSymbol: 'Simbolo sottostante',
     editingHint:
-      'Trascina i riquadri per riordinarli. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano per un confronto affiancato o lo rimuovono\u00a0- su touch, usa i pulsanti freccia per riordinare.',
+      'Trascina i riquadri per riordinarli. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano per un confronto affiancato o lo rimuovono\u00a0- su touch, usa i pulsanti freccia per riordinare. La Scala Gamma si ridimensiona trascinandone il bordo destro, il bordo inferiore o l’angolo; i suoi S / M / L impostano la dimensione del testo.',
     designYourDashboard: 'Progetta la tua dashboard',
     emptyStateLead:
       'Integra livelli gamma in tempo reale, posizionamento dei dealer, flusso di opzioni, segnali proprietari e altro\u00a0- disposti esattamente come preferisci. Parti da un preset o aggiungi i widget uno alla volta.',
@@ -99,7 +99,7 @@ export const dict: PageDictionary = {
     confirmClearSide: 'Rimuovere tutti i widget dal lato {side}?',
     sideLabel: 'Lato {side}',
     editingHintSplit:
-      'Trascina i riquadri per riordinarli all’interno di una metà. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano, lo spostano nell’altra metà o lo rimuovono. La barra di ogni metà imposta sottostante e scadenza propri.',
+      'Trascina i riquadri per riordinarli all’interno di una metà. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano, lo spostano nell’altra metà o lo rimuovono. La barra di ogni metà imposta sottostante e scadenza propri. La Scala Gamma si ridimensiona trascinandone il bordo destro, il bordo inferiore o l’angolo; i suoi S / M / L impostano la dimensione del testo.',
   },
   de: {
     yourBoard: 'Dein Board',
@@ -129,7 +129,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Widgets hinzufügen',
     underlyingSymbol: 'Basiswert-Symbol',
     editingHint:
-      'Ziehe Kacheln, um sie neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie für einen Vergleich nebeneinander oder entfernen sie\u00a0- bei Touch die Pfeiltasten zum Umsortieren verwenden.',
+      'Ziehe Kacheln, um sie neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie für einen Vergleich nebeneinander oder entfernen sie\u00a0- bei Touch die Pfeiltasten zum Umsortieren verwenden. Die Gamma-Leiter ändert ihre Größe durch Ziehen am rechten Rand, am unteren Rand oder an der Ecke; ihre S / M / L stellen die Textgröße ein.',
     designYourDashboard: 'Gestalte dein Dashboard',
     emptyStateLead:
       'Binde Live-Gamma-Level, Dealer-Positionierung, Optionsfluss, proprietäre Signale und mehr ein\u00a0- genau so angeordnet, wie du es magst. Starte mit einem Preset oder füge Widgets einzeln hinzu.',
@@ -149,7 +149,7 @@ export const dict: PageDictionary = {
     confirmClearSide: 'Alle Widgets von Seite {side} entfernen?',
     sideLabel: 'Seite {side}',
     editingHintSplit:
-      'Ziehe Kacheln, um sie innerhalb einer Hälfte neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie, verschieben sie in die andere Hälfte oder entfernen sie. Die Leiste jeder Hälfte setzt eigenen Basiswert und Verfall.',
+      'Ziehe Kacheln, um sie innerhalb einer Hälfte neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie, verschieben sie in die andere Hälfte oder entfernen sie. Die Leiste jeder Hälfte setzt eigenen Basiswert und Verfall. Die Gamma-Leiter ändert ihre Größe durch Ziehen am rechten Rand, am unteren Rand oder an der Ecke; ihre S / M / L stellen die Textgröße ein.',
   },
   es: {
     yourBoard: 'Tu tablero',
@@ -179,7 +179,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Añadir widgets',
     underlyingSymbol: 'Símbolo del subyacente',
     editingHint:
-      'Arrastra los mosaicos para reordenarlos. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian para comparar en paralelo o lo eliminan\u00a0- en pantalla táctil, usa los botones de flecha para reordenar.',
+      'Arrastra los mosaicos para reordenarlos. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian para comparar en paralelo o lo eliminan\u00a0- en pantalla táctil, usa los botones de flecha para reordenar. La Escalera Gamma se redimensiona arrastrando su borde derecho, su borde inferior o su esquina; sus S / M / L fijan el tamaño del texto.',
     designYourDashboard: 'Diseña tu dashboard',
     emptyStateLead:
       'Incorpora niveles gamma en tiempo real, posicionamiento de dealers, flujo de opciones, señales propietarias y más\u00a0- organizados exactamente como quieras. Empieza con un preset o añade widgets uno a uno.',
@@ -199,7 +199,7 @@ export const dict: PageDictionary = {
     confirmClearSide: '¿Quitar todos los widgets del lado {side}?',
     sideLabel: 'Lado {side}',
     editingHintSplit:
-      'Arrastra los mosaicos para reordenarlos dentro de una mitad. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian, lo mueven a la otra mitad o lo eliminan. La barra de cada mitad define su propio subyacente y vencimiento.',
+      'Arrastra los mosaicos para reordenarlos dentro de una mitad. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian, lo mueven a la otra mitad o lo eliminan. La barra de cada mitad define su propio subyacente y vencimiento. La Escalera Gamma se redimensiona arrastrando su borde derecho, su borde inferior o su esquina; sus S / M / L fijan el tamaño del texto.',
   },
   fr: {
     yourBoard: 'Votre tableau',
@@ -229,7 +229,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Ajouter des widgets',
     underlyingSymbol: 'Symbole du sous-jacent',
     editingHint:
-      'Faites glisser les tuiles pour les réorganiser. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent pour une comparaison côte à côte ou la suppriment\u00a0- sur tactile, utilisez les boutons fléchés pour réorganiser.',
+      'Faites glisser les tuiles pour les réorganiser. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent pour une comparaison côte à côte ou la suppriment\u00a0- sur tactile, utilisez les boutons fléchés pour réorganiser. L’Échelle Gamma se redimensionne en faisant glisser son bord droit, son bord inférieur ou son coin ; ses S / M / L règlent la taille du texte.',
     designYourDashboard: 'Concevez votre dashboard',
     emptyStateLead:
       'Intégrez des niveaux gamma en temps réel, le positionnement des dealers, le flux d\'options, des signaux propriétaires et plus encore\u00a0- disposés exactement comme vous le souhaitez. Partez d\'un préréglage ou ajoutez les widgets un par un.',
@@ -249,6 +249,6 @@ export const dict: PageDictionary = {
     confirmClearSide: 'Retirer tous les widgets du côté {side} ?',
     sideLabel: 'Côté {side}',
     editingHintSplit:
-      'Faites glisser les tuiles pour les réorganiser au sein d’une moitié. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent, la déplacent vers l’autre moitié ou la suppriment. La barre de chaque moitié définit son propre sous-jacent et son échéance.',
+      'Faites glisser les tuiles pour les réorganiser au sein d’une moitié. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent, la déplacent vers l’autre moitié ou la suppriment. La barre de chaque moitié définit son propre sous-jacent et son échéance. L’Échelle Gamma se redimensionne en faisant glisser son bord droit, son bord inférieur ou son coin ; ses S / M / L règlent la taille du texte.',
   },
 };

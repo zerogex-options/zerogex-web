@@ -7,8 +7,9 @@
  * they need (symbol / theme / a context-derived model).
  */
 
-import { useCallback, useMemo } from 'react';
-import { Gauge, ListOrdered } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { ArrowUpRight, Gauge, ListOrdered, SlidersHorizontal } from 'lucide-react';
 
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
@@ -66,7 +67,7 @@ import {
 } from '@/hooks/useApiData';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 
-import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
+import { useTimeframe } from '@/core/TimeframeContext';
 import { useHedgingFlow } from '@/hooks/useHedgingFlow';
 import { useGexUnit } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
@@ -104,6 +105,7 @@ import {
 import { WidgetCard } from './primitives';
 import { useMyDashboardData } from './DashboardData';
 import { useWidgetInstance } from './widgetInstance';
+import TileSymbolScope from './TileSymbolScope';
 import WidgetSymbolSelect from './WidgetSymbolSelect';
 import { dict } from './panels.i18n';
 
@@ -176,10 +178,21 @@ export function PriceActionPanel() {
 
 // The flagship price + dealer-gamma instrument. Carries its own bordered card,
 // header and controls, so — like DealerExposuresPanel — it renders bare.
+//
+// Its underlying is the tile's own: the chart's symbol dropdown picks it for
+// THIS tile (TileSymbolScope) instead of moving the page, so two Gamma Charts
+// on one board can watch two underlyings. It shows the page's symbol until
+// another is picked, and picking the page's symbol again follows the page.
+//
+// Its strike rail's width is the tile's too: drag the rail's left edge, and the
+// width is saved with the tile (WidgetInstanceValue.panelWidth).
 export function GammaChartPanel() {
+  const instance = useWidgetInstance();
   return (
     <div className="h-full">
-      <GammaTerminalChart />
+      <TileSymbolScope>
+        <GammaTerminalChart railWidth={instance?.panelWidth ?? null} onRailWidthChange={instance?.setPanelWidth} />
+      </TileSymbolScope>
     </div>
   );
 }
@@ -190,20 +203,24 @@ export function GammaChartPanel() {
 // It is the page's own instrument block (TerminalSurface), not a copy, so the
 // two can't drift apart.
 //
-// Its underlying is the tile's own, like the Gamma Ladder's: the picker beside
-// the view switch follows the board by default, and the chart's and the
-// ladder's own symbol switchers pin THIS tile rather than moving the page —
-// two terminals on one board can watch two underlyings.
+// Its underlying is the tile's own, like the Gamma Chart's: the chart's
+// symbol dropdown and the first ladder's both pick it for THIS tile rather
+// than moving the page, so two terminals on one board can watch two
+// underlyings.
+//
+// The panel beside the chart is the tile's width to set: drag the splitter
+// between them, and the width is saved with the tile.
 export function GammaTerminalPanel() {
-  const { symbol } = useTimeframe();
   const instance = useWidgetInstance();
-  const setTileSymbol = instance?.setSymbol;
-  const pin = useCallback((next: UnderlyingSymbol) => setTileSymbol?.(next), [setTileSymbol]);
   return (
     <div className="h-full">
-      <TimeframeSymbolScope symbol={symbol} onSymbolChange={pin}>
-        <TerminalSurface inWidget />
-      </TimeframeSymbolScope>
+      <TileSymbolScope>
+        <TerminalSurface
+          inWidget
+          panelWidth={instance?.panelWidth ?? null}
+          onPanelWidthChange={instance?.setPanelWidth}
+        />
+      </TileSymbolScope>
     </div>
   );
 }
@@ -370,10 +387,10 @@ export function GexHeatmapPanel() {
 // ladder, the pair page and the by-strike table together.
 //
 // What is the tile's own: its underlying (the picker in the ladder header,
-// where Pair Comparison has its per-column dropdown — "Default" follows the
-// board, any symbol pins just this tile, so a board can carry a ladder per
+// where Pair Comparison has its per-column dropdown — it shows the page's
+// symbol until another is picked, so a board can carry a ladder per
 // underlying), its size (dragged; the rows fill whatever height it is given,
-// spot held at the center) and its text size (the S/M/L buttons in edit mode).
+// spot held at the center) and its text size (the S/M/L buttons).
 export function GammaLadderPanel() {
   // The tile's symbol: its own pin if it has one, else the board's — the
   // tile's symbol scope (WidgetFrame) has already resolved which.
@@ -395,37 +412,96 @@ export function GammaLadderPanel() {
     [column, scale],
   );
 
-  return (
-    <WidgetCard
-      title={t('gammaLadder')}
-      icon={ListOrdered}
-      href="/pair-comparison"
-      hrefLabel={t('comparePair')}
-      pad={false}
-      stretch
+  // Dragged narrow, the four controls would stack into a column taller than
+  // the ladder they configure, and the card's title row would truncate to a
+  // couple of letters. So below LADDER_COMPACT_BELOW the title row tightens
+  // (icon-only link) and the controls fold behind a settings button. Measured,
+  // because the tile's width is the member's drag, not a breakpoint.
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const [compact, setCompact] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  useEffect(() => {
+    if (!rootEl) return;
+    const ro = new ResizeObserver(() => setCompact(rootEl.clientWidth < LADDER_COMPACT_BELOW));
+    ro.observe(rootEl);
+    return () => ro.disconnect();
+  }, [rootEl]);
+
+  const controls = (
+    <div
+      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+      style={{ borderBottom: '1px solid var(--border-subtle)' }}
     >
-      <div
-        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      <StrikeFilterToggle showHint={false} />
+      <ExpirationMultiSelect
+        options={expirations.available}
+        selected={expirations.selection}
+        onChange={expirations.setSelection}
+        label="Expiry"
+        disabled={expirations.available.length === 0}
+        zeroDte={ladderZeroDte}
+      />
+      <SessionDeltaToggle showHint={false} />
+      <GexUnitToggle showHint={false} />
+    </div>
+  );
+
+  return (
+    <div ref={setRootEl} className="h-full">
+      <WidgetCard
+        title={compact ? undefined : t('gammaLadder')}
+        icon={ListOrdered}
+        href="/pair-comparison"
+        hrefLabel={t('comparePair')}
+        pad={false}
+        stretch
       >
-        <StrikeFilterToggle showHint={false} />
-        <ExpirationMultiSelect
-          options={expirations.available}
-          selected={expirations.selection}
-          onChange={expirations.setSelection}
-          label="Expiry"
-          disabled={expirations.available.length === 0}
-          zeroDte={ladderZeroDte}
-        />
-        <SessionDeltaToggle showHint={false} />
-        <GexUnitToggle showHint={false} />
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col">
-        <GammaLadder column={ladderColumn} gexUnit={gexUnit} activeOnly={activeOnly} fill scale={scale} />
-      </div>
-    </WidgetCard>
+        {compact && (
+          <div
+            className="flex items-center gap-1.5 border-b px-2.5 py-2"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <ListOrdered size={13} style={{ color: 'var(--color-accent-hot)', flex: 'none' }} />
+            <h3 className="zg-eyebrow min-w-0 flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
+              {t('gammaLadder')}
+            </h3>
+            <button
+              type="button"
+              onClick={() => setControlsOpen((open) => !open)}
+              aria-expanded={controlsOpen}
+              aria-label={t('ladderSettings')}
+              title={t('ladderSettings')}
+              className="flex h-6 w-6 flex-none items-center justify-center rounded-md transition-colors"
+              style={{
+                color: controlsOpen ? 'var(--color-accent-hot)' : 'var(--text-secondary)',
+                background: controlsOpen ? 'var(--color-accent-soft)' : 'transparent',
+              }}
+            >
+              <SlidersHorizontal size={13} />
+            </button>
+            <Link
+              href="/pair-comparison"
+              aria-label={t('comparePair')}
+              title={t('comparePair')}
+              className="flex h-6 w-6 flex-none items-center justify-center rounded-md opacity-60 transition-opacity hover:opacity-100"
+              style={{ color: 'var(--color-accent-hot)' }}
+            >
+              <ArrowUpRight size={13} />
+            </Link>
+          </div>
+        )}
+        {(!compact || controlsOpen) && controls}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <GammaLadder column={ladderColumn} gexUnit={gexUnit} activeOnly={activeOnly} fill scale={scale} />
+        </div>
+      </WidgetCard>
+    </div>
   );
 }
+
+// Narrower than this (CSS px) the ladder tile folds its controls away — see
+// GammaLadderPanel. Wide enough for the four controls on two lines.
+const LADDER_COMPACT_BELOW = 340;
 
 // ── Options Flow ──────────────────────────────────────────────────────────────
 

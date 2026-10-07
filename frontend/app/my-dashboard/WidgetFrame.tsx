@@ -2,6 +2,7 @@
 
 import {
   Component,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
+  ALargeSmall,
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
@@ -22,7 +24,6 @@ import {
   Maximize2,
   MoveDiagonal2,
   RotateCw,
-  Type,
   X,
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ import {
   DEFAULT_WIDGET_ZOOM,
   GRID_COLUMNS,
   MAX_WIDGET_HEIGHT,
+  SPAN_STEP,
   WIDGET_COLSPAN,
   WIDGET_SIZE_LABEL,
   WIDGET_ZOOMS,
@@ -200,8 +202,13 @@ export type WidgetFrameProps = {
   onBoxChange: (box: WidgetBox) => void;
   /** Free-resize tiles: set how large the contents are drawn. */
   onZoomChange: (zoom: WidgetZoom) => void;
-  /** Pin this tile to a symbol, or null to follow the board. */
-  onSymbolChange: (symbol: UnderlyingSymbol | null) => void;
+  /** Pin a tile to a symbol, or null to follow the board. Takes the instance
+   *  id (rather than being bound to this tile by the grid) so it is the same
+   *  function on every render, which keeps the tile's context stable. */
+  onSymbolChange: (instanceId: string, symbol: UnderlyingSymbol | null) => void;
+  /** Set a tile's side-panel width, or null for the default. Same shape and
+   *  reason as onSymbolChange. */
+  onPanelWidthChange: (instanceId: string, width: number | null) => void;
   onRemove: () => void;
   /** Drop a second copy of this widget beside it (side-by-side comparison). */
   onDuplicate: () => void;
@@ -230,6 +237,7 @@ export default function WidgetFrame({
   onBoxChange,
   onZoomChange,
   onSymbolChange,
+  onPanelWidthChange,
   onRemove,
   onDuplicate,
   sendToPane,
@@ -262,15 +270,29 @@ export default function WidgetFrame({
   // Read here, OUTSIDE the tile's own scope: this is what the tile follows
   // while unpinned — its half's symbol, or the page's.
   const { symbol: boardSymbol } = useTimeframe();
+  const instanceId = item.instanceId;
   const pinnedSymbol = item.symbol ?? null;
+  // Picking the board's own symbol is how a tile goes back to following the
+  // board; any other symbol pins it. See WidgetInstanceValue.selectSymbol.
+  const selectSymbol = useCallback(
+    (next: UnderlyingSymbol) => onSymbolChange(instanceId, next === boardSymbol ? null : next),
+    [onSymbolChange, instanceId, boardSymbol],
+  );
+  const setPanelWidth = useCallback(
+    (width: number | null) => onPanelWidthChange(instanceId, width),
+    [onPanelWidthChange, instanceId],
+  );
+  const panelWidth = item.panelWidth ?? null;
   const instance = useMemo<WidgetInstanceValue>(
     () => ({
+      symbol: pinnedSymbol ?? boardSymbol,
       pinnedSymbol,
-      defaultSymbol: boardSymbol,
-      setSymbol: onSymbolChange,
+      selectSymbol,
       zoomScale: free ? WIDGET_ZOOM_SCALE[zoom] : 1,
+      panelWidth,
+      setPanelWidth,
     }),
-    [pinnedSymbol, boardSymbol, onSymbolChange, free, zoom],
+    [pinnedSymbol, boardSymbol, selectSymbol, free, zoom, panelWidth, setPanelWidth],
   );
   // A pinned tile that reads the board's shared feeds needs those feeds for
   // ITS symbol, so it gets a provider of its own (polling only what it reads).
@@ -345,7 +367,9 @@ export default function WidgetFrame({
         // footprints are fractions of whatever grid the tile sits in.
         const rawSpan = (ev.clientX - startLeft + gap) / (colWidth + gap);
         if (free) {
-          const next = Math.max(free.minSpan, Math.min(GRID_COLUMNS, Math.round((rawSpan * GRID_COLUMNS) / cols)));
+          // In the board's twelve columns, to the nearest half-column.
+          const columns = Math.round((rawSpan * GRID_COLUMNS) / cols / SPAN_STEP) * SPAN_STEP;
+          const next = Math.max(free.minSpan, Math.min(GRID_COLUMNS, columns));
           if (next !== lastSpan) {
             lastSpan = next;
             box.span = next;
@@ -410,7 +434,7 @@ export default function WidgetFrame({
   };
 
   // Keyboard parity for the width handle: arrows step through the allowed
-  // footprints, or a column at a time on a free-resize tile.
+  // footprints, or a half-column at a time on a free-resize tile.
   const stepSizeByKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!canResize) return;
     const grow = e.key === 'ArrowRight' || e.key === 'ArrowUp';
@@ -418,7 +442,7 @@ export default function WidgetFrame({
     if (!grow && !shrink) return;
     e.preventDefault();
     if (free) {
-      const next = Math.max(free.minSpan, Math.min(GRID_COLUMNS, span + (grow ? 1 : -1)));
+      const next = Math.max(free.minSpan, Math.min(GRID_COLUMNS, span + (grow ? SPAN_STEP : -SPAN_STEP)));
       if (next !== span) onBoxChange({ span: next });
       return;
     }
@@ -457,13 +481,18 @@ export default function WidgetFrame({
   // symbol straight through; pinned, every component inside reads the tile's
   // symbol, and a symbol switcher inside it pins the tile rather than moving
   // the page.
-  const content = widget.render();
+  // Rendered once per tile: the element is the same object on every render of
+  // the frame, so React skips re-rendering the widget when only the board
+  // around it changed (a drag on another tile, a reorder) and re-renders it
+  // for its own data, settings and contexts alone. A drag-resize updates the
+  // board on every pointer move; without this every chart on it re-drew too.
+  const content = useMemo(() => widget.render(), [widget]);
   const body = locked ? (
     <UpgradeCard widget={widget} />
   ) : (
     <DashboardWidgetContext.Provider value>
       <WidgetInstanceContext.Provider value={instance}>
-        <TimeframeSymbolScope symbol={pinnedSymbol} onSymbolChange={onSymbolChange}>
+        <TimeframeSymbolScope symbol={pinnedSymbol} onSymbolChange={selectSymbol}>
           <WidgetErrorBoundary resetKey={`${resetKey}:${pinnedSymbol ?? ''}`}>
             {ownFeeds ? <MyDashboardDataProvider activeFeeds={ownFeeds}>{content}</MyDashboardDataProvider> : content}
           </WidgetErrorBoundary>
@@ -530,7 +559,7 @@ export default function WidgetFrame({
               title={t('textSize')}
               style={{ background: 'var(--bg-hover)' }}
             >
-              <Type size={12} style={{ color: 'var(--text-muted)', margin: '0 2px 0 4px' }} />
+              <ALargeSmall size={14} style={{ color: 'var(--text-secondary)', margin: '0 2px 0 4px' }} />
               {WIDGET_ZOOMS.map((z) => {
                 const active = z === zoom;
                 return (

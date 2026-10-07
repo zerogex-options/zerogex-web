@@ -79,7 +79,10 @@ const {
   setWidgetSymbol,
   setWidgetBox,
   setWidgetZoom,
+  setWidgetPanelWidth,
   clampSpan,
+  clampPanelWidth,
+  GRID_TRACKS,
   clampHeight,
   isWidgetZoom,
   WIDGET_COLSPAN,
@@ -703,6 +706,7 @@ test('the sync state is per member and leaves the stored board alone', () => {
 
 test('footprints are quarter / half / three-quarters / full of the 12-column grid', () => {
   assert.equal(GRID_COLUMNS, 12);
+  assert.equal(GRID_TRACKS, 24, 'half-column steps need two CSS tracks per column');
   assert.deepEqual(WIDGET_COLSPAN, { sm: 3, md: 6, lg: 9, xl: 12 });
 });
 
@@ -758,7 +762,7 @@ test('setWidgetSymbol pins one tile, leaves its twin alone, and un-pins with nul
 test('setWidgetBox sets, clamps and clears width and height independently', () => {
   const base = add(emptyLayout(), 'gamma-ladder', 'sm');
   const sized = setWidgetBox(base, 'gamma-ladder#1', { span: 2.4, height: 433.6 });
-  assert.equal(widgetsOf(sized)[0].span, 2);
+  assert.equal(widgetsOf(sized)[0].span, 2.5, 'widths go in half-column steps');
   assert.equal(widgetsOf(sized)[0].height, 434);
   const widthOnly = setWidgetBox(sized, 'gamma-ladder#1', { span: 5 });
   assert.equal(widgetsOf(widthOnly)[0].height, 434, 'an omitted field is left alone');
@@ -784,14 +788,16 @@ test('duplicating, cloning and moving a tile carry its per-tile settings', () =>
   layout = setWidgetSymbol(layout, 'gamma-ladder#1', 'QQQ');
   layout = setWidgetBox(layout, 'gamma-ladder#1', { span: 2, height: 600 });
   layout = setWidgetZoom(layout, 'gamma-ladder#1', 'lg');
-  const settings = (w: { symbol?: string; span?: number; height?: number; zoom?: string; size: string }) => ({
+  layout = setWidgetPanelWidth(layout, 'gamma-ladder#1', 300);
+  const settings = (w: { symbol?: string; span?: number; height?: number; zoom?: string; panelWidth?: number; size: string }) => ({
     size: w.size,
     symbol: w.symbol,
     span: w.span,
     height: w.height,
     zoom: w.zoom,
+    panelWidth: w.panelWidth,
   });
-  const expected = { size: 'sm', symbol: 'QQQ', span: 2, height: 600, zoom: 'lg' };
+  const expected = { size: 'sm', symbol: 'QQQ', span: 2, height: 600, zoom: 'lg', panelWidth: 300 };
 
   const duplicated = duplicateWidget(layout, 'gamma-ladder#1');
   assert.deepEqual(settings(widgetsOf(duplicated)[1]), expected);
@@ -804,10 +810,35 @@ test('duplicating, cloning and moving a tile carry its per-tile settings', () =>
 });
 
 test('clampSpan / clampHeight bound and round, and reject non-numbers', () => {
-  assert.equal(clampSpan(7.6), 8);
+  assert.equal(clampSpan(7.6), 7.5);
+  assert.equal(clampSpan(7.8), 8);
+  assert.equal(clampSpan(1.5), 1.5);
   assert.equal(clampSpan(-3), 1);
   assert.equal(clampSpan('4'), null);
   assert.equal(clampSpan(Number.NaN), null);
   assert.equal(clampHeight(20), MIN_WIDGET_HEIGHT);
   assert.equal(clampHeight(Infinity), null);
+});
+
+test('setWidgetPanelWidth sets, clamps, clears, and survives a reload', () => {
+  const base = add(emptyLayout(), 'gamma-terminal', 'xl');
+  const set = setWidgetPanelWidth(base, 'gamma-terminal#1', 299.6);
+  assert.equal(widgetsOf(set)[0].panelWidth, 300);
+  assert.equal(setWidgetPanelWidth(set, 'gamma-terminal#1', 300), set, 'unchanged is a no-op');
+  const cleared = setWidgetPanelWidth(set, 'gamma-terminal#1', null);
+  assert.equal('panelWidth' in widgetsOf(cleared)[0], false, 'null goes back to the default width');
+  assert.equal(clampPanelWidth(1), 40);
+  assert.equal(clampPanelWidth('300'), null);
+  const restored = sanitizeLayout(JSON.parse(JSON.stringify(set)));
+  assert.equal(widgetsOf(restored)[0].panelWidth, 300);
+  const junk = sanitizeLayout({ widgets: [{ widgetId: 'gamma-terminal', size: 'xl', panelWidth: 'wide' }] });
+  assert.equal('panelWidth' in widgetsOf(junk)[0], false, 'a bad width drops back to the default');
+});
+
+test('a span saved in whole columns keeps its width, half-columns round to the step', () => {
+  const layout = sanitizeLayout({ widgets: [
+    { widgetId: 'gamma-ladder', size: 'sm', span: 2 },
+    { widgetId: 'gamma-ladder', size: 'sm', span: 1.7 },
+  ] });
+  assert.deepEqual(widgetsOf(layout).map((w) => w.span), [2, 1.5]);
 });

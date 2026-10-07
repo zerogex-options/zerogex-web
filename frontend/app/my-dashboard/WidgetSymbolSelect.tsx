@@ -1,13 +1,16 @@
 'use client';
 
 /**
- * The per-tile underlying picker: the board's default, or any symbol for this
- * one tile. Styled like the ladder header's SymbolSelect (components/
- * SymbolSelect), which it stands in for on the dashboard, plus the one option
- * a page-level picker has no use for — following the board.
+ * A tile's own underlying picker, for the dashboard tiles that read one
+ * symbol (the Gamma Ladder). It lists the symbols with the tile's current one
+ * selected — the board's, until another is picked. Picking another pins this
+ * tile alone; picking the board's symbol again puts the tile back to following
+ * the page (see WidgetInstanceValue.selectSymbol).
  *
- * Renders nothing outside a dashboard tile, so a caller can mount it
- * unconditionally.
+ * Styled like the ladder header's SymbolSelect (components/SymbolSelect),
+ * drawn at the tile's text size, with a pinned tile's picker in the warning
+ * tone the split board uses for a pinned half — so it is clear at a glance
+ * which tiles have left the page's symbol. Renders nothing outside a tile.
  */
 
 import { ChevronDown } from 'lucide-react';
@@ -17,36 +20,31 @@ import { usePageT } from '@/core/LanguageContext';
 import { useWidgetInstance } from './widgetInstance';
 import { dict } from './WidgetSymbolSelect.i18n';
 
-const FOLLOW = '';
-
 export default function WidgetSymbolSelect({ scale = 1 }: { scale?: number }) {
   const t = usePageT(dict);
   const instance = useWidgetInstance();
   if (!instance) return null;
-  const { pinnedSymbol, defaultSymbol, setSymbol } = instance;
+  const { symbol, pinnedSymbol, selectSymbol } = instance;
+  const pinned = pinnedSymbol !== null;
   return (
     <div className="relative inline-flex max-w-full items-center">
       <select
-        value={pinnedSymbol ?? FOLLOW}
-        onChange={(e) => setSymbol(e.target.value === FOLLOW ? null : (e.target.value as UnderlyingSymbol))}
+        value={symbol}
+        onChange={(e) => selectSymbol(e.target.value as UnderlyingSymbol)}
         aria-label={t('ariaLabel')}
-        title={t('title')}
+        title={pinned ? t('titlePinned') : t('titleFollowing')}
         className="max-w-full appearance-none truncate font-mono font-bold"
         style={{
           fontSize: 14 * scale,
           letterSpacing: '0.04em',
-          // A pinned tile reads in the warning tone the split board's pinned
-          // halves use, so it is clear at a glance which tiles have left the
-          // board's symbol.
-          color: pinnedSymbol ? 'var(--color-warning)' : 'var(--text-primary)',
+          color: pinned ? 'var(--color-warning)' : 'var(--text-primary)',
           background: 'var(--bg-card)',
-          border: `1px solid ${pinnedSymbol ? 'var(--color-warning)' : 'var(--border-default)'}`,
+          border: `1px solid ${pinned ? 'var(--color-warning)' : 'var(--border-default)'}`,
           borderRadius: 'var(--radius-control)',
           padding: `${3 * scale}px ${22 * scale}px ${3 * scale}px ${8 * scale}px`,
           cursor: 'pointer',
         }}
       >
-        <option value={FOLLOW}>{t('followBoard', { symbol: defaultSymbol })}</option>
         {SYMBOLS.map((s) => (
           <option key={s} value={s}>
             {s}
