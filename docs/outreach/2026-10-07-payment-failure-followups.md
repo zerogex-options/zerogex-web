@@ -91,6 +91,10 @@ They made three API keys in September. Their last web login was Sep 26, but
 
 ### Fix it before sending
 
+✅ **Done Oct 7.** Visa ····9012 (`pm_1UAAEo4AOiqteMYY2Amt2lcf`) is now the
+customer's default, and diagnose-user confirms it. The invoice is still open on
+attempt 1, so the note can go out.
+
 1. Attach the card. Either:
    - **Stripe Dashboard:** Customers → chen.k.lloyd@gmail.com → Payment methods →
      the "…" next to Visa ending 9012 → **Set as default**. Stripe falls back to
@@ -99,11 +103,15 @@ They made three API keys in September. Their last web login was Sep 26, but
      `stripe subscriptions update sub_1UFdpm4AOiqteMYYxCGBxKMH --default-payment-method pm_1UAAEo4AOiqteMYY2Amt2lcf`
 2. Check it: `make diagnose-user EMAIL=chen.k.lloyd@gmail.com` should now show
    Visa ····9012 on the "Sub default PM" or "Customer default PM" line.
-3. Run `make scan-payment-method-drift`. It only reads, and it lists every other
-   subscription with no card attached or the wrong one. Any other subscription
-   recovered before October 1 may have the same hole. Anything it lists under
-   **NO DEFAULT ANYWHERE** or **BROKEN** will fail its next renewal the same way,
-   whatever the card behind it says.
+3. Run the drift scan **with `VERBOSE=1`**. Without the flag it only shows
+   no-card subscriptions that are already failing, so a subscription in chen's
+   old state that hasn't renewed yet stays hidden. To print just that section:
+   `make scan-payment-method-drift VERBOSE=1 | sed -n '/^NO DEFAULT ANYWHERE/,/^RULED OUT/p'`
+   If it prints nothing, no other subscription has the hole. Anything it does
+   list will fail its next renewal the same way chen's did.
+
+   *The plain run on Oct 7 scanned 202 subscriptions and found no broken pins,
+   only aabbon's drift (see "Can wait").*
 
 If Stripe retries on its own once the card is attached and the charge clears,
 the payment-recovered email goes out. That's fine, and the note still makes sense.
@@ -582,3 +590,28 @@ https://zerogex.io/pay?i=in_1UMG3I4AOiqteMYYUzOBWi8z&t=BiOTFT1EFHDTQmpBlocNyq6MB
   They're the most motivated people on this list, but this is a win-back note,
   not a payment-failed one. Their old invoices only buy a few weeks now, and the
   promo price they tried for has closed. Worth a short note when you have time.
+- **aabbon@gmail.com: send before November 4.** The drift scan found their
+  subscription still set to charge Mastercard ····6682, while their account's
+  default is now a Link wallet they added in early October. That is the pattern
+  the scanner exists for: a member switches how they pay, and the subscription
+  keeps billing the old method. The subscription is `active`, so nothing has
+  failed, but the November 4 renewal will go to the Mastercard. Don't switch it
+  without asking. The scanner says to re-point only after the member says which
+  method they want charged.
+
+  **Subject:** Which payment method for your ZeroGEX renewal?
+
+  Hi,
+
+  A quick question from me. Your account's default payment method is now Link, but your Pro subscription is still set to charge your Mastercard ending in 6682 when it renews on November 4.
+
+  Would you like me to switch the renewal to Link? Just reply yes, or tell me to leave it on the Mastercard.
+
+  Best,
+  Michael
+  Founder, ZeroGEX
+
+  If they say yes, run the re-point command from the scan:
+  `stripe subscriptions update sub_1U9Qxm4AOiqteMYYBLf6Vqf8 --default-payment-method pm_1UMze54AOiqteMYYkE2fACiO`
+  (or, in the Stripe Dashboard, change the subscription's payment method to the
+  Link wallet).
