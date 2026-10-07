@@ -186,13 +186,18 @@ export function PriceActionPanel() {
 //
 // Its strike rail's width is the tile's too: drag the rail's left edge, and the
 // width is saved with the tile (WidgetInstanceValue.panelWidth).
+//
+// data-zg-natural-height marks the chart at its own height (the tile around it
+// may be stretched by its row): the height a Gamma Ladder lines up with.
 export function GammaChartPanel() {
   const instance = useWidgetInstance();
   return (
     <div className="h-full">
-      <TileSymbolScope>
-        <GammaTerminalChart railWidth={instance?.panelWidth ?? null} onRailWidthChange={instance?.setPanelWidth} />
-      </TileSymbolScope>
+      <div data-zg-natural-height>
+        <TileSymbolScope>
+          <GammaTerminalChart railWidth={instance?.panelWidth ?? null} onRailWidthChange={instance?.setPanelWidth} />
+        </TileSymbolScope>
+      </div>
     </div>
   );
 }
@@ -214,6 +219,7 @@ export function GammaTerminalPanel() {
   const instance = useWidgetInstance();
   return (
     <div className="h-full">
+      <div data-zg-natural-height>
       <TileSymbolScope>
         <TerminalSurface
           inWidget
@@ -224,6 +230,7 @@ export function GammaTerminalPanel() {
           viewStorageKey={instance ? `zg.gammaTerminal.view.v1.tile.${instance.instanceId}` : undefined}
         />
       </TileSymbolScope>
+      </div>
     </div>
   );
 }

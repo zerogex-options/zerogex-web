@@ -161,9 +161,10 @@ export type FreeResizeSpec = {
   /** Shortest it can be dragged, in px. */
   minHeight: number;
   /**
-   * Its height before the member sets one: it fills the height of its row,
-   * and never drops below this — which is also its height when nothing beside
-   * it sets the row's.
+   * Its floor before the member sets a height, for the moment before the
+   * board has been measured. Once it has, a tile with no height of its own
+   * lines up with the board's Gamma Chart / Gamma Terminal instead (see
+   * DashboardGrid's chartLinedHeights).
    */
   defaultHeight: number;
 };
@@ -426,9 +427,9 @@ export const WIDGETS: WidgetDef[] = [
     feeds: [],
     // ~130px is about the narrowest a row's strike, its level tags and its
     // value still sit side by side in at the small text size; the tile folds
-    // its controls away and stacks its level legend to fit. The default
-    // height shows about ten strikes either side of spot, and the tile fills
-    // its row when a taller tile shares it.
+    // its controls away and stacks its level legend to fit. With no height of
+    // its own it lines up with the board's Gamma Chart / Gamma Terminal: it
+    // fills the row beside one, else takes a chart widget's height.
     freeResize: { minWidthPx: 130, minHeight: 240, defaultHeight: 640 },
     render: () => <GammaLadderPanel />,
   },

@@ -189,6 +189,9 @@ export type WidgetFrameProps = {
   widget: WidgetDef;
   /** This placement — its footprint and its per-tile settings. */
   item: PlacedWidget;
+  /** A free-resize tile's floor while it has no height of its own: what it
+   *  lines up with (DashboardGrid's chartLinedHeights). */
+  autoHeight?: number;
   editing: boolean;
   locked: boolean;
   isDragging: boolean;
@@ -228,6 +231,7 @@ export type WidgetFrameProps = {
 export default function WidgetFrame({
   widget,
   item,
+  autoHeight,
   editing,
   locked,
   isDragging,
@@ -259,6 +263,8 @@ export default function WidgetFrame({
 
   const size = item.size;
   const free: FreeResizeSpec | undefined = widget.freeResize;
+  // The floor a free tile renders at with no height of its own.
+  const autoFloor = autoHeight ?? free?.defaultHeight ?? 0;
   const zoom: WidgetZoom = item.zoom ?? DEFAULT_WIDGET_ZOOM;
   // A free tile's stored width in board columns, or its footprint's. What it
   // actually renders at can differ (a split half, the px floor), so anything
@@ -469,11 +475,11 @@ export default function WidgetFrame({
         const raw = ev.clientY + grabDY - top;
         let next: number | null;
         if (rowFill !== null && rowFill >= MIN_WIDGET_HEIGHT && Math.abs(raw - rowFill) <= ROW_MAGNET_PX) {
-          // Snapped onto the row. Stored as "fill the row" whenever that is
-          // what the default height already does — it then keeps fitting if
-          // the tiles beside it change height — and as the exact px when the
-          // row is shorter than the tile's own default.
-          next = rowFill >= free.defaultHeight ? null : Math.round(rowFill);
+          // Snapped onto the row. Stored as "no height of its own" whenever
+          // that already draws at the row's height — it then keeps lining up
+          // as the tiles beside it change — and as the exact px when the row
+          // is shorter than the tile's own floor.
+          next = rowFill >= autoFloor ? null : Math.round(rowFill);
         } else {
           next = Math.max(
             free.minHeight,
@@ -559,7 +565,7 @@ export default function WidgetFrame({
     const shrink = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
     if (!grow && !shrink) return;
     e.preventDefault();
-    const current = item.height ?? rootRef.current?.parentElement?.getBoundingClientRect().height ?? free.defaultHeight;
+    const current = item.height ?? rootRef.current?.parentElement?.getBoundingClientRect().height ?? autoFloor;
     const next = Math.max(
       free.minHeight,
       Math.min(MAX_WIDGET_HEIGHT, Math.round(current) + (grow ? HEIGHT_KEY_STEP_PX : -HEIGHT_KEY_STEP_PX)),
@@ -834,7 +840,7 @@ export default function WidgetFrame({
             aria-orientation="vertical"
             aria-valuemin={free.minHeight}
             aria-valuemax={MAX_WIDGET_HEIGHT}
-            aria-valuenow={item.height ?? free.defaultHeight}
+            aria-valuenow={item.height ?? autoFloor}
             aria-valuetext={item.height == null ? t('readoutFits') : `${item.height}px`}
             title={t('resizeHeightHandle')}
             className="zg-h-resize-handle pointer-events-auto"
