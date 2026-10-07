@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep enforce-payment-grace
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -736,6 +736,24 @@ payment-failed-preview:
 #   make grace-expiry-warnings YES=1
 grace-expiry-warnings:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-grace-expiry-warnings.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LEAD_HOURS),--lead-hours $(LEAD_HOURS),) $(if $(MIN_OPEN_HOURS),--min-open-hours $(MIN_OPEN_HOURS),) $(if $(REASON),--reason $(REASON),) $(if $(GRACE_DAYS),--grace-days $(GRACE_DAYS),)'
+
+# Grace cutoff: ends access for members whose payment-recovery grace window has
+# run out but who still hold a paid tier. The webhook only enforces the window
+# when Stripe sends a subscription event, and Stripe's retries send none, so
+# without this a failing member keeps access for as long as Stripe retries.
+# Never writes the tier: it stamps metadata on the past_due Stripe subscription,
+# Stripe sends customer.subscription.updated, and the webhook's own sync drops
+# the tier (API keys revoked, billing_payment_grace_ended logged). A payment
+# that clears later restores access as usual. No email. DB opened read-only.
+# DRY RUN unless YES=1. BILLING_GRACE_ENFORCEMENT_SKIP in .env.local (emails,
+# comma-separated) exempts members whose lapse is our fault. Driven hourly by
+# zerogex-web-payment-grace-enforcement.timer.
+#   make enforce-payment-grace                      # who is due (dry run)
+#   make enforce-payment-grace YES=1
+#   make enforce-payment-grace EMAIL=a@b.com YES=1  # one member
+#   make enforce-payment-grace SKIP=a@b.com,c@d.com # leave these alone this run
+enforce-payment-grace:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/enforce-payment-grace.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(EMAIL),--email $(EMAIL),) $(if $(SKIP),--skip $(SKIP),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(GRACE_DAYS),--grace-days $(GRACE_DAYS),)'
 
 # Send the founder-voice trial-pitch nudge to every user in the verified-
 # never-paid cohort (public tier, verified email, no subscription, NOT

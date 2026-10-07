@@ -1,0 +1,178 @@
+#!/bin/bash
+
+# ==============================================
+# Step 099: Payment-Grace Cutoff Timer (systemd)
+# ==============================================
+#
+# Installs and enables the payment-grace cutoff timer (see
+# deploy/systemd/zerogex-web-payment-grace-enforcement.{service,timer}). The
+# timer fires hourly and triggers `make enforce-payment-grace YES=1`, which
+# ends access for every member whose payment-recovery grace window has run out
+# but who still holds a paid tier. The webhook only enforces the window when
+# Stripe sends a subscription event, and Stripe's failed-payment retries send
+# none, so without this a failing member keeps access for as long as Stripe
+# keeps retrying.
+#
+# The script never writes the tier: it stamps metadata on the past_due Stripe
+# subscription, Stripe sends customer.subscription.updated, and the webhook's
+# own sync drops the member. It sends no email and opens the DB read-only.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the repo
+# (they're version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No config
+# file is written (the script reads STRIPE_SECRET_KEY,
+# BILLING_PAYMENT_GRACE_DAYS and BILLING_GRACE_ENFORCEMENT_SKIP from
+# frontend/.env.local).
+
+set -e
+
+# Re-point HOME when this step is run directly under `sudo`: $HOME is then
+# /root, but the repo, nvm, pm2 and the auth DB all live in the invoking user's
+# home, so every path below would resolve under /root and fail a precondition
+# that is actually satisfied. deploy.sh does this for the steps it runs; doing
+# it here too means a standalone `sudo ./deploy/steps/<step>` resolves the same
+# paths. A no-op when already running as the owning user.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to
+# rotate units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Payment-Grace Cutoff Timer Setup"
+
+# Derive the repo root from THIS script's own location (deploy/steps/..) rather
+# than assuming $HOME/zerogex-web, so it works under sudo and from any checkout.
+STEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$STEP_DIR/../.." && pwd)"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-payment-grace-enforcement"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# the owning user's nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# The cutoff shells out to the sqlite3 CLI for the cohort query and to confirm
+# each drop.
+if command -v sqlite3 >/dev/null 2>&1; then
+    log "  ✓ sqlite3 CLI present"
+else
+    log "  ✗ sqlite3 CLI not found — install with: sudo apt-get install -y sqlite3"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+if [ -f "$ENV_FILE" ]; then
+    STRIPE_KEY_VALUE=$(grep -E "^STRIPE_SECRET_KEY=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$STRIPE_KEY_VALUE" ]; then
+        log "  ⚠ STRIPE_SECRET_KEY is unset in $ENV_FILE — timer will install but every run will fail until set"
+    else
+        log "  ✓ STRIPE_SECRET_KEY is set"
+    fi
+
+    GRACE_DAYS_VALUE=$(grep -E "^BILLING_PAYMENT_GRACE_DAYS=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$GRACE_DAYS_VALUE" ]; then
+        log "  ✓ BILLING_PAYMENT_GRACE_DAYS unset — using the 3-day default"
+    elif [ "$GRACE_DAYS_VALUE" = "0" ]; then
+        log "  ⚠ BILLING_PAYMENT_GRACE_DAYS=0 — grace is disabled, so any open window is ended on the next run"
+    else
+        log "  ✓ BILLING_PAYMENT_GRACE_DAYS is ${GRACE_DAYS_VALUE}"
+    fi
+
+    SKIP_VALUE=$(grep -E "^BILLING_GRACE_ENFORCEMENT_SKIP=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -n "$SKIP_VALUE" ]; then
+        log "  ✓ BILLING_GRACE_ENFORCEMENT_SKIP exempts: ${SKIP_VALUE}"
+    fi
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# The script only reads the DB, but SQLite in WAL mode still needs write access
+# to the -shm file beside it, and ProtectSystem=strict makes everything outside
+# ReadWritePaths read-only. Point the exception at wherever the operator keeps
+# the DB (e.g. /var/lib/zerogex), as step 099.grace-expiry-warnings does.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (hourly, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real YES=1 path.
+# Use `make enforce-payment-grace` for a safe preview; the first scheduled tick
+# is the validation, and journalctl shows the result.
+
+log ""
+log "Payment-grace cutoff timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (hourly at :50, Persistent=true catches missed runs)"
+log "  ✓ Ends access once a grace window lapses, through the webhook's own sync"
+log "  ✓ Idempotent: a member already dropped to public is no longer selected"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer             - next/last run"
+log "  • cd $APP_DIR && make enforce-payment-grace       - preview who is due (no change)"
+log "  • sudo systemctl start ${UNIT}.service            - run the cutoff now"
+log "  • journalctl -u ${UNIT} -n 50                      - recent runs"

@@ -80,6 +80,7 @@
     "test:stale-invoice": "node --experimental-strip-types --test tests/staleInvoice.test.ts",
     "test:duplicate-accounts": "node --experimental-strip-types --test tests/duplicateAccounts.test.ts",
     "test:grace-expiry-warning": "node --experimental-strip-types --test tests/graceExpiryWarning.test.ts",
+    "test:payment-grace-enforcement": "node --experimental-strip-types --test tests/paymentGraceEnforcement.test.ts",
     "test:payment-method-drift": "node --experimental-strip-types --test tests/paymentMethodDrift.test.ts",
     "test:subscriber-bucket": "node --experimental-strip-types --test tests/subscriberBucket.test.ts",
     "test:subscription-payments": "node --experimental-strip-types --test tests/subscriptionPayments.test.ts",
