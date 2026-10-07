@@ -43,6 +43,22 @@ Shipped on branch `claude/product-viability-strategy-j7lev6`:
     `BILLING_TRIAL_GRACE_ENABLED=0` to restore the hard trial-end downgrade.
   - Auditable: emits `billing_payment_grace_active` / `billing_payment_grace_ended`
     audit events so you can count the involuntary-churn saves.
+  - **The cutoff is enforced hourly, not only on webhook syncs.** The window is
+    checked inside the webhook's subscription sync, and Stripe's failed-payment
+    retries send no subscription event. While Stripe ended a failing
+    subscription at about day 3 that didn't matter, but from about 2026-09-28 it
+    kept retrying for a week or more, and members kept full access the whole
+    time. `make enforce-payment-grace` (hourly via
+    `zerogex-web-payment-grace-enforcement.timer`, step
+    `099.payment-grace-enforcement`) finds lapsed windows still holding a paid
+    tier and stamps `metadata.grace_enforced_at` on the past_due subscription.
+    Stripe then sends `customer.subscription.updated`, and the webhook's own sync
+    drops the tier. Stripe keeps retrying, and a payment that clears restores
+    access. Decision logic: `frontend/core/paymentGraceEnforcement.ts`, unit-tested
+    against `decidePaymentGrace`. To exempt a member whose lapse is our fault,
+    add their email to `BILLING_GRACE_ENFORCEMENT_SKIP` in `frontend/.env.local`.
+    That only stops the sweep, though: a subscription event Stripe sends on its
+    own still drops them, so settle their invoice.
   - Which of the two failures opened a window is recorded in
     `users.payment_grace_reason` (`renewal` | `trial`), written and cleared in
     lockstep with the anchor. Admin → Monitoring → **Total Subscribers** uses it to

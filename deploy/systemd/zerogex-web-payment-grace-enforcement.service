@@ -1,0 +1,46 @@
+[Unit]
+Description=ZeroGEX web payment-grace cutoff (ends access once the grace window lapses)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+# A non-zero exit here reached journald and nothing else. Route failures to
+# an email instead; %n is this unit's own name, which the alert template turns
+# into the subject line and the journal it quotes. The script exits non-zero
+# when a Stripe call fails or the webhook did not drop a stamped member.
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make enforce-payment-grace` shells through nvm to get the correct Node 22
+# binary (the script is a .mts that needs --experimental-strip-types). The
+# Makefile target sources $HOME/.nvm/nvm.sh internally, so all we need here is
+# HOME pointing at the user's home.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web enforce-payment-grace YES=1
+
+# Stripe is the only outbound leg, plus a 45s wait for the webhook to confirm
+# each drop; cap so a hung HTTPS connect can't pile up overlapping timer fires.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the grace-expiry warning unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# The script opens the auth DB read-only, but SQLite in WAL mode still needs to
+# touch the -shm file next to it. Step 099.payment-grace-enforcement writes a
+# drop-in that swaps this for AUTH_DB_PATH's directory when the DB lives outside
+# the repo (e.g. /var/lib/zerogex).
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-payment-grace-enforcement)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-payment-grace-enforcement

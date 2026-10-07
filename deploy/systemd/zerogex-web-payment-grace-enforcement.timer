@@ -1,0 +1,17 @@
+[Unit]
+Description=ZeroGEX web payment-grace cutoff timer (hourly)
+
+[Timer]
+# Hourly at :50, clear of the hourly auth backup (:00), the cancellation-alert
+# sweep (every 15m), the grace-expiry warning (00/4:35) and reactivation (:40).
+#
+# The cadence sets how late access can end: at most an hour after the window
+# closes. The grace-expiry warning has already told the member the deadline
+# about a day earlier, so an hour of slack only ever errs in their favor.
+OnCalendar=*:50:00
+RandomizedDelaySec=2m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
