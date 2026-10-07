@@ -219,6 +219,9 @@ export function GammaTerminalPanel() {
           inWidget
           panelWidth={instance?.panelWidth ?? null}
           onPanelWidthChange={instance?.setPanelWidth}
+          // Each tile remembers its own Ladders / Strike Panel choice, in this
+          // browser, apart from /chart's and every other tile's.
+          viewStorageKey={instance ? `zg.gammaTerminal.view.v1.tile.${instance.instanceId}` : undefined}
         />
       </TileSymbolScope>
     </div>

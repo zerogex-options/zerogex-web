@@ -1,30 +1,49 @@
 'use client';
 
-import { useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import WidgetFrame, { type WidgetBox } from './WidgetFrame';
 import { getWidget, type WidgetDef } from './registry';
-import { SPAN_STEP, type PaneId, type PlacedWidget, type WidgetSize, type WidgetZoom } from '@/core/myDashboardLayout';
+import {
+  GRID_TRACKS,
+  SPAN_STEP,
+  type PaneId,
+  type PlacedWidget,
+  type WidgetSize,
+  type WidgetZoom,
+} from '@/core/myDashboardLayout';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
+import { readGridGeometry, spanFloor, type GridGeometry } from './gridGeometry';
 
 /**
  * The grid cell's class and inline style for one placement. A footprint tile
  * is just its footprint class. A free-resize tile with a dragged width spans
- * that many columns instead (--zg-span, in the desktop grid's half-column
- * tracks; half or all of the tablet row via --zg-span-tab; a phone gives every
- * chart the full row), and
- * its height is either the one it was dragged to — top-aligned, so a shorter
- * tile leaves the row's spare height visible rather than stretching into it —
- * or the row's own, never less than its default.
+ * that many columns instead: --zg-span in the desktop grid's tracks,
+ * --zg-span-half at twice that for a side-by-side split half (a width is a
+ * share of the whole board, like a footprint), half or all of the tablet row
+ * via --zg-span-tab, and the full row on a phone. On the desktop grid it is
+ * never drawn narrower than the widget's px floor (`floorSpan`), so a width
+ * saved on a wide screen stays usable on a narrow one. Its height is either
+ * the one it was dragged to — top-aligned, so a shorter tile leaves the row's
+ * spare height visible rather than stretching into it — or the row's own,
+ * never less than its default.
  */
-function cellLayout(item: PlacedWidget, widget: WidgetDef): { className: string; style?: CSSProperties } {
+function cellLayout(
+  item: PlacedWidget,
+  widget: WidgetDef,
+  geo: GridGeometry | null,
+): { className: string; style?: CSSProperties } {
   const tile = widget.tile && item.size === 'sm' ? ' zg-w-tile' : '';
   const free = widget.freeResize;
   if (!free) return { className: `zg-w-${item.size}${tile}` };
   const style: Record<string, string | number> = {};
   let className = `zg-w-${item.size}`;
   if (item.span !== undefined) {
+    const floor = geo?.desktop ? spanFloor(geo, free.minWidthPx) : 0;
+    const span = Math.max(item.span, floor);
+    const tracks = Math.min(GRID_TRACKS, Math.round(span / SPAN_STEP));
     className = 'zg-w-span';
-    style['--zg-span'] = Math.round(item.span / SPAN_STEP);
+    style['--zg-span'] = tracks;
+    style['--zg-span-half'] = Math.min(GRID_TRACKS, tracks * 2);
     style['--zg-span-tab'] = item.span <= 6 ? 1 : 2;
   }
   if (item.height !== undefined) {
@@ -43,9 +62,9 @@ function cellLayout(item: PlacedWidget, widget: WidgetDef): { className: string;
  * so reordering is fully usable without a drag.
  *
  * One grid renders one pane. On a split board each half gets its own instance
- * with `half` set, which narrows the desktop grid from four columns to two so
- * the footprints still mean "quarter / half / three-quarters / full" of the
- * space the pane actually has. Reordering is within a pane; `sendToPane` adds
+ * with `half` set, which doubles each footprint on the desktop grid so the
+ * footprints still mean "quarter / half / three-quarters / full" of the space
+ * the pane actually has. Reordering is within a pane; `sendToPane` adds
  * the cross-pane move to each tile's edit controls.
  */
 export default function DashboardGrid({
@@ -84,6 +103,27 @@ export default function DashboardGrid({
   onSendToPane?: (instanceId: string, target: PaneId) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
+  // The grid's live track geometry, for drawing free-resize widths at no less
+  // than their px floor. Null until measured (the floor then waits a frame).
+  const [geo, setGeo] = useState<GridGeometry | null>(null);
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const ro = new ResizeObserver(() => {
+      const next = readGridGeometry(grid);
+      setGeo((cur) =>
+        cur &&
+        cur.tracks === next.tracks &&
+        cur.half === next.half &&
+        Math.abs(cur.trackWidth - next.trackWidth) < 0.5 &&
+        cur.gap === next.gap
+          ? cur
+          : next,
+      );
+    });
+    ro.observe(grid);
+    return () => ro.disconnect();
+  }, []);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   // While an edge-drag resize is in progress the grid's native HTML5
@@ -97,7 +137,7 @@ export default function DashboardGrid({
         const widget = getWidget(item.widgetId);
         if (!widget) return null;
         const locked = widget.tier === 'pro' && !hasPro;
-        const cell = cellLayout(item, widget);
+        const cell = cellLayout(item, widget, geo);
 
         return (
           <div

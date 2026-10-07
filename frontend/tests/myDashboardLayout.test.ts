@@ -83,6 +83,10 @@ const {
   clampSpan,
   clampPanelWidth,
   GRID_TRACKS,
+  toSpanStep,
+  tracksForWidth,
+  renderedSpan,
+  spanFloor,
   clampHeight,
   isWidgetZoom,
   WIDGET_COLSPAN,
@@ -706,7 +710,7 @@ test('the sync state is per member and leaves the stored board alone', () => {
 
 test('footprints are quarter / half / three-quarters / full of the 12-column grid', () => {
   assert.equal(GRID_COLUMNS, 12);
-  assert.equal(GRID_TRACKS, 24, 'half-column steps need two CSS tracks per column');
+  assert.equal(GRID_TRACKS, 48, 'quarter-column steps need four CSS tracks per column');
   assert.deepEqual(WIDGET_COLSPAN, { sm: 3, md: 6, lg: 9, xl: 12 });
 });
 
@@ -762,7 +766,7 @@ test('setWidgetSymbol pins one tile, leaves its twin alone, and un-pins with nul
 test('setWidgetBox sets, clamps and clears width and height independently', () => {
   const base = add(emptyLayout(), 'gamma-ladder', 'sm');
   const sized = setWidgetBox(base, 'gamma-ladder#1', { span: 2.4, height: 433.6 });
-  assert.equal(widgetsOf(sized)[0].span, 2.5, 'widths go in half-column steps');
+  assert.equal(widgetsOf(sized)[0].span, 2.5, 'widths go in quarter-column steps');
   assert.equal(widgetsOf(sized)[0].height, 434);
   const widthOnly = setWidgetBox(sized, 'gamma-ladder#1', { span: 5 });
   assert.equal(widgetsOf(widthOnly)[0].height, 434, 'an omitted field is left alone');
@@ -770,7 +774,7 @@ test('setWidgetBox sets, clamps and clears width and height independently', () =
   assert.equal('height' in widgetsOf(filled)[0], false, 'null goes back to filling the row');
   assert.equal(widgetsOf(filled)[0].span, 5);
   assert.equal(setWidgetBox(filled, 'gamma-ladder#1', { span: 5 }), filled, 'unchanged is a no-op');
-  assert.equal(widgetsOf(setWidgetBox(base, 'gamma-ladder#1', { span: 0 }))[0].span, 1);
+  assert.equal(widgetsOf(setWidgetBox(base, 'gamma-ladder#1', { span: 0 }))[0].span, 0.25);
 });
 
 test('setWidgetZoom sets the text size and rejects anything else', () => {
@@ -811,9 +815,10 @@ test('duplicating, cloning and moving a tile carry its per-tile settings', () =>
 
 test('clampSpan / clampHeight bound and round, and reject non-numbers', () => {
   assert.equal(clampSpan(7.6), 7.5);
-  assert.equal(clampSpan(7.8), 8);
+  assert.equal(clampSpan(7.8), 7.75);
+  assert.equal(clampSpan(7.9), 8);
   assert.equal(clampSpan(1.5), 1.5);
-  assert.equal(clampSpan(-3), 1);
+  assert.equal(clampSpan(-3), 0.25);
   assert.equal(clampSpan('4'), null);
   assert.equal(clampSpan(Number.NaN), null);
   assert.equal(clampHeight(20), MIN_WIDGET_HEIGHT);
@@ -835,10 +840,51 @@ test('setWidgetPanelWidth sets, clamps, clears, and survives a reload', () => {
   assert.equal('panelWidth' in widgetsOf(junk)[0], false, 'a bad width drops back to the default');
 });
 
-test('a span saved in whole columns keeps its width, half-columns round to the step', () => {
+test('spans saved in whole or half columns keep their width; others round to the step', () => {
   const layout = sanitizeLayout({ widgets: [
     { widgetId: 'gamma-ladder', size: 'sm', span: 2 },
-    { widgetId: 'gamma-ladder', size: 'sm', span: 1.7 },
+    { widgetId: 'gamma-ladder', size: 'sm', span: 1.5 },
+    { widgetId: 'gamma-ladder', size: 'sm', span: 1.6 },
   ] });
-  assert.deepEqual(widgetsOf(layout).map((w) => w.span), [2, 1.5]);
+  assert.deepEqual(widgetsOf(layout).map((w) => w.span), [2, 1.5, 1.5]);
+});
+
+// ── Grid track math ──────────────────────────────────────────────────────────
+// The desktop grid has no column gap: tiles are spaced by 8px of cell padding
+// a side (the gutter). A 1440px screen's board: ~1406px of grid over 48
+// tracks; a split half at 1280px with the sidebar open: ~476px.
+const FULL = { gap: 0, gutter: 16, trackWidth: 1406 / 48, columnsPerTrack: 12 / 48 };
+const HALF = { gap: 0, gutter: 16, trackWidth: 476 / 48, columnsPerTrack: 12 / 48 / 2 };
+
+test('toSpanStep rounds to quarter-columns', () => {
+  assert.equal(toSpanStep(1.6), 1.5);
+  assert.equal(toSpanStep(1.63), 1.75);
+  assert.equal(toSpanStep(3), 3);
+});
+
+test('a footprint cell measures back to its footprint, unsplit and in a split half', () => {
+  // S = 12 of the board's 48 tracks.
+  assert.equal(renderedSpan(FULL, 12 * FULL.trackWidth), 3);
+  // In a split half S draws at 24 of the pane's tracks: still a quarter of the board.
+  assert.equal(renderedSpan(HALF, 24 * HALF.trackWidth), 3);
+});
+
+test('tracksForWidth is exact at a whole number of tracks, with or without a gap', () => {
+  assert.ok(Math.abs(tracksForWidth(FULL, 5 * FULL.trackWidth) - 5) < 1e-9);
+  const gapped = { gap: 16, gutter: 0, trackWidth: 300, columnsPerTrack: 6 };
+  assert.ok(Math.abs(tracksForWidth(gapped, 2 * 300 + 16) - 2) < 1e-9, 'the tablet grid keeps a real gap');
+});
+
+test('spanFloor leaves the tile itself at least the px floor wide', () => {
+  const tileWidth = (span: number, m: typeof FULL) => (span / m.columnsPerTrack) * m.trackWidth - m.gutter;
+  // 130px + the 16px gutter over ~29.3px tracks = 5 tracks = 1.25 board columns.
+  assert.equal(spanFloor(FULL, 130), 1.25);
+  assert.ok(tileWidth(1.25, FULL) >= 130, `tile ${tileWidth(1.25, FULL)}px`);
+  assert.ok(tileWidth(1, FULL) < 130, 'one step narrower would be under the floor');
+  // In a split half a track is narrower, so the floor is more board columns,
+  // rounded UP to a quarter-column.
+  const halfFloor = spanFloor(HALF, 130);
+  assert.equal(halfFloor % 0.25, 0);
+  assert.ok(tileWidth(halfFloor, HALF) >= 130, `tile ${tileWidth(halfFloor, HALF)}px`);
+  assert.equal(spanFloor({ gap: 0, gutter: 16, trackWidth: 0, columnsPerTrack: 0.25 }, 130), 0, 'unmeasured grid: no floor');
 });

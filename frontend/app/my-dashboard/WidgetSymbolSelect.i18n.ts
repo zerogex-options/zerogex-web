@@ -1,29 +1,36 @@
 import type { PageDictionary } from '@/core/LanguageContext';
 
+// {board} is the symbol the widget follows while it is not set on its own:
+// its half's on a split board, else the one picked at the top of the page.
 export const dict: PageDictionary = {
   en: {
     ariaLabel: 'Underlying for this widget',
-    titleFollowing: 'Following the symbol picked at the top of the page. Pick another to change this widget alone.',
-    titlePinned: 'Set for this widget alone. Pick the symbol at the top of the page to follow it again.',
+    titleFollowing: 'Following the board ({board}). Pick another symbol to change this widget alone.',
+    titlePinned: 'Set for this widget alone. Pick {board} to follow the board again.',
+    followBoard: 'Follow the board ({board})',
   },
   it: {
     ariaLabel: 'Sottostante per questo widget',
-    titleFollowing: 'Segue il simbolo scelto in cima alla pagina. Scegline un altro per cambiare solo questo widget.',
-    titlePinned: 'Impostato solo per questo widget. Scegli il simbolo in cima alla pagina per seguirlo di nuovo.',
+    titleFollowing: 'Segue la bacheca ({board}). Scegli un altro simbolo per cambiare solo questo widget.',
+    titlePinned: 'Impostato solo per questo widget. Scegli {board} per seguire di nuovo la bacheca.',
+    followBoard: 'Segui la bacheca ({board})',
   },
   de: {
     ariaLabel: 'Basiswert für dieses Widget',
-    titleFollowing: 'Folgt dem oben auf der Seite gewählten Symbol. Wählen Sie ein anderes, um nur dieses Widget zu ändern.',
-    titlePinned: 'Nur für dieses Widget festgelegt. Wählen Sie das Symbol oben auf der Seite, um ihm wieder zu folgen.',
+    titleFollowing: 'Folgt dem Board ({board}). Wählen Sie ein anderes Symbol, um nur dieses Widget zu ändern.',
+    titlePinned: 'Nur für dieses Widget festgelegt. Wählen Sie {board}, um wieder dem Board zu folgen.',
+    followBoard: 'Dem Board folgen ({board})',
   },
   es: {
     ariaLabel: 'Subyacente de este widget',
-    titleFollowing: 'Sigue el símbolo elegido arriba en la página. Elige otro para cambiar solo este widget.',
-    titlePinned: 'Fijado solo para este widget. Elige el símbolo de arriba de la página para volver a seguirlo.',
+    titleFollowing: 'Sigue el panel ({board}). Elige otro símbolo para cambiar solo este widget.',
+    titlePinned: 'Fijado solo para este widget. Elige {board} para volver a seguir el panel.',
+    followBoard: 'Seguir el panel ({board})',
   },
   fr: {
     ariaLabel: 'Sous-jacent de ce widget',
-    titleFollowing: 'Suit le symbole choisi en haut de la page. Choisissez-en un autre pour ne changer que ce widget.',
-    titlePinned: 'Défini pour ce seul widget. Choisissez le symbole du haut de la page pour le suivre à nouveau.',
+    titleFollowing: 'Suit le tableau ({board}). Choisissez un autre symbole pour ne changer que ce widget.',
+    titlePinned: 'Défini pour ce seul widget. Choisissez {board} pour suivre à nouveau le tableau.',
+    followBoard: 'Suivre le tableau ({board})',
   },
 };

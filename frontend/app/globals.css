@@ -2421,13 +2421,13 @@ body {
 
 /* ============================================================
    MY DASHBOARD — customizable widget grid
-   A 24-track desktop grid; each widget's footprint (sm/md/lg/xl = 6/12/18/24
-   tracks, a quarter to the full board) collapses responsively (24→2→1
+   A 48-track desktop grid; each widget's footprint (sm/md/lg/xl = 12/24/36/48
+   tracks, a quarter to the full board) collapses responsively (48→2→1
    columns). That fine so a free-resize tile (the Gamma Ladder) can be dragged
-   to widths between the footprints, in half-column steps (a track is half of
-   one of the board's twelve columns — see core/myDashboardLayout). With the
-   gap counted in, every footprint is exactly as wide as it was on the old
-   four-column grid. Tiles in the same row stretch
+   to widths between the footprints, in quarter-column steps (a track is a
+   quarter of one of the board's twelve columns — see core/myDashboardLayout).
+   With the gap counted in, every footprint is exactly as wide as it was on the
+   old four-column grid. Tiles in the same row stretch
    to a shared height (align-items: stretch), so a row of mixed cards reads
    as one clean band. Flow is ordered (not dense) so the board keeps the
    exact order the member arranged by dragging, rather than auto-repacking.
@@ -2442,8 +2442,18 @@ body {
 @media (min-width: 640px) {
   .zg-mydash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Desktop: 48 tracks and NO column gap — 47 gaps of 16px would be 752px, more
+   than a split half is wide, and the tracks would collapse. The 16px between
+   tiles is each cell's 8px side padding instead, and the grid reaches 8px past
+   its container on each side so the tiles' edges still line up with it. A
+   footprint comes out exactly as wide as with a real gap. */
 @media (min-width: 1024px) {
-  .zg-mydash-grid { grid-template-columns: repeat(24, minmax(0, 1fr)); }
+  .zg-mydash-grid {
+    grid-template-columns: repeat(48, minmax(0, 1fr));
+    column-gap: 0;
+    margin-inline: -8px;
+  }
+  .zg-mydash-grid > * { padding-inline: 8px; }
 }
 
 /* Footprints. Base (mobile) is a single column; they widen at the two
@@ -2464,12 +2474,12 @@ body {
   .zg-w-span { grid-column: span var(--zg-span-tab, 1); }
 }
 @media (min-width: 1024px) {
-  .zg-w-sm { grid-column: span 6; }
-  .zg-w-md { grid-column: span 12; }
-  .zg-w-lg { grid-column: span 18; }
-  .zg-w-xl { grid-column: span 24; }
+  .zg-w-sm { grid-column: span 12; }
+  .zg-w-md { grid-column: span 24; }
+  .zg-w-lg { grid-column: span 36; }
+  .zg-w-xl { grid-column: span 48; }
   /* --zg-span is the dragged width in tracks (set inline). */
-  .zg-w-span { grid-column: span var(--zg-span, 6); }
+  .zg-w-span { grid-column: span var(--zg-span, 12); }
 }
 
 /* ── Key Levels flip ─────────────────────────────────────────────────────────
@@ -2597,14 +2607,16 @@ body {
   .zg-mydash-split {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  /* A half-width pane keeps the 24 tracks but doubles each footprint, so
+  /* A half-width pane keeps the 48 tracks but doubles each footprint, so
      S/M/L/XL land on half or the whole of the space the pane actually has
-     instead of collapsing into unreadable slivers. A dragged width stays a
-     count of the pane's own tracks. */
-  .zg-mydash-grid--half .zg-w-sm { grid-column: span 12; }
-  .zg-mydash-grid--half .zg-w-md { grid-column: span 12; }
-  .zg-mydash-grid--half .zg-w-lg { grid-column: span 24; }
-  .zg-mydash-grid--half .zg-w-xl { grid-column: span 24; }
+     instead of collapsing into unreadable slivers. A dragged width is a share
+     of the whole board, so it doubles too (--zg-span-half, capped at the
+     pane) and keeps its width beside its neighbors when the board splits. */
+  .zg-mydash-grid--half .zg-w-sm { grid-column: span 24; }
+  .zg-mydash-grid--half .zg-w-md { grid-column: span 24; }
+  .zg-mydash-grid--half .zg-w-lg { grid-column: span 48; }
+  .zg-mydash-grid--half .zg-w-xl { grid-column: span 48; }
+  .zg-mydash-grid--half .zg-w-span { grid-column: span var(--zg-span-half, 24); }
 }
 
 /* Right-edge resize handle (edit mode). Drag it to widen/narrow a widget; it
@@ -2612,23 +2624,29 @@ body {
    half-column). Shown only on the desktop grid, where widths render
    distinctly — on the 2-/1-column layouts the toolbar's size button is the
    resize control instead. */
+/* The hit area runs the whole edge (clear of the control cluster at the top
+   and the corner handle at the bottom), so the edge itself drags — not just
+   the grip drawn at its middle. */
 .zg-w-resize-handle {
   position: absolute;
-  top: 50%;
-  right: 2px;
-  transform: translateY(-50%);
+  top: 40px;
+  bottom: 24px;
+  right: 0;
   display: none;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 46px;
-  border-radius: 8px;
+  width: 12px;
   cursor: col-resize;
   touch-action: none;
   z-index: 3;
 }
 @media (min-width: 1024px) {
   .zg-w-resize-handle { display: flex; }
+}
+/* A free-resize tile's width handle also works on the two-column tablet
+   grid, where it snaps between half and the whole row. */
+@media (min-width: 640px) {
+  .zg-w-resize-handle--free { display: flex; }
 }
 /* The grip has to read at rest — the tile's own content (a ladder's tinted
    rows, a chart) sits right under it, and --border-strong alone came out at
@@ -2638,7 +2656,7 @@ body {
   width: 4px;
   height: 26px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent-hot) 70%, transparent);
+  background: var(--color-accent-hot);
   box-shadow: 0 0 0 3px var(--bg-card), 0 0 0 4px var(--border-default);
   transition: background var(--dur-1) var(--ease-standard),
     height var(--dur-1) var(--ease-standard);
@@ -2646,7 +2664,6 @@ body {
 .zg-w-resize-handle:hover .zg-w-resize-grip,
 .zg-w-resize-handle:focus-visible .zg-w-resize-grip,
 .zg-w-resize-handle[data-active='true'] .zg-w-resize-grip {
-  background: var(--color-accent-hot);
   height: 34px;
 }
 .zg-w-resize-handle:focus-visible {
@@ -2676,15 +2693,13 @@ body.zg-box-resizing * {
    sets the width, is desktop-only like the right-edge handle. */
 .zg-h-resize-handle {
   position: absolute;
-  left: 50%;
-  bottom: 2px;
-  transform: translateX(-50%);
+  left: 24px;
+  right: 24px;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 16px;
-  border-radius: 8px;
+  height: 12px;
   cursor: row-resize;
   touch-action: none;
   z-index: 3;
@@ -2693,7 +2708,7 @@ body.zg-box-resizing * {
   width: 26px;
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent-hot) 70%, transparent);
+  background: var(--color-accent-hot);
   box-shadow: 0 0 0 3px var(--bg-card), 0 0 0 4px var(--border-default);
   transition: background var(--dur-1) var(--ease-standard),
     width var(--dur-1) var(--ease-standard);
@@ -2701,7 +2716,6 @@ body.zg-box-resizing * {
 .zg-h-resize-handle:hover .zg-h-resize-grip,
 .zg-h-resize-handle:focus-visible .zg-h-resize-grip,
 .zg-h-resize-handle[data-active='true'] .zg-h-resize-grip {
-  background: var(--color-accent-hot);
   width: 34px;
 }
 .zg-h-resize-handle:focus-visible,

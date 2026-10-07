@@ -101,15 +101,18 @@ export type WidgetSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export const WIDGET_SIZES: readonly WidgetSize[] = ['sm', 'md', 'lg', 'xl'] as const;
 
-// Columns on the desktop grid — the unit every width is stored in. Twelve
-// rather than the four the footprints need, so a free-resize tile (the Gamma
-// Ladder) can be dragged to a width between them, and in half-column steps
-// (SPAN_STEP): a ladder an eighth of the board wide is a real choice, where
-// the narrowest footprint used to be a quarter.
+// Columns on the desktop grid — the unit every width is stored in, always as
+// a share of the WHOLE board (a split half draws it at twice its own tracks,
+// the way it doubles the footprints), so a dragged tile keeps its width beside
+// its neighbors when the board is split or a half is cloned. Twelve rather
+// than the four the footprints need, so a free-resize tile (the Gamma Ladder)
+// can be dragged to a width between them, in quarter-column steps
+// (SPAN_STEP) — about 29px on a 1440px screen, fine enough to feel free while
+// still snapping.
 export const GRID_COLUMNS = 12;
 
 /** The finest width step, in columns. */
-export const SPAN_STEP = 0.5;
+export const SPAN_STEP = 0.25;
 
 /** Tracks the desktop grid CSS actually lays out: one per SPAN_STEP. */
 export const GRID_TRACKS = GRID_COLUMNS / SPAN_STEP;
@@ -153,8 +156,9 @@ export const WIDGET_ZOOM_SCALE: Record<WidgetZoom, number> = {
 
 export const DEFAULT_WIDGET_ZOOM: WidgetZoom = 'md';
 
-/** Width bounds for a custom span, in grid columns (half-columns allowed). */
-export const MIN_WIDGET_SPAN = 1;
+/** Width bounds for a custom span, in grid columns (to SPAN_STEP). A widget
+ *  sets its own, larger floor in px (registry `freeResize.minWidthPx`). */
+export const MIN_WIDGET_SPAN = SPAN_STEP;
 export const MAX_WIDGET_SPAN = GRID_COLUMNS;
 
 /** Height bounds for a custom height, in CSS px. */
@@ -170,6 +174,50 @@ export function clampSpan(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   const stepped = Math.round(value / SPAN_STEP) * SPAN_STEP;
   return Math.max(MIN_WIDGET_SPAN, Math.min(MAX_WIDGET_SPAN, stepped));
+}
+
+// ── Grid track math ───────────────────────────────────────────────────────────
+// Pure conversions between a width in px, the CSS tracks a grid draws, and a
+// stored width in board columns. The DOM side (reading a live grid) lives in
+// app/my-dashboard/gridGeometry; the arithmetic is here so it is pinned by the
+// unit tests.
+
+/** The parts of a laid-out grid the width math needs. */
+export type TrackMetrics = {
+  /** px between tracks (0 on the desktop grid, which spaces tiles by padding). */
+  gap: number;
+  /** px of a cell's width that is spacing rather than tile (its side padding). */
+  gutter: number;
+  /** px per track. */
+  trackWidth: number;
+  /** Board columns one track stands for (half that in a side-by-side split half). */
+  columnsPerTrack: number;
+};
+
+/** Round to the nearest SPAN_STEP. */
+export function toSpanStep(columns: number): number {
+  return Math.round(columns / SPAN_STEP) * SPAN_STEP;
+}
+
+/** Fractional tracks spanned by `width` px (a cell's or a pointer's). */
+export function tracksForWidth(m: TrackMetrics, width: number): number {
+  return (width + m.gap) / (m.trackWidth + m.gap);
+}
+
+/** The width a cell `width` px wide renders at, in board columns. */
+export function renderedSpan(m: TrackMetrics, width: number): number {
+  return toSpanStep(Math.round(tracksForWidth(m, width)) * m.columnsPerTrack);
+}
+
+/**
+ * The narrowest width, in board columns (rounded up to SPAN_STEP), whose tile
+ * — the cell less its gutter — is at least `minPx` wide on this grid. 0 when
+ * the grid isn't laid out yet.
+ */
+export function spanFloor(m: TrackMetrics, minPx: number): number {
+  if (m.trackWidth <= 0) return 0;
+  const tracks = Math.max(1, Math.ceil((minPx + m.gutter + m.gap) / (m.trackWidth + m.gap) - 1e-9));
+  return Math.ceil((tracks * m.columnsPerTrack) / SPAN_STEP - 1e-9) * SPAN_STEP;
 }
 
 /**

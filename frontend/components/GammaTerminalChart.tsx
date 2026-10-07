@@ -59,6 +59,7 @@ import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
 import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
 import { useChipInk, useLevelInk } from "@/hooks/useChartTheme";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
+import { useInDashboardWidget } from "@/core/dashboardWidget";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong, cumulativeNetGexAtSpot, longGammaAtSpot } from "@/core/gammaRegime";
 import { firstLevel, levelOrNull } from "@/core/levelValue";
@@ -245,8 +246,10 @@ const DESKTOP_MIN_VH = 460;
 const DESKTOP_RAIL_W = DESKTOP_CANVAS.RAIL_RIGHT - DESKTOP_CANVAS.RAIL_LEFT;
 // Narrowest card (CSS px) a mouse-driven desktop draws the desktop board at.
 // Below it the board's fixed axis column and gutters would leave the tape a
-// sliver, so the compact canvas takes over there too.
-const DESKTOP_MIN_WIDTH = 700;
+// sliver, so the compact canvas takes over there too. Measured as the card's
+// clientWidth — inside its 1px border. Exported for surfaces that size the
+// card (the Gamma Terminal tile), so they can keep it on the desktop board.
+export const DESKTOP_MIN_WIDTH = 700;
 
 /**
  * The desktop board at the card's own width. The 1360-unit board used to be
@@ -821,7 +824,9 @@ export default function GammaTerminalChart({
   // moves the rail's left edge and the tape's right edge with it. Terminal
   // mode has no inline rail to size.
   const [railDragWidth, setRailDragWidth] = useState<number | null>(null);
-  const requestedRailWidth = hideRail ? null : (railDragWidth ?? railWidth);
+  // Only while the inline rail is drawn: with the Gamma Rail overlay off, a
+  // dragged width would hold open a blank column with no edge left to drag.
+  const requestedRailWidth = hideRail || !overlays.rail ? null : (railDragWidth ?? railWidth);
   const canvas = useMemo(
     () => (requestedRailWidth == null ? volumeCanvas : withRailWidth(volumeCanvas, requestedRailWidth)),
     [volumeCanvas, requestedRailWidth],
@@ -933,6 +938,11 @@ export default function GammaTerminalChart({
   const railRight = inPanel ? panelVb.w : RAIL_RIGHT;
   const railCenter = (railLeft + railRight) / 2;
   const railHalf = (railRight - railLeft) / 2 - 10;
+  // Where the inline rail's drag handle (onRailWidthChange) is centered. The
+  // desktop board's rail ground starts 6 units left of the rail; the compact
+  // canvas's price labels and tags run right up to that, so there the handle
+  // sits on the rail's own edge instead, clear of them.
+  const railHandleX = compact ? RAIL_LEFT : RAIL_LEFT - 6;
   // Inline, the rail is an overlay the reader toggles off. Panelled, it IS the
   // panel — the page's own view switch put it there, so an overlay pill that
   // could empty the panel would be a second, contradictory control.
@@ -1049,10 +1059,18 @@ export default function GammaTerminalChart({
   // today" means the same thing on every chain, so the reason for clearing does
   // not apply to it. Clearing it here would quietly widen a 0DTE board to the
   // whole chain the first time the user switched symbols.
+  //
+  // Not in a My Dashboard tile. There the symbol is often the tile's own pick
+  // (a tile picks its underlying without moving the board), but the filter is
+  // the board's — clearing it would reset every other tile on it. Nothing
+  // needs the clear there anyway: the read side (useChartExpirations below)
+  // reconciles the shared selection to this symbol's chain, so a date the new
+  // chain doesn't list never reaches a request.
+  const inDashboardWidget = useInDashboardWidget();
   const [railExpSym, setRailExpSym] = useState(symbol);
   if (railExpSym !== symbol) {
     setRailExpSym(symbol);
-    if (!selectionIsRollingZeroDte(rawRailExpiries)) setRailExpiries([]);
+    if (!inDashboardWidget && !selectionIsRollingZeroDte(rawRailExpiries)) setRailExpiries([]);
   }
 
   // Persisted-preference keys. A surface that mounts this chart beside other
@@ -4541,13 +4559,15 @@ export default function GammaTerminalChart({
               className="zg-split-handle"
               data-active={railDragWidth !== null ? "true" : undefined}
               style={{
-                left: `calc(${((RAIL_LEFT - 6) / VW) * 100}% - 6px)`,
+                left: `calc(${(railHandleX / VW) * 100}% - 6px)`,
                 top: `${(PAD_TOP / VH) * 100}%`,
                 height: `${((PRICE_BOTTOM - PAD_TOP) / VH) * 100}%`,
               }}
               onPointerDown={(e) => {
                 const svg = svgRef.current;
                 if (!svg) return;
+                // Primary button only (a context menu can swallow the release).
+                if (e.button !== 0 || (e.pointerType === "mouse" && e.ctrlKey)) return;
                 e.preventDefault();
                 e.stopPropagation();
                 const rect = svg.getBoundingClientRect();
@@ -4562,11 +4582,20 @@ export default function GammaTerminalChart({
                   /* the window listeners still track the drag */
                 }
                 document.body.classList.add("zg-col-resizing");
-                let last = RAIL_RIGHT - RAIL_LEFT;
+                const start = RAIL_RIGHT - RAIL_LEFT;
+                let last = start;
+                // Map the rail's edge, not the pointer: keep where in the
+                // handle it was grabbed, so a press without movement is a no-op.
+                const grabUnits = railHandleX - (e.clientX - rect.left) * unitsPerPx;
+                const edgeOffset = RAIL_LEFT - railHandleX;
+                let ended = false;
                 setRailDragWidth(last);
                 const onMove = (ev: PointerEvent) => {
-                  // The handle sits 6 units left of the rail (its ground's edge).
-                  const x = (ev.clientX - rect.left) * unitsPerPx + 6;
+                  if (ev.buttons === 0) {
+                    end();
+                    return;
+                  }
+                  const x = (ev.clientX - rect.left) * unitsPerPx + grabUnits + edgeOffset;
                   let w = Math.round(clamp(RAIL_RIGHT - x, min, max));
                   if (Math.abs(w - fallback) <= RAIL_WIDTH_MAGNET) w = fallback;
                   if (w !== last) {
@@ -4575,6 +4604,8 @@ export default function GammaTerminalChart({
                   }
                 };
                 const end = () => {
+                  if (ended) return;
+                  ended = true;
                   window.removeEventListener("pointermove", onMove);
                   window.removeEventListener("pointerup", end);
                   window.removeEventListener("pointercancel", end);
@@ -4585,7 +4616,10 @@ export default function GammaTerminalChart({
                     /* nothing to release */
                   }
                   setRailDragWidth(null);
-                  onRailWidthChange(last === fallback ? null : last);
+                  // Only a drag that changed the width is saved. A click, or a
+                  // drag let go where it started, keeps the saved width — which
+                  // this card may only be showing clamped to its own room.
+                  if (last !== start) onRailWidthChange(last === fallback ? null : last);
                 };
                 window.addEventListener("pointermove", onMove);
                 window.addEventListener("pointerup", end);

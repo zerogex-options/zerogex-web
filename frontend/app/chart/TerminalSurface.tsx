@@ -56,6 +56,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -63,6 +64,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import GammaTerminalChart, {
+  DESKTOP_MIN_WIDTH,
   type ChartGeometry,
   type ChartSnapshot,
   type RewindState,
@@ -117,7 +119,10 @@ const STACKED_PANEL_H = 420;
 const PANEL_DEFAULT_W = 372;
 const PANEL_MIN_W = 240;
 const PANEL_GAP = 16;
-const CHART_MIN_W = 700;
+// The chart picks its board from its card's clientWidth, inside a 1px border,
+// so the column needs that border and a px of rounding on top of the board's
+// own minimum to stay on the desktop board.
+const CHART_MIN_W = DESKTOP_MIN_WIDTH + 2 + 1;
 const WIDGET_WIDE_MIN = PANEL_MIN_W + PANEL_GAP + CHART_MIN_W;
 // A dragged splitter within this many px of the default width lands on it.
 const PANEL_MAGNET = 10;
@@ -163,6 +168,7 @@ export default function TerminalSurface({
   inWidget = false,
   panelWidth = null,
   onPanelWidthChange,
+  viewStorageKey = VIEW_STORAGE_KEY,
 }: {
   snapshot?: ChartSnapshot | null;
   delayed?: boolean;
@@ -174,6 +180,9 @@ export default function TerminalSurface({
   /** Saves the panel width the reader lets the splitter go at (null = the
    *  default). Absent, there is no splitter. Tile only. */
   onPanelWidthChange?: (width: number | null) => void;
+  /** Where the Ladders / Strike Panel choice is remembered. A tile passes its
+   *  own, so it neither follows nor moves /chart's (or another tile's). */
+  viewStorageKey?: string;
 }) {
   const live = !delayed;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
@@ -181,9 +190,13 @@ export default function TerminalSurface({
   // A tile measures itself: its width, not the window's, is the room it has.
   const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
   const [rootW, setRootW] = useState(0);
-  useEffect(() => {
+  // Measured before the first paint (a layout effect, then the observer), so
+  // a wide tile opens side by side instead of flashing the stacked layout.
+  useLayoutEffect(() => {
     if (!inWidget || !rootEl) return;
-    const ro = new ResizeObserver(() => setRootW(rootEl.clientWidth));
+    const measure = () => setRootW(rootEl.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(rootEl);
     return () => ro.disconnect();
   }, [inWidget, rootEl]);
@@ -199,9 +212,14 @@ export default function TerminalSurface({
   const beginPanelResize = (e: ReactPointerEvent<HTMLDivElement>) => {
     const row = rowRef.current;
     if (!row || !onPanelWidthChange) return;
+    // Primary button only (a context menu can swallow the release).
+    if (e.button !== 0 || (e.pointerType === "mouse" && e.ctrlKey)) return;
     e.preventDefault();
     e.stopPropagation();
     const right = row.getBoundingClientRect().right;
+    // Map the gap's center, not the pointer: keep where in the handle it was
+    // grabbed, so a press without movement changes nothing.
+    const grabDX = right - widgetPanelW - PANEL_GAP / 2 - e.clientX;
     const handleEl = e.currentTarget;
     const pointerId = e.pointerId;
     try {
@@ -210,11 +228,17 @@ export default function TerminalSurface({
       /* the window listeners still track the drag */
     }
     document.body.classList.add("zg-col-resizing");
-    let last = widgetPanelW;
+    const start = widgetPanelW;
+    let last = start;
+    let ended = false;
     setPanelDrag(last);
     const onMove = (ev: PointerEvent) => {
+      if (ev.buttons === 0) {
+        end();
+        return;
+      }
       // The handle sits in the middle of the gap left of the panel.
-      let w = Math.round(Math.min(panelMax, Math.max(PANEL_MIN_W, right - ev.clientX - PANEL_GAP / 2)));
+      let w = Math.round(Math.min(panelMax, Math.max(PANEL_MIN_W, right - (ev.clientX + grabDX) - PANEL_GAP / 2)));
       if (Math.abs(w - PANEL_DEFAULT_W) <= PANEL_MAGNET && PANEL_DEFAULT_W <= panelMax) w = PANEL_DEFAULT_W;
       if (w !== last) {
         last = w;
@@ -222,6 +246,8 @@ export default function TerminalSurface({
       }
     };
     const end = () => {
+      if (ended) return;
+      ended = true;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", end);
       window.removeEventListener("pointercancel", end);
@@ -232,7 +258,10 @@ export default function TerminalSurface({
         /* nothing to release */
       }
       setPanelDrag(null);
-      onPanelWidthChange(last === PANEL_DEFAULT_W ? null : last);
+      // Only a drag that changed the width is saved. A click, or a drag let go
+      // where it started, keeps the saved width — which a narrower tile may
+      // only be showing clamped to its room.
+      if (last !== start) onPanelWidthChange(last === PANEL_DEFAULT_W ? null : last);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", end);
@@ -266,22 +295,22 @@ export default function TerminalSurface({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(VIEW_STORAGE_KEY);
+      const raw = localStorage.getItem(viewStorageKey);
       if (isView(raw)) setView(raw);
     } catch {
       /* storage unavailable */
     }
     setViewHydrated(true);
-  }, []);
+  }, [viewStorageKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!viewHydrated) return;
     try {
-      localStorage.setItem(VIEW_STORAGE_KEY, view);
+      localStorage.setItem(viewStorageKey, view);
     } catch {
       /* storage unavailable */
     }
-  }, [view, viewHydrated]);
+  }, [view, viewHydrated, viewStorageKey]);
   const laddersView = view === "ladders";
 
   // Alignment: the chart reports its tape geometry (CSS px from its card's top

@@ -14,8 +14,12 @@ import { createContext, useContext } from 'react';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 
 export type WidgetInstanceValue = {
+  /** This placement's id — unique on the board, stable across reloads. */
+  instanceId: string;
   /** The underlying this tile shows: its own pick, else the board's. */
   symbol: UnderlyingSymbol;
+  /** What it follows while unpinned: its half's symbol, else the page's. */
+  boardSymbol: UnderlyingSymbol;
   /** The underlying this tile is pinned to, or null while it follows the board. */
   pinnedSymbol: UnderlyingSymbol | null;
   /**
@@ -26,6 +30,8 @@ export type WidgetInstanceValue = {
    * picked, and still have a way back to following the page.
    */
   selectSymbol: (symbol: UnderlyingSymbol) => void;
+  /** Drop this tile's pin so it follows the board again. */
+  followBoard: () => void;
   /** How large a free-resize tile draws its contents (1 = standard). */
   zoomScale: number;
   /**
