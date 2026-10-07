@@ -363,8 +363,10 @@ export default function WidgetFrame({
   // one and undo the drag. Kept past pointerup: click and dblclick fire after.
   const gestureMovedRef = useRef(false);
 
+  // "No height of its own" reads as what it draws at: the chart beside it, or
+  // the row. Only called during a drag, where autoRef is the live value.
   const readoutText = (s: number, h: number | null) =>
-    `${t('readoutCols', { span: s })} · ${h === null ? t('readoutFits') : `${h}px`}`;
+    `${t('readoutCols', { span: s })} · ${h === null ? t(autoRef.current?.exact ? 'readoutLinesUp' : 'readoutFits') : `${h}px`}`;
 
   // Drag a handle to resize. Column geometry is read live from the grid (so
   // it's correct at any breakpoint / container width) and the tile's EDGE
@@ -605,7 +607,8 @@ export default function WidgetFrame({
   };
 
   // Keyboard parity for the height handle: Down grows (the edge moves down),
-  // Up shrinks, Enter goes back to fitting the row.
+  // Up shrinks, Enter goes back to no height of its own (lined up with the
+  // chart beside it, else fitting the row).
   const stepHeightByKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!free) return;
     if (e.key === 'Enter') {
@@ -884,7 +887,8 @@ export default function WidgetFrame({
       {editing && free && (
         <>
           {/* Bottom-edge height handle. Snaps to the bottom of the tiles beside
-              it; double-click (or Enter) goes back to fitting the row. */}
+              it; double-click (or Enter) goes back to no height of its own —
+              lined up with the chart beside it, else fitting the row. */}
           <div
             role="slider"
             tabIndex={0}
@@ -893,7 +897,9 @@ export default function WidgetFrame({
             aria-valuemin={free.minHeight}
             aria-valuemax={MAX_WIDGET_HEIGHT}
             aria-valuenow={item.height ?? autoFloor}
-            aria-valuetext={item.height == null ? t('readoutFits') : `${item.height}px`}
+            aria-valuetext={
+              item.height == null ? t(autoHeight?.exact ? 'readoutLinesUp' : 'readoutFits') : `${item.height}px`
+            }
             title={t('resizeHeightHandle')}
             className="zg-h-resize-handle pointer-events-auto"
             draggable={false}
