@@ -233,6 +233,8 @@ export default function TerminalSurface({
     let ended = false;
     setPanelDrag(last);
     const onMove = (ev: PointerEvent) => {
+      // Only the pointer that grabbed the splitter.
+      if (ev.pointerId !== pointerId) return;
       if (ev.buttons === 0) {
         end();
         return;
@@ -245,12 +247,15 @@ export default function TerminalSurface({
         setPanelDrag(w);
       }
     };
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId === pointerId) end();
+    };
     const end = () => {
       if (ended) return;
       ended = true;
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
       document.body.classList.remove("zg-col-resizing");
       try {
         handleEl.releasePointerCapture(pointerId);
@@ -264,8 +269,8 @@ export default function TerminalSurface({
       if (last !== start) onPanelWidthChange(last === PANEL_DEFAULT_W ? null : last);
     };
     window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   };
   // Keyboard parity: Left widens the panel (the splitter moves left), Right
   // narrows it, Enter goes back to the default.

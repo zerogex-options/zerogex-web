@@ -2641,7 +2641,9 @@ body {
   z-index: 3;
 }
 @media (min-width: 1024px) {
-  .zg-w-resize-handle { display: flex; }
+  /* Centered on the tile's edge, reaching into the gutter beside it, so a
+     press just outside the edge resizes rather than missing it. */
+  .zg-w-resize-handle { display: flex; right: -10px; width: 20px; }
 }
 /* A free-resize tile's width handle also works on the two-column tablet
    grid, where it snaps between half and the whole row. */

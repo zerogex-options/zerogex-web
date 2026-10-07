@@ -4591,6 +4591,8 @@ export default function GammaTerminalChart({
                 let ended = false;
                 setRailDragWidth(last);
                 const onMove = (ev: PointerEvent) => {
+                  // Only the pointer that grabbed the edge.
+                  if (ev.pointerId !== pointerId) return;
                   if (ev.buttons === 0) {
                     end();
                     return;
@@ -4603,12 +4605,15 @@ export default function GammaTerminalChart({
                     setRailDragWidth(w);
                   }
                 };
+                const onUp = (ev: PointerEvent) => {
+                  if (ev.pointerId === pointerId) end();
+                };
                 const end = () => {
                   if (ended) return;
                   ended = true;
                   window.removeEventListener("pointermove", onMove);
-                  window.removeEventListener("pointerup", end);
-                  window.removeEventListener("pointercancel", end);
+                  window.removeEventListener("pointerup", onUp);
+                  window.removeEventListener("pointercancel", onUp);
                   document.body.classList.remove("zg-col-resizing");
                   try {
                     handleEl.releasePointerCapture(pointerId);
@@ -4622,8 +4627,8 @@ export default function GammaTerminalChart({
                   if (last !== start) onRailWidthChange(last === fallback ? null : last);
                 };
                 window.addEventListener("pointermove", onMove);
-                window.addEventListener("pointerup", end);
-                window.addEventListener("pointercancel", end);
+                window.addEventListener("pointerup", onUp);
+                window.addEventListener("pointercancel", onUp);
               }}
               onDoubleClick={() => onRailWidthChange(null)}
               onKeyDown={(e) => {

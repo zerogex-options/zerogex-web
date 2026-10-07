@@ -6,6 +6,7 @@ import { getWidget, type WidgetDef } from './registry';
 import {
   GRID_TRACKS,
   SPAN_STEP,
+  WIDGET_COLSPAN,
   type PaneId,
   type PlacedWidget,
   type WidgetSize,
@@ -37,16 +38,18 @@ function cellLayout(
   const free = widget.freeResize;
   if (!free) return { className: `zg-w-${item.size}${tile}` };
   const style: Record<string, string | number> = {};
-  let className = `zg-w-${item.size}`;
-  if (item.span !== undefined) {
-    const floor = geo?.desktop ? spanFloor(geo, free.minWidthPx) : 0;
-    const span = Math.max(item.span, floor);
-    const tracks = Math.min(GRID_TRACKS, Math.round(span / SPAN_STEP));
-    className = 'zg-w-span';
-    style['--zg-span'] = tracks;
-    style['--zg-span-half'] = Math.min(GRID_TRACKS, tracks * 2);
-    style['--zg-span-tab'] = item.span <= 6 ? 1 : 2;
-  }
+  // Always drawn as a width, the footprint's share of the board when none was
+  // dragged: then a split half doubles it by the same rule as a dragged width,
+  // and what the drag and the arrow keys measure there reads back as what is
+  // stored. (A footprint TILE's M is half a split half; a free tile's M is the
+  // whole half, exactly as a six-column drag would be.)
+  const stored = item.span ?? WIDGET_COLSPAN[item.size];
+  const floor = geo?.desktop ? spanFloor(geo, free.minWidthPx) : 0;
+  const tracks = Math.min(GRID_TRACKS, Math.round(Math.max(stored, floor) / SPAN_STEP));
+  const className = 'zg-w-span';
+  style['--zg-span'] = tracks;
+  style['--zg-span-half'] = Math.min(GRID_TRACKS, tracks * 2);
+  style['--zg-span-tab'] = stored <= 6 ? 1 : 2;
   if (item.height !== undefined) {
     style.height = item.height;
     style.alignSelf = 'start';
@@ -191,12 +194,15 @@ export default function DashboardGrid({
     if (!grid) return;
     const ro = new ResizeObserver(() => {
       const next = readGridGeometry(grid);
+      // Tight tolerance: the drawn floor has to match the one a drag reads
+      // fresh, and a few px of grid width (a scrollbar appearing) can move it.
       setGeo((cur) =>
         cur &&
         cur.tracks === next.tracks &&
         cur.half === next.half &&
-        Math.abs(cur.trackWidth - next.trackWidth) < 0.5 &&
-        cur.gap === next.gap
+        cur.gap === next.gap &&
+        cur.gutter === next.gutter &&
+        Math.abs(cur.trackWidth - next.trackWidth) < 0.01
           ? cur
           : next,
       );
@@ -230,6 +236,11 @@ export default function DashboardGrid({
   // drag-to-reorder is suspended, so a horizontal resize can't be misread as a
   // reorder gesture.
   const [resizeIndex, setResizeIndex] = useState<number | null>(null);
+  // On the desktop grid the 16px between tiles is each cell's own padding,
+  // not a grid gap, so a press there lands on the (draggable) cell. A press
+  // just outside a tile's edge is someone missing the resize edge, not
+  // reaching for a reorder, so it starts nothing — as the old gap didn't.
+  const gutterPressRef = useRef(false);
 
   return (
     <div ref={gridRef} className={half ? 'zg-mydash-grid zg-mydash-grid--half' : 'zg-mydash-grid'}>
@@ -248,8 +259,12 @@ export default function DashboardGrid({
             data-instance-id={item.instanceId}
             data-widget-id={item.widgetId}
             draggable={editing && resizeIndex === null}
+            // Capture phase: the resize handles stop propagation on pointerdown.
+            onPointerDownCapture={(e) => {
+              gutterPressRef.current = e.target === e.currentTarget;
+            }}
             onDragStart={(e) => {
-              if (!editing || resizeIndex !== null) {
+              if (!editing || resizeIndex !== null || gutterPressRef.current) {
                 e.preventDefault();
                 return;
               }

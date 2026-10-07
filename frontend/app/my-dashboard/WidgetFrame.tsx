@@ -34,7 +34,6 @@ import {
   DEFAULT_WIDGET_ZOOM,
   GRID_COLUMNS,
   MAX_WIDGET_HEIGHT,
-  MIN_WIDGET_HEIGHT,
   SPAN_STEP,
   WIDGET_COLSPAN,
   WIDGET_SIZE_LABEL,
@@ -62,6 +61,10 @@ const ROW_MAGNET_PX = 18;
 const HEIGHT_STEP_PX = 4;
 // One arrow-key press on the height handle.
 const HEIGHT_KEY_STEP_PX = 20;
+
+// The share of a side-by-side split half each footprint draws at — mirrors
+// globals.css `.zg-mydash-grid--half .zg-w-*`.
+const HALF_PANE_FRACTION: Record<WidgetSize, number> = { sm: 0.5, md: 0.5, lg: 1, xl: 1 };
 
 /** The box a free-resize drag edits — undefined = leave alone, null = default. */
 export type WidgetBox = { span?: number | null; height?: number | null };
@@ -387,6 +390,11 @@ export default function WidgetFrame({
     const startLeft = cellRect.left;
     const grabDX = cellRect.right - e.clientX;
     const grabDY = cellRect.bottom - e.clientY;
+    // The press, and the height the tile had: a vertical wobble under one
+    // height step (a tap's jitter, a sideways corner drag) keeps that height —
+    // "lines up with the charts" stays that, rather than turning into a px.
+    const startY = e.clientY;
+    const startHeight: number | null = item.height ?? null;
     let rowTop = cellRect.top;
     let rowFill = mode === 'x' ? null : measureRowFill(cell);
     // Free width bounds, in board columns: the px floor, and the room from
@@ -408,19 +416,31 @@ export default function WidgetFrame({
 
     let lastSize = size;
     let lastSpan = renderedSpan(geo, cellRect.width);
+    // Never clamp past the width the tile is drawn at now, so a floor or row
+    // end read a hair differently from the drawing can't make a click widen
+    // (or wrap) it.
+    const minC = Math.min(minColumns, lastSpan);
+    const maxC = Math.max(maxColumns, lastSpan);
     let lastHeight: number | null = item.height ?? null;
     if (free) setReadout(readoutText(lastSpan, lastHeight));
 
-    // The fraction of this grid each footprint renders at: a side-by-side
-    // split half doubles them (S and M both half the pane, L and XL all of it).
+    // The fraction of this grid each footprint renders at — in a side-by-side
+    // split half, HALF_PANE_FRACTION (globals.css: S and M half the pane, L
+    // and XL all of it).
     const renderedFraction = (s: WidgetSize) =>
-      geo.half ? Math.min(1, (2 * WIDGET_COLSPAN[s]) / GRID_COLUMNS) : WIDGET_COLSPAN[s] / GRID_COLUMNS;
-    // Nearest footprint, ties to the current one, so a footprint that renders
-    // at the same width here (S vs M in a half) is never saved by a nudge.
+      geo.half ? HALF_PANE_FRACTION[s] : WIDGET_COLSPAN[s] / GRID_COLUMNS;
+    // Nearest footprint. Ties go to the current one, so a footprint that
+    // renders at the same width here (S vs M in a half) is never saved by a
+    // nudge; then to the footprint nearest it, so L dragged to half a split
+    // half becomes M rather than S.
+    const current = sortedSizes.indexOf(size);
+    const byNearness = [...sortedSizes].sort(
+      (a, b) => Math.abs(sortedSizes.indexOf(a) - current) - Math.abs(sortedSizes.indexOf(b) - current),
+    );
     const snapSize = (fraction: number): WidgetSize => {
       let best = size;
       let bestDist = Math.abs(renderedFraction(size) - fraction);
-      for (const s of sortedSizes) {
+      for (const s of byNearness) {
         const d = Math.abs(renderedFraction(s) - fraction);
         if (d < bestDist - 1e-6) {
           bestDist = d;
@@ -432,6 +452,9 @@ export default function WidgetFrame({
 
     let ended = false;
     const onMove = (ev: PointerEvent) => {
+      // Only the pointer that grabbed the handle (a second mouse, a hovering
+      // pen or a trackpad nudge must not move or end the drag).
+      if (ev.pointerId !== pointerId) return;
       // The release was lost (a context menu, a window switch): stop here
       // rather than leave the tile following the cursor.
       if (ev.buttons === 0) {
@@ -445,7 +468,7 @@ export default function WidgetFrame({
           let next: number;
           if (geo.desktop) {
             const columns = toSpanStep(rawTracks * geo.columnsPerTrack);
-            next = Math.max(minColumns, Math.min(maxColumns, columns));
+            next = Math.max(minC, Math.min(maxC, columns));
           } else {
             // Tablet: half or the whole row. Only a change between the two is
             // written, so a touch here doesn't wipe a finer desktop width.
@@ -474,7 +497,9 @@ export default function WidgetFrame({
         }
         const raw = ev.clientY + grabDY - top;
         let next: number | null;
-        if (rowFill !== null && rowFill >= MIN_WIDGET_HEIGHT && Math.abs(raw - rowFill) <= ROW_MAGNET_PX) {
+        if (Math.abs(ev.clientY - startY) < HEIGHT_STEP_PX) {
+          next = startHeight;
+        } else if (rowFill !== null && rowFill >= free.minHeight && Math.abs(raw - rowFill) <= ROW_MAGNET_PX) {
           // Snapped onto the row. Stored as "no height of its own" whenever
           // that already draws at the row's height — it then keeps lining up
           // as the tiles beside it change — and as the exact px when the row
@@ -497,12 +522,15 @@ export default function WidgetFrame({
         setReadout(readoutText(lastSpan, lastHeight));
       }
     };
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId === pointerId) end();
+    };
     const end = () => {
       if (ended) return;
       ended = true;
       window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
       window.removeEventListener('contextmenu', end);
       handleEl.removeEventListener('lostpointercapture', end);
       document.body.classList.remove(bodyClass);
@@ -516,8 +544,8 @@ export default function WidgetFrame({
       onResizeEnd();
     };
     window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     window.addEventListener('contextmenu', end);
     handleEl.addEventListener('lostpointercapture', end);
   };
@@ -543,8 +571,13 @@ export default function WidgetFrame({
         ? grow
           ? GRID_COLUMNS
           : GRID_COLUMNS / 2
-        : Math.max(Math.max(SPAN_STEP, now.floor), Math.min(GRID_COLUMNS, now.current + (grow ? SPAN_STEP : -SPAN_STEP)));
-      if (next !== now.current || item.span === undefined) onBoxChange({ span: next });
+        : Math.max(
+            Math.min(Math.max(SPAN_STEP, now.floor), now.current),
+            Math.min(GRID_COLUMNS, now.current + (grow ? SPAN_STEP : -SPAN_STEP)),
+          );
+      // The tile is always drawn as a width (DashboardGrid), so the measured
+      // width is the stored one: only a real change is written.
+      if (next !== now.current) onBoxChange({ span: next });
       return;
     }
     const idx = sortedSizes.indexOf(size);
