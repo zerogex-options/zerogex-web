@@ -62,9 +62,13 @@ First names are read off the email address, and used only where the address
 clearly gives one (Adriano, Andrey, Jackson, Yeny). If Stripe shows a different
 first name, use that.
 
-**Don't promise a cutoff date.** The 3-day grace window is not actually removing
-anyone's access right now (see "Can wait"), so none of the drafts names a date
-when access ends. They say the account is "still fully on," which is true.
+**Don't promise a cutoff date.** Until the grace fix on branch
+`claude/enforce-payment-grace-cutoff` is deployed, the 3-day window isn't
+removing anyone's access. Once it is, access ends an hour or less after the
+window closes, as the automated warning says. So none of the drafts names a
+date. The ones still inside their window say the account is "still fully on,"
+which is true when sent. The four already past it (ogre, fatkh, yeny, bluesky)
+say nothing about access, because the first run of the fix ends it.
 
 ---
 
@@ -116,6 +120,13 @@ attempt 1, so the note can go out.
 
 If Stripe retries on its own once the card is attached and the charge clears,
 the payment-recovered email goes out. That's fine, and the note still makes sense.
+
+**Before deploying the grace fix:** add chen to the exemption list in
+`frontend/.env.local`, because the draft promises Pro and API keys stay on, and
+their window closes Friday at about 12 PM ET:
+`BILLING_GRACE_ENFORCEMENT_SKIP=chen.k.lloyd@gmail.com`
+Take them off once October is paid. The exemption only stops the hourly sweep,
+so the real protection is getting the invoice settled.
 
 ### Draft
 
@@ -296,7 +307,7 @@ A quick note from me, not the automated emails.
 
 Your Pro trial ended on Saturday, and your bank declined the first Pro payment for insufficient funds.
 
-Your account is still fully on. You can pay with any card here: https://zerogex.io/pay?i=in_1UMa1s4AOiqteMYYEeP6nQT7&t=HJFVNUlxItD9TC3etGZU-P-pbWzrNA3PUhaouB_IH5o
+You can pay with any card here: https://zerogex.io/pay?i=in_1UMa1s4AOiqteMYYEeP6nQT7&t=HJFVNUlxItD9TC3etGZU-P-pbWzrNA3PUhaouB_IH5o
 
 Or, once the funds are in that account, Stripe's next automatic retry should go through on its own.
 
@@ -335,8 +346,6 @@ Your Pro trial ended on September 28, and the first payment hasn't gone through.
 
 Stripe's automatic retries won't get past this kind of bank decline, so it won't sort itself out. Two ways to fix it: pay with a different card here, or ask your bank to allow the charge from ZeroGEX and then use the same link: https://zerogex.io/pay?i=in_1UKeOD4AOiqteMYYnMzTnj6z&t=jLfIMtuoMCpnJuvAW797wm4OR1DPSRIfGeimu8aCxf0
 
-Your account is still fully on in the meantime.
-
 If ZeroGEX isn't something you want to keep, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
@@ -368,7 +377,7 @@ A quick note from me, not the automated emails.
 
 Your trial ended on September 29, and the first Basic payment hasn't gone through. Link declined it for insufficient funds.
 
-Your account is still fully on. When you're ready, you can pay with any card here: https://zerogex.io/pay?i=in_1UL0qZ4AOiqteMYYnHX7y1kD&t=x-nCmDeR47yJZciMkVpMLk9rV02iVoRuReGVyaO7tw0
+When you're ready, you can pay with any card here: https://zerogex.io/pay?i=in_1UL0qZ4AOiqteMYYnHX7y1kD&t=x-nCmDeR47yJZciMkVpMLk9rV02iVoRuReGVyaO7tw0
 
 Or, once the account you use with Link has the funds, Stripe's next automatic retry should go through on its own.
 
@@ -577,7 +586,8 @@ https://zerogex.io/pay?i=in_1UMG3I4AOiqteMYYUzOBWi8z&t=BiOTFT1EFHDTQmpBlocNyq6MB
 
 ## Can wait
 
-- **The 3-day grace window isn't removing access anymore.** Our code only drops
+- **Fixing it: branch `claude/enforce-payment-grace-cutoff`.** The background:
+  **the 3-day grace window isn't removing access anymore.** Our code only drops
   a member to Public when Stripe sends a subscription update. The two members on
   this list who failed before Sep 27 (aurora, pthiep) had their subscriptions
   ended by Stripe about 72 hours after the first failure, right as their window
