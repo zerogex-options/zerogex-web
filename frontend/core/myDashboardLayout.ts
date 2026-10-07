@@ -128,6 +128,17 @@ export const WIDGET_COLSPAN: Record<WidgetSize, number> = {
   xl: 12,
 };
 
+// Tracks of a side-by-side split half each footprint draws at — mirrors
+// globals.css `.zg-mydash-grid--half .zg-w-*` (S and M half the pane, L and
+// XL all of it). Footprints are a share of the PANE there; dragged widths are
+// a share of the board (twice the tracks).
+export const HALF_PANE_TRACKS: Record<WidgetSize, number> = {
+  sm: 24,
+  md: 24,
+  lg: 48,
+  xl: 48,
+};
+
 export const WIDGET_SIZE_LABEL: Record<WidgetSize, string> = {
   sm: 'Small',
   md: 'Medium',

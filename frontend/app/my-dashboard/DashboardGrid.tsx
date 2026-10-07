@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import WidgetFrame, { type WidgetBox } from './WidgetFrame';
+import WidgetFrame, { type AutoHeight, type WidgetBox } from './WidgetFrame';
+import { COMPACT_MAX_WIDTH, DESKTOP_MIN_WIDTH } from '@/components/GammaTerminalChart';
 import { getWidget, type WidgetDef } from './registry';
 import {
   GRID_TRACKS,
+  HALF_PANE_TRACKS,
   SPAN_STEP,
   WIDGET_COLSPAN,
   type PaneId,
@@ -25,36 +27,43 @@ import { readGridGeometry, spanFloor, type GridGeometry } from './gridGeometry';
  * never drawn narrower than the widget's px floor (`floorSpan`), so a width
  * saved on a wide screen stays usable on a narrow one. Its height is either
  * the one it was dragged to — top-aligned, so a shorter tile leaves the row's
- * spare height visible rather than stretching into it — or the row's own,
- * never less than `autoHeight` (see chartLinedHeights).
+ * spare height visible rather than stretching into it — or, with none of its
+ * own, `auto` (see chartLinedHeights): exactly a chart's height beside one,
+ * else the row's own, never less than the floor.
  */
 function cellLayout(
   item: PlacedWidget,
   widget: WidgetDef,
   geo: GridGeometry | null,
-  autoHeight: number | undefined,
+  auto: AutoHeight | undefined,
 ): { className: string; style?: CSSProperties } {
   const tile = widget.tile && item.size === 'sm' ? ' zg-w-tile' : '';
   const free = widget.freeResize;
   if (!free) return { className: `zg-w-${item.size}${tile}` };
   const style: Record<string, string | number> = {};
-  // Always drawn as a width, the footprint's share of the board when none was
-  // dragged: then a split half doubles it by the same rule as a dragged width,
-  // and what the drag and the arrow keys measure there reads back as what is
-  // stored. (A footprint TILE's M is half a split half; a free tile's M is the
-  // whole half, exactly as a six-column drag would be.)
+  // Always drawn as a width — the footprint's share of the board when none
+  // was dragged — so the px floor applies to it too. In a side-by-side split
+  // half an undragged tile keeps its footprint's half-pane width (as it was
+  // drawn before it could be dragged, so saved split boards don't reflow); a
+  // dragged one is a share of the board, at twice the tracks.
   const stored = item.span ?? WIDGET_COLSPAN[item.size];
   const floor = geo?.desktop ? spanFloor(geo, free.minWidthPx) : 0;
   const tracks = Math.min(GRID_TRACKS, Math.round(Math.max(stored, floor) / SPAN_STEP));
   const className = 'zg-w-span';
   style['--zg-span'] = tracks;
-  style['--zg-span-half'] = Math.min(GRID_TRACKS, tracks * 2);
+  style['--zg-span-half'] =
+    item.span === undefined
+      ? Math.min(GRID_TRACKS, Math.max(HALF_PANE_TRACKS[item.size], Math.round(floor / SPAN_STEP) * 2))
+      : Math.min(GRID_TRACKS, tracks * 2);
   style['--zg-span-tab'] = stored <= 6 ? 1 : 2;
   if (item.height !== undefined) {
     style.height = item.height;
     style.alignSelf = 'start';
+  } else if (auto?.exact) {
+    style.height = auto.height;
+    style.alignSelf = 'start';
   } else {
-    style.minHeight = autoHeight ?? free.defaultHeight;
+    style.minHeight = auto?.height ?? free.defaultHeight;
   }
   return { className, style: style as CSSProperties };
 }
@@ -66,17 +75,27 @@ const CHART_WIDGET_IDS: ReadonlySet<string> = new Set(['gamma-chart', 'gamma-ter
 // toolbar, padding), for the estimate below. Approximate: it wraps with width.
 const CHART_CHROME_ESTIMATE_PX = 190;
 
+// A classic page scrollbar coming or going moves the grid by ~15-17px. Width
+// changes under this keep the last estimate, so an estimate can't toggle the
+// scrollbar that changed it, every frame.
+const ESTIMATE_WIDTH_SLACK_PX = 24;
+
 /**
  * The height a full-width Gamma Chart would be in a grid this wide, for a
  * board with no chart on it to measure. Mirrors the chart's own canvas rules
  * (components/GammaTerminalChart: desktopCanvas / compactCanvas): the
- * 1360×636 board scaled to the card, never under 460 units tall, or the
- * portrait compact board under 700px.
+ * 1360×636 board scaled to the card, never under 460 units tall; or, under
+ * DESKTOP_MIN_WIDTH (COMPACT_MAX_WIDTH on a phone-sized or touch screen), the
+ * compact board — short and wide in a landscape window, tall in a portrait one.
  */
 function estimatedChartHeight(cardWidth: number): number {
+  const landscape = window.innerWidth > window.innerHeight;
+  const touchUi = window.matchMedia('(max-width: 767px)').matches || window.matchMedia('(pointer: coarse)').matches;
   const plot =
-    cardWidth < 700
-      ? Math.min(640, Math.max(400, Math.round(cardWidth * 1.3)))
+    cardWidth < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)
+      ? landscape
+        ? Math.min(420, Math.max(330, Math.round(cardWidth * 0.62)))
+        : Math.min(640, Math.max(400, Math.round(cardWidth * 1.3)))
       : cardWidth >= 1360
         ? Math.round((636 * cardWidth) / 1360)
         : Math.max(460, Math.round((636 * cardWidth) / 1360));
@@ -84,58 +103,66 @@ function estimatedChartHeight(cardWidth: number): number {
 }
 
 /**
- * The minimum height of each free-resize tile that has no height of its own,
- * keyed by instance id. The rule is to line up with the charts: a tile that
- * shares its row with a Gamma Chart or Gamma Terminal just fills the row (its
- * floor drops to the widget's minimum, so the chart sets the height and the
- * edges meet); one that doesn't takes the height of this grid's first chart
- * widget, measured as the chart draws itself; and with no chart in the grid,
- * the height a full-width Gamma Chart would be here.
+ * What each free-resize tile draws at with no height of its own, keyed by
+ * instance id — computed for every free tile, with a height or not, so a drag
+ * knows what "no height" would mean. The rule is to line up with the charts:
+ * a tile that shares its row with a Gamma Chart or Gamma Terminal is exactly
+ * that chart's height (`exact`; the tallest, if two), so the edges meet even
+ * when a taller tile stretches the row; one that doesn't takes the height of
+ * this grid's first chart widget as a floor, measured as the chart draws
+ * itself; and with no chart in the grid, the height a full-width Gamma Chart
+ * would be here.
  *
- * Read from the DOM after layout. Rows are found by matching tops, and a
- * floor only ever changes heights, never which row a tile is in, so applying
- * the result cannot change it.
+ * Read from the DOM after layout. Rows are found by matching tops, and the
+ * result only ever changes heights, never which row a tile is in, so applying
+ * it cannot change it.
  */
-function chartLinedHeights(grid: HTMLElement, items: PlacedWidget[]): Record<string, number> {
+function chartLinedHeights(
+  grid: HTMLElement,
+  items: PlacedWidget[],
+  estimateWidth: { current: number | null },
+): Record<string, AutoHeight> {
   const cells = Array.from(grid.children) as HTMLElement[];
-  const placed = cells.map((el) => ({
-    el,
-    id: el.dataset.instanceId ?? '',
-    widgetId: el.dataset.widgetId ?? '',
-    top: el.getBoundingClientRect().top,
-  }));
-  let reference: number | null = null;
-  for (const cell of placed) {
-    if (!CHART_WIDGET_IDS.has(cell.widgetId)) continue;
-    const natural = cell.el.querySelector<HTMLElement>('[data-zg-natural-height]');
-    const h = natural?.getBoundingClientRect().height ?? 0;
-    if (h > 0) {
-      reference = h;
-      break;
-    }
-  }
+  const placed = cells.map((el) => {
+    const isChart = CHART_WIDGET_IDS.has(el.dataset.widgetId ?? '');
+    const natural = isChart ? el.querySelector<HTMLElement>('[data-zg-natural-height]') : null;
+    return {
+      id: el.dataset.instanceId ?? '',
+      isChart,
+      chartHeight: natural?.getBoundingClientRect().height ?? 0,
+      top: el.getBoundingClientRect().top,
+    };
+  });
+  let reference = placed.find((c) => c.isChart && c.chartHeight > 0)?.chartHeight ?? null;
   if (reference === null) {
-    const geo = readGridGeometry(grid);
-    reference = estimatedChartHeight(grid.getBoundingClientRect().width - geo.gutter);
+    const width = grid.getBoundingClientRect().width - readGridGeometry(grid).gutter;
+    if (estimateWidth.current === null || Math.abs(width - estimateWidth.current) > ESTIMATE_WIDTH_SLACK_PX) {
+      estimateWidth.current = width;
+    }
+    reference = estimatedChartHeight(estimateWidth.current);
   }
-  const out: Record<string, number> = {};
+  const out: Record<string, AutoHeight> = {};
   for (const item of items) {
     const free = getWidget(item.widgetId)?.freeResize;
-    if (!free || item.height !== undefined) continue;
+    if (!free) continue;
     const cell = placed.find((c) => c.id === item.instanceId);
     if (!cell) continue;
-    const besideChart = placed.some(
-      (o) => o !== cell && CHART_WIDGET_IDS.has(o.widgetId) && Math.abs(o.top - cell.top) <= 2,
+    const rowChart = Math.max(
+      0,
+      ...placed.filter((o) => o !== cell && o.isChart && Math.abs(o.top - cell.top) <= 2).map((o) => o.chartHeight),
     );
-    out[item.instanceId] = besideChart ? free.minHeight : Math.max(free.minHeight, Math.round(reference));
+    out[item.instanceId] =
+      rowChart > 0
+        ? { height: Math.max(free.minHeight, Math.round(rowChart)), exact: true }
+        : { height: Math.max(free.minHeight, Math.round(reference)), exact: false };
   }
   return out;
 }
 
-function sameHeights(a: Record<string, number>, b: Record<string, number>): boolean {
+function sameHeights(a: Record<string, AutoHeight>, b: Record<string, AutoHeight>): boolean {
   const ka = Object.keys(a);
   if (ka.length !== Object.keys(b).length) return false;
-  return ka.every((k) => a[k] === b[k]);
+  return ka.every((k) => b[k] !== undefined && a[k].height === b[k].height && a[k].exact === b[k].exact);
 }
 
 /**
@@ -211,17 +238,18 @@ export default function DashboardGrid({
     return () => ro.disconnect();
   }, []);
 
-  // Free-resize tiles without a height of their own line up with the charts
-  // (chartLinedHeights). Measured before paint, then again whenever the grid
-  // or a chart widget changes size (a chart sizes itself to its width, and a
-  // Gamma Terminal changes height when its panel stacks or its view changes).
-  const [autoHeights, setAutoHeights] = useState<Record<string, number>>({});
-  const needsAutoHeights = items.some((item) => item.height === undefined && getWidget(item.widgetId)?.freeResize);
+  // Free-resize tiles line up with the charts (chartLinedHeights). Measured
+  // before paint, then again whenever the grid or a chart widget changes size
+  // (a chart sizes itself to its width, and a Gamma Terminal changes height
+  // when its panel stacks or its view changes).
+  const [autoHeights, setAutoHeights] = useState<Record<string, AutoHeight>>({});
+  const estimateWidthRef = useRef<number | null>(null);
+  const hasFreeTiles = items.some((item) => getWidget(item.widgetId)?.freeResize);
   useLayoutEffect(() => {
     const grid = gridRef.current;
-    if (!grid || !needsAutoHeights) return;
+    if (!grid || !hasFreeTiles) return;
     const measure = () => {
-      const next = chartLinedHeights(grid, items);
+      const next = chartLinedHeights(grid, items, estimateWidthRef);
       setAutoHeights((cur) => (sameHeights(cur, next) ? cur : next));
     };
     measure();
@@ -229,7 +257,7 @@ export default function DashboardGrid({
     ro.observe(grid);
     grid.querySelectorAll('[data-zg-natural-height]').forEach((el) => ro.observe(el));
     return () => ro.disconnect();
-  }, [items, needsAutoHeights]);
+  }, [items, hasFreeTiles]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   // While an edge-drag resize is in progress the grid's native HTML5

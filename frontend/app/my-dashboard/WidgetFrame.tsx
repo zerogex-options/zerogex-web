@@ -4,6 +4,7 @@ import {
   Component,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,8 @@ import { DashboardWidgetContext } from '@/core/dashboardWidget';
 import {
   DEFAULT_WIDGET_ZOOM,
   GRID_COLUMNS,
+  GRID_TRACKS,
+  HALF_PANE_TRACKS,
   MAX_WIDGET_HEIGHT,
   SPAN_STEP,
   WIDGET_COLSPAN,
@@ -46,6 +49,9 @@ import type { FreeResizeSpec, WidgetDef } from './registry';
 import { MyDashboardDataProvider, type FeedKey } from './DashboardData';
 import { WidgetInstanceContext, type WidgetInstanceValue } from './widgetInstance';
 import { readGridGeometry, renderedSpan, spanFloor, toSpanStep, tracksForWidth } from './gridGeometry';
+
+/** See WidgetFrameProps.autoHeight. */
+export type AutoHeight = { height: number; exact: boolean };
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './WidgetFrame.i18n';
 
@@ -62,9 +68,7 @@ const HEIGHT_STEP_PX = 4;
 // One arrow-key press on the height handle.
 const HEIGHT_KEY_STEP_PX = 20;
 
-// The share of a side-by-side split half each footprint draws at — mirrors
-// globals.css `.zg-mydash-grid--half .zg-w-*`.
-const HALF_PANE_FRACTION: Record<WidgetSize, number> = { sm: 0.5, md: 0.5, lg: 1, xl: 1 };
+
 
 /** The box a free-resize drag edits — undefined = leave alone, null = default. */
 export type WidgetBox = { span?: number | null; height?: number | null };
@@ -192,9 +196,12 @@ export type WidgetFrameProps = {
   widget: WidgetDef;
   /** This placement — its footprint and its per-tile settings. */
   item: PlacedWidget;
-  /** A free-resize tile's floor while it has no height of its own: what it
-   *  lines up with (DashboardGrid's chartLinedHeights). */
-  autoHeight?: number;
+  /** A free-resize tile's height while it has none of its own — what it lines
+   *  up with (DashboardGrid's chartLinedHeights): `exact` beside a chart (it
+   *  is that chart's height), else a floor it stretches past with its row.
+   *  Computed whether or not the tile has a height now, so a drag knows what
+   *  "no height" would draw at. */
+  autoHeight?: AutoHeight;
   editing: boolean;
   locked: boolean;
   isDragging: boolean;
@@ -266,8 +273,14 @@ export default function WidgetFrame({
 
   const size = item.size;
   const free: FreeResizeSpec | undefined = widget.freeResize;
-  // The floor a free tile renders at with no height of its own.
-  const autoFloor = autoHeight ?? free?.defaultHeight ?? 0;
+  // What a free tile draws at with no height of its own. Read through a ref
+  // inside a drag, so a drag that moves the tile to another row compares
+  // against that row's value, not the one at the press.
+  const autoFloor = autoHeight?.height ?? free?.defaultHeight ?? 0;
+  const autoRef = useRef<AutoHeight | undefined>(autoHeight);
+  useLayoutEffect(() => {
+    autoRef.current = autoHeight;
+  });
   const zoom: WidgetZoom = item.zoom ?? DEFAULT_WIDGET_ZOOM;
   // A free tile's stored width in board columns, or its footprint's. What it
   // actually renders at can differ (a split half, the px floor), so anything
@@ -425,10 +438,10 @@ export default function WidgetFrame({
     if (free) setReadout(readoutText(lastSpan, lastHeight));
 
     // The fraction of this grid each footprint renders at — in a side-by-side
-    // split half, HALF_PANE_FRACTION (globals.css: S and M half the pane, L
-    // and XL all of it).
+    // split half, HALF_PANE_TRACKS (globals.css: S and M half the pane, L and
+    // XL all of it).
     const renderedFraction = (s: WidgetSize) =>
-      geo.half ? HALF_PANE_FRACTION[s] : WIDGET_COLSPAN[s] / GRID_COLUMNS;
+      geo.half ? HALF_PANE_TRACKS[s] / GRID_TRACKS : WIDGET_COLSPAN[s] / GRID_COLUMNS;
     // Nearest footprint. Ties go to the current one, so a footprint that
     // renders at the same width here (S vs M in a half) is never saved by a
     // nudge; then to the footprint nearest it, so L dragged to half a split
@@ -497,14 +510,20 @@ export default function WidgetFrame({
         }
         const raw = ev.clientY + grabDY - top;
         let next: number | null;
+        // What "no height of its own" draws at now: a chart's exact height
+        // beside one, else a floor the row can stretch past.
+        const auto = autoRef.current ?? { height: free.defaultHeight, exact: false };
         if (Math.abs(ev.clientY - startY) < HEIGHT_STEP_PX) {
           next = startHeight;
+        } else if (auto.exact && Math.abs(raw - auto.height) <= ROW_MAGNET_PX) {
+          // Onto the chart beside it: line up with it, and keep lining up.
+          next = null;
         } else if (rowFill !== null && rowFill >= free.minHeight && Math.abs(raw - rowFill) <= ROW_MAGNET_PX) {
-          // Snapped onto the row. Stored as "no height of its own" whenever
-          // that already draws at the row's height — it then keeps lining up
-          // as the tiles beside it change — and as the exact px when the row
-          // is shorter than the tile's own floor.
-          next = rowFill >= autoFloor ? null : Math.round(rowFill);
+          // Snapped onto the row. Stored as "no height of its own" only where
+          // that draws at exactly the row's height — it then keeps lining up as
+          // the tiles beside it change — else as the row's height in px.
+          const nullFillsRow = auto.exact ? Math.abs(rowFill - auto.height) <= 1 : rowFill >= auto.height;
+          next = nullFillsRow ? null : Math.round(rowFill);
         } else {
           next = Math.max(
             free.minHeight,

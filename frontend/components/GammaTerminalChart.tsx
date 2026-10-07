@@ -318,8 +318,10 @@ const RAIL_WIDTH_MAGNET = 8;
 // One arrow-key press on the rail's edge.
 const RAIL_WIDTH_KEY_STEP = 10;
 
-// Widest card (CSS px) that still gets the compact canvas.
-const COMPACT_MAX_WIDTH = 900;
+// Widest card (CSS px) that still gets the compact canvas on a phone-sized or
+// touch screen. Exported with DESKTOP_MIN_WIDTH for surfaces that predict the
+// chart's height (My Dashboard's ladder estimate).
+export const COMPACT_MAX_WIDTH = 900;
 // Price column on the compact canvas: axis labels, with the price tags
 // right-aligned inside it (a 9-character NDX tag is ~67 units).
 const COMPACT_AXIS_W = 68;
