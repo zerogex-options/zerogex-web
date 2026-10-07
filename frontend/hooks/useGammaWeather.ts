@@ -73,6 +73,22 @@ export interface GammaWeatherPayload {
   pending_state: string | null;
   pending_label: string | null;
   pending_bars: number;
+  /**
+   * Barrie's four scan lights, each true only when its whole rule is met.
+   * Optional because an older API will not carry them, and the strip renders
+   * nothing at all in that case rather than four dim pills, which would read
+   * as "every rule failed" instead of "not served yet".
+   *
+   * Decided on the server, never here. The base-rate report grades the rules
+   * the panel runs, and a copy of them in this file would drift from the one
+   * being graded.
+   */
+  lights?: {
+    agree: boolean;
+    heads_up: boolean;
+    fragile: boolean;
+    stand_down: boolean;
+  } | null;
   confirm_bars: number;
   age_minutes: number | null;
   age_bars: number;

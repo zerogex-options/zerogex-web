@@ -11,6 +11,7 @@ import { useGammaWeatherSeries } from '@/hooks/useGammaWeatherSeries';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
 import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
+import ScanLightStrip from '@/components/ScanLightStrip';
 
 /**
  * Gamma Weather: the combined read, as a compact strip above the charts.
@@ -341,6 +342,11 @@ export default function GammaWeatherStrip({
       <p className="mt-1 text-sm" style={{ color: 'var(--color-text-primary)' }}>
         {payload.sentence}
       </p>
+
+      {/* Barrie's placement: under the Weather read, above the detail it is
+          drawn from. Tape bias, Weather read, quick relationship check, then
+          the chips. The rules are the API's; this renders four booleans. */}
+      <ScanLightStrip lights={payload.lights} />
 
       {/* Tighter than the plain text row it replaces: five bordered boxes six
           rems apart read as five unrelated cards, and they are one control
