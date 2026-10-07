@@ -82,6 +82,7 @@ export type DashboardPaneProps = {
   onWidgetBox: (instanceId: string, box: WidgetBox) => void;
   onWidgetZoom: (instanceId: string, zoom: WidgetZoom) => void;
   onWidgetSymbol: (instanceId: string, symbol: UnderlyingSymbol | null) => void;
+  onWidgetPanelWidth: (instanceId: string, width: number | null) => void;
   onSendToOtherPane: (instanceId: string, target: PaneId) => void;
 };
 
@@ -102,6 +103,7 @@ export default function DashboardPane({
   onWidgetBox,
   onWidgetZoom,
   onWidgetSymbol,
+  onWidgetPanelWidth,
   onSendToOtherPane,
 }: DashboardPaneProps) {
   const t = usePageT(dict);
@@ -193,6 +195,7 @@ export default function DashboardPane({
                 onBoxChange={onWidgetBox}
                 onZoomChange={onWidgetZoom}
                 onSymbolChange={onWidgetSymbol}
+                onPanelWidthChange={onWidgetPanelWidth}
                 sendToPane={split ? other : null}
                 onSendToPane={onSendToOtherPane}
               />

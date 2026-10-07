@@ -14,14 +14,34 @@ import { createContext, useContext } from 'react';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 
 export type WidgetInstanceValue = {
+  /** This placement's id — unique on the board, stable across reloads. */
+  instanceId: string;
+  /** The underlying this tile shows: its own pick, else the board's. */
+  symbol: UnderlyingSymbol;
+  /** What it follows while unpinned: its half's symbol, else the page's. */
+  boardSymbol: UnderlyingSymbol;
   /** The underlying this tile is pinned to, or null while it follows the board. */
   pinnedSymbol: UnderlyingSymbol | null;
-  /** What it follows while unpinned: its half's symbol, or the page's. */
-  defaultSymbol: UnderlyingSymbol;
-  /** Pin this tile to a symbol, or pass null to follow the board again. */
-  setSymbol: (symbol: UnderlyingSymbol | null) => void;
+  /**
+   * Show `symbol` on this tile. The board's own symbol means "follow the
+   * board" (the tile un-pins, and moves when the page's picker does); any
+   * other symbol pins this tile alone. That is what lets the tile's picker
+   * simply list the symbols, with the board's selected until another is
+   * picked, and still have a way back to following the page.
+   */
+  selectSymbol: (symbol: UnderlyingSymbol) => void;
+  /** Drop this tile's pin so it follows the board again. */
+  followBoard: () => void;
   /** How large a free-resize tile draws its contents (1 = standard). */
   zoomScale: number;
+  /**
+   * The width this tile's side panel was dragged to — the Gamma Terminal's
+   * ladders / Strike Panel, the Gamma Chart's strike rail — or null for the
+   * widget's default. The widget fits it to its own layout when it draws.
+   */
+  panelWidth: number | null;
+  /** Save the side panel's width, or null to go back to the default. */
+  setPanelWidth: (width: number | null) => void;
 };
 
 export const WidgetInstanceContext = createContext<WidgetInstanceValue | null>(null);

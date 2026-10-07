@@ -124,6 +124,9 @@ export const ROW_H = 20; // px per strike row — identical across both columns 
 // Height of the shared session-Δ caption strip under the ladder (fit mode
 // reserves it so the rows band never pushes the strip below the fit bottom).
 const DELTA_LEGEND_H = 22;
+// Below this width (CSS px, at scale 1) a single ladder stacks its level
+// legend into one column; the 2×2 grid needs about this much.
+const NARROW_LEGEND_BELOW = 150;
 // Strikes shown on each side of the spot-nearest center. Callers can shorten the
 // window (a dashboard tile is far shorter than the page's full-height ladder);
 // the pair page keeps the full depth.
@@ -488,6 +491,7 @@ function HeatmapColumn({
   gexUnit,
   fit = null,
   fill = false,
+  narrow = false,
   onBandHeight,
 }: {
   model: ColumnModel;
@@ -502,6 +506,8 @@ function HeatmapColumn({
    * height so the caller can size the strike window to what is visible.
    */
   fill?: boolean;
+  /** Too narrow for the level legend's two columns: stack it in one. */
+  narrow?: boolean;
   onBandHeight?: (height: number) => void;
 }) {
   const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
@@ -548,11 +554,13 @@ function HeatmapColumn({
         className="px-2 pt-2 pb-2 flex flex-col gap-1.5"
         style={{ borderBottom: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}
       >
-        <div className="flex items-center justify-between gap-2 min-w-0">
+        {/* Both rows wrap rather than clip when a dashboard tile is dragged
+            narrow; at the page's column widths they fit on one line as ever. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 min-w-0">
           <div className="min-w-0">{input.control}</div>
           <RegimeChip spot={input.spot} flip={input.gammaFlip} />
         </div>
-        <div className="flex items-baseline justify-between gap-2 min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 min-w-0">
           <span
             className="font-mono truncate"
             style={{ fontSize: 18 * s, fontWeight: 700, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
@@ -567,7 +575,7 @@ function HeatmapColumn({
             ladder column on one line, and free wrapping broke them into a
             ragged 3+1 (MP orphaned on its own line). Content-sized columns
             keep the pairs compact and left-aligned at any tile width. */}
-        <div className="grid grid-cols-[auto_auto] justify-start gap-x-3 gap-y-1">
+        <div className={`grid ${narrow ? "grid-cols-1" : "grid-cols-[auto_auto]"} justify-start gap-x-3 gap-y-1`}>
           {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) => (
             <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
           ))}
@@ -740,6 +748,7 @@ export default function PairGammaHeatmap({
   activeOnly = true,
   fit = null,
   maxSide = MAX_SIDE,
+  columnMinWidth = 175,
 }: {
   left: HeatmapColumnInput;
   right: HeatmapColumnInput;
@@ -753,6 +762,9 @@ export default function PairGammaHeatmap({
   /** Strikes kept on each side of spot; a fitted band may want more than the
    *  page default so the clip never runs out of rows. */
   maxSide?: number;
+  /** Each column's floor before the pair scrolls sideways (see below). A
+   *  surface whose panel the reader can drag narrower lowers it. */
+  columnMinWidth?: number;
 }) {
   const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, maxSide), [left, gexUnit, activeOnly, maxSide]);
   const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, maxSide), [right, gexUnit, activeOnly, maxSide]);
@@ -776,10 +788,10 @@ export default function PairGammaHeatmap({
     // horizontally instead of clipping it.
     <div className="overflow-x-auto">
       <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
-        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
+        <div style={{ flex: `1 1 ${columnMinWidth}px`, minWidth: columnMinWidth, background: "var(--bg-card)" }}>
           <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} fit={columnFit} />
         </div>
-        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
+        <div style={{ flex: `1 1 ${columnMinWidth}px`, minWidth: columnMinWidth, background: "var(--bg-card)" }}>
           <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} fit={columnFit} />
         </div>
       </div>
@@ -822,6 +834,15 @@ export function GammaLadder({
   // has been measured (and whenever it is not on screen) the page default.
   const [bandH, setBandH] = useState<number | null>(null);
   const rowH = ROW_H * scale;
+  // A dragged-narrow tile stacks the level legend (see HeatmapColumn).
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (!fill || !rootEl) return;
+    const ro = new ResizeObserver(() => setNarrow(rootEl.clientWidth < NARROW_LEGEND_BELOW * scale));
+    ro.observe(rootEl);
+    return () => ro.disconnect();
+  }, [fill, rootEl, scale]);
   const maxSide = fill && bandH != null && bandH > 0 ? Math.max(1, Math.ceil((bandH / rowH - 1) / 2)) : MAX_SIDE;
   const model = useMemo(
     () => buildModel(column, gexUnit, activeOnly, maxSide),
@@ -832,6 +853,7 @@ export function GammaLadder({
   return (
     <LadderScaleContext.Provider value={scale}>
       <div
+        ref={setRootEl}
         className={fill ? "flex-1 h-full min-h-0 min-w-0 flex flex-col" : "h-full min-w-0"}
         style={{ background: "var(--bg-card)" }}
       >
@@ -840,6 +862,7 @@ export function GammaLadder({
           offsets={offsets}
           gexUnit={gexUnit}
           fill={fill}
+          narrow={narrow}
           onBandHeight={fill ? setBandH : undefined}
         />
         {column.sessionBaseline && <DeltaLegend />}

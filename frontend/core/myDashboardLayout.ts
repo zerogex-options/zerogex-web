@@ -101,11 +101,21 @@ export type WidgetSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export const WIDGET_SIZES: readonly WidgetSize[] = ['sm', 'md', 'lg', 'xl'] as const;
 
-// Columns on the desktop grid. Twelve rather than the four the footprints
-// need, so a free-resize tile (the Gamma Ladder) can be dragged to a width
-// between them: a ladder a sixth of the board wide is a real choice, where the
-// narrowest footprint used to be a quarter.
+// Columns on the desktop grid — the unit every width is stored in, always as
+// a share of the WHOLE board (a split half draws it at twice its own tracks,
+// the way it doubles the footprints), so a dragged tile keeps its width beside
+// its neighbors when the board is split or a half is cloned. Twelve rather
+// than the four the footprints need, so a free-resize tile (the Gamma Ladder)
+// can be dragged to a width between them, in quarter-column steps
+// (SPAN_STEP) — about 29px on a 1440px screen, fine enough to feel free while
+// still snapping.
 export const GRID_COLUMNS = 12;
+
+/** The finest width step, in columns. */
+export const SPAN_STEP = 0.25;
+
+/** Tracks the desktop grid CSS actually lays out: one per SPAN_STEP. */
+export const GRID_TRACKS = GRID_COLUMNS / SPAN_STEP;
 
 // Column span per size on the desktop 12-column grid — a quarter, a half,
 // three-quarters and the full board. The grid CSS (globals.css → .zg-w-*)
@@ -146,8 +156,9 @@ export const WIDGET_ZOOM_SCALE: Record<WidgetZoom, number> = {
 
 export const DEFAULT_WIDGET_ZOOM: WidgetZoom = 'md';
 
-/** Width bounds for a custom span, in grid columns. */
-export const MIN_WIDGET_SPAN = 1;
+/** Width bounds for a custom span, in grid columns (to SPAN_STEP). A widget
+ *  sets its own, larger floor in px (registry `freeResize.minWidthPx`). */
+export const MIN_WIDGET_SPAN = SPAN_STEP;
 export const MAX_WIDGET_SPAN = GRID_COLUMNS;
 
 /** Height bounds for a custom height, in CSS px. */
@@ -158,10 +169,70 @@ export function isWidgetZoom(value: unknown): value is WidgetZoom {
   return typeof value === 'string' && (WIDGET_ZOOMS as readonly string[]).includes(value);
 }
 
-/** A whole column count within bounds, or null for anything else. */
+/** A column count within bounds, to the nearest SPAN_STEP; null for anything else. */
 export function clampSpan(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-  return Math.max(MIN_WIDGET_SPAN, Math.min(MAX_WIDGET_SPAN, Math.round(value)));
+  const stepped = Math.round(value / SPAN_STEP) * SPAN_STEP;
+  return Math.max(MIN_WIDGET_SPAN, Math.min(MAX_WIDGET_SPAN, stepped));
+}
+
+// ── Grid track math ───────────────────────────────────────────────────────────
+// Pure conversions between a width in px, the CSS tracks a grid draws, and a
+// stored width in board columns. The DOM side (reading a live grid) lives in
+// app/my-dashboard/gridGeometry; the arithmetic is here so it is pinned by the
+// unit tests.
+
+/** The parts of a laid-out grid the width math needs. */
+export type TrackMetrics = {
+  /** px between tracks (0 on the desktop grid, which spaces tiles by padding). */
+  gap: number;
+  /** px of a cell's width that is spacing rather than tile (its side padding). */
+  gutter: number;
+  /** px per track. */
+  trackWidth: number;
+  /** Board columns one track stands for (half that in a side-by-side split half). */
+  columnsPerTrack: number;
+};
+
+/** Round to the nearest SPAN_STEP. */
+export function toSpanStep(columns: number): number {
+  return Math.round(columns / SPAN_STEP) * SPAN_STEP;
+}
+
+/** Fractional tracks spanned by `width` px (a cell's or a pointer's). */
+export function tracksForWidth(m: TrackMetrics, width: number): number {
+  return (width + m.gap) / (m.trackWidth + m.gap);
+}
+
+/** The width a cell `width` px wide renders at, in board columns. */
+export function renderedSpan(m: TrackMetrics, width: number): number {
+  return toSpanStep(Math.round(tracksForWidth(m, width)) * m.columnsPerTrack);
+}
+
+/**
+ * The narrowest width, in board columns (rounded up to SPAN_STEP), whose tile
+ * — the cell less its gutter — is at least `minPx` wide on this grid. 0 when
+ * the grid isn't laid out yet.
+ */
+export function spanFloor(m: TrackMetrics, minPx: number): number {
+  if (m.trackWidth <= 0) return 0;
+  const tracks = Math.max(1, Math.ceil((minPx + m.gutter + m.gap) / (m.trackWidth + m.gap) - 1e-9));
+  return Math.ceil((tracks * m.columnsPerTrack) / SPAN_STEP - 1e-9) * SPAN_STEP;
+}
+
+/**
+ * Width bounds for a tile's side panel, in the unit its widget keeps it in
+ * (CSS px for the Gamma Terminal's ladders panel, chart units for the Gamma
+ * Chart's strike rail). Generous: the widget clamps to what fits its own
+ * layout at the moment it draws.
+ */
+export const MIN_PANEL_WIDTH = 40;
+export const MAX_PANEL_WIDTH = 4000;
+
+/** A whole panel width within bounds, or null for anything else. */
+export function clampPanelWidth(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, Math.round(value)));
 }
 
 /** A whole pixel height within bounds, or null for anything else. */
@@ -215,6 +286,9 @@ export type PaneScope = {
 //     height (px). Absent, the width is the footprint's and the tile fills the
 //     height of its row.
 //   - `zoom` is how large a free-resize tile draws its contents.
+//   - `panelWidth` is how wide a tile's side panel was dragged: the Gamma
+//     Terminal's ladders / Strike Panel, or the Gamma Chart's strike rail.
+//     Absent, the panel is its default width.
 export type PlacedWidget = {
   instanceId: string;
   widgetId: string;
@@ -223,6 +297,7 @@ export type PlacedWidget = {
   span?: number;
   height?: number;
   zoom?: WidgetZoom;
+  panelWidth?: number;
 };
 
 /** The per-tile settings of a placement — everything but its id and type. */
@@ -232,6 +307,7 @@ function tileSettings(w: PlacedWidget): Omit<PlacedWidget, 'instanceId' | 'widge
   if (w.span !== undefined) out.span = w.span;
   if (w.height !== undefined) out.height = w.height;
   if (w.zoom !== undefined) out.zoom = w.zoom;
+  if (w.panelWidth !== undefined) out.panelWidth = w.panelWidth;
   return out;
 }
 
@@ -369,6 +445,8 @@ function sanitizeWidgets(
     if (height !== null) placed.height = height;
     const zoom = (entry as Record<string, unknown>).zoom;
     if (isWidgetZoom(zoom)) placed.zoom = zoom;
+    const panelWidth = clampPanelWidth((entry as Record<string, unknown>).panelWidth);
+    if (panelWidth !== null) placed.panelWidth = panelWidth;
     out.push(placed);
   }
   return out;
@@ -755,7 +833,7 @@ function withInstance(
 }
 
 /** `w` with `key` set to `value`, or removed when `value` is null. */
-function withSetting<K extends 'symbol' | 'span' | 'height' | 'zoom'>(
+function withSetting<K extends 'symbol' | 'span' | 'height' | 'zoom' | 'panelWidth'>(
   w: PlacedWidget,
   key: K,
   value: PlacedWidget[K] | null,
@@ -801,6 +879,20 @@ export function setWidgetBox(
     }
     return next;
   });
+}
+
+/**
+ * Set how wide a tile's side panel is, or pass null for its default width.
+ * Clamped to the generous MIN/MAX_PANEL_WIDTH; the widget fits it to its own
+ * layout when it draws.
+ */
+export function setWidgetPanelWidth(
+  layout: DashboardLayout,
+  instanceId: string,
+  width: number | null,
+): DashboardLayout {
+  const value = width === null ? null : clampPanelWidth(width);
+  return withInstance(layout, instanceId, (w) => withSetting(w, 'panelWidth', value));
 }
 
 /** Set how large a free-resize tile draws its contents. */

@@ -70,6 +70,7 @@ export const dict: PageDictionary = {
     volatilityMonitor: 'Volatility Monitor',
     worldClocks: 'World Clocks',
     topHeadlines: 'Top Headlines',
+    ladderSettings: 'Ladder settings',
   },
   it: {
     technicals: 'Tecnici',
@@ -140,6 +141,7 @@ export const dict: PageDictionary = {
     volatilityMonitor: 'Monitor della Volatilità',
     worldClocks: 'Orologi Mondiali',
     topHeadlines: 'Titoli Principali',
+    ladderSettings: 'Impostazioni scala',
   },
   de: {
     technicals: 'Technische Analyse',
@@ -210,6 +212,7 @@ export const dict: PageDictionary = {
     volatilityMonitor: 'Volatilitätsmonitor',
     worldClocks: 'Weltuhren',
     topHeadlines: 'Top-Schlagzeilen',
+    ladderSettings: 'Leiter-Einstellungen',
   },
   es: {
     technicals: 'Técnicos',
@@ -280,6 +283,7 @@ export const dict: PageDictionary = {
     volatilityMonitor: 'Monitor de Volatilidad',
     worldClocks: 'Relojes Mundiales',
     topHeadlines: 'Titulares Principales',
+    ladderSettings: 'Ajustes de la escalera',
   },
   fr: {
     technicals: 'Techniques',
@@ -350,5 +354,6 @@ export const dict: PageDictionary = {
     volatilityMonitor: 'Moniteur de Volatilité',
     worldClocks: 'Horloges Mondiales',
     topHeadlines: 'Titres Principaux',
+    ladderSettings: 'Réglages de l’échelle',
   },
 };
