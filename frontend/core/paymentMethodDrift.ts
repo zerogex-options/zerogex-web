@@ -191,3 +191,95 @@ export function decideDriftReportVisibility(input: {
     allClear: brokenCount === 0 && driftCount === 0 && shownDuplicateCount === 0,
   };
 }
+
+// When a paid invoice should re-point its subscription at the method that paid.
+//
+// The fix for the failure this module's header names, applied at the moment it
+// is created rather than found a month later: a member rescues a failed invoice
+// on Stripe's invoice page with a new method, Stripe saves it as the CUSTOMER
+// default, and leaves the subscription pinned to the method that just failed.
+// The webhook's invoice.paid handler asks this whether to pin the subscription
+// to the method that paid, so the next renewal goes to the money that worked.
+//
+// Deliberately narrow about when it says yes:
+//   - Something was actually charged. A $0 invoice, a credit-balance payment or
+//     one marked paid out of band names no method.
+//   - The subscription will renew. Re-pointing a canceled one changes nothing,
+//     and an orphan recovery builds its own subscription on the paying card.
+//   - The method is saved to this same customer. A one-off method that was never
+//     attached cannot be charged again, and Stripe would refuse the update.
+//   - It differs from what the subscription would charge now. With no pin,
+//     Stripe falls back to the customer default, so a payment made with that
+//     default changes nothing either.
+// Two ids for one card (see InstrumentSameness) still re-point: the new object
+// is live and attached, so pointing at it is harmless, and checking would cost a
+// Stripe read on every renewal for nothing.
+export type RepointOnPaymentInput = {
+  // invoice.amount_paid, in the smallest currency unit.
+  amountPaid: number;
+  // subscription.status at the time the invoice was paid.
+  subscriptionStatus: string;
+  // The subscription's customer.
+  customerId: string;
+  // subscription.default_payment_method, resolved to a bare id, or null.
+  pinnedPaymentMethodId: string | null;
+  // customer.invoice_settings.default_payment_method, or null. Only consulted
+  // when there is no pin, since that is the only time Stripe falls back to it.
+  customerDefaultPaymentMethodId: string | null;
+  // The PaymentMethod that paid the invoice, or null when none could be read.
+  paidWithPaymentMethodId: string | null;
+  // The customer that method is attached to, or null when it is attached to
+  // nobody (a one-off payment).
+  paidWithOwnerCustomerId: string | null;
+};
+
+export type RepointOnPaymentDecision = {
+  repoint: boolean;
+  reason: string;
+};
+
+// Statuses whose subscription will bill again, so a pin still matters.
+const RENEWING_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
+
+export function decideRepointOnPayment(input: RepointOnPaymentInput): RepointOnPaymentDecision {
+  const {
+    amountPaid,
+    subscriptionStatus,
+    customerId,
+    pinnedPaymentMethodId,
+    customerDefaultPaymentMethodId,
+    paidWithPaymentMethodId,
+    paidWithOwnerCustomerId,
+  } = input;
+
+  if (!(amountPaid > 0)) {
+    return { repoint: false, reason: 'nothing was charged, so no method paid' };
+  }
+  if (!paidWithPaymentMethodId) {
+    return { repoint: false, reason: 'the paying method could not be read' };
+  }
+  if (!RENEWING_STATUSES.has(subscriptionStatus)) {
+    return { repoint: false, reason: `subscription is ${subscriptionStatus}; nothing renews` };
+  }
+  if (paidWithOwnerCustomerId !== customerId) {
+    return {
+      repoint: false,
+      reason: 'the paying method is not saved to this customer, so it cannot be charged again',
+    };
+  }
+  if (pinnedPaymentMethodId === paidWithPaymentMethodId) {
+    return { repoint: false, reason: 'the subscription already renews on the method that paid' };
+  }
+  if (!pinnedPaymentMethodId && customerDefaultPaymentMethodId === paidWithPaymentMethodId) {
+    return {
+      repoint: false,
+      reason: 'no pin, and the customer default Stripe falls back to is the method that paid',
+    };
+  }
+  return {
+    repoint: true,
+    reason: pinnedPaymentMethodId
+      ? 'paid with a different saved method than the one the subscription charges'
+      : 'paid with a saved method, and the subscription has no method of its own',
+  };
+}

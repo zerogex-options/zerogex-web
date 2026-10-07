@@ -5,6 +5,7 @@ import { getDb } from '@/core/db';
 import { isApiKeyEligibleTier, normalizeTier, TierId } from '@/core/auth';
 import { revokeApiKeysIfTierDropped } from '@/core/apiKeys';
 import { resolveInvoicePaymentMethodId, resolveSubscriptionCard } from '@/core/stripeCard';
+import { decideRepointOnPayment } from '@/core/paymentMethodDrift';
 import {
   sendCancellationEmail,
   sendFoundingWelcomeEmail,
@@ -884,6 +885,85 @@ async function maybeWireDefaultPaymentMethod(
       message: `Wire default PM ${pmId} on sub ${subscription.id} failed: ${message}`,
     });
     // Swallow — tier sync already succeeded; a later sub/setup event can retry.
+  }
+}
+
+// Renew on the method that just paid. When a member rescues a failed invoice on
+// Stripe's invoice page (where our /pay link sends them) with a NEW method,
+// Stripe saves it as the CUSTOMER default but leaves the subscription pinned to
+// the method that failed, so next month bills the failed method again. This
+// pins the subscription to the method that paid, so the renewal goes to the
+// money that worked. The same rule the orphan recovery already follows when it
+// rebuilds a subscription (see resolveInvoicePaymentMethodId). When to act is
+// core/paymentMethodDrift decideRepointOnPayment, unit-tested; this only reads
+// Stripe and applies it. Our own subscriptions.update emits a
+// customer.subscription.updated, whose sync is idempotent.
+//
+// Best-effort: the invoice is already paid and recorded, so a failure here is
+// logged and never unwinds anything. scripts/scan-payment-method-drift finds any
+// subscription this missed.
+async function maybeRenewOnMethodThatPaid(
+  invoice: Stripe.Invoice,
+  user: { id: string; email: string } | null,
+): Promise<void> {
+  const subscriptionId = readInvoiceSubscriptionId(invoice);
+  if (!subscriptionId || !(invoice.amount_paid > 0)) return;
+  try {
+    const stripe = getStripe();
+    const paidWith = await resolveInvoicePaymentMethodId(stripe, invoice);
+    if (!paidWith) return;
+
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const pinned =
+      typeof subscription.default_payment_method === 'string'
+        ? subscription.default_payment_method
+        : subscription.default_payment_method?.id ?? null;
+    // The common case, a renewal charged to the pin: nothing to read further.
+    if (pinned === paidWith) return;
+
+    const customerId =
+      typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+    const method = await stripe.paymentMethods.retrieve(paidWith);
+    const owner = typeof method.customer === 'string' ? method.customer : method.customer?.id ?? null;
+
+    // Stripe only falls back to the customer default when there is no pin, so
+    // that is the only time it needs reading.
+    let customerDefault: string | null = null;
+    if (!pinned) {
+      const customer = await stripe.customers.retrieve(customerId);
+      if (!('deleted' in customer && customer.deleted)) {
+        const cid = (customer as Stripe.Customer).invoice_settings?.default_payment_method;
+        customerDefault = typeof cid === 'string' ? cid : cid?.id ?? null;
+      }
+    }
+
+    const decision = decideRepointOnPayment({
+      amountPaid: invoice.amount_paid,
+      subscriptionStatus: subscription.status,
+      customerId,
+      pinnedPaymentMethodId: pinned,
+      customerDefaultPaymentMethodId: customerDefault,
+      paidWithPaymentMethodId: paidWith,
+      paidWithOwnerCustomerId: owner,
+    });
+    if (!decision.repoint) return;
+
+    await stripe.subscriptions.update(subscriptionId, { default_payment_method: paidWith });
+    logAudit({
+      type: 'billing_default_pm_repointed',
+      userId: user?.id,
+      email: user?.email,
+      message: `Sub ${subscriptionId} now renews on ${paidWith} (${method.type}${method.card?.last4 ? ` ····${method.card.last4}` : ''}), which paid invoice ${invoice.id}; was ${pinned ?? 'no pin'}. ${decision.reason}`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'renew-on-method-that-paid failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user?.id,
+      email: user?.email,
+      message: `Re-point sub ${subscriptionId} to the method that paid invoice ${invoice.id} failed: ${message}`,
+    });
+    // Swallow — the payment is recorded; the drift scan will surface this one.
   }
 }
 
@@ -2666,6 +2746,12 @@ export async function POST(request: NextRequest) {
         // still-open invoice emits NOTHING else. Without this the member stays
         // on 'public' having paid in full.
         const recovered = await maybeRecoverOrphanPayment(invoice);
+        // A member who rescued this invoice with a new method renews on it from
+        // now on, instead of on the method that failed. A no-op for a renewal
+        // charged to the subscription's own card, and for an orphan recovery,
+        // whose old subscription is canceled and whose new one is already built
+        // on the paying card.
+        await maybeRenewOnMethodThatPaid(invoice, paidUser);
         // Record that money actually moved. Runs before the email below because
         // it is the stamp the admin headcount reads: it promotes the member off
         // the Converting line and onto Full Subscriber.

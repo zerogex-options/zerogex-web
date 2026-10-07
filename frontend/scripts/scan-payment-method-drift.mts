@@ -18,6 +18,11 @@
 // next month bills the same dead method again. Twice is not a coincidence and
 // the member did nothing wrong; we simply kept charging the card they replaced.
 //
+// Since October 2026 the webhook's invoice.paid handler closes that gap as it
+// happens (maybeRenewOnMethodThatPaid): an invoice paid with a different saved
+// method re-points the subscription at it. So this sweep is now the backstop,
+// for drift that predates that change or arose some other way.
+//
 // From the outside this is indistinguishable from bad luck: `make diagnose-user`
 // shows it per-member (Sub default PM vs Customer default PM on two lines), the
 // webhook logs a normal stripe_payment_failed, and the dunning copy correctly
@@ -553,6 +558,8 @@ if (drift.length > 0) {
   console.log('These subscriptions charge one method while the member has since made a');
   console.log('different one their default — typically after rescuing a failed invoice.');
   console.log('The pinned method may still be good; it is the one they stopped choosing.');
+  console.log('The webhook now re-points on every such rescue, so a NEW finding here means');
+  console.log('the default changed some other way (e.g. the billing portal).');
   console.log('');
   for (const f of drift) printFinding(f);
 }
@@ -607,5 +614,6 @@ if (cliArgs.verbose && healthy.length > 0) {
 }
 
 console.log('Read-only: nothing above was changed. Confirm a finding with');
-console.log('`make diagnose-user EMAIL=<addr>` before re-pointing anything, and re-point');
-console.log('only after the member has told you which method they actually want charged.');
+console.log('`make diagnose-user EMAIL=<addr>` before re-pointing anything. If their last');
+console.log('invoice was paid with the customer default, re-point to it: the webhook now');
+console.log('does exactly that for every new rescue. Otherwise ask the member first.');

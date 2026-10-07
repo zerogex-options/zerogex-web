@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   classifyPaymentMethodPin,
   decideDriftReportVisibility,
+  decideRepointOnPayment,
   type PaymentMethodPinInput,
+  type RepointOnPaymentInput,
 } from '../core/paymentMethodDrift.ts';
 
 // A subscription pinned to a payment method the member has replaced bills the
@@ -239,5 +241,82 @@ test('THE INVARIANT: a run is never silent, and never says both things', () => {
         }
       }
     }
+  }
+});
+
+// --- decideRepointOnPayment ---------------------------------------------------
+//
+// The webhook re-points a subscription at the method that just paid its invoice,
+// so a member who rescues a failed renewal with a new method is not billed on
+// the failed one again next month. It must act on exactly that case, and stay
+// out of every other one: the method that paid must be chargeable again, and
+// there must be something renewing to point at it.
+
+function repoint(over: Partial<RepointOnPaymentInput> = {}): RepointOnPaymentInput {
+  return {
+    amountPaid: 2900,
+    subscriptionStatus: 'active',
+    customerId: CUSTOMER,
+    pinnedPaymentMethodId: 'pm_old_card',
+    customerDefaultPaymentMethodId: 'pm_link',
+    paidWithPaymentMethodId: 'pm_link',
+    paidWithOwnerCustomerId: CUSTOMER,
+    ...over,
+  };
+}
+
+test('re-points when a rescue paid with a different saved method (the aabbon case)', () => {
+  const d = decideRepointOnPayment(repoint());
+  assert.equal(d.repoint, true);
+});
+
+test('fills an empty pin with the saved method that paid (the chen case)', () => {
+  const d = decideRepointOnPayment(
+    repoint({ pinnedPaymentMethodId: null, customerDefaultPaymentMethodId: null }),
+  );
+  assert.equal(d.repoint, true);
+});
+
+test('fills an empty pin when the customer default is some other method', () => {
+  const d = decideRepointOnPayment(
+    repoint({ pinnedPaymentMethodId: null, customerDefaultPaymentMethodId: 'pm_other' }),
+  );
+  assert.equal(d.repoint, true);
+});
+
+test('stays out when the subscription already renews on the method that paid', () => {
+  const d = decideRepointOnPayment(repoint({ pinnedPaymentMethodId: 'pm_link' }));
+  assert.equal(d.repoint, false);
+});
+
+test('stays out when there is no pin and the fallback default is the method that paid', () => {
+  const d = decideRepointOnPayment(
+    repoint({ pinnedPaymentMethodId: null, customerDefaultPaymentMethodId: 'pm_link' }),
+  );
+  assert.equal(d.repoint, false);
+});
+
+test('never points at a one-off method that is not saved to the customer', () => {
+  assert.equal(decideRepointOnPayment(repoint({ paidWithOwnerCustomerId: null })).repoint, false);
+  assert.equal(
+    decideRepointOnPayment(repoint({ paidWithOwnerCustomerId: 'cus_someone_else' })).repoint,
+    false,
+  );
+});
+
+test('stays out when nothing was charged', () => {
+  assert.equal(decideRepointOnPayment(repoint({ amountPaid: 0 })).repoint, false);
+});
+
+test('stays out when the paying method could not be read', () => {
+  assert.equal(decideRepointOnPayment(repoint({ paidWithPaymentMethodId: null })).repoint, false);
+});
+
+test('re-points every status that renews, and none that does not', () => {
+  for (const status of ['active', 'trialing', 'past_due', 'unpaid']) {
+    assert.equal(decideRepointOnPayment(repoint({ subscriptionStatus: status })).repoint, true, status);
+  }
+  for (const status of ['canceled', 'incomplete', 'incomplete_expired', 'paused']) {
+    assert.equal(decideRepointOnPayment(repoint({ subscriptionStatus: status })).repoint, false, status);
   }
 });
