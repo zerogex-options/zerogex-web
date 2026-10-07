@@ -111,7 +111,8 @@ attempt 1, so the note can go out.
    list will fail its next renewal the same way chen's did.
 
    *The plain run on Oct 7 scanned 202 subscriptions and found no broken pins,
-   only aabbon's drift (see "Can wait").*
+   only aabbon's drift (see "Can wait"). The `VERBOSE=1` run printed nothing, so
+   chen was the only subscription with no card anywhere.*
 
 If Stripe retries on its own once the card is attached and the charge clears,
 the payment-recovered email goes out. That's fine, and the note still makes sense.
@@ -232,6 +233,10 @@ That reads like someone short on money stepping down to the cheaper plan. Someon
 farming free trials would have used a different card. The risk is the two open
 invoices on one card. If it gets funded, Stripe could take $59 and $29 from it
 within days of each other, and that's how disputes start.
+
+✅ **Done Oct 7.** tradingteorema's subscription is canceled and its $59 invoice
+(`in_1UKdzu4AOiqteMYYbkI8iu5F`) voided, so no further charge attempts. It had no
+active API keys and was sent no email.
 
 **Recommended:** cancel and void tradingteorema first. They left that account on
 Sep 29. It sends no email.
@@ -526,7 +531,7 @@ https://zerogex.io/pay?i=in_1UMG3I4AOiqteMYYUzOBWi8z&t=BiOTFT1EFHDTQmpBlocNyq6MB
 
 ## No email (15)
 
-- **tradingteorema@gmail.com:** cancel and void instead (section 4).
+- **tradingteorema@gmail.com:** canceled and voided Oct 7 instead (section 4).
 - **sacfelipeferreira@gmail.com:** three automated emails in two days, the
   warning among them this morning. The reason is `try_again_later`, a temporary
   error at the bank, and Stripe hasn't retried yet. If it's still failing next
