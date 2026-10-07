@@ -40,6 +40,9 @@
  *   - A board saved by the older single-pane build (`{ widgets: [...] }`) loads
  *     unchanged into pane 'a' with the split off. The storage key is pinned to
  *     that build's version for exactly that reason — see STORAGE_KEY_VERSION.
+ *   - A placement's per-tile settings (its own symbol, a free-resize width and
+ *     height, a zoom) are optional and validated one by one: a bad value drops
+ *     back to that setting's default, never the widget.
  */
 
 import type { UnderlyingSymbol } from './symbolPersistence';
@@ -98,14 +101,21 @@ export type WidgetSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export const WIDGET_SIZES: readonly WidgetSize[] = ['sm', 'md', 'lg', 'xl'] as const;
 
-// Column span per size on the desktop 4-column grid. The grid CSS
-// (globals.css → .zg-w-*) collapses these responsively on smaller screens, and
-// halves them again inside a split pane (.zg-mydash-grid--half).
+// Columns on the desktop grid. Twelve rather than the four the footprints
+// need, so a free-resize tile (the Gamma Ladder) can be dragged to a width
+// between them: a ladder a sixth of the board wide is a real choice, where the
+// narrowest footprint used to be a quarter.
+export const GRID_COLUMNS = 12;
+
+// Column span per size on the desktop 12-column grid — a quarter, a half,
+// three-quarters and the full board. The grid CSS (globals.css → .zg-w-*)
+// collapses these responsively on smaller screens, and halves them again
+// inside a split pane (.zg-mydash-grid--half).
 export const WIDGET_COLSPAN: Record<WidgetSize, number> = {
-  sm: 1,
-  md: 2,
-  lg: 3,
-  xl: 4,
+  sm: 3,
+  md: 6,
+  lg: 9,
+  xl: 12,
 };
 
 export const WIDGET_SIZE_LABEL: Record<WidgetSize, string> = {
@@ -114,6 +124,51 @@ export const WIDGET_SIZE_LABEL: Record<WidgetSize, string> = {
   lg: 'Large',
   xl: 'Full width',
 };
+
+// ── Free-resize tiles ────────────────────────────────────────────────────────
+// A free-resize tile (registry `freeResize`) is not sized by a footprint. Its
+// width is any whole number of grid columns and its height any number of
+// pixels, both set by dragging its edges; its S/M/L buttons set how large its
+// contents are drawn instead. The three fields below are what it stores, and
+// each is optional: absent means "the default", so a board saved before they
+// existed loads exactly as it was.
+
+/** Text/zoom scale of a free-resize tile's contents. */
+export type WidgetZoom = 'sm' | 'md' | 'lg';
+
+export const WIDGET_ZOOMS: readonly WidgetZoom[] = ['sm', 'md', 'lg'] as const;
+
+export const WIDGET_ZOOM_SCALE: Record<WidgetZoom, number> = {
+  sm: 0.9,
+  md: 1,
+  lg: 1.2,
+};
+
+export const DEFAULT_WIDGET_ZOOM: WidgetZoom = 'md';
+
+/** Width bounds for a custom span, in grid columns. */
+export const MIN_WIDGET_SPAN = 1;
+export const MAX_WIDGET_SPAN = GRID_COLUMNS;
+
+/** Height bounds for a custom height, in CSS px. */
+export const MIN_WIDGET_HEIGHT = 160;
+export const MAX_WIDGET_HEIGHT = 2400;
+
+export function isWidgetZoom(value: unknown): value is WidgetZoom {
+  return typeof value === 'string' && (WIDGET_ZOOMS as readonly string[]).includes(value);
+}
+
+/** A whole column count within bounds, or null for anything else. */
+export function clampSpan(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(MIN_WIDGET_SPAN, Math.min(MAX_WIDGET_SPAN, Math.round(value)));
+}
+
+/** A whole pixel height within bounds, or null for anything else. */
+export function clampHeight(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(MIN_WIDGET_HEIGHT, Math.min(MAX_WIDGET_HEIGHT, Math.round(value)));
+}
 
 // ── Panes ────────────────────────────────────────────────────────────────────
 
@@ -150,11 +205,35 @@ export type PaneScope = {
 // `instanceId` identifies this particular placement — the same widget can sit on
 // the board several times and in either pane, so every mutation is addressed by
 // instance.
+//
+// The optional fields are per-tile settings, absent unless the member set them:
+//   - `symbol` pins this one tile to an underlying. Absent, it follows its pane
+//     (and the pane the page), which is what makes the header picker the
+//     default rather than the only choice: three ladders on one board can read
+//     SPY, SPX and QQQ while everything else follows the header.
+//   - `span` / `height` are a free-resize tile's width (grid columns) and
+//     height (px). Absent, the width is the footprint's and the tile fills the
+//     height of its row.
+//   - `zoom` is how large a free-resize tile draws its contents.
 export type PlacedWidget = {
   instanceId: string;
   widgetId: string;
   size: WidgetSize;
+  symbol?: UnderlyingSymbol;
+  span?: number;
+  height?: number;
+  zoom?: WidgetZoom;
 };
+
+/** The per-tile settings of a placement — everything but its id and type. */
+function tileSettings(w: PlacedWidget): Omit<PlacedWidget, 'instanceId' | 'widgetId'> {
+  const out: Omit<PlacedWidget, 'instanceId' | 'widgetId'> = { size: w.size };
+  if (w.symbol !== undefined) out.symbol = w.symbol;
+  if (w.span !== undefined) out.span = w.span;
+  if (w.height !== undefined) out.height = w.height;
+  if (w.zoom !== undefined) out.zoom = w.zoom;
+  return out;
+}
 
 export type DashboardPane = {
   id: PaneId;
@@ -279,7 +358,18 @@ function sanitizeWidgets(
         ? rawInstanceId
         : makeInstanceId(widgetId, taken);
     taken.add(instanceId);
-    out.push({ instanceId, widgetId, size });
+    const placed: PlacedWidget = { instanceId, widgetId, size };
+    // Per-tile settings: each kept only when valid, so a bad value falls back
+    // to the default for that one setting rather than costing the widget.
+    const symbol = (entry as Record<string, unknown>).symbol;
+    if (isUnderlyingSymbol(symbol)) placed.symbol = symbol;
+    const span = clampSpan((entry as Record<string, unknown>).span);
+    if (span !== null) placed.span = span;
+    const height = clampHeight((entry as Record<string, unknown>).height);
+    if (height !== null) placed.height = height;
+    const zoom = (entry as Record<string, unknown>).zoom;
+    if (isWidgetZoom(zoom)) placed.zoom = zoom;
+    out.push(placed);
   }
   return out;
 }
@@ -591,10 +681,12 @@ export function duplicateWidget(layout: DashboardLayout, instanceId: string): Da
     const index = widgets.findIndex((w) => w.instanceId === instanceId);
     if (index === -1) return null;
     const source = widgets[index];
+    // The copy keeps every per-tile setting — symbol, width, height, zoom — so
+    // it lands as a twin of the original, ready to be retargeted.
     const copy: PlacedWidget = {
       instanceId: makeInstanceId(source.widgetId, taken),
       widgetId: source.widgetId,
-      size: source.size,
+      ...tileSettings(source),
     };
     const next = [...widgets];
     next.splice(index + 1, 0, copy);
@@ -641,6 +733,84 @@ export function resizeWidget(
     });
     return changed ? next : null;
   });
+}
+
+/** Apply `update` to one placement, wherever it sits. No-op if absent or unchanged. */
+function withInstance(
+  layout: DashboardLayout,
+  instanceId: string,
+  update: (w: PlacedWidget) => PlacedWidget,
+): DashboardLayout {
+  return withWidgets(layout, (widgets) => {
+    let changed = false;
+    const next = widgets.map((w) => {
+      if (w.instanceId !== instanceId) return w;
+      const updated = update(w);
+      if (updated === w) return w;
+      changed = true;
+      return updated;
+    });
+    return changed ? next : null;
+  });
+}
+
+/** `w` with `key` set to `value`, or removed when `value` is null. */
+function withSetting<K extends 'symbol' | 'span' | 'height' | 'zoom'>(
+  w: PlacedWidget,
+  key: K,
+  value: PlacedWidget[K] | null,
+): PlacedWidget {
+  if (value === null || value === undefined) {
+    if (w[key] === undefined) return w;
+    const next = { ...w };
+    delete next[key];
+    return next;
+  }
+  return w[key] === value ? w : { ...w, [key]: value };
+}
+
+/**
+ * Pin one tile to `symbol`, or pass null to let it follow its pane (and the
+ * page) again. No-op if the instance is absent or already set that way.
+ */
+export function setWidgetSymbol(
+  layout: DashboardLayout,
+  instanceId: string,
+  symbol: UnderlyingSymbol | null,
+): DashboardLayout {
+  const value = symbol !== null && isUnderlyingSymbol(symbol) ? symbol : null;
+  return withInstance(layout, instanceId, (w) => withSetting(w, 'symbol', value));
+}
+
+/**
+ * Set a free-resize tile's width (grid columns) and/or height (px). A field
+ * left out is left alone; a null clears it back to the default — the
+ * footprint's width, or filling the row's height. Values are clamped to
+ * bounds.
+ */
+export function setWidgetBox(
+  layout: DashboardLayout,
+  instanceId: string,
+  box: { span?: number | null; height?: number | null },
+): DashboardLayout {
+  return withInstance(layout, instanceId, (w) => {
+    let next = w;
+    if (box.span !== undefined) next = withSetting(next, 'span', box.span === null ? null : clampSpan(box.span));
+    if (box.height !== undefined) {
+      next = withSetting(next, 'height', box.height === null ? null : clampHeight(box.height));
+    }
+    return next;
+  });
+}
+
+/** Set how large a free-resize tile draws its contents. */
+export function setWidgetZoom(
+  layout: DashboardLayout,
+  instanceId: string,
+  zoom: WidgetZoom,
+): DashboardLayout {
+  if (!isWidgetZoom(zoom)) return layout;
+  return withInstance(layout, instanceId, (w) => withSetting(w, 'zoom', zoom));
 }
 
 /**
@@ -723,7 +893,7 @@ export function clonePane(layout: DashboardLayout, from: PaneId, to: PaneId): Da
   const widgets = source.widgets.map((w) => {
     const instanceId = makeInstanceId(w.widgetId, taken);
     taken.add(instanceId);
-    return { instanceId, widgetId: w.widgetId, size: w.size };
+    return { instanceId, widgetId: w.widgetId, ...tileSettings(w) };
   });
   const scope: PaneScope = {
     symbol: source.scope.symbol,

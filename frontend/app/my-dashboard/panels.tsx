@@ -7,7 +7,7 @@
  * they need (symbol / theme / a context-derived model).
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Gauge, ListOrdered } from 'lucide-react';
 
 import MarketMakerExposures from '@/components/MarketMakerExposures';
@@ -17,6 +17,7 @@ import TradeBiasSection from '@/components/TradeBiasSection';
 import BiasHorizonCard from '@/app/trade-bias/BiasHorizonCard';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
+import TerminalSurface from '@/app/chart/TerminalSurface';
 import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
 import GexProfileChart from '@/components/GexProfileChart';
@@ -65,7 +66,7 @@ import {
 } from '@/hooks/useApiData';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 
-import { useTimeframe } from '@/core/TimeframeContext';
+import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
 import { useHedgingFlow } from '@/hooks/useHedgingFlow';
 import { useGexUnit } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
@@ -102,6 +103,8 @@ import {
 
 import { WidgetCard } from './primitives';
 import { useMyDashboardData } from './DashboardData';
+import { useWidgetInstance } from './widgetInstance';
+import WidgetSymbolSelect from './WidgetSymbolSelect';
 import { dict } from './panels.i18n';
 
 // ── Overview ──────────────────────────────────────────────────────────────
@@ -177,6 +180,30 @@ export function GammaChartPanel() {
   return (
     <div className="h-full">
       <GammaTerminalChart />
+    </div>
+  );
+}
+
+// The Gamma Terminal (/chart) as a tile: the Gamma Chart in terminal mode —
+// GEX ribbons on behind the tape, spot held at the tape's center — with the
+// per-strike book beside it as two strike-aligned ladders or the Strike Panel.
+// It is the page's own instrument block (TerminalSurface), not a copy, so the
+// two can't drift apart.
+//
+// Its underlying is the tile's own, like the Gamma Ladder's: the picker beside
+// the view switch follows the board by default, and the chart's and the
+// ladder's own symbol switchers pin THIS tile rather than moving the page —
+// two terminals on one board can watch two underlyings.
+export function GammaTerminalPanel() {
+  const { symbol } = useTimeframe();
+  const instance = useWidgetInstance();
+  const setTileSymbol = instance?.setSymbol;
+  const pin = useCallback((next: UnderlyingSymbol) => setTileSymbol?.(next), [setTileSymbol]);
+  return (
+    <div className="h-full">
+      <TimeframeSymbolScope symbol={symbol} onSymbolChange={pin}>
+        <TerminalSurface inWidget />
+      </TimeframeSymbolScope>
     </div>
   );
 }
@@ -335,29 +362,24 @@ export function GexHeatmapPanel() {
   );
 }
 
-// The ladder's header control slot. Pair Comparison puts its per-column symbol
-// dropdown here; a tile follows the board's symbol (or its pane's), so it reads
-// as a plain label — retargeting is a board-level action, not a per-tile one.
-function LadderSymbolTag({ symbol }: { symbol: string }) {
-  return (
-    <span
-      className="font-mono font-bold"
-      style={{ fontSize: 14, letterSpacing: '0.04em', color: 'var(--text-primary)' }}
-    >
-      {symbol}
-    </span>
-  );
-}
-
 // One column of the Pair Comparison ladder — the same component and the same
-// feeds (useGammaLadderColumn), for the board's symbol. Its display
-// preferences ride along so the tile is the full instrument rather than a
-// read-only copy: Strikes (active-only vs every listed strike), the GEX unit,
-// the expiration filter and the Session-Δ overlay are all global preferences,
-// so changing any of them here moves the ladder, the pair page and the
-// by-strike table together.
+// feeds (useGammaLadderColumn). Its display preferences ride along so the tile
+// is the full instrument rather than a read-only copy: Strikes (active-only vs
+// every listed strike), the GEX unit, the expiration filter and the Session-Δ
+// overlay are all global preferences, so changing any of them here moves the
+// ladder, the pair page and the by-strike table together.
+//
+// What is the tile's own: its underlying (the picker in the ladder header,
+// where Pair Comparison has its per-column dropdown — "Default" follows the
+// board, any symbol pins just this tile, so a board can carry a ladder per
+// underlying), its size (dragged; the rows fill whatever height it is given,
+// spot held at the center) and its text size (the S/M/L buttons in edit mode).
 export function GammaLadderPanel() {
+  // The tile's symbol: its own pin if it has one, else the board's — the
+  // tile's symbol scope (WidgetFrame) has already resolved which.
   const { symbol } = useTimeframe();
+  const instance = useWidgetInstance();
+  const scale = instance?.zoomScale ?? 1;
   const { gexUnit } = useGexUnit();
   const { activeOnly } = useStrikeFilter();
   const { showSessionDelta } = useSessionDelta();
@@ -369,8 +391,8 @@ export function GammaLadderPanel() {
     sessionDelta: showSessionDelta,
   });
   const ladderColumn = useMemo(
-    () => ({ ...column, control: <LadderSymbolTag symbol={symbol} /> }),
-    [column, symbol],
+    () => ({ ...column, control: <WidgetSymbolSelect scale={scale} /> }),
+    [column, scale],
   );
 
   return (
@@ -380,6 +402,7 @@ export function GammaLadderPanel() {
       href="/pair-comparison"
       hrefLabel={t('comparePair')}
       pad={false}
+      stretch
     >
       <div
         className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
@@ -397,7 +420,9 @@ export function GammaLadderPanel() {
         <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />
       </div>
-      <GammaLadder column={ladderColumn} gexUnit={gexUnit} activeOnly={activeOnly} />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <GammaLadder column={ladderColumn} gexUnit={gexUnit} activeOnly={activeOnly} fill scale={scale} />
+      </div>
     </WidgetCard>
   );
 }

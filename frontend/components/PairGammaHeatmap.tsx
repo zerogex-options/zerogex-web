@@ -35,7 +35,7 @@
  * literally this file's column, so the two surfaces can't drift apart.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import { selectActiveCells } from "@/core/strikeFilter";
@@ -128,6 +128,14 @@ const DELTA_LEGEND_H = 22;
 // window (a dashboard tile is far shorter than the page's full-height ladder);
 // the pair page keeps the full depth.
 const MAX_SIDE = 20;
+
+// Draw scale for every px size in a column — type, row height, tags. 1 (the
+// default, and all Pair Comparison and the Gamma Terminal ever use) draws the
+// ladder exactly as designed; the dashboard tile's S / M / L text sizes set
+// it. A context rather than a prop because the small presentational pieces
+// below are nested several levels down and take nothing else from the column.
+const LadderScaleContext = createContext(1);
+const useLadderScale = () => useContext(LadderScaleContext);
 
 // ---- Number formatting ------------------------------------------------------
 function percentile(values: number[], p: number): number {
@@ -324,6 +332,7 @@ function cellTint(netGex: number, clip: number): string {
 // Always rendered for every level (GF/CW/PW/MP) so the legend is the same size
 // in both columns; an unavailable level shows a muted "NA".
 function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value: number | null }) {
+  const s = useLadderScale();
   const has = value != null && Number.isFinite(value);
   return (
     <span
@@ -332,7 +341,7 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
       style={{ whiteSpace: "nowrap" }}
     >
       <RailTag meta={meta} />
-      <span style={{ fontSize: 10, fontWeight: 600, color: has ? "var(--text-primary)" : "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+      <span style={{ fontSize: 10 * s, fontWeight: 600, color: has ? "var(--text-primary)" : "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
         {has ? fmtLevel(value as number) : "NA"}
       </span>
     </span>
@@ -348,16 +357,20 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
 // the reason these are two letters rather than one. The wash and the 55% border
 // still carry the level's colour.
 function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
+  const s = useLadderScale();
   return (
     <span
       title={meta.label}
       // 9px everywhere, the app's floor for text. It fits the 12px-tall tag,
-      // and these codes are the only level labels on the ladders.
-      className="inline-flex items-center justify-center font-mono text-[9px]"
+      // and these codes are the only level labels on the ladders. (A dashboard
+      // tile set to its small text size draws it a little under that, by the
+      // member's own choice.)
+      className="inline-flex items-center justify-center font-mono"
       style={{
-        minWidth: 15,
-        height: 12,
-        padding: "0 2px",
+        fontSize: 9 * s,
+        minWidth: 15 * s,
+        height: 12 * s,
+        padding: `0 ${2 * s}px`,
         fontWeight: 800,
         letterSpacing: "0.02em",
         borderRadius: 2,
@@ -373,6 +386,7 @@ function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
 }
 
 function ChangeBadge({ changePercent, isPositive }: { changePercent?: number | null; isPositive?: boolean }) {
+  const scale = useLadderScale();
   if (changePercent == null || !Number.isFinite(changePercent)) return null;
   const pos = isPositive ?? changePercent >= 0;
   const color = pos ? "var(--color-bull)" : "var(--color-bear)";
@@ -380,7 +394,7 @@ function ChangeBadge({ changePercent, isPositive }: { changePercent?: number | n
     <span
       className="font-mono"
       style={{
-        fontSize: 11,
+        fontSize: 11 * scale,
         fontWeight: 700,
         padding: "1px 6px",
         borderRadius: "var(--radius-control)",
@@ -407,8 +421,9 @@ const DELTA_NOISE_FRACTION = 0.02;
 // confetti. Drawn with borders (not a glyph) so it renders identically at 6px
 // in every font/theme.
 function DeltaTriangle({ dir, strong }: { dir: "up" | "down"; strong: boolean }) {
+  const s = useLadderScale();
   const color = dir === "up" ? "var(--color-bull)" : "var(--color-bear)";
-  const side = "3.5px solid transparent";
+  const side = `${3.5 * s}px solid transparent`;
   return (
     <span
       aria-hidden
@@ -420,8 +435,8 @@ function DeltaTriangle({ dir, strong }: { dir: "up" | "down"; strong: boolean })
         borderRight: side,
         opacity: strong ? 1 : 0.55,
         ...(dir === "up"
-          ? { borderBottom: `5px solid ${color}` }
-          : { borderTop: `5px solid ${color}` }),
+          ? { borderBottom: `${5 * s}px solid ${color}` }
+          : { borderTop: `${5 * s}px solid ${color}` }),
       }}
     />
   );
@@ -432,10 +447,12 @@ function DeltaTriangle({ dir, strong }: { dir: "up" | "down"; strong: boolean })
 // ~200px and turns the sub-header into a jumble). Shown only while the
 // overlay is on, so the chrome stays quiet otherwise.
 function DeltaLegend() {
+  const s = useLadderScale();
   return (
     <div
-      className="flex items-center justify-center gap-3 px-2 py-1 text-[9px] uppercase tracking-wider whitespace-nowrap"
+      className="flex items-center justify-center gap-3 px-2 py-1 uppercase tracking-wider whitespace-nowrap"
       style={{
+        fontSize: 9 * s,
         color: "var(--text-muted)",
         background: "var(--bg-subtle)",
         borderTop: "1px solid var(--border-default)",
@@ -454,11 +471,12 @@ function DeltaLegend() {
 }
 
 function RegimeChip({ spot, flip }: { spot: number | null; flip: number | null }) {
+  const s = useLadderScale();
   if (spot == null || flip == null || !Number.isFinite(spot) || !Number.isFinite(flip)) return null;
   const long = spot >= flip;
   const color = long ? "var(--color-bull)" : "var(--color-bear)";
   return (
-    <span className="zg-chip" style={{ ["--chip-color" as string]: color, fontSize: 9.5, padding: "1px 6px" }}>
+    <span className="zg-chip" style={{ ["--chip-color" as string]: color, fontSize: 9.5 * s, padding: "1px 6px" }}>
       {long ? "Long Γ" : "Short Γ"}
     </span>
   );
@@ -469,13 +487,33 @@ function HeatmapColumn({
   offsets,
   gexUnit,
   fit = null,
+  fill = false,
+  onBandHeight,
 }: {
   model: ColumnModel;
   offsets: number[];
   gexUnit: GexUnit;
   fit?: LadderFit | null;
+  /**
+   * Fill the column's own height: the header keeps its natural height, the
+   * strike rows take the rest, and the spot row stays at the vertical center
+   * of them however tall the column is made. CSS does the centering, so the
+   * rows follow a resize with no measuring; `onBandHeight` reports the rows'
+   * height so the caller can size the strike window to what is visible.
+   */
+  fill?: boolean;
+  onBandHeight?: (height: number) => void;
 }) {
   const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
+  const s = useLadderScale();
+  const rowH = ROW_H * s;
+  const [bandEl, setBandEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!fill || !onBandHeight || !bandEl) return;
+    const ro = new ResizeObserver(() => onBandHeight(bandEl.clientHeight));
+    ro.observe(bandEl);
+    return () => ro.disconnect();
+  }, [fill, onBandHeight, bandEl]);
   // Fit mode needs the header's rendered height to place the rows band: the
   // legend wraps differently per width and per theme font, so measure it.
   const headRef = useRef<HTMLDivElement | null>(null);
@@ -491,7 +529,7 @@ function HeatmapColumn({
   }, [fitted]);
   // Slide the rows so the spot row (offset 0) is centered on the fit anchor.
   const centerRow = Math.max(0, offsets.indexOf(0));
-  const rowsTop = fit ? fit.spotY - headH - (centerRow + 0.5) * ROW_H : 0;
+  const rowsTop = fit ? fit.spotY - headH - (centerRow + 0.5) * rowH : 0;
   const bandH = fit ? Math.max(0, fit.bottom - headH) : 0;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
   const lv = model.levelValues;
@@ -503,7 +541,7 @@ function HeatmapColumn({
   const deltaFloor = clip * DELTA_NOISE_FRACTION;
 
   return (
-    <div className="min-w-0 flex flex-col">
+    <div className={fill ? "min-w-0 min-h-0 flex-1 flex flex-col" : "min-w-0 flex flex-col"}>
       <div ref={headRef}>
       {/* Column header — dropdown + regime, then spot + change, then level legend */}
       <div
@@ -517,7 +555,7 @@ function HeatmapColumn({
         <div className="flex items-baseline justify-between gap-2 min-w-0">
           <span
             className="font-mono truncate"
-            style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
+            style={{ fontSize: 18 * s, fontWeight: 700, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
           >
             {input.spot != null ? `$${fmtSpot(input.spot)}` : "--"}
           </span>
@@ -539,7 +577,7 @@ function HeatmapColumn({
       {/* Sub-header: strike / net gex labels. One line, never wrapped — the
           session-Δ triangles are explained by the shared DeltaLegend strip
           under the ladder, not squeezed in here. */}
-      <div className="flex items-center justify-between px-2 py-1 text-[9px] uppercase tracking-wider whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+      <div className="flex items-center justify-between px-2 py-1 uppercase tracking-wider whitespace-nowrap" style={{ fontSize: 9 * s, color: "var(--text-muted)" }}>
         <span>Strike</span>
         <span>Net GEX ({unitLabel})</span>
       </div>
@@ -548,8 +586,8 @@ function HeatmapColumn({
         // bucket that did. Its own line: the column is too narrow to share the
         // label row without colliding with the unit label.
         <div
-          className="px-2 pb-1 text-[9px] whitespace-nowrap"
-          style={{ color: input.positioningKind === "rewind" ? "var(--color-flip)" : "var(--color-warning)", marginTop: -2 }}
+          className="px-2 pb-1 whitespace-nowrap"
+          style={{ fontSize: 9 * s, color: input.positioningKind === "rewind" ? "var(--color-flip)" : "var(--color-warning)", marginTop: -2 }}
           title={
             input.positioningKind === "rewind"
               ? "Rewind: the book, spot and levels as of this bucket\u00a0- the chart's replay clock. Exit Rewind on the chart to return to live."
@@ -575,14 +613,16 @@ function HeatmapColumn({
           No strike data
         </div>
       ) : (
-        // Fit mode clips mid-row at both ends of the band; a short fade at each
-        // edge reads as a window onto the ladder rather than a torn row.
+        // Fit and fill modes clip mid-row at both ends of the band; a short
+        // fade at each edge reads as a window onto the ladder rather than a
+        // torn row.
         <div
+          ref={fill ? setBandEl : undefined}
           style={
-            fit
+            fit || fill
               ? {
                   position: "relative",
-                  height: bandH,
+                  ...(fill ? { flex: "1 1 0", minHeight: 0 } : { height: bandH }),
                   overflow: "hidden",
                   maskImage: "linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent)",
                   WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent)",
@@ -590,7 +630,15 @@ function HeatmapColumn({
               : undefined
           }
         >
-        <div style={fit ? { position: "absolute", left: 0, right: 0, top: rowsTop } : undefined}>
+        <div
+          style={
+            fit
+              ? { position: "absolute", left: 0, right: 0, top: rowsTop }
+              : fill
+                ? { position: "absolute", left: 0, right: 0, top: `calc(50% - ${(centerRow + 0.5) * rowH}px)` }
+                : undefined
+          }
+        >
           {offsets.map((o) => {
             const cell = cellByOffset.get(o);
             const arrows = arrowsByOffset.get(o) ?? [];
@@ -602,11 +650,11 @@ function HeatmapColumn({
             const railColor = arrows.length > 0 ? LEVEL_META[arrows[0]].color : null;
 
             return (
-              <div key={o} className="flex items-stretch" style={{ height: ROW_H }}>
+              <div key={o} className="flex items-stretch" style={{ height: rowH }}>
                 <div
                   className="flex-1 min-w-0 flex items-center justify-between gap-1 px-1.5 font-mono"
                   style={{
-                    fontSize: 11,
+                    fontSize: 11 * s,
                     background: bg,
                     color: "var(--text-primary)",
                     borderTop: "1px solid var(--bg-card)",
@@ -631,7 +679,7 @@ function HeatmapColumn({
                             }}
                           >
                             {fmtStrike(cell.strike)}
-                            <span style={{ fontSize: 9, opacity: 0.8 }}>▸</span>
+                            <span style={{ fontSize: 9 * s, opacity: 0.8 }}>▸</span>
                           </span>
                         ) : (
                           <span className="font-semibold truncate">{fmtStrike(cell.strike)}</span>
@@ -644,7 +692,7 @@ function HeatmapColumn({
                         {isPeak && (
                           // King node — the heaviest dealer gamma in view. Crown
                           // in currentColor so it stays readable on any cell tint.
-                          <Crown size={12} strokeWidth={2.25} aria-label="King node&nbsp;- heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
+                          <Crown size={12 * s} strokeWidth={2.25} aria-label="King node&nbsp;- heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
                         )}
                         {baseline &&
                           (() => {
@@ -656,7 +704,7 @@ function HeatmapColumn({
                             return (
                               <span
                                 className="inline-flex items-center justify-center"
-                                style={{ width: 8, flex: "0 0 auto" }}
+                                style={{ width: 8 * s, flex: "0 0 auto" }}
                                 title={mark ? sessionDeltaTitle(mark) : undefined}
                               >
                                 {mark && (
@@ -746,32 +794,56 @@ export default function PairGammaHeatmap({
  * same center-pinned rows, same sign tint and King node; there is no second
  * column to align against, so the window is just this symbol's own.
  *
- * Used by the "Gamma Ladder" My Dashboard widget, where `control` is a plain
- * symbol label rather than the page's dropdown (the tile follows the board's
- * symbol). The strike window is the SAME ±MAX_SIDE the pair page renders — a
- * tile used to shorten it, which made the widget read as a different (smaller)
- * instrument than the page; now the two surfaces show the identical ladder.
+ * Used by the "Gamma Ladder" My Dashboard widget, where `control` is the
+ * tile's own symbol picker. By default the strike window is the SAME
+ * ±MAX_SIDE the pair page renders, so the two surfaces show the identical
+ * ladder. `fill` instead sizes the window to the height it is given — the
+ * dashboard tile is resized by dragging, and its rows follow, spot centered —
+ * and `scale` draws it at the tile's chosen text size.
  */
 export function GammaLadder({
   column,
   gexUnit,
   activeOnly = true,
+  fill = false,
+  scale = 1,
 }: {
   column: HeatmapColumnInput;
   gexUnit: GexUnit;
   /** Hide strikes with no dealer gamma (net GEX 0) — see PairGammaHeatmap. */
   activeOnly?: boolean;
+  /** Fill the parent's height, spot row centered — see HeatmapColumn. */
+  fill?: boolean;
+  /** Draw scale for type and rows (1 = as designed). */
+  scale?: number;
 }) {
+  // In fill mode the window is as many strikes as the rows band shows, so the
+  // King node is always a strike that is actually on screen. Until the band
+  // has been measured (and whenever it is not on screen) the page default.
+  const [bandH, setBandH] = useState<number | null>(null);
+  const rowH = ROW_H * scale;
+  const maxSide = fill && bandH != null && bandH > 0 ? Math.max(1, Math.ceil((bandH / rowH - 1) / 2)) : MAX_SIDE;
   const model = useMemo(
-    () => buildModel(column, gexUnit, activeOnly, MAX_SIDE),
-    [column, gexUnit, activeOnly],
+    () => buildModel(column, gexUnit, activeOnly, maxSide),
+    [column, gexUnit, activeOnly, maxSide],
   );
   const offsets = useMemo(() => columnOffsets([model]), [model]);
 
   return (
-    <div className="h-full min-w-0" style={{ background: "var(--bg-card)" }}>
-      <HeatmapColumn model={model} offsets={offsets} gexUnit={gexUnit} />
-      {column.sessionBaseline && <DeltaLegend />}
-    </div>
+    <LadderScaleContext.Provider value={scale}>
+      <div
+        className={fill ? "flex-1 h-full min-h-0 min-w-0 flex flex-col" : "h-full min-w-0"}
+        style={{ background: "var(--bg-card)" }}
+      >
+        <HeatmapColumn
+          model={model}
+          offsets={offsets}
+          gexUnit={gexUnit}
+          fill={fill}
+          onBandHeight={fill ? setBandH : undefined}
+        />
+        {column.sessionBaseline && <DeltaLegend />}
+      </div>
+    </LadderScaleContext.Provider>
   );
 }

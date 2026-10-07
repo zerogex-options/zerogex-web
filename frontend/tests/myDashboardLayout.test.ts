@@ -76,6 +76,16 @@ const {
   hasBoardSynced,
   isBoardUnsynced,
   setBoardUnsynced,
+  setWidgetSymbol,
+  setWidgetBox,
+  setWidgetZoom,
+  clampSpan,
+  clampHeight,
+  isWidgetZoom,
+  WIDGET_COLSPAN,
+  GRID_COLUMNS,
+  MIN_WIDGET_HEIGHT,
+  MAX_WIDGET_HEIGHT,
 } = await import('../core/myDashboardLayout.ts');
 
 type Layout = ReturnType<typeof emptyLayout>;
@@ -687,4 +697,117 @@ test('the sync state is per member and leaves the stored board alone', () => {
   assert.equal(isBoardUnsynced('user_a'), false);
   assert.equal(hasBoardSynced('user_a'), true, 'once synced, stays known to the account');
   assert.deepEqual(loadLayout('user_a'), board);
+});
+
+// ── Per-tile settings: symbol, free-resize box, zoom ─────────────────────────
+
+test('footprints are quarter / half / three-quarters / full of the 12-column grid', () => {
+  assert.equal(GRID_COLUMNS, 12);
+  assert.deepEqual(WIDGET_COLSPAN, { sm: 3, md: 6, lg: 9, xl: 12 });
+});
+
+test('a board saved before per-tile settings existed loads without any of them', () => {
+  const layout = sanitizeLayout({ widgets: [{ widgetId: 'gamma-ladder', size: 'sm', instanceId: 'gamma-ladder#1' }] });
+  assert.deepEqual(widgetsOf(layout), [{ instanceId: 'gamma-ladder#1', widgetId: 'gamma-ladder', size: 'sm' }]);
+});
+
+test('sanitizeLayout keeps valid per-tile settings and drops bad ones one by one', () => {
+  const layout = sanitizeLayout({
+    split: false,
+    panes: [
+      {
+        id: 'a',
+        widgets: [
+          { widgetId: 'gamma-ladder', size: 'sm', symbol: 'QQQ', span: 2, height: 520, zoom: 'lg' },
+          { widgetId: 'gamma-ladder', size: 'sm', symbol: 'DOGE', span: 'wide', height: -4, zoom: 'xl' },
+          { widgetId: 'gamma-ladder', size: 'sm', span: 40, height: 99999 },
+        ],
+      },
+    ],
+  });
+  const [good, bad, clamped] = widgetsOf(layout);
+  assert.deepEqual(
+    { symbol: good.symbol, span: good.span, height: good.height, zoom: good.zoom },
+    { symbol: 'QQQ', span: 2, height: 520, zoom: 'lg' },
+  );
+  assert.deepEqual(bad, { instanceId: bad.instanceId, widgetId: 'gamma-ladder', size: 'sm', height: MIN_WIDGET_HEIGHT });
+  assert.equal(clamped.span, 12, 'a span past the grid clamps to the full width');
+  assert.equal(clamped.height, MAX_WIDGET_HEIGHT);
+});
+
+test('per-tile settings round-trip through storage', () => {
+  let layout = add(emptyLayout(), 'gamma-ladder', 'sm');
+  layout = setWidgetSymbol(layout, 'gamma-ladder#1', 'SPX');
+  layout = setWidgetBox(layout, 'gamma-ladder#1', { span: 2, height: 480 });
+  layout = setWidgetZoom(layout, 'gamma-ladder#1', 'sm');
+  saveLayout(layout, SCOPE);
+  assert.deepEqual(loadLayout(SCOPE), layout);
+});
+
+test('setWidgetSymbol pins one tile, leaves its twin alone, and un-pins with null', () => {
+  const base = add(add(emptyLayout(), 'gamma-ladder', 'sm'), 'gamma-ladder', 'sm');
+  const pinned = setWidgetSymbol(base, 'gamma-ladder#2', 'NDX');
+  assert.equal(widgetsOf(pinned)[0].symbol, undefined, 'the other ladder still follows the page');
+  assert.equal(widgetsOf(pinned)[1].symbol, 'NDX');
+  assert.equal(setWidgetSymbol(pinned, 'gamma-ladder#2', 'NDX'), pinned, 'same symbol is a no-op');
+  const followed = setWidgetSymbol(pinned, 'gamma-ladder#2', null);
+  assert.equal('symbol' in widgetsOf(followed)[1], false, 'un-pinning removes the field');
+  assert.equal(setWidgetSymbol(base, 'ghost#1', 'SPY'), base, 'absent instance is a no-op');
+});
+
+test('setWidgetBox sets, clamps and clears width and height independently', () => {
+  const base = add(emptyLayout(), 'gamma-ladder', 'sm');
+  const sized = setWidgetBox(base, 'gamma-ladder#1', { span: 2.4, height: 433.6 });
+  assert.equal(widgetsOf(sized)[0].span, 2);
+  assert.equal(widgetsOf(sized)[0].height, 434);
+  const widthOnly = setWidgetBox(sized, 'gamma-ladder#1', { span: 5 });
+  assert.equal(widgetsOf(widthOnly)[0].height, 434, 'an omitted field is left alone');
+  const filled = setWidgetBox(widthOnly, 'gamma-ladder#1', { height: null });
+  assert.equal('height' in widgetsOf(filled)[0], false, 'null goes back to filling the row');
+  assert.equal(widgetsOf(filled)[0].span, 5);
+  assert.equal(setWidgetBox(filled, 'gamma-ladder#1', { span: 5 }), filled, 'unchanged is a no-op');
+  assert.equal(widgetsOf(setWidgetBox(base, 'gamma-ladder#1', { span: 0 }))[0].span, 1);
+});
+
+test('setWidgetZoom sets the text size and rejects anything else', () => {
+  const base = add(emptyLayout(), 'gamma-ladder', 'sm');
+  const zoomed = setWidgetZoom(base, 'gamma-ladder#1', 'lg');
+  assert.equal(widgetsOf(zoomed)[0].zoom, 'lg');
+  assert.equal(widgetsOf(zoomed)[0].size, 'sm', 'the footprint is untouched');
+  assert.equal(setWidgetZoom(zoomed, 'gamma-ladder#1', 'xl' as never), zoomed);
+  assert.equal(isWidgetZoom('md'), true);
+  assert.equal(isWidgetZoom('xl'), false);
+});
+
+test('duplicating, cloning and moving a tile carry its per-tile settings', () => {
+  let layout = add(emptyLayout(), 'gamma-ladder', 'sm');
+  layout = setWidgetSymbol(layout, 'gamma-ladder#1', 'QQQ');
+  layout = setWidgetBox(layout, 'gamma-ladder#1', { span: 2, height: 600 });
+  layout = setWidgetZoom(layout, 'gamma-ladder#1', 'lg');
+  const settings = (w: { symbol?: string; span?: number; height?: number; zoom?: string; size: string }) => ({
+    size: w.size,
+    symbol: w.symbol,
+    span: w.span,
+    height: w.height,
+    zoom: w.zoom,
+  });
+  const expected = { size: 'sm', symbol: 'QQQ', span: 2, height: 600, zoom: 'lg' };
+
+  const duplicated = duplicateWidget(layout, 'gamma-ladder#1');
+  assert.deepEqual(settings(widgetsOf(duplicated)[1]), expected);
+
+  const cloned = clonePane(layout, 'a', 'b');
+  assert.deepEqual(settings(widgetsOf(cloned, 'b')[0]), expected);
+
+  const moved = moveWidgetToPane(setSplit(layout, true), 'gamma-ladder#1', 'b');
+  assert.deepEqual(settings(widgetsOf(moved, 'b')[0]), expected);
+});
+
+test('clampSpan / clampHeight bound and round, and reject non-numbers', () => {
+  assert.equal(clampSpan(7.6), 8);
+  assert.equal(clampSpan(-3), 1);
+  assert.equal(clampSpan('4'), null);
+  assert.equal(clampSpan(Number.NaN), null);
+  assert.equal(clampHeight(20), MIN_WIDGET_HEIGHT);
+  assert.equal(clampHeight(Infinity), null);
 });

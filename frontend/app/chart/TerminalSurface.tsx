@@ -39,6 +39,15 @@
  * endpoints to an anonymous browser. The panel's four views are live-only for
  * the same reason they always were: the snapshot ships net gamma by strike but
  * no call/put split, so the delayed panel is the silhouette.
+ *
+ * ── In a My Dashboard tile ──
+ * `inWidget` mounts the same instrument as the dashboard's Gamma Terminal
+ * widget. Two things change. The side-by-side layout is decided by the TILE's
+ * width rather than the window's (a half-width tile on a wide monitor has no
+ * room for the panel beside the chart), and stacked, the panel is held to a
+ * fixed height with spot centered rather than running the ladders' full
+ * forty-one rows down the board. The tile also gets its own underlying picker
+ * beside the view switch, with a "Default" that follows the board.
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -49,6 +58,7 @@ import GammaTerminalChart, {
 } from "@/components/GammaTerminalChart";
 import PairGammaHeatmap, { ROW_H, type HeatmapColumnInput, type LadderFit } from "@/components/PairGammaHeatmap";
 import SymbolSelect from "@/components/SymbolSelect";
+import WidgetSymbolSelect from "@/app/my-dashboard/WidgetSymbolSelect";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import SessionDeltaToggle from "@/components/SessionDeltaToggle";
 import GexUnitToggle from "@/components/GexUnitToggle";
@@ -88,6 +98,11 @@ const readWideServer = () => false;
 // panel just takes a readable height of its own.
 const STACKED_PANEL_H = 420;
 
+// In a dashboard tile the panel goes beside the chart once the tile can hold
+// both: the panel's 372px, the gap, and the 700px under which the chart
+// swaps its desktop board for the portrait compact one.
+const WIDGET_WIDE_MIN = 372 + 16 + 700;
+
 const FROZEN_SYMBOL_TITLE =
   "The free preview is a frozen ~15-minute-delayed snapshot of this pair. Members pick any underlying, live.";
 
@@ -122,14 +137,31 @@ export default function TerminalSurface({
   snapshot = null,
   delayed = false,
   ladders = null,
+  inWidget = false,
 }: {
   snapshot?: ChartSnapshot | null;
   delayed?: boolean;
   ladders?: LadderSnapshots | null;
+  /** Mounted as a My Dashboard tile — see the header comment. */
+  inWidget?: boolean;
 }) {
   const live = !delayed;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
-  const wide = useSyncExternalStore(subscribeWide, readWide, readWideServer);
+  const viewportWide = useSyncExternalStore(subscribeWide, readWide, readWideServer);
+  // A tile measures itself: its width, not the window's, is the room it has.
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const [rootW, setRootW] = useState(0);
+  useEffect(() => {
+    if (!inWidget || !rootEl) return;
+    const ro = new ResizeObserver(() => setRootW(rootEl.clientWidth));
+    ro.observe(rootEl);
+    return () => ro.disconnect();
+  }, [inWidget, rootEl]);
+  const wide = inWidget ? rootW >= WIDGET_WIDE_MIN : viewportWide;
+  // Stacked in a tile, the ladders are held to the stacked panel height with
+  // spot centered, rather than at their full natural length.
+  const stackedFit: LadderFit | null =
+    inWidget && !wide ? { spotY: STACKED_PANEL_H / 2, bottom: STACKED_PANEL_H } : null;
 
   // The view, restored from localStorage after mount (server and first client
   // render use the default, so there is no hydration mismatch — the same
@@ -182,7 +214,9 @@ export default function TerminalSurface({
   const fit: LadderFit | null =
     wide && laddersView && geometry && geometry.spotY != null && bodyBox
       ? { spotY: geometry.spotY - bodyBox.top, bottom: bodyBox.height }
-      : null;
+      : laddersView
+        ? stackedFit
+        : null;
   // Enough strikes each side to fill the band from any anchor.
   const maxSide = fit ? Math.max(20, Math.ceil(fit.bottom / ROW_H) + 1) : 20;
 
@@ -299,11 +333,12 @@ export default function TerminalSurface({
   };
 
   return (
-    <div className="mb-8">
+    <div ref={setRootEl} className={inWidget ? undefined : "mb-8"}>
       {/* View switch. Sits above the instrument rather than inside the chart's
           own toolbar because it decides what the panel holds, not how the chart
           draws — the chart is identical under either. */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {inWidget && <WidgetSymbolSelect />}
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Beside the tape</span>
         <div className="zg-gc-seg" role="tablist" aria-label="Dealer-gamma view beside the chart">
           {([
@@ -329,7 +364,7 @@ export default function TerminalSurface({
           a wide screen (≥ xl) and stacks under it below that — the chart keeps
           its own aspect ratio, so anything narrower would squeeze the candles
           into a strip. Top-aligned: neither card is stretched to the other. */}
-      <div className="flex flex-col xl:flex-row xl:items-start gap-4">
+      <div className={inWidget ? `flex gap-4 ${wide ? "flex-row items-start" : "flex-col"}` : "flex flex-col xl:flex-row xl:items-start gap-4"}>
         <div className="flex-1 min-w-0">
           {/* One configuration under both views: terminal mode, spot held at the
               tape's center, ribbons on by default, its own storage scope. The
@@ -355,7 +390,7 @@ export default function TerminalSurface({
             while the tape keeps as much width as possible. The card takes the
             chart's exact height once the chart has reported it. */}
         <aside
-          className="relative w-full xl:w-[372px] xl:flex-none zg-feature-shell zg-gc-rise flex flex-col"
+          className={`relative ${inWidget ? (wide ? "w-[372px] flex-none" : "w-full") : "w-full xl:w-[372px] xl:flex-none"} zg-feature-shell zg-gc-rise flex flex-col`}
           style={{ overflow: "hidden", height: wide && geometry ? geometry.height : undefined }}
           aria-label={laddersView ? "Gamma ladders" : "Dealer gamma by strike"}
         >
@@ -402,7 +437,11 @@ export default function TerminalSurface({
             <div
               ref={bodyRef}
               className="relative flex-1 min-h-0"
-              style={{ overflow: "hidden", minHeight: !laddersView && !panelBand ? STACKED_PANEL_H : undefined }}
+              style={{
+                overflow: "hidden",
+                minHeight: !laddersView && !panelBand ? STACKED_PANEL_H : undefined,
+                height: stackedFit && laddersView ? STACKED_PANEL_H : undefined,
+              }}
             >
               {laddersView ? (
                 <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} fit={fit} maxSide={maxSide} />

@@ -2,6 +2,7 @@
 
 import {
   Component,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -19,18 +20,76 @@ import {
   ArrowLeftRight,
   Lock,
   Maximize2,
+  MoveDiagonal2,
   RotateCw,
+  Type,
   X,
 } from 'lucide-react';
 
-import type { PaneId, WidgetSize } from '@/core/myDashboardLayout';
+import type { PaneId, PlacedWidget, WidgetSize, WidgetZoom } from '@/core/myDashboardLayout';
 import { DashboardWidgetContext } from '@/core/dashboardWidget';
-import { WIDGET_COLSPAN, WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
-import type { WidgetDef } from './registry';
+import {
+  DEFAULT_WIDGET_ZOOM,
+  GRID_COLUMNS,
+  MAX_WIDGET_HEIGHT,
+  WIDGET_COLSPAN,
+  WIDGET_SIZE_LABEL,
+  WIDGET_ZOOMS,
+  WIDGET_ZOOM_SCALE,
+} from '@/core/myDashboardLayout';
+import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
+import type { UnderlyingSymbol } from '@/core/symbolPersistence';
+import type { FreeResizeSpec, WidgetDef } from './registry';
+import { MyDashboardDataProvider, type FeedKey } from './DashboardData';
+import { WidgetInstanceContext, type WidgetInstanceValue } from './widgetInstance';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './WidgetFrame.i18n';
 
 const SIZE_SHORT: Record<WidgetSize, string> = { sm: 'S', md: 'M', lg: 'L', xl: 'XL' };
+const ZOOM_SHORT: Record<WidgetZoom, string> = { sm: 'S', md: 'M', lg: 'L' };
+const ZOOM_LABEL_KEY: Record<WidgetZoom, string> = { sm: 'zoomSm', md: 'zoomMd', lg: 'zoomLg' };
+
+// A dragged bottom edge within this many px of the bottom of the tiles beside
+// it snaps onto it, so the tile can be fitted to the row exactly.
+const ROW_MAGNET_PX = 18;
+// Free heights are kept to a 4px step so a board doesn't fill with 437px and
+// 441px tiles that are meant to be the same.
+const HEIGHT_STEP_PX = 4;
+// One arrow-key press on the height handle.
+const HEIGHT_KEY_STEP_PX = 20;
+
+/** The box a free-resize drag edits — undefined = leave alone, null = default. */
+export type WidgetBox = { span?: number | null; height?: number | null };
+
+/**
+ * The natural height of the row `cell` sits in, from the tiles beside it alone
+ * — what "fill the row" means for it. Null when nothing else shares the row.
+ *
+ * The tiles beside it stretch to the row, and the row is as tall as its
+ * tallest tile, which may be this one; so it is collapsed for the measurement
+ * and put back before the browser paints. One forced layout, at the start of a
+ * drag (and again if the drag moves it to another row).
+ */
+function measureRowFill(cell: HTMLElement): number | null {
+  const grid = cell.parentElement;
+  if (!grid) return null;
+  const top = cell.getBoundingClientRect().top;
+  const prev = { height: cell.style.height, minHeight: cell.style.minHeight, alignSelf: cell.style.alignSelf };
+  cell.style.height = '0px';
+  cell.style.minHeight = '0px';
+  cell.style.alignSelf = 'start';
+  let fill: number | null = null;
+  for (const sibling of Array.from(grid.children)) {
+    if (sibling === cell) continue;
+    const r = sibling.getBoundingClientRect();
+    if (Math.abs(r.top - top) > 2) continue;
+    fill = Math.max(fill ?? 0, r.height);
+  }
+  cell.style.height = prev.height;
+  cell.style.minHeight = prev.minHeight;
+  cell.style.alignSelf = prev.alignSelf;
+  return fill;
+}
 
 // ── Per-widget error boundary ────────────────────────────────────────────────
 // One broken widget (a bad API payload, a render throw) must never take down the
@@ -123,7 +182,8 @@ function UpgradeCard({ widget }: { widget: WidgetDef }) {
 
 export type WidgetFrameProps = {
   widget: WidgetDef;
-  size: WidgetSize;
+  /** This placement — its footprint and its per-tile settings. */
+  item: PlacedWidget;
   editing: boolean;
   locked: boolean;
   isDragging: boolean;
@@ -136,6 +196,12 @@ export type WidgetFrameProps = {
    *  native drag-to-reorder for the duration of the gesture. */
   onResizeStart: () => void;
   onResizeEnd: () => void;
+  /** Free-resize tiles: set the dragged width and/or height. */
+  onBoxChange: (box: WidgetBox) => void;
+  /** Free-resize tiles: set how large the contents are drawn. */
+  onZoomChange: (zoom: WidgetZoom) => void;
+  /** Pin this tile to a symbol, or null to follow the board. */
+  onSymbolChange: (symbol: UnderlyingSymbol | null) => void;
   onRemove: () => void;
   /** Drop a second copy of this widget beside it (side-by-side comparison). */
   onDuplicate: () => void;
@@ -151,7 +217,7 @@ export type WidgetFrameProps = {
 
 export default function WidgetFrame({
   widget,
-  size,
+  item,
   editing,
   locked,
   isDragging,
@@ -161,6 +227,9 @@ export default function WidgetFrame({
   onResize,
   onResizeStart,
   onResizeEnd,
+  onBoxChange,
+  onZoomChange,
+  onSymbolChange,
   onRemove,
   onDuplicate,
   sendToPane,
@@ -173,21 +242,59 @@ export default function WidgetFrame({
   const t = usePageT(dict);
   const rootRef = useRef<HTMLDivElement>(null);
   const [resizing, setResizing] = useState(false);
+  // The live "2/12 cols · 480px" readout shown while a free-resize tile is
+  // being dragged; null otherwise.
+  const [readout, setReadout] = useState<string | null>(null);
+
+  const size = item.size;
+  const free: FreeResizeSpec | undefined = widget.freeResize;
+  const zoom: WidgetZoom = item.zoom ?? DEFAULT_WIDGET_ZOOM;
+  // A free tile's width in grid columns: the dragged span, or its footprint's.
+  const span = item.span ?? WIDGET_COLSPAN[size];
 
   const allowedSizes = widget.allowedSizes.length ? widget.allowedSizes : [size];
-  const canResize = allowedSizes.length > 1;
+  const canResize = free ? true : allowedSizes.length > 1;
   // Ascending by grid footprint — used for the size picker, drag-snap and
   // keyboard stepping alike.
   const sortedSizes = [...allowedSizes].sort((a, b) => WIDGET_COLSPAN[a] - WIDGET_COLSPAN[b]);
 
-  // Drag the right-edge handle to resize width. Column geometry is read live
-  // from the grid (so it's correct at any breakpoint / container width), the
-  // pointer's x maps to a fractional column span, and we snap to the nearest
-  // *allowed* footprint and apply it live as the pointer moves.
-  const beginPointerResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+  // ── Per-tile symbol ──
+  // Read here, OUTSIDE the tile's own scope: this is what the tile follows
+  // while unpinned — its half's symbol, or the page's.
+  const { symbol: boardSymbol } = useTimeframe();
+  const pinnedSymbol = item.symbol ?? null;
+  const instance = useMemo<WidgetInstanceValue>(
+    () => ({
+      pinnedSymbol,
+      defaultSymbol: boardSymbol,
+      setSymbol: onSymbolChange,
+      zoomScale: free ? WIDGET_ZOOM_SCALE[zoom] : 1,
+    }),
+    [pinnedSymbol, boardSymbol, onSymbolChange, free, zoom],
+  );
+  // A pinned tile that reads the board's shared feeds needs those feeds for
+  // ITS symbol, so it gets a provider of its own (polling only what it reads).
+  const ownFeeds = useMemo<Set<FeedKey> | null>(
+    () => (pinnedSymbol && widget.feeds.length > 0 ? new Set(widget.feeds) : null),
+    [pinnedSymbol, widget.feeds],
+  );
+
+  const readoutText = (s: number, h: number | null) =>
+    `${t('readoutCols', { span: s })} · ${h === null ? t('readoutFits') : `${h}px`}`;
+
+  // Drag a handle to resize. Column geometry is read live from the grid (so
+  // it's correct at any breakpoint / container width) and the pointer maps to
+  // a fractional column span, applied live as the pointer moves.
+  //   • A footprint tile ('x' only) snaps to the nearest *allowed* footprint.
+  //   • A free-resize tile snaps its width to whole columns and its height to
+  //     the bottom of the tiles beside it ("fill the row") — the magnets that
+  //     let it be fitted exactly into the space a row leaves it.
+  const beginPointerResize = (e: ReactPointerEvent<HTMLDivElement>, mode: 'x' | 'y' | 'xy') => {
     const grid = gridRef.current;
     const root = rootRef.current;
-    if (!canResize || !grid || !root) return;
+    const cell = root?.parentElement;
+    if (!canResize || !grid || !root || !cell) return;
+    if (mode !== 'x' && !free) return;
     e.preventDefault();
     e.stopPropagation();
 
@@ -195,7 +302,9 @@ export default function WidgetFrame({
     const cols = gs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
     const gap = parseFloat(gs.columnGap) || 16;
     const colWidth = (grid.getBoundingClientRect().width - gap * (cols - 1)) / cols;
-    const startLeft = root.getBoundingClientRect().left;
+    const startLeft = cell.getBoundingClientRect().left;
+    let rowTop = cell.getBoundingClientRect().top;
+    let rowFill = mode === 'x' ? null : measureRowFill(cell);
 
     // Capture the node + pointer id synchronously: React nulls the synthetic
     // event's currentTarget once this handler returns, but the deferred
@@ -207,17 +316,21 @@ export default function WidgetFrame({
     } catch {
       /* pointer capture unsupported — the window listeners still track the drag */
     }
-    document.body.classList.add('zg-col-resizing');
+    const bodyClass = mode === 'x' ? 'zg-col-resizing' : mode === 'y' ? 'zg-row-resizing' : 'zg-box-resizing';
+    document.body.classList.add(bodyClass);
     onResizeStart();
     setResizing(true);
 
     let lastSize = size;
-    const snap = (clientX: number): WidgetSize => {
-      const rawSpan = (clientX - startLeft + gap) / (colWidth + gap);
+    let lastSpan = span;
+    let lastHeight: number | null = item.height ?? null;
+    if (free) setReadout(readoutText(lastSpan, lastHeight));
+
+    const snapSize = (fraction: number): WidgetSize => {
       let best = sortedSizes[0];
       let bestDist = Infinity;
       for (const s of sortedSizes) {
-        const d = Math.abs(WIDGET_COLSPAN[s] - rawSpan);
+        const d = Math.abs(WIDGET_COLSPAN[s] / GRID_COLUMNS - fraction);
         if (d < bestDist) {
           bestDist = d;
           best = s;
@@ -226,23 +339,69 @@ export default function WidgetFrame({
       return best;
     };
     const onMove = (ev: PointerEvent) => {
-      const next = snap(ev.clientX);
-      if (next !== lastSize) {
-        lastSize = next;
-        onResize(next);
+      const box: WidgetBox = {};
+      if (mode !== 'y') {
+        // Span in this grid's own columns, then as a fraction of it — the
+        // footprints are fractions of whatever grid the tile sits in.
+        const rawSpan = (ev.clientX - startLeft + gap) / (colWidth + gap);
+        if (free) {
+          const next = Math.max(free.minSpan, Math.min(GRID_COLUMNS, Math.round((rawSpan * GRID_COLUMNS) / cols)));
+          if (next !== lastSpan) {
+            lastSpan = next;
+            box.span = next;
+          }
+        } else {
+          const next = snapSize(rawSpan / cols);
+          if (next !== lastSize) {
+            lastSize = next;
+            onResize(next);
+          }
+        }
+      }
+      if (mode !== 'x' && free) {
+        // A width change can wrap the tile onto another row, whose tiles are
+        // what it now fills against.
+        const top = cell.getBoundingClientRect().top;
+        if (Math.abs(top - rowTop) > 1) {
+          rowTop = top;
+          rowFill = measureRowFill(cell);
+        }
+        const raw = ev.clientY - top;
+        let next: number | null;
+        if (rowFill !== null && Math.abs(raw - rowFill) <= ROW_MAGNET_PX) {
+          // Snapped onto the row. Stored as "fill the row" whenever that is
+          // what the default height already does — it then keeps fitting if
+          // the tiles beside it change height — and as the exact px when the
+          // row is shorter than the tile's own floor.
+          next = rowFill >= free.defaultHeight ? null : Math.round(rowFill);
+        } else {
+          next = Math.max(
+            free.minHeight,
+            Math.min(MAX_WIDGET_HEIGHT, Math.round(raw / HEIGHT_STEP_PX) * HEIGHT_STEP_PX),
+          );
+        }
+        if (next !== lastHeight) {
+          lastHeight = next;
+          box.height = next;
+        }
+      }
+      if (box.span !== undefined || box.height !== undefined) {
+        onBoxChange(box);
+        setReadout(readoutText(lastSpan, lastHeight));
       }
     };
     const end = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
-      document.body.classList.remove('zg-col-resizing');
+      document.body.classList.remove(bodyClass);
       try {
         handleEl.releasePointerCapture(pointerId);
       } catch {
         /* nothing to release */
       }
       setResizing(false);
+      setReadout(null);
       onResizeEnd();
     };
     window.addEventListener('pointermove', onMove);
@@ -250,30 +409,66 @@ export default function WidgetFrame({
     window.addEventListener('pointercancel', end);
   };
 
-  // Keyboard parity for the handle: arrows step through the allowed footprints.
+  // Keyboard parity for the width handle: arrows step through the allowed
+  // footprints, or a column at a time on a free-resize tile.
   const stepSizeByKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!canResize) return;
-    const idx = sortedSizes.indexOf(size);
-    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      const next = sortedSizes[Math.min(sortedSizes.length - 1, idx + 1)];
-      if (next !== size) onResize(next);
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      const next = sortedSizes[Math.max(0, idx - 1)];
-      if (next !== size) onResize(next);
+    const grow = e.key === 'ArrowRight' || e.key === 'ArrowUp';
+    const shrink = e.key === 'ArrowLeft' || e.key === 'ArrowDown';
+    if (!grow && !shrink) return;
+    e.preventDefault();
+    if (free) {
+      const next = Math.max(free.minSpan, Math.min(GRID_COLUMNS, span + (grow ? 1 : -1)));
+      if (next !== span) onBoxChange({ span: next });
+      return;
     }
+    const idx = sortedSizes.indexOf(size);
+    const next = sortedSizes[grow ? Math.min(sortedSizes.length - 1, idx + 1) : Math.max(0, idx - 1)];
+    if (next !== size) onResize(next);
+  };
+
+  // Keyboard parity for the height handle: Down grows (the edge moves down),
+  // Up shrinks, Enter goes back to fitting the row.
+  const stepHeightByKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!free) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onBoxChange({ height: null });
+      return;
+    }
+    const grow = e.key === 'ArrowDown' || e.key === 'ArrowRight';
+    const shrink = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+    if (!grow && !shrink) return;
+    e.preventDefault();
+    const current = item.height ?? rootRef.current?.parentElement?.getBoundingClientRect().height ?? free.defaultHeight;
+    const next = Math.max(
+      free.minHeight,
+      Math.min(MAX_WIDGET_HEIGHT, Math.round(current) + (grow ? HEIGHT_KEY_STEP_PX : -HEIGHT_KEY_STEP_PX)),
+    );
+    onBoxChange({ height: next });
   };
 
   // Everything a widget renders is marked as living in a tile, so the reused
   // feature components drop their own expand / fullscreen affordance — the tile
   // owns its top-right corner (that button used to sit on top of the remove
   // button) and is resized by its footprint, not blown up to the viewport.
+  //
+  // It also gets its own symbol scope. Unpinned, the scope passes the board's
+  // symbol straight through; pinned, every component inside reads the tile's
+  // symbol, and a symbol switcher inside it pins the tile rather than moving
+  // the page.
+  const content = widget.render();
   const body = locked ? (
     <UpgradeCard widget={widget} />
   ) : (
     <DashboardWidgetContext.Provider value>
-      <WidgetErrorBoundary resetKey={resetKey}>{widget.render()}</WidgetErrorBoundary>
+      <WidgetInstanceContext.Provider value={instance}>
+        <TimeframeSymbolScope symbol={pinnedSymbol} onSymbolChange={onSymbolChange}>
+          <WidgetErrorBoundary resetKey={`${resetKey}:${pinnedSymbol ?? ''}`}>
+            {ownFeeds ? <MyDashboardDataProvider activeFeeds={ownFeeds}>{content}</MyDashboardDataProvider> : content}
+          </WidgetErrorBoundary>
+        </TimeframeSymbolScope>
+      </WidgetInstanceContext.Provider>
     </DashboardWidgetContext.Provider>
   );
 
@@ -300,9 +495,11 @@ export default function WidgetFrame({
         // One control cluster, pinned top-right. Titles live top-left on every
         // tile, so keeping the controls on the right leaves them readable while
         // editing. The whole tile is the drag surface; the grip is the cue.
+        // It wraps onto a second line rather than overflowing a narrow tile.
         <div
-          className="pointer-events-auto absolute right-2 top-2 flex items-center gap-0.5 rounded-lg border p-0.5"
+          className="pointer-events-auto absolute right-2 top-2 flex flex-wrap items-center justify-end gap-0.5 rounded-lg border p-0.5"
           style={{
+            maxWidth: 'calc(100% - 16px)',
             borderColor: 'var(--border-default)',
             background: 'color-mix(in srgb, var(--bg-card) 92%, transparent)',
             backdropFilter: 'blur(8px)',
@@ -323,7 +520,40 @@ export default function WidgetFrame({
           <FrameIconButton label={t('moveLater')} disabled={!canMoveNext} onClick={onMoveNext}>
             <ChevronRight size={14} />
           </FrameIconButton>
-          {canResize && size === 'sm' && (
+          {free && (
+            // A free-resize tile is sized by its edges, so its S / M / L set
+            // the size its contents are drawn at instead of a footprint.
+            <div
+              className="flex items-center rounded-md"
+              role="group"
+              aria-label={t('textSize')}
+              title={t('textSize')}
+              style={{ background: 'var(--bg-hover)' }}
+            >
+              <Type size={12} style={{ color: 'var(--text-muted)', margin: '0 2px 0 4px' }} />
+              {WIDGET_ZOOMS.map((z) => {
+                const active = z === zoom;
+                return (
+                  <button
+                    key={z}
+                    type="button"
+                    onClick={() => onZoomChange(z)}
+                    aria-pressed={active}
+                    title={t(ZOOM_LABEL_KEY[z])}
+                    aria-label={t(ZOOM_LABEL_KEY[z])}
+                    className="flex h-6 min-w-[18px] items-center justify-center rounded-md px-1 text-[10px] font-bold transition-colors"
+                    style={{
+                      color: active ? 'var(--color-accent-hot)' : 'var(--text-secondary)',
+                      background: active ? 'var(--color-accent-soft)' : 'transparent',
+                    }}
+                  >
+                    {ZOOM_SHORT[z]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {!free && canResize && size === 'sm' && (
             // A small tile has no room for the full picker without burying its
             // title, so it keeps the compact stepper: one click to the next
             // footprint up, wrapping back to the smallest.
@@ -339,7 +569,7 @@ export default function WidgetFrame({
               {SIZE_SHORT[size]}
             </button>
           )}
-          {canResize && size !== 'sm' && (
+          {!free && canResize && size !== 'sm' && (
             // Every allowed footprint is one click away (S / M / L / XL) rather
             // than a cycle — going from XL down to M to sit two charts side by
             // side shouldn't take three clicks.
@@ -395,29 +625,71 @@ export default function WidgetFrame({
 
       {editing && canResize && (
         // Right-edge width handle. Drag to resize (snaps to this widget's
-        // allowed footprints); arrow keys step through them for keyboard users.
-        // Desktop-only (see globals.css) — the 4-column grid is where the
-        // footprints render at distinct widths; the toolbar's size button
-        // remains the control on narrower/touch layouts.
+        // allowed footprints, or to whole columns on a free-resize tile); arrow
+        // keys step through them for keyboard users. Desktop-only (see
+        // globals.css) — the 12-column grid is where widths render distinctly;
+        // the toolbar's size button remains the control on narrower/touch
+        // layouts.
         <div
           role="slider"
           tabIndex={0}
-          aria-label={t('resizeDragHandle')}
+          aria-label={free ? t('resizeWidthFree') : t('resizeDragHandle')}
           aria-orientation="horizontal"
-          aria-valuemin={WIDGET_COLSPAN[sortedSizes[0]]}
-          aria-valuemax={WIDGET_COLSPAN[sortedSizes[sortedSizes.length - 1]]}
-          aria-valuenow={WIDGET_COLSPAN[size]}
-          aria-valuetext={WIDGET_SIZE_LABEL[size]}
-          title={t('resizeDragHandle')}
+          aria-valuemin={free ? free.minSpan : WIDGET_COLSPAN[sortedSizes[0]]}
+          aria-valuemax={free ? GRID_COLUMNS : WIDGET_COLSPAN[sortedSizes[sortedSizes.length - 1]]}
+          aria-valuenow={free ? span : WIDGET_COLSPAN[size]}
+          aria-valuetext={free ? t('readoutCols', { span }) : WIDGET_SIZE_LABEL[size]}
+          title={free ? t('resizeWidthFree') : t('resizeDragHandle')}
           className="zg-w-resize-handle pointer-events-auto"
           draggable={false}
           data-active={resizing ? 'true' : undefined}
           onDragStart={(e) => e.preventDefault()}
-          onPointerDown={beginPointerResize}
+          onPointerDown={(e) => beginPointerResize(e, 'x')}
           onKeyDown={stepSizeByKey}
+          onDoubleClick={free ? () => onBoxChange({ span: null }) : undefined}
         >
           <span className="zg-w-resize-grip" aria-hidden />
         </div>
+      )}
+
+      {editing && free && (
+        <>
+          {/* Bottom-edge height handle. Snaps to the bottom of the tiles beside
+              it; double-click (or Enter) goes back to fitting the row. */}
+          <div
+            role="slider"
+            tabIndex={0}
+            aria-label={t('resizeHeightHandle')}
+            aria-orientation="vertical"
+            aria-valuemin={free.minHeight}
+            aria-valuemax={MAX_WIDGET_HEIGHT}
+            aria-valuenow={item.height ?? free.defaultHeight}
+            aria-valuetext={item.height == null ? t('readoutFits') : `${item.height}px`}
+            title={t('resizeHeightHandle')}
+            className="zg-h-resize-handle pointer-events-auto"
+            draggable={false}
+            data-active={resizing ? 'true' : undefined}
+            onDragStart={(e) => e.preventDefault()}
+            onPointerDown={(e) => beginPointerResize(e, 'y')}
+            onKeyDown={stepHeightByKey}
+            onDoubleClick={() => onBoxChange({ height: null })}
+          >
+            <span className="zg-h-resize-grip" aria-hidden />
+          </div>
+          {/* Corner handle: width and height in one drag. */}
+          <div
+            aria-hidden
+            title={t('resizeBoxHandle')}
+            className="zg-box-resize-handle pointer-events-auto"
+            draggable={false}
+            data-active={resizing ? 'true' : undefined}
+            onDragStart={(e) => e.preventDefault()}
+            onPointerDown={(e) => beginPointerResize(e, 'xy')}
+          >
+            <MoveDiagonal2 size={12} />
+          </div>
+          {readout && <div className="zg-resize-readout">{readout}</div>}
+        </>
       )}
     </div>
   );

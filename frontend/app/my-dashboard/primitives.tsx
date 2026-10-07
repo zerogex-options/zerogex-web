@@ -20,6 +20,7 @@ export function WidgetCard({
   bordered = true,
   pad = true,
   fill = false,
+  stretch = false,
   minHeight,
   children,
 }: {
@@ -30,6 +31,12 @@ export function WidgetCard({
   bordered?: boolean;
   pad?: boolean;
   fill?: boolean;
+  /**
+   * The body takes all of the card's height that the header leaves, as a
+   * flex column — for a widget that lays itself out to the tile's height (the
+   * free-resize Gamma Ladder) rather than to its own content.
+   */
+  stretch?: boolean;
   minHeight?: number;
   children: ReactNode;
 }) {
@@ -60,7 +67,9 @@ export function WidgetCard({
 
   const body = (
     <div
-      className={[pad ? 'p-4' : '', fill ? 'flex flex-col' : ''].filter(Boolean).join(' ')}
+      className={[pad ? 'p-4' : '', fill || stretch ? 'flex flex-col' : '', stretch ? 'flex-1 min-h-0' : '']
+        .filter(Boolean)
+        .join(' ')}
       style={minHeight ? { minHeight } : undefined}
     >
       {fill ? <div className="flex-1 min-h-0">{children}</div> : children}
@@ -68,7 +77,7 @@ export function WidgetCard({
   );
 
   return (
-    <div className={`h-full ${bordered ? 'zg-panel overflow-hidden' : ''}`}>
+    <div className={`h-full ${stretch ? 'flex flex-col' : ''} ${bordered ? 'zg-panel overflow-hidden' : ''}`}>
       {header}
       {body}
     </div>

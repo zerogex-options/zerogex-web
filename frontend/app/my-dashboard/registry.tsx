@@ -25,6 +25,7 @@ import {
   Layers,
   LineChart,
   ListOrdered,
+  MonitorDot,
   Newspaper,
   Radar,
   ScrollText,
@@ -64,6 +65,7 @@ import {
   KeyLevelsPanel,
   DealerExposuresPanel,
   GammaChartPanel,
+  GammaTerminalPanel,
   GammaByStrikePanel,
   GammaLadderPanel,
   OpenInterestByStrikePanel,
@@ -134,7 +136,31 @@ export type WidgetDef = {
    * chart at half of a 390px screen is not readable.
    */
   tile?: boolean;
+  /**
+   * Sized by dragging rather than by footprint. The tile's width is any whole
+   * number of grid columns and its height any number of pixels, set from its
+   * right and bottom edges (and the corner, for both at once); its S/M/L
+   * buttons set the size its contents are drawn at instead. Its edges snap to
+   * the grid's columns and to the bottom of the tiles beside it, so it can be
+   * fitted exactly into the space left in a row.
+   *
+   * Absent for every footprint-sized widget.
+   */
+  freeResize?: FreeResizeSpec;
   render: () => ReactNode;
+};
+
+export type FreeResizeSpec = {
+  /** Narrowest the tile can be dragged, in grid columns (of 12). */
+  minSpan: number;
+  /** Shortest it can be dragged, in px. */
+  minHeight: number;
+  /**
+   * Its height before the member sets one: it fills the height of its row,
+   * and never drops below this — which is also its height when nothing beside
+   * it sets the row's.
+   */
+  defaultHeight: number;
 };
 
 export const CATEGORY_META: Record<WidgetCategory, { label: string; blurb: string }> = {
@@ -159,6 +185,21 @@ export const CATEGORY_ORDER: WidgetCategory[] = [
 
 export const WIDGETS: WidgetDef[] = [
   // ── Overview ──
+  {
+    // First in the catalog: the flagship surface, so it is the first thing
+    // the add-widget gallery offers.
+    id: 'gamma-terminal',
+    title: 'Gamma Terminal',
+    blurb:
+      'The full Gamma Terminal in a tile: the Gamma Chart with the GEX ribbons behind the tape, and beside it either two strike-aligned Net-GEX ladders or the gamma-structure Strike Panel. Rewind, Expiry filter and its own underlying picker built in.',
+    category: 'overview',
+    tier: 'basic',
+    icon: MonitorDot,
+    defaultSize: 'xl',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <GammaTerminalPanel />,
+  },
   {
     id: 'price',
     title: 'Underlying Price',
@@ -371,13 +412,16 @@ export const WIDGETS: WidgetDef[] = [
     id: 'gamma-ladder',
     title: 'Gamma Ladder',
     blurb:
-      'One column of the Pair Comparison ladder: Net GEX strike by strike around spot, tinted by sign and magnitude, with the Gamma Flip, Call/Put Walls, Max Pain and the heaviest-gamma King node marked. Strike filter and GEX unit built in.',
+      'One column of the Pair Comparison ladder: Net GEX strike by strike around spot, tinted by sign and magnitude, with the Gamma Flip, Call/Put Walls, Max Pain and the heaviest-gamma King node marked. Pick its underlying on the tile, drag its edges to any width and height, and set its text size. Strike filter and GEX unit built in.',
     category: 'gamma',
     tier: 'basic',
     icon: ListOrdered,
     defaultSize: 'sm',
     allowedSizes: ALL_SIZES,
     feeds: [],
+    // Two columns (a sixth of the board) is about the narrowest the strike,
+    // its level tags and the value still sit side by side in.
+    freeResize: { minSpan: 2, minHeight: 240, defaultHeight: 480 },
     render: () => <GammaLadderPanel />,
   },
 

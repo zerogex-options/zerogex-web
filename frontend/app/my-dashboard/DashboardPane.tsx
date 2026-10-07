@@ -50,12 +50,13 @@ import {
 } from '@/core/gexStrikeCharts';
 import { useGEXByStrike } from '@/hooks/useApiData';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
-import type { DashboardPane as DashboardPaneModel, PaneId, WidgetSize } from '@/core/myDashboardLayout';
+import type { DashboardPane as DashboardPaneModel, PaneId, WidgetSize, WidgetZoom } from '@/core/myDashboardLayout';
 import { isScoped, otherPaneId } from '@/core/myDashboardLayout';
 
 import { getWidget } from './registry';
 import { MyDashboardDataProvider, type FeedKey } from './DashboardData';
 import DashboardGrid from './DashboardGrid';
+import type { WidgetBox } from './WidgetFrame';
 import { dict } from './DashboardPane.i18n';
 
 /** Display letter for a pane id — 'a' → "A". */
@@ -78,6 +79,9 @@ export type DashboardPaneProps = {
   onRemove: (instanceId: string) => void;
   onResize: (instanceId: string, size: WidgetSize) => void;
   onDuplicate: (instanceId: string) => void;
+  onWidgetBox: (instanceId: string, box: WidgetBox) => void;
+  onWidgetZoom: (instanceId: string, zoom: WidgetZoom) => void;
+  onWidgetSymbol: (instanceId: string, symbol: UnderlyingSymbol | null) => void;
   onSendToOtherPane: (instanceId: string, target: PaneId) => void;
 };
 
@@ -95,6 +99,9 @@ export default function DashboardPane({
   onRemove,
   onResize,
   onDuplicate,
+  onWidgetBox,
+  onWidgetZoom,
+  onWidgetSymbol,
   onSendToOtherPane,
 }: DashboardPaneProps) {
   const t = usePageT(dict);
@@ -183,6 +190,9 @@ export default function DashboardPane({
                 onRemove={onRemove}
                 onResize={onResize}
                 onDuplicate={onDuplicate}
+                onBoxChange={onWidgetBox}
+                onZoomChange={onWidgetZoom}
+                onSymbolChange={onWidgetSymbol}
                 sendToPane={split ? other : null}
                 onSendToPane={onSendToOtherPane}
               />

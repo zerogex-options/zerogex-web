@@ -2421,8 +2421,10 @@ body {
 
 /* ============================================================
    MY DASHBOARD — customizable widget grid
-   A 4-column desktop grid; each widget's footprint (sm/md/lg/xl)
-   collapses responsively (4→2→1 columns). Tiles in the same row stretch
+   A 12-column desktop grid; each widget's footprint (sm/md/lg/xl = 3/6/9/12
+   columns, a quarter to the full board) collapses responsively (12→2→1
+   columns). Twelve rather than four so a free-resize tile (the Gamma Ladder)
+   can be dragged to widths between the footprints. Tiles in the same row stretch
    to a shared height (align-items: stretch), so a row of mixed cards reads
    as one clean band. Flow is ordered (not dense) so the board keeps the
    exact order the member arranged by dragging, rather than auto-repacking.
@@ -2438,7 +2440,7 @@ body {
   .zg-mydash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 1024px) {
-  .zg-mydash-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .zg-mydash-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
 }
 
 /* Footprints. Base (mobile) is a single column; they widen at the two
@@ -2448,18 +2450,22 @@ body {
    S and M stay at half a row on the 2-column tablet grid so a pair of M
    widgets — two Gamma Charts, say — sits side by side there as well as on the
    4-column desktop grid, where M is likewise half the board. */
-.zg-w-sm, .zg-w-md, .zg-w-lg, .zg-w-xl { grid-column: span 1; min-width: 0; }
+.zg-w-sm, .zg-w-md, .zg-w-lg, .zg-w-xl, .zg-w-span { grid-column: span 1; min-width: 0; }
 @media (min-width: 640px) {
   .zg-w-sm { grid-column: span 1; }
   .zg-w-md { grid-column: span 1; }
   .zg-w-lg { grid-column: span 2; }
   .zg-w-xl { grid-column: span 2; }
+  /* A dragged width: half the tablet row up to six desktop columns, the whole
+     row past that (--zg-span-tab is set inline beside --zg-span). */
+  .zg-w-span { grid-column: span var(--zg-span-tab, 1); }
 }
 @media (min-width: 1024px) {
-  .zg-w-sm { grid-column: span 1; }
-  .zg-w-md { grid-column: span 2; }
-  .zg-w-lg { grid-column: span 3; }
-  .zg-w-xl { grid-column: span 4; }
+  .zg-w-sm { grid-column: span 3; }
+  .zg-w-md { grid-column: span 6; }
+  .zg-w-lg { grid-column: span 9; }
+  .zg-w-xl { grid-column: span 12; }
+  .zg-w-span { grid-column: span var(--zg-span, 3); }
 }
 
 /* ── Key Levels flip ─────────────────────────────────────────────────────────
@@ -2587,20 +2593,21 @@ body {
   .zg-mydash-split {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  /* A half-width pane gets two columns rather than four, so S/M/L/XL keep
-     meaning quarter / half / three-quarters / full of the space the pane
-     actually has instead of collapsing into unreadable slivers. */
-  .zg-mydash-grid--half { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .zg-mydash-grid--half .zg-w-sm { grid-column: span 1; }
-  .zg-mydash-grid--half .zg-w-md { grid-column: span 1; }
-  .zg-mydash-grid--half .zg-w-lg { grid-column: span 2; }
-  .zg-mydash-grid--half .zg-w-xl { grid-column: span 2; }
+  /* A half-width pane keeps the 12 columns but doubles each footprint, so
+     S/M/L/XL land on half or the whole of the space the pane actually has
+     instead of collapsing into unreadable slivers. A dragged width stays a
+     count of the pane's own twelfths. */
+  .zg-mydash-grid--half .zg-w-sm { grid-column: span 6; }
+  .zg-mydash-grid--half .zg-w-md { grid-column: span 6; }
+  .zg-mydash-grid--half .zg-w-lg { grid-column: span 12; }
+  .zg-mydash-grid--half .zg-w-xl { grid-column: span 12; }
 }
 
 /* Right-edge resize handle (edit mode). Drag it to widen/narrow a widget; it
-   snaps to the widget's allowed footprints. Shown only on the 4-column desktop
-   grid, where those footprints render at distinct widths — on the 2-/1-column
-   layouts the toolbar's size button is the resize control instead. */
+   snaps to the widget's allowed footprints (or, on a free-resize tile, to any
+   whole column). Shown only on the 12-column desktop grid, where widths render
+   distinctly — on the 2-/1-column layouts the toolbar's size button is the
+   resize control instead. */
 .zg-w-resize-handle {
   position: absolute;
   top: 50%;
@@ -2642,6 +2649,97 @@ body.zg-col-resizing,
 body.zg-col-resizing * {
   cursor: col-resize !important;
   user-select: none !important;
+}
+body.zg-row-resizing,
+body.zg-row-resizing * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+body.zg-box-resizing,
+body.zg-box-resizing * {
+  cursor: nwse-resize !important;
+  user-select: none !important;
+}
+
+/* Free-resize tiles (the Gamma Ladder) also take a bottom-edge handle for
+   height and a corner handle for both at once. Height means something at
+   every width, so its handle shows on every layout; the corner, which also
+   sets the width, is desktop-only like the right-edge handle. */
+.zg-h-resize-handle {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 16px;
+  border-radius: 8px;
+  cursor: row-resize;
+  touch-action: none;
+  z-index: 3;
+}
+.zg-h-resize-grip {
+  width: 26px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background var(--dur-1) var(--ease-standard),
+    width var(--dur-1) var(--ease-standard);
+}
+.zg-h-resize-handle:hover .zg-h-resize-grip,
+.zg-h-resize-handle:focus-visible .zg-h-resize-grip,
+.zg-h-resize-handle[data-active='true'] .zg-h-resize-grip {
+  background: var(--color-accent-hot);
+  width: 34px;
+}
+.zg-h-resize-handle:focus-visible,
+.zg-box-resize-handle:focus-visible {
+  outline: 2px solid var(--color-accent-hot);
+  outline-offset: 2px;
+}
+.zg-box-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 4;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+}
+.zg-box-resize-handle:hover,
+.zg-box-resize-handle[data-active='true'] {
+  color: var(--color-accent-hot);
+}
+@media (min-width: 1024px) {
+  .zg-box-resize-handle { display: flex; }
+}
+/* The live size readout shown while a free-resize tile is being dragged. */
+.zg-resize-readout {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  border: 1px solid var(--color-accent-hot);
+  box-shadow: var(--shadow-pop);
 }
 
 /* Gamma Chart GEX ribbons — the blurred glow layer under the neon orbs.

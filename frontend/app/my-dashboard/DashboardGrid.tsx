@@ -1,9 +1,39 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import WidgetFrame from './WidgetFrame';
-import { getWidget } from './registry';
-import type { PaneId, PlacedWidget, WidgetSize } from '@/core/myDashboardLayout';
+import { useRef, useState, type CSSProperties } from 'react';
+import WidgetFrame, { type WidgetBox } from './WidgetFrame';
+import { getWidget, type WidgetDef } from './registry';
+import type { PaneId, PlacedWidget, WidgetSize, WidgetZoom } from '@/core/myDashboardLayout';
+import type { UnderlyingSymbol } from '@/core/symbolPersistence';
+
+/**
+ * The grid cell's class and inline style for one placement. A footprint tile
+ * is just its footprint class. A free-resize tile with a dragged width spans
+ * that many columns instead (--zg-span on the desktop grid, half or all of the
+ * tablet row via --zg-span-tab; a phone gives every chart the full row), and
+ * its height is either the one it was dragged to — top-aligned, so a shorter
+ * tile leaves the row's spare height visible rather than stretching into it —
+ * or the row's own, never less than its default.
+ */
+function cellLayout(item: PlacedWidget, widget: WidgetDef): { className: string; style?: CSSProperties } {
+  const tile = widget.tile && item.size === 'sm' ? ' zg-w-tile' : '';
+  const free = widget.freeResize;
+  if (!free) return { className: `zg-w-${item.size}${tile}` };
+  const style: Record<string, string | number> = {};
+  let className = `zg-w-${item.size}`;
+  if (item.span !== undefined) {
+    className = 'zg-w-span';
+    style['--zg-span'] = item.span;
+    style['--zg-span-tab'] = item.span <= 6 ? 1 : 2;
+  }
+  if (item.height !== undefined) {
+    style.height = item.height;
+    style.alignSelf = 'start';
+  } else {
+    style.minHeight = free.defaultHeight;
+  }
+  return { className, style: style as CSSProperties };
+}
 
 /**
  * The widget grid + reordering. Drag-and-drop uses the native HTML5 DnD API
@@ -28,6 +58,9 @@ export default function DashboardGrid({
   onRemove,
   onResize,
   onDuplicate,
+  onBoxChange,
+  onZoomChange,
+  onSymbolChange,
   onSendToPane,
 }: {
   items: PlacedWidget[];
@@ -42,6 +75,9 @@ export default function DashboardGrid({
   onRemove: (instanceId: string) => void;
   onResize: (instanceId: string, size: WidgetSize) => void;
   onDuplicate: (instanceId: string) => void;
+  onBoxChange: (instanceId: string, box: WidgetBox) => void;
+  onZoomChange: (instanceId: string, zoom: WidgetZoom) => void;
+  onSymbolChange: (instanceId: string, symbol: UnderlyingSymbol | null) => void;
   onSendToPane?: (instanceId: string, target: PaneId) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -58,11 +94,13 @@ export default function DashboardGrid({
         const widget = getWidget(item.widgetId);
         if (!widget) return null;
         const locked = widget.tier === 'pro' && !hasPro;
+        const cell = cellLayout(item, widget);
 
         return (
           <div
             key={item.instanceId}
-            className={`zg-w-${item.size}${widget.tile && item.size === 'sm' ? ' zg-w-tile' : ''}`}
+            className={cell.className}
+            style={cell.style}
             draggable={editing && resizeIndex === null}
             onDragStart={(e) => {
               if (!editing || resizeIndex !== null) {
@@ -98,7 +136,7 @@ export default function DashboardGrid({
           >
             <WidgetFrame
               widget={widget}
-              size={item.size}
+              item={item}
               editing={editing}
               locked={locked}
               isDragging={dragIndex === index}
@@ -108,6 +146,9 @@ export default function DashboardGrid({
               onResize={(s) => onResize(item.instanceId, s)}
               onResizeStart={() => setResizeIndex(index)}
               onResizeEnd={() => setResizeIndex(null)}
+              onBoxChange={(box) => onBoxChange(item.instanceId, box)}
+              onZoomChange={(zoom) => onZoomChange(item.instanceId, zoom)}
+              onSymbolChange={(symbol) => onSymbolChange(item.instanceId, symbol)}
               onRemove={() => onRemove(item.instanceId)}
               onDuplicate={() => onDuplicate(item.instanceId)}
               sendToPane={sendToPane}

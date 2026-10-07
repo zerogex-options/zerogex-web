@@ -67,12 +67,17 @@ import {
   setPaneExpirations,
   setPaneSymbol,
   setSplit,
+  setWidgetBox,
+  setWidgetSymbol,
+  setWidgetZoom,
   visiblePanes,
   widgetCounts,
   type DashboardLayout,
   type PaneId,
   type WidgetSize,
+  type WidgetZoom,
 } from '@/core/myDashboardLayout';
+import type { WidgetBox } from './WidgetFrame';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import {
   PRESETS,
@@ -168,6 +173,17 @@ export default function MyDashboardPage() {
   }, []);
   const handleSendToPane = useCallback((instanceId: string, target: PaneId) => {
     setLayout((l) => moveWidgetToPane(l, instanceId, target));
+  }, []);
+  const handleWidgetBox = useCallback((instanceId: string, box: WidgetBox) => {
+    setLayout((l) => setWidgetBox(l, instanceId, box));
+  }, []);
+  const handleWidgetZoom = useCallback((instanceId: string, zoom: WidgetZoom) => {
+    setLayout((l) => setWidgetZoom(l, instanceId, zoom));
+  }, []);
+  // One tile's own underlying — the header picker stays every other tile's
+  // default. Not gated on edit mode: the ladder's picker is on its face.
+  const handleWidgetSymbol = useCallback((instanceId: string, symbol: UnderlyingSymbol | null) => {
+    setLayout((l) => setWidgetSymbol(l, instanceId, symbol));
   }, []);
 
   // ── Split / per-half controls ──
@@ -358,6 +374,9 @@ export default function MyDashboardPage() {
                 onRemove={handleRemove}
                 onResize={handleResize}
                 onDuplicate={handleDuplicate}
+                onWidgetBox={handleWidgetBox}
+                onWidgetZoom={handleWidgetZoom}
+                onWidgetSymbol={handleWidgetSymbol}
                 onSendToOtherPane={handleSendToPane}
               />
             ))}
