@@ -68,7 +68,7 @@ import { flipStatusChip } from "@/core/flipStatusChip";
 import { resolveRewindBucket } from "@/core/rewindBucket";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
-import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
+import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_BUCKET_MS, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -169,6 +169,8 @@ const VOLUME_MODE_STORAGE_KEY = "zg.gammaChart.volumeMode.v1";
 const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
 // Persisted ribbon opacity multiplier (see RIBBON_OPACITY_DEFAULT).
 const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
+// Persisted ribbon size multiplier (see RIBBON_SIZE_DEFAULT).
+const RIBBON_SIZE_STORAGE_KEY = "zg.gammaChart.ribbonSize.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
 //
@@ -412,20 +414,28 @@ const RIBBON_OPACITY_DEFAULT = 0.9;
 const RIBBON_OPACITY_MIN = 0.1;
 const RIBBON_OPACITY_MAX = 1.5;
 const clampRibbonOpacity = (v: number) => Math.min(RIBBON_OPACITY_MAX, Math.max(RIBBON_OPACITY_MIN, v));
+// User-adjustable size multiplier over the capped orb height (sizeScale in
+// core/gexRibbons). 100% is the tuned look, where an orb stays inside its
+// lane; above it the heaviest orbs spill into their neighbors' lanes, which a
+// reader on a tight-striked chain (NQ) can choose to trade for visibility.
+const RIBBON_SIZE_DEFAULT = 1;
+const RIBBON_SIZE_MIN = 0.5;
+const RIBBON_SIZE_MAX = 3;
+const clampRibbonSize = (v: number) => Math.min(RIBBON_SIZE_MAX, Math.max(RIBBON_SIZE_MIN, v));
 // The reading guide behind the legend's info icon — every visual channel of
 // the ribbons, in the order a reader meets them: what an orb is, then height,
 // opacity, colour, and how a lane evolves.
 const RIBBON_GUIDE =
   "GEX ribbons: every strike is a horizontal lane, and every bar drops one orb in it. " +
   "HEIGHT is that strike's net dealer gamma in the bar's 5-minute analytics bucket, as a share of the heaviest " +
-  "strike on screen\u00a0- an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
+  "strike on screen\u00a0- at 100% size an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
   "OPACITY steps with the same share: faint below 15%, medium to 50%, solid above; orbs under 5% are not drawn. " +
   "COLOR is the sign: gold means dealers are net LONG gamma at the strike (they sell into strength and buy weakness " +
   "there\u00a0- a magnet and a brake), violet means net SHORT (they chase\u00a0- an accelerant). " +
   "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
   "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
   "History covers the polled strike window, so earlier bars stay blank. " +
-  "The slider beside the Ribbons pill scales the overall opacity.";
+  "The sliders beside the Ribbons pill scale the overall size and opacity.";
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -968,6 +978,7 @@ export default function GammaTerminalChart({
   }
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
+  const [ribbonSize, setRibbonSize] = useState(RIBBON_SIZE_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   // The live view's bar count follows the canvas: when the compact canvas is
@@ -1084,6 +1095,7 @@ export default function GammaTerminalChart({
   const erKey = storageScope ? `${ER_HORIZON_STORAGE_KEY}.${storageScope}` : ER_HORIZON_STORAGE_KEY;
   const railKey = storageScope ? `${RAIL_STORAGE_KEY}.${storageScope}` : RAIL_STORAGE_KEY;
   const ribbonOpacityKey = storageScope ? `${RIBBON_OPACITY_STORAGE_KEY}.${storageScope}` : RIBBON_OPACITY_STORAGE_KEY;
+  const ribbonSizeKey = storageScope ? `${RIBBON_SIZE_STORAGE_KEY}.${storageScope}` : RIBBON_SIZE_STORAGE_KEY;
 
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
@@ -1106,6 +1118,11 @@ export default function GammaTerminalChart({
         const parsed = parseFloat(rawA);
         if (Number.isFinite(parsed)) setRibbonOpacity(clampRibbonOpacity(parsed));
       }
+      const rawZ = localStorage.getItem(ribbonSizeKey);
+      if (rawZ != null) {
+        const parsed = parseFloat(rawZ);
+        if (Number.isFinite(parsed)) setRibbonSize(clampRibbonSize(parsed));
+      }
       const rawR = localStorage.getItem(railKey);
       if (rawR) {
         const parsed = JSON.parse(rawR);
@@ -1120,7 +1137,7 @@ export default function GammaTerminalChart({
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey]);
+  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey, ribbonSizeKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -1176,6 +1193,15 @@ export default function GammaTerminalChart({
       /* storage unavailable */
     }
   }, [ribbonOpacity, hydrated, ribbonOpacityKey]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(ribbonSizeKey, String(ribbonSize));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [ribbonSize, hydrated, ribbonSizeKey]);
 
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
 
@@ -1978,14 +2004,20 @@ export default function GammaTerminalChart({
   // delayed snapshot carries no history). Pure geometry in core/gexRibbons.
   const ribbonLayer = useMemo(() => {
     if (!layout || !live || !overlays.ribbons || gexBuckets.length === 0) return null;
-    return buildRibbonLayer(bars, gexBuckets, {
-      xForIndex: layout.xForIndex,
-      yPrice: layout.yPrice,
-      xStep: layout.xStep,
-      dMin: layout.dMin,
-      dMax: layout.dMax,
-    });
-  }, [layout, live, overlays.ribbons, gexBuckets, bars]);
+    return buildRibbonLayer(
+      bars,
+      gexBuckets,
+      {
+        xForIndex: layout.xForIndex,
+        yPrice: layout.yPrice,
+        xStep: layout.xStep,
+        dMin: layout.dMin,
+        dMax: layout.dMax,
+      },
+      RIBBON_BUCKET_MS,
+      ribbonSize,
+    );
+  }, [layout, live, overlays.ribbons, gexBuckets, bars, ribbonSize]);
 
   // Publish this chart's own auto-fit domain so the link can union it with the
   // other half's (see core/linkedPriceAxis). Reports the RAW auto values, which
@@ -3751,6 +3783,9 @@ export default function GammaTerminalChart({
           {live && overlays.ribbons && (
             <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
           )}
+          {live && overlays.ribbons && (
+            <RibbonSizeControl value={ribbonSize} onChange={setRibbonSize} />
+          )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
@@ -5305,31 +5340,80 @@ function PanelReadout({
   );
 }
 
-// Opacity slider for the ribbons — the one continuous control in the toolbar,
-// styled to sit beside the pills: a mono label, a short native range (keyboard
-// and screen-reader friendly for free), and the value read out as a percent.
-function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+// Opacity and size sliders for the ribbons — the continuous controls in the
+// toolbar, styled to sit beside the pills: a mono label, a short native range
+// (keyboard and screen-reader friendly for free), and the value read out as a
+// percent.
+function RibbonSliderControl({
+  label,
+  title,
+  min,
+  max,
+  step,
+  value,
+  clamp,
+  onChange,
+}: {
+  label: string;
+  title: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  clamp: (v: number) => number;
+  onChange: (v: number) => void;
+}) {
   const pct = Math.round(value * 100);
   return (
     <label
       className="flex items-center gap-1.5"
-      title="Ribbon opacity&nbsp;- scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
+      title={title}
       style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", color: "var(--text-secondary)", height: 26, padding: "0 8px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-control)", background: "var(--bg-card)" }}
     >
-      <span style={{ textTransform: "uppercase" }}>Opacity</span>
+      <span style={{ textTransform: "uppercase" }}>{label}</span>
       <input
         type="range"
-        min={Math.round(RIBBON_OPACITY_MIN * 100)}
-        max={Math.round(RIBBON_OPACITY_MAX * 100)}
-        step={5}
+        min={Math.round(min * 100)}
+        max={Math.round(max * 100)}
+        step={step}
         value={pct}
-        onChange={(e) => onChange(clampRibbonOpacity(Number(e.target.value) / 100))}
-        aria-label="Ribbon opacity"
+        onChange={(e) => onChange(clamp(Number(e.target.value) / 100))}
+        aria-label={`Ribbon ${label.toLowerCase()}`}
         aria-valuetext={`${pct}%`}
         style={{ width: 76, accentColor: RIBBON_POS_GLOW, cursor: "pointer" }}
       />
       <span style={{ minWidth: 34, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--text-primary)" }}>{pct}%</span>
     </label>
+  );
+}
+
+function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <RibbonSliderControl
+      label="Opacity"
+      title="Ribbon opacity&nbsp;- scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
+      min={RIBBON_OPACITY_MIN}
+      max={RIBBON_OPACITY_MAX}
+      step={5}
+      value={value}
+      clamp={clampRibbonOpacity}
+      onChange={onChange}
+    />
+  );
+}
+
+function RibbonSizeControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <RibbonSliderControl
+      label="Size"
+      title="Ribbon size&nbsp;- scales how tall the orbs are. At 100% an orb stays inside its strike's lane; turn it up when the ribbons read thin, as they often do on NQ, and the heaviest orbs will overlap their neighbors."
+      min={RIBBON_SIZE_MIN}
+      max={RIBBON_SIZE_MAX}
+      step={10}
+      value={value}
+      clamp={clampRibbonSize}
+      onChange={onChange}
+    />
   );
 }
 

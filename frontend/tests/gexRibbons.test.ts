@@ -127,3 +127,29 @@ test("orb height stops at the absolute cap when the strike lane is huge", () => 
   assert.ok(ry <= RIBBON_RY_MAX + 1e-9, `capped: ${ry}`);
   assert.ok(ry > RIBBON_RY_MAX - 1, "a wall orb fills the cap");
 });
+
+// The reader's size slider multiplies the capped height: at 2x a wall orb
+// fills its whole lane, and a bad value falls back to the tuned look.
+test("the size multiplier scales every orb past the lane cap", () => {
+  const buckets = [
+    {
+      timestamp: iso(T0),
+      strikes: [
+        { strike: 750, net_gamma: 2_000_000 },
+        { strike: 751, net_gamma: 500_000 },
+      ],
+    },
+  ];
+  const bars = [{ timestamp: iso(T0) }];
+  const ryAt = (layer: ReturnType<typeof buildRibbonLayer>, strike: number) =>
+    maxRy(layer.paths.find((p) => p.strike === strike)?.d ?? "");
+  const base = buildRibbonLayer(bars, buckets, geom);
+  const doubled = buildRibbonLayer(bars, buckets, geom, RIBBON_BUCKET_MS, 2);
+  assert.ok(Math.abs(ryAt(doubled, 750) - 2 * ryAt(base, 750)) < 0.01, "wall doubles");
+  assert.ok(Math.abs(ryAt(doubled, 751) - 2 * ryAt(base, 751)) < 0.01, "lighter strike doubles too");
+  assert.ok(ryAt(doubled, 750) > 10 * RIBBON_RY_FRACTION, "spills past the default lane cap");
+  assert.equal(doubled.count, base.count, "size never changes which orbs are drawn");
+  for (const bad of [0, -1, Number.NaN]) {
+    assert.deepEqual(buildRibbonLayer(bars, buckets, geom, RIBBON_BUCKET_MS, bad), base);
+  }
+});

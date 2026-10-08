@@ -132,12 +132,18 @@ export function ellipsePath(cx: number, cy: number, rx: number, ry: number): str
  * bar shares its 5-min bucket with its four neighbours (the ribbon repeats),
  * a 15-min or hourly bar reads the bucket at its own start. Bars with no
  * bucket (older than the polled window) draw nothing — gaps stay blank.
+ *
+ * `sizeScale` is the reader's size multiplier over the capped orb height. At 1
+ * a wall orb fills half its lane; past 1 the heaviest orbs spill into their
+ * neighbors' lanes. That is the reader's call: on a chain whose strikes sit
+ * tight against the price scale (NQ against ES) the default ribbons are thin.
  */
 export function buildRibbonLayer(
   bars: readonly RibbonBar[],
   buckets: readonly RibbonBucket[],
   geom: RibbonGeometry,
   bucketMs: number = RIBBON_BUCKET_MS,
+  sizeScale: number = 1,
 ): RibbonLayer {
   const byKey = new Map<number, Map<number, number>>();
   const allStrikes = new Set<number>();
@@ -173,7 +179,8 @@ export function buildRibbonLayer(
 
   const gapPx =
     strikeStep != null ? Math.abs(geom.yPrice(geom.dMin) - geom.yPrice(geom.dMin + strikeStep)) : FALLBACK_GAP;
-  const maxRy = Math.max(RY_MIN, Math.min(RIBBON_RY_MAX, gapPx * RIBBON_RY_FRACTION));
+  const scale = Number.isFinite(sizeScale) && sizeScale > 0 ? sizeScale : 1;
+  const maxRy = Math.max(RY_MIN, Math.min(RIBBON_RY_MAX, gapPx * RIBBON_RY_FRACTION) * scale);
   const rx = Math.max(RX_MIN, geom.xStep * RX_FRACTION);
 
   const groups = new Map<string, { strike: number; positive: boolean; tier: RibbonTier; parts: string[] }>();

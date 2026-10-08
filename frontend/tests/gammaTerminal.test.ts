@@ -322,6 +322,15 @@ test("ribbon opacity is adjustable, persisted per surface, and defaults to 90%",
   assert.match(chart, /RIBBON_GLOW_OPACITY\[p\.tier\] \* ribbonOpacity/);
 });
 
+// The ribbons' size is user-adjustable and persisted the same way, defaulting
+// to the tuned look, so a thin NQ ribbon can be turned up.
+test("ribbon size is adjustable, persisted per surface, and defaults to 100%", () => {
+  assert.match(chart, /const RIBBON_SIZE_DEFAULT = 1;/);
+  assert.match(chart, /\{live && overlays\.ribbons && \(\s*<RibbonSizeControl value=\{ribbonSize\} onChange=\{setRibbonSize\} \/>/);
+  assert.match(chart, /localStorage\.setItem\(ribbonSizeKey, String\(ribbonSize\)\)/);
+  assert.match(chart, /RIBBON_BUCKET_MS,\s*ribbonSize,\s*\);/);
+});
+
 // The volume pane has two views: the stacked up/down columns it has always
 // drawn, and a running net cumulative (core/netVolumeSeries) in the style of
 // the Options Flow chart's directional net volume.
