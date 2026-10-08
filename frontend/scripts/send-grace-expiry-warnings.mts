@@ -352,12 +352,28 @@ const candidates = querySqlite<UserRow>(
    ORDER BY payment_grace_started_at ASC;`,
 );
 
+// Members exempted from the grace cutoff (BILLING_GRACE_ENFORCEMENT_SKIP, see
+// scripts/enforce-payment-grace.mts) keep their access past the window, usually
+// because the lapse was our fault. A warning that their access is about to end
+// would be false, so leave them out.
+const exemptEmails = new Set(
+  (process.env.BILLING_GRACE_ENFORCEMENT_SKIP ?? envLocal.BILLING_GRACE_ENFORCEMENT_SKIP ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+let exemptCount = 0;
+
 const nowMs = Date.now();
 type Due = { user: UserRow; graceUntilIso: string; hoursRemaining: number };
 const due: Due[] = [];
 const skipped = new Map<GraceExpiryWarningSkip, number>();
 
 for (const user of candidates) {
+  if (exemptEmails.has(user.email.toLowerCase())) {
+    exemptCount++;
+    continue;
+  }
   const decision = decideGraceExpiryWarning({
     graceStartedAt: user.payment_grace_started_at,
     graceDays,
@@ -393,6 +409,9 @@ console.log(`Due to warn:      ${due.length}`);
 if (skipped.size > 0) {
   const parts = [...skipped.entries()].map(([reason, count]) => `${reason}=${count}`);
   console.log(`Skipped:          ${parts.join(', ')}`);
+}
+if (exemptCount > 0) {
+  console.log(`Exempt:           ${exemptCount} (BILLING_GRACE_ENFORCEMENT_SKIP)`);
 }
 if (elapsedCount > 0) {
   // Deliberately not phrased as "watch whether this falls": a missed window

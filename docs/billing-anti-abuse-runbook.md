@@ -57,8 +57,8 @@ Shipped on branch `claude/product-viability-strategy-j7lev6`:
     access. Decision logic: `frontend/core/paymentGraceEnforcement.ts`, unit-tested
     against `decidePaymentGrace`. To exempt a member whose lapse is our fault,
     add their email to `BILLING_GRACE_ENFORCEMENT_SKIP` in `frontend/.env.local`.
-    That only stops the sweep, though: a subscription event Stripe sends on its
-    own still drops them, so settle their invoice.
+    That stops the sweep and the grace-expiry warning, but a subscription event
+    Stripe sends on its own still drops them, so settle their invoice.
   - Which of the two failures opened a window is recorded in
     `users.payment_grace_reason` (`renewal` | `trial`), written and cleared in
     lockstep with the anchor. Admin → Monitoring → **Total Subscribers** uses it to

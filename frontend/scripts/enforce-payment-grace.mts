@@ -34,8 +34,9 @@
 //
 // BILLING_GRACE_ENFORCEMENT_SKIP in .env.local (comma-separated emails) exempts
 // members whose lapse is our fault rather than theirs, e.g. a renewal that
-// failed because we never attached their card. It only stops this sweep: any
-// subscription event Stripe sends on its own still runs the webhook's sync,
+// failed because we never attached their card. It stops this sweep and the
+// grace-expiry warning (which would otherwise tell them access is ending), but
+// any subscription event Stripe sends on its own still runs the webhook's sync,
 // which drops them as before. Settle their invoice, then take them off the list.
 //
 // Exits non-zero when a Stripe call fails or a stamped member still holds a
