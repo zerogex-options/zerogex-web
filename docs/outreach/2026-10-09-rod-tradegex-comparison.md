@@ -30,9 +30,10 @@ Rod (`rldindustries1975@gmail.com`) signs "Rod" and shows as *rod Deisler*.
 - **Then the wall study.** TradeGEX's guides call the call wall resistance and
   the put wall support. We measured it, and the answer is less flattering than
   that. Telling him is the most ZeroGEX thing we can say.
-- **Name where TradeGEX is ahead.** More markets, faster refresh, a desktop
-  app and simulator, Tradovate and ATAS, and DEX. He'll notice all of it
-  anyway, and he'll trust the rest more if he hears it from you.
+- **Name where TradeGEX is ahead.** More markets, faster refresh, and a
+  desktop app with a simulator. He'll notice all of it anyway, and he'll trust
+  the rest more if he hears it from you. Tradovate, ATAS and DEX are left out
+  to keep the mail short; the comparison page covers them.
 - **The weekend is a good time for Replay.** Markets are closed, and Replay lets
   him scrub any recent session, ES and NQ included, minute by minute.
 - **Ask what he trades.** If it's YM, RTY, gold or crude, we don't cover it,
@@ -98,39 +99,22 @@ Times are ET.
 
 Hi Rod,
 
-Thank you, and welcome to Pro. Sorry about the payment hiccup, and thanks for sticking with it. Thanks too for the referral: it earned you a free month, so your November renewal is on us.
+Welcome to Pro, and sorry about the payment hiccup. Thanks too for the referral: it earned you a free month, so your November renewal is on us.
 
-Yes, I know TradeGEX. It's a solid product, so I'll give you the honest comparison rather than the sales pitch.
+I know TradeGEX. It's a solid product, so here's the honest comparison.
 
-Where I think ZeroGEX stands above it:
+Where I think we stand above it:
 
-1. How the walls are picked. TradeGEX's own guide puts its call and put walls at the strikes with the most open interest. Ours weight that open interest by gamma, which measures how hard dealers have to hedge as price moves, and gamma is highest near the current price. So a big block of contracts sitting far from price doesn't outrank a strike right next to it. With both open this weekend, compare the walls side by side.
+1. How the walls are picked. TradeGEX's guide puts its walls at the strikes with the most open interest. Ours weight open interest by gamma, which is highest near price, so a big block of contracts far away doesn't outrank a strike right next to price.
+2. We show our work. How every level is calculated is published, and every daily forecast is graded in public, misses included. We even tested whether walls really hold: across 737 wall tests, S&P walls held about two times in three within an hour, and Nasdaq walls about half. https://zerogex.io/education/how-often-do-gamma-walls-break
+3. Depth on the S&P and Nasdaq: fourteen signals with published methods, plus vanna and charm, hedging flow, and a gamma heatmap through the session.
+4. Price: about the same month to month, and on yearly billing Pro is $299 against their $599.
 
-2. We show our work, and we grade it. How every level is calculated is on our Methodology page, and every morning forecast is graded at the close on the Track Record, misses included. We also tested what most tools, TradeGEX included, take for granted: that walls act as support and resistance. Across 737 wall tests, S&P walls held about two times in three within an hour, Nasdaq walls were closer to a coin flip, and none of the nineteen things we measured about a wall told us which ones would break. I'd rather you trade a wall knowing that number than believing it's a floor.
-https://zerogex.io/methodology
-https://zerogex.io/track-record
-https://zerogex.io/education/how-often-do-gamma-walls-break
+Where TradeGEX is ahead: more markets (the Dow, the Russell, gold, crude, and big tech stocks), levels they say refresh every few seconds against our once a minute, and a desktop app with a trade simulator.
 
-3. Depth on the S&P and the Nasdaq. Beyond the levels, there are fourteen signals built on them, each with its method written up, plus vanna and charm flow, hedging flow, forced flow, a gamma heatmap through the session, and gamma by expiration. Pro adds Trade Bias, the Composite Score, backtesting (in beta), and API access.
-
-4. Price. Month to month we're about the same as TradeGEX. On yearly billing, Pro is $299 against their $599.
-
-Where TradeGEX is ahead, so you hear it from me first:
-
-- More markets: the Dow, the Russell, gold, crude, and seven big tech stocks. We cover SPX, SPY, QQQ, NDX, ES, and NQ.
-- Speed: they say their levels refresh every few seconds. Ours recompute about once a minute.
-- A desktop app, a trade simulator, Tradovate and ATAS support, and DEX bars. We leave DEX out on purpose, and the reason is here if you're curious: https://zerogex.io/education/why-we-dont-publish-dex
-
-With the market closed this weekend, here's where I'd start:
-
-1. Replay: https://zerogex.io/replay. Pick a session from this week on ES or NQ and scrub it minute by minute to watch the flip and the walls move against price. It's the quickest way to judge the levels.
-2. The Gamma Terminal, live on any symbol: https://zerogex.io/chart
-3. Trade Bias and the Advanced Signals, with the signals guide open beside them: https://zerogex.io/guides/signals-explained
-4. If you chart in NinjaTrader, TradingView, thinkorswim, or Sierra Chart, the levels can go straight onto your charts: https://zerogex.io/integrations
+For the weekend, start with Replay: https://zerogex.io/replay. Pick a session from this week on ES or NQ and scrub through it to watch the flip and the walls move against price. Then try Trade Bias and the Advanced Signals, with this guide open beside them: https://zerogex.io/guides/signals-explained
 
 One question back: what do you trade, and what do you use most in TradeGEX? If it's something we don't do, I'd like to know.
-
-Thanks for the kind words, and for giving us a real look.
 
 Best,
 Michael
