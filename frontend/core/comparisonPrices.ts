@@ -17,6 +17,7 @@
 //   {{bullflow:premium:annual:mo}}   "$59"       the yearly plan, per month
 //   {{quantdata:api:monthly}}        "$149.99"
 //   {{menthorq:pro:firstMonth}}      "$174.50"   a discounted first month
+//   {{tradegex:platform:sixMonths}}  "$299"      billed every six months
 //   {{bullflow:checked}}             "September 29, 2026"
 //
 // An unknown or malformed token throws, so a typo fails
@@ -48,6 +49,9 @@ export type CompetitorPlanPrice = {
   // The price of the first month on the monthly plan, when the vendor
   // discounts it. `monthly` stays the regular list price every later month.
   firstMonth?: number;
+  // The single charge for a plan billed every six months, when the vendor
+  // sells one. ZeroGEX has no six-month plan, so it has no counterpart.
+  sixMonths?: number;
 };
 
 export type CompetitorPrices = {
@@ -98,6 +102,20 @@ export const COMPETITOR_PRICES = {
     plans: {
       premium: { monthly: 129, firstMonth: 39, annual: 1164, annualPerMonth: 97 },
       pro: { monthly: 349, firstMonth: 174.5, annual: 3108, annualPerMonth: 259 },
+    },
+  },
+  // TradeGEX's pricing section, read first-hand on the date below. It is a
+  // section of the homepage: tradegex.pro/pricing is a 404, and the site's
+  // Pricing link jumps to #pricing. One plan, "Full platform access", at
+  // $59.99/mo billed monthly, $299 billed every six months, or $599 billed
+  // yearly. The page prints no per-month figure for either longer plan, so
+  // none is recorded. A 3-day free trial needs no card and does not convert to
+  // a paid plan on its own.
+  tradegex: {
+    checked: '2026-10-09',
+    source: 'https://tradegex.pro/#pricing',
+    plans: {
+      platform: { monthly: 59.99, sixMonths: 299, annual: 599 },
     },
   },
 } satisfies Record<string, CompetitorPrices>;
@@ -153,12 +171,12 @@ function resolveToken(body: string): string | null {
   const [vendor, plan, cadence, unit] = parts;
   if (unit !== undefined && unit !== 'mo') return null;
 
-  // A discounted first month is a competitor figure only, and is already a
-  // monthly price, so it takes no `:mo`.
-  if (cadence === 'firstMonth') {
+  // A discounted first month and a six-month plan are competitor figures only,
+  // and each is already the price of its own period, so neither takes `:mo`.
+  if (cadence === 'firstMonth' || cadence === 'sixMonths') {
     if (unit !== undefined || !isCompetitorId(vendor)) return null;
     const plans: Record<string, CompetitorPlanPrice> = COMPETITOR_PRICES[vendor].plans;
-    const amount = Object.hasOwn(plans, plan) ? plans[plan].firstMonth : undefined;
+    const amount = Object.hasOwn(plans, plan) ? plans[plan][cadence] : undefined;
     return amount === undefined ? null : formatUsd(amount);
   }
 
