@@ -34,6 +34,7 @@ import {
   isCreatorPartnerProgramEnabled,
 } from '@/core/creatorPartners';
 import { getCampaignCouponId, normalizeCampaignCode } from '@/core/campaigns';
+import { isUnstartedSubscriptionStatus, releaseUnstartedSubscription } from '@/core/billingUser';
 
 // Stripe renders its own "I agree to the Terms of Service" checkbox when a
 // session asks for it, and records the acceptance on the session
@@ -110,6 +111,7 @@ const MIN_TRIAL_END_BUFFER_MS = 48 * 60 * 60 * 1000;
 type UserBillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  subscription_status: string | null;
   founding_eligible: number;
   // Proof this account actually redeemed the founding offer (vs merely being
   // invited to). Drives founding-rate restoration for a lapsed founder — see
@@ -123,6 +125,110 @@ type UserBillingRow = {
   reactivation_email_sent_at: string | null;
   first_payment_at: string | null;
 };
+
+// A bank debit (or another delayed method) keeps the subscription `incomplete`
+// for days while the money is on its way. That is a payment, not a decline, so
+// it counts as live.
+function firstPaymentInFlight(subscription: Stripe.Subscription): boolean {
+  const invoice = subscription.latest_invoice;
+  if (!invoice || typeof invoice === 'string') return false;
+  const intent = invoice.payment_intent;
+  return !!intent && typeof intent !== 'string' && intent.status === 'processing';
+}
+
+// Retires the never-started subscription a declined first payment left on the
+// member's row (core/billingUser.ts isUnstartedSubscriptionStatus), so their
+// next try opens a fresh Checkout instead of being refused. Stripe is the
+// authority: a subscription that turns out to be live after all (paid from the
+// emailed invoice link with the webhook still on its way, or a bank payment
+// still clearing) is left alone and reported 'live'.
+//
+// Closing the Checkout page that created the subscription is how Stripe ends
+// it: the subscription goes straight to incomplete_expired (and Stripe refuses
+// to cancel it while that page is open). Every open Checkout page on the
+// customer is closed, since the member is starting over and a page left open
+// could still be paid alongside the new one. Only a subscription that is still
+// incomplete after that, one no open page created, is canceled outright, and
+// its row is then left for the webhook's deletion handler, which releases it
+// without counting it as churn. Releasing it here first would read to that
+// handler as a member who left.
+async function retireUnstartedSubscription(input: {
+  userId: string;
+  email: string;
+  ip: string;
+  customerId: string | null;
+  subscriptionId: string;
+}): Promise<'retired' | 'live' | 'error'> {
+  const stripe = getStripe();
+  let finalStatus = 'canceled';
+  let canceledHere = false;
+  try {
+    let subscription: Stripe.Subscription | null = null;
+    try {
+      subscription = await stripe.subscriptions.retrieve(input.subscriptionId, {
+        expand: ['latest_invoice.payment_intent'],
+      });
+    } catch (err) {
+      if ((err as { code?: string } | undefined)?.code !== 'resource_missing') throw err;
+    }
+    if (subscription) {
+      if (
+        (subscription.status !== 'canceled' && !isUnstartedSubscriptionStatus(subscription.status)) ||
+        firstPaymentInFlight(subscription)
+      ) {
+        return 'live';
+      }
+      finalStatus = subscription.status;
+      if (subscription.status === 'incomplete') {
+        if (input.customerId) {
+          const open = await stripe.checkout.sessions.list({
+            customer: input.customerId,
+            status: 'open',
+            limit: 100,
+          });
+          for (const session of open.data) {
+            await stripe.checkout.sessions.expire(session.id);
+          }
+        }
+        const after = await stripe.subscriptions.retrieve(subscription.id);
+        finalStatus = after.status;
+        if (after.status === 'incomplete') {
+          finalStatus = (await stripe.subscriptions.cancel(subscription.id)).status;
+          canceledHere = true;
+        } else if (after.status !== 'canceled' && !isUnstartedSubscriptionStatus(after.status)) {
+          // Paid in the moment between the two reads.
+          return 'live';
+        }
+      }
+    }
+  } catch (err) {
+    appendAuditEvent({
+      type: 'billing_unstarted_subscription_retire_error',
+      userId: input.userId,
+      email: input.email,
+      ip: input.ip,
+      message: `Could not retire never-started subscription ${input.subscriptionId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+    });
+    return 'error';
+  }
+
+  if (!canceledHere) {
+    releaseUnstartedSubscription({
+      userId: input.userId,
+      subscriptionId: input.subscriptionId,
+      status: finalStatus,
+      nowIso: new Date().toISOString(),
+    });
+  }
+  appendAuditEvent({
+    type: 'billing_unstarted_subscription_retired',
+    userId: input.userId,
+    email: input.email,
+    ip: input.ip,
+    message: `Retired never-started subscription ${input.subscriptionId} (now ${finalStatus}) so a fresh checkout can open`,
+  });
+  return 'retired';
+}
 
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
@@ -192,15 +298,36 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, founding_member_started_at, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at, first_payment_at FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, subscription_status, founding_eligible, founding_member_started_at, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at, first_payment_at FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
   if (row?.stripe_subscription_id) {
-    return NextResponse.json(
-      { error: 'You already have an active subscription. Use the billing portal to change plans.' },
-      { status: 409 },
-    );
+    // A subscription whose first payment never went through is not one the
+    // member has: retire it and carry on to a fresh checkout. Before this, a
+    // declined card left the member refused here for good.
+    const outcome = isUnstartedSubscriptionStatus(row.subscription_status)
+      ? await retireUnstartedSubscription({
+          userId: actor.user.id,
+          email: actor.user.email,
+          ip: getClientIp(request),
+          customerId: row.stripe_customer_id,
+          subscriptionId: row.stripe_subscription_id,
+        })
+      : 'live';
+    if (outcome === 'error') {
+      return NextResponse.json(
+        { error: "Couldn't reach billing just now. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    if (outcome === 'live') {
+      return NextResponse.json(
+        { error: 'You already have an active subscription. Use the billing portal to change plans.' },
+        { status: 409 },
+      );
+    }
+    row.stripe_subscription_id = null;
   }
 
   // Verification gate. The migration backfilled every pre-cutover account, so

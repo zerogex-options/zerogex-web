@@ -30,13 +30,15 @@ import {
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
 import { decideStaleInvoice, hoursOfValueRemaining } from '@/core/staleInvoice';
-// The customer lookup and its soft-delete guard, and the row clear when a
-// subscription ends, live in core/ so they are unit-testable against a real
-// schema — see tests/billingUser.test.ts.
+// The customer lookup and its soft-delete guard, and the row clears when a
+// subscription ends or never starts, live in core/ so they are unit-testable
+// against a real schema — see tests/billingUser.test.ts.
 import {
   findUserByCustomerId,
   findUserByCustomerIdIncludingDeleted,
+  isUnstartedSubscriptionStatus,
   markSubscriptionEnded,
+  releaseUnstartedSubscription,
   type BillingUserRow as UserRow,
 } from '@/core/billingUser';
 import {
@@ -980,6 +982,42 @@ async function syncSubscriptionToUser(
       message: `No local user for stripe customer ${customerId} (sub ${subscription.id})`,
     });
     return;
+  }
+
+  // A subscription whose first payment never went through (see
+  // isUnstartedSubscriptionStatus) never displaces another subscription on the
+  // row. Checkout retires a stuck one before opening a fresh attempt, and the
+  // retired one's own events can land after the new subscription's (Stripe
+  // retrying an event that failed during a deploy restart). The ordering guard
+  // compares events per subscription, so without this a late event would put
+  // the dead subscription back on a paying member's row and drop them to public.
+  if (isUnstartedSubscriptionStatus(subscription.status)) {
+    if (user.stripe_subscription_id && user.stripe_subscription_id !== subscription.id) {
+      logAudit({
+        type: 'stripe_subscription_unstarted_superseded',
+        userId: user.id,
+        email: user.email,
+        message: `Subscription ${subscription.id} status=${subscription.status} never started; the member is on ${user.stripe_subscription_id}, which was left untouched`,
+      });
+      return;
+    }
+    // Stripe gave up on the first payment after 23 hours. Take the subscription
+    // off the row so the member is no longer treated as subscribed.
+    if (subscription.status === 'incomplete_expired') {
+      releaseUnstartedSubscription({
+        userId: user.id,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        nowIso: nowIso(),
+      });
+      logAudit({
+        type: 'stripe_subscription_unstarted_released',
+        userId: user.id,
+        email: user.email,
+        message: `Subscription ${subscription.id} expired before its first payment; released so the member can check out again`,
+      });
+      return;
+    }
   }
 
   // Last-synced status, read before the UPDATE below overwrites it. Used to
@@ -2426,6 +2464,32 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   // subscription. It grants nothing and sends nothing.
   const user = findUserByCustomerIdIncludingDeleted(customerId);
   if (!user) return;
+
+  // A subscription that never got past its first payment ending is not a member
+  // leaving (see isUnstartedSubscriptionStatus). Checkout cancels one this way
+  // when a member starts over, and so does an operator from the Dashboard.
+  // Releasing it rather than marking it ended keeps the member's free trial and
+  // keeps them off the churn lists and win-back mail. Read off the row, which
+  // still points at it: the payload's own status says only 'canceled'.
+  if (
+    user.stripe_subscription_id === subscription.id &&
+    isUnstartedSubscriptionStatus(user.subscription_status)
+  ) {
+    releaseUnstartedSubscription({
+      userId: user.id,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      nowIso: nowIso(),
+    });
+    logAudit({
+      type: 'stripe_subscription_unstarted_released',
+      userId: user.id,
+      email: user.email,
+      message: `Subscription ${subscription.id} ended before its first payment; released so the member can check out again`,
+    });
+    await reconcileOpenInvoicesOnCancel(subscription, user);
+    return;
+  }
 
   // What this clears, and why each piece, is documented on markSubscriptionEnded.
   // It changes nothing, and returns false, when the row has since moved on to a
