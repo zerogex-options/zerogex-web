@@ -1247,7 +1247,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
 
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ margin: '0 0 4px 0', fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>
-            Two free tools nobody else ships
+            Two more free tools
           </h2>
           <p style={{ margin: '0 0 16px 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
             No login required. Bookmark either&nbsp;- the URL stays valid every day.

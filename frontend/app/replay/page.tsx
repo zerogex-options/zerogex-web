@@ -28,7 +28,7 @@ interface ReplaySessionList {
 export const metadata: Metadata = {
   title: 'GEX Replay\u00a0- ZeroGEX',
   description:
-    'Scrub through any past session to watch dealer gamma positioning shift minute-by-minute. The historical viewer no other GEX tool ships.',
+    'Free, no login: scrub any recent session minute by minute and watch the walls shift, the gamma flip drift and per-strike GEX migrate.',
   alternates: { canonical: `${SITE_URL}/replay` },
   openGraph: {
     type: 'website',

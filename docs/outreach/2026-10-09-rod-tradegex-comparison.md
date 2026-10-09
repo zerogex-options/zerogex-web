@@ -3,17 +3,16 @@
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
-Rod signs "Rod" and shows as *rod Deisler*. His address isn't in the
-screenshot, so take it from the thread.
+Rod (`rldindustries1975@gmail.com`) signs "Rod" and shows as *rod Deisler*.
 
-> **Status:** unsent. Reply in the same thread, so it lands under his message.
+> **Status:** unsent. Payment checked and cleared (see "Verified" below), so
+> the draft is ready. Reply in the same thread, so it lands under his message.
 
 ## Thread so far
 
-1. **Automated: "Your ZeroGEX payment was declined."** That exact subject is
-   the plain decline email (`frontend/core/declineEmailCopy.ts:119`), not the
-   trial-ended or access-ended versions. So a payment of his was declined,
-   most likely the first Pro payment, since Pro is paid up front.
+1. **2026-10-08 5:44 PM ET, automated: "Your ZeroGEX payment was declined."**
+   His first Pro payment ($59, monthly) was declined, and the bank gave no
+   reason.
 2. **2026-10-09 11:59, inbound.** "I got the pro acct." He's doing a deep dive
    this weekend, has used TradeGEX for the last month, and asks what makes
    ZeroGEX stand above it. He adds that ZeroGEX "is starting to weigh above
@@ -42,6 +41,11 @@ screenshot, so take it from the thread.
 - **Price gets one line.** He's probably paying TradeGEX $59.99 a month. On
   yearly billing, our Pro is $299 against their $599. No discount: price isn't
   his question.
+- **Thank him for the referral.** A referral reward for
+  richardkreger@gmail.com banked him a free month this morning, and it's now a
+  $59 credit, so his November 9 renewal is $0. One line. The draft doesn't
+  name the person he referred, since the name would only be a guess from the
+  email address.
 
 ## What TradeGEX is
 
@@ -74,23 +78,27 @@ the full side-by-side once it's deployed.
 - **Not on its site:** an API, backtesting, or a GEX replay, and there's no
   Discord link. A mobile app is "in development."
 
-## Verify first
+## Verified
 
-- **Check his Pro payment actually cleared.** The thread started as a decline.
-  Run this, using the address from the thread:
+From `make diagnose-user EMAIL=rldindustries1975@gmail.com`, run 2026-10-09.
+Times are ET.
 
-  ```bash
-  make diagnose-user EMAIL=<rod's address>
-  ```
-
-  If he's on Pro with a paid invoice, send the draft as is. If an invoice is
-  still open, swap the draft's first paragraph for the alternative below it.
+- **Pro is active and paid.** The Oct 8 subscription got stuck after the
+  decline, expired, and was canceled by script at 9:39 AM on Oct 9. He
+  subscribed again at 10:19 AM and paid $59 through Link at 10:23 AM. He saw
+  the Pro welcome at 10:28 AM.
+- **His next month is free.** At 9:35 AM a manual referral reward for
+  richardkreger@gmail.com banked him one free month. It became a $59 credit
+  when he paid. Stripe shows the balance at -$59.00 and the November 9
+  invoice at $0.00.
+- **Ignore "DORMANT" in that output.** The script labels any account under 24
+  hours old as dormant. He has signed in twice since signing up.
 
 ## Draft
 
 Hi Rod,
 
-Thank you, and welcome to Pro. Sorry about the payment hiccup, and thanks for sticking with it.
+Thank you, and welcome to Pro. Sorry about the payment hiccup, and thanks for sticking with it. Thanks too for the referral: it earned you a free month, so your November renewal is on us.
 
 Yes, I know TradeGEX. It's a solid product, so I'll give you the honest comparison rather than the sales pitch.
 
@@ -130,12 +138,6 @@ Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
 
-### If his payment is still open
-
-Replace the first paragraph with:
-
-Thank you for this. One thing first: the payment for your Pro plan still shows as declined on my end, so Pro may not be switched on yet. The quickest fix is the button in the email you replied to. If that gives you any trouble, reply and I'll sort it out with you.
-
 ## If he replies
 
 - **He names symbols we don't cover.** Add them to the symbol-request list,
@@ -149,11 +151,6 @@ Thank you for this. One thing first: the payment for your Pro plan still shows a
 - **He asks to switch to yearly.** He can do it himself on the
   [Pricing](https://zerogex.io/pricing) page. It shows the exact amount
   charged that day, less a credit for the unused part of his current month,
-  and asks him to confirm first.
-
-## Noticed, can wait
-
-- The Replay page's search description (`frontend/app/replay/page.tsx:31`)
-  says it is "The historical viewer no other GEX tool ships." Our own Best GEX
-  Tools article says FirmTape publishes a free replay archive of about 1,100
-  SPX sessions. It's a one-line fix whenever you next touch that page.
+  and asks him to confirm first. His $59 referral credit goes toward whatever
+  he is billed next, so it would come off that charge instead of the November
+  renewal.
