@@ -18,8 +18,9 @@ self-deleted (`users.deleted_at`) are excluded from every cohort.
 Covers what shipped in September (one Gamma Terminal, Spread Monitor, 0DTE on
 the Daily Replay, Hedging Flow and Gamma Weather, the Intraday Cone and Track
 Record, My Dashboard on the account, the phone rebuild), the first Folds of
-Honor donation ($459 for Q3 2026, sent October 1), and the roadmap: the
-Magnificent Seven, DAX futures, and licensed history for backtesting.
+Honor donation ($459 for Q3 2026, sent October 1), and the roadmap: single
+stocks (most likely the Magnificent Seven first), licensed history for
+backtesting, and a look at futures and indices outside the U.S.
 
 | Audience | Who | Files | Subject |
 |---|---|---|---|

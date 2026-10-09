@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates | ZeroGEX',
   description:
-    "What's new at ZeroGEX and what's coming next: the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and Track Record, chart integrations, ES and NQ coverage, and the road ahead, including the Magnificent Seven and DAX futures. A running log of platform updates.",
+    "What's new at ZeroGEX and what's coming next: the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and Track Record, chart integrations, ES and NQ coverage, and the road ahead, including single-stock coverage. A running log of platform updates.",
   alternates: { canonical: '/updates' },
 };
 
@@ -23,7 +23,7 @@ const UPDATES: Update[] = [
     date: 'October 6, 2026',
     title: 'Our first Folds of Honor donation, and the next markets',
     intro:
-      'On October 1 we sent our first quarterly donation to Folds of Honor. Since the last note here, the forecasts started keeping a public score, Hedging Flow got a plain-language read of conditions, My Dashboard moved onto your account, and the phone layout was rebuilt. Next on the list: the first single stocks, the first market outside the U.S., and years of history for backtesting.',
+      'On October 1 we sent our first quarterly donation to Folds of Honor. Since the last note here, the forecasts started keeping a public score, Hedging Flow got a plain-language read of conditions, My Dashboard moved onto your account, and the phone layout was rebuilt. Next on the list: single stocks, years of history for backtesting, and a closer look at markets outside the U.S.',
     whatsNew: [
       {
         title: 'Our first Folds of Honor donation',
@@ -62,21 +62,21 @@ const UPDATES: Update[] = [
       {
         title: 'How often do gamma walls actually break?',
         href: '/education/how-often-do-gamma-walls-break',
-        body: 'We measured 737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two times in three over the following hour, and Nasdaq walls were closer to a coin flip. None of the 19 features we tested, including which side of the gamma flip price was on, predicted which walls would break, so the site copy was rewritten to match.',
+        body: 'We measured 737 wall tests across SPY, SPX, QQQ and NDX over ten weeks. S&P walls held about two times in three over the following hour, while Nasdaq walls were closer to a coin flip. And it is the index that matters, not the product: SPY walls behave like SPX walls, and QQQ walls like NDX walls. Worth knowing before you size a trade off a wall.',
       },
     ],
     whatsComing: [
       {
-        title: 'The Magnificent Seven',
-        body: 'Our first single stocks: AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA, with the same gamma flip, walls and dealer-positioning read used on the indices today.',
-      },
-      {
-        title: 'DAX futures',
-        body: 'Coverage for DAX futures, our first market outside the U.S., for traders who work the European session.',
+        title: 'Single stocks',
+        body: 'We are extending coverage to individual stocks, most likely starting with the Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA) and adding more as we scale. If there’s a stock you want in that first wave, reply to any ZeroGEX email and say which.',
       },
       {
         title: 'Years of history for backtesting',
         body: 'We are working to license historical options data going back several years, so a backtest can run across different market regimes instead of only the months we have recorded ourselves since this spring.',
+      },
+      {
+        title: 'Global futures and indices',
+        body: 'We are also looking into coverage for more futures and indices, such as the DAX, Euro Stoxx 50 and FTSE 100 in Europe, and the Nikkei 225, Hang Seng, Nifty 50 and KOSPI 200 in Asia. Licensing that data costs significantly more than what we use today, so before committing we want to gauge how much interest there is, and covering these markets may take a new, higher-priced plan. If you’d trade any of them with ZeroGEX, tell us which the same way.',
       },
       {
         title: 'A more streamlined experience',

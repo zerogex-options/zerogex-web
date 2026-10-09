@@ -67,11 +67,11 @@ anything.
 
 * How often do gamma walls actually break?
   (https://zerogex.io/education/how-often-do-gamma-walls-break) We measured
-  737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two
-  times in three over the following hour, and Nasdaq walls were closer to a
-  coin flip. None of the 19 features we tested, including which side of the
-  gamma flip price was on, predicted which walls would break, so we rewrote
-  our own site copy to match.
+  737 wall tests across SPY, SPX, QQQ and NDX over ten weeks. S&P walls held
+  about two times in three over the following hour, while Nasdaq walls were
+  closer to a coin flip. And it is the index that matters, not the product:
+  SPY walls behave like SPX walls, and QQQ walls like NDX walls. Worth
+  knowing before you size a trade off a wall.
 
 
 == WHAT'S COMING NEXT ==
@@ -79,17 +79,23 @@ anything.
 A quick look at where ZeroGEX is headed. Roadmaps shift, often because of
 something one of you flags, but this is the current direction:
 
--> The Magnificent Seven. Our first single stocks: AAPL, MSFT, NVDA, AMZN,
-   GOOGL, META and TSLA, with the same gamma flip, walls and
-   dealer-positioning read you use on the indices today.
-
--> DAX futures. Coverage for DAX futures, our first market outside the U.S.,
-   for traders who work the European session.
+-> Single stocks. We are extending coverage to individual stocks, most
+   likely starting with the Magnificent Seven (AAPL, MSFT, NVDA, AMZN,
+   GOOGL, META and TSLA) and adding more as we scale. If there's a stock
+   you'd want in that first wave, hit reply and tell me.
 
 -> Years of history for backtesting. We are working to license historical
    options data going back several years, so a backtest can run across
    different market regimes instead of only the months we have recorded
    ourselves since this spring.
+
+-> Global futures and indices. We are also looking into coverage for more
+   futures and indices, such as the DAX, Euro Stoxx 50 and FTSE 100 in
+   Europe, and the Nikkei 225, Hang Seng, Nifty 50 and KOSPI 200 in Asia.
+   Licensing that data costs significantly more than what we use today, so
+   before committing we want to gauge how much interest there is, and
+   covering these markets may take a new, higher-priced plan. If you'd trade
+   any of them with ZeroGEX, let me know which.
 
 -> A more streamlined experience. An ongoing pass to simplify the platform:
    fewer clicks to the read that matters, and less on-screen noise.
