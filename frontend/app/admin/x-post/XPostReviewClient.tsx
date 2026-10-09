@@ -311,12 +311,12 @@ export default function XPostReviewClient() {
         {timingLabel ? (
           <>
             Showing the <strong style={{ color: textColor }}>{timingLabel}</strong> — the current
-            timing switches automatically at 9:15, 12:30 and 16:05 ET. Edit the copy below, then
+            timing switches automatically at 9:15 and 16:05 ET. Edit the copy below, then
             copy it to X. Regenerating pulls the latest gamma levels, price action and CNBC
             headlines.
           </>
         ) : (
-          'The current timing switches automatically at 9:15, 12:30 and 16:05 ET.'
+          'The current timing switches automatically at 9:15 and 16:05 ET.'
         )}
       </p>
 
