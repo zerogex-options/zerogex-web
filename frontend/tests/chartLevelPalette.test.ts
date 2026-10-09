@@ -103,6 +103,10 @@ function deltaE(c1: [number, number, number], c2: [number, number, number]) {
 }
 
 // The overlay set from GammaTerminalChart's levelDefs, in the same order.
+// The prior-day / pre-market lines (PDH, PDL, PDC, PMH, PML) are deliberately
+// not in it: they share one neutral gray, are told apart by their name chips,
+// and carry outlined tags rather than filled ones, so they never compete for a
+// hue. The test after this one keeps them that way.
 const LEVELS: [string, string][] = [
   ['FLIP', '--color-flip'], ['CALL WALL', '--color-bear'], ['PUT WALL', '--color-bull'],
   ['MAX PAIN', '--color-maxpain'], ['GEX KING', '--color-king'], ['PIN', '--color-pin'],
@@ -136,6 +140,15 @@ test('every gamma level overlay is distinguishable from the others, in every the
     }
   }
   assert.deepEqual(clashes, [], `level overlays collide:\n  ${clashes.join('\n  ')}`);
+});
+
+test('the prior-day / pre-market lines stay one neutral set with outlined tags', () => {
+  // If these ever get a colour of their own, that colour has to join LEVELS
+  // above and clear every palette; until then they must not take one.
+  const src = readFileSync(new URL('../components/GammaTerminalChart.tsx', import.meta.url), 'utf8');
+  const defs = src.slice(src.indexOf('sessionLevels.map((l) => ({'), src.indexOf(': []),', src.indexOf('sessionLevels.map((l) => ({')));
+  assert.match(defs, /color:\s*"var\(--text-secondary\)"/, 'session levels should draw in --text-secondary');
+  assert.match(defs, /hollow:\s*true/, 'session levels should carry outlined (hollow) axis tags');
 });
 
 test('VWAP and the expected range never share a colour', () => {

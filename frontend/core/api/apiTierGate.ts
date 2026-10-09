@@ -151,9 +151,13 @@ const RULES: readonly Rule[] = [
   // hooks `enabled: false`. A visitor who is not entitled to the live feeds
   // never asks for them, rather than asking and being refused.
   //   open-interest  — /my-dashboard and /gamma-exposure only.
-  //   session-levels — useSessionLevels has exactly one caller,
+  //   session-levels — useSessionLevels has two callers:
   //                    MarketMakerExposures, which renders only on
-  //                    /my-dashboard and /gex-strike-profile. (It is referenced
+  //                    /my-dashboard and /gex-strike-profile, and
+  //                    GammaTerminalChart (its prior-day / pre-market row),
+  //                    which fetches only when live — the same `live` gate as
+  //                    historical above, so the public /chart and
+  //                    /spx-gamma-levels mounts never ask. (It is referenced
   //                    in comments on the public /replay/* scrubber, but that
   //                    component renders from server-fetched props and issues no
   //                    client-side request.)
