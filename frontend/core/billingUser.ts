@@ -165,3 +165,52 @@ export function markSubscriptionEnded(input: {
   };
   return Number(result.changes) > 0;
 }
+
+// A subscription whose first payment never went through. Stripe creates the
+// subscription when Checkout first tries the card, so a decline leaves one
+// behind in `incomplete`; 23 hours later Stripe moves it to `incomplete_expired`
+// and voids its invoice. Neither ever granted access or took money, so neither
+// is a subscription the member has. Counting one as such sent the member to the
+// billing portal, which cannot finish a first payment, and made checkout refuse
+// them with "You already have an active subscription" for good, because
+// nothing ever took the id off the row.
+export function isUnstartedSubscriptionStatus(status: string | null | undefined): boolean {
+  return status === 'incomplete' || status === 'incomplete_expired';
+}
+
+// Takes a never-started subscription off the member's row so they can check
+// out again. Not churn, unlike markSubscriptionEnded: the member never had the
+// subscription, so subscription_lapsed is left alone (setting it would cost a
+// first-timer their free trial on the retry and queue win-back mail to someone
+// who never subscribed), and so is the tier, which an unstarted subscription
+// never granted. The payment-recovery latch goes, for the reason given above
+// markSubscriptionEnded.
+//
+// Same guard as markSubscriptionEnded: only when the row still points at THIS
+// subscription, or at none. Returns false, having changed nothing, otherwise.
+export function releaseUnstartedSubscription(input: {
+  userId: string;
+  subscriptionId: string;
+  // Stripe's status for the subscription, mirrored as-is.
+  status: string;
+  nowIso: string;
+}): boolean {
+  const result = getDb()
+    .prepare(
+      `UPDATE users SET
+         stripe_subscription_id = NULL,
+         stripe_price_id = NULL,
+         subscription_status = ?,
+         current_period_end = NULL,
+         cancel_at_period_end = 0,
+         payment_recovery_pending = 0,
+         payment_grace_started_at = NULL,
+         payment_grace_reason = NULL,
+         updated_at = ?
+       WHERE id = ? AND (stripe_subscription_id IS NULL OR stripe_subscription_id = ?)`,
+    )
+    .run(input.status, input.nowIso, input.userId, input.subscriptionId) as {
+    changes: number | bigint;
+  };
+  return Number(result.changes) > 0;
+}

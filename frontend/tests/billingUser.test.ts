@@ -21,8 +21,13 @@ process.env.AUTH_DB_PATH = dbPath;
 // Dynamic import: core/db.ts reads AUTH_DB_PATH at module load, so the
 // assignment above has to land first. A static import would be hoisted past it.
 const { getDb } = await import('../core/db.ts');
-const { findUserByCustomerId, findUserByCustomerIdIncludingDeleted, markSubscriptionEnded } =
-  await import('../core/billingUser.ts');
+const {
+  findUserByCustomerId,
+  findUserByCustomerIdIncludingDeleted,
+  isUnstartedSubscriptionStatus,
+  markSubscriptionEnded,
+  releaseUnstartedSubscription,
+} = await import('../core/billingUser.ts');
 
 const db = getDb();
 
@@ -249,4 +254,109 @@ test('a late deletion for a replaced subscription changes nothing', () => {
   });
   assert.equal(ended, false);
   assert.deepEqual(subscriptionRow('u_moved_on'), before);
+});
+
+// ── Never-started subscriptions ──────────────────────────────────────────────
+// A declined first payment leaves a subscription behind in `incomplete`, and
+// Stripe expires it 23 hours later. Counting it as a subscription locked the
+// member out of checkout for good, so it is released instead, and releasing it
+// must not read as churn.
+
+test('only a first payment that never went through counts as never started', () => {
+  assert.equal(isUnstartedSubscriptionStatus('incomplete'), true);
+  assert.equal(isUnstartedSubscriptionStatus('incomplete_expired'), true);
+  for (const status of ['trialing', 'active', 'past_due', 'unpaid', 'paused', 'canceled', null, undefined]) {
+    assert.equal(isUnstartedSubscriptionStatus(status), false, `${status} must not count as never started`);
+  }
+});
+
+function seedDeclinedCheckout(opts: { id: string; subscriptionId: string | null; lapsed: 0 | 1 }) {
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO users (id, email, tier, created_at, updated_at, stripe_customer_id,
+                        stripe_subscription_id, stripe_price_id, subscription_status,
+                        current_period_end, subscription_lapsed, payment_recovery_pending)
+     VALUES (?, ?, 'public', ?, ?, ?, ?, 'price_pro_monthly', 'incomplete',
+             '2026-11-08T21:44:14.000Z', ?, 1)`,
+  ).run(opts.id, `${opts.id}@example.com`, now, now, `cus_${opts.id}`, opts.subscriptionId, opts.lapsed);
+}
+
+function releaseRow(id: string) {
+  return db
+    .prepare(
+      `SELECT tier, stripe_subscription_id, stripe_price_id, subscription_status, current_period_end,
+              subscription_lapsed, payment_recovery_pending
+       FROM users WHERE id = ?`,
+    )
+    .get(id) as {
+    tier: string;
+    stripe_subscription_id: string | null;
+    stripe_price_id: string | null;
+    subscription_status: string | null;
+    current_period_end: string | null;
+    subscription_lapsed: number;
+    payment_recovery_pending: number;
+  };
+}
+
+test('releasing a never-started subscription frees the row without marking a lapse', () => {
+  seedDeclinedCheckout({ id: 'u_declined', subscriptionId: 'sub_DECLINED', lapsed: 0 });
+  const released = releaseUnstartedSubscription({
+    userId: 'u_declined',
+    subscriptionId: 'sub_DECLINED',
+    status: 'incomplete_expired',
+    nowIso: '2026-10-09T20:00:00.000Z',
+  });
+  assert.equal(released, true);
+  const row = releaseRow('u_declined');
+  assert.equal(row.stripe_subscription_id, null);
+  assert.equal(row.stripe_price_id, null);
+  assert.equal(row.subscription_status, 'incomplete_expired');
+  assert.equal(row.current_period_end, null);
+  assert.equal(row.payment_recovery_pending, 0);
+  // Not churn: a first-timer keeps their free trial for the retry.
+  assert.equal(row.subscription_lapsed, 0);
+  assert.equal(row.tier, 'public');
+});
+
+// A returning member whose resubscribe was declined is still a returning member.
+test('releasing leaves an earlier lapse in place', () => {
+  seedDeclinedCheckout({ id: 'u_returning', subscriptionId: 'sub_RETRY', lapsed: 1 });
+  releaseUnstartedSubscription({
+    userId: 'u_returning',
+    subscriptionId: 'sub_RETRY',
+    status: 'canceled',
+    nowIso: '2026-10-09T20:00:00.000Z',
+  });
+  assert.equal(releaseRow('u_returning').subscription_lapsed, 1);
+  assert.equal(releaseRow('u_returning').stripe_subscription_id, null);
+});
+
+// Checkout releases the row itself before Stripe's expiry event arrives; the
+// event then lands on a row that names no subscription and must still apply.
+test('a row checkout already released still takes the expiry', () => {
+  seedDeclinedCheckout({ id: 'u_prereleased', subscriptionId: null, lapsed: 0 });
+  const released = releaseUnstartedSubscription({
+    userId: 'u_prereleased',
+    subscriptionId: 'sub_OLD_ATTEMPT',
+    status: 'incomplete_expired',
+    nowIso: '2026-10-09T20:00:00.000Z',
+  });
+  assert.equal(released, true);
+  assert.equal(releaseRow('u_prereleased').subscription_status, 'incomplete_expired');
+});
+
+// The failure this guards: the member retried, paid, and is now on a new
+// subscription when the old attempt's expiry is delivered late.
+test("a late expiry for an old attempt leaves the member's new subscription alone", () => {
+  seedSubscriber({ id: 'u_paid_on_retry', subscriptionId: 'sub_PAID', cancelAtPeriodEnd: 0, cancelAckSentAt: null });
+  const before = subscriptionRow('u_paid_on_retry');
+  const released = releaseUnstartedSubscription({
+    userId: 'u_paid_on_retry',
+    subscriptionId: 'sub_DECLINED_FIRST',
+    status: 'incomplete_expired',
+    nowIso: '2026-10-09T20:00:00.000Z',
+  });
+  assert.equal(released, false);
+  assert.deepEqual(subscriptionRow('u_paid_on_retry'), before);
 });

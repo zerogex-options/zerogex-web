@@ -26,6 +26,7 @@ import { recordReferralSignup } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
 import { sanitizeUtmSource } from '@/core/utils';
 import { isAcceptedTermsVersionCurrent } from '@/core/legalTerms';
+import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
@@ -280,7 +281,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
-              u.stripe_customer_id, u.founding_member_started_at,
+              u.subscription_status, u.stripe_customer_id, u.founding_member_started_at,
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
               u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at,
@@ -305,7 +306,12 @@ function getSessionByToken(token: string): SessionWithUser | null {
       // not the tier alone. A grandfathered user (tier=basic|pro without a
       // Stripe sub) returns false here so the client knows to route to
       // checkout, not the portal (which would 400 on missing stripe_customer_id).
-      hasActiveSubscription: !!row.stripe_subscription_id,
+      // Nor does a subscription whose first payment never went through: it
+      // sent the member to the portal, which cannot finish that payment, when
+      // what they need is a fresh checkout (see isUnstartedSubscriptionStatus).
+      hasActiveSubscription:
+        !!row.stripe_subscription_id &&
+        !isUnstartedSubscriptionStatus(row.subscription_status as string | null),
       // Whether Stripe holds a customer record for this account, which is the
       // real precondition for opening the billing portal (/api/billing/portal
       // needs only stripe_customer_id). Deliberately separate from
@@ -395,7 +401,7 @@ function createSessionForUser(user: AuthUser) {
   const ackRow = db
     .prepare(
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
-              stripe_subscription_id, email_verified_at,
+              stripe_subscription_id, subscription_status, email_verified_at,
               founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at,
               basic_welcome_seen_at, paid_welcome_email_sent_at,
               terms_accepted_at, terms_version_accepted
@@ -406,6 +412,7 @@ function createSessionForUser(user: AuthUser) {
         disclaimer_acknowledged_at: string | null;
         disclaimer_version_acknowledged: string | null;
         stripe_subscription_id: string | null;
+        subscription_status: string | null;
         email_verified_at: string | null;
         founding_eligible: number | null;
         founding_lockin_dismissed_at: string | null;
@@ -425,7 +432,8 @@ function createSessionForUser(user: AuthUser) {
       id: user.id,
       email: user.email,
       tier: user.tier,
-      hasActiveSubscription: !!ackRow?.stripe_subscription_id,
+      hasActiveSubscription:
+        !!ackRow?.stripe_subscription_id && !isUnstartedSubscriptionStatus(ackRow.subscription_status),
       emailVerified: !!ackRow?.email_verified_at,
       disclaimerAcknowledgedAt: ackRow?.disclaimer_acknowledged_at ?? null,
       disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,

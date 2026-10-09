@@ -3,14 +3,18 @@ import { getDb } from '@/core/db';
 import { attachSessionCookie, getSessionFromRequest } from '@/core/serverAuth';
 import { lengthenOffers } from '@/core/planSwitch';
 import { isSkuSellable, priceIdToSku } from '@/core/stripe';
+import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
 
 export const dynamic = 'force-dynamic';
 
 // Subscription states where the customer still has a subscription on file but a
 // payment problem is blocking access — recoverable by updating the card in the
 // billing portal (unlike 'canceled', which needs a fresh checkout). A trial-end
-// charge failure lands the subscription in 'past_due'.
-const PAYMENT_ISSUE_STATUSES = new Set(['past_due', 'unpaid', 'incomplete']);
+// charge failure lands the subscription in 'past_due'. A first payment that
+// never went through ('incomplete') is not one of these: there is no
+// subscription to rescue, and the way back is a fresh checkout (see
+// isUnstartedSubscriptionStatus).
+const PAYMENT_ISSUE_STATUSES = new Set(['past_due', 'unpaid']);
 
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
     | undefined;
 
   const status = row?.subscription_status ?? null;
-  const hasSubscription = !!row?.stripe_subscription_id;
+  const hasSubscription = !!row?.stripe_subscription_id && !isUnstartedSubscriptionStatus(status);
   // Only a payment issue while the subscription is still on file (recoverable
   // via the portal). Once Stripe deletes it, stripe_subscription_id is cleared
   // and the right path is a fresh checkout, not the portal.
