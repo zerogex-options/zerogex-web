@@ -89,6 +89,8 @@ The overlays are the ZeroGEX twist, each switched by a pill in the toolbar above
 - **VWAP**, and **Regime** shading - the long-gamma and short-gamma zones on either side of the flip.
 - Off until you turn them on: **GEX King**, and on the live chart **Expected Range**, **Ribbons** (per-strike gamma through time, behind the tape), and **Bar Timer**.
 
+On SPY and QQQ, a row just above the live chart lists the previous session's high, low and close and today's pre-market high and low: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. The eye at the end of the row, or the **PD/PM Levels** pill, draws them on the chart as gray lines with outlined price tags, long dashes for the prior day and dots for the pre-market. They're off until you turn them on. SPX and NDX have no pre-market, and ES and NQ trade almost around the clock, so the row doesn't appear on those four.
+
 The finely-dotted line in the theme's hot accent is the **last traded price**, not a gamma level - it's listed as "Last" in the legend under the chart.
 
 The overlays let you read price action through the dealer-positioning lens without leaving the chart. Without a Basic or Pro plan, the Gamma Terminal shows a snapshot delayed about 15 minutes, with the symbol and timeframe fixed; members get it live.

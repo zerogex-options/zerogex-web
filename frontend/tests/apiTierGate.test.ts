@@ -129,8 +129,9 @@ test('market: paid series are basic; quote/session chrome stays public (ungated)
   // stale via server-side ISR, but this proxy served them LIVE to anyone.
   eq('/api/market/historical', 'basic');
   eq('/api/market/open-interest', 'basic');
-  // useSessionLevels has one caller (MarketMakerExposures), which renders only
-  // on the Basic /my-dashboard and /gex-strike-profile.
+  // useSessionLevels' callers are MarketMakerExposures (the Basic
+  // /my-dashboard and /gex-strike-profile) and GammaTerminalChart, which only
+  // fetches it when live, never on its public delayed mounts.
   eq('/api/market/session-levels', 'basic');
   // Anonymous header chrome — must stay reachable without a session.
   eq('/api/market/quote', null);

@@ -25,7 +25,7 @@ import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesLevelsChip from "./FuturesLevelsChip";
 import SymbolSelect from "./SymbolSelect";
-import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
+import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, useSessionLevels, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
 import { useReplayFrameRows } from "@/hooks/useReplayFrameRows";
@@ -87,7 +87,8 @@ import {
   type PanelStrikeRow,
 } from "@/core/strikePanelHover";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
-import { volatilityIndexFor } from '@/core/symbols';
+import { isFuturesSymbol, volatilityIndexFor } from '@/core/symbols';
+import { chartSessionLevels } from "@/core/sessionLevels";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
@@ -135,6 +136,7 @@ interface OverlayState {
   barTimer: boolean; // countdown + elapsed on the forming candle
   ribbons: boolean; // GEX ribbons: per-strike dealer gamma through time, behind the tape
   volume: boolean; // volume pane under the tape; off hands its height to the price pane
+  sessionLevels: boolean; // prior-day high/low/close + pre-market high/low lines (the top row always shows the numbers)
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -158,6 +160,10 @@ const DEFAULT_OVERLAYS: OverlayState = {
   barTimer: false,
   ribbons: false,
   volume: true,
+  // Off for the same reason as King: five more lines is a lot to add to every
+  // chart unasked, and the numbers are always in the row above the tape. The
+  // member who asked for these asked for exactly that split.
+  sessionLevels: false,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -1190,6 +1196,15 @@ export default function GammaTerminalChart({
   const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, !symbolIsIndex, live);
   const { data: quote } = useMarketQuote(symbol, 1000, live);
   const { data: liveSessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null, live);
+  // Prior-day high/low + pre-market high/low for the top row and the PD / PM
+  // lines. ETFs only: cash indexes have no pre-market (the endpoint serves them
+  // nulls), and on ES / NQ, which trade nearly around the clock, "pre-market"
+  // and "the prior day" are not the windows these fields describe. Live only:
+  // the endpoint is Basic-gated and the delayed snapshot does no client
+  // fetching. The levels roll once a day at 04:00 ET and the pre-market pair
+  // moves only while that session runs, so a minute's poll is plenty.
+  const sessionLevelsSupported = live && !symbolIsIndex && !isFuturesSymbol(symbol);
+  const { data: sessionLevelsData } = useSessionLevels(symbol, 60000, sessionLevelsSupported);
   const { data: gexProfile } = useGEXProfile(symbol, 10000, live);
   const { data: gexSummary } = useGEXSummary(symbol, 5000, live);
   const technicals = useTechnicals(symbol, live);
@@ -1233,6 +1248,18 @@ export default function GammaTerminalChart({
   const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
   const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
   const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
+  // PDH · PDL · PDC · PMH · PML, as known at the moment on screen: the live
+  // values, or while rewinding only what was known at the replay clock (see
+  // core/sessionLevels). A rewind with no clock yet shows none rather than
+  // borrowing the live ones.
+  const sessionLevels = useMemo(
+    () =>
+      sessionLevelsSupported && !(rewindActive && rewindTime == null)
+        ? chartSessionLevels({ levels: sessionLevelsData, closes: sessionCloses, asOf: rewindActive ? rewindTime : null })
+        : [],
+    [sessionLevelsSupported, sessionLevelsData, sessionCloses, rewindActive, rewindTime],
+  );
+  const sessionLinesOn = overlays.sessionLevels && sessionLevels.length > 0;
   // Overnight index→future display swap (see priceChange.ts / SessionBadge).
   // When active, the headline shows the FUTURE's price/change and the session
   // badge reads FUTURES — the "same spot" a cash-closed index would read CLOSED.
@@ -1851,7 +1878,9 @@ export default function GammaTerminalChart({
     // Fold in gamma levels that sit within ~1.2 bar-spans of the tape so the
     // walls/flip stay visible without a far Max Pain blowing out the scale.
     const band = barSpan * 1.2;
-    const includable = [flip, callWall, putWall, vwap].filter((v): v is number => v != null);
+    // The PD / PM lines join them only once the reader turns them on, so the
+    // default chart's scale is exactly what it was.
+    const includable = [flip, callWall, putWall, vwap, ...(sessionLinesOn ? sessionLevels.map((l) => l.value) : [])].filter((v): v is number => v != null);
     for (const v of includable) {
       if (v >= dMin - band && v <= dMax + band) {
         dMin = Math.min(dMin, v);
@@ -1925,7 +1954,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
+  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // Terminal mode: report where the tape's price band and the live spot sit, in
   // CSS px from the card's top edge, so the ladders beside the chart can pin
@@ -3033,7 +3062,8 @@ export default function GammaTerminalChart({
     flip == null ? aboveBandIsLong : offScaleBandIsLong(flip, layout.dMin, aboveBandIsLong);
 
   // Level definitions rendered as reference lines + right-axis tags.
-  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
+  // `hollow`: an outlined price tag instead of a filled one (the PD / PM set).
+  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean; hollow?: boolean };
   const levelDefs: LevelDef[] = [
     { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: overlays.levels },
     // Walls are colored by what the LEVEL does, not by the instrument behind
@@ -3052,6 +3082,26 @@ export default function GammaTerminalChart({
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
     { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
+    // Prior day and pre-market. These are where price has BEEN, not where
+    // dealers are positioned, so they are drawn as one neutral set rather
+    // than spending five more hues on a board whose colors already have to
+    // stay apart in every palette (tests/chartLevelPalette): one gray ink,
+    // named by their chips, with outlined tags on the axis so none reads as
+    // the VWAP tag (a gray in several palettes) or as a dealer level. The
+    // dash tells the prior day (long) from the pre-market (dotted). Listed
+    // only while on, so the crosshair's and the strike panel's "nearest
+    // level" never name a line that isn't drawn.
+    ...(sessionLinesOn
+      ? sessionLevels.map((l) => ({
+          key: `session-${l.key}`,
+          label: l.label,
+          value: l.value,
+          color: "var(--text-secondary)",
+          dash: l.key === "pmh" || l.key === "pml" ? "1 3" : "5 3",
+          show: true,
+          hollow: true,
+        }))
+      : []),
   ];
 
   // Confluence: is spot pinned to a level (within 0.12%)? Emphasize if so.
@@ -3264,6 +3314,39 @@ export default function GammaTerminalChart({
   // frozen 4 PM close in pre/after-hours; the future when swapped) — or the
   // scrub bar's close while rewinding. Change/percent come from `headline` too.
   const headlinePrice = rewindActive ? spot : headline.displayPrice ?? spot;
+
+  // ── Prior-day / pre-market row ── PDH · PDL · PDC · PMH · PML, printed above
+  // the tape whenever there is data, with the switch for their lines at the
+  // end of it. The numbers are always on; the lines are opt-in (see
+  // DEFAULT_OVERLAYS). Shared by the desktop readout and the compact strip.
+  const sessionLevelItems = sessionLevels.map((l) => (
+    <span key={`sl-${l.key}`} title={`${l.name}: ${fmtPrice(l.value)}`} style={{ whiteSpace: "nowrap" }}>
+      <span style={{ color: "var(--text-muted)" }}>{l.label}</span>{" "}
+      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>{fmtPrice(l.value)}</span>
+    </span>
+  ));
+  const sessionLinesToggle = (
+    <button
+      type="button"
+      onClick={() => setOverlays((o) => ({ ...o, sessionLevels: !o.sessionLevels }))}
+      aria-pressed={overlays.sessionLevels}
+      aria-label={overlays.sessionLevels ? "Hide the prior-day and pre-market lines" : "Draw the prior-day and pre-market levels on the chart"}
+      title={overlays.sessionLevels ? "Hide these lines from the chart" : "Draw these levels on the chart"}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        // A bigger target for a finger without moving the row around it.
+        padding: 5,
+        margin: -3,
+        border: 0,
+        background: "transparent",
+        cursor: "pointer",
+        color: overlays.sessionLevels ? "var(--text-primary)" : "var(--text-muted)",
+      }}
+    >
+      {overlays.sessionLevels ? <Eye size={13} aria-hidden /> : <EyeOff size={13} aria-hidden />}
+    </button>
+  );
 
   // ── Gamma structure rail (net silhouette or per-strike bars) ────────────
   // Built here rather than inline in the SVG below because it has two homes:
@@ -3753,6 +3836,10 @@ export default function GammaTerminalChart({
           )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
+          {/* Prior day + pre-market lines — live ETFs only (see sessionLevelsSupported). */}
+          {sessionLevelsSupported && (
+            <OverlayPill label="PD/PM Levels" color="var(--text-secondary)" active={overlays.sessionLevels} onClick={() => setOverlays((o) => ({ ...o, sessionLevels: !o.sessionLevels }))} title="Prior day and pre-market levels&nbsp;- PDH / PDL / PDC (the previous regular session's high, low and close) and PMH / PML (today's pre-market high and low), drawn as gray dashed lines. The numbers are always in the row above the chart." />
+          )}
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
           <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
           <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
@@ -3826,6 +3913,7 @@ export default function GammaTerminalChart({
     live && overlays.ribbons,
     overlays.regime,
     overlays.vwap,
+    sessionLevelsSupported && overlays.sessionLevels,
     overlays.maxPain,
     overlays.king,
     overlays.pin,
@@ -4093,6 +4181,22 @@ export default function GammaTerminalChart({
         )}
       </div>
 
+      {/* ── Prior-day / pre-market row (desktop) ── A strip of its own above
+          the tape rather than beside the OHLC readout in the board's top band:
+          at the widths the dashboards give this card (under ~1050px) the two
+          don't fit side by side, and wrapped under the readout the row covered
+          the tape's top edge, level chips included. The compact canvas
+          carries it as a second line of its OHLC strip instead. */}
+      {!compact && sessionLevels.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-1.5"
+          style={{ fontFamily: "var(--font-mono)", fontSize: 11, background: "var(--bg-card)", borderBottom: "1px solid var(--border-subtle)" }}
+        >
+          {sessionLevelItems}
+          {sessionLinesToggle}
+        </div>
+      )}
+
       {/* ── Chart body ─────────────────────────────────────────────────── */}
       <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
           {compact && (
@@ -4110,6 +4214,14 @@ export default function GammaTerminalChart({
                     {fmtPrice(v)}
                   </span>
                 ),
+              )}
+              {/* Its own line under the OHLC: mixed into the same wrap, a
+                  level would land between a candle's numbers. */}
+              {sessionLevels.length > 0 && (
+                <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5" style={{ flexBasis: "100%" }}>
+                  {sessionLevelItems}
+                  {sessionLinesToggle}
+                </span>
               )}
             </div>
           )}
@@ -4320,7 +4432,7 @@ export default function GammaTerminalChart({
               const y = clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1);
               const emphasized = confluenceKey === l.key;
               return (
-                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
+                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : l.hollow ? 1.1 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
               );
             })}
 
@@ -4393,6 +4505,7 @@ export default function GammaTerminalChart({
                     value: fmtPrice(l.value),
                     bg: l.color,
                     strong: false,
+                    hollow: l.hollow ?? false,
                     arrow: (!inDomain(l.value) ? (l.value > layout.dMax ? "up" : "down") : null) as "up" | "down" | null,
                   })),
                 {
@@ -4401,6 +4514,7 @@ export default function GammaTerminalChart({
                   value: fmtPrice(liveTip.close),
                   bg: "var(--color-accent-hot)",
                   strong: true,
+                  hollow: false,
                   arrow: null as "up" | "down" | null,
                 },
               ];
@@ -4412,7 +4526,7 @@ export default function GammaTerminalChart({
               return (
                 <>
                   {tags.map((t) => (
-                    <PriceTag key={t.key} x={tagX} y={t.yAdj} value={t.value} bg={t.bg} ink={chipInk(t.bg)} strong={t.strong} arrow={t.arrow} />
+                    <PriceTag key={t.key} x={tagX} y={t.yAdj} value={t.value} bg={t.bg} ink={t.hollow ? "var(--text-primary)" : chipInk(t.bg)} strong={t.strong} arrow={t.arrow} hollow={t.hollow} />
                   ))}
                   {liveBarClock && lastTagY != null && (
                     <BarCountdownTag
@@ -4994,6 +5108,7 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-maxpain)" label="Max Pain" />
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
+        {sessionLinesOn && <LegendDot color="var(--text-secondary)" label="PD / PM" />}
         <LegendDot color="var(--color-accent-hot)" label="Last" />
         {live && overlays.ribbons && <RibbonKey />}
         {railStackingActive && (
@@ -5224,12 +5339,18 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
 // `ink` is the price's colour. It has to be judged against this tag's own fill
 // rather than against the page, because a level's colour does not follow the
 // theme — see useChipInk. Callers pass chipInk(bg).
-function PriceTag({ x, y, value, bg, ink, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; ink: string; strong?: boolean; arrow?: "up" | "down" | null }) {
+// `hollow` draws the tag as an outline in `bg` on the card instead of filled
+// with it; `ink` is then read against the card, not against `bg`.
+function PriceTag({ x, y, value, bg, ink, strong = false, arrow = null, hollow = false }: { x: number; y: number; value: string; bg: string; ink: string; strong?: boolean; arrow?: "up" | "down" | null; hollow?: boolean }) {
   const w = 8 + value.length * 6.6 + (arrow ? 8 : 0);
   const h = strong ? 18 : 15;
   return (
     <g transform={`translate(${x - w}, ${y})`}>
-      <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill={bg} />
+      {hollow ? (
+        <rect x={0.5} y={-h / 2 + 0.5} width={w - 1} height={h - 1} rx={2} fill="var(--bg-card)" stroke={bg} strokeWidth={1} />
+      ) : (
+        <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill={bg} />
+      )}
       <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill={ink} style={{ fontVariantNumeric: "tabular-nums" }}>
         {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
         {value}
