@@ -22,7 +22,7 @@ A ellos se suman dos futuros sobre índices de CME, como símbolos de pleno dere
 
 ES y NQ no tienen un libro de opciones propio. ES y SPX siguen el mismo índice, así que el libro de dealers detrás de un gráfico de ES *es* el libro del SPX: los niveles del SPX (o del NDX, para NQ) se proyectan sobre el eje de precios del futuro, mientras que la serie de precios procede del feed de CME. La proyección usa el carry teórico del contrato que cotizamos (tipos de interés menos la rentabilidad por dividendo del índice, durante el tiempo que queda hasta su vencimiento), así que no hay ningún ajuste de base que configurar, y en cada rollover trimestral los niveles pasan al nuevo contrato junto con el precio. Como el carry refleja el valor razonable, los niveles pueden quedar ligeramente desplazados cuando los futuros cotizan por encima o por debajo de él, por ejemplo de noche o en torno a noticias. Las exposiciones en dólares (GEX neto, de calls y de puts) se dejan deliberadamente sin proyectar: el histograma escala sobre la exposición *relativa*, así que la forma es la misma en ambos casos. Los micros (/MES, /MNQ) son el mismo contrato a una décima parte del tamaño, por lo que se aplican los mismos niveles.
 
-Las acciones individuales están en la hoja de ruta, probablemente empezando por los Siete Magníficos (AAPL, MSFT, NVDA, AMZN, GOOGL, META y TSLA). Hasta que cada una esté disponible, el modelo de señales y el concepto de régimen se basan en el comportamiento de los dealers a nivel de índice, y esta página irá listando cada acción a medida que se incorpore.
+Las acciones individuales están en la hoja de ruta, probablemente empezando por los Mag 7 (AAPL, MSFT, NVDA, AMZN, GOOGL, META y TSLA). Hasta que cada una esté disponible, el modelo de señales y el concepto de régimen se basan en el comportamiento de los dealers a nivel de índice, y esta página irá listando cada acción a medida que se incorpore.
 
 ## Horario de mercado
 
@@ -104,7 +104,7 @@ Dos razones:
 1. El modelo de posicionamiento de los dealers solo funciona bien donde el flow de los dealers representa una fracción significativa del flow total. Ese es el complejo de índices - SPY, SPX, QQQ, NDX y los futuros ES / NQ, que siguen esos mismos dos índices.
 2. Preferimos acertar con un puñado de instrumentos antes que hacerlo a medias con diez.
 
-Las acciones individuales pueden desviarse por noticias idiosincráticas, sobre todo en torno a los resultados trimestrales, lo que hace más ruidosa la lectura del GEX. Por eso se incorporarán de pocas en pocas, probablemente empezando por los Siete Magníficos, donde el mercado de opciones es más profundo, en lugar de todas a la vez.
+Las acciones individuales pueden desviarse por noticias idiosincráticas, sobre todo en torno a los resultados trimestrales, lo que hace más ruidosa la lectura del GEX. Por eso se incorporarán de pocas en pocas, probablemente empezando por los Mag 7, donde el mercado de opciones es más profundo, en lugar de todas a la vez.
 
 ## Ver también
 

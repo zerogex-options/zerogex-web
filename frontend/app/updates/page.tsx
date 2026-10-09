@@ -68,7 +68,7 @@ const UPDATES: Update[] = [
     whatsComing: [
       {
         title: 'Single stocks',
-        body: 'We are extending coverage to individual stocks, most likely starting with the Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA) and adding more as we scale. If there’s a stock you want in that first wave, reply to any ZeroGEX email and say which.',
+        body: 'We are extending coverage to individual stocks, most likely starting with the Mag 7 (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA) and adding more as we scale. If there’s a stock you want in that first wave, reply to any ZeroGEX email and say which.',
       },
       {
         title: 'Years of history for backtesting',
@@ -76,7 +76,7 @@ const UPDATES: Update[] = [
       },
       {
         title: 'Global futures and indices',
-        body: 'We are also looking into coverage for more futures and indices, such as the DAX, Euro Stoxx 50 and FTSE 100 in Europe, and the Nikkei 225, Hang Seng, Nifty 50 and KOSPI 200 in Asia. Licensing that data costs significantly more than what we use today, so before committing we want to gauge how much interest there is, and covering these markets may take a new, higher-priced plan. If you’d trade any of them with ZeroGEX, tell us which the same way.',
+        body: 'We are also looking at extending coverage to more futures and indices, such as the DAX, Euro Stoxx 50 and FTSE 100 in Europe, and the Nikkei 225, Hang Seng, Nifty 50 and KOSPI 200 in Asia. We can’t promise dates yet, but more to come on this.',
       },
       {
         title: 'A more streamlined experience',

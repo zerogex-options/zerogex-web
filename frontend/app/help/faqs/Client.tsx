@@ -63,7 +63,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'single-names',
         q: 'Will you add single-name equities (AAPL, TSLA, NVDA, etc.)?',
-        a: 'Yes. Single stocks are on the roadmap rather than live today, most likely starting with the Magnificent Seven (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA), with more added as we scale. The dealer-positioning model works best where institutional options flow dominates the underlying, which is why the index complex came first, and single names carry idiosyncratic-news noise (earnings above all) that makes the GEX read less reliable. That is also why they will be added a few at a time, beginning with the stocks whose options markets are deepest.',
+        a: 'Yes. Single stocks are on the roadmap rather than live today, most likely starting with the Mag 7 (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA), with more added as we scale. The dealer-positioning model works best where institutional options flow dominates the underlying, which is why the index complex came first, and single names carry idiosyncratic-news noise (earnings above all) that makes the GEX read less reliable. That is also why they will be added a few at a time, beginning with the stocks whose options markets are deepest.',
       },
       {
         id: 'futures',

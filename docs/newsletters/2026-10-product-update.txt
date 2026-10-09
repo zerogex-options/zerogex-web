@@ -129,22 +129,19 @@ A quick look at where ZeroGEX is headed. Roadmaps shift, often because of
 something one of you flags, but this is the current direction:
 
 -> Single stocks. We are extending coverage to individual stocks, most
-   likely starting with the Magnificent Seven (AAPL, MSFT, NVDA, AMZN,
-   GOOGL, META and TSLA) and adding more as we scale. If there's a stock
-   you'd want in that first wave, hit reply and tell me.
+   likely starting with the Mag 7 (AAPL, MSFT, NVDA, AMZN, GOOGL, META and
+   TSLA) and adding more as we scale. If there's a stock you'd want in that
+   first wave, hit reply and tell me.
 
 -> Years of history for backtesting. We are working to license historical
    options data going back several years, so a backtest can run across
    different market regimes instead of only the months we have recorded
    ourselves since this spring.
 
--> Global futures and indices. We are also looking into coverage for more
-   futures and indices, such as the DAX, Euro Stoxx 50 and FTSE 100 in
-   Europe, and the Nikkei 225, Hang Seng, Nifty 50 and KOSPI 200 in Asia.
-   Licensing that data costs significantly more than what we use today, so
-   before committing we want to gauge how much interest there is, and
-   covering these markets may take a new, higher-priced plan. If you'd trade
-   any of them with ZeroGEX, let me know which.
+-> Global futures and indices. We are also looking at extending coverage to
+   more futures and indices, such as the DAX, Euro Stoxx 50 and FTSE 100 in
+   Europe, and the Nikkei 225, Hang Seng, Nifty 50 and KOSPI 200 in Asia. We
+   can't promise dates yet, but more to come on this.
 
 -> A more streamlined experience. An ongoing pass to simplify the platform:
    fewer clicks to the read that matters, and less on-screen noise.
