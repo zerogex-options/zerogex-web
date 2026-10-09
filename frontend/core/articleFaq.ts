@@ -324,6 +324,25 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'No. MenthorQ lists its Pro plan as everything in Premium plus coaching: mentorship meetings, live trading sessions, and a monthly strategy session.',
     },
   ],
+  // Same rule again: no dollar figures, only how the price lists compare.
+  'zerogex-vs-tradegex': [
+    {
+      q: 'Is ZeroGEX a TradeGEX alternative?',
+      a: 'For gamma levels on ES and NQ, yes: both draw the call and put walls and the gamma flip on the futures chart, and ZeroGEX also covers SPX, SPY, QQQ, and NDX themselves. For the Dow, the Russell, gold, crude oil, or single tech stocks, or for a desktop app with a trade simulator, no: TradeGEX covers those, and ZeroGEX does not.',
+    },
+    {
+      q: 'Are TradeGEX’s call and put walls the same as ZeroGEX’s?',
+      a: 'They share names but not definitions. TradeGEX’s key-levels guide places each wall at the strike with the most call or put open interest. ZeroGEX weights that open interest by gamma, which is highest near the current price, so a large block of contracts far from price counts for less.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than TradeGEX?',
+      a: `Month to month, ZeroGEX Basic costs less than TradeGEX and ZeroGEX Pro costs about the same. On yearly billing, ZeroGEX Pro costs about half as much, and API access comes with it. TradeGEX’s price covers more markets, desktop apps, and a trade simulator. TradeGEX prices as listed on its site, checked ${competitorCheckedLabel('tradegex')}.`,
+    },
+    {
+      q: 'Where do TradeGEX’s ES and NQ levels come from?',
+      a: 'From the options on the index or ETF each future tracks. TradeGEX lets you pick an ETF source, such as SPY or QQQ, or an index source, such as SPX or NDX, and converts the levels onto the futures price. ZeroGEX builds ES levels from the SPX options chain and NQ levels from the NDX chain, and projects them onto the futures contract it quotes.',
+    },
+  ],
   'how-to-trade-around-gamma-flip': [
     {
       q: 'How do you trade around the gamma flip?',

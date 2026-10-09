@@ -22,6 +22,7 @@ const PAGES: Array<[CompetitorId, string]> = [
   ['bullflow', 'zerogex-vs-bullflow'],
   ['quantdata', 'zerogex-vs-quant-data'],
   ['menthorq', 'zerogex-vs-menthorq'],
+  ['tradegex', 'zerogex-vs-tradegex'],
 ];
 
 const readArticle = (slug: string) =>
@@ -77,6 +78,13 @@ test('competitor figures print the way their sources quote them', () => {
   assert.equal(fillComparisonPrices('{{menthorq:pro:annual}}'), '$3,108');
   assert.equal(fillComparisonPrices('{{menthorq:pro:annual:mo}}'), '$259');
   assert.equal(fillComparisonPrices('{{menthorq:checked}}'), 'September 30, 2026');
+  assert.equal(fillComparisonPrices('{{tradegex:platform:monthly}}'), '$59.99');
+  assert.equal(fillComparisonPrices('{{tradegex:platform:sixMonths}}'), '$299');
+  assert.equal(fillComparisonPrices('{{tradegex:platform:annual}}'), '$599');
+  // TradeGEX prints no per-month figure for its yearly plan, so the page
+  // derives one and says "about".
+  assert.equal(fillComparisonPrices('{{tradegex:platform:annual:mo}}'), '$49.92');
+  assert.equal(fillComparisonPrices('{{tradegex:checked}}'), 'October 9, 2026');
 });
 
 // A plan that records both a yearly total and a per-month figure has to agree
@@ -109,6 +117,10 @@ test('a malformed or unknown token throws instead of printing braces', () => {
     '{{bullflow:basic:firstMonth}}',
     '{{menthorq:premium:firstMonth:mo}}',
     '{{zgx:basic:firstMonth}}',
+    // So is a six-month plan: it is already one charge for its period.
+    '{{bullflow:basic:sixMonths}}',
+    '{{tradegex:platform:sixMonths:mo}}',
+    '{{zgx:pro:sixMonths}}',
   ]) {
     assert.throws(() => fillComparisonPrices(bad), /unknown price token/, bad);
   }
@@ -151,4 +163,14 @@ test('the price comparisons the pages make in words still hold', () => {
   // "MenthorQ's discounted first month of Premium costs the same as a regular
   // month of ZeroGEX Basic"
   assert.equal(menthorq.premium.firstMonth, LIST_PRICE_USD.basic.monthly);
+
+  // "Month to month, ZeroGEX Basic costs less than TradeGEX, and ZeroGEX Pro
+  // costs about the same"
+  const tradegex = COMPETITOR_PRICES.tradegex.plans.platform;
+  assert.ok(LIST_PRICE_USD.basic.monthly < tradegex.monthly);
+  assert.ok(Math.abs(LIST_PRICE_USD.pro.monthly - tradegex.monthly) <= 1);
+  // "On yearly billing, ZeroGEX Pro costs about half as much as TradeGEX - the
+  // same as TradeGEX's six-month plan"
+  assert.ok(Math.abs(LIST_PRICE_USD.pro.annual - tradegex.annual / 2) < 1);
+  assert.equal(LIST_PRICE_USD.pro.annual, tradegex.sixMonths);
 });

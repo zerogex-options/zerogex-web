@@ -594,6 +594,21 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 7,
     kind: 'article',
   },
+  'zerogex-vs-tradegex': {
+    slug: 'zerogex-vs-tradegex',
+    href: '/education/zerogex-vs-tradegex',
+    // For readers searching the competitor ("tradegex alternative",
+    // "tradegex vs", "tradegex review"). Same rule as the other comparisons: no
+    // prices in the title or description.
+    title: 'ZeroGEX vs TradeGEX (2026): Futures Gamma Levels, Pricing & Coverage',
+    blurb:
+      'A fair side-by-side of ZeroGEX and TradeGEX: how their walls and gamma flip are built, where each one’s ES and NQ levels come from, what each plan costs, and where each one is the stronger choice.',
+    description:
+      'Looking for a TradeGEX alternative? ZeroGEX vs TradeGEX, compared fairly: call and put walls, ES and NQ levels, pricing, and which fits how you trade.',
+    datePublished: '2026-10-09',
+    readMinutes: 7,
+    kind: 'article',
+  },
 };
 
 /**
@@ -653,6 +668,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zerogex-vs-bullflow',
     'zerogex-vs-quant-data',
     'zerogex-vs-menthorq',
+    'zerogex-vs-tradegex',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
@@ -803,6 +819,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'best-gex-tools',
     'zerogex-vs-quant-data',
     'zerogex-vs-menthorq',
+    'zerogex-vs-tradegex',
     'gamma-exposure-explained',
     'gamma-levels-in-claude',
   ],
@@ -810,6 +827,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'best-gex-tools',
     'zerogex-vs-bullflow',
     'zerogex-vs-menthorq',
+    'zerogex-vs-tradegex',
     'why-we-dont-publish-dex',
     'hedging-flow-explained',
   ],
@@ -817,8 +835,17 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'best-gex-tools',
     'zerogex-vs-quant-data',
     'zerogex-vs-bullflow',
+    'zerogex-vs-tradegex',
     'zero-gamma-level-explained',
     'gamma-walls-explained',
+  ],
+  'zerogex-vs-tradegex': [
+    'best-gex-tools',
+    'zerogex-vs-menthorq',
+    'zerogex-vs-quant-data',
+    'zerogex-vs-bullflow',
+    'how-often-do-gamma-walls-break',
+    'why-we-dont-publish-dex',
   ],
 };
 

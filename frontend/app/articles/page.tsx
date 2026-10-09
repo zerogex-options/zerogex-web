@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/zerogex-vs-tradegex',
+    kind: 'Published • October 9, 2026 • 16:00 UTC',
+    title: 'ZeroGEX vs TradeGEX (2026): Futures Gamma Levels, Pricing & Coverage',
+    blurb:
+      'A fair side-by-side of ZeroGEX and TradeGEX: how their walls and gamma flip are built, where each one’s ES and NQ levels come from, what each plan costs, and where each one is the stronger choice.',
+  },
+  {
     href: '/education/forced-flow-and-zero-flow-explained',
     kind: 'Published • October 5, 2026 • 16:00 UTC',
     title: 'Forced Flow and Zero Flow Explained: Where Dealer Hedging Nets to Zero',
