@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useLanguage, usePageT } from '@/core/LanguageContext';
-import { CANCELLATION_FEEDBACK_LABELS } from '@/core/cancellationReason';
+import { CANCELLATION_COMMENT_MAX_LEN, CANCELLATION_FEEDBACK_LABELS } from '@/core/cancellationReason';
 import { dict } from './MoneyBackGuaranteePanel.i18n';
 
 // The Account page's self-serve 7-day money-back guarantee. Renders nothing
@@ -232,7 +232,7 @@ export default function MoneyBackGuaranteePanel({
             onChange={(event) => setComment(event.target.value)}
             disabled={step === 'working'}
             placeholder={t('commentPlaceholder')}
-            maxLength={500}
+            maxLength={CANCELLATION_COMMENT_MAX_LEN}
             rows={2}
             style={{
               display: 'block',

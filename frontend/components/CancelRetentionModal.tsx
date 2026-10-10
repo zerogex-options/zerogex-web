@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageT } from '@/core/LanguageContext';
 import { lockPageScroll } from '@/core/scrollLock';
-import { CANCELLATION_FEEDBACK_LABELS } from '@/core/cancellationReason';
+import { CANCELLATION_COMMENT_MAX_LEN, CANCELLATION_FEEDBACK_LABELS } from '@/core/cancellationReason';
 import { formatBilledUsd, formatPerMonthUsd, type BillableTier, type BillingCadence } from '@/core/billingPlans';
 import type { LengthenOffer } from '@/core/planSwitch';
 import { dict } from './CancelRetentionModal.i18n';
@@ -509,7 +509,7 @@ export default function CancelRetentionModal({
               onChange={(e) => setComment(e.target.value)}
               placeholder={t('reasonCommentPlaceholder')}
               rows={3}
-              maxLength={500}
+              maxLength={CANCELLATION_COMMENT_MAX_LEN}
               style={{
                 width: '100%',
                 resize: 'vertical',

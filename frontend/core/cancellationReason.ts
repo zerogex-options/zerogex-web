@@ -79,7 +79,11 @@ export function cancellationFeedbackLabel(feedback: string | null | undefined): 
 // whitespace collapse, double-quotes become single quotes and backslashes are
 // dropped (so the closing `"` is unambiguous), and the result is capped. Returns
 // null when nothing meaningful remains.
-const MAX_COMMENT_LEN = 200;
+//
+// The cap is also the `maxLength` of the comment box in CancelRetentionModal and
+// MoneyBackGuaranteePanel. Keep it one constant: when the box allowed 500 and
+// this kept 200, members' notes were cut mid-word with no warning.
+export const CANCELLATION_COMMENT_MAX_LEN = 500;
 export function sanitizeCancellationComment(comment: string | null | undefined): string | null {
   if (comment == null) return null;
   const cleaned = String(comment)
@@ -89,7 +93,7 @@ export function sanitizeCancellationComment(comment: string | null | undefined):
     .replace(/\s+/g, ' ')
     .trim();
   if (!cleaned) return null;
-  return cleaned.length > MAX_COMMENT_LEN ? cleaned.slice(0, MAX_COMMENT_LEN) : cleaned;
+  return cleaned.length > CANCELLATION_COMMENT_MAX_LEN ? cleaned.slice(0, CANCELLATION_COMMENT_MAX_LEN) : cleaned;
 }
 
 // Normalize Stripe's feedback token to the `[a-z_]+` shape the parser expects,

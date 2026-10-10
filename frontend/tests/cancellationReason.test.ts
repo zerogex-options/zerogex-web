@@ -7,6 +7,7 @@ import {
   parseCancellationReasonFromMessage,
   hasCancellationSignal,
   validateCancelFeedback,
+  CANCELLATION_COMMENT_MAX_LEN,
   CANCELLATION_FEEDBACK_VALUES,
   NO_FEEDBACK,
 } from '../core/cancellationReason.ts';
@@ -57,8 +58,19 @@ test('comment sanitizer: single-lines, quote-safe, bounded, null-on-empty', () =
   assert.ok(!dirty.includes('"'));
   assert.ok(!dirty.includes('\\'));
   // Capped length.
-  const long = 'x'.repeat(500);
-  assert.equal(sanitizeCancellationComment(long)?.length, 200);
+  const long = 'x'.repeat(600);
+  assert.equal(sanitizeCancellationComment(long)?.length, CANCELLATION_COMMENT_MAX_LEN);
+});
+
+test('a comment the form allows comes through whole', () => {
+  // The form's maxLength and the server cap are the same constant, so a
+  // full-length note loses nothing. 2026-10-06: the form took 500 and the
+  // server kept 200, and a refunding member's note stopped at "it lack".
+  const full = 'Really love the platform. '.repeat(40).slice(0, CANCELLATION_COMMENT_MAX_LEN).trim();
+  assert.ok(full.length > 200);
+  assert.equal(sanitizeCancellationComment(full), full);
+  const suffix = formatCancellationReasonSuffix({ feedback: 'missing_features', comment: full });
+  assert.equal(parseCancellationReasonFromMessage(`Money-back refund on sub sub_x${suffix}`).comment, full);
 });
 
 test('suffix is empty when there is nothing to record', () => {
