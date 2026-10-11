@@ -5,8 +5,8 @@ wrapping, so it can be pasted straight into a mail client.
 
 Val signs "Val" and shows as *Val Lav*. Subject: "NT8 GEX indicator".
 
-> **Status:** unsent. One fact to confirm first: the start date of the gamma
-> flip history (see "Confirm before sending"). Reply in the same thread.
+> **Status:** first reply sent. Second reply (see "Second reply") unsent.
+> Reply in the same thread.
 
 ## Thread so far
 
@@ -15,6 +15,10 @@ Val signs "Val" and shows as *Val Lav*. Subject: "NT8 GEX indicator".
    or plots it historically across the bars loaded on the chart, and if so how
    far back. He wants to build an automated strategy on it to backtest an
    idea, and asks whether that's possible at all.
+2. **Outbound.** The first draft below: indicator is live-only, history is
+   in the API, two backtest traps.
+3. **Inbound.** "It all sounds a bit complicated for me, but I appreciate the
+   info." He's closing the thread politely. He doesn't write code.
 
 ## The read
 
@@ -126,3 +130,64 @@ zerogex.io
   trades, not futures, so it's a different test from his.
 - **He gets `429 Too Many Requests` while downloading.** He's paging too fast.
   Slow the loop down and honor the `Retry-After` header.
+
+## Second reply
+
+### The read
+
+- **He doesn't code, so the API route is closed to him.** Say so in one line,
+  without apologizing at length, and don't explain it again.
+- **Give him one thing he can do today with no setup.** Replay is free, needs
+  no login, covers ES and NQ, and lists the last 60 sessions. He can drag
+  through a session and watch price against the flip. It isn't an automated
+  backtest, but it's the honest no-code way to see whether his idea is worth
+  more effort.
+- **Ask for the idea instead of guessing.** Whether anything simpler fits
+  depends entirely on what the rule is (see the notes below). One sentence
+  from him settles it.
+- **Note the request, promise nothing.** He wants the indicator to show past
+  days. What would make this simple for him is the indicator plotting history
+  as a real plot, because NinjaTrader's point-and-click Strategy Builder can
+  use any indicator's plots with no code. That's the build noted under "If he
+  replies" above. No date.
+
+### Verified
+
+- **Replay:** `frontend/app/replay/page.tsx`. Public ("Free, no login"),
+  lists up to 60 recent sessions per symbol (`/api/replay/sessions?...&limit=60`),
+  and the symbol picker is the shared list, which includes ES and NQ
+  (`frontend/core/symbols.ts`).
+- **The no-code Backtesting page doesn't fit his idea as stated** (zerogex-oa
+  `src/backtesting/models.py`, `strategy.py`). It's Pro, runs on SPY, SPX,
+  QQQ and NDX only, and trades options, not futures. Conditions compare one
+  field against a number. "Distance to gamma flip" is unsigned (how far, not
+  which side), so "price crosses above the flip" can't be written. "Net GEX
+  at spot is negative" is the closest stand-in for "below the flip". That's
+  why the email doesn't send him there.
+
+### Draft
+
+Hi Val,
+
+Fair enough. That route is really built for people who write code.
+
+If you'd like to check the idea by eye first, Replay is free and needs no login: pick ES or NQ and any recent session, then drag through it minute by minute and watch price against the gamma flip. https://zerogex.io/replay
+
+If you tell me the idea in a sentence or two, I'll let you know whether there's an easier way to test it. I've also noted that you'd like the indicator to show past days on the chart.
+
+Best,
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he sends the idea
+
+- **It's about distance from the flip, or which side of zero gamma the
+  market is on, and he's happy testing it on SPX options.** The Backtesting
+  page can do it with no code: "Distance to gamma flip" below a percentage,
+  or "Net GEX sign" positive or negative. Tell him it trades options, not
+  futures, before he spends time on it.
+- **It's a futures rule, or it needs "price crosses the flip".** There's no
+  no-code way today. Say so plainly, and point him back to Replay to judge it
+  by eye.
