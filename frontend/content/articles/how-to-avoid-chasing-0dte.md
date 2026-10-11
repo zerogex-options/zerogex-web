@@ -122,4 +122,6 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
+For the wider pattern behind chasing, see [five trading mistakes gamma levels help you avoid](/trading-mistakes).
+
 If you want to see today's gamma flip, walls, and Net GEX before your next 0DTE entry - the structural map that flags most chase setups - the free ZeroGEX gamma-levels view surfaces all three.

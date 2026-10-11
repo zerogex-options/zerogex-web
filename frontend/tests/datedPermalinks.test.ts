@@ -31,6 +31,10 @@ const DATED_PAGES = [
   { name: 'forecast', file: 'app/forecast/[symbol]/[date]/page.tsx' },
   { name: 'scorecard', file: 'app/scorecard/[symbol]/[date]/page.tsx' },
   { name: 'hedging-flow', file: 'app/hedging-flow/[symbol]/[date]/page.tsx' },
+  // Not dated, but shared the same way and with the same failure: a backend
+  // restart during a crawl or an unfurl turned a good link into a cached 404.
+  { name: 'replay-snapshot', file: 'app/replay/[symbol]/[date]/snapshot/[time]/page.tsx' },
+  { name: 'cards', file: 'app/cards/[id]/page.tsx' },
 ] as const;
 
 test('serverApiGetResult separates "no such row" from "no answer"', () => {

@@ -23,7 +23,10 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/articles',
   '/guides',
   '/guides/*',
-  '/help',
+  // '/help/*' also matches '/help' itself (see matchesPattern). It used to be
+  // the bare '/help', which left /help/faqs, /help/quickstarts, /help/platform
+  // and the 36 Platform Guide pages public only because no rule matched them.
+  '/help/*',
   '/pricing',
   '/founding',
   '/privacy',
@@ -92,6 +95,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/spy-gamma-levels',
   '/qqq-gamma-levels',
   '/ndx-gamma-levels',
+  // The futures pages: SPX / NDX option-derived levels on the ES / NQ price
+  // axis. Listed for the same reason as the four above; they were public only
+  // by fall-through.
+  '/es-gamma-levels',
+  '/nq-gamma-levels',
   // /chart is the Gamma Terminal, and a dual-mode page: anonymous visitors get
   // the same ~15-min-delayed snapshot the gamma-levels pages serve (rendered as
   // the full interactive terminal — chart AND both gamma ladders), while
@@ -124,6 +132,12 @@ const PUBLIC_ROUTE_PATTERNS = [
   // link is the receipt (net-of-cost result + equity curve), not a paywall,
   // while the rest of /backtesting/* stays Pro-gated (public check wins first).
   '/backtesting/shared/*',
+  // Past Hedging Flow sessions. Public only by fall-through until now, because
+  // the live '/hedging-flow' rule below is an exact match. The dated
+  // '/hedging-flow/<symbol>/<date>' permalinks stay that way: a '/hedging-flow/*'
+  // pattern here would also open the Basic-gated live page, and the matcher has
+  // no way to say "two segments deep".
+  '/hedging-flow/sessions',
   // The free daily levels email's click-through pages: the double opt-in
   // confirmation (/levels-email/confirm) and the opt-out
   // (/levels-email/unsubscribe). These MUST be anonymous-accessible — the

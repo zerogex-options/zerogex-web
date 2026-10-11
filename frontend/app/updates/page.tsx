@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { Megaphone, Sparkles, Compass } from 'lucide-react';
 
 export const metadata = {
-  title: 'Product Updates | ZeroGEX',
+  title: 'Product Updates\u00a0- ZeroGEX',
   description:
-    "What's new at ZeroGEX and what's coming next: the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and Track Record, chart integrations, ES and NQ coverage, and the road ahead, including single-stock coverage. A running log of platform updates.",
+    "What's new at ZeroGEX: the Gamma Terminal, Spread Monitor, 0DTE replays, Intraday Cone, Track Record, chart integrations and ES/NQ coverage, plus what's next.",
   alternates: { canonical: '/updates' },
 };
 
@@ -42,7 +42,9 @@ const UPDATES: Update[] = [
       },
       {
         title: 'Hedging Flow and Gamma Weather',
-        href: '/hedging-flow',
+        // The public dated archive, not /hedging-flow itself: that route is
+        // Basic-gated and sends a signed-out reader (and Googlebot) to /login.
+        href: '/hedging-flow/sessions',
         body: 'An estimate of the dealer hedging pressure created by today’s option trades, charted against price, with a 0DTE filter. At the top, Gamma Weather gives a one-line read of conditions (Stable bid, Supported dip, Fragile rally, Unstable or Mixed) that changes only after a new state holds for two bars, and the five inputs behind it chart on one shared clock. Past sessions have their own dated pages.',
       },
       {

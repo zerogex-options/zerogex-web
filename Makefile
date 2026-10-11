@@ -1707,6 +1707,8 @@ OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME
 
 NT_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/ninjatrader-manifest.js'
 
+BLOG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/blog-image-manifest.js'
+
 INTEGRATION_ASSETS = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/integration-assets-manifest.js'
 OG_CHECK = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js --live'
 
@@ -1759,6 +1761,14 @@ logo:
 # from a Mac came to commit one.
 	@rm -f frontend/public/favicon.ico
 	cp assets/branding/favicon.ico frontend/app/favicon.ico
+# Two PNG icons beside it, for the same reason. Next treats app/icon.png and
+# app/apple-icon.png as metadata files too and emits hashed
+# <link rel="icon" type="image/png" sizes="192x192"> and
+# <link rel="apple-touch-icon"> tags. The 192px PNG is what Google's search
+# result favicon wants (square, a multiple of 48px); the .ico only carries
+# 16/32/48 frames for browser tabs. Both are gitignored like favicon.ico.
+	cp assets/branding/icon.png frontend/app/icon.png
+	cp assets/branding/apple-icon.png frontend/app/apple-icon.png
 	@echo "Copying Folds of Honor partner-kit assets..."
 	@if [ -f assets/branding/folds-of-honor-proud-supporter.png ]; then \
 		cp assets/branding/folds-of-honor-proud-supporter.png frontend/public/folds-of-honor-proud-supporter.png && \
@@ -1814,6 +1824,12 @@ blog-images:
 	else \
 		echo "(no blog images found in assets/blog/ — skipping)"; \
 	fi
+# Record each PNG's pixel size in frontend/core/blogImageManifest.ts so the
+# article renderer can hand next/image a width and height (no layout shift,
+# and a resized copy instead of the full file). Running it here means a new
+# screenshot dropped into assets/blog/ is measured on the same deploy that
+# ships it; the manifest is committed, so a plain build needs no pre-step.
+	@$(BLOG_MANIFEST)
 
 # Publish the packaged NinjaTrader import archive, when one has been dropped in.
 #

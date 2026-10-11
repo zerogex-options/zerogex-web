@@ -6,8 +6,10 @@ import { ChevronLeft } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import SectionHead from '@/components/layout/SectionHead';
 import BetaBadge from '@/components/BetaBadge';
+import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
 import DataUnavailable from '@/components/DataUnavailable';
+import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { CASH_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
 import { normalizeGammaRegime, normalizeHedgingFlow } from '@/core/hedgingFlowSeries';
@@ -142,7 +144,13 @@ export async function generateMetadata({
       siteName: 'ZeroGEX',
       images: [{ url: `${url}/opengraph-image`, width: 1200, height: 630, alt: title }],
     },
-    twitter: { card: 'summary_large_image', title, description, images: [`${url}/opengraph-image`] },
+    twitter: {
+      card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
+      title,
+      description,
+      images: [`${url}/opengraph-image`],
+    },
   };
 }
 
@@ -219,13 +227,23 @@ export default async function HedgingFlowSessionPage({
 
   return (
     <PageShell>
-      <div className="mb-5">
+      <div className="mb-5 flex flex-wrap items-center gap-4">
         <Link
           href="/hedging-flow/sessions"
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
           style={{ color: 'var(--text-secondary)' }}
         >
           <ChevronLeft size={14} /> Past sessions
+        </Link>
+        <span aria-hidden="true" style={{ color: 'var(--border-default)' }}>·</span>
+        {/* A reader landing here from a search has no idea what an estimated
+            hedge is; the explainer is the public page that says. */}
+        <Link
+          href="/education/hedging-flow-explained"
+          className="text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          How to read these pages
         </Link>
       </div>
 
@@ -254,6 +272,11 @@ export default async function HedgingFlowSessionPage({
           weatherNotReady={weather === null}
         />
       )}
+
+      <ReceiptFooterLinks
+        symbol={sym}
+        extra={[{ href: '/education/hedging-flow-explained', label: 'Hedging Flow explained' }]}
+      />
     </PageShell>
   );
 }

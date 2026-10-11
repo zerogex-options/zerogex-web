@@ -247,8 +247,10 @@ export const NAV_GROUPS: NavGroup[] = [
           { id: '/education/gamma-exposure-explained', label: 'Gamma Exposure Explained' },
           { id: '/education/why-market-makers-trade-stock', label: 'Why Dealers Are Forced to Trade' },
           { id: '/education/net-volume-vs-directional-flow', label: 'Options Flow Explained' },
-          { id: '/education/eod-pressure-and-trap-detection', label: 'EOD Pressure & Trap Detection' },
-          { id: '/education/squeeze-setup-positioning-trap-and-trap-detection', label: 'Three Signals, Three Stories' },
+          // The two slots below went to May signal deep dives with no search
+          // demand; these two explainers have demand and few inbound links.
+          { id: '/education/what-is-gex-in-trading', label: 'What Is GEX in Trading?' },
+          { id: '/education/spy-vs-spx-gamma-levels', label: 'SPY vs SPX Gamma Levels' },
         ],
       },
       {

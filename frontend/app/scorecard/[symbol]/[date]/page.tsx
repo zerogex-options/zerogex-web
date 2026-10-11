@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { directionColor } from '@/components/ActionCard';
+import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
+import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { etUtcOffsetLabel, formatEtTime } from '@/core/etTimestamp';
 import { humanize } from '@/core/signalHelpers';
@@ -150,6 +152,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
       title,
       description,
       images: [`${url}/opengraph-image`],
@@ -477,6 +480,11 @@ export default async function ScorecardPage({
         session&nbsp;- that is an absent measurement, not a flat one. The receipt is immutable once
         written&nbsp;- the engine cannot retroactively edit a published scorecard.
       </section>
+
+      <ReceiptFooterLinks
+        symbol={sym}
+        extra={[{ href: '/guides/signals-explained', label: 'How signals are scored' }]}
+      />
     </main>
   );
 }

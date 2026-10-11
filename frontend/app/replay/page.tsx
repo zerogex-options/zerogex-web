@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
+import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import SessionCard from './SessionCard';
 
@@ -25,17 +27,30 @@ interface ReplaySessionList {
   sessions: ReplaySession[];
 }
 
+const TITLE = 'GEX Replay\u00a0- ZeroGEX';
+const DESCRIPTION =
+  'Free, no login: scrub any recent session minute by minute and watch the walls shift, the gamma flip drift and per-strike GEX migrate.';
+
 export const metadata: Metadata = {
-  title: 'GEX Replay\u00a0- ZeroGEX',
-  description:
-    'Free, no login: scrub any recent session minute by minute and watch the walls shift, the gamma flip drift and per-strike GEX migrate.',
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/replay` },
+  // A page-level openGraph replaces the root's wholesale, so without `images`
+  // here the card had no picture; `twitter` is listed for the same reason.
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/replay`,
-    title: 'GEX Replay\u00a0- ZeroGEX',
+    title: TITLE,
     description: 'Per-minute scrubber over historical dealer gamma surfaces.',
     siteName: 'ZeroGEX',
+    images: [{ url: SITE_DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: TITLE }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [SITE_DEFAULT_OG_IMAGE],
   },
 };
 
@@ -141,6 +156,8 @@ export default async function ReplayLanding({
         can share branded snapshot cards of any specific moment via the snapshot button on
         the player.
       </section>
+
+      <ReceiptFooterLinks symbol={symbol} extra={[{ href: '/chart', label: 'Free Gamma Terminal' }]} />
     </main>
   );
 }

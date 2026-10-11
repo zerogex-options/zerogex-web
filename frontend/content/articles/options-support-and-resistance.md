@@ -44,7 +44,7 @@ The magnet tends to matter most near expiry, when same-day-expiring options domi
 
 The **gamma flip** isn't S/R in the traditional sense - it's the regime boundary, a zero-crossing of the *modeled* dealer gamma profile. But it can function like a soft support/resistance line because price often pauses or briefly reverses around it (the modeled dealer reflex changes sign near that price). Above the flip, the modeled reflex is to fade; below, to chase - though the crossing is a modeling estimate, and realized behavior still depends on flow, liquidity, and vol.
 
-See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the workflow.
+See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) for the workflow.
 
 ---
 

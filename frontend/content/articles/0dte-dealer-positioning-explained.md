@@ -10,7 +10,7 @@
 
 Isolating 0DTE can add useful intraday context because same-day options can carry very high near-spot gamma. Their actual net dealer-hedging impact depends on customer buying and selling that gross public volume and OI do not reveal.
 
-This piece is the practical read for what "0DTE dealer positioning" and "dealer gamma 0DTE" actually mean in real time. We will cover why the 0DTE bucket matters more than longer-dated bucketing, what changes between negative- and positive-gamma regimes specifically for 0DTE, and how to read the tape differently in each. Pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the regime line itself, [Gamma Walls Explained](/education/gamma-walls-explained) for the boundary levels, and the [Gamma Exposure pillar](/education/gamma-exposure-explained) for the full structural background.
+This piece is the practical read for what "0DTE dealer positioning" and "dealer gamma 0DTE" actually mean in real time. We will cover why the 0DTE bucket matters more than longer-dated bucketing, what changes between negative- and positive-gamma regimes specifically for 0DTE, and how to read the tape differently in each. Pair this with [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) for the regime line itself, [Gamma Walls Explained](/education/gamma-walls-explained) for the boundary levels, and the [Gamma Exposure pillar](/education/gamma-exposure-explained) for the full structural background.
 
 ---
 
@@ -150,4 +150,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's dealer positioning - the regime, the call and put walls, and the dealer gamma profile - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The paid plans show the same read [in real time](/real-time-gex-0dte), and the Expirations filter on the Dealer Positioning page isolates the heaviest same-day strikes.
+If you want to see today's dealer positioning - the regime, the call and put walls, and the dealer gamma profile - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The paid plans show the same read [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte), and the Expirations filter on the Dealer Positioning page isolates the heaviest same-day strikes.

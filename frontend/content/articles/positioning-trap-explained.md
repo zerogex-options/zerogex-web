@@ -154,8 +154,6 @@ The signal feeds multiple panels:
 - **Signal Breadth** on the dashboard's Proprietary Signals panel counts it as one of the directional votes. (It is not an input to the Composite MSI.)
 - **The `positioning_trap_squeeze` playbook** gates entry when the score crosses ±50.
 
-*[Image placeholder: ZeroGEX Positioning Trap card with live score and crowd-offside read - drop file at /public/blog/zerogex-positioning-trap-card.png]*
-
 A worked example. SPX is grinding lower and ZeroGEX shows:
 
 - **Positioning Trap:** +62 (short crowd offside)

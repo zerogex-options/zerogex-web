@@ -47,7 +47,50 @@ function sourceFileForRoute(urlPath) {
   return path.join(PROJECT_ROOT, 'app', trimmed, 'page.tsx');
 }
 
+// The registry's dateModified for an /education/<slug> article, read as text
+// because this file runs as plain ESM outside the Next build (no '@/' alias, no
+// TS). It is the same date the page prints as "Updated" and the Article JSON-LD
+// carries, so the three agree; the markdown's git date is the fallback for an
+// article the registry has not dated. Git is not used first because a
+// one-link or translation commit moves it without the article changing.
+const REGISTRY_SOURCE = (() => {
+  try {
+    return fs.readFileSync(path.join(PROJECT_ROOT, 'core', 'articleRegistry.ts'), 'utf8');
+  } catch {
+    return '';
+  }
+})();
+
+function registryDateModified(slug) {
+  const start = REGISTRY_SOURCE.indexOf(`\n  '${slug}': {\n`);
+  if (start < 0) return null;
+  const end = REGISTRY_SOURCE.indexOf('\n  },', start);
+  const block = REGISTRY_SOURCE.slice(start, end < 0 ? undefined : end);
+  const m = /\n\s+dateModified: '(\d{4}-\d{2}-\d{2})'/.exec(block);
+  return m ? `${m[1]}T16:00:00.000Z` : null;
+}
+
+// The most recent U.S. trading day, at 20:30 UTC (after the 4 PM ET close in
+// either daylight or standard time). The daily pages' content changes every
+// session, so this is their honest lastmod; the git date of their 12-line
+// page.tsx wrapper was weeks old while the sitemap claimed "daily". Weekends
+// are stepped over; exchange holidays are not, which costs one day of
+// over-statement a handful of times a year.
+function lastTradingDayIso(now = new Date()) {
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const d = new Date(Date.UTC(et.getFullYear(), et.getMonth(), et.getDate(), 20, 30, 0));
+  // Before the close on a weekday, the last completed session is the previous one.
+  if (et.getHours() < 16) d.setUTCDate(d.getUTCDate() - 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString();
+}
+
 function lastmodFor(urlPath) {
+  const educationSlug = /^\/education\/([a-z0-9-]+)$/.exec(urlPath);
+  if (educationSlug) {
+    const fromRegistry = registryDateModified(educationSlug[1]);
+    if (fromRegistry) return fromRegistry;
+  }
   const file = sourceFileForRoute(urlPath);
   if (fs.existsSync(file)) {
     const fromGit = gitLastCommitIso(file);
@@ -77,7 +120,7 @@ const GAMMA_LEVEL_PATHS = [
 
 // Public tools whose content changes every trading day: the free delayed
 // chart and the replay / forecast / scorecard indexes.
-const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/scorecard', '/hedging-flow/sessions'];
+const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/forecast/cone', '/scorecard', '/hedging-flow/sessions'];
 
 /** @type {import('next-sitemap').IConfig} */
 const config = {
@@ -175,6 +218,8 @@ const config = {
     // next-sitemap auto-includes file-convention routes that aren't pages.
     // /robots.txt is a non-HTML route; per-route OG images are PNG handlers.
     '/robots.txt',
+    // The dated-receipt sitemap is its own route handler; robots.ts lists it.
+    '/sitemap-dated.xml',
     '/*/opengraph-image',
     '/*/*/opengraph-image',
   ],
@@ -203,10 +248,17 @@ const config = {
       '/education',
       '/embed',
       '/forecast',
+      // The intraday cone and its reliability table. Public and self-canonical
+      // (app/forecast/cone/layout.tsx); it shipped with no metadata and was
+      // never listed.
+      '/forecast/cone',
       '/giving',
       '/guides',
       '/help',
       '/help/faqs',
+      // The Platform Guide hub. Every article under it is listed by addDir
+      // below; the hub that links them all was not.
+      '/help/platform',
       '/help/quickstarts',
       // The chart-integration hub and the four platform landings under it
       // (/integrations, /ninjatrader-, /sierra-chart-, /thinkorswim- and
@@ -293,14 +345,14 @@ const config = {
     }
     if (DAILY_TOOL_PATHS.includes(urlPath)) {
       // Refreshed every market day like the gamma pages, one notch below them.
-      return { loc: urlPath, changefreq: 'daily', priority: 0.8, lastmod };
+      return { loc: urlPath, changefreq: 'daily', priority: 0.8, lastmod: lastTradingDayIso() };
     }
     if (GAMMA_LEVEL_PATHS.includes(urlPath)) {
       // Ticker-first lead-magnet pages — the SEO landings for "<ticker> gamma
       // levels" intent searches. Each is self-canonical and refreshed
       // every market day, so daily changefreq matches reality and the priority
       // sits just below the homepage.
-      return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod };
+      return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod: lastTradingDayIso() };
     }
     if (urlPath.startsWith('/education') || urlPath.startsWith('/guides') || urlPath === '/articles') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.7, lastmod };

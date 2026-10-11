@@ -103,7 +103,7 @@ As a rule of thumb, below the gamma flip the zero-flow level nearest spot is usu
 
 The page plots four levels on its rail, and they answer four different questions:
 
-- **Gamma flip:** the price where modeled net dealer gamma changes sign. It marks the boundary between the regime where hedging dampens moves (above) and the one where it amplifies them (below). See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma flip:** the price where modeled net dealer gamma changes sign. It marks the boundary between the regime where hedging dampens moves (above) and the one where it amplifies them (below). See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
 - **Zero-flow level:** the price where total forced flow, carried to the close, nets to zero. It folds time into the picture, which the gamma flip does not.
 - **Charm flip:** the price at which time decay into the close changes sign. On one side of it, the clock forces buying; on the other, selling.
 - **Vanna flip:** the price at which the hedge forced by a one-point rise in implied volatility changes sign.

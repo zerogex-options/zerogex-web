@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { toolHrefFor } from '@/core/publicToolHref';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { normalizeTier } from '@/core/auth';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
@@ -154,6 +157,12 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
 export default function AboutPage({ founderPhoto = null }: { founderPhoto?: string | null }) {
   const t = usePageT(dict);
   const { theme } = useTheme();
+  // Members open the tools from the module grid; everyone else gets each
+  // tool's public page (core/publicToolHref.ts). Same rule as the homepage.
+  const { data: authSession } = useAuthSession();
+  const memberTier = normalizeTier(authSession?.user?.tier);
+  const canOpenTools =
+    !!authSession?.authenticated && (memberTier === 'basic' || memberTier === 'pro' || memberTier === 'admin');
   const isDark = theme === 'dark';
   const bg = 'transparent';
   const text = 'var(--color-text-primary)';
@@ -527,7 +536,7 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
               desc: t('module8Desc'),
             },
           ].map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+            <Link key={item.href} href={toolHrefFor(item.href, canOpenTools)} style={{ textDecoration: 'none' }}>
               <div className="zg-panel" style={{
                 padding: '22px 20px',
                 display: 'flex', gap: 16, alignItems: 'flex-start',

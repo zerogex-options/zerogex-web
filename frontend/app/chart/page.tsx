@@ -44,16 +44,17 @@ async function resolveIsSubscriber(): Promise<boolean> {
 }
 
 // Title/description are per-visitor: a subscriber viewing the LIVE terminal must
-// not get the public lead-magnet's "Free … (15-min delayed)" tab title. The
-// delayed copy keeps the free page's shape and its "gamma chart" phrasing (that
-// page is the indexable free lead magnet and the term it has always ranked on),
-// so SEO for the public route is unchanged by the fold.
+// not get the public lead-magnet's "Free … (15-Min Delayed)" tab title. The
+// delayed copy is the indexable one: it leads with "GEX chart" and "gamma
+// exposure", the terms searchers type, and names SPY and the delay. Both
+// descriptions stay under the ~160 characters Google shows before cutting a
+// snippet mid-sentence.
 export async function generateMetadata(): Promise<Metadata> {
   if (await resolveIsSubscriber()) {
     return {
-      title: 'Gamma Terminal\u00a0- Live SPY Gamma Chart + Strike Ladders | ZeroGEX',
+      title: 'Gamma Terminal: Live SPY Gamma Chart + Strike Ladders',
       description:
-        'The live ZeroGEX Gamma Terminal: SPY, QQQ, SPX, NDX, ES and NQ price with the Gamma Flip, Call/Put Walls, Max Pain and GEX ribbons, beside two strike-aligned Net GEX ladders or the dealer-gamma structure rail.',
+        'Live Gamma Terminal: SPY, QQQ, SPX, NDX, ES and NQ price with the gamma flip, call and put walls, max pain and GEX ribbons beside two net GEX strike ladders.',
       alternates: { canonical: '/chart' },
     };
   }
@@ -63,9 +64,9 @@ export async function generateMetadata(): Promise<Metadata> {
   // user-selected canonical" row in Search Console, since the same page is
   // reachable with query strings and via the symbol picker.
   return {
-    title: 'Free Gamma Chart\u00a0- SPY Dealer Positioning (15-min delayed) | ZeroGEX',
+    title: 'Free GEX Chart: SPY Gamma Exposure by Strike (15-Min Delayed)',
     description:
-      'A free, ~15-minute-delayed gamma chart for SPY: price with the Gamma Flip, Call/Put Walls, Max Pain and the dealer-gamma book beside it\u00a0- two Net GEX strike ladders or the structure rail. Real-time and every symbol inside ZeroGEX.',
+      'Free SPY gamma exposure chart, about 15 minutes delayed: price with the gamma flip, call and put walls, max pain and two net GEX strike ladders. No signup.',
     alternates: { canonical: '/chart' },
   };
 }

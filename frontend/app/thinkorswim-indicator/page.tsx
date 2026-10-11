@@ -3,7 +3,7 @@ import IndicatorPageShell from '@/components/IndicatorPageShell';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnThinkorswim from '@/components/PlotOnThinkorswim';
-import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { PUBLISHER_REF, SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_TWITTER_HANDLE, SITE_URL } from '@/core/articleRegistry';
 import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 import { serverApiGetDelayed } from '@/core/api/serverFetch';
 
@@ -21,7 +21,7 @@ const INTEGRATION = integrationById('thinkorswim');
 const PATH = INTEGRATION.href;
 const TITLE = 'ZeroGEX Daily Gamma Levels\u00a0- Free thinkorswim Study';
 const DESCRIPTION =
-  'Free thinkScript study that plots the ZeroGEX gamma flip, call wall, put wall, and max pain as horizontal lines on thinkorswim\u00a0- desktop, web, and mobile\u00a0- with optional cross-alerts.';
+  'Free thinkScript study that plots the ZeroGEX gamma flip, call wall, put wall and max pain on thinkorswim desktop, web and mobile, with optional cross alerts.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -37,6 +37,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
     title: TITLE,
     description: DESCRIPTION,
     images: [SITE_DEFAULT_OG_IMAGE],
@@ -57,7 +58,7 @@ const JSON_LD = {
   // not be on the two Pro integrations — see the note on /ninjatrader-indicator.
   isAccessibleForFree: true,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-  publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+  publisher: PUBLISHER_REF,
 };
 
 // The snapshot the copy button bakes into the study. SPX because this page is

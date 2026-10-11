@@ -8,6 +8,7 @@ import TrackRecordStrip from '@/components/TrackRecordStrip';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
+import { getArticle, PUBLISHER_REF, SITE_TWITTER_HANDLE, WEBSITE_ID } from '@/core/articleRegistry';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
@@ -134,7 +135,9 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
     // alternative" queries have in common and every competitor's title lacks
     // — and names GEX up front so "<ticker> gamma exposure" queries see it.
     title: `${primary} Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls`,
-    description: `Free daily ${primary} gamma levels\u00a0- the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Dealer-positioning levels on a 15-minute delay. No signup required.`,
+    // Under 160 characters for every ticker: this is the snippet whenever the
+    // live description below falls back (API down, or no publishable flip).
+    description: `Free daily ${primary} gamma levels: the ${primary} gamma flip, call wall, put wall, max pain and net dealer GEX, on a 15-minute delay. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
     intro: `Track today's ${primary} gamma levels\u00a0- the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
   };
@@ -228,6 +231,7 @@ export async function gammaMetadata(primary: Symbol): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
       title: c.title,
       description,
     },
@@ -271,26 +275,53 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
     },
     {
       q: 'How often are ZeroGEX gamma levels updated?',
-      a: 'ZeroGEX provides delayed free gamma levels on this page. Real-time levels are available inside the ZeroGEX dashboard.',
+      a: 'This free page shows the levels on a roughly 15-minute delay and refreshes through the session. Inside the ZeroGEX dashboard the same levels are recomputed about once a minute through the regular session.',
+    },
+    {
+      // Matches "0dte gamma levels" / "spx 0dte net gex" wording truthfully:
+      // the page shows the full chain, and says so.
+      q: `Are these ${primary} 0DTE gamma levels?`,
+      a: `The levels on this page are computed across the full ${SYMBOL_CHAIN[primary]} options chain, so they include today's 0DTE contracts but are not 0DTE-only. The ZeroGEX dashboard's expiration filter narrows the walls and the flip to 0DTE.`,
     },
   ];
 }
 
-// "Learn more" internal links to the matching education articles — the concept
-// explainers behind each level. Points only at existing articles; anchor text
-// mirrors the question-style intents these pages also target.
-const LEARN_MORE_LINKS: { href: string; label: string }[] = [
-  { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip? The Gamma Flip Level Explained' },
-  { href: '/education/zero-gamma-level-explained', label: 'What Is Zero Gamma? The Zero Gamma Level Explained' },
-  { href: '/education/what-is-a-call-wall', label: 'What Is a Call Wall?' },
-  { href: '/education/what-is-a-put-wall', label: 'What Is a Put Wall?' },
-  { href: '/education/gamma-walls-explained', label: 'Gamma Walls Explained: Call Wall & Put Wall' },
-  { href: '/education/what-is-gex-in-trading', label: 'What Is GEX in Trading?' },
-  { href: '/education/spx-net-gamma-exposure-today', label: 'SPX Net Gamma Exposure Today: Reading Net GEX' },
-  { href: '/education/how-to-trade-around-gamma-flip', label: 'How Traders Use Gamma Levels' },
-  { href: '/education/best-gex-tools', label: 'Best GEX Tools & Platforms: A Fair Comparison' },
-  { href: '/education/spy-vs-spx-gamma-levels', label: 'SPY vs SPX Options: Which Gamma Levels Matter?' },
-];
+// "Learn more" internal links to the matching education articles: the concept
+// explainers behind each level. Labels are read from the article registry, so
+// the anchor text is always the article's current title (the static list this
+// replaced still carried titles from before the September retitles). The list
+// varies by ticker where a page has a more specific companion: the futures
+// pages get the futures comparison and the contract-month note instead of SPY
+// vs SPX, and SPY gets the pinning explainer.
+const LEARN_MORE_SLUGS = [
+  'how-to-read-a-gamma-flip',
+  'zero-gamma-level-explained',
+  'what-is-a-call-wall',
+  'what-is-a-put-wall',
+  'gamma-walls-explained',
+  'how-often-do-gamma-walls-break',
+  'what-is-gex-in-trading',
+  'spx-net-gamma-exposure-today',
+  '0dte-dealer-positioning-explained',
+  'how-to-trade-around-gamma-flip',
+  'best-gex-tools',
+] as const;
+
+function learnMoreLinks(primary: Symbol): { href: string; label: string }[] {
+  const isFutures = primary === 'ES' || primary === 'NQ';
+  const slugs: string[] = [...LEARN_MORE_SLUGS];
+  if (isFutures) slugs.push('zerogex-vs-tradegex');
+  else slugs.push('spy-vs-spx-gamma-levels');
+  if (primary === 'SPY') slugs.push('why-spy-pins-near-strikes');
+  const links = slugs
+    .map((slug) => getArticle(slug))
+    .filter((a): a is NonNullable<ReturnType<typeof getArticle>> => a != null)
+    .map((a) => ({ href: a.href, label: a.title }));
+  if (isFutures) {
+    links.push({ href: '/help/platform/futures-contract-months', label: 'Why Our Futures Price Can Differ From Another Platform' });
+  }
+  return links;
+}
 
 // ── Copy/paste share snippet ────────────────────────────────────────────────
 // The shareable block is built server-side from the same ISR snapshot that
@@ -804,14 +835,18 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
+    '@id': content.shareUrl,
     name: content.title,
     description: content.description,
     url: content.shareUrl,
+    inLanguage: 'en-US',
     isAccessibleForFree: true,
+    isPartOf: { '@id': WEBSITE_ID },
+    primaryImageOfPage: { '@type': 'ImageObject', url: `${content.shareUrl}/opengraph-image` },
     // The freshest snapshot on the page, so the "as of" a reader sees is the
     // dateModified a crawler reads — these pages rank for "today" queries.
     ...(latestTimestamp ? { dateModified: latestTimestamp } : {}),
-    publisher: { '@type': 'Organization', name: 'ZeroGEX', url: SITE },
+    publisher: PUBLISHER_REF,
     about: [
       { '@type': 'Thing', name: 'Gamma exposure (GEX)' },
       { '@type': 'Thing', name: 'Dealer hedging' },
@@ -1182,8 +1217,11 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Call wall</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
                 The strike where call-side dealer gamma piles up. In a positive-gamma regime, dealers hedge by
-                selling into rips here, which can stall a rally. How often it actually holds is a base rate: in our
-                study of 737 wall tests, S&amp;P walls held about two times in three within an hour and Nasdaq walls
+                selling into rips here, which can stall a rally. How often it actually holds is a base rate: in our{' '}
+                <Link href="/education/how-often-do-gamma-walls-break" style={{ color: 'var(--color-brand-primary)' }}>
+                  study of 737 wall tests
+                </Link>
+                , S&amp;P walls held about two times in three within an hour and Nasdaq walls
                 about half, on either side of the flip. A break above can be a tell that the regime itself is flipping.
               </p>
             </div>
@@ -1222,9 +1260,20 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>One catch</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
-                These are derived analytics, intentionally delayed. They&apos;re great for context and for the daily
-                X read; they&apos;re not enough on their own for active trading. Pair them with intraday flow,
-                vanna/charm, and the regime signals on the live dashboard.
+                These are{' '}
+                <Link href="/methodology" style={{ color: 'var(--color-brand-primary)' }}>
+                  derived analytics
+                </Link>
+                , intentionally delayed. They&apos;re great for context and for the daily X read, and the{' '}
+                <Link href="/chart" style={{ color: 'var(--color-brand-primary)' }}>
+                  free Gamma Terminal
+                </Link>{' '}
+                plots them on a delayed chart; they&apos;re not enough on their own for active trading. Pair them with
+                intraday flow, vanna/charm, and the regime signals on the{' '}
+                <Link href="/real-time-gex-0dte" style={{ color: 'var(--color-brand-primary)' }}>
+                  live dashboard
+                </Link>
+                .
               </p>
             </div>
           </div>
@@ -1235,7 +1284,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             Learn more
           </h2>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
-            {LEARN_MORE_LINKS.map((link) => (
+            {learnMoreLinks(primary).map((link) => (
               <li key={link.href}>
                 <Link href={link.href} style={{ color: 'var(--color-brand-primary)' }}>
                   {link.label}

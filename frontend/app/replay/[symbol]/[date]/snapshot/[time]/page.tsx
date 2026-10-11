@@ -7,7 +7,9 @@ import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
-import { serverApiGet } from '@/core/api/serverFetch';
+import DataUnavailable from '@/components/DataUnavailable';
+import { serverApiGetResult, type ApiResult } from '@/core/api/serverFetch';
+import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import {
   classifyPinStrength,
   formatPinStrike,
@@ -119,11 +121,15 @@ function fmtPrice(value: number | null | undefined): string {
   return `$${value.toFixed(2)}`;
 }
 
-async function loadFrame(date: string, hhmm: string, symbol: string): Promise<FramePayload | null> {
+// Result-typed so a minute with no frame (a real 404) and an API that did not
+// answer stay distinct: this page caches for a day, so a 404 served during a
+// backend restart would stick to a shared link until tomorrow. A time token
+// that does not resolve to a moment is a missing frame, not an outage.
+async function loadFrame(date: string, hhmm: string, symbol: string): Promise<ApiResult<FramePayload>> {
   const iso = hhmmToIsoUtc(date, hhmm);
-  if (iso == null) return null;
+  if (iso == null) return { ok: false, reason: 'missing' };
   const qs = new URLSearchParams({ symbol, ts: iso }).toString();
-  return serverApiGet<FramePayload>(`/api/replay/frame?${qs}`, REVALIDATE_SECONDS);
+  return serverApiGetResult<FramePayload>(`/api/replay/frame?${qs}`, REVALIDATE_SECONDS);
 }
 
 export async function generateMetadata({
@@ -150,9 +156,15 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
       title: `${sym} GEX @ ${minute} · ${human}`,
       images: [`${url}/opengraph-image`],
     },
+    // A per-minute share artifact: 390 of them a session per symbol, each a
+    // near-duplicate of the dated replay page, which is the URL that should
+    // rank. noindex keeps them out of the index; `follow` and the OG tags keep
+    // the unfurl and the link back to the replay working.
+    robots: { index: false, follow: true },
   };
 }
 
@@ -164,8 +176,20 @@ export default async function ReplaySnapshotPage({
   const { symbol, date, time } = await params;
   const sym = resolveSymbol(symbol);
   if (!ISO_DATE.test(date) || !HHMM.test(time)) notFound();
-  const frame = await loadFrame(date, time, sym);
-  if (!frame) notFound();
+  const result = await loadFrame(date, time, sym);
+  if (!result.ok && result.reason === 'missing') notFound();
+  if (!result.ok) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+        <DataUnavailable
+          what={`${sym} replay snapshot for ${formatHumanDate(date)}`}
+          backHref={`/replay/${sym}/${date}`}
+          backLabel="Back to player"
+        />
+      </main>
+    );
+  }
+  const frame = result.data;
 
   const minute = `${time.slice(0, 2)}:${time.slice(2, 4)} ET`;
   const human = formatHumanDate(date);

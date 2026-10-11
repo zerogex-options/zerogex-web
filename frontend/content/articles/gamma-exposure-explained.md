@@ -10,7 +10,7 @@ Most of the price action that traders try to read on a chart is a downstream eff
 
 Gamma exposure (GEX) is the cleanest way to read what that dealer book is doing. It tells you whether the structural force in the tape is pushing toward stability or instability, whether hedging will lean against a breakout or add to it, and whether hedging at the strikes you see on the chain leans against flow or adds to it. It does not tell you direction. It tells you the **character of the regime** you are trading in - and that is most of the edge.
 
-This piece is the comprehensive read. We will cover what gamma exposure is, how it is built from the chain, the mechanics of positive versus negative gamma regimes, the role of the gamma flip and the gamma walls, and the practical workflow for using all of it intraday. For the deeper trader-facing reads on each sub-topic, this guide links out to [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip), [Gamma Walls Explained](/education/gamma-walls-explained), and [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained). For specific second-order Greeks, see [Vanna and Charm Explained for Options Traders](/education/vanna-and-charm-explained), and for the pinning-versus-magnet discussion, see [Max Pain Explained - and Does It Actually Work?](/education/max-pain-explained).
+This piece is the comprehensive read. We will cover what gamma exposure is, how it is built from the chain, the mechanics of positive versus negative gamma regimes, the role of the gamma flip and the gamma walls, and the practical workflow for using all of it intraday. For the deeper trader-facing reads on each sub-topic, this guide links out to [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip), [Gamma Walls Explained](/education/gamma-walls-explained), and [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained). For specific second-order Greeks, see [Vanna and Charm Explained for Options Traders](/education/vanna-and-charm-explained), and for the pinning-versus-magnet discussion, see [Max Pain Explained - and Does It Actually Work?](/education/max-pain-explained).
 
 ---
 
@@ -141,7 +141,7 @@ A few things worth being precise about:
 - It is **dynamic.** As OI rolls and the chain reweights, the flip drifts. A stale flip is a misleading flip.
 - It is a **filter, not a signal.** It tells you which playbook to run; the entry has to come from elsewhere.
 
-For the practical reading workflow - including what changes above versus below, how to act on it intraday, and the common mistakes - see [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+For the practical reading workflow - including what changes above versus below, how to act on it intraday, and the common mistakes - see [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 ---
 
@@ -154,7 +154,7 @@ The hedging around the walls behaves very differently in the two regimes:
 - In a **positive-gamma** regime, hedging around the walls leans against moves - selling rallies into the call wall, buying dips into the put wall.
 - In a **negative-gamma** regime, the hedging runs with the move, so a wall that gives way can become a breakout accelerant rather than resistance. Walls did not break more often in either regime in our measurement.
 
-Walls also migrate. A call wall that drifts up as price tests it is a structurally different read than one that holds. For the full reading workflow, see [Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts](/education/gamma-walls-explained).
+Walls also migrate. A call wall that drifts up as price tests it is a structurally different read than one that holds. For the full reading workflow, see [Gamma Walls Explained: Call Wall and Put Wall](/education/gamma-walls-explained).
 
 ---
 
@@ -273,4 +273,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's full gamma exposure read - Net GEX, the gamma flip, the call and put walls, and the dealer gamma profile - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show all of it, delayed about 15 minutes, and the paid plans show it [in real time](/real-time-gex-0dte). For a side-by-side of how ZeroGEX compares with other gamma-exposure platforms, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's full gamma exposure read - Net GEX, the gamma flip, the call and put walls, and the dealer gamma profile - [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show all of it, delayed about 15 minutes, and the paid plans show it [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte). For a side-by-side of how ZeroGEX compares with other gamma-exposure platforms, see [the best GEX tools guide](/education/best-gex-tools).

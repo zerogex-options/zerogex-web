@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
@@ -185,8 +186,16 @@ export default function RealTimeGexLandingClient() {
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          {/* `sizes` matches the rendered height (30px on phones, about 56px
+              from `sm` up, at a 3.3:1 lockup) so the optimizer serves a copy a
+              few KB wide instead of the full 1280px export. */}
+          <Image
+            {...brandTitle(isDark)}
+            alt="ZeroGEX"
+            sizes="(max-width: 640px) 100px, 180px"
+            className="h-[30px] sm:h-[88%] w-auto block max-w-none"
+            style={{ maxHeight: 'none', objectFit: 'contain' }}
+          />
         </Link>
 
         <div className="flex items-center gap-2">
@@ -246,13 +255,13 @@ export default function RealTimeGexLandingClient() {
               fontWeight: 900,
             }}
           >
-            Read the dealer book before the move,{' '}
+            Real-time 0DTE gamma levels:{' '}
             <span
               style={{
                 color: 'var(--color-accent-hot)',
               }}
             >
-              not after it.
+              read the dealer book before the move
             </span>
           </h1>
 

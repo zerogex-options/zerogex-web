@@ -40,7 +40,7 @@ ZeroGEX is a **Folds of Honor Proud Supporter** - the partner-badge tier for or
 Three things happen for every paid subscription on ZeroGEX:
 
 1. **On every successful Stripe invoice**, the billing system stamps the 3% allocation against that invoice. The total accumulates in a tally we settle at quarter-end.
-2. **At the end of each calendar quarter**, the consolidated total is wired to Folds of Honor. We save the receipt and publish the donation on [/giving](/giving).
+2. **At the end of each calendar quarter**, the consolidated total is wired to Folds of Honor. We save the receipt and publish the donation on [the Giving page](/giving).
 3. **The running total on /giving updates** with the new donation amount, the date, and the quarter it covered. Past donations stay listed so the history is auditable at a glance.
 
 If you ever want to see exactly how much ZeroGEX has donated to date, that page is the source of truth - not a marketing claim, the actual ledger.
@@ -69,7 +69,7 @@ If you are a ZeroGEX subscriber: thank you. Every subscription on the platform h
 
 If you are thinking about subscribing: the [free Gamma Levels pages](/spx-gamma-levels) (SPX, SPY, QQQ, and NDX) - delayed about 15 minutes - are always free, and a paid subscription helps both - it unlocks the real-time Dashboard and Pro features, and contributes 3% to Folds of Honor.
 
-Full mechanics, the running donation total, and our FAQ live at [/giving](/giving).
+Full mechanics, the running donation total, and our FAQ live at [the Giving page](/giving).
 
 ---
 

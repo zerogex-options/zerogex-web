@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { toolHrefFor } from '@/core/publicToolHref';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import GammaProfileHero from '@/components/marketing/GammaProfileHero';
@@ -823,14 +824,14 @@ export default function LandingPage({ trackRecord }: { trackRecord: HistorySumma
               gap: 12,
             }}
           >
-            <ToolPill isDark={isDark} href="/dashboard"            icon={BarChart2}    label={t('toolDashboard')}   color={C.amber} />
-            <ToolPill isDark={isDark} href="/trading-signals"      icon={Zap}          label={t('toolSignals')}     color={C.green} />
-            <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label={t('toolFlow')}        color={C.amber} />
-            <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label={t('toolGex')}         color={C.green} />
-            <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label={t('toolIntraday')}    color={C.amber} />
-            <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label={t('toolMaxPain')}     color={C.red}   />
-            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label={t('toolCalculator')}  color={C.amber} />
-            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label={t('toolGreeks')}      color={C.green} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/dashboard', canLaunchApp)}            icon={BarChart2}    label={t('toolDashboard')}   color={C.amber} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/trading-signals', canLaunchApp)}      icon={Zap}          label={t('toolSignals')}     color={C.green} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/flow-analysis', canLaunchApp)}        icon={Activity}     label={t('toolFlow')}        color={C.amber} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/gamma-exposure', canLaunchApp)}       icon={BarChart}     label={t('toolGex')}         color={C.green} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/intraday-tools', canLaunchApp)}       icon={Target}       label={t('toolIntraday')}    color={C.amber} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/max-pain', canLaunchApp)}             icon={Eye}          label={t('toolMaxPain')}     color={C.red}   />
+            <ToolPill isDark={isDark} href={toolHrefFor('/options-calculator', canLaunchApp)}   icon={Calculator}   label={t('toolCalculator')}  color={C.amber} />
+            <ToolPill isDark={isDark} href={toolHrefFor('/greeks-gex', canLaunchApp)}           icon={Layers}       label={t('toolGreeks')}      color={C.green} />
           </div>
         </div>
       </section>

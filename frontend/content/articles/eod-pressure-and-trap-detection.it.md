@@ -16,9 +16,9 @@ Questo articolo è pensato per trader che già comprendono il gamma exposure, l'
 
 ---
 
-# Parte 1 - EOD Pressure
+## Parte 1 - EOD Pressure
 
-## Cosa misura
+### Cosa misura
 
 EOD Pressure è uno **stimatore di bias direzionale per gli ultimi ~90 minuti della sessione cash**. Cerca di rispondere a una domanda:
 
@@ -34,7 +34,7 @@ EOD Pressure combina questi due effetti, li scala in base a quanto siamo vicini 
 
 ---
 
-## Interpretazione del punteggio
+### Interpretazione del punteggio
 
 L'output è un punteggio continuo da **−100 a +100**. (Le formule qui sotto lavorano sulla scala da −1 a +1; la scheda e la pagina del segnale mostrano il risultato moltiplicato per 100.)
 
@@ -50,11 +50,11 @@ Il segnale si contrassegna come **attivato** quando il punteggio supera **±20**
 
 ---
 
-## Come viene costruito il punteggio
+### Come viene costruito il punteggio
 
 EOD Pressure aggrega quattro componenti. Tre contribuiscono alla magnitudine; uno funge da cancello (gate).
 
-### Componente 1: Charm allo spot
+#### Componente 1: Charm allo spot
 
 Questa è la misura più diretta del flusso di hedging forzato. Il segnale somma l'esposizione al charm dei dealer su una banda at-the-money, pesata per bucket di scadenza:
 
@@ -77,7 +77,7 @@ I pesi dei bucket di scadenza sono calibrati sulla fisica del charm:
 
 A ±$20M di charm bucketizzato dei dealer, il sub-score si blocca a ±1.0. Sotto quella soglia, la risposta è lineare.
 
-### Componente 2: Gravità del pin
+#### Componente 2: Gravità del pin
 
 Il termine pin dipende dal regime di gamma:
 
@@ -97,7 +97,7 @@ In un regime negative-gamma la distanza dal target non porta informazione direzi
 
 **Limite metodologico:** entrambi i rami sono euristiche ZeroGEX con punti di saturazione scelti a mano, non probabilità calibrate. Il ramo negative-gamma traduce l'idea che il gamma negativo amplifichi la direzione già in corso; non prevede quella direzione.
 
-### Componente 3: Rampa temporale (Gate)
+#### Componente 3: Rampa temporale (Gate)
 
 La rampa è un cancello moltiplicativo sull'intero segnale. Prima delle **14:30 ET**, è esattamente zero - e il segnale si interrompe in cortocircuito prima di calcolare qualsiasi altra cosa.
 
@@ -112,7 +112,7 @@ La rampa è un cancello moltiplicativo sull'intero segnale. Prima delle **14:30 
 
 La rampa scala linearmente da 0 a 1 tra le 14:30 e le 15:45 ET, poi si mantiene a piena forza fino alla chiusura. Ecco perché il segnale legge zero per gran parte della giornata di trading - è strutturalmente inattivo.
 
-### Componente 4: Amplificatore di calendario
+#### Componente 4: Amplificatore di calendario
 
 L'amplificatore aumenta la convinzione nelle date in cui il posizionamento si concentra e i book dei dealer sono insolitamente esposti:
 
@@ -126,7 +126,7 @@ L'amplificatore è l'unico punto del segnale in cui il punteggio intermedio può
 
 ---
 
-## Mettendo tutto insieme
+### Mettendo tutto insieme
 
 L'aggregazione finale:
 
@@ -139,7 +139,7 @@ La ponderazione 60/40 riflette una visione ben precisa: **il charm è una misura
 
 ---
 
-## Quando EOD Pressure restituisce zero
+### Quando EOD Pressure restituisce zero
 
 Una lettura a zero è lo stato più comune. Il segnale è *progettato* per essere silenzioso fuori dalla sua finestra.
 
@@ -153,9 +153,9 @@ Se stai osservando il pannello alle 13:55 ET e legge zero, è corretto e atteso.
 
 ---
 
-# Parte 2 - Trap Detection
+## Parte 2 - Trap Detection
 
-## Cosa misura
+### Cosa misura
 
 Trap Detection identifica setup in cui **il prezzo ha appena rotto oltre un livello chiave di posizionamento dei dealer ma è probabile che fallisca e inverta**.
 
@@ -171,7 +171,7 @@ Il segno dell'output codifica la direzione da *fadare*, non la direzione in cui 
 
 ---
 
-## Interpretazione del punteggio
+### Interpretazione del punteggio
 
 | Punteggio | Etichetta | Interpretazione per il trader |
 |-------|-------|----------------------|
@@ -187,9 +187,9 @@ La soglia di attivazione qui è **±25** - deliberatamente più severa del ±20
 
 ---
 
-## Come viene costruito il punteggio
+### Come viene costruito il punteggio
 
-### Passo 1: Identificare il livello rotto
+#### Passo 1: Identificare il livello rotto
 
 ```
 up_levels = [call_wall, max_gamma_strike, vwap, gamma_flip]
@@ -200,7 +200,7 @@ broken_support    = min(level for level in dn_levels if level > close)
 
 Nota la denominazione. *Broken resistance* è il livello che il prezzo ha appena superato al rialzo - quindi ora si trova sotto la chiusura. *Broken support* è il livello sotto cui il prezzo è appena scivolato. I nomi riflettono la prospettiva post-breakout.
 
-### Passo 2: Buffer di breakout scalato per volatilità
+#### Passo 2: Buffer di breakout scalato per volatilità
 
 Un piccolo sbuco sopra un livello è rumore, non un breakout. Il segnale usa un buffer scalato per volatilità per filtrare:
 
@@ -211,7 +211,7 @@ buffer_pct  = max(0.1%, 0.15 × σ × √5)
 
 Per SPX con una σ intraday tipica vicina agli 8 basis point al minuto, il buffer si posiziona intorno allo 0.1%. Nei giorni volatili si scala automaticamente verso l'alto. Il prezzo deve superare il livello di più del buffer prima che il segnale inizi a registrare forza.
 
-### Passo 3: Fattori di forza continui
+#### Passo 3: Fattori di forza continui
 
 Un'iterazione precedente di questo segnale usava AND booleani e produceva un comportamento a scalino - precondizioni appena soddisfatte facevano scattare on/off il punteggio. Il design attuale usa **fattori continui [0, 1]** che si moltiplicano tra loro:
 
@@ -231,7 +231,7 @@ downside_strength = breakout_strength_dn   × long_gamma × strengthening × wal
 
 Se uno qualsiasi di questi fattori va a zero, azzera l'intero lato. Regime negative-gamma? `long_gamma_factor = 0` - nessuna trappola. Gamma non in rafforzamento? `strengthening_factor = 0` - nessuna trappola. Il segnale ha una visione precisa su *quando* i fade funzionano e rifiuta di attivarsi fuori da quel regime.
 
-### Passo 4: Termine di magnitudine
+#### Passo 4: Termine di magnitudine
 
 Un peso di base più bonus di distanza e accelerazione del gamma:
 
@@ -243,7 +243,7 @@ magnitude     = 0.4 + 0.4 × dist_strength + 0.2 × gex_boost   // range: [0.4, 
 
 Una trappola qualificante porta un peso minimo di 0.4 anche se si qualifica per un pelo. Breakout più ampi e un posizionamento dei dealer in accelerazione lo scalano verso 1.0.
 
-### Passo 5: Moltiplicatore di flusso
+#### Passo 5: Moltiplicatore di flusso
 
 Il termine flow separa i breakout *reali* da quelli *esausti*:
 
@@ -256,7 +256,7 @@ Un flusso direzionale in decelerazione dentro un breakout è esattamente la tesi
 
 Al contrario, un flusso in accelerazione nella direzione del breakout significa che il movimento ha partecipanti reali dietro di sé. La tesi della trappola si indebolisce - il moltiplicatore si restringe verso 0.3.
 
-### Passo 6: Aggregazione finale
+#### Passo 6: Aggregazione finale
 
 ```
 bear_score = clip(magnitude × flow_mult × upside_strength,   [0, 1])
@@ -271,7 +271,7 @@ Entrambi i punteggi di lato sono non negativi. La loro differenza codifica sia l
 
 ---
 
-## Quando Trap Detection restituisce zero
+### Quando Trap Detection restituisce zero
 
 Per gran parte della giornata di trading, questo segnale legge zero. Le condizioni che lo azzerano sono esattamente le condizioni di cui dovresti essere consapevole:
 
@@ -285,7 +285,7 @@ Uno zero da Trap Detection è *informativo*. Ti dice che i prerequisiti per un t
 
 ---
 
-# Leggere entrambi i segnali insieme
+## Leggere entrambi i segnali insieme
 
 I due segnali sono progettati per essere letti congiuntamente. Coprono orizzonti temporali e regimi diversi, ma spesso si sovrappongono su setup ad alta convinzione verso la chiusura.
 
@@ -299,7 +299,7 @@ I due segnali sono progettati per essere letti congiuntamente. Coprono orizzonti
 
 ---
 
-## Costanti hardcoded da conoscere
+### Costanti hardcoded da conoscere
 
 Per i trader che eseguono i propri backtest o dimensionano trade rispetto a questi segnali, vale la pena tenere a mente alcuni numeri magici. Non sono arbitrari - ciascuno riflette una scelta di calibrazione empirica.
 
@@ -319,7 +319,7 @@ Tutti questi valori sono configurabili tramite variabili d'ambiente sul backend,
 
 ---
 
-## Note pratiche di trading
+### Note pratiche di trading
 
 Alcuni pattern ricorrono abbastanza spesso da meritare una menzione diretta:
 
@@ -333,7 +333,7 @@ Alcuni pattern ricorrono abbastanza spesso da meritare una menzione diretta:
 
 ---
 
-## Conclusione finale
+### Conclusione finale
 
 > **EOD Pressure e Trap Detection sono silenziosi per gran parte della giornata. Questo è il punto.**
 
@@ -349,7 +349,7 @@ L'hedging dei dealer non è tutto il mercato. Ma per gli ultimi 90 minuti della 
 
 ---
 
-## Prossimi passi
+### Prossimi passi
 
 Se vuoi spingere oltre il framework, le estensioni naturali sono:
 

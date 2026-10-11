@@ -6,7 +6,29 @@
 - `Dark_Title_Subtitle.png`/`Light_Title_Subtitle.png` - Title and subtitle
 - `Dark_Helmet.png`/`Light_Helmet.png` - Helmet logo
 - `Dark_Crosshairs.png`/`Light_Crosshairs.png` - Crosshairs logo
-- `favicon.ico` - Mini helmet logo
+- `favicon.ico` - Mini helmet logo, as a real multi-frame ICO (see below)
+- `icon.png` / `apple-icon.png` - the same mark as 192x192 and 180x180 PNGs
+
+## Icon Set
+
+Three files, all cut from the same crosshair artwork with Pillow: crop to the
+artwork's bounding box, pad to a square, LANCZOS resize, then palette-quantize
+the PNGs.
+
+- `favicon.ico` - a genuine ICO container with 16, 32 and 48 px PNG frames
+  (saved with Pillow's `sizes=[(16,16),(32,32),(48,48)]`). It used to be a
+  1254x1254 PNG with a `.ico` extension, so every visitor downloaded about
+  1 MB for a tab icon. It is about 8 KB now.
+- `icon.png` - 192x192 on a transparent background. Google's search result
+  favicon wants a square PNG that is a multiple of 48 px, which the ICO frames
+  are not.
+- `apple-icon.png` - 180x180 on the site's navy (`#00202E`), because iOS
+  flattens transparency to black on the home screen.
+
+`make logo` copies all three into `frontend/app/`, where Next's App Router
+treats them as metadata files and emits hashed `<link rel="icon">` and
+`<link rel="apple-touch-icon">` tags (`frontend/app/layout.tsx` deliberately
+sets no `icons` of its own). Re-run `make logo` after replacing any of them.
 
 ## Color Palette
 - Primary Dark: `#423d3f`
@@ -49,7 +71,8 @@ Run `make logo` to deploy assets to frontend/public/:
 | `Dark_Title.png` | `email/zerogex-email-header.png` | campaign email header band |
 | `Dark_Full.png` | `email/zerogex-email-footer.png` | campaign email footer |
 | `Target.svg` | `target.svg` | |
-| `favicon.ico`, `og-image.png` | same name | |
+| `favicon.ico`, `icon.png`, `apple-icon.png` | `frontend/app/` (same names) | tab icon, Google SERP favicon, iOS home screen |
+| `og-image.png` | `og-image.<hash>.png` | social cards |
 
 The four lockup PNGs are not copied verbatim: `make logo` runs them through
 `scripts/trim-png.js`, which crops the transparent margin off the export and

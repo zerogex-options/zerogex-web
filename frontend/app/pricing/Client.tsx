@@ -1633,6 +1633,47 @@ function PricingClientInner({
 
           <PlanComparison />
 
+          {/* Visitors on /pricing are comparing, and the comparison pages were
+              written for exactly that moment, but nothing here linked to them.
+              Kept to one quiet row of text links so it never competes with the
+              plan buttons above. Competitor and brand names stay English in
+              every locale, as in the footer. */}
+          <nav
+            aria-label={t('stillComparingTitle')}
+            style={{
+              margin: '28px auto 0',
+              maxWidth: 820,
+              fontSize: 13,
+              lineHeight: 1.9,
+              color: C.muted,
+              textAlign: 'center',
+            }}
+          >
+            <strong style={{ color: C.light }}>{t('stillComparingTitle')}</strong>{' '}
+            {[
+              { href: '/education/zerogex-vs-menthorq', label: 'ZeroGEX vs MenthorQ' },
+              { href: '/education/zerogex-vs-tradegex', label: 'ZeroGEX vs TradeGEX' },
+              { href: '/education/zerogex-vs-quant-data', label: 'ZeroGEX vs Quant Data' },
+              { href: '/education/zerogex-vs-bullflow', label: 'ZeroGEX vs Bullflow' },
+              { href: '/education/best-gex-tools', label: t('stillComparingBestTools') },
+              { href: '/track-record', label: t('stillComparingTrackRecord') },
+              { href: '/methodology', label: t('stillComparingMethodology') },
+              { href: '/collective2-strategy-data', label: 'Collective2 strategy data' },
+            ].map((link, i) => (
+              <span key={link.href}>
+                {i > 0 ? ' \u00b7 ' : ''}
+                <Link href={link.href} style={{ color: C.amber }}>
+                  {link.label}
+                </Link>
+              </span>
+            ))}
+            <div>
+              <Link href="/spx-gamma-levels" style={{ color: C.amber }}>
+                {t('stillComparingNotReady')}
+              </Link>
+            </div>
+          </nav>
+
           <section
             className="zg-panel zg-pcard"
             style={{

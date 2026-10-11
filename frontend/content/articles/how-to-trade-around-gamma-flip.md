@@ -14,7 +14,7 @@ Below the flip, the modeled reflex flips sign. The dealer book is assumed to amp
 
 That's not "support and resistance at the flip." That's two different playbooks for the same chart depending on which side of one specific price you're on. Trading around the flip well means switching playbooks at the cross - not trading a level.
 
-This piece covers the workflow. For the deeper read on what the flip is and how to read it conceptually, see [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip); for the underlying mechanics, the [Gamma Exposure pillar](/education/gamma-exposure-explained).
+This piece covers the workflow. For the deeper read on what the flip is and how to read it conceptually, see [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip); for the underlying mechanics, the [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -123,4 +123,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's gamma flip with its distance from spot, the regime check, and Net GEX magnitude - the three numbers that decide which playbook the structural force in the tape is supporting right now - [the free ZeroGEX gamma-levels view](/spx-gamma-levels) surfaces all of them, delayed about 15 minutes; the paid plans show them [in real time](/real-time-gex-0dte).
+If you want to see today's gamma flip with its distance from spot, the regime check, and Net GEX magnitude - the three numbers that decide which playbook the structural force in the tape is supporting right now - [the free ZeroGEX gamma-levels view](/spx-gamma-levels) surfaces all of them, delayed about 15 minutes; the paid plans show them [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte).

@@ -226,6 +226,9 @@ export default function Footer({ theme }: FooterProps) {
               <Image
                 {...brandLogo(isDark)}
                 alt="ZeroGEX"
+                // 68px tall at the lockup's 3.6:1 is about 242px wide; without
+                // `sizes` next/image would assume full viewport width.
+                sizes="242px"
                 style={{ height: '68px', width: 'auto', objectFit: 'contain' }}
               />
             </Link>

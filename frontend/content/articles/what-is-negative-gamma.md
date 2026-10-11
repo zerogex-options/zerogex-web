@@ -24,7 +24,7 @@ When the *net* of those signed contributions is negative, the book is modeled as
 
 The standard convention - customers overwrite calls and buy puts for protection - means dealers are typically long calls and short puts, but the *magnitudes* shift with positioning. When customer demand skews heavily toward puts (e.g., during fear regimes), the dealer book's growing short-put inventory can push net gamma negative; when calls dominate (e.g., calm uptrends where overwriting builds dealer long-call gamma), the book is modeled long gamma.
 
-The single most useful summary stat: the **gamma flip** - the price at which the dealer gamma profile crosses zero. Above the flip, dealers are typically long gamma (positive). Below the flip, short gamma (negative). Reading the flip is essentially reading the regime line. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+The single most useful summary stat: the **gamma flip** - the price at which the dealer gamma profile crosses zero. Above the flip, dealers are typically long gamma (positive). Below the flip, short gamma (negative). Reading the flip is essentially reading the regime line. See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 ---
 
@@ -60,7 +60,7 @@ These are general regime leans, not guarantees. Catalysts and shocks override th
 
 ---
 
-## How to spot a negative-gamma regime in real time
+## What a negative gamma environment looks like intraday
 
 A short workflow:
 
@@ -128,4 +128,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's Net GEX, gamma flip, and regime read for SPY, SPX, QQQ, and NDX - the three numbers that tell you whether dealers are long gamma or short gamma right now - [the free ZeroGEX gamma-levels view](/spx-gamma-levels) surfaces all of them, delayed about 15 minutes; the paid plans show them [in real time](/real-time-gex-0dte).
+If you want to see today's Net GEX, gamma flip, and regime read for SPY, SPX, QQQ, and NDX - the three numbers that tell you whether dealers are long gamma or short gamma right now - [the free ZeroGEX gamma-levels view](/spx-gamma-levels) surfaces all of them, delayed about 15 minutes; the paid plans show them [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte).

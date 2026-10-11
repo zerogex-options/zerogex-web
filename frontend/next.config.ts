@@ -136,6 +136,35 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' },
         ],
       },
+      // Cache lifetimes for the static images under public/. Next serves
+      // those with max-age=0 by default, so every page view re-validated the
+      // social card, the article screenshots and the logo lockups.
+      {
+        // The social card's filename carries a hash of its bytes (see
+        // scripts/og-image-manifest.js), so new artwork is a new URL and the
+        // old one can be held forever without ever going stale.
+        source: '/og-image.:hash.png',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        // Article screenshots and the structured-data logo keep their names
+        // when replaced, so a week with a month of stale-while-revalidate:
+        // long enough that a reader moving between articles never refetches
+        // them, short enough that a re-shot screenshot reaches everyone.
+        source: '/blog/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=2592000' }],
+      },
+      {
+        source: '/zerogex-mark-512.png',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=2592000' }],
+      },
+      {
+        // The lockups are on every page, but `make logo` re-exports them under
+        // the same names, so they must not be immutable: a day, with a week of
+        // stale-while-revalidate so a rebrand shows up by the next morning.
+        source: '/:name(logo-dark|logo-light|title-dark|title-light).png',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
     ];
   },
 

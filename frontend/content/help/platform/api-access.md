@@ -84,6 +84,8 @@ If all you want is our levels on your own chart, you may not need to write anyth
 
 If your platform can't reach the network - or you'd rather ask for the levels than read them - connect an AI assistant to our free [MCP server](/help/platform/mcp-server) (delayed levels, no key), or see [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration), which covers wiring the API into one.
 
+Running a Collective2 strategy? See [strategy data for Collective2 managers](/collective2-strategy-data).
+
 ## See also
 
 - [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)

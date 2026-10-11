@@ -99,6 +99,10 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           {...brandTitle(isDark)}
           alt="ZeroGEX"
           priority
+          // Without `sizes` next/image assumes the image fills the viewport
+          // and serves the full 1280px export for a lockup drawn 100 to 180px
+          // wide. These widths follow from the heights below at 3.3:1.
+          sizes="(max-width: 640px) 100px, 180px"
           // The lockup is trimmed to its artwork, so a height is the whole
           // sizing story: a fixed 30px on phones (the same lockup size as the
           // app's top bar), a fraction of the taller bar from `sm` up.

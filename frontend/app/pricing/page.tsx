@@ -15,23 +15,21 @@ import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
 import { isReferralProgramEnabled } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
 import { REFERRAL_COOKIE_NAME, requireSession } from '@/core/serverAuth';
+import { PUBLISHER_REF, SITE_URL } from '@/core/articleRegistry';
+import { pricingJsonLd } from '@/core/pricingJsonLd';
 import PricingClient from './Client';
 
 // /pricing takes ~4,400 search impressions a quarter at position ~3 (it is a
 // brand sitelink) and converts about 1% of them. The snippet names what the
-// plans buy, the trial and the guarantee.
-// The billing periods named are the ones actually on sale (quarterly appears
-// once its prices are configured).
-export function generateMetadata() {
-  const billing = getSellableCadences().includes('quarterly')
-    ? 'Monthly, quarterly or annual billing.'
-    : 'Monthly or annual billing.';
-  return {
-    title: 'ZeroGEX Pricing: Basic & Pro Plans, Free Trial on Basic',
-    description: `ZeroGEX pricing: Basic and Pro plans for real-time GEX, dealer positioning and signals on SPX, SPY, QQQ and NDX. 7-day free trial on Basic monthly, 7-day money-back guarantee on every other plan. ${billing}`,
-    alternates: { canonical: '/pricing' },
-  };
-}
+// plans buy, the trial and the guarantee, and stays under the ~160 characters
+// Google shows before cutting a description mid-sentence. The billing periods
+// on sale are in the structured data below rather than the snippet.
+export const metadata = {
+  title: 'ZeroGEX Pricing: Basic & Pro Plans, Free Trial on Basic',
+  description:
+    'ZeroGEX pricing: Basic and Pro plans for real-time GEX, dealer positioning and signals on SPX, SPY, QQQ, NDX. 7-day free trial on Basic, money-back guarantee.',
+  alternates: { canonical: '/pricing' },
+};
 
 // Public pricing page. Reads env state server-side (active promo coupon
 // configuration per cadence, which billing periods have Stripe prices, which
@@ -88,17 +86,36 @@ export default async function PricingPage() {
     });
   }
 
+  // Offer structured data for the plans on sale. Quarterly appears only once
+  // its Stripe prices exist, the same rule the cards follow; monthly and
+  // annual are always sold, so an env with no price ids (local dev) still
+  // describes the two the public page has always offered.
+  const sellableCadences = getSellableCadences();
+  const jsonLd = pricingJsonLd({
+    siteUrl: SITE_URL,
+    publisher: PUBLISHER_REF,
+    cadences: sellableCadences.length ? sellableCadences : ['monthly', 'annual'],
+  });
+
   return (
-    <PricingClient
-      promoActiveByCadence={promoActiveByCadence}
-      promoDeadlineLabel={promoDeadlineLabel}
-      sellableCadences={getSellableCadences()}
-      trialPlanKeys={[...getTrialPlans()]}
-      referralEnabled={isReferralProgramEnabled()}
-      campaignActive={campaignActive}
-      currentPlan={currentPlan}
-      subscriptionStatus={subscriptionStatus}
-      guaranteeUsed={guaranteeUsed}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        // Built from typed constants with no user input, same pattern as
+        // components/SiteJsonLd.tsx.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <PricingClient
+        promoActiveByCadence={promoActiveByCadence}
+        promoDeadlineLabel={promoDeadlineLabel}
+        sellableCadences={sellableCadences}
+        trialPlanKeys={[...getTrialPlans()]}
+        referralEnabled={isReferralProgramEnabled()}
+        campaignActive={campaignActive}
+        currentPlan={currentPlan}
+        subscriptionStatus={subscriptionStatus}
+        guaranteeUsed={guaranteeUsed}
+      />
+    </>
   );
 }

@@ -109,4 +109,4 @@ The flip is computed from a **spot-shift dealer gamma profile** - not a cumulat
 - [Reading the Dashboard](/help/platform/dashboard)
 - [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained)
 - [Gamma Walls Explained](/education/gamma-walls-explained)
-- [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip)
+- [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Ban, KeyRound, Radio } from 'lucide-react';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
-import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { PUBLISHER_REF, SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_TWITTER_HANDLE, SITE_URL } from '@/core/articleRegistry';
 import { INTEGRATIONS_HUB } from '@/core/integrations';
 
 // A landing for Collective2 strategy managers — people who already run a
@@ -32,9 +32,9 @@ import { INTEGRATIONS_HUB } from '@/core/integrations';
 // not" section is load-bearing, not boilerplate.
 
 const PATH = '/collective2-strategy-data';
-const TITLE = 'Dealer Positioning Data for Collective2 Strategy Managers\u00a0- ZeroGEX API';
+const TITLE = 'Gamma Levels API for Collective2 Strategy Managers\u00a0- ZeroGEX';
 const DESCRIPTION =
-  'Feed gamma flip, call wall, put wall, max pain and the per-strike gamma profile into the strategy you publish on Collective2. One REST call, six symbols, refreshed through the session. An input to your rules\u00a0- not a signal service, and not a bridge to C2.';
+  'Feed the gamma flip, call wall, put wall, max pain and per-strike gamma profile into the strategy you publish on Collective2. One REST call, six symbols.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -50,6 +50,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
     title: TITLE,
     description: DESCRIPTION,
     images: [SITE_DEFAULT_OG_IMAGE],
@@ -67,7 +68,7 @@ const JSON_LD = {
   description: DESCRIPTION,
   url: `${SITE_URL}${PATH}`,
   audience: { '@type': 'Audience', audienceType: 'Systematic trading strategy developers' },
-  publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+  publisher: PUBLISHER_REF,
 };
 
 const API_DOCS = 'https://api.zerogex.io/docs';

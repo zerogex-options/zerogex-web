@@ -32,7 +32,9 @@ export default function robots(): MetadataRoute.Robots {
         '/checkout',
       ],
     },
-    sitemap: 'https://zerogex.io/sitemap.xml',
+    // The static tree (next-sitemap, written at deploy) and the dated receipt
+    // pages (app/sitemap-dated.xml/route.ts, rendered from the session lists).
+    sitemap: ['https://zerogex.io/sitemap.xml', 'https://zerogex.io/sitemap-dated.xml'],
     host: 'https://zerogex.io',
   };
 }

@@ -255,7 +255,12 @@ export default function Navigation({
     const interval = setInterval(() => setSession(getMarketSession()), 60000);
     return () => clearInterval(interval);
   }, []);
-  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  // Once a second for members, who trade off this number. A public visitor
+  // only reaches the app shell on the education and help libraries and
+  // /chart, where the sidebar price is context for reading, so a 15 s poll
+  // keeps it current enough and spares the API 3,600 requests an hour per
+  // open tab (Header makes the same call with the same rule).
+  const { data: quoteData } = useMarketQuote(symbol, isPublicUser ? 15000 : 1000);
   const quoteSession = quoteData?.session ?? null;
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteSession);
   const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
@@ -428,6 +433,9 @@ export default function Navigation({
                   <Image
                     {...brandLogo(theme === "dark")}
                     alt="ZeroGEX"
+                    // 84px tall at 3.6:1 is about 300px wide; without `sizes`
+                    // next/image would assume full viewport width.
+                    sizes="300px"
                     style={{ height: "84px", width: "auto", maxWidth: "100%", objectFit: "contain" }}
                   />
                 </Link>

@@ -3,7 +3,11 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
+import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
+import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
+import { hasRequiredTier } from '@/core/auth';
+import { requireSession } from '@/core/serverAuth';
 import { CASH_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
 import {
@@ -76,26 +80,54 @@ export async function generateMetadata({
   const resolved = await searchParams;
   const symbol = resolveSymbol(resolved?.symbol);
   const cursor = parseCursor(resolved?.before);
-  const title = 'Hedging Flow - Past Sessions - ZeroGEX';
+  const title = 'Past Hedging Flow Sessions\u00a0- ZeroGEX';
+  const description =
+    'Every stored session of estimated dealer hedging pressure, bar by bar, with the dealer gamma structure on the same timeline.';
 
   return {
     title,
-    description:
-      'Every stored session of estimated dealer hedging pressure, bar by bar, with the dealer gamma structure on the same timeline.',
+    description,
     // Every page of the archive canonicalises to the first one: the deeper
     // pages are navigation, not content -- the content is the dated permalinks
     // they link to. `follow` is the part that matters, because those older
     // permalinks have no other route in for a crawler.
     alternates: { canonical: `${SITE_URL}/hedging-flow/sessions` },
     robots: cursor ? { index: false, follow: true } : undefined,
+    // A page-level openGraph replaces the root's wholesale, so without `images`
+    // here the card had no picture; `twitter` is listed for the same reason.
     openGraph: {
       type: 'website',
       url: `${SITE_URL}${sessionsHref(symbol, cursor)}`,
       title,
       description: 'Dated permalinks for estimated dealer hedging pressure.',
       siteName: 'ZeroGEX',
+      images: [{ url: SITE_DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
+      title,
+      description,
+      images: [SITE_DEFAULT_OG_IMAGE],
     },
   };
+}
+
+// Whether the visitor can open the live /hedging-flow page. That route is
+// Basic-gated, so for an anonymous reader (or a crawler) a link to it is a
+// link to a 307 to /login; the back link below renders only for members. Same
+// resolution as app/chart/page.tsx: auth off (local dev) means everyone is a
+// member, and a session read that throws is treated as signed out. This page
+// already renders per request (it reads searchParams), so reading the cookie
+// costs it no caching.
+async function canOpenLivePage(): Promise<boolean> {
+  if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== '1') return true;
+  try {
+    const session = await requireSession();
+    return !!session && hasRequiredTier('/hedging-flow', session.user.tier);
+  } catch {
+    return false;
+  }
 }
 
 function formatHumanDate(raw: string): string {
@@ -155,7 +187,7 @@ export default async function HedgingFlowSessionsPage({
   const resolved = await searchParams;
   const symbol = resolveSymbol(resolved?.symbol);
   const cursor = parseCursor(resolved?.before);
-  const data = await loadSessions(symbol, cursor);
+  const [data, isMember] = await Promise.all([loadSessions(symbol, cursor), canOpenLivePage()]);
   const sessions = data?.sessions ?? [];
   const months = groupByMonth(sessions);
   // Trust the API's own has_more rather than comparing count to PAGE_SIZE.
@@ -168,15 +200,17 @@ export default async function HedgingFlowSessionsPage({
 
   return (
     <PageShell width="measure">
-      <div className="mb-5">
-        <Link
-          href="/hedging-flow"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <ChevronLeft size={14} /> Live session
-        </Link>
-      </div>
+      {isMember && (
+        <div className="mb-5">
+          <Link
+            href="/hedging-flow"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] max-sm:min-h-8"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <ChevronLeft size={14} /> Live Hedging Flow
+          </Link>
+        </div>
+      )}
 
       <header className="mb-6">
         {/* Stacked below `sm`: side by side, the picker squeezed "Past
@@ -190,6 +224,13 @@ export default async function HedgingFlowSessionsPage({
               ZeroGEX · Hedging Flow
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">Past sessions</h1>
+            {/* The explainer is the public route into this archive; without
+                it the only inbound link was from the gated live page. */}
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <Link href="/education/hedging-flow-explained" className="underline">
+                How to read these pages
+              </Link>
+            </p>
           </div>
           {/* Cash only: the backend's futures middleware refuses the
               per-contract flow endpoints for ES / NQ, so offering them here
@@ -332,6 +373,11 @@ export default async function HedgingFlowSessionsPage({
         against exchange-classified data. Storing a session does not promote it to an
         observation.
       </section>
+
+      <ReceiptFooterLinks
+        symbol={symbol}
+        extra={[{ href: '/education/hedging-flow-explained', label: 'Hedging Flow explained' }]}
+      />
     </PageShell>
   );
 }

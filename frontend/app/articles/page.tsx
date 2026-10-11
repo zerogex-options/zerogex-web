@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Newspaper } from 'lucide-react';
 import ItemListJsonLd from '@/components/ItemListJsonLd';
+import { ARTICLE_REGISTRY, type ArticleMeta } from '@/core/articleRegistry';
 
 export const metadata = {
   title: 'Options Gamma Analysis: SPX, SPY, QQQ & NDX Dealer Flow',
@@ -9,6 +10,14 @@ export const metadata = {
   alternates: { canonical: '/articles' },
 };
 
+// Derived from the article registry rather than typed out here. This page used
+// to carry its own copy of every title, blurb and date, and the copy drifted:
+// one article was missing outright (so it was also missing from the ItemList
+// below), five titles predated their Search Console retitles, and six dates
+// were stale. The registry is the source the article pages, the Article
+// structured data and the sitemap already read, so the listing now agrees with
+// all three by construction. Newest publication first; a later substantive
+// edit is shown as "Updated" without moving the piece up the list.
 type Article = {
   href: string;
   kind: string;
@@ -17,296 +26,36 @@ type Article = {
   cta?: string;
 };
 
-const ARTICLES: Article[] = [
-  {
-    href: '/education/zerogex-vs-tradegex',
-    kind: 'Published • October 9, 2026 • 16:00 UTC',
-    title: 'ZeroGEX vs TradeGEX (2026): Futures Gamma Levels, Pricing & Coverage',
-    blurb:
-      'A fair side-by-side of ZeroGEX and TradeGEX: how their walls and gamma flip are built, where each one’s ES and NQ levels come from, what each plan costs, and where each one is the stronger choice.',
-  },
-  {
-    href: '/education/forced-flow-and-zero-flow-explained',
-    kind: 'Published • October 5, 2026 • 16:00 UTC',
-    title: 'Forced Flow and Zero Flow Explained: Where Dealer Hedging Nets to Zero',
-    blurb:
-      'Forced Flow models the stock dealers would have to trade to stay hedged if price, time or implied volatility moves, and the zero-flow level is the one price where all of it cancels. How both are computed, why the same zero-flow price can be a magnet or a pivot, how the level moves through the day, and what the model does not claim.',
-  },
-  {
-    href: '/education/zerogex-vs-menthorq',
-    kind: 'Published • September 30, 2026 • 16:00 UTC',
-    title: 'ZeroGEX vs MenthorQ (2026): Gamma Levels, Pricing & Coverage',
-    blurb:
-      'A fair side-by-side of ZeroGEX and MenthorQ: how their gamma levels line up, what each plan costs, where MenthorQ is the stronger choice, and where ZeroGEX fits better.',
-  },
-  {
-    href: '/education/zerogex-vs-quant-data',
-    kind: 'Published • September 30, 2026 • 16:00 UTC',
-    title: 'ZeroGEX vs Quant Data (2026): GEX Maps, Pricing & Coverage',
-    blurb:
-      'A fair side-by-side of ZeroGEX and Quant Data: what each platform is built for, how the Interval Map and the GEX Heatmap compare, what each costs, and where each one is the stronger choice.',
-  },
-  {
-    href: '/education/zerogex-vs-bullflow',
-    kind: 'Published • September 29, 2026 • 16:00 UTC',
-    title: 'ZeroGEX vs Bullflow (2026): Pricing, GEX & Options Flow',
-    blurb:
-      'A fair side-by-side of ZeroGEX and Bullflow: what each platform is built for, what each plan costs, where Bullflow is the stronger choice, and where a dedicated gamma-levels tool fits better.',
-  },
-  {
-    href: '/education/hedging-flow-explained',
-    kind: 'Published • September 28, 2026 • 16:00 UTC',
-    title: 'Hedging Flow Explained: Reading the Options Tape Through the Hedge',
-    blurb:
-      'Hedging Flow estimates the stock hedge implied by today\u2019s options trades and reads it against dealer gamma near price. What the number is and is not, why a heavy session total says little about the next few minutes, how Gamma Weather decides its headline, and one live SPY session read end to end.',
-  },
-  {
-    href: '/education/gamma-vwap-confluence-explained',
-    kind: 'Published • September 11, 2026 • 16:00 UTC',
-    title: 'Gamma / VWAP Confluence Explained\u00a0- and Why Two Symbols Can Disagree',
-    blurb:
-      'What the confluence score measures, how the cluster is built from the gamma flip and VWAP, and why cluster quality matters more than the sign. The core idea: the gamma regime inverts the same picture from a fade into a breakout, which is why SPX, SPY and QQQ can legitimately point opposite ways on the same afternoon\u00a0- and why you should never read one symbol\u2019s score to trade another.',
-  },
-  {
-    href: '/education/zero-gamma-level-explained',
-    kind: 'Published • September 4, 2026 • 16:00 UTC',
-    title: 'What Is Zero Gamma? The Zero Gamma Level Explained for Traders',
-    blurb:
-      'The zero gamma level is the price where modeled net dealer gamma crosses zero\u00a0- the same level as the gamma flip. What it is, how it is found, what tends to change above and below it, why it can be blank, and where to see today’s SPX, SPY, QQQ and NDX level.',
-  },
-  {
-    href: '/education/how-often-do-gamma-walls-break',
-    kind: 'Published • September 4, 2026 • 16:00 UTC',
-    title: 'How Often Do Gamma Walls Actually Break? We Measured It',
-    blurb:
-      '737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two times in three within the hour; Nasdaq walls were closer to a coin flip\u00a0- and the difference tracks the index, not the strike ladder. Nineteen candidate predictors were tested against the individual wall in front of you, and none of them worked.',
-  },
-  {
-    href: '/education/what-is-a-gamma-wall',
-    kind: 'Published • August 27, 2026 • 16:00 UTC',
-    title: 'What Is a Gamma Wall? Gamma Walls in Trading Explained',
-    blurb:
-      'The plain-English definition\u00a0- a strike where modeled dealer gamma concentrates. The two walls, why price can react at them, why a wall is a positioning reference rather than support or resistance, and why the level migrates through the session.',
-  },
-  {
-    href: '/education/pin-strike-explained',
-    kind: 'Published • August 9, 2026 • 16:00 UTC',
-    title: 'Pin Strike Explained: The Reachable 0DTE Gamma Pin',
-    blurb:
-      'The reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- built by re-pricing the book as if spot were at each strike, then weighting by whether price can actually get there. Why it is deliberately not the biggest-gamma strike, how it differs from the walls, the gamma flip, max pain and the King Node, and why it is allowed to return no active pin.',
-  },
-  {
-    href: '/education/why-market-makers-trade-stock',
-    kind: 'Published • July 12, 2026 • 16:00 UTC',
-    title: 'Why Market Makers Are Forced to Trade Stock',
-    blurb:
-      'Dealers don’t trade stock because they have a view\u00a0- they trade it because the delta of the options they hold keeps moving on its own, and every move mechanically forces a hedge. The foundation of forced dealer flow, and why it’s the most predictable order flow in the market.',
-  },
-  {
-    href: '/education/delta-and-its-three-children',
-    kind: 'Published • July 12, 2026 • 16:00 UTC',
-    title: 'Delta and Its Three Children: Gamma, Charm, and Vanna',
-    blurb:
-      'Delta tells a dealer how much stock to hold, but it never sits still\u00a0- and it can only move three ways: with price (gamma), with time (charm), and with volatility (vanna). Why a dealer hedges the change in delta, and why you reprice the book instead of summing the greeks.',
-  },
-  {
-    href: '/education/charm-the-clock-is-a-trader',
-    kind: 'Published • July 12, 2026 • 16:00 UTC',
-    title: 'Charm: The Clock Is a Trader',
-    blurb:
-      'Charm measures delta’s sensitivity to time. It supports a conditional estimate of potential hedge pressure, not a scheduled order.',
-  },
-  {
-    href: '/education/vanna-when-fear-fades',
-    kind: 'Published • July 12, 2026 • 16:00 UTC',
-    title: 'Vanna: How Falling IV Can Change Dealer Hedging',
-    blurb:
-      'Vanna is the rate an option’s delta changes when implied vol changes. When priced fear drains out after an event that never delivered, vanna forces dealers into a steady bid\u00a0- the “up on no news” grind that hides in the slope, not the volume.',
-  },
-  {
-    href: '/education/why-we-dont-publish-dex',
-    kind: 'Published • July 12, 2026 • 16:00 UTC',
-    title: 'Why We Don’t Publish DEX',
-    blurb:
-      'Delta Exposure looks like the natural sibling of gamma exposure. We refuse to publish it\u00a0- it measures the one greek dealers have already hedged to zero, weights the dirtiest strikes in the chain, and is loudest exactly where forced flow is weakest. What we publish instead.',
-  },
-  {
-    href: '/education/what-is-a-put-wall',
-    kind: 'Updated • September 4, 2026 • 16:00 UTC',
-    title: 'What Is a Put Wall? Put Gamma Concentration Explained',
-    blurb:
-      'The put wall is the strike where put-side dealer gamma piles up. What it is, why price often reacts near it, why the modeled hedge does not make it a floor, how it migrates intraday, what a break means, and how to find today’s SPX, SPY, QQQ, and NDX put walls.',
-  },
-  {
-    href: '/education/what-is-a-call-wall',
-    kind: 'Published • July 7, 2026 • 16:00 UTC',
-    title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
-    blurb:
-      'The call wall is the strike where call-side dealer gamma concentrates\u00a0- the level dealer hedging tends to defend on the way up. What it is, why hedging there leans against rallies in long gamma, how it migrates, what a break may signal, and where to see today’s live SPX, SPY, QQQ, and NDX call walls.',
-  },
-  {
-    href: '/education/what-is-gex-in-trading',
-    kind: 'Published • July 7, 2026 • 16:00 UTC',
-    title: 'What Is GEX in Trading? Gamma Exposure Explained Simply',
-    blurb:
-      'GEX\u00a0- gamma exposure\u00a0- is the one number that explains why some days pin and others trend. A plain-English, beginner-first explainer: what GEX measures, how dealer gamma moves the tape, and what positive versus negative regimes mean for your trading.',
-  },
-  {
-    href: '/education/spx-net-gamma-exposure-today',
-    kind: 'Updated • September 4, 2026 • 16:00 UTC',
-    title: 'SPX Net GEX Today: Current SPX Net Gamma Exposure Value',
-    blurb:
-      '“What’s the current SPX net gamma exposure?” Today’s delayed SPX net GEX, gamma flip, call wall and put wall at the top of the page\u00a0- then what net GEX is, how to read a positive versus negative print, what dollar gamma means, and where the zero-cross sits.',
-  },
-  {
-    href: '/education/spy-vs-spx-gamma-levels',
-    kind: 'Published • July 6, 2026 • 16:00 UTC',
-    title: 'SPY vs SPX Options: Which Gamma Levels Matter?',
-    blurb:
-      'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and why the level that matters most is the one where the two agree.',
-  },
-  {
-    href: '/education/announcing-folds-of-honor-pledge',
-    kind: 'Published • June 24, 2026 • Announcement',
-    title: 'Announcing Our 3% Pledge to Folds of Honor',
-    blurb:
-      'Starting today, ZeroGEX donates 3% of every subscription to Folds of Honor\u00a0- funding educational scholarships for the spouses and children of fallen and disabled U.S. service members. The mechanics, the math, and the partner choice.',
-    cta: 'Read announcement',
-  },
-  {
-    href: '/education/why-do-breakouts-fail',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts',
-    blurb:
-      "Failed breakouts have a structural cause: dealer hedging at concentrated strikes. The three conditions traders check (long-gamma regime, strengthening Net GEX, static wall), what 737 measured wall tests say about them, and how to read them on the live tape.",
-  },
-  {
-    href: '/education/options-support-and-resistance',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'How to Identify Support and Resistance from Options Positioning',
-    blurb:
-      "Standard S/R is psychology; options-based S/R is mechanics. The four kinds of options-based levels, why they're sturdier than chart-based S/R, the workflow for identifying them in real time, and what to expect when price tests them.",
-  },
-  {
-    href: '/education/how-to-avoid-chasing-0dte',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'How to Avoid Chasing 0DTE Moves',
-    blurb:
-      "The 0DTE chase is the most expensive bad habit in retail trading. Three signs you're about to chase, the five-point structural read that overrides the instinct, and the conditions when 0DTE momentum is actually real and the chase isn't the trap.",
-  },
-  {
-    href: '/education/what-is-negative-gamma',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'What Does Negative Gamma Mean? A Plain-English Explainer',
-    blurb:
-      'Negative gamma means dealer hedging amplifies moves instead of dampening them\u00a0- wider ranges, broken pins, and hedging that adds to a break. What the term refers to, how to spot a negative-gamma regime in real time, and what changes in your trading when you’re in one.',
-  },
-  {
-    href: '/education/why-spy-pins-near-strikes',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'Why Does SPY Pin Near a Strike? Options Pinning Explained',
-    blurb:
-      "Pinning isn't superstition\u00a0- it's dealer hedging at heavy gamma strikes mechanically pulling price toward the strike. The mechanism, why it intensifies near expiry, the two pin types most traders confuse, and the conditions that make today a pin day.",
-  },
-  {
-    href: '/education/how-to-trade-around-gamma-flip',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'How to Trade Around Gamma Flip Levels',
-    blurb:
-      "The flip isn't a price level\u00a0- it's a playbook switch. The three setup types each regime supports, the workflow for changing playbooks when spot crosses the flip, and what to do in the contested zone where neither playbook works cleanly.",
-  },
-  {
-    href: '/education/eod-pressure-explained',
-    kind: 'Published • June 12, 2026 • 18:00 UTC',
-    title: 'EOD Pressure Signal Explained: Reading the Close',
-    blurb:
-      'The trader-facing read on the EOD Pressure signal\u00a0- how charm decay and pin gravity combine into a directional drift estimator for the final 90 minutes, how the four core components are weighted, and how to use the score inside the active window.',
-  },
-  {
-    href: '/education/positioning-trap-explained',
-    kind: 'Published • June 12, 2026 • 18:00 UTC',
-    title: 'Positioning Trap Signal Explained: Fading the Crowd',
-    blurb:
-      'What the Positioning Trap signal measures, why crowded options trades break, how the score combines PCR + smart-money imbalance + regime context, and how to fade the crowd at the right moment instead of being trapped with them.',
-  },
-  {
-    href: '/education/squeeze-setup-explained',
-    kind: 'Published • June 12, 2026 • 18:00 UTC',
-    title: 'Squeeze Setup Signal Explained: Reading Coiled Markets',
-    blurb:
-      'The practical deep-dive on the Squeeze Setup signal\u00a0- what it asks, the five inputs that drive the score, when it triggers versus stays silent, and how to use it as a precondition filter for directional breakouts.',
-  },
-  {
-    href: '/education/best-gex-tools',
-    kind: 'Updated • September 4, 2026 • 16:00 UTC',
-    title: 'Best GEX Tools in 2026: Gamma Exposure Platforms Compared',
-    blurb:
-      'A balanced comparison of the real category of GEX/options-flow tools\u00a0- real-time vs delayed, 0DTE coverage, methodology, signal quality, and price\u00a0- including ZeroGEX on equal footing with the rest of the category.',
-  },
-  {
-    href: '/education/vanna-and-charm-explained',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
-    title: 'Vanna and Charm Explained for Options Traders',
-    blurb:
-      'What vanna and charm are, why they drive a meaningful share of dealer hedging flows, how vanna produces the persistent vol-compression grind, how charm shapes the predictable into-close flow, and how both interact with the gamma regime to either reinforce or invert the structural drift.',
-  },
-  {
-    href: '/education/max-pain-explained',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
-    title: 'Max Pain Explained\u00a0- and Does It Actually Work?',
-    blurb:
-      'The honest version of the max pain question\u00a0- what max pain is, the theory people cite for it, what the evidence actually suggests about whether it moves price, and how to use it as cross-check rather than forecast. Why the gamma magnet, not the writer-payout argument, is usually the real mechanism.',
-  },
-  {
-    href: '/education/gamma-exposure-explained',
-    kind: 'Pillar • June 11, 2026 • 16:00 UTC',
-    title: 'Gamma Exposure (GEX) Explained: The Complete Guide',
-    blurb:
-      'The comprehensive read on gamma exposure\u00a0- what GEX is, how dealer gamma is calculated and signed, why positive and negative regimes behave so differently, and how the gamma flip and the walls structure the intraday tape. The central pillar for everything else in the Education section.',
-  },
-  {
-    href: '/education/0dte-dealer-positioning-explained',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
-    title: '0DTE Dealer Positioning Explained',
-    blurb:
-      'Why same-day expiries now dominate the intraday dealer book, how negative- and positive-gamma regimes change the tape specifically for 0DTE, and how to read SPX 0DTE flow through the dealer-hedging lens.',
-  },
-  {
-    href: '/education/gamma-walls-explained',
-    kind: 'Updated • August 29, 2026 • 16:00 UTC',
-    title: 'Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts',
-    blurb:
-      'What the call wall and put wall do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and how often walls actually hold or break.',
-  },
-  {
-    href: '/education/how-to-read-a-gamma-flip',
-    kind: 'Updated • September 4, 2026 • 16:00 UTC',
-    title: 'What Is a Gamma Flip? The Gamma Flip Level Explained',
-    blurb:
-      'The practical intraday read on the gamma flip\u00a0- what the level actually is, what changes above versus below it, how dealer hedging behavior shifts across the regime line, and how to use it as a filter rather than a signal.',
-  },
-  {
-    href: '/education/squeeze-setup-positioning-trap-and-trap-detection',
-    kind: 'Published • May 13, 2026 • 16:00 UTC',
-    title: 'Squeeze Setup, Positioning Trap & Trap Detection: Three Signals, Three Stories',
-    blurb:
-      'Three ZeroGEX™ signals that look almost identical at a glance\u00a0- same -100 to +100 number line, same kinds of pivots\u00a0- but answer entirely different questions: when the market is coiled, when the crowd is offside, and when a breakout just failed. Learn which trade each signal is actually pointing at, and how to read them together.',
-  },
-  {
-    href: '/education/eod-pressure-and-trap-detection',
-    kind: 'Published • May 12, 2026 • 16:00 UTC',
-    title: 'Trading the Close: How EOD Pressure and Trap Detection Read Dealer Hedging in Real Time',
-    blurb:
-      'A technical deep-dive on two ZeroGEX™ Advanced Signals\u00a0- charm-driven end-of-day drift and the failed-breakout mechanics that snap price back when dealers absorb moves. Learn how each signal is built, when it fires, and how to read them together at the inflection points that matter.',
-  },
-  {
-    href: '/education/net-volume-vs-directional-flow',
-    kind: 'Published • April 16, 2026 • 16:00 UTC',
-    title: 'Net Volume vs Directional Flow: What Actually Matters in Options Tape?',
-    blurb:
-      'Understand why raw contract counts can mislead, when directional volume adds signal, and why premium-weighted flow is often the strongest conviction metric on professional desks.',
-  },
-];
+// Per-article button text where "Read article" would be the wrong verb.
+const CTA_OVERRIDES: Record<string, string> = {
+  'announcing-folds-of-honor-pledge': 'Read announcement',
+};
+
+function fmtListingDate(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${iso}T12:00:00Z`));
+}
+
+function kindLine(a: ArticleMeta): string {
+  const modified = a.dateModified && a.dateModified !== a.datePublished ? a.dateModified : null;
+  const label = modified ? 'Updated' : a.kind === 'pillar' ? 'Pillar' : 'Published';
+  return `${label} \u2022 ${fmtListingDate(modified ?? a.datePublished)} \u2022 16:00 UTC`;
+}
+
+const ARTICLES: Article[] = Object.values(ARTICLE_REGISTRY)
+  .filter((a) => a.href.startsWith('/education/') && a.kind !== 'landing')
+  .sort((x, y) => y.datePublished.localeCompare(x.datePublished) || x.title.localeCompare(y.title))
+  .map((a) => ({
+    href: a.href,
+    kind: kindLine(a),
+    title: a.title,
+    blurb: a.blurb,
+    cta: CTA_OVERRIDES[a.slug],
+  }));
 
 export default function ArticlesPage() {
   return (

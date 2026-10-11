@@ -41,4 +41,4 @@ To see the flip, the walls, max pain, and VWAP drawn on the candles themselves, 
 - [Reading the Dashboard](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [How to Read ZeroGEX Charts](/help/platform/reading-charts)
-- [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip)
+- [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)

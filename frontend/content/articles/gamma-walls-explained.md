@@ -10,7 +10,7 @@ A gamma wall is a strike where modeled dealer gamma exposure is heavily concentr
 
 If that definition is what you came for, [What Is a Gamma Wall?](/education/what-is-a-gamma-wall) covers it on its own and is the shorter read.
 
-This page is the applied one. It assumes you know what a wall is and works through the parts that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and how often walls actually hold or break. For the regime context underneath all of it, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
+This page is the applied one. It assumes you know what a wall is and works through the parts that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and how often walls actually hold or break. For the regime context underneath all of it, pair this with [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -158,4 +158,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's call wall and put wall, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show both alongside the gamma flip and the dealer gamma profile that produced them, delayed about 15 minutes; the paid plans show them [in real time](/real-time-gex-0dte). For the broader landscape of gamma-exposure tools, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's call wall and put wall, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show both alongside the gamma flip and the dealer gamma profile that produced them, delayed about 15 minutes; the paid plans show them [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte). For the broader landscape of gamma-exposure tools, see [the best GEX tools guide](/education/best-gex-tools).

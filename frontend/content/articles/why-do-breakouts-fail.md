@@ -56,7 +56,7 @@ The "dealers absorb breakouts" mechanism mainly applies in a **positive-gamma** 
 
 In a **negative-gamma** regime - spot below the flip - the reflex inverts. Dealers tend to buy into rallies and sell into selloffs, which amplifies moves. If a breakout comes in a negative-gamma regime, hedging adds to it instead of leaning against it.
 
-Reading the gamma flip in real time is most of this filter. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the workflow.
+Reading the gamma flip in real time is most of this filter. See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) for the workflow.
 
 ### 2. Dealer positioning is strengthening, not unwinding
 

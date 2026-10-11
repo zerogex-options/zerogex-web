@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
+import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import {
   parseReplayMinute,
@@ -101,6 +103,23 @@ function formatHumanDate(raw: string): string {
   }
 }
 
+// "Oct 9, 2026": the <title> form. The long date above spent most of a
+// title's width on a weekday and a spelled-out month, leaving no room for the
+// level names these pages rank for.
+function formatShortDate(raw: string): string {
+  try {
+    const dt = new Date(`${raw}T12:00:00Z`);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(dt);
+  } catch {
+    return raw;
+  }
+}
+
 async function loadRange(
   date: string,
   symbol: string,
@@ -132,26 +151,42 @@ export async function generateMetadata({
   const sym = resolveSymbol(symbol);
   const scope = parseReplayScope((await searchParams)?.[REPLAY_SCOPE_PARAM]);
   const human = formatHumanDate(date);
+  const short = formatShortDate(date);
   // Canonical is the BARE dated URL in both scopes. `?exp=0dte` is a view of
   // the same session, not a second page — pointing it at itself would enter
   // two URLs per session into the index competing for the same query.
   const url = `${SITE_URL}/replay/${sym}/${date}`;
   const scoped = scope === '0dte';
+  // The level names are in the title because that is what the searches these
+  // pages rank for say ("spx gamma flip call wall put wall <date>"). No brand
+  // suffix: the og:title is this same string and the width is better spent.
   const title = scoped
-    ? `${sym} 0DTE GEX Replay · ${human}\u00a0- ZeroGEX`
-    : `${sym} GEX Replay · ${human}\u00a0- ZeroGEX`;
+    ? `${sym} 0DTE GEX Replay, ${short}: Flip, Call & Put Walls`
+    : `${sym} GEX Replay, ${short}: Gamma Flip, Call & Put Walls`;
+  const description = scoped
+    ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human}\u00a0- walls, flip and max pain from the contracts that settled that afternoon.`
+    : `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`;
   return {
     title,
-    description: scoped
-      ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human}\u00a0- walls, flip and max pain from the contracts that settled that afternoon.`
-      : `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`,
+    description,
     alternates: { canonical: url },
+    // No colocated opengraph-image here (the per-minute snapshot has one, the
+    // date page does not), and a page-level openGraph replaces the root's
+    // wholesale, so the site default is named explicitly or the card is blank.
     openGraph: {
       type: 'article',
       url,
-      title: scoped ? `${sym} 0DTE GEX Replay · ${human}` : `${sym} GEX Replay · ${human}`,
+      title,
       description: 'Per-minute scrubber over the day’s dealer gamma surface.',
       siteName: 'ZeroGEX',
+      images: [{ url: SITE_DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
+      title,
+      description,
+      images: [SITE_DEFAULT_OG_IMAGE],
     },
   };
 }
@@ -305,6 +340,8 @@ export default async function ReplayDatePage({
         can share. MP4 export of arbitrary windows is on the roadmap; today you share branded
         stills of the moments that mattered.
       </section>
+
+      <ReceiptFooterLinks symbol={sym} extra={[{ href: '/chart', label: 'Free Gamma Terminal' }]} />
     </main>
   );
 }

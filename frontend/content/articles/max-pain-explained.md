@@ -10,7 +10,7 @@ Max pain is one of those concepts that lives in two very different worlds. In th
 
 This piece is the honest read. We will define max pain, walk through how it is calculated, lay out the theory people cite for it, and then look at what the available evidence actually suggests about whether max pain *moves* price or just *describes* where price ends up. Throughout, the goal is to give you a usable mental model - not a prediction tool, and not a debunking either.
 
-For context, max pain interacts directly with the broader dealer-positioning framework. If you haven't already, the [Gamma Exposure pillar](/education/gamma-exposure-explained) covers the structural mechanics, and the [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and [Gamma Walls Explained](/education/gamma-walls-explained) pieces cover the levels max pain often gets confused with.
+For context, max pain interacts directly with the broader dealer-positioning framework. If you haven't already, the [Gamma Exposure pillar](/education/gamma-exposure-explained) covers the structural mechanics, and the [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) and [Gamma Walls Explained](/education/gamma-walls-explained) pieces cover the levels max pain often gets confused with.
 
 ---
 
@@ -183,4 +183,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's max pain alongside the gamma flip, the call and put walls, and the dealer gamma profile that decides whether any pin thesis has a mechanism behind it, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show all of it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The paid plans show the same read [in real time](/real-time-gex-0dte).
+If you want to see today's max pain alongside the gamma flip, the call and put walls, and the dealer gamma profile that decides whether any pin thesis has a mechanism behind it, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show all of it for SPX, SPY, QQQ, and NDX, delayed about 15 minutes. The paid plans show the same read [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte).
