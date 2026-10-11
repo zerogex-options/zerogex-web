@@ -134,11 +134,7 @@ export default async function ActionCardPage({
   // backend restart would break every share link to this card.
   if (!result.ok && result.reason === 'missing') notFound();
   if (!result.ok) {
-    return (
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-        <DataUnavailable what={`Action Card #${cardId}`} backHref="/scorecard" backLabel="Daily Scorecard" />
-      </main>
-    );
+    return <DataUnavailable what={`Action Card #${cardId}`} backHref="/scorecard" backLabel="Daily Scorecard" />;
   }
   const card = result.data;
 

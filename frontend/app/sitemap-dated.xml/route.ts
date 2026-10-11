@@ -25,6 +25,26 @@ export const dynamic = 'force-dynamic';
 const SITE_URL = 'https://zerogex.io';
 const LIST_REVALIDATE_SECONDS = 3600;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// A list that has not answered in this long is treated as failed for this
+// response. Failed reads are not cached, so without a cap a hung backend would
+// hold every sitemap request open for as long as the socket allows.
+const LIST_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
 
 type DatedList<K extends string> = { [key in K]?: { date: string }[] };
 
@@ -72,7 +92,10 @@ async function sectionEntries(section: (typeof SECTIONS)[number]): Promise<Entry
   const lists = await Promise.all(
     section.symbols.map(async (symbol) => {
       try {
-        const data = await serverApiGet<DatedList<typeof section.key>>(section.path(symbol), LIST_REVALIDATE_SECONDS);
+        const data = await withTimeout(
+          serverApiGet<DatedList<typeof section.key>>(section.path(symbol), LIST_REVALIDATE_SECONDS),
+          LIST_TIMEOUT_MS,
+        );
         const rows = data?.[section.key];
         if (!Array.isArray(rows)) return [];
         return rows
@@ -94,9 +117,19 @@ function xmlEscape(value: string): string {
 export async function GET(): Promise<Response> {
   const sections = await Promise.all(SECTIONS.map((section) => sectionEntries(section)));
   const seen = new Set<string>();
-  const urls = sections
+  const entries = sections
     .flat()
-    .filter((entry) => (seen.has(entry.loc) ? false : (seen.add(entry.loc), true)))
+    .filter((entry) => (seen.has(entry.loc) ? false : (seen.add(entry.loc), true)));
+  // Nothing answered: a sitemap must hold at least one <url>, and an empty one
+  // cached for an hour tells a crawler there is nothing here. A 503 with a
+  // retry hint tells it to come back instead, and is never cached.
+  if (entries.length === 0) {
+    return new Response('Dated sitemap temporarily unavailable.\n', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '3600', 'Cache-Control': 'no-store' },
+    });
+  }
+  const urls = entries
     .map((entry) => `  <url><loc>${xmlEscape(entry.loc)}</loc><lastmod>${entry.lastmod}</lastmod></url>`)
     .join('\n');
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;

@@ -970,6 +970,7 @@ export function articleMetadata(slug: string) {
     },
     twitter: {
       card: 'summary_large_image' as const,
+      site: SITE_TWITTER_HANDLE,
       title: article.title,
       description: article.description,
       images: [image],

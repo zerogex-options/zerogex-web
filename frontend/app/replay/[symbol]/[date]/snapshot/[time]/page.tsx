@@ -180,13 +180,11 @@ export default async function ReplaySnapshotPage({
   if (!result.ok && result.reason === 'missing') notFound();
   if (!result.ok) {
     return (
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-        <DataUnavailable
-          what={`${sym} replay snapshot for ${formatHumanDate(date)}`}
-          backHref={`/replay/${sym}/${date}`}
-          backLabel="Back to player"
-        />
-      </main>
+      <DataUnavailable
+        what={`${sym} replay snapshot for ${formatHumanDate(date)}`}
+        backHref={`/replay/${sym}/${date}`}
+        backLabel="Back to player"
+      />
     );
   }
   const frame = result.data;

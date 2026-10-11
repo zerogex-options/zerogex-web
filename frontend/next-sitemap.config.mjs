@@ -70,18 +70,20 @@ function registryDateModified(slug) {
   return m ? `${m[1]}T16:00:00.000Z` : null;
 }
 
-// The most recent U.S. trading day, at 20:30 UTC (after the 4 PM ET close in
-// either daylight or standard time). The daily pages' content changes every
-// session, so this is their honest lastmod; the git date of their 12-line
-// page.tsx wrapper was weeks old while the sitemap claimed "daily". Weekends
-// are stepped over; exchange holidays are not, which costs one day of
-// over-statement a handful of times a year.
+// The most recent completed U.S. trading session, stamped at 21:00 UTC, which
+// is at or after the 4 PM ET close in both daylight (20:00 UTC) and standard
+// (21:00 UTC) time. The daily pages' content changes every session, so this is
+// their honest lastmod; the git date of their 12-line page.tsx wrapper was
+// weeks old while the sitemap claimed "daily". A stamp later than the build
+// time steps back a day, so a lastmod is never in the future. Weekends are
+// stepped over; exchange holidays are not, which over-states by one day a
+// handful of times a year.
 function lastTradingDayIso(now = new Date()) {
   const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const d = new Date(Date.UTC(et.getFullYear(), et.getMonth(), et.getDate(), 20, 30, 0));
-  // Before the close on a weekday, the last completed session is the previous one.
-  if (et.getHours() < 16) d.setUTCDate(d.getUTCDate() - 1);
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+  const d = new Date(Date.UTC(et.getFullYear(), et.getMonth(), et.getDate(), 21, 0, 0));
+  while (d.getTime() > now.getTime() || d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
   return d.toISOString();
 }
 
