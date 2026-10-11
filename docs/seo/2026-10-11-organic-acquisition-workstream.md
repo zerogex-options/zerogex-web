@@ -55,10 +55,10 @@ Structured data on `/gex-levels`: WebPage (with `dateModified` from the freshest
 | # | Work | Target intent and keywords | URL | Why | Expected value | Effort |
 |---|---|---|---|---|---|---|
 | 1 | Watch `/gex-levels` index and rank for 4 weeks before building anything else for these queries | gex levels, gex data, gex charts | `/gex-levels` | Low-difficulty queries; the page is new and needs crawl time | High: five of the ten gap keywords | None |
-| 2 | Decide the SPX title test | spx net gex current value / current | `/spx-gamma-levels` | The title omits "net GEX"; the description and page now lead with it. Change the title only if Search Console still shows positions 11-17 after 4 weeks, then compare 28-day CTR before and after | Medium | Small |
+| 2 | Decide the SPX title test, on or after Nov 10 (see the rule below the table) | spx net gex current value / current | `/spx-gamma-levels` | The title omits "net GEX"; the description and page now lead with it. Change the title only if the net GEX queries are still off page one after 4 weeks | Medium | Small |
 | 3 | QQQ: a QQQ-specific FAQ answer and a QQQ note in the hero ("Nasdaq-100 ETF; levels from the QQQ chain") | qqq gex (pos. 27), qqq gamma levels, qqq call wall | `/qqq-gamma-levels` | Already ranks; the page is a ticker-swapped template with no QQQ-specific substance beyond the numbers | Medium | Small |
-| 4 | SpotGamma comparison page, in the house comparison format | spotgamma alternative, spotgamma free alternative | `/education/zerogex-vs-spotgamma` | Measured demand with purchase intent. Prices captured from spotgamma.com on Oct 11, but its pricing page contradicts itself in two places; confirm before publishing | Medium-high | Medium |
-| 5 | Merge the two gamma-wall pages | what is a gamma wall, gamma walls | `what-is-a-gamma-wall` into `gamma-walls-explained` (301) | Same definition, one ~300-impression query; pick the survivor from Search Console's clicks | Medium | Medium |
+| 4 | **Done Oct 11** (`claude/seo-followups`). SpotGamma comparison page, in the house comparison format | spotgamma alternative, spotgamma free alternative | `/education/zerogex-vs-spotgamma` | Prices are what SpotGamma's checkout forms charged on Oct 11; its pricing grid showed first-month offers the forms did not apply, so the page quotes the forms and tells readers to check the current offer | Medium-high | Medium |
+| 5 | **Done Oct 11** (`claude/seo-followups`). Merge the two gamma-wall pages | what is a gamma wall, gamma walls | `what-is-a-gamma-wall` 301 to `gamma-walls-explained` | The survivor was the one Search Console ranked for the cluster (~9.2 on Sept 4). It now opens with the definition, carries the flip and max-pain comparison and the definition FAQ, and its title names "what a gamma wall is". Check with `make search-console-report PAGE= BY=page QUERY="gamma wall"` after 4 weeks | Medium | Medium |
 | 6 | A futures hub section, not a new page: ES / NQ panels already sit on `/gex-levels`; add a "futures gamma levels" sentence and links there and on the ES and NQ pages | es gamma levels, nq gamma levels, futures gex | `/es-gamma-levels`, `/nq-gamma-levels` | Futures searchers compare against TradeGEX and MenthorQ; the comparison pages exist and should be linked from the futures pages | Low-medium | Small |
 | 7 | Dealer gamma: retitle one pillar H2 to use the phrase and add a short "dealer gamma" FAQ item | dealer gamma (50 / 4) | pillar | Very low difficulty; a heading and an FAQ answer, not a new page | Low | Small |
 | 8 | A per-instrument social card for `/gex-levels` | (social and AI citation, not a query) | `/gex-levels/opengraph-image` | Uses the default card today; the ticker pages each have a live card | Low | Small |
@@ -66,13 +66,23 @@ Structured data on `/gex-levels`: WebPage (with `dateModified` from the freshest
 | 10 | HTML micro-cache for anonymous visitors (nginx, 60 s) | all | all non-static pages | Every article and help page renders per request; this is the remaining server-response win | Medium (Core Web Vitals) | Small change, needs testing on the box |
 | 11 | Organic attribution in first-party analytics: record the referrer's search engine as the first-touch source when there is no UTM | measurement | `components/PageAnalytics.tsx`, register route | Today organic and direct are one bucket | Enables everything in section 4 without PostHog | Small, but changes attribution semantics: Michael's call |
 
+**The SPX title rule (item 2).** On or after November 10, when Search Console has 28 days after the October 11 change, run on the box:
+
+```
+make search-console-report PAGE=/spx-gamma-levels QUERY="net gex" SPLIT=2026-10-11
+```
+
+- If the "after" average position for those queries is better than 11 (page one), leave the title alone: the page change did the work.
+- If it is still 11 or worse, change the template title in `frontend/app/spx-gamma-levels/gammaLevels.tsx` to `${primary} Gamma Levels Today (Free): Net GEX, Gamma Flip & Walls` (58 characters for SPX). It applies to all six ticker pages. Then run the same command 28 days later with `SPLIT=<the day it shipped>`, and put the old title back if CTR for those queries fell.
+
 Skipped on purpose: a separate `/spx-net-gex` page (same intent as `/spx-gamma-levels`), a "gamma calculator" page (the calculator is a paid tool), a VIX gamma page (no VIX options coverage), and any page per keyword variant.
 
 ## 4. Measurement
 
 ### What exists today
 
-- **Search Console sync**: `make sync-search-console` writes daily site-wide clicks and impressions into the daily metrics table. It does not store per-page or per-query rows, so rankings and page-level clicks are read in Search Console itself.
+- **Search Console sync**: `make sync-search-console` writes daily site-wide clicks and impressions into the daily metrics table. It does not store per-page or per-query rows.
+- **Search Console report** (added Oct 11): `make search-console-report` prints one page's queries before and after a date, with clicks, impressions, CTR and average position, straight from Search Console. Read-only; same credentials as the sync. Options are in the Makefile comment.
 - **PostHog** (only if `NEXT_PUBLIC_POSTHOG_KEY` is set in production): `$pageview` on every route change, `signup` (register page), `checkout_started` (pricing), `trial_started` and `subscription_paid` (Stripe webhook, server-side, stitched to the same person), plus `trial_cta_click` and `compare_plans_click` with a `location` property. PostHog's own person properties `$initial_referring_domain` and `$initial_pathname` give organic first touch and landing page. The new page's buttons report `location` values `gex_levels_hero` and `gex_levels_plans`. No new events were added.
 - **First-party page analytics** (`/admin/analytics`): visits and active time per path, and registrations by first-touch `utm_source`. Organic search has no UTM, so it is counted with direct traffic.
 
@@ -86,10 +96,10 @@ Skipped on purpose: a separate `/spx-net-gex` page (same intent as `/spx-gamma-l
 |---|---|---|
 | Week 1 | URL Inspection on `/gex-levels`; sitemap report shows both sitemaps read | Indexed; `sitemap-dated.xml` shows URLs discovered |
 | Day 30 | Search Console, Performance, page = `/gex-levels`: impressions, queries | Impressions for "gex levels", "gex data", "gex charts"; positions under 30 |
-| Day 30 | Page = `/spx-gamma-levels`, query contains "net gex": position and CTR vs. the 28 days before Oct 11 | Positions improving from 11-17; CTR not lower |
+| Day 30 | `make search-console-report PAGE=/spx-gamma-levels QUERY="net gex" SPLIT=2026-10-11` | Positions improving from 11-17; CTR not lower. Then apply the SPX title rule in section 3 |
 | Day 30 | Indexing report: "Crawled, currently not indexed" and "Page with redirect" | Not growing (cards and snapshots are now noindex) |
 | Day 60 | `/gex-levels` positions for the five gap keywords; organic funnel in PostHog by landing page | Top 20 for the low-difficulty terms; first organic signups attributed to `/gex-levels` |
-| Day 60 | Decide backlog item 2 (SPX title) from the day-30 and day-60 data | |
+| Day 60 | If the SPX title changed at day 30, the same report with `SPLIT=<that day>` | CTR for the net GEX queries not lower than before the change |
 | Day 90 | Organic registrations, trials and paid conversions per landing page; Semrush keyword count vs. the ~52 baseline | Keyword count rising; at least one paid subscriber with an organic first touch per month |
 
 ## 5. Manual steps outside the repo

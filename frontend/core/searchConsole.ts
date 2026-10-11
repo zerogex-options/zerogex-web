@@ -356,6 +356,58 @@ export async function querySearchAnalytics(
   }
 }
 
+/**
+ * One searchAnalytics.query broken down by `dimension` instead of by date,
+ * optionally narrowed to one page and to queries containing a phrase. Read-only;
+ * used by scripts/search-console-report.mts to answer "how is this page doing
+ * for these queries", which the daily rollup cannot (it stores site totals).
+ */
+export async function querySearchAnalyticsBy(
+  config: SearchConsoleConfig,
+  accessToken: string,
+  opts: {
+    startDate: string;
+    endDate: string;
+    dimension: 'query' | 'page';
+    pageUrl?: string;
+    queryContains?: string;
+    rowLimit?: number;
+  },
+  fetchImpl: FetchLike = fetch,
+): Promise<SearchAnalyticsRow[]> {
+  const filters: Array<{ dimension: string; operator: string; expression: string }> = [];
+  if (opts.pageUrl) filters.push({ dimension: 'page', operator: 'equals', expression: opts.pageUrl });
+  if (opts.queryContains) filters.push({ dimension: 'query', operator: 'contains', expression: opts.queryContains });
+  const url = `${SEARCH_CONSOLE_BASE}/sites/${encodeURIComponent(config.siteUrl)}/searchAnalytics/query`;
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      startDate: opts.startDate,
+      endDate: opts.endDate,
+      dimensions: [opts.dimension],
+      ...(filters.length ? { dimensionFilterGroups: [{ groupType: 'and', filters }] } : {}),
+      rowLimit: opts.rowLimit ?? 1000,
+      dataState: config.dataState,
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new SearchConsoleError(describeApiError(response.status, text, config.siteUrl), {
+      status: response.status,
+    });
+  }
+  try {
+    const parsed = JSON.parse(text) as { rows?: SearchAnalyticsRow[] };
+    return Array.isArray(parsed.rows) ? parsed.rows : [];
+  } catch {
+    throw new SearchConsoleError('Search Console returned a non-JSON body.');
+  }
+}
+
 export type SyncResult = {
   siteUrl: string;
   dataState: 'all' | 'final';
