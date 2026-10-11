@@ -168,14 +168,14 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'gamma-walls-explained': {
     slug: 'gamma-walls-explained',
     href: '/education/gamma-walls-explained',
-    title: 'Gamma Walls Explained: Call Wall and Put Wall',
+    title: 'Gamma Walls Explained: What a Gamma Wall Is and How Price Reacts',
     blurb:
-      'What the call wall and put wall actually do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and how often walls actually hold or break.',
+      'What a gamma wall is, then what the call wall and put wall actually do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and how often walls actually hold or break.',
     description:
-      'Gamma walls explained\u00a0- what each wall does in each regime, what the gap between them tells you, how they behave on 0DTE, and how often they actually break.',
+      'What is a gamma wall? The strike where modeled dealer gamma concentrates. The call and put walls in each regime, on 0DTE, and how often walls actually break.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-30',
-    readMinutes: 11,
+    dateModified: '2026-10-11',
+    readMinutes: 12,
     kind: 'tier1',
   },
   '0dte-dealer-positioning-explained': {
@@ -268,7 +268,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly\u00a0- real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-10-09',
+    dateModified: '2026-10-11',
     readMinutes: 14,
     kind: 'article',
   },
@@ -452,19 +452,6 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     datePublished: '2026-07-07',
     dateModified: '2026-09-30',
     readMinutes: 8,
-    kind: 'tier1',
-  },
-  'what-is-a-gamma-wall': {
-    slug: 'what-is-a-gamma-wall',
-    href: '/education/what-is-a-gamma-wall',
-    title: 'What Is a Gamma Wall? Gamma Walls in Trading Explained',
-    blurb:
-      'The plain-English definition of a gamma wall\u00a0- a strike where modeled dealer gamma concentrates. The two walls, why price can react at them, why a wall is not support or resistance, and why the level migrates through the session.',
-    description:
-      'What is a gamma wall? The strike where modeled dealer gamma concentrates\u00a0- the call wall and put wall, why price reacts there, and why it is not support.',
-    datePublished: '2026-08-27',
-    dateModified: '2026-09-30',
-    readMinutes: 6,
     kind: 'tier1',
   },
   'gamma-levels-in-claude': {
@@ -680,6 +667,21 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 7,
     kind: 'article',
   },
+  'zerogex-vs-spotgamma': {
+    slug: 'zerogex-vs-spotgamma',
+    href: '/education/zerogex-vs-spotgamma',
+    // For readers searching the competitor ("spotgamma alternative",
+    // "spotgamma free alternative", "spotgamma vs"). Same rule as the other
+    // comparisons: no prices in the title or description.
+    title: 'ZeroGEX vs SpotGamma (2026): Levels, Pricing & Free Tools',
+    blurb:
+      'A fair side-by-side of ZeroGEX and SpotGamma: how their call walls, put walls and zero gamma line up, how often each updates, what each plan costs, what you can see for free, and where each one is the stronger choice.',
+    description:
+      'Looking for a SpotGamma alternative? ZeroGEX vs SpotGamma, compared fairly: call walls and zero gamma, update speed, pricing, free levels, and which fits.',
+    datePublished: '2026-10-11',
+    readMinutes: 8,
+    kind: 'article',
+  },
 };
 
 /**
@@ -702,9 +704,9 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-trade-around-gamma-flip',
   ],
   'gamma-walls-explained': [
-    'what-is-a-gamma-wall',
     'what-is-a-put-wall',
     'what-is-a-call-wall',
+    'how-often-do-gamma-walls-break',
   ],
   '0dte-dealer-positioning-explained': [
     'gamma-exposure-explained',
@@ -741,6 +743,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zerogex-vs-quant-data',
     'zerogex-vs-menthorq',
     'zerogex-vs-tradegex',
+    'zerogex-vs-spotgamma',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
@@ -828,18 +831,12 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'what-is-a-put-wall': [
     'gamma-walls-explained',
     'what-is-a-call-wall',
-    'what-is-a-gamma-wall',
+    'how-often-do-gamma-walls-break',
   ],
   'what-is-a-call-wall': [
     'gamma-walls-explained',
     'what-is-a-put-wall',
-    'what-is-a-gamma-wall',
     'how-often-do-gamma-walls-break',
-  ],
-  'what-is-a-gamma-wall': [
-    'gamma-walls-explained',
-    'what-is-a-call-wall',
-    'what-is-a-put-wall',
   ],
   'what-is-gex-in-trading': [
     'gamma-exposure-explained',
@@ -918,11 +915,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'zerogex-vs-menthorq': [
     'best-gex-tools',
+    'zerogex-vs-spotgamma',
     'zerogex-vs-quant-data',
     'zerogex-vs-bullflow',
     'zerogex-vs-tradegex',
     'zero-gamma-level-explained',
-    'gamma-walls-explained',
   ],
   'zerogex-vs-tradegex': [
     'best-gex-tools',
@@ -931,6 +928,14 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zerogex-vs-bullflow',
     'how-often-do-gamma-walls-break',
     'why-we-dont-publish-dex',
+  ],
+  'zerogex-vs-spotgamma': [
+    'best-gex-tools',
+    'zerogex-vs-menthorq',
+    'zerogex-vs-tradegex',
+    'gamma-walls-explained',
+    'zero-gamma-level-explained',
+    'how-often-do-gamma-walls-break',
   ],
 };
 

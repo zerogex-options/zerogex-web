@@ -23,6 +23,7 @@ const PAGES: Array<[CompetitorId, string]> = [
   ['quantdata', 'zerogex-vs-quant-data'],
   ['menthorq', 'zerogex-vs-menthorq'],
   ['tradegex', 'zerogex-vs-tradegex'],
+  ['spotgamma', 'zerogex-vs-spotgamma'],
 ];
 
 const readArticle = (slug: string) =>
@@ -85,6 +86,14 @@ test('competitor figures print the way their sources quote them', () => {
   // derives one and says "about".
   assert.equal(fillComparisonPrices('{{tradegex:platform:annual:mo}}'), '$49.92');
   assert.equal(fillComparisonPrices('{{tradegex:checked}}'), 'October 9, 2026');
+  assert.equal(fillComparisonPrices('{{spotgamma:essential:monthly}}'), '$99');
+  assert.equal(fillComparisonPrices('{{spotgamma:essential:annual}}'), '$891');
+  // SpotGamma's grid prints $891 a year as "$74/mo"; the page derives the
+  // per-month figure from the total and says "about".
+  assert.equal(fillComparisonPrices('{{spotgamma:essential:annual:mo}}'), '$74.25');
+  assert.equal(fillComparisonPrices('{{spotgamma:alpha:monthly}}'), '$299');
+  assert.equal(fillComparisonPrices('{{spotgamma:alpha:annual}}'), '$2,691');
+  assert.equal(fillComparisonPrices('{{spotgamma:checked}}'), 'October 11, 2026');
 });
 
 // A plan that records both a yearly total and a per-month figure has to agree
@@ -121,6 +130,10 @@ test('a malformed or unknown token throws instead of printing braces', () => {
     '{{bullflow:basic:sixMonths}}',
     '{{tradegex:platform:sixMonths:mo}}',
     '{{zgx:pro:sixMonths}}',
+    // SpotGamma's pricing grid showed first-month offers its checkout forms
+    // did not charge, so none is recorded.
+    '{{spotgamma:essential:firstMonth}}',
+    '{{spotgamma:institutional:monthly}}',
   ]) {
     assert.throws(() => fillComparisonPrices(bad), /unknown price token/, bad);
   }
@@ -173,4 +186,16 @@ test('the price comparisons the pages make in words still hold', () => {
   // same as TradeGEX's six-month plan"
   assert.ok(Math.abs(LIST_PRICE_USD.pro.annual - tradegex.annual / 2) < 1);
   assert.equal(LIST_PRICE_USD.pro.annual, tradegex.sixMonths);
+
+  // "Both ZeroGEX plans cost less than either SpotGamma plan, monthly or
+  // yearly, and a year of ZeroGEX Pro costs the same as one month of
+  // SpotGamma Alpha"
+  const spotgamma = COMPETITOR_PRICES.spotgamma.plans;
+  for (const tier of ['basic', 'pro'] as const) {
+    for (const plan of [spotgamma.essential, spotgamma.alpha]) {
+      assert.ok(LIST_PRICE_USD[tier].monthly < plan.monthly, `${tier} monthly`);
+      assert.ok(LIST_PRICE_USD[tier].annual < plan.annual, `${tier} yearly`);
+    }
+  }
+  assert.equal(LIST_PRICE_USD.pro.annual, spotgamma.alpha.monthly);
 });

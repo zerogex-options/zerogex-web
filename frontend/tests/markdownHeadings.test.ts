@@ -39,7 +39,7 @@ test('the pillar is long enough for a contents list and has its calculation anch
 });
 
 test('a short article gets no contents list', () => {
-  const md = readFileSync(path.join(ARTICLES, 'what-is-a-gamma-wall.md'), 'utf8');
+  const md = readFileSync(path.join(ARTICLES, 'what-is-a-call-wall.md'), 'utf8');
   assert.equal(wantsTableOfContents(md), false);
 });
 
