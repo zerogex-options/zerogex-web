@@ -205,6 +205,7 @@ export default function ChartClient({
           {delayed && (
             <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>
               A <Link href="/education/gamma-exposure-explained">gamma exposure</Link> chart shows where dealer hedging is concentrated by strike.
+              For the levels across SPX, SPY, QQQ, NDX, ES and NQ at once, see <Link href="/gex-levels">GEX levels today</Link>.
             </p>
           )}
           <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>

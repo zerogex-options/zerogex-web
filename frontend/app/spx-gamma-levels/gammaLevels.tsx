@@ -63,6 +63,11 @@ const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
+// Shared with /gex-levels, which shows the same six instruments from the same
+// snapshot read, so the two can never disagree on a level or its freshness.
+export const GAMMA_LEVEL_SYMBOLS = SYMBOLS;
+export type GammaLevelSymbol = Symbol;
+
 // Per-ticker copy. Each page leads with its own symbol so it reads as the best
 // possible answer for that symbol's query ("SPY gamma levels today", "QQQ call
 // wall", "SPX gamma exposure today", …) and self-canonicalizes to its own URL.
@@ -94,7 +99,7 @@ const SYMBOL_AUDIENCE: Record<Symbol, string> = {
 // option-derived levels carried onto the futures price axis. Saying "the ES
 // options chain" on a public page would be plainly false, so the copy names
 // the real source wherever the two differ.
-const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
+export const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
   SPX: 'SPX',
   SPY: 'SPY',
   QQQ: 'QQQ',
@@ -402,7 +407,7 @@ function buildShareSnippet(
 // flip" band — NOT by the sign of a net-GEX total. One shared methodology means
 // the card badge, the Today's Read badge, and the dashboard header can never
 // disagree for the same snapshot.
-const REGIME_DISPLAY: Record<
+export const REGIME_DISPLAY: Record<
   RegimeKey,
   { label: string; color: string; icon: 'up' | 'down' | 'flat' | 'none'; body: string }
 > = {
@@ -471,7 +476,7 @@ function flipHint(symbol: Symbol, flip: number | null | undefined): string {
 // so last-known-good is never presented as a live read.
 const lastGoodSnapshots = new Map<Symbol, GexSummary>();
 
-interface LoadedSnapshots {
+export interface LoadedSnapshots {
   snapshots: Record<Symbol, GexSummary | null>;
   /** Symbols rendered from `lastGoodSnapshots` because this cycle's fetch failed. */
   fromCache: Set<Symbol>;
@@ -482,7 +487,7 @@ interface LoadedSnapshots {
 // A successful fetch refreshes the last-good cache; a null (missing token,
 // unreachable backend, non-2xx — see serverApiGet) falls back to the last-good
 // snapshot so a transient blip degrades to "delayed" instead of "unavailable".
-async function loadSnapshots(): Promise<LoadedSnapshots> {
+export async function loadSnapshots(): Promise<LoadedSnapshots> {
   const fromCache = new Set<Symbol>();
   const entries = await Promise.all(
     SYMBOLS.map(async (symbol) => {
@@ -574,6 +579,48 @@ const CONTRACT_CHIP_STYLE = {
   position: 'relative',
   zIndex: 1,
 } as CSSProperties;
+
+// Per-ticker freshness, shared by every page that renders these snapshots.
+// `freshestMs` is the newest snapshot across the set; any ticker more than
+// STALE_THRESHOLD_MS behind it is flagged so its card and its share line read
+// "temporarily delayed" instead of being mixed in as though it were captured at
+// the same moment as the others. Relative to the freshest snapshot (not the
+// wall clock), so it is deterministic in ISR.
+//
+// `latestTimestamp` is the freshest snapshot's time, which a page surfaces as
+// its "as of" line. Every read is delayed at least 15 minutes and cached for a
+// minute, so it normally reads 15 to 17 minutes behind the clock.
+export function snapshotFreshness(
+  snapshots: Record<Symbol, GexSummary | null>,
+  fromCache: Set<Symbol>,
+): { cardStatus: (s: Symbol) => 'ok' | 'stale' | 'missing'; latestTimestamp: string | undefined } {
+  const snapshotMs = (s: Symbol): number | null => {
+    const t = snapshots[s]?.timestamp;
+    if (!t) return null;
+    const ms = Date.parse(t);
+    return Number.isFinite(ms) ? ms : null;
+  };
+  const freshestMs = SYMBOLS.map(snapshotMs).reduce<number | null>(
+    (max, ms) => (ms != null && (max == null || ms > max) ? ms : max),
+    null,
+  );
+  const cardStatus = (s: Symbol): 'ok' | 'stale' | 'missing' => {
+    if (snapshots[s] == null) return 'missing';
+    // Served from the last-good cache because this cycle's fetch failed: render
+    // the numbers but flag them "delayed" so a transient upstream blip never
+    // reads as a live snapshot.
+    if (fromCache.has(s)) return 'stale';
+    const ms = snapshotMs(s);
+    if (ms != null && freshestMs != null && freshestMs - ms > STALE_THRESHOLD_MS) return 'stale';
+    return 'ok';
+  };
+  const latestTimestamp = SYMBOLS.map((s) => snapshots[s]?.timestamp)
+    .filter((t): t is string => Boolean(t))
+    .sort()
+    .at(-1);
+  return { cardStatus, latestTimestamp };
+}
+
 
 // The primary ticker's card links deeper to its live dashboard (the conversion
 // path); the other three tickers link to their own dedicated gamma-levels pages
@@ -770,31 +817,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
 
-  // Per-ticker freshness. `freshestMs` is the newest snapshot across the three;
-  // any ticker more than STALE_THRESHOLD_MS behind it is flagged so its card and
-  // its share line read "temporarily delayed" instead of being mixed in as
-  // though it were captured at the same moment as the others. Relative to the
-  // freshest snapshot (not the wall clock), so it's deterministic in ISR.
-  const snapshotMs = (s: Symbol): number | null => {
-    const t = snapshots[s]?.timestamp;
-    if (!t) return null;
-    const ms = Date.parse(t);
-    return Number.isFinite(ms) ? ms : null;
-  };
-  const freshestMs = SYMBOLS.map(snapshotMs).reduce<number | null>(
-    (max, ms) => (ms != null && (max == null || ms > max) ? ms : max),
-    null,
-  );
-  const cardStatus = (s: Symbol): 'ok' | 'stale' | 'missing' => {
-    if (snapshots[s] == null) return 'missing';
-    // Served from the last-good cache because this cycle's fetch failed: render
-    // the numbers but flag them "delayed" so a transient upstream blip never
-    // reads as a live snapshot.
-    if (fromCache.has(s)) return 'stale';
-    const ms = snapshotMs(s);
-    if (ms != null && freshestMs != null && freshestMs - ms > STALE_THRESHOLD_MS) return 'stale';
-    return 'ok';
-  };
+  const { cardStatus, latestTimestamp } = snapshotFreshness(snapshots, fromCache);
   const staleSymbols = new Set<Symbol>(SYMBOLS.filter((s) => cardStatus(s) === 'stale'));
 
   // The ES and NQ pages name the CME contract behind each futures card's spot
@@ -812,13 +835,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     return typeof spot === 'number' && Number.isFinite(spot);
   });
 
-  // The freshest timestamp across the three symbols is what we surface as the
-  // page's "as of" line. Every read is delayed at least 15 minutes and cached
-  // for a minute, so it normally reads 15 to 17 minutes behind the clock.
-  const latestTimestamp = SYMBOLS.map((s) => snapshots[s]?.timestamp)
-    .filter((t): t is string => Boolean(t))
-    .sort()
-    .at(-1);
 
   // Primary-symbol current reading — surfaced as an evergreen "Today's <ticker>
   // net GEX" answer block in the content zone below. Targets the "<ticker> net
@@ -936,6 +952,22 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           >
             {content.intro}
           </p>
+          {/* The number the "<ticker> net gex current / current value" searches
+              are asking for, in the first screen rather than only inside the
+              cards and the answer section far below. The same delayed snapshot
+              and formatters as both, labeled delayed with its own time, and
+              omitted rather than half-filled when the snapshot has no net GEX. */}
+          {primaryData && primaryNetGex != null && (
+            <p style={{ margin: '14px auto 0', maxWidth: 720, fontSize: 15, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
+              <strong style={{ color: 'var(--color-text-primary)' }}>
+                {primary} net GEX {fmtNetGex(primaryNetGex)}
+              </strong>
+              {primaryFlip != null ? <> · gamma flip {fmtPrice(primaryFlip)}</> : null}
+              {' · '}
+              {cardStatus(primary) === 'stale' ? 'last available snapshot, ' : 'delayed, '}
+              as of {fmtTimestampET(primaryData.timestamp)}
+            </p>
+          )}
         </header>
 
         {!anyData && (
@@ -1062,6 +1094,15 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             />
           ))}
         </section>
+        {/* The hub above the six ticker pages: the same snapshot, compact and
+            side by side. One line, so this page stays about its own ticker. */}
+        <p style={{ margin: '-24px 0 40px 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+          Comparing instruments? See all six on one page:{' '}
+          <Link href="/gex-levels" style={{ color: 'var(--color-brand-primary)' }}>
+            GEX levels today
+          </Link>
+          .
+        </p>
 
         {/* The graded record. Deliberately the LAST thing before the first
             ask: everything above is free data, everything below is a request,
@@ -1175,7 +1216,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         {primaryData && primaryNetGex != null && (
           <section style={{ marginBottom: 40 }}>
             <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px 0', letterSpacing: '-0.3px' }}>
-              Today&apos;s {primary} net GEX and gamma levels
+              {primary} net GEX today: current value and levels
             </h2>
             <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: 'var(--color-text-secondary)' }}>
               As of {fmtTimestampET(primaryData.timestamp)}, {primary} net gamma exposure at spot is{' '}

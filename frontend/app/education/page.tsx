@@ -85,6 +85,13 @@ export default function EducationHubPage() {
           >
             today’s live SPX / SPY / QQQ / NDX gamma levels
           </Link>
+          , or all six instruments side by side on{' '}
+          <Link
+            href="/gex-levels"
+            className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
+          >
+            the GEX levels page
+          </Link>
           .
         </p>
       </div>

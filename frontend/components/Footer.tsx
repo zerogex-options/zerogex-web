@@ -37,6 +37,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     // ticker page gets one. Tickers read the same in every locale.
     headingKey: 'footer.freeGammaLevels',
     links: [
+      { href: '/gex-levels', label: 'All six: GEX levels today' },
       { href: '/spx-gamma-levels', label: 'SPX gamma levels' },
       { href: '/spy-gamma-levels', label: 'SPY gamma levels' },
       { href: '/qqq-gamma-levels', label: 'QQQ gamma levels' },

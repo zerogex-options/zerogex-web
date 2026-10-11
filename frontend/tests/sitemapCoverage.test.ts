@@ -35,6 +35,7 @@ function literalArray(source: string, marker: string): string[] {
 const LISTED = new Set([
   ...literalArray(config, 'const routes = ['),
   ...literalArray(config, 'const GAMMA_LEVEL_PATHS = ['),
+  ...literalArray(config, 'const LEVELS_HUB_PATHS = ['),
 ]);
 const EXCLUDED = literalArray(config, 'exclude: [');
 

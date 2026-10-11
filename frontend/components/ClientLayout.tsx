@@ -56,7 +56,7 @@ const getProWelcomeGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/embed', '/collective2-strategy-data', ...integrationRoutes()];
+const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/gex-levels', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/embed', '/collective2-strategy-data', ...integrationRoutes()];
 
 // Path prefixes that render bare too. The Live Bulletin snapshot is a
 // screenshot target for the X-post job, which captures only the card: the

@@ -89,6 +89,9 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/forgot-password',
   '/reset-password',
   '/unauthorized',
+  // /gex-levels: the six instruments' free delayed levels on one page, read
+  // from the same snapshot as the ticker pages below.
+  '/gex-levels',
   '/spx-gamma-levels',
   // /spy-gamma-levels, /qqq-gamma-levels, and /ndx-gamma-levels are content
   // clones of /spx-gamma-levels (same public, delayed view; each self-canonical).

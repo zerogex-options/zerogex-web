@@ -120,6 +120,12 @@ const GAMMA_LEVEL_PATHS = [
   '/nq-gamma-levels',
 ];
 
+// The force-static multi-instrument hub above the ticker pages (/gex-levels).
+// Auto-discovered like them, so it is skipped in additionalPaths for the same
+// duplicate-<url> reason, and it shares their daily lastmod and top priority:
+// it is the broad "gex levels" landing and changes with every snapshot.
+const LEVELS_HUB_PATHS = ['/gex-levels'];
+
 // Public tools whose content changes every trading day: the free delayed
 // chart and the replay / forecast / scorecard indexes.
 const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/forecast/cone', '/scorecard', '/hedging-flow/sessions'];
@@ -324,6 +330,7 @@ const config = {
     const skip = new Set([
       '/education/decoding-gamma-exposure',
       ...GAMMA_LEVEL_PATHS,
+      ...LEVELS_HUB_PATHS,
     ]);
 
     const seen = new Set();
@@ -349,7 +356,7 @@ const config = {
       // Refreshed every market day like the gamma pages, one notch below them.
       return { loc: urlPath, changefreq: 'daily', priority: 0.8, lastmod: lastTradingDayIso() };
     }
-    if (GAMMA_LEVEL_PATHS.includes(urlPath)) {
+    if (GAMMA_LEVEL_PATHS.includes(urlPath) || LEVELS_HUB_PATHS.includes(urlPath)) {
       // Ticker-first lead-magnet pages — the SEO landings for "<ticker> gamma
       // levels" intent searches. Each is self-canonical and refreshed
       // every market day, so daily changefreq matches reality and the priority

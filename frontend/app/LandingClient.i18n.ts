@@ -53,6 +53,8 @@ export const dict: PageDictionary = {
     ctaExploreDashboard: 'Explore GEX Dashboard',
     whatIsModeledNote: 'Dealer positioning is modeled, not directly observed.',
     whatIsModeledLink: 'How ZeroGEX models it',
+    whatIsTodayLead: 'See it on today\'s market:',
+    whatIsTodayLink: 'free GEX levels for SPX, SPY, QQQ, NDX, ES and NQ',
 
     glossaryGammaFlipLabel: 'Gamma Flip Level',
     glossaryGammaFlipDesc: 'Price where modeled dealer hedging flips direction',
@@ -179,6 +181,8 @@ export const dict: PageDictionary = {
     ctaExploreDashboard: 'Esplora la Dashboard GEX',
     whatIsModeledNote: 'Il posizionamento dei dealer è modellato, non osservato direttamente.',
     whatIsModeledLink: 'Come ZeroGEX lo modella',
+    whatIsTodayLead: 'Guardalo sul mercato di oggi:',
+    whatIsTodayLink: 'livelli GEX gratuiti per SPX, SPY, QQQ, NDX, ES e NQ',
 
     glossaryGammaFlipLabel: 'Livello di Gamma Flip',
     glossaryGammaFlipDesc: 'Prezzo in cui l\'hedging modellato dei dealer inverte direzione',
@@ -305,6 +309,8 @@ export const dict: PageDictionary = {
     ctaExploreDashboard: 'GEX-Dashboard erkunden',
     whatIsModeledNote: 'Dealer-Positionierung wird modelliert, nicht direkt beobachtet.',
     whatIsModeledLink: 'Wie ZeroGEX sie modelliert',
+    whatIsTodayLead: 'So sieht es heute aus:',
+    whatIsTodayLink: 'kostenlose GEX-Levels für SPX, SPY, QQQ, NDX, ES und NQ',
 
     glossaryGammaFlipLabel: 'Gamma-Flip-Level',
     glossaryGammaFlipDesc: 'Preis, an dem sich das Dealer-Hedging umkehrt',
@@ -431,6 +437,8 @@ export const dict: PageDictionary = {
     ctaExploreDashboard: 'Explorar el Dashboard GEX',
     whatIsModeledNote: 'El posicionamiento de los dealers es modelado, no observado directamente.',
     whatIsModeledLink: 'Cómo lo modela ZeroGEX',
+    whatIsTodayLead: 'Míralo en el mercado de hoy:',
+    whatIsTodayLink: 'niveles GEX gratuitos para SPX, SPY, QQQ, NDX, ES y NQ',
 
     glossaryGammaFlipLabel: 'Nivel de Gamma Flip',
     glossaryGammaFlipDesc: 'Precio donde la cobertura de los dealers invierte dirección',
@@ -557,6 +565,8 @@ export const dict: PageDictionary = {
     ctaExploreDashboard: 'Explorer le Tableau de Bord GEX',
     whatIsModeledNote: 'Le positionnement des dealers est modélisé, pas observé directement.',
     whatIsModeledLink: 'Comment ZeroGEX le modélise',
+    whatIsTodayLead: 'Voyez-le sur le marché du jour :',
+    whatIsTodayLink: 'niveaux GEX gratuits pour SPX, SPY, QQQ, NDX, ES et NQ',
 
     glossaryGammaFlipLabel: 'Niveau de Gamma Flip',
     glossaryGammaFlipDesc: 'Prix où la couverture des dealers inverse de direction',
