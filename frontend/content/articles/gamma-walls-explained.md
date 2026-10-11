@@ -1,16 +1,18 @@
-# Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts
+# Gamma Walls Explained: What a Gamma Wall Is and How Price Reacts
 
-*Gamma walls are the most-watched levels in dealer-positioning analysis. What each wall does in each regime, what the gap between them tells you, how they behave into same-day expiry, and when the read holds versus breaks.*
+*Gamma walls are the most-watched levels in dealer-positioning analysis. What a gamma wall is, what each wall does in each regime, what the gap between them tells you, how they behave into same-day expiry, and when the read holds versus breaks.*
 
 ---
 
-## Start here
+## What is a gamma wall?
 
-A gamma wall is a strike where modeled dealer gamma exposure is heavily concentrated. There are two: the **call wall** above spot and the **put wall** below it. Neither is support or resistance by construction - what the hedging at a wall does depends on the modeled dealer gamma *sign* and the flow around it, not on whether the contracts sitting there are calls or puts.
+A **gamma wall** is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. Option positioning is unusually dense there, so the hedging dealers may do around that level can be larger than at neighboring strikes. There are two: the **call wall**, the heaviest call-gamma concentration above spot, and the **put wall**, the heaviest put-gamma concentration below it. Together they bracket spot, and traders often read them as the outer edges of the range current positioning is most consistent with.
 
-If that definition is what you came for, [What Is a Gamma Wall?](/education/what-is-a-gamma-wall) covers it on its own and is the shorter read.
+A wall is derived from open interest, contract by contract, weighted by the gamma each contract carries. It is not a moving average, a trendline or a round number.
 
-This page is the applied one. It assumes you know what a wall is and works through the parts that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and how often walls actually hold or break. For the regime context underneath all of it, pair this with [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
+Neither wall is support or resistance by construction. Nothing obliges anyone to trade at a strike, and hedging is only one source of order flow among many. What the hedging at a wall does depends on the modeled dealer gamma *sign* and the flow around it, not on whether the contracts sitting there are calls or puts. The defensible way to hold it: a wall marks where a reaction is more likely than at a random strike, and on its own it says nothing about direction.
+
+The rest of this page is the applied part, the things that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and how often walls actually hold or break. For the regime context underneath all of it, pair this with [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -54,6 +56,16 @@ A gamma wall is not a fixed property of the chain. It is a fixed *level* whose h
 
 ---
 
+## Gamma walls, the gamma flip and max pain
+
+The three levels are built differently and answer different questions:
+
+- The **gamma flip** is where modeled dealer gamma changes sign. It sets the regime that decides whether hedging around the walls leans against a move or adds to it. See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
+- **Max pain** is an expiration-value calculation: the strike at which the options open on that expiry would carry the least total intrinsic value. It is not a gamma concentration, so it can sit well away from either wall. See [Max Pain Explained](/education/max-pain-explained).
+- The **walls** are the two densest gamma strikes on either side of spot.
+
+---
+
 ## What the distance between the walls tells you
 
 The two walls carry more information together than either does alone. The gap between them is the range current positioning is most consistent with, and its shape is readable in two ways.
@@ -68,7 +80,7 @@ The trap is reading width or asymmetry without the regime. Both readings above a
 
 ## How gamma walls shift intraday
 
-Walls do not get announced at the open and hold through the close. They migrate. Three common patterns:
+Walls do not get announced at the open and hold through the close. They migrate, for two separate reasons. Between sessions, open interest changes as positions open and close, and the official figures update after clearing. Within a session, with that open interest fixed, the ranking of strikes still shifts as the gamma each contract carries reprices. Three common patterns:
 
 1. **Gamma repricing.** Spot, time to expiry, and implied volatility change each strike’s modeled gamma and can change the ranking even while official OI is fixed.
 2. **Spot-side eligibility.** A strike can move from one side of spot to the other, while another fixed-OI strike becomes the largest eligible concentration. Official OI generally updates after clearing; intraday wall migration does not establish that customers opened positions at the new strike.
@@ -158,4 +170,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's call wall and put wall, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show both alongside the gamma flip and the dealer gamma profile that produced them, delayed about 15 minutes; the paid plans show them [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte). For the broader landscape of gamma-exposure tools, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's call wall and put wall, [the free ZeroGEX gamma levels](/gex-levels) show both for SPX, SPY, QQQ, NDX, ES and NQ alongside the gamma flip and net GEX, delayed about 15 minutes; the paid plans show them [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte). For the broader landscape of gamma-exposure tools, see [the best GEX tools guide](/education/best-gex-tools).

@@ -60,6 +60,16 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        // The same consolidation for the gamma-wall pair. Both pages opened
+        // with the same definition and competed for "what is a gamma wall";
+        // Search Console ranked /gamma-walls-explained for that cluster
+        // (position ~9), so it survives and carries the definition, the
+        // flip and max-pain comparison and the definition FAQ that lived here.
+        source: '/education/what-is-a-gamma-wall',
+        destination: '/education/gamma-walls-explained',
+        permanent: true,
+      },
+      {
         // Search Console lists 224 URLs under "Not found (404)", and nearly all
         // of them have one shape: /education/<slug>.de (and .es, .fr, .it),
         // plus the same suffixes under /guides and /help/platform. Those are

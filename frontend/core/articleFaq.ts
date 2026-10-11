@@ -50,24 +50,6 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'A clean break above the call wall can signal a positioning or regime change. The hedging that capped the move can reverse into buying, which sometimes fuels an extension higher.',
     },
   ],
-  'what-is-a-gamma-wall': [
-    {
-      q: 'What is a gamma wall?',
-      a: 'A gamma wall is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. It marks a price level where option positioning is unusually dense, so the hedging dealers may do around it can be larger than at neighboring strikes.',
-    },
-    {
-      q: 'What is the difference between a call wall and a put wall?',
-      a: 'The call wall is the heaviest call-gamma concentration above spot; the put wall is the heaviest put-gamma concentration below spot. Together they bracket the current price. Which one acts as a brake and which as an accelerant depends on the modeled dealer gamma sign, not on whether the contracts are calls or puts.',
-    },
-    {
-      q: 'Is a gamma wall support or resistance?',
-      a: 'No. A gamma wall is a positioning reference, not a defended level. Nothing obliges any participant to trade at a strike, and hedging is only one source of order flow. A wall indicates a reaction is more likely there than at a random strike, and says nothing about direction on its own.',
-    },
-    {
-      q: 'Do gamma walls move during the day?',
-      a: 'Yes. Walls are recomputed as the book changes. They migrate both when open interest changes and when spot, time or implied volatility reprice the gamma each existing contract carries\u00a0- so the ranking of strikes can shift even with open interest unchanged. Movement is fastest on 0DTE.',
-    },
-  ],
   'what-is-gex-in-trading': [
     {
       q: 'What is GEX in trading?',
@@ -173,6 +155,18 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   ],
   'gamma-walls-explained': [
     {
+      q: 'What is a gamma wall?',
+      a: 'A gamma wall is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. Option positioning is unusually dense there, so the hedging dealers may do around it can be larger than at neighboring strikes. There are two: the call wall above spot and the put wall below it.',
+    },
+    {
+      q: 'What is the difference between a call wall and a put wall?',
+      a: 'The call wall is the heaviest call-gamma concentration above spot; the put wall is the heaviest put-gamma concentration below spot. Together they bracket the current price. Whether the hedging around either one leans against a move or adds to it depends on the modeled dealer gamma sign, not on whether the contracts are calls or puts.',
+    },
+    {
+      q: 'Is a gamma wall support or resistance?',
+      a: 'Not by construction. A gamma wall is a positioning reference, not a defended level: nothing obliges anyone to trade at a strike, and hedging is only one source of order flow. A wall marks where a reaction is more likely than at a random strike, and on its own it says nothing about direction. Walls break regularly, about one S&P test in three within an hour in our study of 737 wall tests.',
+    },
+    {
       q: 'What does the distance between the call wall and put wall tell you?',
       a: 'The gap is the range current positioning is most consistent with. A narrow gap means gamma is concentrated close to spot on both sides, which in a positive-gamma regime is the classic pinning setup. A wide gap means the nearest dense strikes are far away, so price can travel further before meeting concentrated hedging. Both readings depend on the regime: below the gamma flip, a narrow range is not a pin.',
     },
@@ -185,8 +179,8 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Same-day gamma is very large near spot and falls away quickly, so 0DTE walls sit tight to price and carry heavier concentration than longer-dated ones. That makes pinning stronger when the regime supports it, but also makes the walls unstable\u00a0- they can migrate several times an hour purely from repricing, with no new positions opened.',
     },
     {
-      q: 'What does it mean when a gamma wall moves with price?',
-      a: 'It means the level you were watching is no longer the heaviest strike. Migration can come from repricing as spot, time and implied volatility change, or from a different strike becoming the largest eligible concentration\u00a0- it does not establish that anyone opened new positions there. It is not, by itself, a sign the wall will break: in our study of 737 wall tests, whether a wall was migrating with price did not predict whether it broke.',
+      q: 'Do gamma walls move during the day?',
+      a: 'Yes. Within a session the official open interest is fixed until it updates after clearing, but spot, time and implied volatility reprice the gamma each contract carries, so a different strike can become the heaviest; movement is fastest on 0DTE. A wall that has moved means the level you were watching is no longer the heaviest strike, not that anyone opened new positions at the new one. It is not, by itself, a sign the wall will break: in our study of 737 wall tests, whether a wall was migrating with price did not predict whether it broke.',
     },
   ],
   'what-is-negative-gamma': [
@@ -344,6 +338,28 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     {
       q: 'Where do TradeGEX’s ES and NQ levels come from?',
       a: 'From the options on the index or ETF each future tracks. TradeGEX lets you pick an ETF source, such as SPY or QQQ, or an index source, such as SPX or NDX, and converts the levels onto the futures price. ZeroGEX builds ES levels from the SPX options chain and NQ levels from the NDX chain, and projects them onto the futures contract it quotes.',
+    },
+  ],
+  'zerogex-vs-spotgamma': [
+    {
+      q: 'Is ZeroGEX a SpotGamma alternative?',
+      a: 'For gamma levels on the index complex, yes: both publish the call wall, the put wall, and the price where modeled dealer gamma crosses zero, which ZeroGEX calls the gamma flip, and ZeroGEX recomputes them about once a minute through the session on both of its plans for SPX, SPY, QQQ, NDX, ES, and NQ. For a twice-daily research note, GEX levels across thousands of single stocks, or SpotGamma\u2019s proprietary Volatility Trigger and Risk Pivot, no: SpotGamma has those, and ZeroGEX does not.',
+    },
+    {
+      q: 'Is there a free alternative to SpotGamma?',
+      a: 'ZeroGEX publishes the gamma flip, call wall, put wall, and net GEX for SPX, SPY, QQQ, NDX, ES, and NQ free, about 15 minutes delayed and refreshed through the session, with no signup, on its GEX levels today page. SpotGamma\u2019s own free gamma exposure chart covers SPX and, by its own description, is updated daily.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than SpotGamma?',
+      a: `On list prices, yes. Both ZeroGEX plans cost less than either SpotGamma plan, on monthly or yearly billing, and API access comes with ZeroGEX Pro. SpotGamma\u2019s price covers thousands of stocks, a twice-daily research note, webinars, and on its Alpha plan, real-time tools. SpotGamma prices as its checkout forms charged them, checked ${competitorCheckedLabel('spotgamma')}.`,
+    },
+    {
+      q: 'Is SpotGamma\u2019s call wall the same as ZeroGEX\u2019s?',
+      a: 'By definition, nearly: SpotGamma describes the call wall as the strike with the largest concentration of call gamma, and the put wall as the same on the put side; ZeroGEX uses the strike above spot carrying the heaviest call gamma exposure, and the strike below spot carrying the heaviest put gamma exposure. The strikes can still differ on a given day, because the two model dealer positions differently: ZeroGEX uses the standard convention that dealers are long calls and short puts, and SpotGamma says its paid model estimates market-maker and buyside positioning strike by strike.',
+    },
+    {
+      q: 'Does ZeroGEX have a Volatility Trigger?',
+      a: 'No. The Volatility Trigger is a proprietary SpotGamma level, which SpotGamma describes as derived from its estimated distribution of gamma rather than a zero crossing. ZeroGEX\u2019s nearest level is the gamma flip, the price where modeled dealer gamma crosses zero, computed from a gamma profile across a range of prices.',
     },
   ],
   'how-to-trade-around-gamma-flip': [

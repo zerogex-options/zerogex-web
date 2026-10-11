@@ -18,6 +18,7 @@
 //   {{quantdata:api:monthly}}        "$149.99"
 //   {{menthorq:pro:firstMonth}}      "$174.50"   a discounted first month
 //   {{tradegex:platform:sixMonths}}  "$299"      billed every six months
+//   {{spotgamma:essential:annual}}   "$891"
 //   {{bullflow:checked}}             "September 29, 2026"
 //
 // An unknown or malformed token throws, so a typo fails
@@ -116,6 +117,27 @@ export const COMPETITOR_PRICES = {
     source: 'https://tradegex.pro/#pricing',
     plans: {
       platform: { monthly: 59.99, sixMonths: 299, annual: 599 },
+    },
+  },
+  // SpotGamma's prices as its own checkout forms charged them on the date
+  // below, which is what a subscriber pays. The pricing grid at `source`
+  // contradicted itself that day: Essential's "$99/mo" headline sat over a
+  // "First month $25, then $129/mo" line, and Alpha's "$299/mo" over "First
+  // month $49, then $249/mo", while the monthly order forms
+  // (/register/daily-note-subscriber/ and /register/spotgamma-alpha/) charged
+  // $99 and $299 up front and on renewal with no first-month discount. So no
+  // `firstMonth` is recorded, and the page tells readers to check the current
+  // offer. Yearly: Essential $891 and Alpha $2,691, the same on the grid and
+  // the annual forms. The grid prints those as $74/mo and $224/mo, which is
+  // not the yearly total divided by twelve, so only the totals are kept and
+  // the page says "about". The Institutional plan is sold through sales and
+  // is not compared.
+  spotgamma: {
+    checked: '2026-10-11',
+    source: 'https://spotgamma.com/subscribe-to-spotgamma/',
+    plans: {
+      essential: { monthly: 99, annual: 891 },
+      alpha: { monthly: 299, annual: 2691 },
     },
   },
 } satisfies Record<string, CompetitorPrices>;

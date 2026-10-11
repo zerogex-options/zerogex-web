@@ -1651,6 +1651,7 @@ function PricingClientInner({
           >
             <strong style={{ color: C.light }}>{t('stillComparingTitle')}</strong>{' '}
             {[
+              { href: '/education/zerogex-vs-spotgamma', label: 'ZeroGEX vs SpotGamma' },
               { href: '/education/zerogex-vs-menthorq', label: 'ZeroGEX vs MenthorQ' },
               { href: '/education/zerogex-vs-tradegex', label: 'ZeroGEX vs TradeGEX' },
               { href: '/education/zerogex-vs-quant-data', label: 'ZeroGEX vs Quant Data' },
