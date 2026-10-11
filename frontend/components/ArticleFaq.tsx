@@ -23,7 +23,7 @@ export default function ArticleFaq({ slug }: { slug: string }) {
   };
 
   return (
-    <section className="mt-8" aria-labelledby="faq-heading">
+    <section id="faq" className="mt-8 scroll-mt-24" aria-labelledby="faq-heading">
       <script
         type="application/ld+json"
         // Built from typed FAQ content with no user input — matches ArticleJsonLd.

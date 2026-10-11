@@ -1,6 +1,6 @@
 # What Is a Gamma Flip? The Gamma Flip Level Explained
 
-*Gamma flip explained without the hand-waving - what the level actually is, how it is found, what changes above versus below it, and how to read it intraday. Also called the zero gamma level.*
+*Gamma flip explained without the hand-waving - what the level actually is, how it is found, what changes above versus below it, and how to read it intraday.*
 
 ---
 
@@ -23,6 +23,8 @@ A few things worth being explicit about:
 - It is **dynamic.** As open interest rolls, expiries decay, and fresh flow hits the book, the flip drifts. A stale flip is a misleading flip.
 
 Treat it the way a meteorologist treats a weather front - knowing which side you are on tells you what kind of weather to expect, not where the storm is going.
+
+Some platforms label this line the [zero gamma level](/education/zero-gamma-level-explained); that article covers the name and how the crossing is found.
 
 ---
 
@@ -115,4 +117,4 @@ Educational content only - none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's gamma flip, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show it alongside Net GEX, the call and put walls, and the dealer gamma profile chart, delayed about 15 minutes; the paid plans show it [in real time](/real-time-gex-0dte). For a comparison of how different platforms compute and present this read, see [the best GEX tools guide](/education/best-gex-tools).
+If you want to see today's gamma flip, [the free ZeroGEX gamma-levels pages](/spx-gamma-levels) show it alongside Net GEX, the call and put walls, and the dealer gamma profile chart, delayed about 15 minutes; the paid plans show it [on the real-time 0DTE GEX dashboard](/real-time-gex-0dte). For a comparison of how different platforms compute and present this read, see [the best GEX tools guide](/education/best-gex-tools).

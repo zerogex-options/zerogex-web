@@ -19,7 +19,7 @@ ZeroGEX's closest view is the GEX Heatmap, included with Basic: net dealer gamma
 
 The differences run both ways:
 
-- **More exposures and tickers on Quant Data.** ZeroGEX maps gamma only, on six symbols. It reads vanna and charm as a signal rather than a map, and it does not publish delta exposure, on purpose: [here is why](/education/why-we-dont-publish-dex).
+- **More exposures and tickers on Quant Data.** ZeroGEX maps gamma only, on six symbols. It reads vanna and charm as a signal rather than a map, and it does not publish delta exposure, on purpose: [why ZeroGEX does not publish DEX](/education/why-we-dont-publish-dex).
 - **The regime line on ZeroGEX.** The gamma flip is drawn on the heatmap itself, from a gamma profile computed across a range of prices, so price, the strikes, and the regime line sit in one picture. The method is on the [Methodology](/methodology) page.
 
 Both tools model dealer gamma the same basic way: from the options chain, counting calls as positive and puts as negative. Quant Data's help center describes its figures as an estimate, not a direct look into any dealer's inventory, and ZeroGEX says the same.

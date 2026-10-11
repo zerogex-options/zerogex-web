@@ -1,5 +1,31 @@
-import { articleOgImage, getArticle, SITE_NAME, SITE_URL, SITE_DEFAULT_OG_IMAGE, type ArticleMeta } from '@/core/articleRegistry';
+import fs from 'node:fs';
+import path from 'node:path';
+import {
+  articleOgImage,
+  getArticle,
+  FOUNDER_ID,
+  PERSON_FOUNDER,
+  PUBLISHER_REF,
+  SITE_URL,
+  WEBSITE_ID,
+  type ArticleMeta,
+} from '@/core/articleRegistry';
 import BreadcrumbJsonLd, { type Crumb } from '@/components/BreadcrumbJsonLd';
+
+// Word count of the English source, which is the copy a crawler is served (the
+// translations are cookie-selected at the same URL and crawlers carry no
+// cookie). Read from disk at render rather than threaded through 42 page files;
+// a missing file just omits the property.
+function englishWordCount(article: ArticleMeta): number | undefined {
+  const match = /^\/education\/([a-z0-9-]+)$/.exec(article.href);
+  if (!match) return undefined;
+  try {
+    const md = fs.readFileSync(path.join(process.cwd(), 'content/articles', `${match[1]}.md`), 'utf8');
+    return md.split(/\s+/).filter(Boolean).length;
+  } catch {
+    return undefined;
+  }
+}
 
 type Props = {
   slug: string;
@@ -44,31 +70,33 @@ export default function ArticleJsonLd({ slug }: Props) {
   const url = `${SITE_URL}${article.href}`;
   const image = articleOgImage(article);
 
+  const wordCount = englishWordCount(article);
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'Article',
+    '@id': `${url}#article`,
     headline: article.title,
     description: article.description,
     image: [image],
     datePublished: `${article.datePublished}T16:00:00.000Z`,
     dateModified: `${article.dateModified ?? article.datePublished}T16:00:00.000Z`,
+    // The founder, by @id (SiteJsonLd emits the full Person node on every
+    // page), with name and url inline so a validator reading this block alone
+    // still sees a complete author. ArticleMeta prints the same byline.
     author: {
-      '@type': 'Organization',
-      name: SITE_NAME,
-      url: SITE_URL,
+      '@type': 'Person',
+      '@id': FOUNDER_ID,
+      name: PERSON_FOUNDER.name,
+      url: FOUNDER_ID,
     },
-    publisher: {
-      '@type': 'Organization',
-      name: SITE_NAME,
-      url: SITE_URL,
-      logo: {
-        '@type': 'ImageObject',
-        url: SITE_DEFAULT_OG_IMAGE,
-      },
-    },
+    publisher: PUBLISHER_REF,
+    inLanguage: 'en-US',
+    isAccessibleForFree: true,
+    ...(wordCount ? { wordCount } : {}),
     mainEntityOfPage: {
       '@type': 'WebPage',
       '@id': url,
+      isPartOf: { '@id': WEBSITE_ID },
     },
   };
 

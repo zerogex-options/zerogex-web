@@ -38,7 +38,7 @@ One finding sits underneath all three and deserves to be read before any of them
 
 ### 4. Gamma flip resolution quality
 
-The gamma flip is the modeled regime line - the price where the modeled dealer gamma curve crosses zero. Naive implementations can produce flip values that drift unrealistically (grid-edge artifacts on degraded chains, hairline crossings far from spot, frozen flips when the feed gaps). Look for tools that publish their flip methodology and handle degraded-chain edge cases honestly - including reporting NULL when the data does not support a confident answer, rather than silently carrying forward a stale value. The detailed methodology behind this is in the [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
+The gamma flip is the modeled regime line - the price where the modeled dealer gamma curve crosses zero. Naive implementations can produce flip values that drift unrealistically (grid-edge artifacts on degraded chains, hairline crossings far from spot, frozen flips when the feed gaps). Look for tools that publish their flip methodology and handle degraded-chain edge cases honestly - including reporting NULL when the data does not support a confident answer, rather than silently carrying forward a stale value. The detailed methodology behind this is in [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) and the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
 
 ### 5. Gamma walls and structural levels
 

@@ -62,7 +62,7 @@ Reverse the vol move and the same machinery tends to drive selling. Vanna, like 
 Vanna is context, not a trigger. A short discipline:
 
 - **Check the vol trend first.** A multi-day IV bleed after an event is the classic vanna-bid setup. A vol that is rising inverts the flow to selling. No vol trend, no vanna story.
-- **Confirm the regime.** The vanna grind coexists naturally with a positive-gamma regime - both favor the same calm, absorbing tape. In a negative-gamma regime the same vol move can get overwhelmed by amplified price reactions. Read [gamma](/education/gamma-exposure-explained) first, vanna inside it.
+- **Confirm the regime.** The vanna grind coexists naturally with a positive-gamma regime - both favor the same calm, absorbing tape. In a negative-gamma regime the same vol move can get overwhelmed by amplified price reactions. Read [the gamma regime](/education/gamma-exposure-explained) first, vanna inside it.
 - **Expect the grind, not a pop.** Vanna buying is a drip. It produces drift, not thrust. If you are waiting for a vanna candle, you have misunderstood the flow - it hides in the slope, not the spike.
 - **Respect the volume mismatch.** A steady climb on unremarkable volume is not a warning sign in a vanna regime; it is the signature. It is not that the buying leaves no prints - it does - but that it never spikes and never announces its motive, which is the tell that it may be mechanical hedging rather than conviction.
 

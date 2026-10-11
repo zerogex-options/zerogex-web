@@ -1,9 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
 import { brandTitle } from '@/core/brand';
+import { BLOG_IMAGE_DIMENSIONS } from '@/core/blogImageManifest';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './Client.i18n';
 import {
@@ -140,6 +142,9 @@ function Pill({ children }: { children: React.ReactNode }) {
 function MistakeSection({ mistake }: { mistake: Mistake }) {
   const t = usePageT(dict);
   const Icon = mistake.icon;
+  // Same /blog screenshots the articles use, so the same generated manifest
+  // supplies the size next/image needs (see components/ExpandableImage.tsx).
+  const dimensions = BLOG_IMAGE_DIMENSIONS[mistake.imagePath];
   return (
     <article
       className="zg-panel trading-mistake-row"
@@ -242,13 +247,24 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
           overflow: 'hidden',
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={mistake.imagePath}
-          alt={mistake.imageAlt}
-          loading="lazy"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
-        />
+        {dimensions ? (
+          <Image
+            src={mistake.imagePath}
+            alt={mistake.imageAlt}
+            width={dimensions.width}
+            height={dimensions.height}
+            sizes="(max-width: 896px) calc(100vw - 40px), 856px"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mistake.imagePath}
+            alt={mistake.imageAlt}
+            loading="lazy"
+            style={{ width: '100%', height: 'auto', display: 'block' }}
+          />
+        )}
       </figure>
     </article>
   );
@@ -279,8 +295,16 @@ export default function TradingMistakesClient() {
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[30px] sm:h-[88%] w-auto block max-w-none" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          {/* `sizes` matches the rendered height (30px on phones, about 56px
+              from `sm` up, at a 3.3:1 lockup) so the optimizer serves a copy a
+              few KB wide instead of the full 1280px export. */}
+          <Image
+            {...brandTitle(isDark)}
+            alt="ZeroGEX"
+            sizes="(max-width: 640px) 100px, 180px"
+            className="h-[30px] sm:h-[88%] w-auto block max-w-none"
+            style={{ maxHeight: 'none', objectFit: 'contain' }}
+          />
         </Link>
 
         <div className="flex items-center gap-2">

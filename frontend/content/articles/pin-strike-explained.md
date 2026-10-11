@@ -15,7 +15,7 @@ Pin Strike is a purpose-built answer to that specific question. It estimates the
 
 Both halves matter, and the second one is what makes Pin Strike different from every other level on the board. A strike can carry an enormous gamma footprint and still be a terrible pin candidate if price has no realistic chance of reaching it into the bell. Pin Strike is built to demote those unreachable giants and surface the reachable node that price can actually be organized around.
 
-If you're new to the underlying mechanics, the [Gamma Exposure pillar](/education/gamma-exposure-explained) covers how dealer gamma drives hedging, [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) covers the regime line, and [Max Pain Explained](/education/max-pain-explained) covers the settlement-magnet idea Pin Strike is often confused with. This piece assumes that background and builds on it.
+If you're new to the underlying mechanics, the [Gamma Exposure pillar](/education/gamma-exposure-explained) covers how dealer gamma drives hedging, [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) covers the regime line, and [Max Pain Explained](/education/max-pain-explained) covers the settlement-magnet idea Pin Strike is often confused with. This piece assumes that background and builds on it.
 
 ---
 
@@ -127,7 +127,7 @@ Pin Strike sits in a family of dealer-positioning levels, and its whole value is
 
 - **Call Wall / Put Wall** - the strikes above and below spot with the largest *current* one-sided call/put gamma. They mark the dominant concentrations of resistance and support at *today's* price. Pin Strike is not about the largest one-sided concentration and not measured at today's price - it's about *net* local stabilization evaluated at each candidate strike as if price were there. See [Gamma Walls Explained](/education/gamma-walls-explained).
 
-- **Gamma Flip** - the hypothetical spot at which *aggregate* dealer gamma changes sign; the boundary between the stabilizing and destabilizing regimes for the whole book. The flip is a regime line; Pin Strike is a specific magnet *inside* a stabilizing regime. (In fact, if spot sits below the flip in net-short-gamma territory, Pin Strike will often find nothing to pin to - which is the correct answer.) See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma Flip** - the hypothetical spot at which *aggregate* dealer gamma changes sign; the boundary between the stabilizing and destabilizing regimes for the whole book. The flip is a regime line; Pin Strike is a specific magnet *inside* a stabilizing regime. (In fact, if spot sits below the flip in net-short-gamma territory, Pin Strike will often find nothing to pin to - which is the correct answer.) See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 - **Max Pain** - the settlement strike that minimizes aggregate option-holder intrinsic payout. It uses only open interest and strikes - no Greeks, no volatility, no dealer-sign, and no notion of reachability or of *how* dealers hedge. It's an accounting-of-payouts level. Pin Strike is a hedging-mechanics level. They frequently disagree, and when they agree it's usually because heavy gamma and heavy OI happen to coincide. See [Max Pain Explained](/education/max-pain-explained).
 

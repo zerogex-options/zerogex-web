@@ -56,6 +56,7 @@ const popularExplainers = [
   { href: '/education/max-pain-explained', label: 'Max Pain Explained' },
   { href: '/education/pin-strike-explained', label: 'Pin Strike Explained' },
   { href: '/education/gamma-levels-in-claude', label: 'SPX Gamma Levels in Claude and ChatGPT' },
+  { href: '/trading-mistakes', label: 'Five Trading Mistakes Gamma Levels Help You Avoid' },
 ];
 
 export default function EducationHubPage() {
@@ -83,6 +84,13 @@ export default function EducationHubPage() {
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
             today’s live SPX / SPY / QQQ / NDX gamma levels
+          </Link>
+          , or all six instruments side by side on{' '}
+          <Link
+            href="/gex-levels"
+            className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
+          >
+            the GEX levels page
           </Link>
           .
         </p>

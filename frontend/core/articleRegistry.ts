@@ -21,6 +21,10 @@ export type ArticleMeta = {
   blurb: string;
   description: string;
   datePublished: string;
+  // Must move whenever the article body changes in substance. Google reads the
+  // visible "Updated" date (ArticleMeta), the Article JSON-LD dateModified and
+  // the sitemap lastmod (git) and distrusts all three when they disagree; a
+  // copy pass that leaves this field alone is what makes them disagree.
   dateModified?: string;
   readMinutes: number;
   kind: ArticleKind;
@@ -45,12 +49,12 @@ export const SITE_CONTACT_EMAIL = 'support@zerogex.io';
 
 // Canonical brand profile URLs for schema.org `sameAs` — used for Organization
 // entity reconciliation (knowledge panel, brand SERP, answer engines). These
-// mirror the social profiles linked in components/Footer.tsx; keep the two in
-// sync when a profile is added or changed.
+// mirror the brand profiles linked in components/Footer.tsx; keep the two in
+// sync when a profile is added or changed. The Reddit account is Michael's
+// personal handle, not a brand profile, so it lives on PERSON_FOUNDER below.
 export const SITE_SAME_AS = [
   'https://x.com/ZeroGEXOptions',
   'https://www.youtube.com/@ZeroGEX',
-  'https://www.reddit.com/user/LopsidedComparison26',
 ];
 
 // The brand's X handle, for twitter:site on every card so X attributes the
@@ -77,6 +81,22 @@ export const PUBLISHER_REF = { '@id': ORGANIZATION_ID } as const;
 // The founder's Person node id, anchored on the founder card at /about#founder
 // (app/about/Client.tsx renders id="founder"). Articles cite it as author.
 export const FOUNDER_ID = `${SITE_URL}/about#founder`;
+
+// The founder as a schema.org Person. SiteJsonLd emits it once as its own node;
+// ArticleJsonLd cites it by @id as the author of every article, and the visible
+// byline in ArticleMeta prints the same `name`, so the markup and the page
+// agree. A surname can be added to `name` when Michael wants it public; the
+// first name alone is what the About page and the footer already say.
+export const PERSON_FOUNDER = {
+  '@type': 'Person',
+  '@id': FOUNDER_ID,
+  name: 'Michael',
+  url: FOUNDER_ID,
+  image: `${SITE_URL}/founder.jpg`,
+  jobTitle: 'Founder',
+  worksFor: { '@id': ORGANIZATION_ID },
+  sameAs: ['https://www.reddit.com/user/LopsidedComparison26'],
+} as const;
 
 export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'announcing-folds-of-honor-pledge': {
@@ -141,7 +161,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What is a gamma flip? The level where modeled dealer gamma changes sign\u00a0- what changes above vs below it, how it is calculated, and how to read it intraday.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-04',
+    dateModified: '2026-09-30',
     readMinutes: 8,
     kind: 'tier1',
   },
@@ -154,7 +174,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Gamma walls explained\u00a0- what each wall does in each regime, what the gap between them tells you, how they behave on 0DTE, and how often they actually break.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-29',
+    dateModified: '2026-09-30',
     readMinutes: 11,
     kind: 'tier1',
   },
@@ -167,6 +187,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       '0DTE dealer positioning explained\u00a0- why dealer gamma matters most for same-day expiries, and how negative versus positive regimes change the SPX tape.',
     datePublished: '2026-06-11',
+    dateModified: '2026-09-30',
     readMinutes: 9,
     kind: 'tier1',
   },
@@ -179,17 +200,20 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Gamma exposure explained from the ground up\u00a0- what GEX is, how dealer gamma is calculated, what positive and negative regimes mean, and how to use it intraday.',
     datePublished: '2026-06-11',
+    dateModified: '2026-09-30',
     readMinutes: 16,
     kind: 'pillar',
   },
   'gamma-vwap-confluence-explained': {
     slug: 'gamma-vwap-confluence-explained',
     href: '/education/gamma-vwap-confluence-explained',
-    title: 'Gamma / VWAP Confluence Explained\u00a0- and Why Two Symbols Can Disagree',
+    // Title and description trimmed for SERP width (<= 62 / <= 160 chars); the
+    // H1 in the markdown keeps the longer form.
+    title: 'Gamma / VWAP Confluence Explained: Why Two Symbols Disagree',
     blurb:
       'What the confluence score measures, how the cluster is built from the gamma flip and VWAP, why cluster quality matters more than the sign, and why the gamma regime inverts the same picture from a fade into a breakout\u00a0- so SPX, SPY and QQQ can legitimately point opposite ways on the same afternoon.',
     description:
-      'Gamma / VWAP Confluence explained\u00a0- how the cluster is built, why the gamma regime inverts the reading, and why two symbols can score opposite at the same moment.',
+      'Gamma / VWAP Confluence explained: how the cluster is built, why the gamma regime inverts the reading, and why two symbols can score opposite at once.',
     datePublished: '2026-09-11',
     readMinutes: 8,
     kind: 'tier2',
@@ -227,6 +251,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Vanna and charm explained\u00a0- what each Greek is, why they drive dealer hedging, how vanna creates the vol-compression grind, and how charm shapes the close.',
     datePublished: '2026-06-11',
+    dateModified: '2026-09-30',
     readMinutes: 14,
     kind: 'tier2',
   },
@@ -243,7 +268,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly\u00a0- real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-30',
+    dateModified: '2026-10-09',
     readMinutes: 14,
     kind: 'article',
   },
@@ -302,8 +327,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     title: 'How Often Do Gamma Walls Actually Break? We Measured It',
     blurb:
       'We measured 737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two times in three within the hour; Nasdaq walls were closer to a coin flip\u00a0- and none of the nineteen things we measured about an individual wall predicted which ones broke.',
+    // Description trimmed for SERP width (<= 160 chars).
     description:
-      'How often do gamma walls break? Measured break curves for SPY, SPX, QQQ and NDX, why the answer depends on the index rather than the instrument, and what did not predict a break.',
+      'How often do gamma walls break? Measured break curves for SPY, SPX, QQQ and NDX, why the answer depends on the index, and what did not predict a break.',
     datePublished: '2026-09-04',
     dateModified: '2026-09-29',
     readMinutes: 9,
@@ -312,11 +338,13 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'why-do-breakouts-fail': {
     slug: 'why-do-breakouts-fail',
     href: '/education/why-do-breakouts-fail',
-    title: 'Why Do Breakouts Fail? The Structural Reason Behind Failed Breakouts',
+    // Title and description trimmed for SERP width (<= 62 / <= 160 chars); the
+    // H1 in the markdown keeps the longer form.
+    title: 'Why Do Breakouts Fail? The Structural Reason, Measured',
     blurb:
       'Failed breakouts have a structural cause: dealer hedging at concentrated strikes. The mechanism, the three conditions traders check, and what 737 measured wall tests say about how often that hedging wins.',
     description:
-      'Why do breakouts fail in SPY and SPX? The structural reason\u00a0- dealer hedging at concentrated strikes\u00a0- and what 737 measured wall tests say about how often it wins.',
+      'Why do breakouts fail in SPY and SPX? Dealer hedging at concentrated strikes, and what 737 measured wall tests say about how often that structure wins.',
     datePublished: '2026-06-15',
     dateModified: '2026-09-29',
     readMinutes: 10,
@@ -325,13 +353,15 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'options-support-and-resistance': {
     slug: 'options-support-and-resistance',
     href: '/education/options-support-and-resistance',
-    title: 'How to Identify Support and Resistance from Options Positioning',
+    // Title trimmed for SERP width (<= 62 chars); the H1 in the markdown keeps
+    // the longer form.
+    title: 'How to Find Support and Resistance from Options Positioning',
     blurb:
       'Options-based support and resistance is rooted in mechanics, not just psychology. The four kinds of options-based levels, why they can be sturdier than chart-based S/R, and how to identify them in real time.',
     description:
       'How to identify support and resistance from options positioning\u00a0- call walls, put walls, gamma magnet, gamma flip. The structural map most chart S/R misses.',
     datePublished: '2026-06-15',
-    dateModified: '2026-09-29',
+    dateModified: '2026-09-30',
     readMinutes: 11,
     kind: 'tier1',
   },
@@ -344,6 +374,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'How to avoid chasing 0DTE moves\u00a0- why same-day chases are structurally dangerous, three signs you’re about to chase, and when to stand down.',
     datePublished: '2026-06-15',
+    dateModified: '2026-09-30',
     readMinutes: 11,
     kind: 'tier1',
   },
@@ -356,6 +387,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What does negative gamma mean? Dealers amplify moves instead of dampening them and volatility expands\u00a0- and how to spot a negative-gamma regime in real time.',
     datePublished: '2026-06-15',
+    dateModified: '2026-09-30',
     readMinutes: 10,
     kind: 'tier1',
   },
@@ -380,6 +412,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'How to trade around gamma flip levels\u00a0- what changes when spot crosses, the three setups each regime supports, and using the flip as a playbook switch.',
     datePublished: '2026-06-15',
+    dateModified: '2026-09-30',
     readMinutes: 10,
     kind: 'tier1',
   },
@@ -404,7 +437,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What is a put wall? The strike below spot where put gamma concentrates\u00a0- why support there is conditional on the broader profile, and how it migrates.',
     datePublished: '2026-07-07',
-    dateModified: '2026-09-04',
+    dateModified: '2026-09-30',
     readMinutes: 8,
     kind: 'tier1',
   },
@@ -417,7 +450,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside\u00a0- why it acts as resistance, and when it breaks.',
     datePublished: '2026-07-07',
-    dateModified: '2026-09-29',
+    dateModified: '2026-09-30',
     readMinutes: 8,
     kind: 'tier1',
   },
@@ -430,6 +463,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What is a gamma wall? The strike where modeled dealer gamma concentrates\u00a0- the call wall and put wall, why price reacts there, and why it is not support.',
     datePublished: '2026-08-27',
+    dateModified: '2026-09-30',
     readMinutes: 6,
     kind: 'tier1',
   },
@@ -442,6 +476,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Get live SPX gamma levels inside Claude, ChatGPT or Cursor with a free MCP server\u00a0- setup, what to ask, and how to spot a fabricated level.',
     datePublished: '2026-09-10',
+    dateModified: '2026-09-29',
     readMinutes: 7,
     kind: 'article',
   },
@@ -454,18 +489,24 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Zero gamma explained\u00a0- the zero gamma level is where modeled dealer gamma changes sign. What changes above and below it, how it is found, and today’s SPX level.',
     datePublished: '2026-09-04',
+    dateModified: '2026-09-29',
     readMinutes: 7,
     kind: 'tier1',
   },
   'what-is-gex-in-trading': {
     slug: 'what-is-gex-in-trading',
     href: '/education/what-is-gex-in-trading',
-    title: 'What Is GEX in Trading? Gamma Exposure Explained Simply',
+    // Trimmed for SERP width, and the "Gamma Exposure Explained" phrase it
+    // shared with the pillar is gone so each page owns its own query: this one
+    // answers "gex meaning" / "what is gex", the pillar answers "gamma exposure
+    // explained".
+    title: 'What Is GEX in Trading? GEX Meaning, Explained Simply',
     blurb:
       'GEX\u00a0- gamma exposure\u00a0- is the one number that helps explain why some days pin and others trend. A plain-English, beginner-first explainer: what GEX measures, how dealer gamma moves the tape, and what positive versus negative regimes mean for your trading.',
     description:
       'What is GEX in trading? Gamma exposure explained simply\u00a0- what GEX measures, why dealer gamma moves markets, and how to read positive vs negative regimes.',
     datePublished: '2026-07-07',
+    dateModified: '2026-09-29',
     readMinutes: 7,
     kind: 'tier1',
   },
@@ -482,10 +523,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     title: 'SPX Net GEX Today: Current SPX Net Gamma Exposure Value',
     blurb:
       '“What’s the current SPX net gamma exposure?” Today’s delayed SPX net GEX, gamma flip, call wall and put wall at the top of the page\u00a0- then what net GEX is, how to read a positive versus negative print, what dollar gamma means, and where the zero-cross sits.',
+    // Description trimmed for SERP width (<= 160 chars).
     description:
-      'Current SPX net GEX value (delayed 15 min) with the gamma-flip zero-cross, call wall and put wall\u00a0- and how to read a positive vs negative net gamma exposure print.',
+      'Current SPX net GEX value, delayed 15 minutes, with the gamma flip, call wall and put wall, and how to read a positive vs negative net gamma exposure print.',
     datePublished: '2026-07-07',
-    dateModified: '2026-09-04',
+    dateModified: '2026-10-02',
     readMinutes: 9,
     kind: 'tier1',
   },
@@ -552,7 +594,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'hedging-flow-explained': {
     slug: 'hedging-flow-explained',
     href: '/education/hedging-flow-explained',
-    title: 'Hedging Flow Explained: Reading the Options Tape Through the Hedge',
+    // Title trimmed for SERP width (<= 62 chars); the H1 in the markdown keeps
+    // the longer form.
+    title: 'Hedging Flow Explained: The Options Tape Through the Hedge',
     blurb:
       'What the Hedging Flow page estimates, why Session pressure and Pressure rate answer different questions, what Lean, Stability and the Flip cushion measure, and how Gamma Weather combines them, with one live SPY session read end to end.',
     description:
@@ -564,7 +608,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'forced-flow-and-zero-flow-explained': {
     slug: 'forced-flow-and-zero-flow-explained',
     href: '/education/forced-flow-and-zero-flow-explained',
-    title: 'Forced Flow and Zero Flow Explained: Where Dealer Hedging Nets to Zero',
+    // Title trimmed for SERP width (<= 62 chars); the H1 in the markdown keeps
+    // the longer form.
+    title: 'Forced Flow and the Zero Flow Level Explained',
     blurb:
       'Forced Flow models the stock dealers would have to trade to stay hedged if price, time or implied volatility moves. The zero-flow level is the one price where all of it cancels. How both are computed, why the same zero-flow price can be a magnet or a pivot, and what the model does not claim.',
     description:
@@ -624,8 +670,8 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/zerogex-vs-tradegex',
     // For readers searching the competitor ("tradegex alternative",
     // "tradegex vs", "tradegex review"). Same rule as the other comparisons: no
-    // prices in the title or description.
-    title: 'ZeroGEX vs TradeGEX (2026): Futures Gamma Levels, Pricing & Coverage',
+    // prices in the title or description. Trimmed for SERP width (<= 62 chars).
+    title: 'ZeroGEX vs TradeGEX (2026): ES & NQ Gamma Levels, Pricing',
     blurb:
       'A fair side-by-side of ZeroGEX and TradeGEX: how their walls and gamma flip are built, where each one’s ES and NQ levels come from, what each plan costs, and where each one is the stronger choice.',
     description:
@@ -653,7 +699,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zero-gamma-level-explained',
     'gamma-exposure-explained',
     'gamma-walls-explained',
-    'spx-net-gamma-exposure-today',
+    'how-to-trade-around-gamma-flip',
   ],
   'gamma-walls-explained': [
     'what-is-a-gamma-wall',
@@ -664,6 +710,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     'vanna-and-charm-explained',
     'charm-the-clock-is-a-trader',
+    'how-to-avoid-chasing-0dte',
   ],
   'pin-strike-explained': [
     'max-pain-explained',
@@ -699,6 +746,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'eod-pressure-explained',
     'vanna-and-charm-explained',
     'squeeze-setup-positioning-trap-and-trap-detection',
+    'net-volume-vs-directional-flow',
   ],
   'net-volume-vs-directional-flow': [
     'gamma-exposure-explained',
@@ -720,11 +768,18 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'squeeze-setup-explained',
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
+    'squeeze-setup-positioning-trap-and-trap-detection',
   ],
   'eod-pressure-explained': [
     'vanna-and-charm-explained',
     'squeeze-setup-explained',
     'eod-pressure-and-trap-detection',
+    'gamma-vwap-confluence-explained',
+  ],
+  'gamma-vwap-confluence-explained': [
+    'how-to-read-a-gamma-flip',
+    'what-is-negative-gamma',
+    'pin-strike-explained',
   ],
   'how-often-do-gamma-walls-break': [
     'gamma-walls-explained',
@@ -740,6 +795,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-walls-explained',
     'what-is-a-put-wall',
     'why-spy-pins-near-strikes',
+    'why-do-breakouts-fail',
   ],
   'how-to-avoid-chasing-0dte': [
     '0dte-dealer-positioning-explained',
@@ -747,7 +803,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'eod-pressure-explained',
   ],
   'what-is-negative-gamma': [
-    'gamma-exposure-explained',
+    'what-is-gex-in-trading',
     'how-to-read-a-gamma-flip',
     'zero-gamma-level-explained',
     'spx-net-gamma-exposure-today',
@@ -756,12 +812,13 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'options-support-and-resistance',
     'pin-strike-explained',
     'max-pain-explained',
+    'spy-vs-spx-gamma-levels',
   ],
   'how-to-trade-around-gamma-flip': [
-    'how-to-read-a-gamma-flip',
+    'how-to-avoid-chasing-0dte',
     'zero-gamma-level-explained',
     'what-is-negative-gamma',
-    'gamma-exposure-explained',
+    'gamma-vwap-confluence-explained',
   ],
   'spy-vs-spx-gamma-levels': [
     'gamma-walls-explained',
@@ -777,6 +834,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-walls-explained',
     'what-is-a-put-wall',
     'what-is-a-gamma-wall',
+    'how-often-do-gamma-walls-break',
   ],
   'what-is-a-gamma-wall': [
     'gamma-walls-explained',
@@ -787,10 +845,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
     'gamma-walls-explained',
+    'gamma-levels-in-claude',
   ],
   'spx-net-gamma-exposure-today': [
     'gamma-exposure-explained',
-    'how-to-read-a-gamma-flip',
+    'spy-vs-spx-gamma-levels',
     'zero-gamma-level-explained',
     'what-is-negative-gamma',
   ],
@@ -798,6 +857,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'spx-net-gamma-exposure-today',
     'what-is-negative-gamma',
+    'what-is-gex-in-trading',
   ],
   'why-market-makers-trade-stock': [
     'delta-and-its-three-children',
@@ -910,6 +970,7 @@ export function articleMetadata(slug: string) {
     },
     twitter: {
       card: 'summary_large_image' as const,
+      site: SITE_TWITTER_HANDLE,
       title: article.title,
       description: article.description,
       images: [image],

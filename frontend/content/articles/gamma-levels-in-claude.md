@@ -95,7 +95,7 @@ It is also the fastest way to check a level from a phone, on a laptop without yo
 
 - [The ZeroGEX MCP Server](/help/platform/mcp-server) - full setup and troubleshooting.
 - [Free SPX Gamma Levels](/spx-gamma-levels) - the same data as a page.
-- [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) - what the level actually means.
+- [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip) - what the level actually means.
 - [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration) - for Pro users who want real-time data and their own tool shapes.
 
 Educational content only - none of the above is a trade recommendation.

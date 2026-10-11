@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, RefreshCw, ShieldCheck, Zap } from 'lucide-react';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
-import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { PUBLISHER_REF, SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_TWITTER_HANDLE, SITE_URL } from '@/core/articleRegistry';
 import EmbedBuilder from './EmbedBuilder';
 
 // The widget's storefront: where someone who writes about the market picks up a
@@ -27,9 +27,9 @@ import EmbedBuilder from './EmbedBuilder';
 // the only version consistent with the white-hat rule the outreach kit sets.
 
 const PATH = '/embed';
-const TITLE = 'Free Gamma Levels Widget: Embed SPX, SPY & QQQ Levels on Your Site';
+const TITLE = 'Free Gamma Levels Widget: Embed SPX, SPY & QQQ Levels';
 const DESCRIPTION =
-  'Put today’s gamma flip, call wall, put wall and net GEX on your own site with one line of HTML. Free, no signup, no API key, no cookies\u00a0- 15-minute delayed levels for SPX, SPY, QQQ, NDX, ES and NQ.';
+  'Put the gamma flip, call wall, put wall and net GEX on your site with one line of HTML. Free, no signup, no API key. 15-minute delayed levels, six symbols.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -45,6 +45,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
     title: TITLE,
     description: DESCRIPTION,
     images: [SITE_DEFAULT_OG_IMAGE],
@@ -88,7 +89,7 @@ const JSON_LD = {
   name: TITLE,
   description: DESCRIPTION,
   url: `${SITE_URL}${PATH}`,
-  publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+  publisher: PUBLISHER_REF,
   mainEntity: FAQ.map((f) => ({
     '@type': 'Question',
     name: f.q,

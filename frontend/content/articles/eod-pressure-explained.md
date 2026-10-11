@@ -197,8 +197,6 @@ The dashboard surfaces it in a few places:
 - **The Event Timeline** on the signal's page charts the score's recent path, with direction flips marked.
 - **Signal Breadth** on the dashboard's Proprietary Signals panel counts it as one of the directional votes. (It is not an input to the Composite MSI, which is built from its own six components.)
 
-*[Image placeholder: ZeroGEX EOD Pressure card with score, components, and ramp status during the active window - drop file at /public/blog/zerogex-eod-pressure-card.png]*
-
 A worked example. SPX is at 5,825 at 15:15 ET on a monthly OPEX Friday and ZeroGEX shows:
 
 - **EOD Pressure:** -55 (triggered bearish)

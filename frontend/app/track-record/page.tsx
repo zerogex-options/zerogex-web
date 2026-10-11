@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { SYMBOLS } from '@/core/symbols';
 import {
   summarizeForecastHistory,
@@ -74,17 +75,31 @@ async function loadSymbol(symbol: string): Promise<SymbolRecord> {
   return { symbol, history: summarizeForecastHistory(list?.dates, symbol), stats };
 }
 
+const TITLE = 'Track Record\u00a0- ZeroGEX';
+const DESCRIPTION =
+  'Every gamma forecast we have published, graded. Coverage rates with confidence intervals, the dates we missed, and what the numbers do not say.';
+const OG_TITLE = 'ZeroGEX Track Record';
+
 export const metadata: Metadata = {
-  title: 'Track Record\u00a0- ZeroGEX',
-  description:
-    'Every gamma forecast we have published, graded. Coverage rates with confidence intervals, the dates we missed, and what the numbers do not say.',
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/track-record` },
+  // A page-level openGraph replaces the root's wholesale, so without `images`
+  // here the card had no picture; `twitter` is listed for the same reason.
   openGraph: {
-    title: 'ZeroGEX Track Record',
+    title: OG_TITLE,
     description:
       'Every forecast, graded and dated\u00a0- including the misses. Published because a forecast nobody grades is not a forecast.',
     url: `${SITE_URL}/track-record`,
     type: 'website',
+    images: [{ url: SITE_DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: OG_TITLE }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [SITE_DEFAULT_OG_IMAGE],
   },
 };
 
@@ -436,6 +451,10 @@ export default async function TrackRecordPage() {
         <span className="text-[var(--color-text-secondary)]">·</span>
         <Link href="/scorecard/today" className="underline hover:text-[var(--color-accent)]">
           Today&rsquo;s scorecard
+        </Link>
+        <span className="text-[var(--color-text-secondary)]">·</span>
+        <Link href="/forecast/cone" className="underline hover:text-[var(--color-accent)]">
+          Intraday cone and its reliability table
         </Link>
       </section>
 

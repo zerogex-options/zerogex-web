@@ -199,8 +199,12 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
   );
 
 
-  // Fetch real market data
-  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  // Fetch real market data. Once a second for members, who trade off this
+  // number. A public visitor only reaches the app shell on the education and
+  // help libraries and /chart, where the header price is context for reading,
+  // so a 15 s poll keeps it current enough and spares the API 3,600 requests
+  // an hour per open tab (Navigation makes the same call with the same rule).
+  const { data: quoteData } = useMarketQuote(symbol, isPublicUser ? 15000 : 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
 
 

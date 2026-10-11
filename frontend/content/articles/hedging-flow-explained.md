@@ -210,7 +210,7 @@ The names are not statements about price. "Fragile rally" does not require price
 
 ![SPY Hedging Flow at 2:56 PM ET on September 28, 2026: Gamma Weather, the four cards, the Pressure rate chart and the dealer gamma structure](/blog/zerogex-hedging-flow-spy-2026-09-28-cropped.png)
 
-Here is SPY at 2:56 PM ET on September 28, 2026, taken with the page's snapshot button. Click the image to see it larger. The price levels below are read off the chart, so treat them as approximate.
+Here is SPY at 2:56 PM ET on September 28, 2026, taken with the page's snapshot button. Every past session is archived at [Hedging Flow sessions](/hedging-flow/sessions), one dated page per symbol. Click the image to see it larger. The price levels below are read off the chart, so treat them as approximate.
 
 **The cards.** Session pressure reads −$4.76B: an estimated $4.76 billion of SPY selling implied by the day's classified option trades. Both books contributed almost equally, −$2.50B from calls and −$2.26B from puts. Under the model, that is customers selling calls and buying puts, and both imply a hedge that sells.
 
@@ -248,6 +248,6 @@ Hedging Flow is also different from Forced Flow, though the two share units and 
 
 The **0DTE only** switch limits the flow side of the page to contracts expiring that day: the four cards, the flow chart, its flip markers and badge, and the chart inside the Pressure now drawer. Gamma Weather's headline and chips and the Dealer gamma structure chart do not change. They always read all tracked expirations, because structure is a property of the whole book, and that includes the pressure behind the Pressure now chip.
 
-For the page-by-page reference, see the [Hedging Flow help page](/help/platform/hedging-flow). For the mechanics behind it, see [Why Market Makers Trade Stock](/education/why-market-makers-trade-stock), [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip), and [Net Volume vs Directional Flow](/education/net-volume-vs-directional-flow).
+For the page-by-page reference, see the [Hedging Flow help page](/help/platform/hedging-flow). For the mechanics behind it, see [Why Market Makers Trade Stock](/education/why-market-makers-trade-stock), [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip), and [Net Volume vs Directional Flow](/education/net-volume-vs-directional-flow).
 
 Educational content only - none of the above is a trade recommendation.

@@ -37,6 +37,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     // ticker page gets one. Tickers read the same in every locale.
     headingKey: 'footer.freeGammaLevels',
     links: [
+      { href: '/gex-levels', label: 'All six: GEX levels today' },
       { href: '/spx-gamma-levels', label: 'SPX gamma levels' },
       { href: '/spy-gamma-levels', label: 'SPY gamma levels' },
       { href: '/qqq-gamma-levels', label: 'QQQ gamma levels' },
@@ -226,6 +227,9 @@ export default function Footer({ theme }: FooterProps) {
               <Image
                 {...brandLogo(isDark)}
                 alt="ZeroGEX"
+                // 68px tall at the lockup's 3.6:1 is about 242px wide; without
+                // `sizes` next/image would assume full viewport width.
+                sizes="242px"
                 style={{ height: '68px', width: 'auto', objectFit: 'contain' }}
               />
             </Link>

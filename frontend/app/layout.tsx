@@ -24,6 +24,7 @@ import PageAnalytics from '@/components/PageAnalytics';
 import TwitterPixelProvider from '@/components/TwitterPixelProvider';
 import SiteJsonLd from '@/components/SiteJsonLd';
 import { OG_IMAGE_PATH, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from '@/core/ogImageManifest';
+import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 
 // Only the three faces the default "ZeroGEX OG" palette paints with (Inter,
 // JetBrains Mono, Space Grotesk) are preloaded. next/font/local preloads every
@@ -230,10 +231,16 @@ export const metadata: Metadata = {
   // prefer -- and an un-hashed URL never changes, so a re-exported favicon
   // keeps resolving to whatever the browser already cached.
   metadataBase: new URL('https://zerogex.io'),
+  // No title, description or url in openGraph and twitter, on purpose. Next
+  // merges metadata per top-level key, so a page that exports only its own
+  // title and description inherits these two objects WHOLE, and every such
+  // page used to ship the homepage's og:title, og:description, og:url and
+  // twitter:title on its social card. Left out here, Next fills og and
+  // twitter title/description from each page's own (inheritFromMetadata in
+  // next/dist/lib/metadata/resolve-metadata.js); the homepage sets its own
+  // og:url in app/page.tsx. A page that declares its own openGraph or twitter
+  // block replaces this one entirely, so it has to restate the image.
   openGraph: {
-    title: 'ZeroGEX™ | Real-Time Gamma Exposure (GEX) & Options Analytics',
-    description: SITE_DESCRIPTION,
-    url: 'https://zerogex.io',
     siteName: 'ZeroGEX',
     images: [
       {
@@ -248,8 +255,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ZeroGEX™ | Real-Time Gamma Exposure (GEX) & Options Analytics',
-    description: SITE_DESCRIPTION,
+    site: SITE_TWITTER_HANDLE,
     images: [OG_IMAGE_PATH],
   },
 };

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getArticle } from '@/core/articleRegistry';
+import { getArticle, PERSON_FOUNDER } from '@/core/articleRegistry';
 
 // Human-readable labels for the section an article sits under, matching the
 // trail <ArticleJsonLd /> emits as BreadcrumbList so the visible crumbs and
@@ -66,6 +66,13 @@ export default function ArticleMeta({ slug }: { slug: string }) {
       </nav>
       <div className="text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.2em] leading-relaxed text-[var(--text-muted)]">
         ZeroGEX Education
+        {/* The visible half of the Article author markup (ArticleJsonLd cites
+            the founder as a Person): the byline and the structured data have
+            to name the same person, and the link goes to the founder card. */}
+        {' • By '}
+        <Link href="/about#founder" className={crumbClass}>
+          {PERSON_FOUNDER.name}, founder
+        </Link>
         {article.readMinutes > 0 ? ` • ${article.readMinutes} min read` : ''}
         {' • Published '}
         <time dateTime={article.datePublished}>{fmtDate(article.datePublished)}</time>

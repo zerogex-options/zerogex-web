@@ -5,14 +5,16 @@ import { ChevronLeft } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
-import { serverApiGet } from '@/core/api/serverFetch';
+import DataUnavailable from '@/components/DataUnavailable';
+import { serverApiGetResult } from '@/core/api/serverFetch';
+import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { formatEtTimestamp } from '@/core/etTimestamp';
 import { scorecardHrefForCard } from '@/core/scorecardDay';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
 // Public permalink for a single Playbook Action Card. Server-rendered so the
-// OG image preview matches what a Twitter/Discord/Slack crawler sees, and so
-// the card data is baked into the HTML for indexing. ISR-cached for one hour
+// OG image preview matches what a Twitter/Discord/Slack crawler sees (the page
+// itself is noindex; see generateMetadata). ISR-cached for one hour
 // since closed cards are immutable and open cards only matter for the brief
 // window before they resolve — the live /trading-signals dashboard is the
 // real-time surface; this page is the shareable receipt.
@@ -33,8 +35,10 @@ function parseId(raw: string): number | null {
   return n;
 }
 
-async function loadCard(cardId: number): Promise<CardPayload | null> {
-  return serverApiGet<CardPayload>(`/api/signals/action/${cardId}`, REVALIDATE_SECONDS);
+// The result-typed read, so a missing card (a real 404) and an API that did
+// not answer are told apart. Same cache entry as the plain read.
+function loadCard(cardId: number) {
+  return serverApiGetResult<CardPayload>(`/api/signals/action/${cardId}`, REVALIDATE_SECONDS);
 }
 
 function humanizeWords(value: string | undefined): string {
@@ -72,7 +76,8 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   }
-  const card = await loadCard(cardId);
+  const result = await loadCard(cardId);
+  const card = result.ok ? result.data : null;
   const symbol = (card?.underlying || 'SPY').toUpperCase();
   const action = humanizeWords(String(card?.action ?? '')) || 'Action Card';
   const pattern = humanizeWords(String(card?.pattern ?? ''));
@@ -99,11 +104,19 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
       title,
       description,
       images: [`${url}/opengraph-image`],
     },
-    robots: card ? undefined : { index: false, follow: false },
+    // Every card is noindex, follow. The engine emits one about once a minute
+    // per symbol, each a short template-shaped page with its own canonical, so
+    // indexing them grew Search Console's "Crawled, currently not indexed"
+    // bucket and spent crawl budget on receipts nobody searches for. Their job
+    // is the unfurl on X, Discord and Slack, which needs the 200 and the OG
+    // tags above, not a place in the index. `follow` keeps the link to the
+    // Scorecard day counting.
+    robots: { index: false, follow: true },
   };
 }
 
@@ -115,8 +128,15 @@ export default async function ActionCardPage({
   const { id } = await params;
   const cardId = parseId(id);
   if (cardId == null) notFound();
-  const card = await loadCard(cardId);
-  if (!card) notFound();
+  const result = await loadCard(cardId);
+  // A card the API says does not exist is gone and gets a real 404. An API that
+  // did not answer is not evidence of that: a 404 cached for an hour during a
+  // backend restart would break every share link to this card.
+  if (!result.ok && result.reason === 'missing') notFound();
+  if (!result.ok) {
+    return <DataUnavailable what={`Action Card #${cardId}`} backHref="/scorecard" backLabel="Daily Scorecard" />;
+  }
+  const card = result.data;
 
   const isStandDown = String(card.action ?? '').toUpperCase() === 'STAND_DOWN';
   const symbol = (card.underlying || 'SPY').toUpperCase();
@@ -166,10 +186,10 @@ export default async function ActionCardPage({
         flow, the Market State Index, and live structural levels into one decisive instruction.
         This is the permanent receipt for card <span className="font-mono">#{cardId}</span>&nbsp;-
         the entry, stop, target, and reasoning at the moment it was emitted. Closed Action
-        Cards never re-write; the engine cannot retroactively edit a published call. Live
-        positioning lives on{' '}
-        <Link href="/trading-signals" className="underline">
-          /trading-signals
+        Cards never re-write; the engine cannot retroactively edit a published call. Every
+        card a session emitted, and how each one resolved, is on{' '}
+        <Link href={scorecardHref} className="underline">
+          the daily scorecard
         </Link>
         .
       </section>

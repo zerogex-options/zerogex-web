@@ -16,9 +16,9 @@ This piece is for traders who already understand gamma exposure, dealer hedging,
 
 ---
 
-# Part 1 - EOD Pressure
+## Part 1 - EOD Pressure
 
-## What It Measures
+### What It Measures
 
 EOD Pressure is a **directional bias estimator for the final ~90 minutes of the cash session**. It tries to answer one question:
 
@@ -34,7 +34,7 @@ EOD Pressure combines those two effects, scales them by how close we are to the 
 
 ---
 
-## Score Interpretation
+### Score Interpretation
 
 The output is a continuous score from **−100 to +100**. (The formulas below run on −1 to +1; the card and the signal page show the result multiplied by 100.)
 
@@ -50,11 +50,11 @@ The signal flags itself **triggered** when the score crosses **±20**. Anything 
 
 ---
 
-## How The Score Is Built
+### How The Score Is Built
 
 EOD Pressure aggregates four components. Three contribute to magnitude; one acts as a gate.
 
-### Component 1: Charm at Spot
+#### Component 1: Charm at Spot
 
 This is the most direct modeled measure of hedge flow. The signal sums modeled dealer charm exposure across an at-the-money band, weighted by expiry bucket:
 
@@ -77,7 +77,7 @@ The expiry-bucket weights are hand-picked to reflect charm's time-decay profile:
 
 At ±$20M of bucketed dealer charm, the sub-score pegs at ±1.0. Below that, response is linear.
 
-### Component 2: Pin Gravity
+#### Component 2: Pin Gravity
 
 The pin term depends on the modeled gamma regime:
 
@@ -97,7 +97,7 @@ In a modeled negative-gamma regime the target distance carries no directional in
 
 **Methodology limitation:** both branches are ZeroGEX house heuristics with hand-picked saturation points, not calibrated probabilities. The negative-gamma branch encodes the idea that short gamma amplifies the direction already underway; it does not predict that direction.
 
-### Component 3: Time Ramp (Gate)
+#### Component 3: Time Ramp (Gate)
 
 The ramp is a multiplicative gate on the entire signal. Before **14:30 ET**, it is exactly zero - and the signal short-circuits before computing anything else.
 
@@ -112,7 +112,7 @@ The ramp is a multiplicative gate on the entire signal. Before **14:30 ET**, it 
 
 The ramp linearly scales from 0 to 1 between 14:30 and 15:45 ET, then holds at full strength into the close. This is why the signal reads zero through the bulk of the trading day - it is structurally inactive.
 
-### Component 4: Calendar Amplifier
+#### Component 4: Calendar Amplifier
 
 The amplifier increases conviction on dates when positioning concentrates and dealer books are unusually exposed:
 
@@ -126,7 +126,7 @@ The amplifier is the only point in the signal where the intermediate score can e
 
 ---
 
-## Putting It Together
+### Putting It Together
 
 The final aggregation:
 
@@ -139,7 +139,7 @@ The 60/40 weighting is a hand-picked design choice, not a fitted one: it reflect
 
 ---
 
-## When EOD Pressure Returns Zero
+### When EOD Pressure Returns Zero
 
 A zero reading is the most common state. The signal is *designed* to be silent outside its window.
 
@@ -153,9 +153,9 @@ If you are watching the panel at 13:55 ET and it reads zero, that is correct and
 
 ---
 
-# Part 2 - Trap Detection
+## Part 2 - Trap Detection
 
-## What It Measures
+### What It Measures
 
 Trap Detection is designed to identify setups where **price has just broken past a key modeled dealer-positioning level but may fail and reverse**.
 
@@ -171,7 +171,7 @@ The output sign encodes which direction to *fade*, not which direction price jus
 
 ---
 
-## Score Interpretation
+### Score Interpretation
 
 | Score | Label | Trader interpretation |
 |-------|-------|----------------------|
@@ -187,9 +187,9 @@ The trigger threshold here is **±25** - deliberately stricter than EOD Pressur
 
 ---
 
-## How The Score Is Built
+### How The Score Is Built
 
-### Step 1: Identify The Broken Level
+#### Step 1: Identify The Broken Level
 
 ```
 up_levels = [call_wall, max_gamma_strike, vwap, gamma_flip]
@@ -200,7 +200,7 @@ broken_support    = min(level for level in dn_levels if level > close)
 
 Note the naming. *Broken resistance* is the level that price has just risen above - so it now sits below close. *Broken support* is the level price has just slipped beneath. The names reflect the post-breakout perspective.
 
-### Step 2: Vol-Scaled Breakout Buffer
+#### Step 2: Vol-Scaled Breakout Buffer
 
 A small poke above a level is noise, not a breakout. The signal uses a vol-scaled buffer to filter:
 
@@ -211,7 +211,7 @@ buffer_pct  = max(0.1%, 0.15 × σ × √5)
 
 For SPX with a typical intraday σ near 8 basis points per minute, the buffer floors around 0.1%. On volatile days it scales up automatically. Price needs to clear the level by more than the buffer before the signal even starts to register strength.
 
-### Step 3: Continuous Strength Factors
+#### Step 3: Continuous Strength Factors
 
 An earlier iteration of this signal used boolean ANDs and produced cliff-edge behavior - barely-met preconditions flipped the score on and off. The current design uses **continuous [0, 1] factors** that multiply together:
 
@@ -231,7 +231,7 @@ downside_strength = breakout_strength_dn   × long_gamma × strengthening × wal
 
 Any one of these factors going to zero zeros the whole side. Negative-gamma regime? `long_gamma_factor = 0` - no trap. Gamma not strengthening? `strengthening_factor = 0` - no trap. The signal is opinionated about *when* fades work and refuses to fire outside that regime.
 
-### Step 4: Magnitude Term
+#### Step 4: Magnitude Term
 
 A baseline weight plus distance and gamma-acceleration bonuses:
 
@@ -243,7 +243,7 @@ magnitude     = 0.4 + 0.4 × dist_strength + 0.2 × gex_boost   // range: [0.4, 
 
 A qualifying trap carries a minimum weight of 0.4 even if it just barely qualifies. Larger breakouts and accelerating dealer positioning scale it toward 1.0.
 
-### Step 5: Flow Multiplier
+#### Step 5: Flow Multiplier
 
 The flow term separates *real* breakouts from *exhausted* ones:
 
@@ -256,7 +256,7 @@ Decelerating directional flow into a breakout is exactly the trap thesis - buye
 
 Conversely, accelerating flow in the breakout direction means the move has real participants behind it. The trap thesis weakens - the multiplier shrinks toward 0.3.
 
-### Step 6: Final Aggregation
+#### Step 6: Final Aggregation
 
 ```
 bear_score = clip(magnitude × flow_mult × upside_strength,   [0, 1])
@@ -271,7 +271,7 @@ Both side-scores are non-negative. Their difference encodes both direction and c
 
 ---
 
-## When Trap Detection Returns Zero
+### When Trap Detection Returns Zero
 
 Most of the trading day, this signal reads zero. The conditions that zero it out are exactly the conditions you should be aware of:
 
@@ -285,7 +285,7 @@ A zero from Trap Detection is *informational*. It tells you the prerequisites fo
 
 ---
 
-# Reading Both Signals Together
+## Reading Both Signals Together
 
 The two signals are designed to be read jointly. They cover different time horizons and different regimes, but they often overlap on high-conviction setups into the close.
 
@@ -299,7 +299,7 @@ The two signals are designed to be read jointly. They cover different time horiz
 
 ---
 
-## Hardcoded Constants Worth Knowing
+### Hardcoded Constants Worth Knowing
 
 For traders running their own backtests or sizing trades against these signals, a few magic numbers are worth holding in mind. They are not arbitrary - but each is a ZeroGEX heuristic calibration choice, not an industry standard.
 
@@ -319,7 +319,7 @@ All of these are tunable via environment variables on the backend. The defaults 
 
 ---
 
-## Practical Trading Notes
+### Practical Trading Notes
 
 A few patterns that recur often enough to be worth flagging directly:
 
@@ -333,7 +333,7 @@ A few patterns that recur often enough to be worth flagging directly:
 
 ---
 
-## Final Takeaway
+### Final Takeaway
 
 > **EOD Pressure and Trap Detection are silent most of the day. That is the point.**
 
@@ -349,7 +349,7 @@ Dealer hedging is not the whole market. But for the last 90 minutes of the cash 
 
 ---
 
-## Next Steps
+### Next Steps
 
 If you want to push the framework further, the natural extensions are:
 

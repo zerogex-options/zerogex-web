@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasRequiredTier, requiredTierForRoute, normalizeTier } from '../core/auth.ts';
+import { hasRequiredTier, isPublicRoute, requiredTierForRoute, normalizeTier } from '../core/auth.ts';
 import { generateKeyPairSync, verify } from 'node:crypto';
 import { getAppleClientSecret, getOAuthNonceCookieName, getOAuthStateCookieName, isAppleOAuthConfigured } from '../core/oauth.ts';
 import { createLinkTicket, isLinkTicketAvailable, readLinkTicket } from '../core/oauthLinkTicket.ts';
@@ -16,6 +16,26 @@ test('public routes do not require auth tier', () => {
   assert.equal(requiredTierForRoute('/founding'), null);
   assert.equal(requiredTierForRoute('/forgot-password'), null);
   assert.equal(requiredTierForRoute('/reset-password'), null);
+});
+
+test('public pages are public by rule, not by fall-through', () => {
+  // Each of these used to be open only because no ROUTE_ACCESS_RULES pattern
+  // happened to match it. One broad rule added later would have 307'd it to
+  // /login with noindex while the sitemap kept listing it.
+  for (const route of [
+    '/es-gamma-levels',
+    '/nq-gamma-levels',
+    '/help',
+    '/help/faqs',
+    '/help/platform',
+    '/help/platform/data-coverage',
+    '/hedging-flow/sessions',
+  ]) {
+    assert.equal(isPublicRoute(route), true, `${route} should be explicitly public`);
+  }
+  // The live Hedging Flow page stays Basic-gated.
+  assert.equal(isPublicRoute('/hedging-flow'), false);
+  assert.equal(requiredTierForRoute('/hedging-flow'), 'basic');
 });
 
 test('tier requirement mapping resolves expected values', () => {

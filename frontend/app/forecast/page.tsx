@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
+import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 
 // Landing page for /forecast — lists every trading day the writer has
@@ -39,17 +41,30 @@ interface ForecastDateList {
   dates: ForecastDateEntry[];
 }
 
+const TITLE = 'Gamma Forecast\u00a0- ZeroGEX';
+const DESCRIPTION =
+  'Every morning we commit to a projected range, an expected-volatility call and gamma levels with touch odds\u00a0- never a direction call\u00a0- then grade it at 4 PM.';
+
 export const metadata: Metadata = {
-  title: 'Gamma Forecast\u00a0- ZeroGEX',
-  description:
-    'Every morning we commit to a projected range, an expected-volatility call and gamma levels with touch odds\u00a0- never a direction call\u00a0- then grade it at 4 PM.',
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/forecast` },
+  // A page-level openGraph replaces the root's wholesale, so without `images`
+  // here the card had no picture; `twitter` is listed for the same reason.
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/forecast`,
-    title: 'Gamma Forecast\u00a0- ZeroGEX',
+    title: TITLE,
     description: 'Daily pre-market commitments graded against realized 4 PM close.',
     siteName: 'ZeroGEX',
+    images: [{ url: SITE_DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: TITLE }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [SITE_DEFAULT_OG_IMAGE],
   },
 };
 
@@ -119,6 +134,15 @@ export default async function ForecastLanding({
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
               Yesterday&rsquo;s promise, today&rsquo;s receipt
             </h1>
+            {/* The cone is the only other public forecast surface and had no
+                link from here, so a reader on this page could not find it. */}
+            <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+              Intraday? See the{' '}
+              <Link href="/forecast/cone" className="underline hover:text-[var(--color-accent)]">
+                15-minute forecast cone
+              </Link>
+              , re-anchored through the session.
+            </p>
           </div>
           {/* Six chips are ~350px: on a phone they scroll sideways, edge to
               edge, rather than run off the screen. */}
@@ -184,6 +208,8 @@ export default async function ForecastLanding({
         forecast was later proven wrong, the receipt page shows it&nbsp;- the whole point is to grade
         ourselves in public, not hide misses.
       </section>
+
+      <ReceiptFooterLinks symbol={symbol} />
     </main>
   );
 }

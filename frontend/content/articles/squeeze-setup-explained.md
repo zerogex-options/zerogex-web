@@ -137,7 +137,7 @@ Three traps:
 
 - **Treating a 0 as "neutral."** A 0 on Squeeze Setup means *nothing is compressed* - not that the market is balanced. Do not trade off it as a "calm" green light.
 - **Trading off a sub-threshold score.** The ±25 threshold matters. An 18 reading might *feel* like a setup, but it is not triggered - and the difference between "feels coiled" and "is structurally coiled" is most of the edge.
-- **Ignoring the regime.** Squeeze Setup says nothing about the gamma regime by itself. A coiled market below the flip behaves differently than one above. Always cross-check with the [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) workflow.
+- **Ignoring the regime.** Squeeze Setup says nothing about the gamma regime by itself. A coiled market below the flip behaves differently than one above. Always cross-check against the [gamma flip explainer](/education/how-to-read-a-gamma-flip).
 
 ---
 
@@ -148,8 +148,6 @@ The dashboard surfaces it in a few places:
 - **The Squeeze Setup card** shows the live score, the trigger state, and the input breakdown.
 - **The Event Timeline** on the signal's page charts the score's recent path, with direction flips marked.
 - **Signal Breadth** on the dashboard's Proprietary Signals panel counts it as one of the directional votes. (It is not an input to the Composite MSI, which is built from its own six components.)
-
-*[Image placeholder: ZeroGEX Squeeze Setup card with score, trigger state, and input contributions - drop file at /public/blog/zerogex-squeeze-setup-card.png]*
 
 A worked example. Suppose SPX is grinding sideways into Wednesday's session and ZeroGEX shows:
 

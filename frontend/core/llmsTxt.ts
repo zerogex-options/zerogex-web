@@ -125,6 +125,7 @@ ${DISPLAY_ORDER.map(
   (s) =>
     `- [${s} gamma levels today](${SITE_URL}/${s.toLowerCase()}-gamma-levels): Today's ${s} gamma flip, call wall, put wall, net GEX and max pain, 15-minute delayed.`,
 ).join('\n')}
+- [GEX levels today](${SITE_URL}/gex-levels): All six instruments' gamma flip, call wall, put wall and net GEX on one page, 15-minute delayed.
 - [Delayed gamma terminal](${SITE_URL}/chart): The levels drawn on a price chart, beside the per-strike Net GEX book.
 - [GEX replay](${SITE_URL}/replay): How the levels moved through a past session, by date.
 - [Daily scorecard](${SITE_URL}/scorecard): What the published levels did afterwards, scored per session.

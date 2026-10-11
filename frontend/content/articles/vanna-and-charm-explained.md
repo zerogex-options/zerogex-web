@@ -10,7 +10,7 @@ If you have spent any time reading dealer-positioning analysis, gamma gets most 
 
 Most traders running gamma-only frameworks read the regime correctly but miss the second-order pressures inside it. A vol-compression regime with persistent vanna-driven buying behaves differently than one without it. A 0DTE-heavy chain into the close behaves differently because charm decay is driving steady re-hedging. Adding vanna and charm to the read does not replace the gamma framework - it sharpens it.
 
-This piece walks through what each Greek is, why dealers care, how the flows show up in the tape, and how they interact with the gamma regime. For the underlying structural framework, start with the [Gamma Exposure pillar](/education/gamma-exposure-explained); for the regime line, see [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip); and for the 0DTE-specific reads where charm decay is loudest, see [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
+This piece walks through what each Greek is, why dealers care, how the flows show up in the tape, and how they interact with the gamma regime. For the underlying structural framework, start with the [Gamma Exposure pillar](/education/gamma-exposure-explained); for the regime line, see [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip); and for the 0DTE-specific reads where charm decay is loudest, see [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
 
 ---
 

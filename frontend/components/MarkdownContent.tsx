@@ -2,6 +2,31 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 
 import ExpandableImage from '@/components/ExpandableImage';
+import { extractHeadings, wantsTableOfContents, type MarkdownHeading } from '@/core/markdownHeadings';
+
+// The "On this page" list for long documents (see core/markdownHeadings.ts for
+// the thresholds and why ids exist at all). h2s only: on a 3,000-word article
+// the h3 level turns a contents list into a second copy of the article.
+function TableOfContents({ headings }: { headings: MarkdownHeading[] }) {
+  const sections = headings.filter((h) => h.level === 2);
+  return (
+    <nav
+      aria-label="On this page"
+      className="my-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-5 py-4 text-sm"
+    >
+      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">On this page</div>
+      <ol className="list-decimal space-y-1 pl-5 text-[var(--text-secondary)]">
+        {sections.map((h) => (
+          <li key={h.id}>
+            <a href={`#${h.id}`} className="underline-offset-2 hover:text-[var(--color-warning)] hover:underline">
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
 
 function parseInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -55,6 +80,20 @@ export function renderMarkdown(markdown: string): ReactNode[] {
   const lines = markdown.split('\n');
   const out: ReactNode[] = [];
   let i = 0;
+  // Heading ids come from the same pass the contents list uses, consumed in
+  // document order, so a heading and the link to it always match.
+  const headings = extractHeadings(markdown);
+  let headingIdx = 0;
+  const nextHeadingId = () => headings[headingIdx++]?.id;
+  // The contents list goes after the italic lede that follows the H1, or just
+  // before the first h2 when there is no lede.
+  let tocPending = wantsTableOfContents(markdown, headings);
+  let seenH1 = false;
+  const flushToc = () => {
+    if (!tocPending) return;
+    tocPending = false;
+    out.push(<TableOfContents key="toc" headings={headings} />);
+  };
 
   while (i < lines.length) {
     const line = lines[i].trimEnd();
@@ -91,19 +130,29 @@ export function renderMarkdown(markdown: string): ReactNode[] {
     }
 
     if (trimmed.startsWith('# ')) {
+      seenH1 = true;
       out.push(<h1 key={`h1-${i}`} className="mt-2 mb-5 sm:mb-6 text-[30px] sm:text-4xl font-extrabold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(2))}</h1>);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('## ')) {
-      out.push(<h2 key={`h2-${i}`} className="mt-9 sm:mt-10 mb-3 sm:mb-4 text-[22px] sm:text-2xl font-bold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(3))}</h2>);
+      flushToc();
+      out.push(<h2 key={`h2-${i}`} id={nextHeadingId()} className="scroll-mt-24 mt-9 sm:mt-10 mb-3 sm:mb-4 text-[22px] sm:text-2xl font-bold leading-tight text-[var(--color-text-primary)]">{parseInline(trimmed.slice(3))}</h2>);
       i += 1;
       continue;
     }
 
     if (trimmed.startsWith('### ')) {
-      out.push(<h3 key={`h3-${i}`} className="mt-7 sm:mt-8 mb-3 text-lg sm:text-xl font-semibold text-[var(--color-text-primary)]">{parseInline(trimmed.slice(4))}</h3>);
+      out.push(<h3 key={`h3-${i}`} id={nextHeadingId()} className="scroll-mt-24 mt-7 sm:mt-8 mb-3 text-lg sm:text-xl font-semibold text-[var(--color-text-primary)]">{parseInline(trimmed.slice(4))}</h3>);
+      i += 1;
+      continue;
+    }
+
+    // Was silently dropped until now (no branch matched and the paragraph
+    // collector skips '#' lines), so a document could not nest a fourth level.
+    if (trimmed.startsWith('#### ')) {
+      out.push(<h4 key={`h4-${i}`} id={nextHeadingId()} className="scroll-mt-24 mt-6 mb-2 text-base sm:text-lg font-semibold text-[var(--color-text-primary)]">{parseInline(trimmed.slice(5))}</h4>);
       i += 1;
       continue;
     }
@@ -257,6 +306,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
           {parseInline(paragraph.join(' '))}
         </p>,
       );
+      if (seenH1) flushToc();
       continue;
     }
 

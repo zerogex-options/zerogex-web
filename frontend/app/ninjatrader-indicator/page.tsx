@@ -4,7 +4,8 @@ import BrokerConnectionNote from '@/components/BrokerConnectionNote';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
-import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { PUBLISHER_REF, SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_TWITTER_HANDLE, SITE_URL } from '@/core/articleRegistry';
+import { LIST_PRICE_USD } from '@/core/billingPlans';
 import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 
@@ -24,7 +25,7 @@ const INTEGRATION = integrationById('ninjatrader');
 const PATH = INTEGRATION.href;
 const TITLE = 'ZeroGEX Gamma Levels\u00a0- Auto-Updating NinjaTrader 8 Indicator';
 const DESCRIPTION =
-  'A NinjaTrader 8 indicator that draws the ZeroGEX gamma flip, call wall, put wall, max pain, and pin strike on your chart and keeps them current\u00a0- it polls the ZeroGEX API, so you never retype a number. Included with ZeroGEX Pro, along with the API key it needs.';
+  'NinjaTrader 8 indicator that draws the ZeroGEX gamma flip, call wall, put wall, max pain and pin strike and keeps them current from the API. Included with Pro.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -40,6 +41,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
     title: TITLE,
     description: DESCRIPTION,
     images: [SITE_DEFAULT_OG_IMAGE],
@@ -56,14 +58,22 @@ const JSON_LD = {
   url: `${SITE_URL}${PATH}`,
   description: DESCRIPTION,
   // Both the download and the key it needs are Pro entitlements, so this must
-  // not carry the zero-priced Offer its TradingView sibling legitimately does —
+  // not carry the zero-priced Offer its TradingView sibling legitimately does:
   // that would be structured data telling search engines the thing is free
-  // while the page shows an upgrade button. No price is asserted here because
-  // plan pricing lives on /pricing and would go stale duplicated into a
-  // constant; the Offer points there instead.
+  // while the page shows an upgrade button. The price is Pro monthly at list,
+  // read from the same constant the pricing page renders (core/billingPlans),
+  // so it cannot drift from what /pricing shows, and the @id is the matching
+  // Offer node in /pricing's own structured data.
   isAccessibleForFree: false,
-  offers: { '@type': 'Offer', url: `${SITE_URL}/pricing?plan=pro`, category: 'subscription' },
-  publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+  offers: {
+    '@type': 'Offer',
+    '@id': `${SITE_URL}/pricing#pro-monthly`,
+    price: String(LIST_PRICE_USD.pro.monthly),
+    priceCurrency: 'USD',
+    url: `${SITE_URL}/pricing?plan=pro`,
+    category: 'subscription',
+  },
+  publisher: PUBLISHER_REF,
 };
 
 export default function NinjaTraderIndicatorPage() {

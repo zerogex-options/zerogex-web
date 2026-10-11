@@ -39,7 +39,7 @@ Same index, same chart - opposite tape character depending on the sign of GEX. 
 
 GEX isn't just one number; it maps to specific price levels worth watching:
 
-- **Gamma flip** - the price where total dealer gamma crosses from positive to negative. Above it, the market is usually in the calming long-gamma regime; below it, the amplifying short-gamma regime. It's the regime line. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma flip** - the price where total dealer gamma crosses from positive to negative. Above it, the market is usually in the calming long-gamma regime; below it, the amplifying short-gamma regime. It's the regime line. See [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
 - **Call wall** - the strike with the heaviest call gamma above spot, where hedging leans against rallies in positive gamma.
 - **Put wall** - the strike with the heaviest put gamma below spot, where aggregate hedging leans against dips in positive gamma.
 
@@ -61,7 +61,7 @@ GEX won't tell you *what* will happen next. It tells you which *kind* of day you
 
 ## Where to see GEX for yourself
 
-You don't have to compute dealer gamma by hand. ZeroGEX publishes today's Net GEX, gamma flip, call wall, and put wall - free and delayed about 15 minutes - for [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels). For the live read with the full gamma profile, strike-by-DTE heatmap, and the Market State Index, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
+You don't have to compute dealer gamma by hand. ZeroGEX publishes today's Net GEX, gamma flip, call wall, and put wall - free and delayed about 15 minutes - for [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels), plus the ES and NQ futures, with all six side by side on [today's GEX levels page](/gex-levels). For the live read with the full gamma profile, strike-by-DTE heatmap, and the Market State Index, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
 
 ---
 

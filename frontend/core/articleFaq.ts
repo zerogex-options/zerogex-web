@@ -92,8 +92,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Dealers work to stay delta-neutral, so when their gamma is large they must trade the underlying continuously as price moves. Those hedging flows are mechanical and sizable, which is why gamma exposure shapes intraday support, resistance, and volatility.',
     },
     {
-      q: 'What is the gamma flip?',
-      a: 'The gamma flip is the price where aggregate modeled dealer gamma crosses between positive and negative. Above it, markets tend to be calmer and mean-reverting; below it, they tend to be more volatile and trend-prone.',
+      // Replaces "What is the gamma flip?", which the flip explainer and the
+      // levels pages already answer; this is the question only the pillar's
+      // own "How is gamma exposure calculated?" section answers.
+      q: 'How is gamma exposure calculated?',
+      a: 'For each strike, multiply the option’s gamma by its open interest, the 100-share contract multiplier and spot squared, then scale to a 1% move, which gives the dollars of underlying dealers would trade if price moved 1%. A sign is then assigned under the standard convention: dealers are modeled as long the calls customers sell and short the puts customers buy, so calls count positive and puts negative. Summing across the chain gives net GEX. It is a modeled estimate, not observed dealer inventory.',
     },
   ],
   'how-to-read-a-gamma-flip': [

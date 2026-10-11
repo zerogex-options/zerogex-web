@@ -5,7 +5,7 @@ import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
 export const metadata = {
-  title: 'Methodology & Validation | ZeroGEX',
+  title: 'Methodology & Validation\u00a0- ZeroGEX',
   description:
     'What ZeroGEX observes, what it models, and how the models are tested. The dealer-positioning convention, its limitations, and how we evaluate whether it works.',
   alternates: { canonical: '/methodology' },

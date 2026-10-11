@@ -28,6 +28,7 @@ function page(heading: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>ZeroGEX\u00a0- Email preferences</title></head>
 <body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
@@ -52,7 +53,14 @@ export async function GET(request: NextRequest) {
       );
   return new Response(html, {
     status: ok ? 200 : 400,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      // A signed, personal link has no business in a search index. The header
+      // as well as the meta tag, as in app/levels-email/shell.ts: a crawler
+      // that reads only headers still gets the directive.
+      'X-Robots-Tag': 'noindex, nofollow',
+    },
   });
 }
 
@@ -73,6 +81,6 @@ export async function POST(request: NextRequest) {
   const ok = applyUnsubscribe(u, t);
   return new Response(ok ? 'unsubscribed' : 'invalid', {
     status: ok ? 200 : 400,
-    headers: { 'Cache-Control': 'no-store' },
+    headers: { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' },
   });
 }

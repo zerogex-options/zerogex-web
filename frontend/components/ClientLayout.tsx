@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
+import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
@@ -55,7 +56,7 @@ const getProWelcomeGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/embed', '/collective2-strategy-data', ...integrationRoutes()];
+const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/gex-levels', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/embed', '/collective2-strategy-data', ...integrationRoutes()];
 
 // Path prefixes that render bare too. The Live Bulletin snapshot is a
 // screenshot target for the X-post job, which captures only the card: the
@@ -279,6 +280,11 @@ export default function ClientLayout({
     />
   ) : null;
 
+  // Basic and up: the tiers whose tools read the caches the prewarms fill.
+  const canPrewarm =
+    authSession?.authenticated === true &&
+    hasTierAccess(normalizeTier(authSession.user?.tier), 'basic');
+
   if (STANDALONE_ROUTES.includes(pathname) || STANDALONE_PREFIXES.some((p) => pathname.startsWith(p))) {
     return (
       <>
@@ -301,8 +307,17 @@ export default function ClientLayout({
         flexDirection: 'column',
       }}
     >
-      <TechnicalSnapshotPrewarm />
-      <OptionChainPrewarm />
+      {/* The prewarms fill the technicals and option-chain caches for the
+          member tools. Both endpoints sit behind the Basic tier gate, so for an
+          anonymous reader of an education or help page they are eight
+          requests that are all rejected: nothing warms, and the free pages
+          pay for the round trips. Members keep the warm caches they had. */}
+      {canPrewarm && (
+        <>
+          <TechnicalSnapshotPrewarm />
+          <OptionChainPrewarm />
+        </>
+      )}
       <Header theme={theme} onToggleTheme={toggleTheme} initialCollapsed={initialHeaderCollapsed} />
       <Navigation
         theme={theme}

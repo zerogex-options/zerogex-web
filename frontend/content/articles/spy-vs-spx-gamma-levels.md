@@ -94,7 +94,7 @@ The free ZeroGEX gamma-levels pages publish all three books next to each other s
 - [SPY gamma levels](/spy-gamma-levels) - the ETF book, finer strikes and pin detail.
 - [QQQ gamma levels](/qqq-gamma-levels) - the Nasdaq-100 read.
 
-Each page leads with its own ticker's gamma flip, call wall, put wall, max pain, and net dealer GEX, then shows the other two for cross-checking. For the mechanics behind the levels, start with [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained), then [Gamma Walls Explained](/education/gamma-walls-explained) and [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+Each page leads with its own ticker's gamma flip, call wall, put wall, max pain, and net dealer GEX, then shows the other two for cross-checking. For the mechanics behind the levels, start with [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained), then [Gamma Walls Explained](/education/gamma-walls-explained) and [What Is a Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 ---
 

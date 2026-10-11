@@ -89,6 +89,7 @@ function shell(heading: string, bodyHtml: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
 <title>ZeroGEX\u00a0- Keep your access</title></head>
 <body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
@@ -102,7 +103,14 @@ function shell(heading: string, bodyHtml: string): string {
 function htmlResponse(html: string, status: number): Response {
   return new Response(html, {
     status,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      // A signed, personal link has no business in a search index. The header
+      // as well as the meta tag, as in app/levels-email/shell.ts: a crawler
+      // that reads only headers still gets the directive.
+      'X-Robots-Tag': 'noindex, nofollow',
+    },
   });
 }
 

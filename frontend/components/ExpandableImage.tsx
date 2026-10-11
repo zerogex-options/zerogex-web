@@ -2,9 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import { Expand, ExternalLink, X } from 'lucide-react';
 
 import { lockPageScroll } from '@/core/scrollLock';
+import { BLOG_IMAGE_DIMENSIONS } from '@/core/blogImageManifest';
+
+// The reading column is max-w-4xl (896px) with 20 to 24px of padding a side
+// (see any education page shell), so the thumbnail renders at about viewport
+// minus 40px on a phone and 856px on anything wider. Telling next/image that
+// is what lets it serve a copy sized for the column instead of the full
+// screenshot.
+const THUMBNAIL_SIZES = '(max-width: 896px) calc(100vw - 40px), 856px';
 
 /**
  * An article image that opens larger on click.
@@ -29,6 +38,12 @@ export default function ExpandableImage({ src, alt }: { src: string; alt: string
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  // Known for every /blog/*.png (scripts/blog-image-manifest.js reads it off
+  // the PNG). With it the thumbnail goes through next/image, which reserves
+  // the picture's space before it loads and serves a resized copy. Anything
+  // else (an external URL, a file not yet in the manifest) keeps the plain
+  // <img>, since next/image refuses to render without a size.
+  const dimensions = BLOG_IMAGE_DIMENSIONS[src];
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -59,13 +74,27 @@ export default function ExpandableImage({ src, alt }: { src: string; alt: string
         className="group relative block w-full cursor-zoom-in rounded-2xl p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-warning)]"
         style={{ background: 'none', border: 0 }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          className="w-full rounded-2xl border border-[var(--color-border)]"
-        />
+        {dimensions ? (
+          // h-auto alongside w-full: without it the height attribute next/image
+          // emits would stay in force while the width stretched to the column,
+          // and the screenshot would render squashed.
+          <Image
+            src={src}
+            alt={alt}
+            width={dimensions.width}
+            height={dimensions.height}
+            sizes={THUMBNAIL_SIZES}
+            className="w-full h-auto rounded-2xl border border-[var(--color-border)]"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            className="w-full rounded-2xl border border-[var(--color-border)]"
+          />
+        )}
         <span
           aria-hidden="true"
           className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"

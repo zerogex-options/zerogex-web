@@ -4,7 +4,7 @@ import { ArrowRight, PencilLine, RefreshCw } from 'lucide-react';
 import BrokerConnectionNote from '@/components/BrokerConnectionNote';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_TWITTER_HANDLE, SITE_URL } from '@/core/articleRegistry';
 import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integrations';
 
 // The parent page for every chart-platform integration.
@@ -20,9 +20,9 @@ import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integra
 // page cannot fall out of date with them.
 
 const PATH = INTEGRATIONS_HUB.href;
-const TITLE = 'ZeroGEX Chart Integrations\u00a0- TradingView, thinkorswim, NinjaTrader & Sierra Chart';
+const TITLE = 'ZeroGEX Chart Integrations: TradingView, thinkorswim & More';
 const DESCRIPTION =
-  'Plot ZeroGEX gamma levels on the platform you already trade from. Free manual-entry scripts for TradingView and thinkorswim, and auto-updating Pro studies for NinjaTrader 8 and Sierra Chart that poll the ZeroGEX API.';
+  'Plot ZeroGEX gamma levels on the chart you trade from: free TradingView and thinkorswim scripts, auto-updating Pro studies for NinjaTrader 8 and Sierra Chart.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -38,6 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: SITE_TWITTER_HANDLE,
     title: TITLE,
     description: DESCRIPTION,
     images: [SITE_DEFAULT_OG_IMAGE],

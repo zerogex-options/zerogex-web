@@ -4,9 +4,11 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft, CheckCircle2, XCircle, Ruler, Gauge, Layers, Info } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
+import ReceiptFooterLinks, { gammaLevelsLink } from '@/components/ReceiptFooterLinks';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
 import DataUnavailable from '@/components/DataUnavailable';
@@ -121,6 +123,22 @@ function formatHumanDate(raw: string): string {
   }
 }
 
+// "Oct 9, 2026": the <title> form. The long date above spent most of a
+// title's width on a weekday and a spelled-out month.
+function formatShortDate(raw: string): string {
+  try {
+    const dt = new Date(`${raw}T12:00:00Z`);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(dt);
+  } catch {
+    return raw;
+  }
+}
+
 // Snake-case enum → Title Case ("compression" → "Compression").
 function humanize(value: string | null): string {
   if (!value) return 'Unknown';
@@ -179,17 +197,30 @@ export async function generateMetadata({
   // Next fetch cache, so this costs nothing.
   const forecast = await loadForecast(date, sym);
   const data = forecast.ok ? forecast.data : null;
-  const human = formatHumanDate(date);
+  const short = formatShortDate(date);
   const url = `${SITE_URL}/forecast/${sym}/${date}`;
-  const hasReceipt = data?.receipt != null;
-  const titleHead = hasReceipt ? 'Receipt' : 'Forecast';
-  const title = data
-    ? `${sym} · ${human} ${titleHead}\u00a0- ZeroGEX`
-    : `${sym} · ${human} Forecast\u00a0- ZeroGEX`;
-  const description = data
-    ? hasReceipt
-      ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} (the graded claim).`
-      : `${sym} morning forecast: range ${fmtPrice(data.morning.projected_low)}-${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state)} volatility, key gamma levels with touch odds. No direction call.`
+  // One title in both states. The morning and the receipt are the same page
+  // at two times of day, and a title that flipped to "Receipt" at 4 PM told
+  // the index nothing about what the page holds.
+  const title = `${sym} Gamma Forecast, ${short}: Range, Levels, Receipt`;
+  // The receipt's description keeps the morning commitment and appends the
+  // grade in words. The old "✓ held" glyphs are not in the OG font (see
+  // tests/ogImages.test.ts) and would break the card if ever copied there.
+  const commitment = data
+    ? `${sym} gamma forecast for ${short}: projected range ${fmtPrice(data.morning.projected_low)}-${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state).toLowerCase()} volatility, key levels with touch odds.`
+    : null;
+  const grade =
+    data?.receipt == null
+      ? null
+      : data.receipt.range_respected == null
+        ? 'range not graded'
+        : data.receipt.range_respected
+          ? 'range held'
+          : 'range broken';
+  const description = commitment
+    ? grade
+      ? `${commitment} Graded at 4 PM: ${grade}.`
+      : `${commitment} No direction call.`
     : 'Daily ZeroGEX Gamma Forecast Card\u00a0- pre-market commitment, 4 PM receipt.';
   return {
     title,
@@ -205,6 +236,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
+      site: SITE_TWITTER_HANDLE,
       title,
       description,
       images: [`${url}/opengraph-image`],
@@ -257,11 +289,13 @@ export default async function ForecastPage({
             <ChevronLeft size={14} /> Forecasts
           </Link>
           <span className="text-[var(--color-border)]" aria-hidden="true">·</span>
+          {/* The symbol's own levels page: a QQQ receipt used to send readers
+              to the SPX one. */}
           <Link
-            href="/spx-gamma-levels"
+            href={gammaLevelsLink(sym).href}
             className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
           >
-            Gamma Levels
+            {sym} gamma levels
           </Link>
         </div>
         <ShareCardButton
@@ -492,6 +526,8 @@ export default async function ForecastPage({
           </>
         )}
       </section>
+
+      <ReceiptFooterLinks symbol={sym} />
     </main>
   );
 }

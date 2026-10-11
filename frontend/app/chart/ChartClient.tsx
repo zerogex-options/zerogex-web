@@ -160,11 +160,16 @@ export default function ChartClient({
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={14} style={{ color: delayed ? 'var(--color-warning)' : 'var(--color-brand-primary)' }} />
           <span className="zg-eyebrow" style={{ color: delayed ? 'var(--color-warning)' : 'var(--color-brand-primary)' }}>
-            {delayed ? 'Free preview · ~15-min delayed' : 'Proprietary · ZeroGEX only'}
+            {delayed ? 'The Gamma Terminal · Free preview · ~15-min delayed' : 'Proprietary · ZeroGEX only'}
           </span>
         </div>
         <div className="flex items-center gap-2.5" style={{ marginBottom: 12 }}>
-          <h1 className="zg-h1" style={{ margin: 0 }}>The Gamma Terminal</h1>
+          {/* The public page's H1 says what the page IS, in the words people
+              search for (free GEX chart, gamma exposure, by strike); the
+              product name moves up into the eyebrow there. Members keep it. */}
+          <h1 className="zg-h1" style={{ margin: 0 }}>
+            {delayed ? 'Free GEX Chart: SPY Gamma Exposure by Strike' : 'The Gamma Terminal'}
+          </h1>
           <TooltipWrapper text={INFO_TEXT} placement="bottom" />
         </div>
 
@@ -195,6 +200,14 @@ export default function ChartClient({
             point at something that exists in both states, and the copy is
             static — there is nothing to tear down. */}
         <div id="chart-hero-intro" hidden={!introOpen}>
+          {/* One plain definition on the public page, which is the one that
+              ranks for the term, linked to the pillar that explains it. */}
+          {delayed && (
+            <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>
+              A <Link href="/education/gamma-exposure-explained">gamma exposure</Link> chart shows where dealer hedging is concentrated by strike.
+              For the levels across SPX, SPY, QQQ, NDX, ES and NQ at once, see <Link href="/gex-levels">GEX levels today</Link>.
+            </p>
+          )}
           <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>
             Price and modeled dealer gamma on one surface. See where hedging pressure is modeled to
             concentrate&nbsp;- the Gamma Flip, the Call and Put Walls drawn inline on a fast, precise candle

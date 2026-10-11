@@ -72,6 +72,13 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
           </Link>
         ))}
       </div>
+      <p className="mt-4 text-sm leading-7 text-[var(--color-text-secondary)]">
+        Or compare all six at once on{' '}
+        <Link href="/gex-levels" className={linkClass}>
+          today&apos;s GEX levels page
+        </Link>
+        .
+      </p>
       {/* The publisher's exit, for the one reader in this audience who is not
           here to trade. These pages rank for the definitional queries
           ("what is a gamma wall", "gex tools") that anyone WRITING about
