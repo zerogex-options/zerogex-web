@@ -5,8 +5,8 @@ wrapping, so it can be pasted straight into a mail client.
 
 Val signs "Val" and shows as *Val Lav*. Subject: "NT8 GEX indicator".
 
-> **Status:** first reply sent. Second reply (see "Second reply") unsent.
-> Reply in the same thread.
+> **Status:** first and second replies sent. Third reply (see "Third
+> reply: Gexbot order flow") unsent. Reply in the same thread.
 
 ## Thread so far
 
@@ -19,6 +19,14 @@ Val signs "Val" and shows as *Val Lav*. Subject: "NT8 GEX indicator".
    in the API, two backtest traps.
 3. **Inbound.** "It all sounds a bit complicated for me, but I appreciate the
    info." He's closing the thread politely. He doesn't write code.
+4. **Outbound.** The second draft: Replay, and "tell me the idea".
+5. **2026-10-11 9:04 PM, inbound, subject "Re: Quick question about
+   ZeroGEX".** Sends a YouTube video ("Unmasking Market Dynamics with
+   OrderFlow Analysis (Part 2)", channel GexFuturesTrading, which is not
+   Gexbot's own channel). Asks whether Pro shows the "GEX and Convexity order
+   flow" from the video, and if not, whether we can add it soon and at what
+   monthly price. Says Gexbot charges $250 a month, "quite expensive for most
+   people".
 
 ## The read
 
@@ -191,3 +199,107 @@ zerogex.io
 - **It's a futures rule, or it needs "price crosses the flip".** There's no
   no-code way today. Say so plainly, and point him back to Replay to judge it
   by eye.
+
+## Third reply: Gexbot order flow
+
+### What he's asking for
+
+Read first-hand from gexbot.com and docs.gexbot.com on 2026-10-12 (the pages
+need JavaScript, so they were rendered in a headless browser). The video
+itself couldn't be watched from here; its title and channel came from
+YouTube's oEmbed.
+
+- **Gexbot sells four tiers:** Classic (GEX from open interest and volume),
+  State (levels from classified volume), Orderflow (classified flow signals),
+  and Quant (streaming and history). Each includes the ones below it. Prices
+  didn't render; Val says the one he wants is $250 a month.
+- **Everything above Classic rests on trade classification:** "real-time
+  options classification ... at millisecond precision to identify the
+  aggressor."
+- **GEX Orderflow** = "Call GEX Imbalance - Put GEX Imbalance", "the change in
+  taker GEX over the last second". Gamma-weighted, signed by buyer or seller,
+  per second.
+- **Convexity Orderflow** = "(Long Orderflow × GEX) - (Short Orderflow ×
+  GEX)", also per second. Positive means traders are buying options (wanting
+  more volatility), negative means selling them. Meant to be read next to DEX
+  Orderflow: positive DEX with negative convexity is a short put, positive
+  DEX with positive convexity is a long call.
+- **DEX Orderflow and Aggregate DEX:** the per-second change in taker delta,
+  and its running total since 09:30 ET.
+- They also have size filters ("threshold filters") that hide small prints.
+
+### What we have
+
+All in the code and help pages on `release`. All three pages are in Basic,
+so Pro has them too (`frontend/content/help/platform/tiers-and-access.md`).
+
+- **Every options trade is already classified as buyer- or
+  seller-initiated** (Lee-Ready), per contract per minute
+  (`flow_contract_facts`, with `buy_volume`, `sell_volume`, `delta`).
+- **Hedging Flow** (`/hedging-flow`) is the delta-weighted version:
+  `(buy − sell) × delta × 100 × spot`, as a bar-by-bar rate and a session
+  running total, in 5-minute bars. That's the same idea as Gexbot's DEX
+  Orderflow and Aggregate DEX, at 5-minute resolution, not per second.
+- **Flow Analysis** (`/flow-analysis`) shows aggressor-signed volume and
+  premium for calls and puts, in 1- or 5-minute bars. When net call premium
+  and net put premium are both positive, aggressors are buying options. That
+  answers the question convexity order flow answers, weighted by premium
+  rather than gamma.
+- **Smart Money** (`/smart-money`) is the day's largest prints, each tagged
+  Buy or Sell, with size filters. Close to their threshold filters.
+- **What we don't have:** anything gamma-weighted from classified flow (no
+  GEX or convexity order flow), and nothing per second. Our trade sides are
+  stored per minute.
+- **Don't offer `convexity_risk` as a match.** It's |net GEX| ÷ distance to
+  the flip (zerogex-oa `src/analytics/main_engine.py`), a different measure
+  with a similar name.
+
+### The read
+
+- **Answer the question he asked: no, not in that form.** Then show what
+  covers the same ground, without overselling it as equivalent.
+- **Don't promise the feature or a date.** He asked for a price with it
+  included. Quoting one for something that doesn't exist would be a promise.
+  State today's Pro price instead (from the pricing page: $59 a month, $115 a
+  quarter, $299 a year).
+- **Keep it plain.** He found the backtest reply complicated. Three short
+  bullets, no formulas.
+- **Don't mention that these pages are in Basic too.** It's true, but he
+  needs Pro for the NinjaTrader indicator's key, and his question was about
+  Pro. If he asks what Basic includes, tell him straight.
+
+### Draft
+
+Hi Val,
+
+Thanks for sending the video. Short answer: not in that exact form.
+
+Gexbot's GEX and Convexity order flow weigh every options trade by its gamma and update every second. We don't have gamma-weighted order flow, and our flow charts work in 1- and 5-minute bars rather than seconds.
+
+What Pro does have starts from the same place: every options trade is sorted into buyer-initiated or seller-initiated.
+
+- Hedging Flow weighs each trade by its delta and shows how much stock dealers would have to buy or sell to stay hedged, bar by bar and as a running total for the day. It's the closest match to the delta (DEX) order flow in the video. https://zerogex.io/hedging-flow
+- Flow Analysis shows buyer- versus seller-initiated volume and premium for calls and puts. When buyers are paying up for both, traders are buying options, which is the question convexity order flow answers. Ours is weighted by premium rather than gamma. https://zerogex.io/flow-analysis
+- Smart Money lists the day's biggest trades, each tagged buy or sell, with size filters like the ones in the video. https://zerogex.io/smart-money
+
+Pro is $59 a month, $115 a quarter, or $299 a year, and all three are included.
+
+I can't promise gamma-weighted order flow or a date for it, so I won't quote a price for it. I've noted it as a request, and it helps to know you'd use it.
+
+Best,
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he replies
+
+- **He asks what Basic includes.** All three pages above are in Basic
+  ($39 a month). The NinjaTrader indicator needs the API key, which is Pro
+  only, so moving to Basic would turn the indicator off. Tell him both.
+- **He asks when.** No date. It's buildable at one-minute resolution from
+  data we already store (trade sides per contract, plus gamma from the option
+  chain), but nothing is scheduled. Per-second isn't possible on the current
+  data, so don't let "soon" turn into "like Gexbot's".
+- **He asks for it in NinjaTrader.** The indicator draws levels only, no flow.
+  Same answer: noted, no date.
