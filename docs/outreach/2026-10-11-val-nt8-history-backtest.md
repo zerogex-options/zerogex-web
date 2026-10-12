@@ -264,6 +264,10 @@ so Pro has them too (`frontend/content/help/platform/tiers-and-access.md`).
   quarter, $299 a year).
 - **Keep it plain.** He found the backtest reply complicated. Three short
   bullets, no formulas.
+- **Say where the roadmap comes from.** ZeroGEX is new and growing, and what
+  gets built next comes mostly from feedback customers send Michael directly.
+  That makes "noted" mean something without turning it into a promise, so it
+  sits right before the no-promise line.
 - **Don't mention that these pages are in Basic too.** It's true, but he
   needs Pro for the NinjaTrader indicator's key, and his question was about
   Pro. If he asks what Basic includes, tell him straight.
@@ -284,7 +288,7 @@ What Pro does have starts from the same place: every options trade is sorted int
 
 Pro is $59 a month, $115 a quarter, or $299 a year, and all three are included.
 
-I can't promise gamma-weighted order flow or a date for it, so I won't quote a price for it. I've noted it as a request, and it helps to know you'd use it.
+ZeroGEX is new and growing, and I'm improving it all the time. Most of what gets built next comes from feedback customers send me directly, so I've noted your request, and it helps to know you'd use it. I can't promise gamma-weighted order flow or a date for it yet, so I won't quote a price for it.
 
 Best,
 Michael
