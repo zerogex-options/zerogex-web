@@ -7,7 +7,8 @@ Aaron signs "Aaron" and shows as *Aaron B* (aabbon@gmail.com). He's on Pro and
 works through the v2 API. Subject: "Re: Historical ES replay price discrepancy
 — clarification needed for GEX backtesting". Reply in the same thread.
 
-> **Status:** unsent.
+> **Status:** sent 2026-10-12, after both "Confirm before sending" checks
+> passed. Waiting on his reply, including where he saw "0dte_next".
 
 ## Thread so far
 
@@ -65,7 +66,8 @@ works through the v2 API. Subject: "Re: Historical ES replay price discrepancy
   too long, the Sep 29 section can go as a second reply in the same thread.
 - **Steer the backtest to SPX against SPX.** Our ES candles and ES levels are
   both SPX times a modeled ratio, so against real ES prints they carry the
-  model's error (9.75 points on Aug 4). SPX against SPX has nothing converted.
+  model's error (9.75 points on Aug 4 in his pull, 4.5 at today's setting).
+  SPX against SPX has nothing converted.
   If he wants ES, he re-bases with his own ES/SPX ratio.
 - **Point him at replay, not `/api/gex/historical`, for a backtest.** The
   latter recalculates walls on request inside the 60-day window and serves
@@ -149,7 +151,9 @@ All zerogex-oa, on `release`, 2026-10-12.
    request time, nothing is stored, so changing them moves all projected
    history too. A `date=` request anchors at 16:00 ET that day, one ratio for
    the session. His 1.0048198 is exactly `e^(0.039 × 45/365)`: production's
-   r − q was 3.90% when he pulled it.
+   r − q was 3.90% when he pulled it. It's 3.36% today (`RISK_FREE_RATE`
+   0.044, SPX q 0.0104, from `make futures-carry-check` on 2026-10-12), so
+   the same Aug 4 request now returns 1.0041511 and ES 7,690.00.
 3. **Contract.** `active_contract_expiry`: the first quarterly third Friday
    more than 7 days after the date (7 measured from TradeStation's Sep 2026
    roll). Aug 4 → Sep 18, ESU26, 45 days. `data_contract` /
@@ -193,6 +197,9 @@ On the EC2 box, from the `zerogex-oa` directory:
 2. `git merge-base --is-ancestor 7bc662d HEAD && echo deployed`. If it prints
    nothing, the 3:59 PM fix isn't on the box yet: change "That's fixed" to
    "A fix is on the way".
+
+Both ran on 2026-10-12: `first_day` was 2026-08-13 and 7bc662d printed
+`deployed`, so the draft went out as worded.
 
 ## Draft
 
@@ -274,16 +281,24 @@ zerogex.io
 - **He asks us to convert with the traded basis instead.** No. That's a CME
   derived-data use we aren't licensed for. Re-basing with his own ES data on
   his side is the answer.
+- **His re-pulled ES history doesn't match his archive.** Expected, and answer
+  3 already told him why: the ratio is recomputed from the current setting,
+  which changed after his pull. Aug 4 at 10:00 now projects to 7,690.00
+  (ratio 1.0041511) instead of 7,695.25, so 4.5 points above ESU26 rather
+  than 9.75. It moves again whenever the rate or yield setting does. SPX
+  levels, or his own re-basing (answer 5), don't move.
 
-## Worth a look, separately (not needed to send this)
+## The carry rate (checked 2026-10-12, nothing to do)
 
-**The rate behind the ES/NQ conversion looks about a point high.** Aaron's
-ratio implies production's r − q was 3.90% a year. His Aug 4 prices imply about
-2.9% (ESU26 7,685.50 over SPX 7,658.25, 45 days), and the Sep 11 roll
-measurement noted in `src/jobs/futures_projection.py` (ES 93.7bp over SPX, 98 days to the December expiry)
-implies about 3.5%. Either way the model sat roughly 9 to 10 ES points above
-real ES both times, and the live ES levels carry the same offset against the
-real ES price shown beside them. `make futures-carry-check` prints the
-configured carry next to the measured one. `RISK_FREE_RATE` also feeds the
-option greeks and implied volatility, so fixing it isn't a one-number change.
-This can wait; it isn't needed to answer Aaron.
+The first version of this doc said the ES/NQ conversion rate looked about a
+point high. That was wrong for today's setting. `make futures-carry-check` on
+2026-10-12 showed `RISK_FREE_RATE` 0.044 and SPX q 0.0104, so r − q is 3.36%
+against 3.42% implied by the tape (gap −1.1bp, about 1 ES point). NDX is 3.88%
+against 4.03% (−2.7bp). Both read "ok". The 3.90% in Aaron's ratio came from
+the setting in force when he pulled his data.
+
+The rate the tape implies also moves on its own: about 2.9% for the Aug 4
+window, 3.4–3.5% in September and October. One fixed setting can't follow
+that, so a few points of offset on a given day are expected. That's the "fair
+value, not the traded price" caveat `/help/platform/data-coverage` already
+gives.
