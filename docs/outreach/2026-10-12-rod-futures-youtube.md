@@ -94,3 +94,78 @@ zerogex.io
   about one test in three breaks within the hour, and nothing we measured
   (flip side, wall size, flow) predicted which ones. A wall is a prior, not a
   promise.
+
+---
+
+## Follow-up: the ribbon readout (Mon Oct 12, 2:36 PM)
+
+Rod's group is "kicking the idea around" for the channel and will report back
+(Sun 11:25 PM; Michael replied "Sounds great!" Mon 7:40 AM). Then Rod sent an
+ES Gamma Terminal screenshot with the crosshair card's ribbon section circled
+(`RIBBON · 7,848.25 STRIKE`, `Net dealer Γ +$3.07B`,
+`Long Γ · magnet / brake strong · 99%`, `share of the heaviest strike on
+screen`) and asked:
+
+> on the screenshot the ribbon has long magnet /brake then strong 99% can you
+> explain that and how it changes at different time lines?
+
+### What the card actually says (from the code)
+
+All in `components/GammaTerminalChart.tsx` (`hoverRibbon` and the tape card)
+and `core/gexRibbons.ts`:
+
+- **The row is about one strike, not the market.** The nearest strike lane to
+  the cursor (within half a strike step), in the 5-minute bucket the hovered
+  bar falls in. "Long Γ · magnet / brake" is just the sign: positive net
+  dealer gamma at that strike. Negative reads "Short Γ · accelerant".
+- **99% is relative, not absolute.** |net gamma| divided by the largest
+  |net gamma| of any orb drawn on screen (all visible bars, all strikes in the
+  visible price range). Tiers from `tierFor`: strong ≥ 50%, mid 15–50%, weak
+  under 15%; under 5% isn't drawn and the card says "under floor".
+- **Timeframes.** The data is always the 5-minute strike-profile timeseries.
+  A 1-minute bar shares its bucket with four neighbors; a 15-minute or hourly
+  bar reads the bucket at its own start (not an average). So the dollar figure
+  is timeframe-independent, but the % and the tier move with whatever the
+  timeframe, zoom and scroll put on screen.
+- **Expiry filter.** The ribbons follow it (`railExpParam`), so 0DTE-only
+  ribbons are a different book from all expirations.
+- **The red −$3.57B line above it** is the "STRIKE Γ NEAR" readout: the
+  Gaussian-smoothed net-gamma density at the cursor price, which sums
+  neighbors whose signs alternate, so it can disagree with one strike. The
+  card already says it's not the regime; the shaded band is.
+- **In his screenshot the strike was also the put wall** (`PUT WALL 0.56
+  away` from the cursor at 7,848.81 puts it at 7,848.25) and price had just
+  slid down into it. That's the teaching moment, without claiming it held.
+
+"Different time lines" is ambiguous: chart timeframe, through the session,
+or expirations. The draft covers all three in one bullet each.
+
+### Draft
+
+**Reply in the same thread.**
+
+Hi Rod,
+
+Good question. That line describes the single strike under your cursor, at that moment:
+
+- **Long Γ · magnet / brake:** dealers are net long gamma at that strike, so their hedging sells into rallies and buys dips there. Price tends to get pulled toward it and slow down at it. Those are the gold orbs. Violet orbs are the opposite, "Short Γ · accelerant": there, hedging chases price, so moves through that strike tend to speed up.
+- **strong · 99%:** how big that strike is compared with the heaviest strike on your screen. 99% means it's essentially the biggest one in view. Strong is 50% and up, mid is 15–50%, weak is under 15%.
+
+In your screenshot that strike was also the put wall, and price had just slid into it. That's a spot where you'd expect price to slow down or chop rather than slice through. Not a guarantee, but that's what the ribbon is telling you.
+
+How it changes:
+
+- **Through the day:** each orb is that strike's gamma for a 5-minute window. A lane getting fatter means positioning is building at that strike, thinning means it's fading, and gold turning violet means the strike went from brake to accelerant.
+- **Across timeframes:** the data underneath is the same. On a 1-minute chart, five bars share each reading. On 15-minute or hourly, each bar shows the reading at its start. The dollar figure doesn't change with the timeframe, but the % and strong/mid/weak can, because they're measured against whatever is on screen. Zoom out and a bigger strike may come into view, which shrinks the rest.
+- **Across expirations:** the Expiry filter changes the ribbons too. Pick only today's expiration and you see just the same-day positioning.
+
+One last thing: the red -$3.57B line above it is a smoothed total of the strikes around your cursor, so it can disagree with a single strike. Neither one is the overall regime. For that, use the shaded background, which shows which side of the flip price is on.
+
+Happy to walk through this live whenever you and the guys are ready.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
