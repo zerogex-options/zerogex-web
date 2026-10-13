@@ -10,8 +10,8 @@ export default function GexHeatmapPage() {
     <PageShell>
       <PageHeader
         title="GEX Heatmap"
-        sub="Dealer gamma as a grid&nbsp;- strike against time, so concentration shows up as colour."
-        tooltip="The same Net GEX the strike profile plots, laid out as strike (vertical) against session time (horizontal) so you can watch positioning build or erode where price is actually trading. Bright bands are strikes carrying heavy dealer gamma; a band that brightens through the session is positioning accumulating there, not price visiting it. The unit toggle switches between $ gamma per 1% spot move and per 1 point&nbsp;- same exposure, different denominator."
+        sub="Dealer gamma as a grid&nbsp;- strike against time, so concentration shows up as color."
+        tooltip="The same Net GEX the strike profile plots, laid out as strike (vertical) against session time (horizontal). Bright bands are strikes carrying heavy dealer gamma. The positions behind them are fixed through the session (open interest updates once a day, after the close), so a band that brightens during the session is mostly price moving toward that strike, where its options' gamma peaks, not new positioning. A change from one session to the next does include new open interest. The unit toggle switches between $ gamma per 1% spot move and per 1 point&nbsp;- same exposure, different denominator."
         actions={<GexUnitToggle />}
       />
       <section className="mb-8">

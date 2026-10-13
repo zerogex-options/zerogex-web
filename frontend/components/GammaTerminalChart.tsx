@@ -420,7 +420,12 @@ const RIBBON_OPACITY_MAX = 1.5;
 const clampRibbonOpacity = (v: number) => Math.min(RIBBON_OPACITY_MAX, Math.max(RIBBON_OPACITY_MIN, v));
 // The reading guide behind the legend's info icon — every visual channel of
 // the ribbons, in the order a reader meets them: what an orb is, then height,
-// opacity, colour, and how a lane evolves.
+// opacity, color, and how a lane evolves.
+//
+// How a lane evolves: the positions behind it are fixed for the session (each
+// orb is gamma \u00d7 open interest, and open interest is the prior close's), so
+// intraday a lane moves with gamma, which peaks at the money. It swells as
+// price nears the strike; that is not new positioning arriving.
 const RIBBON_GUIDE =
   "GEX ribbons: every strike is a horizontal lane, and every bar drops one orb in it. " +
   "HEIGHT is that strike's net dealer gamma in the bar's 5-minute analytics bucket, as a share of the heaviest " +
@@ -428,8 +433,12 @@ const RIBBON_GUIDE =
   "OPACITY steps with the same share: faint below 15%, medium to 50%, solid above; orbs under 5% are not drawn. " +
   "COLOR is the sign: gold means dealers are net LONG gamma at the strike (they sell into strength and buy weakness " +
   "there\u00a0- a magnet and a brake), violet means net SHORT (they chase\u00a0- an accelerant). " +
-  "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
-  "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
+  "A fat lane that persists all session is a wall. The positions behind a lane are fixed through the session " +
+  "(open interest updates once a day, after the close), so what moves it intraday is gamma, which peaks at the money: " +
+  "a lane swells as price nears its strike and thins as price leaves. A fat lane right at price is a strike whose " +
+  "hedging is most active now, not new positioning arriving. A lane that changes color is a strike whose long- and " +
+  "short-gamma contracts are close to balanced, tipping as their gammas shift. " +
+  "Hover a bar on a lane to read the exact strike and value. " +
   "History covers the polled strike window, so earlier bars stay blank. " +
   "The slider beside the Ribbons pill scales the overall opacity.";
 

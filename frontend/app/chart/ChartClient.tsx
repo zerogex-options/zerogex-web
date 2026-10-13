@@ -49,8 +49,11 @@ const INFO_TEXT =
   "every strike is a horizontal lane; every bar drops one orb in that lane sized by the strike's net dealer gamma " +
   "in the 5-minute analytics bucket the bar falls in, relative to the heaviest strike on screen. Gold means dealers " +
   "are net long gamma at that strike (they sell rallies and buy dips into it\u00a0- a magnet and a brake); violet means " +
-  "net short (they chase\u00a0- an accelerant). A fat ribbon that persists all session is a wall; one that thickens is " +
-  "positioning building, one that thins is eroding; a lane changing color is the strike flipping sides. Orbs are " +
+  "net short (they chase\u00a0- an accelerant). A fat ribbon that persists all session is a wall. The positions behind " +
+  "a lane are fixed through the session (open interest updates once a day, after the close), so what moves it " +
+  "intraday is gamma, which peaks at the money: a lane swells as price nears its strike and thins as price leaves, " +
+  "not because new positioning arrived. A lane that changes color is a strike whose long- and short-gamma contracts " +
+  "are close to balanced, tipping as their gammas shift. Orbs are " +
   "capped to the lane, so a zoomed-in price axis makes them fatter and a wide one thinner, and the history covers " +
   "the polled strike window, so earlier bars stay blank. " +
   "Beside the tape you choose one of two readings of the same book. GAMMA LADDERS puts two strike-aligned Net-GEX " +
@@ -110,7 +113,7 @@ const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; 
     icon: <Sparkles size={18} />,
     accent: 'var(--color-warning)',
     title: 'GEX Ribbons',
-    body: 'Per-strike dealer gamma through time, behind the tape. Gold lanes are strikes where dealers are long gamma, violet where they are short\u00a0- so you watch a wall build, erode or flip sides as the session runs.',
+    body: 'Per-strike dealer gamma through time, behind the tape. Gold lanes are strikes where dealers are long gamma, violet where they are short\u00a0- so the walls lie on the tape, and a lane swells as price walks into its strike.',
   },
   {
     icon: <Layers size={18} />,
