@@ -104,3 +104,57 @@ zerogex.io
   trades 9:30 to 4:00 ET, so overnight they hold at the 4 PM close.
 - **"Are the % bars right?"** That's a SabrTrader question. If they want
   certainty, SabrTrader support can say which source draws them.
+
+## Follow-up: two API keys (Oct 12, 7:50 PM)
+
+The subscriber is Jim (James McGinley). Their reply:
+
+> Hello again...is it possible to have two API keys at the same time so I can
+> keep using your data on SabrTrader and also use it on Ninja Trader so that I
+> can see what it looks like on that platform?
+
+### The read
+
+- **Same key in both places. Don't issue a second one.** A member holds at
+  most one live key: Generate API Key on the Account page revokes the old one
+  first (`frontend/app/api/account/api-keys/route.ts`, and
+  `/help/platform/api-access`). If Jim regenerates for NinjaTrader, SabrTrader
+  stops updating. That's the trap behind the question, so the draft names it.
+- **Nothing limits one key to one place.** The API has no per-key or per-IP
+  cap. The rate limiter counts per account, not per key, so a second key
+  wouldn't add capacity anyway. It ships log-only (`.env.example`: enforce
+  off) at 600 requests a minute, and NinjaTrader polls once a minute.
+- **The terms are fine with it.** They prohibit sharing credentials with
+  other people (`/terms`, section 6), not using your own key on two of your
+  own platforms.
+- **NinjaTrader draws a different set than SabrTrader,** so say so before they
+  compare them side by side (`frontend/public/ninjatrader/ZeroGexGammaLevels.cs`).
+  It has the flip, call wall, put wall, max pain, pin strike, the top gamma
+  strikes (GEX 1 to 10, their choice), VWAP and the same strike histogram. It
+  doesn't draw Call/Put Wall 2 and 3, Max Gamma, or the Charm Flip, Vanna
+  Flip and Zero Flow.
+- **They're on Pro already.** Keys are Pro-only and they have one, so the
+  NinjaTrader download on `/ninjatrader-indicator` is open to them.
+
+### Draft
+
+**Subject:** Re: What's new at ZeroGEX, and our first Folds of Honor donation
+
+Hi Jim,
+
+You don't need a second key. Use the same one in both. Your key works on as many of your own platforms as you like at the same time, so SabrTrader keeps running while you try NinjaTrader.
+
+One thing to avoid: don't click Generate API Key again on your Account page. You can only have one active key, so generating a new one switches off the old one, and SabrTrader would stop updating until you pasted the new key in.
+
+The NinjaTrader indicator and install steps are here: https://zerogex.io/ninjatrader-indicator. Paste the same key into its settings.
+
+A heads-up for comparing the two: NinjaTrader shows a slightly different set. It has the gamma flip, call and put walls, max pain, pin strike, the top gamma strikes (GEX 1, 2, 3 and so on) and the same histogram. It doesn't show the second and third walls, Max Gamma, or the Charm Flip, Vanna Flip and Zero Flow.
+
+I'd love to hear which one you end up preferring.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
