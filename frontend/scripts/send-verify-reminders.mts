@@ -45,6 +45,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
+import { normalizeEmail } from '../core/levelsEmail.ts';
 import { sendVerifyReminderEmail } from '../core/mailer.ts';
 
 // 2h lag mirrors send-verified-never-paid.mts: give someone a chance to click
@@ -301,6 +302,18 @@ if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
 }
 
+// An address that can never be delivered — a signup typo like "name@gmailcom"
+// that the form let through — is rejected by Resend on every run for the whole
+// lookback window, and each rejection exits non-zero and pages the operator via
+// OnFailure. Seen 2026-10-12: one such address alerted every 2 hours. No retry
+// can fix it, so skip it: no token minted, no latch stamped, not a failure. The
+// shape check is the one the daily-levels signup already applies.
+const undeliverable = eligible.filter((u) => normalizeEmail(u.email) === null);
+const deliverable = eligible.filter((u) => normalizeEmail(u.email) !== null);
+for (const u of undeliverable) {
+  console.log(`  SKIP ${u.email}: not a deliverable address`);
+}
+
 if (cliArgs.dryRun) {
   console.log('\n[dry-run] No emails sent, no tokens minted, no audit rows written.');
   process.exit(0);
@@ -316,7 +329,7 @@ if (!cliArgs.yes) {
 let successCount = 0;
 let failCount = 0;
 
-for (const user of eligible) {
+for (const user of deliverable) {
   try {
     // Mint a fresh 24h single-use verification token, written with the same
     // shape core/serverAuth.ts issueEmailVerification uses (base64url token,
@@ -379,5 +392,7 @@ for (const user of eligible) {
   }
 }
 
-console.log(`\nDone. ${successCount} sent, ${failCount} failed.`);
+console.log(
+  `\nDone. ${successCount} sent, ${failCount} failed, ${undeliverable.length} skipped (undeliverable).`,
+);
 process.exit(failCount > 0 ? 1 : 0);
