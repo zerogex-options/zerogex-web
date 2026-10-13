@@ -21,7 +21,7 @@
 //    Get a key / plans:  https://zerogex.io
 //    API docs:           https://api.zerogex.io/docs
 //
-//  Endpoint:  GET {ApiBaseUrl}/api/v1/levels/{Symbol}
+//  Endpoint:  GET {ApiBaseUrl}/api/v1/levels/{Symbol}[?expiration=...]
 //  Auth:      Authorization: Bearer <your key>
 //
 //  Informational and educational use only. Not financial advice. Options
@@ -33,6 +33,14 @@
 //  separate ES book) and carries the price-space levels across server-side
 //  using a measured index/future ratio. Dealer exposure is deliberately NOT
 //  rescaled, which is why the histogram's relative bar sizes stay correct.
+//
+//  EXPIRATION: ALL (the default) draws the levels for the whole option chain.
+//  0DTE draws them for the expiration that settles next -- today's until the
+//  4:00 PM ET close, then the next one, so an evening ES session already shows
+//  tomorrow's. Or type one expiration as YYYY-MM-DD. The Call Wall, Put Wall,
+//  Gamma Flip, Max Pain, GEX 1..N and the histogram all follow the choice; the
+//  Pin Strike is a 0DTE level whichever you pick. The info panel names the
+//  expiration being drawn.
 //
 //  INSTALL: NinjaTrader → New → NinjaScript Editor → right-click Indicators →
 //  Import… (or paste this file into a new Indicator), then Compile (F5).
@@ -102,6 +110,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         public string AsOf;
         public string Symbol;
 
+        // The expiration the levels describe, as YYYY-MM-DD, or null for the
+        // whole chain. For 0DTE it is the date the server resolved, which is
+        // what the panel prints: "0DTE" alone cannot say whether the evening
+        // roll to tomorrow's expiry has happened yet.
+        public string Expiration;
+
         // When this snapshot arrived, by the local clock. AgeSeconds is the
         // API's measurement at the instant it answered; this is what lets the
         // panel keep counting from there instead of freezing until the next
@@ -159,6 +173,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // explicit value and are untouched; they get the warning
                 // instead.
                 Symbol = "AUTO";
+                // ALL, so a workspace saved before this setting existed loads
+                // with exactly the levels it always drew.
+                Expiration = "ALL";
                 PollSeconds = 60;                       // matches the ~60s analytics cycle
 
                 // --- Levels to show ---
@@ -309,8 +326,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             // strikes= is bounded 1..200 server-side; clamp here so a bad
             // setting can never turn into a 422.
             int want = Math.Min(200, Math.Max(1, ProfileStrikeCount));
+            string scope = ExpirationParam();
             string url = baseUrl + "/api/v1/levels/" + sym +
-                         "?strikes=" + want.ToString(CultureInfo.InvariantCulture);
+                         "?strikes=" + want.ToString(CultureInfo.InvariantCulture) +
+                         (scope.Length > 0 ? "&expiration=" + Uri.EscapeDataString(scope) : "");
 
             using (var req = new HttpRequestMessage(HttpMethod.Get, url))
             {
@@ -332,10 +351,27 @@ namespace NinjaTrader.NinjaScript.Indicators
                                                 ") — generating a new API key retires the old one");
                         if (code == 429)
                             throw new Exception("rate limited (HTTP 429) — polling too often");
+                        // The server says in words what is wrong with a symbol
+                        // or an Expiration ("SPX 2026-10-10 has expired; pick a
+                        // later date or 0DTE"), which is the fix, where a bare
+                        // status code is a support email.
+                        if (code == 400 || code == 404)
+                        {
+                            string detail = ExtractString(body, "detail");
+                            if (!string.IsNullOrEmpty(detail))
+                                throw new Exception(detail);
+                        }
                         throw new Exception("HTTP " + code);
                     }
 
                     var snap = Parse(body);
+
+                    // An API build from before this setting ignores the
+                    // parameter and answers with the whole chain. Drawing that
+                    // under a 0DTE heading is the one outcome worse than
+                    // drawing nothing, so it is refused here instead.
+                    if (snap != null && scope.Length > 0 && string.IsNullOrEmpty(snap.Expiration))
+                        throw new Exception("the API ignored Expiration — set it to ALL for now");
                     if (snap != null && ShowVwap)
                         snap.Vwap = await FetchVwapAsync(baseUrl, sym).ConfigureAwait(false);
 
@@ -419,6 +455,19 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
         }
 
+        /// <summary>The expiration query value: empty for the whole chain
+        /// (ALL or blank), otherwise the setting as typed, lowercased. Not
+        /// validated here: the server answers anything it cannot use with a
+        /// sentence the panel shows, which is better than a second copy of
+        /// the rules that could disagree with it.</summary>
+        private string ExpirationParam()
+        {
+            string e = (Expiration ?? "").Trim();
+            if (e.Length == 0 || string.Equals(e, "ALL", StringComparison.OrdinalIgnoreCase))
+                return "";
+            return e.ToLowerInvariant();
+        }
+
         /// <summary>Empty unless the setting and the chart disagree.</summary>
         private string SymbolMismatch()
         {
@@ -467,7 +516,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         //
         // The /api/v1/levels contract is a small, fixed shape and every key we
         // read (gamma_flip, gamma_flip_label, call_wall, put_wall, max_pain,
-        // pin_strike, spot, age_seconds, as_of) is globally unique in the
+        // pin_strike, spot, age_seconds, as_of, expiration) is globally unique in the
         // payload, so a flat key search over the whole body is safe and avoids
         // pulling in a JSON dependency the NinjaScript compiler wouldn't
         // reference by default.
@@ -494,6 +543,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 AgeSeconds = (int?)ExtractNumber(json, "age_seconds"),
                 AsOf = ExtractString(json, "as_of"),
                 Symbol = ExtractString(json, "symbol"),
+                Expiration = ExtractString(json, "expiration"),
             };
 
             ExtractProfile(json, snap);
@@ -1168,7 +1218,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// again, so a report naming it can only mean the old pair, and a
         /// report naming 2.0 can only mean this. Anyone bumping from here
         /// should check what release already says first.</summary>
-        private const string BuildVersion = "v2.3";
+        private const string BuildVersion = "v2.4";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
@@ -1195,11 +1245,24 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (mismatch.Length > 0)
                 health = "\n" + mismatch + health;
 
-            return "ZeroGEX Gamma Levels — " + sym + "\n" +
+            return "ZeroGEX Gamma Levels — " + sym + ScopeText(s) + "\n" +
                    "Flip "  + FlipText(s) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
                    "Pin "   + Fmt(s.PinStrike) + "   " + VwapLabel() + " " + Fmt(s.Vwap) + "\n" +
                    "updated " + age + "  ·  zerogex.io " + BuildVersion + health;
+        }
+
+        /// <summary>"  ·  0DTE 2026-10-13" or "  ·  exp 2026-10-17" after the
+        /// symbol, so a screenshot says which book it shows. Empty for the
+        /// whole chain, which keeps the panel of every existing chart exactly
+        /// as it was.</summary>
+        private string ScopeText(ZeroGexLevelsSnapshot s)
+        {
+            if (s == null || string.IsNullOrEmpty(s.Expiration))
+                return "";
+
+            bool zeroDte = ExpirationParam() == "0dte";
+            return "  ·  " + (zeroDte ? "0DTE " : "exp ") + s.Expiration;
         }
 
         /// <summary>Where a level's label sits, relative to its line. Ticks
@@ -1373,6 +1436,14 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Symbol (AUTO, or ES / NQ / SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
         public string Symbol { get; set; }
 
+        // Free text rather than a dropdown because one of the three answers is
+        // a date, and a date list would be stale by the next session. A
+        // NinjaScriptProperty on purpose, unlike the key: the chart label then
+        // says which expiration a chart is drawing, which is worth seeing.
+        [NinjaScriptProperty]
+        [Display(Name = "Expiration (ALL, 0DTE, or a date YYYY-MM-DD)", Order = 4, GroupName = "1. Connection")]
+        public string Expiration { get; set; }
+
         // Range DELIBERATELY stays wider than the interval we actually honor.
         //
         // NinjaTrader validates a persisted workspace value against this
@@ -1389,7 +1460,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         // it. Lower this bound freely; never raise it.
         [NinjaScriptProperty]
         [Range(1, 3600)]
-        [Display(Name = "Poll interval (seconds — 30s minimum is applied)", Order = 4, GroupName = "1. Connection")]
+        [Display(Name = "Poll interval (seconds — 30s minimum is applied)", Order = 5, GroupName = "1. Connection")]
         public int PollSeconds { get; set; }
 
         [NinjaScriptProperty]

@@ -157,6 +157,13 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
         quarterly roll.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
+        Trade <strong style={{ color: 'var(--color-text-primary)' }}>0DTE</strong>? Set{' '}
+        <em>Expiration</em> to <strong style={{ color: 'var(--color-text-primary)' }}>0DTE</strong> and the walls,
+        flip, max pain and GEX levels are drawn from today&apos;s expiration alone, rolling to the next one after
+        the 4:00&nbsp;PM ET close. Or type any expiration as a date (YYYY-MM-DD). Leave it on ALL for the whole
+        chain.
+      </p>
+      <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         {hasPro ? (
           <>
             The indicator is included with your Pro plan, and the live data it polls needs your ZeroGEX API key.
