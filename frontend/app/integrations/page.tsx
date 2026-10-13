@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, PencilLine, RefreshCw } from 'lucide-react';
+import { ArrowRight, ExternalLink, PencilLine, RefreshCw } from 'lucide-react';
 import BrokerConnectionNote from '@/components/BrokerConnectionNote';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
@@ -22,7 +22,11 @@ import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integra
 const PATH = INTEGRATIONS_HUB.href;
 const TITLE = 'ZeroGEX Chart Integrations: TradingView, thinkorswim & More';
 const DESCRIPTION =
-  'Plot ZeroGEX gamma levels on the chart you trade from: free TradingView and thinkorswim scripts, auto-updating Pro studies for NinjaTrader 8 and Sierra Chart.';
+  'Plot ZeroGEX gamma levels on the chart you trade from: free TradingView and thinkorswim scripts, auto-updating Pro studies for NinjaTrader 8 and Sierra Chart, and a built-in connection in SabrTrader.';
+
+// SabrTrader's own setup guide. It built and maintains the ZeroGEX connector,
+// so its page, not ours, is the source of record for the steps.
+const SABRTRADER_GUIDE = 'https://www.sabrtrader.com/pages/gamma-levels';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -236,9 +240,8 @@ export default function IntegrationsPage() {
             maxWidth: 760,
           }}
         >
-          The Gamma Flip, Call Wall, Put Wall and Max Pain are only useful next to price. These are the
-          {' '}{INTEGRATIONS.length} ways to get them onto the platform you already trade from&nbsp;- the same
-          levels, drawn where you are looking.
+          The Gamma Flip, Call Wall, Put Wall and Max Pain are only useful next to price. Here is how to get
+          them onto the platform you already trade from&nbsp;- the same levels, drawn where you are looking.
         </p>
         <p
           style={{
@@ -276,6 +279,73 @@ export default function IntegrationsPage() {
         intro="You type today's four numbers in once, from the free gamma-levels pages below, and the script draws them. No account, no API key, nothing withheld&nbsp;- the levels themselves are public and delayed roughly 15 minutes."
         entries={MANUAL_ENTRY}
       />
+
+      {/* Not a card either, for the same reason as Collective2 below: SabrTrader
+          runs none of our code. Its developers built a ZeroGEX connector into
+          the platform, so there is no script, no language and no landing page
+          for a registry entry to describe (see core/integrations.ts). It is
+          here because a SabrTrader user searching for our levels should learn
+          they are one API key away. */}
+      <section
+        style={{
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 16,
+          padding: '22px 24px',
+          marginBottom: 24,
+          background: 'var(--color-bg)',
+        }}
+      >
+        <h2 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 800, letterSpacing: '-0.2px' }}>
+          Trading on SabrTrader? ZeroGEX is built in
+        </h2>
+        <p
+          style={{
+            margin: '0 0 10px 0',
+            fontSize: 14,
+            lineHeight: 1.7,
+            color: 'var(--color-text-secondary)',
+            maxWidth: 760,
+          }}
+        >
+          SabrTrader connects to ZeroGEX on its own, so there is nothing to download from us. In SabrTrader,
+          go to <strong>Connections → Levels</strong>, add ZeroGEX and paste your ZeroGEX API key. Your chart
+          then draws our Call Wall, Put Wall and Gamma Flip, plus Max Pain, Charm Flip, Vanna Flip and Zero
+          Flow, with our per-strike gamma histogram along the right edge. On an ES or NQ chart, SabrTrader moves
+          the levels onto the futures price for you.
+        </p>
+        <p
+          style={{
+            margin: '0 0 14px 0',
+            fontSize: 13.5,
+            lineHeight: 1.7,
+            color: 'var(--color-text-secondary)',
+            opacity: 0.85,
+            maxWidth: 760,
+          }}
+        >
+          The API key comes with ZeroGEX Pro. It is the same key the NinjaTrader and Sierra Chart studies use,
+          and one key runs all of them at once. SabrTrader includes its Gamma Levels feature on its paid plans,
+          and its chart still runs on your own broker or data feed. SabrTrader built and maintains the
+          connection: for help with how it draws the levels, contact SabrTrader; for the numbers themselves,
+          contact us.
+        </p>
+        <a
+          href={SABRTRADER_GUIDE}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            fontSize: 14,
+            fontWeight: 800,
+            textDecoration: 'none',
+            color: 'var(--color-brand-accent)',
+          }}
+        >
+          SabrTrader&apos;s Gamma Levels guide <ExternalLink size={15} />
+        </a>
+      </section>
 
       {/* Not a card in either group above, deliberately: Collective2 runs none
           of our code and there is nothing to download, so it is not an

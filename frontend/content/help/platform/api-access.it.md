@@ -33,6 +33,8 @@ L'autenticazione utilizza **bearer token**. Generi la chiave da solo dal tuo acc
 
 Le chiavi API personali sono una funzione Pro; gli account Basic e Public vengono reindirizzati a Prezzi. Generare una nuova chiave revoca immediatamente la precedente (hai al massimo una chiave attiva), quindi ruotare significa semplicemente rigenerare. Ti serve aiuto o vuoi revocare una chiave? Scrivi a [support@zerogex.io](mailto:support@zerogex.io).
 
+Una sola chiave funziona su tutte le tue piattaforme contemporaneamente: incolla la stessa chiave in NinjaTrader, Sierra Chart, SabrTrader e nel tuo codice. Non generare una nuova chiave per aggiungere una piattaforma, perché così disattivi la vecchia ovunque sia già incollata.
+
 ## Rate limit
 
 L'API limita le richieste per chiave, su una finestra al minuto fissata ben al di sopra di ciò che serve a dashboard di produzione e bot che rispettano una normale igiene delle richieste. Le richieste oltre il limite restituiscono `429 Too Many Requests` con un header `Retry-After`.
@@ -75,10 +77,11 @@ Gli endpoint dello storico derivato - GEX (`/api/gex/historical`), max pain e c
 
 ## Integrazioni grafiche
 
-Se vuoi soltanto i nostri livelli sul tuo grafico, potresti non dover scrivere codice. Le trovi tutte e quattro nella pagina [Integrazioni](/integrations):
+Se vuoi soltanto i nostri livelli sul tuo grafico, potresti non dover scrivere codice. Le trovi tutte nella pagina [Integrazioni](/integrations):
 
 - **NinjaTrader 8** - un indicatore NinjaScript incluso in Pro che interroga `GET /api/v1/levels/{symbol}` con la tua chiave Pro e disegna Gamma Flip, Call Wall, Put Wall, Max Pain e Pin Strike. Da abbonato Pro, scaricalo da una qualsiasi pagina gratuita dei livelli gamma (ad esempio [/spx-gamma-levels](/spx-gamma-levels)), importalo in NinjaTrader (**File → Utilities → Import NinjaScript…**) e incolla la tua chiave. Su un grafico ES o NQ imposta il simbolo su `ES` o `NQ`: i livelli arrivano già sull'asse di prezzo dei futures, senza alcun offset di base da applicare.
 - **Sierra Chart** - uno studio ACSIL incluso in Pro che interroga lo stesso endpoint con la tua chiave e disegna gli stessi cinque livelli. Da abbonato Pro, scaricalo da [/sierra-chart-indicator](/sierra-chart-indicator) e compilalo con il compilatore integrato di Sierra Chart (**Analysis → Build Custom Studies DLL**).
+- **SabrTrader** - ha una connessione a ZeroGEX già integrata, quindi non c'è nulla da scaricare da noi. In SabrTrader, vai su **Connections → Levels**, aggiungi ZeroGEX e incolla la tua chiave Pro. SabrTrader ha sviluppato e gestisce questa connessione: per domande su come vengono disegnati i livelli rivolgiti a SabrTrader, per domande sui numeri a noi.
 - **TradingView** - uno script Pine gratuito. Solo inserimento manuale: Pine Script non può effettuare chiamate HTTP, quindi i numeri di oggi li inserisci tu.
 - **thinkorswim** - uno studio thinkScript gratuito. Solo inserimento manuale: thinkScript è isolato come Pine Script, quindi ricopi lo studio ogni giorno - arriva già con i numeri del giorno.
 

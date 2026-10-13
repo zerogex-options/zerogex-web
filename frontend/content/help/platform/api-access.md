@@ -33,6 +33,8 @@ Authentication uses **bearer tokens**. Generate your key yourself from your acco
 
 Personal API keys are a Pro feature; Basic and Public accounts are routed to Pricing. Generating a new key immediately revokes your previous one (you hold at most one active key at a time), so rotating is just a matter of regenerating. Need help or a key revoked? Email [support@zerogex.io](mailto:support@zerogex.io).
 
+One key works on all your platforms at the same time: paste the same key into NinjaTrader, Sierra Chart, SabrTrader and your own code. Don't generate a new key to add a platform, because that switches off the old one everywhere it's already pasted.
+
 ## Rate limits
 
 The API rate-limits per key, on a per-minute window set well above what production dashboards and bots need when they respect normal request hygiene. Over-limit requests return `429 Too Many Requests` with a `Retry-After` header.
@@ -75,10 +77,11 @@ The derived history endpoints - GEX (`/api/gex/historical`), max pain, and sign
 
 ## Charting integrations
 
-If all you want is our levels on your own chart, you may not need to write anything. All four are on the [Integrations](/integrations) page:
+If all you want is our levels on your own chart, you may not need to write anything. They're all on the [Integrations](/integrations) page:
 
 - **NinjaTrader 8** - a NinjaScript indicator included with Pro that polls `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike. Signed in to Pro, download it from any free gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)), import it in NinjaTrader (**File → Utilities → Import NinjaScript…**), and paste in your key. On an ES or NQ chart set the symbol to `ES` / `NQ` and the levels arrive already on the futures price axis - there is no basis offset to apply.
 - **Sierra Chart** - an ACSIL study included with Pro that polls the same endpoint with your key and draws the same five levels. Signed in to Pro, download it from [/sierra-chart-indicator](/sierra-chart-indicator) and build it with Sierra Chart's own compiler (**Analysis → Build Custom Studies DLL**).
+- **SabrTrader** - has a ZeroGEX connection built in, so there's nothing to download from us. In SabrTrader, go to **Connections → Levels**, add ZeroGEX, and paste your Pro key. SabrTrader built and maintains that connection, so for help with how it draws the levels, contact SabrTrader; for the numbers themselves, contact us.
 - **TradingView** - a free Pine script. Manual entry only: Pine Script can't make HTTP calls, so you type today's numbers in yourself.
 - **thinkorswim** - a free thinkScript study. Manual entry only: thinkScript is sandboxed the same way Pine Script is, so you re-copy the study each day - it comes with that day's numbers already filled in.
 

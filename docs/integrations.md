@@ -108,6 +108,28 @@ Client Portal price alerts) or publish the signal engine's book to a signals
 marketplace (Collective2) are assessed and deferred in
 `docs/integrations-ibkr-collective2-feasibility.md`.
 
+## Platforms with ZeroGEX built in (SabrTrader)
+
+SabrTrader, a Windows futures and order-flow platform, ships its own ZeroGEX
+connector: the trader adds ZeroGEX under **Connections → Levels** and pastes
+their Pro API key, and SabrTrader draws the call wall, put wall and gamma flip,
+plus Max Pain, Charm Flip, Vanna Flip, Zero Flow and the strike histogram. It
+does the ES→SPX / NQ→NDX futures conversion itself. Its guide, which is the
+source of record for the steps, is
+<https://www.sabrtrader.com/pages/gamma-levels>.
+
+It is **not** a registry entry, for the same reason a broker is not: it runs
+none of our code, so there is no script, language or landing page to
+describe, and a hub card would promise a download that doesn't exist. It is a
+standalone block on `/integrations`, after the two groups, and a bullet in
+`/help/platform/api-access` (all five locales). Support split, stated on both:
+how it draws is SabrTrader's; the numbers are ours.
+
+It uses the same key as the NinjaTrader and Sierra Chart studies, and one key
+runs all of them at once. Members hold one active key, so regenerating to
+"add" a platform switches off every other one. The help page says so, because
+that is exactly how a SabrTrader member asked about NinjaTrader (Oct 2026).
+
 ## Why the menus collapsed to one link
 
 The sidebar's "More" group, the mobile header's copy of it, and the footer's
