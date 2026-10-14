@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 
 import { nonNegativeDomain, robustDomain } from '@/core/regimeDomain';
-import { segmentStops, stateSegments, weatherStateColor } from '@/core/weatherStateColors';
+import { drawnLineStops, weatherStateColor } from '@/core/weatherStateColors';
 import {
   changesForField,
   commentAt,
@@ -161,11 +161,15 @@ export default function WeatherFieldChart({
     return out;
   }, [series]);
 
-  const segments = useMemo(
-    () => stateSegments(points.map((p) => stateByBar.get(p.bar_start) ?? null)),
+  // Positioned along the drawn line rather than the axis, because that is
+  // the box the gradient stretches over. See drawnLineStops.
+  const stops = useMemo(
+    () =>
+      drawnLineStops(
+        points.map((p) => ({ value: p.value, state: stateByBar.get(p.bar_start) ?? null })),
+      ),
     [points, stateByBar],
   );
-  const stops = useMemo(() => segmentStops(segments, points.length), [segments, points.length]);
   const gradientId = `weather-field-${field}`;
 
   const valueByBar = useMemo(() => {
