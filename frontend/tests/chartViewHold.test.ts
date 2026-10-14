@@ -202,7 +202,8 @@ test('a jump back to the live edge keeps the scale but always shows the latest b
   const keep = handler('keepLatestInHeldWindow');
   assert.match(keep, /if \(!priceIsManual \|\| !layout\) return;/);
   assert.match(keep, /if \(latest < layout\.dMin \|\| latest > layout\.dMax\) commitPriceCenter\(latest\);/);
-  assert.match(handler('exitRewind'), /keepLatestInHeldWindow\(\);/);
+  assert.match(handler('exitRewind'), /leaveRewind\(\);/);
+  assert.match(handler('leaveRewind'), /keepLatestInHeldWindow\(\);/);
   assert.match(chart, /setView\(\(v\) => \(\{ \.\.\.v, offset: 0 \}\)\);\s*setHover\(null\);\s*keepLatestInHeldWindow\(\);/);
 });
 

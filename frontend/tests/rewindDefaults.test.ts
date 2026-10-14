@@ -26,15 +26,13 @@ function handler(src: string, name: string): string {
 
 test('Gamma Terminal: Rewind opens on the latest bar, with Loop on', () => {
   assert.match(terminal, /const \[playbackLoop, setPlaybackLoop\] = useState\(true\);/);
-  assert.match(
-    handler(terminal, 'enterRewind'),
-    /setRewindTime\(barStartMs\(allBars, allBars\.length - 1\) \+ intervalMinutes \* 60 \* 1000 - 1\);/,
-  );
+  const enter = handler(terminal, 'enterRewind');
+  assert.match(enter, /const time = barStartMs\(allBars, allBars\.length - 1\) \+ intervalMinutes \* 60 \* 1000 - 1;/);
+  assert.match(enter, /setRewindTime\(time\);/);
   // Play from there replays from the earliest replayable bar, where Loop wraps.
-  assert.match(
-    handler(terminal, 'togglePlayback'),
-    /if \(rewindTime >= liveEdge\) setRewindTime\(barStartMs\(allBars, rewindMinIdx\)\);/,
-  );
+  const play = handler(terminal, 'togglePlayback');
+  assert.match(play, /if \(rewindTime >= liveEdge\) time = barStartMs\(allBars, rewindMinIdx\);/);
+  assert.match(play, /setRewindTime\(time\);/);
   assert.match(terminal, /onClick=\{togglePlayback\}/);
 });
 
