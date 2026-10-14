@@ -325,3 +325,34 @@ writing or otherwise, on this evidence:
 
 Side finding: zerogex.io's registration expires **2026-11-19** (RDAP). Confirm
 auto-renew is on at Namecheap.
+
+### Final draft (Wed Oct 14), replacing the one above
+
+Michael held the earlier draft. Since then the "near" fix shipped
+(zerogex-oa `claude/orb-near-band`, deployed Oct 14) and the Technicals
+rebuild (`claude/technicals-rebuild`) is merged, to deploy after the close on
+Oct 14. So the reply can say the ORB flaw is fixed and the new page is
+coming. Still no TradeGEX by name, and no "copycat" anything (see above).
+
+**Send after the website deploy**, or change "goes live tonight" to match.
+
+**Reply in the same thread.**
+
+Hi Rod,
+
+Thanks for the heads up, and for the honesty. You're right about videos, and hearing it again moves them up my list. I'm really glad the walls are landing for you. That's by design: we weight each strike's open interest by its gamma, so a big block of contracts sitting far from price doesn't get to define the wall. The walls land where dealer hedging is most sensitive to a move.
+
+On the ORB breakout map: it's a price-only tool. It takes ES's high and low from the first 30 minutes of the regular session (9:30 to 9:59 ET) and holds them flat for the rest of the day. The status tells you where price is against that range: above the high, below the low, near the high, near the low, or inside.
+
+Your screenshot also caught a flaw, so thank you. "Near" used to mean within 0.2% of the line, which on ES is about 15 points, and Tuesday's whole range was 15.75. So "Near high" showed almost anywhere inside the range. That's fixed: near now means the top or bottom fifth of the range, so it scales with the day.
+
+I also rebuilt the Technicals page, partly because of your questions, and the new version goes live tonight. The opening range now sits on one chart with VWAP, the flip, the walls and the pin, and there's a log of every test and break of the range and whether it held.
+
+That's where the range is most useful: it gives you the day's early lines in the sand, and the levels tell you what hedging does if price breaks them. Above the flip, hedging leans against a break. Below it, hedging adds to it.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
