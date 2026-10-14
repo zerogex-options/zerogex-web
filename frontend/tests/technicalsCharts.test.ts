@@ -9,13 +9,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  divergenceTone,
+  fmtPriceChange,
   orbChartDomain,
   orbChartRows,
   orbPosition,
   orbPriceTicks,
   orbStatusColor,
   orbStatusKind,
+  technicalsLabel,
   timelineLabelStepMin,
+  vwapPositionTrend,
 } from '../core/technicalsCharts.ts';
 
 // The exact strings src/api/queries/technicals.py produces.
@@ -121,4 +125,47 @@ test('desktop time labels thin out as the session fills', () => {
   assert.equal(timelineLabelStepMin(96), 30);
   assert.equal(timelineLabelStepMin(192), 60, 'a full 04:00–20:00 session of five-minute slots');
   assert.equal(timelineLabelStepMin(300), 120);
+});
+
+// The exact display strings src/api/queries/technicals.py sends for VWAP
+// position, momentum divergence and volume spikes. None of the glyphs may
+// reach the screen; the words and the tone must survive.
+test('every backend label loses its glyph and keeps its words', () => {
+  const cases: Array<[string, string]> = [
+    ['🔥 Extended Above VWAP', 'Extended Above VWAP'],
+    ['✅ Above VWAP', 'Above VWAP'],
+    ['❌ Below VWAP', 'Below VWAP'],
+    ['🚨 Bearish Divergence (Price Up, Puts Buying)', 'Bearish Divergence (Price Up, Puts Buying)'],
+    ['🟢 Bullish Confirmation', 'Bullish Confirmation'],
+    ['⚠️ Weak Rally (Selling Volume)', 'Weak Rally (Selling Volume)'],
+    ['⚪ Neutral', 'Neutral'],
+    ['📈 Moderate Spike', 'Moderate Spike'],
+    ['⏸️ Inside ORB', 'Inside ORB'],
+    ['Above VWAP', 'Above VWAP'],
+  ];
+  for (const [raw, words] of cases) assert.equal(technicalsLabel(raw), words, raw);
+  assert.equal(technicalsLabel(null), '—');
+  assert.equal(technicalsLabel('🔥'), '—');
+});
+
+test('divergence tone: divergences warn, confirmations take their side', () => {
+  assert.equal(divergenceTone('🚨 Bullish Divergence (Price Down, Calls Buying)'), 'warning');
+  assert.equal(divergenceTone('🚨 Bearish Divergence (Price Up, Puts Buying)'), 'warning');
+  assert.equal(divergenceTone('🟢 Bullish Confirmation'), 'bullish');
+  assert.equal(divergenceTone('🔴 Bearish Confirmation'), 'bearish');
+  assert.equal(divergenceTone('⚠️ Weak Selloff (Buying Volume)'), 'neutral');
+  assert.equal(divergenceTone(null), 'neutral');
+});
+
+test('VWAP position reads by side, extended or not', () => {
+  assert.equal(vwapPositionTrend('🔥 Extended Above VWAP'), 'bullish');
+  assert.equal(vwapPositionTrend('❌ Below VWAP'), 'bearish');
+  assert.equal(vwapPositionTrend(null), 'neutral');
+});
+
+test('the five-minute change is a signed price change, never a percent', () => {
+  assert.equal(fmtPriceChange(12.25), '+12.25');
+  assert.equal(fmtPriceChange(-3.5), '-3.50');
+  assert.equal(fmtPriceChange(0), '+0.00');
+  assert.equal(fmtPriceChange(null), '—');
 });

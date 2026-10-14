@@ -224,6 +224,48 @@ export function orbStatusKind(status: string | null | undefined): OrbStatusKind 
   return null;
 }
 
+/**
+ * The technicals feed sends its states as display text behind a glyph
+ * ("🔥 Extended Above VWAP", "🚨 Bearish Divergence (Price Up, Puts Buying)").
+ * Emoji are not part of the product's visual language, so every surface shows
+ * the words alone and carries the tone in color instead. Every backend label
+ * starts its words with an ASCII letter, so dropping what comes before the
+ * first one removes the glyph without needing a Unicode-aware regex.
+ */
+export function technicalsLabel(raw: string | null | undefined): string {
+  if (!raw) return '—';
+  const words = raw.replace(/^[^A-Za-z0-9(]+/, '').trim();
+  return words || '—';
+}
+
+export type DivergenceTone = 'warning' | 'bullish' | 'bearish' | 'neutral';
+
+/** A divergence is a warning; a confirmation takes its direction; the rest are neutral. */
+export function divergenceTone(raw: string | null | undefined): DivergenceTone {
+  const s = technicalsLabel(raw).toLowerCase();
+  if (s.includes('divergence')) return 'warning';
+  if (s.includes('bullish confirmation')) return 'bullish';
+  if (s.includes('bearish confirmation')) return 'bearish';
+  return 'neutral';
+}
+
+/** VWAP position: above reads bullish, below bearish. */
+export function vwapPositionTrend(raw: string | null | undefined): 'bullish' | 'bearish' | 'neutral' {
+  const s = (raw ?? '').toLowerCase();
+  if (s.includes('above')) return 'bullish';
+  if (s.includes('below')) return 'bearish';
+  return 'neutral';
+}
+
+/**
+ * The feed's chg_5m is close minus the previous bar's close: a price change in
+ * the symbol's own units (dollars, or points on ES / NQ), not a percent.
+ */
+export function fmtPriceChange(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(2)}`;
+}
+
 /** Breakout reads bullish, breakdown bearish, anything else is a warning tone. */
 export function orbStatusColor(status: string | null | undefined): string {
   const kind = orbStatusKind(status);

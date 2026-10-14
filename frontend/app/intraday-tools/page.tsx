@@ -18,6 +18,7 @@ import { useTechnicals, type TechnicalsBar } from '@/hooks/useTechnicals';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
+import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -25,6 +26,7 @@ import OrbPositionBar from '@/components/OrbPositionBar';
 import OrbBreakoutMap from '@/components/OrbBreakoutMap';
 import {
   ET_HM,
+  divergenceTone,
   etMinuteOfDay,
   fmtFixed,
   generateNiceTicks,
@@ -33,8 +35,10 @@ import {
   phoneLabelStepMin,
   phonePriceTick,
   safeNum,
+  technicalsLabel,
   timelineLabelStepMin,
   trimEdgeTicks,
+  vwapPositionTrend,
 } from '@/core/technicalsCharts';
 
 function isVolumeSpike(volumeClass: string | null | undefined): boolean {
@@ -89,7 +93,7 @@ export default function IntradayToolsPage() {
     const ts = latest?.timestamp ?? null;
     const ms = ts ? new Date(ts).getTime() : (fetchedAt ?? null);
     if (ms == null || !Number.isFinite(ms)) return null;
-    return new Date(ms).toLocaleTimeString();
+    return `${ET_HM.format(new Date(ms))} ET`;
   }, [latest, fetchedAt]);
 
   const vwapLatest = latest?.vwap_deviation ?? null;
@@ -352,8 +356,8 @@ export default function IntradayToolsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
               <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
               <MetricCard title="VWAP" value={`$${fmtFixed(vwapLatest?.vwap)}`} tooltip="Volume weighted average price" />
-              <MetricCard title="Deviation" value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwapLatest?.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
-              <MetricCard title="Position" value={vwapLatest?.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
+              <MetricCard title="Deviation" value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={vwapPositionTrend(vwapLatest?.vwap_position)} tooltip="Percentage deviation from VWAP" />
+              <MetricCard title="Position" value={technicalsLabel(vwapLatest?.vwap_position)} trend={vwapPositionTrend(vwapLatest?.vwap_position)} tooltip="Price position relative to VWAP" />
             </div>
             {vwapChart.length > 0 ? (
               <div className="zg-panel p-5">
@@ -425,8 +429,8 @@ export default function IntradayToolsPage() {
             {/* Short single numbers: two per row on a phone, not a tower. */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
               <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
-              <MetricCard title="ORB High" value={`$${fmtFixed(orbLatest?.orb_high)}`} subtitle={`+${fmtFixed(orbLatest?.distance_above_orb_high)}`} tooltip="Opening range high" />
-              <MetricCard title="ORB Low" value={`$${fmtFixed(orbLatest?.orb_low)}`} subtitle={`-${fmtFixed(orbLatest?.distance_below_orb_low)}`} tooltip="Opening range low" />
+              <PriceDistanceMetricCard title="ORB High" level={safeNum(orbLatest?.orb_high)} spotPrice={safeNum(latest?.close)} tooltip="Opening range high" />
+              <PriceDistanceMetricCard title="ORB Low" level={safeNum(orbLatest?.orb_low)} spotPrice={safeNum(latest?.close)} tooltip="Opening range low" />
               <MetricCard title="ORB Range" value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip="Opening range size" />
             </div>
             <div className="zg-panel p-5 mb-4">
@@ -493,7 +497,7 @@ export default function IntradayToolsPage() {
                               {point.downVolume != null ? <ChartTooltipRow label="Down Volume" value={point.downVolume.toLocaleString()} swatch="var(--color-bear)" /> : null}
                               {point.volumeRatio != null ? <ChartTooltipRow label="Ratio" value={`${point.volumeRatio.toFixed(1)}x avg`} /> : null}
                               {point.volumeSigma != null ? <ChartTooltipRow label="Sigma" value={`${point.volumeSigma.toFixed(1)}σ`} /> : null}
-                              {point.volumeClass ? <ChartTooltipRow label="Class" value={point.volumeClass} /> : null}
+                              {point.volumeClass ? <ChartTooltipRow label="Class" value={technicalsLabel(point.volumeClass)} /> : null}
                               {point.buyingPressurePct != null ? <ChartTooltipRow label="Buying Pressure" value={`${point.buyingPressurePct.toFixed(1)}%`} /> : null}
                             </>
                           ) : (
@@ -536,19 +540,20 @@ export default function IntradayToolsPage() {
           <div className="zg-panel p-5">
             <div className={isMobile ? 'space-y-3' : 'space-y-3 max-h-[420px] overflow-y-auto pr-1'}>
               {(isMobile && !showAllDivergence ? divergenceRows.slice(0, PHONE_DIVERGENCE_ROWS) : divergenceRows).map((signal, idx) => {
-                const divergenceSignal = signal.signal;
+                const tone = divergenceTone(signal.signal);
                 const price = signal.price ?? 0;
+                const ms = signal.timestamp ? new Date(signal.timestamp).getTime() : NaN;
                 return (
                   <div key={`${signal.timestamp}-${idx}`} className="border-b pb-3" style={{ borderColor: borderColor }}>
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold">{signal.timestamp ? new Date(signal.timestamp).toLocaleTimeString() : '--:--'}</div>
+                      <div className="font-semibold">{Number.isFinite(ms) ? `${ET_HM.format(new Date(ms))} ET` : '--:--'}</div>
                       <div className={`px-3 py-1 rounded text-sm font-semibold ${
-                        divergenceSignal.includes('🚨') ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
-                        divergenceSignal.includes('🟢') ? 'bg-[var(--color-bull-soft)] text-[var(--color-bull)]' :
-                        divergenceSignal.includes('🔴') ? 'bg-[var(--color-bear-soft)] text-[var(--color-bear)]' :
+                        tone === 'warning' ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
+                        tone === 'bullish' ? 'bg-[var(--color-bull-soft)] text-[var(--color-bull)]' :
+                        tone === 'bearish' ? 'bg-[var(--color-bear-soft)] text-[var(--color-bear)]' :
                         'bg-[var(--bg-card)] text-[var(--text-secondary)]'
                       }`}>
-                        {divergenceSignal}
+                        {technicalsLabel(signal.signal)}
                       </div>
                     </div>
                     <div className="text-sm" style={{ color: mutedText }}>Price: ${price.toFixed(2)}</div>

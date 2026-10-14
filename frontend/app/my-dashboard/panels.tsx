@@ -43,7 +43,7 @@ import HeadlinesWire from '@/components/HeadlinesWire';
 import MetricCard from '@/components/MetricCard';
 import OrbPositionBar from '@/components/OrbPositionBar';
 import OrbBreakoutMap from '@/components/OrbBreakoutMap';
-import { orbStatusKind, type OrbStatusKind } from '@/core/technicalsCharts';
+import { fmtPriceChange, orbStatusKind, technicalsLabel, type OrbStatusKind } from '@/core/technicalsCharts';
 import { useTechnicals } from '@/hooks/useTechnicals';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -910,7 +910,7 @@ export function VwapDeviationPanel() {
           <MetricCard
             title={t('vwapDeviationTitle')}
             value={pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}
-            subtitle={humanizeStatus(position)}
+            subtitle={technicalsLabel(humanizeStatus(position))}
             tooltip={t('vwapDeviationTooltip')}
             theme={theme}
             trend={trend}
@@ -977,13 +977,13 @@ export function MomentumDivergencePanel() {
                   {formatEtTime(e.timestamp)}
                 </span>
                 <span className="zg-small min-w-0 flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
-                  {e.signal}
+                  {technicalsLabel(e.signal)}
                 </span>
                 <span
                   className="zg-caption tabular-nums"
                   style={{ color: up ? 'var(--color-bull)' : 'var(--color-bear)', whiteSpace: 'nowrap' }}
                 >
-                  {e.chg5m != null ? `${up ? '+' : ''}${e.chg5m.toFixed(2)}%` : '—'}
+                  {fmtPriceChange(e.chg5m)}
                 </span>
               </div>
             );
@@ -1019,7 +1019,7 @@ export function VolumeSpikePanel() {
           <MetricCard
             title={t('volumeSigmaTitle')}
             value={sigma != null ? `${sigma >= 0 ? '+' : ''}${sigma.toFixed(2)}σ` : '—'}
-            subtitle={humanize(spike?.volume_class ?? '') || t('volumeSigmaSubtitle')}
+            subtitle={(spike?.volume_class ? technicalsLabel(humanize(spike.volume_class)) : '') || t('volumeSigmaSubtitle')}
             tooltip={t('volumeSigmaTooltip')}
             theme={theme}
             trend={sigma != null && sigma >= 2 ? 'bullish' : 'neutral'}

@@ -10,7 +10,7 @@
 import type { ReactNode } from 'react';
 import type { TechnicalsOpeningRange } from '@/hooks/useTechnicals';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
-import { orbPosition, orbStatusColor } from '@/core/technicalsCharts';
+import { orbPosition, orbStatusColor, technicalsLabel } from '@/core/technicalsCharts';
 
 export type OrbPositionLabels = { below: string; inside: string; above: string };
 
@@ -38,7 +38,7 @@ export default function OrbPositionBar({
   const position = orbPosition(orb, price);
   if (!position) return null;
   const { orbLow, orbHigh, price: currentPrice, lowPct, highPct, pricePct } = position;
-  const status = orb?.orb_status ?? '--';
+  const status = orb?.orb_status ? technicalsLabel(orb.orb_status) : '--';
   const statusColor = orbStatusColor(orb?.orb_status);
   const mutedText = 'var(--text-secondary)';
   const textColor = 'var(--text-primary)';
