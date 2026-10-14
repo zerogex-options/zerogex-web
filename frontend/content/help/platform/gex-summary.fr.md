@@ -6,7 +6,7 @@
 
 ## Ce que montre cette page
 
-La page GEX Summary est la vue **en chiffres** du book d'options. Là où Dealer Positioning est structurel (profil, walls, heatmaps), cette page réunit dix chiffres clés sur un seul écran, puis montre comment le gamma flip évolue selon les horizons d'options et comment le gamma des dealers du jour se compare à son propre historique.
+La page GEX Summary est la vue **en chiffres** du book d'options. Là où Dealer Positioning est structurel (profil, walls, heatmaps), cette page réunit dix chiffres clés sur un seul écran, cartographie le gamma des dealers selon le prix et le temps, puis montre comment le gamma flip évolue selon les horizons d'options et comment le gamma des dealers du jour se compare à son propre historique.
 
 Le sélecteur **GEX unit** de l'en-tête bascule tous les montants GEX en dollars entre le gamma par mouvement de 1 % (par défaut) et par 1 point. L'exposition est la même dans les deux cas ; seule l'unité change.
 
@@ -39,6 +39,12 @@ Le strike 0DTE atteignable présentant le plus fort gamma positif modélisé des
 - **Call GEX** et **Put GEX** - l'exposition gamma totale modélisée des calls et des puts, les deux moitiés derrière le Net GEX.
 - **Put/Call Ratio** - le volume de puts divisé par le volume de calls. Au-dessus de 1, tendance baissière ; en dessous de 1, haussière.
 - **Call Wall (Resistance)** et **Put Wall (Support)** - le strike au niveau du spot ou au-dessus présentant le plus grand call gamma, et le strike au niveau du spot ou en dessous présentant le plus grand put gamma, chacun additionné sur l'échéance du jour et les deux suivantes (0-2DTE), avec la distance au spot. Un graphique limité au seul 0DTE peut afficher un autre strike. Les libellés sont la lecture habituelle, pas une garantie : dans notre étude portant sur 737 tests de walls, les walls du S&P ont tenu environ deux fois sur trois dans l'heure et ceux du Nasdaq environ une fois sur deux, et le signe modélisé du gamma des dealers n'y a rien changé.
+
+## Gamma Surface
+
+Le gamma modélisé des dealers sous forme de surface 3D : le prix hypothétique sur un axe, le temps sur l'autre, de maintenant jusqu'au règlement de la première échéance sélectionnée. Chaque point est le gamma que le modèle attribue aux dealers si le prix se trouve là à ce moment : chaque contrat sélectionné est réévalué à ce prix avec la part de sa durée de vie déjà écoulée, à pleine pondération (sans pondération par horizon) et avec sa volatilité implicite maintenue à son niveau actuel. Le gamma du jour se concentre à l'approche de son règlement, si bien que la surface monte vers la fin de l'axe du temps autour des strikes 0DTE les plus lourds.
+
+Le sélecteur **Expiry** choisit les échéances valorisées : **All** par défaut, ou n'importe quel ensemble de dates. Choisissez seule une échéance plus lointaine pour voir sa surface jusqu'à son propre règlement. Les lignes à la base marquent le ceiling (Call Wall), le spot et le floor (Put Wall) pour la même sélection - les walls que tout autre graphique affiche pour elle - et la ligne pointillée suit la surface au spot. Faites glisser pour la faire pivoter ; sur mobile, touchez d'abord **Rotate & zoom**.
 
 ## Gamma Flip · Term Structure
 

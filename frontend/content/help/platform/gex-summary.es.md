@@ -6,7 +6,7 @@
 
 ## Qué muestra esta página
 
-La página GEX Summary es la vista **en cifras** del libro de opciones. Mientras que Dealer Positioning es estructural (perfil, walls, heatmaps), esta página reúne diez cifras principales en una sola pantalla y después muestra cómo cambia el gamma flip entre horizontes de opciones y cómo se compara el gamma de los dealers de hoy con su propio historial.
+La página GEX Summary es la vista **en cifras** del libro de opciones. Mientras que Dealer Positioning es estructural (perfil, walls, heatmaps), esta página reúne diez cifras principales en una sola pantalla, traza el gamma de los dealers a lo largo del precio y el tiempo, y después muestra cómo cambia el gamma flip entre horizontes de opciones y cómo se compara el gamma de los dealers de hoy con su propio historial.
 
 El selector **GEX unit** del encabezado cambia todas las cifras de GEX en dólares entre gamma por movimiento del 1% (por defecto) y por 1 punto. La exposición es la misma en ambos casos; solo cambia la unidad.
 
@@ -39,6 +39,12 @@ El strike 0DTE alcanzable con el gamma positivo modelado de los dealers más fue
 - **Call GEX** y **Put GEX** - la exposición gamma total modelada de las calls y de las puts, las dos mitades detrás del Net GEX.
 - **Put/Call Ratio** - volumen de puts dividido por volumen de calls. Por encima de 1 se inclina a bajista; por debajo de 1, a alcista.
 - **Call Wall (Resistance)** y **Put Wall (Support)** - el strike en el spot o por encima con el mayor call gamma y el strike en el spot o por debajo con el mayor put gamma, cada uno sumado sobre el vencimiento de hoy y los dos siguientes (0-2DTE), con la distancia al spot. Un gráfico limitado solo a 0DTE puede mostrar otro strike. Las etiquetas son la lectura habitual, no una garantía: en nuestro estudio de 737 pruebas de walls, los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora y los del Nasdaq, aproximadamente la mitad, y el signo modelado del gamma de los dealers no cambió eso.
+
+## Gamma Surface
+
+El gamma modelado de los dealers como una superficie 3D: el precio hipotético en un eje y el tiempo en el otro, desde ahora hasta la liquidación del primer vencimiento seleccionado. Cada punto es el gamma que el modelo asigna a los dealers si el precio está ahí en ese momento: cada contrato seleccionado se revalúa a ese precio con esa parte de su vida ya transcurrida, con peso completo (sin ponderación por horizonte) y con su volatilidad implícita en el nivel actual. El gamma del mismo día se concentra hacia su liquidación, por lo que la superficie se eleva hacia el final del eje de tiempo alrededor de los strikes 0DTE más pesados.
+
+El control **Expiry** elige qué vencimientos se valoran: **All** por defecto, o cualquier conjunto de fechas. Elige un vencimiento posterior por sí solo para ver su superficie hasta su propia liquidación. Las líneas de la base marcan el ceiling (Call Wall), el spot y el floor (Put Wall) para la misma selección - los mismos walls que muestra cualquier otro gráfico para ella - y la línea discontinua sigue la superficie en el spot. Arrastra para rotar; en el móvil, toca primero **Rotate & zoom**.
 
 ## Gamma Flip · Term Structure
 

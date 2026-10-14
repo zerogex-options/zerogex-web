@@ -105,7 +105,7 @@ export interface GammaPlaybookRead {
  * `liveGexBucket`: walk back from the tip so an empty / all-zero after-hours
  * bucket doesn't blank the levels.
  */
-function lastGammaBucket(buckets: StrikeProfileBucket[]): StrikeProfileBucket | null {
+export function lastGammaBucket(buckets: StrikeProfileBucket[]): StrikeProfileBucket | null {
   for (let i = buckets.length - 1; i >= 0; i--) {
     const bucket = buckets[i];
     if (Array.isArray(bucket.strikes) && bucket.strikes.some((s) => levelOrNull(s.net_gamma))) return bucket;

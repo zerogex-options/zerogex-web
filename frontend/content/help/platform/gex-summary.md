@@ -6,7 +6,7 @@
 
 ## What this page shows
 
-The GEX Summary page is the **by-the-numbers** view of the options book. Where Dealer Positioning is structural (profile, walls, heatmaps), this page puts ten headline numbers on one screen, then shows how the gamma flip changes across option horizons and how today's dealer gamma compares with its own history.
+The GEX Summary page is the **by-the-numbers** view of the options book. Where Dealer Positioning is structural (profile, walls, heatmaps), this page puts ten headline numbers on one screen, maps dealer gamma across price and time, then shows how the gamma flip changes across option horizons and how today's dealer gamma compares with its own history.
 
 The **GEX unit** toggle in the header switches every dollar GEX figure between gamma per 1% move (the default) and per 1 point. The exposure is the same either way; only the unit changes.
 
@@ -39,6 +39,12 @@ The reachable 0DTE strike with the strongest modeled positive dealer gamma into 
 - **Call GEX** and **Put GEX** - total modeled gamma exposure from calls and from puts, the two halves behind Net GEX.
 - **Put/Call Ratio** - put volume divided by call volume. Above 1 leans bearish; below 1, bullish.
 - **Call Wall (Resistance)** and **Put Wall (Support)** - the strike at or above spot with the largest call gamma, and the strike at or below spot with the largest put gamma, each summed over today's expiration and the next two (0-2DTE), with the distance from spot. A chart scoped to 0DTE alone can show a different strike. The labels are the usual reading, not a guarantee: in our study of 737 wall tests, S&P walls held about two times in three within an hour and Nasdaq walls about half, and the modeled dealer-gamma sign did not change that.
+
+## Gamma Surface
+
+Modeled dealer gamma as a 3D surface: hypothetical price on one axis and time on the other, from now until the first selected expiration settles. Each point is the gamma dealers are modeled to carry if price is there at that moment - every selected contract re-priced at that price with that much of its life gone, at full weight (no horizon weighting), with its implied vol held where it is now. Same-day gamma sharpens into its settlement, so the surface rises toward the end of the time axis around heavy 0DTE strikes.
+
+The **Expiry** control picks which expirations it prices: **All** by default, or any set of dates. Pick one later expiration on its own to see its surface run out to its own settlement. The lines along the base mark the ceiling (Call Wall), spot and floor (Put Wall) for the same selection - the walls every other chart shows for it - and the dashed line traces the surface at spot. Drag to rotate; on a phone, tap **Rotate & zoom** first.
 
 ## Gamma Flip · Term Structure
 

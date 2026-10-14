@@ -16,6 +16,7 @@ import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import FlipTermStructureChart from '@/components/FlipTermStructureChart';
 import FlipSurfaceChart from '@/components/FlipSurfaceChart';
+import GammaSurfaceChart from '@/components/GammaSurfaceChart';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
 import GexUnitToggle from '@/components/GexUnitToggle';
 import { useTheme } from '@/core/ThemeContext';
@@ -264,6 +265,12 @@ export default function GreeksGEXPage() {
             trend="bullish"
           />
         </div>
+      </section>
+
+      {/* First chart under the cards: the whole book's gamma across price and
+          time, by expiration (All unless the member picks a set). */}
+      <section className="mb-8">
+        <GammaSurfaceChart symbol={symbol} />
       </section>
 
       <section className="mb-8">
