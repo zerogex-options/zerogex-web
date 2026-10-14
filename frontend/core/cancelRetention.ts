@@ -58,9 +58,9 @@ export type DiscountAudit = {
 //     correct.
 //
 //   • The member was intercepted BEFORE any cancel (cancel_at_period_end=0). No
-//     cancellation was ever recorded, so there is nothing to net out. Emitting
-//     the win-back type here would add a phantom offset and INFLATE net growth by
-//     one. Use a distinct type the dashboard does not treat as an offset.
+//     cancellation was ever recorded, so there is nothing to net out. Use a
+//     distinct type the dashboard does not treat as an offset, so the audit log
+//     never claims a cancel was taken back that was never made.
 export function discountAuditType(wasCancelling: boolean): DiscountAudit {
   return wasCancelling
     ? { type: 'billing_winback_discount_honored', offsetsCountedCancellation: true }

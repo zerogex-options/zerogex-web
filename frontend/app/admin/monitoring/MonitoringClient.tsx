@@ -98,6 +98,8 @@ type GrowthRatePoint = {
   signups: number;
   cancellations: number;
   paymentFailures: number;
+  cancellationsReversed: number;
+  paymentFailuresRecovered: number;
   net: number;
   dailyRate: number;
 };
@@ -1285,7 +1287,7 @@ function SubscriberLedgerCard({
                     <span
                       className="text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap"
                       style={{ border: `1px solid ${CONVEYOR_COLORS.stalled}`, color: CONVEYOR_COLORS.stalled }}
-                      title="Counted as a failure in the Forward-Looking Growth Rate"
+                      title="Counted as a failure in the Forward-Looking Growth Rate, unless a Payment recovered row follows it"
                     >
                       payment failure
                     </span>
@@ -1990,7 +1992,7 @@ function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, te
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
         <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
-        <p className="text-xs" style={{ color: mutedText }}>New subscriptions (trials and plans paid up front) minus cancellations (Cancel clicks and money-back refunds, net of win-backs) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. Rate is net growth per day over each window: the last 24 hours, then the last 7, 14 and 30 calendar days (New York time, today included).</p>
+        <p className="text-xs" style={{ color: mutedText }}>New subscriptions (trials and plans paid up front) minus cancellations (Cancel clicks and money-back refunds) and payment failures. A failure is a subscriber whose charge was declined, counted once: the rows tagged &ldquo;payment failure&rdquo; in the Subscriber Ledger on the Conversion Conveyor tab. Every declined attempt is under Stripe &rarr; Payment Declines. A cancel the member took back and a declined charge they then paid are not counted, and a member who was declined and then canceled counts once. Rate is net growth per day over each window: the last 24 hours, then the last 7, 14 and 30 calendar days (New York time, today included).</p>
         {ledgerError && (
           <p className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.stalled }}>
             Payment failures could not be counted because the Subscriber Ledger failed to build, so they show as 0.
@@ -2003,6 +2005,9 @@ function GrowthRateCard({ rates, ledgerError, cardBg, borderColor, mutedText, te
             <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days === 1 ? 'Last 24 hours' : `${rate.days}-day`}</div>
             <div className="text-2xl font-semibold tabular-nums" style={{ color: rate.net >= 0 ? '#2c8c6a' : '#c1435b' }}>{rate.dailyRate >= 0 ? '+' : ''}{rate.dailyRate.toFixed(2)}/day</div>
             <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>{rate.signups} signups − {rate.cancellations} cancels − {rate.paymentFailures} failures = {rate.net >= 0 ? '+' : ''}{rate.net}</div>
+            {(rate.cancellationsReversed > 0 || rate.paymentFailuresRecovered > 0) && (
+              <div className="text-xs mt-0.5 tabular-nums" style={{ color: mutedText }}>Not counted: {rate.cancellationsReversed} cancels taken back, {rate.paymentFailuresRecovered} failures paid</div>
+            )}
           </div>
         ))}
       </div>
