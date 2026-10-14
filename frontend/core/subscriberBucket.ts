@@ -259,6 +259,9 @@ export type LedgerRow = {
   at: string;
   email: string | null;
   userId: string | null;
+  // The Stripe subscription the row happened to. The growth-rate card pairs a
+  // payment failure with the `recovered` row that later settles it by this id.
+  subId: string;
   kind: LedgerEventKind;
   // What this did to each line of the Total Subscribers chart. Summing the
   // deltas over a window reproduces that line's movement across it, which is
@@ -270,10 +273,11 @@ export type LedgerRow = {
   // True on the ONE row where a payment failure first hit a subscription on the
   // chart: a declined trial charge, a renewal gone into dunning, or a
   // subscription that lost access because a charge failed. The Forward-Looking
-  // Growth Rate counts exactly these rows as its failures, so every failure on
-  // that card is a named member here. The rest of the same episode (the grace
-  // window running out, Stripe's final cancel) is that failure playing out, not
-  // a new one.
+  // Growth Rate counts these rows as its failures, less the ones a later
+  // `recovered` row on the same subscription settles (core/growthLosses.ts),
+  // so every failure on that card is a named member here. The rest of the same
+  // episode (the grace window running out, Stripe's final cancel) is that
+  // failure playing out, not a new one.
   //
   // A decline that changed no subscription is never flagged: a card refused at
   // checkout before anyone was counted, a trial member's refused switch to paid
@@ -438,6 +442,7 @@ function bucketDeltas(
 }
 
 type SubState = {
+  subId: string;
   bucket: SubscriberBucketId | null;
   // Last identity seen on this subscription, so a row the walk synthesizes
   // (a conversion settled by the fallback window) still names the member.
@@ -599,6 +604,7 @@ export function buildSubscriberLedger(
     if (!s) {
       const recovery = recoveredSubs.get(subId);
       s = {
+        subId,
         bucket: null,
         email: recovery?.email ?? null,
         userId: recovery?.userId ?? null,
@@ -638,6 +644,7 @@ export function buildSubscriberLedger(
       at: ev.at,
       email: ev.email,
       userId: ev.userId,
+      subId: s.subId,
       kind,
       ...bucketDeltas(s.bucket, to),
       paymentFailure,
@@ -777,6 +784,7 @@ export function buildSubscriberLedger(
         at: ev.at,
         email: ev.email,
         userId: ev.userId,
+        subId: s.subId,
         kind: 'accessEnded',
         ...bucketDeltas(s.bucket, 'notCounted'),
         paymentFailure: failed,
@@ -930,6 +938,7 @@ export function buildSubscriberLedger(
         at: ev.at,
         email: ev.email,
         userId: ev.userId,
+        subId: s.subId,
         kind: 'renewalFailed',
         fullSubscriberDelta: 0,
         convertingDelta: 0,
@@ -945,6 +954,7 @@ export function buildSubscriberLedger(
         at: ev.at,
         email: ev.email,
         userId: ev.userId,
+        subId: s.subId,
         kind: 'recovered',
         fullSubscriberDelta: 0,
         convertingDelta: 0,
@@ -967,6 +977,7 @@ export function buildSubscriberLedger(
         at: ev.at,
         email: ev.email,
         userId: ev.userId,
+        subId: s.subId,
         kind: ev.cancelAtPeriodEnd
           ? paid
             ? 'cancelScheduledPaid'

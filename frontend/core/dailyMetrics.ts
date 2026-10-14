@@ -57,7 +57,8 @@ import { readSubscriberLedgerRows } from './subscriberLedgerSource.ts';
 //   payment_failures The Subscriber Ledger's rows flagged as payment failures
 //                    (LedgerRow.paymentFailure in core/subscriberBucket.ts): a
 //                    declined charge hitting a subscriber, once per episode, on
-//                    the day it hit. The same rows the growth-rate card counts.
+//                    the day it hit. The same rows the growth-rate card counts,
+//                    which also drops the ones the member later paid.
 //                    A decline that moved no subscriber (a refused switch to
 //                    paid, a card refused at checkout, a second try at a bill
 //                    that already failed) is not one; Stripe → Payment Declines

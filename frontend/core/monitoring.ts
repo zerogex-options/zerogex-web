@@ -34,7 +34,8 @@ import {
   parseCancellationReasonFromMessage,
   NO_FEEDBACK,
 } from '@/core/cancellationReason';
-import { CANCEL_DECISION_AUDIT_TYPES, cancelDecisionRows } from '@/core/cancelDecisions';
+import { CANCEL_DECISION_AUDIT_TYPES } from '@/core/cancelDecisions';
+import { CANCEL_REVERSAL_AUDIT_TYPES, cancelEvents, failureEvents, settleLosses } from '@/core/growthLosses';
 import {
   classifySubscriberBucket,
   summarizeLedger,
@@ -187,6 +188,10 @@ export type GrowthRatePoint = {
   signups: number;
   cancellations: number;
   paymentFailures: number;
+  // Made in the window and since undone, so not in the two counts above: a
+  // cancellation the member took back, a declined charge they then paid.
+  cancellationsReversed: number;
+  paymentFailuresRecovered: number;
   net: number;
   dailyRate: number;
 };
@@ -1261,129 +1266,83 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // Trailing acquisition velocity, intentionally measured at the customer's
 // decision/failure moment rather than at the later access downgrade. A signup is
 // a subscription's first paid-tier sync: `trialing` for a plan with a free
-// trial, `active` for one paid up front at checkout. Cancellation
-// acknowledgments provide historical coverage; the dedicated request audit is
-// the durable source going forward. Grouping cancellation rows by user/day
-// prevents the acknowledgment and request rows emitted for the same click from
-// being counted twice.
+// trial, `active` for one paid up front at checkout.
 //
-// A money-back refund is a cancellation too. It ends the subscription on the
-// spot, so no Cancel click is ever written for it, and without it a refunded
-// signup stayed +1 here for good. core/cancelDecisions.ts decides which rows
-// count, and does not count a refund twice for a member who clicked Cancel
-// first.
+// A cancellation is a Cancel click (the request row and its acknowledgment
+// email, one decision) or a money-back refund, which ends the subscription on
+// the spot with no click ever written. core/cancelDecisions.ts decides which
+// rows those are.
 //
-// Win-backs offset cancellations: an honor-winback-discount run that clears a
-// scheduled cancellation (billing_winback_discount_honored, "cleared
-// cancel_at_period_end") means the member was retained on the same
-// subscription — no re-subscribe, so no offsetting signup ever lands. We
-// subtract in-window win-backs from the in-window cancellation count (floored
-// at 0) so a canceled-then-won-back member nets to zero rather than showing as
-// a loss. This is a count-level offset within the same window (simplest): a
-// win-back whose original cancel fell outside the window slightly under-counts
-// cancellations, and --keep-cancellation runs (which don't clear the cancel)
-// are excluded.
+// A payment failure is a Subscriber Ledger row flagged `paymentFailure`, read
+// off the same build the ledger renders, so every failure counted here is a
+// named row there. Every declined attempt is in Stripe → Payment Declines.
 //
-// Payment failures are the Subscriber Ledger's rows flagged `paymentFailure`,
-// read off the same build the ledger renders, so every failure counted here is
-// a named row there. They used to be every first declined attempt on an
-// invoice, which also counted declines that never moved a subscriber: a charge
-// refused on a subscription that was never on the chart or was still trialing,
-// and a second try at an already-failed bill on a later day (a member's own
-// retry does not advance Stripe's attempt count, so it can arrive as attempt 1
-// again). Those are still in Stripe → Payment Declines, which counts attempts.
+// Both are counted only while they stand (core/growthLosses.ts). A cancel the
+// member took back (Keep my plan, the /save link, a win-back, a pause instead,
+// a plan switch, the Stripe portal) and a declined charge they then paid are
+// not losses, and a member who was declined and then clicked Cancel is one
+// loss, not two. Without that, every renewal Stripe's retry collected stayed a
+// -1 here for good, and so did every Cancel click taken back anywhere but the
+// two win-back paths that used to be netted out. The ones netted out are
+// reported beside the counts. The Growth tab's daily rows still count every
+// click and failure on its own day.
 //
 // The 1-day window is the last 24 hours, not today on the calendar. "Today" at
 // noon is half a day of events divided by a whole one, and on a Saturday
 // morning that read as a collapse. The 7-, 14- and 30-day windows stay on New
-// York calendar days (today included), so they still add up with the Growth
-// tab's daily rows.
+// York calendar days (today included).
 function buildGrowthRates(now: Date, ledger: LedgerBuild): GrowthRatePoint[] {
   const horizons = [1, 7, 14, 30] as const;
-  const days = generateDailyKeys(now, 30);
-  // Keyed `${ET day}:${who}`, valued with the latest moment it happened: the
-  // calendar windows read the day, the 24-hour one the time.
+  // Keyed by subscription, valued with the moment it signed up: the calendar
+  // windows read its ET day, the 24-hour one the time.
   const signups = new Map<string, number>();
-  const cancellations = new Map<string, number>();
-  const paymentFailures = new Map<string, number>();
-  const winbacks = new Map<string, number>();
-
-  ledger.rows.forEach((row, index) => {
-    if (!row.paymentFailure) return;
-    const at = new Date(row.at);
-    if (Number.isNaN(at.getTime())) return;
-    const day = etBucketKeys(at).day;
-    if (days.includes(day)) paymentFailures.set(`${day}:${index}`, at.getTime());
-  });
+  const lossEvents = failureEvents(ledger.rows);
 
   try {
     const rows = getDb().prepare(
       `SELECT type, user_id, created_at, message FROM audit_events
        WHERE type IN (
-         'stripe_subscription_sync',
-         ${CANCEL_DECISION_AUDIT_TYPES.map((type) => `'${type}'`).join(', ')},
-         'billing_winback_discount_honored'
+         ${[...CANCEL_DECISION_AUDIT_TYPES, ...CANCEL_REVERSAL_AUDIT_TYPES].map((type) => `'${type}'`).join(', ')}
        ) AND created_at > datetime('now', '-850 days')
        ORDER BY created_at ASC`,
     ).all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
 
-    const decisions = new Set(cancelDecisionRows(rows));
-    const seenSubscriptions = new Set<string>();
     for (const row of rows) {
-      const parsed = new Date(row.created_at);
-      if (Number.isNaN(parsed.getTime())) continue;
-      const day = etBucketKeys(parsed).day;
-      if (row.type === 'stripe_subscription_sync') {
-        const subId = parseSubIdFromMessage(row.message);
-        const tier = parseSyncTierStrict(row.message);
-        if (subId && tier && tier !== 'public' && !seenSubscriptions.has(subId)) {
-          seenSubscriptions.add(subId);
-          if (days.includes(day)) signups.set(`${day}:${subId}`, parsed.getTime());
-        }
-      } else if (!days.includes(day)) {
-        continue;
-      } else if (row.type === 'billing_winback_discount_honored') {
-        // Only a win-back that actually un-canceled offsets a cancellation;
-        // the script stamps "cleared cancel_at_period_end" into the message
-        // exactly on that path, so --keep-cancellation runs (coupon pre-load
-        // only, member still canceling) are skipped.
-        if (/cleared cancel_at_period_end/.test(row.message)) {
-          winbacks.set(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`, parsed.getTime());
-        }
-      } else if (decisions.has(row)) {
-        cancellations.set(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`, parsed.getTime());
-      }
+      if (row.type !== 'stripe_subscription_sync') continue;
+      const atMs = new Date(row.created_at).getTime();
+      if (Number.isNaN(atMs)) continue;
+      const subId = parseSubIdFromMessage(row.message);
+      const tier = parseSyncTierStrict(row.message);
+      if (subId && tier && tier !== 'public' && !signups.has(subId)) signups.set(subId, atMs);
     }
+    lossEvents.push(...cancelEvents(rows));
   } catch {
     // Keep the monitoring response available if audit history is unavailable.
   }
 
-  const countSince = (values: Map<string, number>, windowDays: number) => {
-    if (windowDays === 1) {
-      // Deduped on who rather than day:who, so one Cancel click whose two rows
-      // straddle midnight still counts once.
-      const cutoffMs = now.getTime() - 86_400_000;
-      const who = new Set<string>();
-      for (const [key, atMs] of Array.from(values)) if (atMs > cutoffMs) who.add(key.slice(11));
-      return who.size;
-    }
-    const included = new Set(generateDailyKeys(now, windowDays));
-    return Array.from(values.keys()).filter((value) => included.has(value.slice(0, 10))).length;
-  };
+  const losses = settleLosses(lossEvents);
+  const cutoffMs = now.getTime() - 86_400_000;
+  const inWindow = (atMs: number, windowDays: number, included: Set<string>) =>
+    windowDays === 1 ? atMs > cutoffMs : included.has(etBucketKeys(new Date(atMs)).day);
+
   return horizons.map((windowDays) => {
-    const signupCount = countSince(signups, windowDays);
-    const winbackCount = countSince(winbacks, windowDays);
-    // Net win-backs out of the cancellation count so a canceled-then-won-back
-    // member doesn't read as a loss. Floored at 0 so more win-backs than
-    // in-window cancels can't invent phantom growth.
-    const cancellationCount = Math.max(0, countSince(cancellations, windowDays) - winbackCount);
-    const failureCount = countSince(paymentFailures, windowDays);
-    const net = signupCount - cancellationCount - failureCount;
+    const included = new Set(generateDailyKeys(now, windowDays));
+    const signupCount = Array.from(signups.values()).filter((atMs) => inWindow(atMs, windowDays, included)).length;
+    const tally = { cancel: 0, failure: 0, cancelUndone: 0, failureUndone: 0 };
+    for (const loss of losses) {
+      if (!inWindow(loss.atMs, windowDays, included)) continue;
+      if (loss.undoneAtMs == null) tally[loss.kind] += 1;
+      else if (loss.kind === 'cancel') tally.cancelUndone += 1;
+      else tally.failureUndone += 1;
+    }
+    const net = signupCount - tally.cancel - tally.failure;
     return {
       days: windowDays,
       signups: signupCount,
-      cancellations: cancellationCount,
-      paymentFailures: failureCount,
+      cancellations: tally.cancel,
+      paymentFailures: tally.failure,
+      cancellationsReversed: tally.cancelUndone,
+      paymentFailuresRecovered: tally.failureUndone,
       net,
       dailyRate: net / windowDays,
     };

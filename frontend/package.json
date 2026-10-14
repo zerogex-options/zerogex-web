@@ -102,6 +102,7 @@
     "test:cancellation-email": "node --experimental-strip-types --test tests/cancellationEmail.test.ts",
     "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
     "test:cancel-decisions": "node --experimental-strip-types --test tests/cancelDecisions.test.ts",
+    "test:growth-losses": "node --experimental-strip-types --test tests/growthLosses.test.ts",
     "test:cancellation-alert": "node --experimental-strip-types --test tests/cancellationAlert.test.ts",
     "test:cancel-ack": "node --experimental-strip-types --test tests/cancelAck.test.ts",
     "test:pricing-links": "node --experimental-strip-types --test tests/pricingLinks.test.ts",
