@@ -24,6 +24,7 @@ import GammaPulsePanel from '@/components/GammaPulsePanel';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexWallsChart from '@/components/GexWallsChart';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
+import GammaSurfaceChart from '@/components/GammaSurfaceChart';
 import GexUnitToggle from '@/components/GexUnitToggle';
 import StrikeFilterToggle from '@/components/StrikeFilterToggle';
 import SessionDeltaToggle from '@/components/SessionDeltaToggle';
@@ -385,6 +386,19 @@ export function GexHeatmapPanel() {
         <GexUnitToggle showHint={false} />
       </div>
       <GammaHeatmapCanvas />
+    </div>
+  );
+}
+
+// The Gamma Surface from /greeks-gex. It carries its own card, header, Expiry
+// control and expand button (dropped inside a tile), so it renders bare. Its
+// expiration pick is its own and opens on All, except in a pane that scopes its
+// expirations, where it follows the pane like the other charts on the board.
+export function GammaSurfacePanel() {
+  const { symbol } = useTimeframe();
+  return (
+    <div className="h-full">
+      <GammaSurfaceChart symbol={symbol} />
     </div>
   );
 }

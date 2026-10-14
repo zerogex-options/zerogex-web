@@ -26,6 +26,7 @@ import {
   LineChart,
   ListOrdered,
   MonitorDot,
+  Mountain,
   Newspaper,
   Radar,
   ScrollText,
@@ -70,6 +71,7 @@ import {
   GammaLadderPanel,
   OpenInterestByStrikePanel,
   GexHeatmapPanel,
+  GammaSurfacePanel,
   OptionsFlowPanel,
   HedgingFlowPanel,
   PriceActionPanel,
@@ -446,6 +448,19 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <GexHeatmapPanel />,
+  },
+  {
+    id: 'gamma-surface',
+    title: 'Gamma Surface',
+    blurb:
+      'Net dealer gamma as a 3D surface: price across, time to settlement in depth, with the ceiling (Call Wall), spot and floor (Put Wall) marked on the floor. Renders all expirations, or any set you pick. Rotate it to read the walls sharpening into expiry.',
+    category: 'gamma',
+    tier: 'basic',
+    icon: Mountain,
+    defaultSize: 'xl',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <GammaSurfacePanel />,
   },
 
   // ── Options Flow ──

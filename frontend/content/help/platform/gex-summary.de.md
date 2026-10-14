@@ -6,7 +6,7 @@
 
 ## Was diese Seite zeigt
 
-Die Seite GEX Summary ist die **Zahlenansicht** des Optionsbuchs. Während Dealer Positioning strukturell ist (Profil, Walls, Heatmaps), bringt diese Seite zehn Kennzahlen auf einen Bildschirm und zeigt dann, wie sich der Gamma Flip über Options-Horizonte verändert und wie das heutige Dealer-Gamma im Vergleich zu seiner eigenen Historie dasteht.
+Die Seite GEX Summary ist die **Zahlenansicht** des Optionsbuchs. Während Dealer Positioning strukturell ist (Profil, Walls, Heatmaps), bringt diese Seite zehn Kennzahlen auf einen Bildschirm, bildet das Dealer-Gamma über Preis und Zeit ab und zeigt dann, wie sich der Gamma Flip über Options-Horizonte verändert und wie das heutige Dealer-Gamma im Vergleich zu seiner eigenen Historie dasteht.
 
 Der **GEX unit**-Umschalter im Seitenkopf stellt jeden GEX-Dollarwert zwischen Gamma pro 1 % Bewegung (Standard) und pro 1 Punkt um. Das Exposure ist in beiden Fällen dasselbe; nur die Einheit ändert sich.
 
@@ -39,6 +39,12 @@ Der erreichbare 0DTE-Strike mit dem stärksten modellierten positiven Dealer-Gam
 - **Call GEX** und **Put GEX** - das gesamte modellierte Gamma-Exposure aus Calls bzw. aus Puts, die beiden Hälften hinter Net GEX.
 - **Put/Call Ratio** - Put-Volumen geteilt durch Call-Volumen. Über 1 eher bearish; unter 1 eher bullish.
 - **Call Wall (Resistance)** und **Put Wall (Support)** - der Strike auf oder über dem Spot mit dem größten Call-Gamma und der Strike auf oder unter dem Spot mit dem größten Put-Gamma, jeweils summiert über den heutigen Verfall und die zwei nächsten (0-2DTE), mit dem Abstand zum Spot. Ein Chart, das nur auf 0DTE beschränkt ist, kann einen anderen Strike zeigen. Die Bezeichnungen sind die übliche Lesart, keine Garantie: In unserer Studie mit 737 Wall-Tests hielten S&P-Walls in etwa zwei von drei Fällen innerhalb einer Stunde und Nasdaq-Walls in etwa der Hälfte der Fälle, und das modellierte Vorzeichen des Dealer-Gammas änderte daran nichts.
+
+## Gamma Surface
+
+Modelliertes Dealer-Gamma als 3D-Fläche: der hypothetische Preis auf der einen Achse, die Zeit auf der anderen - von jetzt bis zum Settlement des ersten ausgewählten Verfalls. Jeder Punkt ist das Gamma, das Dealer laut Modell halten, wenn der Preis zu diesem Zeitpunkt dort steht: Jeder ausgewählte Kontrakt wird zu diesem Preis neu bewertet, mit entsprechend kürzerer Restlaufzeit, mit vollem Gewicht (ohne Horizont-Gewichtung) und mit der aktuellen impliziten Volatilität. Same-Day-Gamma verdichtet sich bis zum Settlement, deshalb steigt die Fläche zum Ende der Zeitachse hin um schwere 0DTE-Strikes an.
+
+Die Auswahl **Expiry** legt fest, welche Verfälle bewertet werden: standardmäßig **All**, oder eine beliebige Auswahl an Daten. Wähle einen späteren Verfall allein, um seine Fläche bis zu seinem eigenen Settlement zu sehen. Die Linien am Boden markieren Ceiling (Call Wall), Spot und Floor (Put Wall) für dieselbe Auswahl - dieselben Walls, die jedes andere Chart dafür zeigt - und die gestrichelte Linie folgt der Fläche am Spot. Zum Drehen ziehen; auf dem Smartphone zuerst **Rotate & zoom** antippen.
 
 ## Gamma Flip · Term Structure
 

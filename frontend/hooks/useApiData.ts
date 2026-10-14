@@ -10,6 +10,7 @@ import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
 import { pollDecision, staleAfterMs } from '@/core/pollGate';
 import { sessionClosesLagBehind } from '@/core/sessionCloses';
+import type { GammaSurfaceResponse } from '@/core/gammaSurface';
 export type {
   GEXHistoricalContext,
   GEXHistoricalMetric,
@@ -770,6 +771,23 @@ export function useFlipSurface(
       step_pct: stepPct,
       include_walls: includeWalls ? 'true' : 'false',
     })}`,
+    { refreshInterval, enabled },
+  );
+}
+
+// ── Gamma Surface ──
+// Net dealer gamma across hypothetical price (x) and time to the first
+// selected settlement (y), for an expiration selection: 'all' or a sorted,
+// comma-joined set of YYYY-MM-DD dates (core/gexStrikeCharts' expirationsParam).
+// See core/gammaSurface for the payload.
+export function useGammaSurface(
+  symbol = 'SPX',
+  expirations = 'all',
+  options: { refreshInterval?: number; enabled?: boolean } = {},
+) {
+  const { refreshInterval = 30000, enabled = true } = options;
+  return useApiData<GammaSurfaceResponse>(
+    `/api/gex/gamma-surface?${symbolQuery(symbol, { expirations })}`,
     { refreshInterval, enabled },
   );
 }
