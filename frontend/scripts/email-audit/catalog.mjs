@@ -322,6 +322,17 @@ export const CATALOG = {
     source: 'core/mailer.ts:2960 · scripts/tradeworkz-notify-deliver.mts',
     notes: 'The only high-frequency member email in the system. Volume tracks bot activity, not the member lifecycle.',
   },
+  'wall-alert': {
+    group: 'product', title: 'Wall alert (Call/Put Wall hit · broke · held)', channel: 'member', autoSends: true,
+    trigger: 'Queue drain', triggerDetail: 'zerogex-web-wall-alerts-notify.timer → make wall-alerts-notify',
+    when: 'Within ~25 seconds of the wall event during the regular session. Rows still unsent after 20 minutes expire instead.',
+    cadence: 'Timer: every 20 seconds (:05/:25/:45, +0–2s jitter)',
+    cohort: "Queued rows in zerogex-oa wall_alert_deliveries with channel='email' whose rule is still on — ONE email per member per pass, carrying all their alerts (up to 10). Verified, not deleted, Basic or above.",
+    latch: 'wall_alert_deliveries row state (marked via /api/alerts/walls/internal/mark)',
+    optOut: 'Per alert in /account/alerts; RFC 8058 List-Unsubscribe + footer link switch wall-alert email off on every alert', foh: false,
+    source: 'core/wallAlertEmail.ts · core/mailer.ts sendWallAlertEmail · scripts/wall-alerts-deliver.mts',
+    notes: 'Member-configured market alerts. Volume tracks the tape and the member\'s own rules; the detector (zerogex-oa src/alerts/) filters chop, and a per-member daily cap bounds the worst day.',
+  },
 
   // ------------------------------------------------------------ operator ----
   'cancellation-alert': {

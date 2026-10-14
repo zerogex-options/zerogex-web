@@ -73,6 +73,10 @@ export const dict: PageDictionary = {
     notificationsDescription:
       'Manage the TradeWorkz™ bots you follow and the channels (in-app / email / webhook) each subscription uses.',
     manageNotifications: 'Manage notifications',
+    wallAlerts: 'Wall alerts',
+    wallAlertsDescription:
+      'Get alerted when price hits, breaks or bounces off a call or put wall — filtered for chop and wall strength, in the app and by email.',
+    manageWallAlerts: 'Manage wall alerts',
     socialMedia: 'Social Media',
     socialMediaDescription:
       "Add your X (formerly Twitter) handle so we can reach you there. It's optional\u00a0- add, change, or remove it anytime.",
@@ -187,6 +191,10 @@ export const dict: PageDictionary = {
     notificationsDescription:
       'Gestisci i bot di TradeWorkz™ che segui e i canali (in-app / email / webhook) usati da ciascun abbonamento.',
     manageNotifications: 'Gestisci notifiche',
+    wallAlerts: 'Avvisi sui muri',
+    wallAlertsDescription:
+      'Ricevi un avviso quando il prezzo raggiunge, rompe o rimbalza su un muro call o put — filtrato per rumore e forza del muro, nell’app e via email.',
+    manageWallAlerts: 'Gestisci avvisi sui muri',
     socialMedia: 'Social Media',
     socialMediaDescription:
       "Aggiungi il tuo handle X (ex Twitter) per permetterci di contattarti lì. È facoltativo\u00a0- puoi aggiungerlo, modificarlo o rimuoverlo in qualsiasi momento.",
@@ -291,6 +299,10 @@ export const dict: PageDictionary = {
     notificationsDescription:
       'Verwalte die TradeWorkz™-Bots, denen du folgst, und die Kanäle (In-App / E-Mail / Webhook), die jedes Abonnement nutzt.',
     manageNotifications: 'Benachrichtigungen verwalten',
+    wallAlerts: 'Wand-Alarme',
+    wallAlertsDescription:
+      'Werde benachrichtigt, wenn der Kurs eine Call- oder Put-Wand erreicht, bricht oder abprallt — gefiltert nach Rauschen und Wandstärke, in der App und per E-Mail.',
+    manageWallAlerts: 'Wand-Alarme verwalten',
     socialMedia: 'Soziale Medien',
     socialMediaDescription:
       'Füge deinen X-Handle (ehemals Twitter) hinzu, damit wir dich dort erreichen können. Optional\u00a0- jederzeit hinzufügen, ändern oder entfernen.',
@@ -395,6 +407,10 @@ export const dict: PageDictionary = {
     notificationsDescription:
       'Gestiona los bots de TradeWorkz™ que sigues y los canales (en la app / correo / webhook) que usa cada suscripción.',
     manageNotifications: 'Gestionar notificaciones',
+    wallAlerts: 'Alertas de muros',
+    wallAlertsDescription:
+      'Recibe una alerta cuando el precio llegue, rompa o rebote en un muro call o put — filtrada por ruido y fuerza del muro, en la app y por correo.',
+    manageWallAlerts: 'Gestionar alertas de muros',
     socialMedia: 'Redes sociales',
     socialMediaDescription:
       'Añade tu identificador de X (antes Twitter) para que podamos contactarte allí. Es opcional\u00a0- añádelo, cámbialo o elimínalo cuando quieras.',
@@ -499,6 +515,10 @@ export const dict: PageDictionary = {
     notificationsDescription:
       'Gérez les bots TradeWorkz™ que vous suivez et les canaux (dans l’app / e-mail / webhook) utilisés par chaque abonnement.',
     manageNotifications: 'Gérer les notifications',
+    wallAlerts: 'Alertes de murs',
+    wallAlertsDescription:
+      'Soyez alerté quand le prix atteint, casse ou rebondit sur un mur call ou put — filtré selon le bruit et la force du mur, dans l’app et par e-mail.',
+    manageWallAlerts: 'Gérer les alertes de murs',
     socialMedia: 'Réseaux sociaux',
     socialMediaDescription:
       'Ajoutez votre identifiant X (anciennement Twitter) pour que nous puissions vous y joindre. Facultatif\u00a0- ajoutez, modifiez ou supprimez-le à tout moment.',

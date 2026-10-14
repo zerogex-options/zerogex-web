@@ -39,6 +39,8 @@ import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import { UI_COOKIE } from "@/core/uiCookies";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
+import WallAlertsBell from "./wallAlerts/WallAlertsBell";
+import WallAlertsToaster from "./wallAlerts/WallAlertsToaster";
 import PageSnapshotButton from "./PageSnapshotButton";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
@@ -456,6 +458,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                 {isCollapsed && <AccountMenu align="start" compact />}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
                 {isCollapsed && <NewsHeadlinesBadge theme={theme} compact />}
+                {isCollapsed && <WallAlertsBell compact />}
                 {isCollapsed && (
                   <div style={{ position: "relative", width: "76px", height: "32px", flexShrink: 0 }}>
                     <select
@@ -607,6 +610,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                 </div>
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
+                <WallAlertsBell />
                 <LanguageDropdown />
                 <PageSnapshotButton />
                 <Link href="/search" aria-label="Search" className="zg-icon-btn">
@@ -812,6 +816,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
             <>
               <OptionsCalendarBadge theme={theme} compact mobile label="Calendar" />
               <NewsHeadlinesBadge theme={theme} compact mobile label="Headlines" />
+              <WallAlertsBell compact mobile label="Alerts" />
               <PageSnapshotButton compact label="Snapshot" />
             </>
           }
@@ -855,6 +860,10 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
           }
         />
       </div>
+      {/* Pop-ups for wall alerts that arrive while the site is open. Mounted
+          once here, outside the layout variants above (which are all mounted
+          and CSS-hidden by breakpoint), so an alert is never shown twice. */}
+      <WallAlertsToaster />
     </header>
   );
 }

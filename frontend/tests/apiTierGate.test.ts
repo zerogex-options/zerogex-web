@@ -223,3 +223,39 @@ test('version stripping does not over-match lookalike segments', () => {
   // Only a LEADING version segment is stripped.
   eq('/api/gex/v2/summary', 'basic');
 });
+
+test('wall alerts are a Basic feature, reads and writes alike', () => {
+  for (const path of [
+    '/api/alerts/walls/config',
+    '/api/alerts/walls/rules',
+    '/api/alerts/walls/rules/12',
+    '/api/alerts/walls/feed',
+    '/api/alerts/walls/feed/read',
+    '/api/alerts/walls/live',
+    '/api/v2/alerts/walls/rules',
+  ]) {
+    eq(path, 'basic');
+  }
+  // Segment-safe: a lookalike prefix is not the alerts surface.
+  eq('/api/alertsfoo/walls', null);
+});
+
+test('worker outboxes are never reachable through the BFF below admin', () => {
+  // The delivery workers call FastAPI on 127.0.0.1 directly. Forwarded through
+  // this proxy, these would ride the BFF's full-access key and expose every
+  // member's queued alerts to an anonymous visitor.
+  for (const path of [
+    '/api/alerts/walls/internal/queued',
+    '/api/alerts/walls/internal/mark',
+    '/api/alerts/walls/internal/purge-user',
+    '/api/tradeworkz/internal/queued-notifications',
+    '/api/tradeworkz/internal/mark-notification',
+    '/api/v2/tradeworkz/internal/queued-notifications',
+  ]) {
+    eq(path, 'admin');
+  }
+  // Only a whole "internal" segment counts.
+  eq('/api/tradeworkz/internals', null);
+  eq('/api/tradeworkz/me/internal-notes', null);
+  eq('/api/gex/internalized', 'basic');
+});

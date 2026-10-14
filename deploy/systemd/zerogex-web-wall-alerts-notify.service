@@ -1,0 +1,48 @@
+[Unit]
+Description=ZeroGEX wall-alert email delivery (Call/Put Wall hit / break / hold)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+# A non-zero exit means nothing could be delivered and waiting will not fix it
+# (a revoked Resend key, a missing admin token). Route that to an email; a
+# transient outage retries on the next 20-second pass by itself and exits 0.
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make wall-alerts-notify` shells through nvm for Node 22 (the script is a
+# .mts that needs --experimental-strip-types). Same pattern as
+# zerogex-web-tradeworkz-notify.service.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# Drains queued wall-alert email rows from the zerogex-oa outbox
+# (/api/alerts/walls/internal/*, on 127.0.0.1:8000 with the admin token) and
+# sends one email per member through Resend. An empty queue is one HTTP call
+# and a silent exit, which is why it can run every 20 seconds.
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web wall-alerts-notify
+
+# Shorter than any useful backlog drain would need, longer than one pass with a
+# rate-limit wait: a hung HTTPS connect must be dead before it can pile up.
+TimeoutStartSec=120
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# The script opens the auth DB read-only (member email, verification, plan,
+# deletion), but SQLite's WAL mode needs the directory writable for the -shm
+# sidecar even for readers. Both known DB locations, each with a leading '-' so
+# a missing one is ignored; deploy/steps/091.wall-alerts-notify adds a drop-in
+# for any other AUTH_DB_PATH.
+ReadWritePaths=-/var/lib/zerogex
+ReadWritePaths=-/home/ubuntu/zerogex-web/frontend/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-wall-alerts-notify

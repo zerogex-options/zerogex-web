@@ -9,6 +9,7 @@ import {
 } from '@/core/serverAuth';
 import { getStripe } from '@/core/stripe';
 import { revokeAllApiKeys } from '@/core/apiKeys';
+import { purgeWallAlertsForUser, wallAlertsAdminEnv } from '@/core/wallAlertsServer';
 
 // Carries Set-Cookie (clears the session on delete); must not be cached by the
 // /api/ proxy. Same rationale as the logout + session routes.
@@ -106,6 +107,19 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[account-delete] API key revoke failed for ${actor.user.email}: ${message}`);
+  }
+  // Wall alerts live in the backend keyed on the user id: remove the member's
+  // rules and alert history so nothing keeps firing for a deleted account.
+  // Best-effort like the key revoke — the email worker also cancels anything
+  // queued for a deleted account and purges it then.
+  const wallAlertsEnv = wallAlertsAdminEnv();
+  if (wallAlertsEnv) {
+    try {
+      await purgeWallAlertsForUser(wallAlertsEnv, actor.user.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn(`[account-delete] wall-alert purge failed for ${actor.user.id}: ${message}`);
+    }
   }
 
   appendAuditEvent({

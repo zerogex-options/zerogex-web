@@ -7,6 +7,7 @@ import type { ChurnAlert } from './cancellationAlert.ts';
 import type { ReturnAngle } from './returnIntent.ts';
 import { regimeSentence, sessionDateLabel, type ComebackLevels, type LatestGrade } from './trialComeback.ts';
 import { resendSendError } from './resendRetry.ts';
+import { buildWallAlertEmail, type WallAlertEmailOptions } from './wallAlertEmail.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -3674,6 +3675,43 @@ export async function sendTradeworkzNotification(
   });
   if (result.error) {
     throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Wall alerts — a member's Call/Put Wall hit / break / hold alerts, batched per
+// member per delivery pass. The copy is built by core/wallAlertEmail.ts (pure,
+// unit-tested in tests/wallAlerts.test.ts); this adds only the transport.
+//
+// Carries the RFC 8058 one-click unsubscribe headers: an alert stream is
+// exactly the recurring mail Gmail and Apple expect them on, and a reader who
+// cannot find "unsubscribe" reaches for "report spam" instead, which costs the
+// domain that also carries receipts and payment mail. The link switches off
+// wall-alert EMAIL only (app/alerts/unsubscribe); in-app alerts and every
+// other email are untouched.
+//
+// Throws a ResendSendError so scripts/wall-alerts-deliver.mts can tell a
+// retryable failure (429, 5xx, no response) from one that will never succeed.
+// ---------------------------------------------------------------------------
+export async function sendWallAlertEmail(
+  to: string,
+  opts: Omit<WallAlertEmailOptions, 'appUrl'> & { appUrl?: string },
+) {
+  const { subject, text, html } = buildWallAlertEmail({ ...opts, appUrl: opts.appUrl ?? getAppUrl() });
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+  if (result.error) {
+    throw resendSendError(result.error, result.headers);
   }
 }
 

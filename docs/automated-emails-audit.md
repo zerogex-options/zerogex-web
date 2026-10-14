@@ -147,6 +147,17 @@ Other gates that are **not** DB latches:
   `pending → rewarded` (a user can only be referred once — `UNIQUE referee_user_id`).
 - **TradeWorkz alerts** are gated by rows in the `tw_notifications_log` table
   (one send per queued `channel='email'` row).
+- **Wall alerts** are gated by rows in the zerogex-oa `wall_alert_deliveries`
+  outbox: one row per wall event, member and channel (unique, so a re-run can
+  never queue a second copy), and only `queued` rows can move to `sent`,
+  `failed` or `cancelled`. A row still unsent 20 minutes after it was queued
+  expires instead of arriving late, since a stale market alert is worse than
+  none. The worker re-checks the plan (Basic and up), verification and
+  `deleted_at` at send time (`core/wallAlertsDelivery.ts`). Opt-out is per alert
+  on `/account/alerts`; the footer link and the RFC 8058 `List-Unsubscribe`
+  header switch email off on all of the member's wall alerts, using an HMAC
+  token on `ZEROGEX_END_USER_TOKEN_SECRET` (`core/wallAlertsServer.ts`) with a
+  purpose prefix, so it is not interchangeable with the marketing token.
 - **`deleted_at`** (soft-deleted accounts) are excluded from all outbound email,
   and enforced in **both** send paths: the cron/sweeper scripts filter
   `deleted_at IS NULL` in their cohort queries, and `findUserByCustomerId`
@@ -171,7 +182,7 @@ Other gates that are **not** DB latches:
 
 Grouped by purpose. Subject lines are verbatim; bodies are summarized with key
 verbatim phrasing. All are founder-voice ("Michael, Founder, ZeroGEX") except the
-auth/transactional and TradeWorkz alerts.
+auth/transactional emails, TradeWorkz alerts and wall alerts.
 
 ### 3.1 Auth / transactional
 
@@ -552,6 +563,19 @@ auth/transactional and TradeWorkz alerts.
   chip, and dashboard CTA. Footer: "You are receiving this because you followed this bot
   on TradeWorkz™."
 
+**Wall alert** — `sendWallAlertEmail(to, { alerts, unsubUrl })` (copy in `core/wallAlertEmail.ts`), sent by `scripts/wall-alerts-deliver.mts`
+- **Subject (one alert):** `{headline} ({strength})`, e.g. `SPX put wall 7,700 hit (Strong)`
+- **Subject (several):** `3 wall alerts: SPX put wall 7,700 hit, SPY put wall 768 hit, …`
+  (cut at 120 characters)
+- A Call/Put Wall hit, break or hold the member asked for on `/account/alerts`. One
+  email per member per pass carries every alert that arrived together (up to 10), each
+  with price, distance from the wall, wall strength against its own 30-day history,
+  test count and, on a hit whose research sample is large enough, the historical odds
+  of a break. An "Open {symbol} levels" button per symbol. Footer: "You are receiving this because you set a wall
+  alert on ZeroGEX." with "Manage your alerts" and "Stop wall-alert emails" links.
+  Invisible `List-Unsubscribe` + `List-Unsubscribe-Post` headers. No Folds of Honor
+  footer.
+
 **One-off: trial back-credit** — `back-credit-trial.mts` (inline copy)
 - **Subject:** `A small credit on your ZeroGEX account`
 - Notifies a pre-trial monthly subscriber they were credited ~7/31 of a month.
@@ -572,13 +596,14 @@ auth/transactional and TradeWorkz alerts.
 
 Read out of `deploy/systemd/*.{timer,service}`, the Makefile targets those units call,
 and the cohort SQL in each script. Times are **server time (UTC)** unless marked ET;
-every unit carries a `RandomizedDelaySec` (15s–10m) so they don't all fire on the
+every unit carries a `RandomizedDelaySec` (2s–10m) so they don't all fire on the
 same second, and `Persistent=true` so a missed run catches up after a reboot.
 
 ### 4.1 Scheduled (systemd timers)
 
 | Unit | `OnCalendar` | Cadence | Sends | Auto-sends to members? |
 |---|---|---|---|---|
+| `wall-alerts-notify` | `*:*:05/20` | every 20 seconds | Wall alert | yes |
 | `tradeworkz-notify` | `*:0/1:12` | every minute | TradeWorkz bot alert | yes |
 | `cancellation-alerts` | `*:07,22,37,52` | every 15 min | Cancellation alert | operator only |
 | `signup-alarm` | `*:35:00` | hourly | Signup-rate alarm | operator only |

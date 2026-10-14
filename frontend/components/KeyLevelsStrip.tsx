@@ -29,21 +29,24 @@
  * turns that same call into "retarget this half", leaving the other one alone.
  */
 
+import Link from 'next/link';
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { ChevronLeft, ChevronRight, HelpCircle, TrendingDown, TrendingUp } from 'lucide-react';
+import { BellPlus, ChevronLeft, ChevronRight, HelpCircle, TrendingDown, TrendingUp } from 'lucide-react';
 import type { ChartSnapshot } from './GammaTerminalChart';
 import TooltipWrapper from './TooltipWrapper';
 import FuturesLevelsChip from './FuturesLevelsChip';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
 import { usePinStability } from '@/hooks/useApiData';
+import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
-import { SYMBOLS } from '@/core/symbols';
+import { FUTURES_BACKING_INDEX, SYMBOLS } from '@/core/symbols';
 import {
   buildKeyLevels,
   flipDirectionBetween,
   flipSymbol,
   keyLevelsRegime,
   type KeyLevel,
+  type KeyLevelId,
 } from '@/core/keyLevels';
 import {
   PIN_STRIKE_TOOLTIP,
@@ -78,7 +81,26 @@ function cardTitle(level: KeyLevel): string {
   return lines.join('\n');
 }
 
-function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean }) {
+/**
+ * Where the bell on a wall card goes: the wall-alert editor, prefilled with this
+ * symbol and side. ES / NQ alerts are set on the index whose options the levels
+ * come from (src/alerts/config.py explains why the futures are not alertable).
+ */
+function wallAlertHref(symbol: string, id: KeyLevelId): string | null {
+  if (id !== 'callWall' && id !== 'putWall') return null;
+  const target = FUTURES_BACKING_INDEX[symbol.toUpperCase()] ?? symbol.toUpperCase();
+  return `/account/alerts?symbol=${encodeURIComponent(target)}&side=${id === 'callWall' ? 'call' : 'put'}`;
+}
+
+function KeyLevelCard({
+  level,
+  loading,
+  alertHref = null,
+}: {
+  level: KeyLevel;
+  loading: boolean;
+  alertHref?: string | null;
+}) {
   const resolved = level.value != null;
   // A level that hasn't landed yet reads as an instrument warming up; one that
   // landed as "unresolved" reads as the book being degraded, and says which.
@@ -86,8 +108,24 @@ function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean })
 
   return (
     <div className="zg-panel min-w-0 px-3 py-2.5" title={cardTitle(level)}>
-      <div className="zg-eyebrow truncate" style={{ fontSize: 10 }}>
-        {level.label}
+      <div className="flex items-center justify-between gap-1">
+        <div className="zg-eyebrow truncate" style={{ fontSize: 10 }}>
+          {level.label}
+        </div>
+        {alertHref && (
+          // The one action a wall card offers: be told when price gets here.
+          // Small and muted so the strip stays a strip. Its own title replaces
+          // the card's long tooltip while the pointer is on the bell.
+          <Link
+            href={alertHref}
+            aria-label={`Set an alert on the ${level.label}`}
+            title={`Alert me when price reaches the ${level.label}`}
+            className="shrink-0 leading-none opacity-60 transition-opacity hover:opacity-100"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <BellPlus size={12} strokeWidth={2.4} aria-hidden="true" />
+          </Link>
+        )}
       </div>
       {pending ? (
         <div className="zg-skeleton-line mt-1.5 h-4 w-3/4" />
@@ -240,6 +278,9 @@ export function KeyLevelsBoard({
   flip?: KeyLevelsFlip | null;
   className?: string;
 }) {
+  // Wall cards offer a one-click wall alert to members whose plan includes it,
+  // and only on the live book — never on the public delayed snapshot.
+  const canAlert = useHasTierAccess('basic') && !read.delayed;
   const prevSymbol = flip ? flipSymbol(flip.symbols, read.symbol, -1) : null;
   const nextSymbol = flip ? flipSymbol(flip.symbols, read.symbol, 1) : null;
   const canFlip = flip != null && prevSymbol != null && nextSymbol != null;
@@ -419,7 +460,12 @@ export function KeyLevelsBoard({
           }}
         >
           {levels.map((level) => (
-            <KeyLevelCard key={level.id} level={level} loading={read.loading} />
+            <KeyLevelCard
+              key={level.id}
+              level={level}
+              loading={read.loading}
+              alertHref={canAlert ? wallAlertHref(read.symbol, level.id) : null}
+            />
           ))}
         </div>
         {canFlip && nextSymbol && (
