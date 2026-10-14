@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePageT } from '@/core/LanguageContext';
 import { lockPageScroll } from '@/core/scrollLock';
@@ -17,6 +18,13 @@ import { dict } from './CancelRetentionModal.i18n';
 // to Stripe so the webhook's existing ack-email + "Why Members Cancel" logging
 // still fire).
 //
+// Two reasons get an answer before the cancel goes through:
+//   • "Too complex / hard to use" → the Education hub, and My Dashboard, where
+//     they can build a board with only the views they want.
+//   • "Too expensive" → 50% off for the next 12 months, while the one-shot save
+//     offer is still unclaimed.
+// Either way "No thanks, cancel" is one click away and sends the same reason.
+//
 // Cancel, discount and pause go through POST /api/billing/cancel-flow; a plan
 // switch goes through POST /api/billing/change-plan, priced first and confirmed
 // at the amount shown. Both are CSRF + session gated. This component owns no
@@ -26,8 +34,20 @@ import { dict } from './CancelRetentionModal.i18n';
 // component never imports the server-only Stripe module). The server is the
 // source of truth and echoes the real percentOff back on success.
 const SAVE_PERCENT = 25;
+// Mirrors PRICE_SAVE_PERCENT in core/retentionOffer.ts: the "Too expensive" offer.
+const PRICE_SAVE_PERCENT = 50;
 
-type Step = 'offer' | 'reason' | 'pause' | 'switchConfirm' | 'switched' | 'saved' | 'canceled' | 'paused';
+type Step =
+  | 'offer'
+  | 'reason'
+  | 'complexHelp'
+  | 'priceOffer'
+  | 'pause'
+  | 'switchConfirm'
+  | 'switched'
+  | 'saved'
+  | 'canceled'
+  | 'paused';
 
 // A priced switch awaiting the member's confirmation (from change-plan).
 type SwitchQuote = {
@@ -98,6 +118,8 @@ export default function CancelRetentionModal({
   const [resumeLabel, setResumeLabel] = useState<string | null>(null);
   const [quote, setQuote] = useState<SwitchQuote | null>(null);
   const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
+  // The percent off actually applied, for the "saved" confirmation.
+  const [savedPct, setSavedPct] = useState(SAVE_PERCENT);
 
   const endDate = formatDate(periodEndIso);
 
@@ -119,6 +141,7 @@ export default function CancelRetentionModal({
       setResumeLabel(null);
       setQuote(null);
       setQuoteNotice(null);
+      setSavedPct(SAVE_PERCENT);
     }
   }, [open, entryStep]);
 
@@ -136,7 +159,9 @@ export default function CancelRetentionModal({
     };
   }, [open, busy, onClose]);
 
-  const applyDiscount = useCallback(async () => {
+  // 'save' is the 25% offer that opens the flow; 'price' is the 50% one made
+  // after a "Too expensive" reason.
+  const applyDiscount = useCallback(async (kind: 'save' | 'price') => {
     setBusy(true);
     setError(null);
     try {
@@ -149,17 +174,28 @@ export default function CancelRetentionModal({
         method: 'POST',
         headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action: 'discount' }),
+        body: JSON.stringify({ action: kind === 'price' ? 'price_discount' : 'discount' }),
       });
       if (res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { percentOff?: number };
+        setSavedPct(
+          typeof data.percentOff === 'number'
+            ? data.percentOff
+            : kind === 'price'
+              ? PRICE_SAVE_PERCENT
+              : SAVE_PERCENT,
+        );
         setStep('saved');
         onChanged();
         return;
       }
       // Not eligible (already claimed / unmapped price / not offerable): can't
-      // apply the discount, so fall through to letting them cancel.
+      // apply the discount, so fall through to letting them cancel. The price
+      // offer is already past the reason step, so it says so and leaves the
+      // cancel button beside it.
       if (res.status === 409) {
-        setStep('reason');
+        if (kind === 'price') setError(t('priceOfferUnavailable'));
+        else setStep('reason');
         return;
       }
       setError(t('genericError'));
@@ -201,6 +237,21 @@ export default function CancelRetentionModal({
       setBusy(false);
     }
   }, [feedback, comment, onChanged, t]);
+
+  // The reason step's cancel button: answer the two reasons we have an answer
+  // for before scheduling the cancel.
+  const continueCancel = useCallback(() => {
+    setError(null);
+    if (feedback === 'too_complex') {
+      setStep('complexHelp');
+      return;
+    }
+    if (feedback === 'too_expensive' && offerAvailable) {
+      setStep('priceOffer');
+      return;
+    }
+    void submitCancel();
+  }, [feedback, offerAvailable, submitCancel]);
 
   // Price a switch (no confirm) or make it (confirm at the quoted amount and
   // instant). The server answers with a quote to confirm, the switch, or a URL
@@ -359,7 +410,7 @@ export default function CancelRetentionModal({
                 <div style={buttonColumn}>
                   <button
                     type="button"
-                    onClick={applyDiscount}
+                    onClick={() => applyDiscount('save')}
                     disabled={busy}
                     style={primaryButtonStyle(busy)}
                   >
@@ -536,7 +587,7 @@ export default function CancelRetentionModal({
               )}
               <button
                 type="button"
-                onClick={submitCancel}
+                onClick={continueCancel}
                 disabled={busy}
                 style={destructiveButtonStyle(busy)}
               >
@@ -544,6 +595,59 @@ export default function CancelRetentionModal({
               </button>
               <button type="button" onClick={onClose} disabled={busy} style={linkButtonStyle}>
                 {t('keepPlan')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'complexHelp' && (
+          <>
+            <h2 style={headingStyle}>{t('complexHeading')}</h2>
+            <p style={bodyStyle}>{t('complexBodyDashboard')}</p>
+            <p style={bodyStyle}>{t('complexBodyEducation')}</p>
+            <div style={buttonColumn}>
+              <Link href="/my-dashboard" onClick={onClose} style={{ ...primaryButtonStyle(busy), ...linkAsButton }}>
+                {t('complexDashboardCta')}
+              </Link>
+              <Link href="/education" onClick={onClose} style={{ ...secondaryButtonStyle(busy), ...linkAsButton }}>
+                {t('complexEducationCta')}
+              </Link>
+              <button
+                type="button"
+                onClick={submitCancel}
+                disabled={busy}
+                style={linkButtonStyle}
+              >
+                {busy ? t('canceling') : t('cancelAnyway')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'priceOffer' && (
+          <>
+            <h2 style={headingStyle}>{t('priceOfferHeading', { pct: String(PRICE_SAVE_PERCENT) })}</h2>
+            <p style={bodyStyle}>
+              {endDate
+                ? t('priceOfferBody', { pct: String(PRICE_SAVE_PERCENT), date: endDate })
+                : t('priceOfferBodyNoDate', { pct: String(PRICE_SAVE_PERCENT) })}
+            </p>
+            <div style={buttonColumn}>
+              <button
+                type="button"
+                onClick={() => applyDiscount('price')}
+                disabled={busy}
+                style={primaryButtonStyle(busy)}
+              >
+                {busy ? t('applying') : t('applyDiscount', { pct: String(PRICE_SAVE_PERCENT) })}
+              </button>
+              <button
+                type="button"
+                onClick={submitCancel}
+                disabled={busy}
+                style={linkButtonStyle}
+              >
+                {t('cancelAnyway')}
               </button>
             </div>
           </>
@@ -608,7 +712,9 @@ export default function CancelRetentionModal({
           <>
             <h2 style={headingStyle}>{t('savedHeading')}</h2>
             <p style={bodyStyle}>
-              {endDate ? t('savedBody', { pct, date: endDate }) : t('savedBodyNoDate', { pct })}
+              {endDate
+                ? t('savedBody', { pct: String(savedPct), date: endDate })
+                : t('savedBodyNoDate', { pct: String(savedPct) })}
             </p>
             <div style={buttonColumn}>
               <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
@@ -733,6 +839,13 @@ function destructiveButtonStyle(disabled: boolean): React.CSSProperties {
     opacity: disabled ? 0.6 : 1,
   };
 }
+
+// A Link styled with one of the button styles above.
+const linkAsButton: React.CSSProperties = {
+  display: 'block',
+  textAlign: 'center',
+  textDecoration: 'none',
+};
 
 const linkButtonStyle: React.CSSProperties = {
   background: 'none',

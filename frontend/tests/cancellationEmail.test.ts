@@ -125,3 +125,23 @@ test('dynamic values are HTML-escaped, never interpolated raw', () => {
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;/);
 });
+
+test('a "too complex" cancel points at My Dashboard and the Education hub', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    cancellationFeedback: 'too_complex',
+  });
+  assert.match(text, /You said ZeroGEX felt too complex/);
+  assert.match(text, /\/my-dashboard/);
+  assert.match(text, /\/education/);
+  assert.match(html, /href="[^"]*\/my-dashboard"/);
+  assert.match(html, /href="[^"]*\/education"/);
+});
+
+test('other reasons, and no reason, carry no "too complex" paragraph', () => {
+  for (const cancellationFeedback of [undefined, null, 'too_expensive', 'other']) {
+    const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, cancellationFeedback });
+    assert.doesNotMatch(text, /too complex/);
+    assert.doesNotMatch(html, /too complex/);
+  }
+});

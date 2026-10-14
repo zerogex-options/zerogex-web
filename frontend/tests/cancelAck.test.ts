@@ -27,6 +27,7 @@ type Sent = {
   periodEndIso: string | null;
   saveUrl: string | null;
   conversionChargePending: boolean;
+  cancellationFeedback: string | null;
 };
 
 // Fakes for what the webhook passes in: the mailer, the save-link builder and

@@ -50,6 +50,24 @@ export const dict: PageDictionary = {
     confirmCancel: 'Cancel my subscription',
     canceling: 'Canceling…',
     keepPlan: 'Never mind\u00a0- keep my plan',
+    cancelAnyway: 'No thanks, cancel my subscription',
+
+    // Reason answer \u2014 "Too complex / hard to use".
+    complexHeading: 'ZeroGEX can be as simple as you want',
+    complexBodyDashboard:
+      'You don\u2019t have to use every chart. In My Dashboard you pick exactly what\u2019s on your screen: start with one or two views, like the key levels and a single chart, and add more only when you want them. Remove anything that gets in the way.',
+    complexBodyEducation:
+      'And if it\u2019s the ideas that feel heavy, the Education hub explains every chart in plain English, starting from what gamma exposure is and why it moves price.',
+    complexDashboardCta: 'Build a simpler dashboard',
+    complexEducationCta: 'Open the Education hub',
+
+    // Reason answer \u2014 "Too expensive".
+    priceOfferHeading: 'Would half price help?',
+    priceOfferBody:
+      'Stay for {pct}% off for the next 12 months. Your access just stays on, with no re-subscribing and no new card. You\u2019ll be charged the discounted rate starting {date}.',
+    priceOfferBodyNoDate:
+      'Stay for {pct}% off for the next 12 months. Your access just stays on, with no re-subscribing and no new card. You\u2019ll be charged the discounted rate starting at the end of your current period.',
+    priceOfferUnavailable: 'This offer isn\u2019t available on your account. You can still cancel below.',
 
     // Terminal — saved.
     savedHeading: 'You’re staying\u00a0- welcome',

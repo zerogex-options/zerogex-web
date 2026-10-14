@@ -372,7 +372,7 @@ function readHighlights(): WinbackHighlight[] | undefined {
 
 const winbackHighlights = readHighlights();
 
-// The automated one-click path is "available" only when ALL FOUR win-back
+// The automated one-click path is "available" only when ALL SIX win-back
 // coupons are configured — the churner can pick any (tier, cadence), so the
 // email's "it's already applied" promise must hold whatever they choose. If any
 // is missing we fall back to promo, or to no discount at all, rather than risk
@@ -380,6 +380,8 @@ const winbackHighlights = readHighlights();
 const winbackAutoAvailable =
   !!envValue('STRIPE_COUPON_WINBACK_BASIC_MONTHLY') &&
   !!envValue('STRIPE_COUPON_WINBACK_PRO_MONTHLY') &&
+  !!envValue('STRIPE_COUPON_WINBACK_BASIC_QUARTERLY') &&
+  !!envValue('STRIPE_COUPON_WINBACK_PRO_QUARTERLY') &&
   !!envValue('STRIPE_COUPON_WINBACK_BASIC_ANNUAL') &&
   !!envValue('STRIPE_COUPON_WINBACK_PRO_ANNUAL');
 

@@ -540,8 +540,10 @@ const subject = cli.subject || content.subject;
 if (audience === 'cancelled' && !cli.allowMissingCoupon) {
   const couponEnvs = [
     'STRIPE_COUPON_WINBACK_BASIC_MONTHLY',
+    'STRIPE_COUPON_WINBACK_BASIC_QUARTERLY',
     'STRIPE_COUPON_WINBACK_BASIC_ANNUAL',
     'STRIPE_COUPON_WINBACK_PRO_MONTHLY',
+    'STRIPE_COUPON_WINBACK_PRO_QUARTERLY',
     'STRIPE_COUPON_WINBACK_PRO_ANNUAL',
   ];
   const missing = couponEnvs.filter((k) => !(process.env[k] || envLocal[k]));

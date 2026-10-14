@@ -16,21 +16,52 @@ import { getStripe, getWinbackCouponId, type Sku } from '@/core/stripe';
 // The self-serve retention discount: 25% off for a year.
 export const SAVE_PERCENT = 25;
 
-// Resolve the 25%/yr save coupon for a plan. Prefer the operator's configured
-// win-back coupon; if none is set, create-or-reuse a deterministic coupon using
-// the SAME id scheme as scripts/honor-winback-discount.mts, so the manual, the
-// email-save, and the in-app-cancel paths all share one Stripe object. This
-// keeps the one-click save working without requiring the STRIPE_COUPON_WINBACK_*
-// envs. Create is idempotent (fixed id → at most one coupon per cadence, reused
-// thereafter); every caller latches one claim per account, so this can't be used
-// to farm coupons.
+// The bigger offer made only to a member who picks "Too expensive" as their
+// cancel reason in the in-app flow: 50% off for the next 12 months, the same
+// rate as the win-back. It shares the one-shot latch with the 25% save, so a
+// member gets one or the other, and the two never stack on each other.
+export const PRICE_SAVE_PERCENT = 50;
+
+// Resolve the 25%/yr save coupon for a plan: create-or-reuse a deterministic
+// coupon on the SAME id scheme as scripts/honor-winback-discount.mts, so the
+// manual, the email-save, and the in-app-cancel paths all share one Stripe
+// object. Create is idempotent (fixed id → at most one coupon per cadence,
+// reused thereafter); every caller latches one claim per account, so this can't
+// be used to farm coupons.
+//
+// Deliberately NOT the STRIPE_COUPON_WINBACK_* coupon. That one is the win-back
+// rate (50%, per WINBACK_DISCOUNT_LABEL), and when this resolver preferred it,
+// every "25% off" save on a monthly or annual plan quietly applied 50%.
 export async function resolveSaveCoupon(
+  stripe: ReturnType<typeof getStripe>,
+  sku: Sku,
+): Promise<string> {
+  return ensureYearCoupon(stripe, sku, SAVE_PERCENT, 'self-serve-save');
+}
+
+// Resolve the 50%-off-for-12-months "Too expensive" coupon for a plan: the
+// configured STRIPE_COUPON_WINBACK_* coupon (the same 50% the win-back email
+// offers), else the deterministic `winback-50pct-1yr-<cadence>` coupon, so a
+// plan with no win-back coupon configured still gets the offer.
+export async function resolvePriceSaveCoupon(
   stripe: ReturnType<typeof getStripe>,
   sku: Sku,
 ): Promise<string> {
   const configured = getWinbackCouponId(sku);
   if (configured) return configured;
-  const id = `winback-${SAVE_PERCENT}pct-1yr-${sku.cadence}`;
+  return ensureYearCoupon(stripe, sku, PRICE_SAVE_PERCENT, 'cancel-too-expensive');
+}
+
+// Create-or-reuse `winback-<percent>pct-1yr-<cadence>`: percent off every
+// invoice in the next 12 months (one annual invoice, four quarterly, twelve
+// monthly).
+async function ensureYearCoupon(
+  stripe: ReturnType<typeof getStripe>,
+  sku: Sku,
+  percent: number,
+  source: string,
+): Promise<string> {
+  const id = `winback-${percent}pct-1yr-${sku.cadence}`;
   try {
     const existing = await stripe.coupons.retrieve(id);
     if (existing?.id) return existing.id;
@@ -40,9 +71,9 @@ export async function resolveSaveCoupon(
   try {
     const params: Stripe.CouponCreateParams = {
       id,
-      percent_off: SAVE_PERCENT,
-      name: `Win-back ${SAVE_PERCENT}% off (1 year)`,
-      metadata: { source: 'self-serve-save', cadence: sku.cadence },
+      percent_off: percent,
+      name: `Win-back ${percent}% off (1 year)`,
+      metadata: { source, cadence: sku.cadence },
       ...(sku.cadence === 'annual'
         ? { duration: 'once' }
         : { duration: 'repeating', duration_in_months: 12 }),

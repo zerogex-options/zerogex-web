@@ -9,8 +9,8 @@ import { resolveSaveCoupon, stackCoupon, subscriptionCouponIds } from '@/core/re
 // "keep my access + claim your discount" link (buildSaveUrl, signed by
 // core/retentionToken). This route honors that offer WITHOUT an operator or a
 // reply — the automated twin of `make honor-winback-discount`:
-//   • stacks the standing win-back coupon (25% off for a year) onto the member's
-//     existing subscription, preserving any coupon already there, and
+//   • stacks the 25%-off-for-a-year save coupon onto the member's existing
+//     subscription, preserving any coupon already there, and
 //   • clears cancel_at_period_end so the sub is retained — a trialing sub
 //     converts to paid at trial end, an active sub renews — on the card on file.
 //
@@ -199,9 +199,8 @@ export async function POST(request: NextRequest) {
 
   const stripe = getStripe();
 
-  // Resolve the 25%/yr save coupon — operator-configured if present, else
-  // create-or-reuse a deterministic one — so the one-click save works out of the
-  // box even when the STRIPE_COUPON_WINBACK_* envs aren't set.
+  // Resolve the 25%/yr save coupon (create-or-reuse a deterministic one; see
+  // core/retentionOffer for why it is never the 50% win-back coupon).
   let winbackCoupon: string;
   try {
     winbackCoupon = await resolveSaveCoupon(stripe, sku);
