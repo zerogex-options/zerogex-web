@@ -18,7 +18,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useApiData } from "@/hooks/useApiData";
+import { useFlowSessions } from "@/hooks/useFlowSessions";
+import { flowSessionOptions, type FlowSession } from "@/core/flowSessions";
 import {
   canonicalIso,
   sessionDateKeyFromSeries,
@@ -36,7 +37,6 @@ import { compactUsdReadout, compactUsdTick } from "@/components/phoneAxisFormat"
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { etDateKeyFor } from "@/core/utils";
 // The Options Flow chart's own derivations live in core/flowSeriesCharts, shared
 // with the "Options Flow" My Dashboard widget. The compact charts below reuse the
 // session timeline, labels and axis helpers from there so every chart on this
@@ -167,8 +167,9 @@ export default function FlowAnalysisPage() {
     isMobile ? `${safeTimeLabel(String(label))} ET` : new Date(String(label)).toLocaleString();
   const axisStroke = "var(--text-primary)";
 
-  // ── Session selector (current = most recent session, prior = previous full session)
-  const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
+  // ── Session selector: the live session, or any of the last several days
+  const [flowSession, setFlowSession] = useState<FlowSession>("current");
+  const flowSessionDays = useFlowSessions(symbol);
   const [netVolumeMode, setNetVolumeMode] = useState<NetVolumeMode>("directional");
   // Bar size for every chart on the page. The cards read the latest totals,
   // which are the same at either size.
@@ -186,18 +187,6 @@ export default function FlowAnalysisPage() {
     error: flowError,
   } = useFlowSeries(symbol, flowSession, { timeframe: flowTimeframe });
 
-  // A cheap intervals=1 probe of the other session just to read its ET date
-  // for the session dropdown label.
-  const otherSession = flowSession === "current" ? "prior" : "current";
-  const { data: otherSessionProbe } = useApiData<FlowSeriesPoint[]>(
-    `/api/flow/series?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&session=${otherSession}&intervals=1`,
-    { refreshInterval: 60000 },
-  );
-  const otherSessionDate = useMemo(() => {
-    if (!otherSessionProbe || otherSessionProbe.length === 0) return null;
-    return etDateKeyFor(otherSessionProbe[otherSessionProbe.length - 1].timestamp) || null;
-  }, [otherSessionProbe]);
-
   // ── Derive the session date ──────────────────────────────────────────────
   // Same read the Options Flow chart makes, so every chart on the page lays out
   // on the session the rows actually report rather than on today's clock.
@@ -206,8 +195,14 @@ export default function FlowAnalysisPage() {
     [flowSeriesUnfiltered],
   );
 
-  const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
-  const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
+  const flowSessionPickerOptions = useMemo(
+    () => flowSessionOptions(
+      flowSessionDays,
+      flowSession,
+      flowSession === "current" ? selectedDate : null,
+    ),
+    [flowSessionDays, flowSession, selectedDate],
+  );
 
   // ── Session timeline (one slot per bar, 09:30–16:15 ET) ──────────────────
   const sessionTimeline = useMemo(() => {
@@ -282,17 +277,14 @@ export default function FlowAnalysisPage() {
       <PageHeader
         title="Flow Analysis"
         sub="What traded today&nbsp;- premium, net volume, and the aggressor split behind both."
-        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree&nbsp;- a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
+        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree&nbsp;- a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. The last week of sessions is there so you can see whether today is unusual at all."
         actions={
           <FilterBar>
             <FilterSelect
               label="Session"
               value={flowSession}
               onChange={setFlowSession}
-              options={[
-                { value: "current" as const, label: `Current${currentDateLabel ? ` (${currentDateLabel})` : ""}` },
-                { value: "prior" as const, label: `Prior${priorDateLabel ? ` (${priorDateLabel})` : ""}` },
-              ]}
+              options={flowSessionPickerOptions}
             />
             <FilterSelect
               label="Bars"

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { canonicalTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
+import { flowSessionParams, isClosedFlowSession, type FlowSession } from '@/core/flowSessions';
 import { optionChainSymbolFor } from '@/core/symbols';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { FlowSnapshot } from './useFlowByContract';
@@ -145,7 +146,7 @@ function normalizeFilters(filters: FlowSeriesFilters | undefined): {
 
 function buildCacheKey(
   symbol: string,
-  session: 'current' | 'prior',
+  session: FlowSession,
   filters: FlowSeriesFilters | undefined,
   timeframe: FlowTimeframe,
 ): string {
@@ -233,13 +234,13 @@ function mergeTail(entry: CacheEntry, incoming: FlowSeriesPoint[]): CacheEntry {
 
 async function fetchSeries(
   symbol: string,
-  session: 'current' | 'prior',
+  session: FlowSession,
   filters: FlowSeriesFilters | undefined,
   timeframe: FlowTimeframe,
   intervals?: number,
 ): Promise<FlowSeriesPoint[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-  const params = new URLSearchParams({ symbol, underlying: symbol, session });
+  const params = new URLSearchParams({ symbol, underlying: symbol, ...flowSessionParams(session) });
   const { strikes, expirations } = normalizeFilters(filters);
   if (strikes.length > 0) params.set('strikes', strikes.join(','));
   if (expirations.length > 0) params.set('expirations', expirations.join(','));
@@ -284,16 +285,18 @@ export interface UseFlowSeriesOptions {
  */
 export function useFlowSeries(
   symbol: string,
-  session: 'current' | 'prior',
+  session: FlowSession,
   options: UseFlowSeriesOptions = {},
 ) {
   const {
-    incrementalMs = DEFAULT_INCREMENTAL_MS,
-    fullRefreshMs = DEFAULT_FULL_REFRESH_MS,
     enabled = true,
     filters,
     timeframe = '5min',
   } = options;
+  // A past dated session is finished: one fetch, no polling.
+  const closed = isClosedFlowSession(session, etTodayDateKey());
+  const incrementalMs = closed ? 0 : (options.incrementalMs ?? DEFAULT_INCREMENTAL_MS);
+  const fullRefreshMs = closed ? 0 : (options.fullRefreshMs ?? DEFAULT_FULL_REFRESH_MS);
 
   const cacheKey = buildCacheKey(symbol, session, filters, timeframe);
 
@@ -449,10 +452,10 @@ const contractsCache = new Map<string, FlowContractOptions>();
 
 async function fetchContractOptions(
   symbol: string,
-  session: 'current' | 'prior',
+  session: FlowSession,
 ): Promise<FlowContractOptions> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-  const params = new URLSearchParams({ symbol, underlying: symbol, session });
+  const params = new URLSearchParams({ symbol, underlying: symbol, ...flowSessionParams(session) });
   const resp = await fetchWithTimeout(`${baseUrl}/api/flow/contracts?${params.toString()}`);
   if (!resp.ok) throw new Error(`API error: ${resp.status}`);
   const raw = (await resp.json()) as Partial<FlowContractOptions>;
@@ -496,7 +499,7 @@ export interface UseFlowContractOptionsResult {
  */
 export function useFlowContractOptions(
   symbol: string,
-  session: 'current' | 'prior',
+  session: FlowSession,
   enabled: boolean = true,
 ): UseFlowContractOptionsResult {
   const chainSymbol = optionChainSymbolFor(symbol);

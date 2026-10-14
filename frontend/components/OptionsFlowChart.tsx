@@ -70,9 +70,10 @@ import {
   type FlowTimeseriesRow,
   type NetVolumeMode,
 } from '@/core/flowSeriesCharts';
+import type { FlowSession } from '@/core/flowSessions';
 
 /** Which trading session the chart plots. */
-export type FlowSession = 'current' | 'prior';
+export type { FlowSession };
 
 // ── Persistent Options Flow chart preferences ────────────────────────────────
 //
