@@ -253,7 +253,12 @@ while price sat mid-range.
 ### The read
 
 - **TradeGEX is a heads-up, not a threat.** He's comparing, and he says the
-  walls are why he's here. Thank him, agree on videos, don't mention them.
+  walls are why he's here. Thank him, agree on videos, don't name them, and
+  don't call them copycats in writing (Michael asked; see below).
+- **Why our walls look "more on point" to him:** per
+  `content/articles/zerogex-vs-tradegex.md`, TradeGEX's key-levels guide puts
+  its walls at the most raw call/put open interest; ours weight OI by gamma.
+  The reply says what we do, without naming them.
 - **What the ORB is** (backend `src/api/queries/technicals.py` in
   zerogex-oa, `get_technicals_timeseries` and `get_opening_range_breakout`):
   high and low of the symbol's own 1-minute bars from 09:30 to 09:59 ET, held
@@ -281,7 +286,7 @@ list" isn't true.
 
 Hi Rod,
 
-Thanks for the heads up, and for the honesty. You're right about videos, and hearing it again moves them up my list. I'm really glad the walls are landing for you. They're the core of what ZeroGEX does, so that means a lot.
+Thanks for the heads up, and for the honesty. You're right about videos, and hearing it again moves them up my list. I'm really glad the walls are landing for you. That's by design: we weight each strike's open interest by its gamma, so a big block of contracts sitting far from price doesn't get to define the wall. The walls land where dealer hedging is most sensitive to a move.
 
 On the ORB Breakout Map: it's the one price-only tool on the page. It doesn't use options data at all.
 
@@ -298,3 +303,25 @@ Michael
 Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
+
+### Did TradeGEX copy us? (checked 2026-10-14)
+
+Michael asked whether to tell Rod TradeGEX "plagiarized" ZeroGEX. Don't, in
+writing or otherwise, on this evidence:
+
+- **They were public first.** tradegex.pro's first Wayback capture is
+  2026-02-28 (domain registered 2025-12-20); zerogex.io's is 2026-04-23
+  (registered 2025-11-19). Their YouTube channel dates from 2026-01-15, and a
+  TradingView account "tradeGEX" from 2024-09-12.
+- **No verbatim copying found** across 7 of their pages and 6 of ours. The only
+  long matches are the standard risk disclaimer and stock definitions. Their
+  "Gamma Exposure (GEX) Explained" title matches ours, but that's a common
+  SEO pattern and the articles differ.
+- **"Hedge Flow™" vs our "Hedging Flow":** theirs is dated 2026-02-01 on their
+  own page metadata and they mark it ™; ours shipped 2026-09-09. If anything,
+  the overlap runs the other way. Low risk, since "hedging flow" is
+  descriptive, but don't pick a naming fight.
+- "GEX" is common in product names (GEXbot, GEXRadar and others).
+
+Side finding: zerogex.io's registration expires **2026-11-19** (RDAP). Confirm
+auto-renew is on at Namecheap.
