@@ -13,8 +13,10 @@ export async function GET(request: NextRequest) {
   const result = await consumeEmailVerification(request, token);
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? new URL(request.url).origin;
+  // A reopened link on a verified account (a mail scanner or a double click
+  // used the token first) lands on the same banner as the first click.
   const target =
-    result.status === 'ok'
+    result.status === 'ok' || result.status === 'already_verified'
       ? `${baseUrl}/pricing?verified=1`
       : `${baseUrl}/pricing?verify_error=${result.status}`;
 
