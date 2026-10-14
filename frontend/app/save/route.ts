@@ -2,8 +2,15 @@ import { NextRequest } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { getStripe, priceIdToSku } from '@/core/stripe';
-import { verifySaveToken } from '@/core/retentionToken';
-import { resolveSaveCoupon, stackCoupon, subscriptionCouponIds } from '@/core/retentionOffer';
+import { verifySaveToken, type SaveOffer } from '@/core/retentionToken';
+import {
+  PRICE_SAVE_PERCENT,
+  resolvePriceSaveCoupon,
+  resolveSaveCoupon,
+  SAVE_PERCENT,
+  stackCoupon,
+  subscriptionCouponIds,
+} from '@/core/retentionOffer';
 
 // Self-serve retention SAVE. The cancellation email carries a one-click
 // "keep my access + claim your discount" link (buildSaveUrl, signed by
@@ -18,6 +25,10 @@ import { resolveSaveCoupon, stackCoupon, subscriptionCouponIds } from '@/core/re
 // like Outlook SafeLinks can't silently claim a discount / un-cancel someone who
 // didn't click). The visible button POSTs here to actually apply. One claim per
 // account, latched by users.retention_offer_claimed_at.
+//
+// `o=price` selects the 50%-off-12-months offer made to members whose cancel
+// reason was "Too expensive" (its own signed token; see core/retentionToken).
+// It shares the one-claim latch with the 25% offer.
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -59,8 +70,16 @@ type Eligibility =
   | { kind: 'not_cancelling'; user: UserRow }
   | { kind: 'invalid' };
 
-function evaluate(userId: string | null, token: string | null): Eligibility {
-  if (!userId || !token || !verifySaveToken(userId, token)) return { kind: 'invalid' };
+function readOffer(raw: string | null): SaveOffer {
+  return raw === 'price' ? 'price' : 'save';
+}
+
+function offerPercent(offer: SaveOffer): number {
+  return offer === 'price' ? PRICE_SAVE_PERCENT : SAVE_PERCENT;
+}
+
+function evaluate(userId: string | null, token: string | null, offer: SaveOffer): Eligibility {
+  if (!userId || !token || !verifySaveToken(userId, token, offer)) return { kind: 'invalid' };
   const user = loadUser(userId);
   if (!user) return { kind: 'invalid' };
   if (user.retention_offer_claimed_at) return { kind: 'claimed', user };
@@ -131,7 +150,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const u = searchParams.get('u');
   const t = searchParams.get('t');
-  const evalResult = evaluate(u, t);
+  const offer = readOffer(searchParams.get('o'));
+  const pct = offerPercent(offer);
+  const evalResult = evaluate(u, t, offer);
 
   if (evalResult.kind === 'invalid') return htmlResponse(INVALID_PAGE, 400);
   if (evalResult.kind === 'claimed') return htmlResponse(CLAIMED_PAGE, 200);
@@ -140,39 +161,44 @@ export async function GET(request: NextRequest) {
   // Eligible: render the confirmation with a button that POSTs to claim. GET
   // itself changes nothing.
   const endsOn = formatDate(evalResult.user.current_period_end);
-  const action = `/save?u=${encodeURIComponent(u!)}&t=${encodeURIComponent(t!)}`;
+  const action = `/save?u=${encodeURIComponent(u!)}&t=${encodeURIComponent(t!)}${offer === 'price' ? '&o=price' : ''}`;
+  const term = offer === 'price' ? 'for the next 12 months' : 'for a full year';
   const body = `
     <p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0 0 18px;">
-      Before you go\u00a0- I&rsquo;d rather keep you than lose you. Claim <strong>25% off for a full year</strong>
+      Before you go\u00a0- I&rsquo;d rather keep you than lose you. Claim <strong>${pct}% off ${term}</strong>
       and your access stays on, no re-subscribe and no re-entering a card. You&rsquo;ll simply be charged the
       discounted rate at ${escapeHtml(endsOn)} instead of canceling.
     </p>
     <form method="POST" action="${escapeHtml(action)}" style="margin:0;">
       <button type="submit" style="display:inline-block; padding:13px 22px; background:#f5b400; color:#000; font-weight:700; font-size:15px; border:none; border-radius:8px; cursor:pointer;">
-        Keep my access &amp; apply 25% off
+        Keep my access &amp; apply ${pct}% off
       </button>
     </form>
     <p style="font-size:13px; line-height:1.5; color:#8a97a3; margin:16px 0 0;">
       Prefer to still cancel? Just ignore this\u00a0- nothing changes and your cancellation stands.
     </p>`;
-  return htmlResponse(shell('Wait\u00a0- here&rsquo;s 25% off to stay', body), 200);
+  return htmlResponse(shell(`Wait\u00a0- here&rsquo;s ${pct}% off to stay`, body), 200);
 }
 
 export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   let u = searchParams.get('u');
   let t = searchParams.get('t');
+  let o = searchParams.get('o');
   if (!u || !t) {
     try {
       const form = new URLSearchParams(await request.text());
       u = u ?? form.get('u');
       t = t ?? form.get('t');
+      o = o ?? form.get('o');
     } catch {
       /* ignore malformed body */
     }
   }
 
-  const evalResult = evaluate(u, t);
+  const offer = readOffer(o);
+  const pct = offerPercent(offer);
+  const evalResult = evaluate(u, t, offer);
   if (evalResult.kind === 'invalid') return htmlResponse(INVALID_PAGE, 400);
   if (evalResult.kind === 'claimed') return htmlResponse(CLAIMED_PAGE, 200);
   if (evalResult.kind === 'not_cancelling') return htmlResponse(NOT_CANCELLING_PAGE, 200);
@@ -191,7 +217,7 @@ export async function POST(request: NextRequest) {
     return htmlResponse(
       shell(
         'Reply and I&rsquo;ll set it up',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your cancellation email and I&rsquo;ll set up 25% off for a year by hand\u00a0- no re-subscribe needed.</p>`,
+        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your cancellation email and I&rsquo;ll set up ${pct}% off for a year by hand\u00a0- no re-subscribe needed.</p>`,
       ),
       200,
     );
@@ -199,11 +225,12 @@ export async function POST(request: NextRequest) {
 
   const stripe = getStripe();
 
-  // Resolve the 25%/yr save coupon (create-or-reuse a deterministic one; see
-  // core/retentionOffer for why it is never the 50% win-back coupon).
+  // Resolve the offer's coupon: the 25%/yr save coupon (never the 50% win-back
+  // coupon; see core/retentionOffer), or for o=price the 50% one.
   let winbackCoupon: string;
   try {
-    winbackCoupon = await resolveSaveCoupon(stripe, sku);
+    winbackCoupon =
+      offer === 'price' ? await resolvePriceSaveCoupon(stripe, sku) : await resolveSaveCoupon(stripe, sku);
   } catch {
     return htmlResponse(
       shell(
@@ -280,7 +307,7 @@ export async function POST(request: NextRequest) {
         `audit_save_${user.id}_${nowIso}`,
         user.id,
         user.email,
-        `Self-serve retention save on sub ${subscription.id}: stacked ${winbackCoupon}, cleared cancel_at_period_end`,
+        `Self-serve retention save${offer === 'price' ? ' ("too expensive", ' + pct + '% off)' : ''} on sub ${subscription.id}: stacked ${winbackCoupon}, cleared cancel_at_period_end`,
         nowIso,
       );
   } catch {
@@ -292,7 +319,7 @@ export async function POST(request: NextRequest) {
   return htmlResponse(
     shell(
       'You&rsquo;re staying\u00a0- welcome back',
-      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. Your access continues and <strong>25% off for a year</strong> is on your account. You&rsquo;ll be charged the discounted rate at ${escapeHtml(endsOn)}\u00a0- nothing else to do. Thanks for giving ZeroGEX another shot.</p>`,
+      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. Your access continues and <strong>${pct}% off for a year</strong> is on your account. You&rsquo;ll be charged the discounted rate at ${escapeHtml(endsOn)}\u00a0- nothing else to do. Thanks for giving ZeroGEX another shot.</p>`,
     ),
     200,
   );

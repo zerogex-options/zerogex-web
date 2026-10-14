@@ -71,3 +71,20 @@ test('buildConvertUrl embeds the user id and a matching token', () => {
   assert.ok(t);
   assert.equal(verifyConvertToken('user_123', t), true);
 });
+
+test('the 50% "price" save token is namespaced apart from the 25% one', () => {
+  const uid = 'user_123';
+  assert.notEqual(saveToken(uid, 'price'), saveToken(uid));
+  // A 25% link with &o=price appended must not unlock the 50% offer, and a 50%
+  // token must not pass as a 25% one.
+  assert.equal(verifySaveToken(uid, saveToken(uid), 'price'), false);
+  assert.equal(verifySaveToken(uid, saveToken(uid, 'price')), false);
+  assert.equal(verifySaveToken(uid, saveToken(uid, 'price'), 'price'), true);
+});
+
+test('buildSaveUrl marks the price offer and signs it with the price token', () => {
+  const url = new URL(buildSaveUrl('https://zerogex.io', 'user_123', 'price'));
+  assert.equal(url.searchParams.get('o'), 'price');
+  assert.equal(verifySaveToken('user_123', url.searchParams.get('t') ?? '', 'price'), true);
+  assert.equal(new URL(buildSaveUrl('https://zerogex.io', 'user_123')).searchParams.get('o'), null);
+});

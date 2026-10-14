@@ -22,6 +22,12 @@
 import { getDb } from './db.ts';
 import { formatCancellationReasonSuffix, type CancellationDetails } from './cancellationReason.ts';
 
+// Mirror core/retentionOffer.ts SAVE_PERCENT / PRICE_SAVE_PERCENT. That module
+// imports Stripe through the '@/' alias, which this file must not (it loads
+// outside Next).
+const SAVE_PERCENT = 25;
+const PRICE_SAVE_PERCENT = 50;
+
 export type CancelAckTransition = {
   // cancel_at_period_end before and after this sync, as 0 or 1.
   previous: number;
@@ -46,11 +52,13 @@ export type CancelAckDeps = {
       conversionChargePending: boolean;
       // The reason the member picked, so the email can answer it.
       cancellationFeedback: string | null;
+      // The percent off the save link applies (25, or 50 for "Too expensive").
+      savePercent: number;
     },
   ) => Promise<unknown>;
-  // The member's signed one-click /save link. Throws when the token secret is
-  // unset; the acknowledgment then goes out without the offer.
-  buildSaveUrl: (userId: string) => string;
+  // The member's signed one-click /save link for an offer. Throws when the
+  // token secret is unset; the acknowledgment then goes out without the offer.
+  buildSaveUrl: (userId: string, offer: 'save' | 'price') => string;
   audit: (event: { type: string; userId: string; email: string; message: string }) => void;
   nowIso: () => string;
 };
@@ -95,9 +103,11 @@ export async function handleCancelAckTransition(
       // fallback any more (see buildCancellationEmail). The acknowledgment and
       // the cancellation survey still send, which is the part that must not be
       // lost to a config problem.
+      // "Too expensive" gets the 50% offer the cancel modal made them, not 25%.
+      const offer = transition.cancellationDetails?.feedback === 'too_expensive' ? 'price' : 'save';
       let saveUrl: string | null = null;
       try {
-        saveUrl = deps.buildSaveUrl(member.id);
+        saveUrl = deps.buildSaveUrl(member.id, offer);
       } catch {
         saveUrl = null;
       }
@@ -106,6 +116,7 @@ export async function handleCancelAckTransition(
         saveUrl,
         conversionChargePending: transition.conversionChargePending,
         cancellationFeedback: transition.cancellationDetails?.feedback ?? null,
+        savePercent: offer === 'price' ? PRICE_SAVE_PERCENT : SAVE_PERCENT,
       });
       deps.audit({
         type: 'cancellation_ack_email_sent',

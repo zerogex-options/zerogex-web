@@ -16,20 +16,30 @@ function secret(): string {
   return s;
 }
 
-export function saveToken(userId: string): string {
-  return createHmac('sha256', secret()).update(`save:v1:${userId}`).digest('base64url');
+//
+// Two offers ride the same /save route: 'save' (25% off a year, the default)
+// and 'price' (50% off 12 months, for a member whose cancel reason was "Too
+// expensive"). Each has its own namespace, so a 25% link can't be edited into a
+// 50% one by adding `&o=price`.
+export type SaveOffer = 'save' | 'price';
+
+const SAVE_NAMESPACE: Record<SaveOffer, string> = { save: 'save:v1', price: 'save-price:v1' };
+
+export function saveToken(userId: string, offer: SaveOffer = 'save'): string {
+  return createHmac('sha256', secret()).update(`${SAVE_NAMESPACE[offer]}:${userId}`).digest('base64url');
 }
 
-export function verifySaveToken(userId: string, token: string): boolean {
+export function verifySaveToken(userId: string, token: string, offer: SaveOffer = 'save'): boolean {
   if (!userId || !token) return false;
-  const expected = Buffer.from(saveToken(userId));
+  const expected = Buffer.from(saveToken(userId, offer));
   const given = Buffer.from(token);
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
-export function buildSaveUrl(appUrl: string, userId: string): string {
+export function buildSaveUrl(appUrl: string, userId: string, offer: SaveOffer = 'save'): string {
   const base = appUrl.replace(/\/+$/, '');
-  return `${base}/save?u=${encodeURIComponent(userId)}&t=${saveToken(userId)}`;
+  const offerParam = offer === 'price' ? '&o=price' : '';
+  return `${base}/save?u=${encodeURIComponent(userId)}&t=${saveToken(userId, offer)}${offerParam}`;
 }
 
 // Signed, stateless retention-CONVERT tokens — the pre-trial-end sibling of the

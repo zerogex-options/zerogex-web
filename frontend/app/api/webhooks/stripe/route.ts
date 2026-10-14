@@ -1374,7 +1374,7 @@ async function maybeHandleCancelAckTransition(
 ): Promise<void> {
   await handleCancelAckTransition(user, transition, {
     send: sendCancellationEmail,
-    buildSaveUrl: (userId) => buildSaveUrl(getAppUrl(), userId),
+    buildSaveUrl: (userId, offer) => buildSaveUrl(getAppUrl(), userId, offer),
     audit: logAudit,
     nowIso,
   });

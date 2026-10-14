@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCancellationEmail } from '../core/mailer.ts';
+import { buildCancelReasonFollowupEmail, buildCancellationEmail } from '../core/mailer.ts';
 
 // The cancellation acknowledgment fires the instant Stripe flips
 // cancel_at_period_end 0→1. Its default copy reassures the member that
@@ -144,4 +144,71 @@ test('other reasons, and no reason, carry no "too complex" paragraph', () => {
     assert.doesNotMatch(text, /too complex/);
     assert.doesNotMatch(html, /too complex/);
   }
+});
+
+test('the save box states the percent of the link it carries', () => {
+  const fifty = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: 'https://x/save', savePercent: 50 });
+  assert.match(fifty.text, /claim 50% off/);
+  assert.match(fifty.html, /claim 50% off/);
+  assert.doesNotMatch(fifty.html, /25% off/);
+  const def = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: 'https://x/save' });
+  assert.match(def.html, /claim 25% off/);
+});
+
+// The one-off cancel-reason follow-up (scripts/send-cancel-reason-followup.mts).
+const UNSUB = 'https://zerogex.io/unsubscribe?u=x&t=y';
+
+test('follow-up, too expensive + still active: the 50% save link and the access date', () => {
+  const save = 'https://zerogex.io/save?u=x&t=y&o=price';
+  const { subject, text, html } = buildCancelReasonFollowupEmail({
+    reason: 'too_expensive',
+    state: 'pending',
+    periodEndIso: PERIOD_END,
+    offerUrl: save,
+    unsubUrl: UNSUB,
+  });
+  assert.equal(subject, 'Half price, if that helps');
+  assert.match(text, /50% off for the next 12 months/);
+  assert.match(text, /October 14, 2026/);
+  assert.ok(text.includes(save));
+  assert.ok(html.includes('href="https://zerogex.io/save?u=x&amp;t=y&amp;o=price"'));
+  assert.ok(html.includes(UNSUB.replace(/&/g, '&amp;')));
+});
+
+test('follow-up, too expensive + ended: the win-back checkout link', () => {
+  const { text, html } = buildCancelReasonFollowupEmail({
+    reason: 'too_expensive',
+    state: 'lapsed',
+    periodEndIso: null,
+    offerUrl: 'https://zerogex.io/pricing?winback=1',
+    unsubUrl: UNSUB,
+  });
+  assert.match(text, /50% off for your first 12 months/);
+  assert.ok(html.includes('https://zerogex.io/pricing?winback=1'));
+  assert.doesNotMatch(text, /cancellation stands/);
+});
+
+test('follow-up, too complex: My Dashboard and the Education hub, keep-plan or pricing by state', () => {
+  const pending = buildCancelReasonFollowupEmail({
+    reason: 'too_complex',
+    state: 'pending',
+    periodEndIso: PERIOD_END,
+    offerUrl: null,
+    unsubUrl: UNSUB,
+  });
+  assert.equal(pending.subject, 'ZeroGEX can be a lot simpler');
+  assert.match(pending.html, /\/my-dashboard"/);
+  assert.match(pending.html, /\/education"/);
+  assert.match(pending.text, /Keep my plan/);
+  assert.doesNotMatch(pending.text, /50%/);
+
+  const lapsed = buildCancelReasonFollowupEmail({
+    reason: 'too_complex',
+    state: 'lapsed',
+    periodEndIso: null,
+    offerUrl: null,
+    unsubUrl: UNSUB,
+  });
+  assert.match(lapsed.html, /\/pricing"/);
+  assert.doesNotMatch(lapsed.text, /Keep my plan/);
 });

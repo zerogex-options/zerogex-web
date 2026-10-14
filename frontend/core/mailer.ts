@@ -2430,6 +2430,9 @@ export type CancellationEmailOptions = {
   // you want) and the Education hub. The modal showed the same thing before the
   // cancel went through; this is the copy they can come back to.
   cancellationFeedback?: string | null;
+  // Percent off the save link applies: 25 by default, 50 when the reason was
+  // "Too expensive" (core/cancelAck picks the matching link).
+  savePercent?: number;
 };
 
 // Pure builder for the cancellation acknowledgment: subject + text + HTML from
@@ -2448,6 +2451,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   const saveUrl = opts.saveUrl ?? null;
   const chargePending = opts.conversionChargePending === true;
   const tooComplex = opts.cancellationFeedback === 'too_complex';
+  const savePct = opts.savePercent ?? 25;
   const dashboardUrl = `${getAppUrl()}/my-dashboard`;
   const educationUrl = `${getAppUrl()}/education`;
   const linkStyle = 'color: #f5b400; font-weight: 600;';
@@ -2482,7 +2486,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
       : []),
     ...(saveUrl
       ? [
-          'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:',
+          `If it comes down to price, here's the one-click version: claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`,
           saveUrl,
           '',
         ]
@@ -2515,8 +2519,8 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         : ''}
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
-        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price\u00a0- keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
-        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim 25% off</a>
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price\u00a0- keep your access at <strong>${savePct}% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
+        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim ${savePct}% off</a>
       </div>`
         : ''}
       <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:</p>
@@ -2550,6 +2554,154 @@ export async function sendCancellationEmail(to: string, opts: CancellationEmailO
     html,
   });
 
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// One-off follow-up to members whose recent cancel gave "Too expensive" or
+// "Too complex / hard to use", answering it the way the in-app cancel modal now
+// does (scripts/send-cancel-reason-followup.mts picks who and which version; see
+// core/cancelReasonFollowup.ts). Four versions:
+//   too_expensive + pending → one-click 50% save link (app/save?o=price)
+//   too_expensive + lapsed  → 50% off coming back (/pricing?winback=1)
+//   too_complex   + pending → My Dashboard + Education hub, keep the plan from /account
+//   too_complex   + lapsed  → the same two links, and /pricing to come back
+export type CancelReasonFollowupOptions = {
+  reason: 'too_expensive' | 'too_complex';
+  state: 'pending' | 'lapsed';
+  // When access ends (pending only); null falls back to generic wording.
+  periodEndIso: string | null;
+  // too_expensive only: the signed 50% save link (pending) or the win-back
+  // pricing link (lapsed).
+  offerUrl: string | null;
+  unsubUrl: string;
+};
+
+export function buildCancelReasonFollowupEmail(opts: CancelReasonFollowupOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const appUrl = getAppUrl();
+  const dashboardUrl = `${appUrl}/my-dashboard`;
+  const educationUrl = `${appUrl}/education`;
+  const accountUrl = `${appUrl}/account`;
+  const pricingUrl = `${appUrl}/pricing`;
+  const linkStyle = 'color: #f5b400; font-weight: 600;';
+  const buttonStyle =
+    'display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;';
+  const endDate = opts.periodEndIso ? formatTrialEndDate(opts.periodEndIso) : null;
+  const pending = opts.state === 'pending';
+
+  // Each paragraph as [text, html]. Paragraphs are joined with blank lines.
+  const paras: Array<[string, string]> = [];
+  let subject: string;
+
+  if (opts.reason === 'too_expensive') {
+    subject = 'Half price, if that helps';
+    const offerUrl = opts.offerUrl ?? pricingUrl;
+    paras.push([
+      'When you canceled ZeroGEX recently, you said it was too expensive. Fair enough, and thank you for telling me.',
+      'When you canceled ZeroGEX recently, you said it was too expensive. Fair enough, and thank you for telling me.',
+    ]);
+    if (pending) {
+      const when = endDate ? `from ${endDate}` : 'from the end of your current period';
+      const whenHtml = endDate ? `from <strong>${escapeHtml(endDate)}</strong>` : 'from the end of your current period';
+      paras.push([
+        `So here's my best offer: keep your plan at 50% off for the next 12 months. One click and your access just continues, with no re-subscribing and no new card. You'd be charged the discounted rate ${when}.`,
+        `So here's my best offer: keep your plan at <strong>50% off for the next 12 months</strong>. One click and your access just continues, with no re-subscribing and no new card. You'd be charged the discounted rate ${whenHtml}.`,
+      ]);
+      paras.push([`Keep my access at 50% off: ${offerUrl}`, `<a href="${escapeHtml(offerUrl)}" style="${buttonStyle}">Keep my access at 50% off</a>`]);
+      paras.push([
+        `If it's still not the right fit, you don't need to do anything. Your cancellation stands${endDate ? ` and you keep full access until ${endDate}` : ''}.`,
+        `If it's still not the right fit, you don't need to do anything. Your cancellation stands${endDate ? ` and you keep full access until ${escapeHtml(endDate)}` : ''}.`,
+      ]);
+    } else {
+      paras.push([
+        "So here's an offer: if you'd like to come back, it's 50% off for your first 12 months. Your account is exactly as you left it, and the discount is applied automatically at checkout from this link (log in with the same email if it asks):",
+        "So here's an offer: if you'd like to come back, it's <strong>50% off for your first 12 months</strong>. Your account is exactly as you left it, and the discount is applied automatically at checkout from this link (log in with the same email if it asks):",
+      ]);
+      paras.push([`Come back at 50% off: ${offerUrl}`, `<a href="${escapeHtml(offerUrl)}" style="${buttonStyle}">Come back at 50% off</a>`]);
+      paras.push(["And if not, that's completely fine. This is the only time I'll ask.", "And if not, that's completely fine. This is the only time I'll ask."]);
+    }
+  } else {
+    subject = 'ZeroGEX can be a lot simpler';
+    paras.push([
+      pending
+        ? `When you canceled ZeroGEX recently, you said it felt too complex or hard to use. That one is on me, and I wanted to show you two things before your access ends${endDate ? ` on ${endDate}` : ''}.`
+        : 'When you canceled ZeroGEX recently, you said it felt too complex or hard to use. That one is on me, and I wanted to show you two things in case you ever want to give it another go.',
+      pending
+        ? `When you canceled ZeroGEX recently, you said it felt too complex or hard to use. That one is on me, and I wanted to show you two things before your access ends${endDate ? ` on <strong>${escapeHtml(endDate)}</strong>` : ''}.`
+        : 'When you canceled ZeroGEX recently, you said it felt too complex or hard to use. That one is on me, and I wanted to show you two things in case you ever want to give it another go.',
+    ]);
+    paras.push([
+      `1. You don't have to use every chart. In My Dashboard you pick exactly what's on your screen: start with one or two views, like the key levels and a single chart, and add more only when you want them. ${dashboardUrl}`,
+      `<strong>1. You don't have to use every chart.</strong> In <a href="${escapeHtml(dashboardUrl)}" style="${linkStyle}">My Dashboard</a> you pick exactly what's on your screen: start with one or two views, like the key levels and a single chart, and add more only when you want them.`,
+    ]);
+    paras.push([
+      `2. If it's the ideas that feel heavy, the Education hub explains every chart in plain English, starting from what gamma exposure is and why it moves price. ${educationUrl}`,
+      `<strong>2. If it's the ideas that feel heavy,</strong> the <a href="${escapeHtml(educationUrl)}" style="${linkStyle}">Education hub</a> explains every chart in plain English, starting from what gamma exposure is and why it moves price.`,
+    ]);
+    paras.push(
+      pending
+        ? [
+            `If that changes things, you can keep your plan with one click: open your account page and choose "Keep my plan". If not, you don't need to do anything.\n${accountUrl}`,
+            `If that changes things, you can keep your plan with one click (<strong>Keep my plan</strong>) on your <a href="${escapeHtml(accountUrl)}" style="${linkStyle}">account page</a>. If not, you don't need to do anything.`,
+          ]
+        : [
+            `Your account is exactly as you left it. If you'd like to come back, the plans are here: ${pricingUrl}`,
+            `Your account is exactly as you left it. If you'd like to come back, the plans are <a href="${escapeHtml(pricingUrl)}" style="${linkStyle}">here</a>.`,
+          ],
+    );
+    paras.push([
+      'And if there was a specific screen that lost you, reply and tell me which one. I read every reply.',
+      'And if there was a specific screen that lost you, reply and tell me which one. I read every reply.',
+    ]);
+  }
+
+  const text = [
+    'Hello,',
+    '',
+    ...paras.flatMap(([t]) => [t, '']),
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    '—',
+    "You're receiving this because you have a ZeroGEX account. Unsubscribe from emails like this:",
+    opts.unsubUrl,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      ${paras.map(([, h]) => `<p>${h}</p>`).join('\n      ')}
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
+        You're receiving this because you have a ZeroGEX account.
+        <a href="${escapeHtml(opts.unsubUrl)}" style="color: #999; text-decoration: underline;">Unsubscribe from emails like this</a>.
+      </p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+export async function sendCancelReasonFollowupEmail(to: string, opts: CancelReasonFollowupOptions) {
+  const { subject, html, text } = buildCancelReasonFollowupEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
   if (result.error) {
     throw new Error(`Resend error: ${result.error.message}`);
   }

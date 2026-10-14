@@ -28,6 +28,7 @@ type Sent = {
   saveUrl: string | null;
   conversionChargePending: boolean;
   cancellationFeedback: string | null;
+  savePercent: number;
 };
 
 // Fakes for what the webhook passes in: the mailer, the save-link builder and
@@ -41,9 +42,9 @@ function harness(opts: { failSend?: boolean; noSaveSecret?: boolean } = {}) {
       if (opts.failSend) throw new Error('Resend returned 503');
       sent.push({ to, ...o });
     },
-    buildSaveUrl: (userId: string) => {
+    buildSaveUrl: (userId: string, offer: 'save' | 'price') => {
       if (opts.noSaveSecret) throw new Error('ZEROGEX_END_USER_TOKEN_SECRET is not set');
-      return `https://zerogex.io/save?u=${userId}`;
+      return `https://zerogex.io/save?u=${userId}${offer === 'price' ? '&o=price' : ''}`;
     },
     audit: (e: { type: string; userId: string; email: string; message: string }) => {
       audits.push({ type: e.type, userId: e.userId, message: e.message });
@@ -208,4 +209,26 @@ test('without a save link the acknowledgment still goes out, just without the of
 
   assert.equal(await handleCancelAckTransition(m, sync(m.id, { id: 'sub_A', cancelAtPeriodEnd: 1 }), h.deps), 'sent');
   assert.equal(h.sent[0].saveUrl, null);
+});
+
+test('a "too expensive" cancel gets the 50% save link; any other reason gets 25%', async () => {
+  const h = harness();
+  const pricey = seedMember('u_pricey');
+  sync(pricey.id, { id: 'sub_P', cancelAtPeriodEnd: 0 });
+  const t = sync(pricey.id, { id: 'sub_P', cancelAtPeriodEnd: 1 });
+  await handleCancelAckTransition(
+    pricey,
+    { ...t, cancellationDetails: { feedback: 'too_expensive' } },
+    h.deps,
+  );
+  assert.equal(h.sent[0].saveUrl, `https://zerogex.io/save?u=${pricey.id}&o=price`);
+  assert.equal(h.sent[0].savePercent, 50);
+  assert.equal(h.sent[0].cancellationFeedback, 'too_expensive');
+
+  const other = seedMember('u_other');
+  sync(other.id, { id: 'sub_O', cancelAtPeriodEnd: 0 });
+  const o = sync(other.id, { id: 'sub_O', cancelAtPeriodEnd: 1 });
+  await handleCancelAckTransition(other, { ...o, cancellationDetails: { feedback: 'unused' } }, h.deps);
+  assert.equal(h.sent[1].saveUrl, `https://zerogex.io/save?u=${other.id}`);
+  assert.equal(h.sent[1].savePercent, 25);
 });
