@@ -4,9 +4,11 @@ import { getDb } from '@/core/db';
 import { appendAuditEvent, getClientIp, requireSession, validateCsrf } from '@/core/serverAuth';
 import { getStripe, priceIdToSku } from '@/core/stripe';
 import {
+  resolvePriceSaveCoupon,
   resolveSaveCoupon,
   stackCoupon,
   subscriptionCouponIds,
+  PRICE_SAVE_PERCENT,
   SAVE_PERCENT,
 } from '@/core/retentionOffer';
 import { canOfferRetentionDiscount, discountAuditType } from '@/core/cancelRetention';
@@ -22,6 +24,10 @@ import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause
 //     current subscription (the same coupon the email-driven /save route uses,
 //     via core/retentionOffer), clear any pending cancel, and latch the one-shot
 //     retention offer. This is the highest-converting retention moment there is.
+//
+//   • action 'price_discount' — the same save at 50% off for 12 months, offered
+//     only to a member who picks "Too expensive" as their reason. Shares the
+//     one-shot latch with 'discount', so it never stacks on the 25%.
 //
 //   • action 'reactivate' — undo a scheduled cancel, no strings attached. The
 //     Account page's "Keep my plan" button. The Stripe billing portal no longer
@@ -89,13 +95,14 @@ export async function POST(request: NextRequest) {
   const action = body.action;
   if (
     action !== 'discount' &&
+    action !== 'price_discount' &&
     action !== 'cancel' &&
     action !== 'pause' &&
     action !== 'resume' &&
     action !== 'reactivate'
   ) {
     return NextResponse.json(
-      { error: "action must be 'discount', 'pause', 'resume', 'reactivate', or 'cancel'" },
+      { error: "action must be 'discount', 'price_discount', 'pause', 'resume', 'reactivate', or 'cancel'" },
       { status: 400 },
     );
   }
@@ -111,9 +118,12 @@ export async function POST(request: NextRequest) {
   const stripe = getStripe();
 
   // -------------------------------------------------------------------------
-  // Save: stack the 25%/yr coupon and keep the member.
+  // Save: stack the 25%/yr coupon (or, for "Too expensive", the 50%/12-month
+  // one) and keep the member.
   // -------------------------------------------------------------------------
-  if (action === 'discount') {
+  if (action === 'discount' || action === 'price_discount') {
+    const priceSave = action === 'price_discount';
+    const percent = priceSave ? PRICE_SAVE_PERCENT : SAVE_PERCENT;
     if (
       !canOfferRetentionDiscount({
         subscriptionId: row.stripe_subscription_id,
@@ -139,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     let coupon: string;
     try {
-      coupon = await resolveSaveCoupon(stripe, sku);
+      coupon = priceSave ? await resolvePriceSaveCoupon(stripe, sku) : await resolveSaveCoupon(stripe, sku);
     } catch {
       return NextResponse.json(
         { error: "Couldn't set up the offer just now. Please try again in a minute." },
@@ -205,20 +215,21 @@ export async function POST(request: NextRequest) {
     // otherwise a distinct type the growth-rate dashboard doesn't offset, so an
     // intercepted-pre-cancel save can't inflate net growth.
     const audit = discountAuditType(wasCancelling);
+    const label = priceSave ? 'In-app "too expensive" save' : 'In-app retention save';
     appendAuditEvent({
       type: audit.type,
       userId: row.id,
       email: row.email,
       ip: getClientIp(request),
       message: audit.offsetsCountedCancellation
-        ? `In-app retention save on sub ${subscription.id}: stacked ${coupon} (${SAVE_PERCENT}% off 1yr), cleared cancel_at_period_end`
-        : `In-app retention save on sub ${subscription.id}: stacked ${coupon} (${SAVE_PERCENT}% off 1yr) before any cancel`,
+        ? `${label} on sub ${subscription.id}: stacked ${coupon} (${percent}% off 1yr), cleared cancel_at_period_end`
+        : `${label} on sub ${subscription.id}: stacked ${coupon} (${percent}% off 1yr) before any cancel`,
     });
 
     return NextResponse.json({
       ok: true,
-      action: 'discount',
-      percentOff: SAVE_PERCENT,
+      action,
+      percentOff: percent,
       currentPeriodEnd: row.current_period_end,
     });
   }

@@ -40,7 +40,13 @@ export type CancelAckTransition = {
 export type CancelAckDeps = {
   send: (
     to: string,
-    opts: { periodEndIso: string | null; saveUrl: string | null; conversionChargePending: boolean },
+    opts: {
+      periodEndIso: string | null;
+      saveUrl: string | null;
+      conversionChargePending: boolean;
+      // The reason the member picked, so the email can answer it.
+      cancellationFeedback: string | null;
+    },
   ) => Promise<unknown>;
   // The member's signed one-click /save link. Throws when the token secret is
   // unset; the acknowledgment then goes out without the offer.
@@ -99,6 +105,7 @@ export async function handleCancelAckTransition(
         periodEndIso: transition.periodEndIso,
         saveUrl,
         conversionChargePending: transition.conversionChargePending,
+        cancellationFeedback: transition.cancellationDetails?.feedback ?? null,
       });
       deps.audit({
         type: 'cancellation_ack_email_sent',

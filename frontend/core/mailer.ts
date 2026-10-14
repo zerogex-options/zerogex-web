@@ -2425,6 +2425,11 @@ export type CancellationEmailOptions = {
   // expensive false statement we make: it is what turns a charge the member
   // arguably owes into one they are certain was a mistake.
   conversionChargePending?: boolean;
+  // Stripe's cancellation feedback token, when the member picked a reason.
+  // 'too_complex' adds a paragraph pointing at My Dashboard (keep only the views
+  // you want) and the Education hub. The modal showed the same thing before the
+  // cancel went through; this is the copy they can come back to.
+  cancellationFeedback?: string | null;
 };
 
 // Pure builder for the cancellation acknowledgment: subject + text + HTML from
@@ -2442,6 +2447,10 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     : 'the end of your current billing period';
   const saveUrl = opts.saveUrl ?? null;
   const chargePending = opts.conversionChargePending === true;
+  const tooComplex = opts.cancellationFeedback === 'too_complex';
+  const dashboardUrl = `${getAppUrl()}/my-dashboard`;
+  const educationUrl = `${getAppUrl()}/education`;
+  const linkStyle = 'color: #f5b400; font-weight: 600;';
 
   // The one paragraph that has to be true about money. When a conversion charge
   // is already in flight, leading with it is the whole point — the member finds
@@ -2461,6 +2470,16 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     '',
     billingSentenceText,
     '',
+    ...(tooComplex
+      ? [
+          'You said ZeroGEX felt too complex. That one is on me, and it is fixable: you don\'t have to use every chart. In My Dashboard you pick exactly what is on your screen\u00a0- start with one or two views and add more only when you want them:',
+          dashboardUrl,
+          '',
+          'And if it is the ideas that feel heavy, the Education hub explains every chart in plain English:',
+          educationUrl,
+          '',
+        ]
+      : []),
     ...(saveUrl
       ? [
           'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:',
@@ -2490,6 +2509,10 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
       <p>Hello,</p>
       <p>I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
       <p>${billingSentenceHtml}</p>
+      ${tooComplex
+        ? `<p>You said ZeroGEX felt too complex. That one is on me, and it is fixable: you don't have to use every chart. In <a href="${escapeHtml(dashboardUrl)}" style="${linkStyle}">My Dashboard</a> you pick exactly what is on your screen\u00a0- start with one or two views and add more only when you want them.</p>
+      <p>And if it is the ideas that feel heavy, the <a href="${escapeHtml(educationUrl)}" style="${linkStyle}">Education hub</a> explains every chart in plain English.</p>`
+        : ''}
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
         <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price\u00a0- keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
