@@ -1,579 +1,656 @@
 /**
- * Intraday Trading Tools Page
- * VWAP, ORB, Volume Spikes, Momentum Divergence, etc.
+ * Technicals: the session's price picture, read against the dealer levels.
  *
- * All cards and charts on this page are powered by the unified
- * `/api/technicals` endpoint via the `useTechnicals` hook.
+ * One chart carries the candles, VWAP, the opening range, the gamma flip, both
+ * walls and the pin, with volume underneath; a one-line read sits above it and
+ * the opening range and the session's events sit below. Price, VWAP, the
+ * range, volume and momentum come from `/api/technicals` (useTechnicals); the
+ * candles are the Gamma Terminal's own (useMarketHistorical); the levels and
+ * regime are the Key Levels strip's read (useGammaPlaybook), so all three
+ * surfaces agree on the flip and the walls.
  */
 
 'use client';
 
+import Link from 'next/link';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
-import SectionHead from '@/components/layout/SectionHead';
-import ChartTooltipShell, { ChartTooltipRow } from '@/components/ChartTooltipShell';
-import { useMemo, useState } from 'react';
-import { Area, Bar, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useTechnicals, type TechnicalsBar } from '@/hooks/useTechnicals';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import Panel from '@/components/layout/Panel';
 import ErrorMessage from '@/components/ErrorMessage';
-import MetricCard from '@/components/MetricCard';
-import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
-import { isWithinExtendedMarketHours } from '@/core/utils';
-import { useTimeframe } from '@/core/TimeframeContext';
+import TechnicalsSessionChart, {
+  type SessionChartLayers,
+  type SessionVolumeBar,
+  type SessionVwapPoint,
+} from '@/components/TechnicalsSessionChart';
+import { useTechnicals } from '@/hooks/useTechnicals';
+import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { useGammaPlaybook } from '@/hooks/useGammaPlaybook';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import OrbPositionBar from '@/components/OrbPositionBar';
-import OrbBreakoutMap from '@/components/OrbBreakoutMap';
+import { usePersistedFlag } from '@/hooks/usePersistedFlag';
+import { useTimeframe } from '@/core/TimeframeContext';
+import { isIndexSymbol, isWithinExtendedMarketHours } from '@/core/utils';
+import { ET_HM, etMinuteOfDay, safeNum } from '@/core/technicalsCharts';
 import {
-  ET_HM,
-  divergenceTone,
-  etMinuteOfDay,
-  fmtFixed,
-  generateNiceTicks,
-  getDateMarkerMeta,
-  getDynamicStep,
-  phoneLabelStepMin,
-  phonePriceTick,
-  safeNum,
-  technicalsLabel,
-  timelineLabelStepMin,
-  trimEdgeTicks,
-  vwapPositionTrend,
-} from '@/core/technicalsCharts';
+  ORB_BAR_OUTER,
+  ORB_NEAR_FRACTION,
+  ORB_ZONE_LABEL,
+  buildSessionEvents,
+  deriveOrbLog,
+  fmtDistance,
+  fmtLevel,
+  orbBarPosition,
+  orbZone,
+  type Candle,
+  type OrbEvent,
+  type SessionEvent,
+  type SessionEventTone,
+} from '@/core/technicalsSession';
 
-function isVolumeSpike(volumeClass: string | null | undefined): boolean {
-  if (!volumeClass) return false;
-  return !volumeClass.toLowerCase().includes('normal');
+// One remembered flag per layer, per browser (hooks/usePersistedFlag).
+const LAYER_KEY = (layer: keyof SessionChartLayers) => `zg.technicals.layer.${layer}`;
+const LAYER_BUTTONS: Array<{ key: keyof SessionChartLayers; label: string; swatch: CSSProperties | null }> = [
+  { key: 'vwap', label: 'VWAP', swatch: { width: 14, borderTop: '2px dashed var(--color-warning)' } },
+  { key: 'orb', label: 'Opening range', swatch: { width: 14, height: 9, background: 'color-mix(in srgb, var(--color-hazy) 30%, transparent)', borderTop: '1px solid var(--color-hazy)', borderBottom: '1px solid var(--color-hazy)' } },
+  { key: 'levels', label: 'Flip and walls', swatch: { width: 14, borderTop: '2px dashed var(--color-flip)' } },
+  { key: 'volume', label: 'Volume', swatch: null },
+  { key: 'events', label: 'Events', swatch: null },
+];
+const EVENTS_COLLAPSED = 10;
+
+const TONE_DOT: Record<SessionEventTone, string> = {
+  warning: 'var(--color-warning)',
+  bullish: 'var(--color-bull)',
+  bearish: 'var(--color-bear)',
+  range: 'var(--color-hazy)',
+  neutral: 'var(--text-muted)',
+};
+
+const ruleColor = 'var(--border-subtle)';
+
+function etTime(ms: number): string {
+  return ET_HM.format(new Date(ms));
 }
 
-const VOL_BAR_RED: readonly [number, number, number] = [239, 68, 68];
-const VOL_BAR_NEUTRAL: readonly [number, number, number] = [148, 163, 184];
-const VOL_BAR_GREEN: readonly [number, number, number] = [34, 197, 94];
-
-function lerpRgb(
-  a: readonly [number, number, number],
-  b: readonly [number, number, number],
-  t: number,
-): string {
-  const clamped = Math.max(0, Math.min(1, t));
-  const r = Math.round(a[0] + (b[0] - a[0]) * clamped);
-  const g = Math.round(a[1] + (b[1] - a[1]) * clamped);
-  const bl = Math.round(a[2] + (b[2] - a[2]) * clamped);
-  return `rgb(${r},${g},${bl})`;
+function signed(value: number | null, digits = 2): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(digits)}`;
 }
 
-function gradientVolumeColor(upPct: number | null): string {
-  if (upPct == null || !Number.isFinite(upPct)) {
-    return lerpRgb(VOL_BAR_NEUTRAL, VOL_BAR_NEUTRAL, 0);
+function changeColor(value: number | null): string {
+  if (value == null || value === 0) return 'var(--text-secondary)';
+  return value > 0 ? 'var(--color-bull)' : 'var(--color-bear)';
+}
+
+function Label({ children }: { children: ReactNode }) {
+  return <div className="zg-label">{children}</div>;
+}
+
+function ReadCell({
+  label,
+  value,
+  sub,
+  subColor,
+  size = 22,
+}: {
+  label: string;
+  value: ReactNode;
+  sub: ReactNode;
+  subColor?: string;
+  size?: number;
+}) {
+  return (
+    <div style={{ background: 'var(--bg-card)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+      <Label>{label}</Label>
+      <div className="zg-metric" style={{ fontSize: size, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {value}
+      </div>
+      <div className="zg-mono" style={{ fontSize: 12, color: subColor ?? 'var(--text-muted)' }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
+function MarkerBadge({ n, tone }: { n: number; tone: SessionEventTone }) {
+  return (
+    <span
+      aria-label={`marker ${n}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 18,
+        height: 18,
+        borderRadius: 999,
+        border: `1px solid ${tone === 'warning' ? 'var(--color-warning)' : 'var(--color-hazy)'}`,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 10,
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+        marginLeft: 6,
+        verticalAlign: 'middle',
+      }}
+    >
+      {n}
+    </span>
+  );
+}
+
+function orbLogText(e: OrbEvent): { title: string; detail: string } {
+  switch (e.kind) {
+    case 'breakout':
+      return { title: 'Broke above the high', detail: `closed ${fmtLevel(e.price)}` };
+    case 'breakdown':
+      return { title: 'Broke below the low', detail: `closed ${fmtLevel(e.price)}` };
+    case 'furthest':
+      return {
+        title: e.ongoing ? 'Furthest so far' : 'Furthest move',
+        detail: `${fmtLevel(e.price)} · ${(e.multiple ?? 0).toFixed(2)}× the range`,
+      };
+    case 'backInside':
+      return { title: 'Back inside', detail: `${e.side === 'above' ? 'breakout' : 'breakdown'} failed after ${e.minutes ?? 0} min` };
+    case 'testHigh':
+      return { title: 'Tested the high', detail: `wick ${fmtLevel(e.price)}, closed inside` };
+    case 'testLow':
+      return { title: 'Tested the low', detail: `wick ${fmtLevel(e.price)}, closed inside` };
   }
-  const ratio = Math.max(0, Math.min(100, upPct)) / 100;
-  if (ratio < 0.5) return lerpRgb(VOL_BAR_RED, VOL_BAR_NEUTRAL, ratio * 2);
-  return lerpRgb(VOL_BAR_NEUTRAL, VOL_BAR_GREEN, (ratio - 0.5) * 2);
 }
 
-// Five-minute bucket interval in milliseconds; matches the API's bucket size.
-const VOLUME_BUCKET_MS = 5 * 60 * 1000;
-
-// How many divergence signals a phone shows before "Show all" — the desktop
-// list scrolls inside its card, which on a phone is a scroll box inside a
-// scrolling page.
-const PHONE_DIVERGENCE_ROWS = 6;
-
-export default function IntradayToolsPage() {
+export default function TechnicalsPage() {
   const { symbol } = useTimeframe();
   const isMobile = useIsMobile();
-  const [showAllDivergence, setShowAllDivergence] = useState(false);
-  const axisStroke = 'var(--text-primary)';
-  const mutedText = 'var(--text-secondary)';
-  const borderColor = 'var(--border-default)';
-
   const { bars, latest, sessionStartEt, sessionEndEt, fetchedAt, loading, error } = useTechnicals(symbol);
+  const read = useGammaPlaybook();
+  const { rows: candleRows } = useMarketHistorical(symbol, '5min', !isIndexSymbol(symbol), true);
 
-  const lastUpdatedLabel = useMemo(() => {
-    const ts = latest?.timestamp ?? null;
-    const ms = ts ? new Date(ts).getTime() : (fetchedAt ?? null);
-    if (ms == null || !Number.isFinite(ms)) return null;
-    return `${ET_HM.format(new Date(ms))} ET`;
-  }, [latest, fetchedAt]);
+  const [showAllEvents, setShowAllEvents] = useState(false);
 
-  const vwapLatest = latest?.vwap_deviation ?? null;
-  const orbLatest = latest?.opening_range ?? null;
-  const hasVwap = vwapLatest != null && safeNum(vwapLatest.vwap) != null;
-  const hasOrb = orbLatest != null && safeNum(orbLatest.orb_high) != null && safeNum(orbLatest.orb_low) != null;
+  // Every layer starts on; a viewer's choices are remembered in this browser.
+  const [vwapOn, toggleVwap] = usePersistedFlag(LAYER_KEY('vwap'), true);
+  const [orbOn, toggleOrb] = usePersistedFlag(LAYER_KEY('orb'), true);
+  const [levelsOn, toggleLevels] = usePersistedFlag(LAYER_KEY('levels'), true);
+  const [volumeOn, toggleVolume] = usePersistedFlag(LAYER_KEY('volume'), true);
+  const [eventsOn, toggleEvents] = usePersistedFlag(LAYER_KEY('events'), true);
+  const layers: SessionChartLayers = { vwap: vwapOn, orb: orbOn, levels: levelsOn, volume: volumeOn, events: eventsOn };
+  const toggles: Record<keyof SessionChartLayers, () => void> = {
+    vwap: toggleVwap,
+    orb: toggleOrb,
+    levels: toggleLevels,
+    volume: toggleVolume,
+    events: toggleEvents,
+  };
 
-  const vwapChart = useMemo(() => {
-    return bars.map((bar) => {
-      const price = safeNum(bar.close);
-      const v = safeNum(bar.vwap_deviation?.vwap);
-      const hasBoth = price != null && v != null;
-      const channelAbove: [number, number] | null = hasBoth && price >= v ? [v, price] : null;
-      const channelBelow: [number, number] | null = hasBoth && price < v ? [price, v] : null;
-      const deviationPct = hasBoth && v !== 0 ? ((price - v) / v) * 100 : null;
-      return { timestamp: bar.timestamp, price, vwap: v, channelAbove, channelBelow, deviationPct };
-    });
+  // ── The session window ───────────────────────────────────────────────────
+  const sessionStartMs = useMemo(() => {
+    const ms = sessionStartEt ? Date.parse(sessionStartEt) : NaN;
+    if (Number.isFinite(ms)) return ms;
+    return bars.length ? Date.parse(bars[0].timestamp) : NaN;
+  }, [sessionStartEt, bars]);
+  const sessionEndMs = useMemo(() => {
+    const ms = sessionEndEt ? Date.parse(sessionEndEt) : NaN;
+    if (Number.isFinite(ms)) return ms;
+    return bars.length ? Date.parse(bars[bars.length - 1].timestamp) + 5 * 60_000 : NaN;
+  }, [sessionEndEt, bars]);
+  const haveWindow = Number.isFinite(sessionStartMs) && Number.isFinite(sessionEndMs) && sessionEndMs > sessionStartMs;
+
+  const candles = useMemo<Candle[]>(() => {
+    if (!haveWindow) return [];
+    const out: Candle[] = [];
+    for (const r of candleRows) {
+      const ms = Date.parse(r.timestamp);
+      if (!Number.isFinite(ms) || ms < sessionStartMs || ms >= sessionEndMs) continue;
+      const open = safeNum(r.open);
+      const high = safeNum(r.high);
+      const low = safeNum(r.low);
+      const close = safeNum(r.close ?? r.price);
+      if (open == null || high == null || low == null || close == null) continue;
+      out.push({ ms, open, high, low, close });
+    }
+    return out.sort((a, b) => a.ms - b.ms);
+  }, [candleRows, haveWindow, sessionStartMs, sessionEndMs]);
+
+  const vwapPoints = useMemo<SessionVwapPoint[]>(() => {
+    const out: SessionVwapPoint[] = [];
+    for (const b of bars) {
+      const ms = Date.parse(b.timestamp);
+      const v = safeNum(b.vwap_deviation?.vwap);
+      if (Number.isFinite(ms) && v != null) out.push({ ms, vwap: v });
+    }
+    return out;
   }, [bars]);
 
-  const vwapPriceTicks = useMemo(() => {
-    const values: number[] = [];
-    for (const row of vwapChart) {
-      if (row.price != null) values.push(row.price);
-      if (row.vwap != null) values.push(row.vwap);
+  const volumeBars = useMemo<SessionVolumeBar[]>(() => {
+    const out: SessionVolumeBar[] = [];
+    for (const b of bars) {
+      const ms = Date.parse(b.timestamp);
+      const v = safeNum(b.volume_spike?.current_volume) ?? safeNum(b.volume);
+      if (!Number.isFinite(ms) || v == null) continue;
+      const cls = b.volume_spike?.volume_class ?? '';
+      out.push({ ms, volume: v, spike: !!cls && !cls.toLowerCase().includes('normal'), buyingPct: safeNum(b.volume_spike?.buying_pressure_pct) });
     }
-    if (values.length === 0) return [] as number[];
-    return trimEdgeTicks(generateNiceTicks(Math.min(...values), Math.max(...values)));
-  }, [vwapChart]);
-
-  const volumeSpikesChart = useMemo(() => {
-    // Bucket existing bars by their epoch-ms so we can hydrate the static
-    // session slots below regardless of how recharts normalizes timestamps.
-    const barByMs = new Map<number, TechnicalsBar>();
-    for (const bar of bars) {
-      if (!bar?.timestamp) continue;
-      const ms = new Date(bar.timestamp).getTime();
-      if (Number.isFinite(ms)) barByMs.set(ms, bar);
-    }
-
-    // Anchor the static range on the API-supplied session window so we cover
-    // the full 04:00–20:00 ET (or 09:30–16:00 ET for indices) regardless of
-    // how much data has come in yet. Falls back to first/last bar if session
-    // metadata hasn't arrived.
-    const sessionStartMs = sessionStartEt
-      ? new Date(sessionStartEt).getTime()
-      : bars.length ? new Date(bars[0].timestamp).getTime() : NaN;
-    const sessionEndMs = sessionEndEt
-      ? new Date(sessionEndEt).getTime()
-      : bars.length ? new Date(bars[bars.length - 1].timestamp).getTime() : NaN;
-
-    if (!Number.isFinite(sessionStartMs) || !Number.isFinite(sessionEndMs) || sessionEndMs <= sessionStartMs) {
-      return [] as Array<{
-        timestamp: string;
-        volume: number;
-        volumeRaw: number | null;
-        volumeRatio: number | null;
-        volumeSigma: number | null;
-        volumeClass: string | null;
-        buyingPressurePct: number | null;
-        upVolume: number | null;
-        downVolume: number | null;
-        underlyingPrice: number | null;
-      }>;
-    }
-
-    const slots: Array<{
-      timestamp: string;
-      volume: number;
-      volumeRaw: number | null;
-      volumeRatio: number | null;
-      volumeSigma: number | null;
-      volumeClass: string | null;
-      buyingPressurePct: number | null;
-      upVolume: number | null;
-      downVolume: number | null;
-      underlyingPrice: number | null;
-    }> = [];
-
-    for (let t = sessionStartMs; t < sessionEndMs; t += VOLUME_BUCKET_MS) {
-      const bar = barByMs.get(t);
-      const volumeClass = bar?.volume_spike?.volume_class ?? null;
-      const isSpike = isVolumeSpike(volumeClass);
-      const volume = bar ? (safeNum(bar.volume_spike?.current_volume) ?? safeNum(bar.volume)) : null;
-      const ratio = bar ? safeNum(bar.volume_spike?.volume_ratio) : null;
-      const sigma = bar ? safeNum(bar.volume_spike?.volume_sigma) : null;
-      const buyingPressure = bar ? safeNum(bar.volume_spike?.buying_pressure_pct) : null;
-      const upVolume = bar ? safeNum(bar.volume_spike?.up_volume) : null;
-      const downVolume = bar ? safeNum(bar.volume_spike?.down_volume) : null;
-      const observedPrice = bar ? safeNum(bar.close) : null;
-      slots.push({
-        timestamp: new Date(t).toISOString(),
-        volume: isSpike && volume != null ? volume : 0,
-        volumeRaw: isSpike ? volume : null,
-        volumeRatio: ratio,
-        volumeSigma: sigma,
-        volumeClass,
-        buyingPressurePct: buyingPressure,
-        upVolume,
-        downVolume,
-        underlyingPrice: observedPrice,
-      });
-    }
-
-    return slots;
-  }, [bars, sessionStartEt, sessionEndEt]);
-
-  const volumeSpikeVolumeAxis = useMemo(() => {
-    const max = volumeSpikesChart.reduce((m, row) => Math.max(m, row.volume || 0), 0);
-    if (max <= 0) return { ticks: [0], domain: [0, 0] as [number, number] };
-    const step = getDynamicStep(0, max);
-    const top = Math.ceil(max / step) * step;
-    const ticks: number[] = [];
-    for (let t = 0; t <= top + step / 2 && ticks.length < 24; t += step) {
-      ticks.push(Number(t.toPrecision(12)));
-    }
-    return { ticks: trimEdgeTicks(ticks), domain: [0, top] as [number, number] };
-  }, [volumeSpikesChart]);
-
-  const volumeSpikeLabelStepMin = useMemo(
-    () => timelineLabelStepMin(volumeSpikesChart.length),
-    [volumeSpikesChart],
-  );
-
-  const volumeSpikePriceTicks = useMemo(() => {
-    const values = volumeSpikesChart
-      .map((row) => row.underlyingPrice)
-      .filter((v): v is number => v != null && Number.isFinite(v) && v > 0);
-    if (values.length === 0) return [];
-    const ticks = generateNiceTicks(Math.min(...values), Math.max(...values));
-    if (ticks.length <= 2) return ticks;
-    return ticks.slice(1, -1);
-  }, [volumeSpikesChart]);
-
-  const volumeSpikeDateMarkerMeta = useMemo(() => {
-    return getDateMarkerMeta(volumeSpikesChart.map((row) => String(row.timestamp)));
-  }, [volumeSpikesChart]);
-
-  const divergenceRows = useMemo(() => {
-    const rows = bars
-      .filter((bar): bar is TechnicalsBar => Boolean(bar?.momentum_divergence?.divergence_signal))
-      .filter((bar) => isWithinExtendedMarketHours(bar.timestamp))
-      .map((bar) => ({
-        timestamp: bar.timestamp,
-        signal: bar.momentum_divergence.divergence_signal as string,
-        price: safeNum(bar.close),
-        chg5m: safeNum(bar.momentum_divergence.chg_5m),
-      }));
-    rows.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return rows;
+    return out;
   }, [bars]);
 
-  const renderTimelineTick = (props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
-    const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0);
-    const ts = String(props?.payload?.value || '');
-    const index = Number(props?.index ?? -1);
-    const d = ts ? new Date(ts) : null;
-    const minOfDay = d && !Number.isNaN(d.getTime()) ? d.getUTCHours() * 60 + d.getUTCMinutes() : -1;
-    const showTime = minOfDay >= 0 && minOfDay % volumeSpikeLabelStepMin === 0;
-    const timeLabel = showTime ? d!.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '';
-    const dateLabel = volumeSpikeDateMarkerMeta.get(index);
-    if (!timeLabel && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-        {timeLabel ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{timeLabel}</text> : null}
-        {dateLabel ? <text dy={timeLabel ? 26 : 14} textAnchor="middle" fill={mutedText} fontSize={9}>{dateLabel}</text> : null}
-      </g>
-    );
-  };
-
-  // Phone twin of renderTimelineTick: an ET-aligned step sized to each
-  // chart's own span (see phoneLabelStepMin), 10px type, and the session date
-  // under the first slot. Desktop keeps renderTimelineTick as it was.
-  const phoneTimelineTick = (stepMin: number) => {
-    const PhoneTimelineTick = (props: { x?: number | string; y?: number | string; payload?: { value?: string | number }; index?: number }) => {
-      const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0);
-      const ts = String(props?.payload?.value || '');
-      const index = Number(props?.index ?? -1);
-      const ms = ts ? new Date(ts).getTime() : NaN;
-      const minute = Number.isFinite(ms) ? etMinuteOfDay(ms) : -1;
-      const showTime = minute >= 0 && minute % stepMin === 0;
-      const dateLabel = index === 0 && Number.isFinite(ms)
-        ? new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })
-        : '';
-      if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-      return (
-        <g transform={`translate(${x},${y})`}>
-          {showTime ? <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} /> : null}
-          {showTime ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{ET_HM.format(new Date(ms))}</text> : null}
-          {dateLabel ? <text dy={26} textAnchor="start" fill={mutedText} fontSize={10}>{dateLabel}</text> : null}
-        </g>
-      );
-    };
-    return PhoneTimelineTick;
-  };
-  const barsStepMin = useMemo(() => phoneLabelStepMin(bars.map((b) => b.timestamp)), [bars]);
-  const spikesStepMin = useMemo(
-    () => phoneLabelStepMin(volumeSpikesChart.map((r) => r.timestamp)),
-    [volumeSpikesChart],
-  );
-  // On a phone the price charts fit their own data (plus a little air), not
-  // Recharts' 'auto' rounding, which left a quarter of a 260px plot empty.
-  const vwapPhoneDomain = useMemo<[number, number] | null>(() => {
-    const values: number[] = [];
-    for (const row of vwapChart) {
-      if (row.price != null) values.push(row.price);
-      if (row.vwap != null) values.push(row.vwap);
+  // ── The opening range ────────────────────────────────────────────────────
+  const orbHigh = safeNum(latest?.opening_range?.orb_high);
+  const orbLow = safeNum(latest?.opening_range?.orb_low);
+  // The range is this session's 09:30–09:59, so it exists from 10:00 ET on.
+  // Through pre-market the feed carries the PREVIOUS session's range on every
+  // bar (src/api/queries/technicals.py anchors it on the last cash session),
+  // so a bar only counts if it is in this session and at or after 10:00 ET;
+  // until then the page says the range is still to set.
+  const rangeEndMs = useMemo(() => {
+    for (const b of bars) {
+      if (safeNum(b.opening_range?.orb_high) == null) continue;
+      const ms = Date.parse(b.timestamp);
+      if (!Number.isFinite(ms) || !(ms >= sessionStartMs)) continue;
+      const minute = etMinuteOfDay(ms);
+      if (minute >= 600) return ms - (minute - 600) * 60_000;
     }
-    if (values.length === 0) return null;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const pad = max > min ? (max - min) * 0.08 : Math.max(0.5, max * 0.001);
-    return [min - pad, max + pad];
-  }, [vwapChart]);
-  const chartHeight = isMobile ? 260 : 320;
-  // Readouts on a phone pin to the top of the plot (clear of the finger) and
-  // name the bar by the ET clock the axis prints.
-  const phoneTooltipPosition = isMobile ? { position: { y: 0 } } : {};
-  const tooltipTimeLabel = (label: unknown) => {
-    if (!label) return '--';
-    const d = new Date(String(label));
-    return isMobile ? `${ET_HM.format(d)} ET` : d.toLocaleString('en-US', { timeZone: 'America/New_York' });
-  };
+    return null;
+  }, [bars, sessionStartMs]);
+  const orb =
+    orbHigh != null && orbLow != null && rangeEndMs != null && orbHigh >= orbLow
+      ? { high: orbHigh, low: orbLow, startMs: rangeEndMs - 30 * 60_000, endMs: rangeEndMs }
+      : null;
+
+  // A few hundred bars at most, so these are cheap to derive on each render
+  // (and the React Compiler memoizes them anyway).
+  const orbLog = orb ? deriveOrbLog(candles, orb.high, orb.low, orb.endMs) : [];
+  const events = buildSessionEvents(bars, orbLog, isWithinExtendedMarketHours);
+  const markerById = new Map(events.filter((e) => e.marker != null).map((e) => [e.id, e]));
+
+  // ── The read ─────────────────────────────────────────────────────────────
+  const last = read.spot ?? safeNum(latest?.close) ?? (candles.length ? candles[candles.length - 1].close : null);
+  const vwapNow = safeNum(latest?.vwap_deviation?.vwap);
+  const vwapGap = last != null && vwapNow != null ? last - vwapNow : null;
+  const zone = orb ? orbZone(last, orb.high, orb.low) : null;
+  const flip = read.flip;
+  const callWall = read.callWall;
+  const putWall = read.putWall;
+
+  const asOfMs = latest?.timestamp ? Date.parse(latest.timestamp) : fetchedAt ?? null;
+  const asOf = asOfMs != null && Number.isFinite(asOfMs) ? `As of ${etTime(asOfMs)} ET` : null;
+
+  const orbSub = (() => {
+    if (!orb || last == null || zone == null) return 'sets from 09:30–09:59 ET';
+    if (zone === 'above') return `${fmtDistance(last - orb.high)} above the high`;
+    if (zone === 'below') return `${fmtDistance(orb.low - last)} below the low`;
+    return orb.high - last <= last - orb.low ? `${fmtDistance(orb.high - last)} below the high` : `${fmtDistance(last - orb.low)} above the low`;
+  })();
+
+  const wallSub = (() => {
+    const parts: string[] = [];
+    if (callWall != null && last != null) parts.push(`call ${fmtDistance(callWall - last)} ${callWall >= last ? 'above' : 'below'}`);
+    if (putWall != null && last != null) parts.push(`put ${fmtDistance(last - putWall)} ${last >= putWall ? 'below' : 'above'}`);
+    return parts.length ? parts.join(' · ') : 'walls not resolved';
+  })();
 
   const showInitialLoading = loading && bars.length === 0;
-  const showInitialError = error && bars.length === 0;
+  const showInitialError = !!error && bars.length === 0;
+  const visibleEvents = showAllEvents ? events : events.slice(0, EVENTS_COLLAPSED);
 
   return (
     <PageShell>
       <PageHeader
         title="Technicals"
-        sub="The intraday price picture the option book sits on&nbsp;- VWAP, opening range, volume and momentum."
-        tooltip="The only page in this section that reads price rather than the option chain, and it is here because every gamma level is a level on this chart. VWAP is the session's volume-weighted average and the reference most institutional execution is measured against; the opening range is the first 30 minutes held flat for the rest of the day; volume spikes are minutes trading far above their own recent average, shaded by whether the volume was buying or selling; divergence flags price making a new extreme that momentum does not confirm. Context for the positioning surfaces, not signals in their own right."
-        actions={
-          lastUpdatedLabel ? (
-            <span className="zg-small" style={{ color: 'var(--text-muted)' }}>
-              Last updated: {lastUpdatedLabel}
-            </span>
-          ) : undefined
-        }
+        sub="The price picture under the levels. VWAP, the opening range, volume and momentum on one chart, read against the flip and the walls."
+        tooltip="The one page in this section that reads price rather than the option chain. It sits here because every gamma level is a price on this chart: VWAP is the session's volume-weighted average, the opening range is the high and low of 09:30–09:59 ET held flat for the day, volume spikes are five-minute bars far above their recent average, and divergences flag price and options flow disagreeing. Context for the levels, not signals on their own."
+        actions={asOf ? <span className="zg-caption">{asOf}</span> : undefined}
       />
 
-      {showInitialError ? (
-        <ErrorMessage message={error as string} />
-      ) : null}
+      {showInitialError ? <ErrorMessage message={error as string} /> : null}
 
-      <section className="mb-8">
-        <SectionHead title="VWAP Analysis" />
-        {showInitialLoading ? (
-          <div className="zg-panel p-5">
-            <LoadingSpinner />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* The one-line read */}
+        <section
+          aria-label="Session read"
+          className="zg-panel"
+          style={{
+            background: 'var(--border-default)',
+            display: 'grid',
+            gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(190px, 1fr))',
+            gap: 1,
+            overflow: 'hidden',
+          }}
+        >
+          <ReadCell
+            label="Price"
+            value={fmtLevel(last)}
+            sub={read.spotChange != null ? `${signed(read.spotChange)} (${signed(read.spotChangePercent)}%) today` : symbol}
+            subColor={changeColor(read.spotChange)}
+          />
+          <ReadCell
+            label="VWAP"
+            value={fmtLevel(vwapNow)}
+            sub={vwapGap != null ? `${fmtDistance(vwapGap)} ${vwapGap >= 0 ? 'above' : 'below'} · ${signed(vwapNow ? (vwapGap / vwapNow) * 100 : null)}%` : '—'}
+            subColor={changeColor(vwapGap)}
+          />
+          <ReadCell label="Opening range" value={zone ? ORB_ZONE_LABEL[zone] : orb ? '—' : 'Forming'} sub={orbSub} />
+          <ReadCell
+            label="Dealer gamma"
+            value={read.longGamma == null ? '—' : read.longGamma ? 'Long γ' : 'Short γ'}
+            sub={flip != null && last != null ? `${last >= flip ? 'above' : 'below'} the flip, ${fmtLevel(flip)}` : 'no flip resolved'}
+            subColor="var(--color-flip)"
+          />
+          <div style={isMobile ? { gridColumn: 'span 2', display: 'grid' } : { display: 'grid' }}>
+            <ReadCell
+              label="Walls"
+              size={17}
+              value={
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ color: 'var(--color-bear)' }}>{fmtLevel(callWall)}</span>
+                  <span style={{ color: 'var(--color-bull)' }}>{fmtLevel(putWall)}</span>
+                </span>
+              }
+              sub={wallSub}
+            />
           </div>
-        ) : !hasVwap ? (
-          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
-            No VWAP data available (market may be closed)
-          </div>
-        ) : (
-          <>
-            {/* Short single numbers: two per row on a phone, not a tower. */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
-              <MetricCard title="VWAP" value={`$${fmtFixed(vwapLatest?.vwap)}`} tooltip="Volume weighted average price" />
-              <MetricCard title="Deviation" value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={vwapPositionTrend(vwapLatest?.vwap_position)} tooltip="Percentage deviation from VWAP" />
-              <MetricCard title="Position" value={technicalsLabel(vwapLatest?.vwap_position)} trend={vwapPositionTrend(vwapLatest?.vwap_position)} tooltip="Price position relative to VWAP" />
+        </section>
+
+        {/* The chart */}
+        <Panel padded={false}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 16px',
+              borderBottom: `1px solid ${ruleColor}`,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+              <h2 className="zg-h3" style={{ margin: 0 }}>
+                Session
+              </h2>
+              <span className="zg-caption">5-minute bars · times in ET</span>
             </div>
-            {vwapChart.length > 0 ? (
-              <div className="zg-panel p-5">
-                <SectionHead title="VWAP vs. underlying price" titleClassName="zg-h3" tooltip="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP&nbsp;- green when above, red when below." />
-                  <ResponsiveContainer width="100%" height={chartHeight}>
-                    <ComposedChart data={vwapChart} margin={isMobile ? { top: 8, right: 4, left: 0, bottom: 16 } : { top: 16, right: 12, left: 0, bottom: 16 }}>
-                      <defs>
-                        <linearGradient id="vwapAboveGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.95} />
-                          <stop offset="35%" stopColor="var(--color-bull)" stopOpacity={0.55} />
-                          <stop offset="75%" stopColor="var(--color-bull)" stopOpacity={0.18} />
-                          <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.0} />
-                        </linearGradient>
-                        <linearGradient id="vwapBelowGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.0} />
-                          <stop offset="25%" stopColor="var(--color-bear)" stopOpacity={0.18} />
-                          <stop offset="65%" stopColor="var(--color-bear)" stopOpacity={0.55} />
-                          <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.95} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={isMobile ? phoneTimelineTick(barsStepMin) : renderTimelineTick} />
-                      <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 44 : 60} domain={isMobile && vwapPhoneDomain ? vwapPhoneDomain : ['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => (isMobile ? phonePriceTick(Number(v), vwapPriceTicks) : `$${Number(v).toFixed(2)}`)} padding={{ top: 12, bottom: 12 }} />
-                      <Tooltip
-                        {...phoneTooltipPosition}
-                        cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
-                        content={({ active, label, payload }) => {
-                          if (!active || !payload?.length) return null;
-                          const point = payload[0]?.payload as { price: number | null; vwap: number | null; deviationPct: number | null } | undefined;
-                          if (!point) return null;
-                          const labelStr = tooltipTimeLabel(label);
-                          const devColor = point.deviationPct == null ? mutedText : point.deviationPct >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
-                          return (
-                            <ChartTooltipShell label={labelStr}>
-                              <ChartTooltipRow label="Price" value={point.price != null ? `$${point.price.toFixed(2)}` : '--'} swatch="var(--text-primary)" />
-                              <ChartTooltipRow label="VWAP" value={point.vwap != null ? `$${point.vwap.toFixed(2)}` : '--'} swatch="var(--color-warning)" />
-                              <ChartTooltipRow
-                                label="Deviation"
-                                value={point.deviationPct != null ? `${point.deviationPct >= 0 ? '+' : ''}${point.deviationPct.toFixed(2)}%` : '--'}
-                                color={devColor}
-                              />
-                            </ChartTooltipShell>
-                          );
-                        }}
-                      />
-                      <Area dataKey="channelAbove" stroke="none" fill="url(#vwapAboveGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Area dataKey="channelBelow" stroke="none" fill="url(#vwapBelowGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
-                      <Line type="monotone" dataKey="vwap" name="VWAP" stroke="var(--color-warning)" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-              </div>
-            ) : null}
-          </>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <SectionHead title="Opening Range Breakout" />
-        {showInitialLoading ? (
-          <div className="zg-panel p-5">
-            <LoadingSpinner />
-          </div>
-        ) : !hasOrb || latest?.close == null ? (
-          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
-            No ORB data available (market may be closed)
-          </div>
-        ) : (
-          <>
-            {/* Short single numbers: two per row on a phone, not a tower. */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
-              <PriceDistanceMetricCard title="ORB High" level={safeNum(orbLatest?.orb_high)} spotPrice={safeNum(latest?.close)} tooltip="Opening range high" />
-              <PriceDistanceMetricCard title="ORB Low" level={safeNum(orbLatest?.orb_low)} spotPrice={safeNum(latest?.close)} tooltip="Opening range low" />
-              <MetricCard title="ORB Range" value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip="Opening range size" />
-            </div>
-            <div className="zg-panel p-5 mb-4">
-              <OrbPositionBar orb={orbLatest} price={latest?.close} compact={isMobile} title="Position Within Range" />
-            </div>
-            {bars.length > 0 ? (
-              <div className="zg-panel p-5">
-                <SectionHead title="ORB breakout map" titleClassName="zg-h3" tooltip="30-minute opening range (09:30-09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price." />
-                <OrbBreakoutMap bars={bars} orb={orbLatest} height={chartHeight} compact={isMobile} labelStepMin={volumeSpikeLabelStepMin} />
-              </div>
-            ) : null}
-          </>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <SectionHead title="Unusual Volume Spikes" />
-        {showInitialLoading ? (
-          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
-            Loading volume spikes...
-          </div>
-        ) : volumeSpikesChart.length === 0 ? (
-          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
-            No unusual volume detected
-          </div>
-        ) : (
-          <div className="zg-panel p-5">
-            <SectionHead title="Volume spikes vs. underlying price" titleClassName="zg-h3" tooltip="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail." />
-              <ResponsiveContainer width="100%" height={chartHeight}>
-                <ComposedChart data={volumeSpikesChart} margin={isMobile ? { top: 8, right: 0, left: 0, bottom: 16 } : { top: 16, right: 12, left: 0, bottom: 16 }}>
-                  <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={isMobile ? phoneTimelineTick(spikesStepMin) : renderTimelineTick} />
-                  <YAxis yAxisId="volume" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 40 : 60} ticks={volumeSpikeVolumeAxis.ticks} domain={volumeSpikeVolumeAxis.domain} padding={{ top: 12, bottom: 12 }} tickFormatter={(v) => {
-                    const n = Number(v);
-                    if (!Number.isFinite(n)) return '--';
-                    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-                    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-                    return String(n);
-                  }} />
-                  <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: isMobile ? 10 : 11 }} tickLine={false} width={isMobile ? 40 : 60} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} padding={{ top: 12, bottom: 12 }} />
-                  <Tooltip
-                    {...phoneTooltipPosition}
-                    cursor={{ fill: 'var(--text-primary)', fillOpacity: 0.08 }}
-                    content={({ active, label, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const point = payload[0]?.payload as {
-                        volumeRaw: number | null;
-                        volumeRatio: number | null;
-                        volumeSigma: number | null;
-                        volumeClass: string | null;
-                        buyingPressurePct: number | null;
-                        upVolume: number | null;
-                        downVolume: number | null;
-                        underlyingPrice: number | null;
-                      } | undefined;
-                      if (!point) return null;
-                      const labelStr = tooltipTimeLabel(label);
-                      const hasSpike = point.volumeRaw != null;
-                      return (
-                        <ChartTooltipShell label={labelStr}>
-                          {hasSpike ? (
-                            <>
-                              <ChartTooltipRow label="Volume" value={point.volumeRaw!.toLocaleString()} />
-                              {point.upVolume != null ? <ChartTooltipRow label="Up Volume" value={point.upVolume.toLocaleString()} swatch="var(--color-bull)" /> : null}
-                              {point.downVolume != null ? <ChartTooltipRow label="Down Volume" value={point.downVolume.toLocaleString()} swatch="var(--color-bear)" /> : null}
-                              {point.volumeRatio != null ? <ChartTooltipRow label="Ratio" value={`${point.volumeRatio.toFixed(1)}x avg`} /> : null}
-                              {point.volumeSigma != null ? <ChartTooltipRow label="Sigma" value={`${point.volumeSigma.toFixed(1)}σ`} /> : null}
-                              {point.volumeClass ? <ChartTooltipRow label="Class" value={technicalsLabel(point.volumeClass)} /> : null}
-                              {point.buyingPressurePct != null ? <ChartTooltipRow label="Buying Pressure" value={`${point.buyingPressurePct.toFixed(1)}%`} /> : null}
-                            </>
-                          ) : (
-                            <div style={{ color: mutedText }}>No spike at this minute</div>
-                          )}
-                        </ChartTooltipShell>
-                      );
-                    }}
-                  />
-                  {/* 192 five-minute slots share ~250px on a phone: a 14px bar
-                      there is a smear across its neighbours, so it thins. */}
-                  <Bar yAxisId="volume" dataKey="volume" name="Spike Volume" barSize={isMobile ? 3 : 14} isAnimationActive={false}>
-                    {volumeSpikesChart.map((row, idx) => {
-                      // Gradient red→neutral→green based on the up-vs-down volume
-                      // split for the bucket. Falls back to the API-computed
-                      // buying_pressure_pct when up/down volumes aren't present.
-                      const total = (row.upVolume ?? 0) + (row.downVolume ?? 0);
-                      const upPct = row.upVolume != null && row.downVolume != null && total > 0
-                        ? (row.upVolume / total) * 100
-                        : row.buyingPressurePct;
-                      return <Cell key={`vol-cell-${idx}`} fill={gradientVolumeColor(upPct)} />;
-                    })}
-                  </Bar>
-                  <Line yAxisId="price" type="monotone" dataKey="underlyingPrice" name="Underlying" stroke="var(--color-warning)" dot={false} strokeWidth={2} connectNulls isAnimationActive={false} />
-                </ComposedChart>
-              </ResponsiveContainer>
-          </div>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <SectionHead title="Momentum Divergence Signals" />
-        {showInitialLoading ? (
-          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
-            Loading divergence signals...
-          </div>
-        ) : divergenceRows.length === 0 ? (
-          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>No divergence signals</div>
-        ) : (
-          <div className="zg-panel p-5">
-            <div className={isMobile ? 'space-y-3' : 'space-y-3 max-h-[420px] overflow-y-auto pr-1'}>
-              {(isMobile && !showAllDivergence ? divergenceRows.slice(0, PHONE_DIVERGENCE_ROWS) : divergenceRows).map((signal, idx) => {
-                const tone = divergenceTone(signal.signal);
-                const price = signal.price ?? 0;
-                const ms = signal.timestamp ? new Date(signal.timestamp).getTime() : NaN;
+            <div role="group" aria-label="Chart layers" style={{ display: 'flex', gap: 6, flexWrap: isMobile ? 'nowrap' : 'wrap', overflowX: isMobile ? 'auto' : undefined, maxWidth: '100%' }}>
+              {LAYER_BUTTONS.map((b) => {
+                const on = layers[b.key];
                 return (
-                  <div key={`${signal.timestamp}-${idx}`} className="border-b pb-3" style={{ borderColor: borderColor }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold">{Number.isFinite(ms) ? `${ET_HM.format(new Date(ms))} ET` : '--:--'}</div>
-                      <div className={`px-3 py-1 rounded text-sm font-semibold ${
-                        tone === 'warning' ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
-                        tone === 'bullish' ? 'bg-[var(--color-bull-soft)] text-[var(--color-bull)]' :
-                        tone === 'bearish' ? 'bg-[var(--color-bear-soft)] text-[var(--color-bear)]' :
-                        'bg-[var(--bg-card)] text-[var(--text-secondary)]'
-                      }`}>
-                        {technicalsLabel(signal.signal)}
-                      </div>
-                    </div>
-                    <div className="text-sm" style={{ color: mutedText }}>Price: ${price.toFixed(2)}</div>
-                  </div>
+                  <button
+                    key={b.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={toggles[b.key]}
+                    className="zg-btn"
+                    style={{
+                      flex: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      minHeight: 40,
+                      padding: '0 12px',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 12,
+                      color: on ? 'var(--text-primary)' : 'var(--text-muted)',
+                      background: on ? 'color-mix(in srgb, var(--color-navy) 18%, transparent)' : 'transparent',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-control, 2px)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {b.swatch && <span aria-hidden="true" style={{ display: 'inline-block', boxSizing: 'border-box', ...b.swatch, opacity: on ? 1 : 0.4 }} />}
+                    {b.label}
+                  </button>
                 );
               })}
             </div>
-            {isMobile && divergenceRows.length > PHONE_DIVERGENCE_ROWS ? (
-              <button
-                type="button"
-                onClick={() => setShowAllDivergence((v) => !v)}
-                className="mt-3 w-full min-h-10 rounded border text-sm font-semibold"
-                style={{ borderColor, color: 'var(--text-secondary)' }}
-              >
-                {showAllDivergence ? 'Show fewer' : `Show all ${divergenceRows.length} signals`}
-              </button>
-            ) : null}
           </div>
-        )}
-      </section>
+          <div style={{ padding: '10px 10px 4px' }}>
+            {showInitialLoading ? (
+              <div style={{ height: isMobile ? 360 : 470, display: 'flex', flexDirection: 'column', gap: 14, justifyContent: 'center', padding: '0 12px' }}>
+                <div className="zg-skeleton-line" style={{ width: '38%', height: 10 }} />
+                <div className="zg-skeleton-line" style={{ width: '100%', height: 220 }} />
+                <div className="zg-skeleton-line" style={{ width: '62%', height: 10 }} />
+              </div>
+            ) : !haveWindow || candles.length === 0 ? (
+              <div className="zg-caption" style={{ padding: '48px 12px', textAlign: 'center' }}>
+                No bars yet for this session.
+              </div>
+            ) : (
+              <TechnicalsSessionChart
+                candles={candles}
+                vwap={vwapPoints}
+                volume={volumeBars}
+                orb={orb}
+                levels={{ flip, callWall, putWall, pin: read.pinStrike }}
+                last={last}
+                sessionStartMs={sessionStartMs}
+                sessionEndMs={sessionEndMs}
+                events={events}
+                layers={layers}
+                compact={isMobile}
+                ariaLabel={`${symbol} five-minute candles for the session, with VWAP, the opening range, the gamma flip, the walls and the pin`}
+              />
+            )}
+          </div>
+          <p className="zg-caption" style={{ margin: 0, padding: '8px 16px 12px', borderTop: `1px solid ${ruleColor}` }}>
+            The shaded band is the opening range; its lighter edges are the outer fifths, where the status reads near the high or near the low. Numbered markers match the event list.
+          </p>
+        </Panel>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: 20, alignItems: 'start' }}>
+          {/* The opening range */}
+          <Panel padded={false}>
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${ruleColor}` }}>
+              <h2 className="zg-h3" style={{ margin: 0 }}>
+                Opening range
+              </h2>
+              <p className="zg-caption" style={{ margin: '4px 0 0' }}>
+                09:30–09:59 ET, then held flat for the session.
+              </p>
+            </div>
+            {!orb ? (
+              <p className="zg-caption" style={{ margin: 0, padding: '18px 16px' }}>
+                The range sets at 10:00 ET from the high and low of the first half hour.
+              </p>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: 1,
+                    background: ruleColor,
+                    borderBottom: `1px solid ${ruleColor}`,
+                  }}
+                >
+                  <ReadCell label="High" value={fmtLevel(orb.high)} sub={last != null ? `${fmtDistance(orb.high - last)} ${orb.high >= last ? 'above' : 'below'}` : '—'} />
+                  <ReadCell label="Low" value={fmtLevel(orb.low)} sub={last != null ? `${fmtDistance(last - orb.low)} ${last >= orb.low ? 'below' : 'above'}` : '—'} />
+                  <ReadCell label="Range" value={fmtDistance(orb.high - orb.low)} sub={last ? `${(((orb.high - orb.low) / last) * 100).toFixed(2)}% of price` : '—'} />
+                  <ReadCell label="Status" value={zone ? ORB_ZONE_LABEL[zone] : '—'} sub={zone === 'inside' ? 'middle three-fifths' : zone === 'nearHigh' || zone === 'nearLow' ? 'outer fifth' : zone ? 'outside the range' : '—'} />
+                </div>
+
+                <div style={{ padding: '16px 16px 6px' }}>
+                  <Label>Where price sits</Label>
+                  {(() => {
+                    const pos = orbBarPosition(last, orb.high, orb.low);
+                    const near = ORB_NEAR_FRACTION * (1 - 2 * ORB_BAR_OUTER) * 100;
+                    const mid = (1 - 2 * ORB_BAR_OUTER) * 100 - 2 * near;
+                    const outer = ORB_BAR_OUTER * 100;
+                    return (
+                      <div style={{ position: 'relative', paddingTop: 20, marginTop: 8 }}>
+                        <span className="zg-mono" style={{ position: 'absolute', top: 0, left: `${outer}%`, transform: 'translateX(-30%)', fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {fmtLevel(orb.low)}
+                        </span>
+                        <span className="zg-mono" style={{ position: 'absolute', top: 0, left: `${100 - outer}%`, transform: 'translateX(-70%)', fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {fmtLevel(orb.high)}
+                        </span>
+                        <div style={{ display: 'flex', height: 24 }} aria-hidden="true">
+                          <div style={{ width: `${outer}%`, background: 'color-mix(in srgb, var(--color-bear) 16%, transparent)' }} />
+                          <div style={{ width: `${near}%`, background: 'color-mix(in srgb, var(--color-hazy) 26%, transparent)', borderLeft: '1px solid var(--color-hazy)' }} />
+                          <div style={{ width: `${mid}%`, background: 'color-mix(in srgb, var(--color-hazy) 10%, transparent)' }} />
+                          <div style={{ width: `${near}%`, background: 'color-mix(in srgb, var(--color-hazy) 26%, transparent)', borderRight: '1px solid var(--color-hazy)' }} />
+                          <div style={{ width: `${outer}%`, background: 'color-mix(in srgb, var(--color-bull) 16%, transparent)' }} />
+                        </div>
+                        {pos != null && (
+                          <div
+                            aria-hidden="true"
+                            style={{ position: 'absolute', top: 16, left: `${pos * 100}%`, width: 2, height: 32, background: 'var(--color-accent-hot)', transform: 'translateX(-1px)' }}
+                          />
+                        )}
+                        <div className="zg-mono" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
+                          <span>Near low</span>
+                          <span style={{ color: 'var(--color-accent-hot)' }}>
+                            {fmtLevel(last)}
+                            {zone ? ` · ${ORB_ZONE_LABEL[zone]}` : ''}
+                          </span>
+                          <span>Near high</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <p className="zg-caption" style={{ margin: '12px 0 0' }}>
+                    Near means the outer fifth of the range, so it scales with the day instead of a fixed share of price.
+                  </p>
+                </div>
+
+                <div style={{ padding: '14px 16px 16px', borderTop: `1px solid ${ruleColor}` }}>
+                  <Label>Breakout log</Label>
+                  {orbLog.length === 0 ? (
+                    <p className="zg-caption" style={{ margin: '8px 0 0' }}>
+                      No test or break of the range yet.
+                    </p>
+                  ) : (
+                    <ul style={{ listStyle: 'none', margin: '6px 0 0', padding: 0 }}>
+                      {orbLog.map((e, i) => {
+                        const t = orbLogText(e);
+                        const ev = markerById.get(`orb-${e.kind}-${e.ms}`);
+                        return (
+                          <li
+                            key={`${e.kind}-${e.ms}`}
+                            style={{ display: 'flex', gap: 12, padding: '9px 0', borderBottom: i === orbLog.length - 1 ? 'none' : `1px solid ${ruleColor}`, alignItems: 'baseline' }}
+                          >
+                            <span className="zg-mono" style={{ fontSize: 13, width: 46, flex: 'none' }}>
+                              {etTime(e.ms)}
+                            </span>
+                            <span style={{ fontSize: 14, minWidth: 0 }}>
+                              {t.title}
+                              {ev?.marker != null && <MarkerBadge n={ev.marker} tone={ev.tone} />}
+                              <span style={{ color: 'var(--text-muted)' }}> · {t.detail}</span>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </Panel>
+
+          {/* The session's events */}
+          <Panel padded={false}>
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${ruleColor}` }}>
+              <h2 className="zg-h3" style={{ margin: 0 }}>
+                Events
+              </h2>
+              <p className="zg-caption" style={{ margin: '4px 0 0' }}>
+                Divergences, weak moves, volume spikes and range breaks, newest first.
+              </p>
+            </div>
+            {events.length === 0 ? (
+              <p className="zg-caption" style={{ margin: 0, padding: '18px 16px' }}>
+                {showInitialLoading ? 'Loading the session…' : 'Nothing notable yet this session.'}
+              </p>
+            ) : isMobile ? (
+              <ul style={{ listStyle: 'none', margin: 0, padding: '0 16px' }}>
+                {visibleEvents.map((e: SessionEvent, i) => (
+                  <li key={e.id} style={{ padding: '11px 0', borderBottom: i === visibleEvents.length - 1 ? 'none' : `1px solid ${ruleColor}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: TONE_DOT[e.tone], flex: 'none' }} />
+                      <span className="zg-mono" style={{ fontSize: 13 }}>
+                        {etTime(e.ms)}
+                      </span>
+                      <span>
+                        {e.title}
+                        {e.marker != null && <MarkerBadge n={e.marker} tone={e.tone} />}
+                      </span>
+                    </div>
+                    <div className="zg-mono" style={{ fontSize: 12, color: 'var(--text-muted)', paddingLeft: 16, marginTop: 3 }}>
+                      {e.detail ? `${e.detail} · ` : ''}
+                      {fmtLevel(e.price)}
+                      {e.chg5m != null && (
+                        <>
+                          {' · '}
+                          <span style={{ color: changeColor(e.chg5m) }}>{signed(e.chg5m)}</span>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div style={{ padding: '2px 16px 8px', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 460 }}>
+                  <thead>
+                    <tr>
+                      {(['ET', 'Event', 'Price', '5-min chg'] as const).map((h, i) => (
+                        <th
+                          key={h}
+                          scope="col"
+                          className="zg-mono"
+                          style={{ textAlign: i >= 2 ? 'right' : 'left', whiteSpace: 'nowrap', fontSize: 11, fontWeight: 500, color: 'var(--text-muted)', padding: '10px 8px 6px', paddingLeft: i === 0 ? 0 : 8, paddingRight: i === 3 ? 0 : 8, borderBottom: `1px solid ${ruleColor}` }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleEvents.map((e: SessionEvent, i) => {
+                      const cell: CSSProperties = { padding: '9px 8px', borderBottom: i === visibleEvents.length - 1 ? 'none' : `1px solid ${ruleColor}` };
+                      return (
+                        <tr key={e.id}>
+                          <td className="zg-mono" style={{ ...cell, paddingLeft: 0, whiteSpace: 'nowrap', fontSize: 13 }}>
+                            {etTime(e.ms)}
+                            {e.marker != null && <MarkerBadge n={e.marker} tone={e.tone} />}
+                          </td>
+                          <td style={cell}>
+                            <span aria-hidden="true" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: TONE_DOT[e.tone], marginRight: 8 }} />
+                            {e.title}
+                            {e.detail && <span style={{ color: 'var(--text-muted)' }}> · {e.detail}</span>}
+                          </td>
+                          <td className="zg-mono" style={{ ...cell, textAlign: 'right', fontSize: 13 }}>
+                            {fmtLevel(e.price)}
+                          </td>
+                          <td className="zg-mono" style={{ ...cell, paddingRight: 0, textAlign: 'right', fontSize: 13, color: changeColor(e.chg5m) }}>
+                            {signed(e.chg5m)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {events.length > EVENTS_COLLAPSED && (
+              <div style={{ padding: '0 16px 14px' }}>
+                <button
+                  type="button"
+                  className="zg-btn"
+                  onClick={() => setShowAllEvents((v) => !v)}
+                  style={{ width: '100%', minHeight: 44, fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-primary)', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-control, 2px)', cursor: 'pointer' }}
+                >
+                  {showAllEvents ? 'Show fewer' : `Show all ${events.length} events`}
+                </button>
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        <footer className="zg-caption" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12 }}>
+          <span>Context for the levels, not signals on their own.</span>
+          <Link href="/help/platform/technicals" style={{ color: 'var(--color-accent-hot)' }}>
+            How to read this page
+          </Link>
+        </footer>
+      </div>
     </PageShell>
   );
 }

@@ -1,40 +1,63 @@
 # Technicals
 
-*El panorama intradía del precio sobre el que se asienta el libro de opciones - VWAP, el rango de apertura, los picos de volumen y la divergencia de momentum.*
+*El panorama intradía del precio sobre el que se asienta el libro de opciones - VWAP, el rango de apertura, los picos de volumen y la divergencia de momentum, en un solo gráfico con el flip y los walls.*
 
 ---
 
 ## Qué muestra esta página
 
-La página Technicals es la **lectura price-first** del símbolo activo. Es la única página de Metrics que lee el precio en lugar de la cadena de opciones - el VWAP, el rango de apertura, el volumen inusual y el momentum contrastado con el flujo de opciones.
+La página Technicals es la **lectura price-first** del símbolo activo. Es la única página de Metrics que lee el precio en lugar de la cadena de opciones - el VWAP, el rango de apertura, el volumen inusual y el momentum contrastado con el flujo de opciones - y lo dibuja todo frente al gamma flip, los walls y el pin.
 
 Es la página que abres cuando necesitas confirmar qué está implicando el posicionamiento de los dealers frente a lo que el precio realmente está haciendo.
 
-## VWAP Analysis
+## La lectura de la sesión
 
-Cuatro tarjetas - **Current Price**, **VWAP**, **Deviation** (a qué distancia está el precio del VWAP, en porcentaje) y **Position** (por encima o por debajo) - y un gráfico del precio frente al VWAP a lo largo de la sesión. El canal sombreado entre ambos se ensancha a medida que el precio se aleja del VWAP: verde cuando el precio está por encima, rojo cuando está por debajo.
+La fila superior lee la sesión de un vistazo: **Price**, **VWAP** (y a qué distancia está el precio), dónde está el precio dentro del **Opening range**, **Dealer gamma** (gamma larga o corta, y a qué lado del flip está el precio) y los **Walls**, cada uno con su distancia al precio.
 
-## Opening Range Breakout
+## El gráfico de la sesión
 
-El rango de apertura es el máximo y el mínimo de los primeros 30 minutos de la sesión regular (09:30-09:59 ET), fijado para el resto del día. Las tarjetas muestran **ORB High** y **ORB Low** con la distancia a cada uno, además del **ORB Range**; **Position Within Range** muestra dónde está el precio entre ambos, y el **ORB breakout map** representa el precio frente a las dos líneas.
+Velas de 5 minutos de la sesión, horas en ET, con:
 
-## Unusual Volume Spikes
+- **VWAP** - la línea discontinua que atraviesa las velas.
+- **El rango de apertura** - la banda sombreada entre el máximo y el mínimo de 09:30-09:59 ET. Sus quintos superior e inferior, más claros, son donde el estado indica "near the high" o "near the low".
+- **El flip, los walls y el pin** - los mismos niveles que la franja de Key Levels y el Gamma Terminal. Un nivel demasiado alejado de los precios de la sesión para dibujarlo se señala con una flecha en el borde del eje de precios.
+- **Volumen** - debajo. Las barras al menos una desviación estándar por encima de su propio promedio reciente se colorean según dominaran las compras (verde) o las ventas (rojo); el resto son grises.
+- **Marcadores numerados** - divergencias y rupturas del rango de apertura, numerados por orden temporal para coincidir con la lista de eventos.
 
-Las barras de 5 minutos que negociaron al menos una desviación estándar por encima de su propio promedio reciente - marcadas como Moderate, High o Extreme Spike -, dibujadas frente al precio del subyacente. Cada barra se colorea desde el rojo (todo volumen bajista) pasando por neutral hasta el verde (todo volumen alcista). Pasa el cursor sobre una barra para ver su volumen, su múltiplo del promedio y el reparto de la presión compradora.
+Los botones sobre el gráfico activan o desactivan cada capa, y este navegador recuerda tu elección. Pasa el cursor sobre una vela, o tócala en el móvil, para ver su apertura, máximo, mínimo, cierre, VWAP y volumen.
 
-## Momentum Divergence Signals
+## Rango de apertura
 
-Una lista continua, de la más reciente a la más antigua, que contrasta cada movimiento de precio de 5 minutos con el flujo de opciones y el volumen alcista y bajista que hay detrás: **Bearish Divergence** (el precio sube mientras se compran puts), **Bullish Divergence** (el precio baja mientras se compran calls), **Bullish** o **Bearish Confirmation** cuando el precio y el flujo de opciones coinciden, y **Weak Rally** o **Weak Selloff** cuando el volumen va en contra del movimiento.
+El máximo y el mínimo de los primeros 30 minutos de la sesión regular (09:30-09:59 ET), fijados para el resto del día, cada uno con su distancia al precio, el tamaño del rango y su **estado**:
+
+- **Above the range** / **Below the range** - el último cierre de 5 minutos está más allá del máximo o del mínimo.
+- **Near the high** / **Near the low** - dentro del rango, en su quinto superior o inferior.
+- **Inside** - los tres quintos centrales.
+
+"Near" se mide respecto al propio rango, así que se adapta al día y no al precio. **Where price sits** dibuja las mismas zonas como una barra.
+
+El **registro de rupturas** recoge lo que hizo el precio en torno al rango: pruebas del máximo o del mínimo (una mecha que lo atraviesa y luego un cierre de vuelta dentro), rupturas (un cierre más allá), el punto más lejano alcanzado en múltiplos del rango y los cierres de vuelta dentro, con cuánto duró la ruptura.
+
+## Eventos
+
+Una sola lista, del más reciente al más antiguo:
+
+- **Bearish divergence** - el precio sube en cinco minutos mientras el flujo de opciones se inclina hacia los puts. **Bullish divergence** - el precio baja mientras se inclina hacia las calls.
+- **Weak rally** / **Weak selloff** - el precio se movió mientras el volumen alcista y bajista se inclinaba en sentido contrario.
+- **Volume spike** - una barra de 5 minutos al menos una desviación estándar por encima de su promedio reciente, con cuánto por encima y si dominaron las compras o las ventas.
+- **Eventos del rango de apertura** del registro de rupturas.
+
+Las barras en las que el precio y el flujo de opciones coinciden (las confirmaciones) se omiten, porque son el caso habitual. La variación de 5 minutos está en las unidades de precio del símbolo - puntos en ES y NQ -, no en porcentaje.
 
 ## Cómo leerla
 
-Tres patrones - los walls y el flip vienen de Dealer Positioning o del Gamma Terminal:
+Tres patrones, todos visibles en el mismo gráfico:
 
-1. **Precio entre el call wall y el put wall** en gamma positiva ⇒ el hedging se opone a los movimientos hacia cualquiera de los dos walls, un entorno de reversión a la media. Los technicals confirman el rango; la página de dealers sugiere el porqué.
-2. **Precio que rompe por debajo del put wall** en gamma negativa con la IV en expansión ⇒ la continuación de tendencia *se vuelve más probable*. Los technicals muestran la ruptura; la página de dealers explica la amplificación modelada.
+1. **Precio entre el call wall y el put wall** en gamma positiva ⇒ el hedging se opone a los movimientos hacia cualquiera de los dos walls, un entorno de reversión a la media. Las velas confirman el rango; los niveles sugieren el porqué.
+2. **Precio que rompe por debajo del put wall** en gamma negativa con la IV en expansión ⇒ la continuación de tendencia *se vuelve más probable*. Las velas muestran la ruptura; el régimen explica la amplificación modelada.
 3. **El VWAP y el gamma flip se apilan en el mismo nivel** ⇒ un pivote estructural a vigilar. Las reacciones allí *pueden* tener más convicción que en cualquiera de los dos por separado.
 
-Para ver el flip, los walls, el max pain y el VWAP dibujados sobre las propias velas, usa el gráfico del Gamma Terminal - consulta [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts).
+Para el resto del panorama gamma junto a las velas - las escaleras de strikes, los ribbons y el rewind -, usa el Gamma Terminal; consulta [Cómo leer los gráficos de ZeroGEX](/help/platform/reading-charts).
 
 ## Ver también
 
