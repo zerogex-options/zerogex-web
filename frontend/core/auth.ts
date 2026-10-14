@@ -154,6 +154,12 @@ const PUBLIC_ROUTE_PATTERNS = [
   // excluded from the sitemap — crawlable so the directive is visible, which
   // is the same reasoning robots.ts records for the tier-gated tools.
   '/levels-email/*',
+  // The one-click opt-out in every wall-alert email (app/alerts/unsubscribe).
+  // Same reasoning as the levels-email pages: it must work from a mail client
+  // with no session — a member reading on their phone is often signed out — and
+  // it authenticates itself with an HMAC over the member id, not a login. An
+  // exact path, so nothing else under /alerts is opened by it.
+  '/alerts/unsubscribe',
   // Shareable Live Bulletin snapshot cards (/live-bulletin/snapshot/{symbol})
   // are the public artifact for a streamed signal event — anonymous-accessible
   // for the same crawler + non-member reasons, while the live /live-bulletin

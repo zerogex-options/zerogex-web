@@ -42,6 +42,16 @@ type Rule =
 // version: every prefix here is fetched CLIENT-SIDE only by pages of at least
 // the given tier, and never by anonymous chrome or the SSR/delayed public path.
 const RULES: readonly Rule[] = [
+  // Machine-to-machine control planes — the delivery workers' outboxes
+  // (/api/alerts/walls/internal/*, /api/tradeworkz/internal/*). Never called
+  // from a browser: the workers talk to FastAPI directly on 127.0.0.1, not
+  // through this proxy. Forwarded from here they would ride the BFF's own
+  // full-access key, so an anonymous visitor could read other members' queued
+  // alerts or mark them sent. MUST stay first, ahead of any broader rule that
+  // would otherwise match these paths. Admin, not a hard 404, so an operator
+  // signed in to the site can still inspect the queue from a browser.
+  { pattern: /^\/api\/[^/]+(?:\/[^/]+)*\/internal(?:\/|$)/, access: 'admin' },
+
   // Public shared-backtest report permalink — client-fetched on an anonymous
   // page. Must be exempt even though it sits under the pro /api/backtest prefix.
   { prefix: '/api/backtest/runs/shared', access: 'public' },
@@ -103,6 +113,14 @@ const RULES: readonly Rule[] = [
   // Backtesting platform — pro (the /api/backtest/runs/shared exemption above
   // already peeled off the one public path).
   { prefix: '/api/backtest', access: 'pro' },
+
+  // Wall alerts (Call/Put Wall hit / break / hold) — a Basic feature: the walls
+  // themselves are Basic data, and /account/alerts plus the header bell are the
+  // only client-side callers. The whole prefix, reads included: /live serves
+  // the live walls with their strength, which is exactly the /api/gex data the
+  // Basic rule below protects. A lapsed member's rules are kept and simply stop
+  // delivering (the email worker checks the tier too) until they resubscribe.
+  { prefix: '/api/alerts', access: 'basic' },
 
   // Derived analytics surfaces — all Basic tool pages. The delayed/public
   // versions of this data are server-rendered (serverApiGet), so they never hit

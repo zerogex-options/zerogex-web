@@ -88,6 +88,7 @@
     "test:subscriber-bucket-migration": "node --experimental-strip-types --test tests/subscriberBucketMigration.test.ts",
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",
+    "test:wall-alerts": "node --experimental-strip-types --test tests/wallAlerts.test.ts",
     "test:signal-availability": "node --experimental-strip-types --test tests/signalAvailability.test.ts",
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
     "test:cohort-retention": "node --experimental-strip-types --test tests/cohortRetention.test.ts",

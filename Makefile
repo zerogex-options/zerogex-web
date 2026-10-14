@@ -638,6 +638,16 @@ webhook-health:
 tradeworkz-notify:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/tradeworkz-notify-deliver.mts $(if $(DRY_RUN),--dry-run,) $(if $(LIMIT),--limit $(LIMIT),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
 
+# Drain queued wall-alert emails (Call/Put Wall hit / broke / held) from the
+# zerogex-oa outbox and send one email per member through Resend. Driven every
+# 20 seconds by zerogex-web-wall-alerts-notify.timer (deploy/steps/091.wall-alerts-notify).
+# Needs ZEROGEX_ADMIN_TOKEN as well as ZEROGEX_API_TOKEN: the outbox holds every
+# member's alerts, so the backend admin-gates it. DRY_RUN=1 shows what each
+# queued row would get; PREVIEW_TO=<email> sends one sample (no DB); VERBOSE=1
+# also reports an empty queue.
+wall-alerts-notify:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/wall-alerts-deliver.mts $(if $(DRY_RUN),--dry-run,) $(if $(LIMIT),--limit $(LIMIT),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(VERBOSE),--verbose,)'
+
 # Send the ~48h-before-trial-end reminder email to every currently-trialing
 # user whose first charge lands in the next ~48h (windowed +/- 3h so a
 # multi-hour cron cadence still catches the cohort exactly once). Idempotent

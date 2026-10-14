@@ -70,6 +70,7 @@ BASIC_PATHS=(
   "/api/market/open-interest?symbol=SPY&underlying=SPY"
   "/api/market/session-levels?symbol=SPY"
   "/api/gex/summary?symbol=SPY&underlying=SPY"
+  "/api/alerts/walls/feed?limit=1"
 )
 PRO_PATHS=(
   "/api/tradeworkz/summary"
@@ -95,6 +96,11 @@ if [ -z "$SESSION" ]; then
   for p in "${BASIC_PATHS[@]}" "${PRO_PATHS[@]}"; do
     expect 401 "$p" "PAYWALL BYPASS: this returns data to anyone."
   done
+
+  echo
+  echo "== Anonymous: operator-only outboxes must be refused (401) =="
+  expect 401 "/api/alerts/walls/internal/queued?channel=email&limit=1" \
+    "OUTBOX EXPOSED: queued alerts for every member are readable by anyone."
 
   echo
   echo "== Anonymous: open endpoints must NOT be refused =="

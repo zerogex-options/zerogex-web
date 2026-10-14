@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroGEX wall-alert email delivery timer (every 20 seconds)
+
+[Timer]
+# A wall alert is worth sending only while it is news, so this runs three
+# times a minute rather than the TradeWorkz worker's once. The script exits in
+# one HTTP call when the queue is empty, and the backend expires anything left
+# unsent after 20 minutes.
+OnCalendar=*:*:05/20
+AccuracySec=1s
+# Keep runs off the :00 boundaries the minute timers use.
+RandomizedDelaySec=2s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from '
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2, Users } from 'lucide-react';
+import { Bell, BellRing, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { isAppleAuthEnabled } from '@/core/authFlags';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -1099,6 +1099,30 @@ function AccountPageContent() {
               />
             </div>
           )}
+        </section>
+
+        <section style={{ marginTop: 24 }}>
+          <SectionHeading icon={<BellRing size={18} />}>{t('wallAlerts')}</SectionHeading>
+          <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+            {t('wallAlertsDescription')}
+          </p>
+          <Link
+            href="/account/alerts"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 16px',
+              borderRadius: 10,
+              background: 'var(--color-info)',
+              color: 'var(--color-on-info, #ffffff)',
+              fontWeight: 700,
+              fontSize: 13,
+              textDecoration: 'none',
+            }}
+          >
+            <BellRing size={14} /> {t('manageWallAlerts')}
+          </Link>
         </section>
 
         <section style={{ marginTop: 24 }}>
