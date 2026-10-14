@@ -28,6 +28,8 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { useInDashboardWidget } from '@/core/dashboardWidget';
+import { useLinkedRewind, type SharedRewind } from '@/core/linkedRewind';
+import { barIndexAsOf } from '@/core/linkedRewindState';
 import { lockPageScroll } from '@/core/scrollLock';
 import { useCoarsePointer, useIsMobile } from '@/hooks/useIsMobile';
 import {
@@ -2398,15 +2400,56 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const rewindTrackBg = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
   const rewindAvailable = rewindMax > rewindMin;
 
+  // The moment a candle stands for on a linked board's clock: its close, the
+  // same convention the Gamma Chart's scrub uses, so the two land together.
+  const candleMs = (tf === '1m' ? 1 : tf === '5m' ? 5 : 15) * 60 * 1000;
+  const candleClose = (idx: number): number | null => {
+    const candle = allCandles[idx];
+    const t = candle ? new Date(candle.timestamp).getTime() : NaN;
+    return Number.isFinite(t) ? t + candleMs - 1 : null;
+  };
+
+  // Back to live, on this chart only. toggleRewind's exit is the reader's,
+  // which also takes the rest of a linked board back to live.
+  const leaveRewind = () => {
+    setRewindActive(false);
+    setRewindTime(null);
+    setPlaybackActive(false);
+    setPaused(false);
+  };
+
+  // ── Linked Rewind ── On My Dashboard every replaying chart reads one clock
+  // (core/linkedRewind): another chart's Rewind, scrub, Play / Pause or Exit
+  // lands here, and every Rewind action below is published back to it. The
+  // clock resolves to the newest candle that had closed by then, held inside
+  // the scrubber's range. Compact mode has no Rewind, so it stays live.
+  const followRewind = (shared: SharedRewind) => {
+    if (compact) return;
+    if (!shared.active) {
+      if (rewindActive) leaveRewind();
+      return;
+    }
+    let time = shared.time;
+    if (time != null && allCandles.length > 0) {
+      const starts = allCandles.map((c) => new Date(c.timestamp).getTime());
+      time = starts[clamp(barIndexAsOf(starts, candleMs, time) ?? rewindMin, rewindMin, rewindMax)];
+    }
+    if (!rewindActive) {
+      setRewindActive(true);
+      setPaused(true);
+    }
+    setRewindTime(time);
+    setPlaybackActive(shared.playing);
+  };
+  const rewindLink = useLinkedRewind(followRewind, symbol);
+
   const toggleRewind = () => {
     if (rewindActive) {
       // Resume live updates and snap the right edge back to "now".  Also
       // stop playback — it's only meaningful inside rewind mode, so leaving
       // it engaged would silently restart on the next rewind toggle.
-      setRewindActive(false);
-      setRewindTime(null);
-      setPlaybackActive(false);
-      setPaused(false);
+      leaveRewind();
+      rewindLink?.publish({ active: false });
       return;
     }
     // Activating rewind freezes the chart and anchors the scrubber at the most
@@ -2415,12 +2458,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setRewindActive(true);
     setRewindTime(last ? new Date(last.timestamp).getTime() : null);
     setPaused(true);
+    rewindLink?.publish({ active: true, time: candleClose(allCandles.length - 1), playing: false });
   };
 
+  // Scrubbing doesn't stop playback here: it carries on from the new point, so
+  // a scrub during the board's playback hands playback to this chart.
   const onRewindScrub = (raw: number) => {
     const idx = clamp(Math.round(raw), rewindMin, rewindMax);
     const candle = allCandles[idx];
-    if (candle) setRewindTime(new Date(candle.timestamp).getTime());
+    if (!candle) return;
+    setRewindTime(new Date(candle.timestamp).getTime());
+    rewindLink?.publish({ active: true, time: candleClose(idx), playing: playbackActive });
   };
 
   // Play from the most recent point, which is where Rewind opens, replays from
@@ -2429,13 +2477,30 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const togglePlayback = () => {
     if (playbackActive) {
       setPlaybackActive(false);
+      rewindLink?.publish({ playing: false });
       return;
     }
+    let idx = rewindValue;
     if (rewindValue >= rewindMax) {
       const first = allCandles[rewindMin];
       if (first) setRewindTime(new Date(first.timestamp).getTime());
+      idx = rewindMin;
     }
     setPlaybackActive(true);
+    rewindLink?.publish({ active: true, time: candleClose(idx), playing: true });
+  };
+
+  // Speed and Loop belong to whichever chart is stepping playback, so changing
+  // either here while another chart is playing the board hands playback to
+  // this one.
+  const takeOverPlayback = () => {
+    if (rewindLink && playbackActive && !rewindLink.drives()) rewindLink.publish({ playing: true });
+  };
+
+  // Reset ends a rewind, and on a linked board the rest of the board's too.
+  const resetView = () => {
+    if (rewindActive) rewindLink?.publish({ active: false });
+    resetAll();
   };
 
   // ── Rewind playback driver ──
@@ -2445,6 +2510,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // (loop) or stops playback (one-shot).  The interval is suspended
   // whenever rewind mode is off, playback is paused, or there's no
   // rewindable range — so the cleanup never fires from a stale closure.
+  // The tick reads the clock from a ref so it always steps from the latest
+  // rewindTime, even if the user scrubbed (or a linked chart moved it) since
+  // the interval was scheduled.
+  const rewindTimeRef = useRef(rewindTime);
+  useEffect(() => {
+    rewindTimeRef.current = rewindTime;
+  });
   useEffect(() => {
     if (!rewindActive || !playbackActive) return;
     if (rewindMax <= rewindMin) return;
@@ -2454,38 +2526,41 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     const BASE_TICK_MS = 500;
     const intervalMs = Math.max(50, Math.round(BASE_TICK_MS / playbackSpeed));
     const id = setInterval(() => {
-      // Functional update so the tick always reads the latest rewindTime
-      // even if the user scrubbed manually since the interval was scheduled.
-      setRewindTime((prevTime) => {
-        if (allCandles.length === 0) return prevTime;
-        // Resolve prevTime → current index inside allCandles.
-        let currentIdx = rewindMax;
-        if (prevTime != null) {
-          let bestDist = Infinity;
-          for (let i = 0; i < allCandles.length; i += 1) {
-            const t = new Date(allCandles[i].timestamp).getTime();
-            if (!Number.isFinite(t)) continue;
-            const dist = Math.abs(t - prevTime);
-            if (dist < bestDist) {
-              bestDist = dist;
-              currentIdx = i;
-            }
+      // On a linked board only the chart the reader last worked steps the
+      // clock; the rest follow what it publishes.
+      if (rewindLink && !rewindLink.drives()) return;
+      if (allCandles.length === 0) return;
+      const prevTime = rewindTimeRef.current;
+      // Resolve prevTime → current index inside allCandles.
+      let currentIdx = rewindMax;
+      if (prevTime != null) {
+        let bestDist = Infinity;
+        for (let i = 0; i < allCandles.length; i += 1) {
+          const t = new Date(allCandles[i].timestamp).getTime();
+          if (!Number.isFinite(t)) continue;
+          const dist = Math.abs(t - prevTime);
+          if (dist < bestDist) {
+            bestDist = dist;
+            currentIdx = i;
           }
         }
-        let nextIdx = currentIdx + 1;
-        if (nextIdx > rewindMax) {
-          if (playbackLoop) {
-            nextIdx = rewindMin;
-          } else {
-            // Defer the playbackActive flip out of the setRewindTime
-            // updater so React doesn't see a setState inside a setState.
-            setTimeout(() => setPlaybackActive(false), 0);
-            return prevTime;
-          }
+      }
+      let nextIdx = currentIdx + 1;
+      if (nextIdx > rewindMax) {
+        if (playbackLoop) {
+          nextIdx = rewindMin;
+        } else {
+          setPlaybackActive(false);
+          rewindLink?.publish({ playing: false });
+          return;
         }
-        const nextCandle = allCandles[nextIdx];
-        return nextCandle ? new Date(nextCandle.timestamp).getTime() : prevTime;
-      });
+      }
+      const nextCandle = allCandles[nextIdx];
+      const nextTime = nextCandle ? new Date(nextCandle.timestamp).getTime() : NaN;
+      if (!Number.isFinite(nextTime)) return;
+      rewindTimeRef.current = nextTime;
+      setRewindTime(nextTime);
+      rewindLink?.publish({ active: true, time: nextTime + candleMs - 1, playing: true });
     }, intervalMs);
     return () => clearInterval(id);
   }, [
@@ -2496,6 +2571,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     allCandles,
     rewindMin,
     rewindMax,
+    rewindLink,
+    candleMs,
   ]);
 
   if (!yBounds) {
@@ -2915,7 +2992,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       type="button"
       title="Reset all settings to default"
       aria-label={narrow ? 'Reset all settings to default' : undefined}
-      onClick={resetAll}
+      onClick={resetView}
       className={toolbarBtnClass}
       style={toolbarBtnStyle()}
     >
@@ -3009,7 +3086,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <button
               type="button"
               onClick={() => {
-                resetAll();
+                resetView();
                 setSettingsOpen(false);
               }}
               className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
@@ -4214,7 +4291,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               </button>
               <button
                 type="button"
-                onClick={() => setPlaybackLoop((v) => !v)}
+                onClick={() => {
+                  setPlaybackLoop((v) => !v);
+                  takeOverPlayback();
+                }}
                 className={toolbarBtnClass}
                 // Active loop uses the rewind-cyan accent (same color the
                 // "Rewinding" pill uses up in the toolbar) so it reads as
@@ -4240,7 +4320,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               </button>
               <button
                 type="button"
-                onClick={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
+                onClick={() => {
+                  setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1));
+                  takeOverPlayback();
+                }}
                 className={toolbarBtnClass}
                 style={toolbarBtnStyle(playbackSpeed !== 1)}
                 title={`Playback speed: ${playbackSpeed}× (click to cycle 1× → 2× → 4×)`}

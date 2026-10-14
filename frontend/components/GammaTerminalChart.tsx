@@ -66,6 +66,7 @@ import { firstLevel, levelOrNull } from "@/core/levelValue";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
 import { resolveRewindBucket } from "@/core/rewindBucket";
+import { useLinkedRewind, type SharedRewind } from "@/core/linkedRewind";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
@@ -1965,6 +1966,13 @@ export default function GammaTerminalChart({
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
   }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
+  // A chart that joins a linked rewind before its bars have loaded (added to
+  // the board mid-replay, or given a new timeframe) had no window to freeze on
+  // entry, so freeze the first one it draws, as entering would have.
+  if (rewindActive && frozenAxis == null && layout) {
+    setFrozenAxis({ mid: layout.baseMid, half: layout.baseHalf });
+  }
+
   // Terminal mode: report where the tape's price band and the live spot sit, in
   // CSS px from the card's top edge, so the ladders beside the chart can pin
   // their spot row to the same y. Re-measured whenever the layout or the SVG's
@@ -2813,38 +2821,18 @@ export default function GammaTerminalChart({
     subBarsRef.current = subBars;
   });
 
-  const enterRewind = () => {
-    if (allBars.length < MIN_COUNT) return;
-    // Freeze the y-axis to the base window on screen (the auto-fit, or the
-    // window the reader already holds) so scrubbing doesn't move it and
-    // entering doesn't jump it (the user can still adjust it by hand afterward).
+  // Freeze the y-axis to the base window on screen (the auto-fit, or the
+  // window the reader already holds) so scrubbing doesn't move it and entering
+  // doesn't jump it (the user can still adjust it by hand afterward).
+  const startRewind = () => {
     if (layout) setFrozenAxis({ mid: layout.baseMid, half: layout.baseHalf });
-    // Anchor at the latest bar, so the replay opens on the chart the reader was
-    // just looking at and they scrub back from there. The clock sits at that
-    // candle's END (the live edge), the same place a scrub to it lands.
-    setRewindTime(barStartMs(allBars, allBars.length - 1) + intervalMinutes * 60 * 1000 - 1);
     setRewindActive(true);
-    setPlaybackActive(false);
     setHover(null);
   };
 
-  // Play from the live edge, which is where Rewind opens, replays from the
-  // earliest replayable candle (the same place Loop wraps to) instead of
-  // stopping on its first tick with nothing left to play.
-  const togglePlayback = () => {
-    if (playbackActive) {
-      setPlaybackActive(false);
-      return;
-    }
-    const lastIdx = allBars.length - 1;
-    if (rewindTime != null && lastIdx > rewindMinIdx) {
-      const liveEdge = barStartMs(allBars, lastIdx) + intervalMinutes * 60 * 1000 - 1;
-      if (rewindTime >= liveEdge) setRewindTime(barStartMs(allBars, rewindMinIdx));
-    }
-    setPlaybackActive(true);
-  };
-
-  const exitRewind = () => {
+  // Back to live, on this chart only. exitRewind is the reader's Exit, which
+  // also takes the rest of a linked board back to live.
+  const leaveRewind = () => {
     setRewindActive(false);
     setRewindTime(null);
     setPlaybackActive(false);
@@ -2853,14 +2841,84 @@ export default function GammaTerminalChart({
     keepLatestInHeldWindow();
   };
 
+  // ── Linked Rewind ── On My Dashboard every replaying chart reads one clock
+  // (core/linkedRewind): another chart's Rewind, scrub, Play / Pause or Exit
+  // lands here, and every Rewind action below is published back to it. The
+  // clock is held inside this chart's replayable range, so the time printed
+  // over the tape is always the moment the tape actually shows. A delayed chart
+  // has no Rewind, so it stays live.
+  const followRewind = (shared: SharedRewind) => {
+    if (!live) return;
+    if (!shared.active) {
+      if (rewindActive) leaveRewind();
+      return;
+    }
+    let time = shared.time;
+    if (time != null && allBars.length > 0) {
+      const lo = barStartMs(allBars, rewindMinIdx);
+      const hi = barStartMs(allBars, allBars.length - 1) + intervalMinutes * 60 * 1000 - 1;
+      if (Number.isFinite(lo) && Number.isFinite(hi)) time = clamp(time, lo, hi);
+    }
+    if (!rewindActive) startRewind();
+    setRewindTime(time);
+    setPlaybackActive(shared.playing);
+  };
+  const rewindLink = useLinkedRewind(followRewind, `${symbol}:${timeframe}`);
+
+  const enterRewind = () => {
+    if (allBars.length < MIN_COUNT) return;
+    // Anchor at the latest bar, so the replay opens on the chart the reader was
+    // just looking at and they scrub back from there. The clock sits at that
+    // candle's END (the live edge), the same place a scrub to it lands.
+    const time = barStartMs(allBars, allBars.length - 1) + intervalMinutes * 60 * 1000 - 1;
+    startRewind();
+    setRewindTime(time);
+    setPlaybackActive(false);
+    rewindLink?.publish({ active: true, time, playing: false });
+  };
+
+  // Play from the live edge, which is where Rewind opens, replays from the
+  // earliest replayable candle (the same place Loop wraps to) instead of
+  // stopping on its first tick with nothing left to play.
+  const togglePlayback = () => {
+    if (playbackActive) {
+      setPlaybackActive(false);
+      rewindLink?.publish({ playing: false });
+      return;
+    }
+    let time = rewindTime;
+    const lastIdx = allBars.length - 1;
+    if (rewindTime != null && lastIdx > rewindMinIdx) {
+      const liveEdge = barStartMs(allBars, lastIdx) + intervalMinutes * 60 * 1000 - 1;
+      if (rewindTime >= liveEdge) time = barStartMs(allBars, rewindMinIdx);
+    }
+    setRewindTime(time);
+    setPlaybackActive(true);
+    rewindLink?.publish({ active: true, time, playing: true });
+  };
+
+  const exitRewind = () => {
+    leaveRewind();
+    rewindLink?.publish({ active: false });
+  };
+
+  // Speed and Loop belong to whichever chart is stepping playback, so changing
+  // either here while another chart is playing the board hands playback to
+  // this one.
+  const takeOverPlayback = () => {
+    if (rewindLink && playbackActive && !rewindLink.drives()) rewindLink.publish({ playing: true });
+  };
+
   // Scrub lands on a fully-formed candle (clock = the candle's end), so dragging
   // shows each candle complete; Play then builds forward from there.
   const scrubToIndex = (idx: number) => {
     const arr = allBarsRef.current;
     if (arr.length === 0) return;
     const clamped = clamp(idx, rewindMinIdx, arr.length - 1);
-    setRewindTime(barStartMs(arr, clamped) + intervalMinutes * 60 * 1000 - 1);
+    const time = barStartMs(arr, clamped) + intervalMinutes * 60 * 1000 - 1;
+    setRewindTime(time);
     setPlaybackActive(false);
+    rewindLink?.publish({ active: true, time, playing: false });
   };
 
   // Playback. For a candlestick chart on a timeframe with a finer interval, the
@@ -2885,6 +2943,9 @@ export default function GammaTerminalChart({
     const unitsPerTick = Math.max(1, Math.ceil(MIN_TICK / msPerUnit));
     const tickMs = Math.max(MIN_TICK, Math.round(msPerUnit * unitsPerTick));
     const id = setInterval(() => {
+      // On a linked board only the chart the reader last worked steps the
+      // clock; the rest follow what it publishes.
+      if (rewindLink && !rewindLink.drives()) return;
       const arr = allBarsRef.current;
       const subs = subBarsRef.current;
       const prev = rewindTimeRef.current;
@@ -2921,19 +2982,24 @@ export default function GammaTerminalChart({
         // Reached the live edge: loop back to the earliest replayable candle and
         // keep playing, or (loop off) stop pinned to the latest bar.
         if (playbackLoopRef.current && minIdx < lastIdx) {
-          setRewindTime(barStartMs(arr, minIdx));
+          const time = barStartMs(arr, minIdx);
+          setRewindTime(time);
+          rewindLink?.publish({ active: true, time, playing: true });
         } else {
           setPlaybackActive(false);
           setRewindTime(liveEdge);
+          rewindLink?.publish({ active: true, time: liveEdge, playing: false });
         }
         return;
       }
       // Never fall left of the replayable range.
       const minTime = barStartMs(arr, minIdx);
-      setRewindTime(next < minTime ? minTime : next);
+      const time = next < minTime ? minTime : next;
+      setRewindTime(time);
+      rewindLink?.publish({ active: true, time, playing: true });
     }, tickMs);
     return () => clearInterval(id);
-  }, [rewindActive, playbackActive, playbackSpeed, style, subTf, intervalMinutes]);
+  }, [rewindActive, playbackActive, playbackSpeed, style, subTf, intervalMinutes, rewindLink]);
 
   // ── Bar timer ── How far the forming candle is through its own window, as a
   // countdown beside the last price and an elapsed/remaining line in the
@@ -5047,7 +5113,10 @@ export default function GammaTerminalChart({
               </button>
               <button
                 type="button"
-                onClick={() => setPlaybackLoop((v) => !v)}
+                onClick={() => {
+                  setPlaybackLoop((v) => !v);
+                  takeOverPlayback();
+                }}
                 aria-label={playbackLoop ? "Disable loop" : "Enable loop"}
                 aria-pressed={playbackLoop}
                 title={playbackLoop ? "Loop on\u00a0- replays continuously (click to disable)" : "Loop off\u00a0- click to replay continuously"}
@@ -5067,7 +5136,7 @@ export default function GammaTerminalChart({
               </button>
               <div className="zg-gc-seg" aria-label="Playback speed">
                 {([1, 4, 8, 16] as const).map((s) => (
-                  <button key={s} type="button" className="zg-gc-seg-btn" data-active={playbackSpeed === s} onClick={() => setPlaybackSpeed(s)}>
+                  <button key={s} type="button" className="zg-gc-seg-btn" data-active={playbackSpeed === s} onClick={() => { setPlaybackSpeed(s); takeOverPlayback(); }}>
                     {s}×
                   </button>
                 ))}

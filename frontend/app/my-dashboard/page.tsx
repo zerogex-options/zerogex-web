@@ -88,6 +88,7 @@ import {
   type WidgetDef,
 } from './registry';
 import { LinkedPriceAxisProvider } from '@/core/linkedPriceAxis';
+import { LinkedRewindProvider } from '@/core/linkedRewind';
 import DashboardPane, { paneLetter } from './DashboardPane';
 import AddWidgetGallery from './AddWidgetGallery';
 
@@ -358,10 +359,16 @@ export default function MyDashboardPage() {
               {layout.split ? t('editingHintSplit') : t('editingHint')}
             </div>
           )}
-          {/* While the halves are linked, their Gamma Charts share one price
+          {/* Every Rewind on the board runs on one clock, across both halves
+              of a split board: rewinding, scrubbing or playing any Gamma Chart,
+              Gamma Terminal or Dealer Strike Profile moves them all (see
+              core/linkedRewind).
+
+              While the halves are linked, their Gamma Charts share one price
               axis — the provider has to sit ABOVE both panes for them to meet
               in it. Unlinked (or unsplit) there is no provider at all, so every
               chart keeps its own axis exactly as it does on any other page. */}
+          <LinkedRewindProvider>
           <BoardPanes linked={layout.split && layout.linkPriceAxis}>
             <div className={layout.split ? 'zg-mydash-split' : undefined}>
             {panes.map((pane) => (
@@ -389,6 +396,7 @@ export default function MyDashboardPage() {
             ))}
             </div>
           </BoardPanes>
+          </LinkedRewindProvider>
         </>
       )}
 
