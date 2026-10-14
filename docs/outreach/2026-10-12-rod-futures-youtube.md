@@ -334,7 +334,8 @@ rebuild (`claude/technicals-rebuild`) is merged, to deploy after the close on
 Oct 14. So the reply can say the ORB flaw is fixed and the new page is
 coming. Still no TradeGEX by name, and no "copycat" anything (see above).
 
-**Send after the website deploy**, or change "goes live tonight" to match.
+Michael sent it before the deploy, so it says both changes go in after
+the Oct 14 session.
 
 **Reply in the same thread.**
 
@@ -344,9 +345,9 @@ Thanks for the heads up, and for the honesty. You're right about videos, and hea
 
 On the ORB breakout map: it's a price-only tool. It takes ES's high and low from the first 30 minutes of the regular session (9:30 to 9:59 ET) and holds them flat for the rest of the day. The status tells you where price is against that range: above the high, below the low, near the high, near the low, or inside.
 
-Your screenshot also caught a flaw, so thank you. "Near" used to mean within 0.2% of the line, which on ES is about 15 points, and Tuesday's whole range was 15.75. So "Near high" showed almost anywhere inside the range. That's fixed: near now means the top or bottom fifth of the range, so it scales with the day.
+Your screenshot also caught a flaw, so thank you. "Near" used to mean within 0.2% of the line, which on ES is about 15 points, and Tuesday's whole range was 15.75. So "Near high" showed almost anywhere inside the range. I'm changing it so near means the top or bottom fifth of the range, which scales with the day.
 
-I also rebuilt the Technicals page, partly because of your questions, and the new version goes live tonight. The opening range now sits on one chart with VWAP, the flip, the walls and the pin, and there's a log of every test and break of the range and whether it held.
+I also rebuilt the Technicals page, partly because of your questions. The opening range now sits on one chart with VWAP, the flip, the walls and the pin, and there's a log of every test and break of the range and whether it held. Both changes go in after today's market session, so you'll see them tomorrow morning.
 
 That's where the range is most useful: it gives you the day's early lines in the sand, and the levels tell you what hedging does if price breaks them. Above the flip, hedging leans against a break. Below it, hedging adds to it.
 
