@@ -232,3 +232,69 @@ Michael
 Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
+
+---
+
+## Follow-up: TradeGEX's videos, and the ORB Breakout Map (Tue Oct 13, 9:21 PM)
+
+> Hey MIcheal just wanted to give you a heads up. I had spoken with tradegex
+> and use is prior to learning of your Site. I had told then the same about
+> they should create some videos. Just a FYI they lunched some new videos
+> today on there youtube channel that look promising. I am reviewing them.
+> THis would be a great addition to your education page. Just giving you
+> honest feedback. I really do like zerogex especially how you calculate your
+> call and put walls they seem much more on point. Also do you have any more
+> info on the ORB breakout map?
+
+He attached My Dashboard's ORB Breakout Map and ORB Breakout tiles for ES on
+Oct 13: ORB High 7,861.00, ORB Low 7,845.25, range 15.75, status "Near high"
+while price sat mid-range.
+
+### The read
+
+- **TradeGEX is a heads-up, not a threat.** He's comparing, and he says the
+  walls are why he's here. Thank him, agree on videos, don't mention them.
+- **What the ORB is** (backend `src/api/queries/technicals.py` in
+  zerogex-oa, `get_technicals_timeseries` and `get_opening_range_breakout`):
+  high and low of the symbol's own 1-minute bars from 09:30 to 09:59 ET, held
+  flat for the rest of the day. For ES that's ES's own price, not SPX. No
+  options data in it.
+- **Status rules, in order:** close above the high = Breakout; below the low
+  = Breakdown; `close >= high × 0.998` = Near high; `close <= low × 1.002` =
+  Near low; else Inside.
+- **That "near" band is broken on ES.** 0.2% of 7,861 is 15.7 points, and his
+  range was 15.75, so every close inside the range read "Near high". Because
+  Near high is tested first, once the range is under about 0.4% of price
+  "Inside" can't appear and "Near low" is crowded out. ES's 30-minute range is
+  often in that zone, as are SPX and SPY's. The reply owns it and says it's
+  being changed to a fraction of the range. **That needs the backend fix**
+  (both CASE blocks in `technicals.py`, and the `opening_range_breakout` view
+  in `setup/database/schema.sql` if it carries the same rule). If you'd rather
+  not commit to it, cut the "I'm changing it" sentence.
+- **Small display nit, not for Rod:** the tiles print ES values with a `$`
+  ("$15.75" is 15.75 points, $787.50 a contract). Fine to leave.
+
+### Draft
+
+**Reply in the same thread.** Adjust the videos line if "moves them up my
+list" isn't true.
+
+Hi Rod,
+
+Thanks for the heads up, and for the honesty. You're right about videos, and hearing it again moves them up my list. I'm really glad the walls are landing for you. They're the core of what ZeroGEX does, so that means a lot.
+
+On the ORB Breakout Map: it's the one price-only tool on the page. It doesn't use options data at all.
+
+- It takes ES's high and low from the first 30 minutes of the regular session (9:30 to 9:59 ET) and holds them flat for the rest of the day. That's the band on the chart.
+- The cards show those two lines, the size of the range, and a status: Breakout when price is above the high, Breakdown when it's below the low, Near high or Near low when it's within 0.2% of either line, and Inside otherwise.
+
+One honest flag, and your screenshot shows it: on ES, 0.2% is about 15 points, and Tuesday's whole opening range was 15.75. So "Near high" was showing almost anywhere inside the range, which doesn't tell you much. I'm changing it so "near" is measured against the size of the range instead.
+
+It's most useful next to the levels. The range gives you the day's early lines in the sand, and the levels tell you what hedging does if price breaks them. Above the flip, hedging leans against a break. Below it, hedging adds to it. And if a break is heading straight into a wall or a fat gold lane, that's where I'd expect it to get tested.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
