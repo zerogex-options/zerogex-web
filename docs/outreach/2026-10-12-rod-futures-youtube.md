@@ -253,7 +253,12 @@ while price sat mid-range.
 ### The read
 
 - **TradeGEX is a heads-up, not a threat.** He's comparing, and he says the
-  walls are why he's here. Thank him, agree on videos, don't mention them.
+  walls are why he's here. Thank him, agree on videos, don't name them, and
+  don't call them copycats in writing (Michael asked; see below).
+- **Why our walls look "more on point" to him:** per
+  `content/articles/zerogex-vs-tradegex.md`, TradeGEX's key-levels guide puts
+  its walls at the most raw call/put open interest; ours weight OI by gamma.
+  The reply says what we do, without naming them.
 - **What the ORB is** (backend `src/api/queries/technicals.py` in
   zerogex-oa, `get_technicals_timeseries` and `get_opening_range_breakout`):
   high and low of the symbol's own 1-minute bars from 09:30 to 09:59 ET, held
@@ -281,7 +286,7 @@ list" isn't true.
 
 Hi Rod,
 
-Thanks for the heads up, and for the honesty. You're right about videos, and hearing it again moves them up my list. I'm really glad the walls are landing for you. They're the core of what ZeroGEX does, so that means a lot.
+Thanks for the heads up, and for the honesty. You're right about videos, and hearing it again moves them up my list. I'm really glad the walls are landing for you. That's by design: we weight each strike's open interest by its gamma, so a big block of contracts sitting far from price doesn't get to define the wall. The walls land where dealer hedging is most sensitive to a move.
 
 On the ORB Breakout Map: it's the one price-only tool on the page. It doesn't use options data at all.
 
