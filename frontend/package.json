@@ -10,6 +10,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test:auth": "bash scripts/test-auth.sh",
+    "test:email-verification-token": "node --experimental-strip-types --test tests/emailVerificationToken.test.ts",
     "test:ninjatrader-manifest": "node --experimental-strip-types --test tests/ninjaTraderManifest.test.ts",
     "test:nav-access": "node --experimental-strip-types --test tests/navigationAccess.test.ts",
     "test:nav-active": "node --experimental-strip-types --test tests/navigationActive.test.ts",

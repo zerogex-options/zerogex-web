@@ -2,6 +2,7 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
+import { classifyVerificationToken } from '@/core/emailVerificationToken';
 import {
   MAX_LAYOUT_BYTES,
   MAX_LAYOUT_NAME_LENGTH,
@@ -905,6 +906,9 @@ export async function issueEmailVerification(request: NextRequest, userId: strin
 
 export type EmailVerificationResult =
   | { status: 'ok'; userId: string; email: string }
+  // A used or expired link for an account that is verified anyway (a mail
+  // scanner or a double click got there first). Shown as verified, not as an error.
+  | { status: 'already_verified'; userId: string; email: string }
   | { status: 'expired' }
   | { status: 'invalid' };
 
@@ -921,23 +925,41 @@ export async function consumeEmailVerification(
   const row = db
     .prepare(
       `SELECT t.id as token_id, t.user_id, t.expires_at, t.consumed_at,
-              u.email
+              u.email, u.email_verified_at
        FROM email_verifications t
        JOIN users u ON u.id = t.user_id
        WHERE t.token_hash = ?`
     )
     .get(tokenHash) as
-    | { token_id: string; user_id: string; expires_at: string; consumed_at: string | null; email: string }
+    | {
+        token_id: string;
+        user_id: string;
+        expires_at: string;
+        consumed_at: string | null;
+        email: string;
+        email_verified_at: string | null;
+      }
     | undefined;
 
+  const outcome = classifyVerificationToken(row, Date.now());
   if (!row) {
     appendAuditEvent({ type: 'email_verify_failure', ip, message: 'Verify attempted with unknown token' });
     return { status: 'invalid' };
   }
-  if (row.consumed_at) {
-    // Treat already-consumed as 'invalid' rather than 'expired': a previously
-    // successful verification means the user IS verified, so re-clicking an
-    // old link should land them on the same banner an unrecognized token does.
+  if (outcome === 'already_verified_used' || outcome === 'already_verified_expired') {
+    appendAuditEvent({
+      type: 'email_verify_repeat',
+      userId: row.user_id,
+      email: row.email,
+      ip,
+      message:
+        outcome === 'already_verified_used'
+          ? 'Verify link opened again on an already-verified account (token already used); shown as verified'
+          : 'Verify link opened after expiry on an already-verified account; shown as verified',
+    });
+    return { status: 'already_verified', userId: row.user_id, email: row.email };
+  }
+  if (outcome === 'invalid') {
     appendAuditEvent({
       type: 'email_verify_failure',
       userId: row.user_id,
@@ -947,7 +969,7 @@ export async function consumeEmailVerification(
     });
     return { status: 'invalid' };
   }
-  if (new Date(row.expires_at).getTime() <= Date.now()) {
+  if (outcome === 'expired') {
     appendAuditEvent({
       type: 'email_verify_failure',
       userId: row.user_id,
@@ -967,13 +989,14 @@ export async function consumeEmailVerification(
       row.user_id,
     );
     db.prepare('UPDATE email_verifications SET consumed_at = ? WHERE id = ?').run(now, row.token_id);
-    // Drop any other outstanding verification tokens for this user — they're
-    // no longer needed and there's no reason to leave a second valid link
-    // floating in an inbox somewhere.
-    db.prepare('DELETE FROM email_verifications WHERE user_id = ? AND id != ?').run(
-      row.user_id,
-      row.token_id,
-    );
+    // Use up this user's other outstanding links too (the signup email, a
+    // Resend, a reminder), so no second valid link is left in an inbox. Mark
+    // them used rather than deleting them: a deleted token can't be traced
+    // back to its account, so opening an older email later would show "no
+    // longer valid" to a member who is verified.
+    db.prepare(
+      'UPDATE email_verifications SET consumed_at = ? WHERE user_id = ? AND id != ? AND consumed_at IS NULL',
+    ).run(now, row.user_id, row.token_id);
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
