@@ -126,6 +126,18 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+// One clock per refund run: the request's nowMs, moving forward in real time
+// from there. Every ledger write in the run stamps updated_at from it, because
+// the in-flight check (claimLedger) and the stalled sweep compare updated_at
+// against nowMs. Stamping some writes from the wall clock instead made a row
+// look like it was written in the future whenever nowMs was not the real time,
+// so a resume was refused as "in progress". In production nowMs is Date.now(),
+// so this reads the same as the wall clock.
+function runClock(nowMs: number): () => string {
+  const startedAt = Date.now();
+  return () => new Date(nowMs + (Date.now() - startedAt)).toISOString();
+}
+
 function logAudit(input: { type: string; userId?: string | null; email?: string | null; ip?: string | null; message: string }) {
   getDb()
     .prepare(
@@ -564,7 +576,7 @@ function claimLedger(input: {
 
 // Money that moved, recorded the moment it moves — so a run that dies after a
 // refund still left a trace the next run (and the operator) can see.
-function recordRefundProgress(ledgerId: string, amount: number, refundId: string | null, currency: string) {
+function recordRefundProgress(ledgerId: string, amount: number, refundId: string | null, currency: string, stamp: string) {
   const db = getDb();
   const row = db.prepare('SELECT refund_ids FROM money_back_refunds WHERE id = ?').get(ledgerId) as
     | { refund_ids: string | null }
@@ -575,7 +587,7 @@ function recordRefundProgress(ledgerId: string, amount: number, refundId: string
     `UPDATE money_back_refunds
         SET amount_refunded = amount_refunded + ?, refund_ids = ?, currency = COALESCE(currency, ?), updated_at = ?
       WHERE id = ?`,
-  ).run(amount, [...ids].join(','), currency, nowIso(), ledgerId);
+  ).run(amount, [...ids].join(','), currency, stamp, ledgerId);
 }
 
 function readLedgerProgress(ledgerId: string): { amount: number; refundIds: string[] } {
@@ -908,6 +920,7 @@ export async function requestMoneyBackRefund(
   deps: MoneyBackDeps = {},
 ): Promise<MoneyBackResult> {
   const nowMs = request.nowMs ?? Date.now();
+  const clock = runClock(nowMs);
   const prepared = await prepare(request, deps, nowMs);
   if (!prepared.ok) return prepared.result;
   const { stripe, user, subscriptionId, ledgerRow, existing, resuming, decision, live, card, feedback, comment } = prepared;
@@ -944,7 +957,7 @@ export async function requestMoneyBackRefund(
   const failures: Array<{ item: RefundItem; kind: RefundFailureKind | 'moved'; message: string }> = [];
   for (const item of decision.refunds) {
     const outcome = await refundOne(stripe, item, { userId: user.id, subscriptionId, claimKey: `${claim.id}:${claim.stamp}` });
-    if (outcome.ok) recordRefundProgress(ledgerId, item.amount, outcome.refundId, item.currency);
+    if (outcome.ok) recordRefundProgress(ledgerId, item.amount, outcome.refundId, item.currency, clock());
     else failures.push({ item, kind: outcome.kind, message: outcome.message });
   }
   // An outcome we could not see (a timeout, a 5xx) may still have gone
@@ -959,7 +972,7 @@ export async function requestMoneyBackRefund(
         if (now == null) continue;
         if (now - before >= f.item.amount) {
           f.kind = 'moved';
-          recordRefundProgress(ledgerId, f.item.amount, null, f.item.currency);
+          recordRefundProgress(ledgerId, f.item.amount, null, f.item.currency, clock());
         } else if (now === before) {
           f.kind = 'rejected';
         }
@@ -987,7 +1000,7 @@ export async function requestMoneyBackRefund(
     // their plan and can retry.
     getDb()
       .prepare(`UPDATE money_back_refunds SET status = ?, error = ?, updated_at = ? WHERE id = ?`)
-      .run(unknown ? 'pending' : 'failed', problems.join(' | ').slice(0, 1000), nowIso(), ledgerId);
+      .run(unknown ? 'pending' : 'failed', problems.join(' | ').slice(0, 1000), clock(), ledgerId);
     logAudit({
       type: unknown ? 'money_back_refund_unconfirmed' : 'money_back_refund_failed',
       userId: user.id,
@@ -1045,7 +1058,7 @@ export async function requestMoneyBackRefund(
   const finished = cancel.ok && problems.length === 0;
   if (referralNote) problems.push(referralNote);
   const recorded = readLedgerProgress(ledgerId);
-  const stamp = nowIso();
+  const stamp = clock();
   await guarded('Recording the refund', problems, () => {
     getDb()
       .prepare(
