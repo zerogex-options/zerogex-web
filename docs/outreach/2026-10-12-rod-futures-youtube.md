@@ -303,3 +303,25 @@ Michael
 Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
+
+### Did TradeGEX copy us? (checked 2026-10-14)
+
+Michael asked whether to tell Rod TradeGEX "plagiarized" ZeroGEX. Don't, in
+writing or otherwise, on this evidence:
+
+- **They were public first.** tradegex.pro's first Wayback capture is
+  2026-02-28 (domain registered 2025-12-20); zerogex.io's is 2026-04-23
+  (registered 2025-11-19). Their YouTube channel dates from 2026-01-15, and a
+  TradingView account "tradeGEX" from 2024-09-12.
+- **No verbatim copying found** across 7 of their pages and 6 of ours. The only
+  long matches are the standard risk disclaimer and stock definitions. Their
+  "Gamma Exposure (GEX) Explained" title matches ours, but that's a common
+  SEO pattern and the articles differ.
+- **"Hedge Flow™" vs our "Hedging Flow":** theirs is dated 2026-02-01 on their
+  own page metadata and they mark it ™; ours shipped 2026-09-09. If anything,
+  the overlap runs the other way. Low risk, since "hedging flow" is
+  descriptive, but don't pick a naming fight.
+- "GEX" is common in product names (GEXbot, GEXRadar and others).
+
+Side finding: zerogex.io's registration expires **2026-11-19** (RDAP). Confirm
+auto-renew is on at Namecheap.
