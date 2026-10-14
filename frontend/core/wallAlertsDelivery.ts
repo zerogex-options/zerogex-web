@@ -113,3 +113,151 @@ export function planWallAlertDeliveries(
   }
   return out;
 }
+
+// ── Worker state between passes ─────────────────────────────────────────────
+//
+// The worker runs every 20 seconds, so two failure modes that are harmless in a
+// daily sweep become floods here. State persisted between passes (a small JSON
+// file beside the auth DB) handles both:
+//
+// * **Failure reports.** The shared OnFailure= alerter is deliberately
+//   unthrottled, so a worker that exited non-zero on every failing pass would
+//   mail the operator up to 180 times an hour. Each kind of failure is
+//   reported (non-zero exit) at most once per REPORT_EVERY_MS instead, and
+//   every other failing pass exits 0 with the reason in the journal. An
+//   unreachable outbox is reported only once it has stayed unreachable for
+//   OUTBOX_GRACE_MS, so an API restart (seconds) never pages anyone.
+// * **Duplicate sends.** A row whose email Resend accepted but whose mark-sent
+//   did not land stays queued on the backend, and would be emailed again on
+//   the next pass, and on every pass for as long as marking kept failing. The
+//   worker records each accepted send first; a recorded row is only ever
+//   re-marked, never re-sent.
+
+/**
+ * What kept a pass from doing its job. `outbox`: the backend did not answer.
+ * `config`: a required setting is missing. `auth-db`: the member database
+ * could not be read. `resend`: every email in the pass was refused for good
+ * (a revoked key, a bad sender). `crash`: anything unexpected.
+ */
+export type WorkerFailure = 'outbox' | 'config' | 'auth-db' | 'resend' | 'crash';
+
+const FAILURES: readonly WorkerFailure[] = ['outbox', 'config', 'auth-db', 'resend', 'crash'];
+
+export interface WorkerState {
+  /** When the outbox first failed to answer, while it keeps failing. */
+  outageSince: string | null;
+  /** Each failure kind's last report (non-zero exit), until that step works again. */
+  reportedAt: Partial<Record<WorkerFailure, string>>;
+  /** Row id → when Resend accepted its email, until mark-sent lands. */
+  sentAwaitingMark: Record<string, string>;
+}
+
+export const OUTBOX_GRACE_MS = 5 * 60_000;
+export const REPORT_EVERY_MS = 60 * 60_000;
+// The backend expires a queued row 20 minutes after it was queued, so a sent
+// row cannot come back as queued an hour later.
+export const SENT_LEDGER_TTL_MS = 60 * 60_000;
+
+export function emptyWorkerState(): WorkerState {
+  return { outageSince: null, reportedAt: {}, sentAwaitingMark: {} };
+}
+
+function isoOrNull(v: unknown): string | null {
+  return typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null;
+}
+
+/** Parse the state file's contents; anything unreadable is a fresh state. */
+export function parseWorkerState(raw: string | null | undefined): WorkerState {
+  if (!raw) return emptyWorkerState();
+  let obj: unknown;
+  try {
+    obj = JSON.parse(raw);
+  } catch {
+    return emptyWorkerState();
+  }
+  if (!obj || typeof obj !== 'object') return emptyWorkerState();
+  const o = obj as Record<string, unknown>;
+  const state = emptyWorkerState();
+  state.outageSince = isoOrNull(o.outageSince);
+  if (o.reportedAt && typeof o.reportedAt === 'object') {
+    const reported = o.reportedAt as Record<string, unknown>;
+    for (const kind of FAILURES) {
+      const at = isoOrNull(reported[kind]);
+      if (at) state.reportedAt[kind] = at;
+    }
+  }
+  if (o.sentAwaitingMark && typeof o.sentAwaitingMark === 'object') {
+    for (const [id, at] of Object.entries(o.sentAwaitingMark as Record<string, unknown>)) {
+      const when = isoOrNull(at);
+      if (/^\d+$/.test(id) && when) state.sentAwaitingMark[id] = when;
+    }
+  }
+  return state;
+}
+
+/** A pass failed. `report` = exit non-zero, so OnFailure= mails the operator. */
+export function noteFailure(
+  state: WorkerState,
+  kind: WorkerFailure,
+  now: Date,
+  graceMs = OUTBOX_GRACE_MS,
+  everyMs = REPORT_EVERY_MS,
+): { state: WorkerState; report: boolean } {
+  let next = state;
+  if (kind === 'outbox') {
+    const since = state.outageSince ?? now.toISOString();
+    next = { ...next, outageSince: since };
+    if (now.getTime() - Date.parse(since) < graceMs) return { state: next, report: false };
+  }
+  const last = state.reportedAt[kind];
+  const report = !last || now.getTime() - Date.parse(last) >= everyMs;
+  if (report) next = { ...next, reportedAt: { ...next.reportedAt, [kind]: now.toISOString() } };
+  return { state: next, report };
+}
+
+/** The step behind `kind` worked again: its next failure is reported without waiting out the hour. */
+export function clearFailure(state: WorkerState, kind: WorkerFailure): WorkerState {
+  if (!state.reportedAt[kind] && !(kind === 'outbox' && state.outageSince)) return state;
+  const reportedAt = { ...state.reportedAt };
+  delete reportedAt[kind];
+  return { ...state, reportedAt, outageSince: kind === 'outbox' ? null : state.outageSince };
+}
+
+/** How long the outbox had been failing before this answer, or null if it had not. */
+export function outageLengthMs(state: WorkerState, now: Date): number | null {
+  return state.outageSince ? Math.max(0, now.getTime() - Date.parse(state.outageSince)) : null;
+}
+
+export function recordSent(state: WorkerState, ids: readonly number[], at: Date): WorkerState {
+  const sentAwaitingMark = { ...state.sentAwaitingMark };
+  for (const id of ids) sentAwaitingMark[String(id)] = at.toISOString();
+  return { ...state, sentAwaitingMark };
+}
+
+export function forgetSent(state: WorkerState, ids: readonly number[]): WorkerState {
+  const sentAwaitingMark = { ...state.sentAwaitingMark };
+  for (const id of ids) delete sentAwaitingMark[String(id)];
+  return { ...state, sentAwaitingMark };
+}
+
+export function pruneSentLedger(state: WorkerState, now: Date, ttlMs = SENT_LEDGER_TTL_MS): WorkerState {
+  const sentAwaitingMark: Record<string, string> = {};
+  for (const [id, at] of Object.entries(state.sentAwaitingMark)) {
+    if (now.getTime() - Date.parse(at) < ttlMs) sentAwaitingMark[id] = at;
+  }
+  return { ...state, sentAwaitingMark };
+}
+
+/** Rows already emailed (re-mark only) apart from rows still to plan. */
+export function splitAlreadySent<R extends { id: number }>(
+  rows: readonly R[],
+  state: WorkerState,
+): { alreadySent: R[]; fresh: R[] } {
+  const alreadySent: R[] = [];
+  const fresh: R[] = [];
+  for (const row of rows) {
+    if (state.sentAwaitingMark[String(row.id)]) alreadySent.push(row);
+    else fresh.push(row);
+  }
+  return { alreadySent, fresh };
+}

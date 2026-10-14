@@ -26,9 +26,22 @@ import {
 import { WALL_ALERT_COPY_LOCALES, wallAlertCopyFor } from '../core/wallAlertsCopy.ts';
 import { buildWallAlertEmail, wallAlertEmailSubject } from '../core/wallAlertEmail.ts';
 import {
+  OUTBOX_GRACE_MS,
+  REPORT_EVERY_MS,
+  SENT_LEDGER_TTL_MS,
+  clearFailure,
+  emptyWorkerState,
+  forgetSent,
+  noteFailure,
+  outageLengthMs,
+  parseWorkerState,
   planWallAlertDeliveries,
+  pruneSentLedger,
+  recordSent,
+  splitAlreadySent,
   tierIncludesWallAlerts,
   type DeliveryUser,
+  type WorkerState,
 } from '../core/wallAlertsDelivery.ts';
 import {
   buildWallAlertsUnsubUrl,
@@ -366,6 +379,81 @@ test('a big backlog is split into emails of at most ten alerts', () => {
   assert.deepEqual(
     plan.map((d) => d.rows.length),
     [10, 10, 3],
+  );
+});
+
+// ── Worker state: failure reports and the sent ledger ───────────────────────
+
+const T0 = Date.parse('2026-10-14T14:00:00Z');
+const at = (ms: number) => new Date(T0 + ms);
+
+/** Run `noteFailure` once per 20-second pass from `fromMs` to `toMs`; return the report times. */
+function passes(state: WorkerState, kind: Parameters<typeof noteFailure>[1], fromMs: number, toMs: number) {
+  const reports: number[] = [];
+  let s = state;
+  for (let t = fromMs; t <= toMs; t += 20_000) {
+    const r = noteFailure(s, kind, at(t));
+    s = r.state;
+    if (r.report) reports.push(t);
+  }
+  return { state: s, reports };
+}
+
+test('an API restart is never reported; a real outbox outage is, then hourly', () => {
+  // Down for one minute (a restart): every pass exits 0.
+  const restart = passes(emptyWorkerState(), 'outbox', 0, 60_000);
+  assert.deepEqual(restart.reports, []);
+  assert.equal(outageLengthMs(restart.state, at(80_000)), 80_000);
+  const recovered = clearFailure(restart.state, 'outbox');
+  assert.equal(recovered.outageSince, null);
+  assert.equal(outageLengthMs(recovered, at(80_000)), null);
+
+  // Down for three hours: reported at five minutes, then once an hour.
+  const outage = passes(emptyWorkerState(), 'outbox', 0, 3 * 60 * 60_000);
+  assert.deepEqual(outage.reports, [OUTBOX_GRACE_MS, OUTBOX_GRACE_MS + REPORT_EVERY_MS, OUTBOX_GRACE_MS + 2 * REPORT_EVERY_MS]);
+});
+
+test('other failures are reported at once, then hourly, and re-arm once the step works', () => {
+  const config = passes(emptyWorkerState(), 'config', 0, 2 * 60 * 60_000);
+  assert.deepEqual(config.reports, [0, REPORT_EVERY_MS, 2 * REPORT_EVERY_MS]);
+
+  // Kinds are throttled apart: an hourly config report does not hide a crash.
+  const crash = noteFailure(config.state, 'crash', at(10 * 60_000));
+  assert.equal(crash.report, true);
+
+  // Fixed, then broken again ten minutes later: reported again straight away.
+  const fixed = clearFailure(config.state, 'config');
+  assert.equal(noteFailure(fixed, 'config', at(2 * 60 * 60_000 + 10 * 60_000)).report, true);
+});
+
+test('a sent row is re-marked, never re-sent, until the ledger entry ages out', () => {
+  let state = recordSent(emptyWorkerState(), [11, 12], at(0));
+  const rows = [{ id: 11 }, { id: 12 }, { id: 13 }];
+  const split = splitAlreadySent(rows, state);
+  assert.deepEqual(split.alreadySent.map((r) => r.id), [11, 12]);
+  assert.deepEqual(split.fresh.map((r) => r.id), [13]);
+
+  state = forgetSent(state, [11]);
+  assert.deepEqual(Object.keys(state.sentAwaitingMark), ['12']);
+  assert.deepEqual(Object.keys(pruneSentLedger(state, at(SENT_LEDGER_TTL_MS - 1)).sentAwaitingMark), ['12']);
+  assert.deepEqual(pruneSentLedger(state, at(SENT_LEDGER_TTL_MS)).sentAwaitingMark, {});
+});
+
+test('the state file survives a round trip and shrugs off anything unreadable', () => {
+  const state = noteFailure(recordSent(emptyWorkerState(), [7], at(0)), 'config', at(0)).state;
+  assert.deepEqual(parseWorkerState(JSON.stringify(state)), state);
+  assert.deepEqual(parseWorkerState(null), emptyWorkerState());
+  assert.deepEqual(parseWorkerState('{not json'), emptyWorkerState());
+  assert.deepEqual(parseWorkerState('[]'), emptyWorkerState());
+  assert.deepEqual(
+    parseWorkerState(
+      JSON.stringify({
+        outageSince: 'yesterday-ish',
+        reportedAt: { config: 'not a date', bogus: at(0).toISOString() },
+        sentAwaitingMark: { abc: at(0).toISOString(), 9: 'nope', 10: at(0).toISOString() },
+      }),
+    ),
+    { outageSince: null, reportedAt: {}, sentAwaitingMark: { 10: at(0).toISOString() } },
   );
 });
 

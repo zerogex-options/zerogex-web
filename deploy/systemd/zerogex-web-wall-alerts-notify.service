@@ -37,9 +37,10 @@ ProtectSystem=strict
 ProtectHome=read-only
 # The script opens the auth DB read-only (member email, verification, plan,
 # deletion), but SQLite's WAL mode needs the directory writable for the -shm
-# sidecar even for readers. Both known DB locations, each with a leading '-' so
-# a missing one is ignored; deploy/steps/091.wall-alerts-notify adds a drop-in
-# for any other AUTH_DB_PATH.
+# sidecar even for readers, and the worker keeps its small state file there
+# (wall-alerts-notify.state.json: sends awaiting their mark, failure reports).
+# Both known DB locations, each with a leading '-' so a missing one is ignored;
+# deploy/steps/091.wall-alerts-notify adds a drop-in for any other AUTH_DB_PATH.
 ReadWritePaths=-/var/lib/zerogex
 ReadWritePaths=-/home/ubuntu/zerogex-web/frontend/data
 

@@ -328,7 +328,7 @@ export const CATALOG = {
     when: 'Within ~25 seconds of the wall event during the regular session. Rows still unsent after 20 minutes expire instead.',
     cadence: 'Timer: every 20 seconds (:05/:25/:45, +0–2s jitter)',
     cohort: "Queued rows in zerogex-oa wall_alert_deliveries with channel='email' whose rule is still on — ONE email per member per pass, carrying all their alerts (up to 10). Verified, not deleted, Basic or above.",
-    latch: 'wall_alert_deliveries row state (marked via /api/alerts/walls/internal/mark)',
+    latch: 'wall_alert_deliveries row state (marked via /api/alerts/walls/internal/mark); a send whose mark fails is recorded in the worker state file and re-marked, never re-sent',
     optOut: 'Per alert in /account/alerts; RFC 8058 List-Unsubscribe + footer link switch wall-alert email off on every alert', foh: false,
     source: 'core/wallAlertEmail.ts · core/mailer.ts sendWallAlertEmail · scripts/wall-alerts-deliver.mts',
     notes: 'Member-configured market alerts. Volume tracks the tape and the member\'s own rules; the detector (zerogex-oa src/alerts/) filters chop, and a per-member daily cap bounds the worst day.',

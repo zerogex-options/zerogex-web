@@ -95,6 +95,8 @@ export function wallAlertsAdminEnv(env: Record<string, string | undefined> = pro
   };
 }
 
+const CALL_TIMEOUT_MS = 15_000;
+
 async function call<T>(env: WallAlertsAdminEnv, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
@@ -108,6 +110,9 @@ async function call<T>(env: WallAlertsAdminEnv, method: 'GET' | 'POST', path: st
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: 'no-store',
+      // A backend that accepts the connection and never answers must fail the
+      // call, not hang the 20-second email pass until systemd kills it.
+      signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     });
   } catch (err) {
     throw new WallAlertsAdminError(`wall-alerts backend unreachable: ${(err as Error).message}`);

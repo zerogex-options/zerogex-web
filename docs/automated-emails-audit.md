@@ -153,7 +153,13 @@ Other gates that are **not** DB latches:
   `failed` or `cancelled`. A row still unsent 20 minutes after it was queued
   expires instead of arriving late, since a stale market alert is worse than
   none. The worker re-checks the plan (Basic and up), verification and
-  `deleted_at` at send time (`core/wallAlertsDelivery.ts`). Opt-out is per alert
+  `deleted_at` at send time (`core/wallAlertsDelivery.ts`). Each email Resend
+  accepts is recorded in the worker's state file (`wall-alerts-notify.state.json`,
+  beside the auth DB) before the row is marked, so a mark that fails is retried
+  as a mark, never as a second email. Because the timer fires every 20 seconds,
+  the worker also throttles its own failure reports: each kind of failure exits
+  non-zero (and so reaches the `OnFailure=` alert) at most once an hour, and an
+  unreachable backend only after 5 minutes, so an API restart pages no one. Opt-out is per alert
   on `/account/alerts`; the footer link and the RFC 8058 `List-Unsubscribe`
   header switch email off on all of the member's wall alerts, using an HMAC
   token on `ZEROGEX_END_USER_TOKEN_SECRET` (`core/wallAlertsServer.ts`) with a
