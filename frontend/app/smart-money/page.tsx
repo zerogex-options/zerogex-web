@@ -13,13 +13,17 @@ import { Filter } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { useFlowSessions } from '@/hooks/useFlowSessions';
 import {
-  useFlowByContractCache,
-  latestRowDateKey,
-  type FlowByContractPoint,
-} from '@/hooks/useFlowByContract';
+  flowSessionDateKey,
+  flowSessionOptions,
+  flowSessionQuery,
+  isClosedFlowSession,
+  isFlowSessionDate,
+  type FlowSession,
+} from '@/core/flowSessions';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
+import { normalizeToMinute, getSessionTimestamps, etTodayDateKey } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
 import RegimeSummaryBanner from '@/components/RegimeSummaryBanner';
 import { compactUsdTick } from '@/components/phoneAxisFormat';
@@ -378,7 +382,7 @@ export default function SmartMoneyPage() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [openFilter]);
-  const [sessionView, setSessionView] = useState<'current' | 'prior'>('current');
+  const [sessionView, setSessionView] = useState<FlowSession>('current');
   const [tableRowLimit, setTableRowLimit] = useState(50);
   // A phone opens on the top 20 blocks (each "Show more" adds 50, as on desktop).
   const [phoneRowLimit, setPhoneRowLimit] = useState(20);
@@ -444,24 +448,28 @@ export default function SmartMoneyPage() {
   // reached the filter chain. The 100 the fallbacks below previously used is
   // out of range (422) on the current backend; 50 is the largest value the
   // endpoint is known to accept.
-  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&session=${sessionView}&limit=50`, { refreshInterval: 10000, shouldAcceptData: acceptSmartMoneySnapshot });
+  // A past dated session is over, so its blocks are fetched once, not polled.
+  const sessionClosed = isClosedFlowSession(sessionView, etTodayDateKey());
+  const smartMoneyRefreshMs = sessionClosed ? 0 : 10000;
+  const sessionParam = flowSessionQuery(sessionView);
+  const { data: smartMoneyData, error: smartMoneyError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&${sessionParam}&limit=50`, { refreshInterval: smartMoneyRefreshMs, shouldAcceptData: acceptSmartMoneySnapshot });
   const { data: smartMoneyLimitedData, error: smartMoneyLimitedError } = useApiData<SmartMoneyRow[]>(
-    `/api/flow/smart-money?${symParam}&session=${sessionView}&limit=50`,
-    { refreshInterval: 10000, enabled: Boolean(smartMoneyError), shouldAcceptData: acceptSmartMoneySnapshot }
+    `/api/flow/smart-money?${symParam}&${sessionParam}&limit=50`,
+    { refreshInterval: smartMoneyRefreshMs, enabled: Boolean(smartMoneyError), shouldAcceptData: acceptSmartMoneySnapshot }
   );
-  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=50`, { refreshInterval: 10000, enabled: Boolean(smartMoneyError) && !smartMoneyLimitedData?.length, shouldAcceptData: acceptSmartMoneySnapshot });
-  const { rows: smartMoneyPriceBars } = useMarketHistorical(symbol, '5min');
-  const { rows: byContractRows } = useFlowByContractCache(symbol, sessionView);
-  const otherSession = sessionView === 'current' ? 'prior' : 'current';
-  const { data: otherSessionProbe } = useApiData<FlowByContractPoint[]>(
-    `/api/flow/by-contract?${symParam}&session=${otherSession}&intervals=1`,
-    { refreshInterval: 60000 },
-  );
+  // The session-less fallback reads the current session, so it is only a
+  // stand-in when the current session is what was asked for.
+  const { data: smartMoneyNoSessionData, error: smartMoneyNoSessionError } = useApiData<SmartMoneyRow[]>(`/api/flow/smart-money?${symParam}&limit=50`, { refreshInterval: 10000, enabled: sessionView === 'current' && Boolean(smartMoneyError) && !smartMoneyLimitedData?.length, shouldAcceptData: acceptSmartMoneySnapshot });
+  // The rolling price cache reaches back a couple of sessions; an older dated
+  // session fetches its own day's bars below instead.
+  const datedSession = isFlowSessionDate(sessionView);
+  const { rows: rollingPriceBars } = useMarketHistorical(symbol, '5min', false, !datedSession);
+  const flowSessionDays = useFlowSessions(symbol);
 
-  const sessionDateLabel = useMemo(() => latestRowDateKey(byContractRows), [byContractRows]);
-  const otherSessionDateLabel = useMemo(() => latestRowDateKey(otherSessionProbe), [otherSessionProbe]);
-  const currentDateLabel = sessionView === 'current' ? sessionDateLabel : otherSessionDateLabel;
-  const priorDateLabel = sessionView === 'prior' ? sessionDateLabel : otherSessionDateLabel;
+  const sessionDateLabel = useMemo(
+    () => flowSessionDateKey(sessionView, flowSessionDays),
+    [sessionView, flowSessionDays],
+  );
 
   const effectiveSmartMoneyRows = useMemo(
     () => (smartMoneyError ? (smartMoneyLimitedData || smartMoneyNoSessionData || []) : (smartMoneyData || [])),
@@ -503,6 +511,33 @@ export default function SmartMoneyPage() {
   const sessionTimeline = useMemo(
     () => (sessionDateKey ? extendTimelineToSessionClose(getSessionTimestamps(sessionDateKey), sessionDateKey) : []),
     [sessionDateKey],
+  );
+
+  // Price bars for a dated session: that day's 09:30–16:15 ET window.
+  const datedPriceUrl = useMemo(() => {
+    if (!datedSession || sessionTimeline.length === 0) return null;
+    // Explicit +00:00 offsets, whole seconds: the API parses these with
+    // datetime.fromisoformat, which predates 'Z' on older Pythons.
+    const iso = (ts: string) => `${new Date(ts).toISOString().slice(0, 19)}+00:00`;
+    const params = new URLSearchParams({
+      symbol,
+      underlying: symbol,
+      timeframe: '5min',
+      window_units: '100',
+      start_date: iso(sessionTimeline[0]),
+      end_date: iso(sessionTimeline[sessionTimeline.length - 1]),
+    });
+    return `/api/market/historical?${params.toString()}`;
+  }, [datedSession, sessionTimeline, symbol]);
+  const { data: datedPriceBars } = useApiData<Array<{ timestamp: string; close?: number | null; price?: number | null }>>(
+    datedPriceUrl ?? '/api/market/historical',
+    { enabled: datedPriceUrl != null, refreshInterval: sessionClosed ? 0 : 60000 },
+  );
+  const smartMoneyPriceBars = datedSession ? datedPriceBars : rollingPriceBars;
+
+  const smartMoneySessionPickerOptions = useMemo(
+    () => flowSessionOptions(flowSessionDays, sessionView, sessionView === 'current' ? sessionDateKey : null),
+    [flowSessionDays, sessionView, sessionDateKey],
   );
 
   const uniqueFilterValues = useMemo(() => {
@@ -790,10 +825,7 @@ export default function SmartMoneyPage() {
             label="Session"
             value={sessionView}
             onChange={setSessionView}
-            options={[
-              { value: 'current' as const, label: `Current${currentDateLabel ? ` (${currentDateLabel})` : ''}` },
-              { value: 'prior' as const, label: `Prior${priorDateLabel ? ` (${priorDateLabel})` : ''}` },
-            ]}
+            options={smartMoneySessionPickerOptions}
           />
           {/* Five selects wrapped into three ragged rows on a phone; there the
               four that narrow the tape sit behind one chip that counts how
