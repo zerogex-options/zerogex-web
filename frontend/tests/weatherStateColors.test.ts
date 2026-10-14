@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   WEATHER_STATE_COLOR,
   WEATHER_STATE_LEGEND,
+  drawnLineStops,
   segmentStops,
   stateSegments,
   weatherStateColor,
@@ -134,4 +135,64 @@ test('a single-point series still gets a flat color rather than nothing', () => 
 
   assert.equal(stops.length, 2);
   assert.equal(stops[0].color, WEATHER_STATE_COLOR.MIXED);
+});
+
+// The gradient stretches over the drawn line, not the axis, so its stops must
+// be measured along the line. Barrie caught the difference: the stacked view
+// and the one-at-a-time view colored the same bars differently.
+
+test('a line that stops before the end of the axis is colored along the line', () => {
+  // The stacked view: the axis runs to 16:00, the line stops at the latest
+  // bar. Measured against the axis, this change landed at 2/9 of the way
+  // along the line instead of at its own bar.
+  const stops = drawnLineStops([
+    { value: 1, state: 'MIXED' },
+    { value: 2, state: 'MIXED' },
+    { value: 3, state: 'UNSTABLE' },
+    { value: 4, state: 'UNSTABLE' },
+    ...Array.from({ length: 6 }, () => ({ value: null, state: null })),
+  ]);
+
+  assert.deepEqual(
+    stops.map((s) => s.offset),
+    [0, 2 / 3, 2 / 3, 1],
+  );
+  assert.equal(stops[2].color, WEATHER_STATE_COLOR.UNSTABLE);
+});
+
+test('a line that starts late is colored from its own first bar', () => {
+  // Lean and Stability have no value until their window fills, so the line
+  // starts after the axis does. The change at bar 4 is two bars into a line
+  // three bars long, whatever came before it.
+  const stops = drawnLineStops([
+    { value: null, state: 'MIXED' },
+    { value: null, state: 'MIXED' },
+    { value: 1, state: 'MIXED' },
+    { value: 2, state: 'MIXED' },
+    { value: 3, state: 'UNSTABLE' },
+    { value: 4, state: 'UNSTABLE' },
+  ]);
+
+  assert.deepEqual(
+    stops.map((s) => s.offset),
+    [0, 2 / 3, 2 / 3, 1],
+  );
+});
+
+test('the same bars get the same colors in both views', () => {
+  // One chart at a time draws only the bars that exist; the stack pads them
+  // onto the whole session. The colors must not depend on which one is open.
+  const bars = [
+    { value: 1, state: 'MIXED' },
+    { value: 2, state: 'UNSTABLE' },
+    { value: 3, state: 'UNSTABLE' },
+  ];
+  const padded = [...bars, ...Array.from({ length: 75 }, () => ({ value: null, state: null }))];
+
+  assert.deepEqual(drawnLineStops(padded), drawnLineStops(bars));
+});
+
+test('a field with no values yet gets no stops', () => {
+  assert.deepEqual(drawnLineStops([{ value: null, state: 'MIXED' }]), []);
+  assert.deepEqual(drawnLineStops([]), []);
 });

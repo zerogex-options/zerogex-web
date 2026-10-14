@@ -106,8 +106,9 @@ export function stateSegments(states: (string | null)[]): StateSegment[] {
  * at the dot instead of blending across the bars either side of it. A blend
  * would smear the one moment the reader is looking for.
  *
- * Offsets are fractions of the x-axis, which is index-based here because the
- * series is one bar per point on a fixed grid.
+ * Offsets are fractions of the `total` bars the gradient spans, index-based
+ * because the series is one bar per point on a fixed grid. That span is the
+ * drawn line, not the axis: see drawnLineStops.
  */
 export function segmentStops(
   segments: StateSegment[],
@@ -135,4 +136,32 @@ export function segmentStops(
     stops.push({ offset: next ? next.from / span : 1, color });
   });
   return stops;
+}
+
+/**
+ * Gradient stops for one charted line, measured along the part of the axis
+ * the line actually covers.
+ *
+ * The gradient is sized to the line it paints, not to the chart: SVG's default
+ * objectBoundingBox units stretch 0..1 from the first bar with a value to the
+ * last. Stops measured against the whole axis land in the wrong place whenever
+ * the two differ, and they usually do. The stacked view lays every field on
+ * the full 09:30-16:00 grid while the line stops at the latest bar, so at
+ * 11:15 a state change from 10:30 was painted near 09:45. Lean and Stability
+ * have no value until their rolling window fills, so even one chart at a time
+ * put their colors late. Same bars, different colors, depending only on which
+ * view the reader opened, which is how Barrie caught it.
+ *
+ * `points` is the charted series, oldest first, one per bar on the axis, each
+ * with its value and the Weather state in force on that bar.
+ */
+export function drawnLineStops(
+  points: { value: number | null; state: string | null }[],
+): { offset: number; color: string }[] {
+  const first = points.findIndex((p) => p.value != null);
+  if (first < 0) return [];
+  let last = points.length - 1;
+  while (points[last].value == null) last -= 1;
+  const drawn = points.slice(first, last + 1);
+  return segmentStops(stateSegments(drawn.map((p) => p.state)), drawn.length);
 }
