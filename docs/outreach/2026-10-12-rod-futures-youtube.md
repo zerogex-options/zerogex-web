@@ -400,10 +400,30 @@ Technicals overhaul):
 - **GEXbot: no knocking anyone.** Turn it into a question about why he left
   the others.
 
+### Which program this is
+
+The creator partner program, not refer-a-friend. From the code
+(`frontend/core/creatorPartners.ts`, `core/referrals.ts`):
+
+- **Refer-a-friend** (`REFERRAL_PROGRAM_ENABLED`): any member; giver and
+  receiver each bank one free month per referral.
+- **Creator partner** (`CREATOR_PARTNER_PROGRAM_ENABLED`, invite-only, set up
+  with `make grant-partner-pro`): cash, not free months. The partner earns
+  `partner_commission_bps` (default 30%) of what each referred customer
+  actually pays, after discounts, on every paid invoice for 12 months from
+  that customer's first paid invoice, on any plan. Refunds and disputes
+  reverse accrued rows. The audience discount (`STRIPE_COUPON_PARTNER_AUDIENCE`)
+  applies to monthly checkouts only. A partner's own referrals stop earning
+  free months. It works by link (`?ref=`) or by the partner's code typed at
+  Stripe checkout.
+- **Payouts are by hand.** `make partner-commissions` at month end, pay
+  out-of-band, then mark rows paid (`scripts/list-partner-commissions.mjs`
+  has the SQL). Automated payouts aren't built.
+
 ### Verify first
 
-- The 25% off / first 3 months audience discount is the playbook's number.
-  Confirm the `STRIPE_COUPON_PARTNER_AUDIENCE` coupon in Stripe says the same
+- The code only recommends 25% off for 3 months; the real terms live on
+  coupon `21OUViRs` in Stripe. Confirm it says 25% off, repeating, 3 months
   before sending.
 
 ### Draft
@@ -424,7 +444,7 @@ On logging trades: log every one, wins and losses. An honest record convinces pe
 
 On GEXbot and the others: I'd rather not knock anyone. We're mostly working from the same options data and making different calls about what to show. The test you're already using is the right one: which one gives you the clearest read you can act on. I'd really like to hear what made you leave the ones you left, because clarity is exactly what I'm working on.
 
-Which brings me back to the creator program. You'd be a natural fit. You'd get your own link and code: anyone who signs up through it gets 25% off their first three months on a monthly plan, and you earn 30% of what they pay for their first 12 months. No commitment and nothing you have to post. If you share it publicly, you'd just say it's an affiliate link. Want me to set it up? And if your buddy with the YouTube experience, or any of the traders you talk to, would be a good fit too, I'd love an introduction.
+Which brings me back to the creator program. You'd be a natural fit. It's separate from the refer-a-friend free month: this one pays cash. You'd get your own link and code. Anyone who signs up through it gets 25% off their first three months on a monthly plan, and you earn 30% of what they pay for their first 12 months. No commitment and nothing you have to post. If you share it publicly, you'd just say it's an affiliate link. Want me to set it up? And if your buddy with the YouTube experience, or any of the traders you talk to, would be a good fit too, I'd love an introduction.
 
 Thanks again, Rod.
 
