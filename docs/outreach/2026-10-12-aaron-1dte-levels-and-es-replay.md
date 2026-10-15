@@ -7,8 +7,9 @@ Aaron signs "Aaron" and shows as *Aaron B* (aabbon@gmail.com). He's on Pro and
 works through the v2 API. Subject: "Re: Historical ES replay price discrepancy
 — clarification needed for GEX backtesting". Reply in the same thread.
 
-> **Status:** sent 2026-10-12, after both "Confirm before sending" checks
-> passed. Waiting on his reply, including where he saw "0dte_next".
+> **Status:** first reply sent 2026-10-12, after both "Confirm before
+> sending" checks passed. Second reply (his code and a login, at the end of
+> this doc) unsent.
 
 ## Thread so far
 
@@ -302,3 +303,91 @@ window, 3.4–3.5% in September and October. One fixed setting can't follow
 that, so a few points of offset on a given day are expected. That's the "fair
 value, not the traded price" caveat `/help/platform/data-coverage` already
 gives.
+
+## Second reply: his code and a login to his system (2026-10-15)
+
+### Thread since
+
+7. **Mon Oct 12, outbound.** The first reply above, as drafted.
+8. **Wed Oct 14, 11:37 PM, outbound** (Michael's own). Flow Analysis and Smart
+   Money history now covers the last 7 sessions; Hedging Flow history is at
+   `/hedging-flow/sessions`; Forced Flow and Market Tide are next.
+9. **Thu Oct 15, 12:14 AM, inbound.** Thanks for the update. He's nearly done
+   with the options CVD, the aggregate "and a few other things", and offers to
+   just give Michael his code. He built it with Claude, ChatGPT and "Google
+   Argon 4": volume profiles, multiple VWAPs, ES and NQ CVD, and a learning
+   ELO-type trading system that combines them. He offers Michael a login. It
+   runs on a cheap VPS reached through DuckDNS, takes TradingView webhooks, and
+   uses our API "for everything GEX and options", with a mobile interface. "I
+   made it just for myself." Says we "absolutely have the best GEX levels and
+   GEX implementation". No answer on "0dte_next".
+
+### The read
+
+- **Short and warm.** He's offering a gift, not asking a question. Thank him,
+  say yes to both, and show him his feedback has already shipped: 1-minute
+  flow (Oct 5) and the longer flow history (Oct 14) both came from his emails.
+- **Settle the code question in writing now, lightly.** Our Terms have no
+  feedback or submissions clause (`frontend/app/terms/Client.i18n.ts`), so
+  his code isn't ours to use just because he sent it, and "let you have my
+  code" isn't a clear OK to change and ship it. One line in the draft sets the
+  rule: nothing of his goes into ZeroGEX without his OK in writing first. That
+  protects him and Michael, and it keeps a later feature that overlaps his
+  ideas from turning into a dispute.
+- **Steer the hand-off away from a zip.** Gmail blocks archives that contain
+  some code file types, `.js` among them, and a web app with a mobile
+  interface almost certainly has JavaScript. A private GitHub repo or a Drive
+  link avoids a bounced email.
+- **Don't chase "0dte_next" here.** It's likely his own label, and his code
+  will show it. Search the code for it when it arrives.
+
+### Before you open his code or his login
+
+- **His code:** read it before running any of it, and never run it on the EC2
+  box or anywhere that holds our database credentials, API keys or Stripe
+  keys. It's untested code from outside. A throwaway machine or container is
+  the place to try it.
+- **His login:** use a password you don't use anywhere else. It's a personal
+  server.
+- **ES and NQ CVD can't come into ZeroGEX.** A futures CVD is built from CME
+  trades, which needs a CME data license we don't have. It's the same reason
+  ES levels use a modeled conversion (zerogex-oa `src/config.py`,
+  `FUTURES_BASIS_CARRY_ONLY`). An options CVD can be built from the trade
+  sides we already store.
+- **His app is fine as personal use.** If he ever wants to open it to other
+  people or sell it, that's redistributing our data, which the Terms (§6)
+  allow only with written permission. That's a conversation for then, not
+  now.
+
+### Draft
+
+Hi Aaron,
+
+Thank you, that means a lot, especially from someone who has tested ZeroGEX side by side with other platforms. Your feedback has already shaped the product: the 1-minute flow and the longer flow history both came from your emails.
+
+I'd love to see what you've built, and a login would be great. The learning ELO system sounds especially interesting. For the code, a private GitHub repo or a Google Drive link is easiest, since Gmail sometimes blocks code attachments.
+
+One thing so we're both clear from the start: if I want to build anything from your code or ideas into ZeroGEX, I'll check with you first and get your OK in writing. I'm also happy to credit you if you'd like.
+
+Thanks again for all the time you're putting into this.
+
+Best,
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he replies
+
+- **He sends the code.** Search it for `0dte_next` first. If it's his own
+  label, the "0dte_next" question is closed. If his code reads it from one of
+  our responses, find that field and check its expirations.
+- **He asks what you'd build from it.** Give no list and no dates until
+  you've read it. When there's something specific, get his written OK for
+  that piece, in his words, in the thread.
+- **He asks for something in return** (a free subscription, a revenue share).
+  That's your call. Agree it in writing before anything of his ships, not
+  after.
+- **His options CVD overlaps Flow Analysis.** Say so plainly when you've seen
+  it. Flow Analysis already shows aggressor-signed call and put volume, so
+  his version may be a running total of what we already have.
