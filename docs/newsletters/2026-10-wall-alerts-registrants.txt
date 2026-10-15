@@ -1,0 +1,96 @@
+ZeroGEX · New Feature · Wall Alerts
+
+------------------------------------------------------------
+
+Hi there,
+
+You signed up for ZeroGEX to see where the walls are. Now ZeroGEX can
+tell you when price gets there.
+
+Wall alerts are new this week. Pick a symbol and a wall, and ZeroGEX
+tells you when price hits it, breaks through it, or bounces off it, in
+the app and by email.
+
+
+== BUILT TO STAY QUIET UNTIL IT MATTERS ==
+
+* One alert per approach, not one per tick. Price chopping around a wall
+  is a single alert. The wall re-arms only after price backs clearly
+  away, and that distance scales with how fast the market is moving.
+
+* Breaks that are real. A break needs several straight 1-minute closes
+  beyond the wall, so a wick or a failed breakout does not count. A
+  broken wall stays quiet for the rest of the day.
+
+* Only the walls that matter to you. A strength slider ranks each wall
+  against the same symbol's walls over the last 30 days at the same time
+  of day, so "Strong" means the same thing on SPY as on NDX. Set it to
+  Strong and the small walls never ping you.
+
+* Three noise filters. Responsive gives the earliest warning, Balanced
+  is the recommended default, and Conservative sends the fewest alerts.
+
+* Context in every alert. The price, how far it is from the wall, the
+  wall's strength, which test of the day this is, and, where our sample
+  is large enough, how often walls like it have broken within the hour.
+
+
+== WHAT A DAY LOOKS LIKE ==
+
+SPX spent much of Tuesday, October 13 around 7,800 and crossed it more
+than once. A replay of that session with the default settings (both
+walls, hits and breaks, Balanced) sends four alerts all day:
+
+  10:02 AM   Put wall 7,800 hit       SPX 7,802.82
+  11:30 AM   Put wall 7,800 broke     SPX 7,788.26
+  12:01 PM   Call wall 7,800 hit      SPX 7,796.64
+   3:11 PM   Call wall 7,800 broke    SPX 7,809.30
+
+The level went from support to resistance, and you would have heard
+about each turn once.
+
+
+== PART OF BASIC ==
+
+Wall alerts come with every paid plan, starting with Basic, on SPX, SPY,
+QQQ and NDX (ES and NQ traders set them on SPX and NDX). Setting one up
+takes a minute: pick a symbol and a wall, choose what you want to hear
+about, and save.
+
+See plans:
+https://zerogex.io/pricing
+
+Your free levels stay free. The free levels pages and the daily levels
+email aren't going anywhere.
+
+
+------------------------------------------------------------
+
+Not sure it fits how you trade? Hit reply and ask. I read every message
+myself.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+Dealer positioning is modeled, not directly observed: public option data
+does not disclose which side a dealer holds at a strike. See
+https://zerogex.io/methodology
+
+ZeroGEX provides options market-structure data and analytics for
+educational and informational purposes only, and wall alerts are
+informational market data. Nothing here is investment advice or a
+recommendation to buy or sell any security. Options trading involves
+substantial risk and is not suitable for every investor.
+
+Free levels: https://zerogex.io/spx-gamma-levels
+Pricing:     https://zerogex.io/pricing
+Account:     https://zerogex.io/account
+Help & FAQ:  https://zerogex.io/help/faqs
+
+You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

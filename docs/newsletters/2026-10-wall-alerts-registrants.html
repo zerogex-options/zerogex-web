@@ -1,0 +1,272 @@
+<!--
+  ZeroGEX - Feature Promo: Wall Alerts (October 2026), registrants
+  ----------------------------------------------------------------
+  For verified free members who have never subscribed. Wall alerts are a Basic
+  feature, so this one sells the plan: the call to action is a plain /pricing.
+  It deliberately names no trial length and no price. Both are settings
+  (BILLING_TRIAL_PLANS, the Stripe prices) and the July email had to be
+  retired when its trial wording went stale. /pricing states the live terms.
+
+  RECOMMENDED SUBJECT LINE:
+      New at ZeroGEX: alerts when price hits a call or put wall
+
+  Sent per-recipient via
+  scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience registrants.
+  It links to no extended-trial offer, so the campaign is
+  grantsExtendedTrial: false and the send claims no offer latch. The {{UNSUB_URL}} placeholder becomes a signed
+  /unsubscribe link (also a one-click List-Unsubscribe header).
+
+  The example day is the same SPX replay as the subscriber copy. Keep the two
+  variants, frontend/content/winback-highlights.json and /updates in sync.
+-->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>ZeroGEX &middot; Wall Alerts</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td, a { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
+  <style type="text/css">
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    table { border-collapse: collapse !important; }
+    img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    a { text-decoration: none; }
+    @media only screen and (max-width: 620px) {
+      .zg-container { width: 100% !important; }
+      .zg-pad { padding-left: 22px !important; padding-right: 22px !important; }
+      .zg-day-time { width: 64px !important; }
+      .zg-day-price { display: block !important; padding-left: 0 !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#eceff3;">
+  <!-- Preheader -->
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all; color:#eceff3;">
+    Hits, breaks and bounces on SPX, SPY, QQQ and NDX walls, filtered for chop and for wall strength. Part of Basic.
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eceff3;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+
+        <table role="presentation" class="zg-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(15,34,52,0.10);">
+
+          <!-- Header: logo on a navy band -->
+          <tr>
+            <td align="center" bgcolor="#0d1d2d" style="background-color:#0d1d2d; padding:20px 0; line-height:0; font-size:0;">
+              <!-- LOGO-IMG -->
+              <a href="https://zerogex.io" target="_blank" style="text-decoration:none; line-height:0;">
+                <img src="https://zerogex.io/email/zerogex-email-header.png" width="400" height="122" alt="ZeroGEX" style="display:block; width:400px; max-width:82%; height:auto; border:0; margin:0 auto;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- Eyebrow -->
+          <tr>
+            <td align="center" class="zg-pad" style="padding:26px 34px 0 34px;">
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; color:#c93a34; text-transform:uppercase;">
+                New Feature &nbsp;&middot;&nbsp; Wall Alerts
+              </div>
+            </td>
+          </tr>
+
+          <!-- Intro -->
+          <tr>
+            <td class="zg-pad" style="padding:16px 34px 6px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#28323c; font-size:16px; line-height:1.6;">
+              <p style="margin:0 0 16px 0;">Hi there,</p>
+              <p style="margin:0 0 16px 0;">You signed up for ZeroGEX to see where the walls are. Now ZeroGEX can tell you when price gets there.</p>
+              <p style="margin:0 0 6px 0;"><strong style="color:#12283c;">Wall alerts are new this week.</strong> Pick a symbol and a wall, and ZeroGEX tells you when price hits it, breaks through it, or bounces off it, in the app and by email.</p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:26px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- SECTION: How it filters -->
+          <tr>
+            <td class="zg-pad" style="padding:24px 34px 4px 34px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td style="width:4px; background-color:#f45854; border-radius:2px;">&nbsp;</td>
+                <td style="padding-left:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:19px; font-weight:800; color:#12283c; letter-spacing:-0.2px;">Built to stay quiet until it matters</td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="zg-pad" style="padding:14px 34px 4px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#3a4650; font-size:15px; line-height:1.6;">
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;">One alert per approach, not one per tick.</strong> Price chopping around a wall is a single alert. The wall re-arms only after price backs clearly away, and that distance scales with how fast the market is moving.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;">Breaks that are real.</strong> A break needs several straight 1-minute closes beyond the wall, so a wick or a failed breakout does not count. A broken wall stays quiet for the rest of the day.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;">Only the walls that matter to you.</strong> A strength slider ranks each wall against the same symbol&rsquo;s walls over the last 30 days at the same time of day, so &ldquo;Strong&rdquo; means the same thing on SPY as on NDX. Set it to Strong and the small walls never ping you.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;">Three noise filters.</strong> Responsive gives the earliest warning, Balanced is the recommended default, and Conservative sends the fewest alerts.
+                </td>
+              </tr></table>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 6px 0;"><tr>
+                <td valign="top" style="width:22px; font-size:15px; line-height:1.6; color:#f45854; font-weight:800;">&#9656;</td>
+                <td valign="top" style="font-size:15px; line-height:1.6; color:#3a4650;">
+                  <strong style="color:#12283c;">Context in every alert.</strong> The price, how far it is from the wall, the wall&rsquo;s strength, which test of the day this is, and, where our sample is large enough, how often walls like it have broken within the hour.
+                </td>
+              </tr></table>
+
+            </td>
+          </tr>
+
+          <!-- SECTION: Example day -->
+          <tr>
+            <td class="zg-pad" style="padding:22px 34px 4px 34px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td style="width:4px; background-color:#f45854; border-radius:2px;">&nbsp;</td>
+                <td style="padding-left:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:19px; font-weight:800; color:#12283c; letter-spacing:-0.2px;">What a day looks like</td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="zg-pad" style="padding:14px 34px 0 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#3a4650; font-size:15px; line-height:1.6;">
+              <p style="margin:0 0 14px 0;">SPX spent much of Tuesday, October 13 around 7,800 and crossed it more than once. A replay of that session with the default settings (both walls, hits and breaks, Balanced) sends <strong style="color:#12283c;">four alerts all day</strong>:</p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f4f7; border:1px solid #e4e8ec; border-radius:8px;">
+                <tr>
+                  <td style="padding:8px 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="zg-day-time" valign="middle" style="width:76px; padding:9px 0; border-bottom:1px solid #e4e8ec; font-size:13px; font-weight:700; color:#66727e; white-space:nowrap;">10:02 AM</td>
+                        <td valign="middle" style="padding:9px 0; border-bottom:1px solid #e4e8ec;">
+                          <span style="display:inline-block; padding:1px 7px; margin-right:8px; border-radius:4px; background-color:#e8f1fd; color:#1d5fbf; font-size:10px; font-weight:800; letter-spacing:1px;">HIT</span><span style="font-size:14px; font-weight:700; color:#12283c;">Put wall 7,800</span>
+                          <span class="zg-day-price" style="font-size:13px; color:#66727e; padding-left:6px;">SPX 7,802.82</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="zg-day-time" valign="middle" style="width:76px; padding:9px 0; border-bottom:1px solid #e4e8ec; font-size:13px; font-weight:700; color:#66727e; white-space:nowrap;">11:30 AM</td>
+                        <td valign="middle" style="padding:9px 0; border-bottom:1px solid #e4e8ec;">
+                          <span style="display:inline-block; padding:1px 7px; margin-right:8px; border-radius:4px; background-color:#fdecea; color:#c0352f; font-size:10px; font-weight:800; letter-spacing:1px;">BROKE</span><span style="font-size:14px; font-weight:700; color:#12283c;">Put wall 7,800</span>
+                          <span class="zg-day-price" style="font-size:13px; color:#66727e; padding-left:6px;">SPX 7,788.26</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="zg-day-time" valign="middle" style="width:76px; padding:9px 0; border-bottom:1px solid #e4e8ec; font-size:13px; font-weight:700; color:#66727e; white-space:nowrap;">12:01 PM</td>
+                        <td valign="middle" style="padding:9px 0; border-bottom:1px solid #e4e8ec;">
+                          <span style="display:inline-block; padding:1px 7px; margin-right:8px; border-radius:4px; background-color:#e8f1fd; color:#1d5fbf; font-size:10px; font-weight:800; letter-spacing:1px;">HIT</span><span style="font-size:14px; font-weight:700; color:#12283c;">Call wall 7,800</span>
+                          <span class="zg-day-price" style="font-size:13px; color:#66727e; padding-left:6px;">SPX 7,796.64</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="zg-day-time" valign="middle" style="width:76px; padding:9px 0; font-size:13px; font-weight:700; color:#66727e; white-space:nowrap;">3:11 PM</td>
+                        <td valign="middle" style="padding:9px 0;">
+                          <span style="display:inline-block; padding:1px 7px; margin-right:8px; border-radius:4px; background-color:#e7f6ee; color:#17803f; font-size:10px; font-weight:800; letter-spacing:1px;">BROKE</span><span style="font-size:14px; font-weight:700; color:#12283c;">Call wall 7,800</span>
+                          <span class="zg-day-price" style="font-size:13px; color:#66727e; padding-left:6px;">SPX 7,809.30</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:14px 0 0 0;">The level went from support to resistance, and you would have heard about each turn once.</p>
+            </td>
+          </tr>
+
+          <!-- SECTION: Part of Basic -->
+          <tr>
+            <td class="zg-pad" style="padding:26px 34px 0 34px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fdeeed; border-left:4px solid #f45854; border-radius:8px;">
+                <tr>
+                  <td style="padding:20px 22px 20px 22px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+                    <div style="font-size:18px; font-weight:800; color:#12283c; margin-bottom:8px;">Part of Basic</div>
+                    <p style="margin:0 0 16px 0; font-size:15px; line-height:1.6; color:#3a4650;">
+                      Wall alerts come with every paid plan, starting with Basic, on SPX, SPY, QQQ and NDX (ES and NQ traders set them on SPX and NDX). Setting one up takes a minute: pick a symbol and a wall, choose what you want to hear about, and save.
+                    </p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                      <td align="center" bgcolor="#0f2234" style="border-radius:8px;">
+                        <a href="https://zerogex.io/pricing" target="_blank" style="display:inline-block; padding:12px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:14px; font-weight:700; color:#ffffff; border-radius:8px;">See plans &rarr;</a>
+                      </td>
+                    </tr></table>
+                    <p style="margin:14px 0 0 0; font-size:14px; line-height:1.5; color:#66727e;">
+                      Your free levels stay free. The <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#cc352f; font-weight:700;">free levels pages</a> and the daily levels email aren&rsquo;t going anywhere.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:26px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- Closer / signature -->
+          <tr>
+            <td class="zg-pad" style="padding:22px 34px 26px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#28323c; font-size:16px; line-height:1.6;">
+              <p style="margin:0 0 16px 0;">Not sure it fits how you trade? Hit reply and ask. I read every message myself.</p>
+              <p style="margin:0 0 2px 0;">Trade well,</p>
+              <p style="margin:0; font-weight:700; color:#12283c;">Michael</p>
+              <p style="margin:0; color:#66727e; font-size:14px;">Founder, ZeroGEX</p>
+            </td>
+          </tr>
+
+          <!-- Footer (navy) -->
+          <tr>
+            <td style="padding:26px 34px 30px 34px; background-color:#0f2234;" class="zg-pad">
+              <a href="https://zerogex.io" target="_blank" style="text-decoration:none; line-height:0; display:inline-block; margin-bottom:16px;">
+                <img src="https://zerogex.io/email/zerogex-email-footer.png" width="240" height="68" alt="ZeroGEX" style="display:block; width:240px; max-width:65%; height:auto; border:0;">
+              </a>
+              <p style="margin:0 0 14px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#7f90a0;">
+                Dealer positioning is modeled, not directly observed: public option data does not disclose which side a dealer holds at a strike. <a href="https://zerogex.io/methodology" style="color:#9fb0be; text-decoration:underline;">How ZeroGEX models it</a>.
+                <br><br>
+                ZeroGEX provides options market-structure data and analytics for educational and informational purposes only, and wall alerts are informational market data. Nothing here is investment advice or a recommendation to buy or sell any security. Options trading involves substantial risk and is not suitable for every investor.
+              </p>
+              <p style="margin:0 0 14px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:13px; line-height:1.6;">
+                <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#c3d0da; font-weight:600;">Free levels</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/pricing" target="_blank" style="color:#c3d0da; font-weight:600;">Pricing</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/account" target="_blank" style="color:#c3d0da; font-weight:600;">Account</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/help/faqs" target="_blank" style="color:#c3d0da; font-weight:600;">Help &amp; FAQ</a>
+              </p>
+              <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#68798a;">
+                You&rsquo;re receiving this because you have a ZeroGEX account.
+                Don&rsquo;t want ZeroGEX product updates? <a href="{{UNSUB_URL}}" style="color:#9fb0be; text-decoration:underline;">Unsubscribe</a>.
+                Questions? Just reply, or email <a href="mailto:Michael@zerogex.io" style="color:#9fb0be; text-decoration:underline;">Michael@zerogex.io</a>.
+                <br>
+                ZeroGEX &middot; 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

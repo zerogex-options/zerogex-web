@@ -1,0 +1,107 @@
+ZeroGEX · New Feature · Wall Alerts
+
+------------------------------------------------------------
+
+Hi there,
+
+The request I hear most often is some version of "tell me when price
+gets to the wall." As of this week, ZeroGEX does.
+
+Wall alerts are live on your account. Pick a symbol and a wall, and
+ZeroGEX tells you when price hits it, breaks through it, or bounces off
+it, in the app and by email.
+
+Set up your first alert:
+https://zerogex.io/account/alerts
+
+
+== BUILT TO STAY QUIET UNTIL IT MATTERS ==
+
+* One alert per approach, not one per tick. Price chopping around a wall
+  is a single alert. The wall re-arms only after price backs clearly
+  away, and that distance scales with how fast the market is moving.
+
+* Breaks that are real. A break needs several straight 1-minute closes
+  beyond the wall, so a wick or a failed breakout does not count. A
+  broken wall stays quiet for the rest of the day.
+
+* Only the walls that matter to you. A strength slider ranks each wall
+  against the same symbol's walls over the last 30 days at the same time
+  of day, so "Strong" means the same thing on SPY as on NDX. Set it to
+  Strong and the small walls never ping you.
+
+* Three noise filters. Responsive gives the earliest warning, Balanced
+  is the recommended default, and Conservative sends the fewest alerts.
+
+* Context in every alert. The price, how far it is from the wall, the
+  wall's strength, which test of the day this is, and, where our sample
+  is large enough, how often walls like it have broken within the hour.
+
+
+== WHAT A DAY LOOKS LIKE ==
+
+SPX spent much of Tuesday, October 13 around 7,800 and crossed it more
+than once. A replay of that session with the default settings (both
+walls, hits and breaks, Balanced) sends four alerts all day:
+
+  10:02 AM   Put wall 7,800 hit       SPX 7,802.82
+  11:30 AM   Put wall 7,800 broke     SPX 7,788.26
+  12:01 PM   Call wall 7,800 hit      SPX 7,796.64
+   3:11 PM   Call wall 7,800 broke    SPX 7,809.30
+
+The level went from support to resistance, and you would have heard
+about each turn once.
+
+
+== SET ONE UP IN A MINUTE ==
+
+1. Open Wall alerts (https://zerogex.io/account/alerts). You can also
+   get there from your Account page or the bell in the site header.
+
+2. Pick a symbol and a wall, choose what you want to hear about, and set
+   the minimum wall strength. Balanced is a good place to start.
+
+3. Leave "In the app" on, add Email if you want alerts away from the
+   screen, and save.
+
+Alerts run during the regular session, 9:30 AM to 4:00 PM ET. Trading
+ES or NQ? Set the alert on SPX or NDX: the futures walls come from the
+index options.
+
+In the app, alerts land on the bell, with a pop-up while ZeroGEX is open
+and desktop notifications if you switch them on. By email, alerts that
+land in the same minute arrive as one message, and every email has a
+one-click link to stop them. Text messages are coming soon.
+
+
+------------------------------------------------------------
+
+Set one up, watch it for a few sessions, and hit reply to tell me what
+fires too often, too rarely, or what you would want an alert on next. I
+read every message myself.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+Dealer positioning is modeled, not directly observed: public option data
+does not disclose which side a dealer holds at a strike. See
+https://zerogex.io/methodology
+
+ZeroGEX provides options market-structure data and analytics for
+educational and informational purposes only, and wall alerts are
+informational market data. Nothing here is investment advice or a
+recommendation to buy or sell any security. Options trading involves
+substantial risk and is not suitable for every investor.
+
+Wall alerts: https://zerogex.io/account/alerts
+Dashboard:   https://zerogex.io/dashboard
+Account:     https://zerogex.io/account
+Help & FAQ:  https://zerogex.io/help/faqs
+
+You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

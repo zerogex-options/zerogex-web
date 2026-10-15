@@ -13,6 +13,57 @@ self-deleted (`users.deleted_at`) are excluded from every cohort.
 
 ---
 
+## Feature promo: Wall alerts, October 2026 (`--campaign 2026-10-wall-alerts`)
+
+One feature, one call to action. Members already have wall alerts (Basic and
+up), so theirs is "set up your first alert"; free registrants get "part of
+Basic" and a plain `/pricing` link. The example day in both is a real replay:
+SPX on Tuesday, October 13, default settings, four alerts
+(`make wall-alerts-replay SYMBOL=SPX DATE=2026-10-13` on the API box).
+
+| Audience | Who | Files | Subject |
+|---|---|---|---|
+| `subscribers` | Active + trialing customers | `2026-10-wall-alerts.html` / `.txt` | New: get alerted when price hits a call or put wall |
+| `registrants` | Verified, never subscribed, logged in, signed up since `--since` | `2026-10-wall-alerts-registrants.html` / `.txt` | New at ZeroGEX: alerts when price hits a call or put wall |
+
+**Idempotency key:** `product_update_2026_10_wall_alerts`.
+
+**Not the default campaign.** A bare invocation still sends October, so the
+October commands below keep working. Always pass `--campaign 2026-10-wall-alerts`
+for this one.
+
+**No offer, no latch.** The registrants copy names no trial length and no price
+(both are settings, and the July email had to be retired when its trial wording
+went stale) and links to a bare `/pricing`, so the campaign is
+`grantsExtendedTrial: false` and a send stamps nothing but its audit row.
+
+**No `cancelled` variant.** Wall alerts are first in
+`content/winback-highlights.json` (dated 2026-10-14), so the weekly automated
+win-back now leads with them, and so does the return-intent email for anyone
+who left before that date.
+
+**Which registrants.** `--since 2026-01-01` reaches every free member who has
+not unsubscribed. If the October update went to registrants in the last few
+days, consider waiting a week so the two do not land back to back.
+
+```
+cd frontend
+
+# Members
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience subscribers --dry-run
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience subscribers --preview-to Michael@zerogex.io
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience subscribers --send --yes --limit 5
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience subscribers --send --yes
+
+# Free registrants
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience registrants --since 2026-01-01 --dry-run
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience registrants --since 2026-01-01 --preview-to Michael@zerogex.io
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience registrants --since 2026-01-01 --send --yes --limit 5
+node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-10-wall-alerts --audience registrants --since 2026-01-01 --send --yes
+```
+
+---
+
 ## Current campaign: October 2026 (`--campaign 2026-10`, the default)
 
 Covers what shipped in September (one Gamma Terminal, Spread Monitor, 0DTE on

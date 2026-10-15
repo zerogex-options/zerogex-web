@@ -208,7 +208,33 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
       },
     },
   },
+  // A one-feature promo, not a monthly update. Members get "set up your first
+  // alert"; free registrants get "part of Basic" with a plain /pricing CTA.
+  '2026-10-wall-alerts': {
+    key: 'product_update_2026_10_wall_alerts',
+    excludeOnboardingNudged: false,
+    // The registrants copy names no trial or price and links to a bare /pricing,
+    // so the send spends no offer latch.
+    grantsExtendedTrial: false,
+    // No `cancelled` variant: the automated win-back already carries wall
+    // alerts, dated, in content/winback-highlights.json.
+    content: {
+      subscribers: {
+        subject: 'New: get alerted when price hits a call or put wall',
+        html: '2026-10-wall-alerts.html',
+        text: '2026-10-wall-alerts.txt',
+      },
+      registrants: {
+        subject: 'New at ZeroGEX: alerts when price hits a call or put wall',
+        html: '2026-10-wall-alerts-registrants.html',
+        text: '2026-10-wall-alerts-registrants.txt',
+      },
+    },
+  },
 };
+// Still the October update, not the wall-alerts promo registered after it: a
+// bare invocation keeps sending what the runbook's October commands expect,
+// and the promo is always named with --campaign.
 const DEFAULT_CAMPAIGN = '2026-10';
 
 // The July send used a 30-day signup window. Later campaigns target only

@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates\u00a0- ZeroGEX',
   description:
-    "What's new at ZeroGEX: the Gamma Terminal, Spread Monitor, 0DTE replays, Intraday Cone, Track Record, chart integrations and ES/NQ coverage, plus what's next.",
+    "What's new at ZeroGEX: call and put wall alerts, the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and the Track Record, plus what's next.",
   alternates: { canonical: '/updates' },
 };
 
@@ -19,6 +19,33 @@ type Update = {
 
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
+  {
+    date: 'October 15, 2026',
+    title: 'Wall alerts: know when price gets to the wall',
+    intro:
+      'The request we hear most is some version of “tell me when price gets to the wall.” Now ZeroGEX does: set an alert on a call or put wall and hear when price hits it, breaks through it or bounces off it, in the app and by email. Alerts are built to stay quiet in chop and to fire only for walls strong enough to matter to you. Wall alerts are part of Basic.',
+    whatsNew: [
+      {
+        title: 'Wall alerts',
+        // Members land on their alert settings; a signed-out reader is sent to
+        // log in, and a free member sees what the feature does and the plans.
+        href: '/account/alerts',
+        body: 'Pick SPX, SPY, QQQ or NDX, then the call wall, the put wall or both, and choose what to hear about: price hitting the wall, a confirmed break, or a hold after a hit. Alerts run during the regular session, 9:30 AM to 4:00 PM ET. Trading ES or NQ? Set the alert on SPX or NDX, where the futures walls come from.',
+      },
+      {
+        title: 'One alert per approach, not one per tick',
+        body: 'Price chopping around a wall is a single alert. The wall re-arms only after price backs clearly away, a distance that scales with how fast the market is moving, and a break needs several straight 1-minute closes beyond the wall, so a wick or a failed breakout does not count. Three noise filters trade an earlier warning for fewer alerts: Responsive, Balanced (the default) and Conservative.',
+      },
+      {
+        title: 'A strength filter that means the same thing on every symbol',
+        body: 'Each wall is ranked against the same symbol’s walls over the last 30 days at the same time of day. Set the slider to Strong and only walls in the top quarter for that symbol will alert you.',
+      },
+      {
+        title: 'Context in every alert',
+        body: 'The price, the distance from the wall, the wall’s strength, which test of the day this is, and, where our research sample is large enough, how often walls like it broke within the hour. In the app, alerts land on a bell in the header, with a pop-up while ZeroGEX is open and optional desktop notifications. By email, alerts that land in the same minute arrive as one message, with a one-click link to stop them. Text messages are coming soon.',
+      },
+    ],
+  },
   {
     date: 'October 6, 2026',
     title: 'Our first Folds of Honor donation, and the next markets',
