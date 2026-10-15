@@ -24,6 +24,8 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
+import { heatmapColorScale, heatmapLegendGradientCss, type RGB } from '@/core/heatmapColorScale';
+import { useChartTheme } from '@/hooks/useChartTheme';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import {
   DEFAULT_PRICE_SCALE,
@@ -54,23 +56,6 @@ interface GammaBucket {
 }
 interface PriceDataPoint { timestamp: string; open?: number; high?: number; low?: number; close?: number; }
 interface GexHistoricalPoint { timestamp: string; gamma_flip?: number | null; gamma_flip_span_used?: number | null; }
-
-type RGB = { r: number; g: number; b: number };
-const BEARISH: RGB = { r: 44, g: 72, b: 117 };   // negative GEX (cool)
-const NEUTRAL: RGB = { r: 255, g: 246, b: 237 }; // zero (warm white)
-const BULLISH: RGB = { r: 255, g: 133, b: 49 };  // positive GEX (warm)
-
-const blend = (a: RGB, b: RGB, t: number): RGB => ({
-  r: Math.round(a.r + (b.r - a.r) * t),
-  g: Math.round(a.g + (b.g - a.g) * t),
-  b: Math.round(a.b + (b.b - a.b) * t),
-});
-
-// ratio in [-1, 1]
-function colorForRatio(ratio: number): RGB {
-  if (ratio >= 0) return blend(NEUTRAL, BULLISH, Math.min(1, ratio));
-  return blend(BEARISH, NEUTRAL, Math.min(1, 1 + ratio));
-}
 
 function hexToRgb(hex: string): RGB {
   const h = hex.replace('#', '');
@@ -189,19 +174,12 @@ function formatScaleValue(v: number): string {
   return v.toFixed(0);
 }
 
-// CSS gradient matching the canvas color map, bearish (left) → bullish (right),
-// for the narrow layout's horizontal legend bar.
-const LEGEND_GRADIENT_CSS = (() => {
-  const stops: string[] = [];
-  for (let i = 0; i <= 8; i++) {
-    const c = colorForRatio(-1 + (2 * i) / 8);
-    stops.push(`rgb(${c.r},${c.g},${c.b}) ${(i / 8) * 100}%`);
-  }
-  return `linear-gradient(90deg, ${stops.join(', ')})`;
-})();
-
 export default function GammaHeatmapCanvas() {
   const { theme } = useTheme();
+  // The dark color scale is built from the card color. useChartTheme re-reads
+  // it a frame after a theme or palette change, once the root's classes have
+  // flipped; a read inside the draw effect alone would still see the old ones.
+  const chartTheme = useChartTheme();
   const { getMaxDataPoints, symbol } = useTimeframe();
   const { gexUnit } = useGexUnit();
   const isDark = theme === 'dark';
@@ -648,7 +626,8 @@ export default function GammaHeatmapCanvas() {
 
     // Canvas doesn't resolve CSS vars — read once per render.
     const rootStyle = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;
-    const bgCardColor = rootStyle?.getPropertyValue('--bg-card').trim() || (isDark ? '#111' : '#fff');
+    const bgCardColor = chartTheme.bgCard || rootStyle?.getPropertyValue('--bg-card').trim() || (isDark ? '#111' : '#fff');
+    const colorForRatio = heatmapColorScale(isDark, bgCardColor);
     ctx.fillStyle = bgCardColor;
     ctx.fillRect(pads.L, pads.T, plotW, plotH);
 
@@ -850,7 +829,7 @@ export default function GammaHeatmapCanvas() {
     // a darker edge — keeps the brightness of the brand bullish/bearish
     // colors for at-a-glance direction reading while the darker outline
     // and the wick split at the body edges keep the candles legible
-    // against the heatmap's blue→warm-white→orange gradient underneath.
+    // against the heatmap's colors underneath.
     if (priceData && priceData.length > 0) {
       const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
       const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
@@ -1030,7 +1009,7 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, size, hover, showGrid, tf, legendGexFactor, pads, narrow, scale]);
+  }, [grid, bounds, priceData, gammaFlipByMs, theme, chartTheme.bgCard, size, hover, showGrid, tf, legendGexFactor, pads, narrow, scale]);
 
   const tooltip = useMemo(() => {
     if (!hover || !grid || !bounds) return null;
@@ -1757,7 +1736,7 @@ export default function GammaHeatmapCanvas() {
           {narrow && (
             <div className="flex items-center gap-2 px-3 pb-3 text-[11px] tabular-nums" style={{ color: subtle }}>
               <span>-{formatScaleValue(grid.clip * legendGexFactor)}</span>
-              <span className="h-2.5 flex-1 rounded-sm" style={{ background: LEGEND_GRADIENT_CSS }} aria-hidden />
+              <span className="h-2.5 flex-1 rounded-sm" style={{ background: heatmapLegendGradientCss(isDark) }} aria-hidden />
               <span>+{formatScaleValue(grid.clip * legendGexFactor)}</span>
               <span style={{ color: textPrimary }}>Net GEX {GEX_UNIT_LABEL[gexUnit]}</span>
             </div>
