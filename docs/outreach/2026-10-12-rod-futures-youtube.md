@@ -357,3 +357,93 @@ Michael
 Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
+
+---
+
+## Follow-up: "you need an influencer", are you a trader, and GEXbot (Thu Oct 15, 11:19 AM)
+
+Rod, replying to Michael's Oct 14 note (community and education, the
+Technicals overhaul):
+
+> I truly believe any site that offers this kind of data will only be VERY
+> successful if there are some type of influencer that can take this data
+> your site provides and turn it into a actionable strategy ... my goal is to
+> learn your site and utilize the tool to make profitable trades that can be
+> logged and shown to potential zerogex customers ... are you a trader that
+> is using this site to make profitable trades? If so what is the mechanics
+> ... ALso look at Gexbot let me know what you think of them I have recently
+> had subscriptions to gexbot, spot gamma, tradegex and zerogex ... SO far I
+> really like zerogex and tradegex.
+
+### The read
+
+- **He hits every positive signal in the creator playbook**
+  (`docs/creator-partner-outreach.md`, stage 7): explicit praise, comparisons,
+  substantive questions, and he wants to show ZeroGEX to other traders. Michael
+  agrees an influencer is exactly the missing piece and the program exists for
+  it, so the reply pitches it, once, lightly.
+- **Good candidate, small audience.** His channel isn't live yet, so expect
+  little near-term revenue. Cost is close to nothing: commission is paid only
+  on conversions. The bigger upside may be his network: the YouTube buddy and
+  the platform-hopping traders he talks to. Ask for introductions.
+- **He already pays for Pro.** `make grant-partner-pro` also stamps a 90-day
+  Pro grant, which adds nothing for a paying member and doesn't pause his
+  billing. Run it for the link, code and commission tracking. Comping his
+  subscription while he makes content is a separate call.
+- **Trade logs and an affiliate link together are a paid endorsement.** He
+  has to disclose it, and results should be his full record, not a highlight
+  reel. The reply puts that as advice ("log every one"). Before ZeroGEX uses
+  his results in its own marketing, get a lawyer's read.
+- **Trading answer is Michael's own:** busy, trades occasionally, quick
+  in-and-out at wall bounces and rejections; the long-range "trading engine"
+  idea is stated as far off with regulatory work in the way.
+- **GEXbot: no knocking anyone.** Turn it into a question about why he left
+  the others.
+
+### Verify first
+
+- The 25% off / first 3 months audience discount is the playbook's number.
+  Confirm the `STRIPE_COUPON_PARTNER_AUDIENCE` coupon in Stripe says the same
+  before sending.
+
+### Draft
+
+**Reply in the same thread.**
+
+Hi Rod,
+
+First, thank you. Truly. Your feedback this week has been honest, specific and encouraging all at once, and as a one-person shop, that means more than I can say. It's already made ZeroGEX better; the Technicals rebuild came partly out of your questions.
+
+You nailed it on the bigger picture. The data only goes so far on its own. It takes someone who can turn it into a plan people can follow, and that's exactly why I built a creator partner program. Honestly, I haven't found the right person for it yet.
+
+To your question: I don't trade as much as I used to since starting ZeroGEX. Building it takes most of my time. I still take trades here and there, mostly quick in-and-out trades off a bounce or rejection at the put or call wall: price runs into the wall, stalls or turns, and I take the move off it. On the S&P that's the setup our own numbers favor. In our study, walls held about two times in three over the next hour.
+
+Longer term, and I mean way off, the pipe dream is something like a trading engine: you set up and configure what you want, connect your brokerage, and ZeroGEX trades it for you. There's a lot of regulatory and legal work between here and there, so take it as the very high-level direction, not a plan.
+
+On logging trades: log every one, wins and losses. An honest record convinces people far more than a highlight reel, and I'm happy to help you read the levels as you go.
+
+On GEXbot and the others: I'd rather not knock anyone. We're mostly working from the same options data and making different calls about what to show. The test you're already using is the right one: which one gives you the clearest read you can act on. I'd really like to hear what made you leave the ones you left, because clarity is exactly what I'm working on.
+
+Which brings me back to the creator program. You'd be a natural fit. You'd get your own link and code: anyone who signs up through it gets 25% off their first three months on a monthly plan, and you earn 30% of what they pay for their first 12 months. No commitment and nothing you have to post. If you share it publicly, you'd just say it's an affiliate link. Want me to set it up? And if your buddy with the YouTube experience, or any of the traders you talk to, would be a good fit too, I'd love an introduction.
+
+Thanks again, Rod.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he says yes
+
+He's already registered and verified. Dry run, then apply:
+
+```bash
+make grant-partner-pro EMAIL=rldindustries1975@gmail.com PROMO_CODE=<CODE> DRY_RUN=1
+make grant-partner-pro EMAIL=rldindustries1975@gmail.com PROMO_CODE=<CODE> YES=1
+```
+
+Pick a code he'd say out loud on a video. Then send him the link and code
+from the script's output, using the stage 5b wording in
+`docs/creator-partner-outreach.md`.
