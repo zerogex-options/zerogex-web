@@ -529,11 +529,10 @@ const LADDER_COMPACT_BELOW = 340;
 
 // ── Options Flow ──────────────────────────────────────────────────────────────
 
-// The "Options Flow" chart from /flow-analysis. Handed no session, bars or basis
-// prop, it renders its own selectors for all three beside the underlying-price toggle,
-// and fetches its own session rows — so a tile is the full instrument, not a
-// read-only copy of the page's. It carries its own card chrome, so it renders
-// bare (no WidgetCard).
+// The "Options Flow" chart. Handed no session, bars or basis prop, it renders
+// its own selectors for all three beside the underlying-price toggle, and
+// fetches its own session rows, so a tile is the full instrument. It carries
+// its own card chrome, so it renders bare (no WidgetCard).
 export function OptionsFlowPanel() {
   return <OptionsFlowChart className="h-full" />;
 }

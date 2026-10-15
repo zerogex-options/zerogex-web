@@ -86,7 +86,10 @@ GET /api/flow/series
 
 ### Ordering & coverage guarantees
 
-- Rows are **sorted ascending** by `timestamp`.
+- Rows are sorted **newest first**: `rows[0]` is the latest bar (this is what
+  the endpoint actually serves; an earlier draft of this spec said ascending).
+  `hooks/useFlowSeries` re-sorts every response oldest first, which is the
+  order every chart and snapshot reads.
 - Rows are **contiguous**: exactly one row per 5-minute bar from the session
   open (09:30 ET) through the latest bar that has any data in the DB, inclusive.
   No gaps. If a bar had no trade activity, emit a row with the previous

@@ -182,7 +182,7 @@ const sections: Section[] = [
             href: '/help/platform/flow-analysis',
             title: 'Flow Analysis',
             blurb:
-              'Premium-weighted and net-volume flow, the Lee-Ready aggressor split, and how to spot real conviction in the tape.',
+              'Contracts bought and sold on each side, net premium and the put/call on one clock, and how the aggressor split is read.',
           },
           {
             href: '/help/platform/hedging-flow',

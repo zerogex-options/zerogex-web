@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { canonicalTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
+import { canonicalTimestamp, sortFlowRowsOldestFirst, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { flowSessionParams, isClosedFlowSession, type FlowSession } from '@/core/flowSessions';
 import { optionChainSymbolFor } from '@/core/symbols';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
@@ -181,7 +181,14 @@ function writeToStorage(cacheKey: string, rows: FlowSeriesPoint[]): void {
   }
 }
 
-function createEntry(rows: FlowSeriesPoint[]): CacheEntry {
+// The endpoint answers NEWEST first and only the tail merge used to sort, so a
+// full fetch handed out the reverse of what every consumer reads (the latest
+// bar is the last row) until the next tail poll: for five seconds after every
+// load and every full refresh the snapshot cards read the 09:30 bar as the
+// latest one, and a past session (fetched once, never polled) kept that
+// reading for good. Every entry is built oldest first.
+function createEntry(unsorted: FlowSeriesPoint[]): CacheEntry {
+  const rows = sortFlowRowsOldestFirst(unsorted);
   const byTs = new Map<string, number>();
   let lastMs: number | null = null;
   rows.forEach((row, idx) => {
@@ -356,8 +363,9 @@ export function useFlowSeries(
         pending = (async () => {
           try {
             const data = await fetchSeries(symbol, session, filters, timeframe);
-            globalCache.set(cacheKey, createEntry(data));
-            writeToStorage(cacheKey, data);
+            const entry = createEntry(data);
+            globalCache.set(cacheKey, entry);
+            writeToStorage(cacheKey, entry.rows);
           } finally {
             inflightInitial.delete(cacheKey);
           }
@@ -383,9 +391,10 @@ export function useFlowSeries(
       try {
         const data = await fetchSeries(symbol, session, filters, timeframe);
         if (cancelled) return;
-        globalCache.set(cacheKey, createEntry(data));
-        writeToStorage(cacheKey, data);
-        setRows(data);
+        const entry = createEntry(data);
+        globalCache.set(cacheKey, entry);
+        writeToStorage(cacheKey, entry.rows);
+        setRows(entry.rows);
         setError(null);
       } catch (e) {
         if (cancelled) return;

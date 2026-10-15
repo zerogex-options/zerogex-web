@@ -17,6 +17,7 @@ import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
+import ReadCell from '@/components/layout/ReadCell';
 import ErrorMessage from '@/components/ErrorMessage';
 import TechnicalsSessionChart, {
   type SessionChartLayers,
@@ -84,32 +85,6 @@ function changeColor(value: number | null): string {
 
 function Label({ children }: { children: ReactNode }) {
   return <div className="zg-label">{children}</div>;
-}
-
-function ReadCell({
-  label,
-  value,
-  sub,
-  subColor,
-  size = 22,
-}: {
-  label: string;
-  value: ReactNode;
-  sub: ReactNode;
-  subColor?: string;
-  size?: number;
-}) {
-  return (
-    <div style={{ background: 'var(--bg-card)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-      <Label>{label}</Label>
-      <div className="zg-metric" style={{ fontSize: size, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {value}
-      </div>
-      <div className="zg-mono" style={{ fontSize: 12, color: subColor ?? 'var(--text-muted)' }}>
-        {sub}
-      </div>
-    </div>
-  );
 }
 
 function MarkerBadge({ n, tone }: { n: number; tone: SessionEventTone }) {

@@ -1,74 +1,93 @@
 # Analisi del flusso
 
-*Flusso ponderato per il premio e a volume netto, la scomposizione dell'aggressore secondo Lee-Ready, e come individuare la vera convinzione nel tape.*
+*Cosa è stato scambiato oggi e chi ha attraversato lo spread per scambiarlo: contratti acquistati e venduti su ciascun lato, premio netto e put/call, su un unico orologio.*
 
 ---
 
 ## Cosa mostra questa pagina
 
-La pagina Flow Analysis è la **vista del tape** del mercato delle opzioni. Mentre Dealer Positioning mostra il book statico, questa pagina mostra il **flusso** - cosa è stato scambiato oggi e quale lato ha attraversato lo spread per scambiarlo.
+La pagina Flow Analysis è la **vista del tape** del mercato delle opzioni. Mentre Dealer Positioning mostra il book in essere, questa pagina mostra il **flusso**: cosa è stato scambiato oggi e quale lato ha attraversato lo spread per scambiarlo.
 
-Tre menu nell'intestazione valgono per tutta la pagina: **Session** (la sessione corrente o quella precedente, così vedi se oggi è davvero insolito), **Bars** (**5 min** o **1 min** - quanto finemente i grafici suddividono la sessione) e **Volume basis** (**Directional** o **Total Traded** - vedi sotto).
+Due controlli nell'intestazione valgono per tutta la pagina: **Session** (la sessione in corso o una qualsiasi dell'ultima settimana, così vedi se oggi è davvero insolito) e **Contracts** (tutti i contratti, oppure gli strike e le scadenze che scegli). La barra degli strumenti del grafico imposta la dimensione delle barre, **5 min** o **1 min**.
 
-## Le tre lenti del flusso
+## Acquistato e venduto
 
-ZeroGEX mostra il flusso attraverso tre lenti, perché ciascuna conta in modo diverso.
+Ogni print di opzioni viene classificato in base al lato che ha attraversato lo spread, secondo la convenzione di Lee-Ready:
 
-### Volume netto dei contratti
+- All'**ask** o vicino, un compratore ha pagato il prezzo: conta come **acquistato**.
+- Al **bid** o vicino, un venditore l'ha colpito: conta come **venduto**.
+- I print al **punto medio** vengono ripartiti tra i due in proporzione ai print all'ask e al bid di quel contratto nello stesso minuto. I print senza alcun indizio di lato, come l'asta di apertura delle 09:30, contano per metà da ciascuna parte.
 
-Semplicemente conta i contratti. Utile come base di rumore. Inutile come lettura di convinzione da sola - mille contratti da $0,05 e un contratto da $500 contano allo stesso modo. La base **Total Traded** conta ogni contratto passato di mano, quindi può solo salire.
+Acquistato più venduto, quindi, è sempre tutto ciò che è stato scambiato. La lettura dell'aggressore è quanto di più vicino all'intenzione il feed possa offrire, ma non distingue un'apertura da una chiusura: una put "venduta" al bid può essere un nuovo venditore o un compratore che incassa i profitti.
 
-### Flusso ponderato per il premio
+Le call acquistate e le put vendute formano il **lato rialzista**; le put acquistate e le call vendute, il **lato ribassista**. I colori seguono questa regola in tutta la pagina: il verde è il lato rialzista, il rosso quello ribassista. Per questo il "bought" nella riga delle put è rosso.
 
-Moltiplica il volume dei contratti per il premio pagato. **Questa è la lettura di convinzione.** Un trader che paga $500/contratto per una call OTM 0DTE sta facendo una scommessa reale; un trader che scalpa biglietti della lotteria da $0,05 no.
+## La lettura della sessione
 
-### Flusso direzionale (scomposizione dell'aggressore Lee-Ready)
+La riga in alto legge la sessione in un colpo d'occhio:
 
-Classifica ogni operazione come avviata dall'acquirente o dal venditore usando l'algoritmo Lee-Ready (su quale lato del bid/ask è avvenuta l'operazione); i print troppo vicini al punto medio per essere attribuiti restano senza segno. Somma le operazioni avviate dall'acquirente meno quelle avviate dal venditore. Indica se gli aggressori stanno pagando per il rialzo o per il ribasso. La base **Directional** assegna il segno al volume in questo modo, quindi può scendere sotto zero.
+- **Flow** - **Risk-on** quando premio netto e flusso netto pendono entrambi al rialzo, **Risk-off** quando pendono entrambi al ribasso, e **Two-way** quando divergono o sono entrambi troppo piccoli per essere valutati (flusso netto sotto l'1% dei contratti scambiati e premio netto sotto il 5% del premio di call e put).
+- **Net premium** - premio netto delle call meno premio netto delle put, ciascuno contato come acquistato meno venduto, con la parte delle call e quella delle put sotto. Una parte delle put negativa significa che le put sono state vendute al netto.
+- **Net flow** - il lato rialzista meno quello ribassista, in contratti, e la quota del lato rialzista su tutto lo scambiato.
+- **Put/call** - volume delle put diviso volume delle call.
+- **Volume** - tutti i contratti scambiati, e quanti dall'apertura della barra più recente.
 
-## Il banner di regime
+## Bought vs. sold
 
-**Flow Analysis Regime** etichetta la sessione fin qui: **Risk-On Flow Regime** quando premio netto e flusso netto pendono entrambi verso le call, **Risk-Off Flow Regime** quando pendono entrambi verso le put, e **Mixed / Two-Way Flow** quando non concordano o sono entrambi piccoli. Il paragrafo sotto riporta i numeri dietro l'etichetta.
+I totali della sessione per call e put, ciascuno diviso in **acquistato** e **venduto**, con la ripartizione come barra, il **netto** (acquistato meno venduto) e ciò che la barra più recente ha aggiunto finora. La riga sotto somma i due lati: il lato rialzista contro quello ribassista, e di quanto uno è in vantaggio, che è il flusso netto della sessione.
 
-## Il Flow Snapshot
+I numeri si aggiornano ogni pochi secondi durante le contrattazioni.
 
-I totali della sessione all'ultima barra:
+## Il grafico della sessione
 
-- **Call Volume** e **Put Volume** - i contratti scambiati, con il premio netto di ciascun lato sotto
-- **Net Flow** - i contratti netti di call meno i contratti netti di put, ciascuno con il segno dell'aggressore
-- **Net Premium** - il premio netto delle call meno il premio netto delle put. Positivo ⇒ gli aggressori stanno pagando per call / vendendo put in modo netto; negativo ⇒ gli aggressori stanno pagando per put / vendendo call.
-- **Put/Call Ratio** - il volume delle put diviso per il volume delle call
+Un solo grafico, in pannelli che condividono l'orologio della sessione e un mirino, orari in ET:
 
-## I grafici
+- **Price** - il sottostante nel corso della sessione.
+- **Net premium** - il premio netto cumulato, ombreggiato in verde sopra lo zero e in rosso sotto, con le **parti di call e put** come linee sottili.
+- **Contracts** - ciò che è stato scambiato in ogni barra. Le barre verso l'alto sono il lato rialzista (call acquistate, con le put vendute impilate sopra in un tono più chiaro); le barre verso il basso, il lato ribassista (put acquistate, con le call vendute).
+- **Put/call** - il rapporto cumulato, con una linea tratteggiata a 1.
+- I **marcatori numerati** in alto corrispondono al registro del flusso.
 
-- **Options Flow** - il premio netto di call e put durante la sessione rispetto al prezzo del sottostante, con un'area di volume sotto secondo la base scelta. Filtrabile per strike o per scadenza.
-- **Net Directional Premium** - il totale progressivo della sessione del premio netto, ombreggiato sopra e sotto lo zero.
-- **Put/Call Ratio** - il rapporto cumulativo della sessione a ogni barra.
-- **Net Position (Buys vs. Sells)** - il volume netto progressivo di call e put, per distinguere gli acquisti dalle vendite, cosa che il rapporto non può fare.
+I pulsanti sopra il grafico attivano o disattivano ogni pannello, e questo browser ricorda la tua scelta. Passa sul grafico, o toccalo sul telefono, per vedere tutti i numeri di quella barra. **Full screen** dà al grafico l'intera finestra, con i pannelli dimensionati di conseguenza; Esc o **Exit** lo riportano al suo posto.
 
-Ognuno è rappresentato come una serie in modo da poter vedere la pendenza, non solo il livello.
+## Registro del flusso
 
-## Smart money
+Il flusso notevole della sessione, dal più recente:
 
-I print dello smart money hanno una pagina dedicata - vedi [Smart Money](/help/platform/smart-money). Usala come controllo incrociato sul flusso principale di questa pagina.
+- **Net flow turned bullish / bearish** - il flusso netto cumulato ha cambiato lato e il nuovo lato è avanti di almeno lo 0,5% dei contratti scambiati. Le piccole oscillazioni intorno allo zero non vengono elencate.
+- **Net premium turned bullish / bearish** - lo stesso per il premio netto, di almeno il 3% del premio di call e put.
+- **Put/call rose above 1 / fell below 1** - quando si allontana da 1 di almeno 0,05.
+- **Volume burst** - una barra pari ad almeno 2,5 volte la mediana delle barre dell'ora precedente, con il lato che l'ha guidata. Vengono elencate le sei più grandi della sessione.
 
-## Come leggerla
+Nei primi dieci minuti non viene segnalato nulla, perché ogni totale è abbastanza piccolo da ribaltarsi con un solo print.
 
-Tre pattern:
+## Bar by bar
 
-1. **Forte flusso positivo ponderato per il premio con un GEX Gradient positivo mentre i dealer sono, secondo il modello, short gamma** ⇒ i trader stanno pagando per un rialzo su cui i dealer sono short secondo il modello. Lettura di continuazione ad alta convinzione.
-2. **Forte acquisto di put con il segnale Positioning Trap caricato sul lato della folla short (positivo)** ⇒ la folla ribassista è fuori posizione; aspettati uno scatto indietro verso l'alto.
+Call e put di ogni barra, acquistate e vendute, e il suo flusso netto, dalla più recente. Le barre in cui non è stato scambiato nulla vengono omesse. Durante la sessione, la riga in alto è la barra ancora in corso.
+
+## Scegliere i contratti
+
+**Contracts** apre la scelta di strike e scadenze. Una scelta restringe tutto ciò che c'è nella pagina, così ogni numero descrive gli stessi contratti. La scelta delle scadenze è condivisa con i grafici gamma nella stessa scheda del browser, e l'intestazione dice sempre quali contratti la pagina sta leggendo; la **×** accanto torna a tutti.
+
+ES e NQ non hanno una catena di opzioni propria: il loro flusso è quello di SPX e NDX, quindi gli strike elencati sono strike dell'indice, non prezzi del future.
+
+## Come leggerlo
+
+Tre schemi:
+
+1. **Forte flusso sul lato rialzista e premio netto in salita mentre i dealer sono modellati short gamma** ⇒ i trader pagano per un rialzo su cui i dealer sono modellati short. Una lettura di continuazione.
+2. **Put acquistate con forza contro un livello** con il segnale Positioning Trap caricato sul lato della folla short ⇒ la folla ribassista potrebbe essere fuori posizione; attento a un rimbalzo.
 3. **Flusso piatto vicino a un livello chiave** ⇒ aspetta la rottura. Il flusso senza convinzione non è un trade.
-
-## Volume netto vs. flusso direzionale
-
-Per un approfondimento sul perché il volume grezzo può trarre in inganno, perché il flusso direzionale aggiunge segnale, e perché il flusso ponderato per il premio è di solito la metrica di convinzione più forte, vedi [Volume netto vs flusso direzionale](/education/net-volume-vs-directional-flow).
 
 ## Quando la pagina è più utile
 
-- **Subito dopo l'apertura** - i primi 30 minuti dicono molto sul bias della giornata.
-- **A ogni livello chiave** - il flusso verso un wall o il VWAP mostra chi sta mettendo pressione sul livello. Nel nostro studio su 737 test di wall, il flusso con segno sullo strike del wall non ha permesso di prevedere quali wall si sarebbero rotti, quindi leggilo come contesto, non come verdetto.
-- **Verso la chiusura** - combinato con EOD Pressure, la lettura del flusso affina il segnale direzionale.
+- **Subito dopo l'apertura** - la prima mezz'ora dice molto sull'orientamento della giornata.
+- **A ogni livello chiave** - il flusso verso un wall o il VWAP mostra chi sta mettendo pressione sul livello. Nel nostro studio su 737 test di wall, il flusso con segno sullo strike del wall non ha permesso di prevedere quali wall si sarebbero rotti, quindi leggilo come contesto, non come verdetto.
+- **Verso la chiusura** - insieme a EOD Pressure, la lettura del flusso affina il segnale direzionale.
+
+## Volume netto vs. flusso direzionale
+
+Per un approfondimento sul perché il volume grezzo può trarre in inganno, perché la scomposizione dell'aggressore aggiunge segnale, e perché il premio è di solito la misura di convinzione più forte, vedi [Volume netto vs flusso direzionale](/education/net-volume-vs-directional-flow).
 
 ## Vedi anche
 

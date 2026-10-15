@@ -5,15 +5,14 @@
  * volume on the bottom, both as running session cumulatives, with an optional
  * underlying-price line and strike / expiration filter chips.
  *
- * It headlines /flow-analysis and is also a "My Dashboard" widget, so it owns
- * everything it needs to stand alone: the contract-option chips, the filtered
- * fetch, the persisted display preference and — when the caller doesn't supply
- * them — its own session and net-volume-basis controls. Row derivation goes
- * through core/flowSeriesCharts, shared with the page, so a tile on a board
- * plots exactly what the page plots.
+ * It is the "My Dashboard" widget of that name (it headlined /flow-analysis
+ * until the page was rebuilt around core/flowAnalysis), so it owns everything
+ * it needs to stand alone: the contract-option chips, the filtered fetch, the
+ * persisted display preference and — when the caller doesn't supply them —
+ * its own session and net-volume-basis controls. Row derivation goes through
+ * core/flowSeriesCharts.
  *
- * Two props let the Flow Analysis page keep driving from its page-level
- * controls (which also steer its other three charts):
+ * Two props let a host page drive it from controls of its own instead:
  *   • `session` / `netVolumeMode` — supplied, the matching control is hidden;
  *     omitted, the chart renders its own.
  *   • `baseRows` — the unfiltered rows the caller already subscribes to, so the
@@ -620,9 +619,9 @@ function FullWidthFlowChart({
 
 // ── Standalone controls (widget use) ─────────────────────────────────────────
 //
-// Rendered only when the caller doesn't supply the matching prop. On
-// /flow-analysis the page's own control bar drives session and basis for every
-// chart at once, so both are passed in and neither select appears here.
+// Rendered only when the caller doesn't supply the matching prop: a host page
+// that drives session and basis itself passes both in, and neither select
+// appears here.
 
 function InlineSelect<T extends string>({
   label,
