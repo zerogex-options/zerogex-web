@@ -174,7 +174,7 @@ completely separate from the 90 days:
   Your link:  https://zerogex.io/register?ref=[8CHAR]
   Your code:  [PROMOCODE]
 
-Audience gets 25% off their first 3 months monthly. You earn 30%
+Audience gets 25% off their first year on any plan. You earn 30%
 recurring commission for the first 12 months of each conversion. FTC
 disclosure required if you mention it — "affiliate link" or "#ad"
 is enough.
@@ -225,7 +225,7 @@ wanted to lay out the option that exists for creators who share
 it — fully optional and I don't need a decision either way.
 
 The setup:
-  - Your audience gets 25% off their first 3 months on any monthly plan
+  - Your audience gets 25% off their first year on any plan
   - You earn 30% recurring commission on each conversion's first 12
     months
   - Runs off a link or a code — you already have both:

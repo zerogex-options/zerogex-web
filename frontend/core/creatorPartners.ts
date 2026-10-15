@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
-import { getStripe, type BillingCadence } from '@/core/stripe';
+import { getStripe } from '@/core/stripe';
 
 // Master switch. The whole program is inert (no creator-tier flips, no
 // audience coupons applied at checkout, no commissions accrued) unless the
@@ -88,20 +88,14 @@ export function findCreatorByUserId(userId: string): CreatorPartnerRow | null {
 }
 
 // The Stripe coupon ID to apply to a checkout where the referrer is a
-// creator partner. Per-partner override wins so a top-tier creator can be
-// given a richer audience deal; falls back to the global env coupon. The
-// partner-audience coupon is recommended to be `duration:repeating,
-// duration_in_months:3` for 25% off the first three months, monthly cadence
-// only — see .env.example.
-//
-// Returns null for annual cadence: the partner offer is designed around the
-// monthly path. An annual referee under a creator falls through to the
-// standard annual referee coupon (or none).
-export function getPartnerAudienceCouponId(
-  partner: CreatorPartnerRow,
-  cadence: BillingCadence,
-): string | null {
-  if (cadence !== 'monthly') return null;
+// creator partner, on ANY plan (monthly, quarterly or annual). Per-partner
+// override wins so a top-tier creator can be given a richer audience deal;
+// falls back to the global env coupon. The audience coupon is recommended to
+// be 25% off, `duration: repeating`, `duration_in_months: 12`, applying to
+// every plan price: the first year at 25% off whichever plan the member picks
+// (twelve monthly invoices, four quarterly ones, or the first annual one).
+// See .env.example.
+export function getPartnerAudienceCouponId(partner: CreatorPartnerRow): string | null {
   if (partner.partner_audience_coupon_id) return partner.partner_audience_coupon_id;
   const globalId = process.env.STRIPE_COUPON_PARTNER_AUDIENCE;
   return globalId && globalId.length > 0 ? globalId : null;
