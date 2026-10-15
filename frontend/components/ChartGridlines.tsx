@@ -19,9 +19,9 @@ const GRID_OPACITY = 0.28;
  * `everyMinutes = 60`, which a phone-width plot uses so the dots don't crowd
  * into a hatch.
  *
- * Shared by the Options Flow chart (page and My Dashboard widget alike) and the
- * compact charts on /flow-analysis, so every intraday chart draws the same
- * dotted gridline at the same slots the time labels mark.
+ * Shared by the Options Flow chart and the compact flow charts (Tape Flow Bias,
+ * the Weather fields), so every intraday chart draws the same dotted gridline
+ * at the same slots the time labels mark.
  */
 export function buildThirtyMinGridlines<T extends { timestamp: string }>(
   data: T[],

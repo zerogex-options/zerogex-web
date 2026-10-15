@@ -471,3 +471,16 @@ make grant-partner-pro EMAIL=rldindustries1975@gmail.com PROMO_CODE=<CODE> YES=1
 Pick a code he'd say out loud on a video. Then send him the link and code
 from the script's output, using the stage 5b wording in
 `docs/creator-partner-outreach.md`.
+
+### As sent (Michael's edit, Oct 15)
+
+Michael rewrote the draft: shorter on the walls and the TradeGEX/GEXbot
+side, and adds that he has a full-time job and trades 0DTE SPY. Small
+grammar fixes applied. Send only after the new partner coupon (25% off,
+repeating 12 months, every plan) is live in Stripe and set as
+`STRIPE_COUPON_PARTNER_AUDIENCE`.
+
+Existing partners (`make partners`, Oct 15): banaski.1 (TESTCODE, Michael's
+test), pcmdfin @XpertPATrader (PCB25, grant expired Oct 14), plus3forecasting
+@Plus3Forecast (PLUS325, grant to Nov 9). Their links pick up the new coupon
+from the env; their typed codes stay on the old one (`21OUViRs`) until moved.

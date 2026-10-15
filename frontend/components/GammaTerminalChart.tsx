@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity, Camera, ChevronDown, ChevronsRight, Eye, EyeOff, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
+import { Activity, Camera, ChevronDown, ChevronsRight, Eye, EyeOff, HelpCircle, Info, Maximize2, Minimize2, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesLevelsChip from "./FuturesLevelsChip";
@@ -50,6 +50,7 @@ import {
 } from "@/core/netVolumeSeries";
 import { seriesRollNote, summarizeSeriesContracts } from "@/core/futuresContract";
 import { useCoarsePointer, useIsMobile } from "@/hooks/useIsMobile";
+import { FULLSCREEN_LAYER_STYLE, useChartFullscreen } from "@/hooks/useChartFullscreen";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
@@ -249,6 +250,9 @@ const DESKTOP_CANVAS: ChartCanvas = {
 
 // The shortest the width-aware desktop board gets (see desktopCanvas).
 const DESKTOP_MIN_VH = 460;
+// The shortest a full-screen board gets: a short window keeps a readable tape
+// rather than clipping the time axis off the bottom.
+const FULLSCREEN_MIN_VH = 360;
 // The full-width board's rail, which is the only one its title fits.
 const DESKTOP_RAIL_W = DESKTOP_CANVAS.RAIL_RIGHT - DESKTOP_CANVAS.RAIL_LEFT;
 // Narrowest card (CSS px) a mouse-driven desktop draws the desktop board at.
@@ -267,12 +271,21 @@ export const DESKTOP_MIN_WIDTH = 700;
  * tape and the rail give up the width, the axis column and the type keep
  * their size, and the height steps down in proportion, to a floor. At 1360
  * this returns the board unchanged.
+ *
+ * `fillHeight` is the full-screen board: drawn 1:1 at any width, the wide
+ * screen included (the 1360 board scaled up would print 15px labels on a
+ * 1920px monitor and still not reach the bottom of it), and as tall as the
+ * space the window leaves it, so the tape takes the whole screen in both
+ * directions.
  */
-function desktopCanvas(width: number): ChartCanvas {
+function desktopCanvas(width: number, fillHeight: number | null = null): ChartCanvas {
   const D = DESKTOP_CANVAS;
-  if (width >= D.VW) return D;
+  if (width >= D.VW && fillHeight == null) return D;
   const VW = Math.round(width);
-  const VH = Math.max(DESKTOP_MIN_VH, Math.round((D.VH * VW) / D.VW));
+  const VH =
+    fillHeight != null
+      ? Math.max(FULLSCREEN_MIN_VH, Math.round(fillHeight))
+      : Math.max(DESKTOP_MIN_VH, Math.round((D.VH * VW) / D.VW));
   // The same stack as the board, measured up from its bottom edge.
   const DATE_AXIS_Y = VH - (D.VH - D.DATE_AXIS_Y);
   const TIME_AXIS_Y = VH - (D.VH - D.TIME_AXIS_Y);
@@ -340,12 +353,18 @@ const COMPACT_AXIS_W = 68;
  * height, so there the board is short and wide. Keyed on orientation rather
  * than on the measured viewport height, which a phone's collapsing address bar
  * changes on every scroll.
+ *
+ * `fillHeight` is the full-screen board, where the page no longer scrolls and
+ * the measured space under the toolbar is the height to draw.
  */
-function compactCanvas(width: number, landscape: boolean): ChartCanvas {
+function compactCanvas(width: number, landscape: boolean, fillHeight: number | null = null): ChartCanvas {
   const VW = Math.max(300, Math.round(width));
-  const VH = landscape
-    ? Math.min(420, Math.max(330, Math.round(VW * 0.62)))
-    : Math.min(640, Math.max(400, Math.round(VW * 1.3)));
+  const VH =
+    fillHeight != null
+      ? Math.max(300, Math.round(fillHeight))
+      : landscape
+        ? Math.min(420, Math.max(330, Math.round(VW * 0.62)))
+        : Math.min(640, Math.max(400, Math.round(VW * 1.3)));
   const DATE_AXIS_Y = VH - 7;
   const TIME_AXIS_Y = VH - 21;
   const VOL_BOTTOM = VH - 34;
@@ -821,6 +840,43 @@ export default function GammaTerminalChart({
       window.removeEventListener("orientationchange", measure);
     };
   }, [rootEl]);
+  // ── Full screen ── The card's own element lifts over the page (see
+  // hooks/useChartFullscreen), so zoom, pan and layers carry over, and the
+  // board is drawn at the window's size: the width measured above, and the
+  // height the chart body is left once the toolbar and footer rows have
+  // theirs. The body is a flex child sized by the window, not by the board,
+  // so measuring it cannot feed back into itself.
+  const fullscreen = useChartFullscreen();
+  const fsActive = fullscreen.active;
+  const [bodyEl, setBodyEl] = useState<HTMLDivElement | null>(null);
+  const svgWrapRef = useRef<HTMLDivElement | null>(null);
+  const [fillH, setFillH] = useState<number | null>(null);
+  // The card's height as it sat in the page, held open while it is lifted so
+  // the page underneath keeps its length (and its scroll position).
+  const [restingH, setRestingH] = useState(0);
+  const toggleFullscreen = () => {
+    if (!fsActive) setRestingH(rootRef.current?.offsetHeight ?? 0);
+    fullscreen.toggle();
+  };
+  // Height of whatever sits above the board inside the body: the compact
+  // canvas's OHLC strip, which wraps to a second line with the session levels.
+  const [stripH, setStripH] = useState(0);
+  useLayoutEffect(() => {
+    if (!fsActive || !bodyEl) return;
+    const measure = () => {
+      const top = svgWrapRef.current?.offsetTop ?? 0;
+      setStripH((cur) => (cur === top ? cur : top));
+      const h = Math.floor(bodyEl.clientHeight - top);
+      if (h > 0) setFillH((cur) => (cur === h ? cur : h));
+    };
+    measure();
+    // The body for the window's share; its children for a strip that wraps.
+    const ro = new ResizeObserver(measure);
+    ro.observe(bodyEl);
+    for (const child of Array.from(bodyEl.children)) ro.observe(child);
+    return () => ro.disconnect();
+  }, [fsActive, bodyEl]);
+  const fill = fsActive ? fillH : null;
   const isMobile = useIsMobile();
   const coarsePointer = useCoarsePointer();
   // A phone or touch screen: the gesture grammar and the touch copy apply.
@@ -828,9 +884,15 @@ export default function GammaTerminalChart({
   const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
   const baseCanvas = useMemo(() => {
     if (!box || box.w <= 0) return DESKTOP_CANVAS;
-    if (box.w < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)) return compactCanvas(box.w, box.landscape);
-    return desktopCanvas(box.w);
-  }, [box, touchUi]);
+    if (box.w < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)) {
+      // A phone's board already spans the screen, and its toolbar rows take a
+      // good share of the height: full screen only ever makes it taller, and
+      // a window too short for that scrolls the layer instead.
+      const resting = compactCanvas(box.w, box.landscape);
+      return fill != null && fill > resting.VH ? compactCanvas(box.w, box.landscape, fill) : resting;
+    }
+    return desktopCanvas(box.w, fill);
+  }, [box, touchUi, fill]);
   // Volume off: the pane (and the gap above it) collapses onto its bottom edge
   // and the price pane grows down to fill it, so hiding volume gives the tape
   // the room rather than leaving a blank strip.
@@ -1085,6 +1147,10 @@ export default function GammaTerminalChart({
   // reconciles the shared selection to this symbol's chain, so a date the new
   // chain doesn't list never reaches a request.
   const inDashboardWidget = useInDashboardWidget();
+  // Full screen is for the chart standing on its own. A tile is sized by its
+  // footprint and the board owns its corners, and the Terminal's chart works
+  // with the panel beside it, which full screen would leave behind.
+  const canFullscreen = !inDashboardWidget && !hideRail && !strikePanelTarget;
   const [railExpSym, setRailExpSym] = useState(symbol);
   if (railExpSym !== symbol) {
     setRailExpSym(symbol);
@@ -1854,6 +1920,11 @@ export default function GammaTerminalChart({
   // the top of the chart instead of trailing the point, which the hand covers.
   const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number; touch?: boolean } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // The chart body is also what full screen measures for its height.
+  const setBodyNode = useCallback((el: HTMLDivElement | null) => {
+    containerRef.current = el;
+    setBodyEl(el);
+  }, []);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{
     startX: number;
@@ -3040,26 +3111,50 @@ export default function GammaTerminalChart({
   const PLOT_CLIP_ID = `zg-gc-plot-clip-${defsId}`;
   const RIBBON_GLOW_ID = `zg-gc-ribbon-glow-${defsId}`;
 
+  // Full screen: the card's slot in the page stays open at its resting height,
+  // and every state of the card stays on the lifted layer (a symbol switch
+  // drops it back to loading for a moment).
+  const restingSlot = fsActive ? <div aria-hidden="true" className={className} style={{ height: restingH }} /> : null;
+  const fsLayer: CSSProperties | undefined = fsActive ? FULLSCREEN_LAYER_STYLE : undefined;
+  // Those states have no toolbar, and a phone has no Escape key.
+  const fsExit = fsActive ? (
+    <button type="button" onClick={fullscreen.exit} aria-label="Exit full screen" title="Exit full screen" className="zg-icon-btn" style={{ position: "absolute", top: 12, right: 12 }}>
+      <Minimize2 size={16} aria-hidden />
+    </button>
+  ) : null;
+
   // ── Loading / error / empty ──────────────────────────────────────────────
   if (loading && bars.length === 0) {
     return (
-      <div className={`zg-feature-shell ${className}`} style={{ minHeight: 420, display: "grid", placeItems: "center" }}>
-        <LoadingSpinner />
-      </div>
+      <>
+        {restingSlot}
+        <div className={`zg-feature-shell ${className}`} style={{ minHeight: 420, display: "grid", placeItems: "center", ...fsLayer }}>
+          <LoadingSpinner />
+          {fsExit}
+        </div>
+      </>
     );
   }
   if (error && bars.length === 0) {
     return (
-      <div className={`zg-feature-shell ${className}`} style={{ padding: 24 }}>
-        <ErrorMessage message={error} />
-      </div>
+      <>
+        {restingSlot}
+        <div className={`zg-feature-shell ${className}`} style={{ padding: 24, ...fsLayer }}>
+          <ErrorMessage message={error} />
+          {fsExit}
+        </div>
+      </>
     );
   }
   if (!layout || bars.length === 0) {
     return (
-      <div className={`zg-feature-shell ${className}`} style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
-        No price data available for {symbol}
-      </div>
+      <>
+        {restingSlot}
+        <div className={`zg-feature-shell ${className}`} style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)", ...fsLayer }}>
+          No price data available for {symbol}
+          {fsExit}
+        </div>
+      </>
     );
   }
 
@@ -4047,11 +4142,49 @@ export default function GammaTerminalChart({
               <Camera size={13} />
               {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
             </button>
+            {canFullscreen && (
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                aria-pressed={fsActive}
+                aria-label={fsActive ? "Exit full screen" : "Full screen"}
+                title={fsActive ? "Exit full screen (Esc)" : "Full screen: the chart takes the whole window. Esc to exit."}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  padding: "5px 11px",
+                  borderRadius: "var(--radius-pill)",
+                  border: `1px solid ${fsActive ? "var(--color-accent-hot)" : "var(--border-default)"}`,
+                  color: fsActive ? "var(--color-accent-hot)" : "var(--text-secondary)",
+                  background: fsActive ? "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)" : "var(--bg-subtle)",
+                  cursor: "pointer",
+                }}
+              >
+                {fsActive ? <Minimize2 size={13} aria-hidden /> : <Maximize2 size={13} aria-hidden />}
+                {/* The phone toolbar shares its row with Layers and Save. */}
+                {!compact && (fsActive ? "Exit" : "Full screen")}
+              </button>
+            )}
     </>
   );
 
   return (
-    <div ref={setRootNode} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
+    <>
+    {restingSlot}
+    <div
+      ref={setRootNode}
+      className={`zg-feature-shell zg-gc-rise ${className}`}
+      // Full screen: a column the height of the window, the chart body taking
+      // what the toolbar and footer rows leave. Scrolls only if a very short
+      // window cannot hold the rows and the board's minimum together.
+      style={fsActive ? { ...FULLSCREEN_LAYER_STYLE, display: "flex", flexDirection: "column", overflowX: "hidden", overflowY: "auto" } : { overflow: "hidden" }}
+    >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="flex flex-col gap-4 p-4 sm:p-5"
@@ -4273,7 +4406,18 @@ export default function GammaTerminalChart({
       )}
 
       {/* ── Chart body ─────────────────────────────────────────────────── */}
-      <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
+      <div
+        ref={setBodyNode}
+        className="relative"
+        // Full screen: the window's share of the height, never less than the
+        // shortest board this canvas draws (plus its strip), so the board is
+        // never clipped; a window too short for that scrolls the layer.
+        style={
+          fsActive
+            ? { background: "var(--bg-card)", flex: "1 1 0%", minHeight: (compact && box ? compactCanvas(box.w, box.landscape).VH : FULLSCREEN_MIN_VH) + stripH, overflow: "hidden" }
+            : { background: "var(--bg-card)" }
+        }
+      >
           {compact && (
             <div
               className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-3 pt-2 pb-1"
@@ -4305,7 +4449,7 @@ export default function GammaTerminalChart({
               lands on a viewBox coordinate at any width — the one overlay that
               has to track a point INSIDE the plot rather than a corner of the
               card. */}
-          <div className="relative">
+          <div ref={svgWrapRef} className="relative">
           <svg
             ref={svgRef}
             width="100%"
@@ -5178,7 +5322,10 @@ export default function GammaTerminalChart({
         </div>
       )}
 
-      {/* ── Footer legend ───────────────────────────────────────────────── */}
+      {/* ── Footer legend ─────────────────────────────────────────────────
+           Left off a phone's full screen, where every line already carries
+           its own name tag on the tape and the rows are the board's height. */}
+      {!(compact && fsActive) && (
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
         <LegendDot color="var(--color-flip)" label="Gamma Flip" />
         <LegendDot color="var(--color-bear)" label="Call Wall" />
@@ -5220,6 +5367,7 @@ export default function GammaTerminalChart({
           </span>
         </div>
       </div>
+      )}
 
       {/* ── Panelled rail ────────────────────────────────────────────────
           The page gave us an element across the tape's price band, so the rail
@@ -5285,6 +5433,7 @@ export default function GammaTerminalChart({
           on this toolbar when it is not (see the toolbar block above). */}
       {inPanel && railControlsTarget ? createPortal(railViewControls, railControlsTarget) : null}
     </div>
+    </>
   );
 }
 

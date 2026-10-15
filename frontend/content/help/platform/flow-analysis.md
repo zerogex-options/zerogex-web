@@ -1,74 +1,93 @@
 # Flow Analysis
 
-*Premium-weighted and net-volume flow, the Lee-Ready aggressor split, and how to spot real conviction in the tape.*
+*What traded today and who crossed the spread to trade it: contracts bought and sold on each side, net premium, and the put/call, on one clock.*
 
 ---
 
 ## What this page shows
 
-The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the static book, this page shows you the **flow** - what traded today, and which side crossed the spread to trade it.
+The Flow Analysis page is the **tape view** of the options market. Where Dealer Positioning shows you the standing book, this page shows you the **flow**: what traded today, and which side crossed the spread to trade it.
 
-Three menus in the header apply to the whole page: **Session** (the current session or the prior one, so you can see whether today is unusual at all), **Bars** (**5 min** or **1 min** - how finely the charts slice the session) and **Volume basis** (**Directional** or **Total Traded** - see below).
+Two controls in the header apply to the whole page: **Session** (the live session or any of the last week's, so you can see whether today is unusual at all) and **Contracts** (every contract, or the strikes and expirations you pick). The chart's own toolbar sets the bar size, **5 min** or **1 min**.
 
-## The three flow lenses
+## Bought and sold
 
-ZeroGEX shows flow through three lenses, because each one matters differently.
+Every option print is classed by the side that crossed the spread, using the Lee-Ready convention:
 
-### Net contract volume
+- At or near the **ask**, a buyer paid up: it counts as **bought**.
+- At or near the **bid**, a seller hit it: it counts as **sold**.
+- Prints at the **midpoint** are shared out between the two in proportion to that contract's ask and bid prints in the same minute. Prints with no side to go on at all, like the 09:30 opening auction, count half each way.
 
-Just count contracts. Useful as a noise baseline. Useless as a conviction read on its own - a thousand $0.05 contracts and one $500 contract count the same. The **Total Traded** basis counts every contract that changed hands, so it only ever rises.
+So bought plus sold is always every contract that traded. The aggressor read is the closest the feed gets to intent, but it cannot tell an opening trade from a closing one: a put "sold" at the bid can be a new seller or a buyer taking profits.
 
-### Premium-weighted flow
+Calls bought and puts sold make up the **bullish side**. Puts bought and calls sold make up the **bearish side**. Color follows that everywhere on the page: green is the bullish side, red the bearish side. That is why a put row's "bought" is red.
 
-Multiply contract volume by premium paid. **This is the conviction read.** A trader paying $500/contract for a 0DTE OTM call is making a real bet; a trader scalping $0.05 lotto tickets is not.
+## The session read
 
-### Directional flow (Lee-Ready aggressor split)
+The row across the top reads the session in one line:
 
-Classify each trade as buyer-initiated or seller-initiated using the Lee-Ready algorithm (which side of the bid/ask the trade was on); prints too close to the midpoint to call either way are left unsigned. Sum buyer-initiated minus seller-initiated. Tells you whether the aggressors are paying for upside or downside. The **Directional** basis signs volume this way, so it can print below zero.
+- **Flow** - **Risk-on** when net premium and net flow both lean bullish, **Risk-off** when both lean bearish, and **Two-way** when they disagree or are both too small to call (net flow under 1% of the contracts traded and net premium under 5% of the call and put premium).
+- **Net premium** - net call premium minus net put premium, each counted as bought minus sold, with the call and put legs underneath. A negative put leg means puts were net sold.
+- **Net flow** - the bullish side minus the bearish side, in contracts, and the bullish side's share of everything traded.
+- **Put/call** - put volume divided by call volume.
+- **Volume** - every contract traded, and how many since the latest bar opened.
 
-## The regime banner
+## Bought vs. sold
 
-**Flow Analysis Regime** labels the session so far: **Risk-On Flow Regime** when net premium and net flow both lean to calls, **Risk-Off Flow Regime** when both lean to puts, and **Mixed / Two-Way Flow** when they disagree or are both small. The paragraph underneath gives the numbers behind the label.
+Session totals for calls and puts, each split into **bought** and **sold**, with the split as a bar, the **net** (bought minus sold), and what the latest bar has added so far. The line underneath adds the two sides up: the bullish side against the bearish side, and how far one leads, which is the session's net flow.
 
-## The Flow Snapshot
+The numbers update as the session trades, every few seconds.
 
-Session totals as of the latest bar:
+## The session chart
 
-- **Call Volume** and **Put Volume** - contracts traded, with the net premium on each side underneath
-- **Net Flow** - net call contracts minus net put contracts, each signed by the aggressor
-- **Net Premium** - net call premium minus net put premium. Positive ⇒ aggressors paying for calls / selling puts on net; negative ⇒ aggressors paying for puts / selling calls.
-- **Put/Call Ratio** - put volume divided by call volume
+One chart, in panes that share the session's clock and a crosshair, times in ET:
 
-## The charts
+- **Price** - the underlying through the session.
+- **Net premium** - the running net premium, shaded green above zero and red below, with the **call and put legs** as thin lines.
+- **Contracts** - what traded in each bar. Up bars are the bullish side (calls bought, with puts sold stacked lighter on top); down bars are the bearish side (puts bought, with calls sold).
+- **Put/call** - the running ratio, with a dashed line at 1.
+- **Numbered markers** along the top match the flow log.
 
-- **Options Flow** - net call premium and net put premium through the session against the underlying price, with a volume area underneath on the basis you picked. Filter it by strike or expiration.
-- **Net Directional Premium** - the running session total of net premium, shaded above and below zero.
-- **Put/Call Ratio** - the session-cumulative ratio at each bar.
-- **Net Position (Buys vs. Sells)** - running net call and net put volume, so you can tell buying from selling, which the ratio can't.
+The buttons above the chart turn each pane on or off, and this browser remembers your choice. Hover over the chart, or tap it on a phone, for every number at that bar. **Full screen** gives the chart the whole window, with the panes sized to it; Escape or **Exit** brings it back.
 
-Each is plotted as a series so you can see the slope, not just the level.
+## Flow log
 
-## Smart money
+The session's notable flow, newest first:
 
-Smart-money prints have their own page - see [Smart Money](/help/platform/smart-money). Use it as a cross-check on the headline flow here.
+- **Net flow turned bullish / bearish** - the running net flow changed sides and the new side leads by at least 0.5% of the contracts traded. Small wobbles around zero are not listed.
+- **Net premium turned bullish / bearish** - the same for net premium, by at least 3% of the call and put premium.
+- **Put/call rose above 1 / fell below 1** - once it is 0.05 past 1.
+- **Volume burst** - a bar at least 2.5 times the median of the previous hour's bars, with which side led it. The six biggest of the session are listed.
+
+Nothing is called in the first ten minutes, when every total is small enough to swing on a single print.
+
+## Bar by bar
+
+Each bar's calls and puts, bought and sold, and its net flow, newest first. Bars in which nothing traded are left out. During the session the top row is the bar still trading.
+
+## Picking contracts
+
+**Contracts** opens the strike and expiration picks. A pick narrows everything on the page, so every number you see describes the same contracts. Expiration picks are shared with the gamma charts in the same browser tab, and the header always says which contracts the page is reading; the **×** beside it goes back to all of them.
+
+ES and NQ have no option chain of their own: their flow is SPX and NDX flow, so the strikes listed are index strikes, not futures prices.
 
 ## How to read it
 
 Three patterns:
 
-1. **Strong premium-weighted positive flow with a positive GEX Gradient while dealers are modeled short gamma** ⇒ traders are paying for upside that dealers are modeled short. High-conviction continuation read.
-2. **Strong put buy with the Positioning Trap signal loaded on the short-crowd (positive) side** ⇒ the bearish crowd is offside; expect a snap back up.
+1. **Strong bullish-side flow and rising net premium while dealers are modeled short gamma** ⇒ traders are paying for upside that dealers are modeled short. A continuation read.
+2. **Puts bought hard into a level** with the Positioning Trap signal loaded on the short-crowd side ⇒ the bearish crowd may be offside; watch for a snap back.
 3. **Flow flat near a key level** ⇒ wait for the break. Flow without conviction is not a trade.
-
-## Net Volume vs. Directional Flow
-
-For the deeper read on why raw volume can mislead, why directional flow adds signal, and why premium-weighted is usually the strongest conviction metric, see [Net Volume vs Directional Flow](/education/net-volume-vs-directional-flow).
 
 ## When the page is most useful
 
-- **Right after the open** - the first 30 minutes tell you a lot about the day's bias.
-- **At any key level** - the flow into a wall or VWAP shows who is pressing the level. In our study of 737 wall tests, signed flow at the wall strike did not predict which walls broke, so read it as context, not a verdict.
-- **Into the close** - combined with EOD Pressure, the flow read sharpens the directional cue.
+- **Right after the open** - the first half hour tells you a lot about the day's lean.
+- **At any key level** - the flow into a wall or VWAP shows who is pressing it. In our study of 737 wall tests, signed flow at the wall strike did not predict which walls broke, so read it as context, not a verdict.
+- **Into the close** - with EOD Pressure, the flow read sharpens the directional cue.
+
+## Net volume vs. directional flow
+
+For the longer read on why raw volume can mislead, why the aggressor split adds signal, and why premium is usually the stronger conviction measure, see [Net Volume vs Directional Flow](/education/net-volume-vs-directional-flow).
 
 ## See also
 

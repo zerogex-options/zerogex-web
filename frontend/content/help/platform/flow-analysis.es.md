@@ -1,74 +1,93 @@
 # Análisis de flujo
 
-*Flujo ponderado por prima y por volumen neto, la separación de agresores Lee-Ready, y cómo detectar la convicción real en el tape.*
+*Lo que se negoció hoy y quién cruzó el spread para negociarlo: contratos comprados y vendidos en cada lado, la prima neta y el put/call, en un mismo reloj.*
 
 ---
 
 ## Qué muestra esta página
 
-La página de Flow Analysis es la **vista del tape** del mercado de opciones. Mientras que Dealer Positioning muestra el libro estático, esta página muestra el **flujo** - lo que se negoció hoy y qué lado cruzó el spread para negociarlo.
+La página de Flow Analysis es la **vista del tape** del mercado de opciones. Mientras que Dealer Positioning muestra el libro vigente, esta página muestra el **flujo**: lo que se negoció hoy y qué lado cruzó el spread para negociarlo.
 
-Tres menús del encabezado se aplican a toda la página: **Session** (la sesión actual o la anterior, para ver si hoy es inusual en algo), **Bars** (**5 min** o **1 min** - con qué detalle los gráficos dividen la sesión) y **Volume basis** (**Directional** o **Total Traded** - ver más abajo).
+Dos controles del encabezado se aplican a toda la página: **Session** (la sesión en curso o cualquiera de la última semana, para ver si hoy es inusual en algo) y **Contracts** (todos los contratos, o los strikes y vencimientos que elijas). La barra de herramientas del gráfico fija el tamaño de las barras, **5 min** o **1 min**.
 
-## Los tres enfoques del flujo
+## Comprado y vendido
 
-ZeroGEX muestra el flujo a través de tres enfoques, porque cada uno importa de forma distinta.
+Cada print de opciones se clasifica según el lado que cruzó el spread, con la convención Lee-Ready:
 
-### Volumen neto de contratos
+- En el **ask** o cerca, un comprador pagó el precio: cuenta como **comprado**.
+- En el **bid** o cerca, un vendedor lo golpeó: cuenta como **vendido**.
+- Los prints en el **punto medio** se reparten entre ambos en proporción a los prints en el ask y en el bid de ese contrato en el mismo minuto. Los prints sin ningún indicio de lado, como la subasta de apertura de las 09:30, cuentan la mitad para cada lado.
 
-Simplemente cuenta contratos. Útil como referencia de ruido de fondo. Poco útil por sí solo como lectura de convicción - mil contratos de $0,05 y un contrato de $500 cuentan igual. La base **Total Traded** cuenta cada contrato que cambió de manos, así que solo puede subir.
+Así, comprado más vendido es siempre todo lo que se negoció. La lectura del agresor es lo más cerca que el feed llega a la intención, pero no distingue una apertura de un cierre: una put "vendida" en el bid puede ser un vendedor nuevo o un comprador que recoge beneficios.
 
-### Flujo ponderado por prima
+Las calls compradas y las puts vendidas forman el **lado alcista**; las puts compradas y las calls vendidas, el **lado bajista**. Los colores siguen esa regla en toda la página: verde es el lado alcista, rojo el bajista. Por eso el "bought" de la fila de puts es rojo.
 
-Multiplica el volumen de contratos por la prima pagada. **Esta es la lectura de convicción.** Un trader que paga $500 por contrato en una call OTM 0DTE está haciendo una apuesta real; un trader que hace scalping con tickets de lotería de $0,05 no.
+## La lectura de la sesión
 
-### Flujo direccional (separación de agresores Lee-Ready)
+La fila superior lee la sesión de un vistazo:
 
-Clasifica cada operación como iniciada por el comprador o por el vendedor usando el algoritmo Lee-Ready (de qué lado del bid/ask se ejecutó la operación); los prints demasiado cerca del punto medio para asignarlos a un lado quedan sin signo. Suma las operaciones iniciadas por el comprador menos las iniciadas por el vendedor. Indica si los agresores están pagando por el alza o por la baja. La base **Directional** asigna signo al volumen de esta forma, así que puede quedar por debajo de cero.
+- **Flow** - **Risk-on** cuando la prima neta y el flujo neto se inclinan ambos al alza, **Risk-off** cuando ambos se inclinan a la baja, y **Two-way** cuando discrepan o ambos son demasiado pequeños para valorarlos (flujo neto por debajo del 1 % de los contratos negociados y prima neta por debajo del 5 % de la prima de calls y puts).
+- **Net premium** - prima neta de calls menos prima neta de puts, cada una como comprado menos vendido, con la parte de calls y la de puts debajo. Una parte de puts negativa significa que las puts se vendieron en neto.
+- **Net flow** - el lado alcista menos el bajista, en contratos, y la participación del lado alcista en todo lo negociado.
+- **Put/call** - volumen de puts dividido entre volumen de calls.
+- **Volume** - todos los contratos negociados, y cuántos desde que abrió la barra más reciente.
 
-## El banner de régimen
+## Bought vs. sold
 
-**Flow Analysis Regime** etiqueta la sesión hasta el momento: **Risk-On Flow Regime** cuando la prima neta y el flujo neto se inclinan ambos hacia las calls, **Risk-Off Flow Regime** cuando ambos se inclinan hacia las puts, y **Mixed / Two-Way Flow** cuando no coinciden o ambos son pequeños. El párrafo de debajo da las cifras detrás de la etiqueta.
+Totales de la sesión para calls y puts, cada uno dividido en **comprado** y **vendido**, con el reparto como barra, el **neto** (comprado menos vendido) y lo que la barra más reciente ha añadido hasta ahora. La línea de abajo suma los dos lados: el alcista frente al bajista, y cuánto aventaja uno al otro, que es el flujo neto de la sesión.
 
-## El Flow Snapshot
+Las cifras se actualizan cada pocos segundos mientras se negocia.
 
-Totales de la sesión a la última barra:
+## El gráfico de la sesión
 
-- **Call Volume** y **Put Volume** - contratos negociados, con la prima neta de cada lado debajo
-- **Net Flow** - contratos netos de calls menos contratos netos de puts, cada uno con el signo del agresor
-- **Net Premium** - prima neta de calls menos prima neta de puts. Positivo ⇒ los agresores están pagando por calls / vendiendo puts en términos netos; negativo ⇒ los agresores están pagando por puts / vendiendo calls.
-- **Put/Call Ratio** - volumen de puts dividido por volumen de calls
+Un gráfico en paneles que comparten el reloj de la sesión y una cruz, con horas en ET:
 
-## Los gráficos
+- **Price** - el subyacente a lo largo de la sesión.
+- **Net premium** - la prima neta acumulada, sombreada en verde por encima de cero y en rojo por debajo, con las **partes de calls y de puts** como líneas finas.
+- **Contracts** - lo que se negoció en cada barra. Las barras hacia arriba son el lado alcista (calls compradas, con las puts vendidas apiladas encima en un tono más claro); las barras hacia abajo, el lado bajista (puts compradas, con las calls vendidas).
+- **Put/call** - la ratio acumulada, con una línea discontinua en 1.
+- Los **marcadores numerados** de la parte superior coinciden con el registro de flujo.
 
-- **Options Flow** - la prima neta de calls y de puts a lo largo de la sesión frente al precio del subyacente, con un área de volumen debajo según la base elegida. Se puede filtrar por strike o por vencimiento.
-- **Net Directional Premium** - el total acumulado de la sesión de la prima neta, sombreado por encima y por debajo de cero.
-- **Put/Call Ratio** - el ratio acumulado de la sesión en cada barra.
-- **Net Position (Buys vs. Sells)** - el volumen neto acumulado de calls y de puts, para distinguir compras de ventas, algo que el ratio no puede hacer.
+Los botones sobre el gráfico activan o desactivan cada panel, y este navegador recuerda tu elección. Pasa el cursor por el gráfico, o tócalo en el móvil, para ver todas las cifras de esa barra. **Full screen** le da al gráfico toda la ventana, con los paneles ajustados a ella; Escape o **Exit** lo devuelven a su sitio.
 
-Cada uno se representa como una serie para que puedas ver la pendiente, no solo el nivel.
+## Registro de flujo
 
-## Smart money
+El flujo destacado de la sesión, lo más reciente primero:
 
-Los prints de smart money tienen su propia página - consulta [Smart Money](/help/platform/smart-money). Úsala como verificación cruzada del flujo principal de esta página.
+- **Net flow turned bullish / bearish** - el flujo neto acumulado cambió de lado y el nuevo lado aventaja en al menos el 0,5 % de los contratos negociados. Las pequeñas oscilaciones alrededor de cero no se listan.
+- **Net premium turned bullish / bearish** - lo mismo para la prima neta, por al menos el 3 % de la prima de calls y puts.
+- **Put/call rose above 1 / fell below 1** - una vez que se aleja 0,05 de 1.
+- **Volume burst** - una barra de al menos 2,5 veces la mediana de las barras de la hora anterior, con el lado que la lideró. Se listan las seis mayores de la sesión.
 
-## Cómo interpretarla
+No se señala nada en los primeros diez minutos, cuando cualquier total es tan pequeño que un solo print lo puede voltear.
+
+## Bar by bar
+
+Las calls y puts de cada barra, compradas y vendidas, y su flujo neto, lo más reciente primero. Las barras en las que no se negoció nada no aparecen. Durante la sesión, la fila superior es la barra que sigue abierta.
+
+## Elegir contratos
+
+**Contracts** abre la selección de strikes y vencimientos. Una selección acota todo lo que hay en la página, de modo que cada cifra describe los mismos contratos. La selección de vencimientos se comparte con los gráficos de gamma en la misma pestaña del navegador, y el encabezado siempre indica qué contratos está leyendo la página; la **×** de al lado vuelve a todos.
+
+ES y NQ no tienen cadena de opciones propia: su flujo es el de SPX y NDX, así que los strikes listados son strikes del índice, no precios del futuro.
+
+## Cómo leerlo
 
 Tres patrones:
 
-1. **Flujo positivo ponderado por prima fuerte con un GEX Gradient positivo mientras los dealers están, según el modelo, cortos de gamma** ⇒ los traders están pagando por un alza en la que los dealers están cortos según el modelo. Lectura de continuación con alta convicción.
-2. **Compra fuerte de puts con la señal Positioning Trap cargada en el lado de la multitud short (positivo)** ⇒ la multitud bajista está mal posicionada; espera un rebote brusco al alza.
-3. **Flujo plano cerca de un nivel clave** ⇒ espera la ruptura. El flujo sin convicción no es una operación.
+1. **Flujo fuerte en el lado alcista y prima neta al alza mientras los dealers están modelados cortos en gamma** ⇒ los traders pagan por un alza en la que los dealers están modelados cortos. Una lectura de continuación.
+2. **Puts compradas con fuerza contra un nivel** con la señal Positioning Trap cargada del lado de la multitud corta ⇒ la multitud bajista puede estar mal posicionada; atento a un rebote.
+3. **Flujo plano cerca de un nivel clave** ⇒ espera a la ruptura. Flujo sin convicción no es un trade.
+
+## Cuándo es más útil la página
+
+- **Justo después de la apertura** - la primera media hora dice mucho sobre la inclinación del día.
+- **En cualquier nivel clave** - el flujo hacia un wall o el VWAP muestra quién presiona el nivel. En nuestro estudio de 737 pruebas de walls, el flujo con signo en el strike del wall no predijo qué walls se rompían, así que léelo como contexto, no como veredicto.
+- **Hacia el cierre** - junto con EOD Pressure, la lectura del flujo afina la señal direccional.
 
 ## Volumen neto vs. flujo direccional
 
-Para una explicación más profunda de por qué el volumen bruto puede engañar, por qué el flujo direccional añade señal, y por qué el flujo ponderado por prima suele ser la métrica de convicción más sólida, consulta [Volumen neto vs flujo direccional](/education/net-volume-vs-directional-flow).
-
-## Cuándo esta página es más útil
-
-- **Justo después de la apertura** - los primeros 30 minutos dicen mucho sobre el sesgo del día.
-- **En cualquier nivel clave** - el flujo hacia un wall o el VWAP muestra quién está presionando el nivel. En nuestro estudio de 737 pruebas de walls, el flujo con signo en el strike del wall no predijo qué walls se romperían, así que léelo como contexto, no como un veredicto.
-- **Hacia el cierre** - combinado con EOD Pressure, la lectura del flujo afina la señal direccional.
+Para la lectura completa sobre por qué el volumen bruto puede engañar, por qué la separación de agresores añade señal y por qué la prima suele ser la medida de convicción más fuerte, consulta [Volumen neto vs flujo direccional](/education/net-volume-vs-directional-flow).
 
 ## Ver también
 
