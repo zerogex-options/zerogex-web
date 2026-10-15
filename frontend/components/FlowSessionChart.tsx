@@ -18,6 +18,7 @@
 
 import { useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useChipInk } from '@/hooks/useChartTheme';
+import { useChartReadout } from '@/hooks/useChartReadout';
 import { ET_HM, etMinuteOfDay, generateNiceTicks, trimEdgeTicks } from '@/core/technicalsCharts';
 import { fmtLevel, spreadTags } from '@/core/technicalsSession';
 import {
@@ -110,7 +111,8 @@ export default function FlowSessionChart({
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const readout = useChartReadout(wrapRef);
+  const { index: hoverIdx, setIndex: setHoverIdx } = readout;
   const chipInk = useChipInk();
   const clipId = useId().replace(/[^a-zA-Z0-9]/g, '');
 
@@ -410,7 +412,8 @@ export default function FlowSessionChart({
         style={{ display: 'block', touchAction: 'pan-y' }}
         onPointerMove={onPointer}
         onPointerDown={onPointer}
-        onPointerLeave={() => setHoverIdx(null)}
+        onPointerLeave={readout.onPointerLeave}
+        onPointerCancel={readout.onPointerCancel}
       >
         <defs>
           <clipPath id={`${clipId}-plot`}>

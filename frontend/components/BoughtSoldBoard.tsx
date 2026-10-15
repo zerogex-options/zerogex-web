@@ -27,6 +27,8 @@ interface Props {
   barLabel: string | null;
   compact: boolean;
   loading: boolean;
+  /** The first load failed, so "no trades" would be a guess. */
+  failed?: boolean;
   /** The live session, still trading (a past one is final). */
   live: boolean;
   /** Says which contracts the numbers cover when a filter narrows them. */
@@ -93,7 +95,7 @@ function netWords(net: number): string {
   return net > 0 ? 'net bought' : net < 0 ? 'net sold' : 'even';
 }
 
-export default function BoughtSoldBoard({ read, barLabel, compact, loading, live, scopeNote = null }: Props) {
+export default function BoughtSoldBoard({ read, barLabel, compact, loading, failed = false, live, scopeNote = null }: Props) {
   const sides: Side[] = read
     ? [
         {
@@ -149,7 +151,7 @@ export default function BoughtSoldBoard({ read, barLabel, compact, loading, live
           </div>
         ) : (
           <p className="zg-caption" style={{ margin: 0, padding: '18px 16px' }}>
-            No trades yet in this session.
+            {failed ? "The flow didn't load." : 'No trades yet in this session.'}
           </p>
         )}
       </Panel>

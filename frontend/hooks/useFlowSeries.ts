@@ -102,11 +102,13 @@ interface CacheEntry {
 }
 
 const DEFAULT_INCREMENTAL_MS = 5_000;
-// How many trailing bars a tail poll re-reads. One is enough on 5-minute bars,
-// where the full refresh catches the occasional bar that closes between polls.
-// On 1-minute bars a bar closes every minute, and the backend keeps revising
-// the last few minutes as late prints land, so each poll re-reads five.
-const TAIL_BARS: Record<FlowTimeframe, number> = { '5min': 1, '1min': 5 };
+// How many trailing bars a tail poll re-reads. On 5-minute bars the backend
+// rewrites the bar that just closed as well as the open one (its last cycle and
+// late prints settle after the boundary), so each poll re-reads both; with one,
+// a closed bar kept its last pre-close copy until the full refresh and its
+// final prints read as the next bar's. On 1-minute bars a bar closes every
+// minute and the backend keeps revising the last few, so each poll re-reads five.
+const TAIL_BARS: Record<FlowTimeframe, number> = { '5min': 2, '1min': 5 };
 const DEFAULT_FULL_REFRESH_MS = 5 * 60_000;
 const STORAGE_PREFIX = 'zerogex:flowSeries:v1:';
 const STORAGE_TTL_MS = 24 * 60 * 60_000;
@@ -283,8 +285,8 @@ export interface UseFlowSeriesOptions {
  * hook just polls, merges tails, and hands back the latest snapshot.
  *
  * Dual polling:
- *   - incrementalMs (default 5s): a pull of the tail bar (the last five on
- *     1-minute bars, see TAIL_BARS)
+ *   - incrementalMs (default 5s): a pull of the last two bars (the last five
+ *     on 1-minute bars, see TAIL_BARS)
  *   - fullRefreshMs (default 5min): full series refetch
  *
  * Keyed per filter combination so toggling filter chips doesn't thrash the

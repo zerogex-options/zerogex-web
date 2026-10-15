@@ -13,6 +13,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useChipInk, useLevelInk } from '@/hooks/useChartTheme';
+import { useChartReadout } from '@/hooks/useChartReadout';
 import { ET_HM, etMinuteOfDay, generateNiceTicks, trimEdgeTicks } from '@/core/technicalsCharts';
 import {
   ORB_NEAR_FRACTION,
@@ -95,7 +96,8 @@ export default function TechnicalsSessionChart({
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const readout = useChartReadout(wrapRef);
+  const { index: hoverIdx, setIndex: setHoverIdx } = readout;
   const chipInk = useChipInk();
   const levelInk = useLevelInk();
 
@@ -252,7 +254,8 @@ export default function TechnicalsSessionChart({
         style={{ display: 'block', touchAction: 'pan-y' }}
         onPointerMove={onPointer}
         onPointerDown={onPointer}
-        onPointerLeave={() => setHoverIdx(null)}
+        onPointerLeave={readout.onPointerLeave}
+        onPointerCancel={readout.onPointerCancel}
       >
         {/* Price grid */}
         {ticks.map((t) => (

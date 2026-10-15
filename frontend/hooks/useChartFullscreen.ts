@@ -115,8 +115,16 @@ export function useChartFullscreen(): ChartFullscreen {
     };
   }, [active, exit]);
 
-  // Navigating away mid full screen hands the browser back as it was.
-  useEffect(() => () => leaveBrowserFullscreen(), [leaveBrowserFullscreen]);
+  // Navigating away mid full screen hands the browser back as it was, even
+  // when the browser is still entering: the pending request then sees the
+  // chart gone and leaves at once.
+  useEffect(
+    () => () => {
+      activeRef.current = false;
+      leaveBrowserFullscreen();
+    },
+    [leaveBrowserFullscreen],
+  );
 
   return { active, enter, exit, toggle };
 }
