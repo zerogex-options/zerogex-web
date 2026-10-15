@@ -63,7 +63,7 @@ No se señala nada en los primeros diez minutos, cuando cualquier total es tan p
 
 ## Bar by bar
 
-Las calls y puts de cada barra, compradas y vendidas, y su flujo neto, lo más reciente primero. Durante la sesión, la fila superior es la barra que sigue abierta.
+Las calls y puts de cada barra, compradas y vendidas, y su flujo neto, lo más reciente primero. Las barras en las que no se negoció nada no aparecen. Durante la sesión, la fila superior es la barra que sigue abierta.
 
 ## Elegir contratos
 

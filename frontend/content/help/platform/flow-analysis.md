@@ -63,7 +63,7 @@ Nothing is called in the first ten minutes, when every total is small enough to 
 
 ## Bar by bar
 
-Each bar's calls and puts, bought and sold, and its net flow, newest first. During the session the top row is the bar still trading.
+Each bar's calls and puts, bought and sold, and its net flow, newest first. Bars in which nothing traded are left out. During the session the top row is the bar still trading.
 
 ## Picking contracts
 

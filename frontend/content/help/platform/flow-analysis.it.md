@@ -63,7 +63,7 @@ Nei primi dieci minuti non viene segnalato nulla, perché ogni totale è abbasta
 
 ## Bar by bar
 
-Call e put di ogni barra, acquistate e vendute, e il suo flusso netto, dalla più recente. Durante la sessione, la riga in alto è la barra ancora in corso.
+Call e put di ogni barra, acquistate e vendute, e il suo flusso netto, dalla più recente. Le barre in cui non è stato scambiato nulla vengono omesse. Durante la sessione, la riga in alto è la barra ancora in corso.
 
 ## Scegliere i contratti
 

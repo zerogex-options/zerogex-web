@@ -359,8 +359,8 @@ export function buildFlowEvents(bars: readonly FlowBar[], barMinutes: number): F
 
     // Bursts.
     if (callable && i >= minBaseline) {
-      const window = bars.slice(Math.max(0, i - hourBars), i).map((x) => sideTotal(x.bar));
-      const base = median(window);
+      const prior = bars.slice(Math.max(0, i - hourBars), i).map((x) => sideTotal(x.bar));
+      const base = median(prior);
       const size = sideTotal(b.bar);
       if (base > 0 && size >= BURST_MULTIPLE * base) {
         const bull = bullishSide(b.bar);

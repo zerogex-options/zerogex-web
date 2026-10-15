@@ -136,8 +136,6 @@ export default function FlowSessionChart({
   const panesTop = LANE_H ? LANE_H + 6 : 4;
   const panesBottom = Math.max(panesTop + 40, height - AXIS_H);
 
-  const shown = PANE_ORDER.filter((k) => layers[k]);
-  const bands = paneLayout(shown, panesTop, panesBottom - panesTop, PANE_GAP);
 
   const spanMs = Math.max(barMs, sessionEndMs - sessionStartMs);
   const slots = Math.max(1, Math.round(spanMs / barMs));
@@ -170,6 +168,11 @@ export default function FlowSessionChart({
   if (width === 0 || bars.length === 0) {
     return <div ref={wrapRef} style={{ width: '100%', height }} aria-hidden="true" />;
   }
+
+  // A pane with nothing to draw (no underlying price on the rows, say) hands
+  // its height to the others rather than sitting blank.
+  const shown = PANE_ORDER.filter((k) => layers[k] && domains[k] != null);
+  const bands = paneLayout(shown, panesTop, panesBottom - panesTop, PANE_GAP);
 
   const bandOf = (key: FlowPaneKey) => bands.find((b) => b.key === key) ?? null;
   const yIn = (key: FlowPaneKey) => {

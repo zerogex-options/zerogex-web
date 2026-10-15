@@ -63,7 +63,7 @@ Rien n'est signalé pendant les dix premières minutes, quand chaque total est a
 
 ## Bar by bar
 
-Les calls et les puts de chaque barre, achetés et vendus, et son flux net, le plus récent en premier. Pendant la séance, la ligne du haut est la barre encore en cours.
+Les calls et les puts de chaque barre, achetés et vendus, et son flux net, le plus récent en premier. Les barres sans aucun échange sont omises. Pendant la séance, la ligne du haut est la barre encore en cours.
 
 ## Choisir les contrats
 

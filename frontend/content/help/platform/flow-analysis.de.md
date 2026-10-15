@@ -63,7 +63,7 @@ In den ersten zehn Minuten wird nichts gemeldet, weil dann jede Summe klein genu
 
 ## Bar by bar
 
-Calls und Puts jedes Balkens, gekauft und verkauft, und sein Net Flow, neueste zuerst. Während der Sitzung ist die oberste Zeile der Balken, der noch läuft.
+Calls und Puts jedes Balkens, gekauft und verkauft, und sein Net Flow, neueste zuerst. Balken, in denen nichts gehandelt wurde, entfallen. Während der Sitzung ist die oberste Zeile der Balken, der noch läuft.
 
 ## Kontrakte auswählen
 

@@ -46,6 +46,7 @@ import {
   fmtContractsCompact,
   fmtShare,
   fmtUsdCompact,
+  sideTotal,
   type FlowBar,
   type FlowEvent,
   type FlowEventTone,
@@ -322,7 +323,10 @@ export default function FlowAnalysisPage() {
 
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [showAllBars, setShowAllBars] = useState(false);
-  const recentBars = useMemo(() => [...bars].reverse(), [bars]);
+  // The tape lists bars that traded: a narrow strike pick can leave most bars
+  // empty, and a column of zeros reads as missing data.
+  const recentBars = useMemo(() => bars.filter((b) => sideTotal(b.bar) > 0).reverse(), [bars]);
+  const topRowFilling = live && recentBars.length > 0 && recentBars[0].ms === bars[bars.length - 1]?.ms;
   const visibleBars = showAllBars ? recentBars : recentBars.slice(0, BARS_COLLAPSED);
   const visibleEvents = showAllEvents ? events : events.slice(0, EVENTS_COLLAPSED);
 
@@ -627,11 +631,11 @@ export default function FlowAnalysisPage() {
           <Panel padded={false}>
             <PanelHead
               title="Bar by bar"
-              caption={`${isMobile ? `Contracts in each ${barMinutes}-minute bar, bought / sold` : `Contracts bought and sold in each ${barMinutes}-minute bar`}, newest first.${live && bars.length > 0 ? ' The top row is still filling.' : ''}`}
+              caption={`${isMobile ? `Contracts in each ${barMinutes}-minute bar, bought / sold` : `Contracts bought and sold in each ${barMinutes}-minute bar`}, newest first; bars with no trades are left out.${topRowFilling ? ' The top row is still filling.' : ''}`}
             />
-            {bars.length === 0 ? (
+            {recentBars.length === 0 ? (
               <p className="zg-caption" style={{ margin: 0, padding: '18px 16px' }}>
-                {showInitialLoading ? 'Loading the session…' : 'No bars yet this session.'}
+                {showInitialLoading ? 'Loading the session…' : 'Nothing has traded yet this session.'}
               </p>
             ) : isMobile ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: '0 16px' }}>
@@ -712,7 +716,7 @@ export default function FlowAnalysisPage() {
                 </table>
               </div>
             )}
-            {bars.length > BARS_COLLAPSED && <ShowMore open={showAllBars} total={bars.length} noun="bars" onClick={() => setShowAllBars((v) => !v)} />}
+            {recentBars.length > BARS_COLLAPSED && <ShowMore open={showAllBars} total={recentBars.length} noun="bars" onClick={() => setShowAllBars((v) => !v)} />}
           </Panel>
         </div>
 
