@@ -1,13 +1,10 @@
 /**
  * Pure, React-free derivations for the "Options Flow" chart — the net
- * call/put premium + net volume instrument that headlines /flow-analysis and,
- * as a widget, a member's custom board.
- *
- * These transforms are the single source of truth shared by the Flow Analysis
- * page and the "Options Flow" My Dashboard widget, so a chart added to a board
- * computes its rows identically to the same chart on the page. Kept free of
- * React and `window` so the contract can be exercised directly under the Node
- * test runner, like core/gexStrikeCharts.ts and core/chartSettings.ts.
+ * call/put premium + net volume instrument on a member's custom board — and
+ * the session helpers every flow chart lays out on. (The Flow Analysis page
+ * reads the same feed through core/flowAnalysis.) Kept free of React and
+ * `window` so the contract can be exercised directly under the Node test
+ * runner, like core/gexStrikeCharts.ts and core/chartSettings.ts.
  *
  * One raw feed drives everything here:
  *   • /api/flow/series → 5-minute bars (1-minute with timeframe=1min) whose
@@ -19,10 +16,8 @@
  * Net Directional Premium moved down here once a second page drew it: the
  * Hedging Flow page shows it in compact form under the Weather panel, and two
  * copies of the same running total is how two pages end up disagreeing about
- * one number on one day. Put/Call Ratio and Net Position are still page-only,
- * and should move the same way if anything else ever needs them. All of them
- * share the session timeline, the time labels and the date-marker helper below
- * so every chart lines up.
+ * one number on one day. They share the session timeline, the time labels and
+ * the date-marker helper below so every chart lines up.
  *
  * Deliberately import-free (bar erased type-only imports), like the other core
  * modules the Node test runner exercises directly.
@@ -86,6 +81,19 @@ export type FlowSeriesRowLike = {
 export function canonicalTimestamp(ts: string): string {
   const d = new Date(ts);
   return Number.isNaN(d.getTime()) ? ts : d.toISOString();
+}
+
+/**
+ * Oldest bar first, which is how every consumer reads /api/flow/series rows:
+ * the latest bar is `rows[rows.length - 1]`. The endpoint answers NEWEST
+ * first. Rows whose timestamp does not parse sort to the front, where nothing
+ * reads them as the latest bar.
+ */
+export function sortFlowRowsOldestFirst<T extends { timestamp: string }>(rows: readonly T[]): T[] {
+  return rows
+    .map((row) => ({ row, ms: new Date(row.timestamp).getTime() }))
+    .sort((a, b) => (Number.isFinite(a.ms) ? a.ms : -Infinity) - (Number.isFinite(b.ms) ? b.ms : -Infinity) || 0)
+    .map((x) => x.row);
 }
 
 /** UTC ms for a given ET wall-clock time on `dateKey`, or null if unresolvable. */
@@ -212,8 +220,8 @@ const MAJOR_TICK_ET_HOURS = new Set([10, 12, 14, 16]);
 
 /** True when `ts` lands exactly on 10:00, 12:00, 14:00, or 16:00 ET — used
  *  to thin an intraday axis down to a handful of major markers: always on the
- *  compact /flow-analysis charts, and on a phone anywhere half-hour labels
- *  overprint below ~500px of plot. DST-safe via Intl. */
+ *  compact flow charts, and on a phone anywhere half-hour labels overprint
+ *  below ~500px of plot. DST-safe via Intl. */
 export function isMajorTwoHourTick(ts: string): boolean {
   const d = new Date(ts);
   if (isNaN(d.getTime())) return false;

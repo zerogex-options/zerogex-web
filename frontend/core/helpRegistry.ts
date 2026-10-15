@@ -101,7 +101,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'flow-analysis',
     title: 'Flow Analysis',
-    description: 'Premium-weighted and net-volume flow, and the aggressor split behind both.',
+    description: 'Contracts bought and sold on each side, net premium and the put/call, and how the aggressor split is read.',
     section: 'Metrics',
     subsection: 'Options Flow',
   },

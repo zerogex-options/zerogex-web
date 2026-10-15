@@ -1,74 +1,93 @@
 # Flow-Analyse
 
-*Prämiengewichteter und Netto-Volumen-Flow, die Lee-Ready-Aggressor-Aufteilung, und wie man echte Überzeugung im Tape erkennt.*
+*Was heute gehandelt wurde und wer dafür den Spread gekreuzt hat: gekaufte und verkaufte Kontrakte auf jeder Seite, Net Premium und Put/Call, auf einer gemeinsamen Zeitachse.*
 
 ---
 
 ## Was diese Seite zeigt
 
-Die Flow-Analysis-Seite ist die **Tape-Ansicht** des Optionsmarktes. Während Dealer Positioning das statische Buch zeigt, zeigt diese Seite den **Flow** - was heute gehandelt wurde und welche Seite dafür den Spread gekreuzt hat.
+Die Flow-Analysis-Seite ist die **Tape-Ansicht** des Optionsmarktes. Während Dealer Positioning das stehende Buch zeigt, zeigt diese Seite den **Flow**: was heute gehandelt wurde und welche Seite dafür den Spread gekreuzt hat.
 
-Drei Menüs im Seitenkopf gelten für die ganze Seite: **Session** (die aktuelle oder die vorherige Handelssitzung, damit du siehst, ob heute überhaupt ungewöhnlich ist), **Bars** (**5 min** oder **1 min** - wie fein die Diagramme die Sitzung aufteilen) und **Volume basis** (**Directional** oder **Total Traded** - siehe unten).
+Zwei Bedienelemente im Seitenkopf gelten für die ganze Seite: **Session** (die laufende Sitzung oder eine der letzten Woche, damit du siehst, ob heute überhaupt ungewöhnlich ist) und **Contracts** (alle Kontrakte oder die Strikes und Verfallstermine, die du auswählst). Die Werkzeugleiste des Charts stellt die Balkengröße ein, **5 min** oder **1 min**.
 
-## Die drei Flow-Perspektiven
+## Gekauft und verkauft
 
-ZeroGEX zeigt den Flow durch drei Perspektiven, weil jede auf ihre eigene Weise zählt.
+Jeder Options-Print wird nach der Seite eingeordnet, die den Spread gekreuzt hat, nach der Lee-Ready-Konvention:
 
-### Netto-Kontraktvolumen
+- Am oder nahe am **Ask** hat ein Käufer den Preis bezahlt: Das zählt als **gekauft**.
+- Am oder nahe am **Bid** hat ein Verkäufer zugeschlagen: Das zählt als **verkauft**.
+- Prints in der **Mitte** werden im Verhältnis der Ask- und Bid-Prints desselben Kontrakts in derselben Minute auf beide Seiten verteilt. Prints ganz ohne Anhaltspunkt für eine Seite, etwa die Eröffnungsauktion um 09:30, zählen zur Hälfte in jede Richtung.
 
-Zählt einfach die Kontrakte. Nützlich als Rauschbasis. Allein wenig aussagekräftig als Überzeugungssignal - tausend Kontrakte zu $0,05 und ein Kontrakt zu $500 zählen gleich viel. Die Basis **Total Traded** zählt jeden Kontrakt, der den Besitzer gewechselt hat, und steigt deshalb nur.
+Gekauft plus verkauft ergibt also immer alle gehandelten Kontrakte. Die Aggressor-Lesart kommt der Absicht so nah, wie es der Datenfeed erlaubt, kann aber eine Eröffnung nicht von einer Schließung unterscheiden: Ein am Bid „verkaufter“ Put kann ein neuer Verkäufer sein oder ein Käufer, der Gewinne mitnimmt.
 
-### Prämiengewichteter Flow
+Gekaufte Calls und verkaufte Puts bilden die **bullische Seite**, gekaufte Puts und verkaufte Calls die **bärische Seite**. Die Farben folgen dem überall auf der Seite: Grün ist die bullische Seite, Rot die bärische. Deshalb ist das „bought“ in der Put-Zeile rot.
 
-Multipliziert das Kontraktvolumen mit der gezahlten Prämie. **Das ist das Überzeugungssignal.** Ein Trader, der $500 pro Kontrakt für einen 0DTE-OTM-Call zahlt, geht eine echte Wette ein; ein Trader, der $0,05-Lottoscheine scalpt, tut das nicht.
+## Die Session-Zeile
 
-### Direktionaler Flow (Lee-Ready-Aggressor-Aufteilung)
+Die Zeile ganz oben liest die Sitzung in einem Zug:
 
-Klassifiziert jeden Trade als käufer- oder verkäuferinitiiert mithilfe des Lee-Ready-Algorithmus (auf welcher Seite von Bid/Ask der Trade stattfand); Prints, die zu nah an der Mitte liegen, um sie zuzuordnen, bleiben ohne Vorzeichen. Summiert käuferinitiierte minus verkäuferinitiierte Trades. Zeigt, ob die Aggressoren für Aufwärts- oder Abwärtsbewegung zahlen. Die Basis **Directional** versieht das Volumen auf diese Weise mit Vorzeichen und kann daher unter null fallen.
+- **Flow** - **Risk-on**, wenn Net Premium und Net Flow beide bullisch ausfallen, **Risk-off**, wenn beide bärisch ausfallen, und **Two-way**, wenn sie sich widersprechen oder beide zu klein sind, um sie zu werten (Net Flow unter 1 % der gehandelten Kontrakte und Net Premium unter 5 % der Call- und Put-Prämie).
+- **Net premium** - Netto-Call-Prämie minus Netto-Put-Prämie, jeweils gekauft minus verkauft, mit dem Call- und dem Put-Anteil darunter. Ein negativer Put-Anteil heißt, dass Puts netto verkauft wurden.
+- **Net flow** - die bullische minus die bärische Seite in Kontrakten, und der Anteil der bullischen Seite an allem Gehandelten.
+- **Put/call** - Put-Volumen geteilt durch Call-Volumen.
+- **Volume** - alle gehandelten Kontrakte und wie viele seit Beginn des jüngsten Balkens dazugekommen sind.
 
-## Das Regime-Banner
+## Bought vs. sold
 
-**Flow Analysis Regime** benennt die bisherige Sitzung: **Risk-On Flow Regime**, wenn Net Premium und Net Flow beide zu Calls neigen, **Risk-Off Flow Regime**, wenn beide zu Puts neigen, und **Mixed / Two-Way Flow**, wenn sie sich widersprechen oder beide klein sind. Der Absatz darunter nennt die Zahlen hinter dem Label.
+Sitzungssummen für Calls und Puts, jeweils aufgeteilt in **gekauft** und **verkauft**, mit der Aufteilung als Balken, dem **Net** (gekauft minus verkauft) und dem, was der jüngste Balken bisher hinzugefügt hat. Die Zeile darunter rechnet beide Seiten zusammen: die bullische gegen die bärische Seite und wie weit eine vorn liegt, was dem Net Flow der Sitzung entspricht.
 
-## Der Flow Snapshot
+Die Zahlen aktualisieren sich während des Handels alle paar Sekunden.
 
-Sitzungssummen zum letzten Balken:
+## Der Session-Chart
 
-- **Call Volume** und **Put Volume** - gehandelte Kontrakte, darunter die Netto-Prämie der jeweiligen Seite
-- **Net Flow** - Netto-Call-Kontrakte minus Netto-Put-Kontrakte, jeweils nach Aggressor mit Vorzeichen versehen
-- **Net Premium** - Netto-Call-Prämie minus Netto-Put-Prämie. Positiv ⇒ Aggressoren zahlen netto für Calls / verkaufen Puts; negativ ⇒ Aggressoren zahlen für Puts / verkaufen Calls.
-- **Put/Call Ratio** - Put-Volumen geteilt durch Call-Volumen
+Ein Chart in Feldern, die sich die Zeitachse der Sitzung und ein Fadenkreuz teilen, Zeiten in ET:
 
-## Die Charts
+- **Price** - der Basiswert im Verlauf der Sitzung.
+- **Net premium** - die laufende Net Premium, über null grün und unter null rot hinterlegt, mit dem **Call- und dem Put-Anteil** als dünne Linien.
+- **Contracts** - was in jedem Balken gehandelt wurde. Balken nach oben sind die bullische Seite (gekaufte Calls, darüber heller die verkauften Puts), Balken nach unten die bärische Seite (gekaufte Puts, darunter die verkauften Calls).
+- **Put/call** - die laufende Ratio, mit einer gestrichelten Linie bei 1.
+- **Nummerierte Marker** am oberen Rand passen zum Flow-Log.
 
-- **Options Flow** - Netto-Call-Prämie und Netto-Put-Prämie im Sitzungsverlauf gegen den Kurs des Basiswerts, darunter eine Volumenfläche auf der gewählten Basis. Filterbar nach Strike oder Verfall.
-- **Net Directional Premium** - die laufende Sitzungssumme der Netto-Prämie, über und unter null schattiert.
-- **Put/Call Ratio** - das kumulative Verhältnis der Sitzung an jedem Balken.
-- **Net Position (Buys vs. Sells)** - laufendes Netto-Call- und Netto-Put-Volumen, damit du Kaufen von Verkaufen unterscheiden kannst, was das Verhältnis nicht kann.
+Die Buttons über dem Chart schalten jedes Feld ein oder aus, und dieser Browser merkt sich deine Wahl. Fahre über den Chart oder tippe ihn auf dem Handy an, um alle Zahlen zu diesem Balken zu sehen. **Full screen** gibt dem Chart das ganze Fenster, mit passend skalierten Feldern; Escape oder **Exit** holt ihn zurück.
 
-Jede wird als Serie dargestellt, damit man die Steigung sieht, nicht nur das Niveau.
+## Flow-Log
 
-## Smart Money
+Der bemerkenswerte Flow der Sitzung, neueste Einträge zuerst:
 
-Smart-Money-Prints haben eine eigene Seite - siehe [Smart Money](/help/platform/smart-money). Nutze sie als Gegenprobe zum Headline-Flow hier.
+- **Net flow turned bullish / bearish** - der laufende Net Flow hat die Seite gewechselt, und die neue Seite liegt mit mindestens 0,5 % der gehandelten Kontrakte vorn. Kleines Pendeln um null wird nicht gelistet.
+- **Net premium turned bullish / bearish** - dasselbe für die Net Premium, mit mindestens 3 % der Call- und Put-Prämie.
+- **Put/call rose above 1 / fell below 1** - sobald die Ratio 0,05 über oder unter 1 liegt.
+- **Volume burst** - ein Balken mit mindestens dem 2,5-Fachen des Medians der Balken der vorangegangenen Stunde, mit der Seite, die ihn angeführt hat. Gelistet werden die sechs größten der Sitzung.
 
-## Wie man sie liest
+In den ersten zehn Minuten wird nichts gemeldet, weil dann jede Summe klein genug ist, um von einem einzigen Print zu kippen.
+
+## Bar by bar
+
+Calls und Puts jedes Balkens, gekauft und verkauft, und sein Net Flow, neueste zuerst. Während der Sitzung ist die oberste Zeile der Balken, der noch läuft.
+
+## Kontrakte auswählen
+
+**Contracts** öffnet die Auswahl der Strikes und Verfallstermine. Eine Auswahl grenzt alles auf der Seite ein, sodass jede Zahl dieselben Kontrakte beschreibt. Die Auswahl der Verfallstermine wird mit den Gamma-Charts im selben Browser-Tab geteilt, und der Seitenkopf zeigt immer, welche Kontrakte die Seite gerade liest; das **×** daneben kehrt zu allen zurück.
+
+ES und NQ haben keine eigene Optionskette: Ihr Flow ist SPX- bzw. NDX-Flow, die aufgeführten Strikes sind also Index-Strikes, keine Futures-Preise.
+
+## So liest du ihn
 
 Drei Muster:
 
-1. **Starker prämiengewichteter positiver Flow bei positivem GEX Gradient, während die Dealer modelliert short Gamma sind** ⇒ Trader zahlen für Aufwärtsbewegung, bei der die Dealer modelliert short sind. Signal für Fortsetzung mit hoher Überzeugung.
-2. **Starker Put-Kauf, während das Positioning-Trap-Signal auf der Short-Seite der Menge (positiv) geladen ist** ⇒ die bärische Menge liegt falsch; ein Rückschlag nach oben ist zu erwarten.
-3. **Flacher Flow nahe einem Schlüssellevel** ⇒ auf den Ausbruch warten. Flow ohne Überzeugung ist kein Trade.
-
-## Netto-Volumen vs. direktionaler Flow
-
-Für eine tiefere Betrachtung, warum reines Volumen in die Irre führen kann, warum direktionaler Flow zusätzliches Signal liefert und warum prämiengewichteter Flow meist die stärkste Überzeugungsmetrik ist, siehe [Netto-Volumen vs. direktionaler Flow](/education/net-volume-vs-directional-flow).
+1. **Starker Flow auf der bullischen Seite und steigende Net Premium, während Dealer modelliert Short Gamma sind** ⇒ Trader bezahlen für Aufwärtspotenzial, bei dem die Dealer modelliert short sind. Eine Lesart für Fortsetzung.
+2. **Kräftig gekaufte Puts in ein Level hinein**, während das Positioning-Trap-Signal auf der Seite der Short-Masse geladen ist ⇒ die bärische Masse liegt womöglich falsch; achte auf einen Rückschlag nach oben.
+3. **Flacher Flow nahe einem wichtigen Level** ⇒ warte auf den Ausbruch. Flow ohne Überzeugung ist kein Trade.
 
 ## Wann die Seite am nützlichsten ist
 
-- **Direkt nach der Eröffnung** - die ersten 30 Minuten verraten viel über den Bias des Tages.
-- **An jedem Schlüssellevel** - der Flow in einen Wall oder VWAP zeigt, wer auf das Level drückt. In unserer Studie mit 737 Wall-Tests ließ sich aus dem vorzeichenbehafteten Flow am Wall-Strike nicht vorhersagen, welche Walls brachen, also lies ihn als Kontext, nicht als Urteil.
-- **Zum Handelsschluss** - kombiniert mit EOD Pressure schärft die Flow-Lesart den Richtungshinweis.
+- **Direkt nach der Eröffnung** - die erste halbe Stunde sagt viel über die Neigung des Tages.
+- **An jedem wichtigen Level** - der Flow in eine Wall oder den VWAP hinein zeigt, wer auf das Level drückt. In unserer Studie mit 737 Wall-Tests hat der vorzeichenbehaftete Flow am Wall-Strike nicht vorhergesagt, welche Walls brechen; lies ihn also als Kontext, nicht als Urteil.
+- **Zum Handelsschluss** - zusammen mit EOD Pressure schärft die Flow-Lesart das Richtungssignal.
+
+## Netto-Volumen vs. direktionaler Flow
+
+Warum reines Volumen in die Irre führen kann, warum die Aggressor-Aufteilung Signal hinzufügt und warum die Prämie meist das stärkere Maß für Überzeugung ist, liest du ausführlich unter [Netto-Volumen vs. direktionaler Flow](/education/net-volume-vs-directional-flow).
 
 ## Siehe auch
 
