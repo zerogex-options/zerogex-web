@@ -240,8 +240,8 @@ export function surfaceExtent(profiles: readonly (readonly number[])[]): { min: 
 
 /**
  * The z-axis range: the surface's extent with headroom, always including zero
- * so the floor plane sits below every trough and the sign of a peak can be
- * read off the axis. The low end is the floor the reference lines lie on.
+ * so the base of the scene sits below every trough and the sign of a peak can
+ * be read off the axis. The low end is the base the level lines lie on.
  */
 export function zAxisRange(profiles: readonly (readonly number[])[], pad = 0.08): [number, number] {
   const extent = surfaceExtent(profiles);
@@ -301,6 +301,22 @@ export function niceTicks(lo: number, hi: number, target = 5): number[] {
     out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
   }
   return out;
+}
+
+/**
+ * Levels as a price ladder, highest first, the way they stack on a chart's
+ * price axis. Unknown levels go last; ties keep the order they came in.
+ */
+export function levelLadder<T extends { value: number | null }>(levels: readonly T[]): T[] {
+  return levels
+    .map((level, i) => ({ level, i }))
+    .sort((a, b) => {
+      const av = a.level.value;
+      const bv = b.level.value;
+      if (av == null || bv == null) return av == null && bv == null ? a.i - b.i : av == null ? 1 : -1;
+      return bv - av || a.i - b.i;
+    })
+    .map(({ level }) => level);
 }
 
 /** Multiply every value by the GEX unit's display factor. */

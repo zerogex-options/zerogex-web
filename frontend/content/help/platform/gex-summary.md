@@ -44,7 +44,7 @@ The reachable 0DTE strike with the strongest modeled positive dealer gamma into 
 
 Modeled dealer gamma as a 3D surface: hypothetical price on one axis and time on the other, from now until the first selected expiration settles. Each point is the gamma dealers are modeled to carry if price is there at that moment - every selected contract re-priced at that price with that much of its life gone, at full weight (no horizon weighting), with its implied vol held where it is now. Same-day gamma sharpens into its settlement, so the surface rises toward the end of the time axis around heavy 0DTE strikes.
 
-The **Expiry** control picks which expirations it prices: **All** by default, or any set of dates. Pick one later expiration on its own to see its surface run out to its own settlement. The lines along the base mark the ceiling (Call Wall), spot and floor (Put Wall) for the same selection - the walls every other chart shows for it - and the dashed line traces the surface at spot. Drag to rotate; on a phone, tap **Rotate & zoom** first.
+The **Expiry** control picks which expirations it prices: **All** by default, or any set of dates. Pick one later expiration on its own to see its surface run out to its own settlement. The lines along the base mark the Call Wall, Put Wall and Gamma Flip for the same selection - the levels every other chart shows for it - plus spot, and the dashed line traces the surface at spot. Because the surface counts every contract at full weight, where it crosses zero need not match the Gamma Flip. Drag to rotate; on a phone, tap **Rotate & zoom** first.
 
 ## Gamma Flip · Term Structure
 

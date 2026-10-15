@@ -453,7 +453,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'gamma-surface',
     title: 'Gamma Surface',
     blurb:
-      'Net dealer gamma as a 3D surface: price across, time to settlement in depth, with the ceiling (Call Wall), spot and floor (Put Wall) marked on the floor. Renders all expirations, or any set you pick. Rotate it to read the walls sharpening into expiry.',
+      'Net dealer gamma as a 3D surface: price across, time to settlement in depth, with the Call Wall, Put Wall, Gamma Flip and spot marked along its base. Renders all expirations, or any set you pick. Rotate it to see the walls sharpen into expiry.',
     category: 'gamma',
     tier: 'basic',
     icon: Mountain,

@@ -2,15 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 
-/** A reference level drawn on the floor of the scene, along the whole time axis. */
+/** A level drawn along the base of the scene, the whole length of the time axis. */
 export interface GammaSurfaceLevelLine {
   price: number;
   color: string;
-  /** Hover name, e.g. "Ceiling · Call Wall 7,845". */
+  /** Hover name, e.g. "Call Wall 7,845". */
   label: string;
   /**
    * Where the level meets the surface (row = index into `hours`): a vertical
-   * drop line rises from the floor to that point, as under the ceiling's peak.
+   * drop line rises from the base to that point, as under the Call Wall's peak.
    */
   drop?: { row: number; value: number } | null;
 }
@@ -30,7 +30,7 @@ export interface GammaSurfacePlotProps {
   /** |value| the colors saturate at (core/gammaSurface colorLimit). */
   colorLimit: number;
   zTitle: string;
-  /** Floor / spot / ceiling lines. */
+  /** Call Wall, Gamma Flip, spot and Put Wall lines. */
   levels: GammaSurfaceLevelLine[];
   /** The surface along spot, drawn dashed over the mesh. */
   spotTrace: { price: number; z: number[]; color: string } | null;
@@ -103,11 +103,11 @@ export default function GammaSurfacePlot({
     const texts = hours.length > 1 ? hoverText : [hoverText[0], hoverText[0]];
     const yEnd = ys[ys.length - 1];
     const priceSpan = grid[grid.length - 1] - grid[0];
-    const [zFloor, zTop] = zRange;
-    const zSpan = zTop - zFloor;
-    // Reference lines sit a hair above the floor so the projected contours
-    // never draw over them.
-    const floorZ = zFloor + zSpan * 0.004;
+    const [zLow, zTop] = zRange;
+    const zSpan = zTop - zLow;
+    // Level lines sit a hair above the base so the projected contours never
+    // draw over them.
+    const baseZ = zLow + zSpan * 0.004;
 
     const font = { color: colors.text, family: 'ui-sans-serif, system-ui, -apple-system, sans-serif' };
     const axisCommon = {
@@ -163,7 +163,7 @@ export default function GammaSurfacePlot({
           width: 2,
           highlight: false,
           project: { z: true },
-          start: zFloor,
+          start: zLow,
           end: zTop,
           size: zSpan / Z_CONTOURS,
         },
@@ -177,7 +177,7 @@ export default function GammaSurfacePlot({
         mode: 'lines',
         x: [level.price, level.price],
         y: [ys[0], yEnd],
-        z: [floorZ, floorZ],
+        z: [baseZ, baseZ],
         line: { color: level.color, width: compact ? 5 : 7 },
         hovertemplate: `${level.label}<extra></extra>`,
         showlegend: false,
@@ -189,7 +189,7 @@ export default function GammaSurfacePlot({
           mode: 'lines+markers',
           x: [level.price, level.price],
           y: [y, y],
-          z: [floorZ, level.drop.value],
+          z: [baseZ, level.drop.value],
           line: { color: level.color, width: compact ? 3 : 4 },
           marker: { size: [0, compact ? 3 : 4], color: level.color },
           hovertemplate: `${level.label}<extra></extra>`,
@@ -251,14 +251,14 @@ export default function GammaSurfacePlot({
           // No room for a rotated title beside the ticks on a phone; the
           // dollar ticks and the hover carry the unit there.
           title: axisTitle(compact ? '' : zTitle),
-          range: [zFloor, zTop],
+          range: [zLow, zTop],
           tickmode: 'array',
           tickvals: zTicks.values,
           ticktext: zTicks.labels,
         },
         aspectmode: 'manual',
-        // Time runs across the view and price recedes into it, so the floor,
-        // spot and ceiling lines lie side by side in front of the surface.
+        // Time runs across the view and price recedes into it, so the level
+        // lines lie side by side in front of the surface.
         aspectratio: { x: 1.2, y: 1.6, z: 0.75 },
         // A phone's scene is ~350px wide: the camera stands further back there
         // so the axis labels stay inside it.

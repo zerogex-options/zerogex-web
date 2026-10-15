@@ -2,8 +2,8 @@
 
 /**
  * Gamma Surface — net dealer gamma across price (x) and time to settlement
- * (y), drawn as a 3D wireframe, with the ceiling (Call Wall), spot and floor
- * (Put Wall) laid on the floor of the scene and read out beside it.
+ * (y), drawn as a 3D wireframe, with the Call Wall, Put Wall, Gamma Flip and
+ * spot laid along its base and read out beside it.
  *
  * The surface is /api/gex/gamma-surface (see core/gammaSurface). It renders
  * by expiration: "All" by default, or any set picked in the Expiry control.
@@ -11,10 +11,11 @@
  * inside a My Dashboard pane that scopes its expirations, where it follows the
  * pane like every other widget there.
  *
- * The ceiling and floor are the walls every other chart draws for the same
- * selection — the whole-chain walls from /api/gex/summary for All, the
+ * The levels are the ones every other chart draws for the same selection —
+ * the whole-chain levels from /api/gex/summary for All, the
  * expiration-filtered strike-profile bucket for a subset (the same precedence
- * as the Gamma Chart's Playbook) — so the two can never disagree.
+ * as the Gamma Chart's Playbook) — so they can never disagree, and they wear
+ * the Gamma Chart's level colors.
  */
 
 import { useContext, useEffect, useMemo, useState } from 'react';
@@ -41,6 +42,7 @@ import {
   formatGexDollars,
   formatGexTick,
   formatLevel,
+  levelLadder,
   niceTicks,
   scaleProfiles,
   surfaceHours,
@@ -66,7 +68,7 @@ const GammaSurfacePlot = dynamic(() => import('./GammaSurfacePlot'), {
 });
 
 const TITLE_TOOLTIP =
-  'Modeled net dealer gamma for the selected expirations, re-priced at every price and at every moment from now until the first selected expiration settles. Each point answers: if price is here at that time, how much gamma are dealers modeled to carry? Peaks are long gamma, where modeled hedging tends to dampen moves; troughs are short gamma, where it tends to amplify them. Same-day gamma sharpens into its settlement, so 0DTE walls rise toward the end of the time axis. Every contract counts at full weight (no horizon weighting), with its implied vol held where it is now. The lines along the base mark the ceiling (Call Wall), spot and floor (Put Wall) for the same selection - the usual reading of the walls, not a guarantee that price stops there - and the dashed line traces the surface at spot. Drag to rotate. Modeled from open interest, not observed positions.';
+  'Modeled net dealer gamma for the selected expirations, re-priced at every price and at every moment from now until the first selected expiration settles. Each point answers: if price is here at that time, how much gamma are dealers modeled to carry? Peaks are long gamma, where modeled hedging tends to dampen moves; troughs are short gamma, where it tends to amplify them. Same-day gamma sharpens into its settlement, so 0DTE walls rise toward the end of the time axis. The lines along the base mark the Call Wall, Put Wall and Gamma Flip for the same expirations, plus spot; the dashed line traces the surface at spot. The surface counts every contract at full weight, with its implied vol held where it is now, so where it crosses zero need not match the Gamma Flip. Drag to rotate. Modeled from open interest, not observed positions.';
 
 // Card widths (CSS px) below which the readout moves above the plot and the
 // scene switches to its compact camera.
@@ -78,16 +80,20 @@ const PLOT_HEIGHT_COMPACT = 340;
 const PLOT_HEIGHT_MIN = 240;
 const PLOT_HEIGHT_EXPANDED = 680;
 
-// Level hues, following the reference look: a gold ceiling, the spot in the
-// text color, a green floor.
-const CEILING_COLOR = 'var(--color-warning)';
+// The site's level palette, as the Gamma Chart draws it (tests/chartLevelPalette):
+// Call Wall red, Put Wall green, Gamma Flip azure. Gold is Max Pain's, so no
+// level here wears it. Spot stays in the text color, readable over the plasma
+// mesh and never mistaken for a dealer level.
+const CALL_WALL_COLOR = 'var(--color-bear)';
+const PUT_WALL_COLOR = 'var(--color-bull)';
+const FLIP_COLOR = 'var(--color-flip)';
 const SPOT_COLOR = 'var(--text-primary)';
-const FLOOR_COLOR = 'var(--color-bull)';
 
 const PALETTE_VARS = {
-  ceiling: CEILING_COLOR,
+  callWall: CALL_WALL_COLOR,
+  putWall: PUT_WALL_COLOR,
+  flip: FLIP_COLOR,
   spot: SPOT_COLOR,
-  floor: FLOOR_COLOR,
   text: 'var(--text-primary)',
   muted: 'var(--text-secondary)',
   grid: 'var(--border-default)',
@@ -98,9 +104,10 @@ const PALETTE_VARS = {
 type ResolvedPalette = Record<keyof typeof PALETTE_VARS, string>;
 
 const FALLBACK_PALETTE: ResolvedPalette = {
-  ceiling: '#F59E0B',
+  callWall: '#FF3855',
+  putWall: '#22D982',
+  flip: '#3B9EFF',
   spot: '#E2E8F0',
-  floor: '#22D982',
   text: '#E2E8F0',
   muted: '#94A3B8',
   grid: 'rgba(148,163,184,0.25)',
@@ -209,10 +216,11 @@ function GammaSurfaceCard({
   const { buckets } = useStrikeProfileTimeseries(symbol, '5min', param, false, filtered);
 
   const filteredBucket = useMemo(() => (filtered ? lastGammaBucket(buckets) : null), [filtered, buckets]);
-  // A subset's walls come from its own bucket and nothing else: until it
-  // lands, no line — never the whole chain's walls under a subset's label.
-  const ceiling = filtered ? levelOrNull(filteredBucket?.call_wall) : levelOrNull(summary?.call_wall);
-  const floor = filtered ? levelOrNull(filteredBucket?.put_wall) : levelOrNull(summary?.put_wall);
+  // A subset's levels come from its own bucket and nothing else: until it
+  // lands, no line — never the whole chain's levels under a subset's label.
+  const callWall = filtered ? levelOrNull(filteredBucket?.call_wall) : levelOrNull(summary?.call_wall);
+  const putWall = filtered ? levelOrNull(filteredBucket?.put_wall) : levelOrNull(summary?.put_wall);
+  const gammaFlip = filtered ? levelOrNull(filteredBucket?.gamma_flip) : levelOrNull(summary?.gamma_flip);
   const spot = levelOrNull(quote?.close) ?? levelOrNull(surface?.spot);
 
   const narrow = cardWidth != null && cardWidth < SIDE_PANEL_MIN_WIDTH;
@@ -263,29 +271,32 @@ function GammaSurfaceCard({
   const levels = useMemo<GammaSurfaceLevelLine[]>(() => {
     if (!model) return [];
     const out: GammaSurfaceLevelLine[] = [];
-    if (onGrid(model.grid, floor)) {
-      const trough = extremeAtPrice(model.grid, model.z, floor, 'min');
+    if (onGrid(model.grid, putWall)) {
+      const trough = extremeAtPrice(model.grid, model.z, putWall, 'min');
       out.push({
-        price: floor,
-        color: colors.floor,
-        label: `Floor · Put Wall ${formatLevel(floor)}`,
+        price: putWall,
+        color: colors.putWall,
+        label: `Put Wall ${formatLevel(putWall)}`,
         drop: trough && trough.value < 0 ? trough : null,
       });
+    }
+    if (onGrid(model.grid, gammaFlip)) {
+      out.push({ price: gammaFlip, color: colors.flip, label: `Gamma Flip ${formatLevel(gammaFlip)}` });
     }
     if (onGrid(model.grid, spot)) {
       out.push({ price: spot, color: colors.spot, label: `Spot ${formatLevel(spot)}` });
     }
-    if (onGrid(model.grid, ceiling)) {
-      const peak = extremeAtPrice(model.grid, model.z, ceiling, 'max');
+    if (onGrid(model.grid, callWall)) {
+      const peak = extremeAtPrice(model.grid, model.z, callWall, 'max');
       out.push({
-        price: ceiling,
-        color: colors.ceiling,
-        label: `Ceiling · Call Wall ${formatLevel(ceiling)}`,
+        price: callWall,
+        color: colors.callWall,
+        label: `Call Wall ${formatLevel(callWall)}`,
         drop: peak && peak.value > 0 ? peak : null,
       });
     }
     return out;
-  }, [model, floor, spot, ceiling, colors]);
+  }, [model, putWall, gammaFlip, spot, callWall, colors]);
 
   const spotTrace = useMemo(() => {
     if (!model || !onGrid(model.grid, spot)) return null;
@@ -308,11 +319,14 @@ function GammaSurfaceCard({
   const scopeLine = describeScope(surface, filtered);
   const plotInert = coarse && !expanded && !touchActive;
 
-  const readout = [
-    { key: 'ceiling', value: ceiling, label: 'Ceiling', detail: 'Call Wall', color: CEILING_COLOR },
-    { key: 'spot', value: spot, label: 'Spot', detail: null, color: SPOT_COLOR },
-    { key: 'floor', value: floor, label: 'Floor', detail: 'Put Wall', color: FLOOR_COLOR },
-  ];
+  // A price ladder, highest first, so spot reads between the walls and on
+  // its side of the flip.
+  const readout = levelLadder([
+    { key: 'call-wall', value: callWall, label: 'Call Wall', color: CALL_WALL_COLOR },
+    { key: 'flip', value: gammaFlip, label: 'Gamma Flip', color: FLIP_COLOR },
+    { key: 'spot', value: spot, label: 'Spot', color: SPOT_COLOR },
+    { key: 'put-wall', value: putWall, label: 'Put Wall', color: PUT_WALL_COLOR },
+  ]);
 
   return (
     <div
@@ -456,37 +470,27 @@ function shortDate(iso: string): string {
   });
 }
 
-/** Ceiling / spot / floor: a column beside the plot, or a row above it on a
- *  narrow card, where the wall name drops to its own line instead of
- *  truncating. */
+/** The level ladder: a column beside the plot, or a row above it on a narrow
+ *  card (smaller figures there, so four fit across a phone). */
 function LevelReadout({
   items,
   row = false,
 }: {
-  items: { key: string; value: number | null; label: string; detail: string | null; color: string }[];
+  items: { key: string; value: number | null; label: string; color: string }[];
   row?: boolean;
 }) {
   return (
-    <div className={row ? 'grid grid-cols-3 gap-2' : 'flex flex-col gap-6'}>
+    <div className={row ? 'grid grid-cols-4 gap-2' : 'flex flex-col gap-5'}>
       {items.map((item) => (
         <div key={item.key} className="min-w-0">
           <div
-            className={`font-bold tabular-nums leading-none ${row ? 'text-lg' : 'text-3xl'}`}
+            className={`font-bold tabular-nums leading-none ${row ? 'text-base' : 'text-3xl'}`}
             style={{ color: item.color }}
           >
             {formatLevel(item.value)}
           </div>
           <div className="mt-1 text-xs leading-snug" style={{ color: 'var(--text-secondary)' }}>
-            {row ? (
-              <>
-                <div>{item.label}</div>
-                {item.detail && <div>{item.detail}</div>}
-              </>
-            ) : item.detail ? (
-              `${item.label} · ${item.detail}`
-            ) : (
-              item.label
-            )}
+            {item.label}
           </div>
         </div>
       ))}

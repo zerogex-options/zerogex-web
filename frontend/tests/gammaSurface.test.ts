@@ -8,6 +8,7 @@ import {
   formatGexTick,
   formatLevel,
   interpolateAt,
+  levelLadder,
   niceTicks,
   scaleProfiles,
   surfaceExtent,
@@ -158,6 +159,24 @@ test('the color limit ignores the few cells a settlement spike sends sky-high', 
   assert.ok(limit < 100 && limit > 90, `limit ${limit}`);
   assert.equal(colorLimit([]), 1);
   assert.equal(colorLimit([[0, 0]]), 1);
+});
+
+test('the readout stacks the levels as a price ladder, highest first', () => {
+  const levels = [
+    { key: 'call', value: 7850 },
+    { key: 'flip', value: 7791 },
+    { key: 'spot', value: 7807 },
+    { key: 'put', value: 7750 },
+  ];
+  assert.deepEqual(levelLadder(levels).map((l) => l.key), ['call', 'spot', 'flip', 'put']);
+  // Spot below the flip flips the middle of the ladder.
+  levels[2].value = 7780;
+  assert.deepEqual(levelLadder(levels).map((l) => l.key), ['call', 'flip', 'spot', 'put']);
+  // An unknown level drops to the end; ties keep their order.
+  assert.deepEqual(
+    levelLadder([{ key: 'a', value: null }, { key: 'b', value: 5 }, { key: 'c', value: 5 }]).map((l) => l.key),
+    ['b', 'c', 'a'],
+  );
 });
 
 test('unit scaling multiplies every value', () => {
