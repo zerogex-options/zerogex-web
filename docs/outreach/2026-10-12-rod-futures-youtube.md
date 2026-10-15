@@ -413,18 +413,20 @@ The creator partner program, not refer-a-friend. From the code
   actually pays, after discounts, on every paid invoice for 12 months from
   that customer's first paid invoice, on any plan. Refunds and disputes
   reverse accrued rows. The audience discount (`STRIPE_COUPON_PARTNER_AUDIENCE`)
-  applies to monthly checkouts only. A partner's own referrals stop earning
+  was monthly-only; `claude/creator-discount-any-plan` makes it apply on every
+  plan, with a new coupon for 25% off the first year. A partner's own referrals stop earning
   free months. It works by link (`?ref=`) or by the partner's code typed at
   Stripe checkout.
 - **Payouts are by hand.** `make partner-commissions` at month end, pay
   out-of-band, then mark rows paid (`scripts/list-partner-commissions.mjs`
   has the SQL). Automated payouts aren't built.
 
-### Verify first
+### Before sending (updated Oct 15)
 
-- The code only recommends 25% off for 3 months; the real terms live on
-  coupon `21OUViRs` in Stripe. Confirm it says 25% off, repeating, 3 months
-  before sending.
+Michael changed the deal to 25% off the first year on any plan. Send only
+once the new Stripe coupon exists, `STRIPE_COUPON_PARTNER_AUDIENCE` points
+at it, and `claude/creator-discount-any-plan` is deployed. Michael is fine
+with Rod forwarding the program details to other creators.
 
 ### Draft
 
@@ -444,7 +446,9 @@ On logging trades: log every one, wins and losses. An honest record convinces pe
 
 On GEXbot and the others: I'd rather not knock anyone. We're mostly working from the same options data and making different calls about what to show. The test you're already using is the right one: which one gives you the clearest read you can act on. I'd really like to hear what made you leave the ones you left, because clarity is exactly what I'm working on.
 
-Which brings me back to the creator program. You'd be a natural fit. It's separate from the refer-a-friend free month: this one pays cash. You'd get your own link and code. Anyone who signs up through it gets 25% off their first three months on a monthly plan, and you earn 30% of what they pay for their first 12 months. No commitment and nothing you have to post. If you share it publicly, you'd just say it's an affiliate link. Want me to set it up? And if your buddy with the YouTube experience, or any of the traders you talk to, would be a good fit too, I'd love an introduction.
+Which brings me back to the creator program. You'd be a natural fit. It's separate from the refer-a-friend free month: this one pays cash. You'd get your own link and code. Anyone who signs up through it gets 25% off their first year on any plan, and you earn 30% of what they pay for their first 12 months. No commitment and nothing you have to post. If you share it publicly, you just say it's an affiliate link. I'll send the full terms in writing when I set you up. Want me to?
+
+And please feel free to pass this along to anyone you think would be a good fit, your buddy with the YouTube experience included. They can reach me directly at michael@zerogex.io.
 
 Thanks again, Rod.
 
