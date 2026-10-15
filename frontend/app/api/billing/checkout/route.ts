@@ -939,7 +939,7 @@ function resolveDiscount(input: {
   if (input.referredByCode && isCreatorPartnerProgramEnabled()) {
     const partner = findCreatorByReferralCode(input.referredByCode);
     if (partner) {
-      const partnerCoupon = getPartnerAudienceCouponId(partner, input.cadence);
+      const partnerCoupon = getPartnerAudienceCouponId(partner);
       if (partnerCoupon) {
         return {
           ok: true,
@@ -953,8 +953,8 @@ function resolveDiscount(input: {
           campaignCode: null,
         };
       }
-      // Partner resolved but no coupon for this cadence — fall through to the
-      // standard referee path so the referee still gets SOMETHING (and the
+      // Partner resolved but no audience coupon configured — fall through to
+      // the standard referee path so the referee still gets SOMETHING (and the
       // partner still gets attribution + commission via referred_by_code).
     }
   }

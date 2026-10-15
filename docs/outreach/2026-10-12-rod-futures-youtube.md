@@ -357,3 +357,117 @@ Michael
 Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
+
+---
+
+## Follow-up: "you need an influencer", are you a trader, and GEXbot (Thu Oct 15, 11:19 AM)
+
+Rod, replying to Michael's Oct 14 note (community and education, the
+Technicals overhaul):
+
+> I truly believe any site that offers this kind of data will only be VERY
+> successful if there are some type of influencer that can take this data
+> your site provides and turn it into a actionable strategy ... my goal is to
+> learn your site and utilize the tool to make profitable trades that can be
+> logged and shown to potential zerogex customers ... are you a trader that
+> is using this site to make profitable trades? If so what is the mechanics
+> ... ALso look at Gexbot let me know what you think of them I have recently
+> had subscriptions to gexbot, spot gamma, tradegex and zerogex ... SO far I
+> really like zerogex and tradegex.
+
+### The read
+
+- **He hits every positive signal in the creator playbook**
+  (`docs/creator-partner-outreach.md`, stage 7): explicit praise, comparisons,
+  substantive questions, and he wants to show ZeroGEX to other traders. Michael
+  agrees an influencer is exactly the missing piece and the program exists for
+  it, so the reply pitches it, once, lightly.
+- **Good candidate, small audience.** His channel isn't live yet, so expect
+  little near-term revenue. Cost is close to nothing: commission is paid only
+  on conversions. The bigger upside may be his network: the YouTube buddy and
+  the platform-hopping traders he talks to. Ask for introductions.
+- **He already pays for Pro.** `make grant-partner-pro` also stamps a 90-day
+  Pro grant, which adds nothing for a paying member and doesn't pause his
+  billing. Run it for the link, code and commission tracking. Comping his
+  subscription while he makes content is a separate call.
+- **Trade logs and an affiliate link together are a paid endorsement.** He
+  has to disclose it, and results should be his full record, not a highlight
+  reel. The reply puts that as advice ("log every one"). Before ZeroGEX uses
+  his results in its own marketing, get a lawyer's read.
+- **Trading answer is Michael's own:** busy, trades occasionally, quick
+  in-and-out at wall bounces and rejections; the long-range "trading engine"
+  idea is stated as far off with regulatory work in the way.
+- **GEXbot: no knocking anyone.** Turn it into a question about why he left
+  the others.
+
+### Which program this is
+
+The creator partner program, not refer-a-friend. From the code
+(`frontend/core/creatorPartners.ts`, `core/referrals.ts`):
+
+- **Refer-a-friend** (`REFERRAL_PROGRAM_ENABLED`): any member; giver and
+  receiver each bank one free month per referral.
+- **Creator partner** (`CREATOR_PARTNER_PROGRAM_ENABLED`, invite-only, set up
+  with `make grant-partner-pro`): cash, not free months. The partner earns
+  `partner_commission_bps` (default 30%) of what each referred customer
+  actually pays, after discounts, on every paid invoice for 12 months from
+  that customer's first paid invoice, on any plan. Refunds and disputes
+  reverse accrued rows. The audience discount (`STRIPE_COUPON_PARTNER_AUDIENCE`)
+  was monthly-only; `claude/creator-discount-any-plan` makes it apply on every
+  plan, with a new coupon for 25% off the first year. A partner's own referrals stop earning
+  free months. It works by link (`?ref=`) or by the partner's code typed at
+  Stripe checkout.
+- **Payouts are by hand.** `make partner-commissions` at month end, pay
+  out-of-band, then mark rows paid (`scripts/list-partner-commissions.mjs`
+  has the SQL). Automated payouts aren't built.
+
+### Before sending (updated Oct 15)
+
+Michael changed the deal to 25% off the first year on any plan. Send only
+once the new Stripe coupon exists, `STRIPE_COUPON_PARTNER_AUDIENCE` points
+at it, and `claude/creator-discount-any-plan` is deployed. Michael is fine
+with Rod forwarding the program details to other creators.
+
+### Draft
+
+**Reply in the same thread.**
+
+Hi Rod,
+
+First, thank you. Truly. Your feedback this week has been honest, specific and encouraging all at once, and as a one-person shop, that means more than I can say. It's already made ZeroGEX better; the Technicals rebuild came partly out of your questions.
+
+You nailed it on the bigger picture. The data only goes so far on its own. It takes someone who can turn it into a plan people can follow, and that's exactly why I built a creator partner program. Honestly, I haven't found the right person for it yet.
+
+To your question: I don't trade as much as I used to since starting ZeroGEX. Building it takes most of my time. I still take trades here and there, mostly quick in-and-out trades off a bounce or rejection at the put or call wall: price runs into the wall, stalls or turns, and I take the move off it. On the S&P that's the setup our own numbers favor. In our study, walls held about two times in three over the next hour.
+
+Longer term, and I mean way off, the pipe dream is something like a trading engine: you set up and configure what you want, connect your brokerage, and ZeroGEX trades it for you. There's a lot of regulatory and legal work between here and there, so take it as the very high-level direction, not a plan.
+
+On logging trades: log every one, wins and losses. An honest record convinces people far more than a highlight reel, and I'm happy to help you read the levels as you go.
+
+On GEXbot and the others: I'd rather not knock anyone. We're mostly working from the same options data and making different calls about what to show. The test you're already using is the right one: which one gives you the clearest read you can act on. I'd really like to hear what made you leave the ones you left, because clarity is exactly what I'm working on.
+
+Which brings me back to the creator program. You'd be a natural fit. It's separate from the refer-a-friend free month: this one pays cash. You'd get your own link and code. Anyone who signs up through it gets 25% off their first year on any plan, and you earn 30% of what they pay for their first 12 months. No commitment and nothing you have to post. If you share it publicly, you just say it's an affiliate link. I'll send the full terms in writing when I set you up. Want me to?
+
+And please feel free to pass this along to anyone you think would be a good fit, your buddy with the YouTube experience included. They can reach me directly at michael@zerogex.io.
+
+Thanks again, Rod.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he says yes
+
+He's already registered and verified. Dry run, then apply:
+
+```bash
+make grant-partner-pro EMAIL=rldindustries1975@gmail.com PROMO_CODE=<CODE> DRY_RUN=1
+make grant-partner-pro EMAIL=rldindustries1975@gmail.com PROMO_CODE=<CODE> YES=1
+```
+
+Pick a code he'd say out loud on a video. Then send him the link and code
+from the script's output, using the stage 5b wording in
+`docs/creator-partner-outreach.md`.
