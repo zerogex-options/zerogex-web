@@ -53,6 +53,8 @@ export interface WallAlertPayload {
   approach_number?: number | null;
   alerted_hit?: boolean | null;
   profile?: WallProfile | null;
+  /** The touch tolerance the alert's stream ran at, in basis points. */
+  touch_bp?: number | null;
   touch_band?: number | null;
   break_buffer?: number | null;
   hold_distance?: number | null;
@@ -72,6 +74,8 @@ export interface WallAlertRule {
   events: Record<WallEventKind, boolean>;
   min_strength_pctile: number;
   profile: WallProfile;
+  /** How close price must come for a hit, in basis points; null = Auto (the profile's own band). */
+  touch_bp: number | null;
   channels: Record<WallChannel, boolean>;
   enabled: boolean;
   created_at: string | null;
@@ -108,6 +112,7 @@ export interface WallAlertFeedResponse {
 export interface WallAlertProfileConfig {
   name: WallProfile;
   touch_pct: number;
+  touch_bp?: number;
   arm_buffers: number;
   cooldown_minutes: number;
   confirm_minutes: number;
@@ -120,6 +125,7 @@ export interface WallAlertsConfig {
   symbols: string[];
   profiles: WallAlertProfileConfig[];
   default_profile: WallProfile;
+  touch_options_bp?: number[];
   channels: Array<{ id: WallChannel; available: boolean; delivery: string }>;
   max_strength_floor: number;
   max_rules: number;
@@ -447,6 +453,54 @@ export function wallAlertSmsText(p: WallAlertPayload, link = 'zerogex.io/alerts'
   return short.slice(0, SMS_MAX_LENGTH);
 }
 
+// ── Touch tolerance ─────────────────────────────────────────────────────────
+//
+// How close price must come for a hit to count, in basis points of the wall
+// (1 = 0.01%). A rule either leaves it on Auto (null: the noise filter's own
+// band) or picks one of the options the API serves in /config. These
+// constants are the fallback while that loads; the detector is the authority
+// (zerogex-oa src/alerts/wall_detector.py PROFILES, config.TOUCH_OPTIONS_BP).
+
+export const TOUCH_OPTIONS_BP: readonly number[] = [1, 5, 10, 25];
+
+/** Each noise filter's own touch band (bp): what "Auto" means. */
+export const PROFILE_TOUCH_BP: Record<WallProfile, number> = {
+  responsive: 8,
+  balanced: 5,
+  conservative: 3,
+};
+
+const INDEX_SYMBOLS = new Set(['SPX', 'NDX']);
+
+/** The tolerance a rule actually runs at. */
+export function effectiveTouchBp(
+  profile: WallProfile,
+  touchBp: number | null | undefined,
+  profiles?: readonly WallAlertProfileConfig[] | null,
+): number {
+  if (typeof touchBp === 'number') return touchBp;
+  const configured = profiles?.find((p) => p.name === profile)?.touch_bp;
+  return typeof configured === 'number' ? configured : PROFILE_TOUCH_BP[profile];
+}
+
+/** 5 → "0.05%". */
+export function fmtTouchPct(bp: number): string {
+  return `${(bp / 100).toFixed(2)}%`;
+}
+
+/**
+ * The touch band in price terms on a given wall: dollars on the ETFs, index
+ * points on SPX / NDX. "$0.39" on a 772 SPY wall at 5 bp; "3.9" (points) on
+ * a 7,700 SPX wall.
+ */
+export function touchAmount(symbol: string, wall: number, bp: number): { text: string; points: boolean } {
+  const value = (Math.abs(wall) * bp) / 10_000;
+  if (INDEX_SYMBOLS.has(symbol.toUpperCase())) {
+    return { text: value.toFixed(value < 10 ? 1 : 0), points: true };
+  }
+  return { text: `$${value.toFixed(2)}`, points: false };
+}
+
 // ── Rules ───────────────────────────────────────────────────────────────────
 
 export const DEFAULT_RULE_INPUT: WallAlertRuleInput = {
@@ -455,6 +509,7 @@ export const DEFAULT_RULE_INPUT: WallAlertRuleInput = {
   events: { hit: true, break: true, hold: false },
   min_strength_pctile: 0,
   profile: 'balanced',
+  touch_bp: null,
   channels: { in_app: true, email: false, sms: false },
   enabled: true,
 };
@@ -467,6 +522,7 @@ export function ruleToInput(rule: WallAlertRule): WallAlertRuleInput {
     events: { hit: !!rule.events?.hit, break: !!rule.events?.break, hold: !!rule.events?.hold },
     min_strength_pctile: Number(rule.min_strength_pctile) || 0,
     profile: rule.profile,
+    touch_bp: typeof rule.touch_bp === 'number' ? rule.touch_bp : null,
     channels: {
       in_app: !!rule.channels?.in_app,
       email: !!rule.channels?.email,

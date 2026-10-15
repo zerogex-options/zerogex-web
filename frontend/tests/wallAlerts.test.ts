@@ -21,7 +21,13 @@ import {
   strengthTierFor,
   wallAlertSmsText,
   DEFAULT_RULE_INPUT,
+  PROFILE_TOUCH_BP,
+  effectiveTouchBp,
+  fmtTouchPct,
+  ruleToInput,
+  touchAmount,
   type WallAlertPayload,
+  type WallAlertRule,
 } from '../core/wallAlerts.ts';
 import { WALL_ALERT_COPY_LOCALES, wallAlertCopyFor } from '../core/wallAlertsCopy.ts';
 import { buildWallAlertEmail, wallAlertEmailSubject } from '../core/wallAlertEmail.ts';
@@ -479,4 +485,52 @@ test('the outbox needs both the bearer key and the admin token', () => {
     apiToken: 'legacy',
     adminToken: 'a',
   });
+});
+
+// ── Touch tolerance ─────────────────────────────────────────────────────────
+
+test('Auto follows the noise filter, and an explicit tolerance wins', () => {
+  assert.equal(effectiveTouchBp('balanced', null), 5);
+  assert.equal(effectiveTouchBp('responsive', null), 8);
+  assert.equal(effectiveTouchBp('conservative', undefined), 3);
+  assert.equal(effectiveTouchBp('conservative', 25), 25);
+  // The API's own numbers beat the fallback when the config has loaded.
+  const profiles = [{ name: 'balanced' as const, touch_pct: 0.0006, touch_bp: 6, arm_buffers: 1.5, cooldown_minutes: 20, confirm_minutes: 5, hold_buffers: 1.5, resolution_minutes: 60, open_grace_minutes: 3 }];
+  assert.equal(effectiveTouchBp('balanced', null, profiles), 6);
+  assert.deepEqual(PROFILE_TOUCH_BP, { responsive: 8, balanced: 5, conservative: 3 });
+});
+
+test('a tolerance reads as a percent and as a price on the wall', () => {
+  assert.equal(fmtTouchPct(1), '0.01%');
+  assert.equal(fmtTouchPct(5), '0.05%');
+  assert.equal(fmtTouchPct(25), '0.25%');
+  // 9 cents short of a 772 SPY wall is inside 0.05% ($0.39) but not 0.01% ($0.08).
+  assert.deepEqual(touchAmount('SPY', 772, 5), { text: '$0.39', points: false });
+  assert.deepEqual(touchAmount('SPY', 772, 1), { text: '$0.08', points: false });
+  assert.deepEqual(touchAmount('SPX', 7700, 5), { text: '3.9', points: true });
+  assert.deepEqual(touchAmount('ndx', 27000, 25), { text: '68', points: true });
+});
+
+test('a new rule starts on Auto and an edited rule keeps its tolerance', () => {
+  assert.equal(DEFAULT_RULE_INPUT.touch_bp, null);
+  const rule: WallAlertRule = {
+    id: 1,
+    symbol: 'SPY',
+    side: 'call',
+    events: { hit: true, break: true, hold: false },
+    min_strength_pctile: 75,
+    profile: 'balanced',
+    touch_bp: 10,
+    channels: { in_app: true, email: true, sms: false },
+    enabled: true,
+    created_at: null,
+    updated_at: null,
+    last_triggered_at: null,
+  };
+  assert.equal(ruleToInput(rule).touch_bp, 10);
+  assert.equal(ruleToInput({ ...rule, touch_bp: null }).touch_bp, null);
+  // A rule from an API that predates the field reads as Auto.
+  const legacy = { ...rule } as Partial<WallAlertRule>;
+  delete legacy.touch_bp;
+  assert.equal(ruleToInput(legacy as WallAlertRule).touch_bp, null);
 });
