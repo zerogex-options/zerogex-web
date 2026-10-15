@@ -22,12 +22,16 @@ export function expiryLabel(dateKey: string): string {
   return m && d ? `${MONTHS[m - 1]} ${d}` : dateKey;
 }
 
-/** One line for the control: "All contracts", "0DTE", "2 strikes · Oct 16". */
-export function scopeSummary(strikes: readonly string[], expirations: readonly string[], todayKey: string): string {
+/**
+ * One line for the control: "All contracts", "0DTE", "2 strikes · Oct 16".
+ * `sessionKey` is the ET date of the session on the page: its same-day
+ * expiration is the 0DTE, today's or a past session's.
+ */
+export function scopeSummary(strikes: readonly string[], expirations: readonly string[], sessionKey: string): string {
   const parts: string[] = [];
   if (strikes.length === 1) parts.push(`${strikes[0]} strike`);
   else if (strikes.length > 1) parts.push(`${strikes.length} strikes`);
-  if (expirations.length === 1) parts.push(expirations[0] === todayKey ? '0DTE' : expiryLabel(expirations[0]));
+  if (expirations.length === 1) parts.push(expirations[0] === sessionKey ? '0DTE' : expiryLabel(expirations[0]));
   else if (expirations.length > 1) parts.push(`${expirations.length} expirations`);
   return parts.length ? parts.join(' · ') : 'All contracts';
 }
@@ -128,7 +132,7 @@ export function ContractScopePanel({
   onToggleExpiration,
   onClearStrikes,
   onClearExpirations,
-  todayKey,
+  sessionKey,
   loading,
   error,
   note,
@@ -141,7 +145,8 @@ export function ContractScopePanel({
   onToggleExpiration: (v: string) => void;
   onClearStrikes: () => void;
   onClearExpirations: () => void;
-  todayKey: string;
+  /** The session's ET date, whose same-day expiration is labeled 0DTE. */
+  sessionKey: string;
   loading: boolean;
   error: string | null;
   /** Whose contracts these are, when that is not the symbol on the page. */
@@ -158,7 +163,7 @@ export function ContractScopePanel({
         label="Expiration"
         options={expirationOptions}
         selected={selectedExpirations}
-        render={(v) => (v === todayKey ? `0DTE · ${expiryLabel(v)}` : expiryLabel(v))}
+        render={(v) => (v === sessionKey ? `0DTE · ${expiryLabel(v)}` : expiryLabel(v))}
         onToggle={onToggleExpiration}
         onClear={onClearExpirations}
         loading={loading}

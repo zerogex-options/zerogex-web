@@ -14,7 +14,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
@@ -33,7 +33,7 @@ import { FULLSCREEN_LAYER_STYLE, useChartFullscreen } from '@/hooks/useChartFull
 import { useTimeframe } from '@/core/TimeframeContext';
 import { etTodayDateKey } from '@/core/utils';
 import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
-import { flowSessionOptions, type FlowSession } from '@/core/flowSessions';
+import { flowSessionOptions, isFlowSessionDate, type FlowSession } from '@/core/flowSessions';
 import { FLOW_TIMEFRAME_LABELS, FLOW_TIMEFRAME_MINUTES, getETTimeTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { ET_HM } from '@/core/technicalsCharts';
 import { fmtLevel } from '@/core/technicalsSession';
@@ -80,6 +80,8 @@ const TONE_DOT: Record<FlowEventTone, string> = {
 };
 
 const ruleColor = 'var(--border-subtle)';
+
+const noopSubscribe = () => () => {};
 
 function etTime(ms: number): string {
   return ET_HM.format(new Date(ms));
@@ -185,6 +187,23 @@ export default function FlowAnalysisPage() {
   const barMinutes = FLOW_TIMEFRAME_MINUTES[timeframe];
   const barMs = barMinutes * 60_000;
 
+  // Every contract's rows. The hook paints rows this tab cached on its first
+  // render, which the server never has: held back for the hydrating render,
+  // the page matches the server's HTML, and the cached rows paint on the next.
+  const allSeries = useFlowSeries(symbol, flowSession, { timeframe });
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const allRows = hydrated ? allSeries.rows : null;
+  const allLoading = hydrated ? allSeries.loading : true;
+  const allError = hydrated ? allSeries.error : null;
+  // The session's own ET date. It lays a past session out on its own clock,
+  // and it is what a rolling 0DTE pick means here: the contracts that expired
+  // that day, not today's.
+  const dateKey = isFlowSessionDate(flowSession)
+    ? flowSession
+    : allRows && allRows.length > 0
+      ? sessionDateKeyFromSeries(allRows)
+      : (flowSessionDays?.[flowSession === 'current' ? 0 : 1] ?? todayKey);
+
   // ── Which contracts ──────────────────────────────────────────────────────
   const {
     options: contractOptions,
@@ -207,11 +226,12 @@ export default function FlowAnalysisPage() {
   }
   const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
   const effectiveStrikes = useMemo(() => new Set(strikeOptions.filter((v) => selectedStrikes.has(v))), [strikeOptions, selectedStrikes]);
-  // Through the shared reconcile, the one place the rolling 0DTE pick resolves
-  // to today's expiration.
+  // Through the shared reconcile, the one place the rolling 0DTE pick resolves:
+  // here to the session's same-day expiration, which is today's only when the
+  // session is today's.
   const effectiveExpirations = useMemo(
-    () => new Set(reconcileExpirations(sharedExpirations, expirationOptions, todayKey)),
-    [sharedExpirations, expirationOptions, todayKey],
+    () => new Set(reconcileExpirations(sharedExpirations, expirationOptions, dateKey)),
+    [sharedExpirations, expirationOptions, dateKey],
   );
   const filtered = effectiveStrikes.size > 0 || effectiveExpirations.size > 0;
   const serverFilters = useMemo(
@@ -226,8 +246,8 @@ export default function FlowAnalysisPage() {
       return next;
     });
   const toggleExpiration = (value: string) => {
-    // Toggle against the resolved picks (a rolling 0DTE pick shows as today's
-    // date), and carry through dates this session has no option for: they
+    // Toggle against the resolved picks (a rolling 0DTE pick shows as the
+    // session's date), and carry through dates this session has no option for: they
     // belong to other charts in the tab and are not this page's to drop.
     const foreign = sharedExpirations.filter((exp) => !isRollingZeroDte(exp) && !expirationOptions.includes(exp));
     const next = new Set([...effectiveExpirations, ...foreign]);
@@ -239,7 +259,7 @@ export default function FlowAnalysisPage() {
     setSelectedStrikes(new Set());
     setSharedExpirations([]);
   };
-  const summary = scopeSummary(Array.from(effectiveStrikes), Array.from(effectiveExpirations), todayKey);
+  const summary = scopeSummary(Array.from(effectiveStrikes), Array.from(effectiveExpirations), dateKey);
   // ES / NQ have no chain of their own: their flow is the index's, so the
   // strikes are index strikes, not prices on the futures axis.
   const chainNote =
@@ -248,20 +268,23 @@ export default function FlowAnalysisPage() {
       : `${symbol} has no option chain of its own; its flow is ${chainSymbol} flow, so these are ${chainSymbol} strikes, not ${symbol} prices.`;
 
   // ── The rows ─────────────────────────────────────────────────────────────
-  const { rows: allRows, loading: allLoading, error: allError } = useFlowSeries(symbol, flowSession, { timeframe });
-  const { rows: scopedRows, loading: scopedLoading } = useFlowSeries(symbol, flowSession, {
+  const scopedSeries = useFlowSeries(symbol, flowSession, {
     timeframe,
     filters: serverFilters,
     enabled: filtered,
   });
+  const scopedRows = hydrated ? scopedSeries.rows : null;
+  const scopedLoading = hydrated ? scopedSeries.loading : true;
+  const scopedError = hydrated ? scopedSeries.error : null;
   const rows = filtered ? scopedRows : allRows;
   const loading = filtered ? scopedLoading : allLoading;
+  // A first load that failed. A refresh that fails later keeps the rows it had.
+  const loadError = filtered ? scopedError : allError;
+  const failed = loadError != null && rows == null;
   const bars = useMemo<FlowBar[]>(() => buildFlowBars(rows), [rows]);
   const read = useMemo(() => flowRead(bars), [bars]);
   const events = useMemo<FlowEvent[]>(() => buildFlowEvents(bars, barMinutes), [bars, barMinutes]);
 
-  // The session the rows report, so a past session lays out on its own clock.
-  const dateKey = sessionDateKeyFromSeries(allRows);
   const sessionStartMs = getETTimeTimestamp(dateKey, 9, 30) ?? NaN;
   const sessionEndMs = (getETTimeTimestamp(dateKey, 16, 15) ?? NaN) + barMs;
   const haveWindow = Number.isFinite(sessionStartMs) && Number.isFinite(sessionEndMs);
@@ -385,7 +408,6 @@ export default function FlowAnalysisPage() {
   );
 
   const showInitialLoading = loading && bars.length === 0;
-  const showInitialError = !!allError && !allRows;
   const scopeNote = filtered ? `Covering ${summary}.` : null;
 
   return (
@@ -403,7 +425,7 @@ export default function FlowAnalysisPage() {
         }
       />
 
-      {showInitialError ? <ErrorMessage message={allError as string} /> : null}
+      {failed ? <ErrorMessage message={loadError} /> : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {scopeOpen && (
@@ -416,7 +438,7 @@ export default function FlowAnalysisPage() {
             onToggleExpiration={toggleExpiration}
             onClearStrikes={() => setSelectedStrikes(new Set())}
             onClearExpirations={() => setSharedExpirations([])}
-            todayKey={todayKey}
+            sessionKey={dateKey}
             loading={contractsLoading}
             error={contractsError}
             note={chainNote}
@@ -439,7 +461,7 @@ export default function FlowAnalysisPage() {
             label="Flow"
             value={read ? FLOW_REGIME_LABEL[read.regime] : '—'}
             valueColor={read ? REGIME_COLOR[read.regime] : undefined}
-            sub={read ? read.regimeDetail : showInitialLoading ? 'loading the session…' : 'no trades yet'}
+            sub={read ? read.regimeDetail : showInitialLoading ? 'loading the session…' : failed ? "didn't load" : 'no trades yet'}
           />
           <ReadCell
             label="Net premium"
@@ -469,7 +491,7 @@ export default function FlowAnalysisPage() {
 
         {/* Bought vs. sold */}
         {/* The latest bar's additions only mean something while it is trading. */}
-        <BoughtSoldBoard read={read} barLabel={live ? barLabel : null} compact={isMobile} loading={showInitialLoading} live={live} scopeNote={scopeNote} />
+        <BoughtSoldBoard read={read} barLabel={live ? barLabel : null} compact={isMobile} loading={showInitialLoading} failed={failed} live={live} scopeNote={scopeNote} />
 
         {/* The chart */}
         {fullscreen.active && <div aria-hidden="true" style={{ height: restingH }} />}
@@ -527,7 +549,7 @@ export default function FlowAnalysisPage() {
               </div>
             ) : bars.length === 0 ? (
               <div className="zg-caption" style={{ padding: '48px 12px', textAlign: 'center' }}>
-                {filtered ? 'Nothing has traded in the contracts you picked this session.' : 'No flow yet for this session.'}
+                {failed ? "The flow didn't load." : filtered ? 'Nothing has traded in the contracts you picked this session.' : 'No flow yet for this session.'}
               </div>
             ) : noPanes ? (
               <div className="zg-caption" style={{ padding: '48px 12px', textAlign: 'center' }}>
@@ -560,7 +582,7 @@ export default function FlowAnalysisPage() {
             <PanelHead title="Flow log" caption="Net flow and net premium turning, put/call crossing 1, and volume bursts, newest first." />
             {events.length === 0 ? (
               <p className="zg-caption" style={{ margin: 0, padding: '18px 16px' }}>
-                {showInitialLoading ? 'Loading the session…' : 'Nothing notable yet this session.'}
+                {showInitialLoading ? 'Loading the session…' : failed ? "The flow didn't load." : 'Nothing notable yet this session.'}
               </p>
             ) : isMobile ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: '0 16px' }}>
@@ -635,7 +657,7 @@ export default function FlowAnalysisPage() {
             />
             {recentBars.length === 0 ? (
               <p className="zg-caption" style={{ margin: 0, padding: '18px 16px' }}>
-                {showInitialLoading ? 'Loading the session…' : 'Nothing has traded yet this session.'}
+                {showInitialLoading ? 'Loading the session…' : failed ? "The flow didn't load." : 'Nothing has traded yet this session.'}
               </p>
             ) : isMobile ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: '0 16px' }}>

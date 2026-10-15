@@ -372,8 +372,10 @@ The client calls this endpoint twice per page load:
 2. Filtered: `?symbol=SPY&session=current&strikes=...&expirations=...` — feeds
    only the top Options Flow chart (user-filterable).
 
-Polling cadence: incremental `intervals=1` every 5 s, full refetch every 5 min
-(same as current hook).
+Polling cadence: incremental `intervals=2` every 5 s (`intervals=5` on 1-minute
+bars), full refetch every 5 min. Two rows rather than one because the engine
+rewrites the bar that just closed as well as the open one; see `TAIL_BARS` in
+`frontend/hooks/useFlowSeries.ts`.
 
 ## Test vectors
 
