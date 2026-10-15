@@ -11,13 +11,14 @@
 # OA endpoints:
 #     GET  /api/tradeworkz/internal/queued-notifications
 #     POST /api/tradeworkz/internal/mark-notification
-# Both are behind the SIGNALS scope, so the worker uses the SAME
+# Both carry every follower's notifications, so the backend requires the
+# admin token (ZEROGEX_ADMIN_TOKEN, as X-Admin-Token) on top of the same
 # ZEROGEX_API_TOKEN the BFF proxy carries.
 #
 # Idempotent — safe to re-run. Unit files are overwritten from the repo,
 # and `systemctl enable --now` is a no-op for an already-enabled timer.
 # No config file is written (the script reads ZEROGEX_API_TOKEN,
-# TRADEWORKZ_INTERNAL_API, RESEND_API_KEY, RESEND_FROM_EMAIL,
+# ZEROGEX_ADMIN_TOKEN, TRADEWORKZ_INTERNAL_API, RESEND_API_KEY, RESEND_FROM_EMAIL,
 # NEXT_PUBLIC_APP_URL, AUTH_DB_PATH from frontend/.env.local).
 
 set -e
@@ -93,6 +94,7 @@ if [ -f "$ENV_FILE" ]; then
         log "  ⚠ ZEROGEX_API_TOKEN / ZEROGEX_API_KEY unset in $ENV_FILE — timer will install but sends will error until set"
     fi
     warn_missing_env TRADEWORKZ_INTERNAL_API
+    warn_missing_env ZEROGEX_ADMIN_TOKEN
 else
     log "  ⚠ $ENV_FILE not found — step 030 should have created it"
 fi

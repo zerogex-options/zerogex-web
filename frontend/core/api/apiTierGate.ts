@@ -48,8 +48,9 @@ const RULES: readonly Rule[] = [
   // through this proxy. Forwarded from here they would ride the BFF's own
   // full-access key, so an anonymous visitor could read other members' queued
   // alerts or mark them sent. MUST stay first, ahead of any broader rule that
-  // would otherwise match these paths. Admin, not a hard 404, so an operator
-  // signed in to the site can still inspect the queue from a browser.
+  // would otherwise match these paths. The backend also requires X-Admin-Token
+  // on both outboxes, which this proxy never adds, so even an admin's browser
+  // call is refused there: these paths belong to the workers alone.
   { pattern: /^\/api\/[^/]+(?:\/[^/]+)*\/internal(?:\/|$)/, access: 'admin' },
 
   // Public shared-backtest report permalink — client-fetched on an anonymous

@@ -11,6 +11,11 @@
 //   3. Render + send via core/mailer.ts sendTradeworkzNotification().
 //   4. POST /api/tradeworkz/internal/mark-notification { id, status }.
 //
+// Both endpoints carry every follower's notifications, so the backend
+// requires the admin token (ZEROGEX_ADMIN_TOKEN, sent as X-Admin-Token) on
+// top of the bearer key. The bearer key alone is held by every API-key
+// holder, Pro members included.
+//
 // Intended to be scheduled by
 // zerogex-web-tradeworkz-notify.timer every minute.
 //
@@ -123,6 +128,7 @@ Reads:
   AUTH_DB_PATH               (SQLite; defaults to ./data/auth.db)
   TRADEWORKZ_INTERNAL_API    (defaults to http://127.0.0.1:8000)
   ZEROGEX_API_TOKEN          (Bearer token for the internal endpoints)
+  ZEROGEX_ADMIN_TOKEN        (X-Admin-Token; must match the backend's KEY_ADMIN_TOKEN)
 
 Exit codes:
   0 = success (including a successful --dry-run with no rows to send)
@@ -180,16 +186,23 @@ function loadAuthUsers(dbPath: string, userIds: string[]): Map<string, AuthUser>
   return map;
 }
 
+// The bearer key plus the admin token: the internal endpoints need both.
+interface InternalApiAuth {
+  token: string;
+  adminToken: string;
+}
+
 async function fetchQueued(
   apiBase: string,
-  token: string,
+  auth: InternalApiAuth,
   limit: number,
 ): Promise<QueuedResponse> {
   const url = `${apiBase.replace(/\/+$/, '')}/api/tradeworkz/internal/queued-notifications?channel=email&limit=${limit}`;
   const res = await fetch(url, {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${auth.token}`,
+      'X-Admin-Token': auth.adminToken,
       Accept: 'application/json',
     },
   });
@@ -202,7 +215,7 @@ async function fetchQueued(
 
 async function markNotification(
   apiBase: string,
-  token: string,
+  auth: InternalApiAuth,
   id: number,
   status: 'sent' | 'failed',
   error?: string,
@@ -211,7 +224,8 @@ async function markNotification(
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${auth.token}`,
+      'X-Admin-Token': auth.adminToken,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
@@ -261,6 +275,9 @@ const ZEROGEX_API_TOKEN =
   process.env.ZEROGEX_API_KEY ||
   envLocal.ZEROGEX_API_KEY ||
   '';
+// The same admin token API-key administration uses (core/apiKeyAdmin.ts).
+const ZEROGEX_ADMIN_TOKEN = process.env.ZEROGEX_ADMIN_TOKEN || envLocal.ZEROGEX_ADMIN_TOKEN || '';
+const INTERNAL_AUTH: InternalApiAuth = { token: ZEROGEX_API_TOKEN, adminToken: ZEROGEX_ADMIN_TOKEN };
 
 if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
@@ -272,6 +289,12 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if ((cliArgs.yes || cliArgs.dryRun) && !ZEROGEX_API_TOKEN) {
   console.error(
     'Error: ZEROGEX_API_TOKEN (or legacy ZEROGEX_API_KEY) must be set to reach the TradeWorkz internal endpoints.',
+  );
+  process.exit(1);
+}
+if ((cliArgs.yes || cliArgs.dryRun) && !ZEROGEX_ADMIN_TOKEN) {
+  console.error(
+    'Error: ZEROGEX_ADMIN_TOKEN must be set to reach the TradeWorkz internal endpoints (they carry every follower\'s notifications).',
   );
   process.exit(1);
 }
@@ -313,7 +336,7 @@ if (!fs.existsSync(dbPath)) {
 }
 ensureSqlite3Cli();
 
-const queued = await fetchQueued(TRADEWORKZ_INTERNAL_API, ZEROGEX_API_TOKEN, cliArgs.limit);
+const queued = await fetchQueued(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, cliArgs.limit);
 if (queued.entries.length === 0) {
   console.log('Nothing to send.');
   process.exit(0);
@@ -337,7 +360,7 @@ for (const row of queued.entries) {
     console.log(`  SKIP ${label}: unknown recipient`);
     if (cliArgs.yes) {
       try {
-        await markNotification(TRADEWORKZ_INTERNAL_API, ZEROGEX_API_TOKEN, row.id, 'failed', 'unknown recipient');
+        await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'failed', 'unknown recipient');
       } catch (err) {
         console.error(`     mark-failed error: ${(err as Error).message}`);
       }
@@ -349,7 +372,7 @@ for (const row of queued.entries) {
     console.log(`  SKIP ${label}: unverified recipient ${user.email}`);
     if (cliArgs.yes) {
       try {
-        await markNotification(TRADEWORKZ_INTERNAL_API, ZEROGEX_API_TOKEN, row.id, 'failed', 'unverified recipient');
+        await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'failed', 'unverified recipient');
       } catch (err) {
         console.error(`     mark-failed error: ${(err as Error).message}`);
       }
@@ -370,14 +393,14 @@ for (const row of queued.entries) {
       eventType: row.event_type,
       payload: row.payload,
     });
-    await markNotification(TRADEWORKZ_INTERNAL_API, ZEROGEX_API_TOKEN, row.id, 'sent');
+    await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'sent');
     console.log(`  SENT ${label} -> ${user.email}`);
     sent++;
   } catch (err) {
     const message = (err as Error).message;
     console.error(`  FAIL ${label} -> ${user.email}: ${message}`);
     try {
-      await markNotification(TRADEWORKZ_INTERNAL_API, ZEROGEX_API_TOKEN, row.id, 'failed', message.slice(0, 400));
+      await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'failed', message.slice(0, 400));
     } catch (markErr) {
       console.error(`     mark-failed error: ${(markErr as Error).message}`);
     }
