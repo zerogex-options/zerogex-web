@@ -60,7 +60,7 @@ otherwise.
 ```
 Hi Gabriela,
 
-Thank you for the note you left when you canceled today. I'd like to understand it properly: which CBOE data were you looking for? If it was SPX or VIX, both are in there: SPX is in the symbol menu at the top of the dashboard, and VIX is on the dashboard right next to it.
+Thank you for the note you left when you canceled today. I'd like to understand it properly: which CBOE data were you looking for? If it was SPX or VIX, both are in there: SPX is in the symbol menu at the top of the dashboard, and VIX is on the dashboard too.
 
 I'd like to give you a month of Pro, free. Just say "yes" and I'll happily switch it on so you can give it a try, no obligations.
 
