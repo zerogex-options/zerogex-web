@@ -21,7 +21,7 @@ otherwise.
 | Canceled | Fri Oct 16, 9:33 AM ET, in-app. Last seen 9:29 AM ET, a minute before the open |
 | Access | until **Wed Nov 4, 2:48 AM ET** (`sub_1Ty5kb4AOiqteMYY4fq2oO29` is `active`, cancel at period end) |
 | Visible visits | Jul 28 (sign-up), Fri Aug 7 9:46 AM ET, Mon Sep 14 10:20 AM ET, Fri Oct 16. All during the US session |
-| Where | every address is Telefonica Germany (O2), home and mobile (RIPE lookup). The US open is 3:30 PM her time |
+| Where | all three addresses are Telefonica Germany (O2) broadband (RIPE lookup). The US open is 3:30 PM her time |
 | Card | Visa ending 8103 |
 | Stripe customer | `cus_Uy1m9WqAGSfVKU` |
 
