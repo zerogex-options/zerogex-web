@@ -14,7 +14,7 @@ ZeroGEX uses a small, consistent palette across every chart. Once you know it, e
 - **Blue / deep navy** - neutral structural info; reference lines, axes, baselines.
 - **Coral / pink** - informational secondary; session badges such as Pre-market, After hours, and Futures.
 
-Color **meaning** is stable across charts. The same green is "bullish" everywhere. Surfaces that shade dealer gamma by sign use their own ramps, named in each chart's legend: the GEX heatmap over time runs from blue (negative) through white to orange (positive), and the Gamma Chart's ribbons are gold for long gamma and violet for short.
+Color **meaning** is stable across charts. The same green is "bullish" everywhere. Surfaces that shade dealer gamma by sign use their own ramps, named in each chart's legend: the GEX heatmap over time runs from violet (negative) to orange (positive), fading into the background around zero (blue through white to orange on light themes), and the Gamma Chart's ribbons are gold for long gamma and violet for short.
 
 ### The key levels
 
@@ -71,7 +71,7 @@ Hottest cells are the strikes that matter for the nearest expiries. Watch the he
 
 ## The GEX heatmap over time
 
-GEX Heatmap Timeseries, on the GEX Heatmap page and on Dealer Positioning: strikes up the side, time across, each column the net dealer gamma at that moment - orange positive, blue negative, near-white around zero - with the candles and the gamma flip drawn on top. Dashed stretches of the flip line mark cycles where the flip was only found by widening the search far from spot; treat those as marginal.
+GEX Heatmap Timeseries, on the GEX Heatmap page and on Dealer Positioning: strikes up the side, time across, each column the net dealer gamma at that moment - orange positive, violet negative, fading into the background around zero (blue, orange and near-white on light themes) - with the candles and the gamma flip drawn on top. Dashed stretches of the flip line mark cycles where the flip was only found by widening the search far from spot; treat those as marginal.
 
 ## The Gamma Chart
 

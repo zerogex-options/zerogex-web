@@ -15,7 +15,7 @@ If your trades start from order flow across the whole market, Quant Data is clos
 
 Quant Data's best-known view is the Interval Map: strikes up the side, the session across, and one bubble per strike per interval, sized by the exposure and colored green for positive and red for negative, with the underlying's price drawn through it. It can show gamma, delta, vanna, or charm exposure, at intervals from one minute up, as raw values or as the change from one interval to the next.
 
-ZeroGEX's closest view is the GEX Heatmap, included with Basic: net dealer gamma by strike through the session, orange for positive and blue for negative, with the price candles and the gamma flip drawn on top ([how to read it](/help/platform/reading-charts)). On the Dealer Positioning page, a second heatmap sets strikes against days to expiration, out to a week, so you can see which expirations carry the gamma at each strike.
+ZeroGEX's closest view is the GEX Heatmap, included with Basic: net dealer gamma by strike through the session, orange for positive and violet for negative (blue on light themes), with the price candles and the gamma flip drawn on top ([how to read it](/help/platform/reading-charts)). On the Dealer Positioning page, a second heatmap sets strikes against days to expiration, out to a week, so you can see which expirations carry the gamma at each strike.
 
 The differences run both ways:
 

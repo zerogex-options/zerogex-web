@@ -14,7 +14,7 @@ ZeroGEX utiliza una paleta pequeña y coherente en todos los gráficos. Una vez 
 - **Azul / azul marino oscuro** - información estructural neutra; líneas de referencia, ejes, líneas base.
 - **Coral / rosa** - informativo secundario; insignias de sesión como Pre-market, After hours y Futures.
 
-El **significado** de los colores es estable en todos los gráficos. El mismo verde es "alcista" en todas partes. Las superficies que colorean el gamma de los dealers según su signo usan sus propias escalas, indicadas en la leyenda de cada gráfico: el heatmap de GEX en el tiempo va del azul (negativo) al naranja (positivo) pasando por el blanco, y las ribbons del Gamma Chart son doradas para gamma long y violetas para short.
+El **significado** de los colores es estable en todos los gráficos. El mismo verde es "alcista" en todas partes. Las superficies que colorean el gamma de los dealers según su signo usan sus propias escalas, indicadas en la leyenda de cada gráfico: el heatmap de GEX en el tiempo va del violeta (negativo) al naranja (positivo) y se funde con el fondo alrededor de cero (en los temas claros, del azul al naranja pasando por el blanco), y las ribbons del Gamma Chart son doradas para gamma long y violetas para short.
 
 ### Los niveles clave
 
@@ -71,7 +71,7 @@ Las celdas más "calientes" son los strikes que importan para los vencimientos m
 
 ## El heatmap de GEX en el tiempo
 
-GEX Heatmap Timeseries, en la página GEX Heatmap y en Dealer Positioning: los strikes en vertical, el tiempo en horizontal, cada columna el gamma neto de los dealers en ese momento - naranja positivo, azul negativo, casi blanco alrededor de cero - con las velas y el gamma flip dibujados encima. Los tramos discontinuos de la línea del flip marcan ciclos en los que el flip solo se encontró ampliando la búsqueda lejos del spot; trátalos como marginales.
+GEX Heatmap Timeseries, en la página GEX Heatmap y en Dealer Positioning: los strikes en vertical, el tiempo en horizontal, cada columna el gamma neto de los dealers en ese momento - naranja positivo, violeta negativo, fundiéndose con el fondo alrededor de cero (azul, naranja y casi blanco en los temas claros) - con las velas y el gamma flip dibujados encima. Los tramos discontinuos de la línea del flip marcan ciclos en los que el flip solo se encontró ampliando la búsqueda lejos del spot; trátalos como marginales.
 
 ## El Gamma Chart
 

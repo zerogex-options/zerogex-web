@@ -14,7 +14,7 @@ ZeroGEX utilise une palette restreinte et cohérente sur tous les graphiques. Un
 - **Bleu / bleu marine foncé** - information structurelle neutre ; lignes de référence, axes, lignes de base.
 - **Corail / rose** - informatif secondaire ; badges de session comme Pre-market, After hours et Futures.
 
-La **signification** des couleurs reste stable d'un graphique à l'autre. Le même vert signifie « haussier » partout. Les surfaces qui colorent le gamma des dealers selon son signe utilisent leurs propres dégradés, indiqués dans la légende de chaque graphique : la heatmap GEX dans le temps va du bleu (négatif) à l'orange (positif) en passant par le blanc, et les ribbons du Gamma Chart sont dorés pour le gamma long et violets pour le gamma short.
+La **signification** des couleurs reste stable d'un graphique à l'autre. Le même vert signifie « haussier » partout. Les surfaces qui colorent le gamma des dealers selon son signe utilisent leurs propres dégradés, indiqués dans la légende de chaque graphique : la heatmap GEX dans le temps va du violet (négatif) à l'orange (positif) et s'efface dans l'arrière-plan autour de zéro (sur les thèmes clairs, du bleu à l'orange en passant par le blanc), et les ribbons du Gamma Chart sont dorés pour le gamma long et violets pour le gamma short.
 
 ### Les niveaux clés
 
@@ -71,7 +71,7 @@ Les cellules les plus « chaudes » sont les strikes qui comptent pour les éch�
 
 ## La heatmap GEX dans le temps
 
-GEX Heatmap Timeseries, sur la page GEX Heatmap et sur Dealer Positioning : les strikes à la verticale, le temps à l'horizontale, chaque colonne le gamma net des dealers à cet instant - orange positif, bleu négatif, presque blanc autour de zéro - avec les bougies et le gamma flip tracés par-dessus. Les portions en pointillés de la ligne du flip marquent des cycles où le flip n'a été trouvé qu'en élargissant la recherche loin du spot ; considérez-les comme marginales.
+GEX Heatmap Timeseries, sur la page GEX Heatmap et sur Dealer Positioning : les strikes à la verticale, le temps à l'horizontale, chaque colonne le gamma net des dealers à cet instant - orange positif, violet négatif, s'effaçant dans l'arrière-plan autour de zéro (bleu, orange et presque blanc sur les thèmes clairs) - avec les bougies et le gamma flip tracés par-dessus. Les portions en pointillés de la ligne du flip marquent des cycles où le flip n'a été trouvé qu'en élargissant la recherche loin du spot ; considérez-les comme marginales.
 
 ## Le Gamma Chart
 

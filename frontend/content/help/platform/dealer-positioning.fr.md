@@ -70,7 +70,7 @@ Les contrats derrière le gamma : l'open interest à chaque strike, calls au-des
 
 Deux heatmaps montrent comment le gamma se répartit dans le temps et entre les échéances :
 
-- **GEX Heatmap Timeseries** - le gamma net des dealers par strike au fil de la séance, orange pour le positif et bleu pour le négatif, avec les bougies du prix et le gamma flip tracés par-dessus. C'est le même graphique que la page autonome GEX Heatmap.
+- **GEX Heatmap Timeseries** - le gamma net des dealers par strike au fil de la séance, orange pour le positif et violet pour le négatif (bleu sur les thèmes clairs), avec les bougies du prix et le gamma flip tracés par-dessus. C'est le même graphique que la page autonome GEX Heatmap.
 - **GEX Heatmap · Strike × DTE** - le gamma net des dealers pour les strikes portant le plus de gamma sur la semaine à venir (lignes, strike le plus haut en tête) selon les jours avant l'échéance (colonnes, jusqu'à 7DTE). Le vert est positif, le rouge négatif, et plus la teinte est soutenue, plus la valeur est grande. Une couronne marque le **GEX King** - le strike présentant le plus grand gamma net des dealers sur ces échéances proches.
 
 Utile pour :

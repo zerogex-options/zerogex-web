@@ -14,7 +14,7 @@ ZeroGEX verwendet über alle Charts hinweg eine kleine, konsistente Farbpalette.
 - **Blau / dunkles Marineblau** - neutrale strukturelle Information; Referenzlinien, Achsen, Baselines.
 - **Koralle / Pink** - sekundär informativ; Sitzungs-Badges wie Pre-market, After hours und Futures.
 
-Die **Bedeutung** der Farben bleibt über alle Charts hinweg stabil. Dasselbe Grün steht überall für "bullisch". Flächen, die das Dealer-Gamma nach Vorzeichen einfärben, verwenden eigene Farbverläufe, die in der Legende des jeweiligen Charts benannt sind: Die GEX-Heatmap über die Zeit läuft von Blau (negativ) über Weiß zu Orange (positiv), und die Ribbons des Gamma Charts sind gold für long Gamma und violett für short.
+Die **Bedeutung** der Farben bleibt über alle Charts hinweg stabil. Dasselbe Grün steht überall für "bullisch". Flächen, die das Dealer-Gamma nach Vorzeichen einfärben, verwenden eigene Farbverläufe, die in der Legende des jeweiligen Charts benannt sind: Die GEX-Heatmap über die Zeit läuft von Violett (negativ) zu Orange (positiv) und geht um null in den Hintergrund über (auf hellen Themes von Blau über Weiß zu Orange), und die Ribbons des Gamma Charts sind gold für long Gamma und violett für short.
 
 ### Die zentralen Level
 
@@ -71,7 +71,7 @@ Die heißesten Zellen sind die Strikes, die für die nächstliegenden Verfallste
 
 ## Die GEX-Heatmap über die Zeit
 
-GEX Heatmap Timeseries, auf der GEX-Heatmap-Seite und auf Dealer Positioning: Strikes an der Seite, die Zeit quer, jede Spalte das Netto-Dealer-Gamma in diesem Moment - orange positiv, blau negativ, nahezu weiß um null - mit den Kerzen und dem Gamma Flip darüber. Gestrichelte Abschnitte der Flip-Linie markieren Zyklen, in denen der Flip nur gefunden wurde, weil die Suche weit vom Spot ausgedehnt wurde; behandle sie als Grenzfälle.
+GEX Heatmap Timeseries, auf der GEX-Heatmap-Seite und auf Dealer Positioning: Strikes an der Seite, die Zeit quer, jede Spalte das Netto-Dealer-Gamma in diesem Moment - orange positiv, violett negativ, um null in den Hintergrund übergehend (auf hellen Themes blau, orange und nahezu weiß) - mit den Kerzen und dem Gamma Flip darüber. Gestrichelte Abschnitte der Flip-Linie markieren Zyklen, in denen der Flip nur gefunden wurde, weil die Suche weit vom Spot ausgedehnt wurde; behandle sie als Grenzfälle.
 
 ## Der Gamma Chart
 

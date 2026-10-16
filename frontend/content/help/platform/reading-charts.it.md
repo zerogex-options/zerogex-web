@@ -14,7 +14,7 @@ ZeroGEX utilizza una tavolozza piccola e coerente in tutti i grafici. Una volta 
 - **Blu / blu navy scuro** - informazione strutturale neutra; linee di riferimento, assi, baseline.
 - **Corallo / rosa** - informativo secondario; badge di sessione come Pre-market, After hours e Futures.
 
-Il **significato** dei colori è stabile in tutti i grafici. Lo stesso verde è "rialzista" ovunque. Le superfici che colorano il gamma dei dealer in base al segno usano scale proprie, indicate nella legenda di ciascun grafico: la heatmap GEX nel tempo va dal blu (negativo) all'arancione (positivo) passando per il bianco, e le ribbon del Gamma Chart sono dorate per il gamma long e viola per lo short.
+Il **significato** dei colori è stabile in tutti i grafici. Lo stesso verde è "rialzista" ovunque. Le superfici che colorano il gamma dei dealer in base al segno usano scale proprie, indicate nella legenda di ciascun grafico: la heatmap GEX nel tempo va dal viola (negativo) all'arancione (positivo) e sfuma nello sfondo intorno allo zero (nei temi chiari, dal blu all'arancione passando per il bianco), e le ribbon del Gamma Chart sono dorate per il gamma long e viola per lo short.
 
 ### I livelli chiave
 
@@ -71,7 +71,7 @@ Le celle più "calde" sono gli strike che contano per le scadenze più vicine. O
 
 ## La heatmap GEX nel tempo
 
-GEX Heatmap Timeseries, nella pagina GEX Heatmap e su Dealer Positioning: gli strike in verticale, il tempo in orizzontale, ogni colonna il gamma netto dei dealer in quel momento - arancione positivo, blu negativo, quasi bianco intorno allo zero - con le candele e il gamma flip disegnati sopra. I tratti tratteggiati della linea del flip segnano i cicli in cui il flip è stato trovato solo allargando la ricerca lontano dallo spot; considerali marginali.
+GEX Heatmap Timeseries, nella pagina GEX Heatmap e su Dealer Positioning: gli strike in verticale, il tempo in orizzontale, ogni colonna il gamma netto dei dealer in quel momento - arancione positivo, viola negativo, che sfuma nello sfondo intorno allo zero (blu, arancione e quasi bianco nei temi chiari) - con le candele e il gamma flip disegnati sopra. I tratti tratteggiati della linea del flip segnano i cicli in cui il flip è stato trovato solo allargando la ricerca lontano dallo spot; considerali marginali.
 
 ## Il Gamma Chart
 
