@@ -148,7 +148,7 @@ zerogex.io
 ## If she says she's a creator, or asks about the program
 
 Send `../creator-partner-assets/commission-examples.png` with the reply: the
-monthly commission at 100, 200, 500 and 1,000 paying members, mostly Basic to
+monthly commission at 25, 50, 100, 250 and 500 paying members, mostly Basic to
 mostly Pro, at today's prices and terms. Keep it for this second email rather
 than the first; in a reply to a cancellation, an earnings chart reads as a
 pitch. Its numbers come from the inputs at the bottom of

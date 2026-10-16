@@ -9,10 +9,10 @@
   at 2x from this folder:
 
     chromium --headless=new --allow-file-access-from-files --hide-scrollbars \
-      --force-device-scale-factor=2 --window-size=640,832 \
+      --force-device-scale-factor=2 --window-size=640,884 \
       --screenshot=commission-examples.png "file://$PWD/commission-examples.html"
 
-  If you change the copy, check the page height still fits the window (832).
+  If you change the copy, check the page height still fits the window (884).
 -->
 <style>
   :root {
@@ -27,8 +27,9 @@
     /* One-hue gold ramp, OKLCH h 82, validated as an ordinal ramp on --surface */
     --s1: #5f4d2b;
     --s2: #806839;
-    --s3: #bc9956;
-    --s4: #f3c772;
+    --s3: #a6874c;
+    --s4: #cea860;
+    --s5: #f7ca74;
     --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
     --mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
   }
@@ -71,6 +72,7 @@
   td.s2 { background: var(--s2); color: var(--cream); }
   td.s3 { background: var(--s3); color: var(--surface); }
   td.s4 { background: var(--s4); color: var(--surface); }
+  td.s5 { background: var(--s5); color: var(--surface); }
 
   .year { margin-top: 14px; font-size: 14px; line-height: 1.5; color: var(--cream); }
   .year b { font-weight: 650; }
@@ -128,9 +130,9 @@
   const PRICE = { basic: 39, pro: 59 };   // monthly list price, USD (frontend/core/billingPlans.ts)
   const AUDIENCE_DISCOUNT = 0.25;         // STRIPE_COUPON_PARTNER_AUDIENCE: 25% off, first 12 months
   const COMMISSION_BPS = 3000;            // grant-partner-pro default: 30%
-  const MEMBERS = [100, 200, 500, 1000];
+  const MEMBERS = [25, 50, 100, 250, 500];
   const MIXES = [0.75, 0.5, 0.25];        // share on Basic: mostly Basic, even split, mostly Pro
-  const STEP = ['s1', 's2', 's3', 's4'];  // one ramp step per row (rows never overlap in value)
+  const STEP = ['s1', 's2', 's3', 's4', 's5'];  // one ramp step per row (rows never overlap in value)
 
   // Same arithmetic as core/creatorPartners.ts: commission is rounded per invoice,
   // in cents, on what the member actually paid after the discount.
