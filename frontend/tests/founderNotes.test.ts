@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   FOUNDER_NOTE_AUDIT_TYPE,
   FOUNDER_SIGNATURE,
+  chooseFirstName,
   composeFounderNote,
   decideFounderNote,
   founderSignatureText,
@@ -20,7 +21,7 @@ import {
 // they cannot read with certainty.
 
 const ADRIANO_BODY = [
-  'Hi Adriano,',
+  'Hi {{first_name}},',
   '',
   "Your account is still fully on. When you're ready, you can pay with any card here: {{pay_link}}",
   '',
@@ -47,9 +48,10 @@ const DOC_LINES = [
   "Subject: Your ZeroGEX payment didn't go through",
   'send-after: 2026-10-08T09:00-04:00',
   'ACCESS: on',
+  'Name: Adriano',
   '',
   '',
-  'Hi Adriano,   ',
+  'Hi {{first_name}},   ',
   '',
   "Your account is still fully on. When you're ready, you can pay with any card here: {{pay_link}}",
   '',
@@ -85,6 +87,7 @@ test('a doc with two notes and unrelated fenced blocks reads as exactly the two 
     subject: "Your ZeroGEX payment didn't go through",
     sendAfterMs: Date.UTC(2026, 9, 8, 13, 0),
     access: 'on',
+    fallbackName: 'Adriano',
     // Trailing spaces gone, blank lines at the ends gone, the double blank line
     // inside kept, and the long paragraph left as one line.
     body: ADRIANO_BODY,
@@ -96,6 +99,7 @@ test('a doc with two notes and unrelated fenced blocks reads as exactly the two 
     subject: 'A quick note about your ZeroGEX payment',
     sendAfterMs: null,
     access: null,
+    fallbackName: null,
     body: 'Hi Jackson,\n\nPay here: {{pay_link}}',
   });
 });
@@ -236,10 +240,10 @@ test('a note with no email in it is an error', () => {
   assert.match(onlyError(docWith([TO, INVOICE, SUBJECT], ['', '   ', ''])), /the email itself is empty/);
 });
 
-test('any placeholder but {{pay_link}} is an error, typos included', () => {
+test('any placeholder but {{pay_link}} and {{first_name}} is an error, typos included', () => {
   for (const typo of ['{{ pay_link }}', '{pay_link}', '{{paylink}}', '{{Pay_Link}}', '{{pay_link}', '{{name}}', '{{{pay_link}}}']) {
     const error = onlyError(docWith([TO, INVOICE, SUBJECT], ['Hi,', '', `Pay here: ${typo}`]));
-    assert.match(error, /The only placeholder is \{\{pay_link\}\}/, typo);
+    assert.match(error, /The only placeholders are \{\{first_name\}\} and \{\{pay_link\}\}/, typo);
     assert.ok(error.includes(`"${typo}"`), `${typo} is named in: ${error}`);
   }
   // Correct ones, any number of them, are fine.
@@ -382,7 +386,7 @@ test('a note that signs itself is refused, since the signature is added when it 
 test('an email goes out in two parts, each with the signature under the sign-off', () => {
   const link = 'https://zerogex.io/pay?i=in_1AbC&t=tok';
   const body = 'Hi Joe,\n\nYou can pay with any card here: {{pay_link}}\n\nIf now isn\'t the right time, just reply.\n\nBest,';
-  const { text, html } = composeFounderNote(body, { payLink: link, photoUrl: 'https://zerogex.io/founder.jpg' });
+  const { text, html } = composeFounderNote(body, { payLink: link, photoUrl: 'https://zerogex.io/founder.jpg', firstName: null });
 
   // Text: the note as written, then the signature, one line each.
   assert.equal(text, `${body.replace('{{pay_link}}', link)}\n${founderSignatureText()}`);
@@ -413,6 +417,7 @@ test('the HTML part never lets note text through as markup, and keeps line break
   const { html } = composeFounderNote('Hi,\n\n<b>not bold</b> & "quoted"\nsecond line\n\nBest,', {
     payLink: null,
     photoUrl: 'https://zerogex.io/founder.jpg',
+    firstName: null,
   });
   assert.ok(html.includes('&lt;b&gt;not bold&lt;/b&gt; &amp; &quot;quoted&quot;<br>second line'), html);
   assert.ok(!html.includes('<b>not bold</b>'));
@@ -422,9 +427,78 @@ test('a link at the end of a sentence leaves the period outside it', () => {
   const { html } = composeFounderNote('Start here: https://zerogex.io/pricing. Or reply (https://zerogex.io/help).\n\nBest,', {
     payLink: null,
     photoUrl: 'https://zerogex.io/founder.jpg',
+    firstName: null,
   });
   assert.ok(html.includes('<a href="https://zerogex.io/pricing">https://zerogex.io/pricing</a>. Or'), html);
   assert.ok(html.includes('(<a href="https://zerogex.io/help">https://zerogex.io/help</a>).'), html);
+});
+
+test('{{first_name}} goes once, in the greeting, after a space', () => {
+  const ok = parseFounderNotes(docWith([TO, INVOICE, SUBJECT, 'name: Joe'], ['Hi {{first_name}},', '', 'Pay: {{pay_link}}']));
+  assert.deepEqual(ok.errors, []);
+  assert.equal(ok.notes[0].fallbackName, 'Joe');
+
+  // Anywhere but the first line, or not after a space, it could not read right without a name.
+  for (const body of [
+    ['Hi,', '', 'Thanks, {{first_name}}.'],
+    ['{{first_name}}, a quick note.'],
+    ['Hi,{{first_name}},'],
+  ]) {
+    assert.match(onlyError(docWith([TO, INVOICE, SUBJECT], body)), /outside the greeting/, body.join(' / '));
+  }
+  assert.match(
+    onlyError(docWith([TO, INVOICE, SUBJECT], ['Hi {{first_name}},', '', 'Again {{first_name}}.'])),
+    /appears 2 times/,
+  );
+});
+
+test('a name: line is one first name as it should appear', () => {
+  for (const name of ['Joe', 'Jean-Paul', "D'Andre", 'Barış']) {
+    assert.deepEqual(parseFounderNotes(docWith([TO, INVOICE, SUBJECT, `name: ${name}`])).errors, [], name);
+  }
+  for (const name of ['Joe Smith', 'J', 'joe2', '{{first_name}}']) {
+    assert.match(onlyError(docWith([TO, INVOICE, SUBJECT, `name: ${name}`])), /is not one first name/, name);
+  }
+});
+
+test('the first name comes from the first Stripe name that reads as a person', () => {
+  const pick = (email: string, ...names: Array<string | null>) =>
+    chooseFirstName({ email, candidates: names.map((name, i) => ({ name, source: `source ${i + 1}` })) });
+
+  // Checkout names, cleaned up: case, titles, initials.
+  assert.deepEqual(pick('joedietrich86@icloud.com', 'JOE DIETRICH'), { firstName: 'Joe', source: 'source 1', from: 'JOE DIETRICH' });
+  assert.equal(pick('a@example.com', 'maria lopez')?.firstName, 'Maria');
+  assert.equal(pick('a@example.com', 'JEAN-PAUL MARTIN')?.firstName, 'Jean-Paul');
+  assert.equal(pick('a@example.com', 'DeShawn Smith')?.firstName, 'DeShawn');
+  assert.equal(pick('a@example.com', 'Mr. Robert Smith')?.firstName, 'Robert');
+  assert.equal(pick('barisyelken51@yandex.com', 'BARIŞ YELKEN')?.firstName, 'Barış');
+
+  // Not a person's first name: the next source is tried.
+  assert.equal(pick('a@example.com', 'J. Smith', 'Jordan Smith')?.firstName, 'Jordan');
+  assert.equal(pick('a@example.com', 'Flamingo Corp LLC', null, 'Ana Lima')?.firstName, 'Ana');
+  assert.equal(pick('a@example.com', 'Card 4242', '')?.firstName, undefined);
+  assert.equal(pick('a@example.com', null, '   '), null);
+
+  // The family's card, not the member's: the surname is in the address, this first name is not.
+  assert.equal(pick('jadenhelfinstine@gmail.com', 'Mark Helfinstine'), null);
+  assert.equal(pick('jadenhelfinstine@gmail.com', 'Mark Helfinstine', 'Jaden Helfinstine')?.firstName, 'Jaden');
+  // A surname-first card whose given name is in the address is passed over the same way.
+  assert.equal(pick('tuananhthmno1@gmail.com', 'NGUYEN TUAN ANH'), null);
+  // An address that says nothing about the name leaves the name alone.
+  assert.equal(pick('killthelevel@gmail.com', 'Kevin Brooks')?.firstName, 'Kevin');
+});
+
+test('the greeting reads "Hi Joe," with a name and "Hi," without one', () => {
+  const body = 'Hi {{first_name}},\n\nPay here: {{pay_link}}\n\nBest,';
+  const photoUrl = 'https://zerogex.io/founder.jpg';
+  const named = composeFounderNote(body, { payLink: 'https://x.io/p', photoUrl, firstName: 'Joe' });
+  assert.ok(named.text.startsWith('Hi Joe,\n\nPay here: https://x.io/p'), named.text);
+  assert.ok(named.html.includes('<p style="margin: 0 0 14px;">Hi Joe,</p>'));
+  const unnamed = composeFounderNote(body, { payLink: 'https://x.io/p', photoUrl, firstName: null });
+  assert.ok(unnamed.text.startsWith('Hi,\n\nPay here:'), unnamed.text);
+  // A name is text, never markup.
+  const odd = composeFounderNote(body, { payLink: 'https://x.io/p', photoUrl, firstName: "D'Andre" });
+  assert.ok(odd.html.includes('Hi D&#39;Andre,'));
 });
 
 // ── The decision ────────────────────────────────────────────────────────────

@@ -22,8 +22,9 @@
 //   subject: Your ZeroGEX payment didn't go through
 //   send-after: 2026-10-08T09:00-04:00
 //   access: on
+//   name: Adriano
 //
-//   Hi Adriano,
+//   Hi {{first_name}},
 //
 //   When you're ready, you can pay with any card here: {{pay_link}}
 //
@@ -47,6 +48,8 @@
 //               is paused for now..."), so while they still hold a paid tier
 //               the note waits, and a later run sends it once the grace
 //               cutoff has taken access away.
+//   name        optional. The first name to greet them by when Stripe has no
+//               usable one: read off the email address, say. Stripe's wins.
 //
 // THE SIGNATURE. Every note goes out with Michael's signature under it, the
 // same card his Gmail adds: his photo, "Michael", "Founder, ZeroGEX", the
@@ -54,11 +57,21 @@
 // sign-off, "Best,", and one whose last line signs it ("Michael" or
 // "Founder, ZeroGEX") is an error rather than an email signed twice.
 //
+// {{first_name}} in the greeting ("Hi {{first_name}},") becomes the member's
+// first name, read from Stripe at send time: the name they typed at checkout,
+// which checkout saves on their customer, else the name on their card. Names
+// that are not a person's (a company, initials, digits) are passed over, and
+// so is a card whose surname is in the email address but whose first name is
+// not, which is usually a parent's or a spouse's. Then the note's name: line.
+// With none of those, the placeholder goes with the space before it: "Hi,".
+// It may only sit in the first line, after a space, so that always reads.
+//
 // {{pay_link}} in the body becomes the signed /pay link for the note's own
 // invoice, built at send time rather than pasted in, so a note can only carry
-// the link for the invoice it was checked against. It is the only placeholder,
-// and any other brace in the body is an error: a mistyped {{ pay_link }} would
-// otherwise reach the member as literal text, with no way to pay.
+// the link for the invoice it was checked against. These two are the only
+// placeholders, and any other brace in the body is an error: a mistyped
+// {{ pay_link }} would otherwise reach the member as literal text, with no way
+// to pay.
 //
 // Everything else in the doc is prose and is ignored, including other fenced
 // blocks and anything inside an HTML comment, so a note can be commented out,
@@ -91,14 +104,18 @@ export type FounderNote = {
    * claim both.
    */
   access: 'on' | 'off' | null;
+  /** The note's name: line, the greeting's fallback when Stripe has no usable name. */
+  fallbackName: string | null;
   /** The email as written: one line per paragraph, blank lines between. */
   body: string;
 };
 
 /** The one placeholder a body may use. */
 export const PAY_LINK_PLACEHOLDER = '{{pay_link}}';
+/** The greeting's placeholder for the member's first name. */
+export const FIRST_NAME_PLACEHOLDER = '{{first_name}}';
 
-const HEADER_KEYS = ['to', 'invoice', 'subject', 'send-after', 'access'] as const;
+const HEADER_KEYS = ['to', 'invoice', 'subject', 'send-after', 'access', 'name'] as const;
 type HeaderKey = (typeof HEADER_KEYS)[number];
 
 const MAX_SUBJECT_LENGTH = 200;
@@ -347,6 +364,13 @@ function parseNoteBlock(
     }
   }
 
+  const nameRaw = values.get('name');
+  let fallbackName: string | null = null;
+  if (nameRaw !== undefined) {
+    if (FIRST_NAME_SHAPE.test(nameRaw) && nameRaw.length >= 2 && nameRaw.length <= 30) fallbackName = nameRaw;
+    else fail(`name: "${clip(nameRaw)}" is not one first name. Write it as it should appear, e.g. "name: Joe".`);
+  }
+
   // The body: after the blank line that ends the headers. Trailing space goes,
   // blank lines at either end go, everything else stays exactly as written.
   const bodyRows = rows.slice(index + 1).map((row) => ({ line: row.line, text: row.text.replace(/\s+$/, '') }));
@@ -376,18 +400,35 @@ function parseNoteBlock(
           'sent. End the note at the sign-off, e.g. "Best,".',
       );
     }
+    // With no name the placeholder leaves along with the space before it, so it
+    // has to be the greeting's: "Hi {{first_name}}," reads as "Hi,".
+    const nameRows = bodyRows.filter((row) => row.text.includes(FIRST_NAME_PLACEHOLDER));
+    const nameUses = body.split(FIRST_NAME_PLACEHOLDER).length - 1;
+    if (nameUses > 1) {
+      fail(`${FIRST_NAME_PLACEHOLDER} appears ${nameUses} times. It goes once, in the greeting.`);
+    } else if (nameRows.length === 1 && (nameRows[0] !== bodyRows[0] || !nameRows[0].text.includes(` ${FIRST_NAME_PLACEHOLDER}`))) {
+      fail(
+        `line ${nameRows[0].line} has ${FIRST_NAME_PLACEHOLDER} outside the greeting. It goes in the first ` +
+          `line, after a space, like "Hi ${FIRST_NAME_PLACEHOLDER},", so it still reads when no name is found.`,
+      );
+    }
     const stray = strayPlaceholders(body);
     if (stray.length > 0) {
       fail(
-        `the body has ${stray.map((token) => `"${token}"`).join(', ')}. The only placeholder is ` +
-          `${PAY_LINK_PLACEHOLDER}, written exactly like that, and the body may have no other braces.`,
+        `the body has ${stray.map((token) => `"${token}"`).join(', ')}. The only placeholders are ` +
+          `${FIRST_NAME_PLACEHOLDER} and ${PAY_LINK_PLACEHOLDER}, written exactly like that, and the body may ` +
+          'have no other braces.',
       );
     }
   }
 
   if (errors.length > 0 || !to || !invoiceId || !subject) return { note: null, invoiceId, errors };
-  return { note: { line, to, invoiceId, subject, sendAfterMs, access, body }, invoiceId, errors };
+  return { note: { line, to, invoiceId, subject, sendAfterMs, access, fallbackName, body }, invoiceId, errors };
 }
+
+// One first name as a person writes it: letters, and the hyphen or apostrophe
+// some names have (Jean-Paul, D'Andre).
+const FIRST_NAME_SHAPE = /^\p{L}[\p{L}'\u2019-]*$/u;
 
 // A last line that is the signature's own first or second line.
 const SIGNS_ITSELF = /^(?:[-\u2013\u2014]+\s*)?(?:michael|founder,?\s+zerogex\.?)$/i;
@@ -399,7 +440,7 @@ const BRACE_RUN = /\{+[^{}\n]{0,40}\}+|\{+[^{}\s]{0,40}|[^{}\s]{0,40}\}+/g;
 function strayPlaceholders(body: string): string[] {
   const found = new Set<string>();
   for (const match of body.matchAll(BRACE_RUN)) {
-    if (match[0] !== PAY_LINK_PLACEHOLDER) found.add(match[0]);
+    if (match[0] !== PAY_LINK_PLACEHOLDER && match[0] !== FIRST_NAME_PLACEHOLDER) found.add(match[0]);
   }
   return [...found];
 }
@@ -553,15 +594,89 @@ export function founderNoteHtml(text: string, opts: { photoUrl: string }): strin
   );
 }
 
+// ── The member's first name ─────────────────────────────────────────────────
+
+/** A name Stripe holds for the member, and where it was read, for the report. */
+export type NameCandidate = { name: string | null | undefined; source: string };
+
+export type ChosenName = { firstName: string; source: string; from: string } | null;
+
+// A title in front of a name, as some people type it at checkout.
+const HONORIFICS = new Set(['mr', 'mrs', 'ms', 'miss', 'mx', 'dr', 'sr', 'sra', 'srta', 'prof']);
+// A business rather than a person: the checkout name is free text, and a card
+// can be a company's.
+const NOT_A_PERSON =
+  /\b(?:llc|inc|corp|corporation|ltd|ltda|limited|gmbh|srl|sas|company|holdings?|capital|trading|investments?|group|enterprises?|partners|solutions|services|bank|business|test)\b/i;
+
+/** Lowercase letters only, accents dropped: for comparing a name with an email address. */
+function foldForCompare(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/\u0131/g, 'i')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+}
+
+/** JOE and joe become Joe, JEAN-PAUL Jean-Paul. A name typed in mixed case (McKenzie) is kept. */
+function properCase(token: string): string {
+  if (token !== token.toUpperCase() && token !== token.toLowerCase()) return token;
+  // Turkish pairs I with dotless ı: BARIŞ is Barış, not Bariş. Only Turkish
+  // uses these letters, so their presence says which rules to case it by.
+  const locale = /[\u015E\u015F\u011E\u011F\u0130\u0131]/u.test(token) ? 'tr' : undefined;
+  return token
+    .toLocaleLowerCase(locale)
+    .replace(/(^|[-'\u2019])(\p{L})/gu, (_, separator: string, letter: string) => separator + letter.toLocaleUpperCase(locale));
+}
+
 /**
- * The email as it goes out, in both parts: the text with {{pay_link}} filled
- * in and the signature under it, and the same as HTML with the signature card.
+ * The first name to greet a member by, from the names Stripe holds for them,
+ * in the order given: the first that reads as a person's own first name wins.
+ *
+ * Passed over: an empty name, one with digits, a company, a lone initial, and
+ * a name whose surname is in the member's email address while its first name
+ * is not. That last one is a card in the family's name but not the member's,
+ * a parent's or a spouse's, and greeting them by it would be worse than "Hi,".
+ */
+export function chooseFirstName(input: { candidates: readonly NameCandidate[]; email: string }): ChosenName {
+  const local = foldForCompare(input.email.split('@')[0] ?? '');
+  for (const candidate of input.candidates) {
+    const full = candidate.name?.trim();
+    if (!full || /\d/.test(full) || NOT_A_PERSON.test(full)) continue;
+    const tokens = full
+      .split(/\s+/)
+      .map((token) => token.replace(/[.,]+$/, ''))
+      .filter(Boolean);
+    while (tokens.length > 0 && HONORIFICS.has(foldForCompare(tokens[0]))) tokens.shift();
+    const first = tokens[0];
+    if (!first || !FIRST_NAME_SHAPE.test(first) || foldForCompare(first).length < 2) continue;
+    if (tokens.length >= 2) {
+      const surname = foldForCompare(tokens[tokens.length - 1]);
+      const firstPrefix = foldForCompare(first).slice(0, 3);
+      if (surname.length >= 3 && local.includes(surname) && !local.includes(firstPrefix)) continue;
+    }
+    return { firstName: properCase(first), source: candidate.source, from: full };
+  }
+  return null;
+}
+
+/** The greeting with the name in it, or without the placeholder and its space: "Hi,". */
+function fillFirstName(body: string, firstName: string | null): string {
+  if (!body.includes(FIRST_NAME_PLACEHOLDER)) return body;
+  if (firstName) return body.replace(FIRST_NAME_PLACEHOLDER, () => firstName);
+  return body.replace(` ${FIRST_NAME_PLACEHOLDER}`, '');
+}
+
+/**
+ * The email as it goes out, in both parts: the text with its placeholders
+ * filled in and the signature under it, and the same as HTML with the
+ * signature card. `firstName` null leaves the greeting as "Hi,".
  */
 export function composeFounderNote(
   body: string,
-  opts: { payLink: string | null; photoUrl: string },
+  opts: { payLink: string | null; photoUrl: string; firstName: string | null },
 ): { text: string; html: string } {
-  const filled = renderFounderNote(body, { payLink: opts.payLink });
+  const filled = renderFounderNote(fillFirstName(body, opts.firstName), { payLink: opts.payLink });
   return {
     text: `${filled}\n${founderSignatureText()}`,
     html: founderNoteHtml(filled, { photoUrl: opts.photoUrl }),

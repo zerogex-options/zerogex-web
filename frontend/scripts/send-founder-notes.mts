@@ -49,6 +49,13 @@
 // signature is added here. The Bcc puts a copy of every note in Michael's
 // mailbox, where the member's reply threads with it.
 //
+// A greeting written "Hi {{first_name}}," gets the member's first name from
+// Stripe at send time: the name on their Stripe customer (checkout saves what
+// they typed), else the name on their card, else the note's `name:` line,
+// else none ("Hi,"). The rules for which names are passed over are in
+// chooseFirstName, core/founderNotes.ts. Every run lists each name it chose
+// and where it came from, so they can be checked before anything is sent.
+//
 // It never charges, retries, voids or changes anything in Stripe. It reads
 // Stripe and the database, sends at most one email per note, and writes one
 // audit row for each email Resend accepted.
@@ -75,8 +82,10 @@ import type Stripe from 'stripe';
 import { parseSkipList, skipArg, skipEntryFor, suspectSkipEntries } from '../core/emailSkipList.ts';
 import {
   FOUNDER_NOTE_AUDIT_TYPE,
+  FIRST_NAME_PLACEHOLDER,
   FOUNDER_SIGNATURE,
   PAY_LINK_PLACEHOLDER,
+  chooseFirstName,
   composeFounderNote,
   decideFounderNote,
   founderNoteAuditMessage,
@@ -87,6 +96,7 @@ import {
   type FounderNoteDecision,
   type FounderNoteInvoice,
   type FounderNoteSubscription,
+  type NameCandidate,
 } from '../core/founderNotes.ts';
 import { ResendSendError, deliverAll, resendSendError } from '../core/resendRetry.ts';
 
@@ -230,6 +240,8 @@ type StripeFacts = {
   amount: string | null;
   /** Stripe's own words for a missing invoice, e.g. that a test-mode key was used. */
   missing: string | null;
+  /** The name on the card the subscription charges, for the greeting. */
+  subscriptionCardName: string | null;
 };
 
 const isStripeMissing = (err: unknown) => {
@@ -248,20 +260,30 @@ async function lookUp(invoiceId: string): Promise<StripeFacts> {
         subscription: null,
         amount: null,
         missing: messageOf(err),
+        subscriptionCardName: null,
       };
     }
-    return { invoice: messageOf(err), subscription: null, amount: null, missing: null };
+    return { invoice: messageOf(err), subscription: null, amount: null, missing: null, subscriptionCardName: null };
   }
   const amountDue = typeof invoice.amount_due === 'number' ? invoice.amount_due : null;
   const amount = amountDue === null ? null : money(amountDue, invoice.currency ?? 'usd');
   let subscription: FounderNoteSubscription | null = null;
+  let subscriptionCardName: string | null = null;
   const subscriptionId = readInvoiceSubscriptionId(invoice);
   if (subscriptionId) {
     try {
-      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['default_payment_method'] });
       subscription = { status: sub.status, cancelAtPeriodEnd: sub.cancel_at_period_end };
+      const pm = sub.default_payment_method;
+      subscriptionCardName = pm && typeof pm === 'object' ? (pm.billing_details?.name ?? null) : null;
     } catch (err) {
-      return { invoice: `subscription ${subscriptionId}: ${messageOf(err)}`, subscription: null, amount, missing: null };
+      return {
+        invoice: `subscription ${subscriptionId}: ${messageOf(err)}`,
+        subscription: null,
+        amount,
+        missing: null,
+        subscriptionCardName: null,
+      };
     }
   }
   return {
@@ -274,6 +296,7 @@ async function lookUp(invoiceId: string): Promise<StripeFacts> {
     subscription,
     amount,
     missing: null,
+    subscriptionCardName,
   };
 }
 
@@ -283,6 +306,8 @@ type Row = {
   amount: string | null;
   decision: FounderNoteDecision;
   missing: string | null;
+  /** The name on the card the subscription charges. */
+  cardName: string | null;
 };
 
 console.log(`Checking ${notes.length} founder note(s) in ${filePath}…`);
@@ -310,7 +335,7 @@ for (const note of notes) {
     invoice: facts.invoice,
     subscription: facts.subscription,
   });
-  rows.push({ note, account, amount: facts.amount, decision, missing: facts.missing });
+  rows.push({ note, account, amount: facts.amount, decision, missing: facts.missing, cardName: facts.subscriptionCardName });
 }
 
 // The email for every note that passed every check, whether it goes now or on
@@ -324,16 +349,57 @@ type Outgoing = {
   subject: string;
   text: string;
   html: string;
+  /** The greeting's name and where it came from, for the report; empty when the note greets no one by name. */
+  greeting: string;
   /** Null when it goes now; otherwise what it is waiting for. */
   wait: { untilMs: number | null; reason: string } | null;
 };
+// The first name for a note's "Hi {{first_name}},": what Stripe holds for the
+// member, picked by chooseFirstName (core/founderNotes.ts), else the note's
+// name: line, else none ("Hi,"). Read only for notes about to go out. A failed
+// read never stops a note: it falls back like a missing name does, and says so.
+async function greetingFor(row: Row, account: Account): Promise<{ firstName: string | null; detail: string }> {
+  if (!row.note.body.includes(FIRST_NAME_PLACEHOLDER)) return { firstName: null, detail: '' };
+  let customerName: string | null = null;
+  let defaultCardName: string | null = null;
+  let problem = '';
+  if (account.stripe_customer_id) {
+    try {
+      const customer = await stripe.customers.retrieve(account.stripe_customer_id, {
+        expand: ['invoice_settings.default_payment_method'],
+      });
+      if (!('deleted' in customer && customer.deleted)) {
+        customerName = customer.name ?? null;
+        const pm = customer.invoice_settings?.default_payment_method;
+        defaultCardName = pm && typeof pm === 'object' ? (pm.billing_details?.name ?? null) : null;
+      }
+    } catch (err) {
+      problem = `; reading the Stripe customer failed: ${messageOf(err)}`;
+    }
+  }
+  const candidates: NameCandidate[] = [
+    { name: customerName, source: 'their Stripe customer name' },
+    { name: row.cardName, source: 'the name on the card the subscription charges' },
+    { name: defaultCardName, source: 'the name on their default card' },
+  ];
+  const chosen = chooseFirstName({ candidates, email: account.email });
+  if (chosen) return { firstName: chosen.firstName, detail: `${chosen.firstName}, from ${chosen.source} "${chosen.from}"` };
+  const held = [...new Set(candidates.map((c) => c.name?.trim()).filter((name): name is string => Boolean(name)))];
+  const passed = held.length > 0 ? `Stripe's ${held.map((name) => `"${name}"`).join(', ')} passed over` : 'Stripe has no name';
+  if (row.note.fallbackName) {
+    return { firstName: row.note.fallbackName, detail: `${row.note.fallbackName}, from the note's name: line (${passed}${problem})` };
+  }
+  return { firstName: null, detail: `no name, so the greeting reads "Hi," (${passed}${problem})` };
+}
+
 const outgoing: Outgoing[] = [];
 for (const row of rows) {
   const { decision, note, account } = row;
   if (decision.action !== 'send' && decision.action !== 'wait') continue;
   if (!account) throw new Error(`No account for ${note.to}, yet its note passed every check.`);
   const payLink = note.body.includes(PAY_LINK_PLACEHOLDER) ? buildPayUrl(appUrl, note.invoiceId) : null;
-  const email = composeFounderNote(note.body, { payLink, photoUrl });
+  const greeting = await greetingFor(row, account);
+  const email = composeFounderNote(note.body, { payLink, photoUrl, firstName: greeting.firstName });
   outgoing.push({
     note,
     userId: account.id,
@@ -341,6 +407,7 @@ for (const row of rows) {
     subject: note.subject,
     text: email.text,
     html: email.html,
+    greeting: greeting.detail,
     wait: decision.action === 'wait' ? { untilMs: decision.untilMs, reason: decision.reason } : null,
   });
 }
@@ -386,6 +453,11 @@ if (suspect.length > 0) {
   console.log(`\n⚠ SKIP entries that match no note or account here: ${suspect.join(', ')} — check the spelling before sending.`);
 }
 
+const greeted = outgoing.filter((o) => o.greeting);
+if (greeted.length > 0) {
+  console.log('\n── First names (check these before sending) ──');
+  for (const o of greeted) console.log(`  ${o.to.padEnd(34)} ${o.greeting}`);
+}
 if (outgoing.length > 0) {
   console.log(
     `\nEach email below is its plain-text part. The HTML part has the same words with your signature card ` +
@@ -399,6 +471,7 @@ for (const [index, o] of outgoing.entries()) {
   console.log(`Bcc:      ${MICHAEL}`);
   console.log(`To:       ${o.to}`);
   console.log(`Subject:  ${o.subject}`);
+  if (o.greeting) console.log(`Name:     ${o.greeting}`);
   console.log('');
   console.log(o.text);
 }
