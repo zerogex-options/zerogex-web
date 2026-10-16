@@ -36,18 +36,23 @@ import { useLanguage, usePageT } from '@/core/LanguageContext';
 import {
   DEFAULT_RULE_INPUT,
   STRENGTH_STOPS,
+  TOUCH_OPTIONS_BP,
   WALL_CHANNELS,
   WALL_EVENT_KINDS,
+  effectiveTouchBp,
   fmtPrice,
   fmtStrike,
+  fmtTouchPct,
   passesStrengthFloor,
   ruleInputProblem,
   ruleToInput,
   strengthTierFor,
+  touchAmount,
   type LiveWallSide,
   type LiveWallsResponse,
   type LiveWallsRow,
   type WallAlertFeedResponse,
+  type WallAlertProfileConfig,
   type WallAlertRule,
   type WallAlertRuleInput,
   type WallAlertsConfig,
@@ -135,6 +140,8 @@ export default function WallAlertsClient({
   const symbols = config.data?.symbols?.length ? config.data.symbols : FALLBACK_SYMBOLS;
   const maxRules = config.data?.max_rules ?? 25;
   const smsAvailable = Boolean(config.data?.channels?.find((c) => c.id === 'sms')?.available);
+  const profiles = config.data?.profiles ?? null;
+  const touchOptions = config.data?.touch_options_bp?.length ? config.data.touch_options_bp : TOUCH_OPTIONS_BP;
 
   // Editor state: null = closed; { id: null } = creating; { id } = editing.
   const [editing, setEditing] = useState<{ id: number | null; input: WallAlertRuleInput } | null>(null);
@@ -304,6 +311,8 @@ export default function WallAlertsClient({
               symbols={symbols}
               smsAvailable={smsAvailable}
               emailVerified={emailVerified}
+              profiles={profiles}
+              touchOptions={touchOptions}
               live={live.data}
               busy={busy}
               onChange={(input) => setEditing((prev) => (prev ? { ...prev, input } : prev))}
@@ -337,6 +346,7 @@ export default function WallAlertsClient({
                 locale={locale}
                 rule={rule}
                 live={live.data}
+                profiles={profiles}
                 onToggle={() => toggleRule(rule)}
                 onEdit={() => openEditor(rule.id, ruleToInput(rule))}
                 onDelete={() => deleteRule(rule)}
@@ -513,6 +523,7 @@ function RuleCard({
   locale,
   rule,
   live,
+  profiles,
   onToggle,
   onEdit,
   onDelete,
@@ -522,6 +533,7 @@ function RuleCard({
   locale: string;
   rule: WallAlertRule;
   live: LiveWallsResponse | null;
+  profiles: readonly WallAlertProfileConfig[] | null;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -543,6 +555,7 @@ function RuleCard({
           </div>
           <div className="text-xs text-[var(--color-text-secondary)] mt-1 leading-snug">
             {events.join(' · ')} — {strengthLabel(t, copy, rule.min_strength_pctile)} · {t(`profile_${rule.profile}`)}
+            {typeof rule.touch_bp === 'number' ? ` · ${t('summaryTouch', { pct: fmtTouchPct(rule.touch_bp) })}` : ''}
           </div>
           <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-text-secondary)]">
             {channelIcons.map((c) => (
@@ -552,7 +565,15 @@ function RuleCard({
               {rule.last_triggered_at ? t('lastAlert', { time: fmtWhen(rule.last_triggered_at, locale) }) : t('noAlertsYet')}
             </span>
           </div>
-          {row && rule.enabled ? <RulePreviewLine t={t} copy={copy} rule={rule} row={row} /> : null}
+          {row && rule.enabled ? (
+            <RulePreviewLine
+              t={t}
+              copy={copy}
+              rule={rule}
+              row={row}
+              touchBp={effectiveTouchBp(rule.profile, rule.touch_bp, profiles)}
+            />
+          ) : null}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
@@ -585,6 +606,12 @@ function ChannelIcon({ channel }: { channel: WallChannel }) {
   return <Icon className="w-3 h-3" aria-label={channel} />;
 }
 
+/** The touch band on a wall in price terms: "$0.39" or "3.9 points". */
+function touchAmountText(t: T, symbol: string, strike: number, bp: number): string {
+  const amount = touchAmount(symbol, strike, bp);
+  return amount.points ? `${amount.text} ${t('pointsUnit')}` : amount.text;
+}
+
 function previewFor(
   t: T,
   copy: ReturnType<typeof wallAlertCopyFor>,
@@ -592,6 +619,7 @@ function previewFor(
   side: WallSide,
   floor: number,
   row: LiveWallsRow | null,
+  touchBp: number,
 ): { text: string; ok: boolean } {
   const wall = row ? row[side] : null;
   const sideText = copy.side[side];
@@ -606,6 +634,7 @@ function previewFor(
     strike: fmtStrike(wall.strike),
     tier: copy.tier[tier],
     pctile: copy.percentile(Math.round(wall.strength_pctile)),
+    zone: `${touchAmountText(t, symbol, wall.strike, touchBp)} (${fmtTouchPct(touchBp)})`,
   };
   const ok = passesStrengthFloor(floor, wall.strength_pctile);
   return { text: t(ok ? 'preview_match' : 'preview_filtered', vars), ok };
@@ -616,17 +645,19 @@ function RulePreviewLine({
   copy,
   rule,
   row,
+  touchBp,
 }: {
   t: T;
   copy: ReturnType<typeof wallAlertCopyFor>;
   rule: WallAlertRule;
   row: LiveWallsRow;
+  touchBp: number;
 }) {
   const sides: WallSide[] = rule.side === 'both' ? ['call', 'put'] : [rule.side];
   return (
     <div className="mt-2 space-y-0.5">
       {sides.map((side) => {
-        const p = previewFor(t, copy, rule.symbol, side, rule.min_strength_pctile, row);
+        const p = previewFor(t, copy, rule.symbol, side, rule.min_strength_pctile, row, touchBp);
         return (
           <div key={side} className="text-[11px] leading-snug" style={{ color: p.ok ? 'var(--color-text-secondary)' : 'var(--color-warning)' }}>
             {p.text}
@@ -724,6 +755,8 @@ function RuleEditor({
   symbols,
   smsAvailable,
   emailVerified,
+  profiles,
+  touchOptions,
   live,
   busy,
   onChange,
@@ -737,6 +770,8 @@ function RuleEditor({
   symbols: string[];
   smsAvailable: boolean;
   emailVerified: boolean;
+  profiles: readonly WallAlertProfileConfig[] | null;
+  touchOptions: readonly number[];
   live: LiveWallsResponse | null;
   busy: boolean;
   onChange: (v: WallAlertRuleInput) => void;
@@ -747,6 +782,22 @@ function RuleEditor({
   const row = live?.symbols.find((r) => r.symbol === value.symbol) ?? null;
   const sides: WallSide[] = value.side === 'both' ? ['call', 'put'] : [value.side];
   const floorTier = strengthTierFor(value.min_strength_pctile);
+  const autoTouchBp = effectiveTouchBp(value.profile, null, profiles);
+  const touchBp = effectiveTouchBp(value.profile, value.touch_bp, profiles);
+  // The tolerance in price terms on the first wall this rule watches, so
+  // "0.05%" reads as "about $0.39" before the member commits to it.
+  const exampleSide = sides.find((side) => row?.[side]);
+  const exampleWall = exampleSide ? row?.[exampleSide] : null;
+  const touchExample =
+    exampleSide && exampleWall
+      ? t('touchExample', {
+          symbol: value.symbol,
+          side: copy.side[exampleSide],
+          strike: fmtStrike(exampleWall.strike),
+          pct: fmtTouchPct(touchBp),
+          amount: touchAmountText(t, value.symbol, exampleWall.strike, touchBp),
+        })
+      : null;
 
   return (
     <div className="rounded-2xl p-5 mb-4" style={{ ...card, border: '1px solid var(--color-info)' }}>
@@ -871,6 +922,23 @@ function RuleEditor({
         </div>
 
         <div>
+          <FieldLabel>{t('touchTitle')}</FieldLabel>
+          <Segmented<string>
+            label={t('touchTitle')}
+            value={value.touch_bp === null ? 'auto' : String(value.touch_bp)}
+            onChange={(v) => set({ touch_bp: v === 'auto' ? null : Number(v) })}
+            options={[
+              { value: 'auto', label: t('touchAuto', { pct: fmtTouchPct(autoTouchBp) }) },
+              ...touchOptions.map((bp) => ({ value: String(bp), label: fmtTouchPct(bp) })),
+            ]}
+          />
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-2 leading-snug">{t('touchDesc')}</p>
+          {touchExample ? (
+            <p className="text-[11px] text-[var(--color-text-primary)] mt-1 leading-snug tabular-nums">{touchExample}</p>
+          ) : null}
+        </div>
+
+        <div>
           <FieldLabel>{t('channels')}</FieldLabel>
           <div className="space-y-2">
             {WALL_CHANNELS.map((channel) => {
@@ -920,7 +988,7 @@ function RuleEditor({
             {t('previewTitle')}
           </div>
           {sides.map((side) => {
-            const p = previewFor(t, copy, value.symbol, side, value.min_strength_pctile, row);
+            const p = previewFor(t, copy, value.symbol, side, value.min_strength_pctile, row, touchBp);
             return (
               <p key={side} className="text-xs leading-snug text-[var(--color-text-primary)]" style={{ opacity: p.ok ? 1 : 0.8 }}>
                 {p.text}

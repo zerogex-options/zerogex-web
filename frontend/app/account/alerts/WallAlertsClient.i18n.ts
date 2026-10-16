@@ -35,7 +35,7 @@ export const dict: PageDictionary = {
     side_both: 'Both',
     alertWhen: 'Alert me when',
     event_hit: 'Price hits the wall',
-    event_hit_desc: 'Price reaches the wall after approaching it. One alert per approach, not one per tick.',
+    event_hit_desc: 'Price reaches the wall, or comes within your touch tolerance, after approaching it. One alert per approach, not one per tick.',
     event_break: 'The wall breaks',
     event_break_desc: 'Confirmed by consecutive 1-minute closes beyond the wall, so a wick or a failed breakout does not count.',
     event_hold: 'The wall holds',
@@ -46,6 +46,13 @@ export const dict: PageDictionary = {
     strengthDesc:
       'Only alert for walls at least this big compared with the same symbol’s walls over the last 30 days, at this time of day.',
     sensitivity: 'Noise filter',
+    touchTitle: 'Touch tolerance',
+    touchAuto: 'Auto ({pct})',
+    touchDesc:
+      'How close price must come for a hit to count, so a rejection a few cents short of the wall still alerts. Wider warns earlier and catches more near misses; tighter waits for a real touch. Auto follows the noise filter.',
+    touchExample: 'On the {symbol} {side} wall at {strike}, {pct} is about {amount}.',
+    pointsUnit: 'points',
+    summaryTouch: 'within {pct}',
     profile_responsive: 'Responsive',
     profile_responsive_desc: 'Earliest warning. Alerts as price closes in; breaks confirm on 3 closes. More alerts.',
     profile_balanced: 'Balanced',
@@ -71,7 +78,7 @@ export const dict: PageDictionary = {
     off: 'Paused',
     previewTitle: 'Right now',
     preview_match:
-      'The {symbol} {side} wall is at {strike} — {tier}, {pctile}. This alert would fire if price reaches it.',
+      'The {symbol} {side} wall is at {strike} — {tier}, {pctile}. This alert would fire if price comes within {zone} of it.',
     preview_filtered:
       'The {symbol} {side} wall is at {strike} — {tier}, {pctile}. That is below your filter, so it would not alert today.',
     preview_unrated: 'The {symbol} {side} wall is at {strike}. Its strength is not rated yet, so a strength filter above “Any wall” would not alert on it.',
@@ -107,7 +114,7 @@ export const dict: PageDictionary = {
     limitReached: 'You have reached the limit of {max} alerts. Delete one to add another.',
     howTitle: 'How wall alerts work',
     how_hit:
-      'Hit: price reaches the wall’s touch band after approaching it. Price chopping at a wall is one alert — the wall re-arms only after price backs clearly away.',
+      'Hit: price comes within your touch tolerance of the wall after approaching it. Price chopping at a wall is one alert — the wall re-arms only after price backs clearly away.',
     how_break:
       'Broke: several straight 1-minute closes beyond the wall by a volatility-scaled buffer. A broken wall stays quiet for the rest of the day.',
     how_hold: 'Held: after a hit, price closes back off the wall by a clear margin. Sent only after a hit you were alerted to.',
@@ -157,7 +164,7 @@ export const dict: PageDictionary = {
     side_both: 'Entrambi',
     alertWhen: 'Avvisami quando',
     event_hit: 'Il prezzo raggiunge il muro',
-    event_hit_desc: 'Il prezzo arriva al muro dopo esservisi avvicinato. Un avviso per avvicinamento, non uno per tick.',
+    event_hit_desc: 'Il prezzo arriva al muro, o entro la tua tolleranza di contatto, dopo esservisi avvicinato. Un avviso per avvicinamento, non uno per tick.',
     event_break: 'Il muro si rompe',
     event_break_desc: 'Confermato da chiusure consecutive a 1 minuto oltre il muro: uno spike o un falso breakout non contano.',
     event_hold: 'Il muro tiene',
@@ -168,6 +175,13 @@ export const dict: PageDictionary = {
     strengthDesc:
       'Avvisa solo per muri almeno così grandi rispetto ai muri dello stesso simbolo negli ultimi 30 giorni, alla stessa ora.',
     sensitivity: 'Filtro del rumore',
+    touchTitle: 'Tolleranza di contatto',
+    touchAuto: 'Auto ({pct})',
+    touchDesc:
+      'Quanto deve avvicinarsi il prezzo perché il contatto conti, così anche un rifiuto a pochi centesimi dal muro fa scattare l’avviso. Più ampia avvisa prima e coglie più sfioramenti; più stretta aspetta un contatto vero. Auto segue il filtro del rumore.',
+    touchExample: 'Sul muro {side} di {symbol} a {strike}, {pct} equivale a circa {amount}.',
+    pointsUnit: 'punti',
+    summaryTouch: 'entro {pct}',
     profile_responsive: 'Reattivo',
     profile_responsive_desc: 'Preavviso più rapido. Avvisa mentre il prezzo si avvicina; rotture confermate da 3 chiusure. Più avvisi.',
     profile_balanced: 'Bilanciato',
@@ -193,7 +207,7 @@ export const dict: PageDictionary = {
     off: 'In pausa',
     previewTitle: 'In questo momento',
     preview_match:
-      'Il muro {side} di {symbol} è a {strike} — {tier}, {pctile}. Questo avviso scatterebbe se il prezzo lo raggiungesse.',
+      'Il muro {side} di {symbol} è a {strike} — {tier}, {pctile}. Questo avviso scatterebbe se il prezzo arrivasse entro {zone} dal muro.',
     preview_filtered:
       'Il muro {side} di {symbol} è a {strike} — {tier}, {pctile}. È sotto il tuo filtro, quindi oggi non darebbe avvisi.',
     preview_unrated: 'Il muro {side} di {symbol} è a {strike}. La sua forza non è ancora valutata, quindi un filtro sopra “Qualsiasi muro” non darebbe avvisi.',
@@ -229,7 +243,7 @@ export const dict: PageDictionary = {
     limitReached: 'Hai raggiunto il limite di {max} avvisi. Eliminane uno per aggiungerne un altro.',
     howTitle: 'Come funzionano gli avvisi sui muri',
     how_hit:
-      'Contatto: il prezzo entra nella banda del muro dopo esservisi avvicinato. Le oscillazioni sul muro valgono un solo avviso: il muro si riarma solo quando il prezzo se ne allontana nettamente.',
+      'Contatto: il prezzo arriva entro la tua tolleranza di contatto dal muro dopo esservisi avvicinato. Le oscillazioni sul muro valgono un solo avviso: il muro si riarma solo quando il prezzo se ne allontana nettamente.',
     how_break:
       'Rottura: diverse chiusure a 1 minuto consecutive oltre il muro di un margine proporzionale alla volatilità. Un muro rotto resta silenzioso per il resto della giornata.',
     how_hold: 'Tenuta: dopo un contatto, il prezzo chiude lontano dal muro con un margine netto. Inviato solo dopo un contatto per cui hai ricevuto l’avviso.',
@@ -279,7 +293,7 @@ export const dict: PageDictionary = {
     side_both: 'Beide',
     alertWhen: 'Benachrichtige mich, wenn',
     event_hit: 'der Kurs die Wand erreicht',
-    event_hit_desc: 'Der Kurs erreicht die Wand nach einer Annäherung. Ein Alarm pro Annäherung, nicht pro Tick.',
+    event_hit_desc: 'Der Kurs erreicht die Wand nach einer Annäherung oder kommt ihr bis auf Ihre Berührungstoleranz nahe. Ein Alarm pro Annäherung, nicht pro Tick.',
     event_break: 'die Wand bricht',
     event_break_desc: 'Bestätigt durch aufeinanderfolgende 1-Minuten-Schlusskurse jenseits der Wand — ein Docht oder ein Fehlausbruch zählt nicht.',
     event_hold: 'die Wand hält',
@@ -290,6 +304,13 @@ export const dict: PageDictionary = {
     strengthDesc:
       'Nur bei Wänden alarmieren, die mindestens so groß sind wie die Wände desselben Symbols der letzten 30 Tage zur gleichen Uhrzeit.',
     sensitivity: 'Rauschfilter',
+    touchTitle: 'Berührungstoleranz',
+    touchAuto: 'Auto ({pct})',
+    touchDesc:
+      'Wie nah der Kurs kommen muss, damit eine Berührung zählt – so löst auch eine Abweisung wenige Cent vor der Wand aus. Breiter warnt früher und erfasst mehr Beinahe-Berührungen; enger wartet auf eine echte Berührung. Auto folgt dem Rauschfilter.',
+    touchExample: 'An der {symbol}-{side}-Wand bei {strike} entsprechen {pct} etwa {amount}.',
+    pointsUnit: 'Punkte',
+    summaryTouch: 'bis {pct}',
     profile_responsive: 'Reaktiv',
     profile_responsive_desc: 'Früheste Warnung. Alarm, wenn der Kurs sich nähert; Brüche nach 3 Schlusskursen. Mehr Alarme.',
     profile_balanced: 'Ausgewogen',
@@ -315,7 +336,7 @@ export const dict: PageDictionary = {
     off: 'Pausiert',
     previewTitle: 'Gerade jetzt',
     preview_match:
-      'Die {symbol}-{side}-Wand liegt bei {strike} — {tier}, {pctile}. Dieser Alarm würde auslösen, wenn der Kurs sie erreicht.',
+      'Die {symbol}-{side}-Wand liegt bei {strike} — {tier}, {pctile}. Dieser Alarm würde auslösen, wenn der Kurs ihr bis auf {zone} nahekommt.',
     preview_filtered:
       'Die {symbol}-{side}-Wand liegt bei {strike} — {tier}, {pctile}. Das liegt unter deinem Filter, heute gäbe es also keinen Alarm.',
     preview_unrated: 'Die {symbol}-{side}-Wand liegt bei {strike}. Ihre Stärke ist noch nicht bewertet, daher würde ein Filter über „Jede Wand“ nicht auslösen.',
@@ -351,7 +372,7 @@ export const dict: PageDictionary = {
     limitReached: 'Du hast das Limit von {max} Alarmen erreicht. Lösche einen, um einen neuen anzulegen.',
     howTitle: 'So funktionieren Wand-Alarme',
     how_hit:
-      'Berührung: Der Kurs erreicht das Berührungsband der Wand nach einer Annäherung. Hin und Her an der Wand ist ein einziger Alarm — die Wand wird erst wieder scharf, wenn sich der Kurs deutlich entfernt.',
+      'Berührung: Der Kurs kommt der Wand nach einer Annäherung bis auf Ihre Berührungstoleranz nahe. Hin und Her an der Wand ist ein einziger Alarm — die Wand wird erst wieder scharf, wenn sich der Kurs deutlich entfernt.',
     how_break:
       'Bruch: mehrere 1-Minuten-Schlusskurse in Folge jenseits der Wand um einen volatilitätsabhängigen Puffer. Eine gebrochene Wand bleibt für den Rest des Tages still.',
     how_hold: 'Halt: Nach einer Berührung schließt der Kurs deutlich von der Wand entfernt. Nur nach einer Berührung, für die du alarmiert wurdest.',
@@ -401,7 +422,7 @@ export const dict: PageDictionary = {
     side_both: 'Ambos',
     alertWhen: 'Avisarme cuando',
     event_hit: 'El precio llega al muro',
-    event_hit_desc: 'El precio llega al muro tras acercarse. Una alerta por aproximación, no una por tick.',
+    event_hit_desc: 'El precio llega al muro, o queda dentro de tu tolerancia de contacto, tras acercarse. Una alerta por aproximación, no una por tick.',
     event_break: 'El muro se rompe',
     event_break_desc: 'Confirmado por cierres consecutivos de 1 minuto más allá del muro: una mecha o una falsa ruptura no cuentan.',
     event_hold: 'El muro aguanta',
@@ -412,6 +433,13 @@ export const dict: PageDictionary = {
     strengthDesc:
       'Solo alertar de muros al menos así de grandes frente a los muros del mismo símbolo en los últimos 30 días, a esta hora.',
     sensitivity: 'Filtro de ruido',
+    touchTitle: 'Tolerancia de contacto',
+    touchAuto: 'Auto ({pct})',
+    touchDesc:
+      'Cuánto debe acercarse el precio para que cuente como contacto, así un rechazo a pocos centavos del muro también avisa. Más amplia avisa antes y capta más roces; más estrecha espera un contacto real. Auto sigue al filtro de ruido.',
+    touchExample: 'En el muro {side} de {symbol} en {strike}, {pct} son unos {amount}.',
+    pointsUnit: 'puntos',
+    summaryTouch: 'a menos de {pct}',
     profile_responsive: 'Reactivo',
     profile_responsive_desc: 'Aviso más temprano. Alerta mientras el precio se acerca; rupturas con 3 cierres. Más alertas.',
     profile_balanced: 'Equilibrado',
@@ -437,7 +465,7 @@ export const dict: PageDictionary = {
     off: 'En pausa',
     previewTitle: 'Ahora mismo',
     preview_match:
-      'El muro {side} de {symbol} está en {strike} — {tier}, {pctile}. Esta alerta saltaría si el precio lo alcanza.',
+      'El muro {side} de {symbol} está en {strike} — {tier}, {pctile}. Esta alerta saltaría si el precio se acerca a menos de {zone}.',
     preview_filtered:
       'El muro {side} de {symbol} está en {strike} — {tier}, {pctile}. Está por debajo de tu filtro, así que hoy no alertaría.',
     preview_unrated: 'El muro {side} de {symbol} está en {strike}. Su fuerza aún no está calificada, así que un filtro por encima de “Cualquier muro” no alertaría.',
@@ -473,7 +501,7 @@ export const dict: PageDictionary = {
     limitReached: 'Has alcanzado el límite de {max} alertas. Elimina una para añadir otra.',
     howTitle: 'Cómo funcionan las alertas de muros',
     how_hit:
-      'Contacto: el precio llega a la banda del muro tras acercarse. El vaivén en el muro cuenta como una sola alerta: el muro se rearma solo cuando el precio se aleja con claridad.',
+      'Contacto: el precio queda dentro de tu tolerancia de contacto con el muro tras acercarse. El vaivén en el muro cuenta como una sola alerta: el muro se rearma solo cuando el precio se aleja con claridad.',
     how_break:
       'Ruptura: varios cierres de 1 minuto seguidos más allá del muro por un margen ajustado a la volatilidad. Un muro roto queda en silencio el resto del día.',
     how_hold: 'Aguante: tras un contacto, el precio cierra lejos del muro con un margen claro. Solo se envía tras un contacto del que recibiste alerta.',
@@ -523,7 +551,7 @@ export const dict: PageDictionary = {
     side_both: 'Les deux',
     alertWhen: "M'alerter quand",
     event_hit: 'Le prix atteint le mur',
-    event_hit_desc: 'Le prix atteint le mur après s’en être approché. Une alerte par approche, pas une par tick.',
+    event_hit_desc: 'Le prix atteint le mur, ou entre dans votre tolérance de contact, après s’en être approché. Une alerte par approche, pas une par tick.',
     event_break: 'Le mur casse',
     event_break_desc: 'Confirmé par des clôtures 1 minute consécutives au-delà du mur : une mèche ou une fausse cassure ne comptent pas.',
     event_hold: 'Le mur tient',
@@ -534,6 +562,13 @@ export const dict: PageDictionary = {
     strengthDesc:
       'N’alerter que pour les murs au moins aussi grands que les murs du même symbole sur les 30 derniers jours, à la même heure.',
     sensitivity: 'Filtre anti-bruit',
+    touchTitle: 'Tolérance de contact',
+    touchAuto: 'Auto ({pct})',
+    touchDesc:
+      'À quelle distance le prix doit venir pour que le contact compte : un rejet à quelques cents du mur déclenche quand même l’alerte. Plus large prévient plus tôt et capte plus de quasi-contacts ; plus étroite attend un vrai contact. Auto suit le filtre anti-bruit.',
+    touchExample: 'Sur le mur {side} de {symbol} à {strike}, {pct} représente environ {amount}.',
+    pointsUnit: 'points',
+    summaryTouch: 'à moins de {pct}',
     profile_responsive: 'Réactif',
     profile_responsive_desc: 'Alerte la plus précoce. Alerte à l’approche ; cassure confirmée par 3 clôtures. Plus d’alertes.',
     profile_balanced: 'Équilibré',
@@ -559,7 +594,7 @@ export const dict: PageDictionary = {
     off: 'En pause',
     previewTitle: 'En ce moment',
     preview_match:
-      'Le mur {side} de {symbol} est à {strike} — {tier}, {pctile}. Cette alerte se déclencherait si le prix l’atteint.',
+      'Le mur {side} de {symbol} est à {strike} — {tier}, {pctile}. Cette alerte se déclencherait si le prix s’en approche à moins de {zone}.',
     preview_filtered:
       'Le mur {side} de {symbol} est à {strike} — {tier}, {pctile}. C’est sous votre filtre : aucune alerte aujourd’hui.',
     preview_unrated: 'Le mur {side} de {symbol} est à {strike}. Sa force n’est pas encore évaluée, donc un filtre au-dessus de « N’importe quel mur » ne déclencherait pas.',
@@ -595,7 +630,7 @@ export const dict: PageDictionary = {
     limitReached: 'Vous avez atteint la limite de {max} alertes. Supprimez-en une pour en ajouter une autre.',
     howTitle: 'Comment fonctionnent les alertes de murs',
     how_hit:
-      'Contact : le prix atteint la bande du mur après s’en être approché. Les allers-retours sur un mur comptent pour une seule alerte : le mur ne se réarme que lorsque le prix s’en éloigne nettement.',
+      'Contact : le prix entre dans votre tolérance de contact autour du mur après s’en être approché. Les allers-retours sur un mur comptent pour une seule alerte : le mur ne se réarme que lorsque le prix s’en éloigne nettement.',
     how_break:
       'Cassure : plusieurs clôtures 1 minute consécutives au-delà du mur, d’une marge ajustée à la volatilité. Un mur cassé reste silencieux le reste de la journée.',
     how_hold: 'Tenue : après un contact, le prix clôture nettement à l’écart du mur. Envoyée seulement après un contact pour lequel vous avez été alerté.',
