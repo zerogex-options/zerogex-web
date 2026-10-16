@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Creator partner earnings</title>
+<!--
+  Example earnings image for the Creator Partner program. The numbers are computed
+  from the inputs at the bottom of this file. To re-render commission-examples.png
+  at 2x from this folder:
+
+    chromium --headless=new --allow-file-access-from-files --hide-scrollbars \
+      --force-device-scale-factor=2 --window-size=640,832 \
+      --screenshot=commission-examples.png "file://$PWD/commission-examples.html"
+
+  If you change the copy, check the page height still fits the window (832).
+-->
+<style>
+  :root {
+    /* Brand (docs/ad-assets/creative-generator.html) */
+    --surface: #00202E;
+    --surface-2: #0b2d3b;
+    --hairline: #18404f;
+    --cream: #FFF1E6;
+    --tan: #D1B8A6;
+    --muted: #a8a39c;
+    --gold: #FFD380;
+    /* One-hue gold ramp, OKLCH h 82, validated as an ordinal ramp on --surface */
+    --s1: #5f4d2b;
+    --s2: #806839;
+    --s3: #bc9956;
+    --s4: #f3c772;
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --mono: 'JetBrains Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--surface); }
+  body { font-family: var(--sans); color: var(--cream); -webkit-font-smoothing: antialiased; }
+  .card { width: 640px; padding: 36px 36px 28px; background: var(--surface); }
+
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
+  /* Dark_Title.png cropped to its artwork (29,229)-(1612,710) of 1659x948, at 30px tall */
+  .logo { height: 30px; width: 98.7px; overflow: hidden; position: relative; }
+  .logo img { position: absolute; height: 59.13px; left: -1.81px; top: -14.28px; }
+  .pill { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--tan);
+          border: 1px solid var(--hairline); border-radius: 999px; padding: 6px 11px 6px 10px; display: flex; align-items: center; gap: 8px; }
+  .pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); display: block; }
+
+  h1 { font-size: 27px; line-height: 1.18; font-weight: 700; letter-spacing: -0.015em; }
+  .sub { margin-top: 10px; font-size: 15px; line-height: 1.5; color: var(--tan); max-width: 540px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+  .tile { background: var(--surface-2); border-radius: 10px; padding: 16px 18px 15px; }
+  .tile .label { font-size: 13px; color: var(--tan); }
+  .tile .value { margin-top: 6px; font-size: 34px; font-weight: 650; letter-spacing: -0.02em; line-height: 1; }
+  .tile .value small { font-size: 15px; font-weight: 500; color: var(--tan); letter-spacing: 0; margin-left: 4px; }
+  .tile .note { margin-top: 9px; font-size: 12.5px; color: var(--muted); }
+
+  .section { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--hairline); }
+  h2 { font-size: 16px; font-weight: 650; }
+  .h2sub { margin-top: 4px; font-size: 13px; color: var(--tan); }
+
+  table { width: 100%; margin-top: 14px; border-collapse: separate; border-spacing: 3px; table-layout: fixed; margin-left: -3px; width: calc(100% + 6px); }
+  thead th { font-weight: 600; font-size: 13px; text-align: right; padding: 0 14px 7px 0; vertical-align: bottom; color: var(--cream); }
+  thead th span { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  thead th:first-child { width: 27%; }
+  tbody th { text-align: left; font-weight: 500; font-size: 14px; color: var(--cream); padding-left: 2px; white-space: nowrap; }
+  tbody th span { color: var(--muted); font-weight: 400; }
+  td { text-align: right; font-size: 19px; font-weight: 650; padding: 13px 14px; border-radius: 6px;
+       font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  td.s1 { background: var(--s1); color: var(--cream); }
+  td.s2 { background: var(--s2); color: var(--cream); }
+  td.s3 { background: var(--s3); color: var(--surface); }
+  td.s4 { background: var(--s4); color: var(--surface); }
+
+  .year { margin-top: 14px; font-size: 14px; line-height: 1.5; color: var(--cream); }
+  .year b { font-weight: 650; }
+  .fine { margin-top: 10px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+  footer { margin-top: 18px; display: flex; justify-content: space-between; align-items: center;
+           font-family: var(--mono); font-size: 11px; letter-spacing: .08em; color: var(--tan); }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <header>
+    <div class="logo"><img src="../../assets/branding/Dark_Title.png" alt="ZeroGEX"></div>
+    <span class="pill"><i></i>Creator partner program</span>
+  </header>
+
+  <h1>What you could earn sharing ZeroGEX</h1>
+  <p class="sub">Followers who join through your link get 25% off their first year. You earn 30% of every payment they make in their first 12 months.</p>
+
+  <div class="tiles">
+    <div class="tile">
+      <div class="label">Each Basic member</div>
+      <div class="value" id="basic-rate"></div>
+      <div class="note" id="basic-note"></div>
+    </div>
+    <div class="tile">
+      <div class="label">Each Pro member</div>
+      <div class="value" id="pro-rate"></div>
+      <div class="note" id="pro-note"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Your monthly commission</h2>
+    <p class="h2sub">By how many members subscribe through your link, and which plans they pick</p>
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Mostly Basic<span>75% Basic</span></th>
+          <th>Even split<span>50 / 50</span></th>
+          <th>Mostly Pro<span>75% Pro</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="year" id="year"></p>
+    <p class="fine">Illustrative examples, not a forecast or a promise of earnings. Assumes monthly plans at current prices (Basic $39, Pro $59) and that every member stays subscribed for their first year.</p>
+  </div>
+
+  <footer><span>zerogex.io</span><span>Know the levels that matter before price gets there.</span></footer>
+</div>
+
+<script>
+  // Inputs. Change these and re-render if the program terms or prices move.
+  const PRICE = { basic: 39, pro: 59 };   // monthly list price, USD (frontend/core/billingPlans.ts)
+  const AUDIENCE_DISCOUNT = 0.25;         // STRIPE_COUPON_PARTNER_AUDIENCE: 25% off, first 12 months
+  const COMMISSION_BPS = 3000;            // grant-partner-pro default: 30%
+  const MEMBERS = [100, 200, 500, 1000];
+  const MIXES = [0.75, 0.5, 0.25];        // share on Basic: mostly Basic, even split, mostly Pro
+  const STEP = ['s1', 's2', 's3', 's4'];  // one ramp step per row (rows never overlap in value)
+
+  // Same arithmetic as core/creatorPartners.ts: commission is rounded per invoice,
+  // in cents, on what the member actually paid after the discount.
+  const paidCents = (t) => Math.round(PRICE[t] * 100 * (1 - AUDIENCE_DISCOUNT));
+  const commissionCents = (t) => Math.round((paidCents(t) * COMMISSION_BPS) / 10000);
+  const usd = (cents, dp = 0) => '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+
+  for (const t of ['basic', 'pro']) {
+    document.getElementById(`${t}-rate`).innerHTML = `${usd(commissionCents(t), 2)}<small>a month</small>`;
+    document.getElementById(`${t}-note`).textContent = `30% of the ${usd(paidCents(t), 2)} they pay each month`;
+  }
+
+  const monthly = (n, basicShare) =>
+    Math.round(n * basicShare * commissionCents('basic') + n * (1 - basicShare) * commissionCents('pro'));
+
+  document.getElementById('rows').innerHTML = MEMBERS.map((n, i) => `
+    <tr>
+      <th>${n.toLocaleString('en-US')} <span>members</span></th>
+      ${MIXES.map((b) => `<td class="${STEP[i]}">${usd(monthly(n, b))}</td>`).join('')}
+    </tr>`).join('');
+
+  const example = monthly(100, 0.5);
+  document.getElementById('year').innerHTML =
+    `Commission runs for each member's first 12 months, so 100 members on an even split adds up to <b>${usd(example * 12)}</b> over a year.`;
+</script>
+</body>
+</html>
