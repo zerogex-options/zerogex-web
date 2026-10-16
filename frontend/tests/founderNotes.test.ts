@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   FOUNDER_NOTE_AUDIT_TYPE,
+  FOUNDER_SIGNATURE,
+  composeFounderNote,
   decideFounderNote,
+  founderSignatureText,
   founderNoteAuditMessage,
   parseFounderNoteAudit,
   parseFounderNotes,
@@ -23,8 +26,6 @@ const ADRIANO_BODY = [
   '',
   '',
   'Best,',
-  'Michael',
-  'Founder, ZeroGEX',
 ].join('\n');
 
 const DOC_LINES = [
@@ -54,8 +55,6 @@ const DOC_LINES = [
   '',
   '',
   'Best,',
-  'Michael',
-  'Founder, ZeroGEX',
   '',
   '```',
   '',
@@ -304,7 +303,7 @@ test('a ```note inside a plain ``` block is an error, not an example', () => {
 
 test('a note body may not hold a Markdown heading or rule', () => {
   for (const line of ['---', '## 4. gardeniatattoostudio@gmail.com', '### The read', '#', '***', '===']) {
-    const error = onlyError(docWith([TO, INVOICE, SUBJECT], ['Hi,', '', line, '', 'Best,', 'Michael']));
+    const error = onlyError(docWith([TO, INVOICE, SUBJECT], ['Hi,', '', line, '', 'Best,']));
     assert.match(error, /line 10 \(".*"\) is a Markdown heading or rule/, line);
   }
   // Ordinary email lines that merely start with those characters are fine,
@@ -366,6 +365,66 @@ test('the body goes out with the pay link in every placeholder', () => {
   assert.equal(renderFounderNote('Just checking in.', { payLink: null }), 'Just checking in.');
   // Never "{{pay_link}}" as literal text.
   assert.throws(() => renderFounderNote('Pay: {{pay_link}}', { payLink: null }), /no pay link/);
+});
+
+test('a note that signs itself is refused, since the signature is added when it is sent', () => {
+  for (const last of ['Michael', 'michael', 'Founder, ZeroGEX', 'Founder ZeroGEX', '- Michael', '— Michael']) {
+    const error = onlyError(docWith([TO, INVOICE, SUBJECT], ['Hi,', '', 'Pay here: {{pay_link}}', '', 'Best,', last]));
+    assert.match(error, /signs the note, but the signature is added when it is sent/, last);
+  }
+  // Ending at the sign-off is right, and the name elsewhere in the note is fine.
+  const ok = parseFounderNotes(
+    docWith([TO, INVOICE, SUBJECT], ['Hi Michael,', '', 'Michael here, about your payment: {{pay_link}}', '', 'Best,']),
+  );
+  assert.deepEqual(ok.errors, []);
+});
+
+test('an email goes out in two parts, each with the signature under the sign-off', () => {
+  const link = 'https://zerogex.io/pay?i=in_1AbC&t=tok';
+  const body = 'Hi Joe,\n\nYou can pay with any card here: {{pay_link}}\n\nIf now isn\'t the right time, just reply.\n\nBest,';
+  const { text, html } = composeFounderNote(body, { payLink: link, photoUrl: 'https://zerogex.io/founder.jpg' });
+
+  // Text: the note as written, then the signature, one line each.
+  assert.equal(text, `${body.replace('{{pay_link}}', link)}\n${founderSignatureText()}`);
+  assert.equal(
+    founderSignatureText(),
+    'Michael\nFounder, ZeroGEX\nKnow the levels that matter before price gets there.\nzerogex.io',
+  );
+
+  // HTML: one paragraph per paragraph, the link clickable, its & escaped in
+  // both the href and the text, and the signature card after the sign-off.
+  assert.match(html, /<p style="margin: 0 0 14px;">Hi Joe,<\/p>/);
+  assert.ok(
+    html.includes(
+      'here: <a href="https://zerogex.io/pay?i=in_1AbC&amp;t=tok">https://zerogex.io/pay?i=in_1AbC&amp;t=tok</a></p>',
+    ),
+    html,
+  );
+  assert.ok(html.includes('isn&#39;t the right time'), 'apostrophes are escaped');
+  assert.ok(html.indexOf('>Best,</p>') < html.indexOf('<table'), 'the card comes after the sign-off');
+  assert.ok(html.includes('<img src="https://zerogex.io/founder.jpg" width="68" height="68" alt="Michael"'));
+  assert.ok(html.includes('>Michael</div>'));
+  assert.ok(html.includes('Founder, <b>ZeroGEX</b>'));
+  assert.ok(html.includes(`>${FOUNDER_SIGNATURE.tagline}</div>`));
+  assert.ok(html.includes(`<a href="https://zerogex.io" style="color: ${FOUNDER_SIGNATURE.accent};`));
+});
+
+test('the HTML part never lets note text through as markup, and keeps line breaks', () => {
+  const { html } = composeFounderNote('Hi,\n\n<b>not bold</b> & "quoted"\nsecond line\n\nBest,', {
+    payLink: null,
+    photoUrl: 'https://zerogex.io/founder.jpg',
+  });
+  assert.ok(html.includes('&lt;b&gt;not bold&lt;/b&gt; &amp; &quot;quoted&quot;<br>second line'), html);
+  assert.ok(!html.includes('<b>not bold</b>'));
+});
+
+test('a link at the end of a sentence leaves the period outside it', () => {
+  const { html } = composeFounderNote('Start here: https://zerogex.io/pricing. Or reply (https://zerogex.io/help).\n\nBest,', {
+    payLink: null,
+    photoUrl: 'https://zerogex.io/founder.jpg',
+  });
+  assert.ok(html.includes('<a href="https://zerogex.io/pricing">https://zerogex.io/pricing</a>. Or'), html);
+  assert.ok(html.includes('(<a href="https://zerogex.io/help">https://zerogex.io/help</a>).'), html);
 });
 
 // ── The decision ────────────────────────────────────────────────────────────

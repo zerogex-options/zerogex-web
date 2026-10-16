@@ -28,7 +28,6 @@
 //   When you're ready, you can pay with any card here: {{pay_link}}
 //
 //   Best,
-//   Michael
 //   ```
 //
 // Headers come first, one `key: value` per line, up to the first blank line.
@@ -48,6 +47,12 @@
 //               is paused for now..."), so while they still hold a paid tier
 //               the note waits, and a later run sends it once the grace
 //               cutoff has taken access away.
+//
+// THE SIGNATURE. Every note goes out with Michael's signature under it, the
+// same card his Gmail adds: his photo, "Michael", "Founder, ZeroGEX", the
+// tagline and zerogex.io (FOUNDER_SIGNATURE below). So a note ends at its
+// sign-off, "Best,", and one whose last line signs it ("Michael" or
+// "Founder, ZeroGEX") is an error rather than an email signed twice.
 //
 // {{pay_link}} in the body becomes the signed /pay link for the note's own
 // invoice, built at send time rather than pasted in, so a note can only carry
@@ -362,6 +367,15 @@ function parseNoteBlock(
           'not the email. Is the closing ``` missing above it?',
       );
     }
+    // The signature goes on at send time, so a note that signs itself would
+    // arrive with the name twice.
+    const last = bodyRows[bodyRows.length - 1];
+    if (SIGNS_ITSELF.test(last.text.trim())) {
+      fail(
+        `line ${last.line} ("${clip(last.text.trim())}") signs the note, but the signature is added when it is ` +
+          'sent. End the note at the sign-off, e.g. "Best,".',
+      );
+    }
     const stray = strayPlaceholders(body);
     if (stray.length > 0) {
       fail(
@@ -374,6 +388,9 @@ function parseNoteBlock(
   if (errors.length > 0 || !to || !invoiceId || !subject) return { note: null, invoiceId, errors };
   return { note: { line, to, invoiceId, subject, sendAfterMs, access, body }, invoiceId, errors };
 }
+
+// A last line that is the signature's own first or second line.
+const SIGNS_ITSELF = /^(?:[-\u2013\u2014]+\s*)?(?:michael|founder,?\s+zerogex\.?)$/i;
 
 // Anything brace-shaped that is not exactly {{pay_link}}: {{ pay_link }},
 // {pay_link}, {{paylink}}, {{name}}, an unclosed {{pay_link, a stray brace.
@@ -446,6 +463,109 @@ export function renderFounderNote(body: string, opts: { payLink: string | null }
   if (!payLink) throw new Error(`This note uses ${PAY_LINK_PLACEHOLDER} but there is no pay link to put there.`);
   // A function, so a "$&" in the link could never be read as a replacement pattern.
   return body.replaceAll(PAY_LINK_PLACEHOLDER, () => payLink);
+}
+
+// ── The signature ───────────────────────────────────────────────────────────
+
+/**
+ * Michael's signature, matching the one his Gmail adds to every email he
+ * writes, so a note reads like one he sent himself. The photo is the round
+ * orange headshot the About page already serves.
+ */
+export const FOUNDER_SIGNATURE = {
+  name: 'Michael',
+  title: 'Founder',
+  company: 'ZeroGEX',
+  tagline: 'Know the levels that matter before price gets there.',
+  site: 'zerogex.io',
+  siteUrl: 'https://zerogex.io',
+  /** Path on the site; the sender puts NEXT_PUBLIC_APP_URL in front. */
+  photoPath: '/founder.jpg',
+  /** The orange of the photo's background, which his signature's link uses too. */
+  accent: '#E58455',
+} as const;
+
+/** The signature as plain text, one line each, for the text/plain part. */
+export function founderSignatureText(): string {
+  const s = FOUNDER_SIGNATURE;
+  return [s.name, `${s.title}, ${s.company}`, s.tagline, s.site].join('\n');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// A link as typed in a note, up to the next space. Run on text that is already
+// escaped, so its & arrive as &amp;, which is also what an href needs.
+const URL_IN_TEXT = /https?:\/\/[^\s<>"]+/g;
+// What ends a sentence rather than the link: "…here: https://x.io/pay?i=1."
+const URL_TRAILING_PUNCTUATION = /[.,;:!?)]+$/;
+
+function linkify(escaped: string): string {
+  return escaped.replace(URL_IN_TEXT, (match) => {
+    const trailing = match.match(URL_TRAILING_PUNCTUATION)?.[0] ?? '';
+    const url = trailing ? match.slice(0, -trailing.length) : match;
+    return `<a href="${url}">${url}</a>${trailing}`;
+  });
+}
+
+/**
+ * The note as HTML: its paragraphs as written, links clickable, and the
+ * signature card under the sign-off. Plain Arial on white, like an email typed
+ * in Gmail, not a designed template. `text` is the body with {{pay_link}}
+ * already filled in, and without the text signature.
+ */
+export function founderNoteHtml(text: string, opts: { photoUrl: string }): string {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.split('\n').map((line) => linkify(escapeHtml(line))).join('<br>'))
+    .map((paragraph) => `<p style="margin: 0 0 14px;">${paragraph}</p>`)
+    .join('\n');
+
+  const s = FOUNDER_SIGNATURE;
+  // A table, because it is the one layout every mail client keeps side by side.
+  // The photo is cropped round with border-radius; a client that ignores it
+  // (Outlook on Windows) shows the square photo instead.
+  const signature = [
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; margin-top: 4px;">',
+    '<tr>',
+    '<td style="padding: 0 14px 0 0; vertical-align: middle;">',
+    `<img src="${escapeHtml(opts.photoUrl)}" width="68" height="68" alt="${escapeHtml(s.name)}" style="display: block; width: 68px; height: 68px; border: 0; border-radius: 50%;">`,
+    '</td>',
+    '<td style="vertical-align: middle; font-family: Arial, Helvetica, sans-serif;">',
+    `<div style="font-size: 16px; font-weight: bold; color: #222222; line-height: 1.35;">${escapeHtml(s.name)}</div>`,
+    `<div style="font-size: 14px; color: #222222; line-height: 1.35;">${escapeHtml(s.title)}, <b>${escapeHtml(s.company)}</b></div>`,
+    `<div style="font-size: 13px; color: #666666; line-height: 1.35;">${escapeHtml(s.tagline)}</div>`,
+    `<div style="font-size: 13px; line-height: 1.35;"><a href="${escapeHtml(s.siteUrl)}" style="color: ${s.accent}; font-weight: bold; text-decoration: none;">${escapeHtml(s.site)}</a></div>`,
+    '</td>',
+    '</tr>',
+    '</table>',
+  ].join('\n');
+
+  return (
+    '<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #222222;">\n' +
+    `${paragraphs}\n${signature}\n</div>`
+  );
+}
+
+/**
+ * The email as it goes out, in both parts: the text with {{pay_link}} filled
+ * in and the signature under it, and the same as HTML with the signature card.
+ */
+export function composeFounderNote(
+  body: string,
+  opts: { payLink: string | null; photoUrl: string },
+): { text: string; html: string } {
+  const filled = renderFounderNote(body, { payLink: opts.payLink });
+  return {
+    text: `${filled}\n${founderSignatureText()}`,
+    html: founderNoteHtml(filled, { photoUrl: opts.photoUrl }),
+  };
 }
 
 // ── Whether it goes out ─────────────────────────────────────────────────────

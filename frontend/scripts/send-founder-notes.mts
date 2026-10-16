@@ -41,10 +41,13 @@
 //     while they still hold a paid tier it waits too: the hourly grace cutoff
 //     will end it, and a later run sends the note once it has.
 //
-// The email is plain text, from FOUNDER_NOTE_FROM, with Reply-To and Bcc set to
-// Michael@zerogex.io. Plain text because it should read like the personal note
-// it is. The Bcc puts a copy of every note in Michael's mailbox, where the
-// member's reply threads with it.
+// The email goes from FOUNDER_NOTE_FROM, with Reply-To and Bcc set to
+// Michael@zerogex.io, in the two parts an email typed in Gmail has: plain text,
+// and the same words as simple HTML with his signature card under them (photo,
+// name, title, tagline, link; FOUNDER_SIGNATURE in core/founderNotes.ts). The
+// text part carries the signature as text. Notes end at their sign-off, and the
+// signature is added here. The Bcc puts a copy of every note in Michael's
+// mailbox, where the member's reply threads with it.
 //
 // It never charges, retries, voids or changes anything in Stripe. It reads
 // Stripe and the database, sends at most one email per note, and writes one
@@ -72,13 +75,14 @@ import type Stripe from 'stripe';
 import { parseSkipList, skipArg, skipEntryFor, suspectSkipEntries } from '../core/emailSkipList.ts';
 import {
   FOUNDER_NOTE_AUDIT_TYPE,
+  FOUNDER_SIGNATURE,
   PAY_LINK_PLACEHOLDER,
+  composeFounderNote,
   decideFounderNote,
   founderNoteAuditMessage,
   isEmailAddress,
   parseFounderNoteAudit,
   parseFounderNotes,
-  renderFounderNote,
   type FounderNote,
   type FounderNoteDecision,
   type FounderNoteInvoice,
@@ -153,20 +157,22 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 // Pay links are built here, for the invoice each note was checked against, and
 // the dry run prints them too, so every run that has one needs both of these.
+// The signature's photo is on the site too, so every run needs the site's URL.
 const usesPayLink = notes.some((note) => note.body.includes(PAY_LINK_PLACEHOLDER));
 const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, '') ?? '';
-if (usesPayLink && !appUrl) {
-  console.error('NEXT_PUBLIC_APP_URL is not set (env or .env.local); the pay links would point nowhere.');
+if (!appUrl) {
+  console.error('NEXT_PUBLIC_APP_URL is not set (env or .env.local); the pay links and the signature photo would point nowhere.');
   process.exit(1);
 }
 if (usesPayLink && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
   console.error('ZEROGEX_END_USER_TOKEN_SECRET is not set (env or .env.local); the /pay links cannot be signed.');
   process.exit(1);
 }
-if (usesPayLink && send && !appUrl.startsWith('https://')) {
-  console.error(`NEXT_PUBLIC_APP_URL is ${appUrl}, not an https:// address; the members' pay links would not work.`);
+if (send && !appUrl.startsWith('https://')) {
+  console.error(`NEXT_PUBLIC_APP_URL is ${appUrl}, not an https:// address; the members' links and the signature photo would not work.`);
   process.exit(1);
 }
+const photoUrl = `${appUrl}${FOUNDER_SIGNATURE.photoPath}`;
 if ((send || previewTo !== null) && !process.env.RESEND_API_KEY) {
   console.error('RESEND_API_KEY is not set (env or .env.local); nothing can be sent.');
   process.exit(1);
@@ -317,6 +323,7 @@ type Outgoing = {
   to: string;
   subject: string;
   text: string;
+  html: string;
   /** Null when it goes now; otherwise what it is waiting for. */
   wait: { untilMs: number | null; reason: string } | null;
 };
@@ -326,12 +333,14 @@ for (const row of rows) {
   if (decision.action !== 'send' && decision.action !== 'wait') continue;
   if (!account) throw new Error(`No account for ${note.to}, yet its note passed every check.`);
   const payLink = note.body.includes(PAY_LINK_PLACEHOLDER) ? buildPayUrl(appUrl, note.invoiceId) : null;
+  const email = composeFounderNote(note.body, { payLink, photoUrl });
   outgoing.push({
     note,
     userId: account.id,
     to: account.email,
     subject: note.subject,
-    text: renderFounderNote(note.body, { payLink }),
+    text: email.text,
+    html: email.html,
     wait: decision.action === 'wait' ? { untilMs: decision.untilMs, reason: decision.reason } : null,
   });
 }
@@ -377,6 +386,12 @@ if (suspect.length > 0) {
   console.log(`\n⚠ SKIP entries that match no note or account here: ${suspect.join(', ')} — check the spelling before sending.`);
 }
 
+if (outgoing.length > 0) {
+  console.log(
+    `\nEach email below is its plain-text part. The HTML part has the same words with your signature card ` +
+      `(photo from ${photoUrl}) in place of the signature's four text lines.`,
+  );
+}
 for (const [index, o] of outgoing.entries()) {
   console.log(`\n── Email ${index + 1} of ${outgoing.length}: ${o.to}, ${waitingFor(o)} ──`);
   console.log(`From:     ${from}`);
@@ -440,15 +455,21 @@ if (!send && previewTo === null) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-async function deliver(email: { to: string; subject: string; text: string; bcc: string | null }): Promise<void> {
+async function deliver(email: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  bcc: string | null;
+}): Promise<void> {
   const result = await resend.emails.send({
     from,
     to: email.to,
     replyTo: MICHAEL,
     ...(email.bcc ? { bcc: email.bcc } : {}),
     subject: email.subject,
-    // Text only, no html: a personal note should look like one.
     text: email.text,
+    html: email.html,
   });
   if (result.error) throw resendSendError(result.error, result.headers);
 }
@@ -477,7 +498,8 @@ if (previewTo !== null) {
   console.log(`\nSending ${outgoing.length} preview(s) to ${previewTo}…`);
   const previews = await deliverAll(
     outgoing,
-    (o) => deliver({ to: previewTo, subject: `[Preview for ${o.to}] ${o.subject}`, text: o.text, bcc: null }),
+    (o) =>
+      deliver({ to: previewTo, subject: `[Preview for ${o.to}] ${o.subject}`, text: o.text, html: o.html, bcc: null }),
     { ...DELIVERY, label: (o) => `preview of ${o.to}` },
   );
   console.log(
@@ -508,7 +530,7 @@ console.log(`\nSending ${due.length} note(s)…`);
 const { sent, failed } = await deliverAll(
   due,
   async (o) => {
-    await deliver({ to: o.to, subject: o.subject, text: o.text, bcc: MICHAEL });
+    await deliver({ to: o.to, subject: o.subject, text: o.text, html: o.html, bcc: MICHAEL });
     // Delivered. Nothing from here may throw: deliverAll would take it for a
     // failed send, and the member would get the note again.
     try {
