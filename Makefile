@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed sync-search-console search-console-report webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent cancel-reason-followup reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep enforce-payment-grace
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed send-founder-notes payment-failure-roundup sync-search-console search-console-report webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent cancel-reason-followup reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep enforce-payment-grace
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -31,6 +31,8 @@ help:
 	@echo "  make normalize-utm-sources - Rewrite stored acquisition sources (users.signup_utm_source, page_view_events.utm_source) to match what sanitizeUtmSource produces today, so one channel tagged two ways stops reading as two channels. DRY RUN by default; YES=1 to apply. Re-run whenever UTM_SOURCE_ALIASES changes"
 	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), DAYS=<n>, LIMIT=<n>"
 	@echo "  make resend-payment-failed - Re-send the payment-failed email, as it reads today (signed /pay link, no Stripe URL), to members sent it in the last DAYS days (default 7) whose invoice is still unpaid and whose subscription Stripe is still retrying. For the copies that carried the Stripe link and may have gone to spam. One resend per invoice. DRY RUN by default; YES=1 to send, PREVIEW_TO=<addr> to get one real one first, SKIP=<emails or invoice ids> to leave people alone (e.g. ones you wrote to yourself; repeat it on the YES=1 run), BEFORE=<iso> to skip anyone emailed after a cutoff, LIMIT=<n>"
+	@echo "  make send-founder-notes FILE=<doc> - Send the hand-written founder notes in an outreach doc (its fenced 'note' blocks; format in frontend/core/founderNotes.ts) through Resend, as plain text from Michael with Reply-To and Bcc to Michael@zerogex.io, instead of pasting each draft into a mail client. Every note is re-checked at send time: the invoice is still open and belongs to that member, the subscription is not canceled or set to cancel, the member's access matches what the note says about it (access: on is skipped once access has ended; access: off waits until it has), and its send-after has passed. One note per invoice, ever. DRY RUN by default (prints every email in full); PREVIEW_TO=<addr> to get them all yourself first, YES=1 to send, SKIP=<emails or invoice ids> to leave people alone (repeat it on the YES=1 run), FOUNDER_NOTE_FROM=<sender> to change the From"
+	@echo "  make payment-failure-roundup [DAYS=7] - READ-ONLY. Everyone with a failed payment in the last DAYS days, in one file to hand over for a follow-up round: whether the grace timers run, every failed invoice and how it stands, each member's billing emails and access changes, and diagnose-user for everyone still unpaid. Writes ~/payment-failures-<UTC time>.txt (OUT=<path> to change)"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make search-console-report - Read-only: one page's search queries before vs after, from Google Search Console. PAGE=<path> (default /spx-gamma-levels), QUERY=<text>, BY=query|page, DAYS=<n> (default 28), SPLIT=<YYYY-MM-DD> to compare around a change"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
@@ -430,6 +432,48 @@ open-invoice-recovery:
 #   LIMIT=<n>            cap sends in one run (default 50)
 resend-payment-failed:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/resend-payment-failed.mts $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Everyone with a failed payment in the last DAYS days, in one file, for a round
+# of founder follow-ups: whether the grace timers run, every invoice with a
+# failed attempt and how it stands, each member's billing emails and access
+# changes over 30 days, and `make diagnose-user` for everyone still unpaid.
+# frontend/scripts/payment-failure-roundup.sh explains each section. Hand the
+# file over, and the notes come back as a doc for `make send-founder-notes`.
+#
+# READ-ONLY: sqlite3 opens the database with -readonly, and diagnose-user only
+# reads Stripe. Writes one file in your home directory and prints its path.
+#
+#   DAYS=<n>             window in days (default 7)
+#   OUT=<path>           where to write (default ~/payment-failures-<UTC time>.txt)
+#   AUTH_DB_PATH=<path>  else AUTH_DB_PATH from frontend/.env.local, else
+#                        frontend/data/auth.db
+payment-failure-roundup:
+	@bash frontend/scripts/payment-failure-roundup.sh
+
+# Send the hand-written founder notes in an outreach doc through Resend, from
+# Michael, instead of copying each draft into a mail client. Each note is a
+# fenced `note` block naming the member, the unpaid invoice and the subject;
+# its {{pay_link}} becomes that invoice's signed /pay link. The format is in
+# frontend/core/founderNotes.ts.
+#
+# DRY RUN BY DEFAULT: prints what happens to each note and every email in full.
+# A mistake anywhere in the doc stops it before anything is looked up. Every
+# note is re-checked at send time: the invoice is still open and belongs to
+# that member's Stripe customer, the subscription is not canceled or set to
+# cancel, and its send-after has passed. A note marked `access: on` (it says
+# their account is still on) is skipped once access has ended; one marked
+# `access: off` (it says access has ended) waits while they still hold a paid
+# tier and goes out on a later run, after the grace cutoff. One note per
+# invoice, ever. It never charges, retries, voids or changes anything in Stripe.
+#
+#   FILE=<path>                the doc with the notes (required)
+#   YES=1                      actually send (default sends nothing)
+#   PREVIEW_TO=<addr>          send every note to <addr> instead, marked as a preview
+#   SKIP=<list>                emails or invoice ids to leave alone, comma-separated (repeat on every run)
+#   FOUNDER_NOTE_FROM=<from>   the sender (default "Michael from ZeroGEX <Michael@zerogex.io>")
+send-founder-notes:
+	@if [ -z "$(FILE)" ]; then echo "Error: FILE is required (e.g. make send-founder-notes FILE=docs/outreach/2026-10-17-founder-notes.md)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-founder-notes.mts --file "$(abspath $(FILE))" $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
 
 # Print, for a sample of real customers, every event the growth dashboard reads
 # and every conclusion it draws — so a human can check the classification against

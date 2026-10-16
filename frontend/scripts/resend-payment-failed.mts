@@ -32,6 +32,9 @@
 //     subscription Stripe gave up on is `make open-invoice-recovery`'s job.
 //   - no earlier resend for the invoice (`payment_failed_email_resent`). One
 //     resend per invoice, ever.
+//   - no founder note for the invoice (`founder_note_sent`, written by
+//     `make send-founder-notes`). Michael has already written to them
+//     himself, so this skips them the way SKIP does, without needing SKIP.
 //
 // Everything in the email is re-read from Stripe at send time — amount, card,
 // next retry, grace deadline, and the bank's reason for the LATEST decline — so
@@ -102,6 +105,7 @@ if ((send || previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
 const { getDb } = await import('../core/db.ts');
 const { classifyDecline } = await import('../core/declineReason.ts');
 const { parseSkipList, skipArg, skipEntryFor, suspectSkipEntries } = await import('../core/emailSkipList.ts');
+const { FOUNDER_NOTE_AUDIT_TYPE, parseFounderNoteAudit } = await import('../core/founderNotes.ts');
 const { sendPaymentFailedEmail, sendTrialConversionFailedEmail } = await import('../core/mailer.ts');
 const { buildPayUrl } = await import('../core/payLink.ts');
 const { graceWindowEndIso } = await import('../core/paymentGrace.ts');
@@ -171,6 +175,16 @@ for (const row of db
   if (id) resent.add(id);
 }
 
+// Invoices Michael already wrote to personally. An automated "your payment
+// failed" landing after his note reads as if nobody read the thread.
+const founderNoted = new Set<string>();
+for (const row of db
+  .prepare(`SELECT message FROM audit_events WHERE type = ?`)
+  .all(FOUNDER_NOTE_AUDIT_TYPE) as Array<{ message: string }>) {
+  const id = parseFounderNoteAudit(row.message);
+  if (id) founderNoted.add(id);
+}
+
 const storedCategory = db.prepare(
   `SELECT category FROM payment_declines WHERE invoice_id = ? ORDER BY attempt_count DESC LIMIT 1`,
 );
@@ -218,6 +232,10 @@ for (const row of sentRows) {
   if (skippedBy) {
     skipMatched.add(skippedBy);
     report.push({ ...base, ...noLookup, outcome: 'skipped at your request' });
+    continue;
+  }
+  if (founderNoted.has(sent.invoiceId)) {
+    report.push({ ...base, ...noLookup, outcome: 'you sent a founder note' });
     continue;
   }
   if (resent.has(sent.invoiceId)) {
