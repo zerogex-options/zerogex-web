@@ -28,9 +28,11 @@ Everything below comes from the roundup file generated 2026-10-16 at 14:16 UTC
 ## How to send
 
 The notes are the ```` ```note ```` blocks in this file. The sender reads them
-straight from here, so what you read below is exactly what goes out: plain text,
-from `Michael from ZeroGEX <Michael@zerogex.io>`, replies to your inbox, and a
-Bcc copy to you of every one. Gmail may file those copies under Sent rather than
+straight from here, so what you read below is exactly what goes out, from
+`Michael from ZeroGEX <Michael@zerogex.io>`, with replies to your inbox and a
+Bcc copy to you of every one. Each note ends at "Best," and the sender adds
+your signature under it, the same card as your Gmail one: photo, name, title,
+tagline and zerogex.io. Gmail may file those copies under Sent rather than
 the inbox, since they come from your own address.
 
 Right before each send it re-checks the member against Stripe and our database,
@@ -116,8 +118,6 @@ To keep everything running, you can pay with any card here: {{pay_link}}
 If something has changed on your end, or you have a question, just reply.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 2. joedietrich86@icloud.com
@@ -145,8 +145,6 @@ Stripe will also try again automatically, so if the problem was on Link's side, 
 If now isn't the right time, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 3. killthelevel@gmail.com
@@ -179,8 +177,6 @@ Either way, Pro comes back as soon as it's paid. The old API key can't be turned
 If you're not using ZeroGEX anymore, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 4. barisyelken51@yandex.com
@@ -208,8 +204,6 @@ After a week of retries, it doesn't look like it will clear by itself. You can p
 If something has changed on your end, or you have a question, just reply.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 5. nhatcnguyen@gmail.com
@@ -236,8 +230,6 @@ Or, once the account you use with Link has the funds, Stripe's next automatic re
 If now isn't the right time, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 6. johnresse1212@gmail.com
@@ -266,8 +258,6 @@ Or, once the funds are in that account, Stripe's next automatic retry should go 
 If now isn't the right time, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 7. daltonkiptoo06@gmail.com
@@ -294,8 +284,6 @@ Basic comes back on as soon as it's paid.
 If now isn't the right time, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 8. abdelilahaj13@gmail.com
@@ -324,8 +312,6 @@ If ZeroGEX isn't for you, that's completely fine. Just reply and I'll cancel it 
 And if something didn't work the way you expected, I'd like to hear about it. One line is plenty.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 9. sandr746@gmail.com
@@ -354,8 +340,6 @@ If ZeroGEX isn't for you, that's completely fine. Just reply and I'll cancel it 
 And if something didn't work the way you expected, I'd like to hear about it. One line is plenty.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 10. sacfelipeferreira@gmail.com
@@ -382,8 +366,6 @@ After more than a week of retries, it doesn't look like it will clear by itself.
 If ZeroGEX isn't for you, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 11. memo2688@gmail.com
@@ -411,8 +393,6 @@ Or, once the funds are in that account, Stripe's next automatic retry should go 
 If now isn't the right time, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 12. 97primers-ban@icloud.com (Saturday)
@@ -441,8 +421,6 @@ If ZeroGEX isn't for you, that's completely fine. Just reply and I'll cancel it 
 And if something didn't work the way you expected, I'd like to hear about it. One line is plenty.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 13. tuananhthmno1@gmail.com (Saturday)
@@ -471,8 +449,6 @@ Or, once the funds are in that account, Stripe's next automatic retry should go 
 If ZeroGEX isn't for you, that's completely fine. Just reply and I'll cancel it so nothing is charged later.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 14. jadenhelfinstine@gmail.com (Saturday)
@@ -509,8 +485,6 @@ Your account paused on Saturday morning, and it comes back as soon as the paymen
 If something has changed on your end, or you have a question, just reply.
 
 Best,
-Michael
-Founder, ZeroGEX
 ```
 
 ## 15. koenigera@yahoo.com (by hand)
@@ -520,8 +494,8 @@ minutes later they added a new Visa and tried to move up to Pro, and the $59
 charge was declined for insufficient funds. The switch voided that invoice, and
 the trial ended last night, so nothing is active and nothing is owed. They
 wanted Pro. With no open invoice, the sender can't take this one, so send it
-from your inbox. Pro has no trial now, but it has the 7-day money-back
-guarantee.
+from your inbox. It ends at "Best," because Gmail adds your signature. Pro
+has no trial now, but it has the 7-day money-back guarantee.
 
 **Subject:** Your switch to ZeroGEX Pro
 
@@ -536,8 +510,6 @@ If you'd still like Pro, you can start it here whenever you're ready: https://ze
 When you canceled Basic, you picked "missing features" as the reason. I'd like to know which ones. One line is plenty.
 
 Best,
-Michael
-Founder, ZeroGEX
 
 ---
 
