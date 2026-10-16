@@ -71,7 +71,7 @@ Las celdas más "calientes" son los strikes que importan para los vencimientos m
 
 ## El heatmap de GEX en el tiempo
 
-GEX Heatmap Timeseries, en la página GEX Heatmap y en Dealer Positioning: los strikes en vertical, el tiempo en horizontal, cada columna el gamma neto de los dealers en ese momento - naranja positivo, violeta negativo, fundiéndose con el fondo alrededor de cero (azul, naranja y casi blanco en los temas claros) - con las velas y el gamma flip dibujados encima. Los tramos discontinuos de la línea del flip marcan ciclos en los que el flip solo se encontró ampliando la búsqueda lejos del spot; trátalos como marginales.
+GEX Heatmap Timeseries, en la página GEX Heatmap y en Dealer Positioning: los strikes en vertical, el tiempo en horizontal, cada columna el gamma neto de los dealers en ese momento - naranja positivo, violeta negativo, fundiéndose con el fondo alrededor de cero (azul, naranja y casi blanco en los temas claros) - con las velas y el gamma flip dibujados encima. Los tramos discontinuos de la línea del flip marcan ciclos en los que el flip solo se encontró ampliando la búsqueda lejos del spot; trátalos como marginales. El selector Surface/Dots sobre el gráfico ofrece una segunda vista: un punto por strike y por intervalo, con su tamaño según el gamma en ese strike y su color según el signo (verde positivo, rojo negativo), para 10, 20 o 40 strikes alrededor del precio, con el precio dibujado como una línea.
 
 ## El Gamma Chart
 

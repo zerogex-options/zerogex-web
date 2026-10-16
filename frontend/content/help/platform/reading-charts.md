@@ -71,7 +71,7 @@ Hottest cells are the strikes that matter for the nearest expiries. Watch the he
 
 ## The GEX heatmap over time
 
-GEX Heatmap Timeseries, on the GEX Heatmap page and on Dealer Positioning: strikes up the side, time across, each column the net dealer gamma at that moment - orange positive, violet negative, fading into the background around zero (blue, orange and near-white on light themes) - with the candles and the gamma flip drawn on top. Dashed stretches of the flip line mark cycles where the flip was only found by widening the search far from spot; treat those as marginal.
+GEX Heatmap Timeseries, on the GEX Heatmap page and on Dealer Positioning: strikes up the side, time across, each column the net dealer gamma at that moment - orange positive, violet negative, fading into the background around zero (blue, orange and near-white on light themes) - with the candles and the gamma flip drawn on top. Dashed stretches of the flip line mark cycles where the flip was only found by widening the search far from spot; treat those as marginal. The Surface/Dots switch above the chart gives a second view: one dot per strike per interval, its size the gamma there and its color the sign (green positive, red negative), for 10, 20 or 40 strikes around price, with price drawn as a line.
 
 ## The Gamma Chart
 

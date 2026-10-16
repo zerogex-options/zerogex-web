@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates\u00a0- ZeroGEX',
   description:
-    "What's new at ZeroGEX: call and put wall alerts, the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and the Track Record, plus what's next.",
+    "What's new at ZeroGEX: a Dots view for the GEX Heatmap, call and put wall alerts, the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and the Track Record, plus what's next.",
   alternates: { canonical: '/updates' },
 };
 
@@ -19,6 +19,23 @@ type Update = {
 
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
+  {
+    date: 'October 16, 2026',
+    title: 'A Dots view for the GEX Heatmap',
+    intro:
+      'The GEX Heatmap now has a second way to read it. Dots gives every strike its own row of dots, so the heaviest strikes stand out at a glance instead of as shades to compare. The heatmap’s dark-mode colors were redone as well. The GEX Heatmap is part of Basic.',
+    whatsNew: [
+      {
+        title: 'Dots view',
+        href: '/gex-heatmap',
+        body: 'Switch the GEX Heatmap from Surface to Dots and each strike gets one dot per interval: the dot’s size is how much dealer gamma sits there, green for positive and red for negative, with price drawn through it as a line and the gamma flip on top. Show 10, 20 or 40 strikes around price. Your choice is remembered next time.',
+      },
+      {
+        title: 'Clearer colors in dark mode',
+        body: 'On the dark themes, strikes with no gamma now fade into the background, and positive and negative gamma glow orange and violet, matched in brightness so neither side looks bigger than it is. Before, the empty strikes were the brightest thing on the chart. Light themes are unchanged.',
+      },
+    ],
+  },
   {
     date: 'October 15, 2026',
     title: 'Wall alerts: know when price gets to the wall',

@@ -162,6 +162,7 @@
     "test:chart-hero": "node --experimental-strip-types --test tests/chartHeroDisclosure.test.ts",
     "test:chart-level-palette": "node --experimental-strip-types --test tests/chartLevelPalette.test.ts",
     "test:heatmap-color-scale": "node --experimental-strip-types --test tests/heatmapColorScale.test.ts",
+    "test:heatmap-dots": "node --experimental-strip-types --test tests/heatmapDots.test.ts",
     "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
     "test:strike-panel-hover": "node --experimental-strip-types --test tests/strikePanelHover.test.ts",
     "test:chart-view-hold": "node --experimental-strip-types --test tests/chartViewHold.test.ts",

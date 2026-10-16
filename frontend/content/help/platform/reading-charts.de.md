@@ -71,7 +71,7 @@ Die heißesten Zellen sind die Strikes, die für die nächstliegenden Verfallste
 
 ## Die GEX-Heatmap über die Zeit
 
-GEX Heatmap Timeseries, auf der GEX-Heatmap-Seite und auf Dealer Positioning: Strikes an der Seite, die Zeit quer, jede Spalte das Netto-Dealer-Gamma in diesem Moment - orange positiv, violett negativ, um null in den Hintergrund übergehend (auf hellen Themes blau, orange und nahezu weiß) - mit den Kerzen und dem Gamma Flip darüber. Gestrichelte Abschnitte der Flip-Linie markieren Zyklen, in denen der Flip nur gefunden wurde, weil die Suche weit vom Spot ausgedehnt wurde; behandle sie als Grenzfälle.
+GEX Heatmap Timeseries, auf der GEX-Heatmap-Seite und auf Dealer Positioning: Strikes an der Seite, die Zeit quer, jede Spalte das Netto-Dealer-Gamma in diesem Moment - orange positiv, violett negativ, um null in den Hintergrund übergehend (auf hellen Themes blau, orange und nahezu weiß) - mit den Kerzen und dem Gamma Flip darüber. Gestrichelte Abschnitte der Flip-Linie markieren Zyklen, in denen der Flip nur gefunden wurde, weil die Suche weit vom Spot ausgedehnt wurde; behandle sie als Grenzfälle. Der Umschalter Surface/Dots über dem Chart bietet eine zweite Ansicht: ein Punkt pro Strike und Intervall, seine Größe das Gamma dort und seine Farbe das Vorzeichen (grün positiv, rot negativ), für 10, 20 oder 40 Strikes um den Preis, mit dem Preis als Linie.
 
 ## Der Gamma Chart
 

@@ -3,6 +3,11 @@
   "_since_note": "'since' is the ISO date the item shipped, and it is what makes these emails cohort-correct: core/winbackHighlights.ts shows a reader only what landed AFTER they left, newest first, so a June leaver and a September leaver get different mail from the same template and no reader is ever told 'a lot has changed' about things they already used. OMIT 'since' for an item whose real ship date you can't verify \u2014 undated items are evergreen (shown to everyone, never counted as new), which is the honest default. Do NOT guess a date: an item dated too early silently disappears from the cohort it would most impress. Dates below were read off git history; anything predating this repo's first commit (2026-08-20) is deliberately left undated.",
   "highlights": [
     {
+      "title": "A Dots view for the GEX Heatmap",
+      "body": "one dot per strike per interval, sized by how much dealer gamma sits there and green or red for its sign, with price drawn through it, for 10, 20 or 40 strikes around price. The heatmap\u2019s dark-mode colors were redone too: strikes with no gamma now fade into the background, so the walls stand out.",
+      "since": "2026-10-16"
+    },
+    {
       "title": "Wall alerts",
       "body": "pick an SPX, SPY, QQQ or NDX call or put wall and hear when price hits it, breaks through it or bounces off it, in the app or by email. Built to stay quiet in chop: one alert per approach, breaks confirmed by 1-minute closes, and a strength filter so only the walls you care about ever ping you.",
       "since": "2026-10-14"

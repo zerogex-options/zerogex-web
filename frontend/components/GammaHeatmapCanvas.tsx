@@ -25,6 +25,22 @@ import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { colors } from '@/core/colors';
 import { heatmapColorScale, heatmapLegendGradientCss, type RGB } from '@/core/heatmapColorScale';
+import {
+  DEFAULT_DOT_STRIKES,
+  DEFAULT_HEATMAP_VIEW,
+  DOT_STRIKE_COUNTS,
+  HEATMAP_VIEWS,
+  HEATMAP_VIEW_LABEL,
+  dotRadius,
+  dotRowBounds,
+  dotWindowStart,
+  isDotStrikeCount,
+  isHeatmapView,
+  nearestRow,
+  pickDotRows,
+  type DotStrikeCount,
+  type HeatmapView,
+} from '@/core/heatmapDots';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import {
@@ -118,6 +134,8 @@ const DEFAULTS = {
   paused: false,
   showGrid: true,
   priceScale: DEFAULT_PRICE_SCALE as PriceScaleSide,
+  view: DEFAULT_HEATMAP_VIEW as HeatmapView,
+  dotStrikes: DEFAULT_DOT_STRIKES as DotStrikeCount,
 };
 
 // ── Saved chart settings ──
@@ -133,6 +151,8 @@ type PersistedSettings = {
   withPrev: boolean;
   showGrid: boolean;
   priceScale: PriceScaleSide;
+  view: HeatmapView;
+  dotStrikes: DotStrikeCount;
 };
 
 const PERSISTED_DEFAULTS: PersistedSettings = {
@@ -140,6 +160,8 @@ const PERSISTED_DEFAULTS: PersistedSettings = {
   withPrev: DEFAULTS.withPrev,
   showGrid: DEFAULTS.showGrid,
   priceScale: DEFAULTS.priceScale,
+  view: DEFAULTS.view,
+  dotStrikes: DEFAULTS.dotStrikes,
 };
 
 // Padding in CSS pixels. The canvas is always drawn at one canvas px per CSS
@@ -208,6 +230,14 @@ export default function GammaHeatmapCanvas() {
   const [priceScale, setPriceScale] = useState<PriceScaleSide>(() =>
     isPriceScaleSide(savedSettings.priceScale) ? savedSettings.priceScale : DEFAULTS.priceScale,
   );
+  // Same check for the Dots settings: any string or number would restore.
+  const [view, setView] = useState<HeatmapView>(() =>
+    isHeatmapView(savedSettings.view) ? savedSettings.view : DEFAULTS.view,
+  );
+  const [dotStrikes, setDotStrikes] = useState<DotStrikeCount>(() =>
+    isDotStrikeCount(savedSettings.dotStrikes) ? savedSettings.dotStrikes : DEFAULTS.dotStrikes,
+  );
+  const dots = view === 'dots';
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   // No fullscreen control inside a "My Dashboard" tile — see core/dashboardWidget.
   const inWidget = useInDashboardWidget();
@@ -224,6 +254,8 @@ export default function GammaHeatmapCanvas() {
     setPaused(DEFAULTS.paused);
     setShowGrid(DEFAULTS.showGrid);
     setPriceScale(DEFAULTS.priceScale);
+    setView(DEFAULTS.view);
+    setDotStrikes(DEFAULTS.dotStrikes);
     // The auto-save effect below persists this reset-to-defaults state, so a
     // fresh visit reopens on the factory defaults.
   };
@@ -243,8 +275,10 @@ export default function GammaHeatmapCanvas() {
       withPrev,
       showGrid,
       priceScale,
+      view,
+      dotStrikes,
     });
-  }, [tf, withPrev, showGrid, priceScale]);
+  }, [tf, withPrev, showGrid, priceScale, view, dotStrikes]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -423,13 +457,21 @@ export default function GammaHeatmapCanvas() {
 
     const matrix = new Float32Array(slotsMs.length * stride);
     matrix.fill(NaN);
+    // The Dots view's values: reported strikes only, nothing interpolated, so
+    // a dot is only ever drawn where the backend reported that strike.
+    const R = reportedStrikes.length;
+    const raw = new Float32Array(slotsMs.length * R);
+    raw.fill(NaN);
 
     slotsMs.forEach((ms, x) => {
       if (!gexBucketMs.has(ms)) return; // blank column — no GEX for this bucket
       const known: { strike: number; value: number }[] = [];
-      reportedStrikes.forEach((s) => {
+      reportedStrikes.forEach((s, r) => {
         const v = sparse.get(`${ms}|${s}`);
-        if (v != null && Number.isFinite(v)) known.push({ strike: s, value: v });
+        if (v != null && Number.isFinite(v)) {
+          known.push({ strike: s, value: v });
+          raw[x * R + r] = v;
+        }
       });
       if (known.length === 0) return;
 
@@ -471,7 +513,7 @@ export default function GammaHeatmapCanvas() {
     const clip = Math.max(1, percentile(finiteAbs, 0.98));
 
     const timestamps = slotsMs.map((ms) => new Date(ms).toISOString());
-    return { timestamps, slotsMs, minStrike, maxStrike, stride, matrix, clip };
+    return { timestamps, slotsMs, minStrike, maxStrike, stride, matrix, clip, strikes: reportedStrikes, raw };
   }, [gexData, priceData, maxPoints, tf, symbol]);
 
   // Threshold above which a cycle's gamma_flip_span_used (fraction of
@@ -567,6 +609,69 @@ export default function GammaHeatmapCanvas() {
     const cw = Math.max(320, boxW - 32);
     return { w: cw, h: Math.max(360, Math.min(820, cw * 0.55)) };
   }, [boxW, narrow]);
+
+  // ── Dots view (core/heatmapDots) ──
+  // Dots draws only the most recent intervals that fit at a readable dot size,
+  // and a set number of strikes around price instead of a price range.
+  // `viewGrid` is the grid cut to those intervals (the whole grid on Surface);
+  // `dotLayout` holds the rows, their price range and the dot scale.
+  const viewGrid = useMemo(() => {
+    if (!grid || !dots) return grid;
+    const first = dotWindowStart(grid.slotsMs.length, Math.max(10, size.w - pads.L - pads.R));
+    if (first === 0) return grid;
+    return {
+      ...grid,
+      timestamps: grid.timestamps.slice(first),
+      slotsMs: grid.slotsMs.slice(first),
+      matrix: grid.matrix.subarray(first * grid.stride),
+      raw: grid.raw.subarray(first * grid.strikes.length),
+    };
+  }, [grid, dots, size, pads]);
+
+  const dotLayout = useMemo(() => {
+    if (!viewGrid || !dots) return null;
+    // Price range over the intervals on screen only, so the rows follow
+    // where price has actually been in the window.
+    const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
+    const firstMs = viewGrid.slotsMs[0];
+    const lastMs = viewGrid.slotsMs[viewGrid.slotsMs.length - 1];
+    let low = Infinity;
+    let high = -Infinity;
+    (priceData || []).forEach((p) => {
+      const ms = Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs;
+      if (!(ms >= firstMs && ms <= lastMs)) return;
+      [p.high, p.low, p.close, p.open].forEach((v) => {
+        const n = Number(v);
+        if (Number.isFinite(n)) {
+          low = Math.min(low, n);
+          high = Math.max(high, n);
+        }
+      });
+    });
+    const rows = pickDotRows(
+      viewGrid.strikes,
+      Number.isFinite(low) ? low : null,
+      Number.isFinite(high) ? high : null,
+      dotStrikes,
+    );
+    if (rows.length === 0) return null;
+    // Same robust clip as the surface (98th percentile of |GEX|), over the
+    // dots on screen, so one ATM spike doesn't shrink every other dot.
+    const R = viewGrid.strikes.length;
+    const rowIdx = rows.map((s) => viewGrid.strikes.indexOf(s));
+    const abs: number[] = [];
+    for (let x = 0; x < viewGrid.slotsMs.length; x++) {
+      for (const r of rowIdx) {
+        const v = viewGrid.raw[x * R + r];
+        if (Number.isFinite(v)) abs.push(Math.abs(v));
+      }
+    }
+    return { rows, rowIdx, ...dotRowBounds(rows), clip: Math.max(1, percentile(abs, 0.98)) };
+  }, [viewGrid, dots, priceData, dotStrikes, tf]);
+
+  // Dots needs rows to draw; without any it falls back to the surface.
+  const drawDots = dots && dotLayout != null;
+  const plotBounds = drawDots ? dotLayout : bounds;
   // `touch`: put down by a finger — the readout then pins to the top of the
   // chart, away from the finger, and the crosshair outlives the touch.
   const [hover, setHover] = useState<{ x: number; y: number; touch?: boolean } | null>(null);
@@ -605,7 +710,7 @@ export default function GammaHeatmapCanvas() {
 
   useEffect(() => {
     const cv = canvasRef.current;
-    if (!cv || !grid || !bounds) return;
+    if (!cv || !viewGrid || !plotBounds) return;
 
     const dpr = window.devicePixelRatio || 1;
     const cssW = size.w;
@@ -631,55 +736,60 @@ export default function GammaHeatmapCanvas() {
     ctx.fillStyle = bgCardColor;
     ctx.fillRect(pads.L, pads.T, plotW, plotH);
 
-    const T = grid.timestamps.length;
-    const S = grid.stride;
-    const { yMin, yMax } = bounds;
+    const T = viewGrid.timestamps.length;
+    const S = viewGrid.stride;
+    const { yMin, yMax } = plotBounds;
+    // Non-null exactly when this draw is the Dots view.
+    const layout = drawDots ? dotLayout : null;
     const yRange = Math.max(1e-9, yMax - yMin);
     const yForStrike = (s: number) => pads.T + plotH * (1 - (s - yMin) / yRange);
 
-    // Render the (time × strike) value matrix into a small offscreen canvas, then
-    // upscale with bilinear smoothing to produce the SpotGamma-style soft heatmap.
-    const off = document.createElement('canvas');
-    off.width = T;
-    off.height = S;
-    const offCtx = off.getContext('2d');
-    if (!offCtx) return;
-    const img = offCtx.createImageData(T, S);
+    // The Dots view draws its dots later, over the axes and grid lines.
+    if (!layout) {
+      // Render the (time × strike) value matrix into a small offscreen canvas, then
+      // upscale with bilinear smoothing to produce the SpotGamma-style soft heatmap.
+      const off = document.createElement('canvas');
+      off.width = T;
+      off.height = S;
+      const offCtx = off.getContext('2d');
+      if (!offCtx) return;
+      const img = offCtx.createImageData(T, S);
 
-    for (let x = 0; x < T; x++) {
-      for (let yStrike = 0; yStrike < S; yStrike++) {
-        const v = grid.matrix[x * S + yStrike];
-        const py = S - 1 - yStrike; // higher strike → smaller pixel y
-        const idx = (py * T + x) * 4;
-        if (!Number.isFinite(v)) {
-          img.data[idx + 3] = 0;
-          continue;
+      for (let x = 0; x < T; x++) {
+        for (let yStrike = 0; yStrike < S; yStrike++) {
+          const v = viewGrid.matrix[x * S + yStrike];
+          const py = S - 1 - yStrike; // higher strike → smaller pixel y
+          const idx = (py * T + x) * 4;
+          if (!Number.isFinite(v)) {
+            img.data[idx + 3] = 0;
+            continue;
+          }
+          const norm = Math.min(Math.abs(v) / viewGrid.clip, 1);
+          const ratio = Math.sign(v) * Math.sqrt(norm);
+          const c = colorForRatio(ratio);
+          img.data[idx] = c.r;
+          img.data[idx + 1] = c.g;
+          img.data[idx + 2] = c.b;
+          img.data[idx + 3] = 255;
         }
-        const norm = Math.min(Math.abs(v) / grid.clip, 1);
-        const ratio = Math.sign(v) * Math.sqrt(norm);
-        const c = colorForRatio(ratio);
-        img.data[idx] = c.r;
-        img.data[idx + 1] = c.g;
-        img.data[idx + 2] = c.b;
-        img.data[idx + 3] = 255;
       }
-    }
-    offCtx.putImageData(img, 0, 0);
+      offCtx.putImageData(img, 0, 0);
 
-    // Map the offscreen image (which only spans [minStrike, maxStrike]) into
-    // the visible strike range (yMin..yMax). When the y-axis extends past the
-    // available strike data, the heatmap is drawn into a sub-rect of the plot
-    // and the rest stays empty.
-    const heatmapTop = Math.min(grid.maxStrike, yMax);
-    const heatmapBottom = Math.max(grid.minStrike, yMin);
-    const sy = grid.maxStrike - heatmapTop;
-    const sh = Math.max(0, heatmapTop - heatmapBottom);
-    const dy = yForStrike(heatmapTop);
-    const dh = Math.max(0, yForStrike(heatmapBottom) - dy);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    if (sh > 0 && dh > 0) {
-      ctx.drawImage(off, 0, sy, T, sh, pads.L, dy, plotW, dh);
+      // Map the offscreen image (which only spans [minStrike, maxStrike]) into
+      // the visible strike range (yMin..yMax). When the y-axis extends past the
+      // available strike data, the heatmap is drawn into a sub-rect of the plot
+      // and the rest stays empty.
+      const heatmapTop = Math.min(viewGrid.maxStrike, yMax);
+      const heatmapBottom = Math.max(viewGrid.minStrike, yMin);
+      const sy = viewGrid.maxStrike - heatmapTop;
+      const sh = Math.max(0, heatmapTop - heatmapBottom);
+      const dy = yForStrike(heatmapTop);
+      const dh = Math.max(0, yForStrike(heatmapBottom) - dy);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      if (sh > 0 && dh > 0) {
+        ctx.drawImage(off, 0, sy, T, sh, pads.L, dy, plotW, dh);
+      }
     }
 
     // Axes
@@ -690,11 +800,33 @@ export default function GammaHeatmapCanvas() {
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
 
-    const labelLow = Math.ceil(yMin);
-    const labelHigh = Math.floor(yMax);
-    const labelSpan = Math.max(1, labelHigh - labelLow);
-    const labelStep = Math.max(1, Math.ceil((labelSpan + 1) / 12));
-    for (let s = labelLow; s <= labelHigh; s += labelStep) {
+    // Strike labels. Surface: whole strikes, stepped to about a dozen. Dots:
+    // its rows, every one unless they would sit closer than 14px, each with a
+    // faint guide for its dots to sit on.
+    const labelStrikes: number[] = [];
+    if (layout) {
+      const every = Math.max(1, Math.ceil(14 / (plotH / layout.rows.length)));
+      layout.rows.forEach((s, i) => {
+        if ((layout.rows.length - 1 - i) % every === 0) labelStrikes.push(s);
+      });
+      if (showGrid) {
+        ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        layout.rows.forEach((s) => {
+          ctx.moveTo(pads.L, yForStrike(s));
+          ctx.lineTo(pads.L + plotW, yForStrike(s));
+        });
+        ctx.stroke();
+      }
+    } else {
+      const labelLow = Math.ceil(yMin);
+      const labelHigh = Math.floor(yMax);
+      const labelSpan = Math.max(1, labelHigh - labelLow);
+      const labelStep = Math.max(1, Math.ceil((labelSpan + 1) / 12));
+      for (let s = labelLow; s <= labelHigh; s += labelStep) labelStrikes.push(s);
+    }
+    for (const s of labelStrikes) {
       const py = yForStrike(s);
       // The same labels on whichever side(s) the viewer chose (see
       // core/heatmapPriceScale), each set flush against the plot.
@@ -706,7 +838,7 @@ export default function GammaHeatmapCanvas() {
         ctx.textAlign = 'left';
         ctx.fillText(`$${s}`, pads.L + plotW + 6, py);
       }
-      if (showGrid) {
+      if (showGrid && !layout) {
         ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -750,7 +882,7 @@ export default function GammaHeatmapCanvas() {
     let groupDateKey = '';
 
     for (let i = 0; i < T; i++) {
-      const d = new Date(grid.timestamps[i]);
+      const d = new Date(viewGrid.timestamps[i]);
       const mod = minutesOfDayET(d);
       const dk = dateKeyET(d);
       if (i === 0) {
@@ -825,12 +957,69 @@ export default function GammaHeatmapCanvas() {
       ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     }
 
+    // Dots: one per row per interval, its area set by |GEX| (see
+    // core/heatmapDots) and its color by the sign, in the theme's bull and
+    // bear colors. Price is a line, not candles, so nothing covers the dots;
+    // a card-colored halo keeps it readable where it crosses them.
+    if (layout) {
+      const cellW = plotW / T;
+      const maxR = (Math.min(cellW, plotH / layout.rows.length) / 2) * 0.92;
+      const bull = rootStyle?.getPropertyValue('--color-bull').trim() || '#1BC47D';
+      const bear = rootStyle?.getPropertyValue('--color-bear').trim() || '#FF5A66';
+      const R = viewGrid.strikes.length;
+      for (let x = 0; x < T; x++) {
+        const cx = pads.L + (x + 0.5) * cellW;
+        layout.rows.forEach((strike, k) => {
+          const v = viewGrid.raw[x * R + layout.rowIdx[k]];
+          const r = dotRadius(v, layout.clip, maxR);
+          if (r <= 0) return;
+          // A near-zero strike is a faint speck, so the busy rows stand out.
+          ctx.globalAlpha = Math.abs(v) < layout.clip * 0.02 ? 0.55 : 0.95;
+          ctx.fillStyle = v > 0 ? bull : bear;
+          ctx.beginPath();
+          ctx.arc(cx, yForStrike(strike), r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+      ctx.globalAlpha = 1;
+
+      if (priceData && priceData.length > 0) {
+        const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
+        const closeByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, Number(p.close)]));
+        const points = viewGrid.slotsMs.map((ms, i) => {
+          const close = closeByMs.get(ms);
+          return close != null && Number.isFinite(close) ? { x: pads.L + (i + 0.5) * cellW, y: yForStrike(close) } : null;
+        });
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        for (const [color, width] of [[bgCardColor, 4.75], [axisColor, 1.75]] as const) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          // Break at intervals with no bar, as the candles leave a gap.
+          let started = false;
+          points.forEach((pt) => {
+            if (!pt) {
+              started = false;
+              return;
+            }
+            if (started) ctx.lineTo(pt.x, pt.y);
+            else ctx.moveTo(pt.x, pt.y);
+            started = true;
+          });
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+
     // Underlying candlesticks on top of the heatmap.  Solid bodies with
     // a darker edge — keeps the brightness of the brand bullish/bearish
     // colors for at-a-glance direction reading while the darker outline
     // and the wick split at the body edges keep the candles legible
     // against the heatmap's colors underneath.
-    if (priceData && priceData.length > 0) {
+    if (!layout && priceData && priceData.length > 0) {
       const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
       const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
       const cellW = plotW / T;
@@ -844,7 +1033,7 @@ export default function GammaHeatmapCanvas() {
       const bearColor = rootStyle?.getPropertyValue('--color-bear').trim() || '#FF5A66';
       const bullEdge = darken(bullColor, 0.6);
       const bearEdge = darken(bearColor, 0.6);
-      grid.slotsMs.forEach((ms, i) => {
+      viewGrid.slotsMs.forEach((ms, i) => {
         const row = priceByMs.get(ms);
         if (!row) return;
         const open = Number(row.open ?? row.close);
@@ -906,7 +1095,7 @@ export default function GammaHeatmapCanvas() {
       const drawFlipPath = (expandedFilter: boolean) => {
         ctx.beginPath();
         let started = false;
-        grid.slotsMs.forEach((ms, i) => {
+        viewGrid.slotsMs.forEach((ms, i) => {
           const entry = gammaFlipByMs.get(ms);
           const v = entry?.value;
           // Break the line at missing/unresolved timestamps AND at
@@ -935,6 +1124,17 @@ export default function GammaHeatmapCanvas() {
         ctx.stroke();
       };
 
+      // On the Dots view, a card-colored halo first, so the line reads where
+      // it crosses the dots.
+      if (layout) {
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.lineWidth = 5.25;
+        ctx.strokeStyle = bgCardColor;
+        drawFlipPath(false);
+        ctx.restore();
+      }
+
       // Default-rung pass — solid, full opacity.
       ctx.save();
       ctx.setLineDash([]);
@@ -956,8 +1156,9 @@ export default function GammaHeatmapCanvas() {
 
     // Vertical color legend on the right edge, past a right-hand price scale
     // when there is one. The narrow layout has no gutter for it; its legend is
-    // the HTML bar under the canvas instead.
-    if (!narrow) {
+    // the HTML bar under the canvas instead. The Dots view has no color scale;
+    // its gutter carries the latest price instead.
+    if (!narrow && !layout) {
       const legendX = pads.L + plotW + scale.rightGutter + 14;
       const legendW = 14;
       const legendY = pads.T;
@@ -986,10 +1187,25 @@ export default function GammaHeatmapCanvas() {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       // Scale the legend endpoints into the active unit (per-1% × factor).
-      const legendClip = grid.clip * legendGexFactor;
+      const legendClip = viewGrid.clip * legendGexFactor;
       ctx.fillText(`+${fmt(legendClip)}`, legendX + legendW + 4, legendY + 4);
       ctx.fillText('0', legendX + legendW + 4, legendY + legendH / 2);
       ctx.fillText(`-${fmt(legendClip)}`, legendX + legendW + 4, legendY + legendH - 4);
+    }
+    const lastClose = Number(priceData?.[priceData.length - 1]?.close);
+    if (!narrow && layout && Number.isFinite(lastClose)) {
+      const label = `$${lastClose.toFixed(2)}`;
+      ctx.font = '600 11px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      const tagW = ctx.measureText(label).width + 12;
+      const tagX = pads.L + plotW + scale.rightGutter + 6;
+      const tagY = clamp(yForStrike(lastClose), pads.T + 9, pads.T + plotH - 9);
+      ctx.fillStyle = axisColor;
+      ctx.fillRect(tagX, tagY - 9, tagW, 18);
+      ctx.fillStyle = bgCardColor;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, tagX + 6, tagY + 0.5);
+      ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     }
 
     // Crosshair
@@ -1009,31 +1225,39 @@ export default function GammaHeatmapCanvas() {
         ctx.setLineDash([]);
       }
     }
-  }, [grid, bounds, priceData, gammaFlipByMs, theme, chartTheme.bgCard, size, hover, showGrid, tf, legendGexFactor, pads, narrow, scale]);
+  }, [viewGrid, plotBounds, drawDots, dotLayout, priceData, gammaFlipByMs, theme, chartTheme.bgCard, size, hover, showGrid, tf, legendGexFactor, pads, narrow, scale]);
 
   const tooltip = useMemo(() => {
-    if (!hover || !grid || !bounds) return null;
+    if (!hover || !viewGrid || !plotBounds) return null;
     const plotW = Math.max(10, size.w - pads.L - pads.R);
     const plotH = Math.max(10, size.h - pads.T - pads.B);
     if (hover.x < pads.L || hover.x > pads.L + plotW || hover.y < pads.T || hover.y > pads.T + plotH) return null;
 
-    const T = grid.timestamps.length;
+    const T = viewGrid.timestamps.length;
     const xRatio = (hover.x - pads.L) / plotW;
     const tIdx = Math.min(T - 1, Math.max(0, Math.floor(xRatio * T)));
-    const ts = grid.timestamps[tIdx];
-    const ms = grid.slotsMs[tIdx];
+    const ts = viewGrid.timestamps[tIdx];
+    const ms = viewGrid.slotsMs[tIdx];
 
     const yRatio = (hover.y - pads.T) / plotH;
-    const strike = bounds.yMax - yRatio * (bounds.yMax - bounds.yMin);
-    const sIdx = Math.round(strike) - grid.minStrike;
-    const safeS = Math.min(grid.stride - 1, Math.max(0, sIdx));
-    const value = grid.matrix[tIdx * grid.stride + safeS];
+    const price = plotBounds.yMax - yRatio * (plotBounds.yMax - plotBounds.yMin);
+    let strike: number;
+    let value: number;
+    if (drawDots && dotLayout) {
+      // The dot under the cursor: its row's own reported value.
+      strike = nearestRow(dotLayout.rows, price);
+      value = viewGrid.raw[tIdx * viewGrid.strikes.length + viewGrid.strikes.indexOf(strike)];
+    } else {
+      strike = Math.round(price);
+      const safeS = Math.min(viewGrid.stride - 1, Math.max(0, strike - viewGrid.minStrike));
+      value = viewGrid.matrix[tIdx * viewGrid.stride + safeS];
+    }
 
     const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
     const priceRow = priceData?.find((p) => Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs === ms);
     const gammaFlip = gammaFlipByMs.get(ms);
-    return { ts, strike: Math.round(strike), value, priceRow, gammaFlip };
-  }, [hover, grid, bounds, priceData, gammaFlipByMs, size, tf, pads]);
+    return { ts, strike, value, priceRow, gammaFlip };
+  }, [hover, viewGrid, plotBounds, drawDots, dotLayout, priceData, gammaFlipByMs, size, tf, pads]);
 
   // ── Toolbar derived labels ──
   const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
@@ -1354,6 +1578,69 @@ export default function GammaHeatmapCanvas() {
     </div>
   );
 
+  // Surface or Dots (core/heatmapDots), saved with the display preferences.
+  const viewControl = (
+    <div
+      role="group"
+      aria-label="Heatmap view"
+      className="inline-flex rounded-md overflow-hidden"
+      style={{ border: `1px solid ${border}` }}
+      title="Surface shades a smoothed field; Dots draws one dot per strike per interval, sized by its gamma"
+    >
+      {HEATMAP_VIEWS.map((option) => (
+        <button
+          key={option}
+          type="button"
+          onClick={() => setView(option)}
+          aria-pressed={option === view}
+          className="px-2.5 py-1.5 text-xs font-semibold"
+          style={{
+            color: option === view ? textPrimary : subtle,
+            backgroundColor: option === view ? 'var(--color-info-soft)' : 'transparent',
+            ...touchTarget,
+          }}
+        >
+          {HEATMAP_VIEW_LABEL[option]}
+        </button>
+      ))}
+    </div>
+  );
+
+  // How many strikes the Dots view shows around price. Takes the zoom
+  // buttons' place there: Dots frames strikes, not a price range.
+  const strikesControl = (
+    <div
+      role="group"
+      aria-label="Strikes shown"
+      className="inline-flex items-center rounded-md overflow-hidden"
+      style={{ border: `1px solid ${border}` }}
+      title="How many strikes to show around price"
+    >
+      {!narrow && (
+        <span className="pl-2.5 pr-1 text-xs" style={{ color: subtle }}>
+          Strikes
+        </span>
+      )}
+      {DOT_STRIKE_COUNTS.map((count) => (
+        <button
+          key={count}
+          type="button"
+          onClick={() => setDotStrikes(count)}
+          aria-pressed={count === dotStrikes}
+          aria-label={narrow ? `${count} strikes` : undefined}
+          className="px-2 py-1.5 text-xs font-semibold"
+          style={{
+            color: count === dotStrikes ? textPrimary : subtle,
+            backgroundColor: count === dotStrikes ? 'var(--color-info-soft)' : 'transparent',
+            ...touchTarget,
+          }}
+        >
+          {count}
+        </button>
+      ))}
+    </div>
+  );
+
   const withPrevBtn = (
     <button
       type="button"
@@ -1562,7 +1849,7 @@ export default function GammaHeatmapCanvas() {
       >
         <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
           <span>{symbol} GEX Heatmap Timeseries</span>
-          <TooltipWrapper text="Canvas-rendered, bilinear-smoothed time-series heatmap of net dealer GEX by strike. Color scale is clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain. The y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons). Candlesticks show the underlying OHLC and the colored line marks the gamma flip.">
+          <TooltipWrapper text="Net dealer GEX by strike through the session, in two views. Surface: a smoothed heatmap, its color scale clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain; the y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons) and candlesticks show the underlying OHLC. Dots: one dot per strike per interval, its area the size of the GEX there and its color the sign, for a chosen number of strikes around price, with price drawn as a line. In both, the blue line marks the gamma flip.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
@@ -1590,7 +1877,7 @@ export default function GammaHeatmapCanvas() {
             {expiryControl}
             <div className="ml-auto">{tfControl}</div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => {
@@ -1606,9 +1893,16 @@ export default function GammaHeatmapCanvas() {
               <span>Options</span>
               <ChevronDown size={12} style={{ transform: optionsOpen ? 'rotate(180deg)' : undefined }} />
             </button>
+            {viewControl}
             <div className="ml-auto flex items-center gap-2">
-              {zoomOutBtn}
-              {zoomInBtn}
+              {dots ? (
+                strikesControl
+              ) : (
+                <>
+                  {zoomOutBtn}
+                  {zoomInBtn}
+                </>
+              )}
             </div>
           </div>
           {optionsOpen && (
@@ -1638,13 +1932,20 @@ export default function GammaHeatmapCanvas() {
         </div>
       ) : (
       <div className="flex flex-wrap items-center gap-2 px-5 pt-3 pb-3">
+        {viewControl}
         {dateChip}
         {expiryControl}
         {dteChipEl}
         {tfControl}
         {withPrevBtn}
-        {zoomOutBtn}
-        {zoomInBtn}
+        {dots ? (
+          strikesControl
+        ) : (
+          <>
+            {zoomOutBtn}
+            {zoomInBtn}
+          </>
+        )}
         {pauseBtn}
         {resetBtn}
         {settingsControl}
@@ -1732,8 +2033,9 @@ export default function GammaHeatmapCanvas() {
             )}
           </div>
           {/* Narrow layout: the color scale as a horizontal bar (the canvas
-              has no gutter for the vertical one), bearish → bullish. */}
-          {narrow && (
+              has no gutter for the vertical one), bearish → bullish. The Dots
+              view has no color scale; its key is in the legend strip. */}
+          {narrow && !drawDots && (
             <div className="flex items-center gap-2 px-3 pb-3 text-[11px] tabular-nums" style={{ color: subtle }}>
               <span>-{formatScaleValue(grid.clip * legendGexFactor)}</span>
               <span className="h-2.5 flex-1 rounded-sm" style={{ background: heatmapLegendGradientCss(isDark) }} aria-hidden />
@@ -1746,6 +2048,25 @@ export default function GammaHeatmapCanvas() {
           className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${narrow ? 'px-3' : 'px-5'} py-2 text-xs`}
           style={{ borderTop: `1px solid ${border}`, color: subtle }}
         >
+          {drawDots && (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: 'var(--color-bull)' }} aria-hidden />
+                <span style={{ color: textPrimary }}>Positive GEX</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: 'var(--color-bear)' }} aria-hidden />
+                <span style={{ color: textPrimary }}>Negative GEX</span>
+              </span>
+              <span>Dot area = size of the exposure</span>
+              <span className="flex items-center gap-1.5">
+                <svg width="22" height="6" aria-hidden="true">
+                  <line x1="0" x2="22" y1="3" y2="3" stroke="var(--text-primary)" strokeWidth="1.75" />
+                </svg>
+                <span style={{ color: textPrimary }}>Price</span>
+              </span>
+            </>
+          )}
           <span
             className="flex items-center gap-1.5"
             title="Price where dealer net gamma flips sign&nbsp;- above it dealers dampen volatility, below it they amplify it"

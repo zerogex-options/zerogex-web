@@ -291,7 +291,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Does ZeroGEX have something like the Quant Data Interval Map?',
-      a: 'Yes. The GEX Heatmap on ZeroGEX Basic plots net dealer gamma by strike through the session, with the price candles and the gamma flip drawn on top. The Interval Map also shows delta, vanna, and charm exposure and covers many more tickers; ZeroGEX maps gamma only, on six symbols.',
+      a: 'Yes. The GEX Heatmap on ZeroGEX Basic plots net dealer gamma by strike through the session, with the gamma flip drawn on top, and its Dots view draws it the way the Interval Map does: one dot per strike per interval, sized by the gamma there, green for positive and red for negative. The Interval Map also shows delta, vanna, and charm exposure and covers many more tickers; ZeroGEX maps gamma only, on six symbols.',
     },
     {
       q: 'Why does gamma build up at one strike during the day?',
