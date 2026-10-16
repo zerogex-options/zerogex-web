@@ -32,7 +32,11 @@ straight from here, so what you read below is exactly what goes out, from
 `Michael from ZeroGEX <Michael@zerogex.io>`, with replies to your inbox and a
 Bcc copy to you of every one. Each note ends at "Best," and the sender adds
 your signature under it, the same card as your Gmail one: photo, name, title,
-tagline and zerogex.io. Gmail may file those copies under Sent rather than
+tagline and zerogex.io. Each greeting is `Hi {{first_name}},`, filled in at send
+time with the first name Stripe has for them (the name typed at checkout, else
+the name on their card). Where Stripe has none it uses the note's `name:` line,
+read off their email address, and otherwise reads "Hi,". Every run lists the
+names it picked and where each came from, so check that list before sending. Gmail may file those copies under Sent rather than
 the inbox, since they come from your own address.
 
 Right before each send it re-checks the member against Stripe and our database,
@@ -86,7 +90,7 @@ later run of it won't follow your note with an automated "your payment failed."
 
 Only US members' notes name an amount (2, 3, 5, 12, 14). Elsewhere the card may
 be billed in a local currency, so a dollar figure could disagree with what they
-saw. First names are used only where the address clearly gives one.
+saw.
 
 ---
 
@@ -105,7 +109,7 @@ invoice: in_1UQEpF4AOiqteMYYf2FwRcV0
 subject: Your ZeroGEX payment didn't go through
 access: on
 
-Hi,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -131,8 +135,9 @@ to: joedietrich86@icloud.com
 invoice: in_1UQnq04AOiqteMYYumQi7Dwm
 subject: Your ZeroGEX payment didn't go through
 access: on
+name: Joe
 
-Hi Joe,
+Hi {{first_name}},
 
 A quick note from me, not the automated email.
 
@@ -162,7 +167,7 @@ invoice: in_1UPkaQ4AOiqteMYYvlBdTt9N
 subject: Your ZeroGEX Pro renewal didn't go through
 access: off
 
-Hi,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -192,8 +197,9 @@ to: barisyelken51@yandex.com
 invoice: in_1UOefP4AOiqteMYY6f4xd840
 subject: Your ZeroGEX payment didn't go through
 access: off
+name: Baris
 
-Hi Baris,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -216,8 +222,9 @@ to: nhatcnguyen@gmail.com
 invoice: in_1UPVCU4AOiqteMYYV95Ojkn8
 subject: Your ZeroGEX payment didn't go through
 access: off
+name: Nhat
 
-Hi Nhat,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -244,8 +251,9 @@ invoice: in_1UPcdX4AOiqteMYYINK1C1Rw
 subject: Your ZeroGEX payment didn't go through
 send-after: 2026-10-16T12:45:00-04:00
 access: off
+name: John
 
-Hi John,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -270,8 +278,9 @@ to: daltonkiptoo06@gmail.com
 invoice: in_1UPgCL4AOiqteMYYMlNkH5zd
 subject: Your ZeroGEX payment didn't go through
 access: off
+name: Dalton
 
-Hi Dalton,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -298,8 +307,9 @@ to: abdelilahaj13@gmail.com
 invoice: in_1UPM8B4AOiqteMYYkT4KPeJd
 subject: Your ZeroGEX payment didn't go through
 access: off
+name: Abdelilah
 
-Hi Abdelilah,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -327,7 +337,7 @@ invoice: in_1UPLDy4AOiqteMYYakLHnpjb
 subject: Your ZeroGEX payment didn't go through
 access: off
 
-Hi,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -354,8 +364,9 @@ to: sacfelipeferreira@gmail.com
 invoice: in_1UN3Oc4AOiqteMYYywthLdCl
 subject: Your ZeroGEX payment didn't go through
 access: off
+name: Felipe
 
-Hi Felipe,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -380,7 +391,7 @@ invoice: in_1UQ8au4AOiqteMYYVJCp0qN2
 subject: Your ZeroGEX payment didn't go through
 access: off
 
-Hi,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -408,7 +419,7 @@ invoice: in_1URAFh4AOiqteMYYctfjaNHU
 subject: Your ZeroGEX payment didn't go through
 send-after: 2026-10-17T11:00:00-04:00
 
-Hi,
+Hi {{first_name}},
 
 A quick note from me, not the automated email.
 
@@ -436,7 +447,7 @@ subject: Your ZeroGEX payment didn't go through
 send-after: 2026-10-17T11:00:00-04:00
 access: off
 
-Hi,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -473,8 +484,9 @@ invoice: in_1UQSJy4AOiqteMYYxEpQiBj4
 subject: Your ZeroGEX payment didn't go through
 send-after: 2026-10-17T11:00:00-04:00
 access: off
+name: Jaden
 
-Hi Jaden,
+Hi {{first_name}},
 
 A quick note from me, not the automated emails.
 
@@ -494,8 +506,9 @@ minutes later they added a new Visa and tried to move up to Pro, and the $59
 charge was declined for insufficient funds. The switch voided that invoice, and
 the trial ended last night, so nothing is active and nothing is owed. They
 wanted Pro. With no open invoice, the sender can't take this one, so send it
-from your inbox. It ends at "Best," because Gmail adds your signature. Pro
-has no trial now, but it has the 7-day money-back guarantee.
+from your inbox. It ends at "Best," because Gmail adds your signature. If
+their Stripe customer page shows a first name, put it after "Hi". Pro has no
+trial now, but it has the 7-day money-back guarantee.
 
 **Subject:** Your switch to ZeroGEX Pro
 
