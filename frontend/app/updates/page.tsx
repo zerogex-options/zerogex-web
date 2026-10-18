@@ -28,7 +28,7 @@ const UPDATES: Update[] = [
       {
         title: 'Dots view',
         href: '/gex-heatmap',
-        body: 'Switch the GEX Heatmap from Surface to Dots and each strike gets one dot per interval: the dot’s size is how much dealer gamma sits there, green for positive and red for negative, with price drawn through it as a line and the gamma flip on top. Show 10, 20 or 40 strikes around price. Your choice is remembered next time.',
+        body: 'Switch the GEX Heatmap from Surface to Dots and each strike gets one dot per interval: the dot’s size is how much dealer gamma sits there, green for positive and red for negative, with price drawn through it as candlesticks and the gamma flip on top. Show 10, 20 or 40 strikes around price. Your choice is remembered next time.',
       },
       {
         title: 'Clearer colors in dark mode',

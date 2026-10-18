@@ -3,8 +3,9 @@
  *
  * The Surface view smooths net GEX into a continuous field. Dots keeps every
  * strike and interval apart: one dot per strike per interval, its area the
- * size of the net GEX there and its color the sign, with price drawn as a line
- * through it. The heaviest strikes read at a glance, without decoding shades.
+ * size of the net GEX there and its color the sign, with price drawn over it
+ * as candlesticks. The heaviest strikes read at a glance, without decoding
+ * shades.
  * A refunded member named Quant Data's Interval Map, which works this way, as
  * the chart they preferred to ours.
  *
