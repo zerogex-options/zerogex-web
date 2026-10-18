@@ -959,8 +959,7 @@ export default function GammaHeatmapCanvas() {
 
     // Dots: one per row per interval, its area set by |GEX| (see
     // core/heatmapDots) and its color by the sign, in the theme's bull and
-    // bear colors. Price is a line, not candles, so nothing covers the dots;
-    // a card-colored halo keeps it readable where it crosses them.
+    // bear colors. Price is drawn over them as candlesticks below.
     if (layout) {
       const cellW = plotW / T;
       const maxR = (Math.min(cellW, plotH / layout.rows.length) / 2) * 0.92;
@@ -983,34 +982,56 @@ export default function GammaHeatmapCanvas() {
       }
       ctx.globalAlpha = 1;
 
+      // Price as candlesticks in one ink that contrasts with every theme's
+      // card (the axis color): hollow for an up bar, filled for a down bar,
+      // so direction never leans on the green and red the dots already use.
+      // A card-colored outline lifts each candle off the dots under it.
       if (priceData && priceData.length > 0) {
         const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
-        const closeByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, Number(p.close)]));
-        const points = viewGrid.slotsMs.map((ms, i) => {
-          const close = closeByMs.get(ms);
-          return close != null && Number.isFinite(close) ? { x: pads.L + (i + 0.5) * cellW, y: yForStrike(close) } : null;
-        });
-        ctx.save();
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        for (const [color, width] of [[bgCardColor, 4.75], [axisColor, 1.75]] as const) {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = width;
+        const priceByMs = new Map(priceData.map((p) => [Math.floor(new Date(p.timestamp).getTime() / cadenceMs) * cadenceMs, p]));
+        const candleW = Math.max(3, Math.min(8, cellW * 0.4));
+        viewGrid.slotsMs.forEach((ms, i) => {
+          const row = priceByMs.get(ms);
+          if (!row) return;
+          const open = Number(row.open ?? row.close);
+          const close = Number(row.close ?? row.open);
+          const high = Number(row.high ?? Math.max(open, close));
+          const low = Number(row.low ?? Math.min(open, close));
+          if (!Number.isFinite(open) || !Number.isFinite(close) || !Number.isFinite(high) || !Number.isFinite(low)) return;
+
+          const cx = pads.L + (i + 0.5) * cellW;
+          const yHigh = yForStrike(high);
+          const yLow = yForStrike(low);
+          const bodyTop = Math.min(yForStrike(open), yForStrike(close));
+          const bodyH = Math.max(1, Math.max(yForStrike(open), yForStrike(close)) - bodyTop);
+          const left = cx - candleW / 2;
+
+          // Outline in the card color: under the wick, and a frame around
+          // the body that also fills a hollow body.
+          ctx.strokeStyle = bgCardColor;
+          ctx.lineWidth = 3.5;
           ctx.beginPath();
-          // Break at intervals with no bar, as the candles leave a gap.
-          let started = false;
-          points.forEach((pt) => {
-            if (!pt) {
-              started = false;
-              return;
-            }
-            if (started) ctx.lineTo(pt.x, pt.y);
-            else ctx.moveTo(pt.x, pt.y);
-            started = true;
-          });
+          ctx.moveTo(cx, yHigh);
+          ctx.lineTo(cx, yLow);
           ctx.stroke();
-        }
-        ctx.restore();
+          ctx.fillStyle = bgCardColor;
+          ctx.fillRect(left - 1.5, bodyTop - 1.5, candleW + 3, bodyH + 3);
+
+          ctx.strokeStyle = axisColor;
+          ctx.lineWidth = 1.25;
+          ctx.beginPath();
+          ctx.moveTo(cx, yHigh);
+          ctx.lineTo(cx, bodyTop);
+          ctx.moveTo(cx, bodyTop + bodyH);
+          ctx.lineTo(cx, yLow);
+          ctx.stroke();
+          if (close >= open) {
+            ctx.strokeRect(left + 0.5, bodyTop + 0.5, candleW - 1, Math.max(0.5, bodyH - 1));
+          } else {
+            ctx.fillStyle = axisColor;
+            ctx.fillRect(left, bodyTop, candleW, bodyH);
+          }
+        });
       }
     }
 
@@ -1849,7 +1870,7 @@ export default function GammaHeatmapCanvas() {
       >
         <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
           <span>{symbol} GEX Heatmap Timeseries</span>
-          <TooltipWrapper text="Net dealer GEX by strike through the session, in two views. Surface: a smoothed heatmap, its color scale clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain; the y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons) and candlesticks show the underlying OHLC. Dots: one dot per strike per interval, its area the size of the GEX there and its color the sign, for a chosen number of strikes around price, with price drawn as a line. In both, the blue line marks the gamma flip.">
+          <TooltipWrapper text="Net dealer GEX by strike through the session, in two views. Surface: a smoothed heatmap, its color scale clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain; the y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons) and candlesticks show the underlying OHLC. Dots: one dot per strike per interval, its area the size of the GEX there and its color the sign, for a chosen number of strikes around price, with price as candlesticks in one contrasting color, hollow when up and filled when down. In both, the blue line marks the gamma flip.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
@@ -2060,10 +2081,13 @@ export default function GammaHeatmapCanvas() {
               </span>
               <span>Dot area = size of the exposure</span>
               <span className="flex items-center gap-1.5">
-                <svg width="22" height="6" aria-hidden="true">
-                  <line x1="0" x2="22" y1="3" y2="3" stroke="var(--text-primary)" strokeWidth="1.75" />
+                <svg width="16" height="12" aria-hidden="true">
+                  <line x1="4" x2="4" y1="0" y2="12" stroke="var(--text-primary)" strokeWidth="1.25" />
+                  <rect x="2" y="3" width="4" height="6" fill="var(--bg-card)" stroke="var(--text-primary)" strokeWidth="1.25" />
+                  <line x1="12" x2="12" y1="1" y2="11" stroke="var(--text-primary)" strokeWidth="1.25" />
+                  <rect x="9.5" y="3.5" width="5" height="5" fill="var(--text-primary)" />
                 </svg>
-                <span style={{ color: textPrimary }}>Price</span>
+                <span style={{ color: textPrimary }}>Price (hollow up, filled down)</span>
               </span>
             </>
           )}
