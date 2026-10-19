@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
+import { httpOnlyQuoteFields } from '@/core/liveQuoteMerge';
 import { pollDecision, staleAfterMs } from '@/core/pollGate';
 import { sessionClosesLagBehind } from '@/core/sessionCloses';
 import type { GammaSurfaceResponse } from '@/core/gammaSurface';
@@ -1147,6 +1148,9 @@ export function applyLiveQuote(symbol: string, incoming: LiveQuoteIncoming): voi
     return null;
   };
   const merged: MarketQuoteRow = {
+    // The overnight display swap and futures labels come from the HTTP poll
+    // only; a WS tick must not erase them. See core/liveQuoteMerge.ts.
+    ...httpOnlyQuoteFields(prev),
     symbol: incoming.symbol,
     timestamp: incoming.timestamp,
     open: pickNumber(incoming.open, prev?.open, prev?.open ?? 0),
