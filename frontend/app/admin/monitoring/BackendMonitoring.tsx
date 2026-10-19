@@ -17,6 +17,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { formatDayLabel, formatHourLabel, lighten } from './monitoringHelpers';
+import { useExportPending } from './PdfExport';
 
 type BackendPoint = {
   bucket: string;
@@ -93,6 +94,7 @@ export default function BackendMonitoring() {
   const [data, setData] = useState<BackendSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  useExportPending(loading);
 
   useEffect(() => {
     let cancelled = false;

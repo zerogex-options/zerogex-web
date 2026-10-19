@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { churnImplications, type ChurnDay, type ChurnReport } from '@/core/churnSeries';
 import { makeDayLabelFormatter } from '../monitoringHelpers';
+import { useExportPending } from '../PdfExport';
 import { LOSS_VOLUNTARY } from '../growth/palette';
 import { ChoiceRow, Disclosure, Panel, Sentence, StatTile } from '../growth/ui';
 
@@ -53,6 +54,8 @@ export default function ChurnClient({ axisStroke, mutedText, textColor }: Props)
   const [error, setError] = useState<string | null>(null);
   // The previous range stays on screen, dimmed, until the new one arrives.
   const loading = !error && report !== null && report.windowDays !== windowDays;
+  // Until the chosen range's report is in, first load included.
+  useExportPending(!error && (report === null || report.windowDays !== windowDays));
 
   useEffect(() => {
     let cancelled = false;

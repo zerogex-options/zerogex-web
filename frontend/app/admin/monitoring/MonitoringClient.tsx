@@ -1,7 +1,8 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { FileDown } from 'lucide-react';
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -10,6 +11,7 @@ import BackendMonitoring from './BackendMonitoring';
 import GrowthClient from './growth/GrowthClient';
 import ChurnClient from './churn/ChurnClient';
 import DeclineTracking from './declines/DeclineTracking';
+import PdfExport, { useExportPending, type ExportSection } from './PdfExport';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
   buildMrrProjection,
@@ -328,34 +330,50 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
 
 type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'growth' | 'churn';
 
+// Every tab here is also a section of the PDF export, in this order. A tab that
+// fetches its own data must report it through useExportPending, or the export
+// can print before that data arrives.
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: 'frontend', label: 'Frontend' },
+  { id: 'backend', label: 'Backend' },
+  { id: 'stripe', label: 'Stripe' },
+  { id: 'revenue', label: 'Revenue Tracking' },
+  { id: 'conveyor', label: 'Conversion Conveyor' },
+  { id: 'growth', label: 'Growth' },
+  { id: 'churn', label: 'Churn' },
+];
+
+// These tabs own their own fetch; every other tab renders from the shared
+// snapshot.
+const SELF_LOADING_TABS = new Set<TabId>(['backend', 'growth', 'churn']);
+
+async function fetchSnapshot(): Promise<Snapshot> {
+  const res = await fetch('/api/admin/monitoring', { cache: 'no-store', credentials: 'same-origin' });
+  if (!res.ok) {
+    throw new Error(res.status === 403 ? 'Admin access required' : `Failed to load monitoring data (HTTP ${res.status})`);
+  }
+  return (await res.json()) as Snapshot;
+}
+
 export default function MonitoringClient() {
-  const cardBg = 'var(--color-surface)';
-  const mutedText = 'var(--color-text-secondary)';
-  const textColor = 'var(--color-text-primary)';
   const borderColor = 'var(--color-border)';
-  const axisStroke = 'var(--color-text-primary)';
 
   const [tab, setTab] = useState<TabId>('frontend');
   const [data, setData] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // When the open PDF export was asked for; null while none is open.
+  const [exportAt, setExportAt] = useState<Date | null>(null);
+  const closeExport = useCallback(() => setExportAt(null), []);
 
   useEffect(() => {
     // These tabs own their own fetch, so the shared snapshot poll would be pure
     // waste while one is open.
-    if (tab === 'backend' || tab === 'growth' || tab === 'churn') return;
+    if (SELF_LOADING_TABS.has(tab)) return;
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch('/api/admin/monitoring', { cache: 'no-store', credentials: 'same-origin' });
-        if (!res.ok) {
-          if (!cancelled) {
-            setError(res.status === 403 ? 'Admin access required' : `Failed to load monitoring data (HTTP ${res.status})`);
-            setLoading(false);
-          }
-          return;
-        }
-        const json = (await res.json()) as Snapshot;
+        const json = await fetchSnapshot();
         if (!cancelled) {
           setData(json);
           setError(null);
@@ -376,20 +394,20 @@ export default function MonitoringClient() {
     };
   }, [tab]);
 
-  const TABS: Array<{ id: TabId; label: string }> = [
-    { id: 'frontend', label: 'Frontend' },
-    { id: 'backend', label: 'Backend' },
-    { id: 'stripe', label: 'Stripe' },
-    { id: 'revenue', label: 'Revenue Tracking' },
-    { id: 'conveyor', label: 'Conversion Conveyor' },
-    { id: 'growth', label: 'Growth' },
-    { id: 'churn', label: 'Churn' },
-  ];
-
   return (
     <PageShell>
       <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
         <h1 className="text-2xl font-semibold">Admin Monitoring</h1>
+        <button
+          type="button"
+          onClick={() => setExportAt(new Date())}
+          title="Save every tab as one PDF"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-md"
+          style={{ border: `1px solid ${borderColor}` }}
+        >
+          <FileDown size={16} aria-hidden />
+          Export
+        </button>
       </div>
 
       {/* Scrolls sideways on narrow screens so every tab stays reachable. The
@@ -417,7 +435,30 @@ export default function MonitoringClient() {
       </div>
       </div>
 
-      {tab === 'frontend' && (
+      <TabBody tab={tab} data={data} loading={loading} error={error} />
+      {exportAt && <MonitoringExport at={exportAt} onClose={closeExport} />}
+    </PageShell>
+  );
+}
+
+// One tab's content: what the page shows, and what the export prints.
+function TabBody({ tab, data, loading, error }: {
+  tab: TabId;
+  data: Snapshot | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const cardBg = 'var(--color-surface)';
+  const mutedText = 'var(--color-text-secondary)';
+  const textColor = 'var(--color-text-primary)';
+  const borderColor = 'var(--color-border)';
+  const axisStroke = 'var(--color-text-primary)';
+  // The self-loading tabs report their own loading.
+  useExportPending(!SELF_LOADING_TABS.has(tab) && loading);
+
+  switch (tab) {
+    case 'frontend':
+      return (
         <FrontendTab
           loading={loading}
           error={error}
@@ -428,27 +469,55 @@ export default function MonitoringClient() {
           mutedText={mutedText}
           textColor={textColor}
         />
-      )}
-      {tab === 'backend' && <BackendMonitoring />}
-      {tab === 'stripe' && (
-        <StripeTab data={data} loading={loading} error={error} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-      )}
-      {tab === 'revenue' && data && !loading && !error && (
-        <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-      )}
-      {tab === 'conveyor' && data && !loading && !error && (
-        <ConveyorTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-      )}
-      {tab === 'growth' && (
-        <GrowthClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-      )}
-      {tab === 'churn' && (
-        <ChurnClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-      )}
-      {tab !== 'backend' && tab !== 'growth' && tab !== 'churn' && tab !== 'stripe' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && tab !== 'growth' && tab !== 'churn' && tab !== 'stripe' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
-    </PageShell>
-  );
+      );
+    case 'backend':
+      return <BackendMonitoring />;
+    case 'stripe':
+      return <StripeTab data={data} loading={loading} error={error} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />;
+    case 'growth':
+      return <GrowthClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />;
+    case 'churn':
+      return <ChurnClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />;
+    case 'revenue':
+    case 'conveyor':
+      if (loading) return <LoadingSpinner size="lg" />;
+      if (error) return <ErrorMessage message={error} />;
+      if (!data) return null;
+      return tab === 'revenue'
+        ? <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+        : <ConveyorTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />;
+  }
+}
+
+// Admin Monitoring as one PDF: every tab in tab order. The snapshot tabs print
+// from one fresh read taken when the export opens, not from the page's poll.
+function MonitoringExport({ at, onClose }: { at: Date; onClose: () => void }) {
+  const [snapshot, setSnapshot] = useState<{ data: Snapshot | null; error: string | null }>({ data: null, error: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSnapshot()
+      .then((data) => {
+        if (!cancelled) setSnapshot({ data, error: null });
+      })
+      .catch((err) => {
+        if (!cancelled) setSnapshot({ data: null, error: err instanceof Error ? err.message : 'Failed to load monitoring data' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sections = useMemo<ExportSection[]>(() => {
+    const loading = snapshot.data == null && snapshot.error == null;
+    return TABS.map((t) => ({
+      id: t.id,
+      label: t.label,
+      content: <TabBody tab={t.id} data={snapshot.data} loading={loading} error={snapshot.error} />,
+    }));
+  }, [snapshot]);
+
+  return <PdfExport title="Admin Monitoring" at={at} sections={sections} onClose={onClose} />;
 }
 
 type FrontendTabProps = {

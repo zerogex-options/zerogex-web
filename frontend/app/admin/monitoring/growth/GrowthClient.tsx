@@ -40,6 +40,7 @@ import {
   X_COLOR,
 } from './palette';
 import { ChoiceRow, Disclosure, Panel, ProportionBar, RankBar, Sentence, StatTile } from './ui';
+import { useExportPending } from '../PdfExport';
 
 // Admin → Monitoring → Growth. One page, read top to bottom:
 //
@@ -99,9 +100,14 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
   const [selection, setSelection] = useState<Selection | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
   const [reload, setReload] = useState({ seq: 0, rebuild: false });
+  // The request the last finished day-series fetch answered, whether or not it
+  // succeeded: a failure leaves `daily` empty, and the PDF export must not wait
+  // on it forever.
+  const [dailySettled, setDailySettled] = useState<string | null>(null);
   const drilldownRef = useRef<HTMLDivElement | null>(null);
 
   const dailyDays = DAILY_DAYS[String(windowDays)] ?? 90;
+  useExportPending((report == null && error == null) || dailySettled !== `${dailyDays}:${reload.seq}`);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +137,11 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
       })
       .then((body) => { if (!cancelled) setDaily(body); })
       .catch(() => { /* the day charts degrade to empty; the headline does not depend on them */ })
-      .finally(() => { if (!cancelled) setRebuilding(false); });
+      .finally(() => {
+        if (cancelled) return;
+        setRebuilding(false);
+        setDailySettled(`${dailyDays}:${reload.seq}`);
+      });
     return () => { cancelled = true; };
   }, [dailyDays, reload]);
 
