@@ -8,7 +8,7 @@
  * freshness labels. Rebuilding the row from the frame alone dropped them on
  * every tick, so overnight and pre-market the header flipped between the ES
  * price (HTTP poll) and the SPX last close (WS tick) — visible once ThetaData
- * started polling SPX through the night and a WS frame went out every second.
+ * started writing index bars through the night, each one a WS frame.
  *
  * These fields are owned by the HTTP response: carry them forward across WS
  * ticks, and let the next poll replace or clear them. At 09:30 ET the poll

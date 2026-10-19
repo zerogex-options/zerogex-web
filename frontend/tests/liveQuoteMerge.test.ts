@@ -1,8 +1,8 @@
 // Guards the overnight display swap against the WebSocket merge. A WS tick is
 // the cash index's own bar and carries none of the swap fields; rebuilding the
 // cached row from it alone made the header flip between the ES price (HTTP
-// poll) and the SPX last close (WS tick) every second, overnight and
-// pre-market, once ThetaData began polling SPX around the clock.
+// poll) and the SPX last close (WS tick) on every tick, overnight and
+// pre-market, once ThetaData began writing index bars around the clock.
 import test from "node:test";
 import assert from "node:assert/strict";
 
