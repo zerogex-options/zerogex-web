@@ -36,6 +36,7 @@ import {
   type RetryState,
 } from '@/core/paymentDeclines';
 import { makeDayLabelFormatter } from '../monitoringHelpers';
+import { useExportPending } from '../PdfExport';
 import { ChoiceRow, Disclosure, Panel, ProportionBar, RankBar, Sentence, StatTile } from '../growth/ui';
 import { AT_RISK_COLOR, CAUSE_RANK_COLOR, LOST_COLOR, PAID_COLOR, RECOVERED_COLOR } from './palette';
 
@@ -283,6 +284,7 @@ export default function DeclineTracking({
   const showingRequested = report != null && report.windowDays === windowDays;
   const error = failure?.windowDays === windowDays ? failure.message : null;
   const loading = !showingRequested && error == null;
+  useExportPending(loading);
 
   const windowLabel = useMemo(
     () => WINDOW_OPTIONS.find((option) => option.value === windowDays)?.label.toLowerCase() ?? 'window',
