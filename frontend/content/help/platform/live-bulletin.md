@@ -16,10 +16,10 @@ The **Today's Read** summary on the Main Dashboard is built from the same model�
 
 - **Gamma Regime badge** - positive (dealers long gamma; pinned, lower vol), negative (dealers short gamma; trending, higher vol), at-the-flip (transition), or unresolved when the flip can't be resolved from the current snapshot.
 - **Headline + summary** - a plain-English read auto-generated from the live numbers: dealer posture, where spot sits relative to the flip, the wall corridor, and what the regime implies for the tape. Editable - see below.
-- **Spot** - the underlying's price and change on the day. When a cash index is outside its session (e.g. SPX overnight), spot is **futures-implied** from ES/NQ and clearly flagged as such - never shown as a live cash print. The flag names the futures contract the spot was projected from.
-- **Metric grid** - Gamma Flip, Net GEX, Pin Strike, Call Wall, Put Wall, and Max Pain.
-- **Expected Range** - a 1σ (~68%) implied-move band for the chosen horizon, derived from VIX (SPX, SPY, ES) or VXN (QQQ, NDX, NQ), plus a note on where the dealer walls sit relative to that band.
-- **Positioning Map** - put wall, gamma flip, spot, call wall, max pain, and pin strike laid on one price axis, with the expected-range band shaded, so you can see at a glance where price sits among the magnets.
+- **Spot** - the underlying's price and change on the day. When a cash index is outside its session (e.g. SPX overnight), spot is **futures-implied** from ES/NQ and clearly flagged as such - never shown as a live cash print. The flag names the futures contract the spot was projected from, and the spot marker on the positioning map carries an asterisk that points to it.
+- **Net GEX** - net dealer gamma at spot: the size and sign of the dealer book behind the regime, positive when dealers are net long gamma and negative when they are net short.
+- **Expected Range** - a 1σ (~68%) implied-move band for the chosen horizon, derived from VIX (SPX, SPY, ES) or VXN (QQQ, NDX, NQ), plus a note on where the dealer walls sit relative to that band. The band is also shaded on the positioning map, around spot.
+- **Positioning Map** - a vertical price ladder with the highest price at the top. The call wall, pin strike, max pain, gamma flip, and put wall each sit at their price, labeled with how far they are from spot, and spot is the marker on the rail. The ladder is tinted green above the flip (positive gamma) and red below it (negative gamma), so the regime is simply whichever zone spot sits in. The scale is true, so the gaps between levels are real distances; when levels sit close together, their labels step apart and a short line joins each label to its level.
 
 ## Controls
 

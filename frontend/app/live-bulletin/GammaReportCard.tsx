@@ -3,6 +3,8 @@
 import { forwardRef, useMemo } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { readableLevelInk, toHex, type Rgb } from '@/core/levelInk';
+import { useMeasuredSize } from '@/components/useMeasuredWidth';
 import {
   fmtNetGex,
   fmtPrice,
@@ -12,6 +14,7 @@ import {
   type ExpectedRange,
   type ReportModel,
 } from './bulletinHelpers';
+import { fmtLevelDelta, ladderScale, spreadLabels } from './ladderLayout';
 
 // Card colors are pulled from the active palette at render time via
 // useChartTheme, so the exported PNG matches whatever theme the operator has
@@ -34,6 +37,7 @@ type CardColors = {
   bull: string;
   bear: string;
   blue: string;
+  pin: string;
   coral: string;
   pink: string;
   peach: string;
@@ -44,26 +48,34 @@ function buildCardColors(chart: ReturnType<typeof useChartTheme>): CardColors {
   // Always render the card on a dark, "quant terminal" surface so the exported
   // asset holds up on both light and dark reposts — but pull the accent hues
   // from the current palette so the brand palette shows through.
+  const bgTop = mixHex(chart.info || '#04141E', '#000000', 0.85);
+  const bgBottom = mixHex(chart.info || '#07212F', '#000000', 0.72);
+  // A light-mode palette's hues are tuned for a cream page, and some are too
+  // deep to read on this dark card (Wall Street's info blue is #0E3A53). Every
+  // hue that paints text or a level goes through readableLevelInk, which
+  // leaves a readable color untouched and otherwise lightens it, same hue,
+  // until it clears 4.5:1 against the card.
+  const onCard = readableOn(mixHex(bgTop, bgBottom, 0.5));
   return {
-    // Deep two-stop gradient tinted by the palette's info hue.
-    bgTop: mixHex(chart.info || '#04141E', '#000000', 0.85),
-    bgBottom: mixHex(chart.info || '#07212F', '#000000', 0.72),
+    bgTop,
+    bgBottom,
     border: hexAlpha(chart.accentHot || chart.gold || '#F59E0B', 0.24),
-    panel: 'rgba(255, 255, 255, 0.04)',
+    panel: 'rgba(255, 255, 255, 0.035)',
     panelBorder: 'rgba(255, 255, 255, 0.08)',
     textPrimary: '#F3F7FB',
-    textSecondary: '#9DB1C4',
-    textFaint: '#5E7689',
-    amber: chart.accentHot || chart.gold || '#F59E0B',
+    textSecondary: '#A7BACB',
+    textFaint: '#6A8296',
+    amber: onCard(chart.accentHot || chart.gold || '#F59E0B'),
     // The two levels that carry their own app-wide hue rather than a palette
     // accent: the flip is azure everywhere it's drawn, max pain gold. The card
     // used the palette's hot accent for the flip (the last-price hue) and the
     // info blue for max pain, so neither matched the charts it summarizes.
-    flip: chart.flip || '#3B9EFF',
-    maxpain: chart.maxpain || '#F0B429',
-    bull: chart.bull || '#1BC47D',
-    bear: chart.bear || '#FF5A66',
-    blue: chart.info || '#3B82F6',
+    flip: onCard(chart.flip || '#3B9EFF'),
+    maxpain: onCard(chart.maxpain || '#F0B429'),
+    bull: onCard(chart.bull || '#1BC47D'),
+    bear: onCard(chart.bear || '#FF5A66'),
+    blue: onCard(chart.info || '#3B82F6'),
+    pin: onCard(PIN_STRIKE_COLOR_HEX),
     coral: chart.series[1] || chart.bear || '#FF6361',
     pink: chart.maroon || '#E0527E',
     peach: chart.gold || '#FFD380',
@@ -74,26 +86,34 @@ function buildCardColors(chart: ReturnType<typeof useChartTheme>): CardColors {
 // Blend `hex` toward `target` by `t` in [0,1]. Used to darken the palette's
 // info hue into the two-stop card background gradient.
 function mixHex(hex: string, target: string, t: number): string {
-  const parse = (h: string) => {
-    const s = h.replace('#', '');
-    const n = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
-    return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
-  };
-  const [ar, ag, ab] = parse(hex);
-  const [br, bg, bb] = parse(target);
+  const [ar, ag, ab] = hexToRgb(hex) ?? [0, 0, 0];
+  const [br, bg, bb] = hexToRgb(target) ?? [0, 0, 0];
   const lerp = (a: number, b: number) => Math.round(a + (b - a) * t);
-  const toHex = (n: number) => n.toString(16).padStart(2, '0');
-  return `#${toHex(lerp(ar, br))}${toHex(lerp(ag, bg))}${toHex(lerp(ab, bb))}`;
+  const toHex2 = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex2(lerp(ar, br))}${toHex2(lerp(ag, bg))}${toHex2(lerp(ab, bb))}`;
 }
 
 // Convert a #RRGGBB (or #RGB) into rgba() at the given alpha.
 function hexAlpha(hex: string, alpha: number): string {
-  const s = hex.replace('#', '');
-  const n = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
-  const r = parseInt(n.slice(0, 2), 16);
-  const g = parseInt(n.slice(2, 4), 16);
-  const b = parseInt(n.slice(4, 6), 16);
+  const [r, g, b] = hexToRgb(hex) ?? [255, 255, 255];
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function hexToRgb(hex: string): Rgb | null {
+  const s = hex.trim().replace('#', '');
+  if (!/^([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s)) return null;
+  const n = s.length === 3 ? s.split('').map((c) => c + c).join('') : s;
+  return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+}
+
+// A color shaded just enough to read on `bg`; anything unparseable is returned
+// as given, never worse than painting it directly.
+function readableOn(bg: string): (color: string) => string {
+  const bgRgb = hexToRgb(bg);
+  return (color) => {
+    const rgb = hexToRgb(color);
+    return rgb && bgRgb ? toHex(readableLevelInk(rgb, bgRgb)) : color;
+  };
 }
 
 export interface GammaReportCardProps {
@@ -108,8 +128,14 @@ export interface GammaReportCardProps {
   width?: number;
 }
 
+// The card's design width. Two columns: the read on the left, the positioning
+// map standing beside it as a price ladder. Wide enough that the exported PNG
+// sits close to square, which a feed shows whole instead of cropping.
+export const REPORT_CARD_WIDTH = 800;
+const MAP_COLUMN_WIDTH = 350;
+
 const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(function GammaReportCard(
-  { model, headline, lead, asOf, logoUrl, watermark = true, width = 640 },
+  { model, headline, lead, asOf, logoUrl, watermark = true, width = REPORT_CARD_WIDTH },
   ref,
 ) {
   const chart = useChartTheme();
@@ -135,8 +161,6 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
 
   const accent = REGIME_ACCENT[model.regime];
   const copy = regimeCopy(model.regime);
-  const changeColor =
-    model.changePct == null ? C.textSecondary : model.changePct >= 0 ? C.bull : C.bear;
 
   return (
     <div
@@ -178,15 +202,16 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           background: `radial-gradient(120% 100% at 100% 0%, ${C.coral} 0%, ${C.amber} 26%, transparent 60%)`,
         }}
       />
+      {/* the regime's hue, glowing up from behind the read */}
       <div
         style={{
           position: 'absolute',
-          top: -120,
-          right: -80,
-          width: 320,
-          height: 320,
+          top: 40,
+          left: -140,
+          width: 460,
+          height: 460,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${accent}22 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${hexAlpha(accent, 0.13)} 0%, transparent 70%)`,
           pointerEvents: 'none',
         }}
       />
@@ -221,10 +246,10 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           attributed. Sits behind the content layer at low opacity. */}
       {watermark && <Watermark textPrimary={C.textPrimary} />}
 
-      <div style={{ position: 'relative', padding: '30px 30px 22px' }}>
+      <div style={{ position: 'relative', padding: '28px 28px 22px' }}>
         {/* Brand row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {/* 44px, not the 52 the old wordmark used: the lockup is 3.3:1
                 where the wordmark was 2.6:1, so this keeps the brand row the
                 same width and leaves room for the symbol badge and timestamp
@@ -232,9 +257,9 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             <BrandMark logoUrl={logoUrl} height={44} coral={C.coral} />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 10.5,
                 fontWeight: 600,
-                letterSpacing: 1.6,
+                letterSpacing: 1.7,
                 color: C.textFaint,
                 textTransform: 'uppercase',
               }}
@@ -242,25 +267,17 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
               Dealer Gamma Positioning
             </span>
           </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 11,
-              color: C.textSecondary,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: C.textSecondary }}>
             <span
               style={{
                 fontWeight: 800,
                 letterSpacing: 1,
                 color: C.textPrimary,
-                background: 'rgba(255,255,255,0.06)',
+                background: 'rgba(255,255,255,0.07)',
                 border: `1px solid ${C.panelBorder}`,
-                borderRadius: 7,
-                padding: '4px 9px',
-                fontSize: 12,
+                borderRadius: 8,
+                padding: '5px 11px',
+                fontSize: 13,
               }}
             >
               {model.symbol}
@@ -269,120 +286,66 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           </div>
         </div>
 
-        <div style={{ height: 1, background: C.panelBorder, margin: '20px 0 18px' }} />
+        <div style={{ height: 1, background: C.panelBorder, margin: '20px 0 22px' }} />
 
-        {/* Regime badge + headline */}
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '5px 12px',
-            borderRadius: 999,
-            background: `${accent}1f`,
-            border: `1px solid ${accent}55`,
-            color: accent,
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: 1.2,
-            marginBottom: 8,
-          }}
-        >
-          {model.regimeBadge}
-          <span style={{ color: C.textSecondary, fontWeight: 600, letterSpacing: 0.3 }}>
-            {copy.label}
-          </span>
-        </div>
-        {/* The bulletin has no Expiry selector: it always reads the whole
-            chain. Say so, because the chart's 0DTE pick is shared across tabs
-            and a reader coming from a 0DTE board will otherwise assume this
-            card follows it. */}
-        <div style={{ fontSize: 11, color: C.textSecondary, letterSpacing: 0.3, marginBottom: 14 }}>
-          All expirations &middot; full options chain, not filtered to 0DTE
-        </div>
-
-        <h1
-          style={{
-            fontSize: 27,
-            lineHeight: 1.18,
-            fontWeight: 800,
-            margin: '0 0 12px',
-            letterSpacing: -0.4,
-          }}
-        >
-          {headline}
-        </h1>
-        <p
-          style={{
-            fontSize: 13.5,
-            lineHeight: 1.6,
-            color: C.textSecondary,
-            margin: 0,
-          }}
-        >
-          {lead}
-        </p>
-
-        {/* Spot price strip */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 14,
-            marginTop: 20,
-            paddingTop: 18,
-            borderTop: `1px solid ${C.panelBorder}`,
-          }}
-        >
-          <div>
-            <div style={makeCardLabel(C.textFaint)}>{model.symbol} Spot</div>
-            <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.05, letterSpacing: -0.5 }}>
-              {fmtPrice(model.spot)}
-            </div>
-            {model.spotIsProjected && (
-              // Cash index outside the session: spot is projected from the
-              // future, not a live print. Flag it so the card (and the tweet
-              // PNG that screenshots it) never reads as a live SPX quote.
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.amber, marginTop: 3 }}>
-                futures-implied via {model.spotSourceLabel ?? 'futures'} · cash closed
-              </div>
-            )}
-          </div>
-          <div style={{ color: changeColor, fontSize: 17, fontWeight: 700, paddingBottom: 4 }}>
-            {fmtSignedPts(model.changeAbs)}{' '}
-            <span style={{ fontSize: 14 }}>({fmtSignedPct(model.changePct)})</span>
-          </div>
-        </div>
-
-        {/* Metric grid */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 10,
-            marginTop: 18,
+            gridTemplateColumns: `minmax(0, 1fr) ${MAP_COLUMN_WIDTH}px`,
+            columnGap: 26,
           }}
         >
-          <Metric label="Gamma Flip" value={fmtPrice(model.gammaFlip)} accent={C.flip} C={C} />
-          <Metric
-            label="Net GEX"
-            value={fmtNetGex(model.netGex)}
-            accent={model.netGex == null ? C.textPrimary : model.netGex >= 0 ? C.bull : C.bear}
-            C={C}
-          />
-          <Metric label="Pin Strike" value={fmtPrice(model.pinStrike)} accent={PIN_STRIKE_COLOR_HEX} C={C} />
-          <Metric label="Call Wall" value={fmtPrice(model.callWall)} accent={C.bear} C={C} />
-          <Metric label="Put Wall" value={fmtPrice(model.putWall)} accent={C.bull} C={C} />
-          <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.maxpain} C={C} />
+          {/* The read: regime, headline, summary, then the numbers the map
+              can't carry (spot's move, net GEX, the expected range). */}
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  padding: '6px 13px',
+                  borderRadius: 999,
+                  background: hexAlpha(accent, 0.14),
+                  border: `1px solid ${hexAlpha(accent, 0.45)}`,
+                  boxShadow: `0 0 22px ${hexAlpha(accent, 0.18)}`,
+                  color: accent,
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  letterSpacing: 1.2,
+                }}
+              >
+                {model.regimeBadge}
+              </span>
+              <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600, letterSpacing: 0.2 }}>
+                {copy.label}
+              </span>
+            </div>
+
+            <h1
+              style={{
+                fontSize: 30,
+                lineHeight: 1.14,
+                fontWeight: 800,
+                margin: '18px 0 12px',
+                letterSpacing: -0.6,
+              }}
+            >
+              {headline}
+            </h1>
+            <p
+              style={{
+                fontSize: 13.5,
+                lineHeight: 1.62,
+                color: C.textSecondary,
+                margin: 0,
+              }}
+            >
+              {lead}
+            </p>
+
+            <Stats model={model} C={C} />
+          </div>
+
+          <MapPanel model={model} C={C} accent={accent} />
         </div>
-
-        {/* Probability-bounded expected range */}
-        {model.expectedRange && (
-          <ExpectedRangePanel symbol={model.symbol} range={model.expectedRange} C={C} />
-        )}
-
-        {/* Gamma map */}
-        <GammaMap model={model} C={C} />
 
         {/* Footer */}
         <div
@@ -390,7 +353,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginTop: 20,
+            marginTop: 22,
             paddingTop: 16,
             borderTop: `1px solid ${C.panelBorder}`,
             fontSize: 11,
@@ -414,7 +377,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
 // cropped out of a repost.
 function Watermark({ textPrimary }: { textPrimary: string }) {
   const rows = Array.from({ length: 16 });
-  const cols = Array.from({ length: 7 });
+  const cols = Array.from({ length: 8 });
   return (
     <div
       aria-hidden
@@ -490,273 +453,452 @@ function makeCardLabel(color: string): React.CSSProperties {
   };
 }
 
-// The probability-bounded prediction: a 1σ implied expected-move band for the
-// chosen horizon, plus a sentence on how the dealer walls sit relative to it.
-function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: ExpectedRange; C: CardColors }) {
+// The numbers the map doesn't draw: spot's move on the day, net GEX (the size
+// and sign of the dealer book behind the regime), and the expected range's
+// exact bounds and odds. Pinned to the bottom of the column so it lines up
+// with the foot of the map beside it.
+function Stats({ model, C }: { model: ReportModel; C: CardColors }) {
+  const changeColor =
+    model.changePct == null ? C.textSecondary : model.changePct >= 0 ? C.bull : C.bear;
+  const netGexColor = model.netGex == null ? C.textPrimary : model.netGex >= 0 ? C.bull : C.bear;
+  return (
+    <div style={{ marginTop: 'auto', paddingTop: 22 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          columnGap: 18,
+          paddingTop: 18,
+          borderTop: `1px solid ${C.panelBorder}`,
+        }}
+      >
+        <div>
+          <div style={makeCardLabel(C.textFaint)}>
+            {model.symbol} Spot{model.spotIsProjected ? '*' : ''}
+          </div>
+          <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, letterSpacing: -0.5 }}>
+            {fmtPrice(model.spot)}
+          </div>
+          <div style={{ color: changeColor, fontSize: 13.5, fontWeight: 700, marginTop: 5 }}>
+            {fmtSignedPts(model.changeAbs)} ({fmtSignedPct(model.changePct)})
+          </div>
+        </div>
+        <div>
+          <div style={makeCardLabel(C.textFaint)}>Net GEX</div>
+          <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, letterSpacing: -0.5, color: netGexColor }}>
+            {fmtNetGex(model.netGex)}
+          </div>
+          <div style={{ color: C.textSecondary, fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+            {model.netGex == null
+              ? 'unresolved this snapshot'
+              : model.netGex >= 0
+                ? 'dealers net long gamma'
+                : 'dealers net short gamma'}
+          </div>
+        </div>
+      </div>
+      {model.spotIsProjected && (
+        // Cash index outside the session: spot is projected from the future,
+        // not a live print. Flag it so the card (and the tweet PNG that
+        // screenshots it) never reads as a live SPX quote.
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.amber, marginTop: 8 }}>
+          * Spot is futures-implied via {model.spotSourceLabel ?? 'futures'} · cash closed
+        </div>
+      )}
+      {model.expectedRange && <ExpectedRangeStat range={model.expectedRange} C={C} />}
+    </div>
+  );
+}
+
+// The probability-bounded prediction: the 1σ implied expected-move band for
+// the chosen horizon (shaded on the map), and a sentence on how the dealer
+// walls sit relative to it.
+function ExpectedRangeStat({ range, C }: { range: ExpectedRange; C: CardColors }) {
   const pct = (range.sigmaPct * 100).toFixed(1);
   return (
-    <div
-      style={{
-        marginTop: 14,
-        background: `linear-gradient(135deg, ${hexAlpha(C.blue, 0.12)}, ${C.panel})`,
-        border: `1px solid ${hexAlpha(C.blue, 0.27)}`,
-        borderRadius: 14,
-        padding: '14px 16px',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div style={makeCardLabel(C.textFaint)}>Expected Range · {range.horizonLabel}</div>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.blue }}>
+    <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.panelBorder}` }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ ...makeCardLabel(C.textFaint), display: 'flex', alignItems: 'center', gap: 7 }}>
+          {/* the band's own swatch, so the eye can find it on the map */}
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 3,
+              background: hexAlpha(C.blue, 0.3),
+              border: `1px solid ${hexAlpha(C.blue, 0.8)}`,
+            }}
+          />
+          Expected Range · {range.horizonLabel}
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.blue, whiteSpace: 'nowrap' }}>
           ~68% · 1σ · {range.volIndex} {range.vix.toFixed(1)}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: C.bull, letterSpacing: -0.3 }}>
-          {fmtPrice(range.low)}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 1, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 21, fontWeight: 800, letterSpacing: -0.3 }}>
+          {fmtPrice(range.low)} – {fmtPrice(range.high)}
         </span>
-        <span style={{ fontSize: 16, color: C.textFaint, fontWeight: 700 }}>-</span>
-        <span style={{ fontSize: 22, fontWeight: 800, color: C.bear, letterSpacing: -0.3 }}>
-          {fmtPrice(range.high)}
-        </span>
-        <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600, marginLeft: 2 }}>
-          ±{fmtPrice(range.moveAbs)} (±{pct}%)
+        <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600 }}>
+          ±{fmtPrice(range.moveAbs)} (±{pct}%) {range.horizonPhrase}
         </span>
       </div>
-      <p
-        style={{
-          margin: '8px 0 0',
-          fontSize: 11.5,
-          lineHeight: 1.5,
-          color: C.textSecondary,
-        }}
-      >
-        {symbol} ~68% likely to trade between {fmtPrice(range.low)} and {fmtPrice(range.high)}{' '}
-        {range.horizonPhrase} (1σ implied by {range.volIndex}). {range.context}
+      <p style={{ margin: '7px 0 0', fontSize: 11.5, lineHeight: 1.5, color: C.textSecondary }}>
+        {range.context}
       </p>
     </div>
   );
 }
 
-function Metric({ label, value, accent, C }: { label: string; value: string; accent: string; C: CardColors }) {
+function MapPanel({ model, C, accent }: { model: ReportModel; C: CardColors; accent: string }) {
   return (
     <div
       style={{
+        display: 'flex',
+        flexDirection: 'column',
         background: C.panel,
         border: `1px solid ${C.panelBorder}`,
-        borderRadius: 12,
-        padding: '12px 13px',
+        borderRadius: 16,
+        padding: '14px 14px 12px',
+        minWidth: 0,
       }}
     >
-      <div style={makeCardLabel(C.textFaint)}>{label}</div>
-      <div style={{ fontSize: 19, fontWeight: 800, color: accent, letterSpacing: -0.2 }}>
-        {value}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ ...makeCardLabel(C.textSecondary), marginBottom: 0 }}>Positioning Map</div>
+        {/* The bulletin has no Expiry selector: it always reads the whole
+            chain. Say so, because the chart's 0DTE pick is shared across tabs
+            and a reader coming from a 0DTE board will otherwise assume this
+            card follows it. */}
+        <div style={{ fontSize: 10, color: C.textFaint, letterSpacing: 0.3 }}>All expirations · not 0DTE</div>
       </div>
+      <PositioningLadder model={model} C={C} accent={accent} />
     </div>
   );
 }
 
-// Horizontal positioning map: lays the put wall, flip, spot and call wall on a
-// shared price axis so the viewer can see at a glance where price sits relative
-// to the dealer magnets. Markers below the track = structural walls; above the
-// track = flip + live spot.
-type MapPoint = {
-  key: string;
-  label: string;
-  value: number;
-  color: string;
-  side: 'above' | 'below';
-  priority: number;
-};
+// ── The positioning map: a vertical price ladder ────────────────────────────
+//
+// Every level on one price axis, highest at the top, so the setup reads the
+// way a trader already pictures it: resistance overhead, support underneath,
+// spot between them. The axis is to scale, so the gaps are real distances.
+// Above the flip the ladder is tinted for positive gamma, below it for
+// negative, which makes the regime visible as the side of the line spot is on.
+// Each level is a rung on the rail with its label to the right (name, price,
+// distance from spot); labels that would collide step aside along a leader
+// line while the rung stays at the true price. Spot is the pill on the left,
+// inside the shaded 1σ expected-range band.
 
-// Minimum horizontal separation (in % of track width) two labels need before
-// they're considered overlapping. Sized to the widest label/value lockup
-// ("Call Wall" / a 6-char price) against the ~580px inner card width.
-const LABEL_MIN_GAP_PCT = 12;
-const ROW_H = 24; // vertical space one stacked label row occupies
-const TRACK_GAP = 13; // gap between the nearest label row and the track
-const TRACK_H = 4;
+type Rung = { key: string; label: string; value: number; color: string };
 
-// Greedily assign each point to the lowest vertical level (0 = nearest the
-// track) that has no already-placed neighbor within LABEL_MIN_GAP_PCT. Points
-// are processed in priority order so the most important marker on a side
-// (e.g. live Spot) keeps the row closest to the track and lower-priority,
-// colliding markers (e.g. Flip, when price is sitting on the flip) stack above
-// or below it instead of printing on top of it.
-function assignLevels(points: MapPoint[], pos: (v: number) => number) {
-  const ordered = [...points].sort((a, b) => b.priority - a.priority);
-  const levels: number[][] = [];
-  const byKey = new Map<string, number>();
-  for (const p of ordered) {
-    const x = pos(p.value);
-    let level = 0;
-    for (;;) {
-      const occupied = levels[level] ?? (levels[level] = []);
-      if (occupied.every((other) => Math.abs(other - x) >= LABEL_MIN_GAP_PCT)) {
-        occupied.push(x);
-        byKey.set(p.key, level);
-        break;
-      }
-      level += 1;
-    }
-  }
-  const maxLevel = points.reduce((m, p) => Math.max(m, byKey.get(p.key) ?? 0), 0);
-  return {
-    levelOf: (key: string) => byKey.get(key) ?? 0,
-    levelCount: points.length ? maxLevel + 1 : 0,
-  };
-}
+const RAIL_X = 118; // the rail's x within the ladder
+const LABEL_X = RAIL_X + 30; // where the level labels start
+const EDGE = 34; // ladder px kept clear above the top price and below the bottom one
+const ROW_GAP = 22; // the closest two label rows may sit (center to center)
+const SPOT_PILL_H = 28;
+// Drawn before the ladder has measured itself (and on the server): the size
+// it lays out at with an average-length read beside it.
+const FALLBACK_SIZE = { w: MAP_COLUMN_WIDTH - 28, h: 420 };
 
-function GammaMap({ model, C }: { model: ReportModel; C: CardColors }) {
-  const points: MapPoint[] = [
-    { key: 'put', label: 'Put Wall', value: model.putWall!, color: C.bull, side: 'below' as const, priority: 1 },
-    { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.flip, side: 'above' as const, priority: 2 },
-    { key: 'spot', label: 'Spot', value: model.spot!, color: C.textPrimary, side: 'above' as const, priority: 3 },
-    { key: 'call', label: 'Call Wall', value: model.callWall!, color: C.bear, side: 'below' as const, priority: 1 },
-    // Max Pain (OI settlement magnet) groups with the structural walls below;
-    // Pin Strike (gamma-stabilization pin) groups with the flip above. Both use
-    // their tile colors (gold / teal) and only render when present — the filter
-    // drops any null level.
-    { key: 'pain', label: 'Max Pain', value: model.maxPain!, color: C.maxpain, side: 'below' as const, priority: 2 },
-    { key: 'pin', label: 'Pin Strike', value: model.pinStrike!, color: PIN_STRIKE_COLOR_HEX, side: 'above' as const, priority: 2 },
-  ].filter((p) => p.value != null && Number.isFinite(p.value));
+function PositioningLadder({ model, C, accent }: { model: ReportModel; C: CardColors; accent: string }) {
+  const [ladderRef, size] = useMeasuredSize<HTMLDivElement>();
+  const W = Math.floor(size?.w ?? FALLBACK_SIZE.w);
+  const H = Math.floor(size?.h ?? FALLBACK_SIZE.h);
 
-  if (points.length < 2) return null;
+  // Top-to-bottom in the usual order, so equal prices stack in this order too.
+  const rungs: Rung[] = [
+    { key: 'call', label: 'Call Wall', value: model.callWall, color: C.bear },
+    { key: 'pin', label: 'Pin Strike', value: model.pinStrike, color: C.pin },
+    { key: 'pain', label: 'Max Pain', value: model.maxPain, color: C.maxpain },
+    { key: 'flip', label: 'Flip', value: model.gammaFlip, color: C.flip },
+    { key: 'put', label: 'Put Wall', value: model.putWall, color: C.bull },
+  ].filter((r): r is Rung => r.value != null && Number.isFinite(r.value));
 
-  // Fold the expected-move band edges into the axis domain so the shaded 1σ
-  // band always fits on the track, even when it extends past the walls.
+  const spot = model.spot != null && Number.isFinite(model.spot) ? model.spot : null;
   const band = model.expectedRange;
-  const values = points.map((p) => p.value);
-  if (band) values.push(band.low, band.high);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const pad = span * 0.08;
-  const lo = min - pad;
-  const hi = max + pad;
-  const pos = (v: number) => ((v - lo) / (hi - lo)) * 100;
-  const bandLeft = band ? Math.max(0, pos(band.low)) : 0;
-  const bandRight = band ? Math.min(100, pos(band.high)) : 0;
+  const flip = model.gammaFlip;
 
-  const above = points.filter((p) => p.side === 'above');
-  const below = points.filter((p) => p.side === 'below');
-  const aboveLayout = assignLevels(above, pos);
-  const belowLayout = assignLevels(below, pos);
+  const container: React.CSSProperties = {
+    position: 'relative',
+    flex: '1 1 auto',
+    minHeight: 400,
+    borderRadius: 12,
+    overflow: 'hidden',
+  };
 
-  // Geometry derived from how many stacked rows each side actually needs, so a
-  // collision-free map stays compact and a stacked one grows just enough.
-  const trackY = aboveLayout.levelCount * ROW_H + TRACK_GAP;
-  const height = trackY + TRACK_H + TRACK_GAP + belowLayout.levelCount * ROW_H;
-  const tickTop = trackY - 5;
-  const tickHeight = TRACK_H + 10;
+  if (rungs.length + (spot != null ? 1 : 0) < 2) {
+    return (
+      <div ref={ladderRef} style={{ ...container, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: 12, color: C.textFaint }}>Levels unavailable for this snapshot</span>
+      </div>
+    );
+  }
+
+  const prices = rungs.map((r) => r.value);
+  if (spot != null) prices.push(spot);
+  if (band) prices.push(band.low, band.high);
+  const y = ladderScale(prices, EDGE, H - EDGE);
+
+  // Labels never crowd past the top and bottom insets, which hold the zone tags.
+  const labelY = spreadLabels(
+    rungs.map((r) => y(r.value)),
+    ROW_GAP,
+    EDGE - 8,
+    H - EDGE + 8,
+  );
+
+  const flipY = flip != null && Number.isFinite(flip) ? y(flip) : null;
+  const spotY = spot != null ? y(spot) : null;
+  const bandTop = band ? y(band.high) : 0;
+  const bandBottom = band ? y(band.low) : 0;
+  // The 1σ edge tags sit at the band's edges unless the band is so thin that
+  // they would run into the spot pill; then they stand just clear of it.
+  const pillClear = SPOT_PILL_H / 2 + 10;
+  const bandHighTagY = band && spotY != null ? Math.min(bandTop, spotY - pillClear) : bandTop;
+  const bandLowTagY = band && spotY != null ? Math.max(bandBottom, spotY + pillClear) : bandBottom;
+
+  const railTop = EDGE - 16;
+  const railBottom = H - EDGE + 16;
+  const upper = flipY == null ? null : Math.min(Math.max(flipY, railTop), railBottom);
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div style={makeCardLabel(C.textFaint)}>Positioning Map</div>
-      <div style={{ position: 'relative', height, marginTop: 6 }}>
-        {above.map((p) => (
-          <Marker
-            key={p.key}
-            p={p}
-            left={pos(p.value)}
-            top={trackY - TRACK_GAP - (aboveLayout.levelOf(p.key) + 1) * ROW_H}
-            textFaint={C.textFaint}
-          />
-        ))}
-        {/* track */}
-        <div
-          style={{
-            position: 'absolute',
-            top: trackY,
-            left: 0,
-            right: 0,
-            height: TRACK_H,
-            borderRadius: 2,
-            background: `linear-gradient(90deg, ${hexAlpha(C.bull, 0.33)}, ${hexAlpha(C.amber, 0.33)}, ${hexAlpha(C.bear, 0.33)})`,
-          }}
-        />
-        {/* shaded 1σ expected-move band */}
-        {band && (
+    <div ref={ladderRef} style={container}>
+      {/* Regime zones: positive gamma above the flip, negative below. */}
+      {flipY != null && (
+        <>
           <div
             style={{
               position: 'absolute',
-              top: trackY - 6,
-              left: `${bandLeft}%`,
-              width: `${Math.max(0, bandRight - bandLeft)}%`,
-              height: TRACK_H + 12,
-              borderRadius: 4,
-              background: hexAlpha(C.blue, 0.15),
-              border: `1px solid ${hexAlpha(C.blue, 0.40)}`,
-              boxSizing: 'border-box',
+              left: 0,
+              right: 0,
+              top: 0,
+              height: Math.max(0, flipY),
+              background: `linear-gradient(90deg, ${hexAlpha(C.bull, 0.15)} 0%, ${hexAlpha(C.bull, 0.03)} 75%)`,
             }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: Math.max(0, flipY),
+              bottom: 0,
+              background: `linear-gradient(90deg, ${hexAlpha(C.bear, 0.15)} 0%, ${hexAlpha(C.bear, 0.03)} 75%)`,
+            }}
+          />
+          {flipY >= EDGE && <ZoneTag top={8} color={C.bull} glyph="+γ" text="Positive gamma" />}
+          {H - flipY >= EDGE && <ZoneTag bottom={8} color={C.bear} glyph="−γ" text="Negative gamma" />}
+        </>
+      )}
+
+      <svg
+        width={W}
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}
+        aria-hidden
+      >
+        {/* the flip: the line between the two regimes, drawn up to the rail.
+            Left out when spot sits on the flip, where the pill would leave
+            only a stub of it showing. */}
+        {flipY != null && (spotY == null || Math.abs(flipY - spotY) > SPOT_PILL_H / 2 + 2) && (
+          <line x1={0} x2={RAIL_X} y1={flipY} y2={flipY} stroke={hexAlpha(C.flip, 0.7)} strokeWidth={1.25} strokeDasharray="6 4" />
+        )}
+        {/* the shaded 1σ expected-range band, around the rail */}
+        {band && (
+          <rect
+            x={RAIL_X - 12}
+            y={bandTop}
+            width={24}
+            height={Math.max(0, bandBottom - bandTop)}
+            rx={12}
+            fill={hexAlpha(C.blue, 0.3)}
+            stroke={hexAlpha(C.blue, 0.9)}
+            strokeWidth={1.25}
           />
         )}
-        {/* ticks */}
-        {points.map((p) => (
+        {/* the rail, in each zone's color */}
+        {upper == null ? (
+          <line x1={RAIL_X} x2={RAIL_X} y1={railTop} y2={railBottom} stroke={hexAlpha(C.textFaint, 0.8)} strokeWidth={3} strokeLinecap="round" />
+        ) : (
+          <>
+            <line x1={RAIL_X} x2={RAIL_X} y1={railTop} y2={upper} stroke={hexAlpha(C.bull, 0.85)} strokeWidth={3} strokeLinecap="round" />
+            <line x1={RAIL_X} x2={RAIL_X} y1={upper} y2={railBottom} stroke={hexAlpha(C.bear, 0.85)} strokeWidth={3} strokeLinecap="round" />
+          </>
+        )}
+        {/* rungs and leader lines */}
+        {rungs.map((r, i) => {
+          const ry = y(r.value);
+          const ly = labelY[i];
+          return (
+            <g key={r.key}>
+              <polyline
+                points={`${RAIL_X + 9},${ry} ${RAIL_X + 15},${ry} ${LABEL_X - 8},${ly} ${LABEL_X - 3},${ly}`}
+                fill="none"
+                stroke={hexAlpha(r.color, 0.6)}
+                strokeWidth={1.25}
+              />
+              <line x1={RAIL_X - 8} x2={RAIL_X + 9} y1={ry} y2={ry} stroke={r.color} strokeWidth={2.75} strokeLinecap="round" />
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* 1σ edge tags */}
+      {band && (
+        <>
+          <BandTag y={bandHighTagY} sign="+" value={band.high} C={C} />
+          <BandTag y={bandLowTagY} sign="−" value={band.low} C={C} />
+        </>
+      )}
+
+      {/* level labels: name, price, distance from spot */}
+      {rungs.map((r, i) => (
+        <div
+          key={r.key}
+          style={{
+            position: 'absolute',
+            left: LABEL_X,
+            right: 0,
+            top: labelY[i] - 10,
+            height: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span
+            style={{
+              width: 62,
+              flexShrink: 0,
+              fontSize: 8.5,
+              fontWeight: 800,
+              letterSpacing: 0.8,
+              textTransform: 'uppercase',
+              color: r.color,
+            }}
+          >
+            {r.label}
+          </span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: C.textPrimary, letterSpacing: -0.2 }}>
+            {fmtPrice(r.value)}
+          </span>
+          {spot != null && (
+            <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: C.textSecondary }}>
+              {fmtLevelDelta(r.value, spot)}
+            </span>
+          )}
+        </div>
+      ))}
+
+      {/* spot: a pill pointing at its place on the rail */}
+      {spotY != null && spot != null && (
+        <>
           <div
-            key={`tick-${p.key}`}
             style={{
               position: 'absolute',
-              top: tickTop,
-              left: `${pos(p.value)}%`,
-              width: 2,
-              height: tickHeight,
-              marginLeft: -1,
-              background: p.color,
-              borderRadius: 1,
+              left: RAIL_X - 6,
+              top: spotY - 6,
+              width: 12,
+              height: 12,
+              borderRadius: '50%',
+              background: C.textPrimary,
+              boxShadow: `0 0 0 3px ${hexAlpha(accent, 0.45)}, 0 0 16px ${hexAlpha(accent, 0.9)}`,
             }}
           />
-        ))}
-        {below.map((p) => (
-          <Marker
-            key={p.key}
-            p={p}
-            left={pos(p.value)}
-            top={trackY + TRACK_H + TRACK_GAP + belowLayout.levelOf(p.key) * ROW_H}
-            textFaint={C.textFaint}
-          />
-        ))}
-      </div>
+          <div
+            style={{
+              position: 'absolute',
+              right: `calc(100% - ${RAIL_X - 14}px)`,
+              top: spotY - SPOT_PILL_H / 2,
+              height: SPOT_PILL_H,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '0 9px',
+              borderRadius: 8,
+              background: C.textPrimary,
+              color: C.bgTop,
+              boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {/* starred when projected, pointing at the futures-implied note */}
+            <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 1, opacity: 0.7 }}>
+              {model.spotIsProjected ? 'SPOT*' : 'SPOT'}
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.2 }}>{fmtPrice(spot)}</span>
+            {/* the pointer */}
+            <span
+              style={{
+                position: 'absolute',
+                right: -4,
+                top: SPOT_PILL_H / 2 - 4,
+                width: 8,
+                height: 8,
+                background: C.textPrimary,
+                transform: 'rotate(45deg)',
+              }}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function Marker({
-  p,
-  left,
+// The regime a zone of the ladder is in. The glyph stays outside the
+// uppercase transform, which would turn γ into Γ.
+function ZoneTag({
   top,
-  textFaint,
+  bottom,
+  color,
+  glyph,
+  text,
 }: {
-  p: { label: string; value: number; color: string };
-  left: number;
-  top: number;
-  textFaint: string;
+  top?: number;
+  bottom?: number;
+  color: string;
+  glyph: string;
+  text: string;
 }) {
-  // Clamp the label box so edge markers don't overflow the card.
-  const clamped = Math.min(92, Math.max(8, left));
   return (
     <div
       style={{
         position: 'absolute',
+        left: 9,
         top,
-        left: `${clamped}%`,
-        transform: 'translateX(-50%)',
-        textAlign: 'center',
+        bottom,
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 5,
+        color,
         whiteSpace: 'nowrap',
-        lineHeight: 1.15,
       }}
     >
-      <div
-        style={{
-          fontSize: 9,
-          fontWeight: 700,
-          letterSpacing: 0.6,
-          textTransform: 'uppercase',
-          color: textFaint,
-        }}
-      >
-        {p.label}
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 800, color: p.color }}>{fmtPrice(p.value)}</div>
+      <span style={{ fontSize: 11, fontWeight: 800 }}>{glyph}</span>
+      <span style={{ fontSize: 8.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>{text}</span>
+    </div>
+  );
+}
+
+function BandTag({ y, sign, value, C }: { y: number; sign: '+' | '−'; value: number; C: CardColors }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: `calc(100% - ${RAIL_X - 16}px)`,
+        top: y - 8,
+        height: 16,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        whiteSpace: 'nowrap',
+        color: C.blue,
+      }}
+    >
+      <span style={{ fontSize: 9, fontWeight: 800, opacity: 0.85 }}>{sign}1σ</span>
+      <span style={{ fontSize: 11.5, fontWeight: 800 }}>{fmtPrice(value)}</span>
     </div>
   );
 }

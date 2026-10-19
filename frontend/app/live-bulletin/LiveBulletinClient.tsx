@@ -9,7 +9,7 @@ import {
   useSessionCloses,
   useVolatilityGauge,
 } from '@/hooks/useApiData';
-import GammaReportCard from './GammaReportCard';
+import GammaReportCard, { REPORT_CARD_WIDTH } from './GammaReportCard';
 import {
   buildReportModel,
   fmtDateET,
@@ -27,7 +27,7 @@ import { useMeasuredWidth } from '@/components/useMeasuredWidth';
 // The share card's design width. It is an image, not a page: it always lays
 // out at this width (so the exported PNG is the same on every device), and the
 // on-screen preview is scaled down to fit a narrower column.
-const CARD_WIDTH = 640;
+const CARD_WIDTH = REPORT_CARD_WIDTH;
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -211,7 +211,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
           Live Bulletin
@@ -222,7 +222,10 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
         </p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8 items-start">
+      {/* Side by side only from xl: the card is 800px wide, and beside a
+          controls column on a narrower screen it would preview at half size.
+          Below xl the controls sit on top and the card gets the full width. */}
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6 items-start">
         {/* Controls */}
         <div
           className="rounded-2xl p-5 flex flex-col gap-5"
@@ -351,7 +354,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
         </div>
 
         {/* Live preview. min-w-0 lets the grid column be narrower than the
-            card's 640px, which the preview then scales down to fit. */}
+            card's design width, which the preview then scales down to fit. */}
         <div className="flex min-w-0 flex-col items-center gap-3">
           <span
             className="self-start text-xs font-semibold uppercase tracking-wide"

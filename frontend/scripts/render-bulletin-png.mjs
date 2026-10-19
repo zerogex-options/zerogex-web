@@ -244,7 +244,7 @@ async function main() {
   } catch (err) {
     fail(`could not launch Chromium (${firstLine(err)})`, 6);
   }
-  // The card is ~640 wide by design; wrap it in a viewport that gives the
+  // The card is 800 wide by design; wrap it in a viewport that gives the
   // watermark's tiled -30% inset room to breathe without adding to the
   // final PNG (we clip to the card element, not the viewport).
   const context = await browser.newContext({
