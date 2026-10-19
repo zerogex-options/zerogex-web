@@ -49,6 +49,7 @@ import {
   PRICE_SCALE_SIDES,
   isPriceScaleSide,
   priceScaleLayout,
+  priceTicks,
   type Pads,
   type PriceScaleSide,
 } from '@/core/heatmapPriceScale';
@@ -800,43 +801,32 @@ export default function GammaHeatmapCanvas() {
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
 
-    // Strike labels. Surface: whole strikes, stepped to about a dozen. Dots:
-    // its rows, every one unless they would sit closer than 14px, each with a
-    // faint guide for its dots to sit on.
-    const labelStrikes: number[] = [];
-    if (layout) {
-      const every = Math.max(1, Math.ceil(14 / (plotH / layout.rows.length)));
-      layout.rows.forEach((s, i) => {
-        if ((layout.rows.length - 1 - i) % every === 0) labelStrikes.push(s);
+    // Dots draws a faint guide under every row for its dots to sit on. The
+    // rows are the chain's own strikes, which need not be round: ES and NQ
+    // strikes carry the futures basis.
+    if (layout && showGrid) {
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      layout.rows.forEach((s) => {
+        ctx.moveTo(pads.L, yForStrike(s));
+        ctx.lineTo(pads.L + plotW, yForStrike(s));
       });
-      if (showGrid) {
-        ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        layout.rows.forEach((s) => {
-          ctx.moveTo(pads.L, yForStrike(s));
-          ctx.lineTo(pads.L + plotW, yForStrike(s));
-        });
-        ctx.stroke();
-      }
-    } else {
-      const labelLow = Math.ceil(yMin);
-      const labelHigh = Math.floor(yMax);
-      const labelSpan = Math.max(1, labelHigh - labelLow);
-      const labelStep = Math.max(1, Math.ceil((labelSpan + 1) / 12));
-      for (let s = labelLow; s <= labelHigh; s += labelStep) labelStrikes.push(s);
+      ctx.stroke();
     }
-    for (const s of labelStrikes) {
+    // Price labels on both views: round multiples of a 1-2-5 step, spaced so
+    // they never crowd (see core/heatmapPriceScale), not one per strike.
+    for (const { value: s, label } of priceTicks(yMin, yMax, plotH)) {
       const py = yForStrike(s);
       // The same labels on whichever side(s) the viewer chose (see
       // core/heatmapPriceScale), each set flush against the plot.
       if (scale.left) {
         ctx.textAlign = 'right';
-        ctx.fillText(`$${s}`, pads.L - 6, py);
+        ctx.fillText(label, pads.L - 6, py);
       }
       if (scale.right) {
         ctx.textAlign = 'left';
-        ctx.fillText(`$${s}`, pads.L + plotW + 6, py);
+        ctx.fillText(label, pads.L + plotW + 6, py);
       }
       if (showGrid && !layout) {
         ctx.strokeStyle = gridColor;
