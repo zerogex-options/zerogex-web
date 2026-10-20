@@ -207,7 +207,8 @@
     "test:comparison-prices": "node --experimental-strip-types --test tests/comparisonPrices.test.ts",
     "test:foh-revenue": "node --experimental-strip-types --test tests/fohRevenue.test.ts",
     "test:churn-series": "node --experimental-strip-types --test tests/churnSeries.test.ts",
-    "test:flow-sessions": "node --experimental-strip-types --test tests/flowSessions.test.ts"
+    "test:flow-sessions": "node --experimental-strip-types --test tests/flowSessions.test.ts",
+    "test:checkout-recovery": "node --experimental-strip-types --test tests/checkoutRecovery.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

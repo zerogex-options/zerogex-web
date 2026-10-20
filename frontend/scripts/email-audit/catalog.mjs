@@ -224,7 +224,7 @@ export const CATALOG = {
     trigger: 'systemd timer', triggerDetail: 'zerogex-web-checkout-recovery.timer → make checkout-recovery YES=1',
     when: '24–168 hours after a billing_checkout_started audit row with no subscription to show for it. Swept every 6 hours.',
     cadence: 'Timer: 00/6:45 UTC (every 6h, +0–5m jitter)',
-    cohort: "audit type='billing_checkout_started' in [now-168h, now-24h] AND stripe_subscription_id IS NULL AND checkout_recovery_email_sent_at IS NULL AND email_verified_at IS NOT NULL AND tier != 'admin' AND deleted_at IS NULL",
+    cohort: "audit type='billing_checkout_started' in [now-168h, now-24h] AND stripe_subscription_id IS NULL AND no stripe_subscription_sync (status not incomplete) or stripe_first_payment after the latest start AND checkout_recovery_email_sent_at IS NULL AND email_verified_at IS NOT NULL AND tier != 'admin' AND deleted_at IS NULL",
     latch: 'checkout_recovery_email_sent_at — permanent one-shot',
     optOut: 'None wired', foh: false,
     source: 'core/mailer.ts:1185 · scripts/send-checkout-recovery.mts (LAG 24h / LOOKBACK 7d)',

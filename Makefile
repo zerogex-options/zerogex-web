@@ -936,9 +936,11 @@ backfill-reactivation-entitlement:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-reactivation-entitlement.mts $(if $(CAMPAIGN),--campaign $(CAMPAIGN),) $(if $(EMAIL),--email $(EMAIL),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Send the one-shot abandoned-checkout recovery nudge to every user who started
-# Stripe Checkout (billing_checkout_started audit event) but never landed a
+# Stripe Checkout (billing_checkout_started audit event) and has no
 # stripe_subscription_id, inside the [now-LOOKBACK_HOURS, now-LAG_HOURS] window
-# (defaults 168h/24h). Founding-eligible users (while the lock-in deadline is
+# (defaults 168h/24h). Skips anyone whose checkout did go through after the
+# start and who has since lost the subscription, e.g. to a money-back refund;
+# DRY_RUN=1 lists them under "Checked out". Founding-eligible users (while the lock-in deadline is
 # open) get founding-deadline copy; otherwise, if the public promo is live,
 # promo copy whose Basic/Pro rates are resolved LIVE from Stripe (never
 # hardcoded); otherwise a generic "pick up where you left off". Idempotent via

@@ -5,8 +5,8 @@
 //
 // Finds every user who initiated a Stripe Checkout session (logged as a
 // `billing_checkout_started` audit event by app/api/billing/checkout/route.ts)
-// in the past LOOKBACK_HOURS but hasn't ended up with a stripe_subscription_id,
-// then sends a single recovery nudge so they can finish.
+// in the past LOOKBACK_HOURS but didn't finish it, then sends a single recovery
+// nudge so they can.
 //
 // Intended to be scheduled (cron or systemd timer) every few hours; the
 // systemd unit (zerogex-web-checkout-recovery.timer) fires every 6h on the :45
@@ -20,7 +20,13 @@
 //     their own without us emailing them in parallel. The LOOKBACK_HOURS
 //     upper bound prevents back-emailing every long-ago abandoned session
 //     when this cron first deploys.
-//   - users.stripe_subscription_id IS NULL (they haven't completed).
+//   - users.stripe_subscription_id IS NULL (no subscription right now).
+//   - no completed checkout since their latest start in the window: no
+//     stripe_subscription_sync (in any status but incomplete, which is what a
+//     declined card leaves behind) or stripe_first_payment audit row newer
+//     than it. stripe_subscription_id alone can't tell: a member who finished
+//     checkout and then lost the subscription, most often to the 7-day
+//     money-back refund, has it cleared again.
 //   - users.checkout_recovery_email_sent_at IS NULL (one-shot dedupe).
 //   - users.email_verified_at IS NOT NULL (don't email addresses that
 //     never proved ownership — bounce rate hurts the domain).
@@ -151,12 +157,16 @@ Eligibility:
   - audit_events.type='billing_checkout_started'
   - created_at in [now - LOOKBACK, now - LAG] (defaults ${DEFAULT_LOOKBACK_HOURS}h / ${DEFAULT_LAG_HOURS}h)
   - users.stripe_subscription_id IS NULL
+  - no stripe_subscription_sync (except status=incomplete) or
+    stripe_first_payment audit row after the latest start, i.e. that
+    checkout didn't go through
   - users.checkout_recovery_email_sent_at IS NULL
   - users.email_verified_at IS NOT NULL
   - users.tier != 'admin'
 
 Options:
-      --dry-run                Print eligible users; no email, no DB writes.
+      --dry-run                Print eligible users, and who was skipped for
+                               finishing checkout; no email, no DB writes.
   -y, --yes                    Send emails and stamp users.
       --lag-hours N            Hours to wait after the start event before
                                we'll email (default ${DEFAULT_LAG_HOURS}).
@@ -324,18 +334,33 @@ type UserRow = {
   email: string;
   founding_eligible: number;
   last_started_at: string;
+  last_subscribed_at: string | null;
 };
 
-// One row per eligible user even if they have multiple billing_checkout_started
-// events in the window — MAX(created_at) just labels the log line. The audit
-// table has no per-row latch; users.checkout_recovery_email_sent_at is the
-// idempotency key, so the JOIN can stay loose.
-const eligible = querySqlite<UserRow>(
+// One row per user even if they have multiple billing_checkout_started
+// events in the window — MAX(created_at) labels the log line and is the start
+// last_subscribed_at is compared against. The audit table has no per-row
+// latch; users.checkout_recovery_email_sent_at is the idempotency key, so the
+// JOIN can stay loose.
+//
+// last_subscribed_at is the newest audit row showing a subscription that got
+// past its first payment: a stripe_subscription_sync in any status but
+// incomplete (what a declined card leaves behind; see
+// isUnstartedSubscriptionStatus in core/billingUser.ts), or a
+// stripe_first_payment. One newer than last_started_at means that checkout
+// went through, and stripe_subscription_id is NULL only because the
+// subscription has since ended.
+const candidates = querySqlite<UserRow>(
   dbPath,
   `SELECT u.id,
           u.email,
           COALESCE(u.founding_eligible, 0) AS founding_eligible,
-          MAX(a.created_at) AS last_started_at
+          MAX(a.created_at) AS last_started_at,
+          (SELECT MAX(s.created_at)
+           FROM audit_events AS s
+           WHERE s.user_id = u.id
+             AND s.type IN ('stripe_subscription_sync', 'stripe_first_payment')
+             AND s.message NOT LIKE '% status=incomplete%') AS last_subscribed_at
    FROM users AS u
    JOIN audit_events AS a ON a.user_id = u.id
    WHERE a.type = 'billing_checkout_started'
@@ -350,10 +375,21 @@ const eligible = querySqlite<UserRow>(
    ORDER BY last_started_at ASC;`,
 );
 
+const checkedOutSinceStart = (u: UserRow) =>
+  u.last_subscribed_at != null && u.last_subscribed_at > u.last_started_at;
+const eligible = candidates.filter((u) => !checkedOutSinceStart(u));
+const checkedOut = candidates.filter(checkedOutSinceStart);
+
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Window:           ${lowIso}  →  ${highIso}`);
 console.log(`Founding offer:   ${foundingStillOpen ? `open until ${FOUNDING_LOCKIN_DEADLINE_LABEL}` : 'closed'}`);
 console.log(`Promo offer:      ${promoDeadlineLabel ? `open until ${promoDeadlineLabel}` : 'closed'}`);
+console.log(`Checked out:      ${checkedOut.length} (finished checkout after starting, then lost the subscription; skipped)`);
+if (cliArgs.dryRun) {
+  for (const u of checkedOut) {
+    console.log(`  - ${u.email}: started ${u.last_started_at}, subscription last seen ${u.last_subscribed_at}`);
+  }
+}
 console.log(`Eligible users:   ${eligible.length}`);
 
 if (eligible.length === 0) {
