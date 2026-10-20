@@ -28,6 +28,7 @@ type Sent = {
   saveUrl: string | null;
   conversionChargePending: boolean;
   cancellationFeedback: string | null;
+  cancellationComment: string | null;
   savePercent: number;
 };
 
@@ -231,4 +232,17 @@ test('a "too expensive" cancel gets the 50% save link; any other reason gets 25%
   await handleCancelAckTransition(other, { ...o, cancellationDetails: { feedback: 'unused' } }, h.deps);
   assert.equal(h.sent[1].saveUrl, `https://zerogex.io/save?u=${other.id}`);
   assert.equal(h.sent[1].savePercent, 25);
+});
+
+test('the survey comment rides along to the email, so they are not asked why again', async () => {
+  const h = harness();
+  const m = seedMember('u_commented');
+  sync(m.id, { id: 'sub_C', cancelAtPeriodEnd: 0 });
+  const t = sync(m.id, { id: 'sub_C', cancelAtPeriodEnd: 1 });
+  await handleCancelAckTransition(
+    m,
+    { ...t, cancellationDetails: { feedback: 'other', comment: 'Moving to futures only' } },
+    h.deps,
+  );
+  assert.equal(h.sent[0].cancellationComment, 'Moving to futures only');
 });

@@ -433,11 +433,16 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   guarantee is one refund per customer. Asks what didn't work. No retention pitch:
   they asked to leave. No FOH footer.
 
-**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending? })`
-- **Subject:** `Sorry to see you go — mind sharing why?`
-- Fires at the click-Cancel moment (still has access until period end). Asks why, and
-  offers 25% off for a year **through the one-click `/save` button and nothing else**.
-  No FOH footer.
+**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending?, cancellationFeedback?, cancellationComment?, savePercent? })`
+- **Subject:** `Sorry to see you go — mind sharing why?` when they gave no reason;
+  `Sorry to see you go` when they picked one or typed one.
+- Fires at the click-Cancel moment (still has access until period end). Offers 25% off
+  for a year (50% for "Too expensive") **through the one-click `/save` button and
+  nothing else**. No FOH footer.
+- **Never asks why twice.** Only a member who skipped the survey gets "what made you
+  cancel?" and the common-reasons list. A picked reason gets one narrower question
+  about that reason (`CANCEL_REASON_QUESTIONS` in `core/mailer.ts`); a typed comment
+  gets a thank-you and no question.
 - **One offer, one route.** The email used to carry a manual second route as well
   ("reply 'discount' and I'll set it up"). Two routes to one offer read as two
   different deals, and a member who clicked the button and then replied anyway hit the

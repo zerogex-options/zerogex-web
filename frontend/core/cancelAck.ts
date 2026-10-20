@@ -52,6 +52,9 @@ export type CancelAckDeps = {
       conversionChargePending: boolean;
       // The reason the member picked, so the email can answer it.
       cancellationFeedback: string | null;
+      // What they typed in the survey's free-text box, so the email thanks them
+      // for it instead of asking why again.
+      cancellationComment: string | null;
       // The percent off the save link applies (25, or 50 for "Too expensive").
       savePercent: number;
     },
@@ -116,6 +119,7 @@ export async function handleCancelAckTransition(
         saveUrl,
         conversionChargePending: transition.conversionChargePending,
         cancellationFeedback: transition.cancellationDetails?.feedback ?? null,
+        cancellationComment: transition.cancellationDetails?.comment ?? null,
         savePercent: offer === 'price' ? PRICE_SAVE_PERCENT : SAVE_PERCENT,
       });
       deps.audit({

@@ -146,6 +146,84 @@ test('other reasons, and no reason, carry no "too complex" paragraph', () => {
   }
 });
 
+// A member who picked a reason has already told us why. Asking "what made you
+// cancel?" anyway, with a list of reasons under it, reads as a form letter
+// nobody looked at, so the open ask is only for members who skipped the survey.
+
+test('no reason given: the subject and body ask why, with the common-reasons list', () => {
+  for (const cancellationFeedback of [undefined, null, '', 'none']) {
+    const { subject, text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, cancellationFeedback });
+    assert.equal(subject, 'Sorry to see you go - mind sharing why?');
+    assert.match(text, /what made you cancel/);
+    assert.match(html, /what made you cancel/);
+    assert.match(html, /<li>Just trying it out for a stretch<\/li>/);
+  }
+});
+
+test('a picked reason is never asked again: no open ask, no list, no "mind sharing why?"', () => {
+  for (const cancellationFeedback of [
+    'too_complex',
+    'too_expensive',
+    'missing_features',
+    'unused',
+    'switched_service',
+    'customer_service',
+    'low_quality',
+    'other',
+    'some_future_stripe_value',
+  ]) {
+    const { subject, text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, cancellationFeedback });
+    assert.equal(subject, 'Sorry to see you go', cancellationFeedback);
+    for (const body of [text, html]) {
+      assert.doesNotMatch(body, /what made you cancel/, cancellationFeedback);
+      assert.doesNotMatch(body, /Common ones I hear/, cancellationFeedback);
+      assert.doesNotMatch(body, /Whatever the reason/, cancellationFeedback);
+      assert.match(body, /I read every reply/, cancellationFeedback);
+    }
+  }
+});
+
+test('"too complex" asks which part was too much', () => {
+  const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, cancellationFeedback: 'too_complex' });
+  assert.match(text, /which part felt like too much/);
+  assert.match(html, /which part felt like too much/);
+});
+
+test('"too expensive" is not told "if it comes down to price"', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    saveUrl: 'https://x/save',
+    savePercent: 50,
+    cancellationFeedback: 'too_expensive',
+  });
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /If it comes down to price/);
+    assert.match(body, /You said price was the reason/);
+  }
+  // Every other cancel keeps the conditional framing.
+  const other = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: 'https://x/save', cancellationFeedback: 'unused' });
+  assert.match(other.text, /If it comes down to price/);
+});
+
+test('a typed comment is thanked, not followed by another question', () => {
+  for (const cancellationFeedback of [null, 'too_complex', 'other']) {
+    const { subject, text, html } = buildCancellationEmail({
+      periodEndIso: PERIOD_END,
+      cancellationFeedback,
+      cancellationComment: 'Too many charts for me',
+    });
+    assert.equal(subject, 'Sorry to see you go');
+    for (const body of [text, html]) {
+      assert.match(body, /Thank you for telling me why in your own words/);
+      assert.doesNotMatch(body, /what made you cancel/);
+      assert.doesNotMatch(body, /which part felt like too much/);
+    }
+  }
+  // Whitespace is not a comment.
+  const blank = buildCancellationEmail({ periodEndIso: PERIOD_END, cancellationComment: '   ' });
+  assert.match(blank.text, /what made you cancel/);
+});
+
 test('the save box states the percent of the link it carries', () => {
   const fifty = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: 'https://x/save', savePercent: 50 });
   assert.match(fifty.text, /claim 50% off/);

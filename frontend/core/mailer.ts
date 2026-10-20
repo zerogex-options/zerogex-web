@@ -2431,6 +2431,10 @@ export type CancellationEmailOptions = {
   // you want) and the Education hub. The modal showed the same thing before the
   // cancel went through; this is the copy they can come back to.
   cancellationFeedback?: string | null;
+  // What they typed in the cancel survey's free-text box, if anything. Only its
+  // presence matters: a member who already told us why in their own words is
+  // thanked, not asked again.
+  cancellationComment?: string | null;
   // Percent off the save link applies: 25 by default, 50 when the reason was
   // "Too expensive" (core/cancelAck picks the matching link).
   savePercent?: number;
@@ -2440,18 +2444,57 @@ export type CancellationEmailOptions = {
 // already-resolved inputs, no Resend I/O. Split from the sender on the same
 // rationale as buildTrialConvertedEmail — the branch matrix is unit-testable
 // (tests/cancellationEmail.test.ts) and a preview renders the exact wire copy.
+// The one question the acknowledgment asks once the member has already picked a
+// reason. Asking "what made you cancel?" after they just told us reads as a form
+// letter nobody looked at, so a known reason gets a narrower question about that
+// reason instead, and the generic "common ones I hear" list is only for members
+// who skipped the survey.
+const CANCEL_REASON_QUESTIONS: Record<string, string> = {
+  too_complex:
+    'One question, if you have a minute: which part felt like too much\u00a0- the ideas behind the charts, the amount on the screen, or knowing what to do with what you saw? One word back is enough. I read every reply.',
+  too_expensive:
+    'One question, if you have a minute: what would ZeroGEX need to cost to be worth it for how you trade? One line back is enough. I read every reply.',
+  missing_features:
+    'One question, if you have a minute: what was missing? Even one line back helps me decide what to build next. I read every reply.',
+  unused:
+    "One question, if you have a minute: was it timing (not trading much right now), or did ZeroGEX just not fit how you trade? One line back is enough. I read every reply.",
+  switched_service:
+    'One question, if you have a minute: what did you switch to, and what does it do better? One line back helps me a lot. I read every reply.',
+  customer_service:
+    "I'm sorry the support side let you down. I answer support myself, so if you reply and tell me what happened, I'll put it right. I read every reply.",
+  low_quality:
+    "One question, if you have a minute: what fell short\u00a0- the data, the levels, or something that didn't work? One line back helps me fix it. I read every reply.",
+  other:
+    "You picked \"Other\" when you canceled. If you have a minute, what was it? Even one sentence back helps me a lot. I read every reply.",
+};
+
 export function buildCancellationEmail(opts: CancellationEmailOptions): {
   subject: string;
   html: string;
   text: string;
 } {
-  const subject = 'Sorry to see you go - mind sharing why?';
+  const feedback = opts.cancellationFeedback?.trim() || null;
+  const reasonGiven = feedback !== null && feedback !== 'none';
+  const commentGiven = Boolean(opts.cancellationComment?.trim());
+  // Only a member who told us nothing is asked why, in the subject or the body.
+  const subject = reasonGiven || commentGiven
+    ? 'Sorry to see you go'
+    : 'Sorry to see you go - mind sharing why?';
+  // In their own words beats any question we could ask; a picked reason gets
+  // its own question; nothing at all gets the open ask and the list.
+  const reasonQuestion = commentGiven
+    ? "Thank you for telling me why in your own words. I read it myself, and if there's anything you'd like to add, just reply\u00a0- I read every reply."
+    : reasonGiven
+      ? (CANCEL_REASON_QUESTIONS[feedback] ??
+        'If you have a minute, tell me a bit more about what made you leave. Even one sentence back helps me a lot. I read every reply.')
+      : null;
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
   const saveUrl = opts.saveUrl ?? null;
   const chargePending = opts.conversionChargePending === true;
-  const tooComplex = opts.cancellationFeedback === 'too_complex';
+  const tooComplex = feedback === 'too_complex';
+  const tooExpensive = feedback === 'too_expensive';
   const savePct = opts.savePercent ?? 25;
   const dashboardUrl = `${getAppUrl()}/my-dashboard`;
   const educationUrl = `${getAppUrl()}/education`;
@@ -2487,21 +2530,27 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
       : []),
     ...(saveUrl
       ? [
-          `If it comes down to price, here's the one-click version: claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`,
+          tooExpensive
+            ? `You said price was the reason, so here's the one-click version: claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`
+            : `If it comes down to price, here's the one-click version: claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`,
           saveUrl,
           '',
         ]
       : []),
-    "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:",
-    '',
-    "  - The data wasn't what I expected",
-    '  - Price is too high for how I trade',
-    "  - I'm not trading as much right now",
-    '  - Something specific was missing or broken',
-    '  - Just trying it out for a stretch',
-    '',
-    "Whatever the reason, I'd genuinely like to hear it.",
-    '',
+    ...(reasonQuestion
+      ? [reasonQuestion, '']
+      : [
+          "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:",
+          '',
+          "  - The data wasn't what I expected",
+          '  - Price is too high for how I trade',
+          "  - I'm not trading as much right now",
+          '  - Something specific was missing or broken',
+          '  - Just trying it out for a stretch',
+          '',
+          "Whatever the reason, I'd genuinely like to hear it.",
+          '',
+        ]),
     'Either way\u00a0- thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
     '',
     'Best,',
@@ -2520,11 +2569,13 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         : ''}
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
-        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price\u00a0- keep your access at <strong>${savePct}% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">${tooExpensive ? 'You said price was the reason, so' : 'If it comes down to price\u00a0-'} keep your access at <strong>${savePct}% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
         <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim ${savePct}% off</a>
       </div>`
         : ''}
-      <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:</p>
+      ${reasonQuestion
+        ? `<p>${escapeHtml(reasonQuestion)}</p>`
+        : `<p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot\u00a0- I read every reply. Common ones I hear:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">
         <li>The data wasn't what I expected</li>
         <li>Price is too high for how I trade</li>
@@ -2532,7 +2583,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         <li>Something specific was missing or broken</li>
         <li>Just trying it out for a stretch</li>
       </ul>
-      <p>Whatever the reason, I'd genuinely like to hear it.</p>
+      <p>Whatever the reason, I'd genuinely like to hear it.</p>`}
       <p>Either way\u00a0- thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
