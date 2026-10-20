@@ -48,6 +48,14 @@ make grant-partner-pro EMAIL=bbowling1212@icloud.com PROMO_CODE=CREDITSPREADCLUB
   the 25%-off-first-year one, and Brandon's audience would get the old deal.
   Point it at the new coupon, `make restart` so checkout picks it up, then
   run the dry run again.
+  - **Update, Oct 19:** it did. The dry run showed `ensure exists on
+    21OUViRs`: the env was never moved when the deal changed on Oct 15. Fix:
+    in Stripe (live mode), Product catalog → Coupons → Create: 25% off,
+    duration "Multiple months", 12, no product restriction, no promotion
+    codes (the script makes them). Set `STRIPE_COUPON_PARTNER_AUDIENCE` to
+    its ID in `frontend/.env.local`, `make restart`, rerun the dry run. The
+    switch also gives existing partners' links the new deal; their typed
+    codes stay on `21OUViRs` until re-run with a new `PROMO_CODE`.
 - `CREDITSPREADCLUB` drops "The" so it's easier to type. `THECREDITSPREADCLUB`
   also passes the script's rules if Michael wants the exact name.
 - Case doesn't matter in the link (`?ref=` is uppercased before the lookup), so
