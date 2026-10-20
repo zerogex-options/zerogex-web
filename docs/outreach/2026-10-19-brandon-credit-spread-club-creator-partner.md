@@ -56,6 +56,11 @@ make grant-partner-pro EMAIL=bbowling1212@icloud.com PROMO_CODE=CREDITSPREADCLUB
     its ID in `frontend/.env.local`, `make restart`, rerun the dry run. The
     switch also gives existing partners' links the new deal; their typed
     codes stay on `21OUViRs` until re-run with a new `PROMO_CODE`.
+  - **Done, Oct 19:** new coupon `Yg3BPJPx` ("Creator Partner Audience, first
+    year", 25% off for 12 months). `STRIPE_COUPON_PARTNER_AUDIENCE=Yg3BPJPx`
+    in `frontend/.env.local`, `make restart` run, and the dry run confirmed
+    `ensure exists on Yg3BPJPx`. `21OUViRs` (25% off for 3 months, created
+    Jun 24, never redeemed) stays in Stripe for PLUS325, PCB25 and TESTCODE.
 - `CREDITSPREADCLUB` drops "The" so it's easier to type. `THECREDITSPREADCLUB`
   also passes the script's rules if Michael wants the exact name.
 - Case doesn't matter in the link (`?ref=` is uppercased before the lookup), so
