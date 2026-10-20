@@ -434,12 +434,11 @@ Reply in his thread "Here you go Michael" (he started it on Oct 18).
   SPX or NDX row is that session's 16:00 snapshot, taken after the 0DTE
   expired. Using a day's row for the same day is look-ahead; using it for the
   next session is the honest mapping.
-- **Point him to the free SPX series back to 2011.** SqueezeMetrics' public
-  `DIX.csv` (date, SPX close, DIX, GEX) was live on 2026-10-20 with daily rows
-  from 2011-05-02 to 2026-10-19. It's a competitor, but he'd find it in one
-  search, and saying so costs nothing and earns trust. Cut the paragraph if
-  you'd rather not. SPX only; there's no free NDX or QQQ equivalent I know
-  of.
+- **Say older history is coming, with no date and no start year.** Michael
+  plans to buy historical data soon (2026-10-20). Until the purchase is
+  settled, "soon" and "I'll let you know" are all the email can promise.
+- **No pointer to outside data.** An earlier version suggested SqueezeMetrics'
+  free SPX file; Michael cut it on 2026-10-20.
 - **The flow lag is ours, by design.** The analytics engine refreshes the flow
   tables once per loop, every 60 seconds (`_run_flow_cycle`,
   `ANALYTICS_INTERVAL`), and a 1-minute bar is stamped at its start, so the
@@ -460,9 +459,11 @@ GROUP BY 1
 ORDER BY 1;
 ```
 
-`with_value` should track `rows` from June 2026 on. If the early months are
-mostly empty, the draft's fallback line (price against `gamma_flip`) carries
-those days; say which months have the field if it's a big gap.
+`with_value` should track `rows` from June 2026 on.
+
+Ran on 2026-10-20: every SPX row has the value (June 779 of 779, July 8,457
+of 8,457, August 7,793 of 7,793, September 8,083 of 8,083, October 5,070 of
+5,070), so the draft's fallback line about `gamma_flip` was dropped.
 
 ### Before you log in to his site
 
@@ -478,11 +479,9 @@ Hi Aaron,
 
 Yes, I got it. Thank you for setting up the login and the primer. I'll take a proper look this week and let you know what I think.
 
-On the GEX regime history: I'm sorry, we don't go back that far. Our history starts on June 29, 2026 for SPX, SPY and QQQ, and on July 24, 2026 for NDX, so about four months.
+On the GEX regime history: not yet. Our history starts on June 29, 2026 for SPX, SPY and QQQ, and on July 24, 2026 for NDX, so about four months. I'm planning to bring in older historical data soon, and I'll let you know when it's available.
 
-What we do have, you can pull with your API key. /api/v2/gex/historical?symbol=SPX&timeframe=1day&window_units=90 returns one row per session, and symbol=NDX works the same way. For the regime, use net_gex_at_spot: positive means dealers are modeled long gamma at the price, where their hedging tends to dampen moves, and negative means short gamma. The size tells you how strong it is. If it's ever empty, price above gamma_flip means the same thing as positive. Each daily row is that session's last snapshot, taken at the close, so use a day's row as the regime for the next session. Otherwise the backtest sees the close before it happens.
-
-For 2022 onward, the one free source I know of is SqueezeMetrics' daily file, which has SPX gamma exposure back to 2011: https://squeezemetrics.com/monitor/static/DIX.csv. It's their own calculation, not ours, so I'd compare it with ours over the months we both cover before relying on the older years. Each day's value there also comes after that day's close, so the same next-session rule applies. For NDX or QQQ that far back, I don't know of a free source.
+What we do have, you can pull with your API key. /api/v2/gex/historical?symbol=SPX&timeframe=1day&window_units=90 returns one row per session, and symbol=NDX works the same way. For the regime, use net_gex_at_spot: positive means dealers are modeled long gamma at the price, where their hedging tends to dampen moves, and negative means short gamma. The size tells you how strong it is. Each daily row is that session's last snapshot, taken at the close, so use a day's row as the regime for the next session. Otherwise the backtest sees the close before it happens.
 
 On the options flow and CVD running a minute or more behind: that's on our side, not your code. Our server refreshes options flow once a minute, so the newest 1-minute bar usually lands a minute or two after its start time. If you ever see it more than a few minutes behind during market hours, send me the time and symbol and I'll look into it.
 
@@ -494,17 +493,19 @@ zerogex.io
 
 ### If he replies
 
-- **He asks us to build history back to 2022.** That's Theme A of zerogex-oa
-  `docs/design/historical-options-data-vendors.md`: a historical data
-  purchase plus exchange fees, which that brief puts anywhere from about
-  $300 to about $3,000 a month depending on whether the vendor bundles the
-  OPRA fee. Not something to offer from this thread. No promise.
+- **He asks when older history lands, or how far back it goes.** No date and
+  no start year until the data purchase is settled; then tell him both. The
+  purchase is Theme A of zerogex-oa
+  `docs/design/historical-options-data-vendors.md`, which puts the all-in cost
+  anywhere from about $300 to about $3,000 a month depending on whether the
+  vendor bundles the OPRA fee.
+- **When the backfill lands, mark which rows were rebuilt.** Rows computed
+  later from bought data aren't what anyone saw live, and he asked exactly
+  that on Sep 29 (answer 4 of the first reply). A flag per row, or a stated
+  cutover date, lets a backtester tell the two apart.
 - **He asks for faster flow.** Refreshing more often than once a minute is a
   real change: the flow upsert is heavy, and the API's database pool is only
   a few connections deep (`src/api/database.py`, the H4 comment). No promise.
-- **He asks how our numbers compare with SqueezeMetrics'.** Different
-  calculations; the overlap from June 29 on is the honest test, and he's
-  better placed to run it than we are.
 - **He reports flow more than a few minutes behind.** Check the analytics loop
   timing lines for that symbol and minute (`format_loop_timing` in the
   `zerogex-oa` analytics logs).
