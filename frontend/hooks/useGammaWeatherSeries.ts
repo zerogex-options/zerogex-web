@@ -35,6 +35,17 @@ export interface GammaWeatherSeriesBar {
   pending_state: string | null;
   pending_label: string | null;
   pending_bars: number;
+  /**
+   * The four scan lights on this bar, by the rule the strip's own lights run
+   * (decided on the server, never here). Optional for a deploy skew: an API
+   * older than the Light history does not send them.
+   */
+  lights?: {
+    agree: boolean;
+    heads_up: boolean;
+    fragile: boolean;
+    stand_down: boolean;
+  } | null;
 }
 
 /**

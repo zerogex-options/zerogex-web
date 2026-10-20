@@ -12,6 +12,7 @@ import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
 import type { GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 import ScanLightStrip from '@/components/ScanLightStrip';
+import LightHistory from '@/components/LightHistory';
 
 /**
  * Gamma Weather: the combined read, as a compact strip above the charts.
@@ -243,12 +244,19 @@ export default function GammaWeatherStrip({
     }
   };
 
+  // Closed by default, and remembered: someone who reads the history every
+  // session should not have to reopen it every visit.
+  const [lightHistoryOpen, toggleLightHistory] = usePersistedFlag(
+    'gammaWeatherLightHistoryOpen',
+    false,
+  );
+
   // Stacked mode always needs the trail, because all five strips are showing.
   // One at a time needs it only once a drawer is open, and most visits never
-  // open one.
+  // open one. The Light history reads the same series.
   const { data: series, loading: seriesLoading } = useGammaWeatherSeries(
     symbol ?? payload.symbol,
-    { enabled: stacked || openField != null, date },
+    { enabled: stacked || openField != null || lightHistoryOpen, date },
   );
 
   const color = weatherStateColor(payload.state);
@@ -347,6 +355,18 @@ export default function GammaWeatherStrip({
           drawn from. Tape bias, Weather read, quick relationship check, then
           the chips. The rules are the API's; this renders four booleans. */}
       <ScanLightStrip lights={payload.lights} />
+
+      {/* Only under a strip that is showing: no lights on the payload means an
+          older API, and a history of lights nobody can see would be orphaned. */}
+      {payload.lights && (
+        <LightHistory
+          bars={series?.bars}
+          loading={seriesLoading}
+          open={lightHistoryOpen}
+          onToggle={toggleLightHistory}
+          allowLive={date == null}
+        />
+      )}
 
       {/* Tighter than the plain text row it replaces: five bordered boxes six
           rems apart read as five unrelated cards, and they are one control
@@ -459,6 +479,13 @@ export default function GammaWeatherStrip({
           />
         )
       )}
+
+      {/* The panel, the scan lights and the Light history came out of Barrie's
+          specs. He asked for the firm's name rather than his own, and for no
+          link until he has a site to send people to. */}
+      <p className="mt-3 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+        Gamma Weather was designed in collaboration with Plus3 Forecasting.
+      </p>
     </section>
   );
 }
