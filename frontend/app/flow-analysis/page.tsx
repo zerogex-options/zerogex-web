@@ -23,8 +23,10 @@ import ReadCell from '@/components/layout/ReadCell';
 import { FilterBar, FilterSelect } from '@/components/controls/Filters';
 import ErrorMessage from '@/components/ErrorMessage';
 import BoughtSoldBoard from '@/components/BoughtSoldBoard';
-import FlowSessionChart, { type FlowChartLayers } from '@/components/FlowSessionChart';
+import FlowSessionChart, { type FlowChartLayers, type FlowLevels } from '@/components/FlowSessionChart';
 import { useFlowSessions } from '@/hooks/useFlowSessions';
+import { useFlowByStrike } from '@/hooks/useFlowByStrike';
+import { useGammaPlaybook } from '@/hooks/useGammaPlaybook';
 import { sessionDateKeyFromSeries, useFlowContractOptions, useFlowSeries } from '@/hooks/useFlowSeries';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -36,6 +38,7 @@ import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersist
 import { flowSessionOptions, isFlowSessionDate, type FlowSession } from '@/core/flowSessions';
 import { FLOW_TIMEFRAME_LABELS, FLOW_TIMEFRAME_MINUTES, getETTimeTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { ET_HM } from '@/core/technicalsCharts';
+import { strikeCellsByBar } from '@/core/flowStrikes';
 import { fmtLevel } from '@/core/technicalsSession';
 import {
   FLOW_REGIME_LABEL,
@@ -58,6 +61,8 @@ import { ContractScopeButton, ContractScopePanel, scopeSummary } from './Contrac
 const LAYER_KEY = (layer: keyof FlowChartLayers) => `zg.flow.layer.${layer}`;
 const LAYER_BUTTONS: Array<{ key: keyof FlowChartLayers; label: string; swatch: CSSProperties | null }> = [
   { key: 'price', label: 'Price', swatch: { width: 14, borderTop: '2px solid var(--text-primary)' } },
+  { key: 'strikes', label: 'Strikes', swatch: { width: 12, height: 7, borderRadius: 999, background: 'linear-gradient(90deg, var(--color-bull) 50%, var(--color-bear) 50%)' } },
+  { key: 'walls', label: 'Flip and walls', swatch: { width: 14, borderTop: '2px dashed var(--color-flip)' } },
   { key: 'premium', label: 'Net premium', swatch: { width: 14, height: 9, background: 'color-mix(in srgb, var(--color-bull) 30%, transparent)', borderTop: '2px solid var(--text-primary)' } },
   { key: 'legs', label: 'Call & put legs', swatch: { width: 14, height: 6, borderTop: '2px solid var(--color-bull)', borderBottom: '2px solid var(--color-bear)' } },
   { key: 'contracts', label: 'Contracts', swatch: { width: 10, height: 10, background: 'linear-gradient(var(--color-bull) 50%, var(--color-bear) 50%)' } },
@@ -306,7 +311,22 @@ export default function FlowAnalysisPage() {
   const [contractsOn, toggleContracts] = usePersistedFlag(LAYER_KEY('contracts'), true);
   const [pcrOn, togglePcr] = usePersistedFlag(LAYER_KEY('pcr'), true);
   const [eventsOn, toggleEvents] = usePersistedFlag(LAYER_KEY('events'), true);
-  const layers: FlowChartLayers = { price: priceOn, premium: premiumOn, legs: legsOn && premiumOn, contracts: contractsOn, pcr: pcrOn, events: eventsOn };
+  const [strikesOn, toggleStrikes] = usePersistedFlag(LAYER_KEY('strikes'), true);
+  const [wallsOn, toggleWalls] = usePersistedFlag(LAYER_KEY('walls'), true);
+  // The strike ribbon reads 5-minute bars; the flip and walls are where they
+  // stand now, so they are drawn on the current session only.
+  const strikesAvailable = priceOn && timeframe === '5min';
+  const wallsAvailable = priceOn && flowSession === 'current';
+  const layers: FlowChartLayers = {
+    price: priceOn,
+    premium: premiumOn,
+    legs: legsOn && premiumOn,
+    contracts: contractsOn,
+    pcr: pcrOn,
+    events: eventsOn,
+    strikes: strikesOn && strikesAvailable,
+    walls: wallsOn && wallsAvailable,
+  };
   const toggles: Record<keyof FlowChartLayers, () => void> = {
     price: togglePrice,
     premium: togglePremium,
@@ -314,8 +334,28 @@ export default function FlowAnalysisPage() {
     contracts: toggleContracts,
     pcr: togglePcr,
     events: toggleEvents,
+    strikes: toggleStrikes,
+    walls: toggleWalls,
   };
   const noPanes = !priceOn && !premiumOn && !contractsOn && !pcrOn;
+
+  // ── Strikes and levels ───────────────────────────────────────────────────
+  // The ribbon narrows with the page's contract picks, like every other number
+  // on it. Read only while it is drawn, and not while a remembered pick waits
+  // on the chain's expirations to resolve: that read would be the whole chain's
+  // ribbon, thrown away a moment later.
+  const scopePending = contractsLoading && (sharedExpirations.length > 0 || selectedStrikes.size > 0);
+  const { rows: strikeRows } = useFlowByStrike(symbol, flowSession, {
+    filters: serverFilters,
+    enabled: hydrated && layers.strikes && !scopePending,
+  });
+  const strikeCells = useMemo(() => (strikeRows ? strikeCellsByBar(strikeRows) : null), [strikeRows]);
+  // The Key Levels strip's read, so this chart, the gamma charts and Technicals
+  // agree on the flip and the walls (and follow the same expiration picks).
+  const playbook = useGammaPlaybook({ enabled: hydrated && layers.walls });
+  const flowLevels: FlowLevels | null = layers.walls
+    ? { flip: playbook.flip, callWall: playbook.callWall, putWall: playbook.putWall }
+    : null;
 
   // ── Full screen ──────────────────────────────────────────────────────────
   // The chart panel lifts over the page (hooks/useChartFullscreen) and the
@@ -357,7 +397,17 @@ export default function FlowAnalysisPage() {
     <div role="group" aria-label="Chart layers" style={{ display: 'flex', gap: 6, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
       {LAYER_BUTTONS.map((b) => {
         const on = layers[b.key];
-        const disabled = b.key === 'legs' && !premiumOn;
+        const why =
+          b.key === 'legs' && !premiumOn
+            ? 'Shown inside the net premium pane'
+            : (b.key === 'strikes' || b.key === 'walls') && !priceOn
+              ? 'Shown inside the price pane'
+              : b.key === 'strikes' && !strikesAvailable
+                ? 'On 5-minute bars'
+                : b.key === 'walls' && !wallsAvailable
+                  ? 'Where they stand now, so on the current session only'
+                  : null;
+        const disabled = why != null;
         return (
           <button
             key={b.key}
@@ -365,7 +415,7 @@ export default function FlowAnalysisPage() {
             aria-pressed={on}
             onClick={toggles[b.key]}
             disabled={disabled}
-            title={disabled ? 'Shown inside the net premium pane' : undefined}
+            title={why ?? undefined}
             className="zg-btn"
             style={toggleStyle(on)}
           >
@@ -567,11 +617,16 @@ export default function FlowAnalysisPage() {
                 height={chartHeight}
                 compact={isMobile}
                 symbol={symbol}
-                ariaLabel={`${symbol} options flow for the session in ${barMinutes}-minute bars: price, net premium with the call and put legs, contracts bought and sold each bar, and the put/call ratio`}
+                strikeCells={strikeCells}
+                levels={flowLevels}
+                ariaLabel={`${symbol} options flow for the session in ${barMinutes}-minute bars: price${layers.strikes ? ' with contracts bought and sold at each strike' : ''}${layers.walls ? ', the flip and the walls' : ''}, net premium with the call and put legs, contracts bought and sold each bar, and the put/call ratio`}
               />
             )}
           </div>
           <p className="zg-caption" style={{ margin: 0, padding: '8px 16px 12px', borderTop: `1px solid ${ruleColor}`, flex: 'none' }}>
+            {layers.strikes &&
+              'Strike dots: green where the bullish side led at that strike in that bar, red where the bearish side led, gray where neither did; bigger is more contracts. '}
+            {layers.walls && 'Dashed lines are the flip and walls as they stand now. '}
             Up bars are the bullish side, calls bought with puts sold stacked lighter on top; down bars the bearish side, puts bought with calls sold. Numbered markers match the flow log.
           </p>
         </div>

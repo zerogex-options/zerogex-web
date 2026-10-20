@@ -116,11 +116,18 @@ export function lastGammaBucket(buckets: StrikeProfileBucket[]): StrikeProfileBu
 export function useGammaPlaybook({
   snapshot = null,
   delayed: delayedProp = false,
+  enabled = true,
 }: {
   snapshot?: ChartSnapshot | null;
   delayed?: boolean;
+  /**
+   * False reads nothing, for a caller that shows the levels only on demand.
+   * It goes through the same off switch as the delayed mode, so the read
+   * reports `delayed` while it is off.
+   */
+  enabled?: boolean;
 } = {}): GammaPlaybookRead {
-  const delayed = delayedProp || !!snapshot;
+  const delayed = delayedProp || !!snapshot || !enabled;
   const live = !delayed;
 
   const { symbol: ctxSymbol } = useTimeframe();

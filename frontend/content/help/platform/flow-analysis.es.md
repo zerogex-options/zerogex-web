@@ -43,6 +43,8 @@ Las cifras se actualizan cada pocos segundos mientras se negocia.
 Un gráfico en paneles que comparten el reloj de la sesión y una cruz, con horas en ET:
 
 - **Price** - el subyacente a lo largo de la sesión.
+- **Strikes** - detrás de la línea de precio, un carril por strike y un punto por barra de 5 minutos: verde donde el lado alcista lideró en ese strike en esa barra, rojo donde lideró el lado bajista, gris donde ningún lado lideró por al menos una décima parte de lo negociado allí. Cuanto más grande el punto, más contratos se negociaron en ese strike. Pasa el cursor sobre un punto, o tócalo, para ver las calls y puts compradas y vendidas en ese strike. Los carriles siguen tu selección de contratos y aparecen en barras de 5 minutos.
+- **Flip and walls** - el gamma flip y los walls de calls y de puts como líneas discontinuas: los mismos niveles que la franja Key Levels y los gráficos de gamma. Muestran dónde están los niveles ahora, por eso solo aparecen en la sesión en curso. El flujo en el strike de un wall es contexto, no un veredicto sobre el wall: en nuestro estudio de 737 pruebas de walls, no predijo qué walls se rompían.
 - **Net premium** - la prima neta acumulada, sombreada en verde por encima de cero y en rojo por debajo, con las **partes de calls y de puts** como líneas finas.
 - **Contracts** - lo que se negoció en cada barra. Las barras hacia arriba son el lado alcista (calls compradas, con las puts vendidas apiladas encima en un tono más claro); las barras hacia abajo, el lado bajista (puts compradas, con las calls vendidas).
 - **Put/call** - la ratio acumulada, con una línea discontinua en 1.

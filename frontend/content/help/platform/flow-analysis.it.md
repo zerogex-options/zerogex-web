@@ -43,6 +43,8 @@ I numeri si aggiornano ogni pochi secondi durante le contrattazioni.
 Un solo grafico, in pannelli che condividono l'orologio della sessione e un mirino, orari in ET:
 
 - **Price** - il sottostante nel corso della sessione.
+- **Strikes** - dietro la linea del prezzo, una corsia per strike e un punto per barra da 5 minuti: verde dove su quello strike, in quella barra, era avanti il lato rialzista, rosso dove era avanti il lato ribassista, grigio dove nessun lato era avanti di almeno un decimo di quanto scambiato lì. Più grande è il punto, più contratti sono stati scambiati su quello strike. Passa su un punto, o toccalo, per vedere le call e le put acquistate e vendute su quello strike. Le corsie seguono la tua scelta di contratti e compaiono sulle barre da 5 minuti.
+- **Flip and walls** - il gamma flip e i wall delle call e delle put come linee tratteggiate: gli stessi livelli della barra Key Levels e dei grafici gamma. Mostrano dove si trovano i livelli adesso, quindi compaiono solo nella sessione in corso. Il flusso sullo strike di un wall è contesto, non un verdetto sul wall: nel nostro studio su 737 test di wall, non ha previsto quali wall si sarebbero rotti.
 - **Net premium** - il premio netto cumulato, ombreggiato in verde sopra lo zero e in rosso sotto, con le **parti di call e put** come linee sottili.
 - **Contracts** - ciò che è stato scambiato in ogni barra. Le barre verso l'alto sono il lato rialzista (call acquistate, con le put vendute impilate sopra in un tono più chiaro); le barre verso il basso, il lato ribassista (put acquistate, con le call vendute).
 - **Put/call** - il rapporto cumulato, con una linea tratteggiata a 1.

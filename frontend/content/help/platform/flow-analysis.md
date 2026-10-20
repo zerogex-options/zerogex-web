@@ -43,6 +43,8 @@ The numbers update as the session trades, every few seconds.
 One chart, in panes that share the session's clock and a crosshair, times in ET:
 
 - **Price** - the underlying through the session.
+- **Strikes** - behind the price line, a lane for each strike and a dot for each 5-minute bar: green where the bullish side led at that strike in that bar, red where the bearish side led, gray where neither side led by a tenth of what traded there. The bigger the dot, the more contracts traded at that strike. Hover over a dot, or tap it, for that strike's calls and puts bought and sold. The lanes follow your contract picks and show on 5-minute bars.
+- **Flip and walls** - the gamma flip and the call and put walls as dashed lines: the same levels as the Key Levels strip and the gamma charts. They are where the levels stand now, so they show on the current session only. Flow at a wall's strike is context, not a call on the wall: in our study of 737 wall tests, it did not predict which walls broke.
 - **Net premium** - the running net premium, shaded green above zero and red below, with the **call and put legs** as thin lines.
 - **Contracts** - what traded in each bar. Up bars are the bullish side (calls bought, with puts sold stacked lighter on top); down bars are the bearish side (puts bought, with calls sold).
 - **Put/call** - the running ratio, with a dashed line at 1.

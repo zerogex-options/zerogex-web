@@ -5,7 +5,9 @@
  * clock, in stacked panes that share a crosshair. The underlying's price;
  * net premium, with the call and put legs; the contracts each bar on each
  * side; and the put/call ratio. An events lane across the top carries the
- * numbered markers of the page's flow log.
+ * numbered markers of the page's flow log. Behind the price line, optionally:
+ * the strike ribbon (who crossed the spread at each strike, bar by bar;
+ * core/flowStrikes) and the flip and walls.
  *
  * Drawn in pixels against the measured width (not a scaled viewBox), so type
  * stays the same size from a phone to a full-screen monitor. The height is the
@@ -17,13 +19,17 @@
  */
 
 import { useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { useChipInk } from '@/hooks/useChartTheme';
+import { useChipInk, useLevelInk } from '@/hooks/useChartTheme';
 import { useChartReadout } from '@/hooks/useChartReadout';
 import { ET_HM, etMinuteOfDay, generateNiceTicks, trimEdgeTicks } from '@/core/technicalsCharts';
-import { fmtLevel, spreadTags } from '@/core/technicalsSession';
+import { fmtLevel, priceDomain, spreadTags } from '@/core/technicalsSession';
+import { inferStrikeStep, RIBBON_TIER_OPACITY } from '@/core/gexRibbons';
+import { buildStrikeRibbon, cellNear, ribbonPriceDomain, strikeLean, type StrikeCell, type StrikeLean } from '@/core/flowStrikes';
 import {
   bearishSide,
   bullishSide,
+  FLOW_PANE_WEIGHT,
+  FLOW_PANE_WEIGHT_STRIKES,
   fmtContracts,
   fmtContractsCompact,
   fmtUsdCompact,
@@ -45,6 +51,17 @@ export interface FlowChartLayers {
   contracts: boolean;
   pcr: boolean;
   events: boolean;
+  /** The strike ribbon behind the price line. */
+  strikes: boolean;
+  /** The flip and the call and put walls across the price pane. */
+  walls: boolean;
+}
+
+/** The dealer levels the walls layer draws: the Key Levels strip's read. */
+export interface FlowLevels {
+  flip: number | null;
+  callWall: number | null;
+  putWall: number | null;
 }
 
 interface Props {
@@ -63,6 +80,9 @@ interface Props {
   compact: boolean;
   symbol: string;
   ariaLabel: string;
+  /** Contracts bought and sold at each strike, by bar start (ms). */
+  strikeCells?: ReadonlyMap<number, readonly StrikeCell[]> | null;
+  levels?: FlowLevels | null;
 }
 
 const TONE_STROKE: Record<FlowEventTone, string> = {
@@ -73,12 +93,35 @@ const TONE_STROKE: Record<FlowEventTone, string> = {
 
 const PANE_ORDER: FlowPaneKey[] = ['price', 'premium', 'contracts', 'pcr'];
 
+// The ribbon's inks: the page's sides, and a quiet one for a strike where
+// neither side led. Scaled under the GEX ribbon's tier opacities so the price
+// line keeps the lead.
+const LEAN_FILL: Record<StrikeLean, string> = {
+  bullish: 'var(--color-bull)',
+  bearish: 'var(--color-bear)',
+  even: 'var(--text-muted)',
+};
+const LEAN_OPACITY: Record<StrikeLean, number> = { bullish: 0.85, bearish: 0.85, even: 0.38 };
+const LEAN_WORDS: Record<StrikeLean, string> = {
+  bullish: 'bullish side led',
+  bearish: 'bearish side led',
+  even: 'two-way',
+};
+
 interface Tag {
   key: string;
   label: string;
   y: number;
   color: string;
   outline?: boolean;
+  /** A level off the price window, pinned to its edge with an arrow. */
+  edge?: 'top' | 'bottom';
+  title?: string;
+}
+
+/** A strike as a reader writes it: 665, or 6,745.25 for a projected one. */
+function fmtStrike(strike: number): string {
+  return Number.isInteger(strike) ? strike.toLocaleString('en-US') : fmtLevel(strike);
 }
 
 /** Split a series where it crosses zero, so the area above and below it fills exactly. */
@@ -108,12 +151,17 @@ export default function FlowSessionChart({
   compact,
   symbol,
   ariaLabel,
+  strikeCells = null,
+  levels = null,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
   const readout = useChartReadout(wrapRef);
   const { index: hoverIdx, setIndex: setHoverIdx } = readout;
+  // The price under the pointer, for the strike it is over.
+  const [hoverPrice, setHoverPrice] = useState<number | null>(null);
   const chipInk = useChipInk();
+  const levelInk = useLevelInk();
   const clipId = useId().replace(/[^a-zA-Z0-9]/g, '');
 
   useLayoutEffect(() => {
@@ -144,6 +192,19 @@ export default function FlowSessionChart({
   const slotW = plotW / slots;
   const x = (ms: number) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5) * slotW;
 
+  // ── Strikes and levels ──────────────────────────────────────────────────
+  const ribbonOn = layers.price && layers.strikes && strikeCells != null && strikeCells.size > 0;
+  const strikeStep = useMemo(() => {
+    if (!strikeCells) return null;
+    const all: number[] = [];
+    for (const cells of strikeCells.values()) for (const c of cells) all.push(c.strike);
+    return inferStrikeStep(all);
+  }, [strikeCells]);
+  const wallsOn = layers.price && layers.walls && levels != null;
+  const flip = wallsOn ? levels.flip : null;
+  const callWall = wallsOn ? levels.callWall : null;
+  const putWall = wallsOn ? levels.putWall : null;
+
   // ── Domains ─────────────────────────────────────────────────────────────
   const domains = useMemo(() => {
     const prices: number[] = [];
@@ -158,23 +219,59 @@ export default function FlowSessionChart({
       volMax = Math.max(volMax, bullishSide(b.bar), bearishSide(b.bar));
     }
     const v = volMax > 0 ? volMax * 1.08 : 1;
+    // A level near the session's prices joins the window; a far one gets an
+    // edge tag instead of squashing the line (core/technicalsSession).
+    const lvls = [flip, callWall, putWall];
     return {
-      price: valueDomain(prices, null, 0.06),
+      price: ribbonOn
+        ? ribbonPriceDomain(prices, lvls, strikeStep)
+        : lvls.some((l) => l != null)
+          ? priceDomain(prices, lvls)
+          : valueDomain(prices, null, 0.06),
       premium: valueDomain(premiums, null, 0.08),
       contracts: { min: -v, max: v },
       // A put/call wandering by a few hundredths is flat; draw it flat.
       pcr: valueDomain(ratios, 1, 0.12, 0.2),
     } as Record<FlowPaneKey, { min: number; max: number } | null>;
-  }, [bars, layers.legs]);
+  }, [bars, layers.legs, ribbonOn, strikeStep, flip, callWall, putWall]);
+
+  // A pane with nothing to draw (no underlying price on the rows, say) hands
+  // its height to the others rather than sitting blank.
+  const shownKey = PANE_ORDER.filter((k) => layers[k] && domains[k] != null).join(',');
+  const bands = useMemo(
+    () =>
+      paneLayout(
+        shownKey ? (shownKey.split(',') as FlowPaneKey[]) : [],
+        panesTop,
+        panesBottom - panesTop,
+        PANE_GAP,
+        ribbonOn ? FLOW_PANE_WEIGHT_STRIKES : FLOW_PANE_WEIGHT,
+      ),
+    [shownKey, panesTop, panesBottom, PANE_GAP, ribbonOn],
+  );
+
+  // The ribbon, built once per data or layout change rather than on every
+  // hover: a session of SPX strikes is thousands of orbs.
+  const ribbon = useMemo(() => {
+    const d = domains.price;
+    const band = bands.find((b) => b.key === 'price');
+    if (!ribbonOn || !strikeCells || !d || !band || band.height <= 0 || plotW <= 0) return null;
+    return buildStrikeRibbon(
+      strikeCells,
+      bars.map((b) => b.ms),
+      {
+        x: (ms) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5) * slotW,
+        yPrice: (v) => band.top + ((d.max - v) / (d.max - d.min)) * band.height,
+        slotW,
+        dMin: d.min,
+        dMax: d.max,
+      },
+    );
+  }, [ribbonOn, strikeCells, bars, domains.price, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs]);
 
   if (width === 0 || bars.length === 0) {
     return <div ref={wrapRef} style={{ width: '100%', height }} aria-hidden="true" />;
   }
-
-  // A pane with nothing to draw (no underlying price on the rows, say) hands
-  // its height to the others rather than sitting blank.
-  const shown = PANE_ORDER.filter((k) => layers[k] && domains[k] != null);
-  const bands = paneLayout(shown, panesTop, panesBottom - panesTop, PANE_GAP);
 
   const bandOf = (key: FlowPaneKey) => bands.find((b) => b.key === key) ?? null;
   const yIn = (key: FlowPaneKey) => {
@@ -211,6 +308,14 @@ export default function FlowSessionChart({
       setHoverIdx(null);
       return;
     }
+    const py = e.clientY - rect.top;
+    const pb = bandOf('price');
+    const dp = domains.price;
+    setHoverPrice(
+      ribbonOn && pb && dp && py >= pb.top && py <= pb.top + pb.height
+        ? dp.max - ((py - pb.top) / pb.height) * (dp.max - dp.min)
+        : null,
+    );
     let best = 0;
     let bestD = Infinity;
     for (let i = 0; i < bars.length; i += 1) {
@@ -223,13 +328,21 @@ export default function FlowSessionChart({
     setHoverIdx(best);
   };
   const hover = hoverIdx != null ? bars[hoverIdx] ?? null : null;
+  const hoverCell =
+    hover && ribbonOn && hoverPrice != null ? cellNear(strikeCells?.get(hover.ms), hoverPrice, strikeStep) : null;
 
   // ── Panes ───────────────────────────────────────────────────────────────
+  // A backing behind the label's own text, so a level or a ribbon lane that
+  // runs along the top of a pane passes under it rather than through it.
+  // Mono at 9px with 0.1em tracking is ~6.3px a character.
   const paneLabel = (text: string, top: number, extra?: ReactNode) => (
-    <text x={AXIS_W + 4} y={top + 10} fontFamily={MONO} fontSize={9} letterSpacing="0.1em" fill="var(--text-muted)" stroke="var(--bg-card)" strokeWidth={3} paintOrder="stroke">
-      {text}
-      {extra}
-    </text>
+    <g>
+      <rect x={AXIS_W + 1} y={top + 1} width={text.length * 6.3 + 6} height={13} fill="var(--bg-card)" fillOpacity={0.88} />
+      <text x={AXIS_W + 4} y={top + 10} fontFamily={MONO} fontSize={9} letterSpacing="0.1em" fill="var(--text-muted)" stroke="var(--bg-card)" strokeWidth={3} paintOrder="stroke">
+        {text}
+        {extra}
+      </text>
+    </g>
   );
 
   const grid = (key: FlowPaneKey, fmt: (v: number) => string) => {
@@ -265,14 +378,57 @@ export default function FlowSessionChart({
   const priceBand = bandOf('price');
   const yPrice = yIn('price');
   if (priceBand && yPrice) {
+    const d = domains.price!;
     const pts = bars.filter((b) => b.price != null).map((b) => `${x(b.ms).toFixed(1)},${yPrice(b.price as number).toFixed(1)}`);
+    // The flip and walls: a line where the level is on the scale, an edge tag
+    // with an arrow where it is not, and its name above the line.
+    const walls: Array<{ key: string; name: string; value: number; color: string; dash: string; w: number }> = [];
+    if (callWall != null) walls.push({ key: 'callWall', name: 'CALL WALL', value: callWall, color: 'var(--color-bear)', dash: '6 4', w: 1.2 });
+    if (putWall != null) walls.push({ key: 'putWall', name: 'PUT WALL', value: putWall, color: 'var(--color-bull)', dash: '6 4', w: 1.2 });
+    if (flip != null) walls.push({ key: 'flip', name: 'FLIP', value: flip, color: 'var(--color-flip)', dash: '8 4', w: 1.4 });
+    const onScale = walls.filter((l) => l.value >= d.min && l.value <= d.max);
+    // A name sits above its line, or below it where the pane's own label
+    // leaves no room above; one that would land on another is skipped (its
+    // tag still carries the price).
+    const names = onScale
+      .map((l) => {
+        const ly = yPrice(l.value);
+        return { ...l, ly: ly - 4 < priceBand.top + 14 ? ly + 11 : ly - 4 };
+      })
+      .sort((a, b) => a.ly - b.ly);
+    const drawnNames: typeof names = [];
+    for (const n of names) {
+      if (drawnNames.every((o) => Math.abs(o.ly - n.ly) >= 11)) drawnNames.push(n);
+    }
     panes.push(
       <g key="price">
         {grid('price', (v) => fmtLevel(v).replace(/\.00$/, ''))}
+        {ribbon?.paths.map((r) => (
+          <path key={`rib-${r.lean}-${r.tier}`} d={r.d} fill={LEAN_FILL[r.lean]} fillOpacity={RIBBON_TIER_OPACITY[r.tier] * LEAN_OPACITY[r.lean]} />
+        ))}
+        {onScale.map((l) => (
+          <line key={`lvl-${l.key}`} x1={AXIS_W} x2={plotR} y1={yPrice(l.value)} y2={yPrice(l.value)} stroke={l.color} strokeWidth={l.w} strokeDasharray={l.dash} />
+        ))}
         {pts.length > 1 && <polyline points={pts.join(' ')} fill="none" stroke="var(--text-primary)" strokeOpacity={0.85} strokeWidth={1.5} strokeLinejoin="round" />}
+        {drawnNames.map((n) => (
+          <text key={`lvl-name-${n.key}`} x={plotR - 4} y={n.ly} textAnchor="end" fontFamily={MONO} fontSize={9} letterSpacing="0.1em" fill={levelInk(n.color)} stroke="var(--bg-card)" strokeWidth={3} paintOrder="stroke">
+            {n.name}
+          </text>
+        ))}
         {paneLabel(`PRICE · ${symbol}`, priceBand.top)}
       </g>,
     );
+    for (const l of walls) {
+      const edge = l.value > d.max ? 'top' : l.value < d.min ? 'bottom' : undefined;
+      tags.push({
+        key: l.key,
+        label: `${edge === 'top' ? '▲ ' : edge === 'bottom' ? '▼ ' : ''}${fmtLevel(l.value)}`,
+        y: edge === 'top' ? priceBand.top : edge === 'bottom' ? priceBand.top + priceBand.height : yPrice(l.value),
+        color: l.color,
+        edge,
+        title: `${l.name.toLowerCase().replace(/^./, (c) => c.toUpperCase())} ${fmtLevel(l.value)}${edge ? ', off the visible scale' : ''}`,
+      });
+    }
     if (last.price != null) tags.push({ key: 'last', label: fmtLevel(last.price), y: yPrice(last.price), color: 'var(--color-accent-hot)' });
   }
 
@@ -464,6 +620,9 @@ export default function FlowSessionChart({
           <g pointerEvents="none">
             <line x1={x(hover.ms)} x2={x(hover.ms)} y1={panesTop - 4} y2={axisTop} stroke="var(--text-muted)" strokeOpacity={0.6} strokeWidth={1} strokeDasharray="3 3" />
             {yPrice && hover.price != null && <circle cx={x(hover.ms)} cy={yPrice(hover.price)} r={3} fill="var(--text-primary)" />}
+            {yPrice && hoverCell && (
+              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={Math.max(5, slotW * 0.6)} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
+            )}
             {yPrem && <circle cx={x(hover.ms)} cy={yPrem(hover.netPremium)} r={3} fill="var(--text-primary)" />}
             {yPcr && hover.putCallRatio != null && <circle cx={x(hover.ms)} cy={yPcr(hover.putCallRatio)} r={3} fill="var(--color-info)" />}
           </g>
@@ -493,6 +652,7 @@ export default function FlowSessionChart({
             >
               {t.label}
             </text>
+            {t.title && <title>{t.title}</title>}
           </g>
         ))}
 
@@ -531,13 +691,35 @@ export default function FlowSessionChart({
           }}
         >
           <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{ET_HM.format(new Date(hover.ms))} ET</div>
+          {hoverCell && (
+            <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <span style={{ color: 'var(--text-primary)' }}>At {fmtStrike(hoverCell.strike)}</span>
+                <span style={{ color: strikeLean(hoverCell) === 'even' ? 'var(--text-muted)' : LEAN_FILL[strikeLean(hoverCell)] }}>
+                  {LEAN_WORDS[strikeLean(hoverCell)]}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 10, marginTop: 2 }}>
+                <span />
+                <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>bought</span>
+                <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>sold</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Calls</span>
+                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsBought)}</span>
+                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsSold)}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Puts</span>
+                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsBought)}</span>
+                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsSold)}</span>
+              </div>
+              <Row k="Net flow" v={fmtContracts(hoverCell.net, true)} color={hoverCell.net > 0 ? 'var(--color-bull)' : hoverCell.net < 0 ? 'var(--color-bear)' : undefined} top />
+            </div>
+          )}
           {hover.price != null && <Row k="Price" v={fmtLevel(hover.price)} />}
           <Row k="Net premium" v={fmtUsdCompact(hover.netPremium, true)} color={hover.netPremium >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'} />
           <Row k="  calls" v={fmtUsdCompact(hover.callPremium, true)} muted />
           <Row k="  puts" v={fmtUsdCompact(hover.putPremium, true)} muted />
           <Row k="Net flow" v={fmtContracts(hover.netFlow, true)} color={hover.netFlow >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 10, marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border-subtle)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>This bar</span>
+            <span style={{ color: 'var(--text-muted)' }}>{hoverCell ? 'All strikes' : 'This bar'}</span>
             <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>bought</span>
             <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>sold</span>
             <span style={{ color: 'var(--text-secondary)' }}>Calls</span>
