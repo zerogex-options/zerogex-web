@@ -57,6 +57,11 @@ import {
   type SkipReason,
 } from '../core/returnIntent.ts';
 import { parseCancellationReasonFromMessage } from '../core/cancellationReason.ts';
+import {
+  classifyExclusion,
+  exclusionCandidateSql,
+  type ExclusionCandidate,
+} from '../core/excludedAccounts.ts';
 import { parseHighlightsJson, selectHighlightsSince } from '../core/winbackHighlights.ts';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
 
@@ -156,7 +161,7 @@ member was skipped):
   - users.email_verified_at IS NOT NULL                           (won't bounce)
   - users.deleted_at IS NULL                                      (forgotten accounts)
   - users.marketing_unsubscribed_at IS NULL                       (this is marketing)
-  - users.tier != 'admin'
+  - not the admin, a creator partner or a comped member           (not customers)
   - a login_success AFTER their most recent stripe_subscription_deleted
   - that visit is at least --quiet-hours old (default ${DEFAULT_QUIET_HOURS}) and at most
     --max-login-age-days old (default ${DEFAULT_MAX_LOGIN_AGE_DAYS})
@@ -352,6 +357,8 @@ const REQUIRED_COLUMNS = [
   'marketing_unsubscribed_at',
   'founding_member_started_at',
   'return_intent_email_sent_at',
+  'partner_tier',
+  'partner_pro_grant_expires_at',
 ];
 {
   const present = new Set(
@@ -368,10 +375,9 @@ const REQUIRED_COLUMNS = [
   }
 }
 
-type CandidateRow = {
+type CandidateRow = ExclusionCandidate & {
   id: string;
   email: string;
-  tier: string | null;
   subscription_lapsed: number | null;
   stripe_subscription_id: string | null;
   email_verified_at: string | null;
@@ -396,7 +402,7 @@ const candidates = querySqlite<CandidateRow>(
   dbPath,
   `SELECT u.id,
           u.email,
-          u.tier,
+          ${exclusionCandidateSql('u')},
           u.subscription_lapsed,
           u.stripe_subscription_id,
           u.email_verified_at,
@@ -428,15 +434,19 @@ type Eligible = {
 
 const eligible: Eligible[] = [];
 const skips = new Map<SkipReason, number>();
+// Named in the output, not just counted: these are few, and the operator
+// checking that a partner or comped member is held out wants to see them.
+const notCustomers: Array<{ email: string; reason: SkipReason }> = [];
 
 for (const row of candidates) {
+  const exclusion = classifyExclusion(row);
   const decision = decideReturnIntent({
     subscriptionLapsed: Number(row.subscription_lapsed) === 1,
     hasSubscriptionOnFile: !!row.stripe_subscription_id,
     emailVerified: !!row.email_verified_at,
     deleted: !!row.deleted_at,
     marketingUnsubscribed: !!row.marketing_unsubscribed_at,
-    tier: row.tier ?? 'public',
+    exclusion,
     churnedAt: row.churned_at,
     lastLoginAt: row.last_login_at,
     lastSentAt: row.return_intent_email_sent_at,
@@ -448,6 +458,7 @@ for (const row of candidates) {
 
   if (!decision.send) {
     skips.set(decision.reason, (skips.get(decision.reason) ?? 0) + 1);
+    if (exclusion) notCustomers.push({ email: row.email, reason: decision.reason });
     continue;
   }
 
@@ -478,6 +489,10 @@ if (skips.size > 0) {
   for (const [reason, count] of [...skips.entries()].sort((a, b) => b[1] - a[1])) {
     console.log(`  ${String(count).padStart(5)}  ${reason}`);
   }
+}
+if (notCustomers.length > 0) {
+  console.log('\nSkipped, not customers (core/excludedAccounts.ts):');
+  for (const s of notCustomers) console.log(`  - ${s.email}: ${s.reason}`);
 }
 
 if (selected.length === 0) {

@@ -60,6 +60,30 @@ export type ExclusionCandidate = {
 };
 
 /**
+ * The ExclusionCandidate columns as a SELECT-list fragment, reading `users`
+ * through `alias`. Any query that selects it can pass its rows straight to
+ * classifyExclusion(). The `comped` subquery is the only non-trivial part:
+ * comping is recorded as an append-only audit row (scripts/comp-member.mts)
+ * rather than as a column, because the tier it writes is indistinguishable from
+ * a paid one.
+ *
+ * A string rather than a loader so the churn emails can share it
+ * (scripts/send-winback.mts and the other lapsed-member senders). They read the
+ * DB through the sqlite3 CLI, not ./excludedAccountsServer.ts, whose getDb()
+ * runs the app's migrations (a --dry-run must not write) and takes AUTH_DB_PATH
+ * from the process env only, not from .env.local. One copy keeps "comped" from
+ * meaning one thing in the growth numbers and another in the mail.
+ */
+export function exclusionCandidateSql(alias: string): string {
+  return `${alias}.tier AS tier,
+         ${alias}.partner_tier AS partner_tier,
+         ${alias}.partner_pro_grant_expires_at AS partner_pro_grant_expires_at,
+         EXISTS (SELECT 1 FROM audit_events comp_audit
+                  WHERE comp_audit.user_id = ${alias}.id
+                    AND comp_audit.type = 'billing_member_comped') AS comped`;
+}
+
+/**
  * Which rule holds this account out, or null when none does.
  *
  * Deliberately NOT routed through isCreatorPartner(): that helper returns false

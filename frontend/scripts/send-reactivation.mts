@@ -33,6 +33,11 @@
 //     automatically once FOUNDING_LOCKIN_DEADLINE_ISO passes — same rule as the
 //     first nudge)
 //   - NOT churned (subscription_lapsed=1 → the win-back discount pitch owns them)
+//   - NOT an account core/excludedAccounts.ts holds out. In practice that is a
+//     creator partner whose free Pro grant ran out: expire-partner-grants puts
+//     them back on tier 'public' but keeps partner_tier='creator', so they read
+//     as a cold signup. Checked with classifyExclusion() after the query and
+//     before --limit, so a held-out account never takes a slot in the batch.
 //   - users.stripe_subscription_id IS NULL     (belt-and-suspenders for public)
 //   - users.reactivation_email_sent_at IS NULL (one-shot dedupe for THIS touch)
 //   - users.marketing_unsubscribed_at IS NULL  (respect the opt-out — this is a
@@ -65,6 +70,12 @@ import {
 } from '../core/mailer.ts';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
 import { isFoundingLockinOpen } from '../core/foundingLockin.ts';
+import {
+  classifyExclusion,
+  exclusionCandidateSql,
+  type ExclusionCandidate,
+  type ExclusionReason,
+} from '../core/excludedAccounts.ts';
 
 // 21d lag = "give the ~2h first nudge three weeks to work before we change the
 // offer." 3650d (~10y) lookback is effectively "all history" on purpose: the
@@ -181,10 +192,12 @@ function usage() {
 
 Sends the second-touch reactivation email to cold verified-never-paid signups
 (public tier, verified email, no subscription, not founding-eligible, not
-churned, not unsubscribed) who signed up at least LAG_DAYS ago and haven't
-received it yet. Pitches an EXTENDED free trial (REACTIVATION_TRIAL_DAYS,
-default ${getReactivationTrialDays()}) that the checkout route grants server-side
-for the ?reactivate=1 link. Idempotent via users.reactivation_email_sent_at.
+churned, not unsubscribed, not a creator partner or comped member) who signed
+up at least LAG_DAYS ago and haven't received it yet. Pitches an EXTENDED free
+trial (REACTIVATION_TRIAL_DAYS, default ${getReactivationTrialDays()}) that the
+checkout route grants server-side for the ?reactivate=1 link. Idempotent via
+users.reactivation_email_sent_at. Partners and comped members it skips are
+listed by name.
 
 Every send carries a one-click List-Unsubscribe header + footer opt-out link,
 and honors users.marketing_unsubscribed_at. Runs are capped at --limit
@@ -359,6 +372,8 @@ const requiredCols = [
   'founding_member_started_at',
   'email_verified_at',
   'stripe_subscription_id',
+  'partner_tier',
+  'partner_pro_grant_expires_at',
 ];
 const missingCols = requiredCols.filter((c) => !userCols.has(c));
 if (missingCols.length > 0) {
@@ -375,7 +390,7 @@ const DAY_MS = 86_400_000;
 const highIso = new Date(nowMs - cliArgs.lagDays * DAY_MS).toISOString();
 const lowIso = new Date(nowMs - cliArgs.lookbackDays * DAY_MS).toISOString();
 
-type UserRow = {
+type UserRow = ExclusionCandidate & {
   id: string;
   email: string;
   created_at: string;
@@ -390,13 +405,10 @@ const foundingCarveOut = foundingOpen
   ? 'AND NOT (COALESCE(founding_eligible, 0) = 1 AND founding_member_started_at IS NULL)'
   : '';
 
-// LIMIT clause: the DB drip that keeps a single run gentle on the sending
-// domain. 0 means unlimited (operator opt-in).
-const limitClause = cliArgs.limit > 0 ? `LIMIT ${cliArgs.limit}` : '';
-
-const eligible = querySqlite<UserRow>(
+const candidates = querySqlite<UserRow>(
   dbPath,
-  `SELECT id, email, created_at
+  `SELECT id, email, created_at,
+          ${exclusionCandidateSql('users')}
    FROM users
    WHERE tier = 'public'
      AND email_verified_at IS NOT NULL
@@ -407,9 +419,23 @@ const eligible = querySqlite<UserRow>(
      AND marketing_unsubscribed_at IS NULL
      AND created_at >= '${escapeSqlLiteral(lowIso)}'
      AND created_at <= '${escapeSqlLiteral(highIso)}'
-   ORDER BY created_at ASC
-   ${limitClause};`,
+   ORDER BY created_at ASC;`,
 );
+
+// Held out in code rather than in the WHERE clause so the rule stays the one
+// core/excludedAccounts.ts defines, and so the run can say whom it skipped.
+const allEligible: UserRow[] = [];
+const notCustomers: Array<{ user: UserRow; reason: ExclusionReason }> = [];
+for (const user of candidates) {
+  const reason = classifyExclusion(user);
+  if (reason) notCustomers.push({ user, reason });
+  else allEligible.push(user);
+}
+
+// The drip that keeps a single run gentle on the sending domain, applied after
+// the hold-out above: a held-out account is never stamped, so capping in SQL
+// would let it take a slot in every run. 0 means unlimited (operator opt-in).
+const eligible = cliArgs.limit > 0 ? allEligible.slice(0, cliArgs.limit) : allEligible;
 
 console.log(`Auth DB:            ${dbPath}`);
 console.log(`Signup window:      ${lowIso}  →  ${highIso}`);
@@ -426,17 +452,24 @@ console.log(
 );
 console.log(`Eligible this run:  ${eligible.length}`);
 
-if (eligible.length === 0) {
-  console.log('\nNothing to do.');
-  process.exit(0);
-}
-
 const sample = eligible.slice(0, 10);
 for (const u of sample) {
   console.log(`  - ${u.email}: signed up ${u.created_at}`);
 }
 if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
+}
+
+if (notCustomers.length > 0) {
+  console.log('\nSkipped, not customers (core/excludedAccounts.ts):');
+  for (const { user, reason } of notCustomers) {
+    console.log(`  - ${user.email}: ${reason}, signed up ${user.created_at}`);
+  }
+}
+
+if (eligible.length === 0) {
+  console.log('\nNothing to do.');
+  process.exit(0);
 }
 
 // Review digest: email the founder the full recipient list + the rendered draft

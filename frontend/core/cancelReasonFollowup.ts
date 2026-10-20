@@ -11,15 +11,20 @@
 //                       checkout attach the win-back coupon)
 //       too_complex   → the same two links and a way back in
 //
-// Pure (no imports) so the matrix is unit-tested and --dry-run can say why each
-// member was skipped. Locked down in tests/cancelReasonFollowup.test.ts.
+// Pure (no runtime imports) so the matrix is unit-tested and --dry-run can say
+// why each member was skipped. Locked down in tests/cancelReasonFollowup.test.ts.
+
+import type { ExclusionReason } from './excludedAccounts.ts';
 
 export type FollowupReason = 'too_expensive' | 'too_complex';
 export type FollowupState = 'pending' | 'lapsed';
 
 export type FollowupSkip =
   | 'other_reason'
-  | 'admin'
+  // Not a customer (core/excludedAccounts.ts): 'admin', 'partner_grant' or
+  // 'comped'. A partner or comped member who once paid can still have a recent
+  // cancel on file, but there is no price to answer and no plan to save.
+  | ExclusionReason
   | 'deleted'
   | 'unsubscribed'
   | 'already_sent'
@@ -36,7 +41,8 @@ export type FollowupSkip =
 
 export type FollowupInput = {
   feedback: string | null;
-  tier: string;
+  /** classifyExclusion() for the account, null for a customer. */
+  exclusion: ExclusionReason | null;
   deleted: boolean;
   marketingUnsubscribed: boolean;
   alreadySent: boolean;
@@ -58,7 +64,7 @@ const LIVE_STATUSES = new Set(['active', 'trialing']);
 export function decideCancelReasonFollowup(input: FollowupInput): FollowupDecision {
   const reason = input.feedback;
   if (reason !== 'too_expensive' && reason !== 'too_complex') return { send: false, skip: 'other_reason' };
-  if (input.tier === 'admin') return { send: false, skip: 'admin' };
+  if (input.exclusion) return { send: false, skip: input.exclusion };
   if (input.deleted) return { send: false, skip: 'deleted' };
   if (input.marketingUnsubscribed) return { send: false, skip: 'unsubscribed' };
   if (input.alreadySent) return { send: false, skip: 'already_sent' };

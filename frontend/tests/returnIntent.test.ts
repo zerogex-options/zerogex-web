@@ -6,6 +6,7 @@ import {
   returnIntentAngle,
   type ReturnIntentInput,
 } from '../core/returnIntent.ts';
+import { classifyExclusion, type ExclusionCandidate } from '../core/excludedAccounts.ts';
 
 // This sweep mails a cohort that has already been mailed two or three times, so
 // the eligibility matrix is the whole safety story. Two properties matter most
@@ -29,7 +30,7 @@ function input(over: Partial<ReturnIntentInput> = {}): ReturnIntentInput {
     emailVerified: true,
     deleted: false,
     marketingUnsubscribed: false,
-    tier: 'public',
+    exclusion: null,
     churnedAt: iso(NOW - 120 * DAY),
     lastLoginAt: iso(NOW - 3 * DAY),
     lastSentAt: null,
@@ -135,11 +136,55 @@ test('hard disqualifiers are refused whatever the timing says', () => {
     [{ deleted: true }, 'deleted'],
     [{ marketingUnsubscribed: true }, 'unsubscribed'],
     [{ emailVerified: false }, 'unverified'],
-    [{ tier: 'admin' }, 'operator'],
+    [{ exclusion: 'admin' }, 'operator'],
+    [{ exclusion: 'partner_grant' }, 'partner-grant'],
+    [{ exclusion: 'comped' }, 'comped'],
   ];
   for (const [over, reason] of cases) {
     assert.deepEqual(decideReturnIntent(input(over)), { send: false, reason }, reason);
   }
+});
+
+test('a creator partner or comped member who paid once is not a returning churner', () => {
+  // The case that prompted the rule: a member paid, took the money-back refund
+  // (subscription_lapsed = 1), and days later was set up as a creator partner.
+  // grant-partner-pro does not clear the lapse, and comp-member sets it, so both
+  // sit in the churned book with a fresh login. Classified from the columns the
+  // users row actually holds, by the one rule the growth numbers use.
+  const accounts: Array<[string, ExclusionCandidate, string]> = [
+    [
+      'partner on a live grant',
+      { tier: 'pro', partner_tier: 'creator', partner_pro_grant_expires_at: iso(NOW + 80 * DAY), comped: 0 },
+      'partner-grant',
+    ],
+    [
+      // expire-partner-grants drops the tier back to public but keeps the partner.
+      'partner whose grant expired',
+      { tier: 'public', partner_tier: 'creator', partner_pro_grant_expires_at: iso(NOW - 5 * DAY), comped: 0 },
+      'partner-grant',
+    ],
+    [
+      'comped member',
+      { tier: 'pro', partner_tier: null, partner_pro_grant_expires_at: null, comped: 1 },
+      'comped',
+    ],
+    [
+      'admin',
+      { tier: 'admin', partner_tier: null, partner_pro_grant_expires_at: null, comped: 0 },
+      'operator',
+    ],
+  ];
+  for (const [label, row, reason] of accounts) {
+    assert.deepEqual(
+      decideReturnIntent(input({ exclusion: classifyExclusion(row) })),
+      { send: false, reason },
+      label,
+    );
+  }
+
+  // revoke-partner clears both partner columns: a customer again, and answered.
+  const revoked = { tier: 'public', partner_tier: null, partner_pro_grant_expires_at: null, comped: 0 };
+  assert.equal(decideReturnIntent(input({ exclusion: classifyExclusion(revoked) })).send, true);
 });
 
 test('a deleted or opted-out account is refused before its verification state', () => {
