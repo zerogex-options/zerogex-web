@@ -6,10 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// The lapsed-member emails (win-back, return-intent, reactivation and the
-// cancel-reason follow-up) must never reach an account core/excludedAccounts.ts
-// holds out: the admin, a creator partner on a free Pro grant, or a comped
-// member. Each script picks its cohort in SQL through the sqlite3 CLI, so this
+// The lapsed-member emails (win-back, return-intent, reactivation, the
+// cancel-reason follow-up and the product-update campaign's cancelled audience)
+// must never reach an account core/excludedAccounts.ts holds out: the admin, a
+// creator partner on a free Pro grant, or a comped member. Each script picks
+// its cohort in SQL through the sqlite3 CLI, so this
 // runs the real scripts with --dry-run against a seeded DB and reads what they
 // say they would do. A leak here does not throw. It emails a partner a discount
 // to come back.
@@ -103,15 +104,28 @@ seedUser('prospect', daysAgo(30), { tier: 'public' });
 
 const scriptsDir = fileURLToPath(new URL('../scripts/', import.meta.url));
 
-function dryRun(script: string, ...args: string[]): string {
+// send-product-update.mts reads its templates from ../docs/newsletters, relative
+// to where it runs, so it runs from a stand-in frontend/ beside a link to the
+// repo's docs/. Still no .env.local.
+const productUpdateCwd = path.join(dir, 'frontend');
+fs.mkdirSync(productUpdateCwd);
+fs.symlinkSync(fileURLToPath(new URL('../../docs/', import.meta.url)), path.join(dir, 'docs'), 'dir');
+
+function dryRun(script: string, args: string[] = [], cwd = dir): string {
   return execFileSync(
     process.execPath,
     ['--experimental-strip-types', '--no-warnings', path.join(scriptsDir, script), '--dry-run', ...args],
     {
       // The temp dir has no .env.local, so the script reads only this env and
       // this DB. A dry run sends nothing whatever else the env holds.
-      cwd: dir,
-      env: { ...process.env, AUTH_DB_PATH: dbPath, ZEROGEX_END_USER_TOKEN_SECRET: 'test-secret' },
+      cwd,
+      env: {
+        ...process.env,
+        AUTH_DB_PATH: dbPath,
+        ZEROGEX_END_USER_TOKEN_SECRET: 'test-secret',
+        // The product-update cancelled template states the win-back rate.
+        WINBACK_DISCOUNT_LABEL: '50% off your first year',
+      },
       encoding: 'utf8',
     },
   );
@@ -159,7 +173,7 @@ test('return-intent counts and names them as skipped', { skip: needsCli }, () =>
 });
 
 test('reactivation skips the lapsed partner, and the partner does not use up the batch', { skip: needsCli }, () => {
-  const out = dryRun('send-reactivation.mts', '--limit', '1');
+  const out = dryRun('send-reactivation.mts', ['--limit', '1']);
   const [report, heldOut] = splitAtHeldOut(out);
 
   assert.match(report, /^Eligible this run: +1$/m, out);
@@ -169,7 +183,7 @@ test('reactivation skips the lapsed partner, and the partner does not use up the
 });
 
 test('the cancel-reason follow-up skips them, by name, under their own reasons', { skip: needsCli }, () => {
-  const out = dryRun('send-cancel-reason-followup.mts', '--days', '60');
+  const out = dryRun('send-cancel-reason-followup.mts', ['--days', '60']);
 
   assert.match(out, /^Eligible: +1$/m, out);
   assert.match(out, /^ +2 {2}partner_grant$/m, out);
@@ -181,4 +195,28 @@ test('the cancel-reason follow-up skips them, by name, under their own reasons',
   const willEmail = out.slice(out.indexOf('Will email:'));
   assert.match(willEmail, /^ {2}- customer@example\.test: /m, out);
   for (const id of HELD_OUT) assert.ok(!willEmail.includes(`${id}@example.test`), `${id} is not emailed:\n${out}`);
+});
+
+test('the product-update cancelled audience drops them from the cohort, and from --csv', { skip: needsCli }, () => {
+  // August is the campaign with a cancelled variant. The CSV is the cohort
+  // handed to Resend's UI, which the script's own skip list never sees.
+  const csvPath = path.join(dir, 'cancelled.csv');
+  const out = dryRun(
+    'send-product-update.mts',
+    ['--campaign', '2026-08', '--audience', 'cancelled', '--allow-missing-coupon', '--csv', csvPath],
+    productUpdateCwd,
+  );
+  const [report, heldOut] = splitAtHeldOut(out);
+
+  assert.match(report, /^Cohort size: +1$/m, out);
+  assert.match(report, /^To send: +1$/m, out);
+  assert.match(report, /^ {2}- customer@example\.test \(signed up /m, out);
+  for (const id of HELD_OUT) assert.ok(!report.includes(`${id}@example.test`), `${id} is not in the cohort:\n${out}`);
+
+  assert.match(heldOut, /^ {2}- partner@example\.test: partner_grant$/m);
+  assert.match(heldOut, /^ {2}- expired_partner@example\.test: partner_grant$/m);
+  assert.match(heldOut, /^ {2}- comped@example\.test: comped$/m);
+  assert.match(heldOut, /^ {2}- admin@example\.test: admin$/m);
+
+  assert.equal(fs.readFileSync(csvPath, 'utf8'), 'email\ncustomer@example.test\n');
 });

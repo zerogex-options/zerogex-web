@@ -310,6 +310,11 @@ Same shape, no `--since`: the cohort is defined by the never-win-backed latch,
 not a date window. October has no `cancelled` variant, so these name the August
 campaign explicitly.
 
+The admin, creator partners and comped members are never in this cohort
+(`frontend/core/excludedAccounts.ts`): they are not customers, so there is no
+discount to offer them. Every run lists them under "Skipped, not customers",
+and `--csv` leaves them out.
+
 ```
 node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --dry-run
 node --experimental-strip-types scripts/send-product-update.mts --campaign 2026-08 --audience cancelled --preview-to Michael@zerogex.io

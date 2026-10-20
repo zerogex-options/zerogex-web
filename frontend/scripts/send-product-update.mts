@@ -34,11 +34,13 @@
 //                  not, because in steady state that nudge reaches nearly every
 //                  signup within hours and excluding them empties the cohort.
 //   cancelled    → churned members (subscription_lapsed=1, no live sub, verified,
-//                  not an operator, not self-deleted) who have NOT already had
-//                  the automated ~1-month win-back (winback_email_sent_at IS
-//                  NULL), so nobody gets two win-back pitches. Mirrors the
-//                  eligibility in scripts/send-winback.mts minus its churn-age
-//                  window, plus the marketing opt-out every campaign honors.
+//                  not self-deleted, not an account core/excludedAccounts.ts
+//                  holds out: the admin, a creator partner or a comped member)
+//                  who have NOT already had the automated ~1-month win-back
+//                  (winback_email_sent_at IS NULL), so nobody gets two win-back
+//                  pitches. Mirrors the eligibility in scripts/send-winback.mts
+//                  minus its churn-age window, plus the marketing opt-out every
+//                  campaign honors.
 //
 // WIN-BACK COUPON (cancelled only): the email's CTA is /pricing?winback=1, and
 // app/api/billing/checkout/route.ts only attaches the coupon when BOTH
@@ -71,6 +73,12 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
+import {
+  classifyExclusion,
+  exclusionCandidateSql,
+  type ExclusionCandidate,
+  type ExclusionReason,
+} from '../core/excludedAccounts.ts';
 
 type Audience = 'subscribers' | 'registrants' | 'cancelled';
 
@@ -372,7 +380,9 @@ Modes (default is dry-run — counts only, nothing sent):
 Idempotent: successful sends stamp audit_events(type='<campaign key>_sent'); a
 re-run skips anyone already stamped, so an interrupted run resumes cleanly.
 The 'cancelled' audience additionally stamps users.winback_email_sent_at, which
-is what makes the email's /pricing?winback=1 coupon attach at checkout.`);
+is what makes the email's /pricing?winback=1 coupon attach at checkout. It
+never includes the admin, a creator partner or a comped member (not customers;
+core/excludedAccounts.ts), and every run lists the ones it skipped.`);
 }
 
 function ensureSqlite3Cli() {
@@ -594,6 +604,9 @@ type Row = { id: string; email: string; created_at: string };
 
 let rows: Row[];
 let excludedNudged = 0;
+// Accounts the cohort query matched but that are not customers. Only the
+// `cancelled` audience fills this; see below.
+const notCustomers: Array<{ row: Row; reason: ExclusionReason }> = [];
 if (audience === 'subscribers') {
   rows = querySqlite<Row>(
     dbPath,
@@ -607,25 +620,36 @@ if (audience === 'subscribers') {
 } else if (audience === 'cancelled') {
   // Churned members who have NOT already had the automated ~1-month win-back.
   // Deliberately mirrors scripts/send-winback.mts's eligibility (lapsed, no
-  // live sub, verified, not an operator, not self-deleted, never win-backed)
+  // live sub, verified, not self-deleted, never win-backed, not held out)
   // WITHOUT its churn-age window — a campaign sweeps the standing backlog
   // rather than the handful who newly crossed the 30-day line. The marketing
   // opt-out is added on top because this is a campaign, not a transactional
   // nudge. No audit-event join is needed: the winback_email_sent_at latch,
   // not a churn timestamp, is what defines "not yet reached".
-  rows = querySqlite<Row>(
+  const candidates = querySqlite<Row & ExclusionCandidate>(
     dbPath,
-    `SELECT id, email, created_at
+    `SELECT id, email, created_at,
+            ${exclusionCandidateSql('users')}
        FROM users
       WHERE COALESCE(subscription_lapsed, 0) = 1
         AND stripe_subscription_id IS NULL
         AND email_verified_at IS NOT NULL
-        AND tier != 'admin'
         AND winback_email_sent_at IS NULL
         AND marketing_unsubscribed_at IS NULL
         AND deleted_at IS NULL
       ORDER BY created_at ASC;`,
   );
+  // The admin, a creator partner (whose grant never clears subscription_lapsed)
+  // and a comped member are not customers, so they get no discount to come
+  // back. Held out in code rather than in the WHERE clause so the rule stays
+  // the one core/excludedAccounts.ts defines, and so the run can say whom it
+  // skipped. They leave the cohort entirely, so --csv omits them too.
+  rows = [];
+  for (const row of candidates) {
+    const reason = classifyExclusion(row);
+    if (reason) notCustomers.push({ row, reason });
+    else rows.push(row);
+  }
 } else {
   // --since pins the floor to a date (this campaign: the July send, so only
   // registrants who arrived after it qualify); --days is the relative fallback.
@@ -703,6 +727,16 @@ console.log(`Cohort size:    ${rows.length}`);
 if (alreadyCount > 0) console.log(`Already emailed: ${alreadyCount} (skipped)`);
 console.log(`To send:        ${toSend.length}`);
 
+// Only list the recipients that will actually get an email.
+const SAMPLE = 30;
+for (const r of toSend.slice(0, SAMPLE)) console.log(`  - ${r.email} (signed up ${r.created_at})`);
+if (toSend.length > SAMPLE) console.log(`  ... and ${toSend.length - SAMPLE} more`);
+
+if (notCustomers.length > 0) {
+  console.log('\nSkipped, not customers (core/excludedAccounts.ts):');
+  for (const { row, reason } of notCustomers) console.log(`  - ${row.email}: ${reason}`);
+}
+
 if (toSend.length === 0) {
   console.log(
     rows.length > 0
@@ -711,11 +745,6 @@ if (toSend.length === 0) {
   );
   process.exit(0);
 }
-
-// Only list the recipients that will actually get an email.
-const SAMPLE = 30;
-for (const r of toSend.slice(0, SAMPLE)) console.log(`  - ${r.email} (signed up ${r.created_at})`);
-if (toSend.length > SAMPLE) console.log(`  ... and ${toSend.length - SAMPLE} more`);
 
 // ---- CSV export ------------------------------------------------------------
 
