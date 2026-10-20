@@ -44,6 +44,11 @@ import {
   type FollowupState,
 } from '../core/cancelReasonFollowup.ts';
 import { parseCancellationReasonFromMessage } from '../core/cancellationReason.ts';
+import {
+  classifyExclusion,
+  exclusionCandidateSql,
+  type ExclusionCandidate,
+} from '../core/excludedAccounts.ts';
 import { buildSaveUrl } from '../core/retentionToken.ts';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
 
@@ -247,6 +252,8 @@ const REQUIRED_COLUMNS = [
   'winback_email_sent_at',
   'cancel_at_period_end',
   'current_period_end',
+  'partner_tier',
+  'partner_pro_grant_expires_at',
 ];
 {
   const present = new Set(
@@ -269,10 +276,9 @@ const hasMoneyBackTable =
 
 const sinceIso = new Date(Date.now() - cliArgs.days * 86_400_000).toISOString();
 
-type Row = {
+type Row = ExclusionCandidate & {
   id: string;
   email: string;
-  tier: string | null;
   deleted_at: string | null;
   marketing_unsubscribed_at: string | null;
   email_verified_at: string | null;
@@ -292,10 +298,11 @@ type Row = {
 // Each member's MOST RECENT cancel request, when it falls inside the window.
 const rows = querySqlite<Row>(
   dbPath,
-  `SELECT u.id, u.email, u.tier, u.deleted_at, u.marketing_unsubscribed_at, u.email_verified_at,
+  `SELECT u.id, u.email, u.deleted_at, u.marketing_unsubscribed_at, u.email_verified_at,
           u.stripe_subscription_id, u.subscription_status, u.cancel_at_period_end,
           u.current_period_end, u.subscription_lapsed, u.retention_offer_claimed_at,
           u.winback_email_sent_at,
+          ${exclusionCandidateSql('u')},
           c.created_at AS canceled_at,
           c.message AS cancel_message,
           (SELECT COUNT(*) FROM audit_events f
@@ -322,7 +329,7 @@ for (const row of rows) {
   const feedback = parseCancellationReasonFromMessage(row.cancel_message ?? '').feedback;
   const decision = decideCancelReasonFollowup({
     feedback,
-    tier: row.tier ?? 'public',
+    exclusion: classifyExclusion(row),
     deleted: !!row.deleted_at,
     marketingUnsubscribed: !!row.marketing_unsubscribed_at,
     alreadySent: Number(row.sent_count) > 0,

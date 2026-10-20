@@ -29,7 +29,11 @@
 //   - users.subscription_lapsed = 1              (currently churned)
 //   - users.stripe_subscription_id IS NULL       (belt-and-suspenders for churn)
 //   - users.email_verified_at IS NOT NULL        (proved ownership; won't bounce)
-//   - users.tier != 'admin'                       (never win-back an operator)
+//   - not an account core/excludedAccounts.ts holds out: the admin, a creator
+//     partner on (or past) a free Pro grant, or a comped member. None is a
+//     customer, and neither grant-partner-pro nor comp-member clears
+//     subscription_lapsed, so one who once paid still looks churned. Checked
+//     with classifyExclusion() after the query; the output names each one.
 //   - users.winback_email_sent_at IS NULL         (one-shot dedupe; the webhook
 //     clears this on re-subscribe so a future re-churn re-qualifies)
 //   - a stripe_subscription_deleted audit event exists AND its MAX(created_at)
@@ -64,6 +68,12 @@ import {
   sendWinbackEmail,
   type WinbackHighlight,
 } from '../core/mailer.ts';
+import {
+  classifyExclusion,
+  exclusionCandidateSql,
+  type ExclusionCandidate,
+  type ExclusionReason,
+} from '../core/excludedAccounts.ts';
 
 // Public limited-time promo deadline. Resolved at script-load from
 // PROMO_END_AT — kept local to this script so it doesn't import the
@@ -215,7 +225,8 @@ Eligibility mirrors list-public-cohort.mjs's churned bucket:
   - users.subscription_lapsed = 1
   - users.stripe_subscription_id IS NULL
   - users.email_verified_at IS NOT NULL
-  - users.tier != 'admin'
+  - not the admin, a creator partner or a comped member (not customers;
+    core/excludedAccounts.ts). Each one skipped is listed.
   - users.winback_email_sent_at IS NULL
   - users.deleted_at IS NULL          (self-deleted accounts opt out of all mail)
   - MAX(stripe_subscription_deleted audit event) in
@@ -442,23 +453,24 @@ const DAY_MS = 86_400_000;
 const highIso = new Date(nowMs - cliArgs.lagDays * DAY_MS).toISOString();
 const lowIso = new Date(nowMs - cliArgs.lookbackDays * DAY_MS).toISOString();
 
-type UserRow = {
+type UserRow = ExclusionCandidate & {
   id: string;
   email: string;
   churned_at: string;
 };
 
-// One row per eligible user, keyed off their LATEST churn. The HAVING clause
+// One row per candidate, keyed off their LATEST churn. The HAVING clause
 // (not a per-row WHERE on a.created_at) is deliberate: it measures the window
 // against MAX(created_at) so a user with multiple past departures is judged by
 // their most recent one, and the loose JOIN can't let a stale old event fire
 // for someone who actually left days ago. users.winback_email_sent_at is the
 // idempotency key, so the JOIN itself needs no per-row latch.
-const eligible = querySqlite<UserRow>(
+const candidates = querySqlite<UserRow>(
   dbPath,
   `SELECT u.id,
           u.email,
-          MAX(a.created_at) AS churned_at
+          MAX(a.created_at) AS churned_at,
+          ${exclusionCandidateSql('u')}
    FROM users AS u
    JOIN audit_events AS a
      ON a.user_id = u.id
@@ -466,7 +478,6 @@ const eligible = querySqlite<UserRow>(
    WHERE COALESCE(u.subscription_lapsed, 0) = 1
      AND u.stripe_subscription_id IS NULL
      AND u.email_verified_at IS NOT NULL
-     AND u.tier != 'admin'
      AND u.winback_email_sent_at IS NULL
      AND u.deleted_at IS NULL
    GROUP BY u.id, u.email
@@ -474,6 +485,16 @@ const eligible = querySqlite<UserRow>(
       AND MAX(a.created_at) <= '${escapeSqlLiteral(highIso)}'
    ORDER BY churned_at ASC;`,
 );
+
+// Held out in code rather than in the WHERE clause so the rule stays the one
+// core/excludedAccounts.ts defines, and so the run can say whom it skipped.
+const eligible: UserRow[] = [];
+const notCustomers: Array<{ user: UserRow; reason: ExclusionReason }> = [];
+for (const user of candidates) {
+  const reason = classifyExclusion(user);
+  if (reason) notCustomers.push({ user, reason });
+  else eligible.push(user);
+}
 
 const modeDescription =
   resolvedMode === 'auto'
@@ -487,17 +508,24 @@ console.log(`Churn window:     ${lowIso}  →  ${highIso}`);
 console.log(`Discount variant: ${modeDescription}`);
 console.log(`Eligible users:   ${eligible.length}`);
 
-if (eligible.length === 0) {
-  console.log('\nNothing to do.');
-  process.exit(0);
-}
-
 const sample = eligible.slice(0, 10);
 for (const u of sample) {
   console.log(`  - ${u.email}: churned ${u.churned_at}`);
 }
 if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
+}
+
+if (notCustomers.length > 0) {
+  console.log('\nSkipped, not customers (core/excludedAccounts.ts):');
+  for (const { user, reason } of notCustomers) {
+    console.log(`  - ${user.email}: ${reason}, churned ${user.churned_at}`);
+  }
+}
+
+if (eligible.length === 0) {
+  console.log('\nNothing to do.');
+  process.exit(0);
 }
 
 // Review digest: email the founder the full recipient list + the rendered draft

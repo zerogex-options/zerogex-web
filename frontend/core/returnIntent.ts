@@ -21,10 +21,12 @@
 // COOLDOWN_DAYS, re-arming afterwards, and only ever in response to a NEW visit.
 // So it works on today's churned book and on every future churn, indefinitely.
 //
-// Kept PURE (no imports at all) so the whole eligibility matrix is unit-tested
+// Kept PURE (no runtime imports) so the whole eligibility matrix is unit-tested
 // without a DB, a clock or Resend — the same discipline as
 // core/graceExpiryWarning.ts and core/cancelRetention.ts. Locked down in
 // tests/returnIntent.test.ts.
+
+import type { ExclusionReason } from './excludedAccounts.ts';
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -55,8 +57,14 @@ export type ReturnIntentInput = {
   deleted: boolean;
   /** users.marketing_unsubscribed_at — this is marketing, so it must be honored. */
   marketingUnsubscribed: boolean;
-  /** users.tier — an operator account is never mailed a win-back. */
-  tier: string;
+  /**
+   * classifyExclusion() for the account (core/excludedAccounts.ts), null for a
+   * customer. The admin, a creator partner on (or past) a free Pro grant and a
+   * comped member are not customers, so there is nothing to win back. A
+   * partner or comped member who once paid still sits in the churned book:
+   * grant-partner-pro leaves subscription_lapsed alone and comp-member sets it.
+   */
+  exclusion: ExclusionReason | null;
   /**
    * Most recent `stripe_subscription_deleted` audit event. Most-recent, not
    * first: a member who churned, returned and churned again is measured from
@@ -87,6 +95,8 @@ export type SkipReason =
   | 'deleted'
   | 'unsubscribed'
   | 'operator'
+  | 'partner-grant'
+  | 'comped'
   | 'no-churn-date'
   | 'never-returned'
   | 'login-predates-churn'
@@ -98,6 +108,13 @@ export type SkipReason =
 export type ReturnIntentDecision =
   | { send: true; loginAt: string; churnedAt: string }
   | { send: false; reason: SkipReason };
+
+/** The skip each classifyExclusion() rule reports as. The admin keeps 'operator'. */
+const EXCLUSION_SKIP: Record<ExclusionReason, SkipReason> = {
+  admin: 'operator',
+  partner_grant: 'partner-grant',
+  comped: 'comped',
+};
 
 function parseMs(value: string | null | undefined): number | null {
   if (value == null) return null;
@@ -124,7 +141,7 @@ export function decideReturnIntent(input: ReturnIntentInput): ReturnIntentDecisi
   if (input.deleted) return { send: false, reason: 'deleted' };
   if (input.marketingUnsubscribed) return { send: false, reason: 'unsubscribed' };
   if (!input.emailVerified) return { send: false, reason: 'unverified' };
-  if (input.tier === 'admin') return { send: false, reason: 'operator' };
+  if (input.exclusion) return { send: false, reason: EXCLUSION_SKIP[input.exclusion] };
 
   const churnedMs = parseMs(input.churnedAt);
   // No dated departure means no way to tell a return from ordinary account

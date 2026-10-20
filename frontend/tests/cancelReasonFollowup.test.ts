@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decideCancelReasonFollowup, type FollowupInput } from '../core/cancelReasonFollowup.ts';
+import { classifyExclusion } from '../core/excludedAccounts.ts';
 
 // A member who clicked Cancel, still has access, and picked "Too expensive".
 function pending(over: Partial<FollowupInput> = {}): FollowupInput {
   return {
     feedback: 'too_expensive',
-    tier: 'basic',
+    exclusion: null,
     deleted: false,
     marketingUnsubscribed: false,
     alreadySent: false,
@@ -28,7 +29,6 @@ function lapsed(over: Partial<FollowupInput> = {}): FollowupInput {
     cancelAtPeriodEnd: false,
     subscriptionStatus: 'canceled',
     subscriptionLapsed: true,
-    tier: 'public',
     ...over,
   });
 }
@@ -57,9 +57,35 @@ test('any other reason, or none, is skipped', () => {
 test('opted out, deleted, admin and already-sent members are never written to', () => {
   assert.equal(decideCancelReasonFollowup(pending({ marketingUnsubscribed: true })).send, false);
   assert.equal(decideCancelReasonFollowup(pending({ deleted: true })).send, false);
-  assert.equal(decideCancelReasonFollowup(pending({ tier: 'admin' })).send, false);
+  assert.deepEqual(decideCancelReasonFollowup(pending({ exclusion: 'admin' })), { send: false, skip: 'admin' });
   assert.deepEqual(decideCancelReasonFollowup(pending({ alreadySent: true })), { send: false, skip: 'already_sent' });
   assert.deepEqual(decideCancelReasonFollowup(lapsed({ moneyBackRefunded: true })), { send: false, skip: 'refunded' });
+});
+
+test('creator partners and comped members get no offer, in either state', () => {
+  // Rows as the users table holds them, through the same classifier the growth
+  // numbers use. A partner or comped member who paid before can have a recent
+  // cancel on file and an ended subscription, which is exactly the "50% off to
+  // come back" state.
+  const partner = classifyExclusion({
+    tier: 'pro',
+    partner_tier: 'creator',
+    partner_pro_grant_expires_at: '2027-01-17T00:00:00.000Z',
+    comped: 0,
+  });
+  const comped = classifyExclusion({ tier: 'pro', partner_tier: null, partner_pro_grant_expires_at: null, comped: 1 });
+  for (const feedback of ['too_expensive', 'too_complex'] as const) {
+    for (const state of [pending, lapsed]) {
+      assert.deepEqual(decideCancelReasonFollowup(state({ feedback, exclusion: partner })), {
+        send: false,
+        skip: 'partner_grant',
+      });
+      assert.deepEqual(decideCancelReasonFollowup(state({ feedback, exclusion: comped })), {
+        send: false,
+        skip: 'comped',
+      });
+    }
+  }
 });
 
 test('a member who kept their plan or came back is left alone', () => {

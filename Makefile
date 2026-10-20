@@ -870,8 +870,10 @@ verify-reminders:
 # the live public promo (PROMO_END_AT) when one is running, otherwise the
 # evergreen "reply 'discount' for 25% off your first year". Idempotent via
 # users.winback_email_sent_at (the Stripe webhook clears it on re-subscribe so a
-# future re-churn re-qualifies). Pass DRY_RUN=1 to preview eligible users, YES=1
-# to actually send. PREVIEW_TO=<email> renders one sample (PREVIEW_PROMO=1 for
+# future re-churn re-qualifies). Never mails the admin, a creator partner or a
+# comped member (core/excludedAccounts.ts); every run lists the ones it skipped.
+# Pass DRY_RUN=1 to preview eligible users, YES=1 to actually send.
+# PREVIEW_TO=<email> renders one sample (PREVIEW_PROMO=1 for
 # a forced variant via PREVIEW_MODE=auto|promo|none; no DB writes).
 # LAG_DAYS=<n>/LOOKBACK_DAYS=<n> override the window.
 winback:
@@ -887,8 +889,9 @@ winback:
 # re-arms for every future return instead of spending the cohort in one run.
 # No discount and no trial claim; where the member left a cancellation reason
 # the email answers that specific objection. Honors marketing_unsubscribed_at
-# and carries a one-click List-Unsubscribe. DRY_RUN=1 also prints why every
-# skipped member was skipped.
+# and carries a one-click List-Unsubscribe. Never mails the admin, a creator
+# partner or a comped member (core/excludedAccounts.ts). DRY_RUN=1 also prints
+# why every skipped member was skipped, and names those three by email.
 #   make return-intent DRY_RUN=1
 #   make return-intent DIGEST=1 DIGEST_TO=you@example.com
 #   make return-intent YES=1 LIMIT=25

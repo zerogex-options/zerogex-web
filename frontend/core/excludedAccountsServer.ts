@@ -9,24 +9,19 @@
 import { getDb } from './db.ts';
 import {
   classifyExclusion,
+  exclusionCandidateSql,
   type ExcludedAccount,
   type ExclusionCandidate,
 } from './excludedAccounts.ts';
 
-// Every column the classifier reads, plus what the audit list shows. The
-// `comped` subquery is the only non-trivial part: comping is recorded as an
-// append-only audit row (scripts/comp-member.mts) rather than as a column,
-// because the tier it writes is indistinguishable from a paid one.
+// Every column the classifier reads (exclusionCandidateSql, shared with the
+// churn emails), plus what the audit list shows.
 const CANDIDATE_SQL = `
   SELECT u.id                            AS id,
          u.email                         AS email,
-         u.tier                          AS tier,
          u.created_at                    AS created_at,
          u.first_payment_at              AS first_payment_at,
-         u.partner_tier                  AS partner_tier,
-         u.partner_pro_grant_expires_at  AS partner_pro_grant_expires_at,
-         EXISTS (SELECT 1 FROM audit_events a
-                  WHERE a.user_id = u.id AND a.type = 'billing_member_comped') AS comped
+         ${exclusionCandidateSql('u')}
     FROM users u
    WHERE u.tier = 'admin'
       OR u.partner_tier = 'creator'
