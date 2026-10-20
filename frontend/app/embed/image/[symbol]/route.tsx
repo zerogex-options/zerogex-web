@@ -14,7 +14,7 @@
 
 import { serverApiGetDelayed } from '@/core/api/serverFetch';
 import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
-import { SYMBOLS, type PickerSymbol } from '@/core/symbols';
+import { LEVELS_PAGE_SYMBOLS, type PickerSymbol } from '@/core/symbols';
 import type { GexSummary } from '@/core/gexSummary';
 import { CARD_CONTENT_TYPE, renderLevelsCard, type CardTheme } from './levelsCard';
 
@@ -31,7 +31,7 @@ export async function GET(
   // Tolerate the extension the builder hands out, and only that one.
   const upper = (raw || '').replace(/\.png$/i, '').toUpperCase();
 
-  if (!(SYMBOLS as readonly string[]).includes(upper)) {
+  if (!(LEVELS_PAGE_SYMBOLS as readonly string[]).includes(upper)) {
     return new Response('Unknown symbol', {
       status: 404,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },

@@ -89,7 +89,7 @@ import {
   type PanelStrikeRow,
 } from "@/core/strikePanelHover";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
-import { isFuturesSymbol, volatilityIndexFor } from '@/core/symbols';
+import { isFuturesSymbol, volIndexPricesSymbol, volatilityIndexFor } from '@/core/symbols';
 import { chartSessionLevels } from "@/core/sessionLevels";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
@@ -1287,13 +1287,16 @@ export default function GammaTerminalChart({
   // Expected-range band inputs. QQQ/NDX take VXN, SPX/SPY take VIX — the same
   // implied-vol mapping the Live Bulletin uses. Live-only: the delayed public
   // snapshot does zero client fetching, so the band simply hides there (exactly
-  // as the Bulletin hides it when the vol index is unavailable).
+  // as the Bulletin hides it when the vol index is unavailable). Not on a single
+  // stock either, and not fetched: the index measures the market rather than
+  // the name and would draw NVDA's band about half as wide as its options imply.
   const volIndex: "VIX" | "VXN" = volatilityIndexFor(symbol);
+  const bandFromVolIndex = live && volIndexPricesSymbol(symbol);
   const { data: volGauge } = useApiData<VolatilityGaugeData>(
     `/api/market/volatility?ticker=${volIndex}`,
-    { refreshInterval: live ? 30000 : 0, enabled: live },
+    { refreshInterval: bandFromVolIndex ? 30000 : 0, enabled: bandFromVolIndex },
   );
-  const vix = live ? volGauge?.index ?? null : null;
+  const vix = bandFromVolIndex ? volGauge?.index ?? null : null;
   // Per-strike dealer gamma over time. Enabled for the whole live session (not
   // just rewind) so the live rail is drawn from the SAME per-strike source the
   // rewind rail uses — the two now read identically. Paused (no 1s tip poll)
@@ -4021,7 +4024,7 @@ export default function GammaTerminalChart({
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range&nbsp;- the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; a Daily / Weekly / Monthly selector appears once it's on. Live only&nbsp;- the delayed snapshot carries no vol index." />
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range&nbsp;- the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; not drawn on a single stock, whose own implied volatility runs well above either index. A Daily / Weekly / Monthly selector appears once it's on. Live only&nbsp;- the delayed snapshot carries no vol index." />
           )}
           {live && overlays.expectedRange && (
             <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">

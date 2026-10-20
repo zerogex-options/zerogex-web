@@ -17,7 +17,7 @@
  */
 
 import { ChevronDown, Undo2 } from 'lucide-react';
-import { SYMBOLS } from '@/core/symbols';
+import SymbolOptions from '@/components/SymbolOptions';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import { usePageT } from '@/core/LanguageContext';
 import { useWidgetInstance } from './widgetInstance';
@@ -49,11 +49,7 @@ export default function WidgetSymbolSelect({ scale = 1 }: { scale?: number }) {
           cursor: 'pointer',
         }}
       >
-        {SYMBOLS.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
+        <SymbolOptions />
       </select>
       <ChevronDown
         size={13 * scale}

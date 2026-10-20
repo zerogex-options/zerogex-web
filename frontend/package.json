@@ -48,6 +48,7 @@
     "test:chart-viewport": "node --experimental-strip-types --test tests/chartViewport.test.ts",
     "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
     "test:futures-symbols": "node --experimental-strip-types --test tests/futuresSymbols.test.ts",
+    "test:stock-symbols": "node --experimental-strip-types --test tests/stockSymbols.test.ts",
     "test:spread-monitor": "node --experimental-strip-types --test tests/spreadMonitor.test.ts",
     "test:spread-surface": "node --experimental-strip-types --test tests/spreadSurface.test.ts",
     "test:expiration-persistence": "node --experimental-strip-types --test tests/expirationPersistence.test.ts",

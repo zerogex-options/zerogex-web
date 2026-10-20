@@ -25,6 +25,7 @@ import {
 } from '@/core/signalHelpers';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 import AutoFitValue from '@/components/AutoFitValue';
+import StockSignalsNotice from '@/components/StockSignalsNotice';
 
 function interpretation(score: number | null) {
   if (score == null) return 'No reading';
@@ -76,6 +77,7 @@ export default function VolatilityExpansionPage() {
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
+      <StockSignalsNotice />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { SYMBOLS, type PickerSymbol } from '@/core/symbols';
+import { LEVELS_PAGE_SYMBOLS, type LevelsPageSymbol } from '@/core/symbols';
 import {
   FALLBACK_HEIGHT,
   SITE,
@@ -28,7 +28,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 // scheme; an honest, editable credit line is not. That is also the only version
 // worth shipping under the white-hat rule the outreach kit already sets.
 
-const LABEL: Record<PickerSymbol, string> = {
+const LABEL: Record<LevelsPageSymbol, string> = {
   SPX: 'SPX \u00b7 S&P 500 index',
   SPY: 'SPY \u00b7 S&P 500 ETF',
   QQQ: 'QQQ \u00b7 Nasdaq-100 ETF',
@@ -82,7 +82,7 @@ const legendStyle = {
 } as const;
 
 export default function EmbedBuilder() {
-  const [symbol, setSymbol] = useState<PickerSymbol>('SPX');
+  const [symbol, setSymbol] = useState<LevelsPageSymbol>('SPX');
   const [theme, setTheme] = useState<EmbedTheme>('dark');
   const [host, setHost] = useState('');
   const [copied, setCopied] = useState(false);
@@ -126,9 +126,9 @@ export default function EmbedBuilder() {
           <select
             style={fieldStyle}
             value={symbol}
-            onChange={(e) => setSymbol(e.target.value as PickerSymbol)}
+            onChange={(e) => setSymbol(e.target.value as LevelsPageSymbol)}
           >
-            {SYMBOLS.map((s) => (
+            {LEVELS_PAGE_SYMBOLS.map((s) => (
               <option key={s} value={s}>
                 {LABEL[s]}
               </option>

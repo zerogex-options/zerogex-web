@@ -24,6 +24,7 @@ import { SignalTrend, trendColor } from '@/core/signalHelpers';
 import BiasTape from './BiasTape';
 import { useTradeBiasData } from './useTradeBiasData';
 import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload, leanLabel } from './data';
+import StockSignalsNotice from '@/components/StockSignalsNotice';
 
 // Recharts is heavy and the chart is the last section on the page — code-split
 // it (ssr:false) so the hero + cards paint without waiting on the chart bundle.
@@ -344,6 +345,7 @@ export default function TradeBiasPage() {
           <LiveIndicator connection={connection} lastUpdatedAt={lastUpdatedAt} />
         </div>
       </div>
+      <StockSignalsNotice />
 
       {connection === 'disconnected' && (
         <div

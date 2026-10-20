@@ -8,7 +8,7 @@ import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
-import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { MODELED_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { etUtcOffsetLabel, formatEtTime } from '@/core/etTimestamp';
 import { humanize } from '@/core/signalHelpers';
 import { serverApiGet, serverApiGetResult } from '@/core/api/serverFetch';
@@ -227,7 +227,7 @@ export default async function ScorecardPage({
           {/* Six chips are ~350px: on a phone they scroll sideways, edge to
               edge, rather than run off the screen. */}
           <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
-            <SymbolPicker current={sym} hrefs={pickerHrefs} />
+            <SymbolPicker current={sym} hrefs={pickerHrefs} symbols={MODELED_SYMBOLS} />
           </div>
         </div>
         {data.is_empty ? (

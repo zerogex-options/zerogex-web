@@ -4,7 +4,7 @@ import path from 'node:path';
 import { serverApiGetDelayed } from '@/core/api/serverFetch';
 import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
 import { ARTICLE_REGISTRY, SITE_URL, type ArticleMeta } from '@/core/articleRegistry';
-import { SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
+import { LEVELS_PAGE_SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
 
@@ -34,11 +34,14 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gex
 // Reading order, which is not the picker's order. core/symbols.ts leads with
 // SPY because that is the default symbol a signed-in member lands on; a model
 // deciding what to cite should meet SPX first, since that is what the searches
-// this file exists to serve are about. Derived from SYMBOLS rather than
-// rewritten, so a seventh ingested ticker still appears here without an edit.
+// this file exists to serve are about. Derived from LEVELS_PAGE_SYMBOLS rather
+// than rewritten, so a ticker that gets a levels page appears here without an
+// edit. Each row links to that page, so a symbol without one stays out.
 const DISPLAY_ORDER: readonly PickerSymbol[] = [
-  ...(['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const).filter((s) => SYMBOLS.includes(s)),
-  ...SYMBOLS.filter((s) => !['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'].includes(s)),
+  ...(['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const).filter((s) =>
+    (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s),
+  ),
+  ...LEVELS_PAGE_SYMBOLS.filter((s) => !['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'].includes(s)),
 ];
 
 /** One row of the "today" table, or null when that symbol has no snapshot. */
