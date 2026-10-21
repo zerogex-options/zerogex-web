@@ -223,7 +223,7 @@ test('panes share the height by weight and end flush', () => {
   assert.equal(bands[0].top, 20);
   const last = bands[bands.length - 1];
   assert.equal(last.top + last.height, 420);
-  assert.ok(bands[1].height > bands[0].height && bands[0].height > bands[3].height, 'premium > price > put/call');
+  assert.ok(bands[0].height > bands[1].height && bands[1].height > bands[3].height, 'price > premium > put/call');
   const two = paneLayout(['premium', 'pcr'], 0, 300, 10);
   assert.equal(two[1].top + two[1].height, 300);
   assert.deepEqual(paneLayout([], 0, 300, 10), []);

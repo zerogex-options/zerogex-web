@@ -21,7 +21,7 @@ import {
   strikeLean,
   type FlowStrikeRow,
 } from '../core/flowStrikes.ts';
-import { FLOW_PANE_WEIGHT_STRIKES, paneLayout } from '../core/flowAnalysis.ts';
+import { paneLayout } from '../core/flowAnalysis.ts';
 
 const T0 = '2026-10-16T13:30:00Z';
 const T1 = '2026-10-16T13:35:00Z';
@@ -175,12 +175,13 @@ test('nothing in view: an empty layer', () => {
   assert.deepEqual(layer, { paths: [], fullVolume: 0, strikeStep: null, count: 0 });
 });
 
-test('the price pane gets the room when the ribbon is on', () => {
-  const plain = paneLayout(['price', 'premium', 'contracts', 'pcr'], 0, 600, 12);
-  const ribbon = paneLayout(['price', 'premium', 'contracts', 'pcr'], 0, 600, 12, FLOW_PANE_WEIGHT_STRIKES);
-  const h = (bands: typeof plain) => bands.find((b) => b.key === 'price')?.height ?? 0;
-  assert.ok(h(ribbon) > h(plain) * 1.5);
+test('the price pane is sized for the ribbon whether or not it is drawn', () => {
+  // The layout takes no ribbon flag at all, so switching the ribbon cannot
+  // move a pane; the price pane is the tallest, room for a dozen lanes.
+  const bands = paneLayout(['price', 'premium', 'contracts', 'pcr'], 0, 600, 12);
+  const price = bands.find((b) => b.key === 'price')?.height ?? 0;
+  for (const b of bands) if (b.key !== 'price') assert.ok(price > b.height, `price over ${b.key}`);
   // Still fills the height exactly.
-  const lastBand = ribbon[ribbon.length - 1];
+  const lastBand = bands[bands.length - 1];
   assert.equal(lastBand.top + lastBand.height, 600);
 });

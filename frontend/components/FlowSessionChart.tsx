@@ -28,8 +28,6 @@ import { buildStrikeRibbon, cellNear, ribbonPriceDomain, strikeLean, type Strike
 import {
   bearishSide,
   bullishSide,
-  FLOW_PANE_WEIGHT,
-  FLOW_PANE_WEIGHT_STRIKES,
   fmtContracts,
   fmtContractsCompact,
   fmtUsdCompact,
@@ -240,14 +238,8 @@ export default function FlowSessionChart({
   const shownKey = PANE_ORDER.filter((k) => layers[k] && domains[k] != null).join(',');
   const bands = useMemo(
     () =>
-      paneLayout(
-        shownKey ? (shownKey.split(',') as FlowPaneKey[]) : [],
-        panesTop,
-        panesBottom - panesTop,
-        PANE_GAP,
-        ribbonOn ? FLOW_PANE_WEIGHT_STRIKES : FLOW_PANE_WEIGHT,
-      ),
-    [shownKey, panesTop, panesBottom, PANE_GAP, ribbonOn],
+      paneLayout(shownKey ? (shownKey.split(',') as FlowPaneKey[]) : [], panesTop, panesBottom - panesTop, PANE_GAP),
+    [shownKey, panesTop, panesBottom, PANE_GAP],
   );
 
   // The ribbon, built once per data or layout change rather than on every

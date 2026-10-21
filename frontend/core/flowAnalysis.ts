@@ -396,21 +396,17 @@ export function buildFlowEvents(bars: readonly FlowBar[], barMinutes: number): F
 
 export type FlowPaneKey = 'price' | 'premium' | 'contracts' | 'pcr';
 
-/** How the chart's height is shared between its panes. */
+/**
+ * How the chart's height is shared between its panes. The price pane is the
+ * largest because it carries the strike ribbon's lanes behind the line (a
+ * dozen lanes need room to read), and it keeps that size with the ribbon off,
+ * so switching the ribbon never moves a pane.
+ */
 export const FLOW_PANE_WEIGHT: Record<FlowPaneKey, number> = {
-  price: 0.9,
+  price: 1.7,
   premium: 1.3,
   contracts: 1.0,
   pcr: 0.55,
-};
-
-/**
- * The same, with the strike ribbon on: the price pane carries a lane per
- * strike behind the line, and a dozen lanes need room to read.
- */
-export const FLOW_PANE_WEIGHT_STRIKES: Record<FlowPaneKey, number> = {
-  ...FLOW_PANE_WEIGHT,
-  price: 1.7,
 };
 
 /**
@@ -424,16 +420,15 @@ export function paneLayout(
   top: number,
   height: number,
   gap: number,
-  weights: Readonly<Record<FlowPaneKey, number>> = FLOW_PANE_WEIGHT,
 ): Array<{ key: FlowPaneKey; top: number; height: number }> {
   if (shown.length === 0 || height <= 0) return [];
   const usable = Math.max(0, height - gap * (shown.length - 1));
-  const weight = shown.reduce((s, k) => s + weights[k], 0);
+  const weight = shown.reduce((s, k) => s + FLOW_PANE_WEIGHT[k], 0);
   const out: Array<{ key: FlowPaneKey; top: number; height: number }> = [];
   let y = top;
   shown.forEach((key, i) => {
     const last = i === shown.length - 1;
-    const h = last ? top + height - y : Math.round((usable * weights[key]) / weight);
+    const h = last ? top + height - y : Math.round((usable * FLOW_PANE_WEIGHT[key]) / weight);
     out.push({ key, top: y, height: Math.max(0, h) });
     y += h + gap;
   });
