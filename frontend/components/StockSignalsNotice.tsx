@@ -8,8 +8,8 @@ import { isStockSymbol, stockBenchmarkFor } from '@/core/symbols';
  *
  * A stock's chain, levels and flow are ingested like an ETF's, but the signal
  * engine does not run on it: its models are tuned on the ETFs and indexes,
- * and its trade ideas assume an expiration every day, which a stock with only
- * Friday weeklies does not have. So every panel on these pages would come back
+ * and its trade ideas assume an expiration every weekday and a $1 strike grid,
+ * neither of which NVDA's chain has. So every panel on these pages would come back
  * empty for the stock. Saying why, once at the top, is better than a page of
  * blank cards that reads as broken. Renders nothing for any other symbol.
  */
