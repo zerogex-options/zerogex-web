@@ -12,6 +12,7 @@ import { httpOnlyQuoteFields } from '@/core/liveQuoteMerge';
 import { pollDecision, staleAfterMs } from '@/core/pollGate';
 import { sessionClosesLagBehind } from '@/core/sessionCloses';
 import type { GammaSurfaceResponse } from '@/core/gammaSurface';
+import type { FlowCentroidRow } from '@/core/flowCentroids';
 export type {
   GEXHistoricalContext,
   GEXHistoricalMetric,
@@ -1394,6 +1395,19 @@ export function useSessionLevels(
 ) {
   return useApiData<SessionLevelsData>(
     `/api/market/session-levels?${symbolQuery(symbol)}`,
+    { refreshInterval, enabled },
+  );
+}
+
+/**
+ * Call and put centroids for the chart overlay, one row per 5-minute bar of
+ * the current session (see core/flowCentroids). The newest bar keeps moving
+ * as contracts trade, and the API caches for 10s, so a 30s poll keeps the tip
+ * current without re-reading the session every few seconds.
+ */
+export function useFlowCentroids(symbol = 'SPY', refreshInterval = 30000, enabled = true) {
+  return useApiData<FlowCentroidRow[]>(
+    `/api/flow/centroids?${symbolQuery(symbol)}`,
     { refreshInterval, enabled },
   );
 }
