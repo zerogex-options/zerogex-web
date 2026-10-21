@@ -5,19 +5,23 @@
 // bullish side); a strike leads one way only by a real margin; a tail read
 // replaces the bars it carries and keeps the rest; the hover finds a strike
 // only when the pointer is on its lane; the price window holds a dozen lanes
-// on a quiet day; and the ribbon is a handful of grouped paths, sized so one
-// block print cannot shrink every other orb to nothing.
+// on a quiet day; and the ribbon is a handful of grouped paths of round dots,
+// sized by net flow so one block print cannot shrink every other dot to
+// nothing, with two-way strikes left out and a filter for the small ones.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   STRIKE_EVEN_SHARE,
   STRIKE_MIN_LANES,
+  STRIKE_SIZE_FLOOR,
   buildStrikeRibbon,
   cellNear,
   mergeStrikeRows,
   ribbonPriceDomain,
+  strikeCellShown,
   strikeCellsByBar,
+  strikeDotRadius,
   strikeLean,
   type FlowStrikeRow,
 } from '../core/flowStrikes.ts';
@@ -124,7 +128,6 @@ test('the price window holds a dozen lanes on a quiet day and never shrinks a wi
 const GEOM = {
   x: (ms: number) => (ms - MS0) / 60_000 + 10,
   yPrice: (p: number) => (700 - p) * 10,
-  slotW: 8,
   dMin: 660,
   dMax: 670,
 };
@@ -137,10 +140,58 @@ test('the ribbon is a handful of grouped paths, not an element per orb', () => {
   }
   const byBar = strikeCellsByBar(rows);
   const layer = buildStrikeRibbon(byBar, Array.from(byBar.keys()), GEOM);
-  assert.ok(layer.count > 300);
-  assert.ok(layer.paths.length <= 9, `${layer.paths.length} paths`);
+  assert.ok(layer.count > 200);
+  assert.ok(layer.paths.length <= 6, `${layer.paths.length} paths`);
   assert.equal(layer.strikeStep, 1);
-  for (const p of layer.paths) assert.ok(['bullish', 'bearish', 'even'].includes(p.lean));
+  // No two-way group: those strikes draw nothing.
+  for (const p of layer.paths) assert.ok(['bullish', 'bearish'].includes(p.lean));
+  // Weak tiers first, so the big dots draw over the small ones.
+  const order = { weak: 0, mid: 1, strong: 2 } as const;
+  for (let i = 1; i < layer.paths.length; i += 1) assert.ok(order[layer.paths[i - 1].tier] <= order[layer.paths[i].tier]);
+});
+
+test('two-way strikes draw nothing, and only drawn dots count', () => {
+  const byBar = strikeCellsByBar([
+    row(T0, 665, 500, 0, 0, 0), // all bullish
+    row(T0, 666, 52, 48, 0, 0), // 52/48: two-way
+  ]);
+  const layer = buildStrikeRibbon(byBar, [MS0], GEOM);
+  assert.equal(layer.count, 1);
+  const twoWay = byBar.get(MS0)?.find((c) => c.strike === 666);
+  assert.ok(twoWay);
+  assert.equal(strikeCellShown(twoWay, layer.fullNet), false);
+});
+
+test('dots are round and sized by net flow, not by what traded', () => {
+  // Same volume, very different net: the lopsided strike is the big dot.
+  const byBar = strikeCellsByBar([row(T0, 665, 900, 100, 0, 0), row(T0, 667, 600, 400, 0, 0)]);
+  const layer = buildStrikeRibbon(byBar, [MS0], GEOM);
+  const radii = [...layer.paths.map((p) => p.d).join(' ').matchAll(/A ([\d.]+) ([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  for (const [rx, ry] of radii) assert.equal(rx, ry, 'a circle');
+  assert.equal(layer.fullNet, 800);
+  // Each circle is two arcs; the lopsided strike's is the bigger one.
+  const sizes = radii.map(([r]) => r);
+  assert.ok(Math.max(...sizes) > Math.min(...sizes) * 1.5, `${sizes}`);
+  // And the hover ring's radius is the drawn one.
+  const lopsided = byBar.get(MS0)?.find((c) => c.strike === 665);
+  assert.ok(lopsided);
+  assert.equal(strikeDotRadius(lopsided, layer).toFixed(1), Math.max(...sizes).toFixed(1));
+});
+
+test('the size filter hides the smaller dots without resizing the rest', () => {
+  const rows: FlowStrikeRow[] = [];
+  // Nets of 1,000 (full), 300 (medium) and 80 (small) at three strikes.
+  rows.push(row(T0, 665, 1000, 0, 0, 0), row(T0, 666, 300, 0, 0, 0), row(T0, 667, 80, 0, 0, 0));
+  const byBar = strikeCellsByBar(rows);
+  const all = buildStrikeRibbon(byBar, [MS0], GEOM, 'all');
+  const medium = buildStrikeRibbon(byBar, [MS0], GEOM, 'medium');
+  const large = buildStrikeRibbon(byBar, [MS0], GEOM, 'large');
+  assert.deepEqual([all.count, medium.count, large.count], [3, 2, 1]);
+  // Full size is the same at every setting.
+  assert.equal(all.fullNet, large.fullNet);
+  const big = (l: typeof all) => l.paths.find((p) => p.tier === 'strong')?.d;
+  assert.equal(big(all), big(large));
+  assert.ok(STRIKE_SIZE_FLOOR.all < STRIKE_SIZE_FLOOR.medium && STRIKE_SIZE_FLOOR.medium < STRIKE_SIZE_FLOOR.large);
 });
 
 test('strikes outside the price window and dust under the floor draw nothing', () => {
@@ -151,7 +202,7 @@ test('strikes outside the price window and dust under the floor draw nothing', (
   ]);
   const layer = buildStrikeRibbon(byBar, [MS0], GEOM);
   assert.equal(layer.count, 1);
-  assert.equal(layer.fullVolume, 1000);
+  assert.equal(layer.fullNet, 1000);
 });
 
 test('one block print does not shrink every other orb to a sliver', () => {
@@ -164,7 +215,7 @@ test('one block print does not shrink every other orb to a sliver', () => {
   const byBar = strikeCellsByBar(rows);
   const layer = buildStrikeRibbon(byBar, Array.from(byBar.keys()), GEOM);
   // Full size sits at the ordinary bars, not at the block.
-  assert.equal(layer.fullVolume, 100);
+  assert.equal(layer.fullNet, 100);
   // So the ordinary orbs all draw, at full strength.
   assert.ok(layer.count >= 60);
   assert.ok(layer.paths.some((p) => p.tier === 'strong'));
@@ -172,7 +223,7 @@ test('one block print does not shrink every other orb to a sliver', () => {
 
 test('nothing in view: an empty layer', () => {
   const layer = buildStrikeRibbon(new Map(), [], GEOM);
-  assert.deepEqual(layer, { paths: [], fullVolume: 0, strikeStep: null, count: 0 });
+  assert.deepEqual(layer, { paths: [], fullNet: 0, dotR: 0, strikeStep: null, count: 0 });
 });
 
 test('the price pane is sized for the ribbon whether or not it is drawn', () => {

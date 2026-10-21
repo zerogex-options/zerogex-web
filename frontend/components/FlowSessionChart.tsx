@@ -23,8 +23,18 @@ import { useChipInk, useLevelInk } from '@/hooks/useChartTheme';
 import { useChartReadout } from '@/hooks/useChartReadout';
 import { ET_HM, etMinuteOfDay, generateNiceTicks, trimEdgeTicks } from '@/core/technicalsCharts';
 import { fmtLevel, priceDomain, spreadTags } from '@/core/technicalsSession';
-import { inferStrikeStep, RIBBON_TIER_OPACITY } from '@/core/gexRibbons';
-import { buildStrikeRibbon, cellNear, ribbonPriceDomain, strikeLean, type StrikeCell, type StrikeLean } from '@/core/flowStrikes';
+import { inferStrikeStep, type RibbonTier } from '@/core/gexRibbons';
+import {
+  buildStrikeRibbon,
+  cellNear,
+  ribbonPriceDomain,
+  strikeCellShown,
+  strikeDotRadius,
+  strikeLean,
+  type StrikeCell,
+  type StrikeDotSize,
+  type StrikeLean,
+} from '@/core/flowStrikes';
 import {
   bearishSide,
   bullishSide,
@@ -80,6 +90,8 @@ interface Props {
   ariaLabel: string;
   /** Contracts bought and sold at each strike, by bar start (ms). */
   strikeCells?: ReadonlyMap<number, readonly StrikeCell[]> | null;
+  /** The ribbon's size filter: the smallest dot it shows. */
+  strikeSize?: StrikeDotSize;
   levels?: FlowLevels | null;
 }
 
@@ -91,15 +103,16 @@ const TONE_STROKE: Record<FlowEventTone, string> = {
 
 const PANE_ORDER: FlowPaneKey[] = ['price', 'premium', 'contracts', 'pcr'];
 
-// The ribbon's inks: the page's sides, and a quiet one for a strike where
-// neither side led. Scaled under the GEX ribbon's tier opacities so the price
-// line keeps the lead.
+// The ribbon's inks: the page's sides. Two-way strikes draw no dot and the
+// readout skips them; the map covers every lean for the type's sake.
 const LEAN_FILL: Record<StrikeLean, string> = {
   bullish: 'var(--color-bull)',
   bearish: 'var(--color-bear)',
   even: 'var(--text-muted)',
 };
-const LEAN_OPACITY: Record<StrikeLean, number> = { bullish: 0.85, bearish: 0.85, even: 0.38 };
+// A dot's size already says how hard a strike pressed, so its opacity only
+// steps down a little with it: the big dots read solid, overlaps stay visible.
+const DOT_TIER_OPACITY: Record<RibbonTier, number> = { strong: 0.85, mid: 0.72, weak: 0.58 };
 const LEAN_WORDS: Record<StrikeLean, string> = {
   bullish: 'bullish side led',
   bearish: 'bearish side led',
@@ -150,6 +163,7 @@ export default function FlowSessionChart({
   symbol,
   ariaLabel,
   strikeCells = null,
+  strikeSize = 'all',
   levels = null,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -254,12 +268,12 @@ export default function FlowSessionChart({
       {
         x: (ms) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5) * slotW,
         yPrice: (v) => band.top + ((d.max - v) / (d.max - d.min)) * band.height,
-        slotW,
         dMin: d.min,
         dMax: d.max,
       },
+      strikeSize,
     );
-  }, [ribbonOn, strikeCells, bars, domains.price, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs]);
+  }, [ribbonOn, strikeCells, bars, domains.price, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs, strikeSize]);
 
   if (width === 0 || bars.length === 0) {
     return <div ref={wrapRef} style={{ width: '100%', height }} aria-hidden="true" />;
@@ -320,8 +334,16 @@ export default function FlowSessionChart({
     setHoverIdx(best);
   };
   const hover = hoverIdx != null ? bars[hoverIdx] ?? null : null;
+  // Only a dot that is drawn answers the pointer: a two-way strike, or one the
+  // size filter hides, reads as empty lane.
   const hoverCell =
-    hover && ribbonOn && hoverPrice != null ? cellNear(strikeCells?.get(hover.ms), hoverPrice, strikeStep) : null;
+    hover && ribbonOn && hoverPrice != null && ribbon
+      ? cellNear(
+          strikeCells?.get(hover.ms)?.filter((c) => strikeCellShown(c, ribbon.fullNet, strikeSize)),
+          hoverPrice,
+          strikeStep,
+        )
+      : null;
 
   // ── Panes ───────────────────────────────────────────────────────────────
   // A backing behind the label's own text, so a level or a ribbon lane that
@@ -396,7 +418,7 @@ export default function FlowSessionChart({
       <g key="price">
         {grid('price', (v) => fmtLevel(v).replace(/\.00$/, ''))}
         {ribbon?.paths.map((r) => (
-          <path key={`rib-${r.lean}-${r.tier}`} d={r.d} fill={LEAN_FILL[r.lean]} fillOpacity={RIBBON_TIER_OPACITY[r.tier] * LEAN_OPACITY[r.lean]} />
+          <path key={`rib-${r.lean}-${r.tier}`} d={r.d} fill={LEAN_FILL[r.lean]} fillOpacity={DOT_TIER_OPACITY[r.tier]} />
         ))}
         {onScale.map((l) => (
           <line key={`lvl-${l.key}`} x1={AXIS_W} x2={plotR} y1={yPrice(l.value)} y2={yPrice(l.value)} stroke={l.color} strokeWidth={l.w} strokeDasharray={l.dash} />
@@ -612,8 +634,8 @@ export default function FlowSessionChart({
           <g pointerEvents="none">
             <line x1={x(hover.ms)} x2={x(hover.ms)} y1={panesTop - 4} y2={axisTop} stroke="var(--text-muted)" strokeOpacity={0.6} strokeWidth={1} strokeDasharray="3 3" />
             {yPrice && hover.price != null && <circle cx={x(hover.ms)} cy={yPrice(hover.price)} r={3} fill="var(--text-primary)" />}
-            {yPrice && hoverCell && (
-              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={Math.max(5, slotW * 0.6)} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
+            {yPrice && hoverCell && ribbon && (
+              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={strikeDotRadius(hoverCell, ribbon) + 3} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
             )}
             {yPrem && <circle cx={x(hover.ms)} cy={yPrem(hover.netPremium)} r={3} fill="var(--text-primary)" />}
             {yPcr && hover.putCallRatio != null && <circle cx={x(hover.ms)} cy={yPcr(hover.putCallRatio)} r={3} fill="var(--color-info)" />}

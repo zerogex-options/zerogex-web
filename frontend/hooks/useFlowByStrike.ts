@@ -1,13 +1,16 @@
 'use client';
 
 /**
- * Contracts bought and sold at each strike, per 5-minute bar, for the Flow
- * Analysis chart's strike ribbon (core/flowStrikes). Reads /api/flow/by-strike.
+ * Contracts bought and sold at each strike, per 5-minute or 1-minute bar, for
+ * the Flow Analysis chart's strike ribbon (core/flowStrikes). Reads
+ * /api/flow/by-strike.
  *
  * A full read when the ribbon is switched on and every five minutes, and a
- * two-bar tail every ten seconds while the session trades: the API slices that
- * tail from its own cached full session, so polling it costs the database
- * nothing extra. A finished session is read once.
+ * short tail every ten seconds while the session trades (the last two
+ * 5-minute bars, or the last five 1-minute bars, which the feed keeps
+ * revising for a few minutes): the API slices that tail from its own cached
+ * full session, so polling it costs the database nothing extra. A finished
+ * session is read once.
  *
  * Kept in memory only. Nothing goes to session storage, so the first render on
  * a reload is the server's (no rows) and hydrates cleanly.
@@ -16,11 +19,12 @@
 import { useEffect, useState } from 'react';
 import { mergeStrikeRows, type FlowStrikeRow } from '@/core/flowStrikes';
 import { flowSessionParams, isClosedFlowSession, type FlowSession } from '@/core/flowSessions';
+import type { FlowTimeframe } from '@/core/flowSeriesCharts';
 import { etTodayDateKey } from '@/core/utils';
 
 const TAIL_MS = 10_000;
 const FULL_MS = 5 * 60_000;
-const TAIL_BARS = 2;
+const TAIL_BARS: Record<FlowTimeframe, number> = { '5min': 2, '1min': 5 };
 const FETCH_TIMEOUT_MS = 10_000;
 
 export interface FlowByStrikeFilters {
@@ -35,13 +39,14 @@ interface Entry {
 
 const cache = new Map<string, Entry>();
 
-function keyFor(symbol: string, session: FlowSession, strikes: string, expirations: string): string {
-  return `${symbol.toUpperCase()}|${session}|${strikes}|${expirations}`;
+function keyFor(symbol: string, session: FlowSession, timeframe: FlowTimeframe, strikes: string, expirations: string): string {
+  return `${symbol.toUpperCase()}|${session}|${timeframe}|${strikes}|${expirations}`;
 }
 
 async function fetchRows(
   symbol: string,
   session: FlowSession,
+  timeframe: FlowTimeframe,
   strikes: string,
   expirations: string,
   intervals: number | null,
@@ -49,6 +54,7 @@ async function fetchRows(
 ): Promise<FlowStrikeRow[]> {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const params = new URLSearchParams({ symbol, underlying: symbol, ...flowSessionParams(session) });
+  if (timeframe !== '5min') params.set('timeframe', timeframe);
   if (strikes) params.set('strikes', strikes);
   if (expirations) params.set('expirations', expirations);
   if (intervals != null) params.set('intervals', String(intervals));
@@ -72,11 +78,15 @@ async function fetchRows(
 export function useFlowByStrike(
   symbol: string,
   session: FlowSession,
-  { filters, enabled = true }: { filters?: FlowByStrikeFilters; enabled?: boolean } = {},
+  {
+    filters,
+    timeframe = '5min',
+    enabled = true,
+  }: { filters?: FlowByStrikeFilters; timeframe?: FlowTimeframe; enabled?: boolean } = {},
 ): { rows: FlowStrikeRow[] | null; loading: boolean } {
   const strikes = (filters?.strikes ?? []).slice().sort().join(',');
   const expirations = (filters?.expirations ?? []).slice().sort().join(',');
-  const key = keyFor(symbol, session, strikes, expirations);
+  const key = keyFor(symbol, session, timeframe, strikes, expirations);
 
   const [state, setState] = useState<{ key: string; enabled: boolean; rows: FlowStrikeRow[] | null }>(() => ({
     key,
@@ -103,7 +113,7 @@ export function useFlowByStrike(
 
     const full = async () => {
       try {
-        publish(await fetchRows(symbol, session, strikes, expirations, null, controller.signal));
+        publish(await fetchRows(symbol, session, timeframe, strikes, expirations, null, controller.signal));
       } catch {
         // Keep whatever is drawn; the next read tries again.
       }
@@ -115,7 +125,7 @@ export function useFlowByStrike(
         return;
       }
       try {
-        const rows = await fetchRows(symbol, session, strikes, expirations, TAIL_BARS, controller.signal);
+        const rows = await fetchRows(symbol, session, timeframe, strikes, expirations, TAIL_BARS[timeframe], controller.signal);
         publish(mergeStrikeRows(cache.get(key)?.rows ?? entry.rows, rows));
       } catch {
         // As above.
@@ -135,7 +145,7 @@ export function useFlowByStrike(
       controller.abort();
       timers.forEach(clearInterval);
     };
-  }, [enabled, key, symbol, session, strikes, expirations]);
+  }, [enabled, key, symbol, session, timeframe, strikes, expirations]);
 
   const rows = enabled && state.key === key && state.enabled ? state.rows : null;
   return { rows, loading: enabled && rows == null };

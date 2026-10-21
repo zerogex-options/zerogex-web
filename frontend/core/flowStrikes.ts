@@ -2,29 +2,18 @@
  * The Flow Analysis chart's strike ribbon: who crossed the spread, strike by
  * strike, bar by bar, drawn behind the price.
  *
- * Every strike in the price window is a lane and every 5-minute bar drops one
- * orb in it: sized by the contracts that traded at that strike in that bar,
- * colored by which side led there. The bullish side is calls bought plus puts
- * sold, the bearish side puts bought plus calls sold, exactly as the rest of
- * the page counts them (core/flowAnalysis). A strike where neither side led
- * by much reads as two-way, in a neutral ink.
- *
- * The orbs are the Gamma Chart's GEX ribbon orbs (core/gexRibbons): the same
- * shape, lane cap and three opacity tiers, so the two ribbons read the same
- * way. What differs is what they encode: gamma there, contracts here.
+ * Every strike in the price window is a lane and every bar (5-minute or
+ * 1-minute) can drop one dot in it: a circle sized by that strike's net flow
+ * in the bar, green where the bullish side led and red where the bearish side
+ * did. The bullish side is calls bought plus puts sold, the bearish side puts
+ * bought plus calls sold, exactly as the rest of the page counts them
+ * (core/flowAnalysis). A strike where neither side led by much is two-way and
+ * draws nothing, and a size filter hides the smaller dots.
  *
  * Pure: no React, no DOM. Rows come from /api/flow/by-strike.
  */
 
-import {
-  ellipsePath,
-  inferStrikeStep,
-  RIBBON_MIN_NORM,
-  RIBBON_RY_FRACTION,
-  RIBBON_RY_MAX,
-  tierFor,
-  type RibbonTier,
-} from './gexRibbons.ts';
+import { ellipsePath, inferStrikeStep, RIBBON_MIN_NORM, tierFor, type RibbonTier } from './gexRibbons.ts';
 import { priceDomain } from './technicalsSession.ts';
 
 /** One row of /api/flow/by-strike: a strike that traded in one bar. */
@@ -58,10 +47,25 @@ export type StrikeLean = 'bullish' | 'bearish' | 'even';
 
 /**
  * A strike leads one way only when that side's lead is at least this share of
- * what traded there. Under it the strike is two-way: a 51/49 split is noise,
- * and the 09:30 auction, which has no side to go on, splits exactly even.
+ * what traded there. Under it the strike is two-way and draws no dot: a 51/49
+ * split is noise, and the 09:30 auction, which has no side to go on, splits
+ * exactly even.
  */
 export const STRIKE_EVEN_SHARE = 0.1;
+
+/** The ribbon's size filter: the smallest dot it shows. */
+export type StrikeDotSize = 'all' | 'medium' | 'large';
+
+/**
+ * Where each filter setting starts, as a share of the full-size net flow.
+ * These are the three tiers the dots already come in (core/gexRibbons
+ * tierFor), so Medium+ shows the medium and large dots and Large the large.
+ */
+export const STRIKE_SIZE_FLOOR: Record<StrikeDotSize, number> = {
+  all: RIBBON_MIN_NORM,
+  medium: 0.15,
+  large: 0.5,
+};
 
 /**
  * How many strike lanes the price window holds at least, when the ribbon is
@@ -167,8 +171,6 @@ export interface StrikeRibbonGeometry {
   /** Centre of a bar starting at `ms`, in px. */
   x: (ms: number) => number;
   yPrice: (price: number) => number;
-  /** Width of one bar slot, in px. */
-  slotW: number;
   /** Visible price window. */
   dMin: number;
   dMax: number;
@@ -182,65 +184,88 @@ export interface StrikeRibbonPath {
 }
 
 export interface StrikeRibbonLayer {
+  /** Weak tiers first, so the larger dots draw over the smaller ones. */
   paths: StrikeRibbonPath[];
-  /** The volume an orb is full size at: the top of the in-view cells, see below. */
-  fullVolume: number;
+  /** The net flow a dot is full size at: the top of the in-view cells, see below. */
+  fullNet: number;
+  /** A full-size dot's radius, in px. */
+  dotR: number;
   strikeStep: number | null;
-  /** Orbs drawn (after the noise floor). */
+  /** Dots drawn (after the two-way cut and the size filter). */
   count: number;
 }
 
-// Half-width as a fraction of the bar slot, as on the GEX ribbon.
-const RX_FRACTION = 0.44;
-const RX_MIN = 0.6;
-const RY_MIN = 1;
+// A full-size dot's radius, as a fraction of the strike gap and in px: it
+// leaves clear space between lanes so each strike reads as its own row, and
+// stops growing on a chart zoomed far enough that a lane is very tall.
+const R_FRACTION = 0.42;
+const R_MAX = 12;
+const R_MIN = 1;
 const FALLBACK_GAP = 12;
-// An orb is full size at this quantile of the cell volumes in view, not at the
-// single largest: one block print would otherwise shrink every other orb on
-// the chart to a sliver. Small sets use the max, where a quantile means little.
+// A dot is full size at this quantile of the in-view net flows, not at the
+// single largest: one block print would otherwise shrink every other dot on
+// the chart to a speck. Small sets use the max, where a quantile means little.
 const FULL_SIZE_QUANTILE = 0.98;
 const QUANTILE_MIN_CELLS = 50;
+const TIER_ORDER: Record<RibbonTier, number> = { weak: 0, mid: 1, strong: 2 };
 
-function fullSizeVolume(volumes: number[]): number {
-  if (volumes.length === 0) return 0;
-  const sorted = volumes.slice().sort((a, b) => a - b);
+function fullSize(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
   if (sorted.length < QUANTILE_MIN_CELLS) return sorted[sorted.length - 1];
   return sorted[Math.min(sorted.length - 1, Math.floor(FULL_SIZE_QUANTILE * (sorted.length - 1)))];
 }
 
+/** True for a cell the ribbon draws at this full size and filter setting. */
+export function strikeCellShown(cell: StrikeCell, fullNet: number, size: StrikeDotSize = 'all'): boolean {
+  if (strikeLean(cell) === 'even' || !(fullNet > 0)) return false;
+  return Math.min(1, Math.abs(cell.net) / fullNet) >= STRIKE_SIZE_FLOOR[size];
+}
+
+/** A cell's dot radius in px, for the layer it is drawn in. */
+export function strikeDotRadius(cell: StrikeCell, layer: Pick<StrikeRibbonLayer, 'fullNet' | 'dotR'>): number {
+  if (!(layer.fullNet > 0)) return R_MIN;
+  return Math.max(R_MIN, layer.dotR * Math.min(1, Math.abs(cell.net) / layer.fullNet));
+}
+
 /**
- * The ribbon for the bars on screen, grouped per (lean, tier) so a whole
- * session of orbs costs nine path nodes, not thousands, and a hover that
- * redraws the chart stays cheap.
+ * The ribbon for the bars on screen. Each dot is a circle whose radius follows
+ * the strike's net flow in the bar, so ordinary strikes stay small and the
+ * few pressed hard stand out, as on a 1-minute chart they must. Two-way
+ * strikes draw nothing; `size` hides the dots under its floor.
+ * Grouped per (lean, tier), so a whole session of dots costs six path nodes,
+ * not thousands, and a hover that redraws the chart stays cheap.
  */
 export function buildStrikeRibbon(
   cellsByBar: ReadonlyMap<number, readonly StrikeCell[]>,
   barStarts: readonly number[],
   geom: StrikeRibbonGeometry,
+  size: StrikeDotSize = 'all',
 ): StrikeRibbonLayer {
   const inView: Array<{ ms: number; cell: StrikeCell }> = [];
   const strikes = new Set<number>();
   for (const ms of barStarts) {
     for (const cell of cellsByBar.get(ms) ?? []) {
       strikes.add(cell.strike);
-      if (cell.strike < geom.dMin || cell.strike > geom.dMax) continue;
+      if (cell.strike < geom.dMin || cell.strike > geom.dMax || strikeLean(cell) === 'even') continue;
       inView.push({ ms, cell });
     }
   }
   const strikeStep = inferStrikeStep(strikes);
-  const full = fullSizeVolume(inView.map((c) => c.cell.volume));
-  if (inView.length === 0 || full <= 0) return { paths: [], fullVolume: 0, strikeStep, count: 0 };
+  // Full size is set by everything one side led, before the filter, so
+  // switching to Large hides the smaller dots without growing the rest.
+  const full = fullSize(inView.map((c) => Math.abs(c.cell.net)));
+  if (inView.length === 0 || full <= 0) return { paths: [], fullNet: 0, dotR: 0, strikeStep, count: 0 };
 
   const gapPx = strikeStep != null ? Math.abs(geom.yPrice(geom.dMin) - geom.yPrice(geom.dMin + strikeStep)) : FALLBACK_GAP;
-  const maxRy = Math.max(RY_MIN, Math.min(RIBBON_RY_MAX, gapPx * RIBBON_RY_FRACTION));
-  const rx = Math.max(RX_MIN, geom.slotW * RX_FRACTION);
+  const layer = { fullNet: full, dotR: Math.max(R_MIN, Math.min(R_MAX, gapPx * R_FRACTION)) };
 
   const groups = new Map<string, StrikeRibbonPath & { parts: string[] }>();
   let drawn = 0;
   for (const { ms, cell } of inView) {
-    const norm = Math.min(1, cell.volume / full);
-    if (norm < RIBBON_MIN_NORM) continue;
-    const ry = Math.max(RY_MIN, maxRy * norm);
+    const norm = Math.min(1, Math.abs(cell.net) / full);
+    if (norm < STRIKE_SIZE_FLOOR[size]) continue;
+    const r = strikeDotRadius(cell, layer);
     const tier = tierFor(norm);
     const lean = strikeLean(cell);
     const key = `${lean}|${tier}`;
@@ -249,9 +274,11 @@ export function buildStrikeRibbon(
       g = { lean, tier, d: '', parts: [] };
       groups.set(key, g);
     }
-    g.parts.push(ellipsePath(geom.x(ms), geom.yPrice(cell.strike), rx, ry));
+    g.parts.push(ellipsePath(geom.x(ms), geom.yPrice(cell.strike), r, r));
     drawn += 1;
   }
-  const paths = Array.from(groups.values()).map(({ lean, tier, parts }) => ({ lean, tier, d: parts.join(' ') }));
-  return { paths, fullVolume: full, strikeStep, count: drawn };
+  const paths = Array.from(groups.values())
+    .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier])
+    .map(({ lean, tier, parts }) => ({ lean, tier, d: parts.join(' ') }));
+  return { paths, ...layer, strikeStep, count: drawn };
 }
