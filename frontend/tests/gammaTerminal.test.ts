@@ -3,7 +3,15 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { NAV_GROUPS } from "../core/navigation.ts";
 import { isPublicRoute, requiredTierForRoute } from "../core/auth.ts";
-import { LIKE_PAIR, SAME_INDEX_PAIR, SYMBOLS, likePairFor, sameIndexPairFor } from "../core/symbols.ts";
+import {
+  LIKE_PAIR,
+  SAME_INDEX_PAIR,
+  STOCK_SYMBOLS,
+  SYMBOLS,
+  isStockSymbol,
+  likePairFor,
+  sameIndexPairFor,
+} from "../core/symbols.ts";
 
 process.env.NEXT_PUBLIC_AUTH_ENABLED = "1";
 
@@ -252,12 +260,17 @@ test("chart + first ladder follow the app symbol; the second ladder excludes it"
 });
 
 // Pair Comparison's default is the cross-index like-pair, and it is total over
-// the picker symbols.
+// the picker symbols. A stock pairs one way with its benchmark ETF (NVDA ->
+// QQQ, while QQQ keeps SPY), so symmetry holds among everything else.
 test("likePairFor is total, symmetric and never returns its input", () => {
   for (const s of SYMBOLS) {
     const partner = likePairFor(s);
     assert.notEqual(partner, s, `${s} must not pair with itself`);
     assert.ok((SYMBOLS as readonly string[]).includes(partner), `${s} -> ${partner} is a picker symbol`);
+    if (isStockSymbol(s)) {
+      assert.ok(partner === "SPY" || partner === "QQQ", `${s} pairs with a benchmark ETF, not ${partner}`);
+      continue;
+    }
     assert.equal(LIKE_PAIR[partner], s, `${s} <-> ${partner} is symmetric`);
   }
   assert.equal(likePairFor("spy"), "QQQ");
@@ -277,7 +290,12 @@ test("the terminal's second ladder defaults to the same-index counterpart", () =
     QQQ: "NDX",
     NDX: "QQQ",
     NQ: "NDX",
+    // A stock has no second book on itself, so it opens on its benchmark ETF.
+    NVDA: "QQQ",
   });
+  for (const s of STOCK_SYMBOLS) {
+    assert.equal(SAME_INDEX_PAIR[s], LIKE_PAIR[s], `${s} opens on the same partner on both pages`);
+  }
   for (const s of SYMBOLS) {
     const partner = sameIndexPairFor(s);
     assert.notEqual(partner, s, `${s} must not pair with itself`);

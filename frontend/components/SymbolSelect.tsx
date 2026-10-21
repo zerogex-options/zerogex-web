@@ -19,6 +19,7 @@
 import { ChevronDown } from "lucide-react";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
+import SymbolOptions from "./SymbolOptions";
 
 export default function SymbolSelect({
   value,
@@ -57,11 +58,7 @@ export default function SymbolSelect({
           opacity: disabled ? 0.75 : 1,
         }}
       >
-        {options.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
+        <SymbolOptions options={options} />
       </select>
       <ChevronDown size={13} style={{ position: "absolute", right: 5, pointerEvents: "none", color: "var(--text-secondary)" }} />
     </div>

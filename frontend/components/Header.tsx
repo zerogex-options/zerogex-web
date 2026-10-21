@@ -25,7 +25,8 @@ import { useLanguage } from "@/core/LanguageContext";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
-import { SYMBOLS, isFuturesSymbol } from "@/core/symbols";
+import { isFuturesSymbol } from "@/core/symbols";
+import SymbolOptions from "./SymbolOptions";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { resolvePriceSession, sessionClosesLagBehind } from "@/core/sessionCloses";
@@ -481,11 +482,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                         lineHeight: 1,
                       }}
                     >
-                      {SYMBOLS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
+                      <SymbolOptions />
                     </select>
                     <ChevronDown
                       size={14}
@@ -514,11 +511,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                         backdropFilter: "blur(8px)",
                       }}
                     >
-                      {SYMBOLS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
+                      <SymbolOptions />
                     </select>
                     <div onClick={() => setShowCountdown(!showCountdown)}>
                       <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
@@ -658,11 +651,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                 onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}
                 aria-label={`Symbol: ${symbol}. Change symbol`}
               >
-                {SYMBOLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+                <SymbolOptions />
               </select>
               <span className="zg-mquote-sym" aria-hidden>
                 <span className="zg-mquote-dot" style={{ background: sessionDotColor }} />
@@ -723,11 +712,7 @@ export default function Header({ theme, onToggleTheme, initialCollapsed = false 
                   <span className="zg-eyebrow">Symbol</span>
                   <span className="zg-msheet-symbol-field">
                     <select value={symbol} onChange={(e) => setSymbol(e.target.value as UnderlyingSymbol)}>
-                      {SYMBOLS.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
+                      <SymbolOptions />
                     </select>
                     <ChevronDown size={16} aria-hidden />
                   </span>

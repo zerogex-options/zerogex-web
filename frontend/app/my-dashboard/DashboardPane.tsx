@@ -36,7 +36,7 @@ import ExpirationMultiSelect from '@/components/ExpirationMultiSelect';
 import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
 import { ExpirationScopeContext, type ExpirationScopeValue } from '@/core/expirationScope';
 import { usePageT } from '@/core/LanguageContext';
-import { SYMBOLS } from '@/core/symbols';
+import SymbolOptions from '@/components/SymbolOptions';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import { etTodayDateKey } from '@/core/utils';
 import {
@@ -343,11 +343,7 @@ function PaneSymbolSelect({
       }}
     >
       <option value="">{t('followPageSymbol', { symbol: pageSymbol })}</option>
-      {SYMBOLS.map((s) => (
-        <option key={s} value={s}>
-          {s}
-        </option>
-      ))}
+      <SymbolOptions />
     </select>
   );
 }

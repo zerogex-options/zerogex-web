@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { SYMBOLS } from '../core/symbols.ts';
+import { LEVELS_PAGE_SYMBOLS, SYMBOLS } from '../core/symbols.ts';
 import { isPublicRoute, requiredTierForRoute } from '../core/auth.ts';
 import { buildEmbedSnippet } from '../core/embedSnippet.ts';
 
@@ -50,20 +50,41 @@ test('the widget frames and the builder page are anonymously reachable', () => {
   // A gated frame renders as a broken box on every site that embeds one, and
   // the failure shows up on the embedder's page rather than on ours.
   assert.equal(requiredTierForRoute('/embed'), null);
-  for (const symbol of SYMBOLS) {
+  for (const symbol of LEVELS_PAGE_SYMBOLS) {
     assert.ok(isPublicRoute(`/embed/${symbol}`), `/embed/${symbol} is not public`);
     assert.equal(requiredTierForRoute(`/embed/${symbol}`), null);
   }
 });
 
-test('every pickable symbol has the levels page its widget links back to', () => {
+test('every embeddable symbol has the levels page its widget links back to', () => {
   // The frame's attribution link and the builder's snippet are both built from
-  // the symbol, so a ticker added to SYMBOLS without a landing would ship a
-  // widget whose only outbound link 404s.
-  for (const symbol of SYMBOLS) {
+  // the symbol, so a ticker offered for embedding without a landing would ship
+  // a widget whose only outbound link 404s.
+  for (const symbol of LEVELS_PAGE_SYMBOLS) {
     const page = path.join(ROOT, 'app', `${symbol.toLowerCase()}-gamma-levels`, 'page.tsx');
     assert.ok(existsSync(page), `${symbol} has no /${symbol.toLowerCase()}-gamma-levels page`);
   }
+  // And a symbol with a landing belongs in the list, so it is not left out of
+  // the widget and llms.txt by accident.
+  for (const symbol of SYMBOLS) {
+    const page = path.join(ROOT, 'app', `${symbol.toLowerCase()}-gamma-levels`, 'page.tsx');
+    if (existsSync(page)) {
+      assert.ok(
+        (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(symbol),
+        `${symbol} has a levels page but is missing from LEVELS_PAGE_SYMBOLS`,
+      );
+    }
+  }
+});
+
+test('the widget, its image card and the builder offer only symbols with a levels page', () => {
+  // A picker symbol without a landing (a stock, today) is in the app but not in
+  // the public levels product, so the routes 404 it rather than serving a frame
+  // whose credit link is dead.
+  assert.match(embedRoute, /LEVELS_PAGE_SYMBOLS as readonly string\[\]\)\.includes\(upper\)/);
+  assert.match(imageRoute, /LEVELS_PAGE_SYMBOLS as readonly string\[\]\)\.includes\(upper\)/);
+  assert.match(embedBuilder, /LEVELS_PAGE_SYMBOLS\.map\(/);
+  assert.doesNotMatch(embedRoute, /\bSYMBOLS as readonly/);
 });
 
 // /embed also has to render without the app chrome. That is not asserted here:
@@ -178,7 +199,7 @@ test('the copied credit line sits under the frame: a followed, new-tab link on t
   // the one link the widget earns, and a keyword anchor repeated on every host
   // is what Google calls a link scheme. The builder's optional host tag belongs
   // on the frame only; the credit link stays the clean levels-page URL.
-  for (const symbol of SYMBOLS) {
+  for (const symbol of LEVELS_PAGE_SYMBOLS) {
     for (const host of ['', 'example.com']) {
       const html = buildEmbedSnippet(symbol, 'dark', host);
       const slug = `${symbol.toLowerCase()}-gamma-levels`;
@@ -231,7 +252,7 @@ test('the resizer only accepts messages from our own origin', () => {
 test('the image route is anonymously reachable for every symbol', () => {
   // Hotlinked from Substack, Discord and mail clients. A tier gate here is a
   // broken image on someone else's post.
-  for (const symbol of SYMBOLS) {
+  for (const symbol of LEVELS_PAGE_SYMBOLS) {
     assert.ok(isPublicRoute(`/embed/image/${symbol}`), `/embed/image/${symbol} is not public`);
     assert.equal(requiredTierForRoute(`/embed/image/${symbol}`), null);
   }
@@ -350,7 +371,7 @@ test('llms.txt leads with SPX rather than the picker default', () => {
   assert.match(llmsTxt, /const DISPLAY_ORDER/);
   const order = llmsTxt.slice(llmsTxt.indexOf('DISPLAY_ORDER'), llmsTxt.indexOf('export async function loadSnapshots'));
   assert.ok(order.indexOf("'SPX'") < order.indexOf("'SPY'"), 'SPX must come before SPY');
-  for (const symbol of SYMBOLS) {
+  for (const symbol of LEVELS_PAGE_SYMBOLS) {
     assert.ok(order.includes(`'${symbol}'`), `${symbol} is missing from DISPLAY_ORDER`);
   }
 });

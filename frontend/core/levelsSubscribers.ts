@@ -14,7 +14,7 @@
 import { randomBytes } from 'crypto';
 
 import { getDb } from './db.ts';
-import { SYMBOLS } from './symbols.ts';
+import { LEVELS_PAGE_SYMBOLS } from './symbols.ts';
 import {
   normalizeEmail,
   sentDuringSession,
@@ -54,8 +54,9 @@ function mintId(): string {
 /**
  * Ticker a subscriber's digest is built around.
  *
- * Validated against the shared SYMBOLS registry rather than a second list, so
- * a ticker added there is immediately choosable here. Falls back to SPX, NOT
+ * Validated against the shared LEVELS_PAGE_SYMBOLS registry rather than a
+ * second list, so a ticker that gets a levels page is immediately choosable
+ * here. Falls back to SPX, NOT
  * to core/symbols' DEFAULT_SYMBOL (SPY): that default is "what a signed-in
  * member lands on", which is a different question from "what does an
  * anonymous reader of these SEO pages care about" — and the answer to the
@@ -66,7 +67,7 @@ export const DEFAULT_LEVELS_SYMBOL = 'SPX';
 export function normalizeLevelsSymbol(raw: string | null | undefined): string {
   if (typeof raw !== 'string') return DEFAULT_LEVELS_SYMBOL;
   const upper = raw.trim().toUpperCase();
-  return (SYMBOLS as readonly string[]).includes(upper) ? upper : DEFAULT_LEVELS_SYMBOL;
+  return (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(upper) ? upper : DEFAULT_LEVELS_SYMBOL;
 }
 
 /** Longest `source` we will store — a route path, not free text. */

@@ -27,7 +27,7 @@
 
 import { serverApiGetDelayed } from '@/core/api/serverFetch';
 import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
-import { SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
+import { LEVELS_PAGE_SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
 import { longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
 
@@ -281,8 +281,9 @@ export async function GET(
 
   // Unknown ticker: 404 rather than silently falling back to the default
   // symbol. A host page that typo'd the snippet should see it fail, not quietly
-  // publish SPY levels under an "NVDA" heading.
-  if (!(SYMBOLS as readonly string[]).includes(upper)) {
+  // publish SPY levels under an "NVDA" heading. Only symbols with a levels
+  // page, because the widget's one outbound link is to that page.
+  if (!(LEVELS_PAGE_SYMBOLS as readonly string[]).includes(upper)) {
     return new Response('Unknown symbol', {
       status: 404,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },

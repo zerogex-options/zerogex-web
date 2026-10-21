@@ -41,6 +41,7 @@ import {
   formatGexCompact,
   formatPrice,
 } from '@/core/signalHelpers';
+import StockSignalsNotice from '@/components/StockSignalsNotice';
 
 // `short` is the phone label: three full labels need ~450px, so on a phone
 // each wrapped onto two lines under its icon.
@@ -230,6 +231,7 @@ export default function BasicSignalsPage() {
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
+      <StockSignalsNotice />
 
       {bundle.error && <ErrorMessage message={bundle.error} onRetry={bundle.refetch} />}
 

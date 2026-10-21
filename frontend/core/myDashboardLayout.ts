@@ -46,6 +46,7 @@
  */
 
 import type { UnderlyingSymbol } from './symbolPersistence';
+import { SYMBOLS } from './symbols.ts';
 
 // ── Local validators ─────────────────────────────────────────────────────────
 // core/symbolPersistence and core/expirationPersistence own the canonical
@@ -56,8 +57,12 @@ import type { UnderlyingSymbol } from './symbolPersistence';
 // surface empty is what makes `node --test` on it possible at all. Both sides
 // are pinned by their own unit tests (tests/symbolPersistence.test.ts,
 // tests/expirationPersistence.test.ts, tests/myDashboardLayout.test.ts).
+//
+// The one exception is the symbol list itself, imported with its extension
+// from core/symbols.ts (which has no imports of its own): a copy here is how a
+// new picker symbol gets dropped from every saved board on reload.
 
-const UNDERLYING_SYMBOLS: readonly string[] = ['SPY', 'SPX', 'QQQ', 'NDX', 'ES', 'NQ'];
+const UNDERLYING_SYMBOLS: readonly string[] = SYMBOLS;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Mirrors ROLLING_ZERO_DTE in core/expirationPersistence — the rolling
 // "whatever expires today" token. Spelled out again here rather than imported,

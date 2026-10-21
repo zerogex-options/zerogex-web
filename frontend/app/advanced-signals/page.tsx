@@ -44,6 +44,7 @@ import {
   formatPrice,
   toTrend,
 } from '@/core/signalHelpers';
+import StockSignalsNotice from '@/components/StockSignalsNotice';
 
 // `short` is the phone label: three full labels need ~450px, so on a phone
 // each wrapped onto two lines under its icon.
@@ -218,6 +219,7 @@ export default function AdvancedSignalsPage() {
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
+      <StockSignalsNotice />
 
       <SignalsGuide current="advanced-signals" />
 

@@ -157,16 +157,19 @@ export default function WallAlertsClient({
   }, []);
 
   // Deep link: /account/alerts?symbol=SPX&side=put opens a prefilled editor once.
+  // Waits for the server's symbol list, so a symbol alerts were turned on for
+  // after FALLBACK_SYMBOLS was written (NVDA) opens as itself, not as SPX.
   const deepLinked = useRef(false);
+  const configSettled = !config.loading;
   useEffect(() => {
-    if (deepLinked.current || !entitled) return;
+    if (deepLinked.current || !entitled || !configSettled) return;
     const sym = (initialSymbol || '').toUpperCase();
     if (!sym) return;
     deepLinked.current = true;
     const side: WallRuleSide = initialSide === 'call' || initialSide === 'put' ? initialSide : 'both';
-    const symbol = FALLBACK_SYMBOLS.includes(sym) ? sym : sym === 'ES' ? 'SPX' : sym === 'NQ' ? 'NDX' : 'SPX';
+    const symbol = symbols.includes(sym) ? sym : sym === 'ES' ? 'SPX' : sym === 'NQ' ? 'NDX' : 'SPX';
     openEditor(null, { ...DEFAULT_RULE_INPUT, symbol, side });
-  }, [entitled, initialSymbol, initialSide, openEditor]);
+  }, [entitled, configSettled, symbols, initialSymbol, initialSide, openEditor]);
 
   const ruleList = useMemo(() => rules.data?.rules ?? [], [rules.data]);
   const atLimit = ruleList.length >= maxRules;

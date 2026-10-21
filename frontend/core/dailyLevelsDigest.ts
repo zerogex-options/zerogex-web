@@ -17,7 +17,7 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from './gexSumma
 import { trackRecordOneLiner, type HistorySummary } from './trackRecord.ts';
 import { netGexAtSpotOrNull } from './gammaRegime.ts';
 import { etParts, type FreshnessBasis } from './levelsEmail.ts';
-import { SYMBOLS } from './symbols.ts';
+import { LEVELS_PAGE_SYMBOLS } from './symbols.ts';
 
 export type SymbolSnapshot = { symbol: string; data: GexSummary | null };
 
@@ -77,13 +77,15 @@ export type DigestModel = {
 
 // Fallback reading order, used when a subscriber expressed no preference.
 // SPX leads because that is what the search demand behind these pages is
-// about. Derived from SYMBOLS rather than rewritten, the same way
-// core/llmsTxt.ts does it, so a seventh ingested ticker appears here without
-// an edit instead of being silently dropped from every digest.
+// about. Derived from LEVELS_PAGE_SYMBOLS rather than rewritten, the same way
+// core/llmsTxt.ts does it, so a ticker that gets a levels page appears here
+// without an edit instead of being silently dropped from every digest. The
+// email links its reader's ticker to that page, so a symbol without one (a
+// stock, today) stays out.
 const PREFERRED_ORDER = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 export const DIGEST_SYMBOL_ORDER: readonly string[] = [
-  ...PREFERRED_ORDER.filter((s) => (SYMBOLS as readonly string[]).includes(s)),
-  ...SYMBOLS.filter((s) => !(PREFERRED_ORDER as readonly string[]).includes(s)),
+  ...PREFERRED_ORDER.filter((s) => (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s)),
+  ...LEVELS_PAGE_SYMBOLS.filter((s) => !(PREFERRED_ORDER as readonly string[]).includes(s)),
 ];
 
 /**

@@ -3,7 +3,7 @@
 import { useId, useState, type CSSProperties, type FormEvent } from 'react';
 import { Check, Mail } from 'lucide-react';
 
-import { SYMBOLS } from '@/core/symbols';
+import { LEVELS_PAGE_SYMBOLS } from '@/core/symbols';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
@@ -74,7 +74,7 @@ export default function LevelsEmailSignup(props: Props) {
   // from /qqq-gamma-levels almost certainly wants QQQ, and a default that is
   // already right is worth more than a default that is merely consistent.
   const [symbol, setSymbol] = useState(() =>
-    (SYMBOLS as readonly string[]).includes(props.symbol.toUpperCase())
+    (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(props.symbol.toUpperCase())
       ? props.symbol.toUpperCase()
       : 'SPX',
   );
@@ -195,7 +195,7 @@ export default function LevelsEmailSignup(props: Props) {
             chosen ticker heads the email's subject, table and paste block;
             the other five still appear underneath. */}
         <div role="radiogroup" aria-label="Preferred symbol" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {SYMBOLS.map((s) => {
+          {LEVELS_PAGE_SYMBOLS.map((s) => {
             const selected = s === symbol;
             return (
               <button

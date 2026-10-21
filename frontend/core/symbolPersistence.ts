@@ -14,7 +14,11 @@
 // moment the symbol changes, not deferred to a passive effect that may still be
 // pending when the page is torn down.
 
-export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ' | 'NDX' | 'ES' | 'NQ';
+import { SYMBOLS, type PickerSymbol } from './symbols.ts';
+
+// The same set as the picker, so a symbol added there validates and persists
+// here too instead of snapping back to SPY on reload.
+export type UnderlyingSymbol = PickerSymbol;
 
 export const SYMBOL_STORAGE_KEY = 'zgx_symbol';
 export const DEFAULT_UNDERLYING_SYMBOL: UnderlyingSymbol = 'SPY';
@@ -22,14 +26,7 @@ export const DEFAULT_UNDERLYING_SYMBOL: UnderlyingSymbol = 'SPY';
 export function isUnderlyingSymbol(
   value: string | null | undefined,
 ): value is UnderlyingSymbol {
-  return (
-    value === 'SPY' ||
-    value === 'SPX' ||
-    value === 'QQQ' ||
-    value === 'NDX' ||
-    value === 'ES' ||
-    value === 'NQ'
-  );
+  return !!value && (SYMBOLS as readonly string[]).includes(value);
 }
 
 // Best-effort write. localStorage can throw (Safari private mode, storage

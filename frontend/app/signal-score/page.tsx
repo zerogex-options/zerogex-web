@@ -17,6 +17,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
 import { useFlowSeries } from '@/hooks/useFlowSeries';
 import { impliedDirection, underlyingTrendPct, type ImpliedDirection } from '@/core/impliedDirection';
+import StockSignalsNotice from '@/components/StockSignalsNotice';
 
 // Recharts is ~200KB minzipped and the intraday chart is the last section
 // on the page. Split it out so the gauge above the fold can paint without
@@ -313,6 +314,7 @@ export default function CompositeScorePage() {
           <LiveIndicator connection={connection} lastUpdatedAt={lastUpdatedAt} />
         </div>
       </div>
+      <StockSignalsNotice />
 
       {connection === 'disconnected' && (
         <div

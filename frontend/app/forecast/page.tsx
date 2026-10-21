@@ -5,7 +5,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
 import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
-import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { MODELED_SYMBOLS, buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 
 // Landing page for /forecast — lists every trading day the writer has
 // committed a daily_forecast row for, links to /forecast/[date]. Mirrors
@@ -147,7 +147,7 @@ export default async function ForecastLanding({
           {/* Six chips are ~350px: on a phone they scroll sideways, edge to
               edge, rather than run off the screen. */}
           <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
-            <SymbolPicker current={symbol} hrefs={pickerHrefs} />
+            <SymbolPicker current={symbol} hrefs={pickerHrefs} symbols={MODELED_SYMBOLS} />
           </div>
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">

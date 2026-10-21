@@ -3,6 +3,8 @@
 // headline/lead the operator can then tweak) are testable in isolation and
 // shared between the live preview and the PNG export.
 
+import { volIndexPricesSymbol } from '../../core/symbols.ts';
+
 export type RegimeKey = 'positive' | 'negative' | 'neutral' | 'unresolved';
 
 // Calendar-free expected-move horizons, expressed as a span length (not a
@@ -387,9 +389,11 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const copy = REGIME_COPY[regime];
   const flipDistance = spot != null && gammaFlip != null ? spot - gammaFlip : null;
 
+  // No range for a single stock: VIX / VXN measure the market, not the name,
+  // and would price NVDA's range at about half what its options imply.
   const expectedRange = buildExpectedRange({
     spot,
-    vix: pickNumber(inputs.vix),
+    vix: volIndexPricesSymbol(symbol) ? pickNumber(inputs.vix) : null,
     volIndex: inputs.volIndex,
     horizon: inputs.horizon,
     callWall,
