@@ -25,7 +25,7 @@ import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesLevelsChip from "./FuturesLevelsChip";
 import SymbolSelect from "./SymbolSelect";
-import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, useSessionLevels, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
+import { useApiData, useFlowCentroids, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, useSessionLevels, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
 import { useReplayFrameRows } from "@/hooks/useReplayFrameRows";
@@ -71,6 +71,7 @@ import { useLinkedRewind, type SharedRewind } from "@/core/linkedRewind";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
+import { centroidPath, centroidRange, centroidsForBars } from "@/core/flowCentroids";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -139,6 +140,7 @@ interface OverlayState {
   ribbons: boolean; // GEX ribbons: per-strike dealer gamma through time, behind the tape
   volume: boolean; // volume pane under the tape; off hands its height to the price pane
   sessionLevels: boolean; // prior-day high/low/close + pre-market high/low lines (the top row always shows the numbers)
+  centroids: boolean; // call / put centroids: where the session's option trading is centered, through time
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -166,6 +168,8 @@ const DEFAULT_OVERLAYS: OverlayState = {
   // chart unasked, and the numbers are always in the row above the tape. The
   // member who asked for these asked for exactly that split.
   sessionLevels: false,
+  // Off like King: four more lines through the tape is a lot to add unasked.
+  centroids: false,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -1319,6 +1323,11 @@ export default function GammaTerminalChart({
     filtered: filteredExp,
   } = useChartExpirations(symbol, live);
   const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", railExpParam, rewindActive, live);
+  // Call / put centroids (core/flowCentroids). Live only, like the ribbons:
+  // the delayed snapshot carries no flow history. Intraday only: a daily
+  // candle spans a whole session the 5-minute rows only cover once.
+  const centroidsOn = live && overlays.centroids && timeframe !== "1day";
+  const { data: centroidRows } = useFlowCentroids(symbol, 30000, centroidsOn);
 
   const dataAll = snapshot ? snapshot.bars : liveRows;
   const loading = snapshot ? false : liveLoading;
@@ -1627,6 +1636,16 @@ export default function GammaTerminalChart({
     }
     return base;
   }, [allBars, viewStart, viewEnd, partialCurrentBar]);
+
+  // The centroid row each visible bar shows (null off-session), and the span
+  // of the lines on screen, which joins the price axis like the gamma levels
+  // do (same 1.2-bar-span reach), so the lines the reader turned on are drawn
+  // rather than clipped.
+  const centroidPoints = useMemo(
+    () => (centroidsOn ? centroidsForBars(bars, centroidRows, intervalMinutes) : null),
+    [centroidsOn, bars, centroidRows, intervalMinutes],
+  );
+  const centroidSpan = useMemo(() => (centroidPoints ? centroidRange(centroidPoints) : null), [centroidPoints]);
 
   // ── Net cumulative volume (the volume pane's second view) ────────────────
   // A running session total of uptick MINUS downtick volume, drawn as an area
@@ -1964,7 +1983,14 @@ export default function GammaTerminalChart({
     const band = barSpan * 1.2;
     // The PD / PM lines join them only once the reader turns them on, so the
     // default chart's scale is exactly what it was.
-    const includable = [flip, callWall, putWall, vwap, ...(sessionLinesOn ? sessionLevels.map((l) => l.value) : [])].filter((v): v is number => v != null);
+    const includable = [
+      flip,
+      callWall,
+      putWall,
+      vwap,
+      ...(sessionLinesOn ? sessionLevels.map((l) => l.value) : []),
+      ...(centroidSpan ? [centroidSpan.min, centroidSpan.max] : []),
+    ].filter((v): v is number => v != null);
     for (const v of includable) {
       if (v >= dMin - band && v <= dMax + band) {
         dMin = Math.min(dMin, v);
@@ -2038,7 +2064,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
+  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, centroidSpan, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // A chart that joins a linked rewind before its bars have loaded (added to
   // the board mid-replay, or given a new timeframe) had no window to freeze on
@@ -2106,6 +2132,14 @@ export default function GammaTerminalChart({
       dMax: layout.dMax,
     });
   }, [layout, live, overlays.ribbons, gexBuckets, bars]);
+
+  // Centroid lines: the recent (last 15 minutes) pair crisp, the session pair
+  // as a wide soft line underneath. Not dashed, so neither reads as a wall.
+  const centroidLines = useMemo(() => {
+    if (!layout || !centroidPoints) return null;
+    const path = (line: "call" | "put" | "callRecent" | "putRecent") => centroidPath(centroidPoints, line, layout.xForIndex, layout.yPrice);
+    return { call: path("call"), put: path("put"), callRecent: path("callRecent"), putRecent: path("putRecent") };
+  }, [layout, centroidPoints]);
 
   // Publish this chart's own auto-fit domain so the link can union it with the
   // other half's (see core/linkedPriceAxis). Reports the RAW auto values, which
@@ -3419,6 +3453,7 @@ export default function GammaTerminalChart({
     const norm = Math.abs(best.net) / ribbonLayer.maxAbs;
     return { ...best, norm, tier: tierFor(norm), drawn: norm >= RIBBON_MIN_NORM };
   })();
+  const hoverCentroid = hover && centroidPoints ? centroidPoints[Math.max(0, Math.min(hover.idx, bars.length - 1))] ?? null : null;
   const nearestLevel = hover
     ? levelDefs
         .filter((l) => l.value != null)
@@ -4009,6 +4044,10 @@ export default function GammaTerminalChart({
           )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
+          {/* Centroids — live intraday only (see centroidsOn). */}
+          {live && timeframe !== "1day" && (
+            <OverlayPill label="Centroids" color="var(--color-bull)" active={overlays.centroids} onClick={() => setOverlays((o) => ({ ...o, centroids: !o.centroids }))} title="Call &amp; put centroids&nbsp;- the average strike of the calls traded (green) and of the puts traded (red), weighted by contracts. Crisp lines = the last 15 minutes; wide soft lines = the session so far. Calls trade mostly above the price and puts below it, so the lines bracket the tape and show where the day's trading is centered. Not a forecast. Live, intraday timeframes only." />
+          )}
           {/* Prior day + pre-market lines — live ETFs only (see sessionLevelsSupported). */}
           {sessionLevelsSupported && (
             <OverlayPill label="PD/PM Levels" color="var(--text-secondary)" active={overlays.sessionLevels} onClick={() => setOverlays((o) => ({ ...o, sessionLevels: !o.sessionLevels }))} title="Prior day and pre-market levels&nbsp;- PDH / PDL / PDC (the previous regular session's high, low and close) and PMH / PML (today's pre-market high and low), drawn as gray dashed lines. The numbers are always in the row above the chart." />
@@ -4086,6 +4125,7 @@ export default function GammaTerminalChart({
     live && overlays.ribbons,
     overlays.regime,
     overlays.vwap,
+    live && timeframe !== "1day" && overlays.centroids,
     sessionLevelsSupported && overlays.sessionLevels,
     overlays.maxPain,
     overlays.king,
@@ -4596,6 +4636,20 @@ export default function GammaTerminalChart({
                     opacity={Math.min(1, RIBBON_TIER_OPACITY[p.tier] * ribbonOpacity)}
                   />
                 ))}
+              </g>
+            )}
+
+            {/* ── Call / put centroids — where the session's option trading
+                is centered. Calls green, puts red: a call-vs-put QUANTITY,
+                so the instrument convention (see the walls note above). Wide
+                and soft = the session so far; crisp = the last 15 minutes.
+                Under the tape so the candles stay readable. */}
+            {centroidLines && (
+              <g clipPath={`url(#${PLOT_CLIP_ID})`} pointerEvents="none" aria-hidden fill="none" strokeLinejoin="round" strokeLinecap="round">
+                <path d={centroidLines.call} stroke="var(--color-bull)" strokeWidth={3} opacity={0.4} />
+                <path d={centroidLines.put} stroke="var(--color-bear)" strokeWidth={3} opacity={0.4} />
+                <path d={centroidLines.callRecent} stroke="var(--color-bull)" strokeWidth={1.4} opacity={0.9} />
+                <path d={centroidLines.putRecent} stroke="var(--color-bear)" strokeWidth={1.4} opacity={0.9} />
               </g>
             )}
 
@@ -5139,6 +5193,24 @@ export default function GammaTerminalChart({
                   </span>
                 </div>
               )}
+              {hoverCentroid && (
+                <>
+                  <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>CENTROIDS · 15 MIN / DAY</div>
+                  <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Calls</span>
+                    <span style={{ fontWeight: 600, color: "var(--color-bull)" }}>
+                      {hoverCentroid.callRecent != null ? fmtPrice(hoverCentroid.callRecent) : "—"} / {hoverCentroid.call != null ? fmtPrice(hoverCentroid.call) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Puts</span>
+                    <span style={{ fontWeight: 600, color: "var(--color-bear)" }}>
+                      {hoverCentroid.putRecent != null ? fmtPrice(hoverCentroid.putRecent) : "—"} / {hoverCentroid.put != null ? fmtPrice(hoverCentroid.put) : "—"}
+                    </span>
+                  </div>
+                </>
+              )}
               {hoverRibbon && (
                 <>
                   <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
@@ -5336,6 +5408,8 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-maxpain)" label="Max Pain" />
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
+        {centroidsOn && <LegendDot color="var(--color-bull)" label="Call Centroid" />}
+        {centroidsOn && <LegendDot color="var(--color-bear)" label="Put Centroid" />}
         {sessionLinesOn && <LegendDot color="var(--text-secondary)" label="PD / PM" />}
         <LegendDot color="var(--color-accent-hot)" label="Last" />
         {live && overlays.ribbons && <RibbonKey />}
