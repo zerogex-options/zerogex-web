@@ -44,7 +44,7 @@ import HeadlinesWire from '@/components/HeadlinesWire';
 import MetricCard from '@/components/MetricCard';
 import OrbPositionBar from '@/components/OrbPositionBar';
 import OrbBreakoutMap from '@/components/OrbBreakoutMap';
-import { fmtPriceChange, orbStatusKind, technicalsLabel, type OrbStatusKind } from '@/core/technicalsCharts';
+import { divergenceSide, fmtPriceChange, orbStatusKind, technicalsLabel, type OrbStatusKind } from '@/core/technicalsCharts';
 import { useTechnicals } from '@/hooks/useTechnicals';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -977,6 +977,9 @@ export function MomentumDivergencePanel() {
         <div className="flex flex-col gap-1.5">
           {events.map((e) => {
             const up = (e.chg5m ?? 0) > 0;
+            // A divergence's words take the side they name, as on /intraday-tools.
+            const side = divergenceSide(e.signal);
+            const labelColor = side === 'bullish' ? 'var(--color-bull)' : side === 'bearish' ? 'var(--color-bear)' : 'var(--text-primary)';
             return (
               <div
                 key={e.timestamp}
@@ -989,7 +992,7 @@ export function MomentumDivergencePanel() {
                 >
                   {formatEtTime(e.timestamp)}
                 </span>
-                <span className="zg-small min-w-0 flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
+                <span className="zg-small min-w-0 flex-1 truncate" style={{ color: labelColor }}>
                   {technicalsLabel(e.signal)}
                 </span>
                 <span

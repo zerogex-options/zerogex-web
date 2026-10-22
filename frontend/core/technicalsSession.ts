@@ -10,7 +10,7 @@
  */
 
 import type { TechnicalsBar } from '../hooks/useTechnicals';
-import { technicalsLabel } from './technicalsCharts.ts';
+import { divergenceSide, technicalsLabel } from './technicalsCharts.ts';
 
 /**
  * "Near" the high or low is the outer fifth of the range. Mirrors the
@@ -253,7 +253,7 @@ export function buildSessionEvents(
           price,
           chg5m: chg,
           tone: isDivergence ? 'warning' : 'neutral',
-          side: !isDivergence ? null : lower.startsWith('bullish') ? 'bullish' : lower.startsWith('bearish') ? 'bearish' : null,
+          side: divergenceSide(signal),
           marker: null,
           markerSide: isDivergence ? (up ? 'above' : 'below') : null,
         });

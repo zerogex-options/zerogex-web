@@ -9,6 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  divergenceSide,
   divergenceTone,
   fmtPriceChange,
   orbChartDomain,
@@ -155,6 +156,14 @@ test('divergence tone: divergences warn, confirmations take their side', () => {
   assert.equal(divergenceTone('🔴 Bearish Confirmation'), 'bearish');
   assert.equal(divergenceTone('⚠️ Weak Selloff (Buying Volume)'), 'neutral');
   assert.equal(divergenceTone(null), 'neutral');
+});
+
+test('divergence side: only divergences carry one', () => {
+  assert.equal(divergenceSide('🚨 Bullish Divergence (Price Down, Calls Buying)'), 'bullish');
+  assert.equal(divergenceSide('🚨 Bearish Divergence (Price Up, Puts Buying)'), 'bearish');
+  assert.equal(divergenceSide('🟢 Bullish Confirmation'), null);
+  assert.equal(divergenceSide('⚠️ Weak Selloff (Buying Volume)'), null);
+  assert.equal(divergenceSide(null), null);
 });
 
 test('VWAP position reads by side, extended or not', () => {

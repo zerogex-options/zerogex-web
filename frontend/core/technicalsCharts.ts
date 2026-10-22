@@ -249,6 +249,18 @@ export function divergenceTone(raw: string | null | undefined): DivergenceTone {
   return 'neutral';
 }
 
+/**
+ * The side a divergence's label names ("Bullish Divergence (Price Down, …)" →
+ * bullish), so its words can carry it in color: the two labels differ by one
+ * word. Null for confirmations, weak moves and everything else.
+ */
+export function divergenceSide(raw: string | null | undefined): 'bullish' | 'bearish' | null {
+  const s = technicalsLabel(raw).toLowerCase();
+  if (s.startsWith('bullish divergence')) return 'bullish';
+  if (s.startsWith('bearish divergence')) return 'bearish';
+  return null;
+}
+
 /** VWAP position: above reads bullish, below bearish. */
 export function vwapPositionTrend(raw: string | null | undefined): 'bullish' | 'bearish' | 'neutral' {
   const s = (raw ?? '').toLowerCase();
