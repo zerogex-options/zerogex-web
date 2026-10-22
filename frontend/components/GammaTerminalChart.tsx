@@ -89,6 +89,7 @@ import {
   shareOfPeak,
   type PanelStrikeRow,
 } from "@/core/strikePanelHover";
+import { strikeAxisLabels } from "@/core/strikeAxis";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 import { isFuturesSymbol, volIndexPricesSymbol, volatilityIndexFor } from '@/core/symbols';
 import { chartSessionLevels } from "@/core/sessionLevels";
@@ -489,6 +490,13 @@ const RAIL_BAR_OPACITY = 0.85;
 // Below this per-strike vertical slot (px) the on-bar $ labels are suppressed;
 // zoom the price axis to spread the strikes apart and they reappear.
 const RAIL_LABEL_MIN_SLOT = 12;
+// The strike panel's strike axis: label type size, the least distance between
+// two labels (the axis steps to every 2nd / 5th / 10th... strike below it), and
+// the strike spacing below which the unlabeled strikes lose their minor ticks.
+// All in chart y-units, which the panel's viewBox shares.
+const STRIKE_AXIS_FONT = 8.5;
+const STRIKE_AXIS_MIN_GAP = 16;
+const STRIKE_AXIS_MINOR_MIN_SLOT = 4;
 // Expirations the strike panel's hover card names before folding the rest into
 // one "+N later" row. The card has to fit in half the panel, which is what
 // lets it always sit clear of the strike it describes.
@@ -1018,10 +1026,6 @@ export default function GammaTerminalChart({
     // No band to match: fit the tape's price band to the element instead.
     return { y: PAD_TOP, h: PANEL_VB_H, w: Math.max(60, PANEL_VB_H * (panelBox.width / panelBox.height)) };
   })();
-  const railLeft = inPanel ? 0 : RAIL_LEFT;
-  const railRight = inPanel ? panelVb.w : RAIL_RIGHT;
-  const railCenter = (railLeft + railRight) / 2;
-  const railHalf = (railRight - railLeft) / 2 - 10;
   // Where the inline rail's drag handle (onRailWidthChange) is centered. The
   // desktop board's rail ground starts 6 units left of the rail; the compact
   // canvas's price labels and tags run right up to that, so there the handle
@@ -2214,6 +2218,16 @@ export default function GammaTerminalChart({
     if (!inPanel) return { min: layout.dMin, max: layout.dMax };
     return { max: layout.priceForY(panelVb.y), min: layout.priceForY(panelVb.y + panelVb.h) };
   }, [layout, inPanel, panelVb.y, panelVb.h]);
+
+  // Panelled, a slim strike axis runs down the panel's left edge (see
+  // strikeAxis below) and the rail starts past it. Its width is sized for the
+  // widest strike on the panel, so it holds still as the reader zooms and only
+  // changes when the symbol's price runs to another digit.
+  const strikeAxisW = inPanel && railDomain ? strikeAxisWidth(railDomain.max) : 0;
+  const railLeft = inPanel ? strikeAxisW : RAIL_LEFT;
+  const railRight = inPanel ? panelVb.w : RAIL_RIGHT;
+  const railCenter = (railLeft + railRight) / 2;
+  const railHalf = (railRight - railLeft) / 2 - 10;
 
   // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
   const rail = useMemo(() => {
@@ -3585,6 +3599,21 @@ export default function GammaTerminalChart({
   ) : null;
 
   const railGradSuffix = inPanel ? "-panel" : "";
+  // ── Strike axis (panel only) ── a small label per strike down the panel's
+  // left edge, stepping to every 2nd / 5th / 10th... strike when zoomed out
+  // too far for them all to fit (core/strikeAxis). The strike being read is
+  // always labeled, emphasized, level with the guide line.
+  const strikeAxis =
+    inPanel && strikeAxisW > 0
+      ? strikeAxisLabels({
+          strikes: panelRows.map((r) => r.price),
+          yFor: yPrice,
+          minGap: STRIKE_AXIS_MIN_GAP,
+          yMin: panelVb.y + STRIKE_AXIS_FONT / 2,
+          yMax: panelVb.y + panelVb.h - STRIKE_AXIS_FONT / 2,
+          focus: panelFocus?.strike?.price ?? null,
+        })
+      : null;
   const railGroup =
     railOn && (effectiveRailMode === "silhouette" ? rail : railBars) ? (
       <g>
@@ -3708,6 +3737,34 @@ export default function GammaTerminalChart({
               </g>
             );
           })}
+
+        {strikeAxis && (
+          <g pointerEvents="none">
+            <line x1={strikeAxisW} x2={strikeAxisW} y1={panelVb.y} y2={panelVb.y + panelVb.h} stroke="var(--border-subtle)" strokeWidth={1} />
+            {strikeAxis.slot >= STRIKE_AXIS_MINOR_MIN_SLOT &&
+              strikeAxis.strikes.map((s) => (
+                <line key={`sax-minor-${s.price}`} x1={strikeAxisW - 2} x2={strikeAxisW} y1={s.y} y2={s.y} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
+              ))}
+            {strikeAxis.labels.map((l) => (
+              <g key={`sax-${l.price}`}>
+                <line x1={strikeAxisW - 4} x2={strikeAxisW} y1={l.y} y2={l.y} stroke={l.focus ? "var(--text-secondary)" : "var(--border-strong)"} strokeWidth={1} />
+                <text
+                  x={strikeAxisW - 6}
+                  y={l.y}
+                  dy="0.35em"
+                  textAnchor="end"
+                  fontFamily="var(--font-mono)"
+                  fontSize={STRIKE_AXIS_FONT}
+                  fontWeight={l.focus ? 600 : 400}
+                  fill={l.focus ? "var(--text-primary)" : "var(--text-muted)"}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {l.text}
+                </text>
+              </g>
+            ))}
+          </g>
+        )}
 
         {/* Flip zero-crossing tie-line. Inline it reaches back past the rail's
             ground toward the plot; in a panel there is nothing to reach to, so
@@ -5464,7 +5521,7 @@ export default function GammaTerminalChart({
             <svg
               width="100%"
               height="100%"
-              viewBox={`${railLeft} ${panelVb.y} ${railRight - railLeft} ${panelVb.h}`}
+              viewBox={`0 ${panelVb.y} ${panelVb.w} ${panelVb.h}`}
               preserveAspectRatio="none"
               style={{ display: "block", overflow: "visible", cursor: "crosshair" }}
               role="img"
@@ -5613,6 +5670,14 @@ function sessionLabel(session: string | null | undefined): { label: string; colo
   if (s === "ah" || s === "afterhours" || s === "post") return { label: "AFTER-HRS", color: "var(--color-warning)" };
   if (s === "closed") return { label: "CLOSED", color: "var(--text-muted)" };
   return { label: session.toUpperCase(), color: "var(--text-secondary)" };
+}
+
+// The strike axis's width, in chart y-units: the widest strike's whole digits
+// at the axis type size (mono, 0.6em a character), one more character so a
+// half strike (687.5) still fits, and the padding either side of the labels.
+function strikeAxisWidth(maxPrice: number): number {
+  const digits = Number.isFinite(maxPrice) ? String(Math.floor(Math.abs(maxPrice))).length : 4;
+  return Math.ceil((digits + 1) * STRIKE_AXIS_FONT * 0.6) + 10;
 }
 
 // On-bar $ gamma label for the per-strike rail bars. A halo (stroke painted
