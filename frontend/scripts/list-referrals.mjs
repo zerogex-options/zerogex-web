@@ -149,3 +149,5 @@ console.log('');
 console.log('Status legend: pending = referee signed up but not yet paid; canceled = referee\'s');
 console.log('trial/subscription ended before converting, so no reward was earned; rewarded =');
 console.log('referee subscribed and the referrer\'s free month was credited or banked.');
+console.log('Creator partners earn cash, not free months, so their signups stay pending here:');
+console.log('`make partners SIGNUPS=1` shows where each of them stands and what they have paid.');

@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed send-founder-notes payment-failure-roundup sync-search-console search-console-report webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent cancel-reason-followup reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep enforce-payment-grace
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-revenue foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment unwind-orphan-recovery reinstate-paid-period backfill-recovery-pointers scan-orphan-payments orphan-payment-alerts clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions decline-by-source decline-timing decline-diagnostics normalize-utm-sources open-invoice-recovery resend-payment-failed send-founder-notes payment-failure-roundup sync-search-console search-console-report webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders daily-levels levels-subscribers winback return-intent cancel-reason-followup reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown scan-late-discount-reconcile scan-trial-activation backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest forecast-range-width diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner move-partner-promo partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package trace-payment-claim void-stale-invoices duplicate-accounts renewal-reminders plan-offers money-back-refund setup-pricing setup-billing-portal money-back-sweep enforce-payment-grace
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -84,9 +84,10 @@ help:
 	@echo "  make founding-final-call - Send the one-shot founding final-call urgency email to founding-eligible non-redeemers before the lock-in deadline (quotes live founding rates from Stripe; no-op once the deadline passes). DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] [X_HANDLE=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code, optionally sets the X handle (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make move-partner-promo PROMO_CODE=<code> [COUPON_ID=...] - Move a Creator Partner's typed code (e.g. PCB25) onto the current audience coupon, keeping the code: switches off the old Stripe promotion code, creates the same code on the new coupon with the partner metadata. Use after STRIPE_COUPON_PARTNER_AUDIENCE changes. Leaves the Pro grant and commission terms alone. EMAIL= instead of PROMO_CODE= also works (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make partner-grant-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for partners whose Pro grant already expired but whose keys were never deprovisioned, and retry any revocation that failed mid-sweep. Skips partners who have since started paying for Pro"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
-	@echo "  make partners [EMAIL=<partner>] - Roster of every Creator Partner: X handle, referral + promo codes, commission rate/window, Pro-grant expiry, activation date, disclosure URL. The 'who are my partners' view."
+	@echo "  make partners [EMAIL=<partner>] [SIGNUPS=1] - Roster of every Creator Partner: X handle, referral + promo codes, signups and how many pay, commission rate/window, Pro-grant expiry, activation date, disclosure URL. SIGNUPS=1 (or EMAIL=) lists each partner's signups: who, when, where they stand now, what they've paid and the commission on it. The 'who are my partners' view."
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make cancellations - List customers who canceled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
@@ -1448,6 +1449,24 @@ revoke-partner:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make revoke-partner EMAIL=foo@example.com YES=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/revoke-partner.mts --email $(EMAIL) $(if $(KEEP_STRIPE_PROMO),--keep-stripe-promo,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
+# Move a Creator Partner's typed audience code (e.g. PCB25) onto the current
+# audience coupon, keeping the code. A Stripe promotion code is tied to the
+# coupon it was made on for good, so after STRIPE_COUPON_PARTNER_AUDIENCE moves
+# to a new coupon, partners' ?ref= links get the new deal but their typed codes
+# still apply the old one. This switches off the old Stripe code, creates the
+# same code on the new coupon (with the metadata.partner_user_id the webhook
+# needs to credit the partner), and audits it; if the create fails, the old
+# code is switched back on. Leaves the Pro grant, commission terms and ledger
+# alone, unlike re-running grant-partner-pro. Pick the partner by PROMO_CODE=
+# or EMAIL=. COUPON_ID= targets a different coupon and points the partner's
+# link at it too. The dry run reads Stripe to show what's there.
+# Usage:
+#   make move-partner-promo PROMO_CODE=PCB25 DRY_RUN=1
+#   make move-partner-promo PROMO_CODE=PCB25 YES=1
+move-partner-promo:
+	@if [ -z "$(PROMO_CODE)$(EMAIL)" ]; then echo "Error: PROMO_CODE or EMAIL is required (e.g. make move-partner-promo PROMO_CODE=PCB25 DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/move-partner-promo.mts $(if $(PROMO_CODE),--promo-code $(PROMO_CODE),) $(if $(EMAIL),--email $(EMAIL),) $(if $(COUPON_ID),--coupon-id $(COUPON_ID),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
 # Sweep expired Creator Partner Pro grants and downgrade tier=pro -> public
 # for partners whose 90-day grant lapsed AND who don't have an active paying
 # Stripe sub. partner_tier='creator' is left alone so the commission ledger
@@ -1478,9 +1497,16 @@ partner-grant-revoke-backfill:
 # referral + audience promo codes, commission rate/window, Pro-grant expiry,
 # activation date, and FTC disclosure URL. Read-only. This is the "who are my
 # partners" view; partner-commissions below is the "what do I owe them" view.
-# Filter to one partner with EMAIL=.
+# Filter to one partner with EMAIL= (which also lists their signups), or pass
+# SIGNUPS=1 to list every partner's signups: each member tied to them, whether
+# by link or by typing the code at checkout, with where they stand now (the
+# admin Total Subscribers chart's rule) and what they've paid.
+# Usage:
+#   make partners
+#   make partners SIGNUPS=1
+#   make partners EMAIL=creator@example.com
 partners:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-partners.mjs $(if $(EMAIL),--email $(EMAIL),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/list-partners.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(SIGNUPS),--signups,)'
 
 # Print the Creator Partner commission ledger. Read-only. Use at month-end
 # to see what you owe each partner; drill into one partner with EMAIL=,

@@ -294,7 +294,9 @@ already earned.
 | `make partner-commissions` | Month-end payout review — per-partner totals |
 | `make partner-commissions EMAIL=... FULL=1` | Full row-by-row ledger for one partner |
 | `make revoke-partner EMAIL=... YES=1` | Wind down a partner cleanly |
-| `make referrals` | See the full referral ledger (partner + standard) |
+| `make partners SIGNUPS=1` | Every partner's signups: who, when, paying or not, what they've paid |
+| `make move-partner-promo PROMO_CODE=... YES=1` | After the audience coupon changes: move a partner's typed code to the new coupon (keeps the code) |
+| `make referrals` | See the full referral ledger (partner + standard). Its status column is for the free-month program, so creators' signups always read `pending` there |
 | `sudo sqlite3 /var/lib/zerogex/auth.db "SELECT ... WHERE email='...';"` | Ad-hoc DB inspection |
 
 ---

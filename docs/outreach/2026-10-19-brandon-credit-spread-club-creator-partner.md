@@ -55,7 +55,8 @@ make grant-partner-pro EMAIL=bbowling1212@icloud.com PROMO_CODE=CREDITSPREADCLUB
     codes (the script makes them). Set `STRIPE_COUPON_PARTNER_AUDIENCE` to
     its ID in `frontend/.env.local`, `make restart`, rerun the dry run. The
     switch also gives existing partners' links the new deal; their typed
-    codes stay on `21OUViRs` until re-run with a new `PROMO_CODE`.
+    codes stay on `21OUViRs` until moved with `make move-partner-promo
+    PROMO_CODE=<code>` (keeps the code).
   - **Done, Oct 19:** new coupon `Yg3BPJPx` ("Creator Partner Audience, first
     year", 25% off for 12 months). `STRIPE_COUPON_PARTNER_AUDIENCE=Yg3BPJPx`
     in `frontend/.env.local`, `make restart` run, and the dry run confirmed

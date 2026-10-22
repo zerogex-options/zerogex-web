@@ -158,6 +158,8 @@
     "test:implied-direction": "node --experimental-strip-types --test tests/impliedDirection.test.ts",
     "test:forced-flow-read": "node --experimental-strip-types --test tests/forcedFlowSessionRead.test.ts",
     "test:referee-bonus": "node --experimental-strip-types --test tests/refereeBonus.test.ts",
+    "test:partner-promo-move": "node --experimental-strip-types --test tests/partnerPromoMove.test.ts",
+    "test:partner-signups": "node --experimental-strip-types --test tests/partnerSignups.test.ts",
     "test:founding-restore": "node --experimental-strip-types --test tests/foundingRestore.test.ts",
     "test:orphan-payment": "node --experimental-strip-types --test tests/orphanPayment.test.ts",
     "test:stripe-invoice": "node --experimental-strip-types --test tests/stripeInvoice.test.ts",
