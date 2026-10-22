@@ -80,21 +80,29 @@ export function shareOfPeak(rows: readonly { netGex: number }[], netGex: number)
 export interface CardLevel {
   label: string;
   value: number | null;
+  /**
+   * False while the level's line is switched off. The readouts name only lines
+   * that are drawn: with the GEX King pill off, "GEX KING 1.25 away" pointed at
+   * a line nobody could find.
+   */
+  show?: boolean;
 }
 
+const drawnLevels = <T extends CardLevel>(levels: readonly T[]) =>
+  levels.filter(
+    (l): l is T & { value: number } => l.show !== false && l.value != null && Number.isFinite(l.value),
+  );
+
 /**
- * The key levels the card names for a strike: every level sitting on it (a
- * Call Wall and the GEX King often share one), each with `dist` 0. When none
- * does, the nearest level and its distance, which is what the candlestick
- * readout's level row shows for a price. Empty when there are no levels.
+ * The key levels the card names for a strike: every drawn level sitting on it
+ * (a Call Wall and the GEX King often share one), each with `dist` 0. When none
+ * does, the nearest drawn level and its distance. Empty when no level is drawn.
  */
 export function levelsForStrike<T extends CardLevel>(
   levels: readonly T[],
   strike: number,
 ): Array<T & { value: number; dist: number }> {
-  const known = levels
-    .filter((l): l is T & { value: number } => l.value != null && Number.isFinite(l.value))
-    .map((l) => ({ ...l, dist: Math.abs(l.value - strike) }));
+  const known = drawnLevels(levels).map((l) => ({ ...l, dist: Math.abs(l.value - strike) }));
   // Walls, Max Pain, the King and the Pin are strikes, so "on it" is equality;
   // the tolerance only absorbs a served "580.0000001".
   const tol = 1e-6 * Math.max(1, Math.abs(strike));
@@ -102,6 +110,22 @@ export function levelsForStrike<T extends CardLevel>(
   if (on.length > 0) return on;
   const nearest = known.sort((a, b) => a.dist - b.dist)[0];
   return nearest ? [nearest] : [];
+}
+
+/**
+ * The level the candlestick readout names for a price: the nearest drawn level
+ * and its distance, or null when no level is drawn.
+ */
+export function nearestDrawnLevel<T extends CardLevel>(
+  levels: readonly T[],
+  price: number,
+): (T & { value: number; dist: number }) | null {
+  let best: (T & { value: number; dist: number }) | null = null;
+  for (const l of drawnLevels(levels)) {
+    const dist = Math.abs(l.value - price);
+    if (!best || dist < best.dist) best = { ...l, dist };
+  }
+  return best;
 }
 
 /** One expiration's slice of a strike's call and put gamma. */

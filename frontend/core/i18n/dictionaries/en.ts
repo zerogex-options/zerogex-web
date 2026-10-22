@@ -80,6 +80,7 @@ export const en = {
   'nav.help': 'Help',
   'nav.quickStarts': 'Quick Starts',
   'nav.platformGuide': 'Platform Guide',
+  'nav.gammaTerminalGuide': 'Gamma Terminal Guide',
   'nav.monitoring': 'Monitoring',
   'nav.pageAnalytics': 'Page Analytics',
   'nav.about': 'About',

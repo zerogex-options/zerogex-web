@@ -86,6 +86,8 @@ There are four views, picked at the top of the panel:
 - **Split** - calls and puts apart: a green call bar to the right and a red put bar to the left.
 - **Combined** - the Split bars plus a violet net bar.
 
+A slim axis down the panel's left edge labels the strikes. When they're too close together to label each one, it labels every 2nd, 5th or 10th strike instead, and the strike under your pointer is always labeled.
+
 In Split and Combined, each bar is shaded by expiration: boldest at the center line for the nearest expiration and faintest at the tip for the farthest. **Labels** prints dollar figures on the bars. They hide when strikes are packed too closely, so zoom the price axis in to bring them back. A dashed azure line marks the flip.
 
 Hover a strike, or tap it on a phone, for its card: call, put and net gamma, open interest and the put/call ratio, its weight against the heaviest strike in view, its distance from price, and any level on it. "Long Γ · magnet / brake" and "Short Γ · accelerant" describe what dealer hedging at that strike is modeled to do: lean against moves, or add to them.
@@ -94,7 +96,7 @@ The free preview shows the Silhouette view only.
 
 ## The chart header
 
-- **Session badge** - **● LIVE** in the regular session, **CLOSED**, a pre-market or after-hours badge outside regular hours, **◀ REWIND** while replaying, and **◷ DELAYED ~15 MIN** on the free preview. **◆ FUTURES** appears on a cash index outside regular hours, when the headline price is the futures contract's; the candles stay on the index.
+- **Session badge** - **● LIVE** in the regular session, **○ PRE-MARKET** and **○ AFTER HOURS** in extended hours, **CLOSED** when the market is shut, **◀ REWIND** while replaying, and **◷ DELAYED ~15 MIN** on the free preview. **◆ FUTURES** appears on a cash index outside regular hours, when the headline price is the futures contract's; the candles stay on the index.
 - **Price and change** - the change is from the previous regular-session close. Outside regular hours the headline holds the 4:00 PM close, and SPY, QQQ and NVDA add a second line with the extended-hours price.
 - **Updated** - when the last price tick arrived.
 - **Dealer Gamma @ Spot** - **LONG Γ** or **SHORT Γ**, and the net dealer gamma at the current price in dollars, such as +$1.23B. This box is the regime read for the whole page. With an Expiry filter set, it shows the selected expirations' own figure and names them.
@@ -291,7 +293,7 @@ Hover the chart, or tap or press and hold on a phone, for a crosshair and a card
 
 - The bar's time, open, high, low, close and volume, plus **Net** in Cumulative volume mode.
 - **Strike Γ near** the crosshair price: the net dealer gamma at the strikes nearby. This tells you how much hedging sits there. It is **not** the regime at that price, because a long-gamma strike can sit inside a short-gamma book. Read the regime from the shading and the Dealer Gamma @ Spot box.
-- The nearest key level, and how far away it is.
+- The nearest level drawn on the chart, and how far away it is. Levels you've switched off aren't named.
 - With Centroids on: the call and put centroids, the 15-minute value first and then the session value.
 - With Ribbons on: the lane nearest the crosshair, its net gamma, and its share of the heaviest strike on screen.
 

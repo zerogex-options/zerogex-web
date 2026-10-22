@@ -71,6 +71,7 @@ export const it: Dictionary = {
   'nav.help': 'Aiuto',
   'nav.quickStarts': 'Guide rapide',
   'nav.platformGuide': 'Guida alla piattaforma',
+  'nav.gammaTerminalGuide': 'Guida al Gamma Terminal',
   'nav.monitoring': 'Monitoraggio',
   'nav.pageAnalytics': 'Analisi pagine',
   'nav.about': 'Chi siamo',
