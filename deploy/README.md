@@ -752,7 +752,7 @@ Options (all optional):
 - `AUTH_BACKUP_DIR` — where archives are written (default `~/zerogex-auth-backups`).
 - `AUTH_BACKUP_RETENTION_DAYS` — prune local archives older than N days (default 30).
 - `AUTH_BACKUP_KEEP` — keep-newest floor: the prune ALWAYS keeps the newest K archives regardless of age (default 48 = 2 days of hourly backups), so a stalled backup can never leave you with zero copies. `AUTH_BACKUP_KEEP=0` restores raw mtime-only behavior. The prune is a shared target (`make auth-backups-prune`) that both `backup-auth` (hourly) and the nightly janitor run — see "Nightly Janitor" below.
-- `S3_BUCKET` — if set, also `aws s3 cp` the archive there.
+- `S3_BUCKET` — if set, also `aws s3 cp` the archive there. A missing `aws` CLI or a failed upload fails the run (the local archive is still kept), so the unit's failure email fires rather than the off-box copy silently stopping.
 - `BACKUP_GPG_RECIPIENT` — encrypt the archive with GPG before it leaves the box. **Strongly recommended:** the archive contains password hashes and PII. If this is unset, the destination S3 bucket MUST be private with server-side encryption (see `zerogex-oa/deploy/BACKUP_RESILIENCE.md`).
 
 Because the DB is small and holds account data that changes all day

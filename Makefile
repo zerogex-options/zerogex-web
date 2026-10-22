@@ -1628,9 +1628,13 @@ backup-monitoring:
 # produce a corrupt copy. The snapshot is integrity-checked, gzip'd, and
 # written to a dir OUTSIDE the repo. Set S3_BUCKET to also upload, and
 # BACKUP_GPG_RECIPIENT to encrypt at rest -- STRONGLY recommended: this
-# archive contains password hashes and PII. Prunes local archives older
-# than AUTH_BACKUP_RETENTION_DAYS (default 30). AUTH_DB_PATH defaults to
-# the value in frontend/.env.local, then frontend/data/auth.db.
+# archive contains password hashes and PII. Once either is set, a failed
+# upload or encryption exits non-zero (the local archive is still kept), so
+# the unit's OnFailure alert fires instead of the off-box copy quietly
+# stopping; nothing unencrypted is uploaded when GPG was asked for.
+# Prunes local archives older than AUTH_BACKUP_RETENTION_DAYS (default 30).
+# AUTH_DB_PATH defaults to the value in frontend/.env.local, then
+# frontend/data/auth.db.
 AUTH_DB_PATH ?=
 AUTH_BACKUP_DIR ?= $(HOME)/zerogex-auth-backups
 AUTH_BACKUP_RETENTION_DAYS ?= 30
@@ -1698,20 +1702,25 @@ backup-auth:
 	fi; \
 	gzip -f "$$snap"; \
 	if [ -n "$(BACKUP_GPG_RECIPIENT)" ]; then \
-		if command -v gpg >/dev/null 2>&1; then \
-			gpg --yes --batch --encrypt --recipient "$(BACKUP_GPG_RECIPIENT)" "$$archive" && rm -f "$$archive" && archive="$$archive.gpg"; \
+		if command -v gpg >/dev/null 2>&1 && gpg --yes --batch --encrypt --recipient "$(BACKUP_GPG_RECIPIENT)" "$$archive"; then \
+			rm -f "$$archive"; archive="$$archive.gpg"; \
 		else \
-			echo "WARNING: BACKUP_GPG_RECIPIENT set but gpg not found; storing UNENCRYPTED."; \
+			echo "ERROR: BACKUP_GPG_RECIPIENT is set but gpg is missing or failed; kept $$archive locally, uploaded nothing."; \
+			exit 1; \
 		fi; \
 	fi; \
 	echo "Created $$archive"; \
 	if [ -n "$(S3_BUCKET)" ]; then \
-		if command -v aws >/dev/null 2>&1; then \
-			echo "Uploading to $(S3_BUCKET)/ ..."; \
-			aws s3 cp "$$archive" "$(S3_BUCKET)/"; \
-		else \
-			echo "WARNING: S3_BUCKET set but aws CLI not found; skipped upload."; \
+		if ! command -v aws >/dev/null 2>&1; then \
+			echo "ERROR: S3_BUCKET is set but the aws CLI is not on PATH ($$PATH); this backup is local-only."; \
+			exit 1; \
 		fi; \
+		echo "Uploading to $(S3_BUCKET)/ ..."; \
+		if ! aws s3 cp --only-show-errors "$$archive" "$(S3_BUCKET)/"; then \
+			echo "ERROR: upload to $(S3_BUCKET)/ failed; this backup is local-only."; \
+			exit 1; \
+		fi; \
+		echo "Uploaded $$(basename "$$archive") to $(S3_BUCKET)/"; \
 	fi; \
 	echo "Backup complete. Local dir: $(AUTH_BACKUP_DIR)."
 	@# floored prune (the SAME target the nightly janitor runs — one pruner, not
