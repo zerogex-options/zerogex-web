@@ -138,6 +138,8 @@ test('the event list: newest first, markers numbered oldest first, no confirmati
   assert.equal(divergence.detail, 'price down, calls buying');
   assert.equal(divergence.tone, 'warning');
   assert.equal(divergence.markerSide, 'below');
+  assert.equal(divergence.side, 'bullish', 'a divergence carries the side its label names');
+  assert.equal(events.find((e) => e.title === 'Bearish divergence')!.side, 'bearish');
 
   const spike = events.find((e) => e.title === 'Volume spike')!;
   assert.equal(spike.detail, '3.1σ · 72% buying');
@@ -147,6 +149,8 @@ test('the event list: newest first, markers numbered oldest first, no confirmati
   const weak = events.find((e) => e.title === 'Weak rally')!;
   assert.equal(weak.detail, 'selling volume');
   assert.equal(weak.marker, null);
+  assert.equal(weak.side, null, 'only divergences carry a side');
+  assert.equal(spike.side, null);
 
   // Markers in time order: breakdown (10:15), divergence (10:25),
   // back inside (10:45), divergence (11:40).

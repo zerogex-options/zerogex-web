@@ -188,6 +188,12 @@ export interface SessionEvent {
   /** Close minus the previous bar's close, in price units (not a percent). */
   chg5m: number | null;
   tone: SessionEventTone;
+  /**
+   * The side a divergence's label names ("Bullish divergence" → bullish), so
+   * the title can carry it in color: the two titles differ by one word and
+   * share the warning dot. Null for every other event.
+   */
+  side: 'bullish' | 'bearish' | null;
   /** Chart marker number, 1 = earliest; null for rows without a marker. */
   marker: number | null;
   /** Which side of the candle the marker sits on. */
@@ -247,6 +253,7 @@ export function buildSessionEvents(
           price,
           chg5m: chg,
           tone: isDivergence ? 'warning' : 'neutral',
+          side: !isDivergence ? null : lower.startsWith('bullish') ? 'bullish' : lower.startsWith('bearish') ? 'bearish' : null,
           marker: null,
           markerSide: isDivergence ? (up ? 'above' : 'below') : null,
         });
@@ -269,6 +276,7 @@ export function buildSessionEvents(
         price,
         chg5m: chg,
         tone: buying == null ? 'neutral' : buying >= 50 ? 'bullish' : 'bearish',
+        side: null,
         marker: null,
         markerSide: null,
       });
@@ -276,7 +284,7 @@ export function buildSessionEvents(
   }
 
   for (const e of orbLog) {
-    const base = { ms: e.ms, price: e.price, chg5m: chgByMs.get(e.ms) ?? null, tone: 'range' as const, marker: null };
+    const base = { ms: e.ms, price: e.price, chg5m: chgByMs.get(e.ms) ?? null, tone: 'range' as const, side: null, marker: null };
     switch (e.kind) {
       case 'breakout':
         events.push({ ...base, id: `orb-${e.kind}-${e.ms}`, title: 'Broke above the opening range', detail: null, markerSide: 'above' });

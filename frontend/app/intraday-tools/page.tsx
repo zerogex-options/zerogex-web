@@ -73,6 +73,13 @@ function etTime(ms: number): string {
   return ET_HM.format(new Date(ms));
 }
 
+/** A divergence's title takes the side it names; every other title stays plain. */
+function titleColor(e: SessionEvent): string | undefined {
+  if (e.side === 'bullish') return 'var(--color-bull)';
+  if (e.side === 'bearish') return 'var(--color-bear)';
+  return undefined;
+}
+
 function signed(value: number | null, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return '—';
   return `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(digits)}`;
@@ -543,7 +550,7 @@ export default function TechnicalsPage() {
                         {etTime(e.ms)}
                       </span>
                       <span>
-                        {e.title}
+                        <span style={{ color: titleColor(e) }}>{e.title}</span>
                         {e.marker != null && <MarkerBadge n={e.marker} tone={e.tone} />}
                       </span>
                     </div>
@@ -588,7 +595,7 @@ export default function TechnicalsPage() {
                           </td>
                           <td style={cell}>
                             <span aria-hidden="true" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: TONE_DOT[e.tone], marginRight: 8 }} />
-                            {e.title}
+                            <span style={{ color: titleColor(e) }}>{e.title}</span>
                             {e.detail && <span style={{ color: 'var(--text-muted)' }}> · {e.detail}</span>}
                           </td>
                           <td className="zg-mono" style={{ ...cell, textAlign: 'right', fontSize: 13 }}>
