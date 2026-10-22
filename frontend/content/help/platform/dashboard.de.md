@@ -85,6 +85,7 @@ Du willst dein eigenes Layout? Mit [Mein Dashboard](/my-dashboard) stellst du di
 
 ## Siehe auch
 
+- [Das Gamma Terminal nutzen](/help/platform/gamma-terminal)
 - [Wie Signals von Anfang bis Ende funktionieren](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Das Live Bulletin nutzen](/help/platform/live-bulletin)
