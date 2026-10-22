@@ -172,6 +172,7 @@
     "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
     "test:gamma-terminal-guide": "node --experimental-strip-types --test tests/gammaTerminalGuide.test.ts",
     "test:strike-panel-hover": "node --experimental-strip-types --test tests/strikePanelHover.test.ts",
+    "test:strike-axis": "node --experimental-strip-types --test tests/strikeAxis.test.ts",
     "test:chart-view-hold": "node --experimental-strip-types --test tests/chartViewHold.test.ts",
     "test:gex-ribbons": "node --experimental-strip-types --test tests/gexRibbons.test.ts",
     "test:flow-centroids": "node --experimental-strip-types --test tests/flowCentroids.test.ts",
