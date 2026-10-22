@@ -43,7 +43,7 @@ Las cifras se actualizan cada pocos segundos mientras se negocia.
 Un gráfico en paneles que comparten el reloj de la sesión y una cruz, con horas en ET:
 
 - **Price** - el subyacente a lo largo de la sesión.
-- **Strikes** - detrás de la línea de precio, un carril por strike y un punto por barra: verde donde el lado alcista lideró en ese strike en esa barra, rojo donde lideró el lado bajista. Cuanto más grande el punto, mayor el flujo neto allí, el lado alcista menos el bajista. Un strike donde ningún lado lideró por al menos una décima parte de lo negociado allí queda sin punto. **All dots**, **Medium+** y **Large** fijan el punto más pequeño que se muestra, para que puedas quedarte solo con los strikes más presionados. Pasa el cursor sobre un punto, o tócalo, para ver las calls y puts compradas y vendidas en ese strike. Los carriles siguen tu selección de contratos y aparecen con los dos tamaños de barra.
+- **Strikes** - detrás de la línea de precio, un carril por strike y un punto por barra: verde donde el lado alcista lideró en ese strike en esa barra, rojo donde lideró el lado bajista. Los puntos vienen en tres tamaños, pequeño, mediano y grande, según el flujo neto allí, el lado alcista menos el bajista. Un strike donde ningún lado lideró por al menos una décima parte de lo negociado allí queda sin punto. **All dots**, **Medium+** y **Large** fijan el punto más pequeño que se muestra, para que puedas quedarte solo con los strikes más presionados. Junto a la etiqueta del panel de precio, **Bought vs sold** y **Calls vs puts** eligen qué leen los puntos: el lado alcista y el bajista, como arriba, o calls contra puts, verde donde se negociaron más calls que puts en el strike y rojo donde se negociaron más puts, sin importar quién compró o vendió. Las calls se negocian sobre todo por encima del precio y las puts por debajo, así que esa lectura tiende al verde por encima del precio y al rojo por debajo. Pasa el cursor sobre un punto, o tócalo, para ver las calls y puts compradas y vendidas en ese strike. Los carriles siguen tu selección de contratos y aparecen con los dos tamaños de barra.
 - **Flip and walls** - el gamma flip y los walls de calls y de puts como líneas discontinuas: los mismos niveles que la franja Key Levels y los gráficos de gamma. Muestran dónde están los niveles ahora, por eso solo aparecen en la sesión en curso. El flujo en el strike de un wall es contexto, no un veredicto sobre el wall: en nuestro estudio de 737 pruebas de walls, no predijo qué walls se rompían.
 - **Net premium** - la prima neta acumulada, sombreada en verde por encima de cero y en rojo por debajo, con las **partes de calls y de puts** como líneas finas.
 - **Contracts** - lo que se negoció en cada barra. Las barras hacia arriba son el lado alcista (calls compradas, con las puts vendidas apiladas encima en un tono más claro); las barras hacia abajo, el lado bajista (puts compradas, con las calls vendidas).
@@ -51,6 +51,15 @@ Un gráfico en paneles que comparten el reloj de la sesión y una cruz, con hora
 - Los **marcadores numerados** de la parte superior coinciden con el registro de flujo.
 
 Los botones sobre el gráfico activan o desactivan cada panel, y este navegador recuerda tu elección. Pasa el cursor por el gráfico, o tócalo en el móvil, para ver todas las cifras de esa barra. **Full screen** le da al gráfico toda la ventana, con los paneles ajustados a ella; Escape o **Exit** lo devuelven a su sitio.
+
+Para ampliar una parte de la sesión, igual que en el Gamma Chart:
+
+- **Ctrl + rueda** (**Cmd + rueda** en un Mac), o pellizca en un trackpad, para hacer zoom en el tiempo. La rueda sola desplaza la página, no el gráfico.
+- **Mayús + rueda**, o la rueda sobre la escala de precios de la izquierda, para hacer zoom en el precio.
+- Los botones − y + de **Time** y **Price**, abajo a la izquierda, hacen lo mismo por pasos.
+- **Arrastra** un gráfico ampliado hacia los lados para moverte en el tiempo, o hacia arriba y abajo una vez ampliado el precio.
+
+Con el zoom, la escala de cada panel se ajusta a lo que está en pantalla, así que los carriles de strikes se separan junto con las barras. En una sesión en curso, un gráfico ampliado sigue la barra más reciente hasta que lo arrastras hacia atrás. **Reset** vuelve a la sesión completa. En el móvil, pellizca o usa los botones **Time** para hacer zoom, y arrastra hacia los lados para desplazarte.
 
 ## Registro de flujo
 

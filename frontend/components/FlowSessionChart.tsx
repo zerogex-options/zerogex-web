@@ -14,24 +14,49 @@
  * caller's: the panes share whatever it is by weight, so the full-screen view
  * fills the window instead of floating a short chart in it.
  *
+ * Zoom and pan the way the Gamma Chart does (core/flowChartView): Time and
+ * Price buttons over the plot, Ctrl or Cmd + scroll or a pinch for time,
+ * Shift + scroll or a scroll over the price scale for price, a drag to pan.
+ * Every pane shares the time window, and each scale fits what is on screen,
+ * so a zoomed-in hour spreads the strike lanes out as well as the bars.
+ *
  * Geometry decisions live in core/flowAnalysis (paneLayout, valueDomain)
  * where they are tested; this file only draws.
  */
 
-import { useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import ZoomCluster from '@/components/ChartZoomCluster';
 import { useChipInk, useLevelInk } from '@/hooks/useChartTheme';
 import { useChartReadout } from '@/hooks/useChartReadout';
 import { ET_HM, etMinuteOfDay, generateNiceTicks, trimEdgeTicks } from '@/core/technicalsCharts';
 import { fmtLevel, priceDomain, spreadTags } from '@/core/technicalsSession';
 import { inferStrikeStep, type RibbonTier } from '@/core/gexRibbons';
+import { wheelAction } from '@/core/wheelZoom';
+import {
+  FIT_PRICE,
+  WHEEL_STEP,
+  ZOOM_STEP,
+  applyPriceView,
+  flowWindow,
+  isFitPrice,
+  panView,
+  tickStepMinutes,
+  zoomPrice,
+  zoomView,
+  type FlowPriceView,
+  type FlowTimeView,
+} from '@/core/flowChartView';
 import {
   buildStrikeRibbon,
   cellNear,
+  cellNet,
   ribbonPriceDomain,
   strikeCellShown,
   strikeDotRadius,
+  strikeFullNet,
   strikeLean,
   type StrikeCell,
+  type StrikeColorBy,
   type StrikeDotSize,
   type StrikeLean,
 } from '@/core/flowStrikes';
@@ -92,6 +117,10 @@ interface Props {
   strikeCells?: ReadonlyMap<number, readonly StrikeCell[]> | null;
   /** The ribbon's size filter: the smallest dot it shows. */
   strikeSize?: StrikeDotSize;
+  /** What a strike dot weighs: the bought and sold sides, or calls against puts. */
+  strikeColorBy?: StrikeColorBy;
+  /** Offered beside the price pane's label while the dots are drawn. */
+  onStrikeColorBy?: (next: StrikeColorBy) => void;
   levels?: FlowLevels | null;
 }
 
@@ -113,11 +142,88 @@ const LEAN_FILL: Record<StrikeLean, string> = {
 // A dot's size already says how hard a strike pressed, so its opacity only
 // steps down a little with it: the big dots read solid, overlaps stay visible.
 const DOT_TIER_OPACITY: Record<RibbonTier, number> = { strong: 0.85, mid: 0.72, weak: 0.58 };
-const LEAN_WORDS: Record<StrikeLean, string> = {
-  bullish: 'bullish side led',
-  bearish: 'bearish side led',
-  even: 'two-way',
+const LEAN_WORDS: Record<StrikeColorBy, Record<StrikeLean, string>> = {
+  sides: { bullish: 'bullish side led', bearish: 'bearish side led', even: 'two-way' },
+  callsPuts: { bullish: 'more calls traded', bearish: 'more puts traded', even: 'calls and puts even' },
 };
+
+// The dots' two readings, as the switch beside the price pane's label names
+// them: the page's own sides, or calls against puts whoever bought or sold.
+const COLOR_CHOICES: Array<{ value: StrikeColorBy; label: string; short: string; title: string }> = [
+  {
+    value: 'sides',
+    label: 'Bought vs sold',
+    short: 'Sides',
+    title: 'Green where calls bought and puts sold led at a strike, red where puts bought and calls sold did',
+  },
+  {
+    value: 'callsPuts',
+    label: 'Calls vs puts',
+    short: 'Calls/puts',
+    title: 'Green where more calls than puts traded at a strike, red where more puts did, whoever bought or sold them',
+  },
+];
+
+// The zoom is held in ms rather than bars, so switching between 5- and
+// 1-minute bars keeps the same stretch of the session on screen.
+interface HeldZoom {
+  /** The symbol and session it belongs to: another one starts unzoomed. */
+  key: string;
+  time: { spanMs: number; endMs: number | null } | null;
+  price: FlowPriceView;
+}
+
+type Domains = Record<FlowPaneKey, { min: number; max: number } | null>;
+
+// Zoomed in on time, the price scale fits the prices on screen alone, with
+// room for this many strike lanes at least: a wall a few strikes off would
+// otherwise stretch the scale and keep the lanes as thin as the whole day's.
+const ZOOMED_MIN_LANES = 8;
+
+/**
+ * Each pane's scale for these bars. A level near the prices joins the price
+ * window; a far one gets an edge tag instead of squashing the line
+ * (core/technicalsSession).
+ */
+function flowDomains(
+  rows: readonly FlowBar[],
+  {
+    legs,
+    ribbonOn,
+    strikeStep,
+    levels,
+    minLanes,
+  }: { legs: boolean; ribbonOn: boolean; strikeStep: number | null; levels: Array<number | null>; minLanes?: number },
+): Domains {
+  const prices: number[] = [];
+  const premiums: number[] = [0];
+  const ratios: number[] = [];
+  let volMax = 0;
+  for (const b of rows) {
+    if (b.price != null) prices.push(b.price);
+    premiums.push(b.netPremium);
+    if (legs) premiums.push(b.callPremium, b.putPremium);
+    if (b.putCallRatio != null) ratios.push(b.putCallRatio);
+    volMax = Math.max(volMax, bullishSide(b.bar), bearishSide(b.bar));
+  }
+  const v = volMax > 0 ? volMax * 1.08 : 1;
+  return {
+    price: ribbonOn
+      ? ribbonPriceDomain(prices, levels, strikeStep, minLanes)
+      : levels.some((l) => l != null)
+        ? priceDomain(prices, levels)
+        : valueDomain(prices, null, 0.06),
+    premium: valueDomain(premiums, null, 0.08),
+    contracts: { min: -v, max: v },
+    // A put/call wandering by a few hundredths is flat; draw it flat.
+    pcr: valueDomain(ratios, 1, 0.12, 0.2),
+  };
+}
+
+// A wheel's delta in px, whatever unit the browser counted it in.
+function wheelPx(e: WheelEvent): number {
+  return e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+}
 
 interface Tag {
   key: string;
@@ -164,6 +270,8 @@ export default function FlowSessionChart({
   ariaLabel,
   strikeCells = null,
   strikeSize = 'all',
+  strikeColorBy = 'sides',
+  onStrikeColorBy,
   levels = null,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +283,27 @@ export default function FlowSessionChart({
   const chipInk = useChipInk();
   const levelInk = useLevelInk();
   const clipId = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const zoomKey = `${symbol}|${sessionStartMs}`;
+  const [held, setHeld] = useState<HeldZoom>({ key: zoomKey, time: null, price: FIT_PRICE });
+  const zoom: HeldZoom = held.key === zoomKey ? held : { key: zoomKey, time: null, price: FIT_PRICE };
+  // A drag or a pinch in progress, and the view it started from.
+  const dragRef = useRef<{
+    id: number;
+    x0: number;
+    y0: number;
+    time: FlowTimeView | null;
+    price: FlowPriceView;
+    /** The price at the middle of the scale, and price per px, when it began. */
+    mid: number;
+    perPx: number;
+    inPrice: boolean;
+    touch: boolean;
+    moved: boolean;
+  } | null>(null);
+  const touchesRef = useRef(new Map<number, number>());
+  const pinchRef = useRef<{ d0: number; time: FlowTimeView | null; anchor: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const wheelRef = useRef<(e: WheelEvent) => void>(() => {});
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -201,8 +330,30 @@ export default function FlowSessionChart({
 
   const spanMs = Math.max(barMs, sessionEndMs - sessionStartMs);
   const slots = Math.max(1, Math.round(spanMs / barMs));
-  const slotW = plotW / slots;
-  const x = (ms: number) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5) * slotW;
+  // The window on screen, in bar slots from the open. `edge` is the slot just
+  // past the newest bar, which a zoomed-in view follows.
+  const edge = bars.length > 0 ? (bars[bars.length - 1].ms - sessionStartMs) / barMs + 1 : 0;
+  const timeView: FlowTimeView | null = zoom.time
+    ? { span: zoom.time.spanMs / barMs, end: zoom.time.endMs == null ? null : (zoom.time.endMs - sessionStartMs) / barMs }
+    : null;
+  const zoomed = timeView != null;
+  const win = flowWindow(timeView, slots, edge);
+  const winStart = win.start;
+  const winEnd = win.end;
+  const slotW = plotW / win.span;
+  const x = (ms: number) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5 - winStart) * slotW;
+  // The bar slot under a px, in the window's own units (for anchoring a zoom).
+  const slotAt = (px: number) => winStart + (Math.min(plotR, Math.max(AXIS_W, px)) - AXIS_W) / Math.max(1e-9, slotW);
+
+  // The bars a zoomed window shows, with one past each edge so lines run off
+  // the plot rather than stopping short of it.
+  const visibleBars = useMemo(() => {
+    if (!zoomed) return bars;
+    return bars.filter((b) => {
+      const slot = (b.ms - sessionStartMs) / barMs;
+      return slot >= winStart - 1 && slot <= winEnd + 1;
+    });
+  }, [zoomed, bars, sessionStartMs, barMs, winStart, winEnd]);
 
   // ── Strikes and levels ──────────────────────────────────────────────────
   const ribbonOn = layers.price && layers.strikes && strikeCells != null && strikeCells.size > 0;
@@ -218,34 +369,19 @@ export default function FlowSessionChart({
   const putWall = wallsOn ? levels.putWall : null;
 
   // ── Domains ─────────────────────────────────────────────────────────────
+  // The whole session's, which the strike dots take their full size from so a
+  // zoom spreads them out without resizing them; and the window's, which every
+  // pane draws to, with the reader's own price zoom and pan on top.
+  const sessionDomains = useMemo(
+    () => flowDomains(bars, { legs: layers.legs, ribbonOn, strikeStep, levels: [flip, callWall, putWall] }),
+    [bars, layers.legs, ribbonOn, strikeStep, flip, callWall, putWall],
+  );
   const domains = useMemo(() => {
-    const prices: number[] = [];
-    const premiums: number[] = [0];
-    const ratios: number[] = [];
-    let volMax = 0;
-    for (const b of bars) {
-      if (b.price != null) prices.push(b.price);
-      premiums.push(b.netPremium);
-      if (layers.legs) premiums.push(b.callPremium, b.putPremium);
-      if (b.putCallRatio != null) ratios.push(b.putCallRatio);
-      volMax = Math.max(volMax, bullishSide(b.bar), bearishSide(b.bar));
-    }
-    const v = volMax > 0 ? volMax * 1.08 : 1;
-    // A level near the session's prices joins the window; a far one gets an
-    // edge tag instead of squashing the line (core/technicalsSession).
-    const lvls = [flip, callWall, putWall];
-    return {
-      price: ribbonOn
-        ? ribbonPriceDomain(prices, lvls, strikeStep)
-        : lvls.some((l) => l != null)
-          ? priceDomain(prices, lvls)
-          : valueDomain(prices, null, 0.06),
-      premium: valueDomain(premiums, null, 0.08),
-      contracts: { min: -v, max: v },
-      // A put/call wandering by a few hundredths is flat; draw it flat.
-      pcr: valueDomain(ratios, 1, 0.12, 0.2),
-    } as Record<FlowPaneKey, { min: number; max: number } | null>;
-  }, [bars, layers.legs, ribbonOn, strikeStep, flip, callWall, putWall]);
+    const fit = zoomed
+      ? flowDomains(visibleBars, { legs: layers.legs, ribbonOn, strikeStep, levels: [], minLanes: ZOOMED_MIN_LANES })
+      : sessionDomains;
+    return fit.price && !isFitPrice(zoom.price) ? { ...fit, price: applyPriceView(fit.price, zoom.price) } : fit;
+  }, [zoomed, visibleBars, sessionDomains, layers.legs, ribbonOn, strikeStep, zoom.price]);
 
   // A pane with nothing to draw (no underlying price on the rows, say) hands
   // its height to the others rather than sitting blank.
@@ -256,6 +392,13 @@ export default function FlowSessionChart({
     [shownKey, panesTop, panesBottom, PANE_GAP],
   );
 
+  // The size a dot is full at, over the whole session.
+  const ribbonFull = useMemo(() => {
+    const d = sessionDomains.price;
+    if (!ribbonOn || !strikeCells || !d) return 0;
+    return strikeFullNet(strikeCells, bars.map((b) => b.ms), d.min, d.max, strikeColorBy);
+  }, [ribbonOn, strikeCells, bars, sessionDomains.price, strikeColorBy]);
+
   // The ribbon, built once per data or layout change rather than on every
   // hover: a session of SPX strikes is thousands of orbs.
   const ribbon = useMemo(() => {
@@ -264,16 +407,71 @@ export default function FlowSessionChart({
     if (!ribbonOn || !strikeCells || !d || !band || band.height <= 0 || plotW <= 0) return null;
     return buildStrikeRibbon(
       strikeCells,
-      bars.map((b) => b.ms),
+      visibleBars.map((b) => b.ms),
       {
-        x: (ms) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5) * slotW,
+        x: (ms) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5 - winStart) * slotW,
         yPrice: (v) => band.top + ((d.max - v) / (d.max - d.min)) * band.height,
         dMin: d.min,
         dMax: d.max,
       },
       strikeSize,
+      { by: strikeColorBy, fullNet: ribbonFull },
     );
-  }, [ribbonOn, strikeCells, bars, domains.price, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs, strikeSize]);
+  }, [ribbonOn, strikeCells, visibleBars, domains.price, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs, winStart, strikeSize, strikeColorBy, ribbonFull]);
+
+  // ── Zoom and pan ────────────────────────────────────────────────────────
+  const toHeldTime = (next: FlowTimeView | null): HeldZoom['time'] =>
+    next ? { spanMs: next.span * barMs, endMs: next.end == null ? null : sessionStartMs + next.end * barMs } : null;
+  const commitTime = (next: FlowTimeView | null) => setHeld({ key: zoomKey, time: toHeldTime(next), price: zoom.price });
+  const commitPrice = (next: FlowPriceView) => setHeld({ key: zoomKey, time: zoom.time, price: next });
+  const zoomTimeBy = (factor: number, anchor: number | null) => commitTime(zoomView(timeView, factor, anchor, slots, edge));
+  const zoomPriceBy = (factor: number) => commitPrice(zoomPrice(zoom.price, factor));
+  const resetZoom = () => setHeld({ key: zoomKey, time: null, price: FIT_PRICE });
+  const customView = zoomed || !isFitPrice(zoom.price);
+  const priceBandNow = bands.find((b) => b.key === 'price') ?? null;
+
+  // A bare wheel scrolls the page (core/wheelZoom); Ctrl or Cmd, or a
+  // trackpad pinch, zooms time about the bar under the pointer; Shift, or the
+  // pointer over the price scale, zooms the price.
+  const onWheel = (e: WheelEvent) => {
+    const wrap = wrapRef.current;
+    if (!wrap || e.deltaY === 0 || plotW <= 0) return;
+    const rect = wrap.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const inPrice = priceBandNow != null && py >= priceBandNow.top && py <= priceBandNow.top + priceBandNow.height;
+    const action = wheelAction({
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      shiftKey: e.shiftKey,
+      overPriceAxis: inPrice && (px < AXIS_W || px > plotR),
+    });
+    if (action === 'page-scroll') return;
+    e.preventDefault();
+    // A notch of a mouse wheel is one full step; a trackpad's small deltas
+    // are a fraction of one, so a pinch zooms smoothly instead of leaping.
+    const step = Math.min(WHEEL_STEP, Math.exp(Math.abs(wheelPx(e)) * 0.004));
+    const factor = e.deltaY < 0 ? 1 / step : step;
+    if (action === 'zoom-price') {
+      if (priceBandNow) zoomPriceBy(factor);
+      return;
+    }
+    setHoverIdx(null);
+    zoomTimeBy(factor, slotAt(px));
+  };
+  // Attached natively, not as a React prop, so preventDefault can stop the
+  // page on the gestures the chart does claim; the listener reads the latest
+  // handler through a ref, so it never zooms from a stale view.
+  useEffect(() => {
+    wheelRef.current = onWheel;
+  });
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => wheelRef.current(e);
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
 
   if (width === 0 || bars.length === 0) {
     return <div ref={wrapRef} style={{ width: '100%', height }} aria-hidden="true" />;
@@ -293,20 +491,34 @@ export default function FlowSessionChart({
 
   // ── Time axis ───────────────────────────────────────────────────────────
   // The ET clock is read once: a session never spans a DST change, so every
-  // other minute is an offset from the open.
-  const stepMin = compact ? 120 : spanMs / 3_600_000 <= 7 ? 60 : 120;
+  // other minute is an offset from the open. Zoomed in, the step narrows to
+  // keep a label every 70px or so.
+  const stepMin = zoomed
+    ? tickStepMinutes(slotW / (barMs / 60_000), compact ? 64 : 72)
+    : compact
+      ? 120
+      : spanMs / 3_600_000 <= 7
+        ? 60
+        : 120;
   const openMinute = etMinuteOfDay(sessionStartMs);
   const timeTicks: Array<{ ms: number; label: string }> = [];
   if (openMinute >= 0) {
     for (let off = 0; off * 60_000 < spanMs; off += 1) {
       const m = openMinute + off;
       if (m % stepMin !== 0) continue;
-      timeTicks.push({ ms: sessionStartMs + off * 60_000, label: `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` });
+      const ms = sessionStartMs + off * 60_000;
+      // A label half off the plot reads as a clipped number; drop it.
+      const tx = x(ms) - slotW / 2;
+      if (zoomed && (tx < AXIS_W + 14 || tx > plotR - 14)) continue;
+      timeTicks.push({ ms, label: `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` });
     }
   }
   const axisTop = panesBottom;
 
   // ── Pointer ─────────────────────────────────────────────────────────────
+  // The crosshair follows a hovering mouse or a finger, as it always has. A
+  // drag pans a zoomed-in chart instead: sideways through time, and up and
+  // down through a zoomed price scale with a mouse; two fingers pinch time.
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const px = e.clientX - rect.left;
@@ -333,17 +545,95 @@ export default function FlowSessionChart({
     }
     setHoverIdx(best);
   };
-  const hover = hoverIdx != null ? bars[hoverIdx] ?? null : null;
+  const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === 'touch') {
+      touchesRef.current.set(e.pointerId, e.clientX);
+      if (touchesRef.current.size === 2) {
+        const [a, b] = Array.from(touchesRef.current.values());
+        const left = e.currentTarget.getBoundingClientRect().left;
+        pinchRef.current = { d0: Math.max(1, Math.abs(a - b)), time: timeView, anchor: slotAt((a + b) / 2 - left) };
+        dragRef.current = null;
+        setHoverIdx(null);
+        return;
+      }
+    } else if (e.button !== 0) {
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const py = e.clientY - rect.top;
+    const pb = bandOf('price');
+    const dp = domains.price;
+    const inPrice = pb != null && py >= pb.top && py <= pb.top + pb.height;
+    dragRef.current = {
+      id: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      time: timeView,
+      price: zoom.price,
+      mid: dp ? (dp.min + dp.max) / 2 : 0,
+      perPx: dp && pb ? (dp.max - dp.min) / Math.max(1, pb.height) : 0,
+      inPrice,
+      touch: e.pointerType === 'touch',
+      moved: false,
+    };
+    // A mouse holds on to a drag that runs off the chart; a finger already does.
+    if (e.pointerType === 'mouse' && (zoomed || (inPrice && !isFitPrice(zoom.price)))) e.currentTarget.setPointerCapture(e.pointerId);
+    onPointer(e);
+  };
+  const onPointerMove = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (touchesRef.current.has(e.pointerId)) touchesRef.current.set(e.pointerId, e.clientX);
+    const pinch = pinchRef.current;
+    if (pinch && touchesRef.current.size >= 2) {
+      const [a, b] = Array.from(touchesRef.current.values());
+      commitTime(zoomView(pinch.time, pinch.d0 / Math.max(1, Math.abs(a - b)), pinch.anchor, slots, edge));
+      return;
+    }
+    const drag = dragRef.current;
+    if (drag && drag.id === e.pointerId && (e.pointerType !== 'mouse' || (e.buttons & 1) === 1)) {
+      const dx = e.clientX - drag.x0;
+      const dy = e.clientY - drag.y0;
+      const panTime = drag.time != null;
+      // Vertical drags on a phone scroll the page, so price pans by mouse.
+      const panPrice = !drag.touch && drag.inPrice && !isFitPrice(drag.price);
+      if (!drag.moved && Math.max(Math.abs(dx), Math.abs(dy)) > 4 && ((panTime && Math.abs(dx) >= Math.abs(dy)) || panPrice)) {
+        drag.moved = true;
+        setDragging(true);
+        setHoverIdx(null);
+      }
+      if (drag.moved) {
+        setHeld({
+          key: zoomKey,
+          time: panTime ? toHeldTime(panView(drag.time, dx / Math.max(1e-9, slotW), slots, edge)) : zoom.time,
+          // Content follows the hand: dragging down brings higher prices into view.
+          price: panPrice ? { zoom: drag.price.zoom, center: drag.mid + dy * drag.perPx } : zoom.price,
+        });
+        return;
+      }
+    }
+    onPointer(e);
+  };
+  const endGesture = (e: ReactPointerEvent<SVGSVGElement>) => {
+    touchesRef.current.delete(e.pointerId);
+    if (touchesRef.current.size < 2) pinchRef.current = null;
+    if (dragRef.current?.id === e.pointerId) {
+      dragRef.current = null;
+      setDragging(false);
+    }
+  };
+  const hover = hoverIdx != null && !dragging ? bars[hoverIdx] ?? null : null;
   // Only a dot that is drawn answers the pointer: a two-way strike, or one the
   // size filter hides, reads as empty lane.
   const hoverCell =
     hover && ribbonOn && hoverPrice != null && ribbon
       ? cellNear(
-          strikeCells?.get(hover.ms)?.filter((c) => strikeCellShown(c, ribbon.fullNet, strikeSize)),
+          strikeCells?.get(hover.ms)?.filter((c) => strikeCellShown(c, ribbon.fullNet, strikeSize, strikeColorBy)),
           hoverPrice,
           strikeStep,
         )
       : null;
+  const byCallsPuts = strikeColorBy === 'callsPuts';
+  const hoverLean: StrikeLean = hoverCell ? strikeLean(hoverCell, strikeColorBy) : 'even';
+  const hoverNet = hoverCell ? cellNet(hoverCell, strikeColorBy) : 0;
 
   // ── Panes ───────────────────────────────────────────────────────────────
   // A backing behind the label's own text, so a level or a ribbon lane that
@@ -386,14 +676,29 @@ export default function FlowSessionChart({
   };
 
   const tags: Tag[] = [];
+  // Grids sit outside the plot's clip so their numbers keep the gutter; the
+  // series inside it, so a zoomed-in line runs off the edge rather than over
+  // the axis.
+  const grids: ReactNode[] = [];
   const panes: ReactNode[] = [];
+  // A series' latest value off a zoomed scale: pinned to the pane's edge with
+  // an arrow, the way an off-scale level is.
+  const seriesTag = (key: FlowPaneKey, v: number, label: string): Pick<Tag, 'label' | 'y' | 'edge'> => {
+    const band = bandOf(key);
+    const y = yIn(key);
+    if (!band || !y) return { label, y: 0 };
+    const at = y(v);
+    if (at < band.top) return { label: `▲ ${label}`, y: band.top, edge: 'top' };
+    if (at > band.top + band.height) return { label: `▼ ${label}`, y: band.top + band.height, edge: 'bottom' };
+    return { label, y: at };
+  };
 
   // Price
   const priceBand = bandOf('price');
   const yPrice = yIn('price');
   if (priceBand && yPrice) {
     const d = domains.price!;
-    const pts = bars.filter((b) => b.price != null).map((b) => `${x(b.ms).toFixed(1)},${yPrice(b.price as number).toFixed(1)}`);
+    const pts = visibleBars.filter((b) => b.price != null).map((b) => `${x(b.ms).toFixed(1)},${yPrice(b.price as number).toFixed(1)}`);
     // The flip and walls: a line where the level is on the scale, an edge tag
     // with an arrow where it is not, and its name above the line.
     const walls: Array<{ key: string; name: string; value: number; color: string; dash: string; w: number }> = [];
@@ -414,9 +719,9 @@ export default function FlowSessionChart({
     for (const n of names) {
       if (drawnNames.every((o) => Math.abs(o.ly - n.ly) >= 11)) drawnNames.push(n);
     }
+    grids.push(<g key="price">{grid('price', (v) => fmtLevel(v).replace(/\.00$/, ''))}</g>);
     panes.push(
-      <g key="price">
-        {grid('price', (v) => fmtLevel(v).replace(/\.00$/, ''))}
+      <g key="price" clipPath={`url(#${clipId}-price)`}>
         {ribbon?.paths.map((r) => (
           <path key={`rib-${r.lean}-${r.tier}`} d={r.d} fill={LEAN_FILL[r.lean]} fillOpacity={DOT_TIER_OPACITY[r.tier]} />
         ))}
@@ -443,7 +748,7 @@ export default function FlowSessionChart({
         title: `${l.name.toLowerCase().replace(/^./, (c) => c.toUpperCase())} ${fmtLevel(l.value)}${edge ? ', off the visible scale' : ''}`,
       });
     }
-    if (last.price != null) tags.push({ key: 'last', label: fmtLevel(last.price), y: yPrice(last.price), color: 'var(--color-accent-hot)' });
+    if (last.price != null) tags.push({ key: 'last', ...seriesTag('price', last.price, fmtLevel(last.price)), color: 'var(--color-accent-hot)' });
   }
 
   // Net premium
@@ -451,25 +756,25 @@ export default function FlowSessionChart({
   const yPrem = yIn('premium');
   if (premBand && yPrem) {
     const y0 = yPrem(0);
-    const pts = withZeroCrossings(bars.map((b) => ({ x: x(b.ms), v: b.netPremium })));
+    const pts = withZeroCrossings(visibleBars.map((b) => ({ x: x(b.ms), v: b.netPremium })));
     const first = pts[0];
     const end = pts[pts.length - 1];
     const area = (pick: (v: number) => number) =>
       `M${first.x.toFixed(1)},${y0.toFixed(1)} ` + pts.map((p) => `L${p.x.toFixed(1)},${yPrem(pick(p.v)).toFixed(1)}`).join(' ') + ` L${end.x.toFixed(1)},${y0.toFixed(1)} Z`;
-    const line = (pick: (b: FlowBar) => number) => bars.map((b) => `${x(b.ms).toFixed(1)},${yPrem(pick(b)).toFixed(1)}`).join(' ');
+    const line = (pick: (b: FlowBar) => number) => visibleBars.map((b) => `${x(b.ms).toFixed(1)},${yPrem(pick(b)).toFixed(1)}`).join(' ');
+    grids.push(<g key="premium">{grid('premium', (v) => fmtUsdCompact(v).replace('.0M', 'M'))}</g>);
     panes.push(
       <g key="premium">
-        {grid('premium', (v) => fmtUsdCompact(v).replace('.0M', 'M'))}
         <line x1={AXIS_W} x2={plotR} y1={y0} y2={y0} stroke="var(--text-secondary)" strokeOpacity={0.55} strokeWidth={1} />
         <path d={area((v) => Math.max(0, v))} fill="var(--color-bull)" fillOpacity={0.16} />
         <path d={area((v) => Math.min(0, v))} fill="var(--color-bear)" fillOpacity={0.16} />
-        {layers.legs && bars.length > 1 && (
+        {layers.legs && visibleBars.length > 1 && (
           <>
             <polyline points={line((b) => b.callPremium)} fill="none" stroke="var(--color-bull)" strokeWidth={1.2} strokeOpacity={0.8} />
             <polyline points={line((b) => b.putPremium)} fill="none" stroke="var(--color-bear)" strokeWidth={1.2} strokeOpacity={0.8} />
           </>
         )}
-        {bars.length > 1 && <polyline points={line((b) => b.netPremium)} fill="none" stroke="var(--text-primary)" strokeWidth={1.8} strokeLinejoin="round" />}
+        {visibleBars.length > 1 && <polyline points={line((b) => b.netPremium)} fill="none" stroke="var(--text-primary)" strokeWidth={1.8} strokeLinejoin="round" />}
         {paneLabel(
           'NET PREMIUM',
           premBand.top,
@@ -486,13 +791,12 @@ export default function FlowSessionChart({
     );
     tags.push({
       key: 'net',
-      label: fmtUsdCompact(last.netPremium, true),
-      y: yPrem(last.netPremium),
+      ...seriesTag('premium', last.netPremium, fmtUsdCompact(last.netPremium, true)),
       color: last.netPremium >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
     });
     if (layers.legs) {
-      tags.push({ key: 'calls', label: fmtUsdCompact(last.callPremium, true), y: yPrem(last.callPremium), color: 'var(--color-bull)', outline: true });
-      tags.push({ key: 'puts', label: fmtUsdCompact(last.putPremium, true), y: yPrem(last.putPremium), color: 'var(--color-bear)', outline: true });
+      tags.push({ key: 'calls', ...seriesTag('premium', last.callPremium, fmtUsdCompact(last.callPremium, true)), color: 'var(--color-bull)', outline: true });
+      tags.push({ key: 'puts', ...seriesTag('premium', last.putPremium, fmtUsdCompact(last.putPremium, true)), color: 'var(--color-bear)', outline: true });
     }
   }
 
@@ -501,10 +805,10 @@ export default function FlowSessionChart({
   const yVol = yIn('contracts');
   if (volBand && yVol) {
     const y0 = yVol(0);
+    grids.push(<g key="contracts">{grid('contracts', (v) => fmtContractsCompact(Math.abs(v)))}</g>);
     panes.push(
       <g key="contracts">
-        {grid('contracts', (v) => fmtContractsCompact(Math.abs(v)))}
-        {bars.map((b) => {
+        {visibleBars.map((b) => {
           const cx = x(b.ms) - bodyW / 2;
           const cb = b.bar.callsBought;
           const ps = b.bar.putsSold;
@@ -541,10 +845,10 @@ export default function FlowSessionChart({
   const yPcr = yIn('pcr');
   if (pcrBand && yPcr) {
     const d = domains.pcr!;
-    const pts = bars.filter((b) => b.putCallRatio != null).map((b) => `${x(b.ms).toFixed(1)},${yPcr(b.putCallRatio as number).toFixed(1)}`);
+    const pts = visibleBars.filter((b) => b.putCallRatio != null).map((b) => `${x(b.ms).toFixed(1)},${yPcr(b.putCallRatio as number).toFixed(1)}`);
+    grids.push(<g key="pcr">{grid('pcr', (v) => v.toFixed(2))}</g>);
     panes.push(
       <g key="pcr">
-        {grid('pcr', (v) => v.toFixed(2))}
         {d.min <= 1 && d.max >= 1 && (
           <line x1={AXIS_W} x2={plotR} y1={yPcr(1)} y2={yPcr(1)} stroke="var(--text-secondary)" strokeOpacity={0.55} strokeWidth={1} strokeDasharray="4 3" />
         )}
@@ -553,7 +857,7 @@ export default function FlowSessionChart({
       </g>,
     );
     if (last.putCallRatio != null) {
-      tags.push({ key: 'pcr', label: last.putCallRatio.toFixed(2), y: yPcr(last.putCallRatio), color: 'var(--color-info)', outline: true });
+      tags.push({ key: 'pcr', ...seriesTag('pcr', last.putCallRatio, last.putCallRatio.toFixed(2)), color: 'var(--color-info)', outline: true });
     }
   }
 
@@ -569,7 +873,9 @@ export default function FlowSessionChart({
 
   // Event markers, spread so neighbours never sit on each other.
   // In marker order, which is time order with same-bar ties settled, so 1 sits left of 2.
-  const shownEvents = layers.events ? [...events].sort((a, b) => a.marker - b.marker) : [];
+  const shownEvents = layers.events
+    ? [...events].filter((e) => !zoomed || (x(e.ms) >= AXIS_W && x(e.ms) <= plotR)).sort((a, b) => a.marker - b.marker)
+    : [];
   const markerXs = spreadTags(shownEvents.map((e) => x(e.ms)), 18, AXIS_W + 9, Math.max(AXIS_W + 9, plotR - 9));
 
   return (
@@ -579,28 +885,45 @@ export default function FlowSessionChart({
         height={height}
         role="img"
         aria-label={ariaLabel}
-        style={{ display: 'block', touchAction: 'pan-y' }}
-        onPointerMove={onPointer}
-        onPointerDown={onPointer}
-        onPointerLeave={readout.onPointerLeave}
-        onPointerCancel={readout.onPointerCancel}
+        style={{ display: 'block', touchAction: 'pan-y', cursor: dragging ? 'grabbing' : zoomed ? 'grab' : undefined }}
+        onPointerMove={onPointerMove}
+        onPointerDown={onPointerDown}
+        onPointerUp={endGesture}
+        onPointerLeave={(e) => {
+          if (!dragRef.current) readout.onPointerLeave(e);
+        }}
+        onPointerCancel={(e) => {
+          endGesture(e);
+          readout.onPointerCancel();
+        }}
       >
         <defs>
           <clipPath id={`${clipId}-plot`}>
             {/* The plot and its axis gutter; only the tag column is kept out. */}
             <rect x={0} y={0} width={plotR} height={axisTop} />
           </clipPath>
+          <clipPath id={`${clipId}-data`}>
+            {/* The plot alone: a zoomed-in series stops at the axis. */}
+            <rect x={AXIS_W} y={0} width={plotW} height={axisTop} />
+          </clipPath>
+          {priceBand && (
+            <clipPath id={`${clipId}-price`}>
+              {/* The price pane alone: a zoomed price scale keeps its line and dots in it. */}
+              <rect x={AXIS_W} y={priceBand.top} width={plotW} height={priceBand.height} />
+            </clipPath>
+          )}
         </defs>
 
         {/* The part of the session still to come */}
         {live && nowX < plotR && (
           <g>
-            <rect x={nowX} y={panesTop - 4} width={plotR - nowX} height={axisTop - panesTop + 4} fill="var(--bg-subtle)" fillOpacity={0.55} />
-            <line x1={nowX} x2={nowX} y1={panesTop - 4} y2={axisTop} stroke="var(--border-default)" strokeWidth={1} />
+            <rect x={Math.max(AXIS_W, nowX)} y={panesTop - 4} width={plotR - Math.max(AXIS_W, nowX)} height={axisTop - panesTop + 4} fill="var(--bg-subtle)" fillOpacity={0.55} />
+            {nowX >= AXIS_W && <line x1={nowX} x2={nowX} y1={panesTop - 4} y2={axisTop} stroke="var(--border-default)" strokeWidth={1} />}
           </g>
         )}
 
-        <g clipPath={`url(#${clipId}-plot)`}>{panes}</g>
+        <g clipPath={`url(#${clipId}-plot)`}>{grids}</g>
+        <g clipPath={`url(#${clipId}-data)`}>{panes}</g>
 
         {/* Pane separators */}
         {bands.slice(1).map((b) => (
@@ -635,7 +958,7 @@ export default function FlowSessionChart({
             <line x1={x(hover.ms)} x2={x(hover.ms)} y1={panesTop - 4} y2={axisTop} stroke="var(--text-muted)" strokeOpacity={0.6} strokeWidth={1} strokeDasharray="3 3" />
             {yPrice && hover.price != null && <circle cx={x(hover.ms)} cy={yPrice(hover.price)} r={3} fill="var(--text-primary)" />}
             {yPrice && hoverCell && ribbon && (
-              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={strikeDotRadius(hoverCell, ribbon) + 3} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
+              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={strikeDotRadius(hoverCell, ribbon, strikeColorBy) + 3} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
             )}
             {yPrem && <circle cx={x(hover.ms)} cy={yPrem(hover.netPremium)} r={3} fill="var(--text-primary)" />}
             {yPcr && hover.putCallRatio != null && <circle cx={x(hover.ms)} cy={yPcr(hover.putCallRatio)} r={3} fill="var(--color-info)" />}
@@ -706,26 +1029,32 @@ export default function FlowSessionChart({
         >
           <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{ET_HM.format(new Date(hover.ms))} ET</div>
           {hoverCell && (
-            <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ color: 'var(--text-primary)' }}>At {fmtStrike(hoverCell.strike)}</span>
-                <span style={{ color: strikeLean(hoverCell) === 'even' ? 'var(--text-muted)' : LEAN_FILL[strikeLean(hoverCell)] }}>
-                  {LEAN_WORDS[strikeLean(hoverCell)]}
-                </span>
+              <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ color: 'var(--text-primary)' }}>At {fmtStrike(hoverCell.strike)}</span>
+                  <span style={{ color: hoverLean === 'even' ? 'var(--text-muted)' : LEAN_FILL[hoverLean] }}>{LEAN_WORDS[strikeColorBy][hoverLean]}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: byCallsPuts ? '1fr auto auto auto' : '1fr auto auto', columnGap: 10, marginTop: 2 }}>
+                  <span />
+                  <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>bought</span>
+                  <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>sold</span>
+                  {byCallsPuts && <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>traded</span>}
+                  <span style={{ color: 'var(--text-secondary)' }}>Calls</span>
+                  <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsBought)}</span>
+                  <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsSold)}</span>
+                  {byCallsPuts && <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.calls)}</span>}
+                  <span style={{ color: 'var(--text-secondary)' }}>Puts</span>
+                  <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsBought)}</span>
+                  <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsSold)}</span>
+                  {byCallsPuts && <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.puts)}</span>}
+                </div>
+                <Row
+                  k={byCallsPuts ? 'Calls − puts' : 'Net flow'}
+                  v={fmtContracts(hoverNet, true)}
+                  color={hoverNet > 0 ? 'var(--color-bull)' : hoverNet < 0 ? 'var(--color-bear)' : undefined}
+                  top
+                />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 10, marginTop: 2 }}>
-                <span />
-                <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>bought</span>
-                <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>sold</span>
-                <span style={{ color: 'var(--text-secondary)' }}>Calls</span>
-                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsBought)}</span>
-                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsSold)}</span>
-                <span style={{ color: 'var(--text-secondary)' }}>Puts</span>
-                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsBought)}</span>
-                <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsSold)}</span>
-              </div>
-              <Row k="Net flow" v={fmtContracts(hoverCell.net, true)} color={hoverCell.net > 0 ? 'var(--color-bull)' : hoverCell.net < 0 ? 'var(--color-bear)' : undefined} top />
-            </div>
           )}
           {hover.price != null && <Row k="Price" v={fmtLevel(hover.price)} />}
           <Row k="Net premium" v={fmtUsdCompact(hover.netPremium, true)} color={hover.netPremium >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'} />
@@ -746,6 +1075,100 @@ export default function FlowSessionChart({
           {hover.putCallRatio != null && <Row k="Put/call" v={hover.putCallRatio.toFixed(2)} top />}
         </div>
       )}
+
+      {/* The dots' reading: on the price pane's label line, beside the dots it
+          changes, so the toolbar above keeps its length at every width. */}
+      {ribbonOn && priceBand && onStrikeColorBy && (
+        <div
+          role="group"
+          aria-label="Strike dot colors"
+          style={{
+            position: 'absolute',
+            left: AXIS_W + 1 + `PRICE · ${symbol}`.length * 6.3 + 6 + 4,
+            top: priceBand.top + 1,
+            height: 13,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '0 5px',
+            zIndex: 2,
+            background: 'color-mix(in srgb, var(--bg-card) 88%, transparent)',
+            fontFamily: MONO,
+            fontSize: 9,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+          }}
+        >
+          <span style={{ color: 'var(--text-muted)' }}>Dots</span>
+          {COLOR_CHOICES.map((c) => {
+            const on = strikeColorBy === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onStrikeColorBy(c.value)}
+                title={c.title}
+                style={{
+                  font: 'inherit',
+                  letterSpacing: 'inherit',
+                  textTransform: 'inherit',
+                  background: 'none',
+                  border: 'none',
+                  padding: '2px 0',
+                  cursor: 'pointer',
+                  color: on ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontWeight: on ? 700 : 400,
+                  textDecoration: on ? 'underline' : 'none',
+                  textUnderlineOffset: 3,
+                }}
+              >
+                {compact ? c.short : c.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Zoom: over the bottom left of the plot, the oldest corner of the
+          lowest pane, out of the way of the newest bars and the readout. */}
+      <div
+        className="flex items-center gap-1.5"
+        style={{ position: 'absolute', left: AXIS_W + 6, bottom: AXIS_H + 6, zIndex: 2 }}
+      >
+        <ZoomCluster
+          large={compact}
+          label="Time"
+          onIn={() => zoomTimeBy(1 / ZOOM_STEP, null)}
+          onOut={() => zoomTimeBy(ZOOM_STEP, null)}
+          hint={compact ? undefined : 'Ctrl + scroll'}
+        />
+        {!compact && priceBandNow && (
+          <ZoomCluster label="Price" onIn={() => zoomPriceBy(1 / ZOOM_STEP)} onOut={() => zoomPriceBy(ZOOM_STEP)} hint="Shift + scroll" />
+        )}
+        {customView && (
+          <button
+            type="button"
+            onClick={resetZoom}
+            title="Back to the whole session, with the price scale fitting itself again"
+            style={{
+              fontFamily: MONO,
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              padding: compact ? '7px 11px' : '5px 11px',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--color-accent-hot)',
+              color: 'var(--color-accent-hot)',
+              background: 'color-mix(in srgb, var(--color-accent-hot) 12%, transparent)',
+              cursor: 'pointer',
+            }}
+          >
+            ⟲ Reset
+          </button>
+        )}
+      </div>
     </div>
   );
 }

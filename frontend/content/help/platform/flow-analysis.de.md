@@ -43,7 +43,7 @@ Die Zahlen aktualisieren sich während des Handels alle paar Sekunden.
 Ein Chart in Feldern, die sich die Zeitachse der Sitzung und ein Fadenkreuz teilen, Zeiten in ET:
 
 - **Price** - der Basiswert im Verlauf der Sitzung.
-- **Strikes** - hinter der Preislinie eine Spur pro Strike und ein Punkt pro Balken: grün, wo an diesem Strike in diesem Balken die bullische Seite vorn lag, rot, wo die bärische Seite vorn lag. Je größer der Punkt, desto größer dort der Net Flow, also die bullische minus die bärische Seite. Ein Strike, an dem keine Seite um mindestens ein Zehntel des dort Gehandelten vorn lag, bekommt keinen Punkt. **All dots**, **Medium+** und **Large** legen den kleinsten angezeigten Punkt fest, sodass du nur die Strikes behalten kannst, auf die am stärksten gedrückt wurde. Fahre über einen Punkt oder tippe ihn an, um die gekauften und verkauften Calls und Puts dieses Strikes zu sehen. Die Spuren folgen deiner Kontraktauswahl und erscheinen bei beiden Balkengrößen.
+- **Strikes** - hinter der Preislinie eine Spur pro Strike und ein Punkt pro Balken: grün, wo an diesem Strike in diesem Balken die bullische Seite vorn lag, rot, wo die bärische Seite vorn lag. Die Punkte gibt es in drei Größen, klein, mittel und groß, nach dem Net Flow dort, also der bullischen minus der bärischen Seite. Ein Strike, an dem keine Seite um mindestens ein Zehntel des dort Gehandelten vorn lag, bekommt keinen Punkt. **All dots**, **Medium+** und **Large** legen den kleinsten angezeigten Punkt fest, sodass du nur die Strikes behalten kannst, auf die am stärksten gedrückt wurde. Neben der Beschriftung des Preisfelds wählen **Bought vs sold** und **Calls vs puts**, was die Punkte zeigen: die bullische und die bärische Seite wie oben, oder Calls gegen Puts, grün, wo an dem Strike mehr Calls als Puts gehandelt wurden, und rot, wo mehr Puts, egal wer gekauft oder verkauft hat. Calls werden vor allem über dem Kurs gehandelt und Puts darunter, deshalb ist diese Sicht über dem Kurs eher grün und darunter eher rot. Fahre über einen Punkt oder tippe ihn an, um die gekauften und verkauften Calls und Puts dieses Strikes zu sehen. Die Spuren folgen deiner Kontraktauswahl und erscheinen bei beiden Balkengrößen.
 - **Flip and walls** - der Gamma-Flip sowie die Call- und die Put-Wall als gestrichelte Linien: dieselben Levels wie in der Key-Levels-Leiste und auf den Gamma-Charts. Sie zeigen, wo die Levels jetzt stehen, und erscheinen deshalb nur in der laufenden Sitzung. Flow am Strike einer Wall ist Kontext, kein Urteil über die Wall: In unserer Studie mit 737 Wall-Tests hat er nicht vorhergesagt, welche Walls brechen.
 - **Net premium** - die laufende Net Premium, über null grün und unter null rot hinterlegt, mit dem **Call- und dem Put-Anteil** als dünne Linien.
 - **Contracts** - was in jedem Balken gehandelt wurde. Balken nach oben sind die bullische Seite (gekaufte Calls, darüber heller die verkauften Puts), Balken nach unten die bärische Seite (gekaufte Puts, darunter die verkauften Calls).
@@ -51,6 +51,15 @@ Ein Chart in Feldern, die sich die Zeitachse der Sitzung und ein Fadenkreuz teil
 - **Nummerierte Marker** am oberen Rand passen zum Flow-Log.
 
 Die Buttons über dem Chart schalten jedes Feld ein oder aus, und dieser Browser merkt sich deine Wahl. Fahre über den Chart oder tippe ihn auf dem Handy an, um alle Zahlen zu diesem Balken zu sehen. **Full screen** gibt dem Chart das ganze Fenster, mit passend skalierten Feldern; Escape oder **Exit** holt ihn zurück.
+
+Um einen Teil der Sitzung heranzuzoomen, genau wie beim Gamma Chart:
+
+- **Strg + Scrollen** (**Cmd + Scrollen** auf dem Mac) oder eine Pinch-Geste auf dem Trackpad zoomt die Zeitachse. Ein einfaches Scrollrad scrollt die Seite, nicht den Chart.
+- **Umschalt + Scrollen** oder Scrollen über der Preisskala links zoomt den Preis.
+- Die Buttons − und + bei **Time** und **Price** unten links tun dasselbe in Schritten.
+- **Ziehe** einen gezoomten Chart seitwärts, um dich durch die Zeit zu bewegen, oder nach oben und unten, sobald der Preis gezoomt ist.
+
+Gezoomt passt sich jedes Feld dem an, was gerade zu sehen ist, sodass die Strike-Spuren mit den Balken auseinanderrücken. In einer laufenden Sitzung bleibt ein gezoomter Chart beim neuesten Balken, bis du ihn zurückziehst. **Reset** zeigt wieder die ganze Sitzung. Auf dem Smartphone zoomst du per Pinch-Geste oder mit den Buttons **Time** und ziehst zum Verschieben seitwärts.
 
 ## Flow-Log
 

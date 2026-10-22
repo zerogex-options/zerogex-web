@@ -39,7 +39,7 @@ import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersist
 import { flowSessionOptions, isFlowSessionDate, type FlowSession } from '@/core/flowSessions';
 import { FLOW_TIMEFRAME_LABELS, FLOW_TIMEFRAME_MINUTES, getETTimeTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { ET_HM } from '@/core/technicalsCharts';
-import { strikeCellsByBar, type StrikeDotSize } from '@/core/flowStrikes';
+import { strikeCellsByBar, type StrikeColorBy, type StrikeDotSize } from '@/core/flowStrikes';
 import { fmtLevel } from '@/core/technicalsSession';
 import {
   FLOW_REGIME_LABEL,
@@ -77,6 +77,10 @@ const STRIKE_SIZE_BUTTONS: Array<{ value: StrikeDotSize; label: string; title: s
   { value: 'medium', label: 'Medium+', title: 'The medium and large dots: strikes with a bigger net flow' },
   { value: 'large', label: 'Large', title: 'Only the largest dots: the strikes pressed hardest' },
 ];
+// What a strike dot weighs: the page's own bought-and-sold sides, or calls
+// against puts the way some traders' own charts read a strike. Picked on the
+// chart itself, beside the price pane's label (components/FlowSessionChart).
+const STRIKE_COLORS: readonly StrikeColorBy[] = ['sides', 'callsPuts'];
 const EVENTS_COLLAPSED = 8;
 const BARS_COLLAPSED = 10;
 
@@ -325,6 +329,7 @@ export default function FlowAnalysisPage() {
   // current session only; the strike ribbon reads either bar size.
   const strikesAvailable = priceOn;
   const [strikeSize, setStrikeSize] = usePersistedChoice<StrikeDotSize>('zg.flow.strikes.size', STRIKE_SIZES, 'all');
+  const [strikeColorBy, setStrikeColorBy] = usePersistedChoice<StrikeColorBy>('zg.flow.strikes.color', STRIKE_COLORS, 'sides');
   const wallsAvailable = priceOn && flowSession === 'current';
   const layers: FlowChartLayers = {
     price: priceOn,
@@ -646,6 +651,8 @@ export default function FlowAnalysisPage() {
                 symbol={symbol}
                 strikeCells={strikeCells}
                 strikeSize={strikeSize}
+                strikeColorBy={strikeColorBy}
+                onStrikeColorBy={setStrikeColorBy}
                 levels={flowLevels}
                 ariaLabel={`${symbol} options flow for the session in ${barMinutes}-minute bars: price${layers.strikes ? ' with contracts bought and sold at each strike' : ''}${layers.walls ? ', the flip and the walls' : ''}, net premium with the call and put legs, contracts bought and sold each bar, and the put/call ratio`}
               />
@@ -653,7 +660,9 @@ export default function FlowAnalysisPage() {
           </div>
           <p className="zg-caption" style={{ margin: 0, padding: '8px 16px 12px', borderTop: `1px solid ${ruleColor}`, flex: 'none' }}>
             {layers.strikes &&
-              'Strike dots: green where the bullish side led at that strike in that bar, red where the bearish side led; the bigger the dot, the bigger the net flow there. Two-way strikes are left out. '}
+              (strikeColorBy === 'callsPuts'
+                ? 'Strike dots: green where more calls than puts traded at that strike in that bar, red where more puts did; small, medium or large by the gap. Even strikes are left out. '
+                : 'Strike dots: green where the bullish side led at that strike in that bar, red where the bearish side led; small, medium or large by the net flow there. Two-way strikes are left out. ')}
             {layers.walls && 'Dashed lines are the flip and walls as they stand now. '}
             Up bars are the bullish side, calls bought with puts sold stacked lighter on top; down bars the bearish side, puts bought with calls sold. Numbered markers match the flow log.
           </p>

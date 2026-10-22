@@ -43,7 +43,7 @@ The numbers update as the session trades, every few seconds.
 One chart, in panes that share the session's clock and a crosshair, times in ET:
 
 - **Price** - the underlying through the session.
-- **Strikes** - behind the price line, a lane for each strike and a dot for each bar: green where the bullish side led at that strike in that bar, red where the bearish side led. The bigger the dot, the bigger the net flow there, the bullish side minus the bearish side. A strike where neither side led by a tenth of what traded there is two-way and gets no dot. **All dots**, **Medium+** and **Large** set the smallest dot shown, so you can keep just the strikes pressed hardest. Hover over a dot, or tap it, for that strike's calls and puts bought and sold. The lanes follow your contract picks and show on both bar sizes.
+- **Strikes** - behind the price line, a lane for each strike and a dot for each bar: green where the bullish side led at that strike in that bar, red where the bearish side led. Dots come in three sizes, small, medium and large, by the net flow there, the bullish side minus the bearish side. A strike where neither side led by a tenth of what traded there is two-way and gets no dot. **All dots**, **Medium+** and **Large** set the smallest dot shown, so you can keep just the strikes pressed hardest. Beside the price pane's label, **Bought vs sold** and **Calls vs puts** pick what the dots read: the bullish and bearish sides, as above, or calls against puts, green where more calls than puts traded at the strike and red where more puts did, whoever bought or sold them. Calls trade most above the price and puts below it, so that reading leans green above the price and red below. Hover over a dot, or tap it, for that strike's calls and puts bought and sold. The lanes follow your contract picks and show on both bar sizes.
 - **Flip and walls** - the gamma flip and the call and put walls as dashed lines: the same levels as the Key Levels strip and the gamma charts. They are where the levels stand now, so they show on the current session only. Flow at a wall's strike is context, not a call on the wall: in our study of 737 wall tests, it did not predict which walls broke.
 - **Net premium** - the running net premium, shaded green above zero and red below, with the **call and put legs** as thin lines.
 - **Contracts** - what traded in each bar. Up bars are the bullish side (calls bought, with puts sold stacked lighter on top); down bars are the bearish side (puts bought, with calls sold).
@@ -51,6 +51,15 @@ One chart, in panes that share the session's clock and a crosshair, times in ET:
 - **Numbered markers** along the top match the flow log.
 
 The buttons above the chart turn each pane on or off, and this browser remembers your choice. Hover over the chart, or tap it on a phone, for every number at that bar. **Full screen** gives the chart the whole window, with the panes sized to it; Escape or **Exit** brings it back.
+
+To zoom in on part of the session, the same way as on the Gamma Chart:
+
+- **Ctrl + scroll** (**Cmd + scroll** on a Mac), or pinch on a trackpad, to zoom time. A plain scroll wheel scrolls the page, not the chart.
+- **Shift + scroll**, or scroll over the price scale on the left, to zoom the price.
+- The **Time** and **Price** − and + buttons at the bottom left do the same in steps.
+- **Drag** a zoomed chart sideways to move through time, or up and down once the price is zoomed.
+
+Zoomed in, each pane's scale fits what is on screen, so the strike lanes spread out along with the bars. On a live session a zoomed chart keeps up with the newest bar until you drag it back. **Reset** returns to the whole session. On a phone, pinch or use the **Time** buttons to zoom, and drag sideways to pan.
 
 ## Flow log
 

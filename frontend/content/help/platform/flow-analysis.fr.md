@@ -43,7 +43,7 @@ Les chiffres se mettent à jour toutes les quelques secondes pendant la séance.
 Un seul graphique, en panneaux qui partagent l'horloge de la séance et un réticule, heures en ET :
 
 - **Price** - le sous-jacent au fil de la séance.
-- **Strikes** - derrière la ligne de prix, un couloir par strike et un point par barre : vert là où le côté haussier a mené à ce strike dans cette barre, rouge là où le côté baissier a mené. Plus le point est gros, plus le flux net y est important, c'est-à-dire le côté haussier moins le côté baissier. Un strike où aucun côté n'a mené d'au moins un dixième de ce qui s'y est échangé n'a pas de point. **All dots**, **Medium+** et **Large** fixent le plus petit point affiché, pour ne garder que les strikes où la pression a été la plus forte. Survolez un point, ou touchez-le, pour voir les calls et les puts achetés et vendus à ce strike. Les couloirs suivent votre choix de contrats et apparaissent sur les deux tailles de barre.
+- **Strikes** - derrière la ligne de prix, un couloir par strike et un point par barre : vert là où le côté haussier a mené à ce strike dans cette barre, rouge là où le côté baissier a mené. Les points existent en trois tailles, petit, moyen et grand, selon le flux net à cet endroit, c'est-à-dire le côté haussier moins le côté baissier. Un strike où aucun côté n'a mené d'au moins un dixième de ce qui s'y est échangé n'a pas de point. **All dots**, **Medium+** et **Large** fixent le plus petit point affiché, pour ne garder que les strikes où la pression a été la plus forte. À côté du libellé du panneau des prix, **Bought vs sold** et **Calls vs puts** choisissent ce que lisent les points : le côté haussier et le côté baissier, comme ci-dessus, ou les calls contre les puts, vert là où il s'est échangé plus de calls que de puts au strike et rouge là où il s'est échangé plus de puts, quels que soient l'acheteur et le vendeur. Les calls s'échangent surtout au-dessus du prix et les puts en dessous, donc cette lecture penche vers le vert au-dessus du prix et vers le rouge en dessous. Survolez un point, ou touchez-le, pour voir les calls et les puts achetés et vendus à ce strike. Les couloirs suivent votre choix de contrats et apparaissent sur les deux tailles de barre.
 - **Flip and walls** - le gamma flip et les walls des calls et des puts en lignes pointillées : les mêmes niveaux que le bandeau Key Levels et les graphiques gamma. Ils indiquent où se situent les niveaux maintenant, et n'apparaissent donc que sur la séance en cours. Le flux au strike d'un wall est un contexte, pas un verdict sur le wall : dans notre étude de 737 tests de walls, il n'a pas permis de prévoir quels walls cédaient.
 - **Net premium** - la prime nette cumulée, ombrée en vert au-dessus de zéro et en rouge en dessous, avec les **parts des calls et des puts** en lignes fines.
 - **Contracts** - ce qui s'est échangé dans chaque barre. Les barres vers le haut sont le côté haussier (calls achetés, avec les puts vendus empilés au-dessus en plus clair) ; les barres vers le bas, le côté baissier (puts achetés, avec les calls vendus).
@@ -51,6 +51,15 @@ Un seul graphique, en panneaux qui partagent l'horloge de la séance et un réti
 - Les **repères numérotés** en haut correspondent au journal du flux.
 
 Les boutons au-dessus du graphique activent ou masquent chaque panneau, et ce navigateur retient votre choix. Survolez le graphique, ou touchez-le sur mobile, pour voir tous les chiffres de cette barre. **Full screen** donne au graphique toute la fenêtre, avec des panneaux à sa mesure ; Échap ou **Exit** le remet en place.
+
+Pour zoomer sur une partie de la séance, comme sur le Gamma Chart :
+
+- **Ctrl + molette** (**Cmd + molette** sur Mac), ou un pincement sur trackpad, pour zoomer dans le temps. La molette seule fait défiler la page, pas le graphique.
+- **Maj + molette**, ou la molette au-dessus de l'échelle de prix de gauche, pour zoomer sur le prix.
+- Les boutons − et + de **Time** et de **Price**, en bas à gauche, font la même chose par paliers.
+- **Faites glisser** un graphique zoomé latéralement pour vous déplacer dans le temps, ou vers le haut et le bas une fois le prix zoomé.
+
+Une fois zoomé, l'échelle de chaque panneau s'ajuste à ce qui est à l'écran, de sorte que les couloirs des strikes s'écartent avec les barres. Sur une séance en cours, un graphique zoomé suit la barre la plus récente jusqu'à ce que vous le fassiez glisser en arrière. **Reset** revient à la séance entière. Sur téléphone, pincez ou utilisez les boutons **Time** pour zoomer, et faites glisser latéralement pour vous déplacer.
 
 ## Journal du flux
 
