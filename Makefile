@@ -2002,7 +2002,12 @@ deploy:
 # reinstalls from scratch, and it hard-fails if package.json and the lockfile
 # disagree -- that failure is the point, but it stops the deploy before the
 # PM2 restart in step 7.
-	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm ci'
+# --no-audit --no-fund: after the packages are in place, ci sends the whole
+# tree to npm's security-advisory endpoint and waits for the answer before it
+# exits. When that endpoint is slow the deploy sits on a spinner with every
+# package already installed, for up to the fetch timeout times its retries.
+# Nobody reads the audit on prod; run `npm audit` in dev instead.
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm ci --no-audit --no-fund'
 	@echo "3. Copying logos..."
 	@make logo
 	@echo "4. Copying blog images..."
