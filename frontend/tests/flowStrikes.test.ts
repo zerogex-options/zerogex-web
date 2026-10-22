@@ -5,9 +5,10 @@
 // bullish side); a strike leads one way only by a real margin; a tail read
 // replaces the bars it carries and keeps the rest; the hover finds a strike
 // only when the pointer is on its lane; the price window holds a dozen lanes
-// on a quiet day; and the ribbon is a handful of grouped paths of round dots,
-// sized by net flow so one block print cannot shrink every other dot to
-// nothing, with two-way strikes left out and a filter for the small ones.
+// on a quiet day; and the ribbon is a handful of grouped paths of round dots
+// in three sizes by net flow, so one block print cannot shrink every other
+// dot to nothing, with two-way strikes left out, a filter for the small ones,
+// sizes that hold still under a zoom, and a calls-against-puts reading.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -17,11 +18,13 @@ import {
   STRIKE_SIZE_FLOOR,
   buildStrikeRibbon,
   cellNear,
+  cellNet,
   mergeStrikeRows,
   ribbonPriceDomain,
   strikeCellShown,
   strikeCellsByBar,
   strikeDotRadius,
+  strikeFullNet,
   strikeLean,
   type FlowStrikeRow,
 } from '../core/flowStrikes.ts';
@@ -44,6 +47,27 @@ test('cells add up the sides the way the page does', () => {
   assert.equal(c.bullish, 65); // calls bought + puts sold
   assert.equal(c.bearish, 15); // puts bought + calls sold
   assert.equal(c.net, 50);
+  // Calls against puts, whoever bought or sold them.
+  assert.equal(c.calls, 50);
+  assert.equal(c.puts, 30);
+  assert.equal(cellNet(c, 'callsPuts'), 20);
+});
+
+test('calls against puts reads a strike by what traded, not who crossed', () => {
+  // Heavy put selling: the bullish side by the page's count, but puts by the tape's.
+  const [c] = strikeCellsByBar([row(T0, 665, 10, 10, 5, 200)]).get(MS0) ?? [];
+  assert.ok(c);
+  assert.equal(strikeLean(c), 'bullish');
+  assert.equal(strikeLean(c, 'callsPuts'), 'bearish');
+  // Calls and puts level: two-way on that reading, whatever the sides did.
+  const [even] = strikeCellsByBar([row(T0, 666, 100, 0, 0, 100)]).get(MS0) ?? [];
+  assert.ok(even);
+  assert.equal(strikeLean(even), 'bullish');
+  assert.equal(strikeLean(even, 'callsPuts'), 'even');
+  // The ribbon follows the reading it is asked for.
+  const byBar = strikeCellsByBar([row(T0, 665, 10, 10, 5, 200)]);
+  assert.deepEqual(buildStrikeRibbon(byBar, [MS0], GEOM).paths.map((p) => p.lean), ['bullish']);
+  assert.deepEqual(buildStrikeRibbon(byBar, [MS0], GEOM, 'all', { by: 'callsPuts' }).paths.map((p) => p.lean), ['bearish']);
 });
 
 test('cells are strike-ascending per bar, parse strings, and skip empty or broken rows', () => {
@@ -176,6 +200,39 @@ test('dots are round and sized by net flow, not by what traded', () => {
   const lopsided = byBar.get(MS0)?.find((c) => c.strike === 665);
   assert.ok(lopsided);
   assert.equal(strikeDotRadius(lopsided, layer).toFixed(1), Math.max(...sizes).toFixed(1));
+});
+
+test('dots come in three sizes, not a smooth run', () => {
+  const rows: FlowStrikeRow[] = [];
+  for (let bar = 0; bar < 30; bar += 1) {
+    const ts = new Date(MS0 + bar * 300_000).toISOString();
+    for (let k = 660; k <= 670; k += 1) rows.push(row(ts, k, 20 + ((bar * 7 + k * 13) % 400), 5, 0, 0));
+  }
+  const byBar = strikeCellsByBar(rows);
+  const layer = buildStrikeRibbon(byBar, Array.from(byBar.keys()), GEOM);
+  const radii = new Set([...layer.paths.map((p) => p.d).join(' ').matchAll(/A ([\d.]+) /g)].map((m) => m[1]));
+  assert.ok(radii.size <= 3, `${[...radii]}`);
+  assert.ok(radii.size >= 2);
+});
+
+test('a full size set over the session holds the dots still under a zoom', () => {
+  const rows: FlowStrikeRow[] = [];
+  for (let bar = 0; bar < 60; bar += 1) {
+    const ts = new Date(MS0 + bar * 300_000).toISOString();
+    // A quiet first half, a busy second half.
+    rows.push(row(ts, 665, bar < 30 ? 100 : 1000, 0, 0, 0));
+  }
+  const byBar = strikeCellsByBar(rows);
+  const all = Array.from(byBar.keys());
+  const full = strikeFullNet(byBar, all, GEOM.dMin, GEOM.dMax);
+  assert.equal(full, 1000);
+  // Zoomed into the quiet half: left alone it would make those dots large.
+  const quiet = all.slice(0, 20);
+  const own = buildStrikeRibbon(byBar, quiet, GEOM);
+  const held = buildStrikeRibbon(byBar, quiet, GEOM, 'all', { fullNet: full });
+  assert.ok(own.paths.every((p) => p.tier === 'strong'));
+  assert.ok(held.paths.every((p) => p.tier === 'weak'));
+  assert.equal(held.fullNet, 1000);
 });
 
 test('the size filter hides the smaller dots without resizing the rest', () => {
