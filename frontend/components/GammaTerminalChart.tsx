@@ -349,6 +349,9 @@ const RAIL_WIDTH_KEY_STEP = 10;
 // touch screen. Exported with DESKTOP_MIN_WIDTH for surfaces that predict the
 // chart's height (My Dashboard's ladder estimate).
 export const COMPACT_MAX_WIDTH = 900;
+// Narrowest the compact canvas is drawn 1:1; a narrower card scales it down.
+// Exported for the Gamma Terminal tile, which keeps its chart at least this wide.
+export const COMPACT_MIN_WIDTH = 300;
 // Price column on the compact canvas: axis labels, with the price tags
 // right-aligned inside it (a 9-character NDX tag is ~67 units).
 const COMPACT_AXIS_W = 68;
@@ -365,7 +368,7 @@ const COMPACT_AXIS_W = 68;
  * the measured space under the toolbar is the height to draw.
  */
 function compactCanvas(width: number, landscape: boolean, fillHeight: number | null = null): ChartCanvas {
-  const VW = Math.max(300, Math.round(width));
+  const VW = Math.max(COMPACT_MIN_WIDTH, Math.round(width));
   const VH =
     fillHeight != null
       ? Math.max(300, Math.round(fillHeight))

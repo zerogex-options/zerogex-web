@@ -42,15 +42,15 @@
  *
  * ── In a My Dashboard tile ──
  * `inWidget` mounts the same instrument as the dashboard's Gamma Terminal
- * widget. Three things change. The side-by-side layout is decided by the
- * TILE's width rather than the window's (a half-width tile on a wide monitor
- * has no room for the panel beside the chart); the panel's width is the
- * reader's, dragged from a splitter between it and the chart and saved with
- * the tile; and stacked, the panel is held to a fixed height with spot
- * centered rather than running the ladders' full forty-one rows down the
- * board. (Which underlying the tile shows is the
- * tile's own business: it wraps this in a scope that hands the chart's and the
- * first ladder's symbol switchers to the tile, so nothing changes in here.)
+ * widget. Two things change. The panel never stacks under the chart: it stays
+ * beside it at any tile width. As the tile narrows the panel gives up width
+ * first, down to its floor, then the chart narrows onto its compact board, and
+ * a tile too narrow for both floors scrolls sideways rather than breaking the
+ * panel off. And the panel's width is the reader's, dragged from a splitter
+ * between it and the chart and saved with the tile. (Which underlying the tile
+ * shows is the tile's own business: it wraps this in a scope that hands the
+ * chart's and the first ladder's symbol switchers to the tile, so nothing
+ * changes in here.)
  */
 
 import {
@@ -64,6 +64,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import GammaTerminalChart, {
+  COMPACT_MIN_WIDTH,
   DESKTOP_MIN_WIDTH,
   type ChartGeometry,
   type ChartSnapshot,
@@ -113,9 +114,9 @@ const STACKED_PANEL_H = 420;
 // In a dashboard tile the panel's width is dragged (see `inWidget`). It starts
 // at the page's 372px, goes as narrow as two ladder columns at their tile floor
 // (WIDGET_LADDER_COLUMN_MIN) still fit, and as wide as leaves the chart the
-// 700px under which it swaps its desktop board for the portrait compact one.
-// The panel goes beside the chart once the tile can hold both at their
-// narrowest, and gives up width to the chart rather than stacking under it.
+// 700px under which it swaps its desktop board for the compact one. The panel
+// always sits beside the chart: in a tile too narrow for both at those widths,
+// the panel is held at its floor and the chart goes onto the compact board.
 const PANEL_DEFAULT_W = 372;
 const PANEL_MIN_W = 240;
 const PANEL_GAP = 16;
@@ -123,7 +124,10 @@ const PANEL_GAP = 16;
 // so the column needs that border and a px of rounding on top of the board's
 // own minimum to stay on the desktop board.
 const CHART_MIN_W = DESKTOP_MIN_WIDTH + 2 + 1;
-const WIDGET_WIDE_MIN = PANEL_MIN_W + PANEL_GAP + CHART_MIN_W;
+// The chart column's floor in a tile: the compact board at 1:1. A tile
+// narrower than the panel and this together scrolls the row sideways.
+const CHART_FLOOR_W = COMPACT_MIN_WIDTH + 2 + 1;
+const WIDGET_ROW_MIN = PANEL_MIN_W + PANEL_GAP + CHART_FLOOR_W;
 // A dragged splitter within this many px of the default width lands on it.
 const PANEL_MAGNET = 10;
 // One arrow-key press on the splitter.
@@ -191,7 +195,7 @@ export default function TerminalSurface({
   const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
   const [rootW, setRootW] = useState(0);
   // Measured before the first paint (a layout effect, then the observer), so
-  // a wide tile opens side by side instead of flashing the stacked layout.
+  // a tile opens with the panel at its width instead of flashing the floor.
   useLayoutEffect(() => {
     if (!inWidget || !rootEl) return;
     const measure = () => setRootW(rootEl.clientWidth);
@@ -200,7 +204,10 @@ export default function TerminalSurface({
     ro.observe(rootEl);
     return () => ro.disconnect();
   }, [inWidget, rootEl]);
-  const wide = inWidget ? rootW >= WIDGET_WIDE_MIN : viewportWide;
+  // A tile is always side by side; the page stacks below xl.
+  const wide = inWidget || viewportWide;
+  // A tile narrower than the row's floor (measured, so not before mount).
+  const cramped = inWidget && rootW > 0 && rootW < WIDGET_ROW_MIN;
   // The tile's panel width: mid-drag the live value, else the saved one, else
   // the default — always fitted to what the tile leaves beside the chart.
   const [panelDrag, setPanelDrag] = useState<number | null>(null);
@@ -287,11 +294,6 @@ export default function TerminalSurface({
     const w = Math.round(Math.min(panelMax, Math.max(PANEL_MIN_W, widgetPanelW + step)));
     onPanelWidthChange(w === PANEL_DEFAULT_W ? null : w);
   };
-  // Stacked in a tile, the ladders are held to the stacked panel height with
-  // spot centered, rather than at their full natural length.
-  const stackedFit: LadderFit | null =
-    inWidget && !wide ? { spotY: STACKED_PANEL_H / 2, bottom: STACKED_PANEL_H } : null;
-
   // The view, restored from localStorage after mount (server and first client
   // render use the default, so there is no hydration mismatch — the same
   // one-time reconciliation the chart does for its own preferences).
@@ -343,9 +345,7 @@ export default function TerminalSurface({
   const fit: LadderFit | null =
     wide && laddersView && geometry && geometry.spotY != null && bodyBox
       ? { spotY: geometry.spotY - bodyBox.top, bottom: bodyBox.height }
-      : laddersView
-        ? stackedFit
-        : null;
+      : null;
   // Enough strikes each side to fill the band from any anchor.
   const maxSide = fit ? Math.max(20, Math.ceil(fit.bottom / ROW_H) + 1) : 20;
 
@@ -491,10 +491,14 @@ export default function TerminalSurface({
       {/* Terminal layout: the chart takes the width, the panel sits beside it on
           a wide screen (≥ xl) and stacks under it below that — the chart keeps
           its own aspect ratio, so anything narrower would squeeze the candles
-          into a strip. Top-aligned: neither card is stretched to the other. */}
+          into a strip. Top-aligned: neither card is stretched to the other.
+          In a tile the row never stacks; a cramped tile scrolls it sideways
+          (the wrapper is always rendered, so that never remounts the chart). */}
+      <div style={cramped ? { overflowX: "auto" } : undefined}>
       <div
         ref={rowRef}
-        className={inWidget ? `relative flex gap-4 ${wide ? "flex-row items-start" : "flex-col"}` : "flex flex-col xl:flex-row xl:items-start gap-4"}
+        className={inWidget ? "relative flex flex-row items-start gap-4" : "flex flex-col xl:flex-row xl:items-start gap-4"}
+        style={cramped ? { minWidth: WIDGET_ROW_MIN } : undefined}
       >
         <div className="flex-1 min-w-0">
           {/* One configuration under both views: terminal mode, spot held at the
@@ -521,11 +525,11 @@ export default function TerminalSurface({
             while the tape keeps as much width as possible. The card takes the
             chart's exact height once the chart has reported it. */}
         <aside
-          className={`relative ${inWidget ? (wide ? "flex-none" : "w-full") : "w-full xl:w-[372px] xl:flex-none"} zg-feature-shell zg-gc-rise flex flex-col`}
+          className={`relative ${inWidget ? "flex-none" : "w-full xl:w-[372px] xl:flex-none"} zg-feature-shell zg-gc-rise flex flex-col`}
           style={{
             overflow: "hidden",
             height: wide && geometry ? geometry.height : undefined,
-            width: inWidget && wide ? widgetPanelW : undefined,
+            width: inWidget ? widgetPanelW : undefined,
           }}
           aria-label={laddersView ? "Gamma ladders" : "Dealer gamma by strike"}
         >
@@ -575,7 +579,6 @@ export default function TerminalSurface({
               style={{
                 overflow: "hidden",
                 minHeight: !laddersView && !panelBand ? STACKED_PANEL_H : undefined,
-                height: stackedFit && laddersView ? STACKED_PANEL_H : undefined,
               }}
             >
               {laddersView ? (
@@ -601,8 +604,9 @@ export default function TerminalSurface({
         {/* The splitter, in the gap between the chart and the panel: drag
             left to widen the panel, right to give the chart the room. Live
             while dragging, saved with the tile on release; double-click (or
-            Enter) for the default width. */}
-        {inWidget && wide && onPanelWidthChange && (
+            Enter) for the default width. Gone while the panel is held at its
+            floor, where there is no room to drag it either way. */}
+        {inWidget && onPanelWidthChange && panelMax > PANEL_MIN_W && (
           <div
             role="separator"
             aria-orientation="vertical"
@@ -622,6 +626,7 @@ export default function TerminalSurface({
             <span className="zg-split-grip" aria-hidden />
           </div>
         )}
+      </div>
       </div>
     </div>
   );
