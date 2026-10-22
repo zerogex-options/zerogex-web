@@ -85,6 +85,7 @@ Envie de ta propre disposition ? [Mon tableau de bord](/my-dashboard) te permet 
 
 ## Voir aussi
 
+- [Utiliser le Gamma Terminal](/help/platform/gamma-terminal)
 - [Comment fonctionnent les Signals, de bout en bout](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Utiliser le Live Bulletin](/help/platform/live-bulletin)

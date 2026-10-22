@@ -75,9 +75,9 @@ GEX Heatmap Timeseries, sur la page GEX Heatmap et sur Dealer Positioning : les 
 
 ## Le Gamma Chart
 
-Le graphique de prix du Gamma Terminal et le ZeroGEX Gamma Chart du Main Dashboard sont le même graphique : le prix du sous-jacent avec la structure de gamma des dealers tracée dessus.
+Le graphique de prix du Gamma Terminal et le ZeroGEX Gamma Chart du Main Dashboard sont le même graphique : le prix du sous-jacent avec la structure de gamma des dealers tracée dessus. Pour un guide contrôle par contrôle de chaque superposition et de chaque panneau, voir [Utiliser le Gamma Terminal](/help/platform/gamma-terminal).
 
-- **Symbole et timeframe** - SPY, QQQ, SPX, NDX, ES ou NQ, en barres de 1m, 5m, 15m, 1H ou 1D.
+- **Symbole et timeframe** - SPY, QQQ, SPX, NDX, ES, NQ ou NVDA, en barres de 1m, 5m, 15m, 1H ou 1D.
 - **Style de prix** - Candle, Line ou Area, au-dessus d'un volet de volume qui affiche le volume Up/Down ou le net Cumulative de la séance.
 - **Expiry** - sur le graphique en direct, limite les niveaux de gamma et le rail aux échéances choisies ; **All** correspond à toute la chaîne.
 
@@ -87,7 +87,9 @@ Les superpositions sont la touche ZeroGEX, chacune activée par une pastille de 
 - **Gamma Rail** - le gamma des dealers par strike, tracé à hauteur des prix du graphique, sous forme de silhouette lissée ou de barres Net, Split ou Combined. Sur le Gamma Terminal, il se trouve dans le panneau à côté du graphique, où vous pouvez le remplacer par deux échelles de Net GEX alignées par strike.
 - **Max Pain** et **Pin Strike** - leurs propres lignes en or et en turquoise ; la ligne du pin porte sa force, comme dans `PIN · STRONG`.
 - **VWAP**, et l'ombrage **Regime** - les zones de gamma long et de gamma short de part et d'autre du flip.
-- Désactivées tant que vous ne les activez pas : **GEX King** et, sur le graphique en direct, **Expected Range**, **Ribbons** (le gamma par strike dans le temps, derrière le prix) et **Bar Timer**.
+- Désactivées tant que vous ne les activez pas : **GEX King** et, sur le graphique en direct, **Expected Range**, **Centroids** (là où est centré le trading de calls et de puts de la séance) et **Bar Timer**. Les **Ribbons** (le gamma par strike dans le temps, derrière le prix) sont eux aussi réservés au graphique en direct : désactivés tant que vous ne les activez pas sur le Main Dashboard, et activés par défaut sur le Gamma Terminal.
+
+Sur SPY, QQQ et NVDA, une rangée juste au-dessus du graphique en direct indique le plus haut, le plus bas et la clôture de la séance précédente, ainsi que le plus haut et le plus bas du pre-market du jour : `PDH`, `PDL`, `PDC`, `PMH`, `PML`. L'œil au bout de la rangée, ou la pastille **PD/PM Levels**, les trace sur le graphique sous forme de lignes grises avec des étiquettes de prix creuses, en tirets longs pour la veille et en pointillés pour le pre-market. Ces lignes sont désactivées tant que vous ne les activez pas. SPX et NDX n'ont pas de pre-market, et ES et NQ se négocient presque 24 heures sur 24 : la rangée n'apparaît donc pas sur ces quatre-là.
 
 La ligne finement pointillée dans l'accent chaud du thème est le **dernier prix traité**, pas un niveau gamma - elle figure sous le nom « Last » dans la légende sous le graphique.
 
@@ -97,7 +99,7 @@ Ces superpositions permettent de lire l'évolution du prix à travers le prisme 
 
 Un niveau n'est tracé que tant qu'il se situe dans la plage de prix affichée : sur un sous-jacent à prix élevé dont le flip est loin du spot - NDX en particulier - la ligne de flip peut donc sortir de l'échelle visible. Le graphique le signale au lieu de vous laisser deviner : une pastille au bord de la zone de tracé affiche `FLIP ↓ 22,600.00` avec la direction et le prix, et l'axe des prix de droite porte une étiquette fléchée correspondante. Dézoomez l'axe des prix (le bouton **Price −**, Maj+molette, ou en faisant glisser l'échelle de prix de droite) pour ramener la ligne à l'écran.
 
-Il arrive qu'aucun flip ne puisse être déterminé. Le résolveur ne publie qu'un passage par zéro assez proche du spot pour être négociable et adossé à un intérêt ouvert réel ; quand le spot est loin à l'intérieur d'un régime de gamma, ou que la chaîne est mince ou d'un seul côté (hors séance, pic de volatilité implicite), aucun passage ne franchit cette barre. La pastille affiche alors `FLIP UNAVAILABLE` avec un `?` ambre à côté - survolez la marque pour connaître la raison et, sur ES / NQ, la chaîne sur laquelle le flip a manqué - et le badge « Dealer Gamma @ Spot » affiche un simple `—`. Nous préférons ne rien tracer plutôt qu'un niveau auquel nous ne faisons pas confiance ; le flip se résout normalement de nouveau sur un instantané ultérieur.
+Il arrive qu'aucun flip ne puisse être déterminé. Le résolveur ne publie qu'un passage par zéro assez proche du spot pour être négociable et adossé à un intérêt ouvert réel ; quand le spot est loin à l'intérieur d'un régime de gamma, ou que la chaîne est mince ou d'un seul côté (hors séance, pic de volatilité implicite), aucun passage ne franchit cette barre. La pastille affiche alors `FLIP UNAVAILABLE` avec un `?` ambre à côté - survolez la marque pour connaître la raison et, sur ES / NQ, la chaîne sur laquelle le flip a manqué - et l'ombrage Regime n'est pas tracé. Le badge « Dealer Gamma @ Spot » continue de lire le régime à partir du gamma au prix actuel, et n'affiche un simple `—` que si ce gamma manque aussi. Nous préférons ne rien tracer plutôt qu'un niveau auquel nous ne faisons pas confiance ; le flip se résout normalement de nouveau sur un instantané ultérieur.
 
 Un flip vide signifie autre chose lorsque le filtre **Expiry** ne retient qu'une partie de la chaîne. Le graphique trace alors les niveaux des échéances que vous avez choisies, et leur flip est reconstruit à partir de ces seuls strikes ; or un sous-ensemble est souvent d'un seul signe (un carnet 0DTE d'après-midi à gamma négatif sur tous les strikes ne franchit jamais le zéro), il n'y a donc aucun passage à tracer. La pastille le dit directement : `NO FLIP IN SELECTED EXPIRIES`. Contrairement au cas précédent, celui-là ne se résoudra *pas* sur un instantané ultérieur, car rien ne manque. Remettez **Expiry** sur **All** pour voir le flip de la chaîne entière - le niveau que rapporte la page Dealer Positioning, qui lit la chaîne complète et continue donc d'afficher un nombre pendant que le graphique est restreint.
 
@@ -125,6 +127,7 @@ Chaque graphique fonctionne à la fois en thème sombre et en thème clair. Les 
 
 ## Voir aussi
 
+- [Utiliser le Gamma Terminal](/help/platform/gamma-terminal)
 - [Lire le Tableau de bord](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Pin Strike](/help/platform/pin-strike)

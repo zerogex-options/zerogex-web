@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 
 import { HELP_ARTICLES, getHelpArticleBySlug } from '../core/helpRegistry.ts';
+import { extractHeadings } from '../core/markdownHeadings.ts';
 import { NAV_GROUPS } from '../core/navigation.ts';
 
 // The Gamma Terminal's user guide (content/help/platform/gamma-terminal.md) and
@@ -13,13 +14,32 @@ import { NAV_GROUPS } from '../core/navigation.ts';
 // It also holds the guide to the chart: every overlay pill the chart draws must
 // have a row in the guide's overlay table, so a new overlay ships with its
 // description rather than leaving the guide quietly incomplete, the way the
-// older help pages missed Centroids and NVDA.
+// older help pages missed Centroids and NVDA. The translations are held to
+// the same sections, since a reader on another locale gets that file instead.
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
 const SLUG = 'gamma-terminal';
 const HREF = `/help/platform/${SLUG}`;
 const GUIDE_PATH = `../content/help/platform/${SLUG}.md`;
+const LOCALES = ['de', 'es', 'fr', 'it'] as const;
+const GUIDES: Array<[string, string]> = [
+  ['en', GUIDE_PATH],
+  ...LOCALES.map((locale): [string, string] => [locale, `../content/help/platform/${SLUG}.${locale}.md`]),
+];
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+// The overlay pills the chart draws. The rail's pill and its Labels toggle are
+// not drawn on the terminal, which hides the inline rail; the guide covers the
+// rail as the Strike Panel.
+const overlayLabels = (() => {
+  const chart = read('../components/GammaTerminalChart.tsx');
+  const labels = new Set([...chart.matchAll(/<OverlayPill label="([^"]+)"/g)].map((m) => m[1]));
+  labels.delete('Gamma Rail');
+  labels.delete('Labels');
+  return [...labels];
+})();
 
 test('the guide is a registered Core Pages help article whose page exists', () => {
   const article = getHelpArticleBySlug(SLUG);
@@ -56,18 +76,29 @@ test('the terminal links to the guide outside its About fold', () => {
   assert.ok(link < client.indexOf('<div id="chart-hero-intro"'), 'the link must not be inside the folded region');
 });
 
-test('every overlay pill the chart draws has a row in the guide', () => {
-  const chart = read('../components/GammaTerminalChart.tsx');
-  const guide = read(GUIDE_PATH);
-  const labels = new Set([...chart.matchAll(/<OverlayPill label="([^"]+)"/g)].map((m) => m[1]));
-  // The rail's pill and its Labels toggle are not drawn on the terminal, which
-  // hides the inline rail; the guide covers the rail as the Strike Panel.
-  labels.delete('Gamma Rail');
-  labels.delete('Labels');
-  assert.ok(labels.size >= 10, `expected the chart's overlay pills, found ${[...labels].join(', ')}`);
-  for (const label of labels) {
-    assert.match(guide, new RegExp(`^\\| ${label.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')} \\|`, 'm'), `the overlay table has no row for ${label}`);
-    assert.match(guide, new RegExp(`^### ${label.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}$`, 'm'), `the guide has no section for ${label}`);
+test('every overlay pill the chart draws has a row and a section in every language', () => {
+  assert.ok(overlayLabels.length >= 10, `expected the chart's overlay pills, found ${overlayLabels.join(', ')}`);
+  for (const [locale, path] of GUIDES) {
+    assert.ok(existsSync(new URL(path, import.meta.url)), `the ${locale} guide is missing`);
+    const guide = read(path);
+    assert.match(guide, /^# \S/, `${locale}: the H1 comes first`);
+    // Pill names are on-screen text, so they stay as the chart prints them.
+    for (const label of overlayLabels) {
+      assert.match(guide, new RegExp(`^\\| ${escape(label)} \\|`, 'm'), `${locale}: the overlay table has no row for ${label}`);
+      assert.match(guide, new RegExp(`^### ${escape(label)}$`, 'm'), `${locale}: no section for ${label}`);
+    }
+    assert.match(guide, /^### Strike Panel$/m, `${locale}: no Strike Panel section`);
   }
-  assert.match(guide, /^### Strike Panel$/m);
+});
+
+test('in-page links point at a heading in the same language', () => {
+  // Heading ids come from the heading text, so a translated heading has its
+  // own id, and each file's links must use the ids of its own headings.
+  for (const [locale, path] of GUIDES) {
+    const guide = read(path);
+    const ids = new Set(extractHeadings(guide).map((h) => h.id));
+    const anchors = [...guide.matchAll(new RegExp(`\\]\\(${escape(HREF)}#([^)]+)\\)`, 'g'))].map((m) => m[1]);
+    assert.ok(anchors.length > 0, `${locale}: expected in-page links`);
+    for (const id of anchors) assert.ok(ids.has(id), `${locale}: #${id} matches no heading`);
+  }
 });
