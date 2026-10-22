@@ -16,6 +16,7 @@ import {
   expiryBreakdown,
   expiryScopeLabel,
   levelsForStrike,
+  nearestDrawnLevel,
   nearestStrike,
   readoutPlacement,
   shareOfPeak,
@@ -72,6 +73,29 @@ test('levelsForStrike falls back to the nearest level and its distance', () => {
   assert.equal(near[0].label, 'FLIP');
   assert.ok(Math.abs(near[0].dist - 0.6) < 1e-9);
   assert.deepEqual(levelsForStrike([{ label: 'VWAP', value: null }], 577), [], 'no known levels');
+});
+
+test('the readouts never name a level whose line is switched off', () => {
+  // The GEX King pill is off by default, but its value is always known; the
+  // card used to name it anyway, pointing at a line that was not on the chart.
+  const withHidden = [
+    { label: 'CALL WALL', value: 580, show: true },
+    { label: 'GEX KING', value: 580, show: false },
+    { label: 'FLIP', value: 576.4, show: true },
+    { label: 'MAX PAIN', value: 577, show: false },
+  ];
+  assert.deepEqual(levelsForStrike(withHidden, 580).map((l) => l.label), ['CALL WALL']);
+  assert.deepEqual(levelsForStrike(withHidden, 577).map((l) => l.label), ['FLIP'], 'the hidden Max Pain sits on 577');
+  assert.deepEqual(levelsForStrike(withHidden.map((l) => ({ ...l, show: false })), 580), [], 'nothing drawn, nothing named');
+});
+
+test('nearestDrawnLevel picks the closest drawn level and its distance', () => {
+  const near = nearestDrawnLevel(levels, 577.2);
+  assert.equal(near?.label, 'FLIP');
+  assert.ok(near && Math.abs(near.dist - 0.8) < 1e-9);
+  assert.equal(nearestDrawnLevel([{ label: 'GEX KING', value: 577.2, show: false }, { label: 'VWAP', value: 590, show: true }], 577.2)?.label, 'VWAP');
+  assert.equal(nearestDrawnLevel([{ label: 'VWAP', value: null }], 577), null);
+  assert.equal(nearestDrawnLevel([], 577), null);
 });
 
 test('expiryBreakdown splits each side by its shares, nearest first', () => {

@@ -84,12 +84,14 @@ import {
   expiryBreakdown,
   expiryScopeLabel,
   levelsForStrike,
+  nearestDrawnLevel,
   nearestStrike,
   readoutPlacement,
   shareOfPeak,
   type PanelStrikeRow,
 } from "@/core/strikePanelHover";
 import { strikeAxisLabels } from "@/core/strikeAxis";
+import { chartSessionLabel } from "@/core/chartSessionLabel";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 import { isFuturesSymbol, volIndexPricesSymbol, volatilityIndexFor } from '@/core/symbols';
 import { chartSessionLevels } from "@/core/sessionLevels";
@@ -3468,12 +3470,7 @@ export default function GammaTerminalChart({
     return { ...best, norm, tier: tierFor(norm), drawn: norm >= RIBBON_MIN_NORM };
   })();
   const hoverCentroid = hover && centroidPoints ? centroidPoints[Math.max(0, Math.min(hover.idx, bars.length - 1))] ?? null : null;
-  const nearestLevel = hover
-    ? levelDefs
-        .filter((l) => l.value != null)
-        .map((l) => ({ label: l.label, value: l.value as number, color: l.color, dist: Math.abs((l.value as number) - hover.price) }))
-        .sort((a, b) => a.dist - b.dist)[0] ?? null
-    : null;
+  const nearestLevel = hover ? nearestDrawnLevel(levelDefs, hover.price) : null;
 
   // ── Strike panel hover ── what the card on the panel describes. The pointer
   // snaps to the nearest strike the panel draws, and every figure comes off the
@@ -3506,7 +3503,7 @@ export default function GammaTerminalChart({
         ? { label: `◷ ${futuresDelayLabel(feedAgeSeconds)}`, color: "var(--color-warning)" }
         : futuresSwap
           ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
-          : sessionLabel(session);
+          : chartSessionLabel(session);
 
   // Freshness line under the headline price.
   //  • Delayed: the snapshot's repaired "as of" (the delayed tape's freshest
@@ -5660,16 +5657,6 @@ function spreadTags<T extends { y: number }>(items: T[], gap: number, top: numbe
     if (arr[i].yAdj < top) arr[i].yAdj = top;
   }
   return arr;
-}
-
-function sessionLabel(session: string | null | undefined): { label: string; color: string } | null {
-  if (!session) return null;
-  const s = session.toLowerCase();
-  if (s === "open" || s === "regular") return { label: "● LIVE", color: "var(--color-bull)" };
-  if (s === "pre" || s === "premarket") return { label: "PRE-MKT", color: "var(--color-warning)" };
-  if (s === "ah" || s === "afterhours" || s === "post") return { label: "AFTER-HRS", color: "var(--color-warning)" };
-  if (s === "closed") return { label: "CLOSED", color: "var(--text-muted)" };
-  return { label: session.toUpperCase(), color: "var(--text-secondary)" };
 }
 
 // The strike axis's width, in chart y-units: the widest strike's whole digits

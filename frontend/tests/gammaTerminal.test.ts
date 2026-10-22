@@ -120,7 +120,9 @@ test("the strike panel is the chart's rail, portalled into the panel", () => {
   // whole trick: `yPrice` is then already correct inside the panel, so a
   // strike's bar lands level with that price on the candles.
   assert.match(chart, /const PANEL_VB_H = PRICE_BOTTOM - PAD_TOP;/);
-  assert.match(chart, /viewBox=\{`\$\{railLeft\} \$\{panelVb\.y\} \$\{railRight - railLeft\} \$\{panelVb\.h\}`\}/);
+  // The viewBox spans the whole panel width: the strike axis takes its left
+  // edge and the rail starts past it (railLeft below).
+  assert.match(chart, /viewBox=\{`0 \$\{panelVb\.y\} \$\{panelVb\.w\} \$\{panelVb\.h\}`\}/);
   // One px→y scale for the whole element, taken from the band the page reports.
   // Width and height convert through the SAME number, so the viewBox always
   // carries the element's aspect and nothing is ever stretched.
@@ -146,10 +148,11 @@ test("the panel fills its card and draws past the tape at the same scale", () =>
   assert.match(chart, /railStrikes\.filter\(\(s\) => s\.price >= railDomain\.min && s\.price <= railDomain\.max\)/);
 });
 
-// The rail's x geometry is per-instance: its own column inline, the whole
-// element in a panel. Nothing may still be pinned to the old constants.
+// The rail's x geometry is per-instance: its own column inline, the panel
+// past its strike axis in a panel. Nothing may still be pinned to the old
+// constants.
 test("the rail's geometry follows it out of the chart's column", () => {
-  assert.match(chart, /const railLeft = inPanel \? 0 : RAIL_LEFT;/);
+  assert.match(chart, /const railLeft = inPanel \? strikeAxisW : RAIL_LEFT;/);
   assert.match(chart, /const railRight = inPanel \? panelVb\.w : RAIL_RIGHT;/);
   assert.match(chart, /const railCenter = \(railLeft \+ railRight\) \/ 2;/);
   assert.match(chart, /const railHalf = \(railRight - railLeft\) \/ 2 - 10;/);

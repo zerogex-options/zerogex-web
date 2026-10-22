@@ -71,6 +71,7 @@ export const de: Dictionary = {
   'nav.help': 'Hilfe',
   'nav.quickStarts': 'Schnellstarts',
   'nav.platformGuide': 'Plattform-Anleitung',
+  'nav.gammaTerminalGuide': 'Gamma-Terminal-Anleitung',
   'nav.monitoring': 'Monitoring',
   'nav.pageAnalytics': 'Seiten-Analytics',
   'nav.about': 'Über uns',
