@@ -85,6 +85,7 @@ Vuoi un layout tutto tuo? [La mia dashboard](/my-dashboard) ti permette di costr
 
 ## Vedi anche
 
+- [Usare il Gamma Terminal](/help/platform/gamma-terminal)
 - [Come funzionano i Signals, dall'inizio alla fine](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Usare il Live Bulletin](/help/platform/live-bulletin)
