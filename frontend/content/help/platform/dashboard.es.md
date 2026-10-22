@@ -85,6 +85,7 @@ Eso es todo. Si te encuentras pasando más de 30 segundos aquí, has dejado de o
 
 ## Ver también
 
+- [Usar el Gamma Terminal](/help/platform/gamma-terminal)
 - [Cómo funcionan los Signals de principio a fin](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Usar el Live Bulletin](/help/platform/live-bulletin)
