@@ -40,6 +40,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'Core Pages',
   },
   {
+    slug: 'gamma-terminal',
+    title: 'Using the Gamma Terminal',
+    description: 'Every panel, control and chart overlay on the Gamma Terminal: what each one shows and how to read it.',
+    section: 'Core Pages',
+  },
+  {
     slug: 'live-bulletin',
     title: 'Using the Live Bulletin',
     description: 'A live, share-ready snapshot of dealer gamma positioning\u00a0- the regime, key levels, and expected range on one card.',

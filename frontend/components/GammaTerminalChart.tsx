@@ -4251,7 +4251,7 @@ export default function GammaTerminalChart({
                   text={
                     touchUi
                       ? "Drag the chart sideways to pan through time and pinch to zoom. Tap anywhere\u00a0- or press and hold, then slide\u00a0- to put down a crosshair and read dealer gamma at that price; tap again to clear it. The Time and Price steppers under the chart give finer control. Once you pan or zoom, the price scale stays where you put it; Reset snaps back to the live view and lets it fit itself again."
-                      : "Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control. Once you zoom or pan, the price scale stays where you put it; Reset (or a double-click) snaps back to the live view and lets it fit itself again."
+                      : "Drag to pan, Ctrl + scroll (Cmd + scroll on a Mac) to zoom time, Shift + scroll or scroll over the price scale to zoom price, and hover anywhere on the chart to read dealer gamma at that price. A plain scroll moves the page, not the chart. Use the Time and Price steppers at the bottom-right for finer control. Once you zoom or pan, the price scale stays where you put it; Reset (or a double-click) snaps back to the live view and lets it fit itself again."
                   }
                 />
                 {sessionBadge && (

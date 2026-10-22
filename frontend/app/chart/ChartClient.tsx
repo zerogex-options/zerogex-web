@@ -31,7 +31,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, ChevronDown, ChevronUp, Columns3, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
+import { ArrowRight, BookOpen, ChevronDown, ChevronUp, Columns3, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import type { ChartSnapshot } from '@/components/GammaTerminalChart';
 import TooltipWrapper from '@/components/TooltipWrapper';
@@ -188,16 +188,24 @@ export default function ChartClient({
             their levels through exactly the same code path. */}
         <KeyLevelsStrip snapshot={snapshot} delayed={delayed} className="mb-5" />
 
-        <button
-          type="button"
-          className="zg-disclosure"
-          aria-expanded={introOpen}
-          aria-controls="chart-hero-intro"
-          onClick={() => setIntroOpen((open) => !open)}
-        >
-          About this terminal
-          {introOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-        </button>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <button
+            type="button"
+            className="zg-disclosure"
+            aria-expanded={introOpen}
+            aria-controls="chart-hero-intro"
+            onClick={() => setIntroOpen((open) => !open)}
+          >
+            About this terminal
+            {introOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+          {/* Beside the fold, not inside it: members, who start folded, are
+              the readers the control-by-control guide is for. */}
+          <Link href="/help/platform/gamma-terminal" className="zg-disclosure">
+            <BookOpen size={13} />
+            How to use it
+          </Link>
+        </div>
 
         {/* Kept mounted and hidden rather than unmounted: aria-controls has to
             point at something that exists in both states, and the copy is

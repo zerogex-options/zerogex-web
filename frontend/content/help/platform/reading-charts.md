@@ -75,9 +75,9 @@ GEX Heatmap Timeseries, on the GEX Heatmap page and on Dealer Positioning: strik
 
 ## The Gamma Chart
 
-The price chart on the Gamma Terminal and the ZeroGEX Gamma Chart on the Main Dashboard are the same chart: the underlying's price with the dealer-gamma structure drawn in.
+The price chart on the Gamma Terminal and the ZeroGEX Gamma Chart on the Main Dashboard are the same chart: the underlying's price with the dealer-gamma structure drawn in. For a control-by-control guide to every overlay and panel, see [Using the Gamma Terminal](/help/platform/gamma-terminal).
 
-- **Symbol and timeframe** - SPY, QQQ, SPX, NDX, ES, or NQ, on 1m, 5m, 15m, 1H, or 1D bars.
+- **Symbol and timeframe** - SPY, QQQ, SPX, NDX, ES, NQ, or NVDA, on 1m, 5m, 15m, 1H, or 1D bars.
 - **Price style** - Candle, Line, or Area, over a volume pane that shows Up/Down volume or the session's Cumulative net.
 - **Expiry** - on the live chart, scopes the gamma levels and the rail to the expirations you pick; **All** is the whole chain.
 
@@ -87,9 +87,9 @@ The overlays are the ZeroGEX twist, each switched by a pill in the toolbar above
 - **Gamma Rail** - dealer gamma by strike, drawn level with the prices on the tape, as a smoothed silhouette or as Net, Split, or Combined bars. On the Gamma Terminal it sits in the panel beside the chart, where you can swap it for two strike-aligned Net-GEX ladders.
 - **Max Pain** and **Pin Strike** - their own lines in gold and teal; the pin line carries its strength, as in `PIN · STRONG`.
 - **VWAP**, and **Regime** shading - the long-gamma and short-gamma zones on either side of the flip.
-- Off until you turn them on: **GEX King**, and on the live chart **Expected Range**, **Ribbons** (per-strike gamma through time, behind the tape), and **Bar Timer**.
+- Off until you turn them on: **GEX King**, and on the live chart **Expected Range**, **Centroids** (where the session's call and put trading is centered), and **Bar Timer**. **Ribbons** (per-strike gamma through time, behind the tape) are live-only too: off until you turn them on on the Main Dashboard, and on by default on the Gamma Terminal.
 
-On SPY and QQQ, a row just above the live chart lists the previous session's high, low and close and today's pre-market high and low: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. The eye at the end of the row, or the **PD/PM Levels** pill, draws them on the chart as gray lines with outlined price tags, long dashes for the prior day and dots for the pre-market. They're off until you turn them on. SPX and NDX have no pre-market, and ES and NQ trade almost around the clock, so the row doesn't appear on those four.
+On SPY, QQQ, and NVDA, a row just above the live chart lists the previous session's high, low and close and today's pre-market high and low: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. The eye at the end of the row, or the **PD/PM Levels** pill, draws them on the chart as gray lines with outlined price tags, long dashes for the prior day and dots for the pre-market. They're off until you turn them on. SPX and NDX have no pre-market, and ES and NQ trade almost around the clock, so the row doesn't appear on those four.
 
 The finely-dotted line in the theme's hot accent is the **last traded price**, not a gamma level - it's listed as "Last" in the legend under the chart.
 
@@ -99,7 +99,7 @@ The overlays let you read price action through the dealer-positioning lens witho
 
 A level is only drawn while it sits inside the price range on screen, so on a high-priced underlying whose flip is far from spot - NDX especially - the flip line can be off the visible scale. The chart says so rather than leaving you to guess: a chip at the plot edge reads `FLIP ↓ 22,600.00` with the direction and the price, and the right-hand price axis carries a matching arrowed tag. Zoom the price axis out (the **Price −** button, Shift+scroll, or drag the right-hand price scale) to bring the line itself into view.
 
-Occasionally no flip can be resolved at all. The resolver only publishes a zero crossing that sits close enough to spot to trade and is backed by real open interest, so when spot is deep inside one gamma regime, or the chain is thin or one-sided (extended hours, an implied-volatility spike), nothing clears that bar. Then the chip reads `FLIP UNAVAILABLE` with an amber `?` beside it - hover the mark for the reason, and on ES / NQ for which chain the miss happened on - and the "Dealer Gamma @ Spot" badge shows a plain `—`. Nothing is drawn rather than a level we don't trust; it normally resolves again on a later snapshot.
+Occasionally no flip can be resolved at all. The resolver only publishes a zero crossing that sits close enough to spot to trade and is backed by real open interest, so when spot is deep inside one gamma regime, or the chain is thin or one-sided (extended hours, an implied-volatility spike), nothing clears that bar. Then the chip reads `FLIP UNAVAILABLE` with an amber `?` beside it - hover the mark for the reason, and on ES / NQ for which chain the miss happened on - and the Regime shading isn't drawn. The "Dealer Gamma @ Spot" badge still reads the regime from the gamma at the current price, and shows a plain `—` only when that is missing too. Nothing is drawn rather than a level we don't trust; it normally resolves again on a later snapshot.
 
 A blank flip means something different when the **Expiry** filter holds a subset of the chain. The chart then draws the levels for the expirations you picked, and their flip is rebuilt from those strikes alone - but a subset is often one-signed (an afternoon 0DTE book that is negative-gamma at every strike never crosses zero), so there is no crossing to draw. The chip says so directly: `NO FLIP IN SELECTED EXPIRIES`. Unlike the case above, that one will *not* resolve on a later snapshot, because nothing is missing. Set **Expiry** back to **All** to see the whole-chain flip - the same level the Dealer Positioning page reports, which reads the full chain and so keeps showing a number while the chart is scoped.
 
@@ -127,6 +127,7 @@ Every chart works in both dark and light themes. The color **identities** stay t
 
 ## See also
 
+- [Using the Gamma Terminal](/help/platform/gamma-terminal)
 - [Reading the Dashboard](/help/platform/dashboard)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Pin Strike](/help/platform/pin-strike)

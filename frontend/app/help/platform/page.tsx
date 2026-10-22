@@ -103,6 +103,12 @@ const sections: Section[] = [
           "The first page you open every morning. The Key Levels strip, Today's Read, the Gamma Chart and every card below them, and how to read it all in 30 seconds.",
       },
       {
+        href: '/help/platform/gamma-terminal',
+        title: 'Using the Gamma Terminal',
+        blurb:
+          'The Key Levels strip, the gamma ladders and Strike Panel, and every overlay on the chart: what each line and shade means, how to read it, and what it leaves out.',
+      },
+      {
         href: '/help/platform/live-bulletin',
         title: 'Using the Live Bulletin',
         blurb:

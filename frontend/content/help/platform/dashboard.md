@@ -85,6 +85,7 @@ Want your own layout? [My Dashboard](/my-dashboard) lets you build a board from 
 
 ## See also
 
+- [Using the Gamma Terminal](/help/platform/gamma-terminal)
 - [How Signals Work End-to-End](/help/platform/signals-overview)
 - [Dealer Positioning](/help/platform/dealer-positioning)
 - [Using the Live Bulletin](/help/platform/live-bulletin)

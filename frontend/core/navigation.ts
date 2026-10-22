@@ -259,6 +259,7 @@ export const NAV_GROUPS: NavGroup[] = [
         labelKey: 'nav.help',
         items: [
           { id: '/help/platform', label: 'Platform Guide', labelKey: 'nav.platformGuide' },
+          { id: '/help/platform/gamma-terminal', label: 'Gamma Terminal Guide' },
           { id: '/help/faqs', label: 'FAQs' },
           // Listed only once a video is published (core/quickStarts.ts). Until
           // then the page is a list of placeholders, not a place to send anyone.
