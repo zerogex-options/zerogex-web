@@ -492,9 +492,12 @@ export default function ReplayScrubber({
   // notes under the controls.
   const scopeExpiry = replayScopeExpiration(scope, sessionDate);
 
-  // A scope the session's chain never had (0DTE on a day with no same-day
-  // expiry) comes back as frames with empty ladders — deliberately, so the page
-  // can say so rather than quietly redrawing the whole chain.
+  // A scope the session's data never had comes back as frames with empty
+  // ladders — deliberately, so the page can say so rather than quietly
+  // redrawing the whole chain. For 0DTE that is a day with no same-day expiry.
+  // For Fri it is usually ingestion depth: only the nearest few expirations are
+  // collected (INGEST_EXPIRATIONS), and on a daily-expiry symbol the coming
+  // Friday falls outside them on Monday, Tuesday and Friday sessions.
   const scopeHasNoContracts = useMemo(
     () =>
       scope !== 'all' &&
@@ -1041,8 +1044,14 @@ export default function ReplayScrubber({
 
         {scopeHasNoContracts && (
           <div className="mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-            No contracts expiring {scopeExpiry} in this chain&nbsp;-{' '}
-            {scope === '0dte' ? 'that session had no 0DTE book.' : 'that session had no such expiry listed.'}{' '}
+            {scope === '0dte' ? (
+              <>No contracts expiring {scopeExpiry} in this chain&nbsp;- that session had no 0DTE book.</>
+            ) : (
+              <>
+                No {scopeExpiry} expiry data for this session&nbsp;- it was further out than the
+                expirations we tracked that day.
+              </>
+            )}{' '}
             Switch back to <strong>All exps</strong> for the whole-chain surface.
           </div>
         )}
