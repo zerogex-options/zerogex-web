@@ -35,6 +35,7 @@ import { pinLineLabel, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
 import { isZoomGesture } from '@/core/wheelZoom';
 import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import {
+  replayScopeExpiration,
   replayScopeHref,
   replayScopeLabel,
   replayScopeTitle,
@@ -487,6 +488,10 @@ export default function ReplayScrubber({
     [sessionDate, symbol],
   );
 
+  // The one expiry a scoped replay is built from (null for All), for the
+  // notes under the controls.
+  const scopeExpiry = replayScopeExpiration(scope, sessionDate);
+
   // A scope the session's chain never had (0DTE on a day with no same-day
   // expiry) comes back as frames with empty ladders — deliberately, so the page
   // can say so rather than quietly redrawing the whole chain.
@@ -859,9 +864,9 @@ export default function ReplayScrubber({
               {cursorTimestamp ? formatTime(cursorTimestamp) : '—'} ET
             </div>
             {/* Expiration scope. 0DTE replays only the contracts that settled
-                that afternoon — the walls, flip and max pain come back
-                re-derived from that book, so this is a different read of the
-                session, not a filter on the bars alone. */}
+                that afternoon, Fri only the coming weekly — the walls, flip and
+                max pain come back re-derived from that book, so this is a
+                different read of the session, not a filter on the bars alone. */}
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
                 Expiration
@@ -890,7 +895,7 @@ export default function ReplayScrubber({
                         fontWeight: 700,
                       }}
                     >
-                      {replayScopeLabel(option)}
+                      {replayScopeLabel(option, sessionDate)}
                     </Link>
                   );
                 })}
@@ -1036,14 +1041,15 @@ export default function ReplayScrubber({
 
         {scopeHasNoContracts && (
           <div className="mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-            No contracts expiring {sessionDate} in this chain&nbsp;- that session had no 0DTE book.
+            No contracts expiring {scopeExpiry} in this chain&nbsp;-{' '}
+            {scope === '0dte' ? 'that session had no 0DTE book.' : 'that session had no such expiry listed.'}{' '}
             Switch back to <strong>All exps</strong> for the whole-chain surface.
           </div>
         )}
 
-        {scope === '0dte' && !scopeHasNoContracts && (
+        {scope !== 'all' && !scopeHasNoContracts && (
           <div className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
-            Bars, call wall, put wall, gamma flip and max pain are the {sessionDate} expiry alone.
+            Bars, call wall, put wall, gamma flip and max pain are the {scopeExpiry} expiry alone.
             Pin strike and GEX King stay whole-chain&nbsp;- same as the live charts, where neither
             follows the Expiry selector. Snapshot cards render the whole chain.
           </div>

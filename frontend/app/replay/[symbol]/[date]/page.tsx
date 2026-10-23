@@ -13,6 +13,7 @@ import {
   parseReplayMinute,
   parseReplayScope,
   replayRangeQuery,
+  replayScopeExpiration,
   REPLAY_MINUTE_PARAM,
   REPLAY_SCOPE_PARAM,
   type ReplayScope,
@@ -120,6 +121,20 @@ function formatShortDate(raw: string): string {
   }
 }
 
+// "Sep 18": the weekly expiry inside a title that already carries the year.
+function formatMonthDay(raw: string): string {
+  try {
+    const dt = new Date(`${raw}T12:00:00Z`);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(dt);
+  } catch {
+    return raw;
+  }
+}
+
 async function loadRange(
   date: string,
   symbol: string,
@@ -131,9 +146,9 @@ async function loadRange(
   // it's opt-in — this page draws the gradient, so it opts in; the pair-
   // comparison scrubber reads the same endpoint without it.
   //
-  // Under a 0DTE scope the API answers with the scope as the legend and no
-  // per-strike mix (one expiration has no gradient), so the same request shape
-  // serves both scopes.
+  // Under a 0DTE or Fri scope the API answers with the scope as the legend and
+  // no per-strike mix (one expiration has no gradient), so the same request
+  // shape serves every scope.
   return serverApiGet<ReplayRangePayload>(
     `/api/replay/range?${replayRangeQuery({ symbol, date, scope, includeExpirations: true })}`,
     REVALIDATE_SECONDS,
@@ -152,20 +167,28 @@ export async function generateMetadata({
   const scope = parseReplayScope((await searchParams)?.[REPLAY_SCOPE_PARAM]);
   const human = formatHumanDate(date);
   const short = formatShortDate(date);
-  // Canonical is the BARE dated URL in both scopes. `?exp=0dte` is a view of
-  // the same session, not a second page — pointing it at itself would enter
-  // two URLs per session into the index competing for the same query.
+  // Canonical is the BARE dated URL in every scope. `?exp=0dte` / `?exp=fri`
+  // are views of the same session, not more pages — pointing them at
+  // themselves would enter several URLs per session into the index competing
+  // for the same query.
   const url = `${SITE_URL}/replay/${sym}/${date}`;
-  const scoped = scope === '0dte';
+  const weekly = scope === 'fri' ? replayScopeExpiration(scope, date) : null;
+  const weeklyShort = weekly ? formatMonthDay(weekly) : 'next Friday';
   // The level names are in the title because that is what the searches these
   // pages rank for say ("spx gamma flip call wall put wall <date>"). No brand
   // suffix: the og:title is this same string and the width is better spent.
-  const title = scoped
-    ? `${sym} 0DTE GEX Replay, ${short}: Flip, Call & Put Walls`
-    : `${sym} GEX Replay, ${short}: Gamma Flip, Call & Put Walls`;
-  const description = scoped
-    ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human}\u00a0- walls, flip and max pain from the contracts that settled that afternoon.`
-    : `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`;
+  const title =
+    scope === '0dte'
+      ? `${sym} 0DTE GEX Replay, ${short}: Flip, Call & Put Walls`
+      : scope === 'fri'
+        ? `${sym} ${weeklyShort} Expiry GEX Replay, ${short}: Flip & Walls`
+        : `${sym} GEX Replay, ${short}: Gamma Flip, Call & Put Walls`;
+  const description =
+    scope === '0dte'
+      ? `Scrub ${sym}'s same-day (0DTE) dealer gamma surface minute-by-minute on ${human}\u00a0- walls, flip and max pain from the contracts that settled that afternoon.`
+      : scope === 'fri'
+        ? `Scrub ${sym}'s ${weeklyShort} weekly-expiry dealer gamma surface minute-by-minute on ${human}\u00a0- walls, flip and max pain from that expiration alone.`
+        : `Scrub through ${sym}'s dealer gamma surface minute-by-minute on ${human}. Drop two pins to see the strike-by-strike delta between any moments.`;
   return {
     title,
     description,
@@ -319,10 +342,12 @@ export default async function ReplayDatePage({
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Switch the strike profile between <em>All exps</em> and <em>0DTE</em>&nbsp;- 0DTE replays only
-        the contracts that settled that afternoon, and the call wall, put wall, gamma flip and max
-        pain are re-derived from that book rather than the whole chain (the pin strike and GEX King
-        stay whole-chain in both, exactly as they do on the live charts) ·
+        Switch the strike profile between <em>All exps</em>, <em>0DTE</em> and the coming Friday
+        expiry&nbsp;- 0DTE replays only the contracts that settled that afternoon, the Friday option
+        only the next weekly (the Friday after, on a Friday session), and in both the call wall, put
+        wall, gamma flip and max pain are re-derived from that book rather than the whole chain (the
+        pin strike and GEX King stay whole-chain in every view, exactly as they do on the live
+        charts) ·
         drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
