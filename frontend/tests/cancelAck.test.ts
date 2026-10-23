@@ -27,6 +27,7 @@ type Sent = {
   periodEndIso: string | null;
   saveUrl: string | null;
   conversionChargePending: boolean;
+  trialing: boolean;
   cancellationFeedback: string | null;
   cancellationComment: string | null;
   savePercent: number;
@@ -232,6 +233,21 @@ test('a "too expensive" cancel gets the 50% save link; any other reason gets 25%
   await handleCancelAckTransition(other, { ...o, cancellationDetails: { feedback: 'unused' } }, h.deps);
   assert.equal(h.sent[1].saveUrl, `https://zerogex.io/save?u=${other.id}`);
   assert.equal(h.sent[1].savePercent, 25);
+});
+
+test('a trial cancel is flagged to the email; a paid one is not', async () => {
+  const h = harness();
+  const trial = seedMember('u_trial');
+  sync(trial.id, { id: 'sub_T', cancelAtPeriodEnd: 0 });
+  const t = sync(trial.id, { id: 'sub_T', cancelAtPeriodEnd: 1 });
+  await handleCancelAckTransition(trial, { ...t, trialing: true }, h.deps);
+  assert.equal(h.sent[0].trialing, true);
+
+  const paid = seedMember('u_paid');
+  sync(paid.id, { id: 'sub_Pd', cancelAtPeriodEnd: 0 });
+  const p = sync(paid.id, { id: 'sub_Pd', cancelAtPeriodEnd: 1 });
+  await handleCancelAckTransition(paid, p, h.deps);
+  assert.equal(h.sent[1].trialing, false);
 });
 
 test('the survey comment rides along to the email, so they are not asked why again', async () => {

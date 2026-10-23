@@ -433,12 +433,16 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   guarantee is one refund per customer. Asks what didn't work. No retention pitch:
   they asked to leave. No FOH footer.
 
-**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending?, cancellationFeedback?, cancellationComment?, savePercent? })`
+**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending?, trialing?, cancellationFeedback?, cancellationComment?, savePercent? })`
 - **Subject:** `Sorry to see you go — mind sharing why?` when they gave no reason;
   `Sorry to see you go` when they picked one or typed one.
 - Fires at the click-Cancel moment (still has access until period end). Offers 25% off
   for a year (50% for "Too expensive") **through the one-click `/save` button and
   nothing else**. No FOH footer.
+- **Trial cancels** (`trialing`, status `trialing` at the cancel) open with "canceled
+  your ZeroGEX trial, so you won't be charged anything" instead of thanking them for
+  being "a real part of what I've been building". Not when `conversionChargePending`
+  is set: that member is being charged.
 - **Never asks why twice.** Only a member who skipped the survey gets "what made you
   cancel?" and the common-reasons list. A picked reason gets one narrower question
   about that reason (`CANCEL_REASON_QUESTIONS` in `core/mailer.ts`); a typed comment

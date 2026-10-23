@@ -38,6 +38,10 @@ export type CancelAckTransition = {
   // (see core/trialDunning.hasConversionChargeInFlight). Decided at the call
   // site, where the live subscription is in scope.
   conversionChargePending: boolean;
+  // True when the subscription was still in its free trial when they canceled
+  // (status 'trialing'), so the email doesn't thank a trial member for being
+  // "a real part" of the business.
+  trialing?: boolean;
   // Typed with our own structurally-compatible shape (Stripe's enum fields
   // widen to string) so this doesn't depend on the Stripe nested type path.
   cancellationDetails?: CancellationDetails;
@@ -50,6 +54,7 @@ export type CancelAckDeps = {
       periodEndIso: string | null;
       saveUrl: string | null;
       conversionChargePending: boolean;
+      trialing: boolean;
       // The reason the member picked, so the email can answer it.
       cancellationFeedback: string | null;
       // What they typed in the survey's free-text box, so the email thanks them
@@ -118,6 +123,7 @@ export async function handleCancelAckTransition(
         periodEndIso: transition.periodEndIso,
         saveUrl,
         conversionChargePending: transition.conversionChargePending,
+        trialing: transition.trialing === true,
         cancellationFeedback: transition.cancellationDetails?.feedback ?? null,
         cancellationComment: transition.cancellationDetails?.comment ?? null,
         savePercent: offer === 'price' ? PRICE_SAVE_PERCENT : SAVE_PERCENT,

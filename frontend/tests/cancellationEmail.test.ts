@@ -224,6 +224,41 @@ test('a typed comment is thanked, not followed by another question', () => {
   assert.match(blank.text, /what made you cancel/);
 });
 
+// "You've been a real part of what I've been building" is for paying members.
+// Said to someone who tried it for a few days and never paid, it reads as a
+// form letter.
+
+test('a trial cancel says the trial is canceled and nothing will be charged', () => {
+  const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, trialing: true });
+  for (const body of [text, html]) {
+    assert.match(body, /canceled your ZeroGEX trial/);
+    assert.match(body, /won(&#39;|')t be charged anything/);
+    assert.doesNotMatch(body, /real part of what/);
+    assert.doesNotMatch(body, /canceled your ZeroGEX subscription/);
+  }
+});
+
+test('a paid cancel keeps the "real part" thanks', () => {
+  for (const trialing of [undefined, false]) {
+    const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, trialing });
+    assert.match(text, /canceled your ZeroGEX subscription/);
+    assert.match(text, /real part of what/);
+    assert.match(html, /real part of what/);
+  }
+});
+
+test('a trial that is already converting is never told "you won\'t be charged"', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    trialing: true,
+    conversionChargePending: true,
+  });
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /won(&#39;|')t be charged/);
+    assert.match(body, /That is your final charge/);
+  }
+});
+
 test('the save box states the percent of the link it carries', () => {
   const fifty = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: 'https://x/save', savePercent: 50 });
   assert.match(fifty.text, /claim 50% off/);

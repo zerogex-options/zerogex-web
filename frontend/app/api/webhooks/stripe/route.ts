@@ -1328,6 +1328,7 @@ async function syncSubscriptionToUser(
     next: nextCancelAtPeriodEnd,
     periodEndIso,
     subscriptionId: subscription.id,
+    trialing: subscription.status === 'trialing',
     // Did they cancel after their trial expired but before Stripe finalized the
     // draft cycle invoice? Then a charge lands on them within the hour and the
     // acknowledgment has to say so — `user` is still the PRE-UPDATE row here,

@@ -2426,6 +2426,13 @@ export type CancellationEmailOptions = {
   // expensive false statement we make: it is what turns a charge the member
   // arguably owes into one they are certain was a mistake.
   conversionChargePending?: boolean;
+  // True when they canceled during their free trial (subscription status
+  // 'trialing'). "You've been a real part of what I've been building" is not
+  // something to say to someone who tried it for a few days and never paid, so
+  // a trial cancel opens by confirming the trial is canceled and nothing will be
+  // charged. Ignored when conversionChargePending is set: that member's trial is
+  // over and a charge is landing, so "you won't be charged" would be false.
+  trialing?: boolean;
   // Stripe's cancellation feedback token, when the member picked a reason.
   // 'too_complex' adds a paragraph pointing at My Dashboard (keep only the views
   // you want) and the Education hub. The modal showed the same thing before the
@@ -2493,6 +2500,10 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     : 'the end of your current billing period';
   const saveUrl = opts.saveUrl ?? null;
   const chargePending = opts.conversionChargePending === true;
+  const trialCancel = opts.trialing === true && !chargePending;
+  const openingSentence = trialCancel
+    ? "I saw you just canceled your ZeroGEX trial, so you won't be charged anything."
+    : "I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.";
   const tooComplex = feedback === 'too_complex';
   const tooExpensive = feedback === 'too_expensive';
   const savePct = opts.savePercent ?? 25;
@@ -2514,7 +2525,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   const text = [
     'Hello,',
     '',
-    'I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
+    openingSentence,
     '',
     billingSentenceText,
     '',
@@ -2561,7 +2572,7 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
+      <p>${escapeHtml(openingSentence)}</p>
       <p>${billingSentenceHtml}</p>
       ${tooComplex
         ? `<p>You said ZeroGEX felt too complex. That one is on me, and it is fixable: you don't have to use every chart. In <a href="${escapeHtml(dashboardUrl)}" style="${linkStyle}">My Dashboard</a> you pick exactly what is on your screen\u00a0- start with one or two views and add more only when you want them.</p>
