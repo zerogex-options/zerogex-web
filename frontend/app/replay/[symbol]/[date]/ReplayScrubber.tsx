@@ -495,9 +495,9 @@ export default function ReplayScrubber({
   // A scope the session's data never had comes back as frames with empty
   // ladders — deliberately, so the page can say so rather than quietly
   // redrawing the whole chain. For 0DTE that is a day with no same-day expiry.
-  // For Fri it is usually ingestion depth: only the nearest few expirations are
-  // collected (INGEST_EXPIRATIONS), and on a daily-expiry symbol the coming
-  // Friday falls outside them on Monday, Tuesday and Friday sessions.
+  // For Fri it is an expiry ingestion did not reach that day: only the nearest
+  // INGEST_EXPIRATIONS expirations are collected, so a session recorded while
+  // that depth was too shallow to include the coming Friday has no rows for it.
   const scopeHasNoContracts = useMemo(
     () =>
       scope !== 'all' &&
