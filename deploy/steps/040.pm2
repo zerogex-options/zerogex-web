@@ -77,6 +77,32 @@ esac
 export PM2_NODE_INTERPRETER="$NODE22_BIN"
 log "  → Pinning BFF interpreter: $PM2_NODE_INTERPRETER"
 
+# Refuse to (re)start the BFF on a 22.x older than the last 22.x security
+# release. This exits before the `pm2 delete` below, so an unpatched box keeps
+# serving while 020.nodejs is re-run. 22.23.4 is the Oct 21 2026 release
+# (Brotli decoder RCE, CVE-2026-111497); raise it when the next one ships.
+NODE_MIN_PATCHED="22.23.4"
+NODE22_VERSION="$(node -v)"
+NODE22_VERSION="${NODE22_VERSION#v}"
+if [ "$(printf '%s\n' "$NODE_MIN_PATCHED" "$NODE22_VERSION" | sort -V | head -n1)" != "$NODE_MIN_PATCHED" ]; then
+  log "  ✗ Node $NODE22_VERSION is older than $NODE_MIN_PATCHED, the last 22.x security release"
+  log "    Re-run 020.nodejs to install the newest Node 22, then this step."
+  exit 1
+fi
+
+# After a Node upgrade the PM2 daemon is still running on the old binary:
+# `pm2 delete` and `pm2 start` below reuse it, and only the app's interpreter
+# moves. `pm2 update` saves the process list, restarts the daemon under the pm2
+# installed above for this Node, and restores the list.
+PM2_PID_FILE="${PM2_HOME:-$HOME/.pm2}/pm2.pid"
+if [ -s "$PM2_PID_FILE" ]; then
+  PM2_DAEMON_NODE="$(readlink "/proc/$(cat "$PM2_PID_FILE")/exe" 2>/dev/null || true)"
+  if [ -n "$PM2_DAEMON_NODE" ] && [ "$PM2_DAEMON_NODE" != "$(readlink -f "$NODE22_BIN")" ]; then
+    log "  → PM2 daemon runs on $PM2_DAEMON_NODE; moving it to Node $NODE22_VERSION"
+    pm2 update
+  fi
+fi
+
 cd "$REPO_ROOT"
 log "  → Restarting PM2 app: $APP_NAME"
 pm2 delete "$APP_NAME" 2>/dev/null || true
