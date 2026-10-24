@@ -54,7 +54,12 @@ Les champs numériques sont typés avec précision - les valeurs de gamma sont 
 
 ### Polling vs streaming
 
-Pour la plupart des cas d'usage, un polling à une cadence raisonnable (toutes les quelques secondes pour les métriques en direct, toutes les minutes pour l'historique) suffit. Le streaming n'est pas actuellement exposé dans l'API publique ; la plateforme web utilise un canal interne.
+Pour la plupart des cas d'usage, un polling à une cadence raisonnable (toutes les quelques secondes pour les métriques en direct, toutes les minutes pour l'historique) suffit. Le seul flux est celui des alertes de murs : `GET /api/alerts/walls/stream` envoie chaque contact, cassure et tenue d'un mur call ou put dès qu'il se déclenche, en Server-Sent Events, filtré dans la query string par symbole, côté, événement, filtre de bruit et force du mur. Aucune alerte enregistrée n'est nécessaire. Reconnectez-vous avec le dernier `id` reçu (`Last-Event-ID`) et rien n'est perdu. `GET /api/alerts/walls/events` sert les mêmes alertes par pages, si vous préférez le polling. Les deux sont documentés dans la documentation de l'API, rubrique *Wall Alerts* :
+
+```bash
+curl -N -H "Authorization: Bearer $ZEROGEX_API_KEY" \
+  "https://api.zerogex.io/api/alerts/walls/stream?symbols=SPY&side=put&events=hit,break"
+```
 
 ### Mise en cache
 

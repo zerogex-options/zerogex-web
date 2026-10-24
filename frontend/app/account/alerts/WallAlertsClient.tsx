@@ -1000,7 +1000,9 @@ function RuleEditor({
           })}
         </div>
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* A saved alert never expires; say so where it is saved. */}
+          <p className="text-[11px] leading-snug text-[var(--color-text-secondary)] mr-auto">{t('saveHint')}</p>
           <button onClick={onCancel} className="text-xs font-medium px-3 py-2 rounded-full text-[var(--color-text-secondary)]">
             {t('cancel')}
           </button>
@@ -1130,7 +1132,7 @@ function DesktopToggle({ t }: { t: T }) {
 
 function HowItWorks({ t }: { t: T }) {
   const [open, setOpen] = useState(false);
-  const items = ['how_hit', 'how_break', 'how_hold', 'how_strength', 'how_noise', 'how_hours', 'how_disclaimer'];
+  const items = ['how_hit', 'how_break', 'how_hold', 'how_strength', 'how_noise', 'how_hours', 'how_api', 'how_disclaimer'];
   return (
     <section className="rounded-2xl mb-6" style={card}>
       <button

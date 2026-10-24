@@ -5,7 +5,7 @@ export const dict: PageDictionary = {
     backToAccount: 'Back to Account',
     title: 'Wall alerts',
     description:
-      'Get alerted the moment price reaches a call or put wall — filtered for chop, and only for walls strong enough to matter to you. Alerts run during the regular session, 9:30 AM–4:00 PM ET.',
+      'Get alerted the moment price reaches a call or put wall — filtered for chop, and only for walls strong enough to matter to you. Alerts run during the regular session, 9:30 AM–4:00 PM ET. Set an alert once and it stays on every trading day until you pause or delete it.',
     liveTitle: "Today's walls",
     liveSubtitle:
       'Live. Strength compares each wall with its own last 30 days at this time of day, so “Strong” means the same thing on every symbol.',
@@ -69,6 +69,7 @@ export const dict: PageDictionary = {
     comingSoon: 'Coming soon',
     live: 'Live',
     save: 'Save alert',
+    saveHint: 'Stays on every trading day, following that day’s wall, until you pause or delete it.',
     saving: 'Saving…',
     cancel: 'Cancel',
     edit: 'Edit',
@@ -123,6 +124,8 @@ export const dict: PageDictionary = {
     how_noise:
       'Noise filter: distances scale with how fast the market is moving, so a quiet morning and a fast afternoon are judged fairly. Breaks are never held back by a cooldown.',
     how_hours: 'Alerts run during the regular session only (9:30 AM–4:00 PM ET). Data-feed delays pause alerts rather than send stale ones.',
+    how_api:
+      'On Pro, your own code can receive every wall alert the moment it fires, with your API key and no saved alert. See “API Access & Keys” in Help.',
     how_disclaimer: 'Alerts are informational market data, not financial advice.',
     saveError: 'Could not save — please try again.',
     loadError: 'Could not load your alerts.',
@@ -134,7 +137,7 @@ export const dict: PageDictionary = {
     backToAccount: "Torna all'Account",
     title: 'Avvisi sui muri',
     description:
-      'Ricevi un avviso appena il prezzo raggiunge un muro call o put — filtrato dal rumore e solo per i muri abbastanza forti da contare. Gli avvisi sono attivi durante la sessione regolare, 9:30–16:00 ET.',
+      'Ricevi un avviso appena il prezzo raggiunge un muro call o put — filtrato dal rumore e solo per i muri abbastanza forti da contare. Gli avvisi sono attivi durante la sessione regolare, 9:30–16:00 ET. Imposta un avviso una volta e resta attivo ogni giorno di borsa finché non lo metti in pausa o lo elimini.',
     liveTitle: 'I muri di oggi',
     liveSubtitle:
       'In tempo reale. La forza confronta ogni muro con i suoi ultimi 30 giorni alla stessa ora, quindi “Forte” significa la stessa cosa su ogni simbolo.',
@@ -198,6 +201,7 @@ export const dict: PageDictionary = {
     comingSoon: 'In arrivo',
     live: 'Attivo',
     save: 'Salva avviso',
+    saveHint: 'Resta attivo ogni giorno di borsa, seguendo il muro di quel giorno, finché non lo metti in pausa o lo elimini.',
     saving: 'Salvataggio…',
     cancel: 'Annulla',
     edit: 'Modifica',
@@ -252,6 +256,8 @@ export const dict: PageDictionary = {
     how_noise:
       'Filtro del rumore: le distanze si adattano alla velocità del mercato, così una mattina tranquilla e un pomeriggio veloce sono giudicati in modo equo. Le rotture non vengono mai trattenute da una pausa.',
     how_hours: 'Gli avvisi sono attivi solo nella sessione regolare (9:30–16:00 ET). I ritardi del flusso dati sospendono gli avvisi invece di inviarne di obsoleti.',
+    how_api:
+      'Con Pro, il tuo codice può ricevere ogni avviso sui muri nel momento in cui scatta, con la tua chiave API e senza avvisi salvati. Vedi “Accesso API e chiavi” nella Guida.',
     how_disclaimer: 'Gli avvisi sono dati di mercato informativi, non consulenza finanziaria.',
     saveError: 'Impossibile salvare: riprova.',
     loadError: 'Impossibile caricare i tuoi avvisi.',
@@ -263,7 +269,7 @@ export const dict: PageDictionary = {
     backToAccount: 'Zurück zum Konto',
     title: 'Wand-Alarme',
     description:
-      'Werde benachrichtigt, sobald der Kurs eine Call- oder Put-Wand erreicht — ohne Rauschen und nur für Wände, die stark genug sind, um zu zählen. Alarme laufen in der regulären Sitzung, 9:30–16:00 Uhr ET.',
+      'Werde benachrichtigt, sobald der Kurs eine Call- oder Put-Wand erreicht — ohne Rauschen und nur für Wände, die stark genug sind, um zu zählen. Alarme laufen in der regulären Sitzung, 9:30–16:00 Uhr ET. Einmal eingerichtet, bleibt ein Alarm an jedem Handelstag aktiv, bis du ihn pausierst oder löschst.',
     liveTitle: 'Die Wände von heute',
     liveSubtitle:
       'Live. Die Stärke vergleicht jede Wand mit ihren eigenen letzten 30 Tagen zur gleichen Uhrzeit, daher bedeutet „Stark“ bei jedem Symbol dasselbe.',
@@ -327,6 +333,7 @@ export const dict: PageDictionary = {
     comingSoon: 'Demnächst',
     live: 'Aktiv',
     save: 'Alarm speichern',
+    saveHint: 'Bleibt an jedem Handelstag aktiv und folgt der Wand des jeweiligen Tages, bis du ihn pausierst oder löschst.',
     saving: 'Speichern…',
     cancel: 'Abbrechen',
     edit: 'Bearbeiten',
@@ -381,6 +388,8 @@ export const dict: PageDictionary = {
     how_noise:
       'Rauschfilter: Abstände passen sich der Marktgeschwindigkeit an, damit ein ruhiger Morgen und ein schneller Nachmittag fair bewertet werden. Brüche werden nie durch eine Pause zurückgehalten.',
     how_hours: 'Alarme laufen nur in der regulären Sitzung (9:30–16:00 Uhr ET). Bei Verzögerungen im Datenfeed werden Alarme ausgesetzt statt veraltet gesendet.',
+    how_api:
+      'Mit Pro kann dein eigener Code jeden Wand-Alarm in dem Moment empfangen, in dem er auslöst, mit deinem API-Schlüssel und ohne gespeicherten Alarm. Siehe „API-Zugang & Schlüssel“ in der Hilfe.',
     how_disclaimer: 'Alarme sind informative Marktdaten, keine Finanzberatung.',
     saveError: 'Speichern fehlgeschlagen — bitte erneut versuchen.',
     loadError: 'Deine Alarme konnten nicht geladen werden.',
@@ -392,7 +401,7 @@ export const dict: PageDictionary = {
     backToAccount: 'Volver a la cuenta',
     title: 'Alertas de muros',
     description:
-      'Recibe una alerta en cuanto el precio llegue a un muro call o put — filtrada del ruido y solo para los muros lo bastante fuertes como para importar. Las alertas funcionan en la sesión regular, 9:30–16:00 ET.',
+      'Recibe una alerta en cuanto el precio llegue a un muro call o put — filtrada del ruido y solo para los muros lo bastante fuertes como para importar. Las alertas funcionan en la sesión regular, 9:30–16:00 ET. Crea una alerta una vez y seguirá activa cada día de mercado hasta que la pauses o la elimines.',
     liveTitle: 'Los muros de hoy',
     liveSubtitle:
       'En vivo. La fuerza compara cada muro con sus propios últimos 30 días a esta hora, así que “Fuerte” significa lo mismo en cada símbolo.',
@@ -456,6 +465,7 @@ export const dict: PageDictionary = {
     comingSoon: 'Próximamente',
     live: 'Activo',
     save: 'Guardar alerta',
+    saveHint: 'Sigue activa cada día de mercado, siguiendo el muro de ese día, hasta que la pauses o la elimines.',
     saving: 'Guardando…',
     cancel: 'Cancelar',
     edit: 'Editar',
@@ -510,6 +520,8 @@ export const dict: PageDictionary = {
     how_noise:
       'Filtro de ruido: las distancias se ajustan a la velocidad del mercado, así una mañana tranquila y una tarde rápida se juzgan con justicia. Las rupturas nunca se retienen por una pausa.',
     how_hours: 'Las alertas funcionan solo en la sesión regular (9:30–16:00 ET). Los retrasos del flujo de datos pausan las alertas en lugar de enviar alertas desfasadas.',
+    how_api:
+      'Con Pro, tu propio código puede recibir cada alerta de muro en el momento en que salta, con tu clave API y sin alertas guardadas. Consulta «Acceso y claves de la API» en la Ayuda.',
     how_disclaimer: 'Las alertas son datos de mercado informativos, no asesoramiento financiero.',
     saveError: 'No se pudo guardar: inténtalo de nuevo.',
     loadError: 'No se pudieron cargar tus alertas.',
@@ -521,7 +533,7 @@ export const dict: PageDictionary = {
     backToAccount: 'Retour au compte',
     title: 'Alertes de murs',
     description:
-      'Soyez alerté dès que le prix atteint un mur call ou put — sans le bruit, et seulement pour les murs assez forts pour compter. Les alertes fonctionnent pendant la séance régulière, 9h30–16h00 ET.',
+      'Soyez alerté dès que le prix atteint un mur call ou put — sans le bruit, et seulement pour les murs assez forts pour compter. Les alertes fonctionnent pendant la séance régulière, 9h30–16h00 ET. Créez une alerte une fois : elle reste active chaque jour de bourse jusqu’à ce que vous la mettiez en pause ou la supprimiez.',
     liveTitle: 'Les murs du jour',
     liveSubtitle:
       'En direct. La force compare chaque mur à ses propres 30 derniers jours à la même heure : « Fort » veut dire la même chose sur chaque symbole.',
@@ -585,6 +597,7 @@ export const dict: PageDictionary = {
     comingSoon: 'Bientôt',
     live: 'Actif',
     save: 'Enregistrer l’alerte',
+    saveHint: 'Reste active chaque jour de bourse, en suivant le mur du jour, jusqu’à ce que vous la mettiez en pause ou la supprimiez.',
     saving: 'Enregistrement…',
     cancel: 'Annuler',
     edit: 'Modifier',
@@ -639,6 +652,8 @@ export const dict: PageDictionary = {
     how_noise:
       'Filtre anti-bruit : les distances s’ajustent à la vitesse du marché, pour juger équitablement une matinée calme et un après-midi rapide. Une cassure n’est jamais retenue par une pause.',
     how_hours: 'Les alertes fonctionnent uniquement pendant la séance régulière (9h30–16h00 ET). En cas de retard du flux de données, les alertes sont suspendues plutôt qu’envoyées en retard.',
+    how_api:
+      'Avec Pro, votre propre code peut recevoir chaque alerte de mur dès qu’elle se déclenche, avec votre clé API et sans alerte enregistrée. Voir « Accès API et clés » dans l’Aide.',
     how_disclaimer: 'Les alertes sont des données de marché informatives, pas un conseil financier.',
     saveError: 'Échec de l’enregistrement — veuillez réessayer.',
     loadError: 'Impossible de charger vos alertes.',
