@@ -50,6 +50,19 @@ nvm install 22
 nvm use 22
 nvm alias default 22
 
+# zerogex-oa's bulletin-tweet job finds node through /usr/local/bin/node, a
+# symlink to one exact nvm version (its step 205). Move it to this version,
+# or that job keeps running the old one.
+if [ -L /usr/local/bin/node ]; then
+    case "$(readlink /usr/local/bin/node)" in
+        "$NVM_DIR"/versions/node/*)
+            sudo ln -sf "$(readlink -f "$(command -v node)")" /usr/local/bin/node
+            sudo ln -sf "$(readlink -f "$(command -v npm)")" /usr/local/bin/npm
+            log "  → /usr/local/bin/{node,npm} now point at $(node -v)"
+            ;;
+    esac
+fi
+
 # Verify installation
 NODE_VERSION=$(node -v)
 NPM_VERSION=$(npm -v)

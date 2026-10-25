@@ -92,14 +92,30 @@ fi
 
 # After a Node upgrade the PM2 daemon is still running on the old binary:
 # `pm2 delete` and `pm2 start` below reuse it, and only the app's interpreter
-# moves. `pm2 update` saves the process list, restarts the daemon under the pm2
-# installed above for this Node, and restores the list.
+# moves. Stop it, so the next pm2 command spawns a fresh daemon on this Node
+# (PM2 modules such as pm2-logrotate come back with it). The app is down from
+# here until `pm2 start` below, a few seconds.
+#
+# A daemon started at boot belongs to the pm2-<user> unit, and systemd runs
+# that unit's ExecStop (`pm2 kill`) whenever its daemon exits, even on its own.
+# Stopping such a daemon any other way lets that `pm2 kill` land on the fresh
+# daemon instead and take the app down after this step has reported success.
+# That is what happened on prod with `pm2 update` on 2026-10-24. So stop it
+# through systemd, which waits for ExecStop to finish.
 PM2_PID_FILE="${PM2_HOME:-$HOME/.pm2}/pm2.pid"
 if [ -s "$PM2_PID_FILE" ]; then
-  PM2_DAEMON_NODE="$(readlink "/proc/$(cat "$PM2_PID_FILE")/exe" 2>/dev/null || true)"
+  PM2_DAEMON_PID="$(cat "$PM2_PID_FILE")"
+  PM2_DAEMON_NODE="$(readlink "/proc/$PM2_DAEMON_PID/exe" 2>/dev/null || true)"
   if [ -n "$PM2_DAEMON_NODE" ] && [ "$PM2_DAEMON_NODE" != "$(readlink -f "$NODE22_BIN")" ]; then
-    log "  → PM2 daemon runs on $PM2_DAEMON_NODE; moving it to Node $NODE22_VERSION"
-    pm2 update
+    log "  → PM2 daemon runs on $PM2_DAEMON_NODE; restarting it on Node $NODE22_VERSION"
+    PM2_UNIT="pm2-$(id -un)"
+    if systemctl is-active --quiet "$PM2_UNIT" 2>/dev/null; then
+      log "  → Stopping it through $PM2_UNIT.service"
+      sudo systemctl stop "$PM2_UNIT"
+    fi
+    if [ "$(readlink "/proc/$PM2_DAEMON_PID/exe" 2>/dev/null || true)" = "$PM2_DAEMON_NODE" ]; then
+      pm2 kill
+    fi
   fi
 fi
 
