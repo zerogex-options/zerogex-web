@@ -92,14 +92,16 @@ fi
 
 # After a Node upgrade the PM2 daemon is still running on the old binary:
 # `pm2 delete` and `pm2 start` below reuse it, and only the app's interpreter
-# moves. `pm2 update` saves the process list, restarts the daemon under the pm2
-# installed above for this Node, and restores the list.
+# moves. Stop it, so the next pm2 command spawns a fresh daemon on this Node
+# (PM2 modules such as pm2-logrotate come back with it). The app is down from
+# here until `pm2 start` below, a few seconds. Not `pm2 update`: on prod it
+# restored the app on the old interpreter and then never exited.
 PM2_PID_FILE="${PM2_HOME:-$HOME/.pm2}/pm2.pid"
 if [ -s "$PM2_PID_FILE" ]; then
   PM2_DAEMON_NODE="$(readlink "/proc/$(cat "$PM2_PID_FILE")/exe" 2>/dev/null || true)"
   if [ -n "$PM2_DAEMON_NODE" ] && [ "$PM2_DAEMON_NODE" != "$(readlink -f "$NODE22_BIN")" ]; then
-    log "  → PM2 daemon runs on $PM2_DAEMON_NODE; moving it to Node $NODE22_VERSION"
-    pm2 update
+    log "  → PM2 daemon runs on $PM2_DAEMON_NODE; restarting it on Node $NODE22_VERSION"
+    pm2 kill
   fi
 fi
 
