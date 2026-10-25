@@ -143,6 +143,14 @@ The deployment process runs these steps in order:
 - Configures PM2 to start on boot
 - Saves PM2 process list
 
+> **Upgrading Node, even a 22.x security patch**
+>
+> `make deploy` and `make restart` keep the BFF on the Node binary it was started
+> with. For a new 22.x release, run `./deploy/steps/020.nodejs` and then
+> `./deploy/steps/040.pm2` as `ubuntu` (no sudo). Together they install the newest
+> 22.x, restart the PM2 daemon and the app on it, and rewrite the boot unit. 040
+> refuses to start the app on a 22.x older than the floor it pins.
+>
 > **Bumping the Node major version later (e.g. 22 → 24)**
 >
 > PM2 is installed inside `~/.nvm/versions/node/<version>/bin/`, and `pm2 startup`

@@ -39,7 +39,12 @@ fi
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-# Install Node.js 22 (required for node:sqlite used by auth DB layer)
+# Install Node.js 22 (required for node:sqlite used by auth DB layer).
+# `nvm install 22` resolves against nvm's remote list, so re-running this step
+# also installs the newest 22.x security release next to the old one, and
+# `nvm use 22` picks the newest installed 22.x. The running site does NOT move
+# on its own: PM2 and its boot unit pin the old binary's absolute path, and
+# `make deploy` only restarts. Run 040.pm2 afterwards to move them.
 log "  → Installing Node.js 22..."
 nvm install 22
 nvm use 22
