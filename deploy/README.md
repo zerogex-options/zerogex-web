@@ -148,7 +148,8 @@ The deployment process runs these steps in order:
 > `make deploy` and `make restart` keep the BFF on the Node binary it was started
 > with. For a new 22.x release, run `./deploy/steps/020.nodejs` and then
 > `./deploy/steps/040.pm2` as `ubuntu` (no sudo). Together they install the newest
-> 22.x, restart the PM2 daemon and the app on it, and rewrite the boot unit. 040
+> 22.x, re-point `/usr/local/bin/node`, restart the PM2 daemon and the app on it,
+> and rewrite the boot unit. 040
 > refuses to start the app on a 22.x older than the floor it pins.
 >
 > **Bumping the Node major version later (e.g. 22 → 24)**
