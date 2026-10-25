@@ -40,6 +40,7 @@ import {
   WALL_CHANNELS,
   WALL_EVENT_KINDS,
   effectiveTouchBp,
+  fmtEtDayTime,
   fmtPrice,
   fmtStrike,
   fmtTouchPct,
@@ -203,7 +204,9 @@ export default function WallAlertsClient({
     async (rule: WallAlertRule) => {
       setBanner(null);
       try {
-        await apiSend(`/api/alerts/walls/rules/${rule.id}`, 'PATCH', { enabled: !rule.enabled });
+        // An ended today-only alert is turned back on, which re-arms it for
+        // the next session; anything else flips between on and paused.
+        await apiSend(`/api/alerts/walls/rules/${rule.id}`, 'PATCH', { enabled: rule.ended ? true : !rule.enabled });
         rules.refetch();
       } catch {
         setBanner(t('saveError'));
@@ -316,6 +319,7 @@ export default function WallAlertsClient({
               emailVerified={emailVerified}
               profiles={profiles}
               touchOptions={touchOptions}
+              todayOnlyEnds={fmtEtDayTime(config.data?.today_only?.ends_at, locale)}
               live={live.data}
               busy={busy}
               onChange={(input) => setEditing((prev) => (prev ? { ...prev, input } : prev))}
@@ -544,11 +548,13 @@ function RuleCard({
   const events = WALL_EVENT_KINDS.filter((k) => rule.events?.[k]).map((k) => t(`summaryEvents_${k}`));
   const channelIcons = WALL_CHANNELS.filter((c) => rule.channels?.[c]);
   const row = live?.symbols.find((r) => r.symbol === rule.symbol) ?? null;
+  const running = rule.enabled && !rule.ended;
+  const ends = fmtEtDayTime(rule.ends_at, locale);
   return (
-    <div className="rounded-2xl p-4 relative overflow-hidden" style={{ ...card, opacity: rule.enabled ? 1 : 0.65 }}>
+    <div className="rounded-2xl p-4 relative overflow-hidden" style={{ ...card, opacity: running ? 1 : 0.65 }}>
       <div
         className="absolute inset-y-0 left-0 w-1"
-        style={{ backgroundColor: rule.enabled ? 'var(--color-info)' : 'var(--color-border)' }}
+        style={{ backgroundColor: running ? 'var(--color-info)' : 'var(--color-border)' }}
         aria-hidden
       />
       <div className="flex items-start justify-between gap-3 pl-1">
@@ -567,8 +573,13 @@ function RuleCard({
             <span>
               {rule.last_triggered_at ? t('lastAlert', { time: fmtWhen(rule.last_triggered_at, locale) }) : t('noAlertsYet')}
             </span>
+            {rule.today_only ? (
+              <span className="font-semibold" style={{ color: rule.ended ? 'var(--color-text-secondary)' : 'var(--color-warning)' }}>
+                · {rule.ended ? t('endedOn', { when: ends }) : t('todayOnlyUntil', { when: ends })}
+              </span>
+            ) : null}
           </div>
-          {row && rule.enabled ? (
+          {row && running ? (
             <RulePreviewLine
               t={t}
               copy={copy}
@@ -582,15 +593,16 @@ function RuleCard({
           <button
             onClick={onToggle}
             role="switch"
-            aria-checked={rule.enabled}
+            aria-checked={running}
+            title={rule.ended ? t('runAgainHint') : undefined}
             className="text-[10px] font-semibold px-2 py-1 rounded-full"
             style={{
-              backgroundColor: rule.enabled ? 'var(--color-bull-soft)' : 'transparent',
-              color: rule.enabled ? 'var(--color-bull)' : 'var(--color-text-secondary)',
-              border: rule.enabled ? 'none' : '1px solid var(--color-border)',
+              backgroundColor: running ? 'var(--color-bull-soft)' : 'transparent',
+              color: running ? 'var(--color-bull)' : 'var(--color-text-secondary)',
+              border: running ? 'none' : '1px solid var(--color-border)',
             }}
           >
-            {rule.enabled ? t('on') : t('off')}
+            {rule.ended ? t('runAgain') : rule.enabled ? t('on') : t('off')}
           </button>
           <button onClick={onEdit} aria-label={t('edit')} className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
             <Pencil className="w-3.5 h-3.5" />
@@ -760,6 +772,7 @@ function RuleEditor({
   emailVerified,
   profiles,
   touchOptions,
+  todayOnlyEnds,
   live,
   busy,
   onChange,
@@ -775,6 +788,8 @@ function RuleEditor({
   emailVerified: boolean;
   profiles: readonly WallAlertProfileConfig[] | null;
   touchOptions: readonly number[];
+  /** When a today-only alert saved now would stop, formatted; '' if unknown. */
+  todayOnlyEnds: string;
   live: LiveWallsResponse | null;
   busy: boolean;
   onChange: (v: WallAlertRuleInput) => void;
@@ -986,6 +1001,26 @@ function RuleEditor({
           ) : null}
         </div>
 
+        <div>
+          <FieldLabel>{t('duration')}</FieldLabel>
+          <Segmented<'always' | 'today'>
+            label={t('duration')}
+            value={value.today_only ? 'today' : 'always'}
+            onChange={(v) => set({ today_only: v === 'today' })}
+            options={[
+              { value: 'always', label: t('duration_always') },
+              { value: 'today', label: t('duration_today') },
+            ]}
+          />
+          <p className="text-[11px] text-[var(--color-text-secondary)] mt-2 leading-snug">
+            {value.today_only
+              ? todayOnlyEnds
+                ? t('duration_today_desc', { when: todayOnlyEnds })
+                : t('duration_today_desc_nodate')
+              : t('saveHint')}
+          </p>
+        </div>
+
         <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--color-info-soft)' }}>
           <div className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--color-info)' }}>
             {t('previewTitle')}
@@ -1000,9 +1035,7 @@ function RuleEditor({
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {/* A saved alert never expires; say so where it is saved. */}
-          <p className="text-[11px] leading-snug text-[var(--color-text-secondary)] mr-auto">{t('saveHint')}</p>
+        <div className="flex items-center justify-end gap-2">
           <button onClick={onCancel} className="text-xs font-medium px-3 py-2 rounded-full text-[var(--color-text-secondary)]">
             {t('cancel')}
           </button>

@@ -23,6 +23,7 @@ import {
   DEFAULT_RULE_INPUT,
   PROFILE_TOUCH_BP,
   effectiveTouchBp,
+  fmtEtDayTime,
   fmtTouchPct,
   ruleToInput,
   touchAmount,
@@ -533,4 +534,42 @@ test('a new rule starts on Auto and an edited rule keeps its tolerance', () => {
   const legacy = { ...rule } as Partial<WallAlertRule>;
   delete legacy.touch_bp;
   assert.equal(ruleToInput(legacy as WallAlertRule).touch_bp, null);
+});
+
+test('a new rule runs every day, and editing keeps a today-only rule today only', () => {
+  assert.equal(DEFAULT_RULE_INPUT.today_only, false);
+  const rule: WallAlertRule = {
+    id: 2,
+    symbol: 'SPX',
+    side: 'put',
+    events: { hit: true, break: true, hold: false },
+    min_strength_pctile: 0,
+    profile: 'balanced',
+    touch_bp: null,
+    channels: { in_app: true, email: false, sms: false },
+    enabled: true,
+    today_only: true,
+    expires_on: '2026-10-23',
+    ends_at: '2026-10-23T20:00:00+00:00',
+    ended: true,
+    created_at: null,
+    updated_at: null,
+    last_triggered_at: null,
+  };
+  const input = ruleToInput(rule);
+  assert.equal(input.today_only, true);
+  // The read-only fields never go back to the API.
+  assert.equal('expires_on' in input || 'ends_at' in input || 'ended' in input, false);
+  // A rule from an API that predates the field runs every day.
+  const legacy = { ...rule } as Partial<WallAlertRule>;
+  delete legacy.today_only;
+  assert.equal(ruleToInput(legacy as WallAlertRule).today_only, false);
+});
+
+test('a today-only alert says when it stops, in Eastern time', () => {
+  assert.equal(fmtEtDayTime('2026-10-23T20:00:00+00:00'), 'Fri, Oct 23, 4:00 PM ET');
+  // A half day after the clocks change: 13:00 EST.
+  assert.equal(fmtEtDayTime('2026-11-27T18:00:00+00:00'), 'Fri, Nov 27, 1:00 PM ET');
+  assert.equal(fmtEtDayTime(null), '');
+  assert.equal(fmtEtDayTime('not a date'), '');
 });

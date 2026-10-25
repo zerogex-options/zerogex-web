@@ -78,6 +78,14 @@ export interface WallAlertRule {
   touch_bp: number | null;
   channels: Record<WallChannel, boolean>;
   enabled: boolean;
+  /** Runs for one session only (false: every trading day until paused or deleted). */
+  today_only?: boolean;
+  /** A today-only rule's last session, as an ET date ("2026-10-26"); null every day. */
+  expires_on?: string | null;
+  /** When that session closes (ISO instant). */
+  ends_at?: string | null;
+  /** That close has passed: the rule no longer runs until it is turned back on. */
+  ended?: boolean;
   created_at: string | null;
   updated_at: string | null;
   last_triggered_at: string | null;
@@ -86,8 +94,11 @@ export interface WallAlertRule {
 /** The editable fields of a rule — what the form posts. */
 export type WallAlertRuleInput = Omit<
   WallAlertRule,
-  'id' | 'created_at' | 'updated_at' | 'last_triggered_at'
->;
+  'id' | 'created_at' | 'updated_at' | 'last_triggered_at' | 'today_only' | 'expires_on' | 'ends_at' | 'ended'
+> & {
+  /** Saving with this on (re)arms the rule for the session it would run in now. */
+  today_only: boolean;
+};
 
 export interface WallAlertFeedEntry {
   id: number;
@@ -130,6 +141,8 @@ export interface WallAlertsConfig {
   max_strength_floor: number;
   max_rules: number;
   daily_cap: number;
+  /** The session a today-only rule saved now would run in, and its close. */
+  today_only?: { session: string; ends_at: string };
 }
 
 export interface LiveWallSide {
@@ -214,6 +227,21 @@ export function ordinalSuffix(n: number): string {
     default:
       return `${n}th`;
   }
+}
+
+/** "Mon, Oct 26, 4:00 PM ET" for an ISO instant: when a today-only alert stops. */
+export function fmtEtDayTime(iso: string | null | undefined, locale = 'en-US'): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.toLocaleString(locale, {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })} ET`;
 }
 
 /** "10:15 AM ET" for an ISO instant. */
@@ -512,6 +540,7 @@ export const DEFAULT_RULE_INPUT: WallAlertRuleInput = {
   touch_bp: null,
   channels: { in_app: true, email: false, sms: false },
   enabled: true,
+  today_only: false,
 };
 
 /** Normalize a rule as the API returns it into the form's shape. */
@@ -529,6 +558,7 @@ export function ruleToInput(rule: WallAlertRule): WallAlertRuleInput {
       sms: !!rule.channels?.sms,
     },
     enabled: rule.enabled !== false,
+    today_only: rule.today_only === true,
   };
 }
 
