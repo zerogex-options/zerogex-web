@@ -94,24 +94,35 @@ export function planWallAlertDeliveries(
       continue;
     }
 
-    const seen = new Set<string>();
-    const unique: QueuedWallAlert[] = [];
-    const dupes: QueuedWallAlert[] = [];
-    for (const row of sorted) {
-      const p = row.payload;
-      const key = `${p.symbol}|${p.side}|${p.wall}|${p.kind}`;
-      if (seen.has(key)) dupes.push(row);
-      else {
-        seen.add(key);
-        unique.push(row);
-      }
-    }
+    const { unique, dupes } = splitDuplicateEvents(sorted);
     if (dupes.length) out.push({ action: 'cancel', rows: dupes, reason: 'duplicate in batch' });
     for (let i = 0; i < unique.length; i += maxPerEmail) {
       out.push({ action: 'send', user, rows: unique.slice(i, i + maxPerEmail) });
     }
   }
   return out;
+}
+
+/**
+ * The same wall event queued twice for one member (overlapping rules, say SPX
+ * on two sensitivities) is one alert: keep the first, return the rest to cancel.
+ */
+export function splitDuplicateEvents<R extends { payload: QueuedWallAlert['payload'] }>(
+  rows: readonly R[],
+): { unique: R[]; dupes: R[] } {
+  const seen = new Set<string>();
+  const unique: R[] = [];
+  const dupes: R[] = [];
+  for (const row of rows) {
+    const p = row.payload;
+    const key = `${p.symbol}|${p.side}|${p.wall}|${p.kind}`;
+    if (seen.has(key)) dupes.push(row);
+    else {
+      seen.add(key);
+      unique.push(row);
+    }
+  }
+  return { unique, dupes };
 }
 
 // ── Worker state between passes ─────────────────────────────────────────────
@@ -137,11 +148,13 @@ export function planWallAlertDeliveries(
  * What kept a pass from doing its job. `outbox`: the backend did not answer.
  * `config`: a required setting is missing. `auth-db`: the member database
  * could not be read. `resend`: every email in the pass was refused for good
- * (a revoked key, a bad sender). `crash`: anything unexpected.
+ * (a revoked key, a bad sender). `provider`: the Discord / Slack worker's
+ * posts to several members were all refused (so the message, not their
+ * webhooks, is wrong). `crash`: anything unexpected.
  */
-export type WorkerFailure = 'outbox' | 'config' | 'auth-db' | 'resend' | 'crash';
+export type WorkerFailure = 'outbox' | 'config' | 'auth-db' | 'resend' | 'provider' | 'crash';
 
-const FAILURES: readonly WorkerFailure[] = ['outbox', 'config', 'auth-db', 'resend', 'crash'];
+const FAILURES: readonly WorkerFailure[] = ['outbox', 'config', 'auth-db', 'resend', 'provider', 'crash'];
 
 export interface WorkerState {
   /** When the outbox first failed to answer, while it keeps failing. */

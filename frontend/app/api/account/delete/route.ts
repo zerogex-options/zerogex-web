@@ -102,6 +102,8 @@ export async function POST(request: NextRequest) {
   // no credential outlives the account. Both best-effort — the deleted_at stamp
   // above is what actually locks the account.
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(actor.user.id);
+  // The Discord / Slack webhook is a credential for the member's channel: forget it.
+  db.prepare('DELETE FROM wall_alert_webhooks WHERE user_id = ?').run(actor.user.id);
   try {
     await revokeAllApiKeys(actor.user.email);
   } catch (err) {

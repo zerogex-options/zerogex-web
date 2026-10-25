@@ -50,10 +50,13 @@ export function buildWallAlertsUnsubUrl(appUrl: string, userId: string): string 
 
 // ── Outbox client ───────────────────────────────────────────────────────────
 
+/** The channels a worker drains from the outbox (in_app is written as sent). */
+export type WallAlertQueuedChannel = 'email' | 'webhook' | 'sms';
+
 export interface QueuedWallAlert {
   id: number;
   end_user: string;
-  channel: 'email' | 'sms';
+  channel: WallAlertQueuedChannel;
   attempts: number;
   created_at: string | null;
   rule_id: number | null;
@@ -131,7 +134,7 @@ async function call<T>(env: WallAlertsAdminEnv, method: 'GET' | 'POST', path: st
 
 export function fetchQueuedWallAlerts(
   env: WallAlertsAdminEnv,
-  channel: 'email' | 'sms',
+  channel: WallAlertQueuedChannel,
   limit = 200,
 ): Promise<{ entries: QueuedWallAlert[]; expired: number; cancelled: number }> {
   return call(env, 'GET', `/queued?channel=${channel}&limit=${limit}`);
@@ -149,7 +152,7 @@ export function markWallAlerts(
 export function disableWallAlertChannel(
   env: WallAlertsAdminEnv,
   endUser: string,
-  channel: 'email' | 'sms',
+  channel: WallAlertQueuedChannel,
 ): Promise<{ rules_updated: number; cancelled_queued: number }> {
   return call(env, 'POST', '/disable-channel', { end_user: endUser, channel });
 }

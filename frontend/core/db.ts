@@ -1210,6 +1210,27 @@ function initDb(): DatabaseSync {
       WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL;
   `);
 
+  // A member's Discord or Slack incoming webhook for wall alerts: one per
+  // member, used by every rule with the "Discord / Slack" channel on. The
+  // address is a secret (anyone holding it can post to that channel), so only
+  // the member's own route (app/api/account/alert-webhook) and the delivery
+  // worker (scripts/wall-alerts-webhooks.mts) read it, and no response ever
+  // carries it back to a browser. failed_at / last_error: the provider said
+  // the webhook is gone; the worker sets them and stops posting there, and a
+  // new save or a passing test clears them.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS wall_alert_webhooks (
+      user_id TEXT PRIMARY KEY,
+      url TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_ok_at TEXT,
+      failed_at TEXT,
+      last_error TEXT
+    );
+  `);
+
   return db;
 }
 

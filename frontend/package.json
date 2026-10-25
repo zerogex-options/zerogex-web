@@ -91,6 +91,7 @@
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",
     "test:wall-alerts": "node --experimental-strip-types --test tests/wallAlerts.test.ts",
+    "test:wall-alert-webhooks": "node --experimental-strip-types --test tests/wallAlertWebhook.test.ts",
     "test:signal-availability": "node --experimental-strip-types --test tests/signalAvailability.test.ts",
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
     "test:cohort-retention": "node --experimental-strip-types --test tests/cohortRetention.test.ts",

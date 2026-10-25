@@ -694,6 +694,15 @@ tradeworkz-notify:
 wall-alerts-notify:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/wall-alerts-deliver.mts $(if $(DRY_RUN),--dry-run,) $(if $(LIMIT),--limit $(LIMIT),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(VERBOSE),--verbose,)'
 
+# Post queued wall alerts to members' own Discord and Slack webhooks (saved on
+# /account/alerts). The email target's twin, driven every 20 seconds by
+# zerogex-web-wall-alerts-webhooks.timer (deploy/steps/091.wall-alerts-webhooks).
+# Same credentials. DRY_RUN=1 shows what each queued row would get;
+# PREVIEW_TO='<webhook url>' posts one sample (no DB; quote the address);
+# VERBOSE=1 also reports an empty queue.
+wall-alerts-webhooks:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/wall-alerts-webhooks.mts $(if $(DRY_RUN),--dry-run,) $(if $(LIMIT),--limit $(LIMIT),) $(if $(PREVIEW_TO),--preview-to "$(PREVIEW_TO)",) $(if $(VERBOSE),--verbose,)'
+
 # Send the ~48h-before-trial-end reminder email to every currently-trialing
 # user whose first charge lands in the next ~48h (windowed +/- 3h so a
 # multi-hour cron cadence still catches the cohort exactly once). Idempotent

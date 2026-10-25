@@ -27,6 +27,7 @@ import {
   Monitor,
   Pencil,
   Trash2,
+  Webhook,
   X,
 } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
@@ -63,6 +64,7 @@ import {
   type WallSide,
 } from '@/core/wallAlerts';
 import { wallAlertCopyFor } from '@/core/wallAlertsCopy';
+import type { AlertWebhookView } from '@/core/wallAlertWebhook';
 import {
   desktopEnabled,
   desktopPermission,
@@ -114,6 +116,34 @@ async function apiSend(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?:
   return payload;
 }
 
+/**
+ * Call one of the member's own account routes (the Discord / Slack webhook):
+ * those are Next routes, not the proxied API, and want the CSRF token.
+ * Resolves with the status and body either way; the caller words the outcome.
+ */
+async function accountSend(
+  path: string,
+  method: 'PUT' | 'POST' | 'DELETE',
+  body?: unknown,
+): Promise<{ ok: boolean; status: number; payload: Record<string, unknown> | null }> {
+  const csrfRes = await fetch('/api/auth/csrf', { credentials: 'include', cache: 'no-store' });
+  const csrf = (await csrfRes.json().catch(() => ({}))) as { csrfToken?: string };
+  const res = await fetch(path, {
+    method,
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf.csrfToken ?? '' },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  return { ok: res.ok, status: res.status, payload };
+}
+
+const WEBHOOK_PATH = '/api/account/alert-webhook';
+
+/** Where the Discord / Slack channel stands for this member. */
+type WebhookChannelState = 'unavailable' | 'needs_setup' | 'ready';
+
 export default function WallAlertsClient({
   tier,
   emailVerified,
@@ -137,10 +167,18 @@ export default function WallAlertsClient({
     refreshInterval: 30_000,
     enabled: entitled,
   });
+  const webhook = useApiData<{ webhook: AlertWebhookView | null }>(WEBHOOK_PATH, { refreshInterval: 0, enabled: entitled });
 
   const symbols = config.data?.symbols?.length ? config.data.symbols : FALLBACK_SYMBOLS;
   const maxRules = config.data?.max_rules ?? 25;
   const smsAvailable = Boolean(config.data?.channels?.find((c) => c.id === 'sms')?.available);
+  // The API must offer the channel, and the member must have a webhook saved.
+  const webhookOffered = Boolean(config.data?.channels?.find((c) => c.id === 'webhook')?.available);
+  const webhookChannel: WebhookChannelState = !webhookOffered
+    ? 'unavailable'
+    : webhook.data?.webhook
+      ? 'ready'
+      : 'needs_setup';
   const profiles = config.data?.profiles ?? null;
   const touchOptions = config.data?.touch_options_bp?.length ? config.data.touch_options_bp : TOUCH_OPTIONS_BP;
 
@@ -316,6 +354,7 @@ export default function WallAlertsClient({
               isNew={editing.id === null}
               symbols={symbols}
               smsAvailable={smsAvailable}
+              webhookChannel={webhookChannel}
               emailVerified={emailVerified}
               profiles={profiles}
               touchOptions={touchOptions}
@@ -364,6 +403,10 @@ export default function WallAlertsClient({
       </section>
 
       <RecentAlerts t={t} copy={copy} locale={locale} data={feed.data} onMarkAllRead={markAllRead} />
+
+      {webhookOffered ? (
+        <WebhookCard t={t} locale={locale} saved={webhook.data?.webhook ?? null} onChanged={webhook.refetch} />
+      ) : null}
 
       <DesktopToggle t={t} />
 
@@ -617,7 +660,7 @@ function RuleCard({
 }
 
 function ChannelIcon({ channel }: { channel: WallChannel }) {
-  const Icon = channel === 'email' ? Mail : channel === 'sms' ? MessageSquare : BellRing;
+  const Icon = channel === 'email' ? Mail : channel === 'sms' ? MessageSquare : channel === 'webhook' ? Webhook : BellRing;
   return <Icon className="w-3 h-3" aria-label={channel} />;
 }
 
@@ -687,7 +730,7 @@ function EmptyState({ t, onPreset }: { t: T; onPreset: (input: WallAlertRuleInpu
   const presets: Array<{ label: string; input: WallAlertRuleInput }> = [
     {
       label: t('presetStrongSpx'),
-      input: { ...DEFAULT_RULE_INPUT, symbol: 'SPX', side: 'put', min_strength_pctile: 75, channels: { in_app: true, email: true, sms: false } },
+      input: { ...DEFAULT_RULE_INPUT, symbol: 'SPX', side: 'put', min_strength_pctile: 75, channels: { in_app: true, email: true, webhook: false, sms: false } },
     },
     { label: t('presetSpyBoth'), input: { ...DEFAULT_RULE_INPUT, symbol: 'SPY', side: 'both' } },
     {
@@ -769,6 +812,7 @@ function RuleEditor({
   isNew,
   symbols,
   smsAvailable,
+  webhookChannel,
   emailVerified,
   profiles,
   touchOptions,
@@ -785,6 +829,7 @@ function RuleEditor({
   isNew: boolean;
   symbols: string[];
   smsAvailable: boolean;
+  webhookChannel: WebhookChannelState;
   emailVerified: boolean;
   profiles: readonly WallAlertProfileConfig[] | null;
   touchOptions: readonly number[];
@@ -960,17 +1005,22 @@ function RuleEditor({
           <FieldLabel>{t('channels')}</FieldLabel>
           <div className="space-y-2">
             {WALL_CHANNELS.map((channel) => {
-              const available = channel !== 'sms' || smsAvailable;
+              const available =
+                channel === 'sms' ? smsAvailable : channel === 'webhook' ? webhookChannel === 'ready' : true;
+              const setUp = channel === 'webhook' && webhookChannel === 'needs_setup';
+              // A rule still set to Discord / Slack after its webhook was
+              // removed stays tickable, so it can be switched off.
+              const togglable = available || (setUp && value.channels[channel]);
               return (
                 <label
                   key={channel}
                   className="flex items-start gap-3"
-                  style={{ cursor: available ? 'pointer' : 'not-allowed', opacity: available ? 1 : 0.55 }}
+                  style={{ cursor: togglable ? 'pointer' : 'not-allowed', opacity: available ? 1 : 0.55 }}
                 >
                   <input
                     type="checkbox"
-                    disabled={!available}
-                    checked={available && value.channels[channel]}
+                    disabled={!togglable}
+                    checked={(available || setUp) && value.channels[channel]}
                     onChange={() => set({ channels: { ...value.channels, [channel]: !value.channels[channel] } })}
                     className="mt-0.5 w-4 h-4"
                     style={{ accentColor: 'var(--color-info)' }}
@@ -985,10 +1035,12 @@ function RuleEditor({
                           color: available ? 'var(--color-bull)' : 'var(--color-warning)',
                         }}
                       >
-                        {available ? t('live') : t('comingSoon')}
+                        {available ? t('live') : setUp ? t('setUpBelow') : t('comingSoon')}
                       </span>
                     </span>
-                    <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug">{t(`channel_${channel}_desc`)}</span>
+                    <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug">
+                      {setUp ? t('channel_webhook_needs') : t(`channel_${channel}_desc`)}
+                    </span>
                   </span>
                 </label>
               );
@@ -1103,6 +1155,207 @@ function RecentAlerts({
 const serverPermission = (): DesktopPermission => 'unsupported';
 const serverEnabled = () => false;
 
+// ── Discord & Slack ─────────────────────────────────────────────────────────
+
+/**
+ * The member's Discord or Slack webhook: connect (we post a test message
+ * before saving), re-test, replace, remove. The saved address only ever comes
+ * back masked; delivery is scripts/wall-alerts-webhooks.mts.
+ */
+function WebhookCard({
+  t,
+  locale,
+  saved,
+  onChanged,
+}: {
+  t: T;
+  locale: string;
+  saved: AlertWebhookView | null;
+  onChanged: () => void;
+}) {
+  const [url, setUrl] = useState('');
+  const [replacing, setReplacing] = useState(false);
+  const [busy, setBusy] = useState<null | 'connect' | 'test' | 'remove'>(null);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const showForm = !saved || replacing;
+
+  const problemText = (payload: Record<string, unknown> | null): string => {
+    const problem = typeof payload?.problem === 'string' ? payload.problem : null;
+    const detail = typeof payload?.error === 'string' ? payload.error : '';
+    if (problem === 'test_failed') return t('webhookTestFailed', { detail });
+    if (problem) {
+      const key = `webhookProblem_${problem}`;
+      const text = t(key);
+      if (text !== key) return text;
+    }
+    return detail || t('saveError');
+  };
+
+  const run = async (kind: 'connect' | 'test' | 'remove', action: () => Promise<void>) => {
+    setBusy(kind);
+    setNote(null);
+    try {
+      await action();
+    } catch {
+      setNote({ ok: false, text: t('saveError') });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const connect = () =>
+    run('connect', async () => {
+      const r = await accountSend(WEBHOOK_PATH, 'PUT', { url });
+      if (r.ok) {
+        setUrl('');
+        setReplacing(false);
+        setNote({ ok: true, text: t('webhookConnected') });
+        onChanged();
+      } else {
+        setNote({ ok: false, text: problemText(r.payload) });
+      }
+    });
+  const test = () =>
+    run('test', async () => {
+      const r = await accountSend(WEBHOOK_PATH, 'POST');
+      setNote(r.ok ? { ok: true, text: t('webhookTestOk') } : { ok: false, text: problemText(r.payload) });
+      onChanged();
+    });
+  const remove = () => {
+    if (!window.confirm(t('webhookRemoveConfirm'))) return;
+    void run('remove', async () => {
+      await accountSend(WEBHOOK_PATH, 'DELETE');
+      setReplacing(false);
+      onChanged();
+    });
+  };
+
+  return (
+    <section className="rounded-2xl p-5 mb-6" style={card}>
+      <div className="flex items-start gap-3">
+        <Webhook className="w-4 h-4 mt-0.5 flex-shrink-0 text-[var(--color-text-secondary)]" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">{t('webhookTitle')}</div>
+          {saved ? (
+            <div className="mt-1 space-y-1">
+              <div className="text-xs text-[var(--color-text-primary)] break-all">
+                <span className="font-semibold">{t(`provider_${saved.provider}`)}</span> · {saved.masked}
+              </div>
+              {saved.failed_at ? (
+                <p className="text-[11px] leading-snug" style={{ color: 'var(--color-warning)' }}>
+                  {t('webhookBroken', { error: saved.last_error ?? '' })}
+                </p>
+              ) : saved.last_error ? (
+                // Refused but not gone (say, a forum channel that needs a
+                // thread): posting goes on, and the member sees why it fails.
+                <p className="text-[11px] leading-snug" style={{ color: 'var(--color-warning)' }}>
+                  {t('webhookRefused', { error: saved.last_error })}
+                </p>
+              ) : saved.last_ok_at ? (
+                <p className="text-[11px] text-[var(--color-text-secondary)]">
+                  {t('webhookOk', { when: fmtWhen(saved.last_ok_at, locale) })}
+                </p>
+              ) : null}
+              {!showForm ? (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    onClick={test}
+                    disabled={busy !== null}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full"
+                    style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', opacity: busy ? 0.6 : 1 }}
+                  >
+                    {busy === 'test' ? t('webhookTesting') : t('webhookTest')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setReplacing(true);
+                      setNote(null);
+                    }}
+                    disabled={busy !== null}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full"
+                    style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                  >
+                    {t('webhookReplace')}
+                  </button>
+                  <button
+                    onClick={remove}
+                    disabled={busy !== null}
+                    className="text-xs font-medium px-3 py-1.5 rounded-full text-[var(--color-text-secondary)] hover:text-[var(--color-bear)]"
+                  >
+                    {t('webhookRemove')}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--color-text-secondary)] mt-0.5 leading-snug">{t('webhookIntro')}</p>
+          )}
+
+          {showForm ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && url.trim() && !busy) connect();
+                  }}
+                  placeholder={t('webhookPlaceholder')}
+                  aria-label={t('webhookTitle')}
+                  className="flex-1 min-w-0 text-xs px-3 py-2 rounded-xl bg-transparent text-[var(--color-text-primary)]"
+                  style={{ border: '1px solid var(--color-border)' }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={connect}
+                    disabled={busy !== null || !url.trim()}
+                    className="text-xs font-semibold px-4 py-2 rounded-full whitespace-nowrap"
+                    style={{
+                      backgroundColor: 'var(--color-info)',
+                      color: 'var(--color-on-info, #ffffff)',
+                      opacity: busy !== null || !url.trim() ? 0.6 : 1,
+                    }}
+                  >
+                    {busy === 'connect' ? t('webhookConnecting') : t('webhookConnect')}
+                  </button>
+                  {replacing ? (
+                    <button
+                      onClick={() => {
+                        setReplacing(false);
+                        setUrl('');
+                        setNote(null);
+                      }}
+                      className="text-xs font-medium px-3 py-2 rounded-full text-[var(--color-text-secondary)]"
+                    >
+                      {t('cancel')}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <p className="text-[11px] text-[var(--color-text-secondary)] leading-snug">{t('webhookHowDiscord')}</p>
+              <p className="text-[11px] text-[var(--color-text-secondary)] leading-snug">{t('webhookHowSlack')}</p>
+            </div>
+          ) : null}
+
+          {note ? (
+            <p
+              role="status"
+              className="text-[11px] mt-2 leading-snug break-words"
+              style={{ color: note.ok ? 'var(--color-bull)' : 'var(--color-warning)' }}
+            >
+              {note.text}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function DesktopToggle({ t }: { t: T }) {
   const permission = useSyncExternalStore(subscribeDesktopPref, desktopPermission, serverPermission);
   const on = useSyncExternalStore(subscribeDesktopPref, desktopEnabled, serverEnabled);
@@ -1165,7 +1418,7 @@ function DesktopToggle({ t }: { t: T }) {
 
 function HowItWorks({ t }: { t: T }) {
   const [open, setOpen] = useState(false);
-  const items = ['how_hit', 'how_break', 'how_hold', 'how_strength', 'how_noise', 'how_hours', 'how_api', 'how_disclaimer'];
+  const items = ['how_hit', 'how_break', 'how_hold', 'how_strength', 'how_noise', 'how_hours', 'how_webhook', 'how_api', 'how_disclaimer'];
   return (
     <section className="rounded-2xl mb-6" style={card}>
       <button

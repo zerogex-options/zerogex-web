@@ -18,11 +18,11 @@ export type WallRuleSide = WallSide | 'both';
 export type WallEventKind = 'hit' | 'break' | 'hold';
 export type WallStrengthTier = 'light' | 'moderate' | 'above_typical' | 'strong' | 'very_strong';
 export type WallProfile = 'responsive' | 'balanced' | 'conservative';
-export type WallChannel = 'in_app' | 'email' | 'sms';
+export type WallChannel = 'in_app' | 'email' | 'webhook' | 'sms';
 
 export const WALL_EVENT_KINDS: readonly WallEventKind[] = ['hit', 'break', 'hold'];
 export const WALL_PROFILES: readonly WallProfile[] = ['responsive', 'balanced', 'conservative'];
-export const WALL_CHANNELS: readonly WallChannel[] = ['in_app', 'email', 'sms'];
+export const WALL_CHANNELS: readonly WallChannel[] = ['in_app', 'email', 'webhook', 'sms'];
 
 export interface WallAlertOdds {
   horizon_minutes: number;
@@ -538,7 +538,7 @@ export const DEFAULT_RULE_INPUT: WallAlertRuleInput = {
   min_strength_pctile: 0,
   profile: 'balanced',
   touch_bp: null,
-  channels: { in_app: true, email: false, sms: false },
+  channels: { in_app: true, email: false, webhook: false, sms: false },
   enabled: true,
   today_only: false,
 };
@@ -555,6 +555,7 @@ export function ruleToInput(rule: WallAlertRule): WallAlertRuleInput {
     channels: {
       in_app: !!rule.channels?.in_app,
       email: !!rule.channels?.email,
+      webhook: !!rule.channels?.webhook,
       sms: !!rule.channels?.sms,
     },
     enabled: rule.enabled !== false,

@@ -216,7 +216,7 @@ test('the form explains an empty event or channel set before posting', () => {
     'events',
   );
   assert.equal(
-    ruleInputProblem({ ...DEFAULT_RULE_INPUT, channels: { in_app: false, email: false, sms: false } }),
+    ruleInputProblem({ ...DEFAULT_RULE_INPUT, channels: { in_app: false, email: false, webhook: false, sms: false } }),
     'channels',
   );
 });
@@ -522,7 +522,7 @@ test('a new rule starts on Auto and an edited rule keeps its tolerance', () => {
     min_strength_pctile: 75,
     profile: 'balanced',
     touch_bp: 10,
-    channels: { in_app: true, email: true, sms: false },
+    channels: { in_app: true, email: true, webhook: false, sms: false },
     enabled: true,
     created_at: null,
     updated_at: null,
@@ -546,7 +546,7 @@ test('a new rule runs every day, and editing keeps a today-only rule today only'
     min_strength_pctile: 0,
     profile: 'balanced',
     touch_bp: null,
-    channels: { in_app: true, email: false, sms: false },
+    channels: { in_app: true, email: false, webhook: false, sms: false },
     enabled: true,
     today_only: true,
     expires_on: '2026-10-23',
