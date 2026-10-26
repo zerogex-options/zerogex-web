@@ -211,6 +211,10 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/gex-strike-profile', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
   { pattern: '/hedging-flow', minimumTier: 'basic' },
+  // Fuseline Radar (beta, unlisted): Plus3 Forecasting's trade-route view.
+  // Without a rule a route is open to anonymous visitors, so it needs one even
+  // while it is reachable only by link.
+  { pattern: '/fuseline-radar', minimumTier: 'basic' },
   { pattern: '/forced-flow', minimumTier: 'basic' },
   { pattern: '/market-tide', minimumTier: 'basic' },
   { pattern: '/smart-money', minimumTier: 'basic' },

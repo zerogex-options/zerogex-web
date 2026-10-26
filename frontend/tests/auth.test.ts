@@ -47,6 +47,8 @@ test('tier requirement mapping resolves expected values', () => {
   assert.equal(requiredTierForRoute('/max-pain'), 'basic');
   assert.equal(requiredTierForRoute('/intraday-tools'), 'basic');
   assert.equal(requiredTierForRoute('/options-calculator'), 'basic');
+  // Unlisted beta, but still a member tool: no rule would mean open to anyone.
+  assert.equal(requiredTierForRoute('/fuseline-radar'), 'basic');
   assert.equal(requiredTierForRoute('/range-break-imminence'), 'pro');
   assert.equal(requiredTierForRoute('/account'), 'public');
 });

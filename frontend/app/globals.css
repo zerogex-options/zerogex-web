@@ -95,6 +95,12 @@
      meaning. Dim is a text token, not a hue. */
   --color-scan-lit: #166534;
   --color-scan-lit-soft: rgba(22, 101, 52, 0.12);
+  /* Fuseline Radar gamma SIGN: blue positive, amber negative. Deliberately
+     not bull/bear: positive gamma is not bullish, and the ladder must not
+     read as a directional call. Validated as a pair for colour-blind
+     separation and 3:1 contrast on the light and dark surfaces. */
+  --color-gamma-pos: #1F78A8;
+  --color-gamma-neg: #B4691A;
   --color-king: #8B5CF6;
   --color-king-soft: rgba(139, 92, 246, 0.16);
 
@@ -295,6 +301,8 @@
      9.2 from the Stable bid teal. */
   --color-scan-lit: #2E8B6B;
   --color-scan-lit-soft: rgba(46, 139, 107, 0.20);
+  --color-gamma-pos: #3796C0;
+  --color-gamma-neg: #C9832F;
   --color-king: #B98BF0;
   --color-king-soft: rgba(185, 139, 240, 0.24);
 
